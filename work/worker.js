@@ -979,7 +979,37 @@ async function processJob(job) {
       // ✅ Data com genre garantido
       data: {
         genre: genreFromJob,
-        genreTargets: result.data?.genreTargets || result.genreTargets || null,
+        genreTargets: (() => {
+          // 🔥 PATCH CRÍTICO: Garantir genreTargets em modo genre
+          if (options.mode === 'genre' || result.mode === 'genre') {
+            const fromResult = result.data?.genreTargets || result.genreTargets || null;
+            const fromOptions = options.genreTargets || null;
+            const fromMetadata = result.metadata?.genreTargets || null;
+            
+            // Tentar extrair de referenceData/referenceComparison se não houver
+            let fromReference = null;
+            if (!fromResult && !fromOptions && !fromMetadata) {
+              const ref = result.referenceComparisonMetrics || result.referenceComparison || result.referenceData || null;
+              if (ref) {
+                fromReference = ref.bands || ref.spectral_bands || 
+                               (ref.targets && (ref.targets.bands || ref.targets.spectral_bands)) || null;
+              }
+            }
+            
+            const finalTargets = fromResult || fromOptions || fromMetadata || fromReference || null;
+            
+            console.log('[GENRE-TARGETS-FINAL] ✅ data.genreTargets no JSON final:', {
+              hasGenreTargets: !!finalTargets,
+              keys: finalTargets ? Object.keys(finalTargets) : null,
+              source: fromResult ? 'result.data' : fromOptions ? 'options' : fromMetadata ? 'metadata' : fromReference ? 'reference' : 'none'
+            });
+            
+            return finalTargets;
+          }
+          
+          // Modo não-genre: usar o que vier do result
+          return result.data?.genreTargets || result.genreTargets || null;
+        })(),
         ...result.data
       },
       

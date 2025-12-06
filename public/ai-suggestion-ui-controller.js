@@ -1889,6 +1889,7 @@ class AISuggestionUIController {
             mode: payload?.mode,
             hasUser: !!payload?.user,
             hasReference: !!payload?.reference,
+            hasTargets: !!payload?.targets,
             suggestionCount: payload?.user?.suggestions?.length || 0
         });
 
@@ -1898,6 +1899,25 @@ class AISuggestionUIController {
         if (!payload || !payload.user) {
             console.warn('[AI-UI] renderSuggestions: payload ou user vazio');
             return;
+        }
+
+        // 🩹 PATCH: Detectar modo gênero e armazenar targets para futuras validações
+        const mode = payload.mode || payload.user.mode || 'single';
+        const hasGenreTargets = !!(payload.targets || payload.user.data?.genreTargets);
+        
+        if (mode === 'genre' && hasGenreTargets) {
+            console.log('[AI-UI] 🎯 Modo GÊNERO detectado com targets:', {
+                mode,
+                hasTargets: hasGenreTargets,
+                targetsKeys: payload.targets ? Object.keys(payload.targets) : 
+                            payload.user.data?.genreTargets ? Object.keys(payload.user.data.genreTargets) : null
+            });
+            
+            // Armazenar targets no payload do usuário para uso futuro
+            payload.user.__genreTargets = payload.targets || payload.user.data?.genreTargets;
+        } else if (mode === 'genre' && !hasGenreTargets) {
+            console.warn('[AI-UI] ⚠️ Modo GÊNERO sem targets - validação de comparação DESABILITADA');
+            console.warn('[AI-UI] ✅ Sugestões e métricas serão exibidas normalmente');
         }
 
         // Verificar se há sugestões para exibir
