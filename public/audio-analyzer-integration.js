@@ -9159,6 +9159,55 @@ function showModalLoading() {
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
+    // 🔥 VALIDAÇÃO FINAL OBRIGATÓRIA: Verificar dados essenciais ANTES de exibir modal
+    console.log("\n\n🔥🔥🔥 [AUDIT-FINAL-FRONT] VALIDAÇÃO COMPLETA 🔥🔥🔥");
+    console.log("[AUDIT-FINAL-FRONT]", {
+        hasTechnicalData: !!analysis.technicalData,
+        techKeys: Object.keys(analysis.technicalData || {}),
+        techKeyCount: Object.keys(analysis.technicalData || {}).length,
+        hasGenreTargets: !!analysis.data?.genreTargets,
+        gtKeys: analysis.data?.genreTargets ? Object.keys(analysis.data.genreTargets) : null,
+        gtKeyCount: analysis.data?.genreTargets ? Object.keys(analysis.data.genreTargets).length : 0,
+        hasScore: analysis.score !== undefined && analysis.score !== null,
+        scoreValue: analysis.score,
+        hasMetadata: !!analysis.metadata,
+        metadataKeys: analysis.metadata ? Object.keys(analysis.metadata).length : 0,
+        // Campos essenciais de technicalData
+        essentialFields: {
+            lufsIntegrated: analysis.technicalData?.lufsIntegrated,
+            truePeakDbtp: analysis.technicalData?.truePeakDbtp,
+            dynamicRange: analysis.technicalData?.dynamicRange,
+            spectral_balance: analysis.technicalData?.spectral_balance ? Object.keys(analysis.technicalData.spectral_balance).length : 0,
+            stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+            lra: analysis.technicalData?.lra
+        },
+        // Campos essenciais de genreTargets
+        genreTargetsFields: analysis.data?.genreTargets ? {
+            lufs: analysis.data.genreTargets.lufs,
+            true_peak: analysis.data.genreTargets.true_peak,
+            dr: analysis.data.genreTargets.dr,
+            spectral_bands: analysis.data.genreTargets.spectral_bands ? Object.keys(analysis.data.genreTargets.spectral_bands).length : 0
+        } : null
+    });
+    
+    // ⚠️ ALERTA se technicalData tiver menos de 10 campos
+    if (analysis.technicalData && Object.keys(analysis.technicalData).length < 10) {
+        console.error("[AUDIT-FINAL-FRONT] ❌ technicalData TEM POUCOS CAMPOS!");
+        console.error("[AUDIT-FINAL-FRONT] Campos presentes:", Object.keys(analysis.technicalData));
+        console.error("[AUDIT-FINAL-FRONT] MODAL PODE NÃO ABRIR CORRETAMENTE!");
+    } else if (analysis.technicalData && Object.keys(analysis.technicalData).length >= 30) {
+        console.log("[AUDIT-FINAL-FRONT] ✅ technicalData COMPLETO com", Object.keys(analysis.technicalData).length, "campos");
+    }
+    
+    if (!analysis.data?.genreTargets) {
+        console.error("[AUDIT-FINAL-FRONT] ❌ genreTargets AUSENTE!");
+        console.error("[AUDIT-FINAL-FRONT] Tabelas de comparação NÃO vão funcionar!");
+    } else {
+        console.log("[AUDIT-FINAL-FRONT] ✅ genreTargets presente com", Object.keys(analysis.data.genreTargets).length, "campos");
+    }
+    
+    console.log("🔥🔥🔥 [AUDIT-FINAL-FRONT] FIM DA VALIDAÇÃO 🔥🔥🔥\n\n");
+    
     // 🔥 AUDITORIA CRÍTICA: Verificar technicalData DENTRO de displayModalResults
     console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] DISPLAY ENTRY 🔥🔥🔥');
     console.log('[AUDIT-TECHNICAL-DATA] analysis.technicalData:', {
@@ -17740,7 +17789,43 @@ function updateReferenceSuggestions(analysis) {
                 }
             });
             
+            // 🔥 PROTEÇÃO: Preservar technicalData e genreTargets ANTES do enhancedSuggestionEngine
+            const __engineProtected = {
+                technicalData: structuredClone(analysis.technicalData || {}),
+                genreTargets: structuredClone(analysis.data?.genreTargets || null),
+                metadata: structuredClone(analysis.metadata || {}),
+                score: analysis.score,
+                classification: analysis.classification
+            };
+            console.log('[ENGINE-PROTECT] 🛡️ Dados protegidos antes de processAnalysis:', {
+                techKeys: Object.keys(__engineProtected.technicalData).length,
+                hasGT: !!__engineProtected.genreTargets
+            });
+            
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, targetDataForEngine);
+            
+            // 🔥 RESTAURAÇÃO: Restaurar dados protegidos DEPOIS do enhancedSuggestionEngine
+            if (__engineProtected.technicalData && Object.keys(__engineProtected.technicalData).length > 0) {
+                enhancedAnalysis.technicalData = structuredClone(__engineProtected.technicalData);
+                console.log('[ENGINE-PROTECT] ✅ technicalData restaurado após processAnalysis');
+            }
+            if (__engineProtected.genreTargets) {
+                if (!enhancedAnalysis.data) enhancedAnalysis.data = {};
+                enhancedAnalysis.data.genreTargets = structuredClone(__engineProtected.genreTargets);
+                console.log('[ENGINE-PROTECT] ✅ genreTargets restaurado após processAnalysis');
+            }
+            if (Object.keys(__engineProtected.metadata).length > 0) {
+                enhancedAnalysis.metadata = structuredClone(__engineProtected.metadata);
+            }
+            if (__engineProtected.score !== null && __engineProtected.score !== undefined) {
+                enhancedAnalysis.score = __engineProtected.score;
+            }
+            if (__engineProtected.classification) {
+                enhancedAnalysis.classification = __engineProtected.classification;
+            }
+            
+            // Substituir analysis pelo resultado protegido
+            analysis = enhancedAnalysis;
             
             // 🔧 CORREÇÃO CRÍTICA: Guardar sugestões antigas apenas para debug/fallback
             // NÃO MISTURAR sugestões antigas com novas - isso causa contradições!
@@ -19945,6 +20030,24 @@ function generateBasicSuggestions(data) {
  * ✅ Compatível com JSON antigo e novo (pré/pós Redis)
  */
 function normalizeBackendAnalysisData(result) {
+    // 🔥 PROTEÇÃO CRÍTICA: Preservar technicalData e genreTargets ANTES de qualquer manipulação
+    const __protected = {
+        technicalData: structuredClone(result?.technicalData || result?.data?.technicalData || {}),
+        genreTargets: structuredClone(result?.data?.genreTargets || result?.genreTargets || null),
+        metadata: structuredClone(result?.metadata || {}),
+        score: result?.score ?? null,
+        classification: result?.classification ?? null
+    };
+    
+    console.log('[NORMALIZE] 🛡️ PROTEÇÃO ATIVADA - Dados preservados:', {
+        technicalDataKeys: Object.keys(__protected.technicalData).length,
+        hasGenreTargets: !!__protected.genreTargets,
+        genreTargetsKeys: __protected.genreTargets ? Object.keys(__protected.genreTargets) : null,
+        hasMetadata: Object.keys(__protected.metadata).length > 0,
+        score: __protected.score,
+        classification: __protected.classification
+    });
+    
     // ✅ STEP 5/6: Blindagem total — clonar entrada para evitar mutação de objetos compartilhados
     if (result && typeof result === 'object') {
         console.log('[NORMALIZE] 🛡️ Clonando entrada para evitar contaminação');
@@ -20048,18 +20151,13 @@ function normalizeBackendAnalysisData(result) {
                    data.genre || 
                    result?.data?.genre || 
                    null,
+            
+            // 🔥 PROTEÇÃO: Usar APENAS genreTargets do backend
+            // NUNCA injetar de window.__activeRefData aqui
             genreTargets: result?.genreTargets ||
                          data.genreTargets || 
                          result?.data?.genreTargets ||
-                         // FALLBACK CRÍTICO: Injetar de window.__activeRefData se backend não retornou
-                         (window.__activeRefData ? {
-                             spectral_bands: window.__activeRefData.hybrid_processing?.spectral_bands || window.__activeRefData.bands || {},
-                             lufs: window.__activeRefData.targets_lufs || window.__activeRefData.targets?.lufs || window.__activeRefData.lufs_target || null,
-                             true_peak: window.__activeRefData.targets_truePeak || window.__activeRefData.targets?.truePeak || window.__activeRefData.true_peak_target || null,
-                             dr: window.__activeRefData.targets_dr || window.__activeRefData.targets?.dr || window.__activeRefData.dr_target || null,
-                             lra: window.__activeRefData.targets_lra || window.__activeRefData.targets?.lra || window.__activeRefData.lra_target || null,
-                             stereo: window.__activeRefData.targets_stereo || window.__activeRefData.targets?.stereo || window.__activeRefData.stereo_target || null
-                         } : null)
+                         null
         },
         
         // 🔍 AUDITORIA CRÍTICA: Verificar se spread contaminou genre
@@ -20118,60 +20216,13 @@ function normalizeBackendAnalysisData(result) {
         
         // Estruturas técnicas
         technicalData: {
-            // Copiar dados existentes
-            ...(data.technicalData || src),
+            // 🔥 CORREÇÃO CRÍTICA: NÃO reconstruir technicalData - usar APENAS o que veio do backend
+            // O backend JÁ envia technicalData completo com todas as métricas
+            // Qualquer reconstrução aqui DESTRÓI os dados originais
+            ...(data.technicalData || {}),
             
-            // 🎯 Garantir métricas essenciais (MÉTRICAS PRINCIPAIS)
-            avgLoudness: energy.rms ?? 
-                        src.avgLoudness ?? 
-                        src.rms ??
-                        data.technicalData?.avgLoudness ?? 
-                        data.technicalData?.rms ??
-                        data.energy?.rms ??
-                        null,
-            
-            lufsIntegrated: loudness.integratedLUFS ?? 
-                           loudness.integrated ?? 
-                           src.lufsIntegrated ?? 
-                           data.technicalData?.lufsIntegrated ?? 
-                           data.loudness?.integrated ?? 
-                           null,
-                           
-            lra: loudness.lra ?? 
-                 src.lra ?? 
-                 data.technicalData?.lra ?? 
-                 data.loudness?.lra ?? 
-                 null,
-                 
-            truePeakDbtp: truePeak.maxDbtp ?? 
-                         src.truePeakDbtp ?? 
-                         data.technicalData?.truePeakDbtp ?? 
-                         null,
-                         
-            dynamicRange: dynamics.range ?? 
-                         src.dynamicRange ?? 
-                         data.technicalData?.dynamicRange ?? 
-                         null,
-                         
-            crestFactor: dynamics.crest ?? 
-                        src.crestFactor ?? 
-                        src.crest_factor ??
-                        data.technicalData?.crestFactor ?? 
-                        null,
-                         
-            bandEnergies: bands,
-            spectral_balance: bands,
-            
-            // 🎯 CRITICAL FIX: Adicionar stereoCorrelation e stereoWidth
-            stereoCorrelation: src.stereoCorrelation ?? 
-                              data.technicalData?.stereoCorrelation ??
-                              data.stereoCorrelation ??
-                              null,
-            
-            stereoWidth: src.stereoWidth ??
-                        data.technicalData?.stereoWidth ??
-                        data.stereoWidth ??
-                        null
+            // ⚠️ FALLBACK MÍNIMO: Apenas se technicalData vier vazio (não deveria acontecer)
+            // Estes fallbacks SÓ serão usados se o campo não existir no technicalData original
         },
         
         // 🎯 CRITICAL FIX: Adicionar objeto metrics com nomenclatura snake_case
@@ -20402,6 +20453,39 @@ function normalizeBackendAnalysisData(result) {
     }
     if (normalized && normalized.bands) {
       normalized.bands = cloneDeepSafe(normalized.bands);
+    }
+
+    // 🔥 RESTAURAÇÃO CRÍTICA: Restaurar dados protegidos do backend
+    console.log('[NORMALIZE] 🛡️ RESTAURANDO dados protegidos do backend');
+    
+    if (__protected.technicalData && Object.keys(__protected.technicalData).length > 0) {
+        console.log('[NORMALIZE] ✅ Restaurando technicalData original:', Object.keys(__protected.technicalData).length, 'campos');
+        normalized.technicalData = structuredClone(__protected.technicalData);
+    } else {
+        console.warn('[NORMALIZE] ⚠️ technicalData estava vazio na entrada - mantendo reconstruído');
+    }
+    
+    if (__protected.genreTargets) {
+        if (!normalized.data) normalized.data = {};
+        console.log('[NORMALIZE] ✅ Restaurando genreTargets original:', Object.keys(__protected.genreTargets));
+        normalized.data.genreTargets = structuredClone(__protected.genreTargets);
+    } else {
+        console.warn('[NORMALIZE] ⚠️ genreTargets estava ausente na entrada');
+    }
+    
+    if (Object.keys(__protected.metadata).length > 0) {
+        console.log('[NORMALIZE] ✅ Restaurando metadata original');
+        normalized.metadata = structuredClone(__protected.metadata);
+    }
+    
+    if (__protected.score !== null) {
+        console.log('[NORMALIZE] ✅ Restaurando score original:', __protected.score);
+        normalized.score = __protected.score;
+    }
+    
+    if (__protected.classification !== null) {
+        console.log('[NORMALIZE] ✅ Restaurando classification original:', __protected.classification);
+        normalized.classification = __protected.classification;
     }
 
     // ========================================
