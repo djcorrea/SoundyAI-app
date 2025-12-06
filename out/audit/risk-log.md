@@ -6,7 +6,7 @@ Gerado em: {{TIMESTAMP}}
 Cada potencial mudança avaliada quanto a: Probabilidade de Regressão (P), Impacto se quebrar (I), Mitigação via Feature Flag (FF), Prioridade (Prio).
 Escalas: P/I 1–5, Prio: Alta/Média/Baixa.
 
-## Itens
+## Itensddd
 
 ### 1. True Peak Oversampling Upgrade
 - Problema: Filtro FIR 48 taps pode subestimar picos inter-sample (>0.1 dB) em material com transientes rápidos.
