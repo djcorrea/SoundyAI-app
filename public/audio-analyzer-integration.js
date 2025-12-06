@@ -5300,7 +5300,9 @@ function normalizeGenreBandName(name) {
 }
 
 function getBandDataWithCascade(bandKey, analysis) {
-    // 1. Prioridade: analysis.metrics.bands (centralizado)
+    // 🎯 CASCATA COMPLETA DE FALLBACKS (confirmada segura em CONFIRMACAO_MIGRACAO_TECHNICALDATA_BANDS.md)
+    
+    // 1. Prioridade: analysis.metrics.bands (centralizado - mantido por compatibilidade)
     if (analysis.metrics?.bands) {
         const data = searchBandWithAlias(bandKey, analysis.metrics.bands);
         if (data) {
@@ -5311,7 +5313,29 @@ function getBandDataWithCascade(bandKey, analysis) {
         }
     }
     
-    // 2. Fallback: tech.bandEnergies (legado)
+    // 🎯 CORREÇÃO: 2. analysis.technicalData.bands (caminho REAL do backend - prioridade 2)
+    if (analysis.technicalData?.bands) {
+        const data = searchBandWithAlias(bandKey, analysis.technicalData.bands);
+        if (data) {
+            return { 
+                energy_db: data.energy_db || data.rms_db, 
+                source: 'technical' 
+            };
+        }
+    }
+    
+    // 🎯 CORREÇÃO: 3. analysis.technicalData.spectral_balance (fonte real - alias de bands)
+    if (analysis.technicalData?.spectral_balance) {
+        const data = searchBandWithAlias(bandKey, analysis.technicalData.spectral_balance);
+        if (data) {
+            return { 
+                energy_db: data.energy_db || data.rms_db, 
+                source: 'spectral_balance' 
+            };
+        }
+    }
+    
+    // 4. Fallback: tech.bandEnergies (legado)
     if (analysis.technicalData?.bandEnergies) {
         const data = searchBandWithAlias(bandKey, analysis.technicalData.bandEnergies);
         if (data) {
@@ -5322,13 +5346,13 @@ function getBandDataWithCascade(bandKey, analysis) {
         }
     }
     
-    // 3. Fallback: tech.spectralBands
+    // 5. Fallback: tech.spectralBands (legado)
     if (analysis.technicalData?.spectralBands) {
         const data = searchBandWithAlias(bandKey, analysis.technicalData.spectralBands);
         if (data) {
             return { 
                 energy_db: data.energy_db || data.rms_db, 
-                source: 'spectral' 
+                source: 'spectralBands' 
             };
         }
     }
@@ -5593,10 +5617,29 @@ function renderGenreComparisonTable(options) {
         stereoCorrelation
     });
     
-    // 🎯 EXTRAIR BANDAS (mesma fonte usada em calculateFrequencyScore)
+    // 🎯 CASCATA COMPLETA DE FALLBACKS (confirmada segura em CONFIRMACAO_MIGRACAO_TECHNICALDATA_BANDS.md)
+    // Prioridade 1: technicalData.bands (caminho principal - SEMPRE existe)
+    // Prioridade 2: metrics.bands (compatibilidade - pode não existir)
+    // Prioridade 3: technicalData.spectral_balance (fonte real - alias de bands)
+    // Prioridade 4: technicalData.bandEnergies (legado)
+    const technicalBands = analysis.technicalData?.bands;
     const centralizedBands = analysis.metrics?.bands;
+    const spectralBalance = analysis.technicalData?.spectral_balance;
     const legacyBandEnergies = analysis.technicalData?.bandEnergies;
-    const userBands = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+
+    const userBands = 
+        (technicalBands && Object.keys(technicalBands).length > 0) ? technicalBands :
+        (centralizedBands && Object.keys(centralizedBands).length > 0) ? centralizedBands :
+        (spectralBalance && Object.keys(spectralBalance).length > 0) ? spectralBalance :
+        legacyBandEnergies;
+
+    console.log('[GENRE-TABLE] 🎵 Fonte de bandas do usuário:', 
+        technicalBands ? '✅ technicalData.bands (prioridade 1)' : 
+        centralizedBands ? '⚠️ metrics.bands (fallback 2)' : 
+        spectralBalance ? '⚠️ spectral_balance (fallback 3)' : 
+        '⚠️ bandEnergies (fallback 4 - legado)');
+    
+    console.log('[GENRE-TABLE] 🎵 Bandas disponíveis:', userBands ? Object.keys(userBands) : 'NENHUMA');
     
     console.log('[GENRE-TABLE] 🎵 Bandas do usuário:', userBands ? Object.keys(userBands) : 'N/A');
     
@@ -17087,9 +17130,29 @@ function calculateStereoScore(analysis, refData) {
 function calculateFrequencyScore(analysis, refData) {
     if (!analysis || !refData || !refData.bands) return null;
     
+    // 🎯 CASCATA COMPLETA DE FALLBACKS (confirmada segura em CONFIRMACAO_MIGRACAO_TECHNICALDATA_BANDS.md)
+    // Prioridade 1: technicalData.bands (caminho principal - SEMPRE existe)
+    // Prioridade 2: metrics.bands (compatibilidade - pode não existir)
+    // Prioridade 3: technicalData.spectral_balance (fonte real - alias de bands)
+    // Prioridade 4: technicalData.bandEnergies (legado)
+    const technicalBands = analysis.technicalData?.bands;
     const centralizedBands = analysis.metrics?.bands;
+    const spectralBalance = analysis.technicalData?.spectral_balance;
     const legacyBandEnergies = analysis.technicalData?.bandEnergies;
-    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+
+    const bandsToUse = 
+        (technicalBands && Object.keys(technicalBands).length > 0) ? technicalBands :
+        (centralizedBands && Object.keys(centralizedBands).length > 0) ? centralizedBands :
+        (spectralBalance && Object.keys(spectralBalance).length > 0) ? spectralBalance :
+        legacyBandEnergies;
+
+    console.log('[FREQ-SCORE] 🎵 Fonte de bandas:', 
+        technicalBands ? '✅ technicalData.bands (prioridade 1)' : 
+        centralizedBands ? '⚠️ metrics.bands (fallback 2)' : 
+        spectralBalance ? '⚠️ spectral_balance (fallback 3)' : 
+        '⚠️ bandEnergies (fallback 4 - legado)');
+    
+    console.log('[FREQ-SCORE] 🎵 Bandas disponíveis:', bandsToUse ? Object.keys(bandsToUse) : 'NENHUMA');
     
     if (!bandsToUse) return null;
     
