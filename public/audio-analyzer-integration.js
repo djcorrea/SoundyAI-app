@@ -5630,11 +5630,13 @@ function renderGenreComparisonTable(options) {
                 !metricKeys.includes(key) &&
                 (value.target_db !== undefined || value.target !== undefined)
             ) {
-                bandsFromRoot[key] = value;
+                // 🎯 CORREÇÃO CRÍTICA: Normalizar chave de snake_case → camelCase
+                const normalizedKey = normalizeGenreBandName(key);
+                bandsFromRoot[normalizedKey] = value;
             }
         });
 
-        console.log('[GENRE-TABLE] 🎯 Bandas extraídas da raiz:', Object.keys(bandsFromRoot));
+        console.log('[GENRE-TABLE] 🎯 Bandas extraídas da raiz (normalizadas):', Object.keys(bandsFromRoot));
         return bandsFromRoot;
     })();
     
