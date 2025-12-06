@@ -3271,9 +3271,16 @@ function enrichReferenceObject(refObj, genreKey) {
             // Mapear spectral_bands (prioridade sobre legacy)
             if (hybrid.spectral_bands && typeof hybrid.spectral_bands === 'object') {
                 refObj.spectral_bands = hybrid.spectral_bands;
-                // Também atribuir a 'bands' para compatibilidade
+                
+                // 🎯 CORREÇÃO CRÍTICA: Normalizar chaves de snake_case → camelCase
                 if (!refObj.bands) {
-                    refObj.bands = hybrid.spectral_bands;
+                    const normalizedBands = {};
+                    Object.keys(hybrid.spectral_bands).forEach(snakeKey => {
+                        const camelKey = normalizeGenreBandName(snakeKey);
+                        normalizedBands[camelKey] = hybrid.spectral_bands[snakeKey];
+                    });
+                    refObj.bands = normalizedBands;
+                    console.log('[ENRICH] 🎯 Bandas normalizadas:', Object.keys(normalizedBands));
                 }
             }
         }
@@ -5643,22 +5650,31 @@ function renderGenreComparisonTable(options) {
     
     console.log('[GENRE-TABLE] 🎵 Bandas do usuário:', userBands ? Object.keys(userBands) : 'N/A');
     
-    // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectralBands' (legacy) com fallback seguro
+    // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectral_bands' (com underscore) com normalização
     const targetBands = (() => {
 
-        // Compatibilidade com estrutura nova
+        // 🎯 PRIORIDADE 1: spectral_bands (estrutura correta do JSON com snake_case)
+        if (genreData.spectral_bands && typeof genreData.spectral_bands === 'object' && Object.keys(genreData.spectral_bands).length > 0) {
+            console.log('[GENRE-TABLE] 🎯 Usando genreData.spectral_bands (normalizando)');
+            
+            // Normalizar chaves de snake_case → camelCase
+            const normalized = {};
+            Object.keys(genreData.spectral_bands).forEach(snakeKey => {
+                const camelKey = normalizeGenreBandName(snakeKey);
+                normalized[camelKey] = genreData.spectral_bands[snakeKey];
+            });
+            
+            console.log('[GENRE-TABLE] 🎯 Bandas normalizadas:', Object.keys(normalized));
+            return normalized;
+        }
+
+        // 🎯 PRIORIDADE 2: bands (já normalizado via enrichReferenceObject)
         if (genreData.bands && Object.keys(genreData.bands).length > 0) {
-            console.log('[GENRE-TABLE] 🎯 Usando genreData.bands');
+            console.log('[GENRE-TABLE] 🎯 Usando genreData.bands (já normalizado)');
             return genreData.bands;
         }
 
-        // Compatibilidade com estrutura legado
-        if (genreData.spectralBands && Object.keys(genreData.spectralBands).length > 0) {
-            console.log('[GENRE-TABLE] 🎯 Usando genreData.spectralBands');
-            return genreData.spectralBands;
-        }
-
-        // 🎯 CORREÇÃO CRÍTICA: extrair bandas da raiz (estrutura atual do backend)
+        // 🎯 FALLBACK: extrair bandas da raiz (compatibilidade legado)
         const bandsFromRoot = {};
         const metricKeys = [
             'lufs_target','true_peak_target','dr_target','lra_target','stereo_target',
@@ -5673,7 +5689,7 @@ function renderGenreComparisonTable(options) {
                 !metricKeys.includes(key) &&
                 (value.target_db !== undefined || value.target !== undefined)
             ) {
-                // 🎯 CORREÇÃO CRÍTICA: Normalizar chave de snake_case → camelCase
+                // Normalizar chave de snake_case → camelCase
                 const normalizedKey = normalizeGenreBandName(key);
                 bandsFromRoot[normalizedKey] = value;
             }
