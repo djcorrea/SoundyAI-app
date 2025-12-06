@@ -5711,33 +5711,41 @@ function renderGenreComparisonTable(options) {
         }
         
         // 🎯 NOVA LÓGICA: Priorizar target_range se existir
-        if (targetRange && typeof targetRange.min_db === 'number' && typeof targetRange.max_db === 'number') {
-            const min = targetRange.min_db;
-            const max = targetRange.max_db;
+        if (targetRange && typeof targetRange === 'object') {
+            // Suportar ambos formatos: { min, max } ou { min_db, max_db }
+            const min = targetRange.min ?? targetRange.min_db;
+            const max = targetRange.max ?? targetRange.max_db;
             
-            // ✅ Valor dentro do range
-            if (value >= min && value <= max) {
-                return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
-            }
-            
-            // ❌ Valor fora do range: calcular distância até borda mais próxima
-            let diff;
-            let absDelta;
-            if (value < min) {
-                diff = value - min;  // negativo (precisa subir)
-                absDelta = min - value;
+            if (typeof min !== 'number' || typeof max !== 'number') {
+                // Range inválido, usar fallback
+                if (target === null || target === undefined) {
+                    return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
+                }
             } else {
-                diff = value - max;  // positivo (precisa descer)
-                absDelta = value - max;
-            }
-            
-            // Thresholds para severidade baseados na distância
-            if (absDelta >= 2) {
-                const action = diff > 0 ? `🔴 Reduzir ${absDelta.toFixed(1)} dB` : `🔴 Aumentar ${absDelta.toFixed(1)} dB`;
-                return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
-            } else {
-                const action = diff > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} dB` : `⚠️ Aumentar ${absDelta.toFixed(1)} dB`;
-                return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+                // ✅ Valor dentro do range
+                if (value >= min && value <= max) {
+                    return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
+                }
+                
+                // ❌ Valor fora do range: calcular distância até borda mais próxima
+                let diff;
+                let absDelta;
+                if (value < min) {
+                    diff = value - min;  // negativo (precisa subir)
+                    absDelta = min - value;
+                } else {
+                    diff = value - max;  // positivo (precisa descer)
+                    absDelta = value - max;
+                }
+                
+                // Thresholds para severidade baseados na distância
+                if (absDelta >= 2) {
+                    const action = diff > 0 ? `🔴 Reduzir ${absDelta.toFixed(1)} dB` : `🔴 Aumentar ${absDelta.toFixed(1)} dB`;
+                    return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
+                } else {
+                    const action = diff > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} dB` : `⚠️ Aumentar ${absDelta.toFixed(1)} dB`;
+                    return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+                }
             }
         }
         
@@ -5919,8 +5927,8 @@ function renderGenreComparisonTable(options) {
                 
                 // 🛡️ PROTEÇÃO #2: Validar se existe valor target (range ou db)
                 const hasRange = targetBand.target_range 
-                    && typeof targetBand.target_range.min_db === 'number' 
-                    && typeof targetBand.target_range.max_db === 'number';
+                    && (typeof targetBand.target_range.min === 'number' || typeof targetBand.target_range.min_db === 'number')
+                    && (typeof targetBand.target_range.max === 'number' || typeof targetBand.target_range.max_db === 'number');
                 const hasTargetDb = typeof targetBand.target_db === 'number';
                 
                 if (!hasRange && !hasTargetDb) {
@@ -5971,9 +5979,12 @@ function renderGenreComparisonTable(options) {
                 // 🎨 Formatar coluna ALVO: mostrar range se existir, senão target fixo
                 let targetLabel;
                 if (targetRange) {
-                    const minSafe = Number.isFinite(targetRange.min_db) ? targetRange.min_db.toFixed(1) : '?';
-                    const maxSafe = Number.isFinite(targetRange.max_db) ? targetRange.max_db.toFixed(1) : '?';
-                    targetLabel = `${minSafe} a ${maxSafe} dB`;
+                    // Suportar ambos formatos: { min, max } ou { min_db, max_db }
+                    const minValue = targetRange.min ?? targetRange.min_db;
+                    const maxValue = targetRange.max ?? targetRange.max_db;
+                    const minSafe = Number.isFinite(minValue) ? minValue.toFixed(1) : '?';
+                    const maxSafe = Number.isFinite(maxValue) ? maxValue.toFixed(1) : '?';
+                    targetLabel = `${minSafe} dB a ${maxSafe} dB`;
                 } else if (targetValue !== null) {
                     targetLabel = `${targetValue.toFixed(1)} dB`;
                 } else {
@@ -6001,7 +6012,7 @@ function renderGenreComparisonTable(options) {
                 
                 // Log mais informativo mostrando range quando disponível
                 const targetInfo = targetRange 
-                    ? `[${targetRange.min_db.toFixed(1)}, ${targetRange.max_db.toFixed(1)}]` 
+                    ? `[${(targetRange.min ?? targetRange.min_db).toFixed(1)}, ${(targetRange.max ?? targetRange.max_db).toFixed(1)}]` 
                     : (targetValue !== null ? targetValue.toFixed(1) : 'N/A');
                 console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetInfo} | ${result.severity}`);
                 
