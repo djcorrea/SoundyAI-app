@@ -5703,9 +5703,47 @@ function renderGenreComparisonTable(options) {
     console.log('[GENRE-TABLE] 🎯 Target bands (keys):', Object.keys(targetBands));
     
     // 🎯 HELPER: Calcular severidade e ação baseado em diferença e tolerância
-    const calcSeverity = (value, target, tolerance) => {
-        if (target === null || target === undefined || !Number.isFinite(value)) {
-            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados' };
+    const calcSeverity = (value, target, tolerance, options = {}) => {
+        const { targetRange } = options;
+        
+        if (!Number.isFinite(value)) {
+            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
+        }
+        
+        // 🎯 NOVA LÓGICA: Priorizar target_range se existir
+        if (targetRange && typeof targetRange.min_db === 'number' && typeof targetRange.max_db === 'number') {
+            const min = targetRange.min_db;
+            const max = targetRange.max_db;
+            
+            // ✅ Valor dentro do range
+            if (value >= min && value <= max) {
+                return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
+            }
+            
+            // ❌ Valor fora do range: calcular distância até borda mais próxima
+            let diff;
+            let absDelta;
+            if (value < min) {
+                diff = value - min;  // negativo (precisa subir)
+                absDelta = min - value;
+            } else {
+                diff = value - max;  // positivo (precisa descer)
+                absDelta = value - max;
+            }
+            
+            // Thresholds para severidade baseados na distância
+            if (absDelta >= 2) {
+                const action = diff > 0 ? `🔴 Reduzir ${absDelta.toFixed(1)} dB` : `🔴 Aumentar ${absDelta.toFixed(1)} dB`;
+                return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
+            } else {
+                const action = diff > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} dB` : `⚠️ Aumentar ${absDelta.toFixed(1)} dB`;
+                return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+            }
+        }
+        
+        // 🔄 FALLBACK: Lógica antiga com target fixo (para métricas sem range)
+        if (target === null || target === undefined) {
+            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
         }
         
         const diff = value - target;
@@ -5889,10 +5927,23 @@ function renderGenreComparisonTable(options) {
                 return;
             }
             
+            // 🎯 Priorizar target_range se existir
+            const targetRange = targetBand.target_range || null;
             const targetValue = targetBand.target_db;
             const tolerance = targetBand.tol_db || 2.0;
             
-            const result = calcSeverity(energyDb, targetValue, tolerance);
+            // Calcular severidade com suporte a range
+            const result = calcSeverity(energyDb, targetValue, tolerance, { targetRange });
+            
+            // 🎨 Formatar coluna ALVO: mostrar range se existir, senão target fixo
+            let targetLabel;
+            if (targetRange && typeof targetRange.min_db === 'number' && typeof targetRange.max_db === 'number') {
+                targetLabel = `${targetRange.min_db.toFixed(1)} a ${targetRange.max_db.toFixed(1)} dB`;
+            } else if (typeof targetValue === 'number') {
+                targetLabel = `${targetValue.toFixed(1)} dB`;
+            } else {
+                targetLabel = '—';
+            }
             
             const nomeAmigavel = nomesBandas[targetKey] || targetKey;
             
@@ -5900,14 +5951,19 @@ function renderGenreComparisonTable(options) {
                 <tr class="genre-row ${result.severityClass}">
                     <td class="metric-name">${nomeAmigavel}</td>
                     <td class="metric-value">${energyDb.toFixed(2)} dB</td>
-                    <td class="metric-target">${targetValue.toFixed(1)} dB</td>
+                    <td class="metric-target">${targetLabel}</td>
                     <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)} dB</td>
                     <td class="metric-severity ${result.severityClass}">${result.severity}</td>
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
             bandsCount++;
-            console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetValue.toFixed(1)} | ${result.severity}`);
+            
+            // Log mais informativo mostrando range quando disponível
+            const targetInfo = targetRange 
+                ? `[${targetRange.min_db.toFixed(1)}, ${targetRange.max_db.toFixed(1)}]` 
+                : targetValue.toFixed(1);
+            console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetInfo} | ${result.severity}`);
         });
     }
     
