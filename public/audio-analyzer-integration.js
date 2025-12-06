@@ -5775,100 +5775,110 @@ function renderGenreComparisonTable(options) {
     // 🔊 LUFS Integrado
     if (genreData.lufs_target !== null && genreData.lufs_target !== undefined) {
         const lufsValue = lufsIntegrated;
-        if (Number.isFinite(lufsValue)) {
+        if (Number.isFinite(lufsValue) && Number.isFinite(genreData.lufs_target)) {
             const result = calcSeverity(lufsValue, genreData.lufs_target, genreData.tol_lufs || 1.0);
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">🔊 Loudness (LUFS)</td>
-                    <td class="metric-value">${lufsValue.toFixed(2)} LUFS</td>
-                    <td class="metric-target">${genreData.lufs_target.toFixed(1)} LUFS</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            metricsCount++;
-            console.log(`[GENRE-TABLE] ✅ LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
+            if (result && Number.isFinite(result.diff)) {
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">🔊 Loudness (LUFS)</td>
+                        <td class="metric-value">${lufsValue.toFixed(2)} LUFS</td>
+                        <td class="metric-target">${genreData.lufs_target.toFixed(1)} LUFS</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                metricsCount++;
+                console.log(`[GENRE-TABLE] ✅ LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
+            }
         }
     }
     
     // 🎚️ True Peak
     if (genreData.true_peak_target !== null && genreData.true_peak_target !== undefined) {
         const tpValue = truePeakDbtp;
-        if (Number.isFinite(tpValue)) {
+        if (Number.isFinite(tpValue) && Number.isFinite(genreData.true_peak_target)) {
             const result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">🎚️ Pico Real (dBTP)</td>
-                    <td class="metric-value">${tpValue.toFixed(2)} dBTP</td>
-                    <td class="metric-target">${genreData.true_peak_target.toFixed(1)} dBTP</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            metricsCount++;
-            console.log(`[GENRE-TABLE] ✅ True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
+            if (result && Number.isFinite(result.diff)) {
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">🎚️ Pico Real (dBTP)</td>
+                        <td class="metric-value">${tpValue.toFixed(2)} dBTP</td>
+                        <td class="metric-target">${genreData.true_peak_target.toFixed(1)} dBTP</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                metricsCount++;
+                console.log(`[GENRE-TABLE] ✅ True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
+            }
         }
     }
     
     // 📊 Dynamic Range (DR)
     if (genreData.dr_target !== null && genreData.dr_target !== undefined) {
         const drValue = dynamicRange;
-        if (Number.isFinite(drValue)) {
+        if (Number.isFinite(drValue) && Number.isFinite(genreData.dr_target)) {
             const result = calcSeverity(drValue, genreData.dr_target, genreData.tol_dr || 1.0);
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">📊 Dinâmica (DR)</td>
-                    <td class="metric-value">${drValue.toFixed(2)} DR</td>
-                    <td class="metric-target">${genreData.dr_target.toFixed(1)} DR</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            metricsCount++;
-            console.log(`[GENRE-TABLE] ✅ DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
+            if (result && Number.isFinite(result.diff)) {
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">📊 Dinâmica (DR)</td>
+                        <td class="metric-value">${drValue.toFixed(2)} DR</td>
+                        <td class="metric-target">${genreData.dr_target.toFixed(1)} DR</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                metricsCount++;
+                console.log(`[GENRE-TABLE] ✅ DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
+            }
         }
     }
     
     // 📈 Loudness Range (LRA)
     if (genreData.lra_target !== null && genreData.lra_target !== undefined) {
         const lraValue = lra;
-        if (Number.isFinite(lraValue)) {
+        if (Number.isFinite(lraValue) && Number.isFinite(genreData.lra_target)) {
             const result = calcSeverity(lraValue, genreData.lra_target, genreData.tol_lra || 2.0);
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
-                    <td class="metric-value">${lraValue.toFixed(2)} LU</td>
-                    <td class="metric-target">${genreData.lra_target.toFixed(1)} LU</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            metricsCount++;
-            console.log(`[GENRE-TABLE] ✅ LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
+            if (result && Number.isFinite(result.diff)) {
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
+                        <td class="metric-value">${lraValue.toFixed(2)} LU</td>
+                        <td class="metric-target">${genreData.lra_target.toFixed(1)} LU</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                metricsCount++;
+                console.log(`[GENRE-TABLE] ✅ LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
+            }
         }
     }
     
     // 🎧 Stereo Correlation
     if (genreData.stereo_target !== null && genreData.stereo_target !== undefined) {
         const stereoValue = stereoCorrelation;
-        if (Number.isFinite(stereoValue)) {
+        if (Number.isFinite(stereoValue) && Number.isFinite(genreData.stereo_target)) {
             const result = calcSeverity(stereoValue, genreData.stereo_target, genreData.tol_stereo || 0.1);
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">🎧 Imagem Estéreo</td>
-                    <td class="metric-value">${stereoValue.toFixed(3)}</td>
-                    <td class="metric-target">${genreData.stereo_target.toFixed(3)}</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(3)}</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            metricsCount++;
-            console.log(`[GENRE-TABLE] ✅ Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
+            if (result && Number.isFinite(result.diff)) {
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">🎧 Imagem Estéreo</td>
+                        <td class="metric-value">${stereoValue.toFixed(3)}</td>
+                        <td class="metric-target">${genreData.stereo_target.toFixed(3)}</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(3)}</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                metricsCount++;
+                console.log(`[GENRE-TABLE] ✅ Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
+            }
         }
     }
     
@@ -5895,75 +5905,111 @@ function renderGenreComparisonTable(options) {
         brilho: '✨ Brilho (4k-10k Hz)'
     };
     
-    // 🎯 ITERAR SOBRE AS BANDAS DO USUÁRIO (backend) e mapear para targets
-    if (userBands && Object.keys(userBands).length > 0) {
-        Object.keys(userBands).forEach(backendKey => {
-            // Ignorar 'totalPercentage'
-            if (backendKey === 'totalPercentage') {
-                return;
+    // 🎯 ITERAR APENAS SOBRE BANDAS QUE EXISTEM NOS DOIS LADOS (target-driven)
+    // Previne erro: "Cannot read properties of undefined (reading 'toFixed')"
+    if (targetBands && Object.keys(targetBands).length > 0) {
+        Object.keys(targetBands).forEach(targetKey => {
+            try {
+                // 🛡️ PROTEÇÃO #1: Verificar se target tem estrutura válida
+                const targetBand = targetBands[targetKey];
+                if (!targetBand || typeof targetBand !== 'object') {
+                    console.log(`[GENRE-TABLE] ⏭️ Pulando banda com target inválido: ${targetKey}`);
+                    return;
+                }
+                
+                // 🛡️ PROTEÇÃO #2: Validar se existe valor target (range ou db)
+                const hasRange = targetBand.target_range 
+                    && typeof targetBand.target_range.min_db === 'number' 
+                    && typeof targetBand.target_range.max_db === 'number';
+                const hasTargetDb = typeof targetBand.target_db === 'number';
+                
+                if (!hasRange && !hasTargetDb) {
+                    console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem target válido: ${targetKey}`);
+                    return;
+                }
+                
+                // 🔄 NORMALIZAR nome da banda para buscar no userBands
+                // targetKey já está normalizado (camelCase), procurar no userBands
+                const bandData = userBands?.[targetKey];
+                
+                // 🛡️ PROTEÇÃO #3: Verificar se usuário tem essa banda
+                if (!bandData) {
+                    console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem dados do usuário: ${targetKey}`);
+                    return;
+                }
+                
+                // 🛡️ PROTEÇÃO #4: Extrair valor numérico com fallbacks seguros
+                let energyDb = null;
+                if (typeof bandData === 'number') {
+                    energyDb = bandData;
+                } else if (typeof bandData === 'object') {
+                    energyDb = bandData.energy_db ?? bandData.rms_db ?? bandData.db ?? null;
+                }
+                
+                // 🛡️ PROTEÇÃO #5: Validar que energyDb é número finito
+                if (!Number.isFinite(energyDb)) {
+                    console.log(`[GENRE-TABLE] 🔇 Banda sem valor numérico válido: ${targetKey} (valor: ${energyDb})`);
+                    return;
+                }
+                
+                // 🎯 PRIORIZAR target_range (min/max) - IGNORAR tol_db
+                const targetRange = hasRange ? targetBand.target_range : null;
+                const targetValue = hasTargetDb ? targetBand.target_db : null;
+                
+                // ⚠️ NÃO USAR tol_db - apenas para compatibilidade com fallback legado
+                // Range é a tolerância quando existir
+                
+                // 🧮 Calcular severidade com suporte a range
+                const result = calcSeverity(energyDb, targetValue, 2.0, { targetRange });
+                
+                // 🛡️ PROTEÇÃO #6: Validar resultado antes de usar
+                if (!result || typeof result.diff !== 'number') {
+                    console.warn(`[GENRE-TABLE] ⚠️ Resultado de severidade inválido para: ${targetKey}`);
+                    return;
+                }
+                
+                // 🎨 Formatar coluna ALVO: mostrar range se existir, senão target fixo
+                let targetLabel;
+                if (targetRange) {
+                    const minSafe = Number.isFinite(targetRange.min_db) ? targetRange.min_db.toFixed(1) : '?';
+                    const maxSafe = Number.isFinite(targetRange.max_db) ? targetRange.max_db.toFixed(1) : '?';
+                    targetLabel = `${minSafe} a ${maxSafe} dB`;
+                } else if (targetValue !== null) {
+                    targetLabel = `${targetValue.toFixed(1)} dB`;
+                } else {
+                    targetLabel = '—';
+                }
+                
+                const nomeAmigavel = nomesBandas[targetKey] || targetKey;
+                
+                // 🛡️ PROTEÇÃO #7: Usar valores seguros em .toFixed()
+                const energyDbSafe = Number.isFinite(energyDb) ? energyDb.toFixed(2) : '—';
+                const diffSafe = Number.isFinite(result.diff) ? result.diff.toFixed(2) : '0.00';
+                const diffSign = result.diff >= 0 ? '+' : '';
+                
+                rows.push(`
+                    <tr class="genre-row ${result.severityClass}">
+                        <td class="metric-name">${nomeAmigavel}</td>
+                        <td class="metric-value">${energyDbSafe} dB</td>
+                        <td class="metric-target">${targetLabel}</td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${diffSign}${diffSafe} dB</td>
+                        <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                        <td class="metric-action ${result.severityClass}">${result.action}</td>
+                    </tr>
+                `);
+                bandsCount++;
+                
+                // Log mais informativo mostrando range quando disponível
+                const targetInfo = targetRange 
+                    ? `[${targetRange.min_db.toFixed(1)}, ${targetRange.max_db.toFixed(1)}]` 
+                    : (targetValue !== null ? targetValue.toFixed(1) : 'N/A');
+                console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetInfo} | ${result.severity}`);
+                
+            } catch (err) {
+                // 🛡️ PROTEÇÃO #8: Capturar qualquer erro e continuar com próxima banda
+                console.warn(`[GENRE-TABLE][SAFE-FAIL] Erro ao processar banda ${targetKey}:`, err.message);
+                return; // Pular essa banda e continuar com as outras
             }
-            
-            // 🔄 NORMALIZAR nome da banda do backend para target
-            const targetKey = normalizeGenreBandName(backendKey);
-            const targetBand = targetBands[targetKey];
-            
-            // Verificar se existe target para essa banda
-            if (!targetBand) {
-                console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem target: ${backendKey} → ${targetKey}`);
-                return;
-            }
-            
-            // Verificar se o target tem valor válido
-            if (targetBand.target_db === null || targetBand.target_db === undefined) {
-                console.log(`[GENRE-TABLE] ⏭️ Pulando banda com target null: ${targetKey}`);
-                return;
-            }
-            
-            const bandData = userBands[backendKey];
-            const energyDb = bandData.energy_db ?? bandData.rms_db ?? (typeof bandData === 'number' ? bandData : null);
-            
-            if (!Number.isFinite(energyDb)) {
-                console.log(`[GENRE-TABLE] 🔇 Banda sem valor válido: ${backendKey}`);
-                return;
-            }
-            
-            // 🎯 Priorizar target_range se existir
-            const targetRange = targetBand.target_range || null;
-            const targetValue = targetBand.target_db;
-            const tolerance = targetBand.tol_db || 2.0;
-            
-            // Calcular severidade com suporte a range
-            const result = calcSeverity(energyDb, targetValue, tolerance, { targetRange });
-            
-            // 🎨 Formatar coluna ALVO: mostrar range se existir, senão target fixo
-            let targetLabel;
-            if (targetRange && typeof targetRange.min_db === 'number' && typeof targetRange.max_db === 'number') {
-                targetLabel = `${targetRange.min_db.toFixed(1)} a ${targetRange.max_db.toFixed(1)} dB`;
-            } else if (typeof targetValue === 'number') {
-                targetLabel = `${targetValue.toFixed(1)} dB`;
-            } else {
-                targetLabel = '—';
-            }
-            
-            const nomeAmigavel = nomesBandas[targetKey] || targetKey;
-            
-            rows.push(`
-                <tr class="genre-row ${result.severityClass}">
-                    <td class="metric-name">${nomeAmigavel}</td>
-                    <td class="metric-value">${energyDb.toFixed(2)} dB</td>
-                    <td class="metric-target">${targetLabel}</td>
-                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)} dB</td>
-                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                    <td class="metric-action ${result.severityClass}">${result.action}</td>
-                </tr>
-            `);
-            bandsCount++;
-            
-            // Log mais informativo mostrando range quando disponível
-            const targetInfo = targetRange 
-                ? `[${targetRange.min_db.toFixed(1)}, ${targetRange.max_db.toFixed(1)}]` 
-                : targetValue.toFixed(1);
-            console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetInfo} | ${result.severity}`);
         });
     }
     
