@@ -512,12 +512,14 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
         // PATCH: Priorizar target_range quando disponível
         if (data.target_range && data.target_range.min !== undefined && data.target_range.max !== undefined) {
           const label = bandLabels[band] || band;
-          prompt += `  - **${label}**: Range ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB (tolerado)\n`;
+          prompt += `  - **${label}**: Range permitido ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB\n`;
+          prompt += `    → Use o RANGE como referência, não o ponto central.\n`;
         } else if (data.target_db !== undefined) {
           const label = bandLabels[band] || band;
           const min = data.min_db !== undefined ? data.min_db : (data.target_db - (data.tol_db || 2));
           const max = data.max_db !== undefined ? data.max_db : (data.target_db + (data.tol_db || 2));
-          prompt += `  - **${label}**: Alvo ${data.target_db} dB (range: ${min} a ${max} dB)\n`;
+          prompt += `  - **${label}**: Range permitido ${min.toFixed(1)} a ${max.toFixed(1)} dB (centro em ${data.target_db.toFixed(1)} dB)\n`;
+          prompt += `    → IMPORTANTE: Use o RANGE (${min.toFixed(1)} a ${max.toFixed(1)} dB) como referência, NÃO o centro isolado.\n`;
         }
       });
     }
@@ -677,6 +679,23 @@ Retorne **um array JSON** com objetos neste formato EXATO:
 - Nunca invente métricas, mas preencha lacunas com análise contextual
 - Retorne APENAS o JSON (sem markdown extras)
 
+### ⚖️ COERÊNCIA NUMÉRICA OBRIGATÓRIA
+
+**REGRAS ABSOLUTAS QUE VOCÊ DEVE SEGUIR**:
+
+1. SEMPRE cite o \`currentValue\` (valor medido) no campo \`problema\`
+2. SEMPRE cite o \`delta\` (diferença calculada) no campo \`problema\` ou \`causaProvavel\`
+3. Se a sugestão base tem \`targetValue\`, cite-o no texto
+4. Se a banda tem \`target_range\`, mencione o RANGE COMPLETO (min a max), NÃO apenas o centro
+5. Se o \`delta\` é ZERO ou próximo de zero, NÃO sugira mudanças — diga "Está perfeito, mantenha"
+6. Se o \`delta\` é POSITIVO (+X dB), significa "acima do máximo" → sugerir REDUZIR
+7. Se o \`delta\` é NEGATIVO (-X dB), significa "abaixo do mínimo" → sugerir AUMENTAR
+8. A quantidade sugerida no campo \`solucao\` deve SEMPRE ser coerente com o \`delta\`
+   - Exemplo: delta = +0.4 dB → solução = "Reduza cerca de 0.5 dB"
+   - Exemplo: delta = -3.2 dB → solução = "Aumente cerca de 3 dB"
+9. NUNCA invente valores — use EXATAMENTE os valores fornecidos nos dados base
+10. Se a sugestão base já tem um bom \`action\`, você pode EXPANDIR mas NÃO CONTRADIZER
+
 ### 🎓 EXEMPLOS DE QUALIDADE
 
 **Exemplo RUIM** (genérico):
@@ -687,21 +706,21 @@ Retorne **um array JSON** com objetos neste formato EXATO:
 }
 \`\`\`
 
-**Exemplo BOM** (detalhado):
+**Exemplo BOM** (detalhado e coerente):
 \`\`\`json
 {
   "categoria": "LOUDNESS",
   "nivel": "crítica",
-  "problema": "LUFS Integrado em -21.5 dB, muito abaixo do padrão ideal para streaming (-14 LUFS).",
-  "causaProvavel": "Mixagem com baixo volume RMS e limiter inativo no bus master.",
-  "solucao": "Aumente o loudness aplicando limiter no master e ajuste o gain até -14 LUFS.",
+  "problema": "LUFS Integrado em -21.5 dB, 7.5 dB abaixo do máximo permitido (-14 dB).",
+  "causaProvavel": "Mixagem com baixo volume RMS e limiter inativo no bus master. Delta de -7.5 dB indica áudio muito baixo.",
+  "solucao": "Aumente o loudness em aproximadamente 8 dB aplicando limiter no master até alcançar -14 LUFS.",
   "pluginRecomendado": "FabFilter Pro-L2, Waves L3, iZotope Ozone Maximizer",
   "dicaExtra": "Evite saturar o limiter — prefira punch limpo e preserve a dinâmica natural da batida.",
   "parametros": "Ceiling: -1.0 dBTP, Gain: ajustar até -14 LUFS, Lookahead: 10ms"
 }
 \`\`\`
 
-Agora, processe as sugestões base e retorne o JSON enriquecido seguindo EXATAMENTE o formato especificado.`;
+Agora, processe as sugestões base e retorne o JSON enriquecido seguindo EXATAMENTE o formato especificado e as regras de coerência numérica.`;
 
   return prompt;
 }
@@ -747,6 +766,27 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
 
     successCount++;
     
+    // 🛡️ VALIDAÇÃO PÓS-IA: Verificar coerência numérica
+    const validation = validateAICoherence(baseSug, aiEnrichment);
+    if (!validation.isCoherent) {
+      console.warn(`[AI-AUDIT][VALIDATION] ⚠️ Incoerência detectada na sugestão ${index}:`, validation.issues);
+      // Forçar uso de dados base se IA for incoerente
+      return {
+        ...baseSug,
+        aiEnhanced: true,
+        enrichmentStatus: 'incoherent_fallback',
+        categoria: aiEnrichment.categoria || mapCategoryFromType(baseSug.type, baseSug.category),
+        nivel: aiEnrichment.nivel || mapPriorityToNivel(baseSug.priority),
+        problema: baseSug.message,  // ← Usar base, não IA
+        causaProvavel: aiEnrichment.causaProvavel || 'Análise detalhada não fornecida',
+        solucao: baseSug.action,    // ← Usar base, não IA
+        pluginRecomendado: aiEnrichment.pluginRecomendado || 'Plugin não especificado',
+        dicaExtra: aiEnrichment.dicaExtra || null,
+        parametros: aiEnrichment.parametros || null,
+        validationIssues: validation.issues
+      };
+    }
+    
     // 🔍 LOG: Detalhes do enriquecimento encontrado
     if (index === 0) {
       console.log(`[AI-AUDIT][ULTRA_DIAG] 📋 Exemplo de enriquecimento (index ${index}):`, {
@@ -755,7 +795,8 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
         temProblema: !!aiEnrichment.problema,
         temCausa: !!aiEnrichment.causaProvavel,
         temSolucao: !!aiEnrichment.solucao,
-        temPlugin: !!aiEnrichment.pluginRecomendado
+        temPlugin: !!aiEnrichment.pluginRecomendado,
+        validationPassed: true
       });
     }
 
@@ -874,4 +915,62 @@ function mapPriorityToNivel(priority) {
   };
 
   return priorityMap[priority] || 'média';
+}
+
+/**
+ * 🛡️ Valida coerência entre dados base e enriquecimento IA
+ */
+function validateAICoherence(baseSug, aiEnrich) {
+  const issues = [];
+  
+  // Validação 1: Problema deve mencionar currentValue se disponível
+  if (baseSug.currentValue && aiEnrich.problema) {
+    const currentValueStr = String(baseSug.currentValue).replace(/[^\d.-]/g, '');
+    const problemContainsValue = aiEnrich.problema.includes(currentValueStr) || 
+                                  aiEnrich.problema.includes(baseSug.currentValue);
+    if (!problemContainsValue) {
+      issues.push(`problema não menciona currentValue (${baseSug.currentValue})`);
+    }
+  }
+  
+  // Validação 2: Problema ou causa deve mencionar delta se disponível
+  if (baseSug.delta && typeof baseSug.delta === 'string') {
+    const deltaNum = baseSug.delta.replace(/[^\d.-]/g, '');
+    const deltaInProblem = aiEnrich.problema?.includes(deltaNum);
+    const deltaInCause = aiEnrich.causaProvavel?.includes(deltaNum);
+    if (!deltaInProblem && !deltaInCause && deltaNum && parseFloat(deltaNum) !== 0) {
+      issues.push(`texto não menciona delta (${baseSug.delta})`);
+    }
+  }
+  
+  // Validação 3: Se delta é zero, solução não deve sugerir mudanças
+  if (baseSug.delta && typeof baseSug.delta === 'string') {
+    const deltaNum = parseFloat(baseSug.delta.replace(/[^\d.-]/g, ''));
+    if (Math.abs(deltaNum) < 0.1 && aiEnrich.solucao) {
+      const suggestsMudanca = aiEnrich.solucao.toLowerCase().match(/(aument|reduz|modif|ajust|mude|altere|corte|eleve)/);
+      if (suggestsMudanca) {
+        issues.push(`delta é ~zero mas solução sugere mudança`);
+      }
+    }
+  }
+  
+  // Validação 4: Severidade IA vs base
+  const severityMap = { 'crítica': 4, 'média': 2, 'leve': 1 };
+  const basePriority = baseSug.priority || 2;
+  const aiNivel = aiEnrich.nivel ? severityMap[aiEnrich.nivel] || 2 : 2;
+  
+  // Converter string priority para número se necessário
+  let basePriorityNum = basePriority;
+  if (typeof basePriority === 'string') {
+    basePriorityNum = severityMap[basePriority.toLowerCase()] || 2;
+  }
+  
+  if (Math.abs(basePriorityNum - aiNivel) > 2) {
+    issues.push(`severidade IA (${aiEnrich.nivel}) muito diferente da base (priority: ${baseSug.priority})`);
+  }
+  
+  return {
+    isCoherent: issues.length === 0,
+    issues
+  };
 }
