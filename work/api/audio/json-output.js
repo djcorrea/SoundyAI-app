@@ -967,6 +967,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         lra: options.genreTargets.lra?.target ?? null,
         stereo: options.genreTargets.stereo?.target ?? null,
         // ✅ CORREÇÃO: Bandas já estão em formato correto (nested com .target)
+        // 🎯 PATCH: Passar objeto completo com target_range preservado
         spectral_bands: options.genreTargets.bands ?? options.genreTargets.spectral_bands ?? null,
         // Preservar tolerâncias se existirem
         tol_lufs: options.genreTargets.lufs?.tolerance ?? null,
