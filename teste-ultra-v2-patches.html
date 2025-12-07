@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste ULTRA_V2 Patches - Coerência Tabela vs Sugestões</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(10px);
+        }
+
+        .test-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .test-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .test-title {
+            flex: 1;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .status-pass {
+            background: #00ff88;
+            color: #1e1e2e;
+        }
+
+        .status-fail {
+            background: #ff4444;
+            color: white;
+        }
+
+        .test-data {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .test-data h4 {
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .test-result {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .test-result h4 {
+            color: #00ff88;
+            margin-bottom: 10px;
+        }
+
+        .expected {
+            color: #ffd700;
+            margin-bottom: 8px;
+        }
+
+        .actual {
+            color: #00bfff;
+        }
+
+        .diff {
+            background: rgba(255, 68, 68, 0.2);
+            border-left: 4px solid #ff4444;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .summary h2 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 2rem;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: white;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 5px;
+        }
+
+        .run-button {
+            background: linear-gradient(135deg, #00ff88 0%, #00cc70 100%);
+            color: #1e1e2e;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: block;
+            margin: 30px auto;
+        }
+
+        .run-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .run-button:active {
+            transform: translateY(0);
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .highlight-ok {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .highlight-error {
+            color: #ff4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste ULTRA_V2 Patches</h1>
+        <p class="subtitle">Validação de Coerência: Tabela vs Sugestões Educacionais</p>
+
+        <button class="run-button" onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+
+        <div id="test-results"></div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h2>📊 Resumo dos Testes</h2>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-number" id="total-tests">0</div>
+                    <div class="stat-label">Total de Testes</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="passed-tests" style="color: #00ff88;">0</div>
+                    <div class="stat-label">Aprovados ✅</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="failed-tests" style="color: #ff4444;">0</div>
+                    <div class="stat-label">Falharam ❌</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="ultra-advanced-suggestion-enhancer-v2.js"></script>
+    <script>
+        async function runAllTests() {
+            const resultsContainer = document.getElementById('test-results');
+            resultsContainer.innerHTML = '';
+
+            const tests = [
+                testCase1_SubLevementeAcima,
+                testCase2_BrilhoDentroRange,
+                testCase3_BassCritico,
+                testCase4_LufsBaixo,
+                testCase5_TruePeakAlto
+            ];
+
+            let passed = 0;
+            let failed = 0;
+
+            for (let i = 0; i < tests.length; i++) {
+                const result = await tests[i](i + 1);
+                resultsContainer.appendChild(result.element);
+                
+                if (result.passed) passed++;
+                else failed++;
+            }
+
+            // Mostrar resumo
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('total-tests').textContent = tests.length;
+            document.getElementById('passed-tests').textContent = passed;
+            document.getElementById('failed-tests').textContent = failed;
+        }
+
+        function testCase1_SubLevementeAcima(testNumber) {
+            const suggestion = {
+                metric: "band_sub",
+                currentValue: "-24.6 dB",
+                targetValue: "-28.0 dB",
+                delta: "+0.4 dB",
+                actionableGain: "-0.5 dB",
+                bandName: "Sub (20-150Hz)",
+                message: "🟠 Sub levemente alto: -24.6 dB",
+                action: "Considere corte sutil de 1-2 dB em Sub (20-150Hz).",
+                severity: "warning"
+            };
+
+            const context = {
+                detectedGenre: "funk_automotivo",
+                targetDataForEngine: {
+                    sub: {
+                        target: -28.0,
+                        tolerance: 3.0,
+                        target_range: { min: -32, max: -25 }
+                    }
+                }
+            };
+
+            const enhancer = new UltraAdvancedSuggestionEnhancer();
+            const enhanced = enhancer.enhanceSingleSuggestion(suggestion, context);
+
+            // Validações
+            const explanation = enhanced.educationalContent.explanation;
+            const action = enhanced.educationalContent.action;
+
+            const checks = {
+                mentions_current_value: explanation.includes('-24.6'),
+                mentions_range: explanation.includes('-32') && explanation.includes('-25'),
+                mentions_delta: explanation.includes('0.4'),
+                mentions_actionable_gain: action.includes('0.5'),
+                correct_direction: explanation.includes('acima')
+            };
+
+            const passed = Object.values(checks).every(v => v);
+
+            return {
+                passed,
+                element: createTestElement(testNumber, "Sub levemente acima do range", suggestion, context, enhanced, checks, passed)
+            };
+        }
+
+        function testCase2_BrilhoDentroRange(testNumber) {
+            const suggestion = {
+                metric: "band_brilho",
+                currentValue: "-40.1 dB",
+                targetValue: "-41.0 dB",
+                delta: "0.0 dB",
+                bandName: "Brilho (6-20kHz)",
+                message: "🟢 Brilho ideal: -40.1 dB",
+                action: "Excelente! Mantenha esse nível em Brilho (6-20kHz).",
+                severity: "ok"
+            };
+
+            const context = {
+                detectedGenre: "funk_automotivo",
+                targetDataForEngine: {
+                    brilho: {
+                        target: -41.0,
+                        tolerance: 5.0,
+                        target_range: { min: -46, max: -36 }
+                    }
+                }
+            };
+
+            const enhancer = new UltraAdvancedSuggestionEnhancer();
+            const enhanced = enhancer.enhanceSingleSuggestion(suggestion, context);
+
+            const explanation = enhanced.educationalContent.explanation;
+
+            const checks = {
+                mentions_current_value: explanation.includes('-40.1'),
+                mentions_range: explanation.includes('-46') && explanation.includes('-36'),
+                positive_message: explanation.toLowerCase().includes('perfeito') || explanation.toLowerCase().includes('ideal'),
+                no_correction_needed: !explanation.toLowerCase().includes('reduz') && !explanation.toLowerCase().includes('aument')
+            };
+
+            const passed = Object.values(checks).every(v => v);
+
+            return {
+                passed,
+                element: createTestElement(testNumber, "Brilho dentro do range (OK)", suggestion, context, enhanced, checks, passed)
+            };
+        }
+
+        function testCase3_BassCritico(testNumber) {
+            const suggestion = {
+                metric: "band_bass",
+                currentValue: "-23.0 dB",
+                targetValue: "-28.0 dB",
+                delta: "+2.0 dB",
+                actionableGain: "-2.0 dB",
+                isProgressiveAdjustment: false,
+                bandName: "Bass (150-300Hz)",
+                message: "🔴 Bass muito alto: -23.0 dB",
+                action: "Corte 2.0 dB em Bass (150-300Hz) com EQ. Use filtro Q médio.",
+                severity: "critical"
+            };
+
+            const context = {
+                detectedGenre: "funk_automotivo",
+                targetDataForEngine: {
+                    bass: {
+                        target: -28.0,
+                        tolerance: 3.0,
+                        target_range: { min: -31, max: -25 }
+                    }
+                }
+            };
+
+            const enhancer = new UltraAdvancedSuggestionEnhancer();
+            const enhanced = enhancer.enhanceSingleSuggestion(suggestion, context);
+
+            const explanation = enhanced.educationalContent.explanation;
+            const action = enhanced.educationalContent.action;
+
+            const checks = {
+                mentions_current_value: explanation.includes('-23'),
+                mentions_range: explanation.includes('-31') && explanation.includes('-25'),
+                mentions_delta: explanation.includes('2'),
+                mentions_actionable_gain: action.includes('2'),
+                correct_direction: explanation.includes('acima')
+            };
+
+            const passed = Object.values(checks).every(v => v);
+
+            return {
+                passed,
+                element: createTestElement(testNumber, "Bass crítico (muito acima)", suggestion, context, enhanced, checks, passed)
+            };
+        }
+
+        function testCase4_LufsBaixo(testNumber) {
+            const suggestion = {
+                metric: "lufs",
+                currentValue: "-16.5 dB",
+                targetValue: "-6.2 dB",
+                delta: "-10.3 dB",
+                actionableGain: "+6.0 dB",
+                isProgressiveAdjustment: true,
+                maxSingleAdjustment: "±6.0 dB",
+                message: "🔴 LUFS muito baixo: -16.5 dB",
+                action: "Ajuste progressivo: aumente entre 2 a 4 dB inicialmente e reavalie. Delta total: 10.3 dB.",
+                severity: "critical"
+            };
+
+            const context = {
+                detectedGenre: "funk_automotivo",
+                targetDataForEngine: {
+                    lufs: {
+                        target: -6.2,
+                        tolerance: 2.0,
+                        target_range: { min: -8.2, max: -4.2 }
+                    }
+                }
+            };
+
+            const enhancer = new UltraAdvancedSuggestionEnhancer();
+            const enhanced = enhancer.enhanceSingleSuggestion(suggestion, context);
+
+            const explanation = enhanced.educationalContent.explanation;
+            const action = enhanced.educationalContent.action;
+
+            const checks = {
+                mentions_current_value: explanation.includes('-16.5'),
+                mentions_range: explanation.includes('-8.2') && explanation.includes('-4.2'),
+                mentions_progressive: action.toLowerCase().includes('progressivo') || action.includes('6.0'),
+                correct_direction: explanation.includes('abaixo')
+            };
+
+            const passed = Object.values(checks).every(v => v);
+
+            return {
+                passed,
+                element: createTestElement(testNumber, "LUFS baixo (ajuste progressivo)", suggestion, context, enhanced, checks, passed)
+            };
+        }
+
+        function testCase5_TruePeakAlto(testNumber) {
+            const suggestion = {
+                metric: "truePeak",
+                currentValue: "0.2 dB",
+                targetValue: "-1.0 dB",
+                delta: "+1.2 dB",
+                actionableGain: "-1.2 dB",
+                message: "🔴 True Peak acima do limite: 0.2 dB",
+                action: "Reduza 1.2 dB com limitador. Risco de clipping digital.",
+                severity: "critical"
+            };
+
+            const context = {
+                detectedGenre: "funk_automotivo",
+                targetDataForEngine: {
+                    truePeak: {
+                        target: -1.0,
+                        tolerance: 0.5,
+                        target_range: { min: -1.5, max: -0.5 }
+                    }
+                }
+            };
+
+            const enhancer = new UltraAdvancedSuggestionEnhancer();
+            const enhanced = enhancer.enhanceSingleSuggestion(suggestion, context);
+
+            const explanation = enhanced.educationalContent.explanation;
+            const action = enhanced.educationalContent.action;
+
+            const checks = {
+                mentions_current_value: explanation.includes('0.2'),
+                mentions_range: explanation.includes('-1.5') && explanation.includes('-0.5'),
+                mentions_actionable_gain: action.includes('1.2'),
+                correct_direction: explanation.includes('acima')
+            };
+
+            const passed = Object.values(checks).every(v => v);
+
+            return {
+                passed,
+                element: createTestElement(testNumber, "True Peak alto (clipping)", suggestion, context, enhanced, checks, passed)
+            };
+        }
+
+        function createTestElement(testNumber, title, suggestion, context, enhanced, checks, passed) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+
+            const checkDetails = Object.entries(checks)
+                .map(([key, value]) => `<div style="margin: 5px 0;">
+                    <span class="${value ? 'highlight-ok' : 'highlight-error'}">${value ? '✅' : '❌'}</span>
+                    ${key.replace(/_/g, ' ')}: ${value}
+                </div>`)
+                .join('');
+
+            section.innerHTML = `
+                <div class="test-header">
+                    <div class="test-number">${testNumber}</div>
+                    <div class="test-title">${title}</div>
+                    <div class="status-badge ${passed ? 'status-pass' : 'status-fail'}">
+                        ${passed ? '✅ PASSOU' : '❌ FALHOU'}
+                    </div>
+                </div>
+
+                <div class="test-data">
+                    <h4>📊 Input Suggestion:</h4>
+                    <pre>${JSON.stringify(suggestion, null, 2)}</pre>
+                </div>
+
+                <div class="test-data">
+                    <h4>🎯 Context (targetDataForEngine):</h4>
+                    <pre>${JSON.stringify(context.targetDataForEngine, null, 2)}</pre>
+                </div>
+
+                <div class="test-result">
+                    <h4>✨ Enhanced Educational Content:</h4>
+                    <div class="expected"><strong>Explanation:</strong><br>${enhanced.educationalContent.explanation}</div>
+                    <div class="actual"><strong>Action:</strong><br>${enhanced.educationalContent.action}</div>
+                </div>
+
+                <div class="test-result">
+                    <h4>🔍 Validações:</h4>
+                    ${checkDetails}
+                </div>
+            `;
+
+            return section;
+        }
+    </script>
+</body>
+</html>
