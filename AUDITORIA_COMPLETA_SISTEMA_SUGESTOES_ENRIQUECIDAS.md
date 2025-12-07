@@ -157,7 +157,7 @@ O usuário pode estar vendo **sugestões de sistema diferente** dependendo do mo
 - Calcular prioridade ponderada
 - Detectar heurísticas (sibilância, harshness, masking)
 
-#### Estrutura de Sugestão Base:
+#### Estrutura de Sugestão Base:dd
 ```javascript
 {
   // Identificação
