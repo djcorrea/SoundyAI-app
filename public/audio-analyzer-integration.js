@@ -137,13 +137,47 @@ function extractGenreTargets(analysis) {
     
     console.log('[GENRE-ONLY-UTILS] 🎯 Extraindo targets no modo GENRE');
     
-    // 🎯 FONTE OFICIAL: analysis.data.genreTargets
+    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
     if (analysis?.data?.genreTargets) {
         console.log('[GENRE-ONLY-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
         return analysis.data.genreTargets;
     }
     
-    console.warn('[GENRE-ONLY-UTILS] ❌ Targets não encontrados em analysis.data.genreTargets');
+    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
+    if (analysis?.genreTargets) {
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
+        return analysis.genreTargets;
+    }
+    
+    // 🎯 PRIORIDADE 3: analysis.result.genreTargets
+    if (analysis?.result?.genreTargets) {
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.result.genreTargets (fallback)');
+        return analysis.result.genreTargets;
+    }
+    
+    // 🎯 PRIORIDADE 4: window.__activeRefData (VALIDAR GÊNERO)
+    const genre = extractGenreName(analysis);
+    if (window.__activeRefData) {
+        // ✅ Validar se gênero bate antes de usar
+        const activeGenre = window.__activeRefData.genre || window.__activeRefData.data?.genre;
+        if (activeGenre === genre) {
+            console.log('[GENRE-ONLY-UTILS] ⚠️ Usando window.__activeRefData (gênero validado:', genre, ')');
+            return window.__activeRefData.targets || window.__activeRefData;
+        } else {
+            console.warn('[GENRE-ONLY-UTILS] ⚠️ window.__activeRefData ignorado - gênero diferente:', activeGenre, '≠', genre);
+        }
+    }
+    
+    // 🎯 PRIORIDADE 5: PROD_AI_REF_DATA[genre]
+    if (typeof PROD_AI_REF_DATA !== 'undefined' && PROD_AI_REF_DATA[genre]) {
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Usando PROD_AI_REF_DATA[' + genre + '] (último recurso)');
+        return PROD_AI_REF_DATA[genre];
+    }
+    
+    // ❌ MODO GENRE SEM TARGETS = ERRO CRÍTICO
+    console.error('[GENRE-ONLY-UTILS] ❌ CRÍTICO: Modo genre mas targets não encontrados em NENHUMA fonte');
+    console.error('[GENRE-ONLY-UTILS] Gênero:', genre);
+    console.error('[GENRE-ONLY-UTILS] analysis.data:', analysis?.data);
     return null;
 }
 
@@ -3712,25 +3746,25 @@ function extractGenreTargets(json, genreName) {
     let targets = null;
     let source = null;
     
-    // PRIORIDADE 1: hybrid_processing.spectral_bands
-    if (root.hybrid_processing?.spectral_bands) {
-        targets = root.hybrid_processing.spectral_bands;
-        source = 'hybrid_processing.spectral_bands';
-        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em hybrid_processing.spectral_bands');
-    }
-    // PRIORIDADE 2: legacy_compatibility.bands
-    else if (root.legacy_compatibility?.bands) {
+    // 🎯 PRIORIDADE 1: legacy_compatibility.bands (FONTE OFICIAL)
+    if (root.legacy_compatibility?.bands) {
         targets = root.legacy_compatibility.bands;
         source = 'legacy_compatibility.bands';
-        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em legacy_compatibility.bands');
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em legacy_compatibility.bands (OFICIAL)');
     }
-    // PRIORIDADE 3: bands (fallback)
+    // 🎯 PRIORIDADE 2: hybrid_processing.spectral_bands (fallback)
+    else if (root.hybrid_processing?.spectral_bands) {
+        targets = root.hybrid_processing.spectral_bands;
+        source = 'hybrid_processing.spectral_bands';
+        console.log('[EXTRACT-TARGETS] ⚠️ Targets encontrados em hybrid_processing.spectral_bands (fallback)');
+    }
+    // 🎯 PRIORIDADE 3: bands (fallback genérico)
     else if (root.bands) {
         targets = root.bands;
         source = 'bands';
-        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em bands (fallback)');
+        console.log('[EXTRACT-TARGETS] ⚠️ Targets encontrados em bands (fallback genérico)');
     }
-    // PRIORIDADE 4: hybrid_processing.original_metrics (último recurso)
+    // 🎯 PRIORIDADE 4: hybrid_processing.original_metrics (último recurso)
     else if (root.hybrid_processing?.original_metrics) {
         targets = root.hybrid_processing.original_metrics;
         source = 'hybrid_processing.original_metrics';
@@ -12175,8 +12209,14 @@ async function displayModalResults(analysis) {
                                 analysisContext.targetDataForEngine = officialGenreTargets;
                                 analysisContext.genreTargets = officialGenreTargets;
                             } else {
-                                console.warn('[ULTRA_V2] ⚠️ Targets não encontrados - usando fallback');
-                                analysisContext.targetDataForEngine = window.__activeRefData || loadDefaultGenreTargets(extractGenreName(analysis));
+                                // 🚨 MODO GENRE SEM TARGETS = ERRO CRÍTICO - NÃO USAR FALLBACK
+                                console.error('[ULTRA_V2] ❌ CRÍTICO: Modo genre mas targets não encontrados');
+                                console.error('[ULTRA_V2] analysis.data.genreTargets:', analysis?.data?.genreTargets);
+                                console.error('[ULTRA_V2] analysis.genre:', analysis?.genre);
+                                console.error('[ULTRA_V2] analysis.data.genre:', analysis?.data?.genre);
+                                // ❌ NÃO usar fallback - modo genre EXIGE targets corretos do JSON
+                                analysisContext.targetDataForEngine = null;
+                                analysisContext.genreTargets = null;
                             }
                         }
                         // 🛡️ MODO REFERENCE: Não injetar nada - usa dados de comparação A/B
