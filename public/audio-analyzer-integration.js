@@ -120,189 +120,66 @@ function extractGenreFromAnalysis(analysis) {
 console.log('✅ Genre Targets Utils carregado');
 
 // ═══════════════════════════════════════════════════════════════════
-// 🔧 NORMALIZAÇÃO UNIVERSAL DE TARGETS - SUPORTE MODERNO + LEGADO
+// 🎯 GENRE-ONLY EXTRACTION UTILS - NUNCA AFETAM REFERENCE
 // ═══════════════════════════════════════════════════════════════════
 /**
- * 🔧 NORMALIZA TARGETS DE QUALQUER FORMATO PARA O ESPERADO PELO SCORE
- * Suporta JSON moderno (spectral_bands) e legado (bands)
- * @param {Object} raw - Targets crus do backend
- * @returns {Object|null} Targets normalizados
- */
-function normalizeGenreTargets(raw) {
-    if (!raw || typeof raw !== 'object') {
-        console.warn('[NORMALIZE] ⚠️ Input inválido');
-        return null;
-    }
-
-    console.log('[NORMALIZE] 🔧 Normalizando targets...');
-    console.log('[NORMALIZE] Input keys:', Object.keys(raw));
-
-    // Copiar campos escalares (lufs, dr, stereo, tolerâncias)
-    const out = { ...raw };
-
-    // 🎯 FONTE DE BANDAS: spectral_bands (moderno) OU bands (legado)
-    const spectral = raw.spectral_bands || raw.bands;
-    
-    if (!spectral || typeof spectral !== 'object') {
-        console.warn('[NORMALIZE] ⚠️ Sem bandas para normalizar');
-        return out; // Retorna com campos escalares pelo menos
-    }
-
-    console.log('[NORMALIZE] 🎵 Fonte:', raw.spectral_bands ? 'spectral_bands (moderno)' : 'bands (legado)');
-
-    const bands = {};
-
-    // 🎯 MAPEAMENTO DE NOMES (moderno → esperado pelo score)
-    const nameMap = {
-        'sub': 'sub',
-        'bass': 'low_bass',
-        'low_bass': 'low_bass',
-        'upper_bass': 'upper_bass',
-        'upperBass': 'upper_bass',
-        'lowMid': 'low_mid',
-        'low_mid': 'low_mid',
-        'mid': 'mid',
-        'highMid': 'high_mid',
-        'high_mid': 'high_mid',
-        'presence': 'presenca',
-        'presenca': 'presenca',
-        'air': 'brilho',
-        'brilho': 'brilho'
-    };
-
-    // Processar cada banda
-    for (const key in spectral) {
-        const mapped = nameMap[key] || key;
-        const src = spectral[key];
-
-        if (!src || typeof src !== 'object') {
-            console.warn(`[NORMALIZE] ⚠️ Banda ${key} inválida`);
-            continue;
-        }
-
-        const band = {};
-
-        // 🎯 EXTRAIR target_db (valor central)
-        if (typeof src.target_db === 'number') {
-            band.target_db = src.target_db;
-        } else if (typeof src.target === 'number') {
-            band.target_db = src.target;
-        } else if (typeof src.energy_db === 'number') {
-            band.target_db = src.energy_db;
-        } else if (typeof src.rms_db === 'number') {
-            band.target_db = src.rms_db;
-        }
-
-        // 🎯 EXTRAIR min/max (intervalo ideal)
-        // Prioridade 1: target_range: {min, max}
-        if (src.target_range && 
-            typeof src.target_range.min === 'number' && 
-            typeof src.target_range.max === 'number') {
-            band.min = src.target_range.min;
-            band.max = src.target_range.max;
-        }
-        // Prioridade 2: min_max: [min, max]
-        else if (Array.isArray(src.min_max) && src.min_max.length === 2) {
-            band.min = src.min_max[0];
-            band.max = src.min_max[1];
-        }
-        // Prioridade 3: min/max diretos
-        else if (typeof src.min === 'number' && typeof src.max === 'number') {
-            band.min = src.min;
-            band.max = src.max;
-        }
-        // Prioridade 4: Calcular de tolerance
-        else if (typeof band.target_db === 'number' && typeof src.tolerance === 'number') {
-            band.min = band.target_db - src.tolerance;
-            band.max = band.target_db + src.tolerance;
-        }
-        // Prioridade 5: Calcular de tol_db
-        else if (typeof band.target_db === 'number' && typeof src.tol_db === 'number') {
-            band.min = band.target_db - src.tol_db;
-            band.max = band.target_db + src.tol_db;
-        }
-
-        if (band.target_db !== undefined) {
-            bands[mapped] = band;
-        } else {
-            console.warn(`[NORMALIZE] ⚠️ Banda ${key} sem target_db válido`);
-        }
-    }
-
-    if (Object.keys(bands).length === 0) {
-        console.error('[NORMALIZE] ❌ Nenhuma banda normalizada com sucesso');
-        return out; // Retorna com campos escalares
-    }
-
-    out.bands = bands;
-    console.log('[NORMALIZE] ✅ bands normalizados:', Object.keys(bands).join(', '));
-    
-    return out;
-}
-
-console.log('✅ normalizeGenreTargets() carregada');
-
-// ═══════════════════════════════════════════════════════════════════
-// 🎯 FUNÇÃO ÚNICA CENTRALIZADA - getOfficialGenreTargets()
-// ═══════════════════════════════════════════════════════════════════
-/**
- * 🔧 FUNÇÃO OFICIAL PARA OBTER TARGETS DO GÊNERO
- * ⚠️ NUNCA USA PROD_AI_REF_DATA COMO FALLBACK SE analysis.data.genreTargets EXISTIR
+ * Extrai targets SOMENTE no modo genre
+ * ⚠️ IMPORTANTE: Retorna null se não for modo genre
  * @param {Object} analysis - Objeto de análise
  * @returns {Object|null} Targets do gênero ou null
  */
-function getOfficialGenreTargets(analysis) {
+function extractGenreTargets(analysis) {
     // 🛡️ BARREIRA: Só funciona em modo genre
     if (analysis?.mode !== "genre") {
-        console.log('[FIX-TARGETS] ⚠️ Não é modo genre, retornando null');
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Não é modo genre, retornando null');
         return null;
     }
     
-    console.log('[FIX-TARGETS] 🎯 Extraindo targets no modo GENRE (função oficial)');
+    console.log('[GENRE-ONLY-UTILS] 🎯 Extraindo targets no modo GENRE');
     
-    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (SEMPRE PRIMEIRO - FONTE OFICIAL)
+    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
     if (analysis?.data?.genreTargets) {
-        console.log('[FIX-TARGETS] ✅ Usando source: analysis.data.genreTargets');
-        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.data.genreTargets));
-        console.log('[FIX-TARGETS] 🚫 Fallback bloqueado (PROD_AI_REF_DATA ignorado)');
+        console.log('[GENRE-ONLY-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
         return analysis.data.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback válido)
+    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
     if (analysis?.genreTargets) {
-        console.log('[FIX-TARGETS] ⚠️ Fallback: analysis.genreTargets');
-        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.genreTargets));
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
         return analysis.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 3: analysis.result.genreTargets (último fallback válido)
+    // 🎯 PRIORIDADE 3: analysis.result.genreTargets
     if (analysis?.result?.genreTargets) {
-        console.log('[FIX-TARGETS] ⚠️ Fallback: analysis.result.genreTargets');
-        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.result.genreTargets));
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.result.genreTargets (fallback)');
         return analysis.result.genreTargets;
     }
     
-    // ❌ CRÍTICO: Modo genre sem targets - NÃO USAR PROD_AI_REF_DATA
+    // 🎯 PRIORIDADE 4: window.__activeRefData (VALIDAR GÊNERO)
     const genre = extractGenreName(analysis);
-    console.error('[FIX-TARGETS] ❌ CRÍTICO: Modo genre mas targets não encontrados');
-    console.error('[FIX-TARGETS] 🚫 PROD_AI_REF_DATA bloqueado (não usar fallback genérico)');
-    console.error('[FIX-TARGETS] Gênero detectado:', genre);
-    console.error('[FIX-TARGETS] analysis.data:', analysis?.data);
-    console.error('[FIX-TARGETS] analysis.genreTargets:', analysis?.genreTargets);
-    console.error('[FIX-TARGETS] analysis.result.genreTargets:', analysis?.result?.genreTargets);
+    if (window.__activeRefData) {
+        // ✅ Validar se gênero bate antes de usar
+        const activeGenre = window.__activeRefData.genre || window.__activeRefData.data?.genre;
+        if (activeGenre === genre) {
+            console.log('[GENRE-ONLY-UTILS] ⚠️ Usando window.__activeRefData (gênero validado:', genre, ')');
+            return window.__activeRefData.targets || window.__activeRefData;
+        } else {
+            console.warn('[GENRE-ONLY-UTILS] ⚠️ window.__activeRefData ignorado - gênero diferente:', activeGenre, '≠', genre);
+        }
+    }
+    
+    // 🎯 PRIORIDADE 5: PROD_AI_REF_DATA[genre]
+    if (typeof PROD_AI_REF_DATA !== 'undefined' && PROD_AI_REF_DATA[genre]) {
+        console.log('[GENRE-ONLY-UTILS] ⚠️ Usando PROD_AI_REF_DATA[' + genre + '] (último recurso)');
+        return PROD_AI_REF_DATA[genre];
+    }
+    
+    // ❌ MODO GENRE SEM TARGETS = ERRO CRÍTICO
+    console.error('[GENRE-ONLY-UTILS] ❌ CRÍTICO: Modo genre mas targets não encontrados em NENHUMA fonte');
+    console.error('[GENRE-ONLY-UTILS] Gênero:', genre);
+    console.error('[GENRE-ONLY-UTILS] analysis.data:', analysis?.data);
     return null;
 }
-
-/**
- * @deprecated Use getOfficialGenreTargets() em vez desta função
- * Mantida apenas para compatibilidade legada
- */
-function extractGenreTargets(analysis) {
-    console.warn('[DEPRECATED] extractGenreTargets() está obsoleta - use getOfficialGenreTargets()');
-    return getOfficialGenreTargets(analysis);
-}
-
-console.log('✅ getOfficialGenreTargets() - Função única de targets carregada');
 
 /**
  * Extrai nome do gênero SOMENTE no modo genre
@@ -11324,15 +11201,6 @@ async function displayModalResults(analysis) {
     function injectGenreTargetsIntoRefData(refData, genreTargets) {
         if (!refData || !genreTargets) return refData;
         
-        // 🔧 NORMALIZAR TARGETS ANTES DE INJETAR
-        console.log('[INJECT] 🔧 Normalizando genreTargets antes da injeção...');
-        const normalized = normalizeGenreTargets(genreTargets);
-        
-        if (!normalized) {
-            console.error('[INJECT] ❌ Falha ao normalizar targets');
-            return refData;
-        }
-        
         const fields = [
             "lufs_target",
             "true_peak_target",
@@ -11348,19 +11216,18 @@ async function displayModalResults(analysis) {
         ];
         
         fields.forEach(key => {
-            if (normalized[key] !== undefined) {
-                refData[key] = normalized[key];
+            if (genreTargets[key] !== undefined) {
+                refData[key] = genreTargets[key];
             }
         });
         
-        console.log("[INJECT] ✅ Targets normalizados injetados em refData:", {
+        console.log("[GENRE-FIX] Targets injetados em refData:", {
             lufs_target: refData.lufs_target,
             true_peak_target: refData.true_peak_target,
             dr_target: refData.dr_target,
             stereo_target: refData.stereo_target,
             hasBands: !!refData.bands,
-            bandsCount: refData.bands ? Object.keys(refData.bands).length : 0,
-            bandNames: refData.bands ? Object.keys(refData.bands).join(', ') : 'N/A'
+            bandsCount: refData.bands ? Object.keys(refData.bands).length : 0
         });
         
         return refData;
@@ -11525,12 +11392,11 @@ async function displayModalResults(analysis) {
     if (isGenreMode) {
         console.log("[GENRE-FIX] ✅ Modo genre detectado - aplicando targets oficiais");
         
-        // 🎯 USAR FUNÇÃO OFICIAL ÚNICA: getOfficialGenreTargets()
-        const officialGenreTargets = getOfficialGenreTargets(analysis);
+        // 🎯 USAR NOVA FUNÇÃO: extractGenreTargets (FONTE OFICIAL)
+        const officialGenreTargets = extractGenreTargets(analysis);
         
         if (officialGenreTargets) {
-            console.log("[GENRE-FIX] ✅ Targets encontrados via getOfficialGenreTargets() (FONTE OFICIAL)");
-            console.log("[FIX-TARGETS] Fonte validada: analysis.data.genreTargets");
+            console.log("[GENRE-FIX] ✅ Targets encontrados em analysis.data.genreTargets (FONTE OFICIAL)");
             console.log("[GENRE-FIX] Targets:", {
                 lufs_target: officialGenreTargets.lufs_target,
                 true_peak_target: officialGenreTargets.true_peak_target,
@@ -12337,44 +12203,14 @@ async function displayModalResults(analysis) {
                         
                         // 🎯 [GENRE-FIX] MODO GENRE: Injetar targets oficiais SOMENTE no modo genre
                         if (analysis.mode === "genre") {
-                            // ✅ USAR FUNÇÃO OFICIAL ÚNICA
-                            const officialGenreTargets = getOfficialGenreTargets(analysis);
+                            const officialGenreTargets = extractGenreTargets(analysis);
                             if (officialGenreTargets) {
-                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais via getOfficialGenreTargets()');
-                                console.log('[FIX-TARGETS] ✅ Targets validados:', Object.keys(officialGenreTargets));
-                                
-                                // 🔧 NORMALIZAR TARGETS PARA ULTRA_V2
-                                const normalizedForEngine = normalizeGenreTargets(officialGenreTargets);
-                                
-                                if (normalizedForEngine && normalizedForEngine.bands) {
-                                    // ✅ ULTRA_V2 recebe estrutura flat para extractTargetRange()
-                                    analysisContext.targetDataForEngine = normalizedForEngine.bands;
-                                    // ✅ Preservar targets completos para outros usos
-                                    analysisContext.genreTargets = normalizedForEngine;
-                                    
-                                    console.log('[ULTRA_V2] ✅ Targets normalizados para ULTRA_V2:', {
-                                        bandsCount: Object.keys(normalizedForEngine.bands).length,
-                                        bandNames: Object.keys(normalizedForEngine.bands).join(', '),
-                                        hasMinMax: Object.values(normalizedForEngine.bands).every(b => b.min !== undefined && b.max !== undefined)
-                                    });
-                                    
-                                    // Log de validação final
-                                    if (normalizedForEngine.bands.sub) {
-                                        console.log('[VALIDATION] Min/Max confirmados para SUB:', {
-                                            target_db: normalizedForEngine.bands.sub.target_db,
-                                            min: normalizedForEngine.bands.sub.min,
-                                            max: normalizedForEngine.bands.sub.max
-                                        });
-                                    }
-                                } else {
-                                    console.error('[ULTRA_V2] ❌ Normalização falhou');
-                                    analysisContext.targetDataForEngine = null;
-                                    analysisContext.genreTargets = null;
-                                }
+                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais de analysis.data.genreTargets');
+                                analysisContext.targetDataForEngine = officialGenreTargets;
+                                analysisContext.genreTargets = officialGenreTargets;
                             } else {
                                 // 🚨 MODO GENRE SEM TARGETS = ERRO CRÍTICO - NÃO USAR FALLBACK
                                 console.error('[ULTRA_V2] ❌ CRÍTICO: Modo genre mas targets não encontrados');
-                                console.error('[ULTRA_V2] 🚫 FALLBACK BLOQUEADO: Não usar PROD_AI_REF_DATA');
                                 console.error('[ULTRA_V2] analysis.data.genreTargets:', analysis?.data?.genreTargets);
                                 console.error('[ULTRA_V2] analysis.genre:', analysis?.genre);
                                 console.error('[ULTRA_V2] analysis.data.genre:', analysis?.data?.genre);
