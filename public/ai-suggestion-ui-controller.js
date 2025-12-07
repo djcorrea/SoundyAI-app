@@ -554,23 +554,32 @@ class AISuggestionUIController {
                 console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
-            // ✅ EXTRAIR genreTargets do payload
-            const genreTargets = analysis?.genreTargets || 
-                                 analysis?.data?.genreTargets || 
-                                 analysis?.result?.genreTargets ||
-                                 analysis?.customTargets ||
+            // ✅ EXTRAIR genreTargets do payload (ORDEM CORRIGIDA)
+            // 🎯 PRIORIDADE: 1) analysis.data.genreTargets (FONTE OFICIAL)
+            //                2) analysis.genreTargets (fallback válido)
+            //                3) analysis.result.genreTargets (legado)
+            //                4) analysis.customTargets (payload customizado)
+            const genreTargets = analysis?.data?.genreTargets ||    // ✅ SEMPRE PRIMEIRO
+                                 analysis?.genreTargets ||          // Fallback direto
+                                 analysis?.result?.genreTargets ||  // Legado
+                                 analysis?.customTargets ||         // Custom
                                  null;
             
             if (!genreTargets) {
                 console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não encontrado no payload - validação será ignorada');
                 console.log('[AI-UI][VALIDATION] Tentei:', {
-                    'analysis.genreTargets': !!analysis?.genreTargets,
                     'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
+                    'analysis.genreTargets': !!analysis?.genreTargets,
                     'analysis.result.genreTargets': !!analysis?.result?.genreTargets,
                     'analysis.customTargets': !!analysis?.customTargets
                 });
             } else {
                 console.log('[AI-UI][VALIDATION] ✅ genreTargets encontrado:', Object.keys(genreTargets));
+                console.log('[FIX-TARGETS] Fonte detectada:', 
+                    analysis?.data?.genreTargets ? 'analysis.data.genreTargets (OFICIAL)' :
+                    analysis?.genreTargets ? 'analysis.genreTargets (fallback)' :
+                    analysis?.result?.genreTargets ? 'analysis.result.genreTargets (legado)' :
+                    'analysis.customTargets (custom)');
             }
 
             // Renderiza imediatamente com genreTargets para validação
