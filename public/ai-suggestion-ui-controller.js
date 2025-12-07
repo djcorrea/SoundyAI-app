@@ -224,55 +224,71 @@ class AISuggestionUIController {
      * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
      * Suporta: camelCase, snake_case, strings JSON, aninhamento profundo
      * Busca recursiva garante detecção em qualquer estrutura
-     * 🔧 PRIORIDADE: userAnalysis.aiSuggestions (comparações A vs B)
+     * 🎯 PRIORIDADE CORRIGIDA: analysis.suggestions (pós-ULTRA_V2) > diagnostics > aiSuggestions > user.aiSuggestions
      */
     extractAISuggestions(analysis) {
         console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
-        // 🎯 PRIORIDADE 1: analysis.aiSuggestions (nível raiz - backend envia aqui)
-        if (Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: NÍVEL RAIZ`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
-                categoria: analysis.aiSuggestions[0]?.categoria,
-                problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
-                aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
+        // 🎯 PRIORIDADE 1: analysis.suggestions (fonte principal - pós-ULTRA_V2)
+        if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
+            // Verificar se já foram enriquecidas pelo ULTRA_V2
+            const s = analysis.suggestions;
+            const enriched = s.some(item =>
+                item.enriched === true ||
+                item.ai_enhanced === true ||
+                item.aiEnhanced === true ||
+                item.enrichmentSource ||
+                item.templateUsed
+            );
+
+            console.log('[AI-EXTRACT] 🧠 Usando analysis.suggestions como fonte principal', {
+                length: s.length,
+                enriched: enriched
             });
-            return analysis.aiSuggestions;
+
+            return s;
         }
 
-        // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
-        if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
-                categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
-                problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
+        // 🎯 PRIORIDADE 2: diagnostics.suggestions (caso o pipeline use isso)
+        if (analysis.diagnostics && Array.isArray(analysis.diagnostics.suggestions) && analysis.diagnostics.suggestions.length > 0) {
+            const s = analysis.diagnostics.suggestions;
+            console.log('[AI-EXTRACT] 🧠 Usando diagnostics.suggestions como fallback', {
+                length: s.length
             });
+            return s;
+        }
+
+        // 🎯 PRIORIDADE 3: aiSuggestions diretas
+        if (Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0) {
+            const s = analysis.aiSuggestions;
+            console.log('[AI-EXTRACT] 🧠 Usando analysis.aiSuggestions como fallback', {
+                length: s.length
+            });
+            return s;
+        }
+
+        // 🎯 PRIORIDADE 4: user.aiSuggestions (último fallback, que hoje é o padrão)
+        if (analysis.user && Array.isArray(analysis.user.aiSuggestions) && analysis.user.aiSuggestions.length > 0) {
+            const s = analysis.user.aiSuggestions;
+            console.log('[AI-EXTRACT] 🧠 Usando user.aiSuggestions como último fallback', {
+                length: s.length
+            });
+            return s;
+        }
+
+        // 🎯 FALLBACK LEGACY: userAnalysis.aiSuggestions (comparações A vs B)
+        if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis (legacy)`, 'color:#FFD700;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#FFD700;font-weight:bold;');
             return analysis.userAnalysis.aiSuggestions;
         }
         
-        // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
+        // 🎯 FALLBACK LEGACY: referenceAnalysis.aiSuggestions
         if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis (legacy)`, 'color:#FFD700;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#FFD700;font-weight:bold;');
             return analysis.referenceAnalysis.aiSuggestions;
-        }
-        
-        // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
-        if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
-            // Verificar se são sugestões IA (com aiEnhanced ou campos específicos)
-            const hasAIFields = analysis.suggestions.some(s => 
-                s.aiEnhanced === true || 
-                (s.categoria && s.problema && s.solucao)
-            );
-            
-            if (hasAIFields) {
-                console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
-                console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
-                return analysis.suggestions;
-            }
         }
 
         // 🔹 Função auxiliar de busca recursiva (fallback)
