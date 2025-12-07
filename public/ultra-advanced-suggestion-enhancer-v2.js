@@ -68,6 +68,67 @@ class UltraAdvancedSuggestionEnhancer {
     }
     
     /**
+     * 🎯 Extrair target_range correto do contexto
+     * @param {Object} suggestion - Sugestão do backend
+     * @param {Object} context - Contexto da análise
+     * @returns {Object|null} { min, max, center } ou null
+     */
+    extractTargetRange(suggestion, context) {
+        // Identificar métrica (ex: "band_sub" → "sub")
+        const metricKey = this.getMetricKey(suggestion);
+        if (!metricKey) return null;
+        
+        // Tentar acessar target_range do contexto
+        const targets = context.targetDataForEngine || context.genreTargets;
+        if (!targets || !targets[metricKey]) return null;
+        
+        const threshold = targets[metricKey];
+        
+        // Priorizar target_range se disponível
+        if (threshold.target_range && 
+            typeof threshold.target_range.min === 'number' && 
+            typeof threshold.target_range.max === 'number') {
+            return {
+                min: threshold.target_range.min,
+                max: threshold.target_range.max,
+                center: threshold.target || ((threshold.target_range.min + threshold.target_range.max) / 2)
+            };
+        }
+        
+        // Fallback: calcular range a partir de target±tolerance
+        if (typeof threshold.target === 'number' && typeof threshold.tolerance === 'number') {
+            return {
+                min: threshold.target - threshold.tolerance,
+                max: threshold.target + threshold.tolerance,
+                center: threshold.target
+            };
+        }
+        
+        return null;
+    }
+
+    /**
+     * 🔑 Extrair chave da métrica
+     * @param {Object} suggestion
+     * @returns {string|null}
+     */
+    getMetricKey(suggestion) {
+        const metric = suggestion.metric || suggestion.type;
+        
+        // Bandas espectrais: "band_sub" → "sub"
+        if (metric?.startsWith('band_')) {
+            return metric.replace('band_', '');
+        }
+        
+        // Métricas diretas: "lufs", "truePeak", "dr", "stereo"
+        if (['lufs', 'truePeak', 'dr', 'stereo'].includes(metric)) {
+            return metric;
+        }
+        
+        return null;
+    }
+    
+    /**
      * 🚀 Enriquecer sugestões existentes com conteúdo educacional ultra-avançado
      */
     enhanceExistingSuggestions(suggestions, analysisContext = {}) {
@@ -117,6 +178,9 @@ class UltraAdvancedSuggestionEnhancer {
     enhanceSingleSuggestion(suggestion, context) {
         const enhanced = { ...suggestion };
         
+        // 🎯 PATCH: Extrair target_range do contexto
+        const targetRange = this.extractTargetRange(suggestion, context);
+        
         // Detectar tipo de problema baseado no conteúdo da sugestão
         const problemType = this.detectProblemType(suggestion);
         const severity = this.calculateSeverity(suggestion);
@@ -125,8 +189,8 @@ class UltraAdvancedSuggestionEnhancer {
         // Adicionar conteúdo educacional ultra-avançado
         enhanced.educationalContent = {
             title: this.generateEducationalTitle(suggestion, problemType),
-            explanation: this.generateEducationalExplanation(suggestion, problemType, context),
-            action: this.generateDetailedAction(suggestion, problemType),
+            explanation: this.generateEducationalExplanation(suggestion, problemType, context, targetRange),
+            action: this.generateDetailedAction(suggestion, problemType, targetRange),
             dawExamples: dawInstructions,
             expectedResult: this.generateExpectedResult(suggestion, problemType),
             technicalDetails: this.generateTechnicalDetails(suggestion, problemType),
@@ -160,10 +224,23 @@ class UltraAdvancedSuggestionEnhancer {
      * 🔍 Detectar tipo de problema baseado no conteúdo
      */
     detectProblemType(suggestion) {
+        const metric = suggestion.metric || suggestion.type || '';
         const message = (suggestion.message || '').toLowerCase();
         const action = (suggestion.action || '').toLowerCase();
         const combined = message + ' ' + action;
         
+        // 🎯 PATCH: Priorizar suggestion.metric
+        if (metric.startsWith('band_')) {
+            const bandKey = metric.replace('band_', '');
+            return `spectral_band_${bandKey}`; // Ex: 'spectral_band_sub'
+        }
+        
+        if (metric === 'lufs') return 'loudness_issues';
+        if (metric === 'truePeak') return 'clipping';
+        if (metric === 'dr') return 'dynamics';
+        if (metric === 'stereo') return 'stereo_issues';
+        
+        // Fallback: heurística por palavras-chave
         if (combined.includes('sibilân') || combined.includes('sibilanc')) return 'sibilance';
         if (combined.includes('harsh') || combined.includes('áspero')) return 'harshness';
         if (combined.includes('mud') || combined.includes('turv')) return 'muddiness';
@@ -293,9 +370,44 @@ class UltraAdvancedSuggestionEnhancer {
     /**
      * 📖 Gerar explicação educacional detalhada
      */
-    generateEducationalExplanation(suggestion, problemType, context) {
+    generateEducationalExplanation(suggestion, problemType, context, targetRange) {
+        // 🎯 PATCH: Gerar explicação baseada em valores REAIS
+        
+        // Extrair valores numéricos (remover "dB" e converter)
+        const currentValue = parseFloat((suggestion.currentValue || '0').replace(/[^\d.-]/g, ''));
+        const delta = parseFloat((suggestion.delta || '0').replace(/[^\d.-]/g, ''));
+        
+        // Se temos targetRange, gerar texto preciso
+        if (targetRange) {
+            const { min, max, center } = targetRange;
+            const bandName = suggestion.bandName || suggestion.metric || 'este parâmetro';
+            
+            // Determinar posição no range
+            if (currentValue < min) {
+                const diff = Math.abs(currentValue - min);
+                return `O valor atual é ${currentValue.toFixed(1)} dB, mas o intervalo ideal para o gênero é ${min.toFixed(1)} a ${max.toFixed(1)} dB. Você está ${diff.toFixed(1)} dB abaixo do mínimo permitido.`;
+                
+            } else if (currentValue > max) {
+                const diff = Math.abs(currentValue - max);
+                return `O valor atual é ${currentValue.toFixed(1)} dB, mas o intervalo ideal para o gênero é ${min.toFixed(1)} a ${max.toFixed(1)} dB. Você está ${diff.toFixed(1)} dB acima do máximo permitido.`;
+                
+            } else {
+                // Dentro do range - OK
+                const distanceFromMin = currentValue - min;
+                const distanceFromMax = max - currentValue;
+                const closestEdge = Math.min(distanceFromMin, distanceFromMax);
+                
+                if (closestEdge < 1.0) {
+                    return `O valor atual é ${currentValue.toFixed(1)} dB, dentro do intervalo ideal (${min.toFixed(1)} a ${max.toFixed(1)} dB), mas próximo da borda. Monitore para não ultrapassar.`;
+                } else {
+                    return `Perfeito! O valor atual (${currentValue.toFixed(1)} dB) está confortavelmente dentro do intervalo ideal (${min.toFixed(1)} a ${max.toFixed(1)} dB) para o gênero.`;
+                }
+            }
+        }
+        
+        // Fallback: texto genérico (se não houver targetRange)
         const baseExplanation = this.educationalDatabase[problemType]?.explanation || 
-            'Este problema afeta a qualidade sonora e pode prejudicar a experiência auditiva.';
+            'Este parâmetro afeta o balanço espectral e pode impactar a qualidade final.';
             
         const genre = context.detectedGenre || 'geral';
         const genreContext = this.getGenreSpecificContext(problemType, genre);
@@ -331,10 +443,28 @@ class UltraAdvancedSuggestionEnhancer {
     /**
      * 🛠️ Gerar ação detalhada com contexto técnico
      */
-    generateDetailedAction(suggestion, problemType) {
+    generateDetailedAction(suggestion, problemType, targetRange) {
         const originalAction = suggestion.action || '';
-        const technicalDetails = this.generateTechnicalDetails(suggestion, problemType);
         
+        // 🎯 PATCH: Usar actionableGain se disponível
+        if (suggestion.actionableGain) {
+            const gain = suggestion.actionableGain;
+            const isIncrease = gain.startsWith('+');
+            const verb = isIncrease ? 'aumentar' : 'reduzir';
+            const absGain = Math.abs(parseFloat(gain.replace(/[^\d.-]/g, '')));
+            
+            let actionDetail = `${verb.charAt(0).toUpperCase() + verb.slice(1)} aproximadamente ${absGain.toFixed(1)} dB`;
+            
+            // Se for ajuste progressivo, avisar
+            if (suggestion.isProgressiveAdjustment) {
+                actionDetail += ` (ajuste progressivo recomendado - máximo ${suggestion.maxSingleAdjustment} por vez)`;
+            }
+            
+            return `${originalAction}\n\n🎯 Ação recomendada: ${actionDetail}`;
+        }
+        
+        // Fallback: usar ação original com detalhes técnicos
+        const technicalDetails = this.generateTechnicalDetails(suggestion, problemType);
         return `${originalAction}\n\n💡 Detalhes técnicos: ${technicalDetails}`;
     }
     
