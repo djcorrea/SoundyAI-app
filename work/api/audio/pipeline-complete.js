@@ -988,7 +988,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             }
           } else {
             console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
-            finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
+            finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode, customTargets);
             
             // � LOG DE DIAGNÓSTICO: Sugestões base geradas (fallback)
             console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (fallback): ${finalJSON.suggestions.length} itens`);
@@ -1006,7 +1006,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.error("[REFERENCE-MODE] ❌ Erro ao buscar referência:", refError.message);
           console.warn("[REFERENCE-MODE] Gerando sugestões avançadas como fallback");
           console.log('[REFERENCE-MODE-ERROR-FALLBACK] 🚀 Usando sistema avançado de sugestões com scoring.penalties');
-          finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
+          finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode, customTargets);
           
           // 🔍 LOG DE DIAGNÓSTICO: Sugestões avançadas geradas (error fallback)
           console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões avançadas detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
@@ -1615,13 +1615,15 @@ function generateComparisonSuggestions(deltas) {
  * @param {Object} scoring - Objeto de scoring com penalties array
  * @param {String} genre - Gênero para contexto
  * @param {String} mode - 'genre' ou 'reference'
+ * @param {Object} genreTargets - Targets reais do gênero (formato interno completo)
  * @returns {Array} Sugestões estruturadas prontas para ULTRA-V2
  */
-function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 'unknown', mode = 'genre') {
+function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 'unknown', mode = 'genre', genreTargets = null) {
   console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`[ADVANCED-SUGGEST] 🎯 Iniciando geração avançada`);
   console.log(`[ADVANCED-SUGGEST] Genre: ${genre}, Mode: ${mode}`);
   console.log(`[ADVANCED-SUGGEST] Penalties disponíveis: ${scoring?.penalties?.length || 0}`);
+  console.log(`[ADVANCED-SUGGEST] genreTargets disponíveis: ${genreTargets ? 'SIM' : 'NÃO'}`)  ;
   
   const suggestions = [];
   const penalties = scoring?.penalties || [];
@@ -1844,21 +1846,32 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
     
     if (knowledge) {
       // 🔧 MÉTRICA PRINCIPAL (LUFS, True Peak, DR, etc)
-      const metricData = getMetricValue(technicalData, key);
+      const metricData = getMetricValue(technicalData, key, genreTargets);
       if (!metricData) continue;
       
       const { value, target, unit } = metricData;
-      const delta = Math.abs(value - target);
+      let delta = value - target;
+      
+      // 🎯 LIMITAR AJUSTE A ±5 dB (regra de engenharia realista)
+      const MAX_ADJUSTMENT = 5.0;
+      const originalDelta = delta;
+      if (Math.abs(delta) > MAX_ADJUSTMENT) {
+        delta = delta > 0 ? MAX_ADJUSTMENT : -MAX_ADJUSTMENT;
+        console.log(`[ADVANCED-SUGGEST] ⚠️ Delta original ${originalDelta.toFixed(1)} limitado a ${delta.toFixed(1)} (max ±${MAX_ADJUSTMENT} dB)`);
+      }
       
       // Construir problema técnico
-      const problema = `${knowledge.tipoProblema} está em ${value.toFixed(2)}${unit} quando deveria estar próximo de ${target.toFixed(2)}${unit} (desvio de ${delta.toFixed(2)}${unit}, ${n.toFixed(1)}x a tolerância)`;
+      const problema = `${knowledge.tipoProblema} está em ${value.toFixed(2)}${unit} quando deveria estar próximo de ${target.toFixed(2)}${unit} (desvio de ${Math.abs(originalDelta).toFixed(2)}${unit}, ${n.toFixed(1)}x a tolerância)`;
       
       // Escolher causa provável baseada em severity
       const causaProvavel = knowledge.causas[severity === 'alta' ? 0 : (severity === 'media' ? 1 : 2)] || knowledge.causas[0];
       
-      // Construir solução
-      const direction = value > target ? 'reduzir' : 'aumentar';
-      const solucao = `${direction === 'reduzir' ? 'Reduzir' : 'Aumentar'} ${knowledge.tipoProblema.toLowerCase()} em ${delta.toFixed(2)}${unit} via ${knowledge.plugins[0].split(' ')[0].toLowerCase()}`;
+      // Construir solução com ajuste LIMITADO e REALISTA
+      const direction = delta > 0 ? 'reduzir' : 'aumentar';
+      const adjustmentText = Math.abs(originalDelta) > MAX_ADJUSTMENT 
+        ? `aproximadamente ${Math.abs(delta).toFixed(1)}${unit} (em etapas, ideal total: ${Math.abs(originalDelta).toFixed(1)}${unit})` 
+        : `${Math.abs(delta).toFixed(1)}${unit}`;
+      const solucao = `${direction === 'reduzir' ? 'Reduzir' : 'Aumentar'} ${knowledge.tipoProblema.toLowerCase()} em ${adjustmentText} via ${knowledge.plugins[0].split(' ')[0].toLowerCase()}`;
       
       // Plugin recomendado (escolher baseado em criticidade)
       const pluginRecomendado = severity === 'alta' ? knowledge.plugins[0] : knowledge.plugins[1] || knowledge.plugins[0];
@@ -1904,24 +1917,35 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
       const bandInfo = bandKnowledge[bandKey];
       if (!bandInfo) continue;
       
-      const bandData = getBandValue(technicalData, bandKey);
+      const bandData = getBandValue(technicalData, bandKey, genreTargets);
       if (!bandData) continue;
       
       const { value, targetMin, targetMax } = bandData;
       const isBelow = value < targetMin;
-      const delta = isBelow ? (targetMin - value) : (value - targetMax);
+      let delta = isBelow ? (targetMin - value) : (value - targetMax);
       
-      const problema = `${bandInfo.nome} está em ${value.toFixed(1)} dB quando deveria estar entre ${targetMin} e ${targetMax} dB (${isBelow ? 'abaixo' : 'acima'} em ${delta.toFixed(1)} dB)`;
+      // 🎯 LIMITAR AJUSTE A ±5 dB (regra de engenharia realista para EQ)
+      const MAX_ADJUSTMENT_BAND = 5.0;
+      const originalDelta = delta;
+      if (Math.abs(delta) > MAX_ADJUSTMENT_BAND) {
+        delta = delta > 0 ? MAX_ADJUSTMENT_BAND : -MAX_ADJUSTMENT_BAND;
+        console.log(`[ADVANCED-SUGGEST] ⚠️ Delta banda ${bandKey}: ${originalDelta.toFixed(1)} limitado a ${delta.toFixed(1)} (max ±${MAX_ADJUSTMENT_BAND} dB)`);
+      }
+      
+      const problema = `${bandInfo.nome} está em ${value.toFixed(1)} dB quando deveria estar entre ${targetMin} e ${targetMax} dB (${isBelow ? 'abaixo' : 'acima'} em ${originalDelta.toFixed(1)} dB)`;
       
       const causaProvavel = bandInfo.causas[isBelow ? 0 : 1] || bandInfo.causas[0];
       
-      const solucao = `${isBelow ? 'Aumentar' : 'Reduzir'} ${bandInfo.nome} em ${isBelow ? '+' : '-'}${delta.toFixed(1)} dB via EQ paramétrico`;
+      const adjustmentText = Math.abs(originalDelta) > MAX_ADJUSTMENT_BAND 
+        ? `aproximadamente ${Math.abs(delta).toFixed(1)} dB (em etapas, ideal total: ${Math.abs(originalDelta).toFixed(1)} dB)` 
+        : `${Math.abs(delta).toFixed(1)} dB`;
+      const solucao = `${isBelow ? 'Aumentar' : 'Reduzir'} ${bandInfo.nome} em ${adjustmentText} usando EQ bell suave (Q ~1.0-2.0)`;
       
       const pluginRecomendado = bandInfo.plugins[0];
       
       const dicaExtra = bandInfo.dicas[0];
       
-      const parametros = `Q: 0.7-1.5, Frequency: centro da banda, Gain: ${isBelow ? '+' : '-'}${delta.toFixed(1)} dB`;
+      const parametros = `Q: 1.0-2.0, Frequency: centro da banda, Gain: ${isBelow ? '+' : '-'}${Math.abs(delta).toFixed(1)} dB`;
       
       suggestions.push({
         type: 'eq',
@@ -1972,28 +1996,37 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
 /**
  * 🔍 Extrair valor de métrica de technicalData
  */
-function getMetricValue(technicalData, key) {
-  const map = {
-    truePeakDbtp: { path: 'truePeak.maxDbtp', target: -1.0, unit: ' dBTP' },
-    lufsIntegrated: { path: 'lufs.integrated', target: -10.5, unit: ' LUFS' },
-    dynamicRange: { path: 'dynamics.range', target: 9.0, unit: ' dB' },
-    stereoCorrelation: { path: 'stereoCorrelation', target: 0.85, unit: '' },
-    lra: { path: 'lufs.lra', target: 2.5, unit: ' LU' }
+function getMetricValue(technicalData, key, genreTargets) {
+  const pathMap = {
+    truePeakDbtp: { path: 'truePeak.maxDbtp', targetPath: 'truePeak.target', fallback: -1.0, unit: ' dBTP' },
+    lufsIntegrated: { path: 'lufs.integrated', targetPath: 'lufs.target', fallback: -10.5, unit: ' LUFS' },
+    dynamicRange: { path: 'dynamics.range', targetPath: 'dr.target', fallback: 9.0, unit: ' dB' },
+    stereoCorrelation: { path: 'stereoCorrelation', targetPath: 'stereo.target', fallback: 0.85, unit: '' },
+    lra: { path: 'lufs.lra', targetPath: 'lra.target', fallback: 2.5, unit: ' LU' }
   };
   
-  const config = map[key];
+  const config = pathMap[key];
   if (!config) return null;
   
   const value = getNestedValue(technicalData, config.path);
   if (!Number.isFinite(value)) return null;
   
-  return { value, target: config.target, unit: config.unit };
+  let target = config.fallback;
+  if (genreTargets) {
+    const realTarget = getNestedValue(genreTargets, config.targetPath);
+    if (Number.isFinite(realTarget)) {
+      target = realTarget;
+      console.log(`[ADVANCED-SUGGEST] ✅ Usando target REAL para ${key}: ${target}`);
+    }
+  }
+  
+  return { value, target, unit: config.unit };
 }
 
 /**
  * 🔍 Extrair valor de banda espectral
  */
-function getBandValue(technicalData, bandKey) {
+function getBandValue(technicalData, bandKey, genreTargets) {
   const bands = technicalData.spectralBands;
   if (!bands || !bands[bandKey]) return null;
   
@@ -2001,27 +2034,37 @@ function getBandValue(technicalData, bandKey) {
   const value = bandData.energy_db;
   if (!Number.isFinite(value)) return null;
   
-  // Ranges de referência (mesmos do scoring)
-  const ranges = {
-    sub: { min: -38, max: -28 },
-    bass: { min: -31, max: -25 },
-    low_bass: { min: -32, max: -24 },
-    upper_bass: { min: -33, max: -26 },
-    lowMid: { min: -28, max: -22 },
-    low_mid: { min: -34, max: -28 },
-    mid: { min: -23, max: -17 },
-    highMid: { min: -20, max: -14 },
-    high_mid: { min: -42, max: -33 },
-    presence: { min: -23, max: -17 },
-    presenca: { min: -44, max: -33 },
-    air: { min: -30, max: -24 },
-    brilho: { min: -48, max: -32 }
-  };
+  // 🎯 Ler range REAL de genreTargets.bands (se disponível)
+  let targetMin, targetMax;
   
-  const range = ranges[bandKey];
-  if (!range) return null;
+  if (genreTargets?.bands?.[bandKey]?.target_range) {
+    targetMin = genreTargets.bands[bandKey].target_range.min;
+    targetMax = genreTargets.bands[bandKey].target_range.max;
+    console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL para ${bandKey}: [${targetMin}, ${targetMax}]`);
+  } else {
+    // ❌ Fallback hardcoded (APENAS se genreTargets não disponível)
+    const fallbackRanges = {
+      sub: { min: -38, max: -28 },
+      bass: { min: -31, max: -25 },
+      low_bass: { min: -32, max: -24 },
+      upper_bass: { min: -33, max: -26 },
+      lowMid: { min: -28, max: -22 },
+      low_mid: { min: -34, max: -28 },
+      mid: { min: -23, max: -17 },
+      highMid: { min: -20, max: -14 },
+      high_mid: { min: -42, max: -33 },
+      presence: { min: -23, max: -17 },
+      presenca: { min: -44, max: -33 },
+      air: { min: -30, max: -24 },
+      brilho: { min: -48, max: -32 }
+    };
+    const range = fallbackRanges[bandKey];
+    if (!range) return null;
+    targetMin = range.min;
+    targetMax = range.max;
+  }
   
-  return { value, targetMin: range.min, targetMax: range.max };
+  return { value, targetMin, targetMax };
 }
 
 /**
@@ -2034,12 +2077,12 @@ function getNestedValue(obj, path) {
 /**
  * 🔧 FUNÇÃO LEGADA: Mantida para compatibilidade (agora usa o sistema avançado internamente)
  */
-function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode = 'genre') {
+function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode = 'genre', genreTargets = null) {
   console.log(`[LEGACY-SUGGEST] ⚠️ Função legada chamada - redirecionando para sistema avançado`);
   
   // Se houver scoring disponível, usar sistema avançado
   if (technicalData.scoring && technicalData.scoring.penalties) {
-    return generateAdvancedSuggestionsFromScoring(technicalData, technicalData.scoring, genre, mode);
+    return generateAdvancedSuggestionsFromScoring(technicalData, technicalData.scoring, genre, mode, genreTargets);
   }
   
   // Fallback: Sistema simples (apenas True Peak e LUFS)
