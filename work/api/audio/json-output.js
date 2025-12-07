@@ -960,20 +960,20 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     data: {
       genre: finalGenre,
       genreTargets: options.genreTargets ? {
-        // ✅ PADRONIZAÇÃO: Remover _target suffix para compatibilidade frontend
-        lufs: options.genreTargets.lufs_target ?? options.genreTargets.lufs ?? null,
-        true_peak: options.genreTargets.true_peak_target ?? options.genreTargets.true_peak ?? null,
-        dr: options.genreTargets.dr_target ?? options.genreTargets.dr ?? null,
-        lra: options.genreTargets.lra_target ?? options.genreTargets.lra ?? null,
-        stereo: options.genreTargets.stereo_target ?? options.genreTargets.stereo ?? null,
-        // ✅ PADRONIZAÇÃO: Renomear bands → spectral_bands
+        // ✅ CORREÇÃO: Extrair .target de objetos nested (formato interno)
+        lufs: options.genreTargets.lufs?.target ?? null,
+        true_peak: options.genreTargets.truePeak?.target ?? null,
+        dr: options.genreTargets.dr?.target ?? null,
+        lra: options.genreTargets.lra?.target ?? null,
+        stereo: options.genreTargets.stereo?.target ?? null,
+        // ✅ CORREÇÃO: Bandas já estão em formato correto (nested com .target)
         spectral_bands: options.genreTargets.bands ?? options.genreTargets.spectral_bands ?? null,
         // Preservar tolerâncias se existirem
-        tol_lufs: options.genreTargets.tol_lufs ?? null,
-        tol_true_peak: options.genreTargets.tol_true_peak ?? null,
-        tol_dr: options.genreTargets.tol_dr ?? null,
-        tol_lra: options.genreTargets.tol_lra ?? null,
-        tol_stereo: options.genreTargets.tol_stereo ?? null
+        tol_lufs: options.genreTargets.lufs?.tolerance ?? null,
+        tol_true_peak: options.genreTargets.truePeak?.tolerance ?? null,
+        tol_dr: options.genreTargets.dr?.tolerance ?? null,
+        tol_lra: options.genreTargets.lra?.tolerance ?? null,
+        tol_stereo: options.genreTargets.stereo?.tolerance ?? null
       } : null
     }
   };

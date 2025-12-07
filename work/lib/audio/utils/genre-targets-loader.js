@@ -100,12 +100,20 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] Top-level keys:', Object.keys(parsed));
     
     // Extrair targets do primeiro nível (formato: { "funk_mandela": { ... } })
-    const rawTargets = parsed[normalizedGenre] || parsed;
+    const genreData = parsed[normalizedGenre] || parsed;
+    console.log('[TARGET-LOADER] genreData keys:', Object.keys(genreData || {}));
+    
+    // 🎯 PRIORIZAR legacy_compatibility → hybrid_processing → objeto direto
+    const rawTargets = genreData.legacy_compatibility || genreData.hybrid_processing || genreData;
+    const blockUsed = genreData.legacy_compatibility ? 'legacy_compatibility' : 
+                      genreData.hybrid_processing ? 'hybrid_processing' : 
+                      'direct_object';
     
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] EXTRAÇÃO DE TARGETS:');
     console.log('[TARGET-LOADER] normalizedGenre:', normalizedGenre);
     console.log('[TARGET-LOADER] parsed[normalizedGenre] existe?', !!parsed[normalizedGenre]);
+    console.log('[TARGET-LOADER] 🎯 BLOCO USADO:', blockUsed);
     console.log('[TARGET-LOADER] rawTargets keys:', Object.keys(rawTargets || {}));
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
