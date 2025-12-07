@@ -3708,23 +3708,6 @@ function extractGenreTargets(json, genreName) {
     console.log('[EXTRACT-TARGETS] 🔍 Extraindo targets para:', genreName);
     console.log('[EXTRACT-TARGETS] 📦 JSON recebido:', json);
     
-    // 🎯 CORREÇÃO CRÍTICA: Se JSON é um objeto analysis com data.genreTargets, usar isso primeiro
-    if (json && typeof json === 'object' && json.mode === 'genre' && json.data && json.data.genreTargets) {
-        console.log('[EXTRACT-TARGETS] ✅ JSON é um objeto analysis - usando analysis.data.genreTargets diretamente');
-        console.log('[EXTRACT-TARGETS] 🎯 Genre detectado:', json.data.genre || genreName);
-        
-        return {
-            targets: json.data.genreTargets.spectral_bands || json.data.genreTargets.bands || json.data.genreTargets,
-            targetSource: 'analysis.data.genreTargets',
-            genre: json.data.genre || genreName,
-            lufs_target: json.data.genreTargets.lufs_target,
-            true_peak_target: json.data.genreTargets.true_peak_target,
-            dr_target: json.data.genreTargets.dr_target,
-            stereo_target: json.data.genreTargets.stereo_target,
-            version: json.data.genreTargets.version || 'analysis'
-        };
-    }
-    
     // 1. Identificar o root real do gênero
     let root = null;
     
@@ -12299,23 +12282,6 @@ async function displayModalResults(analysis) {
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
-
-                // 🔄 [SYNC] Sincronizar fontes alternativas para compatibilidade com AI-UI
-                if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
-                    // Sincronizar aiSuggestions
-                    analysis.aiSuggestions = analysis.suggestions;
-
-                    // Sincronizar user.aiSuggestions
-                    if (!analysis.user) {
-                        analysis.user = {};
-                    }
-                    analysis.user.aiSuggestions = analysis.suggestions;
-
-                    console.log('[ULTRA_V2][SYNC] 🔄 Sincronizando suggestions → aiSuggestions & user.aiSuggestions', {
-                        length: analysis.suggestions.length,
-                        source: 'post-ULTRA_V2'
-                    });
-                }
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
