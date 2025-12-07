@@ -18127,14 +18127,16 @@ function updateReferenceSuggestions(analysis) {
             // Substituir analysis pelo resultado protegido
             analysis = enhancedAnalysis;
             
-            // 🔧 CORREÇÃO CRÍTICA: Guardar sugestões antigas apenas para debug/fallback
-            // NÃO MISTURAR sugestões antigas com novas - isso causa contradições!
-            const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
-            analysis.backendSuggestions = existingSuggestions; // Para debug ou fallback extremo
+            // 🎯 PATCH 1: PRESERVAR sugestões backend SEM sobrescrever
+            // Guardar sugestões originais (backend) separadamente
+            const backendOriginalSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
+            analysis.backendSuggestions = backendOriginalSuggestions; // Sugestões originais do backend
             
-            // 🎯 USAR APENAS SUGESTÕES DO ENHANCED ENGINE
-            // Cards e tabela devem mostrar OS MESMOS valores - sem mistura!
-            analysis.suggestions = enhancedAnalysis.suggestions;
+            // Enhanced Engine cria campo SEPARADO - NÃO sobrescreve analysis.suggestions
+            analysis.enhancedSuggestions = enhancedAnalysis.suggestions; // Sugestões recalculadas
+            
+            // ✅ analysis.suggestions permanece com valores BACKEND (não sobrescrever)
+            // Cards agora podem escolher qual usar verificando genreTargets
             
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {

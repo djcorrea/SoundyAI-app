@@ -1249,6 +1249,18 @@ class EnhancedSuggestionEngine {
             // Encontrar nome normalizado
             const normalizedBandName = bandMappings[sourceBand] || sourceBand;
             
+            // 🎯 PATCH 2: Extrair target_range.min/max do referenceData para bandas
+            // Buscar target_range em referenceData.spectral_bands[normalizedBandName]
+            const refBandData = referenceData?.spectral_bands?.[normalizedBandName];
+            if (refBandData?.target_range) {
+                // Injetar min/max no data para uso posterior
+                if (typeof data === 'object') {
+                    data.targetMin = refBandData.target_range.min;
+                    data.targetMax = refBandData.target_range.max;
+                    data.hasTargetRange = true;
+                }
+            }
+            
             let rmsValue;
             
             // Verificar se é um número direto ou objeto
@@ -1884,21 +1896,25 @@ class EnhancedSuggestionEngine {
                             rangeBasedLogic: true
                         });
                         
-                        // 🎯 MENSAGENS COMPLETAS ORIGINAIS COM VALORES
+                        // 🎯 PATCH 3: MENSAGENS COM VALORES REAIS DO target_range.min/max
                         const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
                         const amount = Math.abs(calculatedDelta).toFixed(1);
-                        const rangeText = `${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} dB`;
+                        const rangeText = `${targetRange.min} a ${targetRange.max} dB`;
                         
+                        // ✅ GARANTIR que target_range apareça nas mensagens
                         suggestion.action = `${direction} entre ${amount} e ${(parseFloat(amount) + 1).toFixed(1)} dB`;
-                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Range ideal: ${rangeText}`;
-                        suggestion.message = `${direction} ${band}`;
-                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB | Intervalo ideal: ${rangeText}`;
+                        suggestion.message = `${direction} ${band} para range ideal`;
+                        suggestion.why = `Banda ${band} está fora do intervalo ideal (${rangeText}) para o gênero`;
                         
-                        // Dados técnicos específicos para ranges
+                        // ✅ DADOS TÉCNICOS com min/max explícitos
                         suggestion.technical = {
                             delta: calculatedDelta,
                             currentValue: value,
                             targetRange: targetRange,
+                            targetMin: targetRange.min, // 🎯 EXPLÍCITO
+                            targetMax: targetRange.max, // 🎯 EXPLÍCITO
+                            idealRange: rangeText,       // 🎯 TEXTO FORMATADO
                             distanceFromRange: Math.abs(calculatedDelta),
                             withinRange: false,
                             rangeSize: targetRange.max - targetRange.min
