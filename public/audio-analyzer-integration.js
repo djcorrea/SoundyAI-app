@@ -120,66 +120,66 @@ function extractGenreFromAnalysis(analysis) {
 console.log('✅ Genre Targets Utils carregado');
 
 // ═══════════════════════════════════════════════════════════════════
-// 🎯 GENRE-ONLY EXTRACTION UTILS - NUNCA AFETAM REFERENCE
+// 🎯 FUNÇÃO ÚNICA CENTRALIZADA - getOfficialGenreTargets()
 // ═══════════════════════════════════════════════════════════════════
 /**
- * Extrai targets SOMENTE no modo genre
- * ⚠️ IMPORTANTE: Retorna null se não for modo genre
+ * 🔧 FUNÇÃO OFICIAL PARA OBTER TARGETS DO GÊNERO
+ * ⚠️ NUNCA USA PROD_AI_REF_DATA COMO FALLBACK SE analysis.data.genreTargets EXISTIR
  * @param {Object} analysis - Objeto de análise
  * @returns {Object|null} Targets do gênero ou null
  */
-function extractGenreTargets(analysis) {
+function getOfficialGenreTargets(analysis) {
     // 🛡️ BARREIRA: Só funciona em modo genre
     if (analysis?.mode !== "genre") {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Não é modo genre, retornando null');
+        console.log('[FIX-TARGETS] ⚠️ Não é modo genre, retornando null');
         return null;
     }
     
-    console.log('[GENRE-ONLY-UTILS] 🎯 Extraindo targets no modo GENRE');
+    console.log('[FIX-TARGETS] 🎯 Extraindo targets no modo GENRE (função oficial)');
     
-    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
+    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (SEMPRE PRIMEIRO - FONTE OFICIAL)
     if (analysis?.data?.genreTargets) {
-        console.log('[GENRE-ONLY-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
+        console.log('[FIX-TARGETS] ✅ Usando source: analysis.data.genreTargets');
+        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.data.genreTargets));
+        console.log('[FIX-TARGETS] 🚫 Fallback bloqueado (PROD_AI_REF_DATA ignorado)');
         return analysis.data.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
+    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback válido)
     if (analysis?.genreTargets) {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
+        console.log('[FIX-TARGETS] ⚠️ Fallback: analysis.genreTargets');
+        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.genreTargets));
         return analysis.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 3: analysis.result.genreTargets
+    // 🎯 PRIORIDADE 3: analysis.result.genreTargets (último fallback válido)
     if (analysis?.result?.genreTargets) {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.result.genreTargets (fallback)');
+        console.log('[FIX-TARGETS] ⚠️ Fallback: analysis.result.genreTargets');
+        console.log('[FIX-TARGETS] Keys disponíveis:', Object.keys(analysis.result.genreTargets));
         return analysis.result.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 4: window.__activeRefData (VALIDAR GÊNERO)
+    // ❌ CRÍTICO: Modo genre sem targets - NÃO USAR PROD_AI_REF_DATA
     const genre = extractGenreName(analysis);
-    if (window.__activeRefData) {
-        // ✅ Validar se gênero bate antes de usar
-        const activeGenre = window.__activeRefData.genre || window.__activeRefData.data?.genre;
-        if (activeGenre === genre) {
-            console.log('[GENRE-ONLY-UTILS] ⚠️ Usando window.__activeRefData (gênero validado:', genre, ')');
-            return window.__activeRefData.targets || window.__activeRefData;
-        } else {
-            console.warn('[GENRE-ONLY-UTILS] ⚠️ window.__activeRefData ignorado - gênero diferente:', activeGenre, '≠', genre);
-        }
-    }
-    
-    // 🎯 PRIORIDADE 5: PROD_AI_REF_DATA[genre]
-    if (typeof PROD_AI_REF_DATA !== 'undefined' && PROD_AI_REF_DATA[genre]) {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Usando PROD_AI_REF_DATA[' + genre + '] (último recurso)');
-        return PROD_AI_REF_DATA[genre];
-    }
-    
-    // ❌ MODO GENRE SEM TARGETS = ERRO CRÍTICO
-    console.error('[GENRE-ONLY-UTILS] ❌ CRÍTICO: Modo genre mas targets não encontrados em NENHUMA fonte');
-    console.error('[GENRE-ONLY-UTILS] Gênero:', genre);
-    console.error('[GENRE-ONLY-UTILS] analysis.data:', analysis?.data);
+    console.error('[FIX-TARGETS] ❌ CRÍTICO: Modo genre mas targets não encontrados');
+    console.error('[FIX-TARGETS] 🚫 PROD_AI_REF_DATA bloqueado (não usar fallback genérico)');
+    console.error('[FIX-TARGETS] Gênero detectado:', genre);
+    console.error('[FIX-TARGETS] analysis.data:', analysis?.data);
+    console.error('[FIX-TARGETS] analysis.genreTargets:', analysis?.genreTargets);
+    console.error('[FIX-TARGETS] analysis.result.genreTargets:', analysis?.result?.genreTargets);
     return null;
 }
+
+/**
+ * @deprecated Use getOfficialGenreTargets() em vez desta função
+ * Mantida apenas para compatibilidade legada
+ */
+function extractGenreTargets(analysis) {
+    console.warn('[DEPRECATED] extractGenreTargets() está obsoleta - use getOfficialGenreTargets()');
+    return getOfficialGenreTargets(analysis);
+}
+
+console.log('✅ getOfficialGenreTargets() - Função única de targets carregada');
 
 /**
  * Extrai nome do gênero SOMENTE no modo genre
@@ -11392,11 +11392,12 @@ async function displayModalResults(analysis) {
     if (isGenreMode) {
         console.log("[GENRE-FIX] ✅ Modo genre detectado - aplicando targets oficiais");
         
-        // 🎯 USAR NOVA FUNÇÃO: extractGenreTargets (FONTE OFICIAL)
-        const officialGenreTargets = extractGenreTargets(analysis);
+        // 🎯 USAR FUNÇÃO OFICIAL ÚNICA: getOfficialGenreTargets()
+        const officialGenreTargets = getOfficialGenreTargets(analysis);
         
         if (officialGenreTargets) {
-            console.log("[GENRE-FIX] ✅ Targets encontrados em analysis.data.genreTargets (FONTE OFICIAL)");
+            console.log("[GENRE-FIX] ✅ Targets encontrados via getOfficialGenreTargets() (FONTE OFICIAL)");
+            console.log("[FIX-TARGETS] Fonte validada: analysis.data.genreTargets");
             console.log("[GENRE-FIX] Targets:", {
                 lufs_target: officialGenreTargets.lufs_target,
                 true_peak_target: officialGenreTargets.true_peak_target,
@@ -12203,14 +12204,25 @@ async function displayModalResults(analysis) {
                         
                         // 🎯 [GENRE-FIX] MODO GENRE: Injetar targets oficiais SOMENTE no modo genre
                         if (analysis.mode === "genre") {
-                            const officialGenreTargets = extractGenreTargets(analysis);
+                            // ✅ USAR FUNÇÃO OFICIAL ÚNICA
+                            const officialGenreTargets = getOfficialGenreTargets(analysis);
                             if (officialGenreTargets) {
-                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais de analysis.data.genreTargets');
+                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais via getOfficialGenreTargets()');
+                                console.log('[FIX-TARGETS] ✅ Targets validados:', Object.keys(officialGenreTargets));
                                 analysisContext.targetDataForEngine = officialGenreTargets;
                                 analysisContext.genreTargets = officialGenreTargets;
+                                
+                                // Log de validação final
+                                if (officialGenreTargets.spectral_bands?.sub?.target_range) {
+                                    console.log('[VALIDATION] Min/Max confirmados para SUB:', {
+                                        min: officialGenreTargets.spectral_bands.sub.target_range.min,
+                                        max: officialGenreTargets.spectral_bands.sub.target_range.max
+                                    });
+                                }
                             } else {
                                 // 🚨 MODO GENRE SEM TARGETS = ERRO CRÍTICO - NÃO USAR FALLBACK
                                 console.error('[ULTRA_V2] ❌ CRÍTICO: Modo genre mas targets não encontrados');
+                                console.error('[ULTRA_V2] 🚫 FALLBACK BLOQUEADO: Não usar PROD_AI_REF_DATA');
                                 console.error('[ULTRA_V2] analysis.data.genreTargets:', analysis?.data?.genreTargets);
                                 console.error('[ULTRA_V2] analysis.genre:', analysis?.genre);
                                 console.error('[ULTRA_V2] analysis.data.genre:', analysis?.data?.genre);
