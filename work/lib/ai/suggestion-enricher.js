@@ -509,7 +509,11 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
       };
       
       Object.entries(targets.bands).forEach(([band, data]) => {
-        if (data.target_db !== undefined) {
+        // PATCH: Priorizar target_range quando disponível
+        if (data.target_range && data.target_range.min !== undefined && data.target_range.max !== undefined) {
+          const label = bandLabels[band] || band;
+          prompt += `  - **${label}**: Range ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB (tolerado)\n`;
+        } else if (data.target_db !== undefined) {
           const label = bandLabels[band] || band;
           const min = data.min_db !== undefined ? data.min_db : (data.target_db - (data.tol_db || 2));
           const max = data.max_db !== undefined ? data.max_db : (data.target_db + (data.tol_db || 2));
