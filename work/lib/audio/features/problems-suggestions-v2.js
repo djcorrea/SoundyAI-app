@@ -442,8 +442,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
-    const diff = truePeak - tpThreshold.target; // True peak sempre comparado "acima"
-    const severity = this.calculateSeverityForTruePeak(diff, tpThreshold.tolerance, tpThreshold.critical || tpThreshold.tolerance * 1.5);
+    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
+    const bounds = this.getRangeBounds(tpThreshold);
+    let diff;
+    if (truePeak < bounds.min) {
+      diff = truePeak - bounds.min; // Negativo (muito baixo, improvável)
+    } else if (truePeak > bounds.max) {
+      diff = truePeak - bounds.max; // Positivo (acima do limite - CRÍTICO)
+    } else {
+      diff = 0; // Dentro do range seguro
+    }
+    
+    const severity = this.calculateSeverity(Math.abs(diff), tpThreshold.tolerance, tpThreshold.critical || tpThreshold.tolerance * 1.5);
     
     let message, explanation, action;
     
@@ -482,8 +492,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     if (!Number.isFinite(dr)) return;
     
     const threshold = this.thresholds.dr;
-    // 🎯 USAR SISTEMA ESPECÍFICO PARA DYNAMIC RANGE
-    const severity = this.calculateDynamicRangeSeverity(dr, threshold);
+    
+    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
+    const bounds = this.getRangeBounds(threshold);
+    let diff;
+    if (dr < bounds.min) {
+      diff = dr - bounds.min; // Negativo (precisa aumentar)
+    } else if (dr > bounds.max) {
+      diff = dr - bounds.max; // Positivo (precisa reduzir)
+    } else {
+      diff = 0; // Dentro do range
+    }
+    
+    const severity = this.calculateSeverity(Math.abs(diff), threshold.tolerance, threshold.critical || threshold.tolerance * 1.5);
     
     let message, explanation, action;
     
@@ -546,7 +567,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
-    const diff = Math.abs(correlation - stereoThreshold.target);
+    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
+    const bounds = this.getRangeBounds(stereoThreshold);
+    let rawDiff;
+    if (correlation < bounds.min) {
+      rawDiff = correlation - bounds.min; // Negativo (muito estreito)
+    } else if (correlation > bounds.max) {
+      rawDiff = correlation - bounds.max; // Positivo (muito largo)
+    } else {
+      rawDiff = 0; // Dentro do range ideal
+    }
+    
+    const diff = Math.abs(rawDiff);
     const severity = this.calculateSeverity(diff, stereoThreshold.tolerance, stereoThreshold.critical || stereoThreshold.tolerance * 1.5);
     
     let message, explanation, action;
