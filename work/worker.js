@@ -445,6 +445,20 @@ async function processJob(job) {
     console.log('[AUDIT-WORKER] job.data.genreTargets:', job.data?.genreTargets ? 'PRESENTE' : 'AUSENTE');
     console.log('[AUDIT-WORKER] extractedGenre:', extractedGenre);
     console.log('[AUDIT-WORKER] finalGenre (trimmed):', finalGenre);
+    console.log('[AUDIT-WORKER] finalGenreTargets:', finalGenreTargets ? 'PRESENTE' : 'AUSENTE');
+    
+    // 🔥 FASE 2 CIRÚRGICA: LOG DETALHADO DOS GENRETARGETS
+    if (finalGenreTargets) {
+      console.log('[AUDIT-WORKER] 📊 genreTargets ESTRUTURA:', {
+        hasLufsTarget: !!finalGenreTargets.lufs_target,
+        hasTruePeakTarget: !!finalGenreTargets.true_peak_target,
+        hasDrTarget: !!finalGenreTargets.dr_target,
+        hasBands: !!finalGenreTargets.bands,
+        bandsKeys: finalGenreTargets.bands ? Object.keys(finalGenreTargets.bands) : 'N/A'
+      });
+    } else {
+      console.warn('[AUDIT-WORKER] ⚠️ genreTargets AUSENTE - Pipeline não terá contexto de targets');
+    }
     console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     const options = {

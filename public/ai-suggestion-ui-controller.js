@@ -814,9 +814,23 @@ class AISuggestionUIController {
         // Mostrar grid de conteúdo
         this.elements.aiContent.style.display = 'grid';
         
-        // Verificar se são sugestões IA ou base
-        const aiEnhancedCount = suggestions.filter(s => s.aiEnhanced === true).length;
+        // 🔥 FASE 2 CIRÚRGICA - ROOT CAUSE #4: Validação robusta de aiEnhanced
+        // PROBLEMA: filter(s => s.aiEnhanced === true) aceita falsos positivos
+        // SOLUÇÃO: Validar também presença de campos técnicos obrigatórios
+        const aiEnhancedCount = suggestions.filter(s => 
+            s.aiEnhanced === true &&
+            s.categoria &&
+            s.causaProvavel &&
+            s.pluginRecomendado
+        ).length;
         const isAIEnriched = aiEnhancedCount > 0;
+        
+        console.log('[AI-UI][RENDER] 🔍 Validação de enriquecimento:', {
+            total: suggestions.length,
+            aiEnhancedFlag: suggestions.filter(s => s.aiEnhanced === true).length,
+            aiEnhancedValidated: aiEnhancedCount,
+            difference: suggestions.filter(s => s.aiEnhanced === true).length - aiEnhancedCount
+        });
         
         // 🧩 ETAPA 2 — CORREÇÃO DE TEMPLATE
         // 🚀 Forçar template correto se for IA enriquecida
