@@ -120,6 +120,129 @@ function extractGenreFromAnalysis(analysis) {
 console.log('✅ Genre Targets Utils carregado');
 
 // ═══════════════════════════════════════════════════════════════════
+// 🔧 NORMALIZAÇÃO UNIVERSAL DE TARGETS - SUPORTE MODERNO + LEGADO
+// ═══════════════════════════════════════════════════════════════════
+/**
+ * 🔧 NORMALIZA TARGETS DE QUALQUER FORMATO PARA O ESPERADO PELO SCORE
+ * Suporta JSON moderno (spectral_bands) e legado (bands)
+ * @param {Object} raw - Targets crus do backend
+ * @returns {Object|null} Targets normalizados
+ */
+function normalizeGenreTargets(raw) {
+    if (!raw || typeof raw !== 'object') {
+        console.warn('[NORMALIZE] ⚠️ Input inválido');
+        return null;
+    }
+
+    console.log('[NORMALIZE] 🔧 Normalizando targets...');
+    console.log('[NORMALIZE] Input keys:', Object.keys(raw));
+
+    // Copiar campos escalares (lufs, dr, stereo, tolerâncias)
+    const out = { ...raw };
+
+    // 🎯 FONTE DE BANDAS: spectral_bands (moderno) OU bands (legado)
+    const spectral = raw.spectral_bands || raw.bands;
+    
+    if (!spectral || typeof spectral !== 'object') {
+        console.warn('[NORMALIZE] ⚠️ Sem bandas para normalizar');
+        return out; // Retorna com campos escalares pelo menos
+    }
+
+    console.log('[NORMALIZE] 🎵 Fonte:', raw.spectral_bands ? 'spectral_bands (moderno)' : 'bands (legado)');
+
+    const bands = {};
+
+    // 🎯 MAPEAMENTO DE NOMES (moderno → esperado pelo score)
+    const nameMap = {
+        'sub': 'sub',
+        'bass': 'low_bass',
+        'low_bass': 'low_bass',
+        'upper_bass': 'upper_bass',
+        'upperBass': 'upper_bass',
+        'lowMid': 'low_mid',
+        'low_mid': 'low_mid',
+        'mid': 'mid',
+        'highMid': 'high_mid',
+        'high_mid': 'high_mid',
+        'presence': 'presenca',
+        'presenca': 'presenca',
+        'air': 'brilho',
+        'brilho': 'brilho'
+    };
+
+    // Processar cada banda
+    for (const key in spectral) {
+        const mapped = nameMap[key] || key;
+        const src = spectral[key];
+
+        if (!src || typeof src !== 'object') {
+            console.warn(`[NORMALIZE] ⚠️ Banda ${key} inválida`);
+            continue;
+        }
+
+        const band = {};
+
+        // 🎯 EXTRAIR target_db (valor central)
+        if (typeof src.target_db === 'number') {
+            band.target_db = src.target_db;
+        } else if (typeof src.target === 'number') {
+            band.target_db = src.target;
+        } else if (typeof src.energy_db === 'number') {
+            band.target_db = src.energy_db;
+        } else if (typeof src.rms_db === 'number') {
+            band.target_db = src.rms_db;
+        }
+
+        // 🎯 EXTRAIR min/max (intervalo ideal)
+        // Prioridade 1: target_range: {min, max}
+        if (src.target_range && 
+            typeof src.target_range.min === 'number' && 
+            typeof src.target_range.max === 'number') {
+            band.min = src.target_range.min;
+            band.max = src.target_range.max;
+        }
+        // Prioridade 2: min_max: [min, max]
+        else if (Array.isArray(src.min_max) && src.min_max.length === 2) {
+            band.min = src.min_max[0];
+            band.max = src.min_max[1];
+        }
+        // Prioridade 3: min/max diretos
+        else if (typeof src.min === 'number' && typeof src.max === 'number') {
+            band.min = src.min;
+            band.max = src.max;
+        }
+        // Prioridade 4: Calcular de tolerance
+        else if (typeof band.target_db === 'number' && typeof src.tolerance === 'number') {
+            band.min = band.target_db - src.tolerance;
+            band.max = band.target_db + src.tolerance;
+        }
+        // Prioridade 5: Calcular de tol_db
+        else if (typeof band.target_db === 'number' && typeof src.tol_db === 'number') {
+            band.min = band.target_db - src.tol_db;
+            band.max = band.target_db + src.tol_db;
+        }
+
+        if (band.target_db !== undefined) {
+            bands[mapped] = band;
+        } else {
+            console.warn(`[NORMALIZE] ⚠️ Banda ${key} sem target_db válido`);
+        }
+    }
+
+    if (Object.keys(bands).length === 0) {
+        console.error('[NORMALIZE] ❌ Nenhuma banda normalizada com sucesso');
+        return out; // Retorna com campos escalares
+    }
+
+    out.bands = bands;
+    console.log('[NORMALIZE] ✅ bands normalizados:', Object.keys(bands).join(', '));
+    
+    return out;
+}
+
+console.log('✅ normalizeGenreTargets() carregada');
+
+// ═══════════════════════════════════════════════════════════════════
 // 🎯 FUNÇÃO ÚNICA CENTRALIZADA - getOfficialGenreTargets()
 // ═══════════════════════════════════════════════════════════════════
 /**
@@ -11201,6 +11324,15 @@ async function displayModalResults(analysis) {
     function injectGenreTargetsIntoRefData(refData, genreTargets) {
         if (!refData || !genreTargets) return refData;
         
+        // 🔧 NORMALIZAR TARGETS ANTES DE INJETAR
+        console.log('[INJECT] 🔧 Normalizando genreTargets antes da injeção...');
+        const normalized = normalizeGenreTargets(genreTargets);
+        
+        if (!normalized) {
+            console.error('[INJECT] ❌ Falha ao normalizar targets');
+            return refData;
+        }
+        
         const fields = [
             "lufs_target",
             "true_peak_target",
@@ -11216,18 +11348,19 @@ async function displayModalResults(analysis) {
         ];
         
         fields.forEach(key => {
-            if (genreTargets[key] !== undefined) {
-                refData[key] = genreTargets[key];
+            if (normalized[key] !== undefined) {
+                refData[key] = normalized[key];
             }
         });
         
-        console.log("[GENRE-FIX] Targets injetados em refData:", {
+        console.log("[INJECT] ✅ Targets normalizados injetados em refData:", {
             lufs_target: refData.lufs_target,
             true_peak_target: refData.true_peak_target,
             dr_target: refData.dr_target,
             stereo_target: refData.stereo_target,
             hasBands: !!refData.bands,
-            bandsCount: refData.bands ? Object.keys(refData.bands).length : 0
+            bandsCount: refData.bands ? Object.keys(refData.bands).length : 0,
+            bandNames: refData.bands ? Object.keys(refData.bands).join(', ') : 'N/A'
         });
         
         return refData;
@@ -12209,15 +12342,34 @@ async function displayModalResults(analysis) {
                             if (officialGenreTargets) {
                                 console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais via getOfficialGenreTargets()');
                                 console.log('[FIX-TARGETS] ✅ Targets validados:', Object.keys(officialGenreTargets));
-                                analysisContext.targetDataForEngine = officialGenreTargets;
-                                analysisContext.genreTargets = officialGenreTargets;
                                 
-                                // Log de validação final
-                                if (officialGenreTargets.spectral_bands?.sub?.target_range) {
-                                    console.log('[VALIDATION] Min/Max confirmados para SUB:', {
-                                        min: officialGenreTargets.spectral_bands.sub.target_range.min,
-                                        max: officialGenreTargets.spectral_bands.sub.target_range.max
+                                // 🔧 NORMALIZAR TARGETS PARA ULTRA_V2
+                                const normalizedForEngine = normalizeGenreTargets(officialGenreTargets);
+                                
+                                if (normalizedForEngine && normalizedForEngine.bands) {
+                                    // ✅ ULTRA_V2 recebe estrutura flat para extractTargetRange()
+                                    analysisContext.targetDataForEngine = normalizedForEngine.bands;
+                                    // ✅ Preservar targets completos para outros usos
+                                    analysisContext.genreTargets = normalizedForEngine;
+                                    
+                                    console.log('[ULTRA_V2] ✅ Targets normalizados para ULTRA_V2:', {
+                                        bandsCount: Object.keys(normalizedForEngine.bands).length,
+                                        bandNames: Object.keys(normalizedForEngine.bands).join(', '),
+                                        hasMinMax: Object.values(normalizedForEngine.bands).every(b => b.min !== undefined && b.max !== undefined)
                                     });
+                                    
+                                    // Log de validação final
+                                    if (normalizedForEngine.bands.sub) {
+                                        console.log('[VALIDATION] Min/Max confirmados para SUB:', {
+                                            target_db: normalizedForEngine.bands.sub.target_db,
+                                            min: normalizedForEngine.bands.sub.min,
+                                            max: normalizedForEngine.bands.sub.max
+                                        });
+                                    }
+                                } else {
+                                    console.error('[ULTRA_V2] ❌ Normalização falhou');
+                                    analysisContext.targetDataForEngine = null;
+                                    analysisContext.genreTargets = null;
                                 }
                             } else {
                                 // 🚨 MODO GENRE SEM TARGETS = ERRO CRÍTICO - NÃO USAR FALLBACK
