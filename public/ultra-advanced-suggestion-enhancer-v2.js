@@ -373,9 +373,14 @@ class UltraAdvancedSuggestionEnhancer {
     generateEducationalExplanation(suggestion, problemType, context, targetRange) {
         // 🎯 PATCH: Gerar explicação baseada em valores REAIS
         
+        // 🔧 CORREÇÃO CRÍTICA: Converter para string ANTES de .replace()
+        // suggestion.currentValue pode ser NUMBER (-28.5) ou STRING ("-28.5 dB")
+        const currentValueStr = String(suggestion.currentValue ?? '0');
+        const deltaStr = String(suggestion.delta ?? '0');
+        
         // Extrair valores numéricos (remover "dB" e converter)
-        const currentValue = parseFloat((suggestion.currentValue || '0').replace(/[^\d.-]/g, ''));
-        const delta = parseFloat((suggestion.delta || '0').replace(/[^\d.-]/g, ''));
+        const currentValue = parseFloat(currentValueStr.replace(/[^\d.-]/g, ''));
+        const delta = parseFloat(deltaStr.replace(/[^\d.-]/g, ''));
         
         // Se temos targetRange, gerar texto preciso
         if (targetRange) {
@@ -451,7 +456,9 @@ class UltraAdvancedSuggestionEnhancer {
             const gain = suggestion.actionableGain;
             const isIncrease = gain.startsWith('+');
             const verb = isIncrease ? 'aumentar' : 'reduzir';
-            const absGain = Math.abs(parseFloat(gain.replace(/[^\d.-]/g, '')));
+            // 🔧 CORREÇÃO CRÍTICA: Converter para string ANTES de .replace()
+            const gainStr = String(gain ?? '0');
+            const absGain = Math.abs(parseFloat(gainStr.replace(/[^\d.-]/g, '')));
             
             let actionDetail = `${verb.charAt(0).toUpperCase() + verb.slice(1)} aproximadamente ${absGain.toFixed(1)} dB`;
             
