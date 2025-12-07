@@ -78,15 +78,21 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     });
     
     // 🤖 Chamar OpenAI API
+    // 🔧 CORREÇÃO FASE 2: Timeout dinâmico baseado no número de sugestões
+    const numSuggestions = suggestions.length;
+    const dynamicTimeout = Math.max(60000, Math.min(numSuggestions * 6000, 120000)); // Mínimo 60s, máximo 120s
+    const dynamicMaxTokens = Math.min(1500 + (numSuggestions * 300), 6000); // Escala por sugestão, máximo 6000
+    
     console.log('[AI-AUDIT][ULTRA_DIAG] 🌐 Enviando requisição para OpenAI API...');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Modelo: gpt-4o-mini');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Temperature: 0.7');
-    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Max tokens: 2000');
-    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Timeout: 25 segundos');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Max tokens: ' + dynamicMaxTokens + ' (dinâmico)');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Timeout: ' + (dynamicTimeout/1000) + ' segundos (dinâmico)');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões a processar: ' + numSuggestions);
     
-    // ⏱️ Configurar timeout de 25 segundos
+    // ⏱️ Configurar timeout dinâmico
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), dynamicTimeout);
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -107,7 +113,7 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: dynamicMaxTokens
       }),
       signal: controller.signal
     }).finally(() => clearTimeout(timeout));
@@ -161,28 +167,109 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     try {
       console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Fazendo parse da resposta JSON...');
       
-      // 🛡️ PARSE ROBUSTO: Usar regex para extrair JSON mesmo que haja texto extra
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      // 🛡️ CORREÇÃO FASE 2: PARSE ROBUSTO com múltiplas estratégias
+      let jsonString = null;
       
-      if (!jsonMatch) {
-        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Nenhum JSON válido encontrado no conteúdo!');
-        console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Conteúdo recebido:', content.substring(0, 500));
-        throw new Error('No valid JSON found in AI response (regex match failed)');
+      // ESTRATÉGIA 1: Tentar match de JSON completo
+      const fullMatch = content.match(/\{[\s\S]*\}/);
+      if (fullMatch) {
+        jsonString = fullMatch[0];
+        console.log('[AI-AUDIT][ULTRA_DIAG] ✅ JSON extraído via regex (estratégia 1)');
       }
       
-      const jsonString = jsonMatch[0];
-      console.log('[AI-AUDIT][ULTRA_DIAG] 🔍 JSON extraído via regex:', {
+      // ESTRATÉGIA 2: Se não encontrou, tentar extrair entre ```json e ```
+      if (!jsonString) {
+        const codeBlockMatch = content.match(/```(?:json)?([\s\S]*?)```/);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+          jsonString = codeBlockMatch[1].trim();
+          console.log('[AI-AUDIT][ULTRA_DIAG] ✅ JSON extraído de code block (estratégia 2)');
+        }
+      }
+      
+      // ESTRATÉGIA 3: Se ainda não encontrou, tentar content direto
+      if (!jsonString) {
+        console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Tentando parse direto do content');
+        jsonString = content.trim();
+      }
+      
+      if (!jsonString) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Nenhum JSON válido encontrado no conteúdo!');
+        console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Conteúdo recebido:', content.substring(0, 500));
+        throw new Error('No valid JSON found in AI response (all strategies failed)');
+      }
+      
+      console.log('[AI-AUDIT][ULTRA_DIAG] 🔍 JSON extraído:', {
         caracteres: jsonString.length,
         inicio: jsonString.substring(0, 100).replace(/\n/g, ' ')
       });
       
-      enrichedData = JSON.parse(jsonString);
+      // 🛡️ PARSE com tratamento de erros
+      try {
+        enrichedData = JSON.parse(jsonString);
+      } catch (parseErr) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Parse falhou, tentando limpar JSON...');
+        
+        // ESTRATÉGIA 4: Tentar limpar caracteres problemáticos
+        const cleanedJson = jsonString
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control chars
+          .replace(/,\s*([}\]])/g, '$1') // Remove trailing commas
+          .trim();
+        
+        try {
+          enrichedData = JSON.parse(cleanedJson);
+          console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse bem-sucedido após limpeza!');
+        } catch (cleanErr) {
+          console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Parse falhou mesmo após limpeza');
+          console.error('[AI-AUDIT][ULTRA_DIAG] JSON problemático:', jsonString.substring(0, 300));
+          throw parseErr; // Lançar erro original
+        }
+      }
       
       console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse JSON bem-sucedido!');
+      
+      // 🛡️ CORREÇÃO FASE 2: VALIDAÇÃO DE SCHEMA COMPLETA
+      console.log('[AI-AUDIT][ULTRA_DIAG] 🔍 Validando schema do JSON parseado...');
+      
+      // Validação 1: Estrutura raiz
+      if (!enrichedData || typeof enrichedData !== 'object') {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Schema inválido: não é objeto');
+        throw new Error('Parsed data is not an object');
+      }
+      
+      // Validação 2: Campo enrichedSuggestions existe
+      if (!enrichedData.enrichedSuggestions) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Schema inválido: campo "enrichedSuggestions" ausente');
+        console.error('[AI-AUDIT][ULTRA_DIAG] Campos encontrados:', Object.keys(enrichedData));
+        throw new Error('Missing "enrichedSuggestions" field in AI response');
+      }
+      
+      // Validação 3: enrichedSuggestions é array
+      if (!Array.isArray(enrichedData.enrichedSuggestions)) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Schema inválido: "enrichedSuggestions" não é array');
+        console.error('[AI-AUDIT][ULTRA_DIAG] Tipo:', typeof enrichedData.enrichedSuggestions);
+        throw new Error('Field "enrichedSuggestions" is not an array');
+      }
+      
+      // Validação 4: Array não está vazio
+      if (enrichedData.enrichedSuggestions.length === 0) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Schema inválido: array "enrichedSuggestions" está vazio');
+        throw new Error('Array "enrichedSuggestions" is empty');
+      }
+      
+      // Validação 5: Cada sugestão tem campos obrigatórios
+      const requiredFields = ['categoria', 'nivel', 'problema', 'solucao'];
+      enrichedData.enrichedSuggestions.forEach((sug, idx) => {
+        const missingFields = requiredFields.filter(field => !sug[field]);
+        if (missingFields.length > 0) {
+          console.warn(`[AI-AUDIT][ULTRA_DIAG] ⚠️ Sugestão ${idx} com campos faltando:`, missingFields);
+        }
+      });
+      
+      console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Validação de schema COMPLETA!');
       console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Estrutura parseada:', {
-        hasEnrichedSuggestions: !!enrichedData.enrichedSuggestions,
-        isArray: Array.isArray(enrichedData.enrichedSuggestions),
-        count: enrichedData.enrichedSuggestions?.length || 0,
+        hasEnrichedSuggestions: true,
+        isArray: true,
+        count: enrichedData.enrichedSuggestions.length,
         keys: Object.keys(enrichedData)
       });
       
@@ -276,10 +363,71 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('[AI-AUDIT][ULTRA_DIAG] 💥 Mensagem:', error.message);
     
-    // 🛡️ Identificar tipo de erro específico
+    // 🔄 CORREÇÃO FASE 2: Retry automático para AbortError
     if (error.name === 'AbortError') {
-      console.error('[AI-AUDIT][ULTRA_DIAG] ⏱️ Tipo: Timeout (25s excedido)');
-      console.error('[AI-AUDIT][ULTRA_DIAG] 💡 Solução: Reduzir número de sugestões ou aumentar timeout');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ⏱️ Tipo: Timeout (AbortError)');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 🔄 Iniciando retry automático...');
+      
+      // Tentar 3 vezes com timeout crescente
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const retryTimeout = 60000 + (attempt * 30000); // 60s, 90s, 120s
+          console.log(`[AI-AUDIT][ULTRA_DIAG] 🔄 Tentativa ${attempt}/3 com timeout de ${retryTimeout/1000}s...`);
+          
+          const retryController = new AbortController();
+          const retryTimer = setTimeout(() => retryController.abort(), retryTimeout);
+          
+          const retryPrompt = buildEnrichmentPrompt(suggestions, context);
+          const retryMaxTokens = Math.min(1500 + (suggestions.length * 300), 6000);
+          
+          const retryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-4o-mini',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'Você é um engenheiro de áudio especialista em mixagem e masterização. Sua função é enriquecer sugestões técnicas com insights detalhados, identificando problemas, causas, soluções práticas e plugins recomendados.'
+                },
+                {
+                  role: 'user',
+                  content: retryPrompt
+                }
+              ],
+              temperature: 0.7,
+              max_tokens: retryMaxTokens
+            }),
+            signal: retryController.signal
+          }).finally(() => clearTimeout(retryTimer));
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            const retryContent = retryData.choices[0].message.content;
+            const jsonMatch = retryContent.match(/\{[\s\S]*\}/);
+            
+            if (jsonMatch) {
+              const enrichedData = JSON.parse(jsonMatch[0]);
+              
+              if (enrichedData.enrichedSuggestions && enrichedData.enrichedSuggestions.length > 0) {
+                console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Retry ${attempt} SUCESSO!`);
+                const merged = mergeSuggestionsWithAI(suggestions, enrichedData);
+                return merged;
+              }
+            }
+          }
+        } catch (retryError) {
+          console.warn(`[AI-AUDIT][ULTRA_DIAG] ⚠️ Retry ${attempt} falhou:`, retryError.message);
+          if (attempt === 3) {
+            console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Todas as 3 tentativas falharam');
+          }
+        }
+      }
+      
+      console.error('[AI-AUDIT][ULTRA_DIAG] 💡 Solução: Timeout excedido mesmo após retries');
     } else if (error.message.includes('OpenAI API error')) {
       console.error('[AI-AUDIT][ULTRA_DIAG] 🌐 Tipo: Erro da API OpenAI');
     } else if (error.message.includes('Failed to parse')) {
@@ -289,12 +437,20 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     console.error('[AI-AUDIT][ULTRA_DIAG] 📍 Stack:', error.stack?.split('\n').slice(0, 3).join('\n'));
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // 🛡️ FALLBACK: Retornar sugestões base com flag de erro
+    // 🛡️ FALLBACK MELHORADO: Retornar sugestões base com fallback consistente
     return suggestions.map(sug => ({
       ...sug,
       aiEnhanced: false,
-      enrichmentStatus: 'error',
-      enrichmentError: error.message
+      enrichmentStatus: error.name === 'AbortError' ? 'timeout' : 'error',
+      enrichmentError: error.message,
+      categoria: mapCategoryFromType(sug.type, sug.category),
+      nivel: mapPriorityToNivel(sug.priority),
+      problema: sug.message || 'Problema não identificado',
+      causaProvavel: 'Enriquecimento IA não disponível (timeout ou erro)',
+      solucao: sug.action || 'Consulte métricas técnicas',
+      pluginRecomendado: 'Plugin não especificado',
+      dicaExtra: null,
+      parametros: null
     }));
   }
 }
@@ -323,6 +479,47 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
 - **Gênero Musical**: ${genre}
 - **Modo de Análise**: ${mode}
 `;
+
+  // 🎯 CORREÇÃO FASE 2: Incluir targets do gênero no prompt
+  if (context.customTargets) {
+    prompt += `\n### 🎯 TARGETS DO GÊNERO (${genre.toUpperCase()})\n`;
+    const targets = context.customTargets;
+    
+    if (targets.lufs_target !== undefined) {
+      prompt += `- **LUFS Alvo**: ${targets.lufs_target} dB (tolerância: ±${targets.tol_lufs || 1.0} dB)\n`;
+    }
+    if (targets.true_peak_target !== undefined) {
+      prompt += `- **True Peak Alvo**: ${targets.true_peak_target} dBTP (tolerância: ±${targets.tol_true_peak || 0.3} dB)\n`;
+    }
+    if (targets.dr_target !== undefined) {
+      prompt += `- **Dynamic Range Alvo**: ${targets.dr_target} dB (tolerância: ±${targets.tol_dr || 2.0} dB)\n`;
+    }
+    
+    if (targets.bands) {
+      prompt += `\n#### 🎶 Bandas Espectrais:\n`;
+      const bandLabels = {
+        sub: 'Sub (20-60Hz)',
+        low_bass: 'Low Bass (60-120Hz)',
+        bass: 'Bass (120-250Hz)',
+        low_mid: 'Low Mid (250-500Hz)',
+        mid: 'Mid (500Hz-2kHz)',
+        high_mid: 'High Mid (2-4kHz)',
+        presence: 'Presence (4-6kHz)',
+        brilliance: 'Brilliance (6-20kHz)'
+      };
+      
+      Object.entries(targets.bands).forEach(([band, data]) => {
+        if (data.target_db !== undefined) {
+          const label = bandLabels[band] || band;
+          const min = data.min_db !== undefined ? data.min_db : (data.target_db - (data.tol_db || 2));
+          const max = data.max_db !== undefined ? data.max_db : (data.target_db + (data.tol_db || 2));
+          prompt += `  - **${label}**: Alvo ${data.target_db} dB (range: ${min} a ${max} dB)\n`;
+        }
+      });
+    }
+    
+    prompt += `\n**IMPORTANTE**: Use esses targets como referência ao avaliar deltas e severidade dos problemas.\n`;
+  }
 
   if (mode === 'reference' && context.referenceComparison) {
     console.log('[AI-AUDIT][REF] ✅ ENTRANDO NO BLOCO DE MODO REFERENCE!');
