@@ -343,7 +343,7 @@ Modo: genre
 
 Sugestões base: [...]
 
-Retorne JSON com:
+Retorne JSON com:gg
 {
   "enrichedSuggestions": [
     {
