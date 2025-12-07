@@ -181,6 +181,30 @@ export const GENRE_THRESHOLDS = {
  * 🎓 Classe Principal - Problems & Suggestions Analyzer V2
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
+  /**
+   * 🎯 PATCH: Função auxiliar para obter limites min/max de um threshold
+   * Prioriza target_range quando disponível, fallback para target±tolerance
+   * @param {Object} threshold - Objeto com target/tolerance ou target_range
+   * @returns {Object} { min, max }
+   */
+  getRangeBounds(threshold) {
+    // PATCH: Se tiver target_range válido, usar diretamente
+    if (threshold.target_range && 
+        typeof threshold.target_range.min === 'number' && 
+        typeof threshold.target_range.max === 'number') {
+      return {
+        min: threshold.target_range.min,
+        max: threshold.target_range.max
+      };
+    }
+    
+    // PATCH: Fallback para target±tolerance (comportamento original)
+    return {
+      min: threshold.target - threshold.tolerance,
+      max: threshold.target + threshold.tolerance
+    };
+  }
+
   constructor(genre = 'default', customTargets = null) {
     console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[ANALYZER-CONSTRUCTOR] ENTRADA DO CONSTRUTOR:');
@@ -343,8 +367,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return; // não quebra, só pula a análise de LUFS
     }
     
-    const diff = Math.abs(lufs - lufsThreshold.target);
-    const severity = this.calculateSeverity(diff, lufsThreshold.tolerance, lufsThreshold.critical || lufsThreshold.tolerance * 1.5);
+    // PATCH: Usar getRangeBounds para suportar target_range
+    const bounds = this.getRangeBounds(lufsThreshold);
+    let diff;
+    if (lufs < bounds.min) {
+      diff = lufs - bounds.min; // Negativo (precisa subir)
+    } else if (lufs > bounds.max) {
+      diff = lufs - bounds.max; // Positivo (precisa descer)
+    } else {
+      diff = 0; // Dentro do range
+    }
+    
+    const severity = this.calculateSeverity(Math.abs(diff), lufsThreshold.tolerance, lufsThreshold.critical || lufsThreshold.tolerance * 1.5);
     
     let message, explanation, action;
     
@@ -635,8 +669,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
-    const diff = Math.abs(value - threshold.target);
-    const rawDelta = value - threshold.target; // Preservar sinal para sugestão
+    // PATCH: Calcular diferença até borda mais próxima do range
+    const bounds = this.getRangeBounds(threshold);
+    let rawDelta;
+    if (value < bounds.min) {
+      rawDelta = value - bounds.min; // Negativo (precisa aumentar)
+    } else if (value > bounds.max) {
+      rawDelta = value - bounds.max; // Positivo (precisa reduzir)
+    } else {
+      rawDelta = 0; // Dentro do range
+    }
+    
+    const diff = Math.abs(rawDelta);
     const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical || threshold.tolerance * 1.5);
     
     let message, explanation, action;

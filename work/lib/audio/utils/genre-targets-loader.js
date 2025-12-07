@@ -341,7 +341,9 @@ function convertToInternalFormat(rawTargets, genre) {
         converted[internalBandName] = {
           target: target,
           tolerance: tolerance,
-          critical: tolerance * 1.5
+          critical: tolerance * 1.5,
+          // PATCH: Preservar target_range original quando disponível
+          target_range: bandData.target_range || null
         };
       }
     }
