@@ -804,6 +804,9 @@ class EnhancedSuggestionEngine {
         const bands = {};
         let sourceBands = null;
 
+        console.log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO normalizeBands() =====');
+        console.log('[ENGINE-DEBUG] source recebido:', JSON.stringify(source, null, 2));
+
         // Tentar encontrar bandas em diferentes locais (incluindo estrutura backend)
         if (source.bands) {
             sourceBands = source.bands;
@@ -854,8 +857,16 @@ class EnhancedSuggestionEngine {
         for (const [sourceBandName, bandData] of Object.entries(sourceBands)) {
             if (!bandData || typeof bandData !== 'object') continue;
 
+            console.log(`\n[ENGINE-DEBUG] ===== PROCESSANDO BANDA: ${sourceBandName} =====`);
+            console.log(`[ENGINE-DEBUG] Banda recebida do JSON: "${sourceBandName}"`);
+            console.log('[ENGINE-DEBUG] bandData recebido:', JSON.stringify(bandData, null, 2));
+
             // Encontrar nome padronizado
             const standardName = bandMappings[sourceBandName] || sourceBandName;
+            console.log(`[ENGINE-DEBUG] Banda usada pelo Engine: "${standardName}"`);
+            if (sourceBandName !== standardName) {
+                console.warn(`⚠️ [ENGINE-WARNING] Nome divergente: JSON="${sourceBandName}" Engine="${standardName}"`);
+            }
 
             // 🎯 NOVO: Extrair target_range, target_db e tol_db
             const target_db = Number.isFinite(bandData.target_db) ? bandData.target_db : null;
@@ -865,6 +876,11 @@ class EnhancedSuggestionEngine {
             const tol_db = Number.isFinite(bandData.tol_db) ? bandData.tol_db : 
                           Number.isFinite(bandData.tolerance) ? bandData.tolerance :
                           Number.isFinite(bandData.toleranceDb) ? bandData.toleranceDb : 3.0; // Default
+
+            console.log('[ENGINE-DEBUG] target_range.min recebido:', target_range?.min);
+            console.log('[ENGINE-DEBUG] target_range.max recebido:', target_range?.max);
+            console.log('[ENGINE-DEBUG] target_db recebido:', target_db);
+            console.log('[ENGINE-DEBUG] tol_db recebido:', tol_db);
 
             // Aceitar banda se tem target_range OU target_db
             if (target_range !== null || target_db !== null) {
@@ -1246,19 +1262,35 @@ class EnhancedSuggestionEngine {
         });
 
         for (const [sourceBand, data] of Object.entries(bandEnergies)) {
+            console.log(`\n[ENGINE-DEBUG] ===== extractMetrics: BANDA ${sourceBand} =====`);
+            console.log(`[ENGINE-DEBUG] Banda original: "${sourceBand}"`);
+            
             // Encontrar nome normalizado
             const normalizedBandName = bandMappings[sourceBand] || sourceBand;
+            console.log(`[ENGINE-DEBUG] Banda normalizada: "${normalizedBandName}"`);
+            if (sourceBand !== normalizedBandName) {
+                console.warn(`⚠️ [ENGINE-WARNING] extractMetrics: Nome divergente: JSON="${sourceBand}" Engine="${normalizedBandName}"`);
+            }
             
             // 🎯 PATCH 2: Extrair target_range.min/max do referenceData para bandas
             // Buscar target_range em referenceData.spectral_bands[normalizedBandName]
             const refBandData = referenceData?.spectral_bands?.[normalizedBandName];
+            console.log('[ENGINE-DEBUG] refBandData encontrado:', JSON.stringify(refBandData, null, 2));
             if (refBandData?.target_range) {
+                console.log('[ENGINE-DEBUG] 🎯 PATCH 2: Injetando target_range');
+                console.log('[ENGINE-DEBUG] target_range.min injetado:', refBandData.target_range.min);
+                console.log('[ENGINE-DEBUG] target_range.max injetado:', refBandData.target_range.max);
                 // Injetar min/max no data para uso posterior
                 if (typeof data === 'object') {
                     data.targetMin = refBandData.target_range.min;
                     data.targetMax = refBandData.target_range.max;
                     data.hasTargetRange = true;
+                    console.log('[ENGINE-DEBUG] ✅ target_range injetado com sucesso em data');
                 }
+            } else {
+                console.warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
+            } else {
+                console.warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
             }
             
             let rmsValue;
@@ -1729,17 +1761,24 @@ class EnhancedSuggestionEngine {
         
         // Sugestões para bandas espectrais
         if (referenceData.bands) {
+            console.log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO generateReferenceSuggestions (BANDAS) =====');
+            console.log('[ENGINE-DEBUG] referenceData.bands:', JSON.stringify(referenceData.bands, null, 2));
+            
             this.logAudit('BANDS_REFERENCE_CHECK', 'Bandas de referência disponíveis', {
                 referenceBands: Object.keys(referenceData.bands),
                 metricsAvailable: Object.keys(metrics).filter(k => !['lufs', 'true_peak', 'dr', 'lra', 'stereo'].includes(k))
             });
 
             for (const [band, refData] of Object.entries(referenceData.bands)) {
+                console.log(`\n[ENGINE-DEBUG] ===== PROCESSANDO SUGESTÃO PARA BANDA: ${band} =====`);
+                console.log('[ENGINE-DEBUG] refData:', JSON.stringify(refData, null, 2));
                 const value = metrics[band];
                 
                 // 🎯 NOVO: Suporte híbrido para target_range (prioridade) e target_db (fallback)
                 let target, targetRange, tolerance, effectiveTolerance;
                 let rangeBasedLogic = false;
+                
+                console.log('[ENGINE-DEBUG] Verificando tipo de target...');
                 
                 // Prioridade 1: target_range (novo sistema)
                 if (refData.target_range && typeof refData.target_range === 'object' &&
@@ -1747,6 +1786,11 @@ class EnhancedSuggestionEngine {
                     
                     targetRange = refData.target_range;
                     rangeBasedLogic = true;
+                    
+                    console.log('[ENGINE-DEBUG] ✅ USANDO target_range (PRIORIDADE 1)');
+                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.min:', targetRange.min);
+                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.max:', targetRange.max);
+                    console.log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_range');
                     
                     // Para ranges, usar diferente lógica de tolerância
                     const rangeSize = targetRange.max - targetRange.min;
@@ -1760,7 +1804,13 @@ class EnhancedSuggestionEngine {
                     tolerance = refData.tol_db;
                     effectiveTolerance = tolerance;
                     
+                    console.log('[ENGINE-DEBUG] ⚠️ USANDO target_db (FALLBACK - PRIORIDADE 2)');
+                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como target:', target);
+                    console.log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_db');
+                    
                     console.log(`🎯 [FIXED-LOGIC] Banda ${band}: target fixo ${target} dB, tolerância: ${effectiveTolerance} dB`);
+                } else {
+                    console.error('[ENGINE-ERROR] ❌ NEM target_range NEM target_db encontrados!');
                 }
                 
                 const zScore = zScores[band + '_z'];
@@ -1919,6 +1969,27 @@ class EnhancedSuggestionEngine {
                             withinRange: false,
                             rangeSize: targetRange.max - targetRange.min
                         };
+                        
+                        console.log('[ENGINE-DEBUG] ✅ suggestion.technical gerado:');
+                        console.log('[ENGINE-DEBUG]   - targetMin:', suggestion.technical.targetMin);
+                        console.log('[ENGINE-DEBUG]   - targetMax:', suggestion.technical.targetMax);
+                        console.log('[ENGINE-DEBUG]   - idealRange:', suggestion.technical.idealRange);
+                        
+                        // 🔍 VALIDAÇÃO CRÍTICA: Comparar com JSON original
+                        if (refData.target_range) {
+                            const jsonMin = refData.target_range.min;
+                            const jsonMax = refData.target_range.max;
+                            const engineMin = suggestion.technical.targetMin;
+                            const engineMax = suggestion.technical.targetMax;
+                            
+                            if (jsonMin !== engineMin || jsonMax !== engineMax) {
+                                console.error('❌ [ENGINE-ERROR] Divergência detectada!');
+                                console.error('[ENGINE-ERROR] JSON.min =', jsonMin, '| Engine.min =', engineMin);
+                                console.error('[ENGINE-ERROR] JSON.max =', jsonMax, '| Engine.max =', engineMax);
+                            } else {
+                                console.log('✅ [ENGINE-SUCCESS] Valores corretos: JSON e Engine coincidem');
+                            }
+                        }
 
                         
                     } else {
