@@ -600,8 +600,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     'isDefault': finalGenre === 'default'
   });
 
-  // 🎯 ESTRUTURA BASE DO JSON (sem wrapper root)
-  const baseJSON = {
+  return {
     // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
     // Esses campos são FUNDAMENTAIS para:
     // - Carregamento correto dos targets específicos por gênero no frontend
@@ -978,40 +977,6 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       } : null
     }
   };
-  
-  // 🔥 CORREÇÃO FASE 2 - ROOT CAUSE #1: ADICIONAR WRAPPER ROOT
-  // ExtractTargets espera: json[genreName].hybrid_processing.spectral_bands
-  // Sem root → ExtractTargets retorna null → Frontend usa fallback 0-120
-  // Solução: Envolver JSON em { [genreName]: {...} } quando em modo genre
-  
-  if (isGenreMode && finalGenre && finalGenre !== 'default') {
-    console.log(`[JSON-OUTPUT] 🔥 APLICANDO WRAPPER ROOT para gênero: "${finalGenre}"`);
-    
-    // Adicionar campo version para compatibilidade com extractGenreTargets
-    const wrappedJSON = {
-      [finalGenre]: {
-        version: "2.0", // ExtractTargets busca root.version
-        hybrid_processing: {
-          spectral_bands: options.genreTargets?.bands || options.genreTargets?.spectral_bands || {}
-        },
-        ...baseJSON  // Merge do JSON base dentro do root
-      }
-    };
-    
-    console.log(`[JSON-OUTPUT] ✅ Wrapper root aplicado: json["${finalGenre}"] existe agora`);
-    console.log(`[JSON-OUTPUT] 📊 Estrutura root:`, {
-      hasRoot: !!wrappedJSON[finalGenre],
-      hasVersion: !!wrappedJSON[finalGenre]?.version,
-      hasHybridProcessing: !!wrappedJSON[finalGenre]?.hybrid_processing,
-      hasSpectralBands: !!wrappedJSON[finalGenre]?.hybrid_processing?.spectral_bands
-    });
-    
-    return wrappedJSON;
-  }
-  
-  // Modo reference ou sem genre válido: retornar JSON sem wrapper
-  console.log('[JSON-OUTPUT] 📦 Retornando JSON sem wrapper root (modo reference ou genre inválido)');
-  return baseJSON;
 }
 
 function createCompactJSON(fullJSON) {

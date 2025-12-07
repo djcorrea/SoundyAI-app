@@ -79,11 +79,8 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     
     // 🤖 Chamar OpenAI API
     // 🔧 CORREÇÃO FASE 2: Timeout dinâmico baseado no número de sugestões
-    // 🔥 FASE 2 CIRÚRGICA: Aumentar timeout mínimo de 60s → 90s e máximo de 120s → 180s
-    // ROOT CAUSE #2: AbortController cancelava prematuramente com 60s
-    // SOLUÇÃO: 90-180s permite OpenAI processar sugestões complexas sem abort
     const numSuggestions = suggestions.length;
-    const dynamicTimeout = Math.max(90000, Math.min(numSuggestions * 12000, 180000)); // Mínimo 90s, máximo 180s
+    const dynamicTimeout = Math.max(60000, Math.min(numSuggestions * 6000, 120000)); // Mínimo 60s, máximo 120s
     const dynamicMaxTokens = Math.min(1500 + (numSuggestions * 300), 6000); // Escala por sugestão, máximo 6000
     
     console.log('[AI-AUDIT][ULTRA_DIAG] 🌐 Enviando requisição para OpenAI API...');
@@ -484,15 +481,7 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
 `;
 
   // 🎯 CORREÇÃO FASE 2: Incluir targets do gênero no prompt
-  // ROOT CAUSE #5: genreTargets não chegam ao enrichment
-  // SOLUÇÃO: Log detalhado + validação de propagação
-  console.log('[ENRICHER] 🔍 Verificando customTargets no contexto:');
-  console.log('[ENRICHER] customTargets presente?', !!context.customTargets);
-  console.log('[ENRICHER] customTargets.lufs_target:', context.customTargets?.lufs_target);
-  console.log('[ENRICHER] customTargets.bands:', context.customTargets?.bands ? Object.keys(context.customTargets.bands) : 'AUSENTE');
-  
   if (context.customTargets) {
-    console.log('[ENRICHER] ✅ customTargets detectado - adicionando ao prompt');
     prompt += `\n### 🎯 TARGETS DO GÊNERO (${genre.toUpperCase()})\n`;
     const targets = context.customTargets;
     
@@ -766,53 +755,29 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       });
     }
 
-    // 🔥 FASE 2 CIRÚRGICA - ROOT CAUSE #4: Merge sem sobrescrever campos técnicos
-    // PROBLEMA: Spread de aiEnrichment poderia sobrescrever campos base importantes
-    // SOLUÇÃO: Merge explícito, preservando TODOS os campos base e adicionando APENAS enriquecimento
     return {
-      // 📦 CAMPOS BASE (NUNCA SOBRESCRITOS - prioritários)
+      // 📦 Dados base (preservados)
       type: baseSug.type,
       message: baseSug.message,
       action: baseSug.action,
       priority: baseSug.priority,
-      category: baseSug.category, // ✅ Preservar category original
-      metric: baseSug.metric,     // ✅ Preservar metric original
       band: baseSug.band,
       isComparison: baseSug.isComparison,
       referenceValue: baseSug.referenceValue,
       userValue: baseSug.userValue,
       delta: baseSug.delta,
       
-      // 🔮 ENRIQUECIMENTO IA (NUNCA SOBRESCREVE BASE)
-      // Se IA retornou campo vazio/null, usar fallback seguro
+      // 🔮 Enriquecimento IA (novo formato) - SEMPRE MARCAR COMO ENHANCED
       aiEnhanced: true,
       enrichmentStatus: 'success',
       
-      // Campos enriquecidos com validação robusta
-      categoria: aiEnrichment.categoria && aiEnrichment.categoria.trim() !== '' 
-        ? aiEnrichment.categoria 
-        : mapCategoryFromType(baseSug.type, baseSug.category),
-      
-      nivel: aiEnrichment.nivel && aiEnrichment.nivel.trim() !== '' 
-        ? aiEnrichment.nivel 
-        : mapPriorityToNivel(baseSug.priority),
-      
-      problema: aiEnrichment.problema && aiEnrichment.problema.trim() !== '' 
-        ? aiEnrichment.problema 
-        : baseSug.message,
-      
-      causaProvavel: aiEnrichment.causaProvavel && aiEnrichment.causaProvavel.trim() !== '' 
-        ? aiEnrichment.causaProvavel 
-        : 'Análise detalhada não fornecida pela IA',
-      
-      solucao: aiEnrichment.solucao && aiEnrichment.solucao.trim() !== '' 
-        ? aiEnrichment.solucao 
-        : baseSug.action,
-      
-      pluginRecomendado: aiEnrichment.pluginRecomendado && aiEnrichment.pluginRecomendado.trim() !== '' 
-        ? aiEnrichment.pluginRecomendado 
-        : 'Plugin não especificado',
-      
+      // Campos do novo formato com fallbacks seguros
+      categoria: aiEnrichment.categoria || mapCategoryFromType(baseSug.type, baseSug.category),
+      nivel: aiEnrichment.nivel || mapPriorityToNivel(baseSug.priority),
+      problema: aiEnrichment.problema || baseSug.message,
+      causaProvavel: aiEnrichment.causaProvavel || 'Análise detalhada não fornecida',
+      solucao: aiEnrichment.solucao || baseSug.action,
+      pluginRecomendado: aiEnrichment.pluginRecomendado || 'Plugin não especificado',
       dicaExtra: aiEnrichment.dicaExtra || null,
       parametros: aiEnrichment.parametros || null,
       
