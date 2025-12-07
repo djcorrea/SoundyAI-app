@@ -748,63 +748,6 @@ function findClosest(numbers, target) {
 }
 
 /**
- * 🛡️ Valida se o enriquecimento da IA é coerente com a sugestão base
- * REGRAS DE COERÊNCIA:
- * 1. Se baseSug tem deltaNum e >0.1: IA deve mencionar valor similar (ratio 0.4-2.5)
- * 2. Se delta ~0 ou status='ok': IA NÃO deve sugerir mudanças (palavras-chave: aument|reduz|ajust|modif)
- * 3. Se base priority='high': IA nivel deve ser "crítica" ou "média", nunca "leve"
- * 
- * @returns { isCoherent: boolean, issues: string[] }
- */
-function validateAICoherence(baseSug, aiEnrich) {
-  const issues = [];
-  
-  // 🔍 REGRA 1: Validar coerência numérica se delta existir
-  if (baseSug.deltaNum != null && Math.abs(baseSug.deltaNum) > 0.1) {
-    const aiNumbers = extractNumbers(aiEnrich.solucao || '');
-    if (aiNumbers.length > 0) {
-      const closest = findClosest(aiNumbers, Math.abs(baseSug.deltaNum));
-      const ratio = closest / Math.abs(baseSug.deltaNum);
-      
-      // Tolerância: IA pode sugerir 0.4x a 2.5x do delta real (ex: delta=2.3 → IA entre 0.9-5.7)
-      if (ratio < 0.4 || ratio > 2.5) {
-        issues.push(
-          `Delta base: ${baseSug.deltaNum.toFixed(1)}dB, mas IA sugere ${closest.toFixed(1)}dB (ratio ${ratio.toFixed(1)}x fora do limite 0.4-2.5x)`
-        );
-      }
-    }
-  }
-  
-  // 🔍 REGRA 2: Se status='ok' ou delta~0, IA não deve sugerir mudanças
-  const isOK = baseSug.status === 'ok' || Math.abs(baseSug.deltaNum || 0) < 0.1;
-  if (isOK) {
-    const suggestsChange = /aument|reduz|ajust|modif|compr|expan|elev|diminu/i.test(
-      (aiEnrich.solucao || '') + (aiEnrich.problema || '')
-    );
-    if (suggestsChange) {
-      issues.push(
-        `Base indica status='ok' (delta=${(baseSug.deltaNum || 0).toFixed(1)}), mas IA sugere mudanças na solução`
-      );
-    }
-  }
-  
-  // 🔍 REGRA 3: Validar severidade (priority vs nivel)
-  if (baseSug.priority === 'high') {
-    const aiLevel = (aiEnrich.nivel || '').toLowerCase();
-    if (aiLevel === 'leve' || aiLevel === 'baixa') {
-      issues.push(
-        `Base tem priority='high' (crítico), mas IA classifica como nivel='${aiLevel}'`
-      );
-    }
-  }
-  
-  return {
-    isCoherent: issues.length === 0,
-    issues
-  };
-}
-
-/**
  * 🔄 Mescla sugestões base com dados enriquecidos pela IA
  */
 function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
