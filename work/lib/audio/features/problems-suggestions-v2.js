@@ -178,6 +178,55 @@ export const GENRE_THRESHOLDS = {
 };
 
 /**
+ * 🧮 HELPER: Arredonda valor para passo especificado
+ */
+function roundTo(value, step = 0.1) {
+  return Math.round(value / step) * step;
+}
+
+/**
+ * 🎯 HELPER: Calcula ajuste recomendado realista para mixagem
+ * 
+ * @param {number} rawDelta - Diferença até a borda do range (com sinal)
+ * @param {object} options - Opções de cálculo
+ * @returns {object} - { value: número ajustado, mode: 'micro'|'direct'|'staged' }
+ */
+function computeRecommendedGain(rawDelta, options = {}) {
+  const abs = Math.abs(rawDelta);
+  
+  const minStep = options.minStepDb ?? 0.5;   // passo mínimo realista
+  const maxStep = options.maxStepDb ?? 5.0;   // passo máximo para movimentos diretos
+  const precision = options.precision ?? 0.1; // casas decimais
+  
+  // Diferença muito pequena → ajuste opcional (refinamento fino)
+  if (abs < minStep) {
+    return {
+      value: roundTo(rawDelta, precision),
+      mode: 'micro', // "opcional – refinamento fino"
+      description: 'ajuste opcional para refinamento fino'
+    };
+  }
+  
+  // Ajuste direto, realista (faixa normal de trabalho)
+  if (abs <= maxStep) {
+    return {
+      value: roundTo(rawDelta, precision),
+      mode: 'direct',
+      description: 'ajuste direto recomendado'
+    };
+  }
+  
+  // Diferença MUITO grande → abordagem em etapas
+  const clamped = rawDelta > 0 ? maxStep : -maxStep;
+  return {
+    value: roundTo(clamped, precision),
+    mode: 'staged', // "faça em etapas, reavalie"
+    description: 'ajuste em múltiplas etapas',
+    totalDelta: abs // preservar delta total para informação
+  };
+}
+
+/**
  * 🎓 Classe Principal - Problems & Suggestions Analyzer V2
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
@@ -380,36 +429,59 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), lufsThreshold.tolerance, lufsThreshold.critical || lufsThreshold.tolerance * 1.5);
     
-    let message, explanation, action;
+    let message, explanation, action, status = 'ok';
     
-    if (severity.level === 'critical') {
+    if (severity.level === 'critical' || severity.level === 'warning') {
       if (lufs > bounds.max) {
+        // 🎯 FASE 3: Calcular ajuste realista
         const excessDb = lufs - bounds.max;
-        message = `LUFS muito alto: ${lufs.toFixed(1)} dB (máximo permitido: ${bounds.max.toFixed(1)} dB)`;
-        explanation = `Seu áudio está ${excessDb.toFixed(1)} dB acima do máximo permitido (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. Isso pode causar distorção e fadiga auditiva.`;
-        action = `Reduza o gain geral em aproximadamente ${Math.ceil(excessDb)} dB usando um limiter ou reduzindo o volume master.`;
+        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 6.0 }); // LUFS permite até 6dB
+        const absRec = Math.abs(rec);
+        
+        status = 'high';
+        message = `${severity.level === 'critical' ? '🔴' : '🟠'} LUFS muito alto: ${lufs.toFixed(1)} dB (máximo: ${bounds.max.toFixed(1)} dB, diff: +${excessDb.toFixed(1)} dB)`;
+        
+        explanation = `Você está ${excessDb.toFixed(1)} dB acima do máximo permitido para ${this.genre} (range ideal: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS). ` +
+          `Isso pode causar distorção digital, fadiga auditiva e rejeição em plataformas de streaming que aplicam normalização agressiva.`;
+        
+        if (mode === 'staged') {
+          action = `Reduza o loudness em etapas: primeiro aplique ~${absRec.toFixed(1)} dB de redução no limiter master, reexporte e meça novamente. ` +
+            `Se ainda estiver acima do range, repita o processo. Total a reduzir: ${excessDb.toFixed(1)} dB. ` +
+            `Use compressão de bus e ajuste do ceiling do limiter, não apenas gain bruto.`;
+        } else if (mode === 'micro') {
+          action = `Ajuste fino opcional: reduza cerca de ${absRec.toFixed(1)} dB no limiter master para refinamento. Está muito próximo do ideal.`;
+        } else {
+          action = `Reduza aproximadamente ${absRec.toFixed(1)} dB no limiter master. Ajuste o ceiling e/ou reduza o input gain do limiter. ` +
+            `Preserve a dinâmica natural da música.`;
+        }
       } else if (lufs < bounds.min) {
+        // 🎯 FASE 3: Calcular ajuste realista
         const deficitDb = bounds.min - lufs;
-        message = `LUFS muito baixo: ${lufs.toFixed(1)} dB (mínimo recomendado: ${bounds.min.toFixed(1)} dB)`;
-        explanation = `Seu áudio está ${deficitDb.toFixed(1)} dB abaixo do mínimo recomendado (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. Ficará muito baixo comparado a outras músicas.`;
-        action = `Aumente o loudness usando um limiter suave, elevando gradualmente em aproximadamente ${Math.ceil(deficitDb)} dB.`;
-      }
-    } else if (severity.level === 'warning') {
-      if (lufs > bounds.max) {
-        const excessDb = lufs - bounds.max;
-        message = `LUFS levemente alto: ${lufs.toFixed(1)} dB`;
-        explanation = `Está ${excessDb.toFixed(1)} dB acima do máximo (${bounds.max.toFixed(1)} dB) para ${this.genre}, mas ainda aceitável.`;
-        action = `Considere reduzir cerca de ${Math.ceil(excessDb)} dB no limiter para ficar dentro do range ideal.`;
-      } else if (lufs < bounds.min) {
-        const deficitDb = bounds.min - lufs;
-        message = `LUFS levemente baixo: ${lufs.toFixed(1)} dB`;
-        explanation = `Está ${deficitDb.toFixed(1)} dB abaixo do mínimo (${bounds.min.toFixed(1)} dB), mas pode funcionar dependendo da plataforma.`;
-        action = `Considere aumentar cerca de ${Math.ceil(deficitDb)} dB no limiter para mais presença sonora.`;
+        const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 6.0 });
+        const absRec = Math.abs(rec);
+        
+        status = 'low';
+        message = `${severity.level === 'critical' ? '🔴' : '🟠'} LUFS muito baixo: ${lufs.toFixed(1)} dB (mínimo: ${bounds.min.toFixed(1)} dB, diff: -${deficitDb.toFixed(1)} dB)`;
+        
+        explanation = `Você está ${deficitDb.toFixed(1)} dB abaixo do mínimo recomendado para ${this.genre} (range ideal: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS). ` +
+          `Sua música ficará muito baixa comparada a outras no mesmo contexto, prejudicando o impacto sonoro.`;
+        
+        if (mode === 'staged') {
+          action = `Aumente o loudness em etapas: primeiro eleve ~${absRec.toFixed(1)} dB usando limiter suave (ratio baixo, attack/release moderados), reexporte e meça. ` +
+            `Se ainda estiver abaixo, repita. Total a aumentar: ${deficitDb.toFixed(1)} dB. ` +
+            `Considere também compressão de bus antes do limiter para controlar picos sem destruir dinâmica.`;
+        } else if (mode === 'micro') {
+          action = `Ajuste fino opcional: aumente cerca de ${absRec.toFixed(1)} dB no limiter master para refinamento. Está muito próximo do ideal.`;
+        } else {
+          action = `Aumente aproximadamente ${absRec.toFixed(1)} dB usando limiter master com configuração suave. ` +
+            `Eleve gradualmente o input gain ou reduza o threshold. Monitore o true peak para evitar clipping.`;
+        }
       }
     } else {
-      message = `LUFS ideal: ${lufs.toFixed(1)} dB`;
-      explanation = `Perfeito para ${this.genre}! Seu loudness está dentro do range ideal (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para streaming e rádio.`;
-      action = `Mantenha esse nível de LUFS. Está excelente!`;
+      message = `🟢 LUFS ideal: ${lufs.toFixed(1)} dB`;
+      explanation = `Perfeito para ${this.genre}! Seu loudness está dentro do range ideal (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS) para streaming e rádio. ` +
+        `Esse nível garante competitividade sonora sem sacrificar qualidade ou dinâmica.`;
+      action = `Mantenha esse nível de LUFS. Está excelente! Nenhum ajuste necessário.`;
     }
     
     suggestions.push({
@@ -421,6 +493,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: `${lufs.toFixed(1)} LUFS`,
       targetValue: bounds.min !== bounds.max ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LUFS` : `${bounds.max.toFixed(1)} LUFS`,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
+      deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
+      status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
     });
   }
