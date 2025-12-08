@@ -555,10 +555,14 @@ class AISuggestionUIController {
             }
 
             // ✅ EXTRAIR genreTargets do payload
+            // 🔧 PATCH: Suporte a analysis.targets (modo genre atual) e analysis.user.targets
             const genreTargets = analysis?.genreTargets || 
                                  analysis?.data?.genreTargets || 
                                  analysis?.result?.genreTargets ||
                                  analysis?.customTargets ||
+                                 analysis?.targets ||              // 👈 NOVO: targets do modo genre
+                                 analysis?.user?.genreTargets ||   // 👈 NOVO: compatibilidade extra
+                                 analysis?.user?.targets ||        // 👈 NOVO: targets dentro de user
                                  null;
             
             if (!genreTargets) {
@@ -567,10 +571,23 @@ class AISuggestionUIController {
                     'analysis.genreTargets': !!analysis?.genreTargets,
                     'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
                     'analysis.result.genreTargets': !!analysis?.result?.genreTargets,
-                    'analysis.customTargets': !!analysis?.customTargets
+                    'analysis.customTargets': !!analysis?.customTargets,
+                    'analysis.targets': !!analysis?.targets,           // 👈 NOVO LOG
+                    'analysis.user.genreTargets': !!analysis?.user?.genreTargets,  // 👈 NOVO LOG
+                    'analysis.user.targets': !!analysis?.user?.targets  // 👈 NOVO LOG
                 });
             } else {
                 console.log('[AI-UI][VALIDATION] ✅ genreTargets encontrado:', Object.keys(genreTargets));
+                // 🔍 LOG: Identificar fonte dos targets
+                const source = analysis?.genreTargets ? 'analysis.genreTargets' :
+                              analysis?.data?.genreTargets ? 'analysis.data.genreTargets' :
+                              analysis?.result?.genreTargets ? 'analysis.result.genreTargets' :
+                              analysis?.customTargets ? 'analysis.customTargets' :
+                              analysis?.targets ? 'analysis.targets (NOVO)' :
+                              analysis?.user?.genreTargets ? 'analysis.user.genreTargets (NOVO)' :
+                              analysis?.user?.targets ? 'analysis.user.targets (NOVO)' :
+                              'unknown';
+                console.log('[AI-UI][VALIDATION] 📍 Fonte:', source);
             }
 
             // Renderiza imediatamente com genreTargets para validação
@@ -720,8 +737,8 @@ class AISuggestionUIController {
                 this.elements.aiSection.style.display = 'block';
             }
             
-            // ✅ RENDERIZAR sugestões IA
-            this.renderAISuggestions(suggestionsToUse);
+            // ✅ RENDERIZAR sugestões IA (PATCH: passar genreTargets resolvido anteriormente)
+            this.renderAISuggestions(suggestionsToUse, genreTargets);
             return; // ✅ PARAR AQUI
         } else if (hasValidAI && !hasEnriched) {
             // ⚠️ Tem aiSuggestions mas não estão enriquecidas
@@ -729,7 +746,7 @@ class AISuggestionUIController {
             console.warn('[AI-FRONT] Renderizando mesmo assim (pode ser formato legado)');
             
             suggestionsToUse = extractedAI;
-            this.renderAISuggestions(suggestionsToUse);
+            this.renderAISuggestions(suggestionsToUse, genreTargets); // 🔧 PATCH: passar genreTargets
             return;
         } else {
             // 🚫 Evita fallback para métricas genéricas
