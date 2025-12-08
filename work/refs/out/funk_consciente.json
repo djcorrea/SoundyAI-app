@@ -1,0 +1,56 @@
+{
+  "funk_consciente": {
+    "version": "1.0",
+    "generated_at": "2025-08-11T00:00:00.000Z",
+    "num_tracks": 10,
+    "lufs_target": -14,
+    "tol_lufs": 0.5,
+    "true_peak_target": -0.8,
+    "tol_true_peak": 1.5,
+    "dr_target": 11,
+    "tol_dr": 1.8,
+    "lra_target": 7,
+    "tol_lra": 4,
+    "stereo_target": 0.18,
+    "tol_stereo": 0.08,
+    "calor_target": -11.5,
+    "brilho_target": -20.5,
+    "clareza_target": -4.8,
+    "bands": {
+      "sub": {
+        "target_db": -13.5,
+        "tol_db": 2.5
+      },
+      "low_bass": {
+        "target_db": -11.5,
+        "tol_db": 2.6
+      },
+      "upper_bass": {
+        "target_db": -14.2,
+        "tol_db": 1.5
+      },
+      "low_mid": {
+        "target_db": -11.8,
+        "tol_db": 2
+      },
+      "mid": {
+        "target_db": -11.4,
+        "tol_db": 2.2
+      },
+      "high_mid": {
+        "target_db": -18.8,
+        "tol_db": 1.2
+      },
+      "brilho": {
+        "target_db": -20.8,
+        "tol_db": 1.8
+      },
+      "presenca": {
+        "target_db": -25,
+        "tol_db": 1.6
+      }
+    },
+    "last_updated": "2025-08-30T22:40:34.478Z",
+    "cache_bust": 1756593634478
+  }
+}

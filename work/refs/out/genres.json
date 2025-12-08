@@ -1,0 +1,56 @@
+{
+  "genres": [
+    {
+      "key": "trance",
+      "label": "Trance"
+    },
+    {
+      "key": "funk_mandela",
+      "label": "Funk Mandela"
+    },
+    {
+      "key": "funk_bruxaria",
+      "label": "Funk Bruxaria"
+    },
+    {
+      "key": "funk_automotivo",
+      "label": "Funk Automotivo"
+    },
+    {
+      "key": "funk_bh",
+      "label": "Funk BH"
+    },
+    {
+      "key": "eletrofunk",
+      "label": "Eletrofunk"
+    },
+    {
+      "key": "funk_consciente",
+      "label": "Funk Consciente"
+    },
+    {
+      "key": "trap",
+      "label": "Trap"
+    },
+    {
+      "key": "tech_house",
+      "label": "Tech House"
+    },
+    {
+      "key": "techno",
+      "label": "Techno"
+    },
+    {
+      "key": "house",
+      "label": "House"
+    },
+    {
+      "key": "brazilian_phonk",
+      "label": "Brazilian Phonk"
+    },
+    {
+      "key": "phonk",
+      "label": "Phonk"
+    }
+  ]
+}
