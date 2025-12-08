@@ -819,8 +819,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           fileName: fileName || metadata?.fileName || 'unknown',
           referenceFileName: null,
           deltas: null,
-          customTargets: customTargets // ✅ Passar targets para IA validar
+          customTargets: customTargets, // ✅ Passar targets para IA validar
+          genreTargets: customTargets    // ✅ FASE 2: Enviar também como genreTargets (dupla referência)
         };
+        
+        console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[PIPELINE][AI-CONTEXT] aiContext enviado ao enrichment:', {
+          hasCustomTargets: !!aiContext.customTargets,
+          hasGenreTargets: !!aiContext.genreTargets,
+          customTargetsKeys: aiContext.customTargets ? Object.keys(aiContext.customTargets) : [],
+          hasBands: !!aiContext.customTargets?.bands
+        });
+        console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
         
