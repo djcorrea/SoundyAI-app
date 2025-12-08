@@ -64,7 +64,26 @@ export async function loadGenreTargets(genre) {
   // Verificar cache
   if (targetsCache.has(normalizedGenre)) {
     console.log(`[TARGETS] ✅ Cache hit: ${normalizedGenre}`);
-    return targetsCache.get(normalizedGenre);
+    
+    // 🔍 AUDITORIA LOG 1: Estrutura do cache
+    const cachedTargets = targetsCache.get(normalizedGenre);
+    console.log('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-TARGETS] LOG 1: ESTRUTURA DO CACHE');
+    console.log('[AUDIT-TARGETS] Genre:', normalizedGenre);
+    console.log('[AUDIT-TARGETS] Top-level keys:', Object.keys(cachedTargets));
+    console.log('[AUDIT-TARGETS] Tem .bands?', 'bands' in cachedTargets);
+    console.log('[AUDIT-TARGETS] Tem .low_bass?', 'low_bass' in cachedTargets);
+    console.log('[AUDIT-TARGETS] Tem .sub?', 'sub' in cachedTargets);
+    if (cachedTargets.bands) {
+      console.log('[AUDIT-TARGETS] cachedTargets.bands keys:', Object.keys(cachedTargets.bands));
+      console.log('[AUDIT-TARGETS] cachedTargets.bands.low_bass:', cachedTargets.bands.low_bass);
+    }
+    if (cachedTargets.low_bass) {
+      console.log('[AUDIT-TARGETS] cachedTargets.low_bass (achatado):', cachedTargets.low_bass);
+    }
+    console.log('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return cachedTargets;
   }
   
   // Tentar carregar JSON do filesystem
@@ -367,6 +386,28 @@ function convertToInternalFormat(rawTargets, genre) {
     }
     
     console.log(`[TARGETS] ✅ Conversão concluída: ${Object.keys(converted).length} métricas`);
+    
+    // 🔍 AUDITORIA LOG 2: Estrutura DEPOIS da conversão
+    console.log('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-TARGETS] LOG 2: ESTRUTURA DEPOIS DE convertToInternalFormat');
+    console.log('[AUDIT-TARGETS] Genre:', genre);
+    console.log('[AUDIT-TARGETS] Top-level keys:', Object.keys(converted));
+    console.log('[AUDIT-TARGETS] Tem .bands?', 'bands' in converted);
+    console.log('[AUDIT-TARGETS] Tem .low_bass?', 'low_bass' in converted);
+    console.log('[AUDIT-TARGETS] Tem .sub?', 'sub' in converted);
+    if (converted.bands) {
+      console.log('[AUDIT-TARGETS] converted.bands keys:', Object.keys(converted.bands));
+      console.log('[AUDIT-TARGETS] converted.bands.low_bass:', JSON.stringify(converted.bands.low_bass, null, 2));
+      console.log('[AUDIT-TARGETS] converted.bands.sub:', JSON.stringify(converted.bands.sub, null, 2));
+    }
+    if (converted.low_bass) {
+      console.log('[AUDIT-TARGETS] converted.low_bass (achatado):', JSON.stringify(converted.low_bass, null, 2));
+    }
+    if (converted.sub) {
+      console.log('[AUDIT-TARGETS] converted.sub (achatado):', JSON.stringify(converted.sub, null, 2));
+    }
+    console.log('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     return converted;
     
   } catch (error) {
