@@ -1645,6 +1645,26 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
   console.log(`[ADVANCED-SUGGEST] Penalties disponíveis: ${scoring?.penalties?.length || 0}`);
   console.log(`[ADVANCED-SUGGEST] genreTargets disponíveis: ${genreTargets ? 'SIM' : 'NÃO'}`)  ;
   
+  // 🔍 AUDITORIA LOG 4: genreTargets NA ENTRADA DE generateAdvancedSuggestionsFromScoring
+  console.log('[AUDIT-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AUDIT-SUGGEST] LOG 4: genreTargets NA ENTRADA DE generateAdvancedSuggestionsFromScoring');
+  console.log('[AUDIT-SUGGEST] Genre:', genre);
+  console.log('[AUDIT-SUGGEST] genreTargets existe?', !!genreTargets);
+  if (genreTargets) {
+    console.log('[AUDIT-SUGGEST] Top-level keys:', Object.keys(genreTargets));
+    console.log('[AUDIT-SUGGEST] Tem .bands?', 'bands' in genreTargets);
+    console.log('[AUDIT-SUGGEST] Tem .low_bass?', 'low_bass' in genreTargets);
+    console.log('[AUDIT-SUGGEST] Tem .sub?', 'sub' in genreTargets);
+    if (genreTargets.bands) {
+      console.log('[AUDIT-SUGGEST] genreTargets.bands keys:', Object.keys(genreTargets.bands));
+      console.log('[AUDIT-SUGGEST] genreTargets.bands.low_bass:', JSON.stringify(genreTargets.bands.low_bass, null, 2));
+    }
+    if (genreTargets.low_bass) {
+      console.log('[AUDIT-SUGGEST] genreTargets.low_bass (achatado):', JSON.stringify(genreTargets.low_bass, null, 2));
+    }
+  }
+  console.log('[AUDIT-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   const suggestions = [];
   const penalties = scoring?.penalties || [];
   
