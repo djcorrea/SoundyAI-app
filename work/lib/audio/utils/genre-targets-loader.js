@@ -53,6 +53,55 @@ export async function loadGenreTargets(genre) {
   console.error('Tipo:', typeof genre);
   console.error('\n');
   
+  // ═════════════════════════════════════════════════════════════════
+  // 🔍 AUDITORIA DE PATHS E FILESYSTEM
+  // ═════════════════════════════════════════════════════════════════
+  console.log("========== [AUDIT-PATH] INICIANDO AUDITORIA DE TARGETS ==========");
+  
+  console.log("[AUDIT-PATH] __dirname:", __dirname);
+  console.log("[AUDIT-PATH] process.cwd():", process.cwd());
+  
+  try {
+    const cwdContents = fs.readdirSync(process.cwd());
+    console.log("[AUDIT-PATH] Conteúdo de process.cwd():", cwdContents);
+  } catch (e) {
+    console.log("[AUDIT-PATH] Erro lendo process.cwd():", e.message);
+  }
+  
+  try {
+    const dirnameContents = fs.readdirSync(__dirname);
+    console.log("[AUDIT-PATH] Conteúdo de __dirname:", dirnameContents);
+  } catch (e) {
+    console.log("[AUDIT-PATH] Erro lendo __dirname:", e.message);
+  }
+  
+  // Verificar vários paths possíveis para public/refs/out
+  const possiblePaths = [
+    path.join(process.cwd(), "public", "refs", "out"),
+    path.join(__dirname, "../../../../public/refs/out"),
+    path.join(__dirname, "../../../public/refs/out"),
+    path.join(__dirname, "../../public/refs/out"),
+    path.join(process.cwd(), "work", "public", "refs", "out"),
+  ];
+  
+  console.log("[AUDIT-PATH] Testando paths possíveis para public/refs/out:");
+  for (const testPath of possiblePaths) {
+    try {
+      const exists = fs.existsSync(testPath);
+      console.log(`[AUDIT-PATH] Path: ${testPath}`);
+      console.log(`[AUDIT-PATH]   Existe? ${exists}`);
+      if (exists) {
+        const contents = fs.readdirSync(testPath);
+        console.log(`[AUDIT-PATH]   Conteúdo (${contents.length} arquivos):`, contents.slice(0, 10));
+      }
+    } catch (e) {
+      console.log(`[AUDIT-PATH]   Erro: ${e.message}`);
+    }
+  }
+  
+  console.log("========== [AUDIT-PATH] FIM DA AUDITORIA ==========");
+  // ═════════════════════════════════════════════════════════════════
+  
   console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[TARGET-LOADER] ENTRADA DA FUNÇÃO loadGenreTargets');
   console.log('[TARGET-LOADER] genre recebido:', genre);
@@ -109,10 +158,28 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] PATH CONSTRUÍDO:');
     console.log('[TARGET-LOADER] __dirname:', __dirname);
     console.log('[TARGET-LOADER] jsonPath:', jsonPath);
+    console.log('[TARGET-LOADER] jsonPath ABSOLUTO:', path.resolve(jsonPath));
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🔍 AUDITORIA: Verificar se diretório pai existe
+    const parentDir = path.dirname(jsonPath);
+    console.log('[AUDIT-PATH] Diretório pai do JSON:', parentDir);
+    try {
+      const parentExists = fs.existsSync(parentDir);
+      console.log('[AUDIT-PATH] Diretório pai existe?', parentExists);
+      if (parentExists) {
+        const parentContents = fs.readdirSync(parentDir);
+        console.log('[AUDIT-PATH] Arquivos no diretório pai:', parentContents.slice(0, 15));
+      }
+    } catch (e) {
+      console.log('[AUDIT-PATH] Erro verificando diretório pai:', e.message);
+    }
+    
     // Verificar se arquivo existe
     const fileExists = fs.existsSync(jsonPath);
     console.log('[TARGET-LOADER] fs.existsSync:', fileExists);
+    console.log('[AUDIT-PATH] Arquivo específico existe?', fileExists);
+    console.log('[AUDIT-PATH] Procurando por:', `${normalizedGenre}.json`);
     
     if (!fileExists) {
       console.warn(`[TARGETS] ⚠️ File not found: ${jsonPath}`);
@@ -128,7 +195,13 @@ export async function loadGenreTargets(genre) {
     // Ler e parsear JSON
     console.log('[TARGET-LOADER] Lendo arquivo...');
     const rawData = fs.readFileSync(jsonPath, 'utf-8');
-    console.log('[TARGET-LOADER] Arquivo lido, parseando JSON...');
+    const fileSize = rawData.length;
+    console.log('[TARGET-LOADER] Arquivo lido com sucesso!');
+    console.log('[AUDIT-PATH] ✅ ARQUIVO JSON LIDO COM SUCESSO');
+    console.log('[AUDIT-PATH] Tamanho do arquivo:', fileSize, 'bytes');
+    console.log('[AUDIT-PATH] Path usado:', jsonPath);
+    
+    console.log('[TARGET-LOADER] Parseando JSON...');
     const parsed = JSON.parse(rawData);
     console.log('[TARGET-LOADER] JSON parseado com sucesso');
     console.log('[TARGET-LOADER] Top-level keys:', Object.keys(parsed));
@@ -149,6 +222,16 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] parsed[normalizedGenre] existe?', !!parsed[normalizedGenre]);
     console.log('[TARGET-LOADER] 🎯 BLOCO USADO:', blockUsed);
     console.log('[TARGET-LOADER] rawTargets keys:', Object.keys(rawTargets || {}));
+    
+    // 🔍 AUDITORIA: Valores brutos extraídos do JSON
+    console.log('[AUDIT-PATH] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-PATH] VALORES BRUTOS DO JSON:');
+    console.log('[AUDIT-PATH] lufs_target:', rawTargets.lufs_target);
+    console.log('[AUDIT-PATH] true_peak_target:', rawTargets.true_peak_target);
+    console.log('[AUDIT-PATH] dr_target:', rawTargets.dr_target);
+    console.log('[AUDIT-PATH] tol_lufs:', rawTargets.tol_lufs);
+    console.log('[AUDIT-PATH] tol_true_peak:', rawTargets.tol_true_peak);
+    console.log('[AUDIT-PATH] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Validar estrutura mínima
@@ -159,6 +242,14 @@ export async function loadGenreTargets(genre) {
     
     // Converter para formato interno
     const convertedTargets = convertToInternalFormat(rawTargets, normalizedGenre);
+    
+    // 🔍 AUDITORIA: Valores APÓS conversão
+    console.log('[AUDIT-PATH] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-PATH] VALORES APÓS convertToInternalFormat:');
+    console.log('[AUDIT-PATH] convertedTargets.lufs:', convertedTargets.lufs);
+    console.log('[AUDIT-PATH] convertedTargets.truePeak:', convertedTargets.truePeak);
+    console.log('[AUDIT-PATH] convertedTargets.dr:', convertedTargets.dr);
+    console.log('[AUDIT-PATH] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Validar targets convertidos
     if (!convertedTargets || Object.keys(convertedTargets).length === 0) {
