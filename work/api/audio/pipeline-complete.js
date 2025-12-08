@@ -369,49 +369,27 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[TARGET-DEBUG] options.genreTargets (ignorado):', options.genreTargets ? 'presente mas será ignorado' : 'null');
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🔥 CORREÇÃO FONTE ÚNICA: Usar getOfficialGenreTargets (SEM alterações)
-        // ❌ ANTES: loadGenreTargets() alterava valores via convertToInternalFormat()
-        // ✅ AGORA: getOfficialGenreTargets() retorna JSON original sem modificações
-        const { getOfficialGenreTargets } = await import('../../lib/audio/utils/official-genre-targets-loader.js');
-        customTargets = await getOfficialGenreTargets(detectedGenre);
+        // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
+        // options.genreTargets vem do frontend com APENAS bands (incompleto)
+        // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
+        customTargets = await loadGenreTargets(detectedGenre);
         
         // 🔍 AUDITORIA LOG 3: customTargets DEPOIS do loadGenreTargets
         console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AUDIT-PIPELINE] LOG 3: customTargets DEPOIS DE getOfficialGenreTargets');
+        console.log('[AUDIT-PIPELINE] LOG 3: customTargets DEPOIS DE loadGenreTargets');
         console.log('[AUDIT-PIPELINE] Genre:', detectedGenre);
         console.log('[AUDIT-PIPELINE] customTargets existe?', !!customTargets);
         if (customTargets) {
           console.log('[AUDIT-PIPELINE] Top-level keys:', Object.keys(customTargets));
-          console.log('[AUDIT-PIPELINE] Tem .legacy_compatibility?', 'legacy_compatibility' in customTargets);
-          console.log('[AUDIT-PIPELINE] Tem .hybrid_processing?', 'hybrid_processing' in customTargets);
-          
-          // 🔥 VALIDAÇÃO CRÍTICA: Confirmar estrutura ORIGINAL do JSON
-          if (customTargets.legacy_compatibility) {
-            console.log('[AUDIT-PIPELINE] ✅ legacy_compatibility presente (estrutura oficial)');
-            console.log('[AUDIT-PIPELINE] LUFS target:', customTargets.legacy_compatibility.lufs_target);
-            console.log('[AUDIT-PIPELINE] True Peak target:', customTargets.legacy_compatibility.true_peak_target);
-            console.log('[AUDIT-PIPELINE] DR target:', customTargets.legacy_compatibility.dr_target);
-            console.log('[AUDIT-PIPELINE] Bands:', customTargets.legacy_compatibility.bands ? Object.keys(customTargets.legacy_compatibility.bands) : []);
-            
-            // 🔍 Validar banda específica
-            if (customTargets.legacy_compatibility.bands?.low_bass) {
-              console.log('[AUDIT-PIPELINE] Banda low_bass:', JSON.stringify(customTargets.legacy_compatibility.bands.low_bass, null, 2));
-            }
-          } else {
-            console.error('[AUDIT-PIPELINE] ❌ ERRO: legacy_compatibility ausente - estrutura alterada!');
+          console.log('[AUDIT-PIPELINE] Tem .bands?', 'bands' in customTargets);
+          console.log('[AUDIT-PIPELINE] Tem .low_bass?', 'low_bass' in customTargets);
+          console.log('[AUDIT-PIPELINE] Tem .sub?', 'sub' in customTargets);
+          if (customTargets.bands) {
+            console.log('[AUDIT-PIPELINE] customTargets.bands keys:', Object.keys(customTargets.bands));
+            console.log('[AUDIT-PIPELINE] customTargets.bands.low_bass:', JSON.stringify(customTargets.bands.low_bass, null, 2));
           }
-          
-          // ❌ VALIDAÇÃO: Detectar se estrutura foi alterada
-          if ('lufs' in customTargets && typeof customTargets.lufs === 'object' && 'target' in customTargets.lufs) {
-            console.error('[AUDIT-PIPELINE] ❌ ERRO CRÍTICO: Estrutura nested detectada (lufs.target)');
-            console.error('[AUDIT-PIPELINE] ❌ Targets foram alterados por convertToInternalFormat()!');
-            throw new Error('[AUDIT-FAIL] Divergência detectada - targets alterados (nested structure)');
-          }
-          
-          if ('bands' in customTargets && customTargets.bands && !customTargets.legacy_compatibility) {
-            console.error('[AUDIT-PIPELINE] ❌ ERRO CRÍTICO: Estrutura .bands sem .legacy_compatibility');
-            console.error('[AUDIT-PIPELINE] ❌ Targets foram alterados!');
-            throw new Error('[AUDIT-FAIL] Divergência detectada - estrutura modificada');
+          if (customTargets.low_bass) {
+            console.log('[AUDIT-PIPELINE] customTargets.low_bass (achatado):', JSON.stringify(customTargets.low_bass, null, 2));
           }
         }
         console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1360,52 +1338,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // 🔧 PATCH CRÍTICO: Garantir que o JSON final contenha os targets corretos do gênero
     if (mode === "genre" && customTargets) {
       finalJSON.data = finalJSON.data || {};
-      
-      // 🔥 VALIDAÇÃO FINAL: Confirmar que targets são oficiais (não alterados)
-      console.log("[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("[AUDIT-TARGETS] Genre solicitado:", detectedGenre);
-      console.log("[AUDIT-TARGETS] Validando targets antes de injetar no JSON final...");
-      
-      // Validar estrutura oficial
-      const hasOfficialStructure = customTargets.legacy_compatibility !== undefined;
-      const hasNestedStructure = customTargets.lufs?.target !== undefined;
-      
-      if (!hasOfficialStructure) {
-        console.error("[AUDIT-TARGETS] ❌ FALHA CRÍTICA: legacy_compatibility ausente!");
-        console.error("[AUDIT-TARGETS] Estrutura recebida:", Object.keys(customTargets));
-        throw new Error("[AUDIT-FAIL] Divergência detectada entre tabela e pipeline — fonte única quebrada (falta legacy_compatibility).");
-      }
-      
-      if (hasNestedStructure) {
-        console.error("[AUDIT-TARGETS] ❌ FALHA CRÍTICA: Estrutura nested detectada (lufs.target)!");
-        console.error("[AUDIT-TARGETS] Targets foram alterados por convertToInternalFormat()!");
-        throw new Error("[AUDIT-FAIL] Divergência detectada entre tabela e pipeline — fonte única quebrada (nested structure).");
-      }
-      
-      // Validar valores específicos contra arquivo oficial
-      const officialLufs = customTargets.legacy_compatibility?.lufs_target;
-      const officialTruePeak = customTargets.legacy_compatibility?.true_peak_target;
-      const officialDr = customTargets.legacy_compatibility?.dr_target;
-      
-      console.log("[AUDIT-TARGETS] Valores oficiais do arquivo:");
-      console.log("[AUDIT-TARGETS]   LUFS:", officialLufs);
-      console.log("[AUDIT-TARGETS]   True Peak:", officialTruePeak);
-      console.log("[AUDIT-TARGETS]   DR:", officialDr);
-      
-      // Injetar targets OFICIAIS no JSON final
       finalJSON.data.genreTargets = customTargets;
 
       console.log("[PIPELINE-FIX] ✅ Genre targets inseridos no JSON final", {
         hasTargets: !!customTargets,
         keys: Object.keys(customTargets || {}),
-        hasLegacyCompatibility: !!customTargets?.legacy_compatibility,
-        hasHybridProcessing: !!customTargets?.hybrid_processing,
-        officialLufs: officialLufs,
-        officialTruePeak: officialTruePeak
+        hasBands: !!customTargets?.bands,
+        topLevelBands: customTargets?.bands ? Object.keys(customTargets.bands) : []
       });
-      
-      console.log("[AUDIT-TARGETS] ✅ Validação completa: Targets são 100% idênticos ao arquivo refs/out/" + detectedGenre + ".json");
-      console.log("[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     // Limpar arquivo temporário
