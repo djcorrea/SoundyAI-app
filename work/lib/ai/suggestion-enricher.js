@@ -480,32 +480,42 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
 - **Modo de Análise**: ${mode}
 `;
 
-  // 🎯 CORREÇÃO FASE 2: Incluir targets do gênero no prompt
+  // 🎯 CORREÇÃO FASE 2: Incluir targets do gênero no prompt (ESTRUTURA CORRIGIDA)
   if (context.customTargets) {
     prompt += `\n### 🎯 TARGETS DO GÊNERO (${genre.toUpperCase()})\n`;
     const targets = context.customTargets;
     
-    if (targets.lufs_target !== undefined) {
-      prompt += `- **LUFS Alvo**: ${targets.lufs_target} dB (tolerância: ±${targets.tol_lufs || 1.0} dB)\n`;
+    console.log('[ENRICHER-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[ENRICHER-AUDIT] customTargets recebido:', {
+      hasLufs: !!targets.lufs,
+      hasTruePeak: !!targets.truePeak,
+      hasDr: !!targets.dr,
+      hasBands: !!targets.bands,
+      keys: Object.keys(targets)
+    });
+    console.log('[ENRICHER-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // ✅ CORREÇÃO: Ler estrutura convertida (targets.lufs.target ao invés de targets.lufs_target)
+    if (targets.lufs && targets.lufs.target !== undefined) {
+      prompt += `- **LUFS Alvo**: ${targets.lufs.target} dB (tolerância: ±${targets.lufs.tolerance || 1.0} dB)\n`;
     }
-    if (targets.true_peak_target !== undefined) {
-      prompt += `- **True Peak Alvo**: ${targets.true_peak_target} dBTP (tolerância: ±${targets.tol_true_peak || 0.3} dB)\n`;
+    if (targets.truePeak && targets.truePeak.target !== undefined) {
+      prompt += `- **True Peak Alvo**: ${targets.truePeak.target} dBTP (tolerância: ±${targets.truePeak.tolerance || 0.3} dB)\n`;
     }
-    if (targets.dr_target !== undefined) {
-      prompt += `- **Dynamic Range Alvo**: ${targets.dr_target} dB (tolerância: ±${targets.tol_dr || 2.0} dB)\n`;
+    if (targets.dr && targets.dr.target !== undefined) {
+      prompt += `- **Dynamic Range Alvo**: ${targets.dr.target} dB (tolerância: ±${targets.dr.tolerance || 2.0} dB)\n`;
     }
     
     if (targets.bands) {
       prompt += `\n#### 🎶 Bandas Espectrais:\n`;
       const bandLabels = {
         sub: 'Sub (20-60Hz)',
-        low_bass: 'Low Bass (60-120Hz)',
-        bass: 'Bass (120-250Hz)',
-        low_mid: 'Low Mid (250-500Hz)',
+        bass: 'Low Bass (60-120Hz)',
+        lowMid: 'Low Mid (250-500Hz)',
         mid: 'Mid (500Hz-2kHz)',
-        high_mid: 'High Mid (2-4kHz)',
-        presence: 'Presence (4-6kHz)',
-        brilliance: 'Brilliance (6-20kHz)'
+        highMid: 'High Mid (2-4kHz)',
+        presenca: 'Presence (4-6kHz)',
+        brilho: 'Brilliance (6-20kHz)'
       };
       
       Object.entries(targets.bands).forEach(([band, data]) => {
@@ -513,18 +523,29 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
         if (data.target_range && data.target_range.min !== undefined && data.target_range.max !== undefined) {
           const label = bandLabels[band] || band;
           prompt += `  - **${label}**: Range permitido ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB\n`;
-          prompt += `    → Use o RANGE como referência, não o ponto central.\n`;
+          if (data.target_db !== undefined) {
+            prompt += `    → Target central: ${data.target_db.toFixed(1)} dB\n`;
+          }
+          prompt += `    → Use o RANGE como referência principal.\n`;
         } else if (data.target_db !== undefined) {
           const label = bandLabels[band] || band;
-          const min = data.min_db !== undefined ? data.min_db : (data.target_db - (data.tol_db || 2));
-          const max = data.max_db !== undefined ? data.max_db : (data.target_db + (data.tol_db || 2));
+          const tolerance = data.tolerance || 2.0;
+          const min = data.target_db - tolerance;
+          const max = data.target_db + tolerance;
           prompt += `  - **${label}**: Range permitido ${min.toFixed(1)} a ${max.toFixed(1)} dB (centro em ${data.target_db.toFixed(1)} dB)\n`;
           prompt += `    → IMPORTANTE: Use o RANGE (${min.toFixed(1)} a ${max.toFixed(1)} dB) como referência, NÃO o centro isolado.\n`;
+        } else if (data.target !== undefined) {
+          const label = bandLabels[band] || band;
+          const tolerance = data.tolerance || 2.0;
+          const min = data.target - tolerance;
+          const max = data.target + tolerance;
+          prompt += `  - **${label}**: Range permitido ${min.toFixed(1)} a ${max.toFixed(1)} dB (centro em ${data.target.toFixed(1)} dB)\n`;
         }
       });
     }
     
-    prompt += `\n**IMPORTANTE**: Use esses targets como referência ao avaliar deltas e severidade dos problemas.\n`;
+    prompt += `\n**IMPORTANTE**: Use esses targets como referência OBRIGATÓRIA ao avaliar deltas e severidade dos problemas.\n`;
+    prompt += `**NUNCA INVENTE valores ou use defaults genéricos - USE APENAS OS VALORES ACIMA.**\n`;
   }
 
   if (mode === 'reference' && context.referenceComparison) {
@@ -618,6 +639,32 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
 
   prompt += `\n## 🎯 SUA MISSÃO
 A partir das sugestões base acima, você deve criar **versões enriquecidas e educativas**, transformando cada item técnico em um guia prático para o produtor musical.
+
+### 🚨 REGRAS CRÍTICAS DE VALORES NUMÉRICOS (PRIORIDADE MÁXIMA)
+
+**VOCÊ ESTÁ PROIBIDO DE INVENTAR, MODIFICAR OU USAR VALORES PADRÃO.**
+
+**QUANDO OS TARGETS DO GÊNERO SÃO FORNECIDOS ACIMA**:
+1. ✅ **USE APENAS** os valores de \`target_range\` e \`target_db\` listados acima
+2. ✅ **CITE** os valores EXATOS em seus textos (problema, causaProvavel, solucao)
+3. ✅ **NUNCA** use valores genéricos como "0 dB", "-14 dB padrão", "range universal"
+4. ✅ **NUNCA** invente ranges se não foram fornecidos - use apenas os listados acima
+
+**QUANDO UMA SUGESTÃO BASE CONTÉM**:
+- \`currentValue\`: **OBRIGATÓRIO** citar este valor exato no campo \`problema\`
+- \`delta\`: **OBRIGATÓRIO** citar este delta exato no campo \`problema\` ou \`causaProvavel\`
+- \`targetRange\`: **OBRIGATÓRIO** citar este range exato no campo \`problema\`
+
+**EXEMPLO CORRETO (usando valores fornecidos acima)**:
+Se target_range para low_bass é \`-31 a -25 dB\` e currentValue é \`-20 dB\`:
+✅ "Low Bass está em -20 dB, enquanto o range adequado é -31 a -25 dB, ficando +5 dB acima do limite máximo."
+
+**EXEMPLO PROIBIDO (inventando valores)**:
+❌ "Low Bass está muito alto, deveria estar em torno de -28 dB" (de onde veio -28 dB?)
+❌ "Range ideal é entre -30 e -24 dB" (os targets acima dizem -31 a -25!)
+❌ "True Peak deveria estar em 0 dB" (os targets acima dizem -1 dBTP!)
+
+**SE VOCÊ USAR QUALQUER VALOR QUE NÃO ESTEJA LISTADO ACIMA, SUA RESPOSTA SERÁ REJEITADA.**
 
 ### ⚙️ ESTRUTURA OBRIGATÓRIA DE SAÍDA
 Retorne **um array JSON** com objetos neste formato EXATO:

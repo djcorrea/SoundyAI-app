@@ -899,6 +899,13 @@ class AISuggestionUIController {
         }
         
         console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais');
+        console.log('[AI-UI][VALIDATION] 📊 Estrutura genreTargets:', {
+            hasLufs: !!genreTargets.lufs,
+            hasTruePeak: !!genreTargets.truePeak,
+            hasDr: !!genreTargets.dr,
+            hasBands: !!genreTargets.bands,
+            keys: Object.keys(genreTargets)
+        });
         
         return suggestions.map(suggestion => {
             // Identificar métrica da sugestão
@@ -908,15 +915,34 @@ class AISuggestionUIController {
                 return suggestion; // Sugestões informativas não precisam validação
             }
             
-            // Obter target real do JSON
-            const targetData = genreTargets[metric];
+            // 🔧 FASE 3: Obter target real do JSON (suporta estrutura aninhada E plana)
+            let targetData = null;
+            let realTarget = null;
+            let realRange = null;
             
-            if (!targetData || typeof targetData.target_db !== 'number') {
+            // Tentar estrutura aninhada primeiro: genreTargets.lufs.target
+            if (genreTargets[metric] && typeof genreTargets[metric] === 'object') {
+                targetData = genreTargets[metric];
+                realTarget = targetData.target_db || targetData.target;
+                realRange = targetData.target_range;
+            }
+            // Tentar dentro de bands: genreTargets.bands.sub.target_db
+            else if (genreTargets.bands && genreTargets.bands[metric]) {
+                targetData = genreTargets.bands[metric];
+                realTarget = targetData.target_db || targetData.target;
+                realRange = targetData.target_range;
+            }
+            // Fallback: estrutura plana legada
+            else if (typeof genreTargets[metric + '_target'] === 'number') {
+                realTarget = genreTargets[metric + '_target'];
+            }
+            
+            if (!realTarget && !realRange) {
                 console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}"`);
                 return suggestion;
             }
             
-            const realTarget = targetData.target_db;
+            console.log(`[AI-UI][VALIDATION] ✅ Target encontrado para "${metric}":`, { realTarget, realRange });
             
             // Corrigir textos que mencionam valores "ideal" incorretos
             const correctedSuggestion = { ...suggestion };
@@ -928,7 +954,10 @@ class AISuggestionUIController {
                 if (correctedSuggestion[field] && typeof correctedSuggestion[field] === 'string') {
                     const original = correctedSuggestion[field];
                     const corrected = original.replace(idealRegex, (match) => {
-                        return match.replace(/[-+]?\d+\.?\d*/, realTarget.toFixed(1));
+                        if (realTarget) {
+                            return match.replace(/[-+]?\d+\.?\d*/, realTarget.toFixed(1));
+                        }
+                        return match; // Manter original se não tiver target
                     });
                     
                     if (original !== corrected) {
@@ -944,6 +973,7 @@ class AISuggestionUIController {
             // Adicionar badge de conformidade
             correctedSuggestion._validated = true;
             correctedSuggestion._realTarget = realTarget;
+            correctedSuggestion._realRange = realRange;
             
             return correctedSuggestion;
         });
