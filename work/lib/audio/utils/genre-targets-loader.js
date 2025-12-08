@@ -115,14 +115,17 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] fs.existsSync:', fileExists);
     
     if (!fileExists) {
+      // ✅ CORREÇÃO 4: Desabilitar fallback silencioso (temporário para diagnóstico)
+      console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('[AUDIT-TARGETS] ❌ ERRO CRÍTICO: Arquivo não encontrado!');
+      console.error('[AUDIT-TARGETS] Genre:', normalizedGenre);
+      console.error('[AUDIT-TARGETS] Path esperado:', jsonPath);
+      console.error('[AUDIT-TARGETS] __dirname:', __dirname);
+      console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
       console.warn(`[TARGETS] ⚠️ File not found: ${jsonPath}`);
-      console.warn(`[TARGETS] ⚠️ Tentando fallback hardcoded...`);
-      console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.warn('[AUDIT] ⚠️ FALLBACK ACIONADO: Arquivo não existe');
-      console.warn('[AUDIT] Genre:', normalizedGenre);
-      console.warn('[AUDIT] Path esperado:', jsonPath);
-      console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      return await loadFromHardcodedFallback(normalizedGenre);
+      console.error('[AUDIT-TARGETS] ERRO: JSON não carregado. Fallback NÃO será usado até confirmar causa.');
+      throw new Error(`[TARGET-ERROR] JSON oficial não encontrado: ${jsonPath}. Verifique caminho ou permissões.`);
     }
     
     // Ler e parsear JSON
@@ -130,11 +133,20 @@ export async function loadGenreTargets(genre) {
     const rawData = fs.readFileSync(jsonPath, 'utf-8');
     console.log('[TARGET-LOADER] Arquivo lido, parseando JSON...');
     const parsed = JSON.parse(rawData);
+    
+    // ✅ CORREÇÃO 1: Log obrigatório APÓS leitura bem-sucedida
+    console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AUDIT-TARGETS] ✅ JSON oficial carregado com sucesso:', normalizedGenre);
+    console.error('[AUDIT-TARGETS] 📊 Top-level keys no arquivo:', Object.keys(parsed));
+    console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     console.log('[TARGET-LOADER] JSON parseado com sucesso');
     console.log('[TARGET-LOADER] Top-level keys:', Object.keys(parsed));
     
     // Extrair targets do primeiro nível (formato: { "funk_mandela": { ... } })
     const genreData = parsed[normalizedGenre] || parsed;
+    
+    console.error('[AUDIT-TARGETS] 📊 Valores brutos carregados (genreData keys):', Object.keys(genreData || {}));
     console.log('[TARGET-LOADER] genreData keys:', Object.keys(genreData || {}));
     
     // 🎯 PRIORIZAR legacy_compatibility → hybrid_processing → objeto direto
@@ -153,8 +165,12 @@ export async function loadGenreTargets(genre) {
     
     // Validar estrutura mínima
     if (!validateTargetsStructure(rawTargets)) {
-      console.error(`[TARGETS] ❌ Invalid structure in ${normalizedGenre}.json - tentando fallback hardcoded`);
-      return await loadFromHardcodedFallback(normalizedGenre);
+      // ✅ CORREÇÃO 4: Desabilitar fallback silencioso
+      console.error('[AUDIT-TARGETS] ❌ ERRO: Estrutura inválida no JSON oficial');
+      console.error('[AUDIT-TARGETS] Genre:', normalizedGenre);
+      console.error('[AUDIT-TARGETS] rawTargets keys:', Object.keys(rawTargets || {}));
+      console.error(`[TARGETS] ❌ Invalid structure in ${normalizedGenre}.json`);
+      throw new Error(`[TARGET-ERROR] Estrutura inválida em ${normalizedGenre}.json. Verifique formato do arquivo.`);
     }
     
     // Converter para formato interno
@@ -162,8 +178,12 @@ export async function loadGenreTargets(genre) {
     
     // Validar targets convertidos
     if (!convertedTargets || Object.keys(convertedTargets).length === 0) {
-      console.error(`[TARGETS] ❌ Conversion failed for ${normalizedGenre} - tentando fallback hardcoded`);
-      return await loadFromHardcodedFallback(normalizedGenre);
+      // ✅ CORREÇÃO 4: Desabilitar fallback silencioso
+      console.error('[AUDIT-TARGETS] ❌ ERRO: Conversão falhou');
+      console.error('[AUDIT-TARGETS] Genre:', normalizedGenre);
+      console.error('[AUDIT-TARGETS] convertedTargets:', convertedTargets);
+      console.error(`[TARGETS] ❌ Conversion failed for ${normalizedGenre}`);
+      throw new Error(`[TARGET-ERROR] Conversão falhou para ${normalizedGenre}. Verifique convertToInternalFormat().`);
     }
     
     // Cachear resultado
@@ -188,6 +208,17 @@ export async function loadGenreTargets(genre) {
     console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
+    // ✅ CORREÇÃO 5: Auditoria final antes do retorno
+    console.error('[AUDIT-TARGETS-FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AUDIT-TARGETS-FINAL] 📦 Targets finais entregues ao pipeline:', {
+      genre: normalizedGenre,
+      lufs: convertedTargets.lufs?.target,
+      truePeak: convertedTargets.truePeak?.target,
+      dr: convertedTargets.dr?.target,
+      bands: convertedTargets.bands ? Object.keys(convertedTargets.bands) : null
+    });
+    console.error('[AUDIT-TARGETS-FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     // 🚨🚨🚨 LOG SUPER VISÍVEL - RETORNO 🚨🚨🚨
     console.error('\n');
     console.error('╔═══════════════════════════════════════════════════════════╗');
@@ -203,16 +234,22 @@ export async function loadGenreTargets(genre) {
     return convertedTargets;
     
   } catch (error) {
+    // ✅ CORREÇÃO 2: Logar erro real sem esconder detalhes
+    console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AUDIT-TARGETS] ❌ FALHA ao carregar JSON oficial:', normalizedGenre);
+    console.error('[AUDIT-TARGETS] 🔴 Erro real:', error);
+    console.error('[AUDIT-TARGETS] 🔴 Mensagem:', error.message);
+    console.error('[AUDIT-TARGETS] 🔴 Stack:', error.stack);
+    console.error('[AUDIT-TARGETS] 📂 Path tentado:', jsonPath);
+    console.error('[AUDIT-TARGETS] 📂 __dirname:', __dirname);
+    console.error('[AUDIT-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     console.error(`[TARGETS] ❌ Erro ao carregar ${normalizedGenre}:`, error.message);
     console.error(`[TARGETS] Stack:`, error.stack);
-    console.warn(`[TARGETS] Tentando fallback hardcoded...`);
-    console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.warn('[AUDIT] ⚠️ FALLBACK ACIONADO: Erro ao ler arquivo');
-    console.warn('[AUDIT] Genre:', normalizedGenre);
-    console.warn('[AUDIT] Erro:', error.message);
-    console.warn('[AUDIT] Path tentado:', jsonPath);
-    console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    return await loadFromHardcodedFallback(normalizedGenre);
+    
+    // ✅ CORREÇÃO 4: Desabilitar fallback silencioso (temporário)
+    console.error('[AUDIT-TARGETS] ERRO: JSON não carregado. Fallback NÃO será usado até confirmar causa.');
+    throw new Error(`[TARGET-ERROR] Falha ao carregar ${normalizedGenre}.json: ${error.message}`);
   }
 }
 
