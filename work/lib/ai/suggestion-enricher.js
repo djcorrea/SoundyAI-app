@@ -640,6 +640,32 @@ Retorne **um array JSON** com objetos neste formato EXATO:
 }
 \`\`\`
 
+### 🔒 NUMERIC LOCK - PROIBIÇÕES ABSOLUTAS
+
+**VOCÊ É UM MOTOR DE ANÁLISE TEXTUAL. VOCÊ NÃO TEM AUTORIZAÇÃO PARA CALCULAR OU RETORNAR VALORES NUMÉRICOS.**
+
+**❌ NUNCA RETORNE ESTES CAMPOS NO JSON:**
+- \`currentValue\` (já fornecido na base)
+- \`targetRange\` (já fornecido na base)
+- \`targetMin\` (já fornecido na base)
+- \`targetMax\` (já fornecido na base)
+- \`delta\` (já fornecido na base)
+- \`deviationRatio\` (já fornecido na base)
+- \`referenceValue\` (já fornecido na base)
+- \`userValue\` (já fornecido na base)
+
+**✅ VOCÊ PODE MENCIONAR esses valores NOS TEXTOS (problema, causaProvavel, solucao), mas NUNCA como campos separados.**
+
+**Exemplo CORRETO:**
+- ✅ \`"problema": "LUFS em -12.5 dB está +2.5 dB acima do target máximo de -15 dB"\`
+
+**Exemplo PROIBIDO:**
+- ❌ \`"currentValue": "-12.5 dB"\` ← NUNCA FAÇA ISSO
+- ❌ \`"targetRange": "-18 a -15 dB"\` ← NUNCA FAÇA ISSO
+- ❌ \`"delta": "+2.5 dB"\` ← NUNCA FAÇA ISSO
+
+**Se você retornar qualquer campo numérico, sua resposta será REJEITADA e descartada.**
+
 ### 🧩 REGRAS TÉCNICAS E DE ESTILO
 
 1. **Termos Técnicos**: Use vocabulário profissional real (LUFS, dBTP, LRA, dinâmica, compressão paralela, sidechain, saturação, limiter, stereo field, phase issues etc).
@@ -856,6 +882,13 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       userValue: baseSug.userValue,
       delta: baseSug.delta,
       
+      // 🔒 NUMERIC LOCK - Campos numéricos SEMPRE preservados do base
+      currentValue: baseSug.currentValue,
+      targetRange: baseSug.targetRange,
+      targetMin: baseSug.targetMin,
+      targetMax: baseSug.targetMax,
+      deviationRatio: baseSug.deviationRatio,
+      
       // 🔮 Enriquecimento IA (novo formato) - SEMPRE MARCAR COMO ENHANCED
       aiEnhanced: true,
       enrichmentStatus: 'success',
@@ -966,6 +999,26 @@ function mapPriorityToNivel(priority) {
  */
 function validateAICoherence(baseSug, aiEnrich) {
   const issues = [];
+  
+  // 🔒 VALIDAÇÃO CRÍTICA: NUMERIC LOCK - IA NUNCA PODE RETORNAR CAMPOS NUMÉRICOS
+  const forbiddenNumericFields = [
+    'currentValue', 'targetRange', 'targetMin', 'targetMax', 
+    'delta', 'deviationRatio', 'referenceValue', 'userValue'
+  ];
+  
+  forbiddenNumericFields.forEach(field => {
+    if (aiEnrich[field] !== undefined) {
+      issues.push(`🚨 NUMERIC LOCK VIOLATION: IA retornou campo proibido "${field}" com valor "${aiEnrich[field]}"`);
+    }
+  });
+  
+  // Se houver violação de NUMERIC LOCK, retornar imediatamente como incoerente
+  if (issues.length > 0 && issues.some(i => i.includes('NUMERIC LOCK VIOLATION'))) {
+    return {
+      isCoherent: false,
+      issues: issues
+    };
+  }
   
   // Validação 1: Problema deve mencionar currentValue se disponível
   if (baseSug.currentValue && aiEnrich.problema) {
