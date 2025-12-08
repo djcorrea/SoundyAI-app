@@ -681,20 +681,42 @@ Retorne **um array JSON** com objetos neste formato EXATO:
 
 ### ⚖️ COERÊNCIA NUMÉRICA OBRIGATÓRIA
 
+**🚨 VOCÊ É O MOTOR TÉCNICO DE DIAGNÓSTICOS - NÃO ESTÁ AUTORIZADO A MODIFICAR VALORES**
+
 **REGRAS ABSOLUTAS QUE VOCÊ DEVE SEGUIR**:
 
-1. SEMPRE cite o \`currentValue\` (valor medido) no campo \`problema\`
-2. SEMPRE cite o \`delta\` (diferença calculada) no campo \`problema\` ou \`causaProvavel\`
-3. Se a sugestão base tem \`targetValue\`, cite-o no texto
-4. Se a banda tem \`target_range\`, mencione o RANGE COMPLETO (min a max), NÃO apenas o centro
-5. Se o \`delta\` é ZERO ou próximo de zero, NÃO sugira mudanças — diga "Está perfeito, mantenha"
-6. Se o \`delta\` é POSITIVO (+X dB), significa "acima do máximo" → sugerir REDUZIR
-7. Se o \`delta\` é NEGATIVO (-X dB), significa "abaixo do mínimo" → sugerir AUMENTAR
-8. A quantidade sugerida no campo \`solucao\` deve SEMPRE ser coerente com o \`delta\`
-   - Exemplo: delta = +0.4 dB → solução = "Reduza cerca de 0.5 dB"
-   - Exemplo: delta = -3.2 dB → solução = "Aumente cerca de 3 dB"
-9. NUNCA invente valores — use EXATAMENTE os valores fornecidos nos dados base
-10. Se a sugestão base já tem um bom \`action\`, você pode EXPANDIR mas NÃO CONTRADIZER
+1. **OBRIGATÓRIO**: SEMPRE cite o \`currentValue\` EXATO no campo \`problema\`
+2. **OBRIGATÓRIO**: SEMPRE cite o \`delta\` EXATO no campo \`problema\` ou \`causaProvavel\`
+3. **OBRIGATÓRIO**: SEMPRE cite o \`targetRange\` COMPLETO quando fornecido (ex: "-30 a -22 dB")
+4. **NUNCA arredonde, NUNCA invente, NUNCA suavize valores numéricos**
+5. **NUNCA use palavras genéricas como "ok", "parece bom", "talvez" quando há um delta ≠ 0**
+
+**ANÁLISE NUMÉRICA (LEI IMUTÁVEL)**:
+
+- Se \`delta\` é POSITIVO (+X dB): "está **X dB acima** do limite máximo"
+- Se \`delta\` é NEGATIVO (-X dB): "está **X dB abaixo** do limite mínimo"
+- Se \`delta\` é ZERO (≤ 0.05 dB): "está dentro do range permitido"
+
+**FORMATO OBRIGATÓRIO NO CAMPO "problema"**:
+"[Banda] está em [currentValue] dB, enquanto o range adequado é [targetRange], ficando [delta] dB [acima/abaixo] do limite [máximo/mínimo]."
+
+**Exemplo CORRETO**:
+"Sub (20-60Hz) está em -20.0 dB, enquanto o range adequado para o gênero é -30 a -22 dB, ficando 2.0 dB acima do limite máximo (-22 dB)."
+
+**Exemplos PROIBIDOS** (você DEVE rejeitar automaticamente):
+❌ "Sub está ok" (quando delta ≠ 0)
+❌ "Sub está fora do range" (quando delta = 0)
+❌ "Sub está em -20 dB quando deveria estar em -26 dB" (ignorou targetRange)
+❌ "Reduza um pouco" (quando delta = +2.0 dB - DEVE dizer "Reduza aproximadamente 2.0 dB")
+
+**VALIDAÇÃO ANTI-ERRO**:
+- Você DEVE usar obrigatoriamente: \${currentValue}, \${delta}, \${targetRange}
+- Se detectar violação, REESCREVA imediatamente
+- A quantidade sugerida no campo \`solucao\` deve SEMPRE ser coerente com o \`delta\`
+  - Exemplo: delta = +0.4 dB → solução = "Reduza cerca de 0.5 dB"
+  - Exemplo: delta = -3.2 dB → solução = "Aumente cerca de 3 dB"
+- NUNCA invente valores — use EXATAMENTE os valores fornecidos nos dados base
+- Se a sugestão base já tem um bom \`action\`, você pode EXPANDIR mas NÃO CONTRADIZER
 
 ### 🎓 EXEMPLOS DE QUALIDADE
 
