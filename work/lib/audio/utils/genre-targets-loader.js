@@ -290,7 +290,12 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.lufs = {
         target: rawTargets.lufs_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        // 🎯 ADICIONAR target_range para consistência com bandas
+        target_range: {
+          min: rawTargets.lufs_target - tolerance,
+          max: rawTargets.lufs_target + tolerance
+        }
       };
     }
     
@@ -300,7 +305,12 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.truePeak = {
         target: rawTargets.true_peak_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        // 🎯 ADICIONAR target_range para consistência com bandas
+        target_range: {
+          min: rawTargets.true_peak_target - tolerance,
+          max: rawTargets.true_peak_target + tolerance
+        }
       };
     }
     
@@ -310,7 +320,12 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.dr = {
         target: rawTargets.dr_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        // 🎯 ADICIONAR target_range para consistência com bandas
+        target_range: {
+          min: rawTargets.dr_target - tolerance,
+          max: rawTargets.dr_target + tolerance
+        }
       };
     }
     
@@ -320,7 +335,12 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.stereo = {
         target: rawTargets.stereo_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5
+        critical: tolerance * 1.5,
+        // 🎯 ADICIONAR target_range para consistência com bandas
+        target_range: {
+          min: rawTargets.stereo_target - tolerance,
+          max: rawTargets.stereo_target + tolerance
+        }
       };
     }
     
