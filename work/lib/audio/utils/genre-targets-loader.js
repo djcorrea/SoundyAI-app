@@ -87,19 +87,20 @@ export async function loadGenreTargets(genre) {
   }
   
   // Tentar carregar JSON do filesystem
-  const jsonPath = path.resolve(
-    __dirname, 
-    '../../../../public/refs/out', 
-    `${normalizedGenre}.json`
-  );
-  
-  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[TARGET-LOADER] PATH CONSTRUÍDO:');
-  console.log('[TARGET-LOADER] __dirname:', __dirname);
-  console.log('[TARGET-LOADER] jsonPath:', jsonPath);
-  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  let jsonPath; // Declarar fora do bloco try para acessar no catch
   
   try {
+    jsonPath = path.resolve(
+      __dirname, 
+      '../../../../public/refs/out', 
+      `${normalizedGenre}.json`
+    );
+    
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[TARGET-LOADER] PATH CONSTRUÍDO:');
+    console.log('[TARGET-LOADER] __dirname:', __dirname);
+    console.log('[TARGET-LOADER] jsonPath:', jsonPath);
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     // Verificar se arquivo existe
     const fileExists = fs.existsSync(jsonPath);
     console.log('[TARGET-LOADER] fs.existsSync:', fileExists);
@@ -107,6 +108,11 @@ export async function loadGenreTargets(genre) {
     if (!fileExists) {
       console.warn(`[TARGETS] ⚠️ File not found: ${jsonPath}`);
       console.warn(`[TARGETS] ⚠️ Tentando fallback hardcoded...`);
+      console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.warn('[AUDIT] ⚠️ FALLBACK ACIONADO: Arquivo não existe');
+      console.warn('[AUDIT] Genre:', normalizedGenre);
+      console.warn('[AUDIT] Path esperado:', jsonPath);
+      console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return await loadFromHardcodedFallback(normalizedGenre);
     }
     
@@ -161,6 +167,16 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] convertedTargets.lufs:', convertedTargets.lufs);
     console.log('[TARGET-LOADER] convertedTargets.dr:', convertedTargets.dr);
     console.log('[TARGET-LOADER] convertedTargets.truePeak:', convertedTargets.truePeak);
+    
+    // 🎯 LOG DE AUDITORIA: Confirmar que JSON oficial foi usado
+    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT] ✅ JSON OFICIAL USADO');
+    console.log('[AUDIT] Arquivo:', jsonPath);
+    console.log('[AUDIT] Genre:', normalizedGenre);
+    console.log('[AUDIT] LUFS oficial:', convertedTargets.lufs?.target);
+    console.log('[AUDIT] TruePeak oficial:', convertedTargets.truePeak?.target);
+    console.log('[AUDIT] DR oficial:', convertedTargets.dr?.target);
+    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     return convertedTargets;
@@ -169,6 +185,12 @@ export async function loadGenreTargets(genre) {
     console.error(`[TARGETS] ❌ Erro ao carregar ${normalizedGenre}:`, error.message);
     console.error(`[TARGETS] Stack:`, error.stack);
     console.warn(`[TARGETS] Tentando fallback hardcoded...`);
+    console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.warn('[AUDIT] ⚠️ FALLBACK ACIONADO: Erro ao ler arquivo');
+    console.warn('[AUDIT] Genre:', normalizedGenre);
+    console.warn('[AUDIT] Erro:', error.message);
+    console.warn('[AUDIT] Path tentado:', jsonPath);
+    console.warn('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     return await loadFromHardcodedFallback(normalizedGenre);
   }
 }
@@ -211,6 +233,16 @@ async function loadFromHardcodedFallback(normalizedGenre) {
     
     console.log(`[TARGETS] ✅ Fallback hardcoded carregado: ${normalizedGenre}`);
     console.log(`[TARGETS] 📊 Métricas disponíveis:`, Object.keys(genreThreshold));
+    
+    // 🚨 LOG DE AUDITORIA CRÍTICO: Fallback hardcoded usado
+    console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AUDIT] 🚨 FALLBACK HARDCODED USADO (GENRE_THRESHOLDS)');
+    console.error('[AUDIT] Genre:', normalizedGenre);
+    console.error('[AUDIT] LUFS fallback:', genreThreshold.lufs?.target);
+    console.error('[AUDIT] TruePeak fallback:', genreThreshold.truePeak?.target);
+    console.error('[AUDIT] DR fallback:', genreThreshold.dr?.target);
+    console.error('[AUDIT] ⚠️ VALORES PODEM DIVERGIR DO JSON OFICIAL!');
+    console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Cachear resultado
     targetsCache.set(normalizedGenre, genreThreshold);
