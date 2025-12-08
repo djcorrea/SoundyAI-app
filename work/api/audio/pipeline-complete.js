@@ -374,6 +374,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
         customTargets = await loadGenreTargets(detectedGenre);
         
+        // 🚨🚨🚨 LOG SUPER VISÍVEL - VALORES CARREGADOS 🚨🚨🚨
+        console.error('\n\n');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('🎯🎯🎯 AUDITORIA CRÍTICA: TARGETS CARREGADOS 🎯🎯🎯');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('Genre detectado:', detectedGenre);
+        console.error('customTargets carregado?', !!customTargets);
+        if (customTargets) {
+          console.error('📊 LUFS carregado:', customTargets.lufs?.target);
+          console.error('📊 TruePeak carregado:', customTargets.truePeak?.target);
+          console.error('📊 DR carregado:', customTargets.dr?.target);
+          console.error('📊 Keys disponíveis:', Object.keys(customTargets));
+        } else {
+          console.error('❌ ERRO: customTargets está NULL!');
+        }
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('\n\n');
+        
         // 🔍 AUDITORIA LOG 3: customTargets DEPOIS do loadGenreTargets
         console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AUDIT-PIPELINE] LOG 3: customTargets DEPOIS DE loadGenreTargets');

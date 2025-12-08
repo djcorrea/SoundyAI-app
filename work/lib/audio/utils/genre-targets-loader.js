@@ -44,6 +44,15 @@ const BAND_MAPPING = {
  * 8. Retorna null APENAS se tudo falhar
  */
 export async function loadGenreTargets(genre) {
+  // 🚨🚨🚨 LOG SUPER VISÍVEL - ENTRADA 🚨🚨🚨
+  console.error('\n\n');
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  🎯 LOADGENRETARGETS CHAMADO                             ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('Genre recebido:', genre);
+  console.error('Tipo:', typeof genre);
+  console.error('\n');
+  
   console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[TARGET-LOADER] ENTRADA DA FUNÇÃO loadGenreTargets');
   console.log('[TARGET-LOADER] genre recebido:', genre);
@@ -179,6 +188,18 @@ export async function loadGenreTargets(genre) {
     console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
+    // 🚨🚨🚨 LOG SUPER VISÍVEL - RETORNO 🚨🚨🚨
+    console.error('\n');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  ✅ TARGETS CARREGADOS COM SUCESSO                       ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('Genre:', normalizedGenre);
+    console.error('LUFS retornando:', convertedTargets.lufs?.target);
+    console.error('TruePeak retornando:', convertedTargets.truePeak?.target);
+    console.error('DR retornando:', convertedTargets.dr?.target);
+    console.error('Arquivo usado:', jsonPath);
+    console.error('\n\n');
+    
     return convertedTargets;
     
   } catch (error) {
@@ -243,6 +264,18 @@ async function loadFromHardcodedFallback(normalizedGenre) {
     console.error('[AUDIT] DR fallback:', genreThreshold.dr?.target);
     console.error('[AUDIT] ⚠️ VALORES PODEM DIVERGIR DO JSON OFICIAL!');
     console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🚨🚨🚨 LOG SUPER VISÍVEL - FALLBACK USADO 🚨🚨🚨
+    console.error('\n');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  🚨 ATENÇÃO: FALLBACK HARDCODED USADO!                   ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('Genre:', normalizedGenre);
+    console.error('LUFS fallback:', genreThreshold.lufs?.target);
+    console.error('TruePeak fallback:', genreThreshold.truePeak?.target);
+    console.error('DR fallback:', genreThreshold.dr?.target);
+    console.error('⚠️  VALORES PODEM ESTAR DESATUALIZADOS!');
+    console.error('\n\n');
     
     // Cachear resultado
     targetsCache.set(normalizedGenre, genreThreshold);
