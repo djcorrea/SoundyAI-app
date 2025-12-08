@@ -1,0 +1,209 @@
+{
+  "house": {
+    "version": "v2_hybrid_safe",
+    "generated_at": "2025-10-14T00:00:00.000Z",
+    "num_tracks": 10,
+    "processing_mode": "fallback_safe",
+    "hybrid_processing": {
+      "original_metrics": {
+        "lufs_integrated": -10.5,
+        "true_peak_dbtp": -0.65,
+        "dynamic_range": 8.5,
+        "rms_db": -13.5,
+        "stereo_correlation": 0.915,
+        "lra": 6.0
+      },
+      "spectral_bands": {
+        "sub": {
+          "target_range": {
+            "min": -32,
+            "max": -25
+          },
+          "target_db": -28.5,
+          "energy_pct": 21.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -31,
+            "max": -25
+          },
+          "target_db": -28,
+          "energy_pct": 23.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -33,
+            "max": -27
+          },
+          "target_db": -30,
+          "energy_pct": 13.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -33,
+            "max": -27
+          },
+          "target_db": -30,
+          "energy_pct": 15.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -36,
+            "max": -28
+          },
+          "target_db": -32,
+          "energy_pct": 17.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -43,
+            "max": -34
+          },
+          "target_db": -38.5,
+          "energy_pct": 6.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -46,
+            "max": -36
+          },
+          "target_db": -41,
+          "energy_pct": 1.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -44,
+            "max": -38
+          },
+          "target_db": -41,
+          "energy_pct": 0.12,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      },
+      "note": "Métricas originais + bandas normalizadas para comparação justa"
+    },
+    "legacy_compatibility": {
+      "lufs_target": -10.5,
+      "true_peak_target": -0.65,
+      "dr_target": 8.5,
+      "stereo_target": 0.915,
+      "tol_lufs": 1.0,
+      "tol_true_peak": 0.35,
+      "tol_dr": 1.5,
+      "lra_target": 6.0,
+      "tol_lra": 2.5,
+      "tol_stereo": 0.065,
+      "bands": {
+        "sub": {
+          "target_range": {
+            "min": -32,
+            "max": -25
+          },
+          "target_db": -28.5,
+          "energy_pct": 21.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -31,
+            "max": -25
+          },
+          "target_db": -28,
+          "energy_pct": 23.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -33,
+            "max": -27
+          },
+          "target_db": -30,
+          "energy_pct": 13.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -33,
+            "max": -27
+          },
+          "target_db": -30,
+          "energy_pct": 15.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -36,
+            "max": -28
+          },
+          "target_db": -32,
+          "energy_pct": 17.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -43,
+            "max": -34
+          },
+          "target_db": -38.5,
+          "energy_pct": 6.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -46,
+            "max": -36
+          },
+          "target_db": -41,
+          "energy_pct": 1.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -44,
+            "max": -38
+          },
+          "target_db": -41,
+          "energy_pct": 0.12,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      }
+    },
+    "last_updated": "2025-10-14T00:00:00.000Z",
+    "cache_bust": 1728864000002,
+    "processing_info": {
+      "hybrid_mode": true,
+      "safe_mode": true,
+      "ios_compatible": true,
+      "fallback_enabled": true
+    },
+    "correction_info": {
+      "correction_date": "2025-10-14T00:00:00.000Z",
+      "correction_type": "new_genre_creation",
+      "source": "system_update",
+      "note": "Novo gênero House criado com padrão v2_hybrid_safe"
+    }
+  }
+}

@@ -86,16 +86,16 @@ export async function loadGenreTargets(genre) {
     console.error("[AUDIT-PATH] Erro lendo __dirname:", e.message);
   }
   
-  // Verificar vários paths possíveis para public/refs/out
+  // Verificar vários paths possíveis para refs/out (auditoria)
   const possiblePaths = [
-    path.join(process.cwd(), "public", "refs", "out"),
-    path.join(__dirname, "../../../../public/refs/out"),
+    path.join(__dirname, "../../../refs/out"),  // ✅ PATH CORRETO no worker
+    path.join(process.cwd(), "work", "refs", "out"),
+    path.join(process.cwd(), "refs", "out"),
+    path.join(__dirname, "../../../../public/refs/out"),  // Path antigo (público)
     path.join(__dirname, "../../../public/refs/out"),
-    path.join(__dirname, "../../public/refs/out"),
-    path.join(process.cwd(), "work", "public", "refs", "out"),
   ];
   
-  console.error("[AUDIT-PATH] Testando paths possíveis para public/refs/out:");
+  console.error("[AUDIT-PATH] Testando paths possíveis para refs/out:");
   for (const testPath of possiblePaths) {
     try {
       const exists = fs.existsSync(testPath);
@@ -160,9 +160,10 @@ export async function loadGenreTargets(genre) {
   let jsonPath; // Declarar fora do bloco try para acessar no catch
   
   try {
+    // 🎯 CORREÇÃO CRÍTICA: Path correto para work/refs/out no worker
     jsonPath = path.resolve(
       __dirname, 
-      '../../../../public/refs/out', 
+      '../../../refs/out', 
       `${normalizedGenre}.json`
     );
     
@@ -272,6 +273,20 @@ export async function loadGenreTargets(genre) {
     // Cachear resultado
     targetsCache.set(normalizedGenre, convertedTargets);
     
+    // 🚨🚨🚨 LOG SUPER VISÍVEL - SUCESSO 🚨🚨🚨
+    console.error('\n\n');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  ✅✅✅ JSON OFICIAL CARREGADO COM SUCESSO ✅✅✅        ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[GENRE-LOADER] Arquivo:', normalizedGenre + '.json');
+    console.error('[GENRE-LOADER] Path:', jsonPath);
+    console.error('[GENRE-LOADER] LUFS carregado:', convertedTargets.lufs?.target);
+    console.error('[GENRE-LOADER] TruePeak carregado:', convertedTargets.truePeak?.target);
+    console.error('[GENRE-LOADER] DR carregado:', convertedTargets.dr?.target);
+    console.error('[GENRE-LOADER] Bands disponíveis:', convertedTargets.bands ? Object.keys(convertedTargets.bands).length : 0);
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('\n\n');
+    
     console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[TARGET-LOADER] SUCESSO - TARGETS CONVERTIDOS:');
     console.log(`[TARGETS] ✅ Loaded from filesystem: ${normalizedGenre}`);
@@ -357,6 +372,20 @@ async function loadFromHardcodedFallback(normalizedGenre) {
     
     console.log(`[TARGETS] ✅ Fallback hardcoded carregado: ${normalizedGenre}`);
     console.log(`[TARGETS] 📊 Métricas disponíveis:`, Object.keys(genreThreshold));
+    
+    // 🚨🚨🚨 LOG SUPER VISÍVEL - FALLBACK ACIONADO 🚨🚨🚨
+    console.error('\n\n\n\n\n');
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  ⚠️⚠️⚠️ FALLBACK HARDCODED ACIONADO ⚠️⚠️⚠️           ║');
+    console.error('║  ❌ ARQUIVO JSON NÃO ENCONTRADO ❌                        ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[FALLBACK] Genre:', normalizedGenre);
+    console.error('[FALLBACK] LUFS hardcoded:', genreThreshold.lufs?.target);
+    console.error('[FALLBACK] TruePeak hardcoded:', genreThreshold.truePeak?.target);
+    console.error('[FALLBACK] DR hardcoded:', genreThreshold.dr?.target);
+    console.error('[FALLBACK] ⚠️ ESTES VALORES PODEM ESTAR DESATUALIZADOS!');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('\n\n\n\n\n');
     
     // 🚨 LOG DE AUDITORIA CRÍTICO: Fallback hardcoded usado
     console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
