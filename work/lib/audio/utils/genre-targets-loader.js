@@ -59,6 +59,121 @@ export async function loadGenreTargets(genre) {
   console.log('[TARGET-LOADER] tipo:', typeof genre);
   console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔍 AUDITORIA COMPLETA DE PATHS E FILESYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.error('\n\n');
+  console.error('========== [AUDIT-PATH] INICIANDO AUDITORIA DE TARGETS ==========');
+  
+  console.error('[AUDIT-PATH] __dirname:', __dirname);
+  console.error('[AUDIT-PATH] process.cwd():', process.cwd());
+  console.error('[AUDIT-PATH] __filename:', __filename);
+  
+  // Verificar conteúdo de process.cwd()
+  try {
+    const cwdContents = fs.readdirSync(process.cwd());
+    console.error('[AUDIT-PATH] ✅ Conteúdo de process.cwd():', cwdContents.slice(0, 20));
+    console.error('[AUDIT-PATH] Total de itens em cwd:', cwdContents.length);
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Erro lendo process.cwd():', e.message);
+  }
+  
+  // Verificar conteúdo de __dirname
+  try {
+    const dirnameContents = fs.readdirSync(__dirname);
+    console.error('[AUDIT-PATH] ✅ Conteúdo de __dirname:', dirnameContents);
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Erro lendo __dirname:', e.message);
+  }
+  
+  // Verificar se pasta public existe na raiz do projeto
+  try {
+    const publicExists = fs.existsSync(path.join(process.cwd(), 'public'));
+    console.error('[AUDIT-PATH] Pasta public/ existe em cwd?', publicExists);
+    if (publicExists) {
+      const publicContents = fs.readdirSync(path.join(process.cwd(), 'public'));
+      console.error('[AUDIT-PATH] ✅ Conteúdo de public/:', publicContents);
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Erro verificando public/:', e.message);
+  }
+  
+  // Verificar se pasta public/refs existe
+  try {
+    const refsExists = fs.existsSync(path.join(process.cwd(), 'public', 'refs'));
+    console.error('[AUDIT-PATH] Pasta public/refs/ existe?', refsExists);
+    if (refsExists) {
+      const refsContents = fs.readdirSync(path.join(process.cwd(), 'public', 'refs'));
+      console.error('[AUDIT-PATH] ✅ Conteúdo de public/refs/:', refsContents);
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Erro verificando public/refs/:', e.message);
+  }
+  
+  // Verificar se pasta public/refs/out existe com JSONs
+  try {
+    const outPath = path.join(process.cwd(), 'public', 'refs', 'out');
+    const outExists = fs.existsSync(outPath);
+    console.error('[AUDIT-PATH] Pasta public/refs/out/ existe em cwd?', outExists);
+    if (outExists) {
+      const outContents = fs.readdirSync(outPath);
+      console.error('[AUDIT-PATH] ✅ JSONs em public/refs/out/:', outContents.filter(f => f.endsWith('.json')));
+      console.error('[AUDIT-PATH] Total de arquivos:', outContents.length);
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Pasta public/refs/out não acessível:', e.message);
+  }
+  
+  // Tentar caminhos alternativos
+  console.error('[AUDIT-PATH] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.error('[AUDIT-PATH] TESTANDO CAMINHOS ALTERNATIVOS:');
+  
+  // Caminho 1: Relativo a __dirname subindo 3 níveis
+  try {
+    const altPath1 = path.resolve(__dirname, '../../../public/refs/out');
+    const exists1 = fs.existsSync(altPath1);
+    console.error('[AUDIT-PATH] Path 1 (__dirname + ../../../public/refs/out):', altPath1);
+    console.error('[AUDIT-PATH] Path 1 existe?', exists1);
+    if (exists1) {
+      const contents1 = fs.readdirSync(altPath1);
+      console.error('[AUDIT-PATH] ✅ JSONs encontrados:', contents1.filter(f => f.endsWith('.json')).slice(0, 10));
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Path 1 falhou:', e.message);
+  }
+  
+  // Caminho 2: Relativo a __dirname subindo 4 níveis
+  try {
+    const altPath2 = path.resolve(__dirname, '../../../../public/refs/out');
+    const exists2 = fs.existsSync(altPath2);
+    console.error('[AUDIT-PATH] Path 2 (__dirname + ../../../../public/refs/out):', altPath2);
+    console.error('[AUDIT-PATH] Path 2 existe?', exists2);
+    if (exists2) {
+      const contents2 = fs.readdirSync(altPath2);
+      console.error('[AUDIT-PATH] ✅ JSONs encontrados:', contents2.filter(f => f.endsWith('.json')).slice(0, 10));
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Path 2 falhou:', e.message);
+  }
+  
+  // Caminho 3: A partir de process.cwd() subindo um nível
+  try {
+    const altPath3 = path.resolve(process.cwd(), '../public/refs/out');
+    const exists3 = fs.existsSync(altPath3);
+    console.error('[AUDIT-PATH] Path 3 (cwd + ../public/refs/out):', altPath3);
+    console.error('[AUDIT-PATH] Path 3 existe?', exists3);
+    if (exists3) {
+      const contents3 = fs.readdirSync(altPath3);
+      console.error('[AUDIT-PATH] ✅ JSONs encontrados:', contents3.filter(f => f.endsWith('.json')).slice(0, 10));
+    }
+  } catch (e) {
+    console.error('[AUDIT-PATH] ❌ Path 3 falhou:', e.message);
+  }
+  
+  console.error('========== [AUDIT-PATH] FIM DA AUDITORIA ==========');
+  console.error('\n\n');
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   // Normalizar nome do gênero
   const normalizedGenre = normalizeGenreName(genre);
   
@@ -263,6 +378,17 @@ export async function loadGenreTargets(genre) {
  * @returns {Object|null} - Thresholds hardcoded ou null se não existir
  */
 async function loadFromHardcodedFallback(normalizedGenre) {
+  // 🚨🚨🚨 AUDITORIA: FALLBACK ACIONADO 🚨🚨🚨
+  console.error('\n\n');
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  ⚠️  FALLBACK HARDCODED ACIONADO                         ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('[AUDIT-FALLBACK] Função loadFromHardcodedFallback chamada');
+  console.error('[AUDIT-FALLBACK] Genre:', normalizedGenre);
+  console.error('[AUDIT-FALLBACK] Isso significa que o JSON oficial NÃO foi carregado!');
+  console.error('[AUDIT-FALLBACK] Verifique os logs [AUDIT-PATH] acima para descobrir o motivo.');
+  console.error('\n\n');
+  
   try {
     console.log(`[TARGETS] 🛡️ Tentando fallback hardcoded para: ${normalizedGenre}`);
     
