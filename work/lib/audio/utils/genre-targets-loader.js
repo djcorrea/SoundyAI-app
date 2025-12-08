@@ -9,6 +9,16 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 🚨 LOG DE INICIALIZAÇÃO DO MÓDULO
+console.error('\n\n');
+console.error('╔══════════════════════════════════════════════════════════════╗');
+console.error('║  🔥 GENRE-TARGETS-LOADER.JS INICIALIZADO                    ║');
+console.error('╚══════════════════════════════════════════════════════════════╝');
+console.error('[LOADER-INIT] Módulo carregado em:', new Date().toISOString());
+console.error('[LOADER-INIT] __dirname:', __dirname);
+console.error('[LOADER-INIT] __filename:', __filename);
+console.error('\n\n');
+
 // Cache global para evitar leituras repetidas
 const targetsCache = new Map();
 
@@ -45,34 +55,35 @@ const BAND_MAPPING = {
  */
 export async function loadGenreTargets(genre) {
   // 🚨🚨🚨 LOG SUPER VISÍVEL - ENTRADA 🚨🚨🚨
-  console.error('\n\n');
+  console.error('\n\n\n\n\n');
   console.error('╔═══════════════════════════════════════════════════════════╗');
-  console.error('║  🎯 LOADGENRETARGETS CHAMADO                             ║');
+  console.error('║  🎯🎯🎯 LOADGENRETARGETS CHAMADO 🎯🎯🎯                 ║');
   console.error('╚═══════════════════════════════════════════════════════════╝');
   console.error('Genre recebido:', genre);
   console.error('Tipo:', typeof genre);
+  console.error('Timestamp:', new Date().toISOString());
   console.error('\n');
   
   // ═════════════════════════════════════════════════════════════════
   // 🔍 AUDITORIA DE PATHS E FILESYSTEM
   // ═════════════════════════════════════════════════════════════════
-  console.log("========== [AUDIT-PATH] INICIANDO AUDITORIA DE TARGETS ==========");
+  console.error("========== [AUDIT-PATH] INICIANDO AUDITORIA DE TARGETS ==========");
   
-  console.log("[AUDIT-PATH] __dirname:", __dirname);
-  console.log("[AUDIT-PATH] process.cwd():", process.cwd());
+  console.error("[AUDIT-PATH] __dirname:", __dirname);
+  console.error("[AUDIT-PATH] process.cwd():", process.cwd());
   
   try {
     const cwdContents = fs.readdirSync(process.cwd());
-    console.log("[AUDIT-PATH] Conteúdo de process.cwd():", cwdContents);
+    console.error("[AUDIT-PATH] Conteúdo de process.cwd():", cwdContents);
   } catch (e) {
-    console.log("[AUDIT-PATH] Erro lendo process.cwd():", e.message);
+    console.error("[AUDIT-PATH] Erro lendo process.cwd():", e.message);
   }
   
   try {
     const dirnameContents = fs.readdirSync(__dirname);
-    console.log("[AUDIT-PATH] Conteúdo de __dirname:", dirnameContents);
+    console.error("[AUDIT-PATH] Conteúdo de __dirname:", dirnameContents);
   } catch (e) {
-    console.log("[AUDIT-PATH] Erro lendo __dirname:", e.message);
+    console.error("[AUDIT-PATH] Erro lendo __dirname:", e.message);
   }
   
   // Verificar vários paths possíveis para public/refs/out
@@ -84,22 +95,23 @@ export async function loadGenreTargets(genre) {
     path.join(process.cwd(), "work", "public", "refs", "out"),
   ];
   
-  console.log("[AUDIT-PATH] Testando paths possíveis para public/refs/out:");
+  console.error("[AUDIT-PATH] Testando paths possíveis para public/refs/out:");
   for (const testPath of possiblePaths) {
     try {
       const exists = fs.existsSync(testPath);
-      console.log(`[AUDIT-PATH] Path: ${testPath}`);
-      console.log(`[AUDIT-PATH]   Existe? ${exists}`);
+      console.error(`[AUDIT-PATH] Path: ${testPath}`);
+      console.error(`[AUDIT-PATH]   Existe? ${exists}`);
       if (exists) {
         const contents = fs.readdirSync(testPath);
-        console.log(`[AUDIT-PATH]   Conteúdo (${contents.length} arquivos):`, contents.slice(0, 10));
+        console.error(`[AUDIT-PATH]   Conteúdo (${contents.length} arquivos):`, contents.slice(0, 10));
       }
     } catch (e) {
-      console.log(`[AUDIT-PATH]   Erro: ${e.message}`);
+      console.error(`[AUDIT-PATH]   Erro: ${e.message}`);
     }
   }
   
-  console.log("========== [AUDIT-PATH] FIM DA AUDITORIA ==========");
+  console.error("========== [AUDIT-PATH] FIM DA AUDITORIA ==========");
+  console.error('\n\n');
   // ═════════════════════════════════════════════════════════════════
   
   console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
