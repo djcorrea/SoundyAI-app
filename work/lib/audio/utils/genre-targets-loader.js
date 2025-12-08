@@ -151,6 +151,11 @@ export async function loadGenreTargets(genre) {
       return await loadFromHardcodedFallback(normalizedGenre);
     }
     
+    // 🎯 PRESERVAR JSON ORIGINAL não-transformado
+    // Este campo contém os valores EXATOS do arquivo JSON oficial
+    // sem nenhuma transformação, cálculo ou normalização
+    convertedTargets._rawTargets = rawTargets;
+    
     // Cachear resultado
     targetsCache.set(normalizedGenre, convertedTargets);
     
@@ -158,6 +163,7 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] SUCESSO - TARGETS CONVERTIDOS:');
     console.log(`[TARGETS] ✅ Loaded from filesystem: ${normalizedGenre}`);
     console.log(`[TARGETS] 📊 Métricas carregadas:`, Object.keys(convertedTargets));
+    console.log(`[TARGETS] 🎯 JSON original preservado em _rawTargets`);
     console.log('[TARGET-LOADER] convertedTargets.lufs:', convertedTargets.lufs);
     console.log('[TARGET-LOADER] convertedTargets.dr:', convertedTargets.dr);
     console.log('[TARGET-LOADER] convertedTargets.truePeak:', convertedTargets.truePeak);
