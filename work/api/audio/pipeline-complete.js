@@ -1325,6 +1325,19 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
     });
 
+    // 🔧 PATCH CRÍTICO: Garantir que o JSON final contenha os targets corretos do gênero
+    if (mode === "genre" && customTargets) {
+      finalJSON.data = finalJSON.data || {};
+      finalJSON.data.genreTargets = customTargets;
+
+      console.log("[PIPELINE-FIX] ✅ Genre targets inseridos no JSON final", {
+        hasTargets: !!customTargets,
+        keys: Object.keys(customTargets || {}),
+        hasBands: !!customTargets?.bands,
+        topLevelBands: customTargets?.bands ? Object.keys(customTargets.bands) : []
+      });
+    }
+
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
