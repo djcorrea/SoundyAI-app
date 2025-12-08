@@ -3704,7 +3704,7 @@ function ensureActiveGenreOption(selectEl, genreKey) {
  *   }
  * }
  */
-function extractGenreTargets(json, genreName) {
+function extractGenreTargetsFromJSON(json, genreName) {
     console.log('[EXTRACT-TARGETS] 🔍 Extraindo targets para:', genreName);
     console.log('[EXTRACT-TARGETS] 📦 JSON recebido:', json);
     
@@ -3836,8 +3836,8 @@ async function loadReferenceData(genre) {
                 `../refs/out/${genre}.json?v=${version}`
             ]);
             
-            // ✅ NOVA LÓGICA: Usar extractGenreTargets para processar JSON
-            const extractedData = extractGenreTargets(json, genre);
+            // ✅ NOVA LÓGICA: Usar extractGenreTargetsFromJSON para processar JSON
+            const extractedData = extractGenreTargetsFromJSON(json, genre);
             
             if (extractedData && typeof extractedData === 'object' && extractedData.version) {
                 const enrichedNet = enrichReferenceObject(extractedData, genre);
@@ -3890,7 +3890,7 @@ async function loadReferenceData(genre) {
         const useData = embWin || embInline;
         if (useData && typeof useData === 'object') {
             // ✅ NOVA LÓGICA: Extrair targets corretamente
-            const extractedData = extractGenreTargets(useData, genre);
+            const extractedData = extractGenreTargetsFromJSON(useData, genre);
             
             if (extractedData) {
                 const enriched = enrichReferenceObject(structuredClone(extractedData), genre);
