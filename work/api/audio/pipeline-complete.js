@@ -374,6 +374,26 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
         customTargets = await loadGenreTargets(detectedGenre);
         
+        // 🔍 AUDITORIA LOG 3: customTargets DEPOIS do loadGenreTargets
+        console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[AUDIT-PIPELINE] LOG 3: customTargets DEPOIS DE loadGenreTargets');
+        console.log('[AUDIT-PIPELINE] Genre:', detectedGenre);
+        console.log('[AUDIT-PIPELINE] customTargets existe?', !!customTargets);
+        if (customTargets) {
+          console.log('[AUDIT-PIPELINE] Top-level keys:', Object.keys(customTargets));
+          console.log('[AUDIT-PIPELINE] Tem .bands?', 'bands' in customTargets);
+          console.log('[AUDIT-PIPELINE] Tem .low_bass?', 'low_bass' in customTargets);
+          console.log('[AUDIT-PIPELINE] Tem .sub?', 'sub' in customTargets);
+          if (customTargets.bands) {
+            console.log('[AUDIT-PIPELINE] customTargets.bands keys:', Object.keys(customTargets.bands));
+            console.log('[AUDIT-PIPELINE] customTargets.bands.low_bass:', JSON.stringify(customTargets.bands.low_bass, null, 2));
+          }
+          if (customTargets.low_bass) {
+            console.log('[AUDIT-PIPELINE] customTargets.low_bass (achatado):', JSON.stringify(customTargets.low_bass, null, 2));
+          }
+        }
+        console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         // 🔧 LOGS DE DEPURAÇÃO (após carregamento)
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
@@ -2034,6 +2054,41 @@ function getBandValue(technicalData, bandKey, genreTargets) {
   const value = bandData.energy_db;
   if (!Number.isFinite(value)) return null;
   
+  // 🔍 AUDITORIA LOG 5: genreTargets na ENTRADA do getBandValue
+  console.log('[AUDIT-GETBAND] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AUDIT-GETBAND] LOG 5: genreTargets NA ENTRADA DE getBandValue');
+  console.log('[AUDIT-GETBAND] bandKey:', bandKey);
+  console.log('[AUDIT-GETBAND] value (energy_db):', value);
+  console.log('[AUDIT-GETBAND] genreTargets existe?', !!genreTargets);
+  if (genreTargets) {
+    console.log('[AUDIT-GETBAND] Top-level keys:', Object.keys(genreTargets));
+    console.log('[AUDIT-GETBAND] Tem .bands?', 'bands' in genreTargets);
+    console.log('[AUDIT-GETBAND] Tem .' + bandKey + '?', bandKey in genreTargets);
+    
+    // Testar condição 1 (estrutura padronizada)
+    const cond1 = genreTargets?.bands?.[bandKey]?.target_range;
+    console.log('[AUDIT-GETBAND] CONDIÇÃO 1: genreTargets?.bands?.[bandKey]?.target_range =', !!cond1);
+    if (cond1) {
+      console.log('[AUDIT-GETBAND] CONDIÇÃO 1 DADOS:', JSON.stringify(cond1, null, 2));
+    }
+    
+    // Testar condição 2 (compatibilidade)
+    const cond2 = genreTargets?.[bandKey]?.target_range;
+    console.log('[AUDIT-GETBAND] CONDIÇÃO 2: genreTargets?.[bandKey]?.target_range =', !!cond2);
+    if (cond2) {
+      console.log('[AUDIT-GETBAND] CONDIÇÃO 2 DADOS:', JSON.stringify(cond2, null, 2));
+    }
+    
+    // Mostrar estrutura real
+    if (genreTargets.bands && genreTargets.bands[bandKey]) {
+      console.log('[AUDIT-GETBAND] genreTargets.bands[' + bandKey + ']:', JSON.stringify(genreTargets.bands[bandKey], null, 2));
+    }
+    if (genreTargets[bandKey]) {
+      console.log('[AUDIT-GETBAND] genreTargets[' + bandKey + '] (achatado):', JSON.stringify(genreTargets[bandKey], null, 2));
+    }
+  }
+  console.log('[AUDIT-GETBAND] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   // 🎯 Ler range REAL de genreTargets (estrutura padronizada ou compatibilidade)
   let targetMin, targetMax;
   
@@ -2042,12 +2097,22 @@ function getBandValue(technicalData, bandKey, genreTargets) {
     targetMin = genreTargets.bands[bandKey].target_range.min;
     targetMax = genreTargets.bands[bandKey].target_range.max;
     console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL (estrutura padronizada) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+    
+    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = PADRONIZADO
+    console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: ESTRUTURA PADRONIZADA (genreTargets.bands.' + bandKey + ')');
+    console.log('[AUDIT-GETBAND] targetMin:', targetMin);
+    console.log('[AUDIT-GETBAND] targetMax:', targetMax);
   } 
   // 🔧 FASE 3: Fallback de compatibilidade - suportar estrutura antiga (genreTargets.bandKey)
   else if (genreTargets?.[bandKey]?.target_range) {
     targetMin = genreTargets[bandKey].target_range.min;
     targetMax = genreTargets[bandKey].target_range.max;
     console.log(`[ADVANCED-SUGGEST] ⚠️ Usando range REAL (compatibilidade) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+    
+    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = COMPATIBILIDADE
+    console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: COMPATIBILIDADE (genreTargets.' + bandKey + ')');
+    console.log('[AUDIT-GETBAND] targetMin:', targetMin);
+    console.log('[AUDIT-GETBAND] targetMax:', targetMax);
   } 
   // ❌ Último recurso: Fallback hardcoded (APENAS se genreTargets não disponível)
   else {
@@ -2071,6 +2136,12 @@ function getBandValue(technicalData, bandKey, genreTargets) {
     targetMin = range.min;
     targetMax = range.max;
     console.log(`[ADVANCED-SUGGEST] ⚠️ Usando FALLBACK hardcoded para ${bandKey}: [${targetMin}, ${targetMax}]`);
+    
+    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = FALLBACK
+    console.log('[AUDIT-GETBAND] ⚠️⚠️⚠️ CAMINHO USADO: FALLBACK HARDCODED (VALORES GENÉRICOS)');
+    console.log('[AUDIT-GETBAND] targetMin:', targetMin);
+    console.log('[AUDIT-GETBAND] targetMax:', targetMax);
+    console.log('[AUDIT-GETBAND] ⚠️⚠️⚠️ ISTO É UM PROBLEMA - genreTargets deveria ter os valores reais!');
   }
   
   return { value, targetMin, targetMax };
