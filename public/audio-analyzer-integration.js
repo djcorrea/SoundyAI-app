@@ -136,26 +136,44 @@ function extractGenreTargets(analysis) {
     }
     
     console.log('[GENRE-ONLY-UTILS] 🎯 Extraindo targets no modo GENRE');
+    console.log('[GENRE-ONLY-UTILS] 📦 Análise de fontes:', {
+        'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
+        'analysis.__genreTargets': !!analysis?.__genreTargets,
+        'analysis.genreTargets': !!analysis?.genreTargets,
+        'analysis.result.genreTargets': !!analysis?.result?.genreTargets
+    });
     
-    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
-    if (analysis?.data?.genreTargets) {
-        console.log('[GENRE-ONLY-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
-        return analysis.data.genreTargets;
+    // 🔧 NOVA EXTRAÇÃO UNIVERSAL PARA MODO GENRE
+    const root = analysis?.data?.genreTargets ||
+                 analysis?.__genreTargets ||
+                 analysis?.genreTargets ||
+                 null;
+    
+    console.log('[TARGET-EXTRACTOR] root final:', root ? Object.keys(root) : 'null');
+    
+    // ✅ Se root foi encontrado, usar diretamente (BLOQUEAR FALLBACKS)
+    if (root) {
+        const source = analysis?.data?.genreTargets ? 'analysis.data.genreTargets' :
+                      analysis?.__genreTargets ? 'analysis.__genreTargets' :
+                      'analysis.genreTargets';
+        console.log('[GENRE-ONLY-UTILS] ✅ Targets encontrados em:', source);
+        console.log('[GENRE-ONLY-UTILS] 📊 Estrutura:', {
+            hasLufs: !!root.lufs,
+            hasTruePeak: !!root.truePeak,
+            hasDr: !!root.dr,
+            hasBands: !!root.bands,
+            keys: Object.keys(root)
+        });
+        return root;
     }
     
-    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
-    if (analysis?.genreTargets) {
-        console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
-        return analysis.genreTargets;
-    }
-    
-    // 🎯 PRIORIDADE 3: analysis.result.genreTargets
+    // 🎯 FALLBACK 1: analysis.result.genreTargets
     if (analysis?.result?.genreTargets) {
         console.log('[GENRE-ONLY-UTILS] ⚠️ Targets encontrados em analysis.result.genreTargets (fallback)');
         return analysis.result.genreTargets;
     }
     
-    // 🎯 PRIORIDADE 4: window.__activeRefData (VALIDAR GÊNERO)
+    // 🎯 FALLBACK 2: window.__activeRefData (VALIDAR GÊNERO)
     const genre = extractGenreName(analysis);
     if (window.__activeRefData) {
         // ✅ Validar se gênero bate antes de usar
@@ -168,7 +186,7 @@ function extractGenreTargets(analysis) {
         }
     }
     
-    // 🎯 PRIORIDADE 5: PROD_AI_REF_DATA[genre]
+    // 🎯 FALLBACK 3: PROD_AI_REF_DATA[genre] (ÚLTIMO RECURSO)
     if (typeof PROD_AI_REF_DATA !== 'undefined' && PROD_AI_REF_DATA[genre]) {
         console.log('[GENRE-ONLY-UTILS] ⚠️ Usando PROD_AI_REF_DATA[' + genre + '] (último recurso)');
         return PROD_AI_REF_DATA[genre];
