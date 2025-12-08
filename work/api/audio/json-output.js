@@ -956,26 +956,25 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     },
 
     // 🔥 CAMPO OBRIGATÓRIO: data com genre e genreTargets
-    // Frontend acessa: analysis.data.genreTargets (estrutura COMPLETA preservada)
-    // 🎯 CORREÇÃO DEFINITIVA: Passar objeto COMPLETO sem destruir estrutura
+    // Frontend acessa: analysis.data.genreTargets.spectral_bands
     data: {
       genre: finalGenre,
       genreTargets: options.genreTargets ? {
-        // ✅ PRESERVAR ESTRUTURA NESTED COMPLETA (target, tolerance, critical, target_range)
-        lufs: options.genreTargets.lufs ?? null,
-        truePeak: options.genreTargets.truePeak ?? null,
-        dr: options.genreTargets.dr ?? null,
-        lra: options.genreTargets.lra ?? null,
-        stereo: options.genreTargets.stereo ?? null,
-        // ✅ BANDAS: Passar objeto completo com todas as bandas e seus ranges
-        bands: options.genreTargets.bands ?? options.genreTargets.spectral_bands ?? null,
-        // 🔧 COMPATIBILIDADE: Aliases flat para acesso direto (mas estrutura nested é a oficial)
-        lufs_target: options.genreTargets.lufs?.target ?? null,
-        true_peak_target: options.genreTargets.truePeak?.target ?? null,
-        dr_target: options.genreTargets.dr?.target ?? null,
+        // ✅ CORREÇÃO: Extrair .target de objetos nested (formato interno)
+        lufs: options.genreTargets.lufs?.target ?? null,
+        true_peak: options.genreTargets.truePeak?.target ?? null,
+        dr: options.genreTargets.dr?.target ?? null,
+        lra: options.genreTargets.lra?.target ?? null,
+        stereo: options.genreTargets.stereo?.target ?? null,
+        // ✅ CORREÇÃO: Bandas já estão em formato correto (nested com .target)
+        // 🎯 PATCH: Passar objeto completo com target_range preservado
+        spectral_bands: options.genreTargets.bands ?? options.genreTargets.spectral_bands ?? null,
+        // Preservar tolerâncias se existirem
         tol_lufs: options.genreTargets.lufs?.tolerance ?? null,
         tol_true_peak: options.genreTargets.truePeak?.tolerance ?? null,
-        tol_dr: options.genreTargets.dr?.tolerance ?? null
+        tol_dr: options.genreTargets.dr?.tolerance ?? null,
+        tol_lra: options.genreTargets.lra?.tolerance ?? null,
+        tol_stereo: options.genreTargets.stereo?.tolerance ?? null
       } : null
     }
   };
