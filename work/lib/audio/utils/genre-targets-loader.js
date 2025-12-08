@@ -307,6 +307,9 @@ function convertToInternalFormat(rawTargets, genre) {
     
     // 🎼 BANDAS ESPECTRAIS
     if (rawTargets.bands && typeof rawTargets.bands === 'object') {
+      // 🔧 FASE 3: Criar sub-objeto bands para estrutura padronizada
+      converted.bands = converted.bands || {};
+      
       for (const [bandKey, bandData] of Object.entries(rawTargets.bands)) {
         // Mapear nome da banda
         const internalBandName = BAND_MAPPING[bandKey] || bandKey;
@@ -345,13 +348,14 @@ function convertToInternalFormat(rawTargets, genre) {
           tolerance = rangeWidth * 0.25;
         }
         
-        // Adicionar banda convertida
-        converted[internalBandName] = {
+        // 🔧 FASE 3: Adicionar banda DENTRO de converted.bands (estrutura padronizada)
+        converted.bands[internalBandName] = {
           target: target,
           tolerance: tolerance,
           critical: tolerance * 1.5,
-          // PATCH: Preservar target_range original quando disponível
-          target_range: bandData.target_range || null
+          // PATCH: Preservar target_range e target_db originais quando disponíveis
+          target_range: bandData.target_range || null,
+          target_db: bandData.target_db || null
         };
       }
     }

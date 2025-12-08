@@ -2034,15 +2034,23 @@ function getBandValue(technicalData, bandKey, genreTargets) {
   const value = bandData.energy_db;
   if (!Number.isFinite(value)) return null;
   
-  // 🎯 Ler range REAL de genreTargets.bands (se disponível)
+  // 🎯 Ler range REAL de genreTargets (estrutura padronizada ou compatibilidade)
   let targetMin, targetMax;
   
+  // 🔧 FASE 3: Tentar estrutura padronizada primeiro (genreTargets.bands.bandKey)
   if (genreTargets?.bands?.[bandKey]?.target_range) {
     targetMin = genreTargets.bands[bandKey].target_range.min;
     targetMax = genreTargets.bands[bandKey].target_range.max;
-    console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL para ${bandKey}: [${targetMin}, ${targetMax}]`);
-  } else {
-    // ❌ Fallback hardcoded (APENAS se genreTargets não disponível)
+    console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL (estrutura padronizada) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+  } 
+  // 🔧 FASE 3: Fallback de compatibilidade - suportar estrutura antiga (genreTargets.bandKey)
+  else if (genreTargets?.[bandKey]?.target_range) {
+    targetMin = genreTargets[bandKey].target_range.min;
+    targetMax = genreTargets[bandKey].target_range.max;
+    console.log(`[ADVANCED-SUGGEST] ⚠️ Usando range REAL (compatibilidade) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+  } 
+  // ❌ Último recurso: Fallback hardcoded (APENAS se genreTargets não disponível)
+  else {
     const fallbackRanges = {
       sub: { min: -38, max: -28 },
       bass: { min: -31, max: -25 },
@@ -2062,6 +2070,7 @@ function getBandValue(technicalData, bandKey, genreTargets) {
     if (!range) return null;
     targetMin = range.min;
     targetMax = range.max;
+    console.log(`[ADVANCED-SUGGEST] ⚠️ Usando FALLBACK hardcoded para ${bandKey}: [${targetMin}, ${targetMax}]`);
   }
   
   return { value, targetMin, targetMax };
