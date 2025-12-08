@@ -416,32 +416,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           throw new Error(errorMsg);
         }
         
-        // 🔒 VALIDAÇÃO ESTRUTURAL: Verificar que tem estrutura nested completa
-        if (!customTargets.lufs || typeof customTargets.lufs !== 'object') {
-          console.error(`[SUGGESTIONS_V1] ❌ customTargets.lufs inválido:`, customTargets.lufs);
-          throw new Error(`customTargets.lufs deve ser objeto com {target, tolerance, critical, target_range}`);
-        }
-        
-        if (!customTargets.bands || typeof customTargets.bands !== 'object') {
-          console.error(`[SUGGESTIONS_V1] ❌ customTargets.bands inválido:`, customTargets.bands);
-          throw new Error(`customTargets.bands deve ser objeto com bandas espectrais`);
-        }
-        
-        const numBands = Object.keys(customTargets.bands).length;
-        if (numBands < 3) {
-          console.error(`[SUGGESTIONS_V1] ❌ customTargets.bands tem apenas ${numBands} bandas (mínimo 3)`);
-          throw new Error(`customTargets.bands deve ter pelo menos 3 bandas espectrais`);
-        }
-        
-        // 📊 LOG DE AUDITORIA: Valores oficiais carregados
-        console.log(`[AUDIT-TARGETS-OFFICIAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] ✅ TARGETS OFICIAIS CARREGADOS DE public/refs/out/${detectedGenre}.json`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] LUFS: ${customTargets.lufs.target} (tolerance: ${customTargets.lufs.tolerance})`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] TruePeak: ${customTargets.truePeak?.target} (tolerance: ${customTargets.truePeak?.tolerance})`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] DR: ${customTargets.dr?.target} (tolerance: ${customTargets.dr?.tolerance})`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] Bandas: ${Object.keys(customTargets.bands).join(', ')} (${numBands} bandas)`);
-        console.log(`[AUDIT-TARGETS-OFFICIAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-        
         console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
       } else if (mode === 'reference') {
         console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
@@ -1361,38 +1335,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
     });
 
-    // 🔧 PATCH CRÍTICO: Garantir que analysis.data.genreTargets = JSON oficial EXATO
-    // ⚠️ IMPORTANTE: customTargets._rawTargets contém o JSON ORIGINAL não-transformado
-    // Este é o valor EXATO de public/refs/out/<genre>.json sem cálculos ou conversões
-    if (mode === "genre" && customTargets && customTargets._rawTargets) {
+    // 🔧 PATCH CRÍTICO: Garantir que o JSON final contenha os targets corretos do gênero
+    if (mode === "genre" && customTargets) {
       finalJSON.data = finalJSON.data || {};
-      
-      // 🎯 USAR JSON ORIGINAL PRESERVADO (não o convertido)
-      // customTargets._rawTargets = objeto EXATO de legacy_compatibility do JSON oficial
-      finalJSON.data.genreTargets = customTargets._rawTargets;
+      finalJSON.data.genreTargets = customTargets;
 
-      console.log("[PIPELINE-FIX] ✅ Genre targets OFICIAIS (não-transformados) inseridos no JSON final", {
-        source: 'customTargets._rawTargets (JSON oficial preservado)',
-        hasRawTargets: !!customTargets._rawTargets,
-        officialKeys: Object.keys(customTargets._rawTargets || {}),
-        officialLufs: customTargets._rawTargets?.lufs_target,
-        officialTruePeak: customTargets._rawTargets?.true_peak_target,
-        officialDR: customTargets._rawTargets?.dr_target,
-        officialBands: customTargets._rawTargets?.bands ? Object.keys(customTargets._rawTargets.bands) : []
+      console.log("[PIPELINE-FIX] ✅ Genre targets inseridos no JSON final", {
+        hasTargets: !!customTargets,
+        keys: Object.keys(customTargets || {}),
+        hasBands: !!customTargets?.bands,
+        topLevelBands: customTargets?.bands ? Object.keys(customTargets.bands) : []
       });
-      
-      // 🔒 AUDITORIA FINAL: Validar que valores oficiais estão presentes
-      console.log(`[AUDIT-FINAL-JSON] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      console.log(`[AUDIT-FINAL-JSON] 🔍 VALIDAÇÃO PRÉ-RETORNO (JSON OFICIAL PRESERVADO)`);
-      console.log(`[AUDIT-FINAL-JSON] finalJSON.data.genreTargets = customTargets._rawTargets`);
-      console.log(`[AUDIT-FINAL-JSON] lufs_target:`, finalJSON.data.genreTargets?.lufs_target);
-      console.log(`[AUDIT-FINAL-JSON] true_peak_target:`, finalJSON.data.genreTargets?.true_peak_target);
-      console.log(`[AUDIT-FINAL-JSON] dr_target:`, finalJSON.data.genreTargets?.dr_target);
-      console.log(`[AUDIT-FINAL-JSON] tol_lufs:`, finalJSON.data.genreTargets?.tol_lufs);
-      console.log(`[AUDIT-FINAL-JSON] tol_true_peak:`, finalJSON.data.genreTargets?.tol_true_peak);
-      console.log(`[AUDIT-FINAL-JSON] bands keys:`, Object.keys(finalJSON.data.genreTargets?.bands || {}));
-      console.log(`[AUDIT-FINAL-JSON] ✅ analysis.data.genreTargets = JSON OFICIAL (não-transformado)`);
-      console.log(`[AUDIT-FINAL-JSON] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     }
 
     // Limpar arquivo temporário

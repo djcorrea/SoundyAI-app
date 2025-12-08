@@ -151,11 +151,6 @@ export async function loadGenreTargets(genre) {
       return await loadFromHardcodedFallback(normalizedGenre);
     }
     
-    // 🎯 PRESERVAR JSON ORIGINAL não-transformado
-    // Este campo contém os valores EXATOS do arquivo JSON oficial
-    // sem nenhuma transformação, cálculo ou normalização
-    convertedTargets._rawTargets = rawTargets;
-    
     // Cachear resultado
     targetsCache.set(normalizedGenre, convertedTargets);
     
@@ -163,7 +158,6 @@ export async function loadGenreTargets(genre) {
     console.log('[TARGET-LOADER] SUCESSO - TARGETS CONVERTIDOS:');
     console.log(`[TARGETS] ✅ Loaded from filesystem: ${normalizedGenre}`);
     console.log(`[TARGETS] 📊 Métricas carregadas:`, Object.keys(convertedTargets));
-    console.log(`[TARGETS] 🎯 JSON original preservado em _rawTargets`);
     console.log('[TARGET-LOADER] convertedTargets.lufs:', convertedTargets.lufs);
     console.log('[TARGET-LOADER] convertedTargets.dr:', convertedTargets.dr);
     console.log('[TARGET-LOADER] convertedTargets.truePeak:', convertedTargets.truePeak);
@@ -296,12 +290,7 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.lufs = {
         target: rawTargets.lufs_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5,
-        // 🎯 ADICIONAR target_range para consistência com bandas
-        target_range: {
-          min: rawTargets.lufs_target - tolerance,
-          max: rawTargets.lufs_target + tolerance
-        }
+        critical: tolerance * 1.5
       };
     }
     
@@ -311,12 +300,7 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.truePeak = {
         target: rawTargets.true_peak_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5,
-        // 🎯 ADICIONAR target_range para consistência com bandas
-        target_range: {
-          min: rawTargets.true_peak_target - tolerance,
-          max: rawTargets.true_peak_target + tolerance
-        }
+        critical: tolerance * 1.5
       };
     }
     
@@ -326,12 +310,7 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.dr = {
         target: rawTargets.dr_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5,
-        // 🎯 ADICIONAR target_range para consistência com bandas
-        target_range: {
-          min: rawTargets.dr_target - tolerance,
-          max: rawTargets.dr_target + tolerance
-        }
+        critical: tolerance * 1.5
       };
     }
     
@@ -341,12 +320,7 @@ function convertToInternalFormat(rawTargets, genre) {
       converted.stereo = {
         target: rawTargets.stereo_target,
         tolerance: tolerance,
-        critical: tolerance * 1.5,
-        // 🎯 ADICIONAR target_range para consistência com bandas
-        target_range: {
-          min: rawTargets.stereo_target - tolerance,
-          max: rawTargets.stereo_target + tolerance
-        }
+        critical: tolerance * 1.5
       };
     }
     
