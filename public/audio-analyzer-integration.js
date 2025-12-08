@@ -9392,6 +9392,18 @@ function showModalLoading() {
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
+    // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui
+    console.group('[FASE2-VALIDATION] 🎯 displayModalResults - ENTRADA');
+    console.log('analysis.data.genreTargets:', analysis.data?.genreTargets ? '✅ PRESENTE' : '❌ AUSENTE');
+    if (analysis.data?.genreTargets) {
+        console.log('  → Keys:', Object.keys(analysis.data.genreTargets));
+        console.log('  → Has bands:', !!analysis.data.genreTargets.bands);
+        if (analysis.data.genreTargets.bands) {
+            console.log('  → Band keys:', Object.keys(analysis.data.genreTargets.bands));
+        }
+    }
+    console.groupEnd();
+    
     // 🔥 VALIDAÇÃO FINAL OBRIGATÓRIA: Verificar dados essenciais ANTES de exibir modal
     console.log("\n\n🔥🔥🔥 [AUDIT-FINAL-FRONT] VALIDAÇÃO COMPLETA 🔥🔥🔥");
     console.log("[AUDIT-FINAL-FRONT]", {
@@ -20454,11 +20466,12 @@ function normalizeBackendAnalysisData(result) {
                    result?.data?.genre || 
                    null,
             
-            // 🔥 PROTEÇÃO: Usar APENAS genreTargets do backend
-            // NUNCA injetar de window.__activeRefData aqui
-            genreTargets: result?.genreTargets ||
-                         data.genreTargets || 
-                         result?.data?.genreTargets ||
+            // 🔥 CORREÇÃO FASE 2: Priorizar data.data.genreTargets (onde backend realmente envia)
+            // Backend monta: { data: { genreTargets: {...} } }
+            // Ordem correta: data.data > result.data > __protected > null
+            genreTargets: data.data?.genreTargets ||     // ✅ PRIORIDADE 1: Onde backend envia
+                         result?.data?.genreTargets ||   // ✅ PRIORIDADE 2: Fallback estrutura alternativa
+                         __protected.genreTargets ||     // ✅ PRIORIDADE 3: Backup protegido no início
                          null
         },
         
@@ -20674,6 +20687,17 @@ function normalizeBackendAnalysisData(result) {
         'loudness.integratedLUFS': loudness.integratedLUFS,
         'src.lufsIntegrated': src.lufsIntegrated,
         'technicalData.lufsIntegrated': data.technicalData?.lufsIntegrated
+    });
+    
+    // 🔥 FASE 2 - LOG DE VALIDAÇÃO: Confirmar que genreTargets foi preservado
+    console.log('[FASE2-VALIDATION] 🎯 genreTargets após normalização:', {
+        exists: !!normalized.data?.genreTargets,
+        keys: normalized.data?.genreTargets ? Object.keys(normalized.data.genreTargets) : null,
+        hasBands: !!normalized.data?.genreTargets?.bands,
+        bandKeys: normalized.data?.genreTargets?.bands ? Object.keys(normalized.data.genreTargets.bands) : null,
+        source: data.data?.genreTargets ? 'data.data' : 
+                result?.data?.genreTargets ? 'result.data' : 
+                __protected.genreTargets ? '__protected' : 'none'
     });
     
     console.log('[METRICS-FIX] normalizeBackendAnalysisData > CREST=', normalized.technicalData.crestFactor, {
