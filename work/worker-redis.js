@@ -864,6 +864,19 @@ async function audioProcessor(job) {
     console.log(`🎯 [WORKER-ANALYSIS] Tipo de análise: ${isComparison ? 'COMPARAÇÃO (2ª música)' : 'SIMPLES (1ª música ou genre)'}`);
     console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
     
+    // 🚨🚨🚨 LOG SUPER VISÍVEL ANTES DO PIPELINE 🚨🚨🚨
+    console.error('\n\n\n\n\n');
+    console.error('╔══════════════════════════════════════════════════════════════╗');
+    console.error('║  🔥🔥🔥 WORKER-REDIS: INICIANDO PIPELINE 🔥🔥🔥             ║');
+    console.error('╚══════════════════════════════════════════════════════════════╝');
+    console.error('[WORKER-REDIS] JobId:', jobId);
+    console.error('[WORKER-REDIS] Genre:', genre);
+    console.error('[WORKER-REDIS] Mode:', mode);
+    console.error('[WORKER-REDIS] FileName:', fileName);
+    console.error('[WORKER-REDIS] Timestamp:', new Date().toISOString());
+    console.error('[WORKER-REDIS] processAudioComplete tipo:', typeof processAudioComplete);
+    console.error('\n\n');
+    
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId,
       mode,

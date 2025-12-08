@@ -25,6 +25,15 @@ const __dirname = path.dirname(__filename);
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
 
+// 🚨 LOG DE INICIALIZAÇÃO DO PIPELINE
+console.error('\n\n');
+console.error('╔══════════════════════════════════════════════════════════════╗');
+console.error('║  🔥 PIPELINE-COMPLETE.JS INICIALIZADO                       ║');
+console.error('╚══════════════════════════════════════════════════════════════╝');
+console.error('[PIPELINE-INIT] Módulo carregado em:', new Date().toISOString());
+console.error('[PIPELINE-INIT] loadGenreTargets importado:', typeof loadGenreTargets);
+console.error('\n\n');
+
 /**
  * 🎯 FUNÇÃO DE ORDENAÇÃO PROFISSIONAL DE SUGESTÕES
  * Ordena sugestões seguindo prioridade técnica profissional:
