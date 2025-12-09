@@ -407,7 +407,26 @@ class CoreMetricsProcessor {
             });
           }
           
+          console.log("\n================ 🔥 CHAMANDO SUGGESTION ENGINE 🔥 ================");
+          console.log("[CORE-METRICS] ⏰ Timestamp:", new Date().toISOString());
+          console.log("[CORE-METRICS] 📥 Parâmetros que serão enviados:");
+          console.log("[CORE-METRICS]   - genre:", detectedGenre);
+          console.log("[CORE-METRICS]   - customTargets disponível?:", !!customTargets);
+          console.log("[CORE-METRICS]   - consolidatedData disponível?:", !!consolidatedData);
+          console.log("[CORE-METRICS]   - consolidatedData.metrics:", JSON.stringify(consolidatedData?.metrics, null, 2));
+          console.log("[CORE-METRICS]   - consolidatedData.genreTargets:", JSON.stringify(consolidatedData?.genreTargets, null, 2));
+          console.log("==================================================================\n");
+          
           problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
+          
+          console.log("\n================ ✅ RETORNO DO SUGGESTION ENGINE ✅ ================");
+          console.log("[CORE-METRICS] ⏰ Timestamp:", new Date().toISOString());
+          console.log("[CORE-METRICS] 📤 Dados retornados:");
+          console.log("[CORE-METRICS]   - Número de sugestões:", problemsAnalysis.suggestions?.length || 0);
+          console.log("[CORE-METRICS]   - usingConsolidatedData?:", problemsAnalysis.metadata?.usingConsolidatedData);
+          console.log("[CORE-METRICS]   - Primeiras 2 sugestões:", JSON.stringify(problemsAnalysis.suggestions?.slice(0, 2), null, 2));
+          console.log("====================================================================\n");
+          
           logAudio('core_metrics', 'problems_analysis_success', { 
             genre: detectedGenre,
             mode: mode,
