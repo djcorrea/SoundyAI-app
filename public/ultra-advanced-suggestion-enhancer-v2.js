@@ -137,32 +137,34 @@ class UltraAdvancedSuggestionEnhancer {
             return null;
         }
         
-        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.targets do Postgres)');
+        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.results.data.genreTargets do Postgres)');
         
         // Buscar threshold da métrica específica
-        // Formato esperado do backend: lufs_target, true_peak_target, dr_target, etc
+        // Formato do Postgres: { target, tolerance, target_range: { min, max } }
         let threshold = null;
         
-        // Mapear nomes normalizados para nomes do backend
-        const backendFieldMap = {
-            'lufs': 'lufs_target',
-            'truePeak': 'true_peak_target',
-            'dr': 'dr_target',
-            'stereo': 'stereo_target'
+        // Mapear nomes normalizados para nomes do Postgres (SEM sufixo _target)
+        // O Postgres usa: lufs, truePeak, dr, stereo (não lufs_target, etc)
+        const postgresFieldMap = {
+            'lufs': 'lufs',
+            'truePeak': 'truePeak',
+            'dr': 'dr',
+            'stereo': 'stereo',
+            'dynamicRange': 'dr',
+            'stereoCorrelation': 'stereo'
         };
         
-        const backendField = backendFieldMap[metricKey] || metricKey;
+        const postgresField = postgresFieldMap[metricKey] || metricKey;
         
         // Tentar acessar diretamente
-        if (typeof targets[backendField] === 'number') {
-            threshold = { target: targets[backendField] };
-            console.log('[ULTRA_V2] ✅ Target encontrado:', backendField, '=', targets[backendField]);
+        if (targets[postgresField] && typeof targets[postgresField] === 'object') {
+            threshold = targets[postgresField];
+            console.log('[ULTRA_V2] ✅ Target encontrado:', postgresField, '=', threshold);
         }
-        // Tentar em bands/spectral_bands
-        else if ((targets.bands || targets.spectral_bands) && metricKey) {
-            const bands = targets.bands || targets.spectral_bands;
-            if (bands[metricKey]) {
-                threshold = bands[metricKey];
+        // Tentar em bands
+        else if (targets.bands && metricKey) {
+            if (targets.bands[metricKey]) {
+                threshold = targets.bands[metricKey];
                 console.log('[ULTRA_V2] ✅ Target encontrado em bands:', metricKey);
             }
         }
