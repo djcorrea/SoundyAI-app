@@ -555,37 +555,40 @@ class AISuggestionUIController {
             }
 
             // ✅ EXTRAIR genreTargets do payload
-            // 🔧 PATCH: Suporte a analysis.targets (modo genre atual) e analysis.user.targets
-            const genreTargets = analysis?.genreTargets || 
-                                 analysis?.data?.genreTargets || 
-                                 analysis?.result?.genreTargets ||
-                                 analysis?.customTargets ||
-                                 analysis?.targets ||              // 👈 NOVO: targets do modo genre
-                                 analysis?.user?.genreTargets ||   // 👈 NOVO: compatibilidade extra
-                                 analysis?.user?.targets ||        // 👈 NOVO: targets dentro de user
+            // 🔧 CORREÇÃO DEFINITIVA: Priorizar analysis.data.genreTargets (BACKEND OFICIAL)
+            const genreTargets = analysis?.data?.genreTargets ||    // 🎯 PRIORIDADE 1: Backend oficial
+                                 analysis?.genreTargets ||           // 🎯 PRIORIDADE 2: Fallback direto
+                                 analysis?.targets ||                // 🎯 PRIORIDADE 3: Nomenclatura alternativa
+                                 analysis?.data?.targets ||          // 🎯 PRIORIDADE 4: Targets em data
+                                 analysis?.result?.genreTargets ||   // 🎯 PRIORIDADE 5: Result
+                                 analysis?.customTargets ||          // 🎯 PRIORIDADE 6: Custom
+                                 analysis?.user?.genreTargets ||     // 🎯 PRIORIDADE 7: User
+                                 analysis?.user?.targets ||          // 🎯 PRIORIDADE 8: User targets
                                  null;
             
             if (!genreTargets) {
                 console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não encontrado no payload - validação será ignorada');
                 console.log('[AI-UI][VALIDATION] Tentei:', {
+                    'analysis.data.genreTargets': !!analysis?.data?.genreTargets,  // 👈 AGORA PRIORIDADE 1
                     'analysis.genreTargets': !!analysis?.genreTargets,
-                    'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
+                    'analysis.targets': !!analysis?.targets,
+                    'analysis.data.targets': !!analysis?.data?.targets,
                     'analysis.result.genreTargets': !!analysis?.result?.genreTargets,
                     'analysis.customTargets': !!analysis?.customTargets,
-                    'analysis.targets': !!analysis?.targets,           // 👈 NOVO LOG
-                    'analysis.user.genreTargets': !!analysis?.user?.genreTargets,  // 👈 NOVO LOG
-                    'analysis.user.targets': !!analysis?.user?.targets  // 👈 NOVO LOG
+                    'analysis.user.genreTargets': !!analysis?.user?.genreTargets,
+                    'analysis.user.targets': !!analysis?.user?.targets
                 });
             } else {
                 console.log('[AI-UI][VALIDATION] ✅ genreTargets encontrado:', Object.keys(genreTargets));
                 // 🔍 LOG: Identificar fonte dos targets
-                const source = analysis?.genreTargets ? 'analysis.genreTargets' :
-                              analysis?.data?.genreTargets ? 'analysis.data.genreTargets' :
+                const source = analysis?.data?.genreTargets ? 'analysis.data.genreTargets (OFICIAL)' :
+                              analysis?.genreTargets ? 'analysis.genreTargets' :
+                              analysis?.targets ? 'analysis.targets' :
+                              analysis?.data?.targets ? 'analysis.data.targets' :
                               analysis?.result?.genreTargets ? 'analysis.result.genreTargets' :
                               analysis?.customTargets ? 'analysis.customTargets' :
-                              analysis?.targets ? 'analysis.targets (NOVO)' :
-                              analysis?.user?.genreTargets ? 'analysis.user.genreTargets (NOVO)' :
-                              analysis?.user?.targets ? 'analysis.user.targets (NOVO)' :
+                              analysis?.user?.genreTargets ? 'analysis.user.genreTargets' :
+                              analysis?.user?.targets ? 'analysis.user.targets' :
                               'unknown';
                 console.log('[AI-UI][VALIDATION] 📍 Fonte:', source);
             }
