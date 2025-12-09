@@ -395,6 +395,17 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         usingConsolidatedData: !!consolidatedData
       });
       
+      console.log("\n================ AUDITORIA: PÓS-SUGGESTIONS ==================");
+      console.log("[SUGGESTIONS RAW] ⏰ Timestamp:", new Date().toISOString());
+      console.log("[SUGGESTIONS RAW] 📊 Sugestões geradas:");
+      console.log("  - Total de sugestões:", suggestions.length);
+      console.log("  - Críticas:", result.metadata.criticalCount);
+      console.log("  - Avisos:", result.metadata.warningCount);
+      console.log("  - OK:", result.metadata.okCount);
+      console.log("[SUGGESTIONS RAW] 🔍 Primeiras 3 sugestões:", JSON.stringify(suggestions.slice(0, 3), null, 2));
+      console.log("[SUGGESTIONS RAW] ✅ Usando dados consolidados?:", !!consolidatedData);
+      console.log("==============================================================\n");
+      
       return result;
       
     } catch (error) {
@@ -1388,6 +1399,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
  * Garante que TODAS as sugestões usem valores IDÊNTICOS aos da tabela de comparação
  */
 export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
+  console.log("\n================ AUDITORIA: SUGGESTION ENGINE ================");
+  console.log("[ENGINE] ⏰ Timestamp:", new Date().toISOString());
+  console.log("[ENGINE] 📥 Parâmetros recebidos:");
+  console.log("  - genre:", genre);
+  console.log("  - customTargets disponível?:", !!customTargets);
+  console.log("  - finalJSON disponível?:", !!finalJSON);
+  console.log("  - finalJSON.data disponível?:", !!finalJSON?.data);
+  console.log("[ENGINE] 🎯 Dados consolidados:");
+  console.log("  - finalJSON.data.metrics:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
+  console.log("  - finalJSON.data.genreTargets:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
+  console.log("[ENGINE] ⚠️ Fallback será ativado?:", !finalJSON?.data);
+  console.log("==============================================================\n");
+  
   const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, customTargets);
   
   // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
