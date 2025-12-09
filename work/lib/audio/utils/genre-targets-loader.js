@@ -656,4 +656,133 @@ export function clearTargetsCache() {
   console.log(`[TARGETS] 🗑️ Cache cleared (${size} entries removed)`);
 }
 
+/**
+ * 🎯 LOADGENRETARGETSFROMWORKER - FUNÇÃO SEGURA E DEFINITIVA
+ * 
+ * Carrega targets EXCLUSIVAMENTE da pasta interna do worker.
+ * NUNCA retorna fallback hardcoded.
+ * SEMPRE lança erro se arquivo não existir.
+ * 
+ * @param {string} genre - Nome do gênero (ex: 'funk_mandela', 'trance')
+ * @returns {Promise<Object>} - Targets convertidos para formato interno
+ * @throws {Error} - Se arquivo não existir ou for inválido
+ * 
+ * Caminho base: work/refs/out/<genre>.json
+ */
+export async function loadGenreTargetsFromWorker(genre) {
+  console.error('\n');
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  🎯 LOADGENRETARGETSFROMWORKER - MODO SEGURO            ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('[TARGETS-WORKER] Genre recebido:', genre);
+  console.error('[TARGETS-WORKER] Timestamp:', new Date().toISOString());
+  
+  // 1. VALIDAR GÊNERO
+  if (!genre || typeof genre !== 'string') {
+    const error = `[TARGET-ERROR] Gênero inválido: ${genre}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  const normalizedGenre = normalizeGenreName(genre);
+  console.error('[TARGETS-WORKER] Genre normalizado:', normalizedGenre);
+  
+  if (!normalizedGenre || normalizedGenre === 'default' || normalizedGenre === 'unknown') {
+    const error = `[TARGET-ERROR] Gênero não pode ser "default" ou "unknown": ${genre}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  // 2. VERIFICAR CACHE
+  if (targetsCache.has(normalizedGenre)) {
+    console.error('[TARGETS-WORKER] ✅ Cache HIT:', normalizedGenre);
+    return targetsCache.get(normalizedGenre);
+  }
+  
+  // 3. CONSTRUIR PATH ABSOLUTO (APENAS work/refs/out)
+  const BASE_PATH = path.resolve(process.cwd(), 'work', 'refs', 'out');
+  const jsonPath = path.join(BASE_PATH, `${normalizedGenre}.json`);
+  
+  console.error('[TARGETS-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.error('[TARGETS-WORKER] BASE_PATH:', BASE_PATH);
+  console.error('[TARGETS-WORKER] jsonPath:', jsonPath);
+  console.error('[TARGETS-WORKER] process.cwd():', process.cwd());
+  console.error('[TARGETS-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // 4. VALIDAR EXISTÊNCIA DO ARQUIVO
+  if (!fs.existsSync(jsonPath)) {
+    const error = `[TARGET-ERROR] JSON oficial não encontrado para o gênero: ${genre} (${normalizedGenre}). Path: ${jsonPath}`;
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  ❌ ERRO CRÍTICO: ARQUIVO NÃO ENCONTRADO                ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error(error);
+    console.error('[TARGETS-WORKER] Arquivos disponíveis no diretório:');
+    try {
+      const files = fs.readdirSync(BASE_PATH);
+      console.error(files.slice(0, 20));
+    } catch (e) {
+      console.error('[TARGETS-WORKER] Erro listando diretório:', e.message);
+    }
+    throw new Error(error);
+  }
+  
+  console.error('[TARGETS-WORKER] ✅ Arquivo encontrado:', jsonPath);
+  
+  // 5. LER E PARSEAR JSON
+  let rawData, parsed;
+  try {
+    rawData = fs.readFileSync(jsonPath, 'utf-8');
+    parsed = JSON.parse(rawData);
+    console.error('[TARGETS-WORKER] ✅ JSON parseado com sucesso');
+    console.error('[TARGETS-WORKER] Tamanho:', rawData.length, 'bytes');
+  } catch (error) {
+    const errorMsg = `[TARGET-ERROR] Erro ao ler/parsear JSON para ${genre}: ${error.message}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+  
+  // 6. EXTRAIR DADOS (suportar estruturas aninhadas)
+  const genreData = parsed[normalizedGenre] || parsed;
+  const rawTargets = genreData.legacy_compatibility || genreData.hybrid_processing || genreData;
+  
+  console.error('[TARGETS-WORKER] Top-level keys:', Object.keys(rawTargets));
+  console.error('[TARGETS-WORKER] lufs_target:', rawTargets.lufs_target);
+  console.error('[TARGETS-WORKER] true_peak_target:', rawTargets.true_peak_target);
+  console.error('[TARGETS-WORKER] dr_target:', rawTargets.dr_target);
+  
+  // 7. VALIDAR ESTRUTURA MÍNIMA
+  if (!validateTargetsStructure(rawTargets)) {
+    const error = `[TARGET-ERROR] Estrutura inválida no JSON de ${genre}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  // 8. CONVERTER PARA FORMATO INTERNO
+  const convertedTargets = convertToInternalFormat(rawTargets, normalizedGenre);
+  
+  if (!convertedTargets || Object.keys(convertedTargets).length === 0) {
+    const error = `[TARGET-ERROR] Conversão falhou para ${genre}`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
+  // 9. CACHEAR RESULTADO
+  targetsCache.set(normalizedGenre, convertedTargets);
+  
+  // 10. LOG DE SUCESSO
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  ✅✅✅ TARGETS CARREGADOS COM SUCESSO ✅✅✅            ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('[TARGETS-WORKER] Genre:', normalizedGenre);
+  console.error('[TARGETS-WORKER] Path:', jsonPath);
+  console.error('[TARGETS-WORKER] LUFS:', convertedTargets.lufs?.target);
+  console.error('[TARGETS-WORKER] TruePeak:', convertedTargets.truePeak?.target);
+  console.error('[TARGETS-WORKER] DR:', convertedTargets.dr?.target);
+  console.error('[TARGETS-WORKER] Bands:', convertedTargets.bands ? Object.keys(convertedTargets.bands).length : 0);
+  console.error('[TARGETS-WORKER] ✅ Targets retornados com garantia de integridade');
+  console.error('\n');
+  
+  return convertedTargets;
+}
+
 console.log('🎯 Genre Targets Loader carregado - Sistema de carregamento dinâmico ativo');
