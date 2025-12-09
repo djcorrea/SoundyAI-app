@@ -699,34 +699,93 @@ export async function loadGenreTargetsFromWorker(genre) {
     return targetsCache.get(normalizedGenre);
   }
   
-  // 3. CONSTRUIR PATH ABSOLUTO (APENAS work/refs/out)
-  const BASE_PATH = path.resolve(process.cwd(), 'work', 'refs', 'out');
-  const jsonPath = path.join(BASE_PATH, `${normalizedGenre}.json`);
-  
+  // 3. DETECTAR PATH CORRETO AUTOMATICAMENTE (MULTI-TENTATIVA)
   console.error('[TARGETS-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.error('[TARGETS-WORKER] BASE_PATH:', BASE_PATH);
-  console.error('[TARGETS-WORKER] jsonPath:', jsonPath);
+  console.error('[TARGETS-WORKER] 🔍 INICIANDO DETECÇÃO AUTOMÁTICA DE PATH');
   console.error('[TARGETS-WORKER] process.cwd():', process.cwd());
+  console.error('[TARGETS-WORKER] __dirname:', __dirname);
   console.error('[TARGETS-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
-  // 4. VALIDAR EXISTÊNCIA DO ARQUIVO
-  if (!fs.existsSync(jsonPath)) {
-    const error = `[TARGET-ERROR] JSON oficial não encontrado para o gênero: ${genre} (${normalizedGenre}). Path: ${jsonPath}`;
+  // Lista de caminhos candidatos (ordem de prioridade)
+  const candidatePaths = [
+    // 1. Railway: /app/refs/out (root do worker é /app, arquivos copiados diretamente)
+    path.resolve(process.cwd(), 'refs', 'out'),
+    
+    // 2. Local dev: /projeto/work/refs/out (root é pasta do projeto)
+    path.resolve(process.cwd(), 'work', 'refs', 'out'),
+    
+    // 3. Relativo ao __dirname (work/lib/audio/utils -> ../../../refs/out)
+    path.resolve(__dirname, '..', '..', '..', 'refs', 'out'),
+    
+    // 4. Railway alternativo: /app/work/refs/out
+    path.resolve('/app', 'work', 'refs', 'out'),
+    
+    // 5. Railway direto: /app/refs/out
+    path.resolve('/app', 'refs', 'out'),
+    
+    // 6. Caso especial: se cwd já terminar com /work
+    path.resolve(process.cwd(), '..', 'work', 'refs', 'out')
+  ];
+  
+  console.error('[TARGETS-WORKER] 🔎 Testando caminhos candidatos:');
+  
+  let foundPath = null;
+  let jsonPath = null;
+  
+  for (let i = 0; i < candidatePaths.length; i++) {
+    const candidatePath = candidatePaths[i];
+    const testJsonPath = path.join(candidatePath, `${normalizedGenre}.json`);
+    
+    console.error(`[TARGETS-WORKER] [${i + 1}/${candidatePaths.length}] Testando:`, candidatePath);
+    
+    // Verificar se diretório existe
+    const dirExists = fs.existsSync(candidatePath);
+    console.error(`[TARGETS-WORKER]   → Diretório existe? ${dirExists}`);
+    
+    if (dirExists) {
+      // Listar arquivos no diretório
+      try {
+        const files = fs.readdirSync(candidatePath);
+        console.error(`[TARGETS-WORKER]   → Arquivos encontrados (${files.length}):`, files.slice(0, 5).join(', '));
+        
+        // Verificar se o JSON específico existe
+        if (fs.existsSync(testJsonPath)) {
+          console.error(`[TARGETS-WORKER]   → ✅ ARQUIVO ENCONTRADO!`);
+          foundPath = candidatePath;
+          jsonPath = testJsonPath;
+          break;
+        } else {
+          console.error(`[TARGETS-WORKER]   → ❌ ${normalizedGenre}.json não encontrado neste diretório`);
+        }
+      } catch (e) {
+        console.error(`[TARGETS-WORKER]   → Erro listando diretório:`, e.message);
+      }
+    } else {
+      console.error(`[TARGETS-WORKER]   → ❌ Diretório não existe`);
+    }
+  }
+  
+  // 4. VALIDAR SE ENCONTROU O ARQUIVO
+  if (!foundPath || !jsonPath) {
+    const error = `[TARGET-ERROR] JSON oficial não encontrado para o gênero: ${genre} (${normalizedGenre}). Todos os caminhos testados falharam.`;
     console.error('╔═══════════════════════════════════════════════════════════╗');
     console.error('║  ❌ ERRO CRÍTICO: ARQUIVO NÃO ENCONTRADO                ║');
     console.error('╚═══════════════════════════════════════════════════════════╝');
     console.error(error);
-    console.error('[TARGETS-WORKER] Arquivos disponíveis no diretório:');
-    try {
-      const files = fs.readdirSync(BASE_PATH);
-      console.error(files.slice(0, 20));
-    } catch (e) {
-      console.error('[TARGETS-WORKER] Erro listando diretório:', e.message);
-    }
+    console.error('[TARGETS-WORKER] Caminhos testados:');
+    candidatePaths.forEach((p, i) => {
+      console.error(`  [${i + 1}] ${p}`);
+    });
     throw new Error(error);
   }
   
-  console.error('[TARGETS-WORKER] ✅ Arquivo encontrado:', jsonPath);
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  ✅ PATH ENCONTRADO COM SUCESSO                          ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('[TARGETS-WORKER] 🎯 Path base encontrado:', foundPath);
+  console.error('[TARGETS-WORKER] 📄 Arquivo completo:', jsonPath);
+  console.error('[TARGETS-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
   
   // 5. LER E PARSEAR JSON
   let rawData, parsed;
