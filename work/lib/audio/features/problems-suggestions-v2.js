@@ -395,16 +395,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         usingConsolidatedData: !!consolidatedData
       });
       
-      console.log("\n================ AUDITORIA: PÓS-SUGGESTIONS ==================");
-      console.log("[SUGGESTIONS RAW] ⏰ Timestamp:", new Date().toISOString());
-      console.log("[SUGGESTIONS RAW] 📊 Sugestões geradas:");
-      console.log("  - Total de sugestões:", suggestions.length);
-      console.log("  - Críticas:", result.metadata.criticalCount);
-      console.log("  - Avisos:", result.metadata.warningCount);
-      console.log("  - OK:", result.metadata.okCount);
-      console.log("[SUGGESTIONS RAW] 🔍 Primeiras 3 sugestões:", JSON.stringify(suggestions.slice(0, 3), null, 2));
-      console.log("[SUGGESTIONS RAW] ✅ Usando dados consolidados?:", !!consolidatedData);
-      console.log("==============================================================\n");
+      console.error("\n\n");
+      console.error("╔════════════════════════════════════════════════════════════════╗");
+      console.error("║  ✅✅✅ SUGESTÕES GERADAS COM SUCESSO ✅✅✅                  ║");
+      console.error("╚════════════════════════════════════════════════════════════════╝");
+      console.error("[SUGGESTIONS RAW] ⏰ Timestamp:", new Date().toISOString());
+      console.error("[SUGGESTIONS RAW] 📊 Sugestões geradas:");
+      console.error("  - Total de sugestões:", suggestions.length);
+      console.error("  - Críticas:", result.metadata.criticalCount);
+      console.error("  - Avisos:", result.metadata.warningCount);
+      console.error("  - OK:", result.metadata.okCount);
+      console.error("[SUGGESTIONS RAW] 🔍 Primeiras 3 sugestões:", JSON.stringify(suggestions.slice(0, 3), null, 2));
+      console.error("[SUGGESTIONS RAW] ✅ Usando dados consolidados?:", !!consolidatedData);
+      console.error("════════════════════════════════════════════════════════════════\n\n");
       
       return result;
       
@@ -1399,27 +1402,30 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
  * Garante que TODAS as sugestões usem valores IDÊNTICOS aos da tabela de comparação
  */
 export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
-  console.log("\n================ AUDITORIA: SUGGESTION ENGINE ================");
-  console.log("[ENGINE] ⏰ Timestamp:", new Date().toISOString());
-  console.log("[ENGINE] 📥 Parâmetros recebidos:");
-  console.log("  - genre:", genre);
-  console.log("  - customTargets disponível?:", !!customTargets);
-  console.log("  - finalJSON disponível?:", !!finalJSON);
-  console.log("  - finalJSON.data disponível?:", !!finalJSON?.data);
-  console.log("[ENGINE] 🎯 Dados consolidados:");
-  console.log("  - finalJSON.data.metrics:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
-  console.log("  - finalJSON.data.genreTargets:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
-  console.log("[ENGINE] ⚠️ Fallback será ativado?:", !finalJSON?.data);
-  console.log("==============================================================\n");
+  console.error("\n\n");
+  console.error("╔════════════════════════════════════════════════════════════════╗");
+  console.error("║  🔥🔥🔥 DENTRO DO SUGGESTION ENGINE 🔥🔥🔥                    ║");
+  console.error("╚════════════════════════════════════════════════════════════════╝");
+  console.error("[ENGINE] ⏰ Timestamp:", new Date().toISOString());
+  console.error("[ENGINE] 📥 Parâmetros recebidos:");
+  console.error("  - genre:", genre);
+  console.error("  - customTargets disponível?:", !!customTargets);
+  console.error("  - finalJSON disponível?:", !!finalJSON);
+  console.error("  - finalJSON.data disponível?:", !!finalJSON?.data);
+  console.error("[ENGINE] 🎯 Dados consolidados:");
+  console.error("  - finalJSON.data.metrics:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
+  console.error("  - finalJSON.data.genreTargets:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
+  console.error("[ENGINE] ⚠️ Fallback será ativado?:", !finalJSON?.data);
+  console.error("════════════════════════════════════════════════════════════════\n\n");
   
   const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, customTargets);
   
   // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
   if (finalJSON?.data) {
-    console.log('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
+    console.error('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
     return analyzer.analyzeWithEducationalSuggestions(audioMetrics, finalJSON.data);
   } else {
-    console.log('[SUGGESTION_REFACTOR] ⚠️ Fallback para audioMetrics (modo legado)');
+    console.error('[SUGGESTION_REFACTOR] ⚠️ Fallback para audioMetrics (modo legado)');
     return analyzer.analyzeWithEducationalSuggestions(audioMetrics);
   }
 }
