@@ -598,16 +598,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
     });
-    
-    // 🔍 LOG MANDATÓRIO: Validar valor e target enviados ao JSON
-    console.log('[DEBUG_SUGGESTION_BACKEND]', {
-      metric: 'lufs',
-      type: 'loudness',
-      value: lufs.toFixed(2),
-      target: lufsTarget.toFixed(2),
-      genreTargetsSource: !!consolidatedData?.genreTargets,
-      usedFallbackThresholds: false
-    });
   }
   
   /**
@@ -711,16 +701,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    });
-    
-    // 🔍 LOG MANDATÓRIO: Validar valor e target enviados ao JSON
-    console.log('[DEBUG_SUGGESTION_BACKEND]', {
-      metric: 'truePeak',
-      type: 'true_peak',
-      value: truePeak.toFixed(2),
-      target: truePeakTarget.toFixed(2),
-      genreTargetsSource: !!consolidatedData?.genreTargets,
-      usedFallbackThresholds: false
     });
   }
   
@@ -850,16 +830,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       priority: severity.priority,
       genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
     });
-    
-    // 🔍 LOG MANDATÓRIO: Validar valor e target enviados ao JSON
-    console.log('[DEBUG_SUGGESTION_BACKEND]', {
-      metric: 'dynamicRange',
-      type: 'dynamic_range',
-      value: dr.toFixed(2),
-      target: drTarget.toFixed(2),
-      genreTargetsSource: !!consolidatedData?.genreTargets,
-      usedFallbackThresholds: false
-    });
   }
   
   /**
@@ -986,16 +956,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
     });
-    
-    // 🔍 LOG MANDATÓRIO: Validar valor e target enviados ao JSON
-    console.log('[DEBUG_SUGGESTION_BACKEND]', {
-      metric: 'stereoCorrelation',
-      type: 'stereo',
-      value: correlation.toFixed(2),
-      target: stereoTarget.toFixed(2),
-      genreTargetsSource: !!consolidatedData?.genreTargets,
-      usedFallbackThresholds: false
-    });
   }
   
   /**
@@ -1034,57 +994,43 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // 🎯 EXPANSÃO COMPLETA: Todas as bandas espectrais com múltiplas variações de nomes
     
     // Sub Bass (20-60Hz)
-    let value = useConsolidated 
-      ? consolidatedData.metrics.bands?.sub?.value 
-      : (bands.sub_energy_db ?? bands.sub?.energy_db ?? bands.sub?.value ?? bands.sub);
+    let value = bands.sub_energy_db ?? bands.sub?.energy_db ?? bands.sub?.value ?? bands.sub;
     if (Number.isFinite(value)) {
       this.analyzeBand('sub', value, 'Sub Bass (20-60Hz)', suggestions, useConsolidated ? consolidatedData : null);
     }
     
     // Bass (60-150Hz)  
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.bass?.value 
-      : (bands.bass_energy_db ?? bands.bass?.energy_db ?? bands.bass?.value ?? bands.bass);
+    value = bands.bass_energy_db ?? bands.bass?.energy_db ?? bands.bass?.value ?? bands.bass;
     if (Number.isFinite(value)) {
       this.analyzeBand('bass', value, 'Bass (60-150Hz)', suggestions, useConsolidated ? consolidatedData : null);
     }
 
     // 🆕 Low Mid (150-500Hz) - Fundamental e warmth
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.low_mid?.value 
-      : (bands.lowMid_energy_db ?? bands.lowMid?.energy_db ?? bands.lowMid?.value ?? bands.lowMid ?? bands.low_mid);
+    value = bands.lowMid_energy_db ?? bands.lowMid?.energy_db ?? bands.lowMid?.value ?? bands.lowMid ?? bands.low_mid;
     if (Number.isFinite(value)) {
       this.analyzeBand('lowMid', value, 'Low Mid (150-500Hz)', suggestions, useConsolidated ? consolidatedData : null);
     }
 
     // 🆕 Mid (500-2000Hz) - Vocal clarity e presença
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.mid?.value 
-      : (bands.mid_energy_db ?? bands.mid?.energy_db ?? bands.mid?.value ?? bands.mid);
+    value = bands.mid_energy_db ?? bands.mid?.energy_db ?? bands.mid?.value ?? bands.mid;
     if (Number.isFinite(value)) {
       this.analyzeBand('mid', value, 'Mid (500-2000Hz)', suggestions, useConsolidated ? consolidatedData : null);
     }
 
     // 🆕 High Mid (2000-5000Hz) - Definition e clarity  
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.high_mid?.value 
-      : (bands.highMid_energy_db ?? bands.highMid?.energy_db ?? bands.highMid?.value ?? bands.highMid ?? bands.high_mid);
+    value = bands.highMid_energy_db ?? bands.highMid?.energy_db ?? bands.highMid?.value ?? bands.highMid ?? bands.high_mid;
     if (Number.isFinite(value)) {
       this.analyzeBand('highMid', value, 'High Mid (2-5kHz)', suggestions, useConsolidated ? consolidatedData : null);
     }
 
     // 🆕 Presença (3000-6000Hz) - Vocal presence e intelligibility
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.presence?.value 
-      : (bands.presenca_energy_db ?? bands.presenca?.energy_db ?? bands.presenca?.value ?? bands.presenca ?? bands.presence);
+    value = bands.presenca_energy_db ?? bands.presenca?.energy_db ?? bands.presenca?.value ?? bands.presenca ?? bands.presence;
     if (Number.isFinite(value)) {
       this.analyzeBand('presenca', value, 'Presença (3-6kHz)', suggestions, useConsolidated ? consolidatedData : null);
     }
 
     // 🆕 Brilho/Air (6000-20000Hz) - Sparkle e airiness
-    value = useConsolidated 
-      ? consolidatedData.metrics.bands?.brilliance?.value 
-      : (bands.brilho_energy_db ?? bands.brilho?.energy_db ?? bands.brilho?.value ?? bands.brilho ?? bands.air);
+    value = bands.brilho_energy_db ?? bands.brilho?.energy_db ?? bands.brilho?.value ?? bands.brilho ?? bands.air;
     if (Number.isFinite(value)) {
       this.analyzeBand('brilho', value, 'Brilho (6-20kHz)', suggestions, useConsolidated ? consolidatedData : null);
     }
@@ -1227,16 +1173,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority,
       bandName
-    });
-    
-    // 🔍 LOG MANDATÓRIO: Validar valor e target enviados ao JSON
-    console.log('[DEBUG_SUGGESTION_BACKEND]', {
-      metric: bandKey,
-      type: 'spectral_band',
-      value: value.toFixed(2),
-      target: bandTarget.toFixed(2),
-      genreTargetsSource: !!consolidatedData?.genreTargets,
-      usedFallbackThresholds: false
     });
   }
   
