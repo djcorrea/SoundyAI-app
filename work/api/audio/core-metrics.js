@@ -336,9 +336,17 @@ class CoreMetricsProcessor {
       
       if (!DISABLE_SUGGESTIONS) {
         try {
+          process.stderr.write("\n\n🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n");
+          process.stderr.write("[AUDIT-STDERR] ENTRANDO NO BLOCO DE SUGESTÕES\n");
+          process.stderr.write("[AUDIT-STDERR] Timestamp: " + new Date().toISOString() + "\n");
+          process.stderr.write("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n\n");
+          
           // 🚨 BLINDAGEM ABSOLUTA: Detectar gênero SEM fallback default silencioso
           const detectedGenre = options.genre || options.data?.genre || options.reference?.genre || null;
           const mode = options.mode || 'genre';
+          
+          process.stderr.write("[AUDIT-STDERR] detectedGenre: " + detectedGenre + "\n");
+          process.stderr.write("[AUDIT-STDERR] mode: " + mode + "\n");
 
           // 🚨 Se modo genre → gênero É obrigatório
           if (mode === 'genre' && (!detectedGenre || detectedGenre === 'default')) {
@@ -382,24 +390,45 @@ class CoreMetricsProcessor {
           // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
           let consolidatedData = null;
           if (customTargets) {
-            consolidatedData = {
-              metrics: {
-                loudness: { value: coreMetrics.lufs?.lufs_integrated, unit: 'LUFS' },
-                truePeak: { value: coreMetrics.truePeak?.maxDbtp, unit: 'dBTP' },
-                dr: { value: coreMetrics.dynamics?.dynamicRange, unit: 'dB' },
-                stereo: { value: coreMetrics.stereo?.correlation, unit: 'correlation' },
-                bands: {
-                  sub: { value: coreMetrics.spectralBands?.bandPercentages?.sub, unit: '%' },
-                  bass: { value: coreMetrics.spectralBands?.bandPercentages?.bass, unit: '%' },
-                  low_mid: { value: coreMetrics.spectralBands?.bandPercentages?.low_mid, unit: '%' },
-                  mid_high: { value: coreMetrics.spectralBands?.bandPercentages?.mid_high, unit: '%' },
-                  high: { value: coreMetrics.spectralBands?.bandPercentages?.high, unit: '%' }
+          consolidatedData = {
+            metrics: {
+              loudness: { value: coreMetrics.lufs?.lufs_integrated, unit: 'LUFS' },
+              truePeak: { value: coreMetrics.truePeak?.maxDbtp, unit: 'dBTP' },
+              dr: { value: coreMetrics.dynamics?.dynamicRange, unit: 'dB' },
+              stereo: { value: coreMetrics.stereo?.correlation, unit: 'correlation' },
+              bands: {
+                sub: {
+                  value: coreMetrics.spectralBands?.sub?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                bass: {
+                  value: coreMetrics.spectralBands?.bass?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                low_mid: {
+                  value: coreMetrics.spectralBands?.low_mid?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                mid: {
+                  value: coreMetrics.spectralBands?.mid?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                high_mid: {
+                  value: coreMetrics.spectralBands?.high_mid?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                presence: {
+                  value: coreMetrics.spectralBands?.presence?.energy_db ?? null,
+                  unit: 'dBFS'
+                },
+                brilliance: {
+                  value: coreMetrics.spectralBands?.brilliance?.energy_db ?? null,
+                  unit: 'dBFS'
                 }
-              },
-              genreTargets: customTargets  // Já vem completo do Postgres com target/tolerance/target_range
-            };
-            
-            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
+              }
+            },
+            genreTargets: customTargets  // Já vem completo do Postgres com target/tolerance/target_range
+          };            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
               hasMetrics: !!consolidatedData.metrics,
               hasGenreTargets: !!consolidatedData.genreTargets,
               lufsValue: consolidatedData.metrics.loudness.value,
@@ -407,31 +436,31 @@ class CoreMetricsProcessor {
             });
           }
           
-          console.error("\n\n");
-          console.error("╔════════════════════════════════════════════════════════════════╗");
-          console.error("║  🚀🚀🚀 CORE-METRICS: CHAMANDO SUGGESTION ENGINE 🚀🚀🚀     ║");
-          console.error("╚════════════════════════════════════════════════════════════════╝");
-          console.error("[CORE-METRICS] ⏰ Timestamp:", new Date().toISOString());
-          console.error("[CORE-METRICS] 📥 Parâmetros que serão enviados:");
-          console.error("[CORE-METRICS]   - genre:", detectedGenre);
-          console.error("[CORE-METRICS]   - customTargets disponível?:", !!customTargets);
-          console.error("[CORE-METRICS]   - consolidatedData disponível?:", !!consolidatedData);
-          console.error("[CORE-METRICS]   - consolidatedData.metrics:", JSON.stringify(consolidatedData?.metrics, null, 2));
-          console.error("[CORE-METRICS]   - consolidatedData.genreTargets:", JSON.stringify(consolidatedData?.genreTargets, null, 2));
-          console.error("════════════════════════════════════════════════════════════════\n\n");
+          process.stderr.write("\n\n");
+          process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
+          process.stderr.write("║  🚀🚀🚀 CORE-METRICS: CHAMANDO SUGGESTION ENGINE 🚀🚀🚀     ║\n");
+          process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
+          process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
+          process.stderr.write("[CORE-METRICS] 📥 Parâmetros que serão enviados:\n");
+          process.stderr.write("[CORE-METRICS]   - genre: " + detectedGenre + "\n");
+          process.stderr.write("[CORE-METRICS]   - customTargets disponível?: " + !!customTargets + "\n");
+          process.stderr.write("[CORE-METRICS]   - consolidatedData disponível?: " + !!consolidatedData + "\n");
+          process.stderr.write("[CORE-METRICS]   - consolidatedData.metrics: " + JSON.stringify(consolidatedData?.metrics, null, 2) + "\n");
+          process.stderr.write("[CORE-METRICS]   - consolidatedData.genreTargets: " + JSON.stringify(consolidatedData?.genreTargets, null, 2) + "\n");
+          process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
           
           problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
           
-          console.error("\n\n");
-          console.error("╔════════════════════════════════════════════════════════════════╗");
-          console.error("║  ✅✅✅ CORE-METRICS: RETORNO DO SUGGESTION ENGINE ✅✅✅     ║");
-          console.error("╚════════════════════════════════════════════════════════════════╝");
-          console.error("[CORE-METRICS] ⏰ Timestamp:", new Date().toISOString());
-          console.error("[CORE-METRICS] 📤 Dados retornados:");
-          console.error("[CORE-METRICS]   - Número de sugestões:", problemsAnalysis.suggestions?.length || 0);
-          console.error("[CORE-METRICS]   - usingConsolidatedData?:", problemsAnalysis.metadata?.usingConsolidatedData);
-          console.error("[CORE-METRICS]   - Primeiras 2 sugestões:", JSON.stringify(problemsAnalysis.suggestions?.slice(0, 2), null, 2));
-          console.error("════════════════════════════════════════════════════════════════\n\n");
+          process.stderr.write("\n\n");
+          process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
+          process.stderr.write("║  ✅✅✅ CORE-METRICS: RETORNO DO SUGGESTION ENGINE ✅✅✅     ║\n");
+          process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
+          process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
+          process.stderr.write("[CORE-METRICS] 📤 Dados retornados:\n");
+          process.stderr.write("[CORE-METRICS]   - Número de sugestões: " + (problemsAnalysis.suggestions?.length || 0) + "\n");
+          process.stderr.write("[CORE-METRICS]   - usingConsolidatedData?: " + problemsAnalysis.metadata?.usingConsolidatedData + "\n");
+          process.stderr.write("[CORE-METRICS]   - Primeiras 2 sugestões: " + JSON.stringify(problemsAnalysis.suggestions?.slice(0, 2), null, 2) + "\n");
+          process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
           
           logAudio('core_metrics', 'problems_analysis_success', { 
             genre: detectedGenre,
