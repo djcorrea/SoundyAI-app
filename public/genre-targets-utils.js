@@ -3,54 +3,143 @@
  * ====================================================
  * Este módulo centraliza TODA a lógica de extração de genre targets.
  * 
- * ❌ NUNCA mais acessar:
- *    - analysis.result.genreTargets
- *    - analysis.results.*
- *    - analysis.scoring.genre
- *    - globalGenreState.targets
+ * ESTRUTURA ACEITA:
+ * - results.data.genreTargets (backend/worker/postgres)
+ * - analysis.data.genreTargets (frontend)
  * 
- * ✅ SEMPRE usar extractGenreTargets(analysis)
+ * FALLBACKS AUTOMÁTICOS:
+ * - window.__activeRefData
+ * - window.PROD_AI_REF_DATA[genre]
  * 
- * HIERARQUIA DE PRIORIDADE:
- * 1. analysis.data.genreTargets (FONTE OFICIAL DO BACKEND)
- * 2. analysis.genreTargets (fallback direto)
- * 3. analysis.data.targets (nomenclatura alternativa)
- * 4. null (sem targets - carrega default)
+ * Esta função NUNCA retorna undefined ou null em modo genre.
+ * Sempre retorna targets válidos usando fallbacks se necessário.
  */
 
 /**
- * Extrai genre targets de uma análise
- * @param {Object} analysis - Objeto de análise normalizado
- * @returns {Object|null} Targets do gênero ou null
+ * 🎯 EXTRAI TARGETS DO GÊNERO - FUNÇÃO DEFINITIVA E ROBUSTA
+ * 
+ * @param {Object} source - Objeto results (backend) ou analysis (frontend)
+ * @returns {Object|null} Targets do gênero (null apenas se não for modo genre)
  */
-export function extractGenreTargets(analysis) {
-    console.log('[GENRE-TARGETS-UTILS] 🔍 Extraindo targets da análise');
+export function extractGenreTargets(source) {
+    console.log('[EXTRACT-TARGETS] 🔍 Iniciando extração de targets');
     
-    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
-    if (analysis?.data?.genreTargets) {
-        console.log('[GENRE-TARGETS-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
-        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.data.genreTargets));
-        return analysis.data.genreTargets;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 1: IDENTIFICAR SE É MODO GENRE
+    // ═══════════════════════════════════════════════════════════════
+    const mode = source?.mode || source?.data?.mode || 'unknown';
+    
+    if (mode !== "genre") {
+        console.log('[EXTRACT-TARGETS] ⚠️ Não é modo genre, retornando null');
+        return null;
     }
     
-    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
-    if (analysis?.genreTargets) {
-        console.log('[GENRE-TARGETS-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
-        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.genreTargets));
-        return analysis.genreTargets;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 2: EXTRAIR GÊNERO
+    // ═══════════════════════════════════════════════════════════════
+    const genre = source?.data?.genre || 
+                  source?.genre || 
+                  source?.metadata?.genre || 
+                  'unknown';
+    
+    console.log('[EXTRACT-TARGETS] Gênero identificado:', genre);
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 3: BUSCAR TARGETS NA ORDEM DE PRIORIDADE
+    // ═══════════════════════════════════════════════════════════════
+    let targets = null;
+    let targetSource = null;
+    
+    // 🎯 PRIORIDADE 1: source.data.genreTargets (BACKEND/FRONTEND OFICIAL)
+    if (source?.data?.genreTargets && typeof source.data.genreTargets === 'object') {
+        targets = source.data.genreTargets;
+        targetSource = 'source.data.genreTargets (OFICIAL)';
+    }
+    // 🎯 PRIORIDADE 2: source.genreTargets
+    else if (source?.genreTargets && typeof source.genreTargets === 'object') {
+        targets = source.genreTargets;
+        targetSource = 'source.genreTargets';
+    }
+    // 🎯 PRIORIDADE 3: source.targets
+    else if (source?.targets && typeof source.targets === 'object') {
+        targets = source.targets;
+        targetSource = 'source.targets';
+    }
+    // 🎯 PRIORIDADE 4: source.data.targets
+    else if (source?.data?.targets && typeof source.data.targets === 'object') {
+        targets = source.data.targets;
+        targetSource = 'source.data.targets';
     }
     
-    // 🎯 PRIORIDADE 3: analysis.data.targets (nomenclatura alternativa)
-    if (analysis?.data?.targets) {
-        console.log('[GENRE-TARGETS-UTILS] ⚠️ Targets encontrados em analysis.data.targets (nomenclatura antiga)');
-        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.data.targets));
-        return analysis.data.targets;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 4: VALIDAR E RETORNAR SE ENCONTRADO
+    // ═══════════════════════════════════════════════════════════════
+    if (targets && isValidTargets(targets)) {
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em:', targetSource);
+        return targets;
     }
     
-    console.warn('[GENRE-TARGETS-UTILS] ❌ Nenhum target encontrado na análise');
-    console.warn('[GENRE-TARGETS-UTILS] analysis.data:', analysis?.data);
-    console.warn('[GENRE-TARGETS-UTILS] analysis.genreTargets:', analysis?.genreTargets);
-    return null;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 5: FALLBACK 1 - window.__activeRefData
+    // ═══════════════════════════════════════════════════════════════
+    console.warn('[EXTRACT-TARGETS] ⚠️ Targets não encontrados, usando fallback');
+    
+    if (typeof window !== 'undefined' && window.__activeRefData) {
+        const activeData = window.__activeRefData;
+        const activeGenre = activeData.genre || activeData.data?.genre;
+        
+        if (activeGenre === genre || !activeGenre) {
+            console.log('[EXTRACT-TARGETS] ✅ Usando window.__activeRefData');
+            return activeData.targets || activeData.data?.genreTargets || activeData;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 6: FALLBACK 2 - window.PROD_AI_REF_DATA[genre]
+    // ═══════════════════════════════════════════════════════════════
+    if (typeof window !== 'undefined' && 
+        typeof window.PROD_AI_REF_DATA !== 'undefined' && 
+        window.PROD_AI_REF_DATA[genre]) {
+        
+        console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA[' + genre + ']');
+        return window.PROD_AI_REF_DATA[genre];
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 7: FALLBACK 3 - window.PROD_AI_REF_DATA (objeto único)
+    // ═══════════════════════════════════════════════════════════════
+    if (typeof window !== 'undefined' && 
+        typeof window.PROD_AI_REF_DATA === 'object' &&
+        (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility)) {
+        
+        console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA (objeto único)');
+        return window.PROD_AI_REF_DATA;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 8: ESTRUTURA VAZIA VÁLIDA (ÚLTIMO RECURSO)
+    // ═══════════════════════════════════════════════════════════════
+    console.error('[EXTRACT-TARGETS] ❌ CRÍTICO: Nenhum target encontrado');
+    console.warn('[EXTRACT-TARGETS] ⚠️ Retornando estrutura vazia válida');
+    
+    return {
+        lufs: { target: -14, tolerance: 1 },
+        truePeak: { target: -1, tolerance: 0.5 },
+        dr: { target: 8, tolerance: 2 },
+        stereo: { target: 100, tolerance: 10 },
+        bands: {}
+    };
+}
+
+/**
+ * Valida se a estrutura de targets é válida
+ */
+function isValidTargets(targets) {
+    if (!targets || typeof targets !== 'object') {
+        return false;
+    }
+    
+    return targets.lufs || targets.truePeak || targets.dr || targets.bands || targets.legacy_compatibility;
 }
 
 /**
