@@ -378,7 +378,36 @@ class CoreMetricsProcessor {
             console.log(`[CORE_METRICS] 🔒 Modo referência - ignorando targets de gênero`);
           }
           
-          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets);
+          // 🔥 CONSTRUIR consolidatedData para passar ao analyzer
+          // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
+          let consolidatedData = null;
+          if (customTargets) {
+            consolidatedData = {
+              metrics: {
+                loudness: { value: coreMetrics.lufs?.lufs_integrated, unit: 'LUFS' },
+                truePeak: { value: coreMetrics.truePeak?.maxDbtp, unit: 'dBTP' },
+                dr: { value: coreMetrics.dynamics?.dynamicRange, unit: 'dB' },
+                stereo: { value: coreMetrics.stereo?.correlation, unit: 'correlation' },
+                bands: {
+                  sub: { value: coreMetrics.spectralBands?.bandPercentages?.sub, unit: '%' },
+                  bass: { value: coreMetrics.spectralBands?.bandPercentages?.bass, unit: '%' },
+                  low_mid: { value: coreMetrics.spectralBands?.bandPercentages?.low_mid, unit: '%' },
+                  mid_high: { value: coreMetrics.spectralBands?.bandPercentages?.mid_high, unit: '%' },
+                  high: { value: coreMetrics.spectralBands?.bandPercentages?.high, unit: '%' }
+                }
+              },
+              genreTargets: customTargets  // Já vem completo do Postgres com target/tolerance/target_range
+            };
+            
+            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
+              hasMetrics: !!consolidatedData.metrics,
+              hasGenreTargets: !!consolidatedData.genreTargets,
+              lufsValue: consolidatedData.metrics.loudness.value,
+              lufsTarget: consolidatedData.genreTargets.lufs?.target
+            });
+          }
+          
+          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
           logAudio('core_metrics', 'problems_analysis_success', { 
             genre: detectedGenre,
             mode: mode,

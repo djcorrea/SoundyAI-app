@@ -534,10 +534,28 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log('[DEBUG-SUGGESTIONS] =================================================');
     
     try {
+      // 🔥 CONSTRUIR consolidatedData a partir do finalJSON já criado
+      // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
+      let consolidatedData = null;
+      if (finalJSON?.data) {
+        consolidatedData = {
+          metrics: finalJSON.data.metrics || null,
+          genreTargets: finalJSON.data.genreTargets || customTargets
+        };
+        
+        console.log('[DEBUG-SUGGESTIONS] 🎯 consolidatedData construído a partir de finalJSON.data:', {
+          hasMetrics: !!consolidatedData.metrics,
+          hasGenreTargets: !!consolidatedData.genreTargets,
+          lufsValue: consolidatedData.metrics?.loudness?.value,
+          lufsTarget: consolidatedData.genreTargets?.lufs?.target
+        });
+      }
+      
       const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(
         coreMetrics,
         finalGenreForAnalyzer,
-        customTargets
+        customTargets,
+        { data: consolidatedData }  // 🔥 Passar finalJSON wrapper
       );
       
       console.log('[DEBUG-SUGGESTIONS] ✅ analyzeProblemsAndSuggestionsV2 retornou com sucesso');
@@ -731,7 +749,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       console.log('[GENRE-BLINDAGEM-V2] genreForAnalyzerV2:', genreForAnalyzerV2);
       
-      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2);
+      // 🔥 CONSTRUIR consolidatedData para V2 também
+      let consolidatedDataV2 = null;
+      if (finalJSON?.data) {
+        consolidatedDataV2 = {
+          metrics: finalJSON.data.metrics || null,
+          genreTargets: finalJSON.data.genreTargets || customTargetsV2
+        };
+        
+        console.log('[V2-SYSTEM] 🎯 consolidatedDataV2 construído:', {
+          hasMetrics: !!consolidatedDataV2.metrics,
+          hasGenreTargets: !!consolidatedDataV2.genreTargets,
+          lufsValue: consolidatedDataV2.metrics?.loudness?.value,
+          lufsTarget: consolidatedDataV2.genreTargets?.lufs?.target
+        });
+      }
+      
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2, { data: consolidatedDataV2 });
       
       const v2Suggestions = v2.suggestions || [];
       const v2Problems = v2.problems || [];
