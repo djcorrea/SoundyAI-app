@@ -12329,20 +12329,49 @@ async function displayModalResults(analysis) {
                         
                         // 🎯 [GENRE-FIX] MODO GENRE: Injetar targets oficiais SOMENTE no modo genre
                         if (analysis.mode === "genre") {
-                            const officialGenreTargets = extractGenreTargets(analysis);
+                            // ✅ NOVA LÓGICA: Priorizar analysis.data.genreTargets diretamente
+                            let officialGenreTargets = null;
+                            
+                            // PRIORIDADE 1: analysis.data.genreTargets (FONTE OFICIAL DO BACKEND)
+                            if (analysis?.data?.genreTargets && typeof analysis.data.genreTargets === 'object') {
+                                officialGenreTargets = analysis.data.genreTargets;
+                                console.log('[ULTRA_V2] ✅ Targets encontrados em analysis.data.genreTargets (OFICIAL)');
+                                console.log('[ULTRA_V2] Keys:', Object.keys(officialGenreTargets));
+                            }
+                            // PRIORIDADE 2: Tentar extrair via função
+                            else {
+                                officialGenreTargets = extractGenreTargets(analysis);
+                                if (officialGenreTargets) {
+                                    console.log('[ULTRA_V2] ✅ Targets extraídos via extractGenreTargets()');
+                                }
+                            }
+                            
                             if (officialGenreTargets) {
-                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais de analysis.data.genreTargets');
+                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais');
                                 analysisContext.targetDataForEngine = officialGenreTargets;
                                 analysisContext.genreTargets = officialGenreTargets;
                             } else {
-                                // 🚨 MODO GENRE SEM TARGETS = ERRO CRÍTICO - NÃO USAR FALLBACK
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: Modo genre mas targets não encontrados');
-                                console.error('[ULTRA_V2] analysis.data.genreTargets:', analysis?.data?.genreTargets);
-                                console.error('[ULTRA_V2] analysis.genre:', analysis?.genre);
-                                console.error('[ULTRA_V2] analysis.data.genre:', analysis?.data?.genre);
-                                // ❌ NÃO usar fallback - modo genre EXIGE targets corretos do JSON
-                                analysisContext.targetDataForEngine = null;
-                                analysisContext.genreTargets = null;
+                                // 🎯 FALLBACK: Usar window.__activeRefData[genre]
+                                const genre = analysis?.data?.genre || analysis?.genre;
+                                if (typeof window !== 'undefined' && window.__activeRefData) {
+                                    if (genre && window.__activeRefData[genre]) {
+                                        console.warn('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData[' + genre + ']');
+                                        analysisContext.targetDataForEngine = window.__activeRefData[genre];
+                                        analysisContext.genreTargets = window.__activeRefData[genre];
+                                    } else if (window.__activeRefData.bands || window.__activeRefData.legacy_compatibility) {
+                                        console.warn('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData (objeto único)');
+                                        analysisContext.targetDataForEngine = window.__activeRefData;
+                                        analysisContext.genreTargets = window.__activeRefData;
+                                    } else {
+                                        console.error('[ULTRA_V2] ❌ CRÍTICO: Nenhum target encontrado');
+                                        analysisContext.targetDataForEngine = null;
+                                        analysisContext.genreTargets = null;
+                                    }
+                                } else {
+                                    console.error('[ULTRA_V2] ❌ CRÍTICO: window.__activeRefData não disponível');
+                                    analysisContext.targetDataForEngine = null;
+                                    analysisContext.genreTargets = null;
+                                }
                             }
                         }
                         // 🛡️ MODO REFERENCE: Não injetar nada - usa dados de comparação A/B
