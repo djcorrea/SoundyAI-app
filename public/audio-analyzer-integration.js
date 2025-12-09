@@ -138,15 +138,18 @@ function extractGenreTargets(analysis) {
     console.log('[GENRE-ONLY-UTILS] 🎯 Extraindo targets no modo GENRE');
     console.log('[GENRE-ONLY-UTILS] 📦 Análise de fontes:', {
         'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
-        'analysis.__genreTargets': !!analysis?.__genreTargets,
         'analysis.genreTargets': !!analysis?.genreTargets,
-        'analysis.result.genreTargets': !!analysis?.result?.genreTargets
+        'analysis.targets': !!analysis?.targets,
+        'analysis.data.targets': !!analysis?.data?.targets,
+        'analysis.__genreTargets': !!analysis?.__genreTargets
     });
     
-    // 🔧 NOVA EXTRAÇÃO UNIVERSAL PARA MODO GENRE
+    // 🔧 CORREÇÃO DEFINITIVA: PRIORIZAR analysis.data.genreTargets (BACKEND OFICIAL)
     const root = analysis?.data?.genreTargets ||
-                 analysis?.__genreTargets ||
                  analysis?.genreTargets ||
+                 analysis?.targets ||
+                 analysis?.data?.targets ||
+                 analysis?.__genreTargets ||
                  null;
     
     console.log('[TARGET-EXTRACTOR] root final:', root ? Object.keys(root) : 'null');
