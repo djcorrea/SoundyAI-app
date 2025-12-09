@@ -335,90 +335,43 @@ export async function loadGenreTargets(genre) {
 }
 
 /**
- * 🛡️ FALLBACK: CARREGA THRESHOLDS HARDCODED
+ * 🛡️ FALLBACK REMOVIDO - Sistema agora FALHA EXPLICITAMENTE
  * 
- * Quando o arquivo JSON não existe ou é inválido, carrega os thresholds
- * hardcoded do arquivo problems-suggestions-v2.js (GENRE_THRESHOLDS).
+ * MUDANÇA CRÍTICA: O fallback para GENRE_THRESHOLDS hardcoded foi REMOVIDO.
+ * Se o arquivo JSON não existir, o sistema deve FALHAR com erro claro.
+ * 
+ * Isso garante que:
+ * 1. Nunca usaremos targets desatualizados
+ * 2. Problemas de configuração serão detectados imediatamente
+ * 3. Não haverá divergência silenciosa entre UI e sugestões
  * 
  * @param {string} normalizedGenre - Nome do gênero normalizado
- * @returns {Object|null} - Thresholds hardcoded ou null se não existir
+ * @returns {null} - Sempre retorna null (fallback desabilitado)
  */
 async function loadFromHardcodedFallback(normalizedGenre) {
-  try {
-    console.log(`[TARGETS] 🛡️ Tentando fallback hardcoded para: ${normalizedGenre}`);
-    
-    // Importar GENRE_THRESHOLDS dinamicamente
-    const module = await import('../features/problems-suggestions-v2.js');
-    const GENRE_THRESHOLDS = module.GENRE_THRESHOLDS;
-    
-    if (!GENRE_THRESHOLDS || typeof GENRE_THRESHOLDS !== 'object') {
-      console.error('[TARGETS] ❌ GENRE_THRESHOLDS não encontrado no módulo');
-      return null;
-    }
-    
-    // Buscar threshold específico do gênero
-    let genreThreshold = GENRE_THRESHOLDS[normalizedGenre];
-    
-    // Se não encontrar, tentar "default"
-    if (!genreThreshold) {
-      console.warn(`[TARGETS] ⚠️ Gênero ${normalizedGenre} não encontrado em GENRE_THRESHOLDS - usando "default"`);
-      genreThreshold = GENRE_THRESHOLDS['default'];
-    }
-    
-    if (!genreThreshold) {
-      console.error('[TARGETS] ❌ Nem gênero específico nem "default" encontrado em GENRE_THRESHOLDS');
-      return null;
-    }
-    
-    console.log(`[TARGETS] ✅ Fallback hardcoded carregado: ${normalizedGenre}`);
-    console.log(`[TARGETS] 📊 Métricas disponíveis:`, Object.keys(genreThreshold));
-    
-    // 🚨🚨🚨 LOG SUPER VISÍVEL - FALLBACK ACIONADO 🚨🚨🚨
-    console.error('\n\n\n\n\n');
-    console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║  ⚠️⚠️⚠️ FALLBACK HARDCODED ACIONADO ⚠️⚠️⚠️           ║');
-    console.error('║  ❌ ARQUIVO JSON NÃO ENCONTRADO ❌                        ║');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('[FALLBACK] Genre:', normalizedGenre);
-    console.error('[FALLBACK] LUFS hardcoded:', genreThreshold.lufs?.target);
-    console.error('[FALLBACK] TruePeak hardcoded:', genreThreshold.truePeak?.target);
-    console.error('[FALLBACK] DR hardcoded:', genreThreshold.dr?.target);
-    console.error('[FALLBACK] ⚠️ ESTES VALORES PODEM ESTAR DESATUALIZADOS!');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('\n\n\n\n\n');
-    
-    // 🚨 LOG DE AUDITORIA CRÍTICO: Fallback hardcoded usado
-    console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('[AUDIT] 🚨 FALLBACK HARDCODED USADO (GENRE_THRESHOLDS)');
-    console.error('[AUDIT] Genre:', normalizedGenre);
-    console.error('[AUDIT] LUFS fallback:', genreThreshold.lufs?.target);
-    console.error('[AUDIT] TruePeak fallback:', genreThreshold.truePeak?.target);
-    console.error('[AUDIT] DR fallback:', genreThreshold.dr?.target);
-    console.error('[AUDIT] ⚠️ VALORES PODEM DIVERGIR DO JSON OFICIAL!');
-    console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // 🚨🚨🚨 LOG SUPER VISÍVEL - FALLBACK USADO 🚨🚨🚨
-    console.error('\n');
-    console.error('╔═══════════════════════════════════════════════════════════╗');
-    console.error('║  🚨 ATENÇÃO: FALLBACK HARDCODED USADO!                   ║');
-    console.error('╚═══════════════════════════════════════════════════════════╝');
-    console.error('Genre:', normalizedGenre);
-    console.error('LUFS fallback:', genreThreshold.lufs?.target);
-    console.error('TruePeak fallback:', genreThreshold.truePeak?.target);
-    console.error('DR fallback:', genreThreshold.dr?.target);
-    console.error('⚠️  VALORES PODEM ESTAR DESATUALIZADOS!');
-    console.error('\n\n');
-    
-    // Cachear resultado
-    targetsCache.set(normalizedGenre, genreThreshold);
-    
-    return genreThreshold;
-    
-  } catch (error) {
-    console.error(`[TARGETS] ❌ Erro ao carregar fallback hardcoded:`, error.message);
-    console.error(`[TARGETS] Stack:`, error.stack);
-    return null;
-  }
+  console.error('\n\n\n\n\n');
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  🚨 ERRO CRÍTICO: ARQUIVO JSON NÃO ENCONTRADO 🚨         ║');
+  console.error('║  ❌ FALLBACK HARDCODED FOI DESABILITADO ❌               ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('[TARGETS] Genre solicitado:', normalizedGenre);
+  console.error('[TARGETS] Arquivo esperado: work/refs/out/' + normalizedGenre + '.json');
+  console.error('[TARGETS] ⚠️ O sistema NÃO usará valores hardcoded desatualizados');
+  console.error('[TARGETS] ⚠️ Verifique se o arquivo JSON existe e está correto');
+  console.error('[TARGETS] ⚠️ Se necessário, execute o script de geração de targets');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('\n\n\n\n\n');
+  
+  // 🚨 LOG DE AUDITORIA CRÍTICO: Fallback desabilitado
+  console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.error('[AUDIT] 🚨 FALLBACK HARDCODED DESABILITADO');
+  console.error('[AUDIT] Genre:', normalizedGenre);
+  console.error('[AUDIT] ❌ Sistema falhou explicitamente');
+  console.error('[AUDIT] ✅ Garantido: Nenhum valor hardcoded usado');
+  console.error('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // Retornar null - o sistema upstream deve tratar isso como erro
+  return null;
 }
 
 /**
