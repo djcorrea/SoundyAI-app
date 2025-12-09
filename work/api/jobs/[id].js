@@ -162,33 +162,41 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS] ✅ Retornando job COMPLETED com results');
       
       // ═══════════════════════════════════════════════════════════════
-      // ✅ AUDITORIA CRÍTICA: Verificar analysis.data.genreTargets
+      // ✅ AUDITORIA CRÍTICA: Verificar analysis.data (genreTargets + metrics)
       // ═══════════════════════════════════════════════════════════════
-      if (fullResult?.data?.genreTargets) {
+      if (fullResult?.data) {
         console.log('');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('✅ [GENRE TARGETS OK] Postgres → Frontend');
+        console.log('✅ [DATA OK] Postgres → Frontend');
         console.log('═══════════════════════════════════════════════════════════════');
-        console.log('📊 Caminho: analysis.data.genreTargets');
-        console.log('📊 Keys:', Object.keys(fullResult.data.genreTargets));
-        console.log('📊 Estrutura Completa:', {
-          lufs: fullResult.data.genreTargets.lufs,
-          truePeak: fullResult.data.genreTargets.truePeak,
-          dr: fullResult.data.genreTargets.dr,
-          stereo: fullResult.data.genreTargets.stereo,
-          hasBands: !!fullResult.data.genreTargets.bands
-        });
+        console.log('📊 analysis.data.genreTargets:', !!fullResult.data.genreTargets);
+        console.log('📊 analysis.data.metrics:', !!fullResult.data.metrics);
+        
+        if (fullResult.data.genreTargets) {
+          console.log('📊 GenreTargets Keys:', Object.keys(fullResult.data.genreTargets));
+          console.log('📊 GenreTargets Sample:', {
+            lufs: fullResult.data.genreTargets.lufs,
+            truePeak: fullResult.data.genreTargets.truePeak,
+            dr: fullResult.data.genreTargets.dr,
+            stereo: fullResult.data.genreTargets.stereo
+          });
+        }
+        
+        if (fullResult.data.metrics) {
+          console.log('📊 Metrics Keys:', Object.keys(fullResult.data.metrics));
+          console.log('📊 Metrics Sample:', {
+            loudness: fullResult.data.metrics.loudness,
+            truePeak: fullResult.data.metrics.truePeak,
+            dr: fullResult.data.metrics.dr,
+            stereo: fullResult.data.metrics.stereo
+          });
+        }
+        
         console.log('═══════════════════════════════════════════════════════════════');
         console.log('');
       } else {
         console.error('');
-        console.error('❌❌❌ [GENRE TARGETS MISSING] analysis.data.genreTargets NÃO ENCONTRADO');
-        console.error('❌ Frontend NÃO receberá targets corretos do Postgres!');
-        console.error('❌ Estrutura recebida:', {
-          hasData: !!fullResult?.data,
-          hasDataGenreTargets: !!fullResult?.data?.genreTargets,
-          dataKeys: fullResult?.data ? Object.keys(fullResult.data) : 'N/A'
-        });
+        console.error('❌❌❌ [DATA MISSING] analysis.data NÃO ENCONTRADO');
         console.error('');
       }
       // ═══════════════════════════════════════════════════════════════
