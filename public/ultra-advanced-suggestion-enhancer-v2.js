@@ -69,25 +69,78 @@ class UltraAdvancedSuggestionEnhancer {
     
     /**
      * 🎯 Extrair target_range correto do contexto
+     * ✅ PRIORIDADE: analysis.data.genreTargets → context.targetDataForEngine → window.__activeRefData
      * @param {Object} suggestion - Sugestão do backend
      * @param {Object} context - Contexto da análise
      * @returns {Object|null} { min, max, center } ou null
      */
     extractTargetRange(suggestion, context) {
+        console.log('[ULTRA_V2] 🔍 Extraindo target_range para:', suggestion.metric || suggestion.type);
+        
         // Identificar métrica (ex: "band_sub" → "sub")
         const metricKey = this.getMetricKey(suggestion);
-        if (!metricKey) return null;
+        if (!metricKey) {
+            console.warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
+            return null;
+        }
         
-        // Tentar acessar target_range do contexto
-        const targets = context.targetDataForEngine || context.genreTargets;
-        if (!targets || !targets[metricKey]) return null;
+        console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
         
+        // ═══════════════════════════════════════════════════════════════
+        // ESTRATÉGIA DE BUSCA DE TARGETS (ORDEM DE PRIORIDADE)
+        // ═══════════════════════════════════════════════════════════════
+        let targets = null;
+        let targetSource = null;
+        
+        // 🎯 PRIORIDADE 1: context.targetDataForEngine (vem de analysis.data.genreTargets)
+        if (context.targetDataForEngine && typeof context.targetDataForEngine === 'object') {
+            targets = context.targetDataForEngine;
+            targetSource = 'context.targetDataForEngine (analysis.data.genreTargets)';
+            console.log('[ULTRA_V2] ✅ Usando targets de context.targetDataForEngine');
+        }
+        // 🎯 PRIORIDADE 2: context.genreTargets (alias)
+        else if (context.genreTargets && typeof context.genreTargets === 'object') {
+            targets = context.genreTargets;
+            targetSource = 'context.genreTargets';
+            console.log('[ULTRA_V2] ✅ Usando targets de context.genreTargets');
+        }
+        // 🎯 PRIORIDADE 3: window.__activeRefData (fallback global)
+        else if (typeof window !== 'undefined' && window.__activeRefData) {
+            const genre = context.detectedGenre;
+            if (genre && window.__activeRefData[genre]) {
+                targets = window.__activeRefData[genre];
+                targetSource = `window.__activeRefData[${genre}]`;
+                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData[' + genre + ']');
+            } else if (window.__activeRefData.bands || window.__activeRefData.legacy_compatibility) {
+                targets = window.__activeRefData;
+                targetSource = 'window.__activeRefData (objeto único)';
+                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData');
+            }
+        }
+        
+        if (!targets) {
+            console.error('[ULTRA_V2] ❌ Nenhum target encontrado para:', metricKey);
+            console.error('[ULTRA_V2] context.targetDataForEngine:', context.targetDataForEngine);
+            console.error('[ULTRA_V2] context.genreTargets:', context.genreTargets);
+            console.error('[ULTRA_V2] window.__activeRefData:', typeof window !== 'undefined' ? window.__activeRefData : 'N/A');
+            return null;
+        }
+        
+        console.log('[ULTRA_V2] 📦 Targets encontrados em:', targetSource);
+        
+        // Buscar threshold da métrica específica
         const threshold = targets[metricKey];
+        if (!threshold) {
+            console.warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada nos targets');
+            console.log('[ULTRA_V2] Keys disponíveis:', Object.keys(targets));
+            return null;
+        }
         
         // Priorizar target_range se disponível
         if (threshold.target_range && 
             typeof threshold.target_range.min === 'number' && 
             typeof threshold.target_range.max === 'number') {
+            console.log('[ULTRA_V2] ✅ target_range encontrado:', threshold.target_range);
             return {
                 min: threshold.target_range.min,
                 max: threshold.target_range.max,
@@ -97,6 +150,10 @@ class UltraAdvancedSuggestionEnhancer {
         
         // Fallback: calcular range a partir de target±tolerance
         if (typeof threshold.target === 'number' && typeof threshold.tolerance === 'number') {
+            console.log('[ULTRA_V2] ✅ Calculando range de target±tolerance:', {
+                target: threshold.target,
+                tolerance: threshold.tolerance
+            });
             return {
                 min: threshold.target - threshold.tolerance,
                 max: threshold.target + threshold.tolerance,
@@ -104,6 +161,7 @@ class UltraAdvancedSuggestionEnhancer {
             };
         }
         
+        console.warn('[ULTRA_V2] ⚠️ Threshold sem target_range nem target+tolerance');
         return null;
     }
 
