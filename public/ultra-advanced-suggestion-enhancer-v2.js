@@ -68,6 +68,42 @@ class UltraAdvancedSuggestionEnhancer {
     }
     
     /**
+     * 🔧 Normalizar nome de métrica para mapeamento consistente
+     * Reconhece variações como "dynamicRange", "dynamic_range", "DR", "stereoCorrelation", etc.
+     * @param {string} rawMetric - Nome bruto da métrica
+     * @returns {string|null} Nome normalizado ou null
+     */
+    normalizeMetricName(rawMetric) {
+        if (!rawMetric) return null;
+        const key = String(rawMetric).toLowerCase().replace(/\s|_/g, "");
+
+        if (key.includes("lufs")) return "lufs";
+        if (key.includes("truepeak") || key.includes("dbtp") || key.includes("tp")) return "truePeak";
+        if (key.includes("dynamicrange") || key === "dr") return "dr";
+        if (key.includes("stereocorrelation") || key.includes("stereo")) return "stereo";
+
+        return null;
+    }
+
+    /**
+     * 📝 Construir texto de sugestão usando target real do Postgres
+     * @param {number} measured - Valor medido
+     * @param {Object} targetInfo - Informações do target { target, tolerance }
+     * @returns {string} Texto formatado com target real
+     */
+    buildTruePeakText(measured, targetInfo) {
+        const target = targetInfo?.target ?? 0;
+        const diff = measured - target;
+        const diffAbs = Math.abs(diff).toFixed(2);
+        const emoji = diff > 0 ? "🔴" : "🟢";
+
+        return (
+            `${emoji} True Peak crítico: ${measured.toFixed(2)} dBTP ` +
+            `(alvo: ${target.toFixed(2)} dBTP, diferença: ${diff > 0 ? "+" : "-"}${diffAbs} dB)`
+        );
+    }
+
+    /**
      * 🎯 Extrair target_range correto do contexto
      * ✅ USA EXCLUSIVAMENTE: context.targetDataForEngine (vem de analysis.data.genreTargets do Postgres)
      * ❌ SEM FALLBACKS - se não existir, retorna null
@@ -152,6 +188,12 @@ class UltraAdvancedSuggestionEnhancer {
             return metric.replace('band_', '');
         }
         
+        // 🔧 NORMALIZAR métrica (reconhece "dynamicRange", "stereoCorrelation", etc)
+        const normalized = this.normalizeMetricName(metric);
+        if (normalized) {
+            return normalized;
+        }
+        
         // Métricas diretas: "lufs", "truePeak", "dr", "stereo"
         if (['lufs', 'truePeak', 'dr', 'stereo'].includes(metric)) {
             return metric;
@@ -210,8 +252,20 @@ class UltraAdvancedSuggestionEnhancer {
     enhanceSingleSuggestion(suggestion, context) {
         const enhanced = { ...suggestion };
         
-        // 🎯 PATCH: Extrair target_range do contexto
+        // 🎯 Extrair target_range do contexto (Postgres)
         const targetRange = this.extractTargetRange(suggestion, context);
+        
+        // 🔧 Normalizar métrica para reconhecer variações
+        const normalizedMetric = this.normalizeMetricName(suggestion.metric || suggestion.type);
+        
+        // 📝 Reescrever texto usando target real do Postgres para métricas específicas
+        if (normalizedMetric === "truePeak" && targetRange && context.truePeak !== undefined) {
+            const targetInfo = context.targetDataForEngine?.truePeak || context.genreTargets?.truePeak;
+            if (targetInfo) {
+                enhanced.message = this.buildTruePeakText(context.truePeak, targetInfo);
+                console.log('[ULTRA_V2] ✅ Texto True Peak reescrito com target real:', targetInfo.target);
+            }
+        }
         
         // Detectar tipo de problema baseado no conteúdo da sugestão
         const problemType = this.detectProblemType(suggestion);

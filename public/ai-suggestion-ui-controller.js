@@ -554,43 +554,16 @@ class AISuggestionUIController {
                 console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
-            // ✅ EXTRAIR genreTargets do payload
-            // 🔧 CORREÇÃO DEFINITIVA: Priorizar analysis.data.genreTargets (BACKEND OFICIAL)
-            const genreTargets = analysis?.data?.genreTargets ||    // 🎯 PRIORIDADE 1: Backend oficial
-                                 analysis?.genreTargets ||           // 🎯 PRIORIDADE 2: Fallback direto
-                                 analysis?.targets ||                // 🎯 PRIORIDADE 3: Nomenclatura alternativa
-                                 analysis?.data?.targets ||          // 🎯 PRIORIDADE 4: Targets em data
-                                 analysis?.result?.genreTargets ||   // 🎯 PRIORIDADE 5: Result
-                                 analysis?.customTargets ||          // 🎯 PRIORIDADE 6: Custom
-                                 analysis?.user?.genreTargets ||     // 🎯 PRIORIDADE 7: User
-                                 analysis?.user?.targets ||          // 🎯 PRIORIDADE 8: User targets
-                                 null;
+            // ✅ EXTRAIR genreTargets EXCLUSIVAMENTE de analysis.data.genreTargets (Postgres)
+            // ❌ SEM FALLBACKS (conforme auditoria)
+            const genreTargets = analysis?.data?.genreTargets || null;
             
             if (!genreTargets) {
-                console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não encontrado no payload - validação será ignorada');
-                console.log('[AI-UI][VALIDATION] Tentei:', {
-                    'analysis.data.genreTargets': !!analysis?.data?.genreTargets,  // 👈 AGORA PRIORIDADE 1
-                    'analysis.genreTargets': !!analysis?.genreTargets,
-                    'analysis.targets': !!analysis?.targets,
-                    'analysis.data.targets': !!analysis?.data?.targets,
-                    'analysis.result.genreTargets': !!analysis?.result?.genreTargets,
-                    'analysis.customTargets': !!analysis?.customTargets,
-                    'analysis.user.genreTargets': !!analysis?.user?.genreTargets,
-                    'analysis.user.targets': !!analysis?.user?.targets
-                });
+                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado (Postgres)');
+                console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
             } else {
-                console.log('[AI-UI][VALIDATION] ✅ genreTargets encontrado:', Object.keys(genreTargets));
-                // 🔍 LOG: Identificar fonte dos targets
-                const source = analysis?.data?.genreTargets ? 'analysis.data.genreTargets (OFICIAL)' :
-                              analysis?.genreTargets ? 'analysis.genreTargets' :
-                              analysis?.targets ? 'analysis.targets' :
-                              analysis?.data?.targets ? 'analysis.data.targets' :
-                              analysis?.result?.genreTargets ? 'analysis.result.genreTargets' :
-                              analysis?.customTargets ? 'analysis.customTargets' :
-                              analysis?.user?.genreTargets ? 'analysis.user.genreTargets' :
-                              analysis?.user?.targets ? 'analysis.user.targets' :
-                              'unknown';
-                console.log('[AI-UI][VALIDATION] 📍 Fonte:', source);
+                console.log('[AI-UI][VALIDATION] ✅ genreTargets do Postgres encontrado:', Object.keys(genreTargets));
+                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.genreTargets (OFICIAL - Postgres)');
             }
 
             // Renderiza imediatamente com genreTargets para validação
@@ -892,8 +865,27 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔧 Normalizar nome de métrica para mapeamento consistente (FRONTEND)
+     * Reconhece variações como "dynamicRange", "dynamic_range", "DR", "stereoCorrelation", etc.
+     * @param {string} metricName - Nome bruto da métrica
+     * @returns {string|null} Nome normalizado ou null
+     */
+    normalizeMetricNameForUI(metricName) {
+        if (!metricName) return null;
+        const key = String(metricName).toLowerCase().replace(/\s|_/g, "");
+
+        if (key.includes("lufs")) return "lufs";
+        if (key.includes("truepeak") || key.includes("dbtp") || key.includes("tp")) return "truePeak";
+        if (key.includes("dynamicrange") || key === "dr") return "dr";
+        if (key.includes("stereocorrelation") || key.includes("stereo")) return "stereo";
+
+        return null;
+    }
+    
+    /**
      * ✅ VALIDAR E CORRIGIR SUGESTÕES COM TARGETS REAIS
      * Garante que valores "ideal" exibidos correspondem aos targets do JSON
+     * 🎯 USA EXCLUSIVAMENTE: analysis.targets (vem de analysis.data.genreTargets do Postgres)
      */
     validateAndCorrectSuggestions(suggestions, genreTargets) {
         if (!genreTargets || !Array.isArray(suggestions)) {
@@ -901,7 +893,7 @@ class AISuggestionUIController {
             return suggestions;
         }
         
-        console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais');
+        console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais (Postgres)');
         console.log('[AI-UI][VALIDATION] 📊 Estrutura genreTargets:', {
             hasLufs: !!genreTargets.lufs,
             hasTruePeak: !!genreTargets.truePeak,
@@ -912,13 +904,20 @@ class AISuggestionUIController {
         
         return suggestions.map(suggestion => {
             // Identificar métrica da sugestão
-            const metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
+            let metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
+            
+            // 🔧 Normalizar métrica (reconhece "dynamicRange", "stereoCorrelation", etc)
+            const normalizedMetric = this.normalizeMetricNameForUI(metric);
+            if (normalizedMetric) {
+                metric = normalizedMetric;
+                console.log('[AI-UI][VALIDATION] 🔧 Métrica normalizada:', suggestion.metric, '→', metric);
+            }
             
             if (!metric || metric === 'info') {
                 return suggestion; // Sugestões informativas não precisam validação
             }
             
-            // 🔧 FASE 3: Obter target real do JSON (suporta estrutura aninhada E plana)
+            // 🔧 Obter target real do JSON usando EXCLUSIVAMENTE genreTargets (Postgres)
             let targetData = null;
             let realTarget = null;
             let realRange = null;
