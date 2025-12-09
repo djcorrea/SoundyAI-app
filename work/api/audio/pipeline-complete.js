@@ -6,7 +6,7 @@ import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js"; // Fase 5.4.1
-import { loadGenreTargets } from "../../lib/audio/utils/genre-targets-loader.js";
+import { loadGenreTargets, loadGenreTargetsFromWorker } from "../../lib/audio/utils/genre-targets-loader.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -31,7 +31,7 @@ console.error('╔════════════════════�
 console.error('║  🔥 PIPELINE-COMPLETE.JS INICIALIZADO                       ║');
 console.error('╚══════════════════════════════════════════════════════════════╝');
 console.error('[PIPELINE-INIT] Módulo carregado em:', new Date().toISOString());
-console.error('[PIPELINE-INIT] loadGenreTargets importado:', typeof loadGenreTargets);
+console.error('[PIPELINE-INIT] loadGenreTargetsFromWorker importado:', typeof loadGenreTargetsFromWorker);
 console.error('\n\n');
 
 /**
@@ -375,71 +375,32 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[TARGET-DEBUG] ANTES DE CARREGAR TARGETS:');
         console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
-        console.log('[TARGET-DEBUG] options.genreTargets (ignorado):', options.genreTargets ? 'presente mas será ignorado' : 'null');
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
-        // options.genreTargets vem do frontend com APENAS bands (incompleto)
-        // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
-        customTargets = await loadGenreTargets(detectedGenre);
-        
-        // 🚨🚨🚨 LOG SUPER VISÍVEL - VALORES CARREGADOS 🚨🚨🚨
-        console.error('\n\n');
-        console.error('═══════════════════════════════════════════════════════════');
-        console.error('🎯🎯🎯 AUDITORIA CRÍTICA: TARGETS CARREGADOS 🎯🎯🎯');
-        console.error('═══════════════════════════════════════════════════════════');
-        console.error('Genre detectado:', detectedGenre);
-        console.error('customTargets carregado?', !!customTargets);
-        if (customTargets) {
-          console.error('📊 LUFS carregado:', customTargets.lufs?.target);
-          console.error('📊 TruePeak carregado:', customTargets.truePeak?.target);
-          console.error('📊 DR carregado:', customTargets.dr?.target);
-          console.error('📊 Keys disponíveis:', Object.keys(customTargets));
-        } else {
-          console.error('❌ ERRO: customTargets está NULL!');
-        }
-        console.error('═══════════════════════════════════════════════════════════');
-        console.error('\n\n');
-        
-        // 🔍 AUDITORIA LOG 3: customTargets DEPOIS do loadGenreTargets
-        console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AUDIT-PIPELINE] LOG 3: customTargets DEPOIS DE loadGenreTargets');
-        console.log('[AUDIT-PIPELINE] Genre:', detectedGenre);
-        console.log('[AUDIT-PIPELINE] customTargets existe?', !!customTargets);
-        if (customTargets) {
-          console.log('[AUDIT-PIPELINE] Top-level keys:', Object.keys(customTargets));
-          console.log('[AUDIT-PIPELINE] Tem .bands?', 'bands' in customTargets);
-          console.log('[AUDIT-PIPELINE] Tem .low_bass?', 'low_bass' in customTargets);
-          console.log('[AUDIT-PIPELINE] Tem .sub?', 'sub' in customTargets);
-          if (customTargets.bands) {
-            console.log('[AUDIT-PIPELINE] customTargets.bands keys:', Object.keys(customTargets.bands));
-            console.log('[AUDIT-PIPELINE] customTargets.bands.low_bass:', JSON.stringify(customTargets.bands.low_bass, null, 2));
-          }
-          if (customTargets.low_bass) {
-            console.log('[AUDIT-PIPELINE] customTargets.low_bass (achatado):', JSON.stringify(customTargets.low_bass, null, 2));
-          }
-        }
-        console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // 🔧 LOGS DE DEPURAÇÃO (após carregamento)
-        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
-        console.log('[TARGET-DEBUG] customTargets:', customTargets ? 'presente' : 'NULL');
-        if (customTargets) {
-          console.log('[TARGET-DEBUG] customTargets keys:', Object.keys(customTargets));
-          console.log('[TARGET-DEBUG] customTargets.lufs:', customTargets.lufs);
-          console.log('[TARGET-DEBUG] customTargets.dr:', customTargets.dr);
-          console.log('[GENRE-TARGETS-PATCH-V2] customTargets carregado do filesystem');
-          console.log('[GENRE-TARGETS-PATCH-V2] keys:', Object.keys(customTargets));
-          console.log('[GENRE-TARGETS-PATCH-V2] lufs:', customTargets.lufs);
-          console.log('[GENRE-TARGETS-PATCH-V2] truePeak:', customTargets.truePeak);
-        }
-        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // ❌ VALIDAÇÃO OBRIGATÓRIA: customTargets DEVE existir
-        if (!customTargets) {
-          const errorMsg = `❌ ERRO CRÍTICO: customTargets não carregado para gênero "${detectedGenre}". Arquivo JSON não encontrado ou inválido.`;
-          console.error(`[SUGGESTIONS_V1] ${errorMsg}`);
+        // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
+        // Esta função NUNCA retorna fallback - sempre lança erro se arquivo não existir
+        try {
+          customTargets = await loadGenreTargetsFromWorker(detectedGenre);
+          
+          // 🚨 LOG DE SUCESSO
+          console.error('\n');
+          console.error('╔═══════════════════════════════════════════════════════════╗');
+          console.error('║  ✅ TARGETS OFICIAIS CARREGADOS NO PIPELINE              ║');
+          console.error('╚═══════════════════════════════════════════════════════════╝');
+          console.error('[PIPELINE] Genre:', detectedGenre);
+          console.error('[PIPELINE] LUFS oficial:', customTargets.lufs?.target);
+          console.error('[PIPELINE] TruePeak oficial:', customTargets.truePeak?.target);
+          console.error('[PIPELINE] DR oficial:', customTargets.dr?.target);
+          console.error('[PIPELINE] Bands disponíveis:', customTargets.bands ? Object.keys(customTargets.bands).length : 0);
+          console.error('\n');
+          
+        } catch (error) {
+          // Arquivo não encontrado - erro controlado
+          const errorMsg = `[PIPELINE-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
+          console.error('╔═══════════════════════════════════════════════════════════╗');
+          console.error('║  ❌ ERRO CRÍTICO: TARGETS NÃO CARREGADOS                ║');
+          console.error('╚═══════════════════════════════════════════════════════════╝');
+          console.error(errorMsg);
           throw new Error(errorMsg);
         }
         
@@ -740,16 +701,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
-        // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
-        // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
-        // options.genreTargets vem do frontend com APENAS bands (incompleto)
-        // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
-        customTargetsV2 = await loadGenreTargets(detectedGenreV2);
-        
-        if (customTargetsV2) {
-          console.log(`[V2-SYSTEM] 📂 Usando targets de ${detectedGenreV2} do filesystem (formato interno completo)`);
-        } else {
-          console.log(`[V2-SYSTEM] 📋 Usando targets hardcoded para ${detectedGenreV2}`);
+        // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
+        try {
+          customTargetsV2 = await loadGenreTargetsFromWorker(detectedGenreV2);
+          console.log(`[V2-SYSTEM] ✅ Targets oficiais carregados de work/refs/out/${detectedGenreV2}.json`);
+          console.log(`[V2-SYSTEM] 📊 LUFS: ${customTargetsV2.lufs?.target}, TruePeak: ${customTargetsV2.truePeak?.target}`);
+        } catch (error) {
+          const errorMsg = `[V2-SYSTEM-ERROR] Falha ao carregar targets para "${detectedGenreV2}": ${error.message}`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
         }
       } else if (mode === 'reference') {
         console.log(`[V2-SYSTEM] 🔒 Modo referência - ignorando targets de gênero`);

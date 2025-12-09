@@ -16,7 +16,7 @@ import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
-import { loadGenreTargets } from "../../lib/audio/utils/genre-targets-loader.js";
+import { loadGenreTargets, loadGenreTargetsFromWorker } from "../../lib/audio/utils/genre-targets-loader.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -361,18 +361,18 @@ class CoreMetricsProcessor {
           
           console.log("[SUGGESTIONS] Ativas (V2 rodando normalmente).");
           
-          // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+          // 🎯 CORREÇÃO DEFINITIVA: CARREGAR TARGETS DO WORKER (SEGURO)
           let customTargets = null;
           if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-            // 🔥 PRIORIZAR genreTargets do usuário
-            customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
-            
-            if (options.genreTargets) {
-              console.log(`[CORE_METRICS] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
-            } else if (customTargets) {
-              console.log(`[CORE_METRICS] 📂 Usando targets de ${detectedGenre} do filesystem`);
-            } else {
-              console.log(`[CORE_METRICS] 📋 Usando targets hardcoded para ${detectedGenre}`);
+            try {
+              // 🔥 SEMPRE usar loadGenreTargetsFromWorker - NUNCA fallback
+              customTargets = await loadGenreTargetsFromWorker(detectedGenre);
+              console.log(`[CORE_METRICS] ✅ Targets oficiais carregados de work/refs/out/${detectedGenre}.json`);
+              console.log(`[CORE_METRICS] 📊 LUFS: ${customTargets.lufs?.target}, TruePeak: ${customTargets.truePeak?.target}, DR: ${customTargets.dr?.target}`);
+            } catch (error) {
+              const errorMsg = `[CORE_METRICS-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
+              console.error(errorMsg);
+              throw new Error(errorMsg);
             }
           } else if (mode === 'reference') {
             console.log(`[CORE_METRICS] 🔒 Modo referência - ignorando targets de gênero`);
