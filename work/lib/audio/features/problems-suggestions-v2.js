@@ -960,79 +960,61 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🌈 Análise Bandas Espectrais com Sugestões Educativas
-   * 🔥 REFATORADO: Usa consolidatedData (finalJSON.data) se disponível
+   * 🔥 REFATORADO: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands (SEM FALLBACK)
    */
   analyzeSpectralBands(metrics, suggestions, problems, consolidatedData = null) {
-    // 🔥 PRIORIDADE: Usar valores consolidados se disponíveis
-    let bands = null;
-    let useConsolidated = false;
+    // 🎯 VALIDAÇÃO: Exigir consolidatedData.metrics.bands
+    if (!consolidatedData?.metrics?.bands) {
+      console.warn('[SUGGESTION_DEBUG][BANDS] ⚠️ consolidatedData.metrics.bands não disponível - pulando análise');
+      return;
+    }
+
+    const bands = consolidatedData.metrics.bands;
+    console.log('[SUGGESTION_DEBUG][BANDS] ✅ Usando EXCLUSIVAMENTE consolidatedData.metrics.bands:', {
+      bandsCount: Object.keys(bands).length,
+      source: 'consolidatedData'
+    });
     
-    if (consolidatedData?.metrics?.bands && consolidatedData?.genreTargets?.bands) {
-      // ✅ MODO CONSOLIDADO: Usar finalJSON.data
-      bands = consolidatedData.metrics.bands;
-      useConsolidated = true;
-      
-      console.log('[SUGGESTION_DEBUG][BANDS] ✅ Usando dados consolidados:', {
-        bandsCount: Object.keys(bands).length,
-        source: 'finalJSON.data'
-      });
-    } else {
-      // ⚠️ FALLBACK: Usar audioMetrics (modo legado)
-      const spectralData = metrics.centralizedBands || metrics.spectralBands || metrics.spectral_balance;
-      if (!spectralData || typeof spectralData !== 'object') return;
-      
-      // ✅ EXTRAIR O OBJETO BANDS CORRETO
-      bands = spectralData.bands || spectralData;
-      if (!bands || typeof bands !== 'object') return;
-      
-      console.log('[SUGGESTION_DEBUG][BANDS] ⚠️ Usando audioMetrics (fallback):', {
-        bandsCount: Object.keys(bands).length,
-        source: 'audioMetrics'
-      });
+    // 🎯 Sub Bass (20-60Hz)
+    const subValue = consolidatedData.metrics.bands.sub?.value;
+    if (Number.isFinite(subValue)) {
+      this.analyzeBand('sub', subValue, 'Sub Bass (20-60Hz)', suggestions, consolidatedData);
     }
     
-    // 🎯 EXPANSÃO COMPLETA: Todas as bandas espectrais com múltiplas variações de nomes
-    
-    // Sub Bass (20-60Hz)
-    let value = bands.sub_energy_db ?? bands.sub?.energy_db ?? bands.sub?.value ?? bands.sub;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('sub', value, 'Sub Bass (20-60Hz)', suggestions, useConsolidated ? consolidatedData : null);
-    }
-    
-    // Bass (60-150Hz)  
-    value = bands.bass_energy_db ?? bands.bass?.energy_db ?? bands.bass?.value ?? bands.bass;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('bass', value, 'Bass (60-150Hz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 Bass (60-150Hz)  
+    const bassValue = consolidatedData.metrics.bands.bass?.value;
+    if (Number.isFinite(bassValue)) {
+      this.analyzeBand('bass', bassValue, 'Bass (60-150Hz)', suggestions, consolidatedData);
     }
 
-    // 🆕 Low Mid (150-500Hz) - Fundamental e warmth
-    value = bands.lowMid_energy_db ?? bands.lowMid?.energy_db ?? bands.lowMid?.value ?? bands.lowMid ?? bands.low_mid;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('lowMid', value, 'Low Mid (150-500Hz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 Low Mid (150-500Hz)
+    const lowMidValue = consolidatedData.metrics.bands.low_mid?.value;
+    if (Number.isFinite(lowMidValue)) {
+      this.analyzeBand('low_mid', lowMidValue, 'Low Mid (150-500Hz)', suggestions, consolidatedData);
     }
 
-    // 🆕 Mid (500-2000Hz) - Vocal clarity e presença
-    value = bands.mid_energy_db ?? bands.mid?.energy_db ?? bands.mid?.value ?? bands.mid;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('mid', value, 'Mid (500-2000Hz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 Mid (500-2000Hz)
+    const midValue = consolidatedData.metrics.bands.mid?.value;
+    if (Number.isFinite(midValue)) {
+      this.analyzeBand('mid', midValue, 'Mid (500-2000Hz)', suggestions, consolidatedData);
     }
 
-    // 🆕 High Mid (2000-5000Hz) - Definition e clarity  
-    value = bands.highMid_energy_db ?? bands.highMid?.energy_db ?? bands.highMid?.value ?? bands.highMid ?? bands.high_mid;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('highMid', value, 'High Mid (2-5kHz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 High Mid (2000-5000Hz)
+    const highMidValue = consolidatedData.metrics.bands.high_mid?.value;
+    if (Number.isFinite(highMidValue)) {
+      this.analyzeBand('high_mid', highMidValue, 'High Mid (2-5kHz)', suggestions, consolidatedData);
     }
 
-    // 🆕 Presença (3000-6000Hz) - Vocal presence e intelligibility
-    value = bands.presenca_energy_db ?? bands.presenca?.energy_db ?? bands.presenca?.value ?? bands.presenca ?? bands.presence;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('presenca', value, 'Presença (3-6kHz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 Presença (3000-6000Hz)
+    const presenceValue = consolidatedData.metrics.bands.presence?.value;
+    if (Number.isFinite(presenceValue)) {
+      this.analyzeBand('presence', presenceValue, 'Presença (3-6kHz)', suggestions, consolidatedData);
     }
 
-    // 🆕 Brilho/Air (6000-20000Hz) - Sparkle e airiness
-    value = bands.brilho_energy_db ?? bands.brilho?.energy_db ?? bands.brilho?.value ?? bands.brilho ?? bands.air;
-    if (Number.isFinite(value)) {
-      this.analyzeBand('brilho', value, 'Brilho (6-20kHz)', suggestions, useConsolidated ? consolidatedData : null);
+    // 🎯 Brilho/Air (6000-20000Hz)
+    const brillianceValue = consolidatedData.metrics.bands.brilliance?.value;
+    if (Number.isFinite(brillianceValue)) {
+      this.analyzeBand('brilliance', brillianceValue, 'Brilho (6-20kHz)', suggestions, consolidatedData);
     }
 
     logAudio('problems_v2', 'spectral_analysis', { 
@@ -1043,52 +1025,45 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎵 Análise Individual de Banda Espectral
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 🔥 REFATORADO: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands (SEM FALLBACK)
    */
   analyzeBand(bandKey, value, bandName, suggestions, consolidatedData = null) {
-    // 🎯 Validar que temos os dados de bandas em consolidatedData
-    const metricsBands = consolidatedData?.metrics?.bands;
-    if (!metricsBands) {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ metrics.bands não disponível`);
+    // 🎯 FONTE ÚNICA: Valor medido do consolidatedData.metrics.bands
+    const measured = consolidatedData?.metrics?.bands?.[bandKey]?.value;
+    if (!Number.isFinite(measured)) {
+      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Valor medido não disponível`);
       return;
     }
 
-    // 🎯 Validar que a métrica específica existe
-    const metricEntry = metricsBands[bandKey];
-    if (!metricEntry || typeof metricEntry.value !== 'number') {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Valor da banda não disponível`);
-      return;
-    }
-
-    // 🎯 Obter target usando helper centralizado
+    // 🎯 Obter target usando helper centralizado (ÚNICA FONTE DE TARGETS)
     const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData, this.thresholds);
     if (!targetInfo) {
       console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Target não disponível - pulando sugestão`);
       return;
     }
 
-    // 🎯 Usar valor já extraído (em dBFS agora)
-    const bandValue = value;
-    const bandTarget = targetInfo.target;
+    const target = targetInfo.target;
     const tolerance = targetInfo.tolerance;
     const critical = targetInfo.critical;
 
-    console.log(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ✅ Usando targets do genreTargets:`, {
-      value: bandValue.toFixed(2),
-      target: bandTarget.toFixed(2),
-      tolerance: tolerance.toFixed(2),
-      unit: 'dBFS',
-      source: 'genreTargets'
+    // 🔥 LOG MANDATÓRIO: Confirmar valores em dB
+    console.log(`[FIXED_BAND] ${bandKey}:`, {
+      measured_db: measured.toFixed(2),
+      target_db: target.toFixed(2),
+      tolerance_db: tolerance.toFixed(2),
+      unit: 'dB'
     });
     
-    // PATCH: Calcular diferença até borda mais próxima do range
-    const threshold = { target: bandTarget, tolerance, critical };
+    // 🎯 Calcular range de tolerância (min/max)
+    const threshold = { target, tolerance, critical };
     const bounds = this.getRangeBounds(threshold);
+    
+    // 🎯 Calcular delta: diferença até borda mais próxima do range
     let rawDelta;
-    if (value < bounds.min) {
-      rawDelta = value - bounds.min; // Negativo (precisa aumentar)
-    } else if (value > bounds.max) {
-      rawDelta = value - bounds.max; // Positivo (precisa reduzir)
+    if (measured < bounds.min) {
+      rawDelta = measured - bounds.min; // Negativo (precisa aumentar)
+    } else if (measured > bounds.max) {
+      rawDelta = measured - bounds.max; // Positivo (precisa reduzir)
     } else {
       rawDelta = 0; // Dentro do range
     }
@@ -1096,11 +1071,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // 🔥 LOG MANDATÓRIO: Mostrar cálculo do delta ANTES de gerar sugestão
     console.log(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] 📊 Cálculo do Delta:`, {
       metric: bandName,
-      value: value.toFixed(2),
-      target: bandTarget.toFixed(2),
+      measured: measured.toFixed(2),
+      target: target.toFixed(2),
       bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
       delta: rawDelta.toFixed(2),
-      formula: rawDelta === 0 ? 'dentro do range' : (value < bounds.min ? `${value.toFixed(2)} - ${bounds.min.toFixed(2)} = ${rawDelta.toFixed(2)}` : `${value.toFixed(2)} - ${bounds.max.toFixed(2)} = ${rawDelta.toFixed(2)}`)
+      formula: rawDelta === 0 ? 'dentro do range' : (measured < bounds.min ? `${measured.toFixed(2)} - ${bounds.min.toFixed(2)} = ${rawDelta.toFixed(2)}` : `${measured.toFixed(2)} - ${bounds.max.toFixed(2)} = ${rawDelta.toFixed(2)}`)
     });
     
     const diff = Math.abs(rawDelta);
@@ -1109,14 +1084,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     let message, explanation, action, status = 'ok';
     
     if (severity.level === 'critical' || severity.level === 'warning') {
-      if (value > bounds.max) {
+      if (measured > bounds.max) {
         // 🎯 FASE 3: Calcular ajuste realista usando computeRecommendedGain()
-        const excessDb = value - bounds.max;
+        const excessDb = measured - bounds.max;
         const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 5.0 }); // Bandas: 0.5-5 dB
         const absRec = Math.abs(rec);
         
         status = 'high';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito alto' : 'levemente alto'}: ${value.toFixed(1)} dB (máximo: ${bounds.max.toFixed(1)} dB)`;
+        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito alto' : 'levemente alto'}: ${measured.toFixed(1)} dB (máximo: ${bounds.max.toFixed(1)} dB)`;
         
         explanation = `${severity.level === 'critical' ? 'Excesso' : 'Um pouco acima do máximo'} de ${excessDb.toFixed(1)} dB ${severity.level === 'critical' ? 'acima do máximo permitido' : 'acima de ' + bounds.max.toFixed(1) + ' dB'} ` +
           `(range: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. ${severity.level === 'critical' ? 'Pode causar "booming" e mascarar outras frequências.' : 'Ainda controlável.'}`;
@@ -1131,14 +1106,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
           action = `Corte aproximadamente ${absRec.toFixed(1)} dB em ${bandName} com EQ. ` +
             `Use filtro bell (Q ~1.0-2.0) ou shelf dependendo da região. ${severity.level === 'critical' ? 'Priorize correção desta banda.' : ''}`;
         }
-      } else if (value < bounds.min) {
+      } else if (measured < bounds.min) {
         // 🎯 FASE 3: Calcular ajuste realista
-        const deficitDb = bounds.min - value;
+        const deficitDb = bounds.min - measured;
         const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 5.0 });
         const absRec = Math.abs(rec);
         
         status = 'low';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito baixo' : 'levemente baixo'}: ${value.toFixed(1)} dB (mínimo: ${bounds.min.toFixed(1)} dB)`;
+        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito baixo' : 'levemente baixo'}: ${measured.toFixed(1)} dB (mínimo: ${bounds.min.toFixed(1)} dB)`;
         
         explanation = `${severity.level === 'critical' ? 'Falta' : 'Um pouco abaixo do mínimo'} ${deficitDb.toFixed(1)} dB ${severity.level === 'critical' ? 'para atingir o mínimo recomendado' : 'abaixo de ' + bounds.min.toFixed(1) + ' dB'} ` +
           `(range: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. ${severity.level === 'critical' ? 'Deixa o som sem fundação e corpo.' : 'Pode funcionar dependendo do estilo.'}`;
@@ -1155,7 +1130,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         }
       }
     } else {
-      message = `🟢 ${bandName} ideal: ${value.toFixed(1)} dB`;
+      message = `🟢 ${bandName} ideal: ${measured.toFixed(1)} dB`;
       explanation = `Perfeito para ${this.genre}! Esta faixa está equilibrada dentro do range ${bounds.min.toFixed(1)}-${bounds.max.toFixed(1)} dB. Balanço espectral profissional.`;
       action = `Excelente! Mantenha esse nível em ${bandName}. Nenhum ajuste necessário.`;
     }
@@ -1166,7 +1141,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       message,
       explanation,
       action,
-      currentValue: `${value.toFixed(1)} dB`,
+      currentValue: `${measured.toFixed(1)} dB`,
       targetValue: bounds.min !== bounds.max ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB` : `${bounds.max.toFixed(1)} dB`,
       delta: rawDelta === 0 ? '0.0 dB (dentro do range)' : `${rawDelta > 0 ? '+' : ''}${rawDelta.toFixed(1)} dB`,
       deltaNum: rawDelta, // 🎯 FASE 3: Adicionar valor numérico para validação IA
