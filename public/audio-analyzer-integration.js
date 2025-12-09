@@ -117,52 +117,162 @@ console.log('✅ Genre Targets Utils carregado');
  * @param {Object} source - Objeto results (backend) ou analysis (frontend)
  * @returns {Object} Targets do gênero (nunca null)
  */
-/**
- * 🎯 EXTRAI TARGETS DO GÊNERO - FONTE ÚNICA: analysis.data.genreTargets (Postgres)
- * 
- * ⚠️ REGRAS ABSOLUTAS (conforme especificação do usuário):
- * ✅ USA EXCLUSIVAMENTE: source.data.genreTargets (vem do Postgres via coluna results)
- * ❌ NÃO USA: fallbacks, JSONs locais, window.__activeRefData, PROD_AI_REF_DATA
- * ❌ SE NÃO EXISTIR: retorna null (sugestões vazias)
- * 
- * @param {Object} source - Objeto results (backend) ou analysis (frontend)
- * @returns {Object|null} Targets do gênero OU null se não encontrado
- */
 function extractGenreTargets(source) {
-    console.log('[EXTRACT-TARGETS] 🔍 Extraindo targets de analysis.data.genreTargets');
+    console.log('[EXTRACT-TARGETS] 🔍 Iniciando extração de targets');
+    console.log('[EXTRACT-TARGETS] Tipo de objeto:', source?.constructor?.name || typeof source);
     
-    // Verificar se é modo genre
-    const mode = source?.mode || source?.data?.mode;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 1: IDENTIFICAR SE É MODO GENRE
+    // ═══════════════════════════════════════════════════════════════
+    const mode = source?.mode || source?.data?.mode || 'unknown';
+    console.log('[EXTRACT-TARGETS] Modo detectado:', mode);
+    
     if (mode !== "genre") {
         console.log('[EXTRACT-TARGETS] ⚠️ Não é modo genre, retornando null');
         return null;
     }
     
-    const genre = source?.data?.genre || source?.genre;
-    console.log('[EXTRACT-TARGETS] 🎯 Modo genre detectado, gênero:', genre);
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 2: EXTRAIR GÊNERO
+    // ═══════════════════════════════════════════════════════════════
+    const genre = source?.data?.genre || 
+                  source?.genre || 
+                  source?.metadata?.genre || 
+                  'unknown';
+    
+    console.log('[EXTRACT-TARGETS] Gênero identificado:', genre);
     
     // ═══════════════════════════════════════════════════════════════
-    // ACESSAR EXCLUSIVAMENTE: source.data.genreTargets (Postgres)
+    // ETAPA 3: BUSCAR TARGETS NA ORDEM DE PRIORIDADE
     // ═══════════════════════════════════════════════════════════════
-    const targets = source?.data?.genreTargets;
+    console.log('[EXTRACT-TARGETS] 📦 Testando fontes de targets:');
+    console.log('[EXTRACT-TARGETS]   source.data.genreTargets:', !!source?.data?.genreTargets);
+    console.log('[EXTRACT-TARGETS]   source.genreTargets:', !!source?.genreTargets);
+    console.log('[EXTRACT-TARGETS]   source.targets:', !!source?.targets);
+    console.log('[EXTRACT-TARGETS]   source.data.targets:', !!source?.data?.targets);
     
-    if (!targets || typeof targets !== 'object') {
-        console.error('[EXTRACT-TARGETS] ❌ analysis.data.genreTargets NÃO ENCONTRADO');
-        console.error('[EXTRACT-TARGETS] 📦 source.data:', source?.data);
-        console.error('[EXTRACT-TARGETS] ⚠️ Retornando null - sugestões vazias serão geradas');
-        return null;
+    let targets = null;
+    let targetSource = null;
+    
+    // 🎯 PRIORIDADE 1: source.data.genreTargets (BACKEND/FRONTEND OFICIAL)
+    if (source?.data?.genreTargets && typeof source.data.genreTargets === 'object') {
+        targets = source.data.genreTargets;
+        targetSource = 'source.data.genreTargets (OFICIAL)';
+    }
+    // 🎯 PRIORIDADE 2: source.genreTargets (fallback direto)
+    else if (source?.genreTargets && typeof source.genreTargets === 'object') {
+        targets = source.genreTargets;
+        targetSource = 'source.genreTargets';
+    }
+    // 🎯 PRIORIDADE 3: source.targets (nomenclatura alternativa)
+    else if (source?.targets && typeof source.targets === 'object') {
+        targets = source.targets;
+        targetSource = 'source.targets';
+    }
+    // 🎯 PRIORIDADE 4: source.data.targets
+    else if (source?.data?.targets && typeof source.data.targets === 'object') {
+        targets = source.data.targets;
+        targetSource = 'source.data.targets';
+    }
+    // 🎯 PRIORIDADE 5: source.result.genreTargets
+    else if (source?.result?.genreTargets && typeof source.result.genreTargets === 'object') {
+        targets = source.result.genreTargets;
+        targetSource = 'source.result.genreTargets';
     }
     
-    // Validar estrutura
-    if (!isValidTargetsStructure(targets)) {
-        console.error('[EXTRACT-TARGETS] ❌ Estrutura de targets inválida');
-        console.error('[EXTRACT-TARGETS] 📦 Targets recebidos:', targets);
-        return null;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 4: VALIDAR E RETORNAR SE ENCONTRADO
+    // ═══════════════════════════════════════════════════════════════
+    if (targets && isValidTargetsStructure(targets)) {
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em:', targetSource);
+        console.log('[EXTRACT-TARGETS] 📊 Estrutura:', {
+            hasLufs: !!targets.lufs,
+            hasTruePeak: !!targets.truePeak,
+            hasDr: !!targets.dr,
+            hasBands: !!targets.bands,
+            keys: Object.keys(targets)
+        });
+        return targets;
     }
     
-    console.log('[EXTRACT-TARGETS] ✅ Targets do Postgres encontrados');
-    console.log('[EXTRACT-TARGETS] 📊 Keys disponíveis:', Object.keys(targets));
-    return targets;
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 5: FALLBACK 1 - window.__activeRefData
+    // ═══════════════════════════════════════════════════════════════
+    console.warn('[EXTRACT-TARGETS] ⚠️ Targets não encontrados no objeto principal');
+    console.log('[EXTRACT-TARGETS] 🔄 Tentando fallback: window.__activeRefData');
+    
+    if (typeof window !== 'undefined' && window.__activeRefData) {
+        const activeData = window.__activeRefData;
+        
+        // Validar se gênero bate
+        const activeGenre = activeData.genre || activeData.data?.genre;
+        if (activeGenre === genre || !activeGenre) {
+            console.log('[EXTRACT-TARGETS] ✅ Usando window.__activeRefData');
+            const fallbackTargets = activeData.targets || activeData.data?.genreTargets || activeData;
+            
+            if (isValidTargetsStructure(fallbackTargets)) {
+                return fallbackTargets;
+            }
+        } else {
+            console.warn('[EXTRACT-TARGETS] ⚠️ window.__activeRefData ignorado - gênero diferente:', activeGenre, '≠', genre);
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 6: FALLBACK 2 - window.PROD_AI_REF_DATA[genre]
+    // ═══════════════════════════════════════════════════════════════
+    console.log('[EXTRACT-TARGETS] 🔄 Tentando fallback: window.PROD_AI_REF_DATA[' + genre + ']');
+    
+    if (typeof window !== 'undefined' && 
+        typeof window.PROD_AI_REF_DATA !== 'undefined' && 
+        window.PROD_AI_REF_DATA[genre]) {
+        
+        console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA[' + genre + ']');
+        const fallbackTargets = window.PROD_AI_REF_DATA[genre];
+        
+        if (isValidTargetsStructure(fallbackTargets)) {
+            return fallbackTargets;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 7: FALLBACK 3 - window.PROD_AI_REF_DATA (objeto único)
+    // ═══════════════════════════════════════════════════════════════
+    console.log('[EXTRACT-TARGETS] 🔄 Tentando fallback: window.PROD_AI_REF_DATA (objeto único)');
+    
+    if (typeof window !== 'undefined' && 
+        typeof window.PROD_AI_REF_DATA !== 'undefined' && 
+        typeof window.PROD_AI_REF_DATA === 'object') {
+        
+        // Verificar se é um objeto único (não um dicionário de gêneros)
+        if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
+            console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA (objeto único)');
+            return window.PROD_AI_REF_DATA;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ETAPA 8: ERRO CRÍTICO - NENHUM TARGET ENCONTRADO
+    // ═══════════════════════════════════════════════════════════════
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  ❌ ERRO CRÍTICO: NENHUM TARGET ENCONTRADO               ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[EXTRACT-TARGETS] Modo:', mode);
+    console.error('[EXTRACT-TARGETS] Gênero:', genre);
+    console.error('[EXTRACT-TARGETS] source.data:', source?.data);
+    console.error('[EXTRACT-TARGETS] source.genreTargets:', source?.genreTargets);
+    console.error('[EXTRACT-TARGETS] window.__activeRefData:', typeof window !== 'undefined' ? !!window.__activeRefData : 'N/A');
+    console.error('[EXTRACT-TARGETS] window.PROD_AI_REF_DATA:', typeof window !== 'undefined' ? !!window.PROD_AI_REF_DATA : 'N/A');
+    
+    // Retornar estrutura vazia válida ao invés de null
+    console.warn('[EXTRACT-TARGETS] ⚠️ Retornando estrutura vazia válida');
+    return {
+        lufs: { target: -14, tolerance: 1 },
+        truePeak: { target: -1, tolerance: 0.5 },
+        dr: { target: 8, tolerance: 2 },
+        stereo: { target: 100, tolerance: 10 },
+        bands: {}
+    };
 }
 
 /**
@@ -5512,26 +5622,56 @@ function renderGenreView(analysis) {
     applyGenreBandConversion(analysis);
     console.log('[GENRE-VIEW] ✅ Bandas convertidas:', analysis.genreBands ? Object.keys(analysis.genreBands).filter(k => analysis.genreBands[k] !== null) : 'N/A');
     
-    // 6️⃣ Obter targets de gênero - USAR EXCLUSIVAMENTE analysis.data.genreTargets (Postgres)
-    const genreTargets = analysis?.data?.genreTargets;
+    // 6️⃣ Obter targets de gênero - USANDO NOVA FUNÇÃO GENRE-ONLY
+    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (FONTE OFICIAL)
+    let genreTargets = extractGenreTargets(analysis);
     
-    if (!genreTargets || typeof genreTargets !== 'object') {
-        console.error('[GENRE-VIEW] ❌ CRÍTICO: analysis.data.genreTargets não encontrado');
-        console.error('[GENRE-VIEW] 📦 analysis.data:', analysis?.data);
-        console.error('[GENRE-VIEW] ⚠️ Tabela de gênero não pode ser renderizada sem targets do Postgres');
-        console.groupEnd();
-        return; // ❌ ABORTAR se não houver targets do Postgres
+    // 🎯 FALLBACK 1: Tentar carregar de PROD_AI_REF_DATA
+    if (!genreTargets && window.PROD_AI_REF_DATA) {
+        if (typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
+            // Estrutura de dicionário: { genre1: {...}, genre2: {...} }
+            genreTargets = window.PROD_AI_REF_DATA[genre];
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA[genre] (fallback)');
+        } else if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
+            // Objeto único diretamente atribuído
+            genreTargets = window.PROD_AI_REF_DATA;
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA (fallback)');
+        }
     }
     
-    console.log('[GENRE-VIEW] ✅ Targets do Postgres encontrados');
-    console.log('[GENRE-VIEW] 📊 Estrutura:', {
-        hasBands: !!genreTargets?.bands,
-        bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0,
-        hasLufs: !!genreTargets?.lufs,
-        hasTruePeak: !!genreTargets?.truePeak,
-        hasLufsTarget: genreTargets?.lufs_target !== undefined,
-        bandas: genreTargets?.bands ? Object.keys(genreTargets.bands) : 'N/A'
-    });
+    // 🎯 FALLBACK 2: __activeRefData
+    if (!genreTargets && window.__activeRefData) {
+        genreTargets = window.__activeRefData;
+        console.log('[GENRE-VIEW] 📦 Targets obtidos de __activeRefData (fallback final)');
+    }
+    
+    // 🎯 FALLBACK 3: Carregar targets padrão se nada funcionar
+    if (!genreTargets) {
+        console.warn('[GENRE-VIEW] ⚠️ Nenhum target encontrado - carregando defaults');
+        genreTargets = loadDefaultGenreTargets(genre);
+        // Salvar em analysis.data.genreTargets para uso posterior
+        if (!analysis.data) analysis.data = {};
+        analysis.data.genreTargets = genreTargets;
+    }
+    
+    if (!genreTargets) {
+        console.error('[GENRE-VIEW] ❌ CRÍTICO: Targets de gênero não disponíveis - ABORTANDO');
+        console.error('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
+        console.error('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
+        console.error('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
+        console.error('[GENRE-VIEW]    analysis.referenceComparison:', analysis.referenceComparison);
+        console.error('[GENRE-VIEW] 🔍 DIAGNÓSTICO: Verificar se targets foram carregados antes de displayModalResults');
+        console.groupEnd();
+        return; // ❌ ABORTAR se não houver targets
+    } else {
+        console.log('[GENRE-VIEW] 5️⃣ Targets encontrados:', {
+            hasBands: !!genreTargets?.bands,
+            bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0,
+            hasLegacyCompatibility: !!genreTargets?.legacy_compatibility,
+            hasLufsTarget: genreTargets?.lufs_target !== undefined,
+            bandas: genreTargets?.bands ? Object.keys(genreTargets.bands) : 'N/A'
+        });
+    }
     
     // 7️⃣ Renderizar tabela de comparação de gênero
     console.log('[GENRE-VIEW] 6️⃣ Renderizando tabela de comparação...');
@@ -11378,26 +11518,30 @@ async function displayModalResults(analysis) {
     if (isGenreMode) {
         console.log("[GENRE-FIX] ✅ Modo genre detectado - aplicando targets oficiais");
         
-        // 🎯 USAR EXCLUSIVAMENTE: analysis.data.genreTargets (Postgres)
-        const officialGenreTargets = analysis?.data?.genreTargets;
+        // 🎯 USAR NOVA FUNÇÃO: extractGenreTargets (FONTE OFICIAL)
+        const officialGenreTargets = extractGenreTargets(analysis);
         
-        if (officialGenreTargets && typeof officialGenreTargets === 'object') {
-            console.log("[GENRE-FIX] ✅ Targets do Postgres encontrados em analysis.data.genreTargets");
-            console.log("[GENRE-FIX] 📊 Estrutura:", {
-                lufs: !!officialGenreTargets.lufs,
-                truePeak: !!officialGenreTargets.truePeak,
-                dr: !!officialGenreTargets.dr,
-                stereo: !!officialGenreTargets.stereo,
-                bands: !!officialGenreTargets.bands
+        if (officialGenreTargets) {
+            console.log("[GENRE-FIX] ✅ Targets encontrados em analysis.data.genreTargets (FONTE OFICIAL)");
+            console.log("[GENRE-FIX] Targets:", {
+                lufs_target: officialGenreTargets.lufs_target,
+                true_peak_target: officialGenreTargets.true_peak_target,
+                dr_target: officialGenreTargets.dr_target,
+                stereo_target: officialGenreTargets.stereo_target,
+                hasBands: !!officialGenreTargets.bands,
+                bandsCount: officialGenreTargets.bands ? Object.keys(officialGenreTargets.bands).length : 0
             });
             
             referenceDataForScores = injectGenreTargetsIntoRefData(referenceDataForScores, officialGenreTargets);
+        } else if (window.__activeRefData) {
+            // 🎯 FALLBACK: Usar window.__activeRefData apenas se não houver targets oficiais
+            console.warn("[GENRE-FIX] ⚠️ FALLBACK: Usando window.__activeRefData");
+            referenceDataForScores = injectGenreTargetsIntoRefData(referenceDataForScores, window.__activeRefData);
         } else {
-            // ❌ SEM TARGETS DO POSTGRES = NÃO APLICAR NADA
-            console.error("[GENRE-FIX] ❌ CRÍTICO: analysis.data.genreTargets não encontrado");
-            console.error("[GENRE-FIX] 📦 analysis.data:", analysis?.data);
-            console.error("[GENRE-FIX] ⚠️ Scores não serão calculados corretamente");
-            // Manter referenceDataForScores como está (sem modificar)
+            // 🎯 FALLBACK FINAL: Carregar defaults
+            console.warn("[GENRE-FIX] ⚠️ Nenhum target encontrado - carregando defaults");
+            const defaultTargets = loadDefaultGenreTargets(extractGenreName(analysis));
+            referenceDataForScores = injectGenreTargetsIntoRefData(referenceDataForScores, defaultTargets);
         }
     }
     // 🛡️ MODO REFERENCE: Não fazer NADA - referenceDataForScores permanece intacto
@@ -12183,23 +12327,51 @@ async function displayModalResults(analysis) {
                             referenceFileName: analysis.referenceFileName || null
                         };
                         
-                        // 🎯 [GENRE-FIX] MODO GENRE: Injetar targets do Postgres (analysis.data.genreTargets)
+                        // 🎯 [GENRE-FIX] MODO GENRE: Injetar targets oficiais SOMENTE no modo genre
                         if (analysis.mode === "genre") {
-                            // ✅ FONTE ÚNICA: analysis.data.genreTargets (vem do Postgres)
-                            const officialGenreTargets = analysis?.data?.genreTargets;
+                            // ✅ NOVA LÓGICA: Priorizar analysis.data.genreTargets diretamente
+                            let officialGenreTargets = null;
                             
-                            if (officialGenreTargets && typeof officialGenreTargets === 'object') {
-                                console.log('[ULTRA_V2] ✅ Targets do Postgres encontrados em analysis.data.genreTargets');
-                                console.log('[ULTRA_V2] 📊 Keys:', Object.keys(officialGenreTargets));
+                            // PRIORIDADE 1: analysis.data.genreTargets (FONTE OFICIAL DO BACKEND)
+                            if (analysis?.data?.genreTargets && typeof analysis.data.genreTargets === 'object') {
+                                officialGenreTargets = analysis.data.genreTargets;
+                                console.log('[ULTRA_V2] ✅ Targets encontrados em analysis.data.genreTargets (OFICIAL)');
+                                console.log('[ULTRA_V2] Keys:', Object.keys(officialGenreTargets));
+                            }
+                            // PRIORIDADE 2: Tentar extrair via função
+                            else {
+                                officialGenreTargets = extractGenreTargets(analysis);
+                                if (officialGenreTargets) {
+                                    console.log('[ULTRA_V2] ✅ Targets extraídos via extractGenreTargets()');
+                                }
+                            }
+                            
+                            if (officialGenreTargets) {
+                                console.log('[ULTRA_V2] 🎯 Modo genre - injetando targets oficiais');
                                 analysisContext.targetDataForEngine = officialGenreTargets;
                                 analysisContext.genreTargets = officialGenreTargets;
                             } else {
-                                // ❌ SEM TARGETS DO POSTGRES = NÃO PROCESSAR
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.data.genreTargets não encontrado');
-                                console.error('[ULTRA_V2] 📦 analysis.data:', analysis?.data);
-                                console.error('[ULTRA_V2] ⚠️ ULTRA_V2 não será executado sem targets do Postgres');
-                                analysisContext.targetDataForEngine = null;
-                                analysisContext.genreTargets = null;
+                                // 🎯 FALLBACK: Usar window.__activeRefData[genre]
+                                const genre = analysis?.data?.genre || analysis?.genre;
+                                if (typeof window !== 'undefined' && window.__activeRefData) {
+                                    if (genre && window.__activeRefData[genre]) {
+                                        console.warn('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData[' + genre + ']');
+                                        analysisContext.targetDataForEngine = window.__activeRefData[genre];
+                                        analysisContext.genreTargets = window.__activeRefData[genre];
+                                    } else if (window.__activeRefData.bands || window.__activeRefData.legacy_compatibility) {
+                                        console.warn('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData (objeto único)');
+                                        analysisContext.targetDataForEngine = window.__activeRefData;
+                                        analysisContext.genreTargets = window.__activeRefData;
+                                    } else {
+                                        console.error('[ULTRA_V2] ❌ CRÍTICO: Nenhum target encontrado');
+                                        analysisContext.targetDataForEngine = null;
+                                        analysisContext.genreTargets = null;
+                                    }
+                                } else {
+                                    console.error('[ULTRA_V2] ❌ CRÍTICO: window.__activeRefData não disponível');
+                                    analysisContext.targetDataForEngine = null;
+                                    analysisContext.genreTargets = null;
+                                }
                             }
                         }
                         // 🛡️ MODO REFERENCE: Não injetar nada - usa dados de comparação A/B

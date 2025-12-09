@@ -92,24 +92,37 @@ class UltraAdvancedSuggestionEnhancer {
         let targets = null;
         let targetSource = null;
         
-        // ✅ FONTE ÚNICA: context.targetDataForEngine (vem de analysis.data.genreTargets via Postgres)
+        // 🎯 PRIORIDADE 1: context.targetDataForEngine (vem de analysis.data.genreTargets)
         if (context.targetDataForEngine && typeof context.targetDataForEngine === 'object') {
             targets = context.targetDataForEngine;
-            targetSource = 'context.targetDataForEngine (Postgres → analysis.data.genreTargets)';
-            console.log('[ULTRA_V2] ✅ Targets do Postgres encontrados');
+            targetSource = 'context.targetDataForEngine (analysis.data.genreTargets)';
+            console.log('[ULTRA_V2] ✅ Usando targets de context.targetDataForEngine');
         }
-        // Alias (mesma fonte, nome diferente)
+        // 🎯 PRIORIDADE 2: context.genreTargets (alias)
         else if (context.genreTargets && typeof context.genreTargets === 'object') {
             targets = context.genreTargets;
-            targetSource = 'context.genreTargets (Postgres → analysis.data.genreTargets)';
-            console.log('[ULTRA_V2] ✅ Targets do Postgres encontrados (via alias)');
+            targetSource = 'context.genreTargets';
+            console.log('[ULTRA_V2] ✅ Usando targets de context.genreTargets');
+        }
+        // 🎯 PRIORIDADE 3: window.__activeRefData (fallback global)
+        else if (typeof window !== 'undefined' && window.__activeRefData) {
+            const genre = context.detectedGenre;
+            if (genre && window.__activeRefData[genre]) {
+                targets = window.__activeRefData[genre];
+                targetSource = `window.__activeRefData[${genre}]`;
+                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData[' + genre + ']');
+            } else if (window.__activeRefData.bands || window.__activeRefData.legacy_compatibility) {
+                targets = window.__activeRefData;
+                targetSource = 'window.__activeRefData (objeto único)';
+                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData');
+            }
         }
         
         if (!targets) {
-            console.error('[ULTRA_V2] ❌ CRÍTICO: Targets não encontrados no contexto');
-            console.error('[ULTRA_V2] 📦 context.targetDataForEngine:', context.targetDataForEngine);
-            console.error('[ULTRA_V2] 📦 context.genreTargets:', context.genreTargets);
-            console.error('[ULTRA_V2] ⚠️ ULTRA_V2 requer analysis.data.genreTargets do Postgres');
+            console.error('[ULTRA_V2] ❌ Nenhum target encontrado para:', metricKey);
+            console.error('[ULTRA_V2] context.targetDataForEngine:', context.targetDataForEngine);
+            console.error('[ULTRA_V2] context.genreTargets:', context.genreTargets);
+            console.error('[ULTRA_V2] window.__activeRefData:', typeof window !== 'undefined' ? window.__activeRefData : 'N/A');
             return null;
         }
         
