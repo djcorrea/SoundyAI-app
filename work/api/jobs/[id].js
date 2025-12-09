@@ -161,6 +161,38 @@ router.get("/:id", async (req, res) => {
       };
       console.log('[API-JOBS] ✅ Retornando job COMPLETED com results');
       
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ AUDITORIA CRÍTICA: Verificar analysis.data.genreTargets
+      // ═══════════════════════════════════════════════════════════════
+      if (fullResult?.data?.genreTargets) {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('✅ [GENRE TARGETS OK] Postgres → Frontend');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('📊 Caminho: analysis.data.genreTargets');
+        console.log('📊 Keys:', Object.keys(fullResult.data.genreTargets));
+        console.log('📊 Estrutura Completa:', {
+          lufs: fullResult.data.genreTargets.lufs,
+          truePeak: fullResult.data.genreTargets.truePeak,
+          dr: fullResult.data.genreTargets.dr,
+          stereo: fullResult.data.genreTargets.stereo,
+          hasBands: !!fullResult.data.genreTargets.bands
+        });
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('');
+      } else {
+        console.error('');
+        console.error('❌❌❌ [GENRE TARGETS MISSING] analysis.data.genreTargets NÃO ENCONTRADO');
+        console.error('❌ Frontend NÃO receberá targets corretos do Postgres!');
+        console.error('❌ Estrutura recebida:', {
+          hasData: !!fullResult?.data,
+          hasDataGenreTargets: !!fullResult?.data?.genreTargets,
+          dataKeys: fullResult?.data ? Object.keys(fullResult.data) : 'N/A'
+        });
+        console.error('');
+      }
+      // ═══════════════════════════════════════════════════════════════
+      
       if (fullResult) {
         console.log('[API-JOBS] 📊 Metrics:', {
           lufs: fullResult.technicalData?.lufsIntegrated,
