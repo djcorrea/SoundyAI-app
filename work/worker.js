@@ -575,7 +575,21 @@ async function processJob(job) {
     }
 
     // Fluxo normal para jobs de análise única
+    console.log("\n================ AUDITORIA: PRÉ-PIPELINE ================");
+    console.log("[PRÉ-PIPELINE] options.genre:", options.genre);
+    console.log("[PRÉ-PIPELINE] options.genreTargets:", options.genreTargets);
+    console.log("[PRÉ-PIPELINE] job.data.genre:", job.data?.genre);
+    console.log("============================================================\n");
+    
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
+    
+    console.log("\n================ AUDITORIA: PÓS-PIPELINE ================");
+    console.log("[PÓS-PIPELINE] analysisResult.data.genreTargets existe?:", !!analysisResult?.data?.genreTargets);
+    console.log("[PÓS-PIPELINE] analysisResult.data.metrics existe?:", !!analysisResult?.data?.metrics);
+    console.log("[PÓS-PIPELINE] analysisResult.problemsAnalysis existe?:", !!analysisResult?.problemsAnalysis);
+    console.log("[PÓS-PIPELINE] Campo de targets vindo do pipeline:", JSON.stringify(analysisResult?.data?.genreTargets, null, 2));
+    console.log("[PÓS-PIPELINE] Número de sugestões geradas:", analysisResult?.problemsAnalysis?.suggestions?.length || 0);
+    console.log("============================================================\n");
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🎯 CORREÇÃO CRÍTICA: RESOLUÇÃO FINAL DE GÊNERO
@@ -693,6 +707,14 @@ async function processJob(job) {
     console.log('[GENRE-AUDIT] analysisResult.metadata?.genre:', analysisResult.metadata?.genre);
     console.log('[GENRE-AUDIT] analysisResult.suggestionMetadata?.genre:', analysisResult.suggestionMetadata?.genre);
     console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    console.log("\n================ AUDITORIA: PRÉ-MERGE RESULT ================");
+    console.log("[PRÉ-MERGE] analysisResult.data.genreTargets:", JSON.stringify(analysisResult?.data?.genreTargets, null, 2));
+    console.log("[PRÉ-MERGE] analysisResult.data.metrics:", JSON.stringify(analysisResult?.data?.metrics, null, 2));
+    console.log("[PRÉ-MERGE] analysisResult.problemsAnalysis.suggestions (primeiros 2):", JSON.stringify(analysisResult?.problemsAnalysis?.suggestions?.slice(0, 2), null, 2));
+    console.log("[PRÉ-MERGE] Verificação de uso de fallback:");
+    console.log("  - metadata.usingConsolidatedData:", analysisResult?.problemsAnalysis?.metadata?.usingConsolidatedData);
+    console.log("============================================================\n");
 
     // 🔥 CORREÇÃO DEFINITIVA: Usar resolvedGenre do helper (já validado)
     const forcedGenre = resolvedGenre || options.genre;   // Gênero já resolvido e validado
@@ -847,6 +869,24 @@ async function processJob(job) {
       console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente ou inválido - aplicando fallback");
       result.aiSuggestions = [];
     }
+    
+    console.log("\n================ AUDITORIA: ANTES DO SALVAMENTO ==============");
+    console.log("[ANTES-SAVE] ⏰ Timestamp:", new Date().toISOString());
+    console.log("[ANTES-SAVE] 📊 FINAL JSON QUE SERÁ SALVO NO POSTGRES:");
+    console.log("[ANTES-SAVE] result.genre:", result.genre);
+    console.log("[ANTES-SAVE] result.mode:", result.mode);
+    console.log("[ANTES-SAVE] result.data.genre:", result.data?.genre);
+    console.log("[ANTES-SAVE] result.data.genreTargets:", JSON.stringify(result.data?.genreTargets, null, 2));
+    console.log("[ANTES-SAVE] result.data.metrics:", JSON.stringify(result.data?.metrics, null, 2));
+    console.log("[ANTES-SAVE] result.problemsAnalysis.suggestions (primeiros 3):", JSON.stringify(result.problemsAnalysis?.suggestions?.slice(0, 3), null, 2));
+    console.log("[ANTES-SAVE] result.problemsAnalysis.metadata.usingConsolidatedData:", result.problemsAnalysis?.metadata?.usingConsolidatedData);
+    console.log("[ANTES-SAVE] result.aiSuggestions (primeiros 2):", JSON.stringify(result.aiSuggestions?.slice(0, 2), null, 2));
+    console.log("[ANTES-SAVE] 🎯 Verificação de Consistência:");
+    console.log("  - Targets no data:", Object.keys(result.data?.genreTargets || {}));
+    console.log("  - Número de sugestões problemsAnalysis:", result.problemsAnalysis?.suggestions?.length || 0);
+    console.log("  - Número de aiSuggestions:", result.aiSuggestions?.length || 0);
+    console.log("===============================================================\n");
+    
     if (!result.problemsAnalysis || typeof result.problemsAnalysis !== 'object') {
       console.error("[SUGGESTIONS_ERROR] problemsAnalysis ausente - aplicando fallback");
       result.problemsAnalysis = { problems: [], suggestions: [] };
