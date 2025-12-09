@@ -553,6 +553,23 @@ async function updateJobStatus(jobId, status, results = null) {
       console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Genre no results:', results?.metadata?.genre);
       console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] results.genre:', results?.genre);
       
+      console.log("\n================ AUDITORIA: ANTES DO SALVAMENTO (REDIS) ==============");
+      console.log("[ANTES-SAVE] ⏰ Timestamp:", new Date().toISOString());
+      console.log("[ANTES-SAVE] 📊 FINAL JSON QUE SERÁ SALVO NO POSTGRES:");
+      console.log("[ANTES-SAVE] results.genre:", results.genre);
+      console.log("[ANTES-SAVE] results.mode:", results.mode);
+      console.log("[ANTES-SAVE] results.data?.genre:", results.data?.genre);
+      console.log("[ANTES-SAVE] results.data?.genreTargets:", JSON.stringify(results.data?.genreTargets, null, 2));
+      console.log("[ANTES-SAVE] results.data?.metrics:", JSON.stringify(results.data?.metrics, null, 2));
+      console.log("[ANTES-SAVE] results.problemsAnalysis?.suggestions (primeiros 3):", JSON.stringify(results.problemsAnalysis?.suggestions?.slice(0, 3), null, 2));
+      console.log("[ANTES-SAVE] results.problemsAnalysis?.metadata?.usingConsolidatedData:", results.problemsAnalysis?.metadata?.usingConsolidatedData);
+      console.log("[ANTES-SAVE] results.aiSuggestions (primeiros 2):", JSON.stringify(results.aiSuggestions?.slice(0, 2), null, 2));
+      console.log("[ANTES-SAVE] 🎯 Verificação de Consistência:");
+      console.log("  - Targets no data:", Object.keys(results.data?.genreTargets || {}));
+      console.log("  - Número de sugestões problemsAnalysis:", results.problemsAnalysis?.suggestions?.length || 0);
+      console.log("  - Número de aiSuggestions:", results.aiSuggestions?.length || 0);
+      console.log("======================================================================\n");
+      
       query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
@@ -877,6 +894,13 @@ async function audioProcessor(job) {
     console.error('[WORKER-REDIS] processAudioComplete tipo:', typeof processAudioComplete);
     console.error('\n\n');
     
+    console.log("\n================ AUDITORIA: PRÉ-PIPELINE (REDIS) ================");
+    console.log("[PRÉ-PIPELINE] options.genre:", genre);
+    console.log("[PRÉ-PIPELINE] options.genreTargets:", genreTargets);
+    console.log("[PRÉ-PIPELINE] options.mode:", mode);
+    console.log("[PRÉ-PIPELINE] jobId:", jobId);
+    console.log("==================================================================\n");
+    
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId,
       mode,
@@ -896,6 +920,15 @@ async function audioProcessor(job) {
     const totalMs = Date.now() - t0;
     
     console.log(`✅ [WORKER-REDIS] Pipeline concluído em ${totalMs}ms`);
+    
+    console.log("\n================ AUDITORIA: PÓS-PIPELINE (REDIS) ================");
+    console.log("[PÓS-PIPELINE] finalJSON.data.genreTargets existe?:", !!finalJSON?.data?.genreTargets);
+    console.log("[PÓS-PIPELINE] finalJSON.data.metrics existe?:", !!finalJSON?.data?.metrics);
+    console.log("[PÓS-PIPELINE] finalJSON.problemsAnalysis existe?:", !!finalJSON?.problemsAnalysis);
+    console.log("[PÓS-PIPELINE] Campo de targets vindo do pipeline:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
+    console.log("[PÓS-PIPELINE] Campo de metrics vindo do pipeline:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
+    console.log("[PÓS-PIPELINE] Número de sugestões geradas:", finalJSON?.problemsAnalysis?.suggestions?.length || 0);
+    console.log("==================================================================\n");
 
     // Enriquecer resultado com informações do worker
     finalJSON.performance = {
