@@ -69,7 +69,8 @@ class UltraAdvancedSuggestionEnhancer {
     
     /**
      * 🎯 Extrair target_range correto do contexto
-     * ✅ PRIORIDADE: analysis.data.genreTargets → context.targetDataForEngine → window.__activeRefData
+     * ✅ USA EXCLUSIVAMENTE: context.targetDataForEngine (vem de analysis.data.genreTargets do Postgres)
+     * ❌ SEM FALLBACKS - se não existir, retorna null
      * @param {Object} suggestion - Sugestão do backend
      * @param {Object} context - Contexto da análise
      * @returns {Object|null} { min, max, center } ou null
@@ -87,46 +88,19 @@ class UltraAdvancedSuggestionEnhancer {
         console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
         
         // ═══════════════════════════════════════════════════════════════
-        // ESTRATÉGIA DE BUSCA DE TARGETS (ORDEM DE PRIORIDADE)
+        // USAR EXCLUSIVAMENTE: context.targetDataForEngine
+        // (vem de analysis.data.genreTargets do Postgres)
+        // ❌ SEM FALLBACKS
         // ═══════════════════════════════════════════════════════════════
-        let targets = null;
-        let targetSource = null;
+        const targets = context.targetDataForEngine || context.genreTargets;
         
-        // 🎯 PRIORIDADE 1: context.targetDataForEngine (vem de analysis.data.genreTargets)
-        if (context.targetDataForEngine && typeof context.targetDataForEngine === 'object') {
-            targets = context.targetDataForEngine;
-            targetSource = 'context.targetDataForEngine (analysis.data.genreTargets)';
-            console.log('[ULTRA_V2] ✅ Usando targets de context.targetDataForEngine');
-        }
-        // 🎯 PRIORIDADE 2: context.genreTargets (alias)
-        else if (context.genreTargets && typeof context.genreTargets === 'object') {
-            targets = context.genreTargets;
-            targetSource = 'context.genreTargets';
-            console.log('[ULTRA_V2] ✅ Usando targets de context.genreTargets');
-        }
-        // 🎯 PRIORIDADE 3: window.__activeRefData (fallback global)
-        else if (typeof window !== 'undefined' && window.__activeRefData) {
-            const genre = context.detectedGenre;
-            if (genre && window.__activeRefData[genre]) {
-                targets = window.__activeRefData[genre];
-                targetSource = `window.__activeRefData[${genre}]`;
-                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData[' + genre + ']');
-            } else if (window.__activeRefData.bands || window.__activeRefData.legacy_compatibility) {
-                targets = window.__activeRefData;
-                targetSource = 'window.__activeRefData (objeto único)';
-                console.log('[ULTRA_V2] ⚠️ FALLBACK: Usando window.__activeRefData');
-            }
-        }
-        
-        if (!targets) {
-            console.error('[ULTRA_V2] ❌ Nenhum target encontrado para:', metricKey);
-            console.error('[ULTRA_V2] context.targetDataForEngine:', context.targetDataForEngine);
-            console.error('[ULTRA_V2] context.genreTargets:', context.genreTargets);
-            console.error('[ULTRA_V2] window.__activeRefData:', typeof window !== 'undefined' ? window.__activeRefData : 'N/A');
+        if (!targets || typeof targets !== 'object') {
+            console.error('[ULTRA_V2] ❌ context.targetDataForEngine não encontrado ou inválido');
+            console.error('[ULTRA_V2] Tipo:', typeof targets);
             return null;
         }
         
-        console.log('[ULTRA_V2] 📦 Targets encontrados em:', targetSource);
+        console.log('[ULTRA_V2] ✅ Usando targets de context.targetDataForEngine (Postgres)');
         
         // Buscar threshold da métrica específica
         const threshold = targets[metricKey];
