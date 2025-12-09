@@ -100,6 +100,48 @@ console.log('✅ Genre Targets Utils carregado');
 // ═══════════════════════════════════════════════════════════════════
 // 🎯 GENRE-ONLY EXTRACTION UTILS - NUNCA AFETAM REFERENCE
 // ═══════════════════════════════════════════════════════════════════
+
+/**
+ * 🎯 FUNÇÃO UTILITÁRIA GLOBAL - OBTER TARGETS CORRETOS
+ * 
+ * CAMPO REAL DO BACKEND: analysis.targets
+ * 
+ * ❌ NÃO USAR:
+ *    - analysis.data.genreTargets
+ *    - analysis.results.genreTargets
+ *    - analysis.data.targets
+ *    - analysis.results.targets
+ * 
+ * @param {Object} analysis - Objeto de análise do backend
+ * @returns {Object|null} Targets ou null
+ */
+function getCorrectTargets(analysis) {
+    console.log('[TARGETS] 🔍 Buscando targets corretos...');
+    
+    if (analysis?.targets && typeof analysis.targets === 'object') {
+        console.log('[TARGETS] ✅ Usando analysis.targets (CAMPO REAL DO BACKEND)');
+        console.log('[TARGETS] Keys:', Object.keys(analysis.targets));
+        console.log('[TARGETS] Valores:', {
+            lufs_target: analysis.targets.lufs_target,
+            true_peak_target: analysis.targets.true_peak_target,
+            dr_target: analysis.targets.dr_target,
+            stereo_target: analysis.targets.stereo_target,
+            hasBands: !!(analysis.targets.bands || analysis.targets.spectral_bands)
+        });
+        return analysis.targets;
+    }
+    
+    console.warn('[TARGETS] ⚠️ Campo "targets" não encontrado no JSON recebido.');
+    console.warn('[TARGETS] Estrutura recebida:', {
+        hasAnalysis: !!analysis,
+        analysisKeys: analysis ? Object.keys(analysis) : null,
+        hasTargets: !!analysis?.targets,
+        hasDataGenreTargets: !!analysis?.data?.genreTargets,
+        hasResultsGenreTargets: !!analysis?.results?.genreTargets
+    });
+    return null;
+}
+
 /**
  * 🎯 EXTRAI TARGETS DO GÊNERO - FUNÇÃO DEFINITIVA E ROBUSTA
  * 
@@ -2786,17 +2828,48 @@ async function pollJobStatus(jobId) {
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     
-                    // 🎯 PATCH CRÍTICO: Garantir que analysis.data.genreTargets existe (para validação de sugestões)
-                    // O backend salva em results.data.genreTargets (Postgres)
-                    // O frontend precisa de analysis.data.genreTargets
-                    if (jobResult.data && jobResult.data.genreTargets) {
-                        console.log('[POLLING] ✅ data.genreTargets encontrado no jobResult (Postgres)');
-                        console.log('[POLLING] Keys:', Object.keys(jobResult.data.genreTargets));
-                        // Já está no caminho correto: jobResult.data.genreTargets
-                        // O frontend vai receber como analysis.data.genreTargets quando jobResult for usado
+                    // ═══════════════════════════════════════════════════════════════
+                    // 🔍 AUDITORIA COMPLETA - ESTRUTURA REAL DO JSON RECEBIDO
+                    // ═══════════════════════════════════════════════════════════════
+                    console.log('\n\n🔍🔍🔍 [AUDIT] JSON RECEBIDO DO BACKEND 🔍🔍🔍');
+                    console.log('[AUDIT] jobResult COMPLETO:', jobResult);
+                    console.log('[AUDIT] Keys do jobResult:', Object.keys(jobResult));
+                    console.log('[AUDIT] Tipo de jobResult:', typeof jobResult);
+                    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AUDIT] Verificando campos de targets:');
+                    console.log('[AUDIT]   ✓ jobResult.targets:', !!jobResult.targets);
+                    console.log('[AUDIT]   ✗ jobResult.data?.genreTargets:', !!jobResult.data?.genreTargets);
+                    console.log('[AUDIT]   ✗ jobResult.results?.genreTargets:', !!jobResult.results?.genreTargets);
+                    console.log('[AUDIT]   ✗ jobResult.data?.targets:', !!jobResult.data?.targets);
+                    console.log('[AUDIT]   ✗ jobResult.results?.targets:', !!jobResult.results?.targets);
+                    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    
+                    if (jobResult.targets) {
+                        console.log('[AUDIT] ✅ CAMPO CORRETO ENCONTRADO: jobResult.targets');
+                        console.log('[AUDIT] Keys de targets:', Object.keys(jobResult.targets));
+                        console.log('[AUDIT] Estrutura de targets:', {
+                            hasLufsTarget: 'lufs_target' in jobResult.targets,
+                            hasTruePeakTarget: 'true_peak_target' in jobResult.targets,
+                            hasDrTarget: 'dr_target' in jobResult.targets,
+                            hasStereoTarget: 'stereo_target' in jobResult.targets,
+                            hasBands: 'bands' in jobResult.targets || 'spectral_bands' in jobResult.targets,
+                            lufsValue: jobResult.targets.lufs_target,
+                            truePeakValue: jobResult.targets.true_peak_target,
+                            drValue: jobResult.targets.dr_target,
+                            stereoValue: jobResult.targets.stereo_target
+                        });
+                    } else {
+                        console.error('[AUDIT] ❌ CAMPO "targets" NÃO ENCONTRADO!');
+                        console.error('[AUDIT] Estrutura recebida pode estar incorreta');
+                    }
+                    console.log('🔍🔍🔍 [AUDIT] FIM DA AUDITORIA 🔍🔍🔍\n\n');
+                    
+                    // 🎯 PATCH CRÍTICO: Garantir que analysis.targets existe (caminho correto)
+                    if (jobResult.targets) {
+                        console.log('[POLLING] ✅ targets encontrado no jobResult (Postgres)');
+                        console.log('[POLLING] Keys:', Object.keys(jobResult.targets));
                     } else if (jobResult.mode === 'genre') {
-                        console.warn('[POLLING] ⚠️ Modo genre mas data.genreTargets ausente');
-                        console.warn('[POLLING] jobResult.data:', jobResult.data);
+                        console.warn('[POLLING] ⚠️ Modo genre mas "targets" ausente no JSON');
                         console.warn('[POLLING] Isso pode causar validação incorreta de sugestões');
                     }
                     
@@ -2818,8 +2891,7 @@ async function pollJobStatus(jobId) {
                       hasScore: jobResult.score !== undefined,
                       scoreValue: jobResult.score,
                       hasClassification: !!jobResult.classification,
-                      hasData: !!jobResult.data,
-                      hasDataGenreTargets: !!jobResult.data?.genreTargets,
+                      hasTargets: !!jobResult.targets,
                       jobId: jobResult.jobId,
                       mode: jobResult.mode
                     });
@@ -12341,24 +12413,30 @@ async function displayModalResults(analysis) {
                             referenceFileName: analysis.referenceFileName || null
                         };
                         
-                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.data.genreTargets (do Postgres)
+                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.targets (CAMPO REAL DO BACKEND)
                         // ❌ SEM FALLBACKS - se não existir, lista vazia
                         if (analysis.mode === "genre") {
-                            const genreTargets = analysis?.data?.genreTargets;
+                            const correctTargets = getCorrectTargets(analysis);
                             
-                            if (genreTargets && typeof genreTargets === 'object') {
-                                console.log('[ULTRA_V2] ✅ Usando targets EXCLUSIVOS do Postgres (analysis.data.genreTargets)');
-                                console.log('[ULTRA_V2] Keys:', Object.keys(genreTargets));
-                                analysisContext.targetDataForEngine = genreTargets;
-                                analysisContext.genreTargets = genreTargets;
+                            if (correctTargets && typeof correctTargets === 'object') {
+                                console.log('[ULTRA_V2] ✅ Injetando correctTargets em analysisContext (vem de analysis.targets)');
+                                console.log('[ULTRA_V2] Keys:', Object.keys(correctTargets));
+                                console.log('[ULTRA_V2] Valores de exemplo:', {
+                                    lufs_target: correctTargets.lufs_target,
+                                    true_peak_target: correctTargets.true_peak_target,
+                                    dr_target: correctTargets.dr_target,
+                                    stereo_target: correctTargets.stereo_target,
+                                    bands: correctTargets.bands ? Object.keys(correctTargets.bands) : 'N/A'
+                                });
+                                analysisContext.correctTargets = correctTargets;
                             } else {
                                 // ❌ SEM TARGETS DO POSTGRES = LISTA VAZIA (SEM FALLBACK)
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.data.genreTargets não encontrado');
+                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.targets não encontrado (campo real do backend)');
                                 console.error('[ULTRA_V2] Retornando lista vazia - SEM FALLBACK');
                                 enrichedSuggestions = [];
                                 analysis.suggestions = [];
                                 // Pular enriquecimento
-                                throw new Error('NO_GENRE_TARGETS_FROM_POSTGRES');
+                                throw new Error('NO_TARGETS_FROM_POSTGRES');
                             }
                         }
                         // 🛡️ MODO REFERENCE: Não injetar nada - usa dados de comparação A/B
@@ -12394,7 +12472,7 @@ async function displayModalResults(analysis) {
                                 originalCount: ultraResults.metadata?.originalCount
                             };
                             
-                            // Log da primeira sugestão enriquecida para debug
+                            // ✅ Log da primeira sugestão enriquecida para debug
                             if (enrichedSuggestions.length > 0) {
                                 const firstEnhanced = enrichedSuggestions[0];
                                 console.log('🎓 [ULTRA_V2] Exemplo de sugestão enriquecida:', {
@@ -12404,6 +12482,28 @@ async function displayModalResults(analysis) {
                                     severity: firstEnhanced.severity?.label,
                                     priority: firstEnhanced.priority
                                 });
+                            }
+                            
+                            // ═══════════════════════════════════════════════════════════════
+                            // ✅ VALIDAÇÃO FINAL: Confirmar sistema configurado corretamente
+                            // ═══════════════════════════════════════════════════════════════
+                            if (analysisContext.mode === 'genre' && analysisContext.correctTargets) {
+                                console.log('');
+                                console.log('═══════════════════════════════════════════════════════════════');
+                                console.log('✅ [VALIDAÇÃO FINAL] Sistema de Sugestões IA Configurado');
+                                console.log('═══════════════════════════════════════════════════════════════');
+                                console.log('📊 Fonte de Targets: analysis.targets (Postgres via backend)');
+                                console.log('📊 Modo de Análise:', analysisContext.mode);
+                                console.log('📊 Targets Injetados em ULTRA_V2:', Object.keys(analysisContext.correctTargets).length > 0 ? 'SIM ✅' : 'NÃO ❌');
+                                console.log('📊 Valores de Exemplo:', {
+                                    lufs_target: analysisContext.correctTargets.lufs_target,
+                                    true_peak_target: analysisContext.correctTargets.true_peak_target,
+                                    dr_target: analysisContext.correctTargets.dr_target,
+                                    stereo_target: analysisContext.correctTargets.stereo_target
+                                });
+                                console.log('📊 Total de Sugestões Enriquecidas:', enrichedSuggestions.length);
+                                console.log('═══════════════════════════════════════════════════════════════');
+                                console.log('');
                             }
                             
                         } else {

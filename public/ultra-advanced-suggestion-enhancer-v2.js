@@ -105,7 +105,7 @@ class UltraAdvancedSuggestionEnhancer {
 
     /**
      * 🎯 Extrair target_range correto do contexto
-     * ✅ USA EXCLUSIVAMENTE: context.targetDataForEngine (vem de analysis.data.genreTargets do Postgres)
+     * ✅ USA EXCLUSIVAMENTE: context.correctTargets (vem de analysis.targets do Postgres)
      * ❌ SEM FALLBACKS - se não existir, retorna null
      * @param {Object} suggestion - Sugestão do backend
      * @param {Object} context - Contexto da análise
@@ -124,54 +124,80 @@ class UltraAdvancedSuggestionEnhancer {
         console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
         
         // ═══════════════════════════════════════════════════════════════
-        // USAR EXCLUSIVAMENTE: context.targetDataForEngine
-        // (vem de analysis.data.genreTargets do Postgres)
+        // USAR EXCLUSIVAMENTE: context.correctTargets
+        // (vem de analysis.targets do Postgres - CAMPO REAL DO BACKEND)
         // ❌ SEM FALLBACKS
         // ═══════════════════════════════════════════════════════════════
-        const targets = context.targetDataForEngine || context.genreTargets;
+        const targets = context.correctTargets;
         
         if (!targets || typeof targets !== 'object') {
-            console.error('[ULTRA_V2] ❌ context.targetDataForEngine não encontrado ou inválido');
+            console.error('[ULTRA_V2] ❌ context.correctTargets não encontrado ou inválido');
             console.error('[ULTRA_V2] Tipo:', typeof targets);
+            console.error('[ULTRA_V2] Context keys:', Object.keys(context));
             return null;
         }
         
-        console.log('[ULTRA_V2] ✅ Usando targets de context.targetDataForEngine (Postgres)');
+        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.targets do Postgres)');
         
         // Buscar threshold da métrica específica
-        const threshold = targets[metricKey];
+        // Formato esperado do backend: lufs_target, true_peak_target, dr_target, etc
+        let threshold = null;
+        
+        // Mapear nomes normalizados para nomes do backend
+        const backendFieldMap = {
+            'lufs': 'lufs_target',
+            'truePeak': 'true_peak_target',
+            'dr': 'dr_target',
+            'stereo': 'stereo_target'
+        };
+        
+        const backendField = backendFieldMap[metricKey] || metricKey;
+        
+        // Tentar acessar diretamente
+        if (typeof targets[backendField] === 'number') {
+            threshold = { target: targets[backendField] };
+            console.log('[ULTRA_V2] ✅ Target encontrado:', backendField, '=', targets[backendField]);
+        }
+        // Tentar em bands/spectral_bands
+        else if ((targets.bands || targets.spectral_bands) && metricKey) {
+            const bands = targets.bands || targets.spectral_bands;
+            if (bands[metricKey]) {
+                threshold = bands[metricKey];
+                console.log('[ULTRA_V2] ✅ Target encontrado em bands:', metricKey);
+            }
+        }
+        
         if (!threshold) {
             console.warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada nos targets');
             console.log('[ULTRA_V2] Keys disponíveis:', Object.keys(targets));
             return null;
         }
         
-        // Priorizar target_range se disponível
-        if (threshold.target_range && 
-            typeof threshold.target_range.min === 'number' && 
-            typeof threshold.target_range.max === 'number') {
-            console.log('[ULTRA_V2] ✅ target_range encontrado:', threshold.target_range);
-            return {
-                min: threshold.target_range.min,
-                max: threshold.target_range.max,
-                center: threshold.target || ((threshold.target_range.min + threshold.target_range.max) / 2)
-            };
-        }
-        
-        // Fallback: calcular range a partir de target±tolerance
-        if (typeof threshold.target === 'number' && typeof threshold.tolerance === 'number') {
-            console.log('[ULTRA_V2] ✅ Calculando range de target±tolerance:', {
+        // Calcular range a partir de target±tolerance
+        if (typeof threshold.target === 'number') {
+            const tolerance = threshold.tolerance || threshold.tol || 1; // Default tolerance
+            console.log('[ULTRA_V2] ✅ Calculando range:', {
                 target: threshold.target,
-                tolerance: threshold.tolerance
+                tolerance: tolerance
             });
             return {
-                min: threshold.target - threshold.tolerance,
-                max: threshold.target + threshold.tolerance,
+                min: threshold.target - tolerance,
+                max: threshold.target + tolerance,
                 center: threshold.target
             };
         }
         
-        console.warn('[ULTRA_V2] ⚠️ Threshold sem target_range nem target+tolerance');
+        // Se já vier como objeto com min/max
+        if (typeof threshold.min === 'number' && typeof threshold.max === 'number') {
+            console.log('[ULTRA_V2] ✅ Range já definido:', threshold);
+            return {
+                min: threshold.min,
+                max: threshold.max,
+                center: (threshold.min + threshold.max) / 2
+            };
+        }
+        
+        console.warn('[ULTRA_V2] ⚠️ Threshold sem target ou range válido');
         return null;
     }
 

@@ -554,16 +554,19 @@ class AISuggestionUIController {
                 console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
-            // ✅ EXTRAIR genreTargets EXCLUSIVAMENTE de analysis.data.genreTargets (Postgres)
-            // ❌ SEM FALLBACKS (conforme auditoria)
-            const genreTargets = analysis?.data?.genreTargets || null;
+            // ✅ EXTRAIR TARGETS USANDO FUNÇÃO UTILITÁRIA GLOBAL
+            // Campo real do backend: analysis.targets
+            const genreTargets = typeof getCorrectTargets === 'function' 
+                ? getCorrectTargets(analysis) 
+                : (analysis?.targets || null);
             
             if (!genreTargets) {
-                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado (Postgres)');
+                console.error('[AI-UI][VALIDATION] ❌ analysis.targets não encontrado');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
+                console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
             } else {
-                console.log('[AI-UI][VALIDATION] ✅ genreTargets do Postgres encontrado:', Object.keys(genreTargets));
-                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.genreTargets (OFICIAL - Postgres)');
+                console.log('[AI-UI][VALIDATION] ✅ Targets do Postgres encontrado:', Object.keys(genreTargets));
+                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.targets (CAMPO REAL DO BACKEND)');
             }
 
             // Renderiza imediatamente com genreTargets para validação
