@@ -555,20 +555,19 @@ class AISuggestionUIController {
             }
 
             // ✅ EXTRAIR TARGETS USANDO FUNÇÃO UTILITÁRIA GLOBAL
-            // Campo real do Postgres: analysis.results.data.genreTargets
+            // Campo real do Postgres: analysis.data.genreTargets
             const genreTargets = typeof getCorrectTargets === 'function' 
                 ? getCorrectTargets(analysis) 
-                : (analysis?.results?.data?.genreTargets || null);
+                : (analysis?.data?.genreTargets || null);
             
             if (!genreTargets) {
-                console.error('[AI-UI][VALIDATION] ❌ analysis.results.data.genreTargets não encontrado (POSTGRES)');
+                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado (POSTGRES)');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
                 console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
-                console.warn('[AI-UI][VALIDATION] analysis.results:', !!analysis?.results);
-                console.warn('[AI-UI][VALIDATION] analysis.results.data:', !!analysis?.results?.data);
+                console.warn('[AI-UI][VALIDATION] analysis.data:', !!analysis?.data);
             } else {
                 console.log('[AI-UI][VALIDATION] ✅ Targets do Postgres encontrado:', Object.keys(genreTargets));
-                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.results.data.genreTargets (CAMPO REAL DO POSTGRES)');
+                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.genreTargets (CAMPO REAL DO POSTGRES)');
             }
 
             // Renderiza imediatamente com genreTargets para validação
@@ -890,7 +889,7 @@ class AISuggestionUIController {
     /**
      * ✅ VALIDAR E CORRIGIR SUGESTÕES COM TARGETS REAIS
      * Garante que valores "ideal" exibidos correspondem aos targets do JSON
-     * 🎯 USA EXCLUSIVAMENTE: analysis.results.data.genreTargets (Postgres)
+     * 🎯 USA EXCLUSIVAMENTE: analysis.data.genreTargets (Postgres)
      */
     validateAndCorrectSuggestions(suggestions, genreTargets) {
         if (!genreTargets || !Array.isArray(suggestions)) {

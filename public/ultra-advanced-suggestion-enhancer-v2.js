@@ -137,7 +137,7 @@ class UltraAdvancedSuggestionEnhancer {
             return null;
         }
         
-        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.results.data.genreTargets do Postgres)');
+        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.data.genreTargets do Postgres)');
         
         // Buscar threshold da métrica específica
         // Formato do Postgres: { target, tolerance, target_range: { min, max } }

@@ -104,13 +104,12 @@ console.log('✅ Genre Targets Utils carregado');
 /**
  * 🎯 FUNÇÃO UTILITÁRIA GLOBAL - OBTER TARGETS CORRETOS
  * 
- * CAMPO REAL DO BACKEND: analysis.targets
+ * CAMPO REAL DO POSTGRES: analysis.data.genreTargets
  * 
  * ❌ NÃO USAR:
- *    - analysis.data.genreTargets
+ *    - analysis.targets
+ *    - analysis.results.data.genreTargets
  *    - analysis.results.genreTargets
- *    - analysis.data.targets
- *    - analysis.results.targets
  * 
  * @param {Object} analysis - Objeto de análise do backend
  * @returns {Object|null} Targets ou null
@@ -118,26 +117,25 @@ console.log('✅ Genre Targets Utils carregado');
 function getCorrectTargets(analysis) {
     console.log('[TARGETS] 🔍 Buscando targets corretos...');
     
-    if (analysis?.targets && typeof analysis.targets === 'object') {
-        console.log('[TARGETS] ✅ Usando analysis.targets (CAMPO REAL DO BACKEND)');
-        console.log('[TARGETS] Keys:', Object.keys(analysis.targets));
+    if (analysis?.data?.genreTargets && typeof analysis.data.genreTargets === 'object') {
+        console.log('[TARGETS] ✅ Usando analysis.data.genreTargets (CAMPO REAL DO POSTGRES)');
+        console.log('[TARGETS] Keys:', Object.keys(analysis.data.genreTargets));
         console.log('[TARGETS] Valores:', {
-            lufs_target: analysis.targets.lufs_target,
-            true_peak_target: analysis.targets.true_peak_target,
-            dr_target: analysis.targets.dr_target,
-            stereo_target: analysis.targets.stereo_target,
-            hasBands: !!(analysis.targets.bands || analysis.targets.spectral_bands)
+            lufs: analysis.data.genreTargets.lufs,
+            truePeak: analysis.data.genreTargets.truePeak,
+            dr: analysis.data.genreTargets.dr,
+            stereo: analysis.data.genreTargets.stereo,
+            hasBands: !!(analysis.data.genreTargets.bands)
         });
-        return analysis.targets;
+        return analysis.data.genreTargets;
     }
     
-    console.warn('[TARGETS] ⚠️ Campo "targets" não encontrado no JSON recebido.');
+    console.warn('[TARGETS] ⚠️ Campo "data.genreTargets" não encontrado no JSON recebido.');
     console.warn('[TARGETS] Estrutura recebida:', {
         hasAnalysis: !!analysis,
         analysisKeys: analysis ? Object.keys(analysis) : null,
-        hasTargets: !!analysis?.targets,
-        hasDataGenreTargets: !!analysis?.data?.genreTargets,
-        hasResultsGenreTargets: !!analysis?.results?.genreTargets
+        hasData: !!analysis?.data,
+        hasDataGenreTargets: !!analysis?.data?.genreTargets
     });
     return null;
 }
@@ -12413,13 +12411,13 @@ async function displayModalResults(analysis) {
                             referenceFileName: analysis.referenceFileName || null
                         };
                         
-                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.results.data.genreTargets (POSTGRES)
+                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.data.genreTargets (POSTGRES)
                         // ❌ SEM FALLBACKS - se não existir, lista vazia
                         if (analysis.mode === "genre") {
                             const correctTargets = getCorrectTargets(analysis);
                             
                             if (correctTargets && typeof correctTargets === 'object') {
-                                console.log('[ULTRA_V2] ✅ Injetando correctTargets em analysisContext (vem de analysis.results.data.genreTargets)');
+                                console.log('[ULTRA_V2] ✅ Injetando correctTargets em analysisContext (vem de analysis.data.genreTargets)');
                                 console.log('[ULTRA_V2] Keys:', Object.keys(correctTargets));
                                 console.log('[ULTRA_V2] Valores de exemplo:', {
                                     lufs: correctTargets.lufs,
@@ -12431,7 +12429,7 @@ async function displayModalResults(analysis) {
                                 analysisContext.correctTargets = correctTargets;
                             } else {
                                 // ❌ SEM TARGETS DO POSTGRES = LISTA VAZIA (SEM FALLBACK)
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.results.data.genreTargets não encontrado (Postgres)');
+                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.data.genreTargets não encontrado (Postgres)');
                                 console.error('[ULTRA_V2] Retornando lista vazia - SEM FALLBACK');
                                 enrichedSuggestions = [];
                                 analysis.suggestions = [];
@@ -12492,7 +12490,7 @@ async function displayModalResults(analysis) {
                                 console.log('═══════════════════════════════════════════════════════════════');
                                 console.log('✅ [VALIDAÇÃO FINAL] Sistema de Sugestões IA Configurado');
                                 console.log('═══════════════════════════════════════════════════════════════');
-                                console.log('📊 Fonte de Targets: analysis.results.data.genreTargets (Postgres)');
+                                console.log('📊 Fonte de Targets: analysis.data.genreTargets (Postgres)');
                                 console.log('📊 Modo de Análise:', analysisContext.mode);
                                 console.log('📊 Targets Injetados em ULTRA_V2:', Object.keys(analysisContext.correctTargets).length > 0 ? 'SIM ✅' : 'NÃO ❌');
                                 console.log('📊 Valores de Exemplo:', {
