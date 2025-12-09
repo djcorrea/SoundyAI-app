@@ -955,9 +955,9 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       timestamp: new Date().toISOString()
     },
 
-    // 🔥 CAMPO OBRIGATÓRIO: data com genre e genreTargets
-    // ✅ CORREÇÃO CRÍTICA: Passar OBJETO COMPLETO do Postgres (não extrair apenas .target)
-    // Frontend acessa: analysis.results.data.genreTargets (estrutura completa com target, tolerance, target_range)
+    // 🔥 CAMPO OBRIGATÓRIO: data com genre, genreTargets e metrics
+    // ✅ CORREÇÃO CRÍTICA: Adicionar metrics consolidado para sugestões
+    // Frontend acessa: analysis.data.metrics e analysis.data.genreTargets
     data: {
       genre: finalGenre,
       genreTargets: options.genreTargets ? {
@@ -969,7 +969,40 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         stereo: options.genreTargets.stereo || null,
         // ✅ BANDAS: Passar objeto completo preservado
         bands: options.genreTargets.bands || options.genreTargets.spectral_bands || null
-      } : null
+      } : null,
+      // 🎯 NOVO: Métricas consolidadas para sugestões usarem valores EXATOS
+      metrics: {
+        loudness: {
+          value: technicalData.lufsIntegrated,
+          unit: 'LUFS'
+        },
+        truePeak: {
+          value: technicalData.truePeakDbtp,
+          unit: 'dBTP'
+        },
+        dr: {
+          value: technicalData.dynamicRange,
+          unit: 'dB'
+        },
+        stereo: {
+          value: technicalData.stereoCorrelation,
+          unit: 'correlation'
+        },
+        bands: (() => {
+          const bands = technicalData.spectral_balance;
+          if (!bands || bands._status !== 'calculated') return null;
+          
+          return {
+            sub: { value: bands.sub?.percentage || null, unit: '%' },
+            bass: { value: bands.bass?.percentage || null, unit: '%' },
+            lowMid: { value: bands.lowMid?.percentage || null, unit: '%' },
+            mid: { value: bands.mid?.percentage || null, unit: '%' },
+            highMid: { value: bands.highMid?.percentage || null, unit: '%' },
+            presence: { value: bands.presence?.percentage || null, unit: '%' },
+            air: { value: bands.air?.percentage || null, unit: '%' }
+          };
+        })()
+      }
     }
   };
 }

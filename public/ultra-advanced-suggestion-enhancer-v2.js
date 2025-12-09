@@ -104,8 +104,107 @@ class UltraAdvancedSuggestionEnhancer {
     }
 
     /**
-     * 🎯 Extrair target_range correto do contexto
-     * ✅ USA EXCLUSIVAMENTE: context.correctTargets (vem de analysis.targets do Postgres)
+     * 🎯 Extrair target_range NOVO - USA metrics e targets de analysis.data
+     * @param {Object} suggestion - Sugestão do backend
+     * @param {Object} metrics - analysis.data.metrics
+     * @param {Object} targets - analysis.data.genreTargets
+     * @returns {Object|null} { min, max, center, value, diff } ou null
+     */
+    extractTargetRangeFromMetrics(suggestion, metrics, targets) {
+        console.log('[ULTRA_V2] 🔍 Extraindo target_range de metrics/targets para:', suggestion.metric || suggestion.type);
+        
+        if (!metrics || !targets) {
+            console.error('[ULTRA_V2] ❌ metrics ou targets ausentes');
+            return null;
+        }
+        
+        // Identificar métrica
+        const metricKey = this.normalizeMetricName(suggestion.metric || suggestion.type);
+        if (!metricKey) {
+            console.warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
+            return null;
+        }
+        
+        console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
+        
+        // Mapear nomes para acessar metrics e targets
+        const metricsMap = {
+            'lufs': 'loudness',
+            'truePeak': 'truePeak',
+            'dr': 'dr',
+            'dynamicRange': 'dr',
+            'stereo': 'stereo',
+            'stereoCorrelation': 'stereo'
+        };
+        
+        const targetsMap = {
+            'lufs': 'lufs',
+            'truePeak': 'truePeak',
+            'dr': 'dr',
+            'dynamicRange': 'dr',
+            'stereo': 'stereo',
+            'stereoCorrelation': 'stereo'
+        };
+        
+        let value = null;
+        let targetInfo = null;
+        
+        // Buscar valor e target
+        if (metricKey && metricsMap[metricKey] && targetsMap[metricKey]) {
+            const metricsKey = metricsMap[metricKey];
+            const targetsKey = targetsMap[metricKey];
+            
+            value = metrics[metricsKey]?.value;
+            targetInfo = targets[targetsKey];
+            
+            console.log('[ULTRA_V2] ✅ Valor e target encontrados:', {
+                metricsKey,
+                value,
+                targetsKey,
+                target: targetInfo?.target
+            });
+        }
+        // Bandas espectrais
+        else if (metrics.bands && targets.bands && metricKey) {
+            value = metrics.bands[metricKey]?.value;
+            targetInfo = targets.bands[metricKey];
+            
+            console.log('[ULTRA_V2] ✅ Banda encontrada:', {
+                bandKey: metricKey,
+                value,
+                target: targetInfo?.target
+            });
+        }
+        
+        if (!targetInfo || value === null || value === undefined) {
+            console.warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada em metrics/targets');
+            return null;
+        }
+        
+        // Calcular range e diff
+        const target = targetInfo.target;
+        const tolerance = targetInfo.tolerance || 1;
+        const diff = value - target;
+        
+        console.log('[ULTRA_V2] ✅ Range calculado:', {
+            value,
+            target,
+            tolerance,
+            diff: diff.toFixed(2)
+        });
+        
+        return {
+            min: target - tolerance,
+            max: target + tolerance,
+            center: target,
+            value: value,
+            diff: diff
+        };
+    }
+
+    /**
+     * 🎯 Extrair target_range correto do contexto (LEGACY - manter para compatibilidade)
+     * ✅ USA EXCLUSIVAMENTE: context.correctTargets (vem de analysis.data.genreTargets do Postgres)
      * ❌ SEM FALLBACKS - se não existir, retorna null
      * @param {Object} suggestion - Sugestão do backend
      * @param {Object} context - Contexto da análise
@@ -276,21 +375,82 @@ class UltraAdvancedSuggestionEnhancer {
     
     /**
      * 🎓 Enriquecer uma sugestão individual
+     * ✅ USA EXCLUSIVAMENTE: context.metrics e context.targets de analysis.data
      */
     enhanceSingleSuggestion(suggestion, context) {
         const enhanced = { ...suggestion };
         
-        // 🎯 Extrair target_range do contexto (Postgres)
-        const targetRange = this.extractTargetRange(suggestion, context);
+        // ═══════════════════════════════════════════════════════════════
+        // 🎯 EXTRAÇÃO OBRIGATÓRIA: metrics e targets de analysis.data
+        // ❌ PROIBIDO: usar context.lufs, context.truePeak, etc (valores antigos)
+        // ═══════════════════════════════════════════════════════════════
+        const metrics = context.metrics;
+        const targets = context.correctTargets;
+        
+        if (!metrics || !targets) {
+            console.error('[ULTRA_V2] ❌ CRÍTICO: metrics ou targets ausentes no context');
+            console.error('[ULTRA_V2] context.metrics:', !!metrics);
+            console.error('[ULTRA_V2] context.correctTargets:', !!targets);
+            return enhanced; // Retorna sem enriquecer
+        }
+        
+        // 🔍 LOG OBRIGATÓRIO ANTES DE QUALQUER SUGESTÃO
+        const metricKey = this.normalizeMetricName(suggestion.metric || suggestion.type);
+        
+        if (metricKey === 'lufs') {
+            console.log('[ULTRA TARGET DEBUG]', {
+                metric: 'LUFS',
+                value: metrics.loudness?.value,
+                target: targets.lufs?.target,
+                diff: metrics.loudness?.value - targets.lufs?.target,
+                suggestionOriginal: suggestion.message?.substring(0, 80)
+            });
+        } else if (metricKey === 'truePeak') {
+            console.log('[ULTRA TARGET DEBUG]', {
+                metric: 'TRUE PEAK',
+                value: metrics.truePeak?.value,
+                target: targets.truePeak?.target,
+                diff: metrics.truePeak?.value - targets.truePeak?.target,
+                suggestionOriginal: suggestion.message?.substring(0, 80)
+            });
+        } else if (metricKey === 'dr' || metricKey === 'dynamicRange') {
+            console.log('[ULTRA TARGET DEBUG]', {
+                metric: 'DYNAMIC RANGE',
+                value: metrics.dr?.value,
+                target: targets.dr?.target,
+                diff: metrics.dr?.value - targets.dr?.target,
+                suggestionOriginal: suggestion.message?.substring(0, 80)
+            });
+        } else if (metricKey === 'stereo' || metricKey === 'stereoCorrelation') {
+            console.log('[ULTRA TARGET DEBUG]', {
+                metric: 'STEREO',
+                value: metrics.stereo?.value,
+                target: targets.stereo?.target,
+                diff: metrics.stereo?.value - targets.stereo?.target,
+                suggestionOriginal: suggestion.message?.substring(0, 80)
+            });
+        } else if (metricKey && metrics.bands && targets.bands) {
+            // Banda espectral
+            console.log('[ULTRA TARGET DEBUG]', {
+                metric: `BAND ${metricKey.toUpperCase()}`,
+                value: metrics.bands[metricKey]?.value,
+                target: targets.bands[metricKey]?.target,
+                diff: metrics.bands[metricKey]?.value - targets.bands[metricKey]?.target,
+                suggestionOriginal: suggestion.message?.substring(0, 80)
+            });
+        }
+        
+        // 🎯 Extrair target_range USANDO TARGETS CORRETOS (não mais context direto)
+        const targetRange = this.extractTargetRangeFromMetrics(suggestion, metrics, targets);
         
         // 🔧 Normalizar métrica para reconhecer variações
         const normalizedMetric = this.normalizeMetricName(suggestion.metric || suggestion.type);
         
         // 📝 Reescrever texto usando target real do Postgres para métricas específicas
-        if (normalizedMetric === "truePeak" && targetRange && context.truePeak !== undefined) {
-            const targetInfo = context.targetDataForEngine?.truePeak || context.genreTargets?.truePeak;
+        if (normalizedMetric === "truePeak" && targetRange && metrics.truePeak) {
+            const targetInfo = targets.truePeak;
             if (targetInfo) {
-                enhanced.message = this.buildTruePeakText(context.truePeak, targetInfo);
+                enhanced.message = this.buildTruePeakText(metrics.truePeak.value, targetInfo);
                 console.log('[ULTRA_V2] ✅ Texto True Peak reescrito com target real:', targetInfo.target);
             }
         }

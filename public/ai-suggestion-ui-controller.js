@@ -554,24 +554,44 @@ class AISuggestionUIController {
                 console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
-            // ✅ EXTRAIR TARGETS USANDO FUNÇÃO UTILITÁRIA GLOBAL
-            // Campo real do Postgres: analysis.data.genreTargets
+            // ✅ EXTRAIR METRICS E TARGETS de analysis.data
+            // Campos reais: analysis.data.metrics e analysis.data.genreTargets
+            const metrics = analysis?.data?.metrics || null;
             const genreTargets = typeof getCorrectTargets === 'function' 
                 ? getCorrectTargets(analysis) 
                 : (analysis?.data?.genreTargets || null);
+            
+            if (!metrics) {
+                console.error('[AI-UI][VALIDATION] ❌ analysis.data.metrics não encontrado');
+                console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas');
+            }
             
             if (!genreTargets) {
                 console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado (POSTGRES)');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
                 console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
                 console.warn('[AI-UI][VALIDATION] analysis.data:', !!analysis?.data);
-            } else {
-                console.log('[AI-UI][VALIDATION] ✅ Targets do Postgres encontrado:', Object.keys(genreTargets));
-                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.genreTargets (CAMPO REAL DO POSTGRES)');
+            }
+            
+            if (metrics && genreTargets) {
+                console.log('[AI-UI][VALIDATION] ✅ Metrics e Targets encontrados');
+                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.metrics + analysis.data.genreTargets');
+                console.log('[AI-UI][VALIDATION] Metrics:', {
+                    loudness: metrics.loudness?.value,
+                    truePeak: metrics.truePeak?.value,
+                    dr: metrics.dr?.value,
+                    stereo: metrics.stereo?.value
+                });
+                console.log('[AI-UI][VALIDATION] Targets:', {
+                    lufs: genreTargets.lufs?.target,
+                    truePeak: genreTargets.truePeak?.target,
+                    dr: genreTargets.dr?.target,
+                    stereo: genreTargets.stereo?.target
+                });
             }
 
-            // Renderiza imediatamente com genreTargets para validação
-            this.renderAISuggestions(extractedAI, genreTargets);
+            // Renderiza com metrics e genreTargets para validação
+            this.renderAISuggestions(extractedAI, genreTargets, metrics);
             
             // FIX: Marcar renderização como concluída APÓS render
             window.__AI_RENDER_COMPLETED__ = true;
@@ -760,7 +780,7 @@ class AISuggestionUIController {
      * @param {Array} suggestions - Array de sugestões
      * @param {Object} genreTargets - Targets do gênero para validação
      */
-    renderAISuggestions(suggestions, genreTargets = null) {
+    renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
         // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
         console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
         console.log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
