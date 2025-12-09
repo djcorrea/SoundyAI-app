@@ -12413,25 +12413,25 @@ async function displayModalResults(analysis) {
                             referenceFileName: analysis.referenceFileName || null
                         };
                         
-                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.targets (CAMPO REAL DO BACKEND)
+                        // 🎯 MODO GENRE: Usar EXCLUSIVAMENTE analysis.results.data.genreTargets (POSTGRES)
                         // ❌ SEM FALLBACKS - se não existir, lista vazia
                         if (analysis.mode === "genre") {
                             const correctTargets = getCorrectTargets(analysis);
                             
                             if (correctTargets && typeof correctTargets === 'object') {
-                                console.log('[ULTRA_V2] ✅ Injetando correctTargets em analysisContext (vem de analysis.targets)');
+                                console.log('[ULTRA_V2] ✅ Injetando correctTargets em analysisContext (vem de analysis.results.data.genreTargets)');
                                 console.log('[ULTRA_V2] Keys:', Object.keys(correctTargets));
                                 console.log('[ULTRA_V2] Valores de exemplo:', {
-                                    lufs_target: correctTargets.lufs_target,
-                                    true_peak_target: correctTargets.true_peak_target,
-                                    dr_target: correctTargets.dr_target,
-                                    stereo_target: correctTargets.stereo_target,
+                                    lufs: correctTargets.lufs,
+                                    truePeak: correctTargets.truePeak,
+                                    dr: correctTargets.dr,
+                                    stereo: correctTargets.stereo,
                                     bands: correctTargets.bands ? Object.keys(correctTargets.bands) : 'N/A'
                                 });
                                 analysisContext.correctTargets = correctTargets;
                             } else {
                                 // ❌ SEM TARGETS DO POSTGRES = LISTA VAZIA (SEM FALLBACK)
-                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.targets não encontrado (campo real do backend)');
+                                console.error('[ULTRA_V2] ❌ CRÍTICO: analysis.results.data.genreTargets não encontrado (Postgres)');
                                 console.error('[ULTRA_V2] Retornando lista vazia - SEM FALLBACK');
                                 enrichedSuggestions = [];
                                 analysis.suggestions = [];
@@ -12492,14 +12492,14 @@ async function displayModalResults(analysis) {
                                 console.log('═══════════════════════════════════════════════════════════════');
                                 console.log('✅ [VALIDAÇÃO FINAL] Sistema de Sugestões IA Configurado');
                                 console.log('═══════════════════════════════════════════════════════════════');
-                                console.log('📊 Fonte de Targets: analysis.targets (Postgres via backend)');
+                                console.log('📊 Fonte de Targets: analysis.results.data.genreTargets (Postgres)');
                                 console.log('📊 Modo de Análise:', analysisContext.mode);
                                 console.log('📊 Targets Injetados em ULTRA_V2:', Object.keys(analysisContext.correctTargets).length > 0 ? 'SIM ✅' : 'NÃO ❌');
                                 console.log('📊 Valores de Exemplo:', {
-                                    lufs_target: analysisContext.correctTargets.lufs_target,
-                                    true_peak_target: analysisContext.correctTargets.true_peak_target,
-                                    dr_target: analysisContext.correctTargets.dr_target,
-                                    stereo_target: analysisContext.correctTargets.stereo_target
+                                    lufs: analysisContext.correctTargets.lufs,
+                                    truePeak: analysisContext.correctTargets.truePeak,
+                                    dr: analysisContext.correctTargets.dr,
+                                    stereo: analysisContext.correctTargets.stereo
                                 });
                                 console.log('📊 Total de Sugestões Enriquecidas:', enrichedSuggestions.length);
                                 console.log('═══════════════════════════════════════════════════════════════');

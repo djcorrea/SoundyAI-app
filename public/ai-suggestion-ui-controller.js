@@ -555,18 +555,20 @@ class AISuggestionUIController {
             }
 
             // ✅ EXTRAIR TARGETS USANDO FUNÇÃO UTILITÁRIA GLOBAL
-            // Campo real do backend: analysis.targets
+            // Campo real do Postgres: analysis.results.data.genreTargets
             const genreTargets = typeof getCorrectTargets === 'function' 
                 ? getCorrectTargets(analysis) 
-                : (analysis?.targets || null);
+                : (analysis?.results?.data?.genreTargets || null);
             
             if (!genreTargets) {
-                console.error('[AI-UI][VALIDATION] ❌ analysis.targets não encontrado');
+                console.error('[AI-UI][VALIDATION] ❌ analysis.results.data.genreTargets não encontrado (POSTGRES)');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
                 console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
+                console.warn('[AI-UI][VALIDATION] analysis.results:', !!analysis?.results);
+                console.warn('[AI-UI][VALIDATION] analysis.results.data:', !!analysis?.results?.data);
             } else {
                 console.log('[AI-UI][VALIDATION] ✅ Targets do Postgres encontrado:', Object.keys(genreTargets));
-                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.targets (CAMPO REAL DO BACKEND)');
+                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.results.data.genreTargets (CAMPO REAL DO POSTGRES)');
             }
 
             // Renderiza imediatamente com genreTargets para validação
@@ -888,7 +890,7 @@ class AISuggestionUIController {
     /**
      * ✅ VALIDAR E CORRIGIR SUGESTÕES COM TARGETS REAIS
      * Garante que valores "ideal" exibidos correspondem aos targets do JSON
-     * 🎯 USA EXCLUSIVAMENTE: analysis.targets (vem de analysis.data.genreTargets do Postgres)
+     * 🎯 USA EXCLUSIVAMENTE: analysis.results.data.genreTargets (Postgres)
      */
     validateAndCorrectSuggestions(suggestions, genreTargets) {
         if (!genreTargets || !Array.isArray(suggestions)) {
