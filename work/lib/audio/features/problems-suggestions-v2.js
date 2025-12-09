@@ -76,106 +76,18 @@ const SEVERITY_SYSTEM = {
 };
 
 /**
- * 🎵 Thresholds por Gênero Musical
- * Exportado para permitir fallback quando JSONs falharem
+ * 🎵 GENRE_THRESHOLDS DEPRECATED
+ * ⚠️ ESTE OBJETO FOI REMOVIDO DO SISTEMA
+ * 
+ * Agora o sistema usa EXCLUSIVAMENTE:
+ * - Targets do filesystem: work/refs/out/<genre>.json
+ * - Carregados via: loadGenreTargetsFromWorker()
+ * - Passados via: consolidatedData.genreTargets
+ * 
+ * Se você precisa de fallback, o sistema deve FALHAR EXPLICITAMENTE
+ * com mensagem clara em vez de usar valores hardcoded incorretos.
  */
-export const GENRE_THRESHOLDS = {
-  // 🚗 Funk Automotivo - Mais agressivo (≤14 LU aceitável)
-  'funk_automotivo': {
-    lufs: { target: -6.2, tolerance: 2.0, critical: 3.0 },
-    truePeak: { target: -1.0, tolerance: 0.5, critical: 1.0 },
-    dr: { target: 8.0, tolerance: 6.0, critical: 8.0 }, // ✅ CORRIGIDO: até 14 LU aceitável
-    stereo: { target: 0.85, tolerance: 0.2, critical: 0.3 },
-    // 🎵 Bandas espectrais completas
-    sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 },
-    lowMid: { target: -20.5, tolerance: 3.5, critical: 5.5 },
-    mid: { target: -19.2, tolerance: 3.0, critical: 4.5 },
-    highMid: { target: -22.8, tolerance: 4.0, critical: 6.0 },
-    presenca: { target: -24.1, tolerance: 4.5, critical: 6.5 },
-    brilho: { target: -26.3, tolerance: 5.0, critical: 7.0 }
-  },
-  
-  // 🎭 Funk Mandela - Mais dinâmico (8 LU target, ≤15 LU aceitável)
-  'funk_mandela': {
-    lufs: { target: -8.0, tolerance: 2.5, critical: 4.0 },
-    truePeak: { target: -0.8, tolerance: 0.7, critical: 1.2 },
-    dr: { target: 8.0, tolerance: 7.0, critical: 7.0 }, // ✅ CORRIGIDO: 8 LU target, +7 LU tolerance
-    stereo: { target: 0.85, tolerance: 0.25, critical: 0.35 },
-    // 🎵 Bandas espectrais completas
-    sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 },
-    lowMid: { target: -21.0, tolerance: 3.5, critical: 5.5 },
-    mid: { target: -19.8, tolerance: 3.2, critical: 4.8 },
-    highMid: { target: -23.5, tolerance: 4.0, critical: 6.0 },
-    presenca: { target: -25.2, tolerance: 4.5, critical: 6.5 },
-    brilho: { target: -27.1, tolerance: 5.0, critical: 7.0 }
-  },
-  
-  // 🎶 Trance - Muito dinâmico (≤10 LU aceitável)
-  'trance': {
-    lufs: { target: -11.5, tolerance: 2.5, critical: 4.0 },
-    truePeak: { target: -1.0, tolerance: 1.0, critical: 2.0 },
-    dr: { target: 7.0, tolerance: 3.0, critical: 3.0 }, // ✅ CORRIGIDO: até 10 LU aceitável
-    stereo: { target: 0.72, tolerance: 0.25, critical: 0.35 },
-    // 🎵 Bandas espectrais completas
-    sub: { target: -16.0, tolerance: 2.5, critical: 4.0 },
-    bass: { target: -17.8, tolerance: 2.5, critical: 4.0 },
-    lowMid: { target: -22.5, tolerance: 3.0, critical: 4.5 },
-    mid: { target: -20.1, tolerance: 2.8, critical: 4.2 },
-    highMid: { target: -21.5, tolerance: 3.5, critical: 5.0 },
-    presenca: { target: -23.8, tolerance: 4.0, critical: 5.5 },
-    brilho: { target: -24.2, tolerance: 4.5, critical: 6.0 }
-  },
-  
-  // 🎹 Eletrônico - Equilibrado (6 LU target, ≤9 LU aceitável)
-  'eletronico': {
-    lufs: { target: -12.8, tolerance: 2.0, critical: 3.5 },
-    truePeak: { target: -1.0, tolerance: 0.8, critical: 1.5 },
-    dr: { target: 6.0, tolerance: 3.0, critical: 3.0 }, // ✅ CORRIGIDO: 6 LU target, +3 LU tolerance
-    stereo: { target: 0.75, tolerance: 0.25, critical: 0.35 },
-    // 🎵 Bandas espectrais completas
-    sub: { target: -18.0, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -19.0, tolerance: 3.0, critical: 5.0 },
-    lowMid: { target: -23.2, tolerance: 3.5, critical: 5.5 },
-    mid: { target: -21.5, tolerance: 3.0, critical: 4.5 },
-    highMid: { target: -24.8, tolerance: 4.0, critical: 6.0 },
-    presenca: { target: -26.5, tolerance: 4.5, critical: 6.5 },
-    brilho: { target: -25.8, tolerance: 4.8, critical: 6.8 }
-  },
-  
-  // 🎤 Trap - Bass pesado
-  'trap': {
-    lufs: { target: -10.8, tolerance: 2.2, critical: 3.8 },
-    truePeak: { target: -1.0, tolerance: 0.8, critical: 1.5 },
-    dr: { target: 7.8, tolerance: 2.5, critical: 4.0 },
-    stereo: { target: 0.78, tolerance: 0.22, critical: 0.32 },
-    // 🎵 Bandas espectrais completas
-    sub: { target: -15.5, tolerance: 2.8, critical: 4.5 },
-    bass: { target: -16.8, tolerance: 2.8, critical: 4.5 },
-    lowMid: { target: -22.1, tolerance: 3.5, critical: 5.2 },
-    mid: { target: -20.9, tolerance: 3.2, critical: 4.8 },
-    highMid: { target: -24.3, tolerance: 4.2, critical: 6.2 },
-    presenca: { target: -25.8, tolerance: 4.8, critical: 6.8 },
-    brilho: { target: -27.5, tolerance: 5.2, critical: 7.5 }
-  },
-  
-  // 📻 Default/Genérico
-  'default': {
-    lufs: { target: -14.0, tolerance: 3.0, critical: 5.0 },
-    truePeak: { target: -1.0, tolerance: 1.0, critical: 2.0 },
-    dr: { target: 8.0, tolerance: 3.0, critical: 5.0 },
-    stereo: { target: 0.75, tolerance: 0.25, critical: 0.35 },
-    // 🎵 Bandas espectrais completas - valores genéricos balanceados
-    sub: { target: -18.0, tolerance: 3.5, critical: 6.0 },
-    bass: { target: -18.5, tolerance: 3.5, critical: 6.0 },
-    lowMid: { target: -23.0, tolerance: 4.0, critical: 6.5 },
-    mid: { target: -21.5, tolerance: 3.5, critical: 5.5 },
-    highMid: { target: -25.0, tolerance: 4.5, critical: 6.5 },
-    presenca: { target: -27.0, tolerance: 5.0, critical: 7.0 },
-    brilho: { target: -28.0, tolerance: 5.0, critical: 7.0 }
-  }
-};
+export const GENRE_THRESHOLDS = null; // REMOVIDO - Não usar!
 
 /**
  * 🧮 HELPER: Arredonda valor para passo especificado
@@ -266,29 +178,39 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
     console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // 🛡️ BLINDAGEM SECUNDÁRIA: Validar e proteger genre
+    // 🛡️ Validar genre
     if (!genre || typeof genre !== 'string' || !genre.trim()) {
       console.error('[ANALYZER-ERROR] Genre inválido recebido:', genre);
-      genre = 'default';
+      throw new Error('[ANALYZER-CONSTRUCTOR] Genre inválido - sistema requer gênero válido');
     }
     
     this.genre = genre.trim();
-    
-    // 🔥 PATCH CRÍTICO BUG #2: Salvar o gênero original ANTES de qualquer transformação
     this._originalGenre = genre.trim();
     
-    // 🎯 PRIORIDADE: customTargets (do filesystem) > GENRE_THRESHOLDS (hardcoded)
-    if (customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0) {
-      console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
-      console.log('[PROBLEMS_V2] customTargets.lufs:', customTargets.lufs);
-      console.log('[PROBLEMS_V2] customTargets.dr:', customTargets.dr);
-      this.thresholds = customTargets;
-      this.targetsSource = 'filesystem';
-    } else {
-      console.log(`[PROBLEMS_V2] 📋 Usando GENRE_THRESHOLDS hardcoded para ${genre}`);
-      this.thresholds = GENRE_THRESHOLDS[genre] || GENRE_THRESHOLDS['default'];
-      this.targetsSource = 'hardcoded';
+    // 🔥 POLÍTICA RÍGIDA: customTargets é OBRIGATÓRIO
+    // NÃO usar fallback hardcoded (GENRE_THRESHOLDS foi removido)
+    if (!customTargets || typeof customTargets !== 'object' || Object.keys(customTargets).length === 0) {
+      console.error('[ANALYZER-ERROR] ❌ customTargets ausente ou inválido');
+      console.error('[ANALYZER-ERROR] O sistema EXIGE targets carregados do filesystem');
+      console.error('[ANALYZER-ERROR] Use: loadGenreTargetsFromWorker(genre)');
+      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets obrigatórios ausentes para gênero: ${genre}`);
     }
+    
+    // ✅ Validar estrutura mínima de customTargets
+    const requiredMetrics = ['lufs', 'truePeak', 'dr', 'stereo', 'bands'];
+    const missingMetrics = requiredMetrics.filter(m => !customTargets[m]);
+    if (missingMetrics.length > 0) {
+      console.error('[ANALYZER-ERROR] ❌ customTargets incompleto. Faltam:', missingMetrics);
+      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets incompletos para ${genre}: faltam ${missingMetrics.join(', ')}`);
+    }
+    
+    console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
+    console.log('[PROBLEMS_V2] customTargets.lufs:', customTargets.lufs);
+    console.log('[PROBLEMS_V2] customTargets.dr:', customTargets.dr);
+    console.log('[PROBLEMS_V2] customTargets.bands keys:', Object.keys(customTargets.bands || {}));
+    
+    this.thresholds = customTargets;
+    this.targetsSource = 'filesystem';
     
     this.severity = SEVERITY_SYSTEM;
     
@@ -1348,8 +1270,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
  * @returns {Object} - Análise completa com sugestões
  */
 /**
- * 🎯 REFATORADO: Agora aceita finalJSON completo com data.metrics e data.genreTargets
+ * 🎯 REFATORADO: Agora EXIGE customTargets e/ou finalJSON.data.genreTargets
  * Garante que TODAS as sugestões usem valores IDÊNTICOS aos da tabela de comparação
+ * 
+ * @param {Object} audioMetrics - Métricas de áudio processadas
+ * @param {string} genre - Gênero musical detectado
+ * @param {Object} customTargets - OBRIGATÓRIO: Targets carregados do filesystem
+ * @param {Object} finalJSON - Objeto completo com data.metrics e data.genreTargets
+ * @returns {Object} - Análise completa com sugestões
+ * @throws {Error} - Se customTargets ausente e finalJSON.data.genreTargets ausente
  */
 export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
   process.stderr.write("\n\n");
@@ -1362,21 +1291,41 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!finalJSON?.data + "\n");
-  process.stderr.write("[ENGINE] 🎯 Dados consolidados:\n");
-  process.stderr.write("  - finalJSON.data.metrics: " + JSON.stringify(finalJSON?.data?.metrics, null, 2) + "\n");
-  process.stderr.write("  - finalJSON.data.genreTargets: " + JSON.stringify(finalJSON?.data?.genreTargets, null, 2) + "\n");
-  process.stderr.write("[ENGINE] ⚠️ Fallback será ativado?: " + !finalJSON?.data + "\n");
+  
+  // 🔥 VALIDAÇÃO CRÍTICA: Exigir targets válidos
+  const hasCustomTargets = customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0;
+  const hasGenreTargets = finalJSON?.data?.genreTargets && typeof finalJSON.data.genreTargets === 'object';
+  
+  if (!hasCustomTargets && !hasGenreTargets) {
+    process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: Nenhum target disponível!\n");
+    process.stderr.write("[ENGINE] ❌ customTargets: ausente ou vazio\n");
+    process.stderr.write("[ENGINE] ❌ finalJSON.data.genreTargets: ausente\n");
+    process.stderr.write("[ENGINE] ⚠️ Sistema NÃO PODE gerar sugestões sem targets\n");
+    process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+    throw new Error(`[SUGGESTION_ENGINE] Targets obrigatórios ausentes para gênero: ${genre}. Use loadGenreTargetsFromWorker(genre).`);
+  }
+  
+  // Usar finalJSON.data.genreTargets se disponível, senão customTargets
+  const effectiveTargets = hasGenreTargets ? finalJSON.data.genreTargets : customTargets;
+  
+  process.stderr.write("[ENGINE] 🎯 Targets usados: " + (hasGenreTargets ? 'finalJSON.data.genreTargets' : 'customTargets') + "\n");
+  process.stderr.write("[ENGINE] 📊 Targets disponíveis: " + JSON.stringify(Object.keys(effectiveTargets)) + "\n");
   process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
   
-  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, customTargets);
+  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, effectiveTargets);
   
   // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
   if (finalJSON?.data) {
     console.error('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
     return analyzer.analyzeWithEducationalSuggestions(audioMetrics, finalJSON.data);
   } else {
-    console.error('[SUGGESTION_REFACTOR] ⚠️ Fallback para audioMetrics (modo legado)');
-    return analyzer.analyzeWithEducationalSuggestions(audioMetrics);
+    console.error('[SUGGESTION_REFACTOR] ⚠️ Usando customTargets sem consolidatedData');
+    // Criar consolidatedData mínimo para compatibilidade
+    const minimalConsolidatedData = {
+      genreTargets: effectiveTargets,
+      metrics: null // Será preenchido pelo analyzer via audioMetrics
+    };
+    return analyzer.analyzeWithEducationalSuggestions(audioMetrics, minimalConsolidatedData);
   }
 }
 
