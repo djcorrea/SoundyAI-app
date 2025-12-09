@@ -428,7 +428,19 @@ class CoreMetricsProcessor {
               }
             },
             genreTargets: customTargets  // Já vem completo do Postgres com target/tolerance/target_range
-          };            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
+          };
+          
+          // 🔍 LOG DE DEBUG MANDATÓRIO - Validar valores antes de enviar para suggestion engine
+          console.log('[DEBUG_CONSOLIDATED_BANDS]', {
+            loudness: consolidatedData.metrics.loudness,
+            truePeak: consolidatedData.metrics.truePeak,
+            dr: consolidatedData.metrics.dr,
+            stereo: consolidatedData.metrics.stereo,
+            bands: consolidatedData.metrics.bands,
+            genreTargetsBands: consolidatedData.genreTargets?.bands
+          });
+          
+          console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
               hasMetrics: !!consolidatedData.metrics,
               hasGenreTargets: !!consolidatedData.genreTargets,
               lufsValue: consolidatedData.metrics.loudness.value,
