@@ -5528,12 +5528,10 @@ function renderGenreView(analysis) {
         hasBands: !!genreTargets?.bands,
         bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0,
         hasLufs: !!genreTargets?.lufs,
-        hasTruePeak: !!genreTargets?.truePeak
+        hasTruePeak: !!genreTargets?.truePeak,
+        hasLufsTarget: genreTargets?.lufs_target !== undefined,
+        bandas: genreTargets?.bands ? Object.keys(genreTargets.bands) : 'N/A'
     });
-            hasLufsTarget: genreTargets?.lufs_target !== undefined,
-            bandas: genreTargets?.bands ? Object.keys(genreTargets.bands) : 'N/A'
-        });
-    }
     
     // 7️⃣ Renderizar tabela de comparação de gênero
     console.log('[GENRE-VIEW] 6️⃣ Renderizando tabela de comparação...');
