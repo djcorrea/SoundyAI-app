@@ -2786,6 +2786,20 @@ async function pollJobStatus(jobId) {
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     
+                    // 🎯 PATCH CRÍTICO: Garantir que analysis.data.genreTargets existe (para validação de sugestões)
+                    // O backend salva em results.data.genreTargets (Postgres)
+                    // O frontend precisa de analysis.data.genreTargets
+                    if (jobResult.data && jobResult.data.genreTargets) {
+                        console.log('[POLLING] ✅ data.genreTargets encontrado no jobResult (Postgres)');
+                        console.log('[POLLING] Keys:', Object.keys(jobResult.data.genreTargets));
+                        // Já está no caminho correto: jobResult.data.genreTargets
+                        // O frontend vai receber como analysis.data.genreTargets quando jobResult for usado
+                    } else if (jobResult.mode === 'genre') {
+                        console.warn('[POLLING] ⚠️ Modo genre mas data.genreTargets ausente');
+                        console.warn('[POLLING] jobResult.data:', jobResult.data);
+                        console.warn('[POLLING] Isso pode causar validação incorreta de sugestões');
+                    }
+                    
                     // 🔥 AUDITORIA CRÍTICA: Verificar technicalData APÓS polling
                     console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] FRONTEND POST-POLLING 🔥🔥🔥');
                     console.log('[AUDIT-TECHNICAL-DATA] jobResult.technicalData:', {
