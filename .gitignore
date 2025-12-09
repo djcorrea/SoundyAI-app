@@ -82,4 +82,4 @@ Thumbs.db
 !public/lib/**
 !public/lib/audio/**
 !public/lib/audio/**/*.js
-!public/refs/**
+
