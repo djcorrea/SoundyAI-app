@@ -1014,10 +1014,33 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics.bands
     const bandData = consolidatedData.metrics && consolidatedData.metrics.bands && consolidatedData.metrics.bands[bandKey];
+    
+    // 🔥 LOG CRÍTICO: AUDITORIA COMPLETA DA ESTRUTURA DE DADOS
+    console.log(`[BAND-${bandKey.toUpperCase()}] 🔍 AUDITORIA CRÍTICA DE DADOS:`);
+    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData completo:`, JSON.stringify(bandData, null, 2));
+    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value:`, bandData?.value);
+    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.unit:`, bandData?.unit);
+    console.log(`[BAND-${bandKey.toUpperCase()}] - typeof bandData.value:`, typeof bandData?.value);
+    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value < 0:`, bandData?.value < 0);
+    
     const measured = bandData && bandData.value;
+    
+    // 🔥 LOG CRÍTICO: VALOR FINAL EXTRAÍDO
+    console.log(`[BAND-${bandKey.toUpperCase()}] 🎯 VALOR MEDIDO FINAL: ${measured} ${bandData?.unit || 'NO_UNIT'}`);
+    
     if (!Number.isFinite(measured)) {
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${bandKey}.value ausente ou inválido`);
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor encontrado:`, bandData);
+      return;
+    }
+    
+    // 🔥 VALIDAÇÃO CRÍTICA: Valor deve ser negativo (dBFS)
+    if (measured >= 0) {
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌❌❌ BUG CRÍTICO DETECTADO! ❌❌❌`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor positivo ${measured} detectado quando deveria ser dBFS NEGATIVO!`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Isso indica que .value está com PERCENTAGE ao invés de energy_db!`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands[${bandKey}]:`, JSON.stringify(bandData, null, 2));
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ ABORTING SUGESTÃO - DADOS CORROMPIDOS`);
       return;
     }
 
