@@ -272,11 +272,29 @@ export function buildBandSuggestion({
   // ❌ NUNCA usar heurística para "adivinhar" unidade
   // ═══════════════════════════════════════════════════════════════════════════
   
-  // 🎯 VALIDAÇÃO: Se value não for negativo (dBFS), algo está errado
+  // 🔥 LOG CRÍTICO: AUDITORIA DO VALOR RECEBIDO
+  console.log(`[BUILD-BAND-SUGGESTION] 🔍 buildBandSuggestion() chamado para banda ${bandKey}:`);
+  console.log(`[BUILD-BAND-SUGGESTION] - value: ${value}`);
+  console.log(`[BUILD-BAND-SUGGESTION] - target: ${target}`);
+  console.log(`[BUILD-BAND-SUGGESTION] - tolerance: ${tolerance}`);
+  console.log(`[BUILD-BAND-SUGGESTION] - unit: ${unit}`);
+  console.log(`[BUILD-BAND-SUGGESTION] - typeof value: ${typeof value}`);
+  console.log(`[BUILD-BAND-SUGGESTION] - value < 0: ${value < 0}`);
+  
+  // 🎯 VALIDAÇÃO CRÍTICA: Se value não for negativo (dBFS), algo está MUITO errado
   if (value >= 0) {
-    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Valor positivo para banda ${bandKey}: ${value}`);
-    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Bandas devem ter valores dBFS NEGATIVOS!`);
-    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Isso indica BUG no pipeline de dados`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌❌❌ BUG CRÍTICO DETECTADO! ❌❌❌`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Valor POSITIVO ${value} recebido para banda ${bandKey}!`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Bandas devem ter valores dBFS NEGATIVOS (ex: -23.8 dB)!`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Isso indica que analyzeBand() passou PERCENTAGE ao invés de energy_db!`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Parâmetros recebidos:`, { bandKey, value, target, tolerance, unit });
+    
+    // 🔥 CRIAR SUGESTÃO DE ERRO VISUAL PARA DEBUGGING
+    return {
+      message: `❌ ERRO: Banda ${bandKey} com valor ${value} (deveria ser dB negativo)`,
+      explanation: `BUG CRÍTICO: buildBandSuggestion() recebeu valor POSITIVO quando deveria ser dBFS NEGATIVO. Verifique analyzeBand() no console.`,
+      action: `Revisar logs do console - valor ${value} é inválido para dBFS.`
+    };
   }
   
   // === CALCULAR RANGE SEMPRE EM dB ===
@@ -311,6 +329,9 @@ export function buildBandSuggestion({
   message += `• Valor atual: ${value.toFixed(1)} dB\n`;
   message += `• Faixa ideal: ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
   message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
+  
+  // 🔥 LOG CRÍTICO: MENSAGEM FINAL GERADA
+  console.log(`[BUILD-BAND-SUGGESTION] ✅ Mensagem gerada para ${bandKey}:`, message);
   
   // === CONSTRUIR EXPLICAÇÃO ===
   let explanation = '';

@@ -443,6 +443,23 @@ class CoreMetricsProcessor {
             genreTargets: customTargets  // ✅ Já normalizado - { lufs: {target, tolerance}, bands: {sub: {target_db, tol_db}} }
           };            
           
+          // 🔥 LOG CRÍTICO: AUDITORIA COMPLETA DE consolidatedData.metrics.bands
+          console.log('[CORE-METRICS] ═══════════════════════════════════════════════════════════════');
+          console.log('[CORE-METRICS] 🔍 AUDITORIA: consolidatedData.metrics.bands MONTADO');
+          console.log('[CORE-METRICS] ═══════════════════════════════════════════════════════════════');
+          console.log('[CORE-METRICS] coreMetrics.spectralBands (FONTE):');
+          console.log('[CORE-METRICS] - sub.energy_db:', coreMetrics.spectralBands?.sub?.energy_db);
+          console.log('[CORE-METRICS] - sub.percentage:', coreMetrics.spectralBands?.sub?.percentage);
+          console.log('[CORE-METRICS] - bass.energy_db:', coreMetrics.spectralBands?.bass?.energy_db);
+          console.log('[CORE-METRICS] - bass.percentage:', coreMetrics.spectralBands?.bass?.percentage);
+          console.log('[CORE-METRICS]');
+          console.log('[CORE-METRICS] consolidatedData.metrics.bands (DESTINO):');
+          console.log('[CORE-METRICS] - sub.value:', consolidatedData.metrics.bands.sub.value);
+          console.log('[CORE-METRICS] - sub.unit:', consolidatedData.metrics.bands.sub.unit);
+          console.log('[CORE-METRICS] - bass.value:', consolidatedData.metrics.bands.bass.value);
+          console.log('[CORE-METRICS] - bass.unit:', consolidatedData.metrics.bands.bass.unit);
+          console.log('[CORE-METRICS] ═══════════════════════════════════════════════════════════════');
+          
           // REGRA 9: Logs de auditoria mostrando consolidatedData
           console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
           console.log('[AUDIT-CORRECTION] 📊 CONSOLIDATED DATA (core-metrics.js)');
