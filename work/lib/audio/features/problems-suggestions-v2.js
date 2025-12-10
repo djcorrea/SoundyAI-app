@@ -194,18 +194,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     };
   }
 
-  constructor(genre = 'default', customTargets = null) {
-    console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[ANALYZER-CONSTRUCTOR] ENTRADA DO CONSTRUTOR:');
-    console.log('[ANALYZER-CONSTRUCTOR] genre:', genre);
-    console.log('[ANALYZER-CONSTRUCTOR] customTargets:', customTargets ? 'presente' : 'NULL');
-    if (customTargets) {
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets keys:', Object.keys(customTargets));
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets.lufs:', customTargets.lufs);
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets.dr:', customTargets.dr);
-    }
-    console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
+  constructor(genre = 'default') {
     // 🛡️ Validar genre
     if (!genre || typeof genre !== 'string' || !genre.trim()) {
       console.error('[ANALYZER-ERROR] Genre inválido recebido:', genre);
@@ -215,57 +204,32 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     this.genre = genre.trim();
     this._originalGenre = genre.trim();
     
-    // 🔥 POLÍTICA RÍGIDA: customTargets é OBRIGATÓRIO
-    // NÃO usar fallback hardcoded (GENRE_THRESHOLDS foi removido)
-    if (!customTargets || typeof customTargets !== 'object' || Object.keys(customTargets).length === 0) {
-      console.error('[ANALYZER-ERROR] ❌ customTargets ausente ou inválido');
-      console.error('[ANALYZER-ERROR] O sistema EXIGE targets carregados do filesystem');
-      console.error('[ANALYZER-ERROR] Use: loadGenreTargetsFromWorker(genre)');
-      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets obrigatórios ausentes para gênero: ${genre}`);
-    }
-    
-    // ✅ Validar estrutura mínima de customTargets
-    const requiredMetrics = ['lufs', 'truePeak', 'dr', 'stereo', 'bands'];
-    const missingMetrics = requiredMetrics.filter(m => !customTargets[m]);
-    if (missingMetrics.length > 0) {
-      console.error('[ANALYZER-ERROR] ❌ customTargets incompleto. Faltam:', missingMetrics);
-      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets incompletos para ${genre}: faltam ${missingMetrics.join(', ')}`);
-    }
-    
-    console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
-    console.log('[PROBLEMS_V2] customTargets.lufs:', customTargets.lufs);
-    console.log('[PROBLEMS_V2] customTargets.dr:', customTargets.dr);
-    console.log('[PROBLEMS_V2] customTargets.bands keys:', Object.keys(customTargets.bands || {}));
-    
-    this.thresholds = customTargets;
-    this.targetsSource = 'filesystem';
-    
     this.severity = SEVERITY_SYSTEM;
     
+    console.log(`[PROBLEMS_V2] ✅ Analyzer criado para ${genre}`);
+    console.log(`[PROBLEMS_V2] 🎯 Usando APENAS consolidatedData (passado em cada análise)`);
+    
     logAudio('problems_v2', 'init', { 
-      genre: this.genre, 
-      thresholds: Object.keys(this.thresholds).length,
-      source: this.targetsSource
+      genre: this.genre
     });
   }
 
   /**
    * 🎯 HELPER CENTRALIZADO: Obter target e tolerance de forma segura
-   * Prioriza consolidatedData.genreTargets, depois customTargets
-   * Nunca usa fallback hardcoded (GENRE_THRESHOLDS)
+   * USA EXCLUSIVAMENTE consolidatedData.genreTargets
+   * SEM FALLBACKS, SEM customTargets, SEM GENRE_THRESHOLDS
    * 
    * ✅ CORREÇÃO CRÍTICA: Lê estruturas diferentes para bandas vs outras métricas
    * 
    * @param {string} metricKey - 'lufs', 'truePeak', 'dr', 'stereo', ou 'bands'
    * @param {string|null} bandKey - Nome da banda (se metricKey === 'bands')
    * @param {Object} consolidatedData - Dados consolidados do finalJSON
-   * @param {Object} customTargets - Targets carregados do filesystem
    * @returns {Object|null} { target, tolerance, critical, target_range? } ou null se não encontrado
    */
-  getMetricTarget(metricKey, bandKey, consolidatedData, customTargets) {
-    const genreTargets = consolidatedData?.genreTargets || customTargets || null;
+  getMetricTarget(metricKey, bandKey, consolidatedData) {
+    const genreTargets = consolidatedData?.genreTargets;
     if (!genreTargets) {
-      console.warn(`[TARGET-HELPER] ⚠️ Nenhum genreTargets disponível para ${metricKey}`);
+      console.error(`[TARGET-HELPER] ❌ consolidatedData.genreTargets ausente para ${metricKey}`);
       return null;
     }
 
@@ -318,49 +282,34 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🔍 Análise Completa com Sugestões Educativas
-   * 🔥 REFATORADO: Agora aceita consolidatedData opcional (finalJSON.data)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData (OBRIGATÓRIO)
    */
-  analyzeWithEducationalSuggestions(audioMetrics, consolidatedData = null) {
+  analyzeWithEducationalSuggestions(consolidatedData) {
     try {
-      console.log('[AUDIT-PROBLEMS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[AUDIT-PROBLEMS] DENTRO DO ANALYZER:');
-      console.log('[AUDIT-PROBLEMS] this._originalGenre:', this._originalGenre);
-      console.log('[AUDIT-PROBLEMS] this.genre:', this.genre);
-      console.log('[AUDIT-PROBLEMS] consolidatedData disponível:', !!consolidatedData);
-      
-      if (consolidatedData) {
-        console.log('[AUDIT-PROBLEMS] 📊 Usando metrics consolidados:', {
-          loudness: consolidatedData.metrics?.loudness?.value,
-          truePeak: consolidatedData.metrics?.truePeak?.value,
-          dr: consolidatedData.metrics?.dr?.value
-        });
-        console.log('[AUDIT-PROBLEMS] 🎯 Usando genreTargets consolidados:', {
-          lufs: consolidatedData.genreTargets?.lufs?.target,
-          truePeak: consolidatedData.genreTargets?.truePeak?.target,
-          dr: consolidatedData.genreTargets?.dr?.target
-        });
+      // ✅ VALIDAÇÃO ABSOLUTA: consolidatedData é OBRIGATÓRIO
+      if (!consolidatedData || !consolidatedData.metrics) {
+        console.error('[PROBLEMS_V2] ❌ consolidatedData.metrics ausente - impossível analisar');
+        throw new Error('consolidatedData.metrics não disponível');
       }
-      console.log('[AUDIT-PROBLEMS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      if (!consolidatedData.genreTargets) {
+        console.error('[PROBLEMS_V2] ❌ consolidatedData.genreTargets ausente - impossível analisar');
+        throw new Error('consolidatedData.genreTargets não disponível');
+      }
       
       logAudio('problems_v2', 'analysis_start', { genre: this.genre });
       
       const suggestions = [];
       const problems = [];
       
-      // 🔊 ANÁLISE LUFS - agora com consolidatedData
-      this.analyzeLUFS(audioMetrics, suggestions, problems, consolidatedData);
+      // 🎯 Usar EXCLUSIVAMENTE consolidatedData
+      this.analyzeLUFS(suggestions, problems, consolidatedData);
+      this.analyzeTruePeak(suggestions, problems, consolidatedData);
+      this.analyzeDynamicRange(suggestions, problems, consolidatedData);
+      this.analyzeStereoMetrics(suggestions, problems, consolidatedData);
       
-      // 🎯 ANÁLISE TRUE PEAK - agora com consolidatedData
-      this.analyzeTruePeak(audioMetrics, suggestions, problems, consolidatedData);
-      
-      // 📈 ANÁLISE DYNAMIC RANGE - agora com consolidatedData
-      this.analyzeDynamicRange(audioMetrics, suggestions, problems, consolidatedData);
-      
-      // 🎧 ANÁLISE STEREO - agora com consolidatedData
-      this.analyzeStereoMetrics(audioMetrics, suggestions, problems, consolidatedData);
-      
-      // 🌈 ANÁLISE BANDAS ESPECTRAIS - agora com consolidatedData
-      this.analyzeSpectralBands(audioMetrics, suggestions, problems, consolidatedData);
+      // 🌈 ANÁLISE BANDAS ESPECTRAIS
+      this.analyzeSpectralBands(suggestions, problems, consolidatedData);
       
       // 📊 RESUMO FINAL
       const summary = this.generateSummary(suggestions, problems);
@@ -444,20 +393,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🔊 Análise LUFS com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData.metrics e consolidatedData.genreTargets
    */
-  analyzeLUFS(metrics, suggestions, problems, consolidatedData = null) {
+  analyzeLUFS(suggestions, problems, consolidatedData) {
     // 🎯 Obter valor da métrica
     const metric = consolidatedData?.metrics?.loudness;
     if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][LUFS] ⚠️ Métrica LUFS não disponível');
+      console.error('[SUGGESTION_DEBUG][LUFS] ❌ consolidatedData.metrics.loudness ausente');
       return;
     }
 
     // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('lufs', null, consolidatedData, this.thresholds);
+    const targetInfo = this.getMetricTarget('lufs', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][LUFS] ⚠️ Target LUFS não disponível - pulando sugestão');
+      console.error('[SUGGESTION_DEBUG][LUFS] ❌ consolidatedData.genreTargets.lufs ausente - pulando sugestão');
       return;
     }
 
@@ -572,20 +521,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎯 Análise True Peak com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData.metrics e consolidatedData.genreTargets
    */
-  analyzeTruePeak(metrics, suggestions, problems, consolidatedData = null) {
+  analyzeTruePeak(suggestions, problems, consolidatedData) {
     // 🎯 Obter valor da métrica
     const metric = consolidatedData?.metrics?.truePeak;
     if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][TRUE_PEAK] ⚠️ Métrica True Peak não disponível');
+      console.error('[SUGGESTION_DEBUG][TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente');
       return;
     }
 
     // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData, this.thresholds);
+    const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][TRUE_PEAK] ⚠️ Target True Peak não disponível - pulando sugestão');
+      console.error('[SUGGESTION_DEBUG][TRUE_PEAK] ❌ consolidatedData.genreTargets.truePeak ausente - pulando sugestão');
       return;
     }
 
@@ -676,20 +625,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 📈 Análise Dynamic Range com Sugestões Educativas - SISTEMA 3 NÍVEIS POR GÊNERO
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData.metrics e consolidatedData.genreTargets
    */
-  analyzeDynamicRange(metrics, suggestions, problems, consolidatedData = null) {
+  analyzeDynamicRange(suggestions, problems, consolidatedData) {
     // 🎯 Obter valor da métrica
     const metric = consolidatedData?.metrics?.dr;
     if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][DR] ⚠️ Métrica DR não disponível');
+      console.error('[SUGGESTION_DEBUG][DR] ❌ consolidatedData.metrics.dr ausente');
       return;
     }
 
     // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('dr', null, consolidatedData, this.thresholds);
+    const targetInfo = this.getMetricTarget('dr', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][DR] ⚠️ Target DR não disponível - pulando sugestão');
+      console.error('[SUGGESTION_DEBUG][DR] ❌ consolidatedData.genreTargets.dr ausente - pulando sugestão');
       return;
     }
 
@@ -804,20 +753,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎧 Análise Stereo com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData.metrics e consolidatedData.genreTargets
    */
-  analyzeStereoMetrics(metrics, suggestions, problems, consolidatedData = null) {
+  analyzeStereoMetrics(suggestions, problems, consolidatedData) {
     // 🎯 Validar que temos métrica de stereo
     const metricStereo = consolidatedData?.metrics?.stereo;
     if (!metricStereo || typeof metricStereo.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][STEREO] ⚠️ Métrica stereo não disponível');
+      console.error('[SUGGESTION_DEBUG][STEREO] ❌ consolidatedData.metrics.stereo ausente');
       return;
     }
 
     // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('stereo', null, consolidatedData, this.thresholds);
+    const targetInfo = this.getMetricTarget('stereo', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][STEREO] ⚠️ Target não disponível - pulando sugestão');
+      console.error('[SUGGESTION_DEBUG][STEREO] ❌ consolidatedData.genreTargets.stereo ausente - pulando sugestão');
       return;
     }
 
@@ -995,20 +944,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎵 Análise Individual de Banda Espectral
-   * 🔥 REFATORADO: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands (SEM FALLBACK)
+   * 🔥 USA EXCLUSIVAMENTE consolidatedData.metrics.bands e consolidatedData.genreTargets.bands
    */
-  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData = null) {
+  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData) {
     // 🎯 FONTE ÚNICA: Valor medido do consolidatedData.metrics.bands
     const measured = consolidatedData?.metrics?.bands?.[bandKey]?.value;
     if (!Number.isFinite(measured)) {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Valor medido não disponível`);
+      console.error(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${bandKey} ausente`);
       return;
     }
 
     // 🎯 Obter target usando helper centralizado (ÚNICA FONTE DE TARGETS)
-    const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData, this.thresholds);
+    const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData);
     if (!targetInfo) {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Target não disponível - pulando sugestão`);
+      console.error(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ❌ consolidatedData.genreTargets.bands.${bandKey} ausente - pulando sugestão`);
       return;
     }
 
@@ -1310,78 +1259,55 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
 }
 
 /**
- * 🎯 Função Principal para Exportação
+ * 🏭 FUNÇÃO PRINCIPAL DE ANÁLISE - USA EXCLUSIVAMENTE finalJSON
  * 
- * @param {Object} audioMetrics - Métricas de áudio calculadas
- * @param {string} genre - Nome do gênero
- * @param {Object|null} customTargets - Targets carregados do filesystem (opcional)
- * @returns {Object} - Análise completa com sugestões
- */
-/**
- * 🎯 REFATORADO: Agora EXIGE customTargets e/ou finalJSON.data.genreTargets
- * Garante que TODAS as sugestões usem valores IDÊNTICOS aos da tabela de comparação
+ * @param {string} genre - Gênero musical
+ * @param {Object} finalJSON - JSON consolidado do backend (OBRIGATÓRIO)
  * 
- * @param {Object} audioMetrics - Métricas de áudio processadas
- * @param {string} genre - Gênero musical detectado
- * @param {Object} customTargets - OBRIGATÓRIO: Targets carregados do filesystem
- * @param {Object} finalJSON - Objeto completo com data.metrics e data.genreTargets
- * @returns {Object} - Análise completa com sugestões
- * @throws {Error} - Se customTargets ausente e finalJSON.data.genreTargets ausente
+ * @returns {Object} Análise completa com sugestões e problemas
+ * @throws {Error} - Se finalJSON.data ausente
  */
-export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
-  process.stderr.write("\n\n");
-  process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
-  process.stderr.write("║  🔥🔥🔥 DENTRO DO SUGGESTION ENGINE 🔥🔥🔥                    ║\n");
-  process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
-  process.stderr.write("[ENGINE] ⏰ Timestamp: " + new Date().toISOString() + "\n");
-  process.stderr.write("[ENGINE] 📥 Parâmetros recebidos:\n");
+export function analyzeProblemsAndSuggestionsV2(genre = 'default', finalJSON = null) {
+  console.error("\n════════════════════════════════════════════════════════════════");
+  console.error("🔍 SUGGESTION ENGINE V2 - INICIANDO");
+  console.error("════════════════════════════════════════════════════════════════");
   process.stderr.write("  - genre: " + genre + "\n");
-  process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
-  process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
+  process.stderr.write("  - finalJSON.data disponível?: " + !!finalJSON?.data + "\n");
+ * @returns {Object} Análise completa com sugestões e problemas
+ * @throws {Error} - Se finalJSON.data ausente
+ */
+export function analyzeProblemsAndSuggestionsV2(genre = 'default', finalJSON = null) {
+  console.error("\n════════════════════════════════════════════════════════════════");
+  console.error("🔍 SUGGESTION ENGINE V2 - INICIANDO");
+  console.error("════════════════════════════════════════════════════════════════");
+  process.stderr.write("  - genre: " + genre + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!finalJSON?.data + "\n");
   
-  // 🔥 VALIDAÇÃO CRÍTICA: Exigir targets válidos
-  const hasCustomTargets = customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0;
-  const hasGenreTargets = finalJSON?.data?.genreTargets && typeof finalJSON.data.genreTargets === 'object';
-  
-  if (!hasCustomTargets && !hasGenreTargets) {
-    process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: Nenhum target disponível!\n");
-    process.stderr.write("[ENGINE] ❌ customTargets: ausente ou vazio\n");
-    process.stderr.write("[ENGINE] ❌ finalJSON.data.genreTargets: ausente\n");
-    process.stderr.write("[ENGINE] ⚠️ Sistema NÃO PODE gerar sugestões sem targets\n");
+  // 🔥 VALIDAÇÃO CRÍTICA: Exigir finalJSON
+  if (!finalJSON?.data?.metrics) {
+    process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: finalJSON.data.metrics ausente!\n");
     process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
-    throw new Error(`[SUGGESTION_ENGINE] Targets obrigatórios ausentes para gênero: ${genre}. Use loadGenreTargetsFromWorker(genre).`);
+    throw new Error(`[SUGGESTION_ENGINE] finalJSON.data.metrics obrigatório para gênero: ${genre}`);
   }
   
-  // Usar finalJSON.data.genreTargets se disponível, senão customTargets
-  const effectiveTargets = hasGenreTargets ? finalJSON.data.genreTargets : customTargets;
+  if (!finalJSON?.data?.genreTargets) {
+    process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: finalJSON.data.genreTargets ausente!\n");
+    process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+    throw new Error(`[SUGGESTION_ENGINE] finalJSON.data.genreTargets obrigatório para gênero: ${genre}`);
+  }
   
-  process.stderr.write("[ENGINE] 🎯 Targets usados: " + (hasGenreTargets ? 'finalJSON.data.genreTargets' : 'customTargets') + "\n");
-  process.stderr.write("[ENGINE] 📊 Targets disponíveis: " + JSON.stringify(Object.keys(effectiveTargets)) + "\n");
+  process.stderr.write("[ENGINE] ✅ Usando finalJSON.data (metrics + genreTargets)\n");
   process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
   
-  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, effectiveTargets);
-  
-  // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
-  if (finalJSON?.data) {
-    console.error('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
-    return analyzer.analyzeWithEducationalSuggestions(audioMetrics, finalJSON.data);
-  } else {
-    console.error('[SUGGESTION_REFACTOR] ⚠️ Usando customTargets sem consolidatedData');
-    // Criar consolidatedData mínimo para compatibilidade
-    const minimalConsolidatedData = {
-      genreTargets: effectiveTargets,
-      metrics: null // Será preenchido pelo analyzer via audioMetrics
-    };
-    return analyzer.analyzeWithEducationalSuggestions(audioMetrics, minimalConsolidatedData);
-  }
+  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre);
+  return analyzer.analyzeWithEducationalSuggestions(finalJSON.data);
 }
 
 /**
  * 📋 Função de Compatibilidade com Sistema Antigo
  */
-export function analyzeProblemsAndSuggestions(audioMetrics, genre = 'default') {
-  return analyzeProblemsAndSuggestionsV2(audioMetrics, genre);
+export function analyzeProblemsAndSuggestions(genre = 'default', finalJSON = null) {
+  return analyzeProblemsAndSuggestionsV2(genre, finalJSON);
 }
 
 console.log('🎯 Problems & Suggestions Analyzer V2 carregado - Sistema educativo com criticidade por cores');
