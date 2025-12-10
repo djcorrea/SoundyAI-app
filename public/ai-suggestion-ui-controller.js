@@ -218,64 +218,34 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🤖 Verificar e processar sugestões IA
+     */
+    /**
      * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
      * Suporta: camelCase, snake_case, strings JSON, aninhamento profundo
      * Busca recursiva garante detecção em qualquer estrutura
-     * 
-     * ═══════════════════════════════════════════════════════════════
-     * 🔥 PARTE 2: PRIORIZAR SUGESTÕES ENRIQUECIDAS DO ULTRA_V2
-     * ═══════════════════════════════════════════════════════════════
-     * ORDEM DE PRIORIDADE:
-     * 1️⃣ analysis.aiSuggestions (vinculado pelo ULTRA_V2)
-     * 2️⃣ analysis.user.aiSuggestions (vinculado pelo ULTRA_V2)
-     * 3️⃣ userAnalysis.aiSuggestions (comparações A vs B)
-     * 4️⃣ Busca recursiva profunda (fallback final)
+     * 🔧 PRIORIDADE: userAnalysis.aiSuggestions (comparações A vs B)
      */
     extractAISuggestions(analysis) {
         console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
-        // 🎯 PRIORIDADE 1: analysis.aiSuggestions (FONTE PRIMÁRIA - vinculado pelo ULTRA_V2)
+        // 🎯 PRIORIDADE 1: analysis.aiSuggestions (nível raiz - backend envia aqui)
         if (Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0) {
-            console.log('');
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('✅ [AI-EXTRACT] Usando analysis.aiSuggestions como fonte primária');
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('[AI-EXTRACT] 📊 Quantidade total:', analysis.aiSuggestions.length);
-            console.log('[AI-EXTRACT] 🔍 Sample da primeira sugestão:', {
-                type: analysis.aiSuggestions[0]?.type,
-                message: analysis.aiSuggestions[0]?.message?.substring(0, 80) + '...',
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: NÍVEL RAIZ`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
                 categoria: analysis.aiSuggestions[0]?.categoria,
-                priority: analysis.aiSuggestions[0]?.priority,
-                hasEducationalContent: !!analysis.aiSuggestions[0]?.educationalContent
+                problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
+                aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
             });
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('');
             return analysis.aiSuggestions;
         }
 
-        // 🎯 PRIORIDADE 2: analysis.user.aiSuggestions (FALLBACK PRIMÁRIO - vinculado pelo ULTRA_V2)
-        if (analysis.user && Array.isArray(analysis.user.aiSuggestions) && analysis.user.aiSuggestions.length > 0) {
-            console.log('');
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('✅ [AI-EXTRACT] Usando analysis.user.aiSuggestions (fallback primário)');
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('[AI-EXTRACT] 📊 Quantidade total:', analysis.user.aiSuggestions.length);
-            console.log('[AI-EXTRACT] 🔍 Sample da primeira sugestão:', {
-                type: analysis.user.aiSuggestions[0]?.type,
-                message: analysis.user.aiSuggestions[0]?.message?.substring(0, 80) + '...',
-                categoria: analysis.user.aiSuggestions[0]?.categoria,
-                priority: analysis.user.aiSuggestions[0]?.priority
-            });
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('');
-            return analysis.user.aiSuggestions;
-        }
-
-        // 🎯 PRIORIDADE 3: userAnalysis.aiSuggestions (comparações A vs B)
+        // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
         if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-EXTRACT] ⚠️ Usando userAnalysis.aiSuggestions (comparações A vs B)`, 'color:#FFD700;font-weight:bold;');
-            console.log(`%c[AI-EXTRACT] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#FFD700;font-weight:bold;');
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
             console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
                 categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
                 problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
@@ -283,14 +253,14 @@ class AISuggestionUIController {
             return analysis.userAnalysis.aiSuggestions;
         }
         
-        // 🎯 PRIORIDADE 4: referenceAnalysis.aiSuggestions
+        // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
         if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-EXTRACT] ⚠️ Usando referenceAnalysis.aiSuggestions`, 'color:#FFD700;font-weight:bold;');
-            console.log(`%c[AI-EXTRACT] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#FFD700;font-weight:bold;');
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
             return analysis.referenceAnalysis.aiSuggestions;
         }
         
-        // 🎯 PRIORIDADE 5: analysis.suggestions (fallback genérico)
+        // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
         if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
             // Verificar se são sugestões IA (com aiEnhanced ou campos específicos)
             const hasAIFields = analysis.suggestions.some(s => 
@@ -299,24 +269,23 @@ class AISuggestionUIController {
             );
             
             if (hasAIFields) {
-                console.log(`%c[AI-EXTRACT] ⚠️ Usando analysis.suggestions (fallback genérico)`, 'color:#FFA500;font-weight:bold;');
-                console.log(`%c[AI-EXTRACT] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFA500;font-weight:bold;');
+                console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
+                console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
                 return analysis.suggestions;
             }
         }
 
-        // 🔹 Função auxiliar de busca recursiva (fallback final)
-        console.log('[AI-EXTRACT] ⚠️ Fontes primárias não encontradas, iniciando busca recursiva...');
+        // 🔹 Função auxiliar de busca recursiva (fallback)
         const deepSearch = (obj, path = '') => {
             if (!obj || typeof obj !== 'object') return null;
 
             // Verifica variantes possíveis (camelCase e snake_case)
             if (Array.isArray(obj.aiSuggestions) && obj.aiSuggestions.length > 0) {
-                console.log(`%c[AI-EXTRACT] 📍 Encontrado em caminho: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
                 return obj.aiSuggestions;
             }
             if (Array.isArray(obj.ai_suggestions) && obj.ai_suggestions.length > 0) {
-                console.log(`%c[AI-EXTRACT] 📍 Encontrado em caminho: ${path || 'raiz'}.ai_suggestions (snake_case)`, 'color:#00FF88;');
+                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.ai_suggestions (snake_case)`, 'color:#00FF88;');
                 return obj.ai_suggestions;
             }
 
@@ -325,7 +294,7 @@ class AISuggestionUIController {
                 try {
                     const parsed = JSON.parse(obj.aiSuggestions);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log(`%c[AI-EXTRACT] 📍 Encontrado stringificado em: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
                         return parsed;
                     }
                 } catch (err) {
@@ -336,7 +305,7 @@ class AISuggestionUIController {
                 try {
                     const parsed = JSON.parse(obj.ai_suggestions);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log(`%c[AI-EXTRACT] 📍 Encontrado stringificado em: ${path || 'raiz'}.ai_suggestions`, 'color:#00FF88;');
+                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.ai_suggestions`, 'color:#00FF88;');
                         return parsed;
                     }
                 } catch (err) {
@@ -1001,52 +970,33 @@ class AISuggestionUIController {
             
             console.log(`[AI-UI][VALIDATION] ✅ Target encontrado para "${metric}":`, { realTarget, realRange });
             
-            // ═══════════════════════════════════════════════════════════════
-            // 🔥 PARTE 3: VALIDAÇÃO COM TARGETS (SEM REESCREVER TEXTO)
-            // ═══════════════════════════════════════════════════════════════
-            // APENAS loga divergências entre texto da sugestão e targets reais
-            // NÃO reescreve o texto (preserva conteúdo do ULTRA_V2)
-            
+            // Corrigir textos que mencionam valores "ideal" incorretos
             const correctedSuggestion = { ...suggestion };
             
             // Regex para encontrar padrões como "ideal: -14 dB" ou "target: -29 dB"
-            const idealRegex = /(ideal|target|alvo|objetivo|máximo seguro|recomendado):\s*[-+]?\d+\.?\d*\s*(dB|LUFS|dBTP)/gi;
+            const idealRegex = /(ideal|target|alvo|objetivo):\s*[-+]?\d+\.?\d*\s*(dB|LUFS)/gi;
             
             ['problema', 'message', 'causaProvavel', 'solucao', 'action'].forEach(field => {
                 if (correctedSuggestion[field] && typeof correctedSuggestion[field] === 'string') {
                     const original = correctedSuggestion[field];
+                    const corrected = original.replace(idealRegex, (match) => {
+                        if (realTarget) {
+                            return match.replace(/[-+]?\d+\.?\d*/, realTarget.toFixed(1));
+                        }
+                        return match; // Manter original se não tiver target
+                    });
                     
-                    // Extrair valores mencionados no texto
-                    const matches = [...original.matchAll(idealRegex)];
-                    
-                    if (matches.length > 0 && realTarget !== null) {
-                        matches.forEach(match => {
-                            const fullMatch = match[0];
-                            const extractedValue = parseFloat(fullMatch.match(/[-+]?\d+\.?\d*/)[0]);
-                            
-                            // Verificar divergência (tolerância de 0.1)
-                            if (Math.abs(extractedValue - realTarget) > 0.1) {
-                                console.warn('');
-                                console.warn('═══════════════════════════════════════════════════════════════');
-                                console.warn(`⚠️ [AI-UI][VALIDATION] DIVERGÊNCIA DETECTADA em "${metric}"`);
-                                console.warn('═══════════════════════════════════════════════════════════════');
-                                console.warn(`[AI-UI][VALIDATION] 📍 Campo: "${field}"`);
-                                console.warn(`[AI-UI][VALIDATION] 📝 Texto da sugestão: "${fullMatch}"`);
-                                console.warn(`[AI-UI][VALIDATION] 🎯 Valor extraído do texto: ${extractedValue}`);
-                                console.warn(`[AI-UI][VALIDATION] ✅ Target real (genreTargets): ${realTarget}`);
-                                console.warn(`[AI-UI][VALIDATION] 📊 Diferença: ${Math.abs(extractedValue - realTarget).toFixed(2)}`);
-                                console.warn(`[AI-UI][VALIDATION] 📄 Trecho completo: "${original.substring(0, 100)}..."`);
-                                console.warn('═══════════════════════════════════════════════════════════════');
-                                console.warn('');
-                            } else {
-                                console.log(`[AI-UI][VALIDATION] ✅ Valor correto em "${field}" para "${metric}": ${extractedValue} ≈ ${realTarget}`);
-                            }
+                    if (original !== corrected) {
+                        console.log(`[AI-UI][VALIDATION] 🔧 Corrigido "${metric}":`, {
+                            original: original.substring(0, 60) + '...',
+                            corrected: corrected.substring(0, 60) + '...'
                         });
+                        correctedSuggestion[field] = corrected;
                     }
                 }
             });
             
-            // Adicionar badge de conformidade (metadados, sem alterar texto)
+            // Adicionar badge de conformidade
             correctedSuggestion._validated = true;
             correctedSuggestion._realTarget = realTarget;
             correctedSuggestion._realRange = realRange;
