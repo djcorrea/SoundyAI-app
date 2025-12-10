@@ -1,9 +1,10 @@
 // work/lib/user/userPlans.js
 // Sistema de planos e limites para SoundyAI
 
-import admin from "firebase-admin";
+import { getFirestore } from "../../../firebase/admin.js";
 
-const db = admin.firestore();
+// ✅ Obter db via função (lazy loading) ao invés de top-level
+const getDb = () => getFirestore();
 const USERS = "usuarios"; // Coleção existente no Firestore
 
 const PLAN_LIMITS = {
@@ -21,7 +22,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
  * @returns {Promise<Object>} Perfil do usuário
  */
 export async function getOrCreateUser(uid, extra = {}) {
-  const ref = db.collection(USERS).doc(uid);
+  const ref = getDb().collection(USERS).doc(uid);
   const snap = await ref.get();
 
   if (!snap.exists) {
@@ -107,7 +108,7 @@ async function normalizeUser(ref, data) {
 export async function applyPlan(uid, { plan, durationDays }) {
   console.log(`💳 [USER-PLANS] Aplicando plano ${plan} para ${uid} (${durationDays} dias)`);
   
-  const ref = db.collection(USERS).doc(uid);
+  const ref = getDb().collection(USERS).doc(uid);
   await getOrCreateUser(uid);
 
   const now = Date.now();
@@ -157,7 +158,7 @@ export async function canUseChat(uid) {
  * @returns {Promise<void>}
  */
 export async function registerChat(uid) {
-  const ref = db.collection(USERS).doc(uid);
+  const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
 
   await ref.update({
@@ -196,7 +197,7 @@ export async function canUseAnalysis(uid) {
  * @returns {Promise<void>}
  */
 export async function registerAnalysis(uid) {
-  const ref = db.collection(USERS).doc(uid);
+  const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
 
   await ref.update({
