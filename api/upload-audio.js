@@ -9,12 +9,8 @@
 import fs from "fs";
 import formidable from "formidable";
 import s3 from "./b2.js"; // 👉 usa configuração do Backblaze S3
-import { auth } from './firebaseAdmin.js';
 
-// 🔧 SISTEMA DE PLANOS E LIMITES
-import { canUseAnalysis, registerAnalysis } from '../work/lib/user/userPlans.js';
-
-// 🚫 Importante: desabilita bodyParser do Next/Express
+//  Importante: desabilita bodyParser do Next/Express
 export const config = {
   api: {
     bodyParser: false,
@@ -82,41 +78,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 🔧 AUTENTICAÇÃO E VERIFICAÇÃO DE LIMITES
-      const idToken = fields.idToken || req.headers.authorization?.split('Bearer ')[1];
-      
-      if (!idToken) {
-        return res.status(401).json({
-          error: "AUTH_REQUIRED",
-          message: "Token de autenticação necessário"
-        });
-      }
-
-      let decoded;
-      try {
-        decoded = await auth.verifyIdToken(idToken);
-      } catch (authError) {
-        console.error("[UPLOAD] Erro na autenticação:", authError);
-        return res.status(401).json({
-          error: "AUTH_INVALID",
-          message: "Token inválido ou expirado"
-        });
-      }
-
-      const uid = decoded.uid;
-
-      // 🔧 VERIFICAR LIMITE DE ANÁLISES
-      const analysisCheck = await canUseAnalysis(uid);
-      if (!analysisCheck.allowed) {
-        return res.status(429).json({
-          error: "limit_reached",
-          message: "Você atingiu o limite diário de análises.",
-          plan: analysisCheck.user.plan,
-          remaining: 0,
-          resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
-        });
-      }
-
       const file = files.file; // 👈 nome do campo no frontend
       if (!file) {
         return res.status(400).json({
@@ -159,9 +120,6 @@ if (!validateFileType(mimetype, filename)) {
         .promise();
 
       console.log(`[UPLOAD] Arquivo salvo no bucket: ${fileKey}`);
-
-      // 🔧 REGISTRAR USO DE ANÁLISE
-      await registerAnalysis(uid);
 
       // ✅ Resposta no formato esperado
       return res.status(200).json({
