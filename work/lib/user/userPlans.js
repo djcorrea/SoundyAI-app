@@ -1,5 +1,5 @@
 // work/lib/user/userPlans.js
-// Sistema de planos e limites para SoundyAI
+// Sistema de planos e limites mensais para SoundyAI
 
 import { getFirestore } from "../../../firebase/admin.js";
 
@@ -7,35 +7,117 @@ import { getFirestore } from "../../../firebase/admin.js";
 const getDb = () => getFirestore();
 const USERS = "usuarios"; // Coleção existente no Firestore
 
-console.log(`🔥 [USER-PLANS] Módulo carregado - Collection: ${USERS}`);
+console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 
-// ✅ Sistema de limites mensais
+// ✅ Sistema de limites mensais (NOVA ESTRUTURA)
 const PLAN_LIMITS = {
   free: {
     maxMessagesPerMonth: 20,
     maxFullAnalysesPerMonth: 3,
-    hardCapAnalysesPerMonth: 3,
+    hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
+    allowReducedAfterLimit: true,
   },
   plus: {
     maxMessagesPerMonth: 60,
     maxFullAnalysesPerMonth: 20,
-    hardCapAnalysesPerMonth: 20,
+    hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
+    allowReducedAfterLimit: true,
   },
   pro: {
     maxMessagesPerMonth: Infinity,
     maxFullAnalysesPerMonth: Infinity,
-    hardCapAnalysesPerMonth: 200,
+    hardCapAnalysesPerMonth: 200,         // Hard cap: 200/mês e bloqueia
+    allowReducedAfterLimit: false,        // Sem reduced, só erro
   },
 };
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
-
 /**
  * Helper: retorna o mês atual no formato YYYY-MM (ex: "2025-12")
+ * @param {Date} now - Data de referência (default: new Date())
  * @returns {string} Mês atual
  */
-const getCurrentMonthKey = () => new Date().toISOString().slice(0, 7);
+function getCurrentMonthKey(now = new Date()) {
+  return now.toISOString().slice(0, 7); // "YYYY-MM"
+}
 
+/**
+ * Normalizar documento do usuário: aplicar reset mensal lazy se necessário
+ * @param {Object} user - Dados do usuário
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Date} now - Data de referência (default: new Date())
+ * @returns {Promise<Object>} Dados normalizados
+ */
+async function normalizeUserDoc(user, uid, now = new Date()) {
+  let changed = false;
+  const currentMonth = getCurrentMonthKey(now); // "2025-12"
+  
+  // ✅ Garantir que plan existe
+  if (!user.plan) {
+    user.plan = "free";
+    changed = true;
+  }
+  
+  // ✅ Garantir que analysesMonth e messagesMonth existam e sejam números
+  if (typeof user.analysesMonth !== 'number' || isNaN(user.analysesMonth)) {
+    user.analysesMonth = 0;
+    changed = true;
+  }
+  
+  if (typeof user.messagesMonth !== 'number' || isNaN(user.messagesMonth)) {
+    user.messagesMonth = 0;
+    changed = true;
+  }
+  
+  // ✅ Garantir que billingMonth existe
+  if (!user.billingMonth) {
+    user.billingMonth = currentMonth;
+    changed = true;
+  }
+  
+  // ✅ RESET MENSAL LAZY: Se mudou o mês, zerar contadores
+  if (user.billingMonth !== currentMonth) {
+    console.log(`🔄 [USER-PLANS] Reset mensal aplicado para UID=${uid} (${user.billingMonth} → ${currentMonth})`);
+    user.analysesMonth = 0;
+    user.messagesMonth = 0;
+    user.billingMonth = currentMonth;
+    changed = true;
+  }
+  
+  // ✅ Verificar expiração do plano Plus
+  if (user.plusExpiresAt && Date.now() > new Date(user.plusExpiresAt).getTime() && user.plan === "plus") {
+    console.log(`⏰ [USER-PLANS] Plano Plus expirado para: ${uid}`);
+    user.plan = "free";
+    changed = true;
+  }
+  
+  // ✅ Verificar expiração do plano Pro
+  if (user.proExpiresAt && Date.now() > new Date(user.proExpiresAt).getTime() && user.plan === "pro") {
+    console.log(`⏰ [USER-PLANS] Plano Pro expirado para: ${uid}`);
+    user.plan = "free";
+    changed = true;
+  }
+  
+  // ✅ Persistir no Firestore apenas se houver mudanças
+  if (changed) {
+    const nowISO = now.toISOString();
+    const ref = getDb().collection(USERS).doc(uid);
+    
+    await ref.update({
+      plan: user.plan,
+      analysesMonth: user.analysesMonth,
+      messagesMonth: user.messagesMonth,
+      billingMonth: user.billingMonth,
+      plusExpiresAt: user.plusExpiresAt || null,
+      proExpiresAt: user.proExpiresAt || null,
+      updatedAt: nowISO,
+    });
+    
+    user.updatedAt = nowISO;
+    console.log(`💾 [USER-PLANS] Usuário normalizado e salvo: ${uid} (plan: ${user.plan}, billingMonth: ${user.billingMonth})`);
+  }
+  
+  return user;
+}
 /**
  * Buscar ou criar usuário no Firestore
  * @param {string} uid - UID do Firebase Auth
@@ -56,17 +138,23 @@ export async function getOrCreateUser(uid, extra = {}) {
     console.log(`📊 [USER-PLANS] Snapshot obtido - Existe: ${snap.exists}`);
 
     if (!snap.exists) {
-      const now = new Date().toISOString();
+      const now = new Date();
+      const nowISO = now.toISOString();
+      const currentMonth = getCurrentMonthKey(now);
+      
       const profile = {
         uid,
         plan: "free",
         plusExpiresAt: null,
         proExpiresAt: null,
-        messagesToday: 0,
-        analysesToday: 0,
-        lastResetAt: todayISO(),
-        createdAt: now,
-        updatedAt: now,
+        
+        // ✅ NOVOS CAMPOS MENSAIS
+        messagesMonth: 0,
+        analysesMonth: 0,
+        billingMonth: currentMonth,
+        
+        createdAt: nowISO,
+        updatedAt: nowISO,
         ...extra,
       };
       
@@ -74,12 +162,12 @@ export async function getOrCreateUser(uid, extra = {}) {
       console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
       
       await ref.set(profile);
-      console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: free)`);
+      console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: free, billingMonth: ${currentMonth})`);
       return profile;
     }
 
     console.log(`♻️ [USER-PLANS] Usuário já existe, normalizando...`);
-    return normalizeUser(ref, snap.data());
+    return normalizeUserDoc(snap.data(), uid);
     
   } catch (error) {
     console.error(`❌ [USER-PLANS] ERRO CRÍTICO em getOrCreateUser:`);
@@ -89,59 +177,6 @@ export async function getOrCreateUser(uid, extra = {}) {
     console.error(`   Stack:`, error.stack);
     throw error;
   }
-}
-
-/**
- * Normalizar usuário: verificar expiração + reset mensal
- * @param {FirestoreDocRef} ref - Referência do documento
- * @param {Object} data - Dados atuais do usuário
- * @returns {Promise<Object>} Dados normalizados
- */
-async function normalizeUser(ref, data) {
-  let changed = false;
-  const now = new Date().toISOString();
-  const currentMonth = getCurrentMonthKey(); // "2025-12"
-  const lastResetMonth = (data.lastResetAt || "").slice(0, 7); // "2025-11"
-
-  // Verificar expiração do plano Plus
-  if (data.plusExpiresAt && Date.now() > new Date(data.plusExpiresAt).getTime() && data.plan === "plus") {
-    console.log(`⏰ [USER-PLANS] Plano Plus expirado para: ${data.uid}`);
-    data.plan = "free";
-    changed = true;
-  }
-
-  // Verificar expiração do plano Pro
-  if (data.proExpiresAt && Date.now() > new Date(data.proExpiresAt).getTime() && data.plan === "pro") {
-    console.log(`⏰ [USER-PLANS] Plano Pro expirado para: ${data.uid}`);
-    data.plan = "free";
-    changed = true;
-  }
-
-  // ✅ Reset mensal de contadores (não mais diário)
-  if (lastResetMonth !== currentMonth) {
-    console.log(`🔄 [USER-PLANS] Reset mensal para: ${data.uid} (último: ${lastResetMonth}, atual: ${currentMonth})`);
-    data.messagesToday = 0; // Reaproveitado como contador do mês
-    data.analysesToday = 0; // Reaproveitado como contador do mês
-    data.lastResetAt = now; // ISO completo
-    changed = true;
-  }
-
-  // Atualizar Firestore se houver mudanças
-  if (changed) {
-    data.updatedAt = now;
-    await ref.update({
-      plan: data.plan,
-      plusExpiresAt: data.plusExpiresAt || null,
-      proExpiresAt: data.proExpiresAt || null,
-      messagesToday: data.messagesToday,
-      analysesToday: data.analysesToday,
-      lastResetAt: data.lastResetAt,
-      updatedAt: now,
-    });
-    console.log(`💾 [USER-PLANS] Usuário atualizado: ${data.uid} (plan: ${data.plan})`);
-  }
-
-  return data;
 }
 
 /**
@@ -178,23 +213,35 @@ export async function applyPlan(uid, { plan, durationDays }) {
 /**
  * Verificar se usuário pode usar chat
  * @param {string} uid - UID do Firebase Auth
- * @returns {Promise<Object>} { allowed: boolean, user: Object, remaining: number }
+ * @returns {Promise<Object>} { allowed: boolean, user: Object, remaining: number, errorCode?: string }
  */
 export async function canUseChat(uid) {
   const user = await getOrCreateUser(uid);
-  const limits = PLAN_LIMITS[user.plan];
+  await normalizeUserDoc(user, uid);
+  
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
 
   if (limits.maxMessagesPerMonth === Infinity) {
     console.log(`✅ [USER-PLANS] Chat permitido (ilimitado): ${uid} (plan: ${user.plan})`);
     return { allowed: true, user, remaining: Infinity };
   }
 
-  const remaining = limits.maxMessagesPerMonth - (user.messagesToday || 0);
-  const allowed = remaining > 0;
+  const current = user.messagesMonth || 0;
   
-  console.log(`🔍 [USER-PLANS] Chat check: ${uid} (${user.messagesToday}/${limits.maxMessagesPerMonth} mensagens no mês) - ${allowed ? 'OK' : 'BLOQUEADO'}`);
+  if (current >= limits.maxMessagesPerMonth) {
+    console.log(`🚫 [USER-PLANS] Chat BLOQUEADO: ${uid} (${current}/${limits.maxMessagesPerMonth} mensagens no mês)`);
+    return { 
+      allowed: false, 
+      user, 
+      remaining: 0,
+      errorCode: 'LIMIT_REACHED'
+    };
+  }
   
-  return { allowed, user, remaining: Math.max(0, remaining) };
+  const remaining = limits.maxMessagesPerMonth - current;
+  console.log(`✅ [USER-PLANS] Chat permitido: ${uid} (${current}/${limits.maxMessagesPerMonth} mensagens no mês) - ${remaining} restantes`);
+  
+  return { allowed: true, user, remaining };
 }
 
 /**
@@ -205,95 +252,89 @@ export async function canUseChat(uid) {
 export async function registerChat(uid) {
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
+  await normalizeUserDoc(user, uid);
+
+  const newCount = (user.messagesMonth || 0) + 1;
 
   await ref.update({
-    messagesToday: (user.messagesToday || 0) + 1,
+    messagesMonth: newCount,
     updatedAt: new Date().toISOString(),
   });
   
-  console.log(`📝 [USER-PLANS] Chat registrado: ${uid} (total: ${(user.messagesToday || 0) + 1})`);
+  console.log(`📝 [USER-PLANS] Chat registrado: ${uid} (total no mês: ${newCount})`);
 }
 
 /**
  * Verificar se usuário pode usar análise de áudio
  * @param {string} uid - UID do Firebase Auth
- * @returns {Promise<Object>} { allowed: boolean, mode: "full"|"reduced"|"blocked", user: Object, remainingFull: number }
+ * @returns {Promise<Object>} { allowed: boolean, mode: "full"|"reduced"|"blocked", user: Object, remainingFull: number, errorCode?: string }
  */
 export async function canUseAnalysis(uid) {
   const user = await getOrCreateUser(uid);
-  const limits = PLAN_LIMITS[user.plan];
-  const currentAnalyses = user.analysesToday || 0;
+  await normalizeUserDoc(user, uid);
+  
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  const currentMonthAnalyses = user.analysesMonth || 0;
 
-  // FREE: 3 análises completas, depois modo reduzido
-  if (user.plan === "free") {
-    if (currentAnalyses < limits.maxFullAnalysesPerMonth) {
-      console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (FREE): ${uid} (${currentAnalyses}/${limits.maxFullAnalysesPerMonth})`);
-      return {
-        allowed: true,
-        mode: "full",
-        user,
-        remainingFull: limits.maxFullAnalysesPerMonth - currentAnalyses,
-      };
-    } else {
-      console.log(`⚠️ [USER-PLANS] Análise em MODO REDUZIDO (FREE): ${uid} (${currentAnalyses}/${limits.maxFullAnalysesPerMonth} completas usadas)`);
-      return {
-        allowed: true,
-        mode: "reduced",
-        user,
-        remainingFull: 0,
-      };
-    }
+  // ✅ HARD CAP (PRO): Após 200 análises/mês → BLOQUEAR
+  if (limits.hardCapAnalysesPerMonth != null && 
+      currentMonthAnalyses >= limits.hardCapAnalysesPerMonth) {
+    console.log(`🚫 [USER-PLANS] HARD CAP ATINGIDO: ${uid} (${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth}) - BLOQUEADO`);
+    return {
+      allowed: false,
+      mode: 'blocked',
+      user,
+      remainingFull: 0,
+      errorCode: 'LIMIT_REACHED',
+    };
   }
 
-  // PLUS: 20 análises completas, depois modo reduzido
-  if (user.plan === "plus") {
-    if (currentAnalyses < limits.maxFullAnalysesPerMonth) {
-      console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (PLUS): ${uid} (${currentAnalyses}/${limits.maxFullAnalysesPerMonth})`);
-      return {
-        allowed: true,
-        mode: "full",
-        user,
-        remainingFull: limits.maxFullAnalysesPerMonth - currentAnalyses,
-      };
-    } else {
-      console.log(`⚠️ [USER-PLANS] Análise em MODO REDUZIDO (PLUS): ${uid} (${currentAnalyses}/${limits.maxFullAnalysesPerMonth} completas usadas)`);
-      return {
-        allowed: true,
-        mode: "reduced",
-        user,
-        remainingFull: 0,
-      };
-    }
+  // ✅ ANÁLISES FULL ILIMITADAS (PRO antes do hard cap)
+  if (limits.maxFullAnalysesPerMonth === Infinity) {
+    const remaining = limits.hardCapAnalysesPerMonth 
+      ? limits.hardCapAnalysesPerMonth - currentMonthAnalyses 
+      : Infinity;
+    
+    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth || '∞'})`);
+    return {
+      allowed: true,
+      mode: 'full',
+      user,
+      remainingFull: remaining,
+    };
   }
 
-  // PRO: 200 análises hard cap, depois bloqueia
-  if (user.plan === "pro") {
-    if (currentAnalyses < limits.hardCapAnalysesPerMonth) {
-      console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (PRO): ${uid} (${currentAnalyses}/${limits.hardCapAnalysesPerMonth})`);
-      return {
-        allowed: true,
-        mode: "full",
-        user,
-        remainingFull: limits.hardCapAnalysesPerMonth - currentAnalyses,
-      };
-    } else {
-      console.log(`🚫 [USER-PLANS] HARD CAP ATINGIDO (PRO): ${uid} (${currentAnalyses}/${limits.hardCapAnalysesPerMonth})`);
-      return {
-        allowed: false,
-        mode: "blocked",
-        user,
-        remainingFull: 0,
-      };
-    }
+  // ✅ ANÁLISES FULL LIMITADAS (FREE/PLUS)
+  if (currentMonthAnalyses < limits.maxFullAnalysesPerMonth) {
+    const remaining = limits.maxFullAnalysesPerMonth - currentMonthAnalyses;
+    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth}) - ${remaining} restantes`);
+    return {
+      allowed: true,
+      mode: 'full',
+      user,
+      remainingFull: remaining,
+    };
   }
 
-  // Fallback (não deveria chegar aqui)
-  console.error(`❌ [USER-PLANS] Plano desconhecido: ${user.plan} para ${uid}`);
+  // ✅ MODO REDUZIDO (FREE/PLUS após limite de full)
+  if (limits.allowReducedAfterLimit) {
+    console.log(`⚠️ [USER-PLANS] Análise em MODO REDUZIDO (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth} completas usadas)`);
+    return {
+      allowed: true,
+      mode: 'reduced',
+      user,
+      remainingFull: 0,
+    };
+  }
+
+  // ✅ FALLBACK: BLOQUEADO (não deveria chegar aqui)
+  console.error(`❌ [USER-PLANS] Estado inesperado para ${uid} (plan: ${user.plan})`);
   return {
     allowed: false,
-    mode: "blocked",
+    mode: 'blocked',
     user,
     remainingFull: 0,
+    errorCode: 'LIMIT_REACHED',
   };
 }
 
@@ -312,13 +353,16 @@ export async function registerAnalysis(uid, mode = "full") {
 
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
+  await normalizeUserDoc(user, uid);
+
+  const newCount = (user.analysesMonth || 0) + 1;
 
   await ref.update({
-    analysesToday: (user.analysesToday || 0) + 1,
+    analysesMonth: newCount,
     updatedAt: new Date().toISOString(),
   });
   
-  console.log(`📝 [USER-PLANS] Análise COMPLETA registrada: ${uid} (total no mês: ${(user.analysesToday || 0) + 1})`);
+  console.log(`📝 [USER-PLANS] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
 }
 
 /**
@@ -328,22 +372,42 @@ export async function registerAnalysis(uid, mode = "full") {
  */
 export async function getUserPlanInfo(uid) {
   const user = await getOrCreateUser(uid);
-  const limits = PLAN_LIMITS[user.plan];
+  await normalizeUserDoc(user, uid);
+  
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  
+  // Análises: calcular limite correto baseado no plano
+  let analysesLimit;
+  let analysesRemaining;
+  
+  if (limits.maxFullAnalysesPerMonth === Infinity) {
+    // PRO: mostrar hard cap
+    analysesLimit = limits.hardCapAnalysesPerMonth;
+    analysesRemaining = Math.max(0, analysesLimit - (user.analysesMonth || 0));
+  } else {
+    // FREE/PLUS: mostrar limite de full analyses
+    analysesLimit = limits.maxFullAnalysesPerMonth;
+    analysesRemaining = Math.max(0, analysesLimit - (user.analysesMonth || 0));
+  }
   
   return {
     plan: user.plan,
-    messagesToday: user.messagesToday || 0,
+    
+    // Mensagens
+    messagesMonth: user.messagesMonth || 0,
     messagesLimit: limits.maxMessagesPerMonth,
     messagesRemaining: limits.maxMessagesPerMonth === Infinity 
       ? Infinity 
-      : Math.max(0, limits.maxMessagesPerMonth - (user.messagesToday || 0)),
-    analysesToday: user.analysesToday || 0,
-    analysesLimit: limits.maxFullAnalysesPerMonth === Infinity ? limits.hardCapAnalysesPerMonth : limits.maxFullAnalysesPerMonth,
-    analysesRemaining: limits.maxFullAnalysesPerMonth === Infinity 
-      ? Math.max(0, limits.hardCapAnalysesPerMonth - (user.analysesToday || 0))
-      : Math.max(0, limits.maxFullAnalysesPerMonth - (user.analysesToday || 0)),
+      : Math.max(0, limits.maxMessagesPerMonth - (user.messagesMonth || 0)),
+    
+    // Análises
+    analysesMonth: user.analysesMonth || 0,
+    analysesLimit,
+    analysesRemaining,
+    
+    // Billing
+    billingMonth: user.billingMonth,
     expiresAt: user.plan === 'plus' ? user.plusExpiresAt : (user.plan === 'pro' ? user.proExpiresAt : null),
-    lastResetAt: user.lastResetAt,
   };
 }
 
@@ -354,33 +418,34 @@ export async function getUserPlanInfo(uid) {
  * @returns {Object} Features disponíveis
  */
 export function getPlanFeatures(plan, analysisMode) {
-  const base = {
-    canSuggestions: false,
-    canUltraSuggestions: false,
-    canSpectralAdvanced: false,
-    canHelpAI: false,
-    canPDF: false,
-  };
+  const p = plan || 'free';
+  const isFull = analysisMode === 'full';
 
-  if (plan === "free") return base;
-
-  if (plan === "plus") {
-    return {
-      ...base,
-      canSuggestions: analysisMode === "full", // Só em análise completa
-    };
-  }
-
-  if (plan === "pro") {
-    if (analysisMode === "blocked") return base;
+  // PRO: Todas as features (sempre)
+  if (p === 'pro') {
     return {
       canSuggestions: true,
-      canUltraSuggestions: analysisMode === "full",
-      canSpectralAdvanced: analysisMode === "full",
-      canHelpAI: analysisMode === "full",
-      canPDF: analysisMode === "full",
+      canSpectralAdvanced: true,
+      canAiHelp: true,
+      canPdf: true,
     };
   }
 
-  return base;
+  // PLUS: Sugestões apenas em análise full
+  if (p === 'plus') {
+    return {
+      canSuggestions: isFull,
+      canSpectralAdvanced: false,
+      canAiHelp: false,
+      canPdf: false,
+    };
+  }
+
+  // FREE: Sem features extras
+  return {
+    canSuggestions: false,
+    canSpectralAdvanced: false,
+    canAiHelp: false,
+    canPdf: false,
+  };
 }
