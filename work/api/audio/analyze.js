@@ -24,9 +24,14 @@ import express from "express";
 import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
+import { getAuth } from '../../firebase/admin.js';
+import { canUseAnalysis, registerAnalysis } from '../lib/user/userPlans.js';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
+
+// ✅ Obter Firebase Auth
+const auth = getAuth();
 
 const router = express.Router();
 
@@ -387,12 +392,92 @@ router.use((req, res, next) => {
 router.post("/analyze", async (req, res) => {
   // ✅ LOG OBRIGATÓRIO: Rota chamada
   console.log('🚀 [API] /analyze chamada');
+  console.log('📦 [ANALYZE] Headers:', req.headers);
+  console.log('📦 [ANALYZE] Body:', req.body);
   
   try {
     console.log("🟥 [AUDIT:CONTROLLER-BODY] Payload recebido do front:");
     console.dir(req.body, { depth: 10 });
     
-    const { fileKey, mode = "genre", fileName, genre, genreTargets } = req.body;
+    const { 
+      fileKey, 
+      mode = "genre", 
+      fileName, 
+      genre, 
+      genreTargets,
+      idToken  // ✅ NOVO: Token de autenticação
+    } = req.body;
+    
+    // ✅ ETAPA 1: AUTENTICAÇÃO OBRIGATÓRIA
+    console.log('🔐 [ANALYZE] Verificando autenticação...');
+    
+    if (!idToken) {
+      console.error('❌ [ANALYZE] Token ausente no body');
+      return res.status(401).json({
+        success: false,
+        error: "AUTH_TOKEN_MISSING",
+        message: "Token de autenticação necessário"
+      });
+    }
+    
+    console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
+    
+    let decoded;
+    try {
+      decoded = await auth.verifyIdToken(idToken);
+      console.log('✅ [ANALYZE] Token verificado com sucesso');
+    } catch (err) {
+      console.error('❌ [ANALYZE] Erro ao verificar token:', err.message);
+      console.error('❌ [ANALYZE] Stack:', err.stack);
+      return res.status(401).json({
+        success: false,
+        error: "AUTH_ERROR",
+        message: "Token inválido ou expirado"
+      });
+    }
+    
+    const uid = decoded.uid;
+    console.log('🔑 [ANALYZE] UID decodificado:', uid);
+    
+    if (!uid) {
+      console.error('❌ [ANALYZE] UID undefined após decodificação!');
+      return res.status(401).json({
+        success: false,
+        error: "INVALID_UID",
+        message: "UID inválido no token"
+      });
+    }
+    
+    // ✅ ETAPA 2: VALIDAR LIMITES DE ANÁLISE ANTES DE CRIAR JOB
+    console.log('📊 [ANALYZE] Verificando limites de análise para UID:', uid);
+    
+    let analysisCheck;
+    try {
+      analysisCheck = await canUseAnalysis(uid);
+      console.log('📊 [ANALYZE] Resultado da verificação:', analysisCheck);
+    } catch (err) {
+      console.error('❌ [ANALYZE] Erro ao verificar limites:', err.message);
+      console.error('❌ [ANALYZE] Stack:', err.stack);
+      return res.status(500).json({
+        success: false,
+        error: "LIMIT_CHECK_ERROR",
+        message: "Erro ao verificar limites do plano"
+      });
+    }
+    
+    if (!analysisCheck.allowed) {
+      console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
+      console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Restantes: ${analysisCheck.remaining}`);
+      return res.status(403).json({
+        error: true,
+        code: "LIMIT_REACHED",
+        message: "Seu plano atual não permite mais análises. Atualize seu plano para continuar.",
+        remaining: analysisCheck.remaining,
+        plan: analysisCheck.user.plan
+      });
+    }
+    
+    console.log(`✅ [ANALYZE] Limite verificado: ${uid} (${analysisCheck.remaining} restantes)`);
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][BACKEND] 📥 Payload recebido do frontend:', {
@@ -460,6 +545,16 @@ router.post("/analyze", async (req, res) => {
     
     console.log('[GENRE-TRACE][BACKEND] ✅ Job criado - genre salvo:', jobRecord.data);
 
+    // ✅ ETAPA 3: REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES
+    console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid);
+    try {
+      await registerAnalysis(uid);
+      console.log(`✅ [ANALYZE] Análise registrada com sucesso para: ${uid}`);
+    } catch (err) {
+      console.error('⚠️ [ANALYZE] Erro ao registrar análise (job já foi criado):', err.message);
+      // Não bloquear resposta - job já foi criado com sucesso
+    }
+
     // ✅ RESPOSTA DE SUCESSO COM JOBID GARANTIDO
     res.status(200).json({
       ok: true,
@@ -480,6 +575,7 @@ router.post("/analyze", async (req, res) => {
   } catch (error) {
     // ✅ LOG DE ERRO OBRIGATÓRIO
     console.error('❌ [API] Erro na rota /analyze:', error.message);
+    console.error('❌ [API] Stack:', error.stack);
     
     // ✅ RESPOSTA DE ERRO COM STATUS 500
     res.status(500).json({
