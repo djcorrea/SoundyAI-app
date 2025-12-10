@@ -17,6 +17,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
+import { enrichSuggestionsWithAI } from './lib/ai/suggestion-enricher.js';
 
 // ---------- Importar pipeline completo para análise REAL ----------
 let processAudioComplete = null;
@@ -992,6 +993,48 @@ async function audioProcessor(job) {
       });
     }
     console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    
+    //---------------------------------------------------------
+    // 🔥 ULTRA FIX — ADICIONAR AI ENRICHMENT ANTES DA VALIDAÇÃO
+    //---------------------------------------------------------
+    try {
+      console.log("\n[ENRICHMENT] Iniciando enrichment AI V2...");
+
+      const metrics = finalJSON.data?.metrics || finalJSON.metrics || null;
+      const targets = finalJSON.data?.genreTargets || finalJSON.genreTargets || null;
+      const problems = finalJSON.problemsAnalysis || null;
+
+      console.log("[ENRICHMENT] Métricas carregadas?", !!metrics);
+      console.log("[ENRICHMENT] Targets carregados?", !!targets);
+      console.log("[ENRICHMENT] Problems carregado?", !!problems);
+
+      const enriched = await enrichSuggestionsWithAI(
+        finalJSON.suggestions || [],
+        {
+          metrics,
+          targets,
+          problems,
+          genre: finalJSON.data?.genre || finalJSON.genre || null,
+          mode,
+          referenceJobId,
+        }
+      );
+
+      if (Array.isArray(enriched)) {
+        finalJSON.aiSuggestions = enriched;
+        console.log("[ENRICHMENT] aiSuggestions geradas:", enriched.length);
+      } else {
+        console.warn("[ENRICHMENT] Nenhuma aiSuggestion gerada.");
+        finalJSON.aiSuggestions = [];
+      }
+
+      console.log("[ENRICHMENT] Exemplo:", enriched?.[0]);
+
+    } catch (err) {
+      console.error("❌ ERRO NO ENRICHMENT:", err);
+      finalJSON.aiSuggestions = [];
+    }
+    //---------------------------------------------------------
     
     // 🛡️ FIX: VALIDAR JSON ANTES DE MARCAR COMO COMPLETED
     const validation = validateCompleteJSON(finalJSON, mode, referenceJobId);
