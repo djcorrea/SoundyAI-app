@@ -236,7 +236,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    */
   getMetricTarget(metricKey, bandKey, consolidatedData) {
     // ✅ REGRA ABSOLUTA: Usar APENAS consolidatedData.genreTargets
-    const genreTargets = consolidatedData?.genreTargets;
+    const genreTargets = consolidatedData && consolidatedData.genreTargets;
     if (!genreTargets) {
       console.error(`[TARGET-HELPER] ❌ consolidatedData.genreTargets ausente para ${metricKey}`);
       console.error('[TARGET-HELPER] ❌ IMPOSSÍVEL GERAR SUGESTÃO - pulando');
@@ -249,7 +249,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         return null;
       }
       
-      const t = genreTargets.bands?.[bandKey];
+      const t = genreTargets.bands && genreTargets.bands[bandKey];
       
       // ✅ CORREÇÃO: JSON usa "target_db" nas bandas, NÃO "target"
       if (!t || typeof t.target_db !== 'number') {
@@ -265,8 +265,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       // ✅ CORREÇÃO: Retornar target_range se disponível (bandas sempre têm)
       return {
         target: t.target_db,  // ✅ Usar target_db, não target
-        tolerance: t.tol_db ?? 3.0,  // ✅ Usar tol_db se disponível
-        critical: t.critical ?? (t.tol_db ?? 3.0) * 1.5,
+        tolerance: typeof t.tol_db === 'number' ? t.tol_db : 3.0,  // ✅ Usar tol_db se disponível
+        critical: typeof t.critical === 'number' ? t.critical : (typeof t.tol_db === 'number' ? t.tol_db : 3.0) * 1.5,
         target_range: t.target_range  // ✅ Incluir target_range para bandas
       };
     }
@@ -285,8 +285,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // ✅ Para métricas gerais, NÃO incluir target_range (elas não têm)
     return {
       target: t.target,
-      tolerance: t.tolerance ?? 1.0,
-      critical: t.critical ?? (t.tolerance ?? 1.0) * 1.5
+      tolerance: typeof t.tolerance === 'number' ? t.tolerance : 1.0,
+      critical: typeof t.critical === 'number' ? t.critical : (typeof t.tolerance === 'number' ? t.tolerance : 1.0) * 1.5
     };
   }
   
@@ -304,14 +304,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       
       if (consolidatedData) {
         console.log('[AUDIT-PROBLEMS] 📊 Usando metrics consolidados:', {
-          loudness: consolidatedData.metrics?.loudness?.value,
-          truePeak: consolidatedData.metrics?.truePeak?.value,
-          dr: consolidatedData.metrics?.dr?.value
+          loudness: consolidatedData.metrics && consolidatedData.metrics.loudness && consolidatedData.metrics.loudness.value,
+          truePeak: consolidatedData.metrics && consolidatedData.metrics.truePeak && consolidatedData.metrics.truePeak.value,
+          dr: consolidatedData.metrics && consolidatedData.metrics.dr && consolidatedData.metrics.dr.value
         });
         console.log('[AUDIT-PROBLEMS] 🎯 Usando genreTargets consolidados:', {
-          lufs: consolidatedData.genreTargets?.lufs?.target,
-          truePeak: consolidatedData.genreTargets?.truePeak?.target,
-          dr: consolidatedData.genreTargets?.dr?.target
+          lufs: consolidatedData.genreTargets && consolidatedData.genreTargets.lufs && consolidatedData.genreTargets.lufs.target,
+          truePeak: consolidatedData.genreTargets && consolidatedData.genreTargets.truePeak && consolidatedData.genreTargets.truePeak.target,
+          dr: consolidatedData.genreTargets && consolidatedData.genreTargets.dr && consolidatedData.genreTargets.dr.target
         });
       }
       console.log('[AUDIT-PROBLEMS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -346,7 +346,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       console.log('[AUDIT-PROBLEMS-RESULT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[AUDIT-PROBLEMS-RESULT] ANTES DE RETORNAR RESULT:');
       console.log('[AUDIT-PROBLEMS-RESULT] originalGenre:', originalGenre);
-      console.log('[AUDIT-PROBLEMS-RESULT] summary.genre:', summary?.genre);
+      console.log('[AUDIT-PROBLEMS-RESULT] summary.genre:', summary && summary.genre);
       console.log('[AUDIT-PROBLEMS-RESULT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       const result = {
@@ -369,7 +369,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       // 🎯 PRIORIDADE TRUE PEAK: Se True Peak crítico, marcar para renderização prioritária
       const hasCriticalTruePeak = suggestions.some(s => 
         (s.metric === 'truePeak' || s.metric === 'true_peak') && 
-        s.severity?.level === 'critical'
+        s.severity && s.severity.level === 'critical'
       );
       
       if (hasCriticalTruePeak) {
@@ -430,7 +430,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics?.loudness;
+    const metric = consolidatedData.metrics && consolidatedData.metrics.loudness;
     if (!metric || typeof metric.value !== 'number') {
       console.error('[LUFS] ❌ consolidatedData.metrics.loudness ausente ou inválido');
       console.error('[LUFS] ❌ Valor encontrado:', metric);
@@ -566,7 +566,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics?.truePeak;
+    const metric = consolidatedData.metrics && consolidatedData.metrics.truePeak;
     if (!metric || typeof metric.value !== 'number') {
       console.error('[TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente ou inválido');
       console.error('[TRUE_PEAK] ❌ Valor encontrado:', metric);
@@ -678,7 +678,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics?.dr;
+    const metric = consolidatedData.metrics && consolidatedData.metrics.dr;
     if (!metric || typeof metric.value !== 'number') {
       console.error('[DR] ❌ consolidatedData.metrics.dr ausente ou inválido');
       console.error('[DR] ❌ Valor encontrado:', metric);
@@ -814,7 +814,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metricStereo = consolidatedData.metrics?.stereo;
+    const metricStereo = consolidatedData.metrics && consolidatedData.metrics.stereo;
     if (!metricStereo || typeof metricStereo.value !== 'number') {
       console.error('[STEREO] ❌ consolidatedData.metrics.stereo ausente ou inválido');
       console.error('[STEREO] ❌ Valor encontrado:', metricStereo);
@@ -1003,7 +1003,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
 
     logAudio('problems_v2', 'spectral_analysis', { 
       bandsDetected: Object.keys(bands).length,
-      suggestionsGenerated: suggestions.filter(s => s.metric?.startsWith('band_')).length 
+      suggestionsGenerated: suggestions.filter(s => s.metric && s.metric.startsWith('band_')).length 
     });
   }
   
@@ -1020,10 +1020,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics.bands
-    const measured = consolidatedData.metrics?.bands?.[bandKey]?.value;
+    const bandData = consolidatedData.metrics && consolidatedData.metrics.bands && consolidatedData.metrics.bands[bandKey];
+    const measured = bandData && bandData.value;
     if (!Number.isFinite(measured)) {
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${bandKey}.value ausente ou inválido`);
-      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor encontrado:`, consolidatedData.metrics?.bands?.[bandKey]);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor encontrado:`, bandData);
       return;
     }
 
@@ -1043,14 +1044,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     console.log(`[BAND-${bandKey.toUpperCase()}] ✅ Usando consolidatedData:`, {
       measured_db: measured.toFixed(2),
       target_db: target.toFixed(2),
-      target_range_min: target_range?.min?.toFixed(2),
-      target_range_max: target_range?.max?.toFixed(2),
+      target_range_min: target_range && target_range.min && target_range.min.toFixed(2),
+      target_range_max: target_range && target_range.max && target_range.max.toFixed(2),
       tolerance_db: tolerance.toFixed(2),
       source: 'consolidatedData'
-    });
-      target_db: target.toFixed(2),
-      tolerance_db: tolerance.toFixed(2),
-      unit: 'dB'
     });
     
     // 🎯 Calcular range de tolerância (min/max)
@@ -1258,10 +1255,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       metric: suggestion.metric,
       
       // 🚦 Severidade
-      severity: suggestion.severity?.level || 'unknown',
-      color: suggestion.severity?.colorHex || '#808080',
-      colorCode: suggestion.severity?.color || 'gray',
-      icon: suggestion.severity?.icon || '❓',
+      severity: suggestion.severity && suggestion.severity.level || 'unknown',
+      color: suggestion.severity && suggestion.severity.colorHex || '#808080',
+      colorCode: suggestion.severity && suggestion.severity.color || 'gray',
+      icon: suggestion.severity && suggestion.severity.icon || '❓',
       priority: suggestion.priority || 99,
       
       // 📊 Mensagens e Ação
@@ -1367,11 +1364,11 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("  - genre: " + genre + "\n");
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
-  process.stderr.write("  - finalJSON.data disponível?: " + !!finalJSON?.data + "\n");
+  process.stderr.write("  - finalJSON.data disponível?: " + !!(finalJSON && finalJSON.data) + "\n");
   
   // 🔥 VALIDAÇÃO CRÍTICA: Exigir targets válidos
   const hasCustomTargets = customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0;
-  const hasGenreTargets = finalJSON?.data?.genreTargets && typeof finalJSON.data.genreTargets === 'object';
+  const hasGenreTargets = finalJSON && finalJSON.data && finalJSON.data.genreTargets && typeof finalJSON.data.genreTargets === 'object';
   
   if (!hasCustomTargets && !hasGenreTargets) {
     process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: Nenhum target disponível!\n");
@@ -1389,10 +1386,11 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("[ENGINE] 📊 Targets disponíveis: " + JSON.stringify(Object.keys(effectiveTargets)) + "\n");
   process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
   
-  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, effectiveTargets);
+  // ✅ NOVA POLÍTICA: Construtor recebe APENAS genre
+  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre);
   
   // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
-  if (finalJSON?.data) {
+  if (finalJSON && finalJSON.data) {
     console.error('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
     return analyzer.analyzeWithEducationalSuggestions(audioMetrics, finalJSON.data);
   } else {
