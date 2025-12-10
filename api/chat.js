@@ -28,6 +28,9 @@ import {
   injectUserContext 
 } from './helpers/advanced-system-prompts.js';
 
+// 🎯 IMPORTAR SISTEMA DE PLANOS CENTRALIZADO
+import { canUseChat, registerChat } from '../work/lib/user/userPlans.js';
+
 // ✅ CORREÇÃO: Configuração para suporte a multipart
 export const config = {
   api: {
@@ -1186,16 +1189,18 @@ export default async function handler(req, res) {
       });
     }
 
-    // Gerenciar limites de usuário
-    let userData;
-    try {
-      userData = await handleUserLimits(db, uid, email);
-    } catch (error) {
-      if (error.message === 'LIMIT_EXCEEDED') {
-        return res.status(403).json({ error: 'Limite diário de mensagens atingido' });
-      }
-      throw error;
+    // Gerenciar limites de usuário com sistema centralizado
+    const chatCheck = await canUseChat(uid);
+    if (!chatCheck.allowed) {
+      return sendResponse(429, { 
+        error: 'LIMIT_EXCEEDED',
+        message: 'Você atingiu o limite diário de mensagens do seu plano.',
+        remaining: chatCheck.remaining,
+        plan: chatCheck.user.plan
+      });
     }
+    
+    const userData = chatCheck.user;
 
     // Se tem imagens, verificar e consumir cota de análise
     let imageQuotaInfo = null;
@@ -1593,9 +1598,12 @@ export default async function handler(req, res) {
         quotaUsed: imageQuotaInfo.usadas,
         quotaLimit: imageQuotaInfo.limite,
         quotaRemaining: imageQuotaInfo.limite - imageQuotaInfo.usadas,
-        planType: userData.plano
+        planType: userData.plan
       };
     }
+
+    // ✅ REGISTRAR USO DE CHAT NO SISTEMA DE LIMITES
+    await registerChat(uid);
 
     return sendResponse(200, responseData);
 
