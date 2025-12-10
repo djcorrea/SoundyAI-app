@@ -217,6 +217,18 @@ router.get("/:id", async (req, res) => {
         });
       }
       
+      // ────────────────────────────────────────
+      // STEP 4 — LOGAR NO BACKEND/API ANTES DE ENVIAR PARA O FRONTEND
+      // ────────────────────────────────────────
+      console.log("[TRACE_S4_FRONTEND_OUTPUT]", {
+        suggestionsFromDb: job.results?.suggestions,
+        firstSuggestion: job?.results?.suggestions?.[0],
+        finalTarget: job?.results?.suggestions?.[0]?.targetValue,
+        finalCurrent: job?.results?.suggestions?.[0]?.currentValue,
+        finalDelta: job?.results?.suggestions?.[0]?.delta,
+        finalDeltaNum: job?.results?.suggestions?.[0]?.deltaNum
+      });
+      
     } else if (normalizedStatus === "error") {
       // Status error: retorno com erro
       response = {
