@@ -23,6 +23,8 @@ import express from "express";
 import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
+import { auth } from '../../firebaseAdmin.js';
+import { canUseAnalysis, registerAnalysis } from '../../../work/lib/user/userPlans.js';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
@@ -260,8 +262,48 @@ router.post("/analyze", async (req, res) => {
       genre,
       genreTargets,
       hasTargets,
-      isReferenceBase
+      isReferenceBase,
+      idToken  // ✅ NOVO: Token de autenticação
     } = req.body;
+    
+    // ✅ AUTENTICAÇÃO: Verificar token Firebase
+    if (!idToken) {
+      return res.status(401).json({
+        success: false,
+        error: "AUTH_TOKEN_MISSING",
+        message: "Token de autenticação necessário"
+      });
+    }
+    
+    let decoded;
+    try {
+      decoded = await auth.verifyIdToken(idToken);
+    } catch (err) {
+      console.error('❌ [API] Token verification failed:', err.message);
+      return res.status(401).json({
+        success: false,
+        error: "AUTH_ERROR",
+        message: "Token inválido ou expirado"
+      });
+    }
+    
+    const uid = decoded.uid;
+    console.log(`🔑 [API] Usuário autenticado: ${uid}`);
+    
+    // ✅ VALIDAR LIMITES DE ANÁLISE ANTES DE CRIAR JOB
+    const analysisCheck = await canUseAnalysis(uid);
+    if (!analysisCheck.allowed) {
+      console.log(`⛔ [API] Limite de análises atingido: ${uid}`);
+      return res.status(429).json({
+        success: false,
+        error: "LIMIT_REACHED",
+        message: "Você atingiu o limite diário de análises do seu plano.",
+        remaining: analysisCheck.remaining,
+        plan: analysisCheck.user.plan
+      });
+    }
+    
+    console.log(`✅ [API] Limite verificado: ${uid} (${analysisCheck.remaining} restantes)`);
     
     // ✅ VALIDAÇÕES BÁSICAS
     if (!fileKey) {
@@ -296,6 +338,10 @@ router.post("/analyze", async (req, res) => {
     
     // ✅ CRIAR JOB NO BANCO E ENFILEIRAR
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
+
+    // ✅ REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES
+    await registerAnalysis(uid);
+    console.log(`📝 [API] Análise registrada para: ${uid}`);
 
     // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({
