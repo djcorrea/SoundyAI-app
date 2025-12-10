@@ -2644,7 +2644,8 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             isReferenceBase: isReferenceBase,
             genre: finalGenre, // 🔒 PATCH: Usar finalGenre sempre
             genreTargets: finalTargets, // 🔒 PATCH: Incluir targets
-            hasTargets: !!finalTargets // 🔒 PATCH: Flag indicando presença de targets
+            hasTargets: !!finalTargets, // 🔒 PATCH: Flag indicando presença de targets
+            token: idToken // ✅ CORREÇÃO CRÍTICA: Token no body (backend espera aqui)
         };
         
         // 🔥 GUARD PREVENTIVO: NUNCA enviar sem gênero ou targets
@@ -3166,6 +3167,15 @@ async function startReferenceAnalysis() {
             'selectedGenre (final)': selectedGenre
         });
 
+        // ✅ Obter token do usuário autenticado
+        const currentUser = window.auth?.currentUser;
+        const token = currentUser ? await currentUser.getIdToken() : null;
+        
+        if (!token) {
+            console.error('❌ Token não disponível - usuário não autenticado');
+            throw new Error('Você precisa estar logado para analisar áudio.');
+        }
+
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             headers: {
@@ -3175,7 +3185,8 @@ async function startReferenceAnalysis() {
                 originalKey: uploadedFiles.original,
                 referenceKey: uploadedFiles.reference,
                 mode: 'reference',
-                genre: selectedGenre // 🎯 FIX CRÍTICO: Gênero agora incluído
+                genre: selectedGenre, // 🎯 FIX CRÍTICO: Gênero agora incluído
+                token: token // ✅ CORREÇÃO CRÍTICA: Token no body
             })
         });
 
