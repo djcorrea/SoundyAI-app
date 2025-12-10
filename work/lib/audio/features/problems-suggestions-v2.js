@@ -579,6 +579,17 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       priority: severity.priority
     };
     
+    console.log('[GENRE-FLOW][S2_BUILDER]', {
+      metric: 'LUFS',
+      genre: this.genre,
+      currentValue: lufs,
+      targetValue: lufsTarget,
+      delta: diff,
+      deltaNum: diff,
+      rawMetricValue: lufs,
+      rawTargetObject: targetInfo
+    });
+    
     // ────────────────────────────────────────
     // STEP 2 — LOGAR OS VALORES DENTRO DO BUILDER DE SUGESTÕES
     // ────────────────────────────────────────
@@ -1171,6 +1182,17 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation = `Perfeito para ${this.genre}! Esta faixa está equilibrada dentro do range ${bounds.min.toFixed(1)}-${bounds.max.toFixed(1)} dB. Balanço espectral profissional.`;
       action = `Excelente! Mantenha esse nível em ${bandName}. Nenhum ajuste necessário.`;
     }
+    
+    console.log('[GENRE-FLOW][S2_BUILDER]', {
+      metric: `BAND_${bandKey.toUpperCase()}`,
+      genre: this.genre,
+      currentValue: measured,
+      targetValue: target,
+      delta: rawDelta,
+      deltaNum: rawDelta,
+      rawMetricValue: measured,
+      rawTargetObject: targetInfo
+    });
     
     const suggestion = {
       metric: `band_${bandKey}`,
