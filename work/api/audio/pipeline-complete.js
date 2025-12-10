@@ -1386,6 +1386,57 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
     }
 
+    // 📌 REGRA 9: LOG DE AUDITORIA FINAL
+    console.log('\n\n╔═══════════════════════════════════════════════════════════════╗');
+    console.log('║  [AUDIT-CORRECTION] VALIDAÇÃO FINAL DO JSON                 ║');
+    console.log('╚═══════════════════════════════════════════════════════════════╝');
+    console.log('[AUDIT-CORRECTION] jobId:', jobId);
+    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-CORRECTION] finalJSON.data disponível?:', !!finalJSON.data);
+    
+    if (finalJSON.data) {
+      console.log('[AUDIT-CORRECTION] metrics:', {
+        disponível: !!finalJSON.data.metrics,
+        loudness: finalJSON.data.metrics?.loudness?.value,
+        truePeak: finalJSON.data.metrics?.truePeak?.value,
+        dr: finalJSON.data.metrics?.dr?.value,
+        stereo: finalJSON.data.metrics?.stereo?.value,
+        hasBands: !!finalJSON.data.metrics?.bands
+      });
+      
+      if (finalJSON.data.metrics?.bands) {
+        console.log('[AUDIT-CORRECTION] bandas (valores em dB):', {
+          sub: finalJSON.data.metrics.bands.sub?.value,
+          low_bass: finalJSON.data.metrics.bands.low_bass?.value,
+          upper_bass: finalJSON.data.metrics.bands.upper_bass?.value,
+          low_mid: finalJSON.data.metrics.bands.low_mid?.value,
+          mid: finalJSON.data.metrics.bands.mid?.value,
+          high_mid: finalJSON.data.metrics.bands.high_mid?.value,
+          presence: finalJSON.data.metrics.bands.presence?.value,
+          brilliance: finalJSON.data.metrics.bands.brilliance?.value
+        });
+      }
+      
+      console.log('[AUDIT-CORRECTION] genreTargets:', {
+        disponível: !!finalJSON.data.genreTargets,
+        hasLufs: !!finalJSON.data.genreTargets?.lufs,
+        hasTruePeak: !!finalJSON.data.genreTargets?.truePeak,
+        hasDr: !!finalJSON.data.genreTargets?.dr,
+        hasBands: !!finalJSON.data.genreTargets?.bands
+      });
+      
+      if (finalJSON.data.genreTargets?.bands) {
+        console.log('[AUDIT-CORRECTION] bandas (targets em dB):', {
+          sub: finalJSON.data.genreTargets.bands.sub?.target_db,
+          low_bass: finalJSON.data.genreTargets.bands.low_bass?.target_db,
+          upper_bass: finalJSON.data.genreTargets.bands.upper_bass?.target_db
+        });
+      }
+    } else {
+      console.error('[AUDIT-CORRECTION] ❌ finalJSON.data AUSENTE!');
+    }
+    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n');
+
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 

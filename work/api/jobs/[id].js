@@ -61,42 +61,45 @@ router.get("/:id", async (req, res) => {
     
     console.log(`[API-JOBS] Status do banco: ${job.status} → Normalizado: ${normalizedStatus}`);
 
-    // 🎯 PARSE DO RESULTADO: Tentar tanto 'results' (novo) quanto 'result' (antigo)
+    // 🎯 PARSE DO RESULTADO: Usar APENAS 'results' (coluna correta do PostgreSQL)
     let fullResult = null;
     
-    const resultData = job.results || job.result;
-    if (resultData) {
+    // 📌 REGRA 1: A coluna do PostgreSQL é results, NÃO result
+    if (job.results) {
       try {
-        fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
-        console.log("[API-JOBS] ✅ Job result parsed successfully");
-        console.log(`[API-JOBS] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[API-JOBS] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);        
+        fullResult = typeof job.results === 'string' ? JSON.parse(job.results) : job.results;
         
-        // 🔥 AUDITORIA CRÍTICA: Verificar technicalData APÓS parse
-        console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] API POST-PARSE 🔥🔥🔥');
-        console.log('[AUDIT-TECHNICAL-DATA] fullResult.technicalData:', {
-          exists: !!fullResult.technicalData,
-          type: typeof fullResult.technicalData,
-          isEmpty: fullResult.technicalData && Object.keys(fullResult.technicalData).length === 0,
-          keys: fullResult.technicalData ? Object.keys(fullResult.technicalData) : [],
-          hasSampleFields: {
-            lufsIntegrated: fullResult.technicalData?.lufsIntegrated,
-            truePeakDbtp: fullResult.technicalData?.truePeakDbtp,
-            dynamicRange: fullResult.technicalData?.dynamicRange,
-            spectral_balance: !!fullResult.technicalData?.spectral_balance
-          }
-        });
-        console.log('[AUDIT-TECHNICAL-DATA] fullResult outros campos:', {
-          hasScore: fullResult.score !== undefined,
-          scoreValue: fullResult.score,
-          hasClassification: !!fullResult.classification,
-          hasData: !!fullResult.data,
-          hasDataGenreTargets: !!fullResult.data?.genreTargets
-        });
-        console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
+        // 🔥 LOG DE AUDITORIA: Verificar estrutura do JSON
+        console.log("[AUDIT-CORRECTION] ✅ jobResult.results parseado com sucesso");
+        console.log("[AUDIT-CORRECTION] Keys de results:", Object.keys(fullResult));
+        console.log("[AUDIT-CORRECTION] results.data disponível?:", !!fullResult.data);
+        console.log("[AUDIT-CORRECTION] results.data.metrics disponível?:", !!fullResult.data?.metrics);
+        console.log("[AUDIT-CORRECTION] results.data.genreTargets disponível?:", !!fullResult.data?.genreTargets);
+        
+        // 📊 Verificar métricas
+        if (fullResult.data?.metrics) {
+          console.log("[AUDIT-CORRECTION] Métricas encontradas:", {
+            loudness: fullResult.data.metrics.loudness?.value,
+            truePeak: fullResult.data.metrics.truePeak?.value,
+            dr: fullResult.data.metrics.dr?.value,
+            stereo: fullResult.data.metrics.stereo?.value,
+            hasBands: !!fullResult.data.metrics.bands
+          });
+        }
+        
+        // 🎯 Verificar targets
+        if (fullResult.data?.genreTargets) {
+          console.log("[AUDIT-CORRECTION] genreTargets encontrados:", {
+            hasLufs: !!fullResult.data.genreTargets.lufs,
+            hasTruePeak: !!fullResult.data.genreTargets.truePeak,
+            hasDr: !!fullResult.data.genreTargets.dr,
+            hasBands: !!fullResult.data.genreTargets.bands
+          });
+        }
+        
       } catch (parseError) {
         console.error("[API-JOBS] ❌ Erro ao fazer parse do results JSON:", parseError);
-        fullResult = resultData;
+        fullResult = job.results;
       }
     }
 
