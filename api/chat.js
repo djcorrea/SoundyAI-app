@@ -1,6 +1,9 @@
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
 // 🎯 SISTEMA AVANÇADO: Intent detection + Token management + Context injection
-import { auth, db } from './firebaseAdmin.js';
+import { getAuth, getFirestore } from '../firebase/admin.js';
+
+const auth = getAuth();
+const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import formidable from 'formidable';

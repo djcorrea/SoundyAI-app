@@ -1,7 +1,10 @@
 // api/mercadopago.js
 import express from "express";
 import * as mercadopago from "mercadopago";
-import { auth, db } from "./firebaseAdmin.js";
+import { getAuth, getFirestore } from '../../firebase/admin.js';
+
+const auth = getAuth();
+const db = getFirestore();
 
 const router = express.Router();
 
