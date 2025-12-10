@@ -1,4 +1,7 @@
-import { auth, db } from './firebaseAdmin.js';
+import { getAuth, getFirestore } from '../firebase/admin.js';
+
+const auth = getAuth();
+const db = getFirestore();
 import { FieldValue } from 'firebase-admin/firestore';
 
 export const config = { api: { bodyParser: true } };

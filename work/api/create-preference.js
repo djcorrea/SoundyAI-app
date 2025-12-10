@@ -1,6 +1,8 @@
 // api/create-preference.js
 import mercadopago from "mercadopago";   // ✅ import default
-import { auth as firebaseAuth } from "./firebaseAdmin.js"; // ✅ evita conflito de nome
+import { getAuth } from '../../firebase/admin.js';
+
+const firebaseAuth = getAuth(); // ✅ evita conflito de nome
 
 // Configura Mercado Pago
 if (!process.env.MP_ACCESS_TOKEN) {

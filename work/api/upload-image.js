@@ -7,7 +7,9 @@
  * Implementação: Dezembro 2024
  */
 
-import { auth } from './firebaseAdmin.js';
+import { getAuth } from '../../firebase/admin.js';
+
+const auth = getAuth();
 import cors from 'cors';
 
 // Configuração via variável de ambiente (padrão: 10MB por imagem)

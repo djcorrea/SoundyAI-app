@@ -1,4 +1,7 @@
-import { auth, db } from './firebaseAdmin.js';
+import { getAuth, getFirestore } from '../../firebase/admin.js';
+
+const auth = getAuth();
+const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 
