@@ -571,6 +571,20 @@ async function updateJobStatus(jobId, status, results = null) {
       console.log("  - Número de aiSuggestions:", results.aiSuggestions?.length || 0);
       console.log("======================================================================\n");
       
+      // ────────────────────────────────────────
+      // STEP 3 — LOGAR AS SUGESTÕES NA HORA DE SALVAR EM results.suggestions
+      // ────────────────────────────────────────
+      console.log("[TRACE_S3_BEFORE_SAVE]", {
+        hasSuggestions: Array.isArray(results?.suggestions),
+        suggestionCount: results?.suggestions?.length,
+        firstSuggestion: results?.suggestions?.[0],
+        technical: results?.suggestions?.[0],
+        targetValue: results?.suggestions?.[0]?.targetValue,
+        currentValue: results?.suggestions?.[0]?.currentValue,
+        delta: results?.suggestions?.[0]?.delta,
+        deltaNum: results?.suggestions?.[0]?.deltaNum
+      });
+      
       query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
@@ -921,6 +935,19 @@ async function audioProcessor(job) {
     const totalMs = Date.now() - t0;
     
     console.log(`✅ [WORKER-REDIS] Pipeline concluído em ${totalMs}ms`);
+    
+    // ────────────────────────────────────────
+    // STEP 1 — LOGAR AS MÉTRICAS BASE APÓS O PIPELINE
+    // ────────────────────────────────────────
+    console.log("[TRACE_S1_METRICS_BASE]", {
+      genre: finalJSON?.metadata?.genre || finalJSON?.genre,
+      metrics: finalJSON?.metrics,
+      technicalData: finalJSON?.technicalData,
+      genreTargets: finalJSON?.data?.genreTargets,
+      lufsIntegrated: finalJSON?.metrics?.loudness?.integrated,
+      truePeakDbtp: finalJSON?.technicalData?.truePeakDbtp,
+      dynamicRange: finalJSON?.technicalData?.dynamicRange,
+    });
     
     console.log("\n================ AUDITORIA: PÓS-PIPELINE (REDIS) ================");
     console.log("[PÓS-PIPELINE] finalJSON.data.genreTargets existe?:", !!finalJSON?.data?.genreTargets);

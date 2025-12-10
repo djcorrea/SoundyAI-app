@@ -565,7 +565,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       action = `Mantenha esse nível de LUFS. Está excelente! Nenhum ajuste necessário.`;
     }
     
-    suggestions.push({
+    const suggestion = {
       metric: 'lufs',
       severity,
       message,
@@ -577,7 +577,21 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
+    };
+    
+    // ────────────────────────────────────────
+    // STEP 2 — LOGAR OS VALORES DENTRO DO BUILDER DE SUGESTÕES
+    // ────────────────────────────────────────
+    console.log("[TRACE_S2_BUILDER]", {
+      metric: "LUFS",
+      current: lufs,
+      target: lufsTarget,
+      rawTargetObject: consolidatedData?.genreTargets?.lufs,
+      diff: diff,
+      suggestionPreview: suggestion
     });
+    
+    suggestions.push(suggestion);
   }
   
   /**
@@ -1158,7 +1172,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       action = `Excelente! Mantenha esse nível em ${bandName}. Nenhum ajuste necessário.`;
     }
     
-    suggestions.push({
+    const suggestion = {
       metric: `band_${bandKey}`,
       severity,
       message,
@@ -1171,7 +1185,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority,
       bandName
+    };
+    
+    console.log("[TRACE_S2_BUILDER]", {
+      metric: `BAND_${bandKey.toUpperCase()}`,
+      current: measured,
+      target: target,
+      rawTargetObject: consolidatedData?.genreTargets?.bands?.[bandKey],
+      diff: rawDelta,
+      suggestionPreview: suggestion
     });
+    
+    suggestions.push(suggestion);
   }
   
   /**
