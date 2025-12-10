@@ -17,6 +17,7 @@ import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 import { loadGenreTargets, loadGenreTargetsFromWorker } from "../../lib/audio/utils/genre-targets-loader.js";
+import { normalizeGenreTargets } from "../../lib/audio/utils/normalize-genre-targets.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -375,8 +376,17 @@ class CoreMetricsProcessor {
             try {
               // 🔥 SEMPRE usar loadGenreTargetsFromWorker - NUNCA fallback
               customTargets = await loadGenreTargetsFromWorker(detectedGenre);
-              console.log(`[CORE_METRICS] ✅ Targets oficiais carregados de work/refs/out/${detectedGenre}.json`);
-              console.log(`[CORE_METRICS] 📊 LUFS: ${customTargets.lufs?.target}, TruePeak: ${customTargets.truePeak?.target}, DR: ${customTargets.dr?.target}`);
+              
+              // 🔧 NORMALIZAR TARGETS: Converter formato JSON real → formato analyzer
+              console.log('[CORE_METRICS] 🔍 Formato original dos targets:', {
+                hasLufsTarget: 'lufs_target' in (customTargets || {}),
+                hasLufsObject: customTargets && customTargets.lufs && 'target' in customTargets.lufs
+              });
+              
+              customTargets = normalizeGenreTargets(customTargets);
+              
+              console.log(`[CORE_METRICS] ✅ Targets oficiais carregados e normalizados de work/refs/out/${detectedGenre}.json`);
+              console.log(`[CORE_METRICS] 📊 LUFS: ${customTargets.lufs && customTargets.lufs.target}, TruePeak: ${customTargets.truePeak && customTargets.truePeak.target}, DR: ${customTargets.dr && customTargets.dr.target}`);
             } catch (error) {
               const errorMsg = `[CORE_METRICS-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
               console.error(errorMsg);
@@ -392,47 +402,47 @@ class CoreMetricsProcessor {
           if (customTargets) {
           consolidatedData = {
             metrics: {
-              loudness: { value: coreMetrics.lufs?.lufs_integrated, unit: 'LUFS' },
-              truePeak: { value: coreMetrics.truePeak?.maxDbtp, unit: 'dBTP' },
-              dr: { value: coreMetrics.dynamics?.dynamicRange, unit: 'dB' },
-              stereo: { value: coreMetrics.stereo?.correlation, unit: 'correlation' },
+              loudness: { value: coreMetrics.lufs && coreMetrics.lufs.lufs_integrated, unit: 'LUFS' },
+              truePeak: { value: coreMetrics.truePeak && coreMetrics.truePeak.maxDbtp, unit: 'dBTP' },
+              dr: { value: coreMetrics.dynamics && coreMetrics.dynamics.dynamicRange, unit: 'dB' },
+              stereo: { value: coreMetrics.stereo && coreMetrics.stereo.correlation, unit: 'correlation' },
               bands: {
                 sub: {
-                  value: coreMetrics.spectralBands?.sub?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.sub && (coreMetrics.spectralBands.sub.energy_db !== undefined ? coreMetrics.spectralBands.sub.energy_db : null),
                   unit: 'dBFS'
                 },
                 bass: {
-                  value: coreMetrics.spectralBands?.bass?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.bass && (coreMetrics.spectralBands.bass.energy_db !== undefined ? coreMetrics.spectralBands.bass.energy_db : null),
                   unit: 'dBFS'
                 },
                 low_mid: {
-                  value: coreMetrics.spectralBands?.low_mid?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.low_mid && (coreMetrics.spectralBands.low_mid.energy_db !== undefined ? coreMetrics.spectralBands.low_mid.energy_db : null),
                   unit: 'dBFS'
                 },
                 mid: {
-                  value: coreMetrics.spectralBands?.mid?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.mid && (coreMetrics.spectralBands.mid.energy_db !== undefined ? coreMetrics.spectralBands.mid.energy_db : null),
                   unit: 'dBFS'
                 },
                 high_mid: {
-                  value: coreMetrics.spectralBands?.high_mid?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.high_mid && (coreMetrics.spectralBands.high_mid.energy_db !== undefined ? coreMetrics.spectralBands.high_mid.energy_db : null),
                   unit: 'dBFS'
                 },
                 presence: {
-                  value: coreMetrics.spectralBands?.presence?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.presence && (coreMetrics.spectralBands.presence.energy_db !== undefined ? coreMetrics.spectralBands.presence.energy_db : null),
                   unit: 'dBFS'
                 },
                 brilliance: {
-                  value: coreMetrics.spectralBands?.brilliance?.energy_db ?? null,
+                  value: coreMetrics.spectralBands && coreMetrics.spectralBands.brilliance && (coreMetrics.spectralBands.brilliance.energy_db !== undefined ? coreMetrics.spectralBands.brilliance.energy_db : null),
                   unit: 'dBFS'
                 }
               }
             },
-            genreTargets: customTargets  // Já vem completo do Postgres com target/tolerance/target_range
+            genreTargets: customTargets  // ✅ Já normalizado - { lufs: {target, tolerance}, bands: {sub: {target_db, tol_db}} }
           };            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
               hasMetrics: !!consolidatedData.metrics,
               hasGenreTargets: !!consolidatedData.genreTargets,
               lufsValue: consolidatedData.metrics.loudness.value,
-              lufsTarget: consolidatedData.genreTargets.lufs?.target
+              lufsTarget: consolidatedData.genreTargets.lufs && consolidatedData.genreTargets.lufs.target
             });
           }
           

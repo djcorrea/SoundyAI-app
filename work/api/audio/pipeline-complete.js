@@ -7,6 +7,7 @@ import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js"; // Fase 5.4.1
 import { loadGenreTargets, loadGenreTargetsFromWorker } from "../../lib/audio/utils/genre-targets-loader.js";
+import { normalizeGenreTargets } from "../../lib/audio/utils/normalize-genre-targets.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -537,17 +538,33 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🔥 CONSTRUIR consolidatedData a partir do finalJSON já criado
       // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
       let consolidatedData = null;
-      if (finalJSON?.data) {
+      if (finalJSON && finalJSON.data) {
+        // 🔧 NORMALIZAR TARGETS: Converter formato JSON real → formato analyzer
+        let normalizedTargets = finalJSON.data.genreTargets || customTargets;
+        
+        console.log('[DEBUG-SUGGESTIONS] 🔍 Formato original dos targets:', {
+          hasLufsTarget: 'lufs_target' in (normalizedTargets || {}),
+          hasLufsObject: normalizedTargets && normalizedTargets.lufs && 'target' in normalizedTargets.lufs
+        });
+        
+        // ✅ Aplicar normalização
+        normalizedTargets = normalizeGenreTargets(normalizedTargets);
+        
+        console.log('[DEBUG-SUGGESTIONS] ✅ Targets normalizados:', {
+          lufsTarget: normalizedTargets && normalizedTargets.lufs && normalizedTargets.lufs.target,
+          lufsTolerance: normalizedTargets && normalizedTargets.lufs && normalizedTargets.lufs.tolerance
+        });
+        
         consolidatedData = {
           metrics: finalJSON.data.metrics || null,
-          genreTargets: finalJSON.data.genreTargets || customTargets
+          genreTargets: normalizedTargets
         };
         
         console.log('[DEBUG-SUGGESTIONS] 🎯 consolidatedData construído a partir de finalJSON.data:', {
           hasMetrics: !!consolidatedData.metrics,
           hasGenreTargets: !!consolidatedData.genreTargets,
-          lufsValue: consolidatedData.metrics?.loudness?.value,
-          lufsTarget: consolidatedData.genreTargets?.lufs?.target
+          lufsValue: consolidatedData.metrics && consolidatedData.metrics.loudness && consolidatedData.metrics.loudness.value,
+          lufsTarget: consolidatedData.genreTargets && consolidatedData.genreTargets.lufs && consolidatedData.genreTargets.lufs.target
         });
       }
       

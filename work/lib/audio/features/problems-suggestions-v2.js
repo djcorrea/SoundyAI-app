@@ -4,6 +4,7 @@
 // eslint-disable-next-line import/no-unresolved
 import { logAudio } from '../error-handling.js';
 import { v4 as uuidv4 } from 'uuid';
+import { normalizeGenreTargets, validateNormalizedTargets } from '../utils/normalize-genre-targets.js';
 
 /**
  * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
@@ -169,16 +170,26 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
     
     // ✅ CORREÇÃO: OUTRAS MÉTRICAS usam target ± tolerance
-    // Validar que target e tolerance existem
-    if (typeof threshold.target !== 'number' || typeof threshold.tolerance !== 'number') {
-      console.error('[RANGE_BOUNDS] ❌ ERRO: target ou tolerance inválidos:', {
+    // Validar que target existe
+    if (typeof threshold.target !== 'number') {
+      console.error('[RANGE_BOUNDS] ❌ ERRO: target inválido:', {
         target: threshold.target,
         tolerance: threshold.tolerance,
         targetType: typeof threshold.target,
         toleranceType: typeof threshold.tolerance
       });
-      // Retornar range impossível para evitar sugestões com NaN
-      return { min: Infinity, max: -Infinity };
+      // Retornar range centrado no zero para evitar Infinity
+      return { min: -100, max: 100 };
+    }
+
+    // ✅ Se tolerance = 0 ou undefined, usar target como min/max
+    const effectiveTolerance = (typeof threshold.tolerance === 'number' && threshold.tolerance > 0) 
+      ? threshold.tolerance 
+      : 0;
+
+    if (effectiveTolerance === 0) {
+      console.log('[RANGE_BOUNDS] ⚠️ tolerance = 0, usando target exato:', threshold.target);
+      return { min: threshold.target, max: threshold.target };
     }
     
     console.log('[RANGE_BOUNDS] ✅ Calculando range (métrica geral):', {
@@ -252,21 +263,37 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       const t = genreTargets.bands && genreTargets.bands[bandKey];
       
       // ✅ CORREÇÃO: JSON usa "target_db" nas bandas, NÃO "target"
-      if (!t || typeof t.target_db !== 'number') {
-        console.warn(`[TARGET-HELPER] ⚠️ Target inválido para banda ${bandKey}:`, {
-          exists: !!t,
-          hasTargetDb: t ? 'target_db' in t : false,
-          hasTarget: t ? 'target' in t : false,
-          actualKeys: t ? Object.keys(t) : []
+      if (!t) {
+        console.error(`[TARGET-HELPER] ❌ Banda ${bandKey} ausente em genreTargets.bands`);
+        console.error(`[TARGET-HELPER] Bandas disponíveis:`, Object.keys(genreTargets.bands || {}));
+        return null;
+      }
+
+      // ✅ Validar target_db
+      if (typeof t.target_db !== 'number') {
+        console.error(`[TARGET-HELPER] ❌ target_db inválido para banda ${bandKey}:`, {
+          target_db: t.target_db,
+          type: typeof t.target_db,
+          actualKeys: Object.keys(t)
         });
         return null;
       }
       
       // ✅ CORREÇÃO: Retornar target_range se disponível (bandas sempre têm)
+      const tolerance = typeof t.tol_db === 'number' ? t.tol_db : 3.0;
+      const critical = typeof t.critical === 'number' ? t.critical : tolerance * 1.5;
+
+      console.log(`[TARGET-HELPER] ✅ Banda ${bandKey}:`, {
+        target_db: t.target_db,
+        tol_db: tolerance,
+        target_range: t.target_range,
+        critical: critical
+      });
+
       return {
         target: t.target_db,  // ✅ Usar target_db, não target
-        tolerance: typeof t.tol_db === 'number' ? t.tol_db : 3.0,  // ✅ Usar tol_db se disponível
-        critical: typeof t.critical === 'number' ? t.critical : (typeof t.tol_db === 'number' ? t.tol_db : 3.0) * 1.5,
+        tolerance: tolerance,
+        critical: critical,
         target_range: t.target_range  // ✅ Incluir target_range para bandas
       };
     }
@@ -1379,8 +1406,20 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
     throw new Error(`[SUGGESTION_ENGINE] Targets obrigatórios ausentes para gênero: ${genre}. Use loadGenreTargetsFromWorker(genre).`);
   }
   
-  // Usar finalJSON.data.genreTargets se disponível, senão customTargets
-  const effectiveTargets = hasGenreTargets ? finalJSON.data.genreTargets : customTargets;
+  // 🔧 NORMALIZAÇÃO: Converter formato JSON real → formato analyzer
+  let effectiveTargets = hasGenreTargets ? finalJSON.data.genreTargets : customTargets;
+  
+  process.stderr.write("[ENGINE] 🔍 Formato original dos targets:\n");
+  process.stderr.write("  - Tem lufs_target?: " + ('lufs_target' in effectiveTargets) + "\n");
+  process.stderr.write("  - Tem lufs.target?: " + (effectiveTargets.lufs && 'target' in effectiveTargets.lufs) + "\n");
+  
+  // ✅ NORMALIZAR: Se targets estiverem no formato JSON real (lufs_target), converter
+  effectiveTargets = normalizeGenreTargets(effectiveTargets);
+  
+  if (!effectiveTargets || !validateNormalizedTargets(effectiveTargets)) {
+    process.stderr.write("[ENGINE] 🚨 ERRO: Falha na normalização dos targets!\n");
+    throw new Error(`[SUGGESTION_ENGINE] Targets inválidos após normalização para gênero: ${genre}`);
+  }
   
   process.stderr.write("[ENGINE] 🎯 Targets usados: " + (hasGenreTargets ? 'finalJSON.data.genreTargets' : 'customTargets') + "\n");
   process.stderr.write("[ENGINE] 📊 Targets disponíveis: " + JSON.stringify(Object.keys(effectiveTargets)) + "\n");
