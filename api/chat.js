@@ -6,6 +6,9 @@ import cors from 'cors';
 import formidable from 'formidable';
 import fs from 'fs';
 
+// 🔧 SISTEMA DE PLANOS E LIMITES
+import { canUseChat, registerChat } from '../work/lib/user/userPlans.js';
+
 // 🎯 IMPORTAR HELPERS AVANÇADOS (com fallback para compatibilidade)
 import { 
   prepareAnalysisForPrompt, 
@@ -1177,6 +1180,18 @@ export default async function handler(req, res) {
     const uid = decoded.uid;
     const email = decoded.email;
 
+    // 🔧 VERIFICAR LIMITES DO PLANO (NOVO SISTEMA)
+    const chatCheck = await canUseChat(uid);
+    if (!chatCheck.allowed) {
+      return sendResponse(429, {
+        error: 'limit_reached',
+        message: 'Você atingiu o limite diário de mensagens.',
+        plan: chatCheck.user.plan,
+        remaining: 0,
+        resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
+      });
+    }
+
     // ✅ SEGURANÇA: Verificar rate limiting
     if (!checkRateLimit(uid)) {
       return sendResponse(429, { 
@@ -1570,6 +1585,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     const reply = data.choices[0].message.content;
+
+    // 🔧 REGISTRAR USO DE MENSAGEM (NOVO SISTEMA)
+    await registerChat(uid);
 
     console.log(`✅ [${requestId}] Resposta da IA gerada com sucesso`, {
       model: modelSelection ? modelSelection.model : 'unknown',
