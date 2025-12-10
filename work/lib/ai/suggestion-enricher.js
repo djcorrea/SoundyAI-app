@@ -495,15 +495,51 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
     });
     console.log('[ENRICHER-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // ✅ CORREÇÃO: Ler estrutura convertida (targets.lufs.target ao invés de targets.lufs_target)
-    if (targets.lufs && targets.lufs.target !== undefined) {
-      prompt += `- **LUFS Alvo**: ${targets.lufs.target} dB (tolerância: ±${targets.lufs.tolerance || 1.0} dB)\n`;
+    // ✅ PATCH RANGE-MIGRATION: Usar min/max quando disponíveis, senão calcular
+    
+    // LUFS
+    if (targets.lufs) {
+      if (typeof targets.lufs.min === 'number' && typeof targets.lufs.max === 'number') {
+        prompt += `- **LUFS**: Range oficial ${targets.lufs.min.toFixed(1)} a ${targets.lufs.max.toFixed(1)} dB`;
+        if (targets.lufs.target !== undefined) {
+          prompt += ` (ideal: ${targets.lufs.target.toFixed(1)} dB)\n`;
+        } else {
+          prompt += `\n`;
+        }
+      } else if (targets.lufs.target !== undefined) {
+        const tol = targets.lufs.tolerance || 1.0;
+        prompt += `- **LUFS**: ${targets.lufs.target.toFixed(1)} dB (range: ${(targets.lufs.target - tol).toFixed(1)} a ${(targets.lufs.target + tol).toFixed(1)} dB) [LEGACY]\n`;
+      }
     }
-    if (targets.truePeak && targets.truePeak.target !== undefined) {
-      prompt += `- **True Peak Alvo**: ${targets.truePeak.target} dBTP (tolerância: ±${targets.truePeak.tolerance || 0.3} dB)\n`;
+    
+    // TRUE PEAK
+    if (targets.truePeak) {
+      if (typeof targets.truePeak.min === 'number' && typeof targets.truePeak.max === 'number') {
+        prompt += `- **True Peak**: Range oficial ${targets.truePeak.min.toFixed(1)} a ${targets.truePeak.max.toFixed(1)} dBTP`;
+        if (targets.truePeak.target !== undefined) {
+          prompt += ` (ideal: ${targets.truePeak.target.toFixed(1)} dBTP)\n`;
+        } else {
+          prompt += `\n`;
+        }
+      } else if (targets.truePeak.target !== undefined) {
+        const tol = targets.truePeak.tolerance || 0.3;
+        prompt += `- **True Peak**: ${targets.truePeak.target.toFixed(1)} dBTP (range: ${(targets.truePeak.target - tol).toFixed(1)} a ${(targets.truePeak.target + tol).toFixed(1)} dBTP) [LEGACY]\n`;
+      }
     }
-    if (targets.dr && targets.dr.target !== undefined) {
-      prompt += `- **Dynamic Range Alvo**: ${targets.dr.target} dB (tolerância: ±${targets.dr.tolerance || 2.0} dB)\n`;
+    
+    // DYNAMIC RANGE
+    if (targets.dr) {
+      if (typeof targets.dr.min === 'number' && typeof targets.dr.max === 'number') {
+        prompt += `- **Dynamic Range**: Range oficial ${targets.dr.min.toFixed(1)} a ${targets.dr.max.toFixed(1)} dB`;
+        if (targets.dr.target !== undefined) {
+          prompt += ` (ideal: ${targets.dr.target.toFixed(1)} dB)\n`;
+        } else {
+          prompt += `\n`;
+        }
+      } else if (targets.dr.target !== undefined) {
+        const tol = targets.dr.tolerance || 2.0;
+        prompt += `- **Dynamic Range**: ${targets.dr.target.toFixed(1)} dB (range: ${(targets.dr.target - tol).toFixed(1)} a ${(targets.dr.target + tol).toFixed(1)} dB) [LEGACY]\n`;
+      }
     }
     
     if (targets.bands) {
@@ -519,27 +555,42 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
       };
       
       Object.entries(targets.bands).forEach(([band, data]) => {
-        // PATCH: Priorizar target_range quando disponível
-        if (data.target_range && data.target_range.min !== undefined && data.target_range.max !== undefined) {
-          const label = bandLabels[band] || band;
-          prompt += `  - **${label}**: Range permitido ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB\n`;
-          if (data.target_db !== undefined) {
-            prompt += `    → Target central: ${data.target_db.toFixed(1)} dB\n`;
+        const label = bandLabels[band] || band;
+        
+        // ✅ PATCH RANGE-MIGRATION: Priorizar min/max diretos, depois target_range, depois calcular
+        
+        // PRIORIDADE 1: min/max diretos (NOVO FORMATO)
+        if (typeof data.min === 'number' && typeof data.max === 'number') {
+          prompt += `  - **${label}**: Range oficial ${data.min.toFixed(1)} a ${data.max.toFixed(1)} dB\n`;
+          if (data.target_db !== undefined || data.target !== undefined) {
+            const target = data.target_db || data.target;
+            prompt += `    → Target ideal: ${target.toFixed(1)} dB\n`;
           }
-          prompt += `    → Use o RANGE como referência principal.\n`;
-        } else if (data.target_db !== undefined) {
-          const label = bandLabels[band] || band;
-          const tolerance = data.tolerance || 2.0;
+          prompt += `    → Use o RANGE OFICIAL como referência principal.\n`;
+        } 
+        // PRIORIDADE 2: target_range (BANDAS)
+        else if (data.target_range && data.target_range.min !== undefined && data.target_range.max !== undefined) {
+          prompt += `  - **${label}**: Range oficial ${data.target_range.min.toFixed(1)} a ${data.target_range.max.toFixed(1)} dB\n`;
+          if (data.target_db !== undefined) {
+            prompt += `    → Target ideal: ${data.target_db.toFixed(1)} dB\n`;
+          }
+          prompt += `    → Use o RANGE OFICIAL como referência principal.\n`;
+        } 
+        // FALLBACK LEGADO: Calcular com target ± tolerance
+        else if (data.target_db !== undefined) {
+          const tolerance = data.tolerance || data.tol_db || 2.0;
           const min = data.target_db - tolerance;
           const max = data.target_db + tolerance;
-          prompt += `  - **${label}**: Range permitido ${min.toFixed(1)} a ${max.toFixed(1)} dB (centro em ${data.target_db.toFixed(1)} dB)\n`;
-          prompt += `    → IMPORTANTE: Use o RANGE (${min.toFixed(1)} a ${max.toFixed(1)} dB) como referência, NÃO o centro isolado.\n`;
+          prompt += `  - **${label}**: Range ${min.toFixed(1)} a ${max.toFixed(1)} dB (calculado: target ± tolerance)\n`;
+          prompt += `    → Target central: ${data.target_db.toFixed(1)} dB\n`;
+          prompt += `    → ⚠️ LEGACY: Range calculado artificialmente, não oficial.\n`;
         } else if (data.target !== undefined) {
-          const label = bandLabels[band] || band;
           const tolerance = data.tolerance || 2.0;
           const min = data.target - tolerance;
           const max = data.target + tolerance;
-          prompt += `  - **${label}**: Range permitido ${min.toFixed(1)} a ${max.toFixed(1)} dB (centro em ${data.target.toFixed(1)} dB)\n`;
+          prompt += `  - **${label}**: Range ${min.toFixed(1)} a ${max.toFixed(1)} dB (calculado: target ± tolerance)\n`;
+          prompt += `    → Target central: ${data.target.toFixed(1)} dB\n`;
+          prompt += `    → ⚠️ LEGACY: Range calculado artificialmente, não oficial.\n`;
         }
       });
     }

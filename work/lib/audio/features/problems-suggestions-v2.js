@@ -146,37 +146,58 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   /**
    * 🎯 FUNÇÃO AUXILIAR: Obter limites min/max de um threshold
    * 
-   * ✅ CORREÇÃO CRÍTICA: Lógica diferente para bandas vs outras métricas
+   * ✅ PATCH RANGE-MIGRATION: Priorizar min/max explícitos
    * 
-   * BANDAS (têm target_range):
-   *   - Use target_range.min e target_range.max diretamente
+   * PRIORIDADE 1 - min/max diretos (NOVO FORMATO):
+   *   - Use threshold.min e threshold.max quando disponíveis
    * 
-   * OUTRAS MÉTRICAS (LUFS, TP, DR, Stereo - NÃO têm target_range):
-   *   - Use target ± tolerance
+   * PRIORIDADE 2 - target_range (BANDAS):
+   *   - Use target_range.min e target_range.max
    * 
-   * @param {Object} threshold - Objeto com { target, tolerance, target_range? }
+   * FALLBACK LEGADO - target ± tolerance:
+   *   - Calcular artificialmente (SERÁ DEPRECADO)
+   * 
+   * @param {Object} threshold - Objeto com { min?, max?, target_range?, target, tolerance }
    * @returns {Object} { min, max }
    */
   getRangeBounds(threshold) {
-    // ✅ CORREÇÃO: BANDAS usam target_range (quando disponível)
+    // ✅ PRIORIDADE 1: Usar min/max diretos (NOVO FORMATO)
+    if (typeof threshold.min === 'number' && typeof threshold.max === 'number') {
+      console.log('[RANGE_BOUNDS][RANGE-MIGRATION] ✅ Usando min/max diretos:', {
+        min: threshold.min,
+        max: threshold.max,
+        source: 'min_max_explicitos'
+      });
+      return {
+        min: threshold.min,
+        max: threshold.max
+      };
+    }
+    
+    // ✅ PRIORIDADE 2: Usar target_range (BANDAS)
     if (threshold.target_range && 
         typeof threshold.target_range.min === 'number' && 
         typeof threshold.target_range.max === 'number') {
-      console.log('[RANGE_BOUNDS] ✅ Usando target_range (banda):', threshold.target_range);
+      console.log('[RANGE_BOUNDS][RANGE-MIGRATION] ✅ Usando target_range (banda):', {
+        min: threshold.target_range.min,
+        max: threshold.target_range.max,
+        source: 'target_range'
+      });
       return {
         min: threshold.target_range.min,
         max: threshold.target_range.max
       };
     }
     
-    // ✅ CORREÇÃO: OUTRAS MÉTRICAS usam target ± tolerance
-    // Validar que target existe
+    // ⚠️ FALLBACK LEGADO: Calcular com target ± tolerance
+    // Este método será DEPRECADO após migração completa
     if (typeof threshold.target !== 'number') {
-      console.error('[RANGE_BOUNDS] ❌ ERRO: target inválido:', {
+      console.error('[RANGE_BOUNDS] ❌ ERRO: target inválido e sem min/max:', {
         target: threshold.target,
         tolerance: threshold.tolerance,
-        targetType: typeof threshold.target,
-        toleranceType: typeof threshold.tolerance
+        hasMin: 'min' in threshold,
+        hasMax: 'max' in threshold,
+        hasTargetRange: !!threshold.target_range
       });
       // Retornar range centrado no zero para evitar Infinity
       return { min: -100, max: 100 };
@@ -188,15 +209,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       : 0;
 
     if (effectiveTolerance === 0) {
-      console.log('[RANGE_BOUNDS] ⚠️ tolerance = 0, usando target exato:', threshold.target);
+      console.warn('[RANGE_BOUNDS][RANGE-MIGRATION] ⚠️ tolerance = 0, usando target exato:', threshold.target);
       return { min: threshold.target, max: threshold.target };
     }
     
-    console.log('[RANGE_BOUNDS] ✅ Calculando range (métrica geral):', {
+    console.warn('[RANGE_BOUNDS][RANGE-MIGRATION] ⚠️ FALLBACK LEGADO: Calculando range com target ± tolerance');
+    console.warn('[RANGE_BOUNDS][RANGE-MIGRATION] ⚠️ Este método será DEPRECADO - atualize genreTargets para incluir min/max');
+    console.log('[RANGE_BOUNDS][RANGE-MIGRATION] Cálculo:', {
       target: threshold.target,
       tolerance: threshold.tolerance,
       min: threshold.target - threshold.tolerance,
-      max: threshold.target + threshold.tolerance
+      max: threshold.target + threshold.tolerance,
+      source: 'calculado_legacy'
     });
     
     return {
