@@ -239,17 +239,18 @@ export function buildMetricSuggestion({
 /**
  * 🎛️ Constrói sugestão para banda espectral
  * 
- * Detecta automaticamente se a banda está em dB ou porcentagem (%)
- * e formata adequadamente.
+ * ⚠️ REGRA ABSOLUTA: SEMPRE usa target_db (dB) como referência
+ * ❌ NUNCA renderiza targets em porcentagem (%)
+ * ✅ Se measured vier em %, trata como indicador energético
  * 
  * @param {Object} params - Parâmetros da banda
  * @param {string} params.bandKey - Chave da banda ('sub', 'bass', 'mid', etc.)
  * @param {string} params.bandLabel - Nome amigável da banda
  * @param {string} params.freqRange - Faixa de frequência (ex: "20-60 Hz")
- * @param {number} params.value - Valor atual medido
- * @param {number} params.target - Valor alvo ideal
- * @param {number} params.tolerance - Tolerância para calcular min/max
- * @param {string} [params.unit] - Unidade ('db', 'percent', ou auto-detectar)
+ * @param {number} params.value - Valor atual medido (pode ser dB ou energia %)
+ * @param {number} params.target - target_db (SEMPRE em dB do genreTargets)
+ * @param {number} params.tolerance - Tolerância em dB
+ * @param {string} [params.unit] - Unidade do valor medido (ignorado, sempre força dB)
  * @returns {Object} - { message, explanation, action }
  */
 export function buildBandSuggestion({
@@ -261,54 +262,33 @@ export function buildBandSuggestion({
   tolerance,
   unit = null
 }) {
-  // === DETECTAR UNIDADE AUTOMATICAMENTE ===
-  let isDb = false;
-  let isPercent = false;
+  // ✅ REGRA ABSOLUTA: Target SEMPRE é em dB (genreTargets.bands[key].target_db)
+  // ✅ REGRA ABSOLUTA: Range SEMPRE é em dB (target ± tolerance)
+  // ⚠️ ATENÇÃO: value pode vir em % (energia) ou dB (medição real)
   
-  if (unit === 'db' || unit === 'dB') {
-    isDb = true;
-  } else if (unit === 'percent' || unit === '%' || unit === 'percentage') {
-    isPercent = true;
-  } else {
-    // Auto-detectar pela escala dos valores
-    if (value < 0 || target < 0 || (value >= -60 && value <= 10)) {
-      isDb = true;
-    } else if ((value >= 0 && value <= 1) || (value >= 0 && value <= 100 && target <= 100)) {
-      isPercent = true;
-      // Se estiver entre 0 e 1, converter para porcentagem
-      if (value <= 1 && target <= 1) {
-        value = value * 100;
-        target = target * 100;
-        tolerance = tolerance * 100;
-      }
-    }
-  }
+  // === DETECTAR SE VALOR MEDIDO É ENERGIA (%) OU dB ===
+  // Se target é negativo, assume-se que estamos em escala dB
+  // Se value é positivo pequeno (0-100) e target é negativo, então value está em % (energia)
+  const targetIsDb = target < 0;
+  const valueIsEnergyPercent = targetIsDb && value >= 0 && value <= 100;
   
-  // === CALCULAR RANGE ===
+  // === CALCULAR RANGE SEMPRE EM dB ===
   const min = target - tolerance;
   const max = target + tolerance;
-  const delta = value - target;
-  const deltaAbs = Math.abs(delta);
-  
-  // === FORMATAR VALORES ===
-  const decimals = isDb ? 1 : 0;
-  const valueStr = formatValue(value, decimals);
-  const minStr = formatValue(min, decimals);
-  const maxStr = formatValue(max, decimals);
-  const targetStr = formatValue(target, decimals);
-  const deltaStr = formatDelta(delta, decimals);
-  
-  const unitDisplay = isDb ? 'dB' : '%';
   
   // === ÍCONES POR BANDA ===
   const icons = {
     sub: '🔊',
     bass: '🥁',
     lowMid: '🎸',
+    low_mid: '🎸',
     mid: '🎤',
     highMid: '🎺',
+    high_mid: '🎺',
     presenca: '✨',
-    brilho: '💎'
+    presence: '✨',
+    brilho: '💎',
+    brilliance: '💎'
   };
   const icon = icons[bandKey] || '🎛️';
   
@@ -319,12 +299,18 @@ export function buildBandSuggestion({
   }
   message += `\n`;
   
-  if (isDb) {
-    message += `• Seu valor: ${valueStr} dB\n`;
-    message += `• Faixa ideal: ${minStr} a ${maxStr} dB (alvo: ${targetStr} dB)`;
+  // ✅ SEMPRE renderizar range/alvo em dB
+  if (valueIsEnergyPercent) {
+    // Caso: valor medido é energia (%)
+    message += `• Energia medida: ${value.toFixed(1)}% (indicador energético)\n`;
+    message += `• Faixa ideal (dB): ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
+    message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
   } else {
-    message += `• Energia atual: ${valueStr}%\n`;
-    message += `• Faixa ideal: ${minStr}% a ${maxStr}% (alvo: ${targetStr}%)`;
+    // Caso: valor medido é dB
+    const delta = value - target;
+    message += `• Valor atual: ${value.toFixed(1)} dB\n`;
+    message += `• Faixa ideal: ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
+    message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
   }
   
   // === CONSTRUIR EXPLICAÇÃO ===
@@ -332,126 +318,162 @@ export function buildBandSuggestion({
   const bandDescriptions = {
     sub: 'Subgrave dá peso e impacto físico à música. Essencial em estilos eletrônicos e urbanos.',
     bass: 'Grave define a fundação tonal. Kick e baixo vivem aqui.',
+    low_bass: 'Grave define a fundação tonal. Kick e baixo vivem aqui.',
     lowMid: 'Médio-grave adiciona corpo e calor. Cuidado com excesso que pode deixar o som "enlameado".',
+    low_mid: 'Médio-grave adiciona corpo e calor. Cuidado com excesso que pode deixar o som "enlameado".',
     mid: 'Médio é onde a voz e instrumentos principais se destacam. Região crítica para inteligibilidade.',
     highMid: 'Médio-agudo traz presença e definição. Essencial para clareza e brilho.',
+    high_mid: 'Médio-agudo traz presença e definição. Essencial para clareza e brilho.',
     presenca: 'Presença adiciona "ar" e proximidade. Excesso pode causar fadiga auditiva.',
-    brilho: 'Brilho dá abertura e "ar" ao som. Essencial para sensação de qualidade moderna.'
+    presence: 'Presença adiciona "ar" e proximidade. Excesso pode causar fadiga auditiva.',
+    brilho: 'Brilho dá abertura e "ar" ao som. Essencial para sensação de qualidade moderna.',
+    brilliance: 'Brilho dá abertura e "ar" ao som. Essencial para sensação de qualidade moderna.'
   };
   explanation = bandDescriptions[bandKey] || 'Esta faixa de frequência é importante para o balanço espectral geral.';
   
+  if (valueIsEnergyPercent) {
+    explanation += `\n\n⚠️ Nota: O valor medido está em escala energética (%). A faixa ideal de referência é em dB.`;
+  }
+  
   // === CONSTRUIR AÇÃO ===
-  let action = '\n\n➜ Orientação prática:\n';
+  let action = '';
   
-  const isWithinRange = value >= min && value <= max;
-  const isClose = deltaAbs <= tolerance * 0.3;
+  // ✅ CÁLCULO DE DELTA SEMPRE EM dB (mesmo se value for %)
+  let delta, deltaAbs, isWithinRange;
   
-  if (isWithinRange && isClose) {
-    action += `✅ Excelente! Esta faixa de frequência está bem equilibrada para o estilo.`;
-  } else if (value > max) {
-    const excess = value - max;
-    const excessStr = formatValue(excess, decimals);
-    
-    action += `⚠️ Região ${excessStr} ${unitDisplay} acima do ideal.\n`;
-    
-    // Sugestões específicas por banda
-    switch (bandKey) {
-      case 'sub':
-        action += `- Reduza o subgrave com EQ shelving abaixo de 60 Hz.\n`;
-        action += `- Corte suave de 2-3 dB já faz diferença.\n`;
-        action += `- Aplique high-pass filter em elementos que não precisam de sub.`;
-        break;
-        
-      case 'bass':
-        action += `- Reduza o grave com EQ bell em 80-120 Hz.\n`;
-        action += `- Ajuste compressão do kick e baixo para controlar picos.\n`;
-        action += `- Verifique se kick e baixo não estão competindo.`;
-        break;
-        
-      case 'lowMid':
-        action += `- Corte médio-grave com EQ bell em 250-500 Hz.\n`;
-        action += `- Cuidado: excesso deixa o som "enlameado" e abafado.\n`;
-        action += `- Aplique side-chain se necessário.`;
-        break;
-        
-      case 'mid':
-        action += `- Reduza médios com EQ bell em 500 Hz - 2 kHz.\n`;
-        action += `- Atenção: não corte demais ou perderá corpo e presença.\n`;
-        action += `- Ajuste compressão de vocais e instrumentos principais.`;
-        break;
-        
-      case 'highMid':
-      case 'presenca':
-        action += `- Reduza médio-agudos com EQ bell em 2-5 kHz.\n`;
-        action += `- Cuidado: excesso causa fadiga auditiva e som agressivo.\n`;
-        action += `- Use de-esser em vocais se necessário.`;
-        break;
-        
-      case 'brilho':
-        action += `- Reduza brilho com EQ shelving acima de 6 kHz.\n`;
-        action += `- Corte suave de 2-3 dB já suaviza o som.\n`;
-        action += `- Verifique pratos e hi-hats.`;
-        break;
-        
-      default:
-        action += `- Use EQ para reduzir esta faixa de frequência.\n`;
-        action += `- Ajuste gradualmente até chegar ao range ideal.`;
-    }
-  } else if (value < min) {
-    const deficit = min - value;
-    const deficitStr = formatValue(deficit, decimals);
-    
-    action += `⚠️ Região ${deficitStr} ${unitDisplay} abaixo do ideal.\n`;
-    
-    // Sugestões específicas por banda
-    switch (bandKey) {
-      case 'sub':
-        action += `- Aumente o subgrave com EQ shelving abaixo de 60 Hz.\n`;
-        action += `- Reforce o kick e sub-bass com boost suave.\n`;
-        action += `- Considere adicionar camada de sub sintético.`;
-        break;
-        
-      case 'bass':
-        action += `- Aumente o grave com EQ bell em 80-120 Hz.\n`;
-        action += `- Reforce kick e baixo para dar mais fundação.\n`;
-        action += `- Use compressão para controlar dinâmica.`;
-        break;
-        
-      case 'lowMid':
-        action += `- Aumente médio-grave com EQ bell em 250-500 Hz.\n`;
-        action += `- Adicione corpo e calor à mixagem.\n`;
-        action += `- Atenção: não exagere ou o som ficará abafado.`;
-        break;
-        
-      case 'mid':
-        action += `- Aumente médios com EQ bell em 500 Hz - 2 kHz.\n`;
-        action += `- Vocais e instrumentos principais precisam de presença.\n`;
-        action += `- Boost suave de 2-3 dB já faz diferença.`;
-        break;
-        
-      case 'highMid':
-      case 'presenca':
-        action += `- Aumente médio-agudos com EQ bell em 2-5 kHz.\n`;
-        action += `- Adicione presença e clareza à mixagem.\n`;
-        action += `- Boost moderado para evitar som agressivo.`;
-        break;
-        
-      case 'brilho':
-        action += `- Aumente brilho com EQ shelving acima de 6 kHz.\n`;
-        action += `- Adicione "ar" e abertura ao som.\n`;
-        action += `- Boost suave de 2-3 dB para modernizar o som.`;
-        break;
-        
-      default:
-        action += `- Use EQ para aumentar esta faixa de frequência.\n`;
-        action += `- Ajuste gradualmente até chegar ao range ideal.`;
-    }
+  if (valueIsEnergyPercent) {
+    // Caso especial: não podemos calcular delta direto (unidades diferentes)
+    // Apenas indicamos que é referência energética
+    action = '\n➜ Orientação prática:\n';
+    action += `📊 Valor medido em energia (%). Use a faixa ideal em dB (${min.toFixed(1)} a ${max.toFixed(1)} dB) como referência para ajustes com EQ.\n\n`;
+    action += `🎚️ Ajuste com EQ paramétrico na faixa ${freqRange}:\n`;
+    action += `• Use filtro bell (Q ~1.0-2.0) ou shelf\n`;
+    action += `• Target ideal: ${target.toFixed(1)} dB\n`;
+    action += `• Monitore o resultado com analisador de espectro`;
   } else {
-    // Dentro do range mas pode melhorar
-    if (delta > 0) {
-      action += `Região levemente acima do alvo. Reduza com EQ suave para chegar próximo de ${targetStr} ${unitDisplay}.`;
+    // Caso normal: value está em dB, podemos calcular delta
+    delta = value - target;
+    deltaAbs = Math.abs(delta);
+    isWithinRange = value >= min && value <= max;
+    const isClose = deltaAbs <= tolerance * 0.3;
+    
+    action = '\n➜ Orientação prática:\n';
+    
+    if (isWithinRange && isClose) {
+      action += `✅ Excelente! Esta faixa de frequência está bem equilibrada para o estilo.`;
+    } else if (value > max) {
+      const excess = value - max;
+      action += `⚠️ Região ${excess.toFixed(1)} dB acima do ideal.\n\n`;
+      action += `🎚️ Ação recomendada:\n`;
+      
+      // Sugestões específicas por banda
+      switch (bandKey) {
+        case 'sub':
+          action += `- Reduza o subgrave com EQ shelving abaixo de 60 Hz\n`;
+          action += `- Corte suave de ${Math.min(excess, 3).toFixed(1)} dB já faz diferença\n`;
+          action += `- Aplique high-pass filter em elementos que não precisam de sub`;
+          break;
+          
+        case 'bass':
+        case 'low_bass':
+          action += `- Reduza o grave com EQ bell em 80-120 Hz\n`;
+          action += `- Ajuste compressão do kick e baixo para controlar picos\n`;
+          action += `- Verifique se kick e baixo não estão competindo`;
+          break;
+          
+        case 'lowMid':
+        case 'low_mid':
+          action += `- Corte médio-grave com EQ bell em 250-500 Hz\n`;
+          action += `- Cuidado: excesso deixa o som "enlameado" e abafado\n`;
+          action += `- Aplique side-chain se necessário`;
+          break;
+          
+        case 'mid':
+          action += `- Reduza médios com EQ bell em 500 Hz - 2 kHz\n`;
+          action += `- Atenção: não corte demais ou perderá corpo e presença\n`;
+          action += `- Ajuste compressão de vocais e instrumentos principais`;
+          break;
+          
+        case 'highMid':
+        case 'high_mid':
+        case 'presenca':
+        case 'presence':
+          action += `- Reduza médio-agudos com EQ bell em 2-5 kHz\n`;
+          action += `- Cuidado: excesso causa fadiga auditiva e som agressivo\n`;
+          action += `- Use de-esser em vocais se necessário`;
+          break;
+          
+        case 'brilho':
+        case 'brilliance':
+          action += `- Reduza brilho com EQ shelving acima de 6 kHz\n`;
+          action += `- Corte suave de ${Math.min(excess, 3).toFixed(1)} dB já suaviza o som\n`;
+          action += `- Verifique pratos e hi-hats`;
+          break;
+          
+        default:
+          action += `- Use EQ para reduzir esta faixa de frequência\n`;
+          action += `- Ajuste gradualmente até chegar ao range ideal`;
+      }
+    } else if (value < min) {
+      const deficit = min - value;
+      action += `⚠️ Região ${deficit.toFixed(1)} dB abaixo do ideal.\n\n`;
+      action += `🎚️ Ação recomendada:\n`;
+      
+      // Sugestões específicas por banda
+      switch (bandKey) {
+        case 'sub':
+          action += `- Aumente o subgrave com EQ shelving abaixo de 60 Hz\n`;
+          action += `- Reforce o kick e sub-bass com boost suave\n`;
+          action += `- Considere adicionar camada de sub sintético`;
+          break;
+          
+        case 'bass':
+        case 'low_bass':
+          action += `- Aumente o grave com EQ bell em 80-120 Hz\n`;
+          action += `- Reforce kick e baixo para dar mais fundação\n`;
+          action += `- Use compressão para controlar dinâmica`;
+          break;
+          
+        case 'lowMid':
+        case 'low_mid':
+          action += `- Aumente médio-grave com EQ bell em 250-500 Hz\n`;
+          action += `- Adicione corpo e calor à mixagem\n`;
+          action += `- Atenção: não exagere ou o som ficará abafado`;
+          break;
+          
+        case 'mid':
+          action += `- Aumente médios com EQ bell em 500 Hz - 2 kHz\n`;
+          action += `- Vocais e instrumentos principais precisam de presença\n`;
+          action += `- Boost suave de ${Math.min(deficit, 3).toFixed(1)} dB já faz diferença`;
+          break;
+          
+        case 'highMid':
+        case 'high_mid':
+        case 'presenca':
+        case 'presence':
+          action += `- Aumente médio-agudos com EQ bell em 2-5 kHz\n`;
+          action += `- Adicione presença e clareza à mixagem\n`;
+          action += `- Boost moderado para evitar som agressivo`;
+          break;
+          
+        case 'brilho':
+        case 'brilliance':
+          action += `- Aumente brilho com EQ shelving acima de 6 kHz\n`;
+          action += `- Adicione "ar" e abertura ao som\n`;
+          action += `- Boost suave de ${Math.min(deficit, 3).toFixed(1)} dB para modernizar o som`;
+          break;
+          
+        default:
+          action += `- Use EQ para aumentar esta faixa de frequência\n`;
+          action += `- Ajuste gradualmente até chegar ao range ideal`;
+      }
     } else {
-      action += `Região levemente abaixo do alvo. Aumente com EQ suave para chegar próximo de ${targetStr} ${unitDisplay}.`;
+      // Dentro do range mas pode melhorar
+      if (delta > 0) {
+        action += `Região levemente acima do alvo. Reduza com EQ suave para chegar próximo de ${target.toFixed(1)} dB.`;
+      } else {
+        action += `Região levemente abaixo do alvo. Aumente com EQ suave para chegar próximo de ${target.toFixed(1)} dB.`;
+      }
     }
   }
   
@@ -486,7 +508,9 @@ export const BAND_LABELS = {
   highMid: 'Médio-agudo',
   high_mid: 'Médio-agudo',
   presenca: 'Presença',
-  brilho: 'Brilho'
+  presence: 'Presença',
+  brilho: 'Brilho',
+  brilliance: 'Brilho'
 };
 
 /**
@@ -498,9 +522,11 @@ export const FREQUENCY_RANGES = {
   low_bass: '60-250 Hz',
   lowMid: '250-500 Hz',
   low_mid: '250-500 Hz',
-  mid: '500 Hz-2 kHz',
+  mid: '500 Hz - 2 kHz',
   highMid: '2-5 kHz',
   high_mid: '2-5 kHz',
-  presenca: '5-8 kHz',
-  brilho: '8-20 kHz'
+  presenca: '3-6 kHz',
+  presence: '3-6 kHz',
+  brilho: '6-20 kHz',
+  brilliance: '6-20 kHz'
 };
