@@ -571,6 +571,14 @@ async function updateJobStatus(jobId, status, results = null) {
       console.log("  - Número de aiSuggestions:", results.aiSuggestions?.length || 0);
       console.log("======================================================================\n");
       
+      console.log('[GENRE-FLOW][S4_BEFORE_SAVE]', {
+        jobId,
+        hasSuggestions: !!results?.suggestions,
+        hasAiSuggestions: !!results?.aiSuggestions,
+        firstBaseSuggestion: results?.suggestions?.[0] || null,
+        firstAiSuggestion: results?.aiSuggestions?.[0] || null
+      });
+      
       // ────────────────────────────────────────
       // STEP 3 — LOGAR AS SUGESTÕES NA HORA DE SALVAR EM results.suggestions
       // ────────────────────────────────────────

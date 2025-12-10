@@ -217,6 +217,14 @@ router.get("/:id", async (req, res) => {
         });
       }
       
+      console.log('[GENRE-FLOW][S5_FRONTEND_OUTPUT]', {
+        jobId: job?.id,
+        hasSuggestions: !!job?.results?.suggestions,
+        hasAiSuggestions: !!job?.results?.aiSuggestions,
+        firstBaseSuggestion: job?.results?.suggestions?.[0] || null,
+        firstAiSuggestion: job?.results?.aiSuggestions?.[0] || null
+      });
+      
       // ────────────────────────────────────────
       // STEP 4 — LOGAR NO BACKEND/API ANTES DE ENVIAR PARA O FRONTEND
       // ────────────────────────────────────────

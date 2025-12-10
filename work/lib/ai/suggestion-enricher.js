@@ -883,6 +883,23 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
 
     successCount++;
     
+    console.log('[GENRE-FLOW][S3_AI_ENRICH_BEFORE]', {
+      metric: baseSug.metric || baseSug.type,
+      currentValue: baseSug.currentValue,
+      targetValue: baseSug.targetValue,
+      delta: baseSug.delta,
+      deltaNum: baseSug.deltaNum
+    });
+    
+    console.log('[GENRE-FLOW][S3_AI_ENRICH_AI]', {
+      metric: baseSug.metric || baseSug.type,
+      aiCategoria: aiEnrichment?.categoria,
+      aiNivel: aiEnrichment?.nivel,
+      aiProblema: aiEnrichment?.problema,
+      aiSolucao: aiEnrichment?.solucao,
+      aiRaw: aiEnrichment
+    });
+    
     // 🛡️ VALIDAÇÃO PÓS-IA: Verificar coerência numérica
     const validation = validateAICoherence(baseSug, aiEnrichment);
     if (!validation.isCoherent) {
@@ -917,7 +934,7 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       });
     }
 
-    return {
+    const merged = {
       // 📦 Dados base (preservados)
       type: baseSug.type,
       message: baseSug.message,
@@ -954,6 +971,16 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       enrichedAt: new Date().toISOString(),
       enrichmentVersion: 'ULTRA_V2'
     };
+    
+    console.log('[GENRE-FLOW][S3_AI_ENRICH_AFTER]', {
+      metric: merged.metric || merged.type,
+      currentValue: merged.currentValue,
+      targetValue: merged.targetValue,
+      delta: merged.delta,
+      deltaNum: merged.deltaNum
+    });
+    
+    return merged;
   });
   
   console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
