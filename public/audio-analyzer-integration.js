@@ -9655,10 +9655,166 @@ function showModalLoading() {
 // 📈 Simular progresso
 // (função de simulação de progresso removida — não utilizada)
 
+// ✅ FUNÇÃO DE MODO REDUZIDO
+/**
+ * Renderizar interface em modo reduzido (FREE/PLUS sem análises restantes)
+ * Mostra apenas: Score, True Peak, LUFS, Dynamic Range
+ * Oculta: Bandas, Espectro, Sugestões, IA Avançada
+ */
+function renderReducedMode(data) {
+    console.log('[PLAN-FILTER] 🎯 Renderizando modo reduzido:', data);
+    
+    // Abrir modal de resultado
+    const modal = document.getElementById('audioResultModal');
+    const overlay = document.getElementById('audioModalOverlay');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+    }
+    if (overlay) {
+        overlay.style.display = 'block';
+    }
+    
+    // Helper para atualizar campo de forma segura
+    function updateField(selector, value) {
+        const element = document.querySelector(selector);
+        if (element) {
+            element.textContent = value || '-';
+        }
+    }
+    
+    // Helper para ocultar elemento
+    function hideElement(selector) {
+        const element = document.querySelector(selector);
+        if (element) {
+            element.style.display = 'none';
+        }
+    }
+    
+    // Helper para mostrar elemento
+    function showElement(selector) {
+        const element = document.querySelector(selector);
+        if (element) {
+            element.style.display = 'block';
+        }
+    }
+    
+    // ✅ EXIBIR MÉTRICAS PRINCIPAIS
+    updateField('#audioScore', data.score !== undefined ? `${data.score}%` : '-');
+    updateField('#audioLufs', data.lufsIntegrated !== undefined ? `${data.lufsIntegrated.toFixed(1)} LUFS` : (data.lufs !== undefined ? `${data.lufs.toFixed(1)} LUFS` : '-'));
+    updateField('#audioTruePeak', data.truePeakDbtp !== undefined ? `${data.truePeakDbtp.toFixed(2)} dBTP` : (data.truePeak !== undefined ? `${data.truePeak.toFixed(2)} dBTP` : '-'));
+    updateField('#audioDynamicRange', data.dynamicRange !== undefined ? `${data.dynamicRange.toFixed(1)} dB` : (data.dr !== undefined ? `${data.dr.toFixed(1)} dB` : '-'));
+    
+    console.log('[PLAN-FILTER] ✅ Métricas principais renderizadas:', {
+        score: data.score,
+        lufs: data.lufsIntegrated || data.lufs,
+        truePeak: data.truePeakDbtp || data.truePeak,
+        dr: data.dynamicRange || data.dr
+    });
+    
+    // ❌ OCULTAR SEÇÕES AVANÇADAS
+    hideElement('#suggestionsSection');
+    hideElement('#aiSuggestionsSection');
+    hideElement('#bandsSection');
+    hideElement('#spectralSection');
+    hideElement('#spectralChart');
+    hideElement('#problemsSection');
+    hideElement('#diagnosticsSection');
+    hideElement('.comparison-table');
+    hideElement('#genreTargetsTable');
+    
+    console.log('[PLAN-FILTER] ✅ Seções avançadas ocultadas');
+    
+    // ✅ PREENCHER OUTROS CAMPOS COM "-"
+    const fieldsToDisable = [
+        '#audioHeadroom', '#audioLra', '#audioStereoWidth',
+        '#audioStereoCorrelation', '#audioPhaseCoherence',
+        '#audioPeakToAverage', '#audioCrestFactor',
+        '#audioSubBass', '#audioBass', '#audioLowMid',
+        '#audioMid', '#audioHighMid', '#audioPresence',
+        '#audioBrilliance', '#audioAir'
+    ];
+    
+    fieldsToDisable.forEach(selector => {
+        updateField(selector, '-');
+    });
+    
+    console.log('[PLAN-FILTER] ✅ Campos avançados substituídos por "-"');
+    
+    // ✅ EXIBIR AVISO DE UPGRADE
+    const warningContainer = document.createElement('div');
+    warningContainer.id = 'reducedModeWarning';
+    warningContainer.style.cssText = `
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    `;
+    warningContainer.innerHTML = `
+        <h3 style="margin: 0 0 10px 0; font-size: 1.3em;">⚠️ Modo Reduzido Ativado</h3>
+        <p style="margin: 10px 0; font-size: 1em; opacity: 0.95;">
+            ${data.limitWarning || 'Você atingiu o limite de análises completas do seu plano.'}
+        </p>
+        <p style="margin: 10px 0; font-size: 0.95em; opacity: 0.9;">
+            <strong>Exibindo apenas:</strong> Score, True Peak, LUFS e Dynamic Range
+        </p>
+        <button id="upgradePlanBtn" style="
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            🚀 Atualizar Plano
+        </button>
+    `;
+    
+    // Inserir aviso no início do modal
+    const modalContent = document.querySelector('#audioResultModal .modal-content');
+    if (modalContent) {
+        // Remover aviso anterior se existir
+        const oldWarning = document.getElementById('reducedModeWarning');
+        if (oldWarning) {
+            oldWarning.remove();
+        }
+        
+        modalContent.insertBefore(warningContainer, modalContent.firstChild);
+        console.log('[PLAN-FILTER] ✅ Aviso de upgrade exibido');
+        
+        // Adicionar evento de clique no botão de upgrade
+        const upgradeBtn = document.getElementById('upgradePlanBtn');
+        if (upgradeBtn) {
+            upgradeBtn.addEventListener('click', () => {
+                console.log('[PLAN-FILTER] 🚀 Botão de upgrade clicado');
+                // TODO: Redirecionar para página de planos
+                window.location.href = '/planos.html'; // Ajustar URL conforme necessário
+            });
+        }
+    }
+    
+    console.log('[PLAN-FILTER] ✅ Modo reduzido renderizado com sucesso');
+}
+
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+    
+    // ✅ VERIFICAÇÃO CRÍTICA: Modo Reduzido
+    if (analysis.analysisMode === 'reduced') {
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - Renderizando UI simplificada');
+        renderReducedMode(analysis);
+        return;
+    }
     
     // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui
     console.group('[FASE2-VALIDATION] 🎯 displayModalResults - ENTRADA');
