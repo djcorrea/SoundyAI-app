@@ -2512,16 +2512,36 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             await waitForFirebase();
         }
         
-        // Verificar se usuário está autenticado
+        // Tentar obter token (prioridade: currentUser > localStorage)
+        let idToken = null;
+        
+        // Prioridade 1: Obter do currentUser
         const currentUser = window.auth?.currentUser;
-        if (!currentUser) {
+        if (currentUser) {
+            try {
+                idToken = await currentUser.getIdToken();
+                console.log('✅ Token obtido do currentUser');
+            } catch (err) {
+                console.warn('⚠️ Erro ao obter token do currentUser:', err.message);
+            }
+        }
+        
+        // Prioridade 2: Fallback para localStorage
+        if (!idToken) {
+            idToken = localStorage.getItem('authToken') || localStorage.getItem('idToken');
+            if (idToken) {
+                console.log('✅ Token obtido do localStorage (fallback)');
+            }
+        }
+        
+        // Validação final
+        if (!idToken) {
+            console.error('[CRITICAL] ID Token ausente no localStorage após login.');
             console.error('❌ Usuário não autenticado - não é possível criar job');
             throw new Error('Você precisa estar logado para analisar áudio.');
         }
         
-        // Obter token
-        const idToken = await currentUser.getIdToken();
-        console.log('✅ Token obtido com sucesso:', idToken ? 'Token válido' : 'Token ausente');
+        console.log('✅ Token válido disponível para envio');
 
         // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
         // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
@@ -2645,7 +2665,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             genre: finalGenre, // 🔒 PATCH: Usar finalGenre sempre
             genreTargets: finalTargets, // 🔒 PATCH: Incluir targets
             hasTargets: !!finalTargets, // 🔒 PATCH: Flag indicando presença de targets
-            token: idToken // ✅ CORREÇÃO CRÍTICA: Token no body (backend espera aqui)
+            idToken: idToken // ✅ CORREÇÃO CRÍTICA: Chave correta para backend (req.body.idToken)
         };
         
         // 🔥 GUARD PREVENTIVO: NUNCA enviar sem gênero ou targets
@@ -3167,11 +3187,28 @@ async function startReferenceAnalysis() {
             'selectedGenre (final)': selectedGenre
         });
 
-        // ✅ Obter token do usuário autenticado
+        // ✅ Obter token (prioridade: currentUser > localStorage)
+        let token = null;
         const currentUser = window.auth?.currentUser;
-        const token = currentUser ? await currentUser.getIdToken() : null;
+        
+        if (currentUser) {
+            try {
+                token = await currentUser.getIdToken();
+                console.log('✅ [REF-MODE] Token obtido do currentUser');
+            } catch (err) {
+                console.warn('⚠️ [REF-MODE] Erro ao obter token do currentUser:', err.message);
+            }
+        }
         
         if (!token) {
+            token = localStorage.getItem('authToken') || localStorage.getItem('idToken');
+            if (token) {
+                console.log('✅ [REF-MODE] Token obtido do localStorage (fallback)');
+            }
+        }
+        
+        if (!token) {
+            console.error('[CRITICAL] ID Token ausente no localStorage após login.');
             console.error('❌ Token não disponível - usuário não autenticado');
             throw new Error('Você precisa estar logado para analisar áudio.');
         }
@@ -3179,14 +3216,15 @@ async function startReferenceAnalysis() {
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // ✅ Token também no header
             },
             body: JSON.stringify({
                 originalKey: uploadedFiles.original,
                 referenceKey: uploadedFiles.reference,
                 mode: 'reference',
                 genre: selectedGenre, // 🎯 FIX CRÍTICO: Gênero agora incluído
-                token: token // ✅ CORREÇÃO CRÍTICA: Token no body
+                idToken: token // ✅ CORREÇÃO CRÍTICA: Chave correta para backend (req.body.idToken)
             })
         });
 
