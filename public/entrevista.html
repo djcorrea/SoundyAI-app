@@ -616,17 +616,23 @@
                         
                         if (!userDocSnap.exists()) {
                             console.log('⚠️ Documento do usuário não existe, criando...');
-                            // Criar documento base se não existir
+                            // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
                             await setDoc(userDocRef, {
                                 uid: user.uid,
                                 email: user.email,
-                                plano: 'gratis',
-                                mensagensRestantes: 10,
-                                createdAt: Timestamp.now(),
-                                perfil: perfilData,
-                                entrevistaConcluida: true
+                                telefone: '', // Preencher se disponível
+                                plan: 'free', // ✅ Novo schema: "plan" ao invés de "plano"
+                                messagesToday: 0, // ✅ Novo schema
+                                analysesToday: 0, // ✅ Novo schema
+                                lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
+                                verificadoPorSMS: false,
+                                criadoSemSMS: true,
+                                entrevistaConcluida: true, // Entrevista concluída neste momento
+                                createdAt: new Date().toISOString(), // ✅ ISO string
+                                updatedAt: new Date().toISOString(), // ✅ ISO string
+                                perfil: perfilData // Dados da entrevista
                             });
-                            console.log('✅ Documento completo criado com perfil');
+                            console.log('✅ Documento completo criado com perfil e schema atualizado');
                         } else {
                             console.log('✅ Documento existe, fazendo merge do perfil...');
                             // Atualizar apenas o perfil se documento já existe
