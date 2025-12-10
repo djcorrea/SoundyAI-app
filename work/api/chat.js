@@ -1,6 +1,7 @@
 // 🚨 FORCE CACHE BUST - 1692582547
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
 import { getAuth, getFirestore } from '../../firebase/admin.js';
+import { canUseChat, registerChat } from '../lib/user/userPlans.js'; // ✅ NOVO: Sistema de planos
 
 const auth = getAuth();
 const db = getFirestore();
@@ -949,16 +950,36 @@ export default async function handler(req, res) {
       });
     }
 
-    // Gerenciar limites de usuário
-    let userData;
+    // ✅ VALIDAR LIMITES DE CHAT COM SISTEMA DE PLANOS
+    console.log(`📊 [${requestId}] Verificando limites de chat para UID: ${uid}`);
+    
+    let chatCheck;
     try {
-      userData = await handleUserLimits(db, uid, email);
-    } catch (error) {
-      if (error.message === 'LIMIT_EXCEEDED') {
-        return res.status(403).json({ error: 'Limite diário de mensagens atingido' });
-      }
-      throw error;
+      chatCheck = await canUseChat(uid);
+      console.log(`📊 [${requestId}] Resultado da verificação:`, chatCheck);
+    } catch (err) {
+      console.error(`❌ [${requestId}] Erro ao verificar limites de chat:`, err.message);
+      return sendResponse(500, {
+        error: 'LIMIT_CHECK_ERROR',
+        message: 'Erro ao verificar limites do plano'
+      });
     }
+    
+    if (!chatCheck.allowed) {
+      console.log(`⛔ [${requestId}] Limite de chat atingido para UID: ${uid}`);
+      console.log(`⛔ [${requestId}] Plano: ${chatCheck.user.plan}, Restantes: ${chatCheck.remaining}`);
+      return sendResponse(403, {
+        error: 'LIMIT_REACHED',
+        message: 'Você atingiu o limite de mensagens do seu plano. Atualize para continuar usando o chat.',
+        remaining: chatCheck.remaining,
+        plan: chatCheck.user.plan,
+        limit: chatCheck.user.plan === 'free' ? 20 : (chatCheck.user.plan === 'plus' ? 60 : 'ilimitado')
+      });
+    }
+    
+    console.log(`✅ [${requestId}] Chat permitido - UID: ${uid} (${chatCheck.remaining} mensagens restantes)`);
+    
+    const userData = chatCheck.user;
 
     // Se tem imagens, verificar e consumir cota de análise
     let imageQuotaInfo = null;
@@ -1107,14 +1128,24 @@ export default async function handler(req, res) {
       responseLength: reply.length,
       tokenEstimate: Math.ceil(reply.length / 4), // Estimativa aproximada
       imageQuotaUsed: imageQuotaInfo?.usadas || null,
-      userPlan: userData.plano
+      userPlan: userData.plan
     });
+
+    // ✅ REGISTRAR USO DE CHAT NO SISTEMA DE PLANOS
+    try {
+      await registerChat(uid);
+      console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}`);
+    } catch (err) {
+      console.error(`⚠️ [${requestId}] Erro ao registrar chat (resposta será enviada):`, err.message);
+      // Não bloquear resposta - usuário já recebeu o serviço
+    }
 
     // Preparar resposta final
     const responseData = {
       reply,
-      mensagensRestantes: userData.plano === 'gratis' ? userData.mensagensRestantes : null,
-      model: modelSelection ? modelSelection.model : 'unknown'
+      mensagensRestantes: userData.plan === 'free' ? chatCheck.remaining : (userData.plan === 'plus' ? chatCheck.remaining : null),
+      model: modelSelection ? modelSelection.model : 'unknown',
+      plan: userData.plan
     };
 
     // Incluir informações de cota de imagem se aplicável
@@ -1123,7 +1154,7 @@ export default async function handler(req, res) {
         quotaUsed: imageQuotaInfo.usadas,
         quotaLimit: imageQuotaInfo.limite,
         quotaRemaining: imageQuotaInfo.limite - imageQuotaInfo.usadas,
-        planType: userData.plano
+        planType: userData.plan
       };
     }
 

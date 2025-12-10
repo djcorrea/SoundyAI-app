@@ -25,7 +25,7 @@ import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
 import { getAuth } from '../../firebase/admin.js';
-import { canUseAnalysis, registerAnalysis } from '../../lib/user/userPlans.js';
+import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/user/userPlans.js';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
@@ -83,7 +83,7 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null, planContext = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
@@ -98,6 +98,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   console.log(`   🎵 Gênero: ${genre || 'não especificado'}`);
   console.log(`   🎯 Targets: ${genreTargets ? 'presentes' : 'ausentes'}`);
   console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
+  console.log(`   📊 Plan Context:`, planContext);
 
   try {
     // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
@@ -145,7 +146,8 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       mode,
       genre: genre,        // 🎯 CRÍTICO: Genre DEVE ir para Redis
       genreTargets: genreTargets, // 🎯 CRÍTICO: GenreTargets DEVE ir para Redis
-      referenceJobId: referenceJobId // 🔗 ID do job de referência (se mode='comparison')
+      referenceJobId: referenceJobId, // 🔗 ID do job de referência (se mode='comparison')
+      planContext: planContext // 📊 NOVO: Contexto de plano e features
     };
     
     console.log("🟥🟥 [AUDIT:JOB-CREATOR] Este arquivo está CRIANDO um job AGORA:");
@@ -467,17 +469,24 @@ router.post("/analyze", async (req, res) => {
     
     if (!analysisCheck.allowed) {
       console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
-      console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Restantes: ${analysisCheck.remaining}`);
+      console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Mode: ${analysisCheck.mode}`);
       return res.status(403).json({
-        error: true,
-        code: "LIMIT_REACHED",
+        success: false,
+        error: "LIMIT_REACHED",
         message: "Seu plano atual não permite mais análises. Atualize seu plano para continuar.",
-        remaining: analysisCheck.remaining,
-        plan: analysisCheck.user.plan
+        remainingFull: analysisCheck.remainingFull,
+        plan: analysisCheck.user.plan,
+        mode: analysisCheck.mode
       });
     }
     
-    console.log(`✅ [ANALYZE] Limite verificado: ${uid} (${analysisCheck.remaining} restantes)`);
+    const analysisMode = analysisCheck.mode; // "full" | "reduced"
+    const features = getPlanFeatures(analysisCheck.user.plan, analysisMode);
+    
+    console.log(`✅ [ANALYZE] Análise permitida - UID: ${uid}`);
+    console.log(`📊 [ANALYZE] Modo: ${analysisMode}, Plano: ${analysisCheck.user.plan}`);
+    console.log(`🎯 [ANALYZE] Features:`, features);
+    console.log(`📈 [ANALYZE] Análises completas restantes: ${analysisCheck.remainingFull}`);
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][BACKEND] 📥 Payload recebido do frontend:', {
@@ -540,16 +549,26 @@ router.post("/analyze", async (req, res) => {
     console.log("🟥 [AUDIT:CONTROLLER-PAYLOAD] Payload enviado para Postgres:");
     console.dir({ fileKey, mode, fileName, referenceJobId, genre, genreTargets }, { depth: 10 });
     
-    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre E genreTargets)
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets);
+    // ✅ MONTAR PLAN CONTEXT PARA O PIPELINE
+    const planContext = {
+      plan: analysisCheck.user.plan,
+      analysisMode: analysisMode, // "full" | "reduced"
+      features: features,
+      uid: uid
+    };
+    
+    console.log('📊 [ANALYZE] Plan Context montado:', planContext);
+    
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre, genreTargets E planContext)
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets, planContext);
     
     console.log('[GENRE-TRACE][BACKEND] ✅ Job criado - genre salvo:', jobRecord.data);
 
-    // ✅ ETAPA 3: REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES
-    console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid);
+    // ✅ ETAPA 3: REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES (SÓ SE FOR FULL)
+    console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid, '- Mode:', analysisMode);
     try {
-      await registerAnalysis(uid);
-      console.log(`✅ [ANALYZE] Análise registrada com sucesso para: ${uid}`);
+      await registerAnalysis(uid, analysisMode);
+      console.log(`✅ [ANALYZE] Análise registrada com sucesso para: ${uid} (mode: ${analysisMode})`);
     } catch (err) {
       console.error('⚠️ [ANALYZE] Erro ao registrar análise (job já foi criado):', err.message);
       // Não bloquear resposta - job já foi criado com sucesso
