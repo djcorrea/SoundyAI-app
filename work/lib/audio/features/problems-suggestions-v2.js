@@ -194,16 +194,16 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     };
   }
 
-  constructor(genre = 'default', customTargets = null) {
+  /**
+   * 🏗️ CONSTRUTOR: Inicializa analyzer apenas com gênero
+   * ✅ REGRA ABSOLUTA: NÃO aceita customTargets - usa APENAS consolidatedData.genreTargets em runtime
+   * @param {string} genre - Gênero musical (apenas para logging/metadata)
+   */
+  constructor(genre = 'default') {
     console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[ANALYZER-CONSTRUCTOR] ENTRADA DO CONSTRUTOR:');
+    console.log('[ANALYZER-CONSTRUCTOR] ✅ NOVA POLÍTICA: Sem customTargets no construtor');
     console.log('[ANALYZER-CONSTRUCTOR] genre:', genre);
-    console.log('[ANALYZER-CONSTRUCTOR] customTargets:', customTargets ? 'presente' : 'NULL');
-    if (customTargets) {
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets keys:', Object.keys(customTargets));
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets.lufs:', customTargets.lufs);
-      console.log('[ANALYZER-CONSTRUCTOR] customTargets.dr:', customTargets.dr);
-    }
+    console.log('[ANALYZER-CONSTRUCTOR] Targets virão de consolidatedData em runtime');
     console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // 🛡️ Validar genre
@@ -214,58 +214,32 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     this.genre = genre.trim();
     this._originalGenre = genre.trim();
-    
-    // 🔥 POLÍTICA RÍGIDA: customTargets é OBRIGATÓRIO
-    // NÃO usar fallback hardcoded (GENRE_THRESHOLDS foi removido)
-    if (!customTargets || typeof customTargets !== 'object' || Object.keys(customTargets).length === 0) {
-      console.error('[ANALYZER-ERROR] ❌ customTargets ausente ou inválido');
-      console.error('[ANALYZER-ERROR] O sistema EXIGE targets carregados do filesystem');
-      console.error('[ANALYZER-ERROR] Use: loadGenreTargetsFromWorker(genre)');
-      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets obrigatórios ausentes para gênero: ${genre}`);
-    }
-    
-    // ✅ Validar estrutura mínima de customTargets
-    const requiredMetrics = ['lufs', 'truePeak', 'dr', 'stereo', 'bands'];
-    const missingMetrics = requiredMetrics.filter(m => !customTargets[m]);
-    if (missingMetrics.length > 0) {
-      console.error('[ANALYZER-ERROR] ❌ customTargets incompleto. Faltam:', missingMetrics);
-      throw new Error(`[ANALYZER-CONSTRUCTOR] Targets incompletos para ${genre}: faltam ${missingMetrics.join(', ')}`);
-    }
-    
-    console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
-    console.log('[PROBLEMS_V2] customTargets.lufs:', customTargets.lufs);
-    console.log('[PROBLEMS_V2] customTargets.dr:', customTargets.dr);
-    console.log('[PROBLEMS_V2] customTargets.bands keys:', Object.keys(customTargets.bands || {}));
-    
-    this.thresholds = customTargets;
-    this.targetsSource = 'filesystem';
-    
     this.severity = SEVERITY_SYSTEM;
     
     logAudio('problems_v2', 'init', { 
-      genre: this.genre, 
-      thresholds: Object.keys(this.thresholds).length,
-      source: this.targetsSource
+      genre: this.genre,
+      policy: 'consolidatedData-only'
     });
   }
 
   /**
    * 🎯 HELPER CENTRALIZADO: Obter target e tolerance de forma segura
-   * Prioriza consolidatedData.genreTargets, depois customTargets
-   * Nunca usa fallback hardcoded (GENRE_THRESHOLDS)
+   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.genreTargets
+   * ❌ NUNCA usa customTargets, this.thresholds, ou fallbacks
    * 
    * ✅ CORREÇÃO CRÍTICA: Lê estruturas diferentes para bandas vs outras métricas
    * 
    * @param {string} metricKey - 'lufs', 'truePeak', 'dr', 'stereo', ou 'bands'
    * @param {string|null} bandKey - Nome da banda (se metricKey === 'bands')
-   * @param {Object} consolidatedData - Dados consolidados do finalJSON
-   * @param {Object} customTargets - Targets carregados do filesystem
+   * @param {Object} consolidatedData - Dados consolidados do finalJSON.data
    * @returns {Object|null} { target, tolerance, critical, target_range? } ou null se não encontrado
    */
-  getMetricTarget(metricKey, bandKey, consolidatedData, customTargets) {
-    const genreTargets = consolidatedData?.genreTargets || customTargets || null;
+  getMetricTarget(metricKey, bandKey, consolidatedData) {
+    // ✅ REGRA ABSOLUTA: Usar APENAS consolidatedData.genreTargets
+    const genreTargets = consolidatedData?.genreTargets;
     if (!genreTargets) {
-      console.warn(`[TARGET-HELPER] ⚠️ Nenhum genreTargets disponível para ${metricKey}`);
+      console.error(`[TARGET-HELPER] ❌ consolidatedData.genreTargets ausente para ${metricKey}`);
+      console.error('[TARGET-HELPER] ❌ IMPOSSÍVEL GERAR SUGESTÃO - pulando');
       return null;
     }
 
@@ -347,20 +321,21 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       const suggestions = [];
       const problems = [];
       
-      // 🔊 ANÁLISE LUFS - agora com consolidatedData
-      this.analyzeLUFS(audioMetrics, suggestions, problems, consolidatedData);
+      // ✅ REGRA ABSOLUTA: Passar APENAS consolidatedData (sem audioMetrics)
+      // 🔊 ANÁLISE LUFS
+      this.analyzeLUFS(suggestions, problems, consolidatedData);
       
-      // 🎯 ANÁLISE TRUE PEAK - agora com consolidatedData
-      this.analyzeTruePeak(audioMetrics, suggestions, problems, consolidatedData);
+      // 🎯 ANÁLISE TRUE PEAK
+      this.analyzeTruePeak(suggestions, problems, consolidatedData);
       
-      // 📈 ANÁLISE DYNAMIC RANGE - agora com consolidatedData
-      this.analyzeDynamicRange(audioMetrics, suggestions, problems, consolidatedData);
+      // 📈 ANÁLISE DYNAMIC RANGE
+      this.analyzeDynamicRange(suggestions, problems, consolidatedData);
       
-      // 🎧 ANÁLISE STEREO - agora com consolidatedData
-      this.analyzeStereoMetrics(audioMetrics, suggestions, problems, consolidatedData);
+      // 🎧 ANÁLISE STEREO
+      this.analyzeStereoMetrics(suggestions, problems, consolidatedData);
       
-      // 🌈 ANÁLISE BANDAS ESPECTRAIS - agora com consolidatedData
-      this.analyzeSpectralBands(audioMetrics, suggestions, problems, consolidatedData);
+      // 🌈 ANÁLISE BANDAS ESPECTRAIS
+      this.analyzeSpectralBands(suggestions, problems, consolidatedData);
       
       // 📊 RESUMO FINAL
       const summary = this.generateSummary(suggestions, problems);
@@ -444,20 +419,28 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🔊 Análise LUFS com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
    */
-  analyzeLUFS(metrics, suggestions, problems, consolidatedData = null) {
-    // 🎯 Obter valor da métrica
-    const metric = consolidatedData?.metrics?.loudness;
-    if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][LUFS] ⚠️ Métrica LUFS não disponível');
+  analyzeLUFS(suggestions, problems, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error('[LUFS] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('lufs', null, consolidatedData, this.thresholds);
+    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
+    const metric = consolidatedData.metrics?.loudness;
+    if (!metric || typeof metric.value !== 'number') {
+      console.error('[LUFS] ❌ consolidatedData.metrics.loudness ausente ou inválido');
+      console.error('[LUFS] ❌ Valor encontrado:', metric);
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
+    const targetInfo = this.getMetricTarget('lufs', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][LUFS] ⚠️ Target LUFS não disponível - pulando sugestão');
+      console.error('[LUFS] ❌ consolidatedData.genreTargets.lufs ausente - pulando sugestão');
       return;
     }
 
@@ -572,20 +555,28 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎯 Análise True Peak com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
    */
-  analyzeTruePeak(metrics, suggestions, problems, consolidatedData = null) {
-    // 🎯 Obter valor da métrica
-    const metric = consolidatedData?.metrics?.truePeak;
-    if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][TRUE_PEAK] ⚠️ Métrica True Peak não disponível');
+  analyzeTruePeak(suggestions, problems, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error('[TRUE_PEAK] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData, this.thresholds);
+    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
+    const metric = consolidatedData.metrics?.truePeak;
+    if (!metric || typeof metric.value !== 'number') {
+      console.error('[TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente ou inválido');
+      console.error('[TRUE_PEAK] ❌ Valor encontrado:', metric);
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
+    const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][TRUE_PEAK] ⚠️ Target True Peak não disponível - pulando sugestão');
+      console.error('[TRUE_PEAK] ❌ consolidatedData.genreTargets.truePeak ausente - pulando sugestão');
       return;
     }
 
@@ -675,21 +666,29 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
   
   /**
-   * 📈 Análise Dynamic Range com Sugestões Educativas - SISTEMA 3 NÍVEIS POR GÊNERO
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * 📈 Análise Dynamic Range com Sugestões Educativas
+   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
    */
-  analyzeDynamicRange(metrics, suggestions, problems, consolidatedData = null) {
-    // 🎯 Obter valor da métrica
-    const metric = consolidatedData?.metrics?.dr;
-    if (!metric || typeof metric.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][DR] ⚠️ Métrica DR não disponível');
+  analyzeDynamicRange(suggestions, problems, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error('[DR] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('dr', null, consolidatedData, this.thresholds);
+    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
+    const metric = consolidatedData.metrics?.dr;
+    if (!metric || typeof metric.value !== 'number') {
+      console.error('[DR] ❌ consolidatedData.metrics.dr ausente ou inválido');
+      console.error('[DR] ❌ Valor encontrado:', metric);
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
+    const targetInfo = this.getMetricTarget('dr', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][DR] ⚠️ Target DR não disponível - pulando sugestão');
+      console.error('[DR] ❌ consolidatedData.genreTargets.dr ausente - pulando sugestão');
       return;
     }
 
@@ -804,20 +803,28 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎧 Análise Stereo com Sugestões Educativas
-   * 🔥 REFATORADO: Usa apenas consolidatedData/customTargets (SEM FALLBACK HARDCODED)
+   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
    */
-  analyzeStereoMetrics(metrics, suggestions, problems, consolidatedData = null) {
-    // 🎯 Validar que temos métrica de stereo
-    const metricStereo = consolidatedData?.metrics?.stereo;
-    if (!metricStereo || typeof metricStereo.value !== 'number') {
-      console.warn('[SUGGESTION_DEBUG][STEREO] ⚠️ Métrica stereo não disponível');
+  analyzeStereoMetrics(suggestions, problems, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error('[STEREO] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 Obter target usando helper centralizado
-    const targetInfo = this.getMetricTarget('stereo', null, consolidatedData, this.thresholds);
+    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
+    const metricStereo = consolidatedData.metrics?.stereo;
+    if (!metricStereo || typeof metricStereo.value !== 'number') {
+      console.error('[STEREO] ❌ consolidatedData.metrics.stereo ausente ou inválido');
+      console.error('[STEREO] ❌ Valor encontrado:', metricStereo);
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
+    const targetInfo = this.getMetricTarget('stereo', null, consolidatedData);
     if (!targetInfo) {
-      console.warn('[SUGGESTION_DEBUG][STEREO] ⚠️ Target não disponível - pulando sugestão');
+      console.error('[STEREO] ❌ consolidatedData.genreTargets.stereo ausente - pulando sugestão');
       return;
     }
 
@@ -930,17 +937,24 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🌈 Análise Bandas Espectrais com Sugestões Educativas
-   * 🔥 REFATORADO: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands (SEM FALLBACK)
+   * ✅ REGRA ABSOLUTA: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
    */
-  analyzeSpectralBands(metrics, suggestions, problems, consolidatedData = null) {
-    // 🎯 VALIDAÇÃO: Exigir consolidatedData.metrics.bands
-    if (!consolidatedData?.metrics?.bands) {
-      console.warn('[SUGGESTION_DEBUG][BANDS] ⚠️ consolidatedData.metrics.bands não disponível - pulando análise');
+  analyzeSpectralBands(suggestions, problems, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error('[BANDS] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Exigir consolidatedData.metrics.bands
+    if (!consolidatedData.metrics?.bands) {
+      console.error('[BANDS] ❌ consolidatedData.metrics.bands ausente - pulando análise');
       return;
     }
 
     const bands = consolidatedData.metrics.bands;
-    console.log('[SUGGESTION_DEBUG][BANDS] ✅ Usando EXCLUSIVAMENTE consolidatedData.metrics.bands:', {
+    console.log('[BANDS] ✅ Usando EXCLUSIVAMENTE consolidatedData.metrics.bands:', {
       bandsCount: Object.keys(bands).length,
       source: 'consolidatedData'
     });
@@ -995,30 +1009,45 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎵 Análise Individual de Banda Espectral
-   * 🔥 REFATORADO: Usa EXCLUSIVAMENTE consolidatedData.metrics.bands (SEM FALLBACK)
+   * ✅ REGRA ABSOLUTA: Usa EXCLUSIVAMENTE consolidatedData (metrics + genreTargets)
+   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, value passado por parâmetro, ou fallbacks
    */
-  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData = null) {
-    // 🎯 FONTE ÚNICA: Valor medido do consolidatedData.metrics.bands
-    const measured = consolidatedData?.metrics?.bands?.[bandKey]?.value;
-    if (!Number.isFinite(measured)) {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Valor medido não disponível`);
+  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData) {
+    // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
+    if (!consolidatedData) {
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão`);
       return;
     }
 
-    // 🎯 Obter target usando helper centralizado (ÚNICA FONTE DE TARGETS)
-    const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData, this.thresholds);
+    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics.bands
+    const measured = consolidatedData.metrics?.bands?.[bandKey]?.value;
+    if (!Number.isFinite(measured)) {
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${bandKey}.value ausente ou inválido`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor encontrado:`, consolidatedData.metrics?.bands?.[bandKey]);
+      return;
+    }
+
+    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets.bands
+    const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData);
     if (!targetInfo) {
-      console.warn(`[SUGGESTION_DEBUG][BANDS][${bandKey.toUpperCase()}] ⚠️ Target não disponível - pulando sugestão`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.genreTargets.bands.${bandKey} ausente - pulando sugestão`);
       return;
     }
 
     const target = targetInfo.target;
     const tolerance = targetInfo.tolerance;
     const critical = targetInfo.critical;
+    const target_range = targetInfo.target_range;  // ✅ Bandas SEMPRE têm target_range
 
-    // 🔥 LOG MANDATÓRIO: Confirmar valores em dB
-    console.log(`[FIXED_BAND] ${bandKey}:`, {
+    // ✅ LOG: Confirmar origem dos dados
+    console.log(`[BAND-${bandKey.toUpperCase()}] ✅ Usando consolidatedData:`, {
       measured_db: measured.toFixed(2),
+      target_db: target.toFixed(2),
+      target_range_min: target_range?.min?.toFixed(2),
+      target_range_max: target_range?.max?.toFixed(2),
+      tolerance_db: tolerance.toFixed(2),
+      source: 'consolidatedData'
+    });
       target_db: target.toFixed(2),
       tolerance_db: tolerance.toFixed(2),
       unit: 'dB'
