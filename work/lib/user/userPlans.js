@@ -5,7 +5,7 @@ import { getFirestore } from "../../../firebase/admin.js";
 
 // ✅ Obter db via função (lazy loading) ao invés de top-level
 const getDb = () => getFirestore();
-const USERS = "usuarios"; // Coleção existente no Firestore
+const USERS = "userPlans"; // Coleção existente no Firestore
 
 const PLAN_LIMITS = {
   free: { maxMessagesPerDay: 20, maxAnalysesPerDay: 3 },
