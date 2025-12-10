@@ -163,7 +163,10 @@ console.log('🚀 Carregando auth.js...');
           uid: result.user.uid,
           email: result.user.email
         }));
-        localStorage.setItem("idToken", idToken);
+        // ✅ Salvar token com chave consistente
+        localStorage.setItem("authToken", idToken);
+        localStorage.setItem("idToken", idToken); // Manter compatibilidade
+        console.log('✅ [AUTH] Token salvo no localStorage como authToken');
 
         try {
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
@@ -293,12 +296,16 @@ console.log('🚀 Carregando auth.js...');
         // Obter token
         const idToken = await user.getIdToken();
         
+        // ✅ Salvar token com chave consistente
+        localStorage.setItem("authToken", idToken);
+        localStorage.setItem("idToken", idToken); // Manter compatibilidade
+        console.log('✅ [AUTH] Token salvo no localStorage como authToken');
+        
         // Salvar dados localmente
         localStorage.setItem("user", JSON.stringify({
           uid: user.uid,
           email: user.email,
           telefone: phone,
-          idToken: idToken,
           plano: 'gratis'
         }));
 
