@@ -1418,6 +1418,94 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
     }
 
+    // ✅ FASE FINAL: APLICAR FILTRO DE MODO REDUZIDO (FREE/PLUS sem análises completas restantes)
+    const planContext = options.planContext || null;
+    
+    if (planContext) {
+      console.log('[PLAN-FILTER] 📊 Plan Context detectado:', planContext);
+      
+      // Se modo reduzido: manter apenas score + TP + LUFS + DR
+      if (planContext.analysisMode === 'reduced') {
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO - Filtrando métricas avançadas');
+        console.log('[PLAN-FILTER] Plano:', planContext.plan, '| Features:', planContext.features);
+        
+        // Criar JSON reduzido com apenas métricas essenciais
+        const reducedJSON = {
+          // Manter estrutura base
+          jobId: finalJSON.jobId,
+          fileName: finalJSON.fileName,
+          mode: finalJSON.mode,
+          genre: finalJSON.genre,
+          
+          // Métricas permitidas em modo reduzido
+          score: finalJSON.score,
+          classification: finalJSON.classification,
+          
+          // Métricas principais: True Peak, LUFS, DR
+          truePeak: finalJSON.truePeak,
+          truePeakDbtp: finalJSON.truePeakDbtp,
+          lufs: finalJSON.lufs,
+          lufsIntegrated: finalJSON.lufsIntegrated,
+          dynamicRange: finalJSON.dynamicRange,
+          dr: finalJSON.dr,
+          
+          // Metadata simplificado
+          metadata: {
+            version: finalJSON.metadata?.version,
+            timestamp: finalJSON.metadata?.timestamp,
+            analysisMode: 'reduced',
+            plan: planContext.plan,
+            limitReached: true
+          },
+          
+          // Aviso de limite atingido
+          limitWarning: {
+            message: `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Análise em modo reduzido: score + True Peak + LUFS + Dynamic Range.`,
+            plan: planContext.plan,
+            upgradeRequired: true
+          },
+          
+          // Campos vazios ou não disponíveis
+          bands: {},
+          spectrum: {},
+          suggestions: [],
+          aiSuggestions: [],
+          problemsAnalysis: { problems: [], suggestions: [] },
+          diagnostics: { problems: [], suggestions: [] }
+        };
+        
+        console.log('[PLAN-FILTER] ✅ JSON reduzido criado - métricas filtradas');
+        
+        // Limpar arquivo temporário
+        cleanupTempFile(tempFilePath);
+        
+        return reducedJSON;
+      }
+      
+      // Se features não permitem sugestões: remover campos de sugestões
+      if (!planContext.features.canSuggestions) {
+        console.log('[PLAN-FILTER] 🚫 Plano não permite sugestões - removendo campos de sugestões');
+        delete finalJSON.suggestions;
+        delete finalJSON.aiSuggestions;
+        delete finalJSON.problemsAnalysis;
+        delete finalJSON.diagnostics;
+      }
+      
+      // Se features não permitem espectro avançado: simplificar dados espectrais
+      if (!planContext.features.canSpectralAdvanced) {
+        console.log('[PLAN-FILTER] 🚫 Plano não permite análise espectral avançada - simplificando');
+        if (finalJSON.bands) {
+          // Manter apenas resumo das bandas, sem detalhes
+          finalJSON.bands = Object.keys(finalJSON.bands || {}).reduce((acc, key) => {
+            acc[key] = { db: finalJSON.bands[key]?.db || 0 };
+            return acc;
+          }, {});
+        }
+        delete finalJSON.spectrum;
+        delete finalJSON.spectralData;
+      }
+    }
+
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
