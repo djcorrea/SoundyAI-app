@@ -25,7 +25,7 @@ import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
 import { getAuth } from '../../firebase/admin.js';
-import { canUseAnalysis, registerAnalysis } from '../lib/user/userPlans.js';
+import { canUseAnalysis, registerAnalysis } from '../../lib/user/userPlans.js';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
