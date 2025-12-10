@@ -236,6 +236,12 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         jobOrOptions.isReferenceBase ??
         jobOrOptions.is_reference_base ??
         false,
+
+      // 🎯 CRÍTICO: Propagar planContext para o pipeline
+      planContext:
+        jobOrOptions.planContext ||
+        jobOrOptions.data?.planContext ||
+        null,
     };
 
     // 🔥 LOG CIRÚRGICO: Rastrear genre DEPOIS de criar pipelineOptions
@@ -437,12 +443,26 @@ async function processJob(job) {
     const finalGenre = extractedGenre.trim();
     const finalGenreTargets = extractedGenreTargets || null;
 
+    // 🎯 EXTRAIR planContext do job.data (CORREÇÃO CRÍTICA PARA PLANOS)
+    let extractedPlanContext = null;
+    if (job.data && typeof job.data === 'object') {
+      extractedPlanContext = job.data.planContext;
+    } else if (typeof job.data === 'string') {
+      try {
+        const parsed = JSON.parse(job.data);
+        extractedPlanContext = parsed.planContext;
+      } catch (e) {
+        console.warn('[PLAN-CONTEXT][WORKER] ⚠️ Falha ao extrair planContext:', e.message);
+      }
+    }
+
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AUDIT-WORKER] job.id:', job.id);
     console.log('[AUDIT-WORKER] job.mode:', job.mode);
     console.log('[AUDIT-WORKER] job.data.genre:', job.data?.genre);
     console.log('[AUDIT-WORKER] job.data.genreTargets:', job.data?.genreTargets ? 'PRESENTE' : 'AUSENTE');
+    console.log('[AUDIT-WORKER] job.data.planContext:', extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
     console.log('[AUDIT-WORKER] extractedGenre:', extractedGenre);
     console.log('[AUDIT-WORKER] finalGenre (trimmed):', finalGenre);
     console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -454,7 +474,8 @@ async function processJob(job) {
       genre: finalGenre,
       genreTargets: finalGenreTargets, // 🎯 NOVO: Passar targets para o pipeline
       referenceJobId: job.reference_job_id || null,
-      isReferenceBase: job.is_reference_base || false
+      isReferenceBase: job.is_reference_base || false,
+      planContext: extractedPlanContext || null  // 🎯 CRÍTICO: Passar planContext para o pipeline
     };
     
     // 🔥 PATCH 1: GARANTIR QUE options.genre RECEBE O GÊNERO DE data
