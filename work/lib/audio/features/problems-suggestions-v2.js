@@ -143,23 +143,51 @@ function computeRecommendedGain(rawDelta, options = {}) {
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
   /**
-   * 🎯 PATCH: Função auxiliar para obter limites min/max de um threshold
-   * Prioriza target_range quando disponível, fallback para target±tolerance
-   * @param {Object} threshold - Objeto com target/tolerance ou target_range
+   * 🎯 FUNÇÃO AUXILIAR: Obter limites min/max de um threshold
+   * 
+   * ✅ CORREÇÃO CRÍTICA: Lógica diferente para bandas vs outras métricas
+   * 
+   * BANDAS (têm target_range):
+   *   - Use target_range.min e target_range.max diretamente
+   * 
+   * OUTRAS MÉTRICAS (LUFS, TP, DR, Stereo - NÃO têm target_range):
+   *   - Use target ± tolerance
+   * 
+   * @param {Object} threshold - Objeto com { target, tolerance, target_range? }
    * @returns {Object} { min, max }
    */
   getRangeBounds(threshold) {
-    // PATCH: Se tiver target_range válido, usar diretamente
+    // ✅ CORREÇÃO: BANDAS usam target_range (quando disponível)
     if (threshold.target_range && 
         typeof threshold.target_range.min === 'number' && 
         typeof threshold.target_range.max === 'number') {
+      console.log('[RANGE_BOUNDS] ✅ Usando target_range (banda):', threshold.target_range);
       return {
         min: threshold.target_range.min,
         max: threshold.target_range.max
       };
     }
     
-    // PATCH: Fallback para target±tolerance (comportamento original)
+    // ✅ CORREÇÃO: OUTRAS MÉTRICAS usam target ± tolerance
+    // Validar que target e tolerance existem
+    if (typeof threshold.target !== 'number' || typeof threshold.tolerance !== 'number') {
+      console.error('[RANGE_BOUNDS] ❌ ERRO: target ou tolerance inválidos:', {
+        target: threshold.target,
+        tolerance: threshold.tolerance,
+        targetType: typeof threshold.target,
+        toleranceType: typeof threshold.tolerance
+      });
+      // Retornar range impossível para evitar sugestões com NaN
+      return { min: Infinity, max: -Infinity };
+    }
+    
+    console.log('[RANGE_BOUNDS] ✅ Calculando range (métrica geral):', {
+      target: threshold.target,
+      tolerance: threshold.tolerance,
+      min: threshold.target - threshold.tolerance,
+      max: threshold.target + threshold.tolerance
+    });
+    
     return {
       min: threshold.target - threshold.tolerance,
       max: threshold.target + threshold.tolerance
@@ -226,11 +254,13 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * Prioriza consolidatedData.genreTargets, depois customTargets
    * Nunca usa fallback hardcoded (GENRE_THRESHOLDS)
    * 
+   * ✅ CORREÇÃO CRÍTICA: Lê estruturas diferentes para bandas vs outras métricas
+   * 
    * @param {string} metricKey - 'lufs', 'truePeak', 'dr', 'stereo', ou 'bands'
    * @param {string|null} bandKey - Nome da banda (se metricKey === 'bands')
    * @param {Object} consolidatedData - Dados consolidados do finalJSON
    * @param {Object} customTargets - Targets carregados do filesystem
-   * @returns {Object|null} { target, tolerance, critical } ou null se não encontrado
+   * @returns {Object|null} { target, tolerance, critical, target_range? } ou null se não encontrado
    */
   getMetricTarget(metricKey, bandKey, consolidatedData, customTargets) {
     const genreTargets = consolidatedData?.genreTargets || customTargets || null;
@@ -244,23 +274,41 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         console.warn(`[TARGET-HELPER] ⚠️ bandKey ausente para metricKey='bands'`);
         return null;
       }
+      
       const t = genreTargets.bands?.[bandKey];
-      if (!t || typeof t.target !== 'number') {
-        console.warn(`[TARGET-HELPER] ⚠️ Target inválido para banda ${bandKey}`);
+      
+      // ✅ CORREÇÃO: JSON usa "target_db" nas bandas, NÃO "target"
+      if (!t || typeof t.target_db !== 'number') {
+        console.warn(`[TARGET-HELPER] ⚠️ Target inválido para banda ${bandKey}:`, {
+          exists: !!t,
+          hasTargetDb: t ? 'target_db' in t : false,
+          hasTarget: t ? 'target' in t : false,
+          actualKeys: t ? Object.keys(t) : []
+        });
         return null;
       }
+      
+      // ✅ CORREÇÃO: Retornar target_range se disponível (bandas sempre têm)
       return {
-        target: t.target,
-        tolerance: t.tolerance ?? 3.0,
-        critical: t.critical ?? (t.tolerance ?? 3.0) * 1.5
+        target: t.target_db,  // ✅ Usar target_db, não target
+        tolerance: t.tol_db ?? 3.0,  // ✅ Usar tol_db se disponível
+        critical: t.critical ?? (t.tol_db ?? 3.0) * 1.5,
+        target_range: t.target_range  // ✅ Incluir target_range para bandas
       };
     }
 
+    // Para LUFS, TruePeak, DR, Stereo: estrutura é { target, tolerance }
     const t = genreTargets[metricKey];
     if (!t || typeof t.target !== 'number') {
-      console.warn(`[TARGET-HELPER] ⚠️ Target inválido para ${metricKey}`);
+      console.warn(`[TARGET-HELPER] ⚠️ Target inválido para ${metricKey}:`, {
+        exists: !!t,
+        hasTarget: t ? 'target' in t : false,
+        actualKeys: t ? Object.keys(t) : []
+      });
       return null;
     }
+    
+    // ✅ Para métricas gerais, NÃO incluir target_range (elas não têm)
     return {
       target: t.target,
       tolerance: t.tolerance ?? 1.0,
