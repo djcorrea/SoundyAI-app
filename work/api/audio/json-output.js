@@ -992,14 +992,17 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
           const bands = technicalData.spectral_balance;
           if (!bands || bands._status !== 'calculated') return null;
           
+          // 🔥 CORREÇÃO CRÍTICA: Usar energy_db (dBFS) ao invés de percentage (%)
+          // O sistema de sugestões PRECISA de valores em dB para calcular deltas corretos
+          // percentage é apenas para visualização no painel de análise
           return {
-            sub: { value: bands.sub?.percentage || null, unit: '%' },
-            bass: { value: bands.bass?.percentage || null, unit: '%' },
-            lowMid: { value: bands.lowMid?.percentage || null, unit: '%' },
-            mid: { value: bands.mid?.percentage || null, unit: '%' },
-            highMid: { value: bands.highMid?.percentage || null, unit: '%' },
-            presence: { value: bands.presence?.percentage || null, unit: '%' },
-            air: { value: bands.air?.percentage || null, unit: '%' }
+            sub: { value: bands.sub?.energy_db || null, unit: 'dB' },
+            bass: { value: bands.bass?.energy_db || null, unit: 'dB' },
+            lowMid: { value: bands.lowMid?.energy_db || null, unit: 'dB' },
+            mid: { value: bands.mid?.energy_db || null, unit: 'dB' },
+            highMid: { value: bands.highMid?.energy_db || null, unit: 'dB' },
+            presence: { value: bands.presence?.energy_db || null, unit: 'dB' },
+            air: { value: bands.air?.energy_db || null, unit: 'dB' }
           };
         })()
       }
@@ -1153,12 +1156,16 @@ function generateReferenceComparison(userMetrics, referenceMetrics, options = {}
     
     ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
       if (userBands[band] && refBands[band]) {
+        // 🔥 CORREÇÃO: Usar energy_db (dBFS) para comparações coerentes
+        // percentage é relativo e não deve ser usado para cálculo de deltas
+        const userValue = userBands[band].energy_db;
+        const refValue = refBands[band].energy_db;
+        
         comparison.spectralBands[band] = {
-          user: userBands[band].percentage || userBands[band].energy_db,
-          reference: refBands[band].percentage || refBands[band].energy_db,
-          diff: Number(((userBands[band].percentage || userBands[band].energy_db) - 
-                       (refBands[band].percentage || refBands[band].energy_db)).toFixed(2)),
-          unit: '%'
+          user: userValue,
+          reference: refValue,
+          diff: Number((userValue - refValue).toFixed(2)),
+          unit: 'dB'
         };
       }
     });
