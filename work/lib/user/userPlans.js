@@ -5,7 +5,9 @@ import { getFirestore } from "../../../firebase/admin.js";
 
 // ✅ Obter db via função (lazy loading) ao invés de top-level
 const getDb = () => getFirestore();
-const USERS = "userPlans"; // Coleção existente no Firestore
+const USERS = "usuarios"; // Coleção existente no Firestore
+
+console.log(`🔥 [USER-PLANS] Módulo carregado - Collection: ${USERS}`);
 
 const PLAN_LIMITS = {
   free: { maxMessagesPerDay: 20, maxAnalysesPerDay: 3 },
@@ -22,29 +24,52 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
  * @returns {Promise<Object>} Perfil do usuário
  */
 export async function getOrCreateUser(uid, extra = {}) {
-  const ref = getDb().collection(USERS).doc(uid);
-  const snap = await ref.get();
+  console.log(`🔍 [USER-PLANS] getOrCreateUser chamado para UID: ${uid}`);
+  
+  try {
+    const db = getDb();
+    console.log(`📦 [USER-PLANS] Firestore obtido, acessando collection: ${USERS}`);
+    
+    const ref = db.collection(USERS).doc(uid);
+    console.log(`📄 [USER-PLANS] Referência do documento criada: ${USERS}/${uid}`);
+    
+    const snap = await ref.get();
+    console.log(`📊 [USER-PLANS] Snapshot obtido - Existe: ${snap.exists}`);
 
-  if (!snap.exists) {
-    const now = new Date().toISOString();
-    const profile = {
-      uid,
-      plan: "free",
-      plusExpiresAt: null,
-      proExpiresAt: null,
-      messagesToday: 0,
-      analysesToday: 0,
-      lastResetAt: todayISO(),
-      createdAt: now,
-      updatedAt: now,
-      ...extra,
-    };
-    await ref.set(profile);
-    console.log(`✅ [USER-PLANS] Novo usuário criado: ${uid} (plan: free)`);
-    return profile;
+    if (!snap.exists) {
+      const now = new Date().toISOString();
+      const profile = {
+        uid,
+        plan: "free",
+        plusExpiresAt: null,
+        proExpiresAt: null,
+        messagesToday: 0,
+        analysesToday: 0,
+        lastResetAt: todayISO(),
+        createdAt: now,
+        updatedAt: now,
+        ...extra,
+      };
+      
+      console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
+      console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
+      
+      await ref.set(profile);
+      console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: free)`);
+      return profile;
+    }
+
+    console.log(`♻️ [USER-PLANS] Usuário já existe, normalizando...`);
+    return normalizeUser(ref, snap.data());
+    
+  } catch (error) {
+    console.error(`❌ [USER-PLANS] ERRO CRÍTICO em getOrCreateUser:`);
+    console.error(`   UID: ${uid}`);
+    console.error(`   Collection: ${USERS}`);
+    console.error(`   Erro: ${error.message}`);
+    console.error(`   Stack:`, error.stack);
+    throw error;
   }
-
-  return normalizeUser(ref, snap.data());
 }
 
 /**
