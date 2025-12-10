@@ -560,6 +560,27 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           genreTargets: normalizedTargets
         };
         
+        // REGRA 9: Logs de auditoria mostrando consolidatedData
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        console.log('[AUDIT-CORRECTION] 📊 CONSOLIDATED DATA (pipeline-complete.js)');
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        console.log('[AUDIT-CORRECTION] Origem: finalJSON.data.metrics + finalJSON.data.genreTargets');
+        console.log('[AUDIT-CORRECTION] consolidatedData.metrics:', JSON.stringify({
+          loudness: consolidatedData.metrics?.loudness,
+          truePeak: consolidatedData.metrics?.truePeak,
+          dr: consolidatedData.metrics?.dr,
+          stereo: consolidatedData.metrics?.stereo,
+          hasBands: !!consolidatedData.metrics?.bands
+        }, null, 2));
+        console.log('[AUDIT-CORRECTION] consolidatedData.genreTargets:', JSON.stringify({
+          lufs: consolidatedData.genreTargets?.lufs,
+          truePeak: consolidatedData.genreTargets?.truePeak,
+          dr: consolidatedData.genreTargets?.dr,
+          stereo: consolidatedData.genreTargets?.stereo,
+          hasBands: !!consolidatedData.genreTargets?.bands
+        }, null, 2));
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        
         console.log('[DEBUG-SUGGESTIONS] 🎯 consolidatedData construído a partir de finalJSON.data:', {
           hasMetrics: !!consolidatedData.metrics,
           hasGenreTargets: !!consolidatedData.genreTargets,
@@ -918,12 +939,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[AI-AUDIT][REF] 🔍 mode inicial:', mode);
         
         try {
-          const refJob = await pool.query("SELECT COALESCE(result, results) AS result FROM jobs WHERE id = $1", [options.referenceJobId]);
+          // REGRA 1: Usar SEMPRE results (coluna correta do PostgreSQL)
+          console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('[AUDIT-CORRECTION] 🔍 Buscando job de referência');
+          console.log('[AUDIT-CORRECTION] referenceJobId:', options.referenceJobId);
+          console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          
+          const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
           
           if (refJob.rows.length > 0) {
-            const refData = typeof refJob.rows[0].result === "string"
-              ? JSON.parse(refJob.rows[0].result)
-              : refJob.rows[0].result;
+            // REGRA 1 e 2: Usar refJob.results e acessar .data.metrics/.data.genreTargets
+            const refData = typeof refJob.rows[0].results === "string"
+              ? JSON.parse(refJob.rows[0].results)
+              : refJob.rows[0].results;
+            
+            console.log('[AUDIT-CORRECTION] ✅ Job de referência encontrado');
+            console.log('[AUDIT-CORRECTION] refData.data.metrics:', !!refData.data?.metrics);
+            console.log('[AUDIT-CORRECTION] refData.data.genreTargets:', !!refData.data?.genreTargets);
             
             console.log("[REFERENCE-MODE] Análise de referência encontrada:", {
               jobId: options.referenceJobId,
@@ -1385,57 +1417,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         topLevelBands: customTargets?.bands ? Object.keys(customTargets.bands) : []
       });
     }
-
-    // 📌 REGRA 9: LOG DE AUDITORIA FINAL
-    console.log('\n\n╔═══════════════════════════════════════════════════════════════╗');
-    console.log('║  [AUDIT-CORRECTION] VALIDAÇÃO FINAL DO JSON                 ║');
-    console.log('╚═══════════════════════════════════════════════════════════════╝');
-    console.log('[AUDIT-CORRECTION] jobId:', jobId);
-    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[AUDIT-CORRECTION] finalJSON.data disponível?:', !!finalJSON.data);
-    
-    if (finalJSON.data) {
-      console.log('[AUDIT-CORRECTION] metrics:', {
-        disponível: !!finalJSON.data.metrics,
-        loudness: finalJSON.data.metrics?.loudness?.value,
-        truePeak: finalJSON.data.metrics?.truePeak?.value,
-        dr: finalJSON.data.metrics?.dr?.value,
-        stereo: finalJSON.data.metrics?.stereo?.value,
-        hasBands: !!finalJSON.data.metrics?.bands
-      });
-      
-      if (finalJSON.data.metrics?.bands) {
-        console.log('[AUDIT-CORRECTION] bandas (valores em dB):', {
-          sub: finalJSON.data.metrics.bands.sub?.value,
-          low_bass: finalJSON.data.metrics.bands.low_bass?.value,
-          upper_bass: finalJSON.data.metrics.bands.upper_bass?.value,
-          low_mid: finalJSON.data.metrics.bands.low_mid?.value,
-          mid: finalJSON.data.metrics.bands.mid?.value,
-          high_mid: finalJSON.data.metrics.bands.high_mid?.value,
-          presence: finalJSON.data.metrics.bands.presence?.value,
-          brilliance: finalJSON.data.metrics.bands.brilliance?.value
-        });
-      }
-      
-      console.log('[AUDIT-CORRECTION] genreTargets:', {
-        disponível: !!finalJSON.data.genreTargets,
-        hasLufs: !!finalJSON.data.genreTargets?.lufs,
-        hasTruePeak: !!finalJSON.data.genreTargets?.truePeak,
-        hasDr: !!finalJSON.data.genreTargets?.dr,
-        hasBands: !!finalJSON.data.genreTargets?.bands
-      });
-      
-      if (finalJSON.data.genreTargets?.bands) {
-        console.log('[AUDIT-CORRECTION] bandas (targets em dB):', {
-          sub: finalJSON.data.genreTargets.bands.sub?.target_db,
-          low_bass: finalJSON.data.genreTargets.bands.low_bass?.target_db,
-          upper_bass: finalJSON.data.genreTargets.bands.upper_bass?.target_db
-        });
-      }
-    } else {
-      console.error('[AUDIT-CORRECTION] ❌ finalJSON.data AUSENTE!');
-    }
-    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n');
 
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);

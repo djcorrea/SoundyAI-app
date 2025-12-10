@@ -2821,41 +2821,43 @@ async function pollJobStatus(jobId) {
                 if (status === 'completed' || status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
                     
-                    // 📌 REGRA 2: O JSON real vem sempre dentro de jobResult.results.data
-                    const jobResult = jobData.results || jobData;
+                    // 🎯 NOVO: Verificar modo e decidir fluxo
+                    const jobResult = job.results || jobData.results || job.result || jobData.result || jobData;
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     
                     // ═══════════════════════════════════════════════════════════════
                     // 🔍 AUDITORIA COMPLETA - ESTRUTURA REAL DO JSON RECEBIDO
                     // ═══════════════════════════════════════════════════════════════
-                    console.log('\n\n🔍 [AUDIT-CORRECTION] JSON RECEBIDO DO BACKEND');
-                    console.log('[AUDIT-CORRECTION] jobResult disponível?:', !!jobResult);
-                    console.log('[AUDIT-CORRECTION] jobResult.data disponível?:', !!jobResult.data);
-                    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('\n\n🔍🔍🔍 [AUDIT] JSON RECEBIDO DO BACKEND 🔍🔍🔍');
+                    console.log('[AUDIT] jobResult COMPLETO:', jobResult);
+                    console.log('[AUDIT] Keys do jobResult:', Object.keys(jobResult));
+                    console.log('[AUDIT] Tipo de jobResult:', typeof jobResult);
+                    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AUDIT] Verificando campos de targets:');
+                    console.log('[AUDIT]   ✓ jobResult.targets:', !!jobResult.targets);
+                    console.log('[AUDIT]   ✗ jobResult.data?.genreTargets:', !!jobResult.data?.genreTargets);
+                    console.log('[AUDIT]   ✗ jobResult.results?.genreTargets:', !!jobResult.results?.genreTargets);
+                    console.log('[AUDIT]   ✗ jobResult.data?.targets:', !!jobResult.data?.targets);
+                    console.log('[AUDIT]   ✗ jobResult.results?.targets:', !!jobResult.results?.targets);
+                    console.log('[AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     
-                    // 📌 REGRA 2: Verificar métricas e targets nos caminhos corretos
-                    if (jobResult.data) {
-                        console.log('[AUDIT-CORRECTION] metrics:', {
-                            disponível: !!jobResult.data.metrics,
-                            loudness: jobResult.data.metrics?.loudness?.value,
-                            truePeak: jobResult.data.metrics?.truePeak?.value,
-                            dr: jobResult.data.metrics?.dr?.value,
-                            stereo: jobResult.data.metrics?.stereo?.value,
-                            hasBands: !!jobResult.data.metrics?.bands
-                        });
-                        
-                        console.log('[AUDIT-CORRECTION] genreTargets:', {
-                            disponível: !!jobResult.data.genreTargets,
-                            hasLufs: !!jobResult.data.genreTargets?.lufs,
-                            hasTruePeak: !!jobResult.data.genreTargets?.truePeak,
-                            hasDr: !!jobResult.data.genreTargets?.dr,
-                            hasBands: !!jobResult.data.genreTargets?.bands
+                    if (jobResult.targets) {
+                        console.log('[AUDIT] ✅ CAMPO CORRETO ENCONTRADO: jobResult.targets');
+                        console.log('[AUDIT] Keys de targets:', Object.keys(jobResult.targets));
+                        console.log('[AUDIT] Estrutura de targets:', {
+                            hasLufsTarget: 'lufs_target' in jobResult.targets,
+                            hasTruePeakTarget: 'true_peak_target' in jobResult.targets,
+                            hasDrTarget: 'dr_target' in jobResult.targets,
+                            hasStereoTarget: 'stereo_target' in jobResult.targets,
+                            hasBands: 'bands' in jobResult.targets || 'spectral_bands' in jobResult.targets,
+                            lufsValue: jobResult.targets.lufs_target,
+                            truePeakValue: jobResult.targets.true_peak_target,
+                            drValue: jobResult.targets.dr_target,
+                            stereoValue: jobResult.targets.stereo_target
                         });
                     } else {
-                        console.error('[AUDIT-CORRECTION] ❌ jobResult.data NÃO ENCONTRADO!');
-                    }
-                    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n');
+                        console.error('[AUDIT] ❌ CAMPO "targets" NÃO ENCONTRADO!');
                         console.error('[AUDIT] Estrutura recebida pode estar incorreta');
                     }
                     console.log('🔍🔍🔍 [AUDIT] FIM DA AUDITORIA 🔍🔍🔍\n\n');
