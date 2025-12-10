@@ -260,17 +260,24 @@ export function buildBandSuggestion({
   value,
   target,
   tolerance,
-  unit = null
+  unit = 'dB'  // ✅ SEMPRE dB por padrão (nunca % em sugestões)
 }) {
-  // ✅ REGRA ABSOLUTA: Target SEMPRE é em dB (genreTargets.bands[key].target_db)
-  // ✅ REGRA ABSOLUTA: Range SEMPRE é em dB (target ± tolerance)
-  // ⚠️ ATENÇÃO: value pode vir em % (energia) ou dB (medição real)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔥 REGRA ABSOLUTA: BANDAS SEMPRE SÃO RENDERIZADAS EM dB
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ Backend (core-metrics.js) garante: consolidatedData.metrics.bands[key].value = energy_db
+  // ✅ analyzeBand() (problems-suggestions-v2.js) passa: unit: 'dB' explicitamente
+  // ✅ Target SEMPRE é em dB (genreTargets.bands[key].target_db)
+  // ❌ NUNCA renderizar bandas em % (energia) em sugestões
+  // ❌ NUNCA usar heurística para "adivinhar" unidade
+  // ═══════════════════════════════════════════════════════════════════════════
   
-  // === DETECTAR SE VALOR MEDIDO É ENERGIA (%) OU dB ===
-  // Se target é negativo, assume-se que estamos em escala dB
-  // Se value é positivo pequeno (0-100) e target é negativo, então value está em % (energia)
-  const targetIsDb = target < 0;
-  const valueIsEnergyPercent = targetIsDb && value >= 0 && value <= 100;
+  // 🎯 VALIDAÇÃO: Se value não for negativo (dBFS), algo está errado
+  if (value >= 0) {
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Valor positivo para banda ${bandKey}: ${value}`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Bandas devem ter valores dBFS NEGATIVOS!`);
+    console.error(`[BAND-SUGGESTION-CRITICAL] ❌ Isso indica BUG no pipeline de dados`);
+  }
   
   // === CALCULAR RANGE SEMPRE EM dB ===
   const min = target - tolerance;
@@ -299,19 +306,11 @@ export function buildBandSuggestion({
   }
   message += `\n`;
   
-  // ✅ SEMPRE renderizar range/alvo em dB
-  if (valueIsEnergyPercent) {
-    // Caso: valor medido é energia (%)
-    message += `• Energia medida: ${value.toFixed(1)}% (indicador energético)\n`;
-    message += `• Faixa ideal (dB): ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
-    message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
-  } else {
-    // Caso: valor medido é dB
-    const delta = value - target;
-    message += `• Valor atual: ${value.toFixed(1)} dB\n`;
-    message += `• Faixa ideal: ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
-    message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
-  }
+  // ✅ SEMPRE renderizar em dB (sem casos especiais)
+  const delta = value - target;
+  message += `• Valor atual: ${value.toFixed(1)} dB\n`;
+  message += `• Faixa ideal: ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
+  message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
   
   // === CONSTRUIR EXPLICAÇÃO ===
   let explanation = '';
@@ -331,38 +330,20 @@ export function buildBandSuggestion({
   };
   explanation = bandDescriptions[bandKey] || 'Esta faixa de frequência é importante para o balanço espectral geral.';
   
-  if (valueIsEnergyPercent) {
-    explanation += `\n\n⚠️ Nota: O valor medido está em escala energética (%). A faixa ideal de referência é em dB.`;
-  }
-  
   // === CONSTRUIR AÇÃO ===
   let action = '';
   
-  // ✅ CÁLCULO DE DELTA SEMPRE EM dB (mesmo se value for %)
-  let delta, deltaAbs, isWithinRange;
+  // ✅ CÁLCULO DE DELTA SEMPRE EM dB (value JÁ está em dB)
+  const deltaAbs = Math.abs(delta);
+  const isWithinRange = value >= min && value <= max;
+  const isClose = deltaAbs <= tolerance * 0.3;
   
-  if (valueIsEnergyPercent) {
-    // Caso especial: não podemos calcular delta direto (unidades diferentes)
-    // Apenas indicamos que é referência energética
-    action = '\n➜ Orientação prática:\n';
-    action += `📊 Valor medido em energia (%). Use a faixa ideal em dB (${min.toFixed(1)} a ${max.toFixed(1)} dB) como referência para ajustes com EQ.\n\n`;
-    action += `🎚️ Ajuste com EQ paramétrico na faixa ${freqRange}:\n`;
-    action += `• Use filtro bell (Q ~1.0-2.0) ou shelf\n`;
-    action += `• Target ideal: ${target.toFixed(1)} dB\n`;
-    action += `• Monitore o resultado com analisador de espectro`;
-  } else {
-    // Caso normal: value está em dB, podemos calcular delta
-    delta = value - target;
-    deltaAbs = Math.abs(delta);
-    isWithinRange = value >= min && value <= max;
-    const isClose = deltaAbs <= tolerance * 0.3;
-    
-    action = '\n➜ Orientação prática:\n';
-    
-    if (isWithinRange && isClose) {
-      action += `✅ Excelente! Esta faixa de frequência está bem equilibrada para o estilo.`;
-    } else if (value > max) {
-      const excess = value - max;
+  action = '\n➜ Orientação prática:\n';
+  
+  if (isWithinRange && isClose) {
+    action += `✅ Excelente! Esta faixa de frequência está bem equilibrada para o estilo.`;
+  } else if (value > max) {
+    const excess = value - max;
       action += `⚠️ Região ${excess.toFixed(1)} dB acima do ideal.\n\n`;
       action += `🎚️ Ação recomendada:\n`;
       
@@ -475,7 +456,6 @@ export function buildBandSuggestion({
         action += `Região levemente abaixo do alvo. Aumente com EQ suave para chegar próximo de ${target.toFixed(1)} dB.`;
       }
     }
-  }
   
   return {
     message: message.trim(),
