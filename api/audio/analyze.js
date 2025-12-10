@@ -26,7 +26,7 @@ import pool from "../../db.js";
 import { getAuth } from '../../firebase/admin.js';
 
 const auth = getAuth();
-import { canUseAnalysis, registerAnalysis } from '../../../work/lib/user/userPlans.js';
+import { canUseAnalysis, registerAnalysis } from '../../work/lib/user/userPlans.js';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
