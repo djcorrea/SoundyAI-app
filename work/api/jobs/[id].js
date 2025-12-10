@@ -36,7 +36,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `SELECT id, file_key, mode, status, error, results, result,
+      `SELECT id, file_key, mode, status, error, results,
               created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
@@ -61,45 +61,49 @@ router.get("/:id", async (req, res) => {
     
     console.log(`[API-JOBS] Status do banco: ${job.status} → Normalizado: ${normalizedStatus}`);
 
-    // 🎯 PARSE DO RESULTADO: Usar APENAS 'results' (coluna correta do PostgreSQL)
+    // 🎯 REGRA 1: Usar SEMPRE job.results (coluna PostgreSQL correta)
     let fullResult = null;
     
-    // 📌 REGRA 1: A coluna do PostgreSQL é results, NÃO result
+    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-CORRECTION] 📊 Coluna PostgreSQL: results (NÃO result)');
+    console.log('[AUDIT-CORRECTION] job.results existe?', !!job.results);
+    console.log('[AUDIT-CORRECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     if (job.results) {
       try {
         fullResult = typeof job.results === 'string' ? JSON.parse(job.results) : job.results;
+        console.log("[API-JOBS] ✅ Job results parsed successfully");
+        console.log(`[API-JOBS] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
         
-        // 🔥 LOG DE AUDITORIA: Verificar estrutura do JSON
-        console.log("[AUDIT-CORRECTION] ✅ jobResult.results parseado com sucesso");
-        console.log("[AUDIT-CORRECTION] Keys de results:", Object.keys(fullResult));
-        console.log("[AUDIT-CORRECTION] results.data disponível?:", !!fullResult.data);
-        console.log("[AUDIT-CORRECTION] results.data.metrics disponível?:", !!fullResult.data?.metrics);
-        console.log("[AUDIT-CORRECTION] results.data.genreTargets disponível?:", !!fullResult.data?.genreTargets);
+        // REGRA 9: Log de auditoria mostrando paths corretos
+        console.log('[AUDIT-CORRECTION] jobResult.results.data.metrics:', !!fullResult.data?.metrics);
+        console.log('[AUDIT-CORRECTION] jobResult.results.data.genreTargets:', !!fullResult.data?.genreTargets);        
         
-        // 📊 Verificar métricas
-        if (fullResult.data?.metrics) {
-          console.log("[AUDIT-CORRECTION] Métricas encontradas:", {
-            loudness: fullResult.data.metrics.loudness?.value,
-            truePeak: fullResult.data.metrics.truePeak?.value,
-            dr: fullResult.data.metrics.dr?.value,
-            stereo: fullResult.data.metrics.stereo?.value,
-            hasBands: !!fullResult.data.metrics.bands
-          });
-        }
-        
-        // 🎯 Verificar targets
-        if (fullResult.data?.genreTargets) {
-          console.log("[AUDIT-CORRECTION] genreTargets encontrados:", {
-            hasLufs: !!fullResult.data.genreTargets.lufs,
-            hasTruePeak: !!fullResult.data.genreTargets.truePeak,
-            hasDr: !!fullResult.data.genreTargets.dr,
-            hasBands: !!fullResult.data.genreTargets.bands
-          });
-        }
-        
+        // 🔥 AUDITORIA CRÍTICA: Verificar technicalData APÓS parse
+        console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] API POST-PARSE 🔥🔥🔥');
+        console.log('[AUDIT-TECHNICAL-DATA] fullResult.technicalData:', {
+          exists: !!fullResult.technicalData,
+          type: typeof fullResult.technicalData,
+          isEmpty: fullResult.technicalData && Object.keys(fullResult.technicalData).length === 0,
+          keys: fullResult.technicalData ? Object.keys(fullResult.technicalData) : [],
+          hasSampleFields: {
+            lufsIntegrated: fullResult.technicalData?.lufsIntegrated,
+            truePeakDbtp: fullResult.technicalData?.truePeakDbtp,
+            dynamicRange: fullResult.technicalData?.dynamicRange,
+            spectral_balance: !!fullResult.technicalData?.spectral_balance
+          }
+        });
+        console.log('[AUDIT-TECHNICAL-DATA] fullResult outros campos:', {
+          hasScore: fullResult.score !== undefined,
+          scoreValue: fullResult.score,
+          hasClassification: !!fullResult.classification,
+          hasData: !!fullResult.data,
+          hasDataGenreTargets: !!fullResult.data?.genreTargets
+        });
+        console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
       } catch (parseError) {
         console.error("[API-JOBS] ❌ Erro ao fazer parse do results JSON:", parseError);
-        fullResult = job.results;
+        fullResult = resultData;
       }
     }
 

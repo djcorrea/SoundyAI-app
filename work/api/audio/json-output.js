@@ -988,20 +988,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
           value: technicalData.stereoCorrelation,
           unit: 'correlation'
         },
-        // 📌 REGRA 4: Bandas SEMPRE em dB (energy_db), NUNCA em percentual
         bands: (() => {
           const bands = technicalData.spectral_balance;
           if (!bands || bands._status !== 'calculated') return null;
           
           return {
-            sub: { value: bands.sub?.energy_db || null, unit: 'dBFS' },
-            low_bass: { value: bands.low_bass?.energy_db || null, unit: 'dBFS' },
-            upper_bass: { value: bands.upper_bass?.energy_db || null, unit: 'dBFS' },
-            low_mid: { value: bands.low_mid?.energy_db || null, unit: 'dBFS' },
-            mid: { value: bands.mid?.energy_db || null, unit: 'dBFS' },
-            high_mid: { value: bands.high_mid?.energy_db || null, unit: 'dBFS' },
-            presence: { value: bands.presence?.energy_db || null, unit: 'dBFS' },
-            brilliance: { value: bands.brilliance?.energy_db || null, unit: 'dBFS' }
+            sub: { value: bands.sub?.percentage || null, unit: '%' },
+            bass: { value: bands.bass?.percentage || null, unit: '%' },
+            lowMid: { value: bands.lowMid?.percentage || null, unit: '%' },
+            mid: { value: bands.mid?.percentage || null, unit: '%' },
+            highMid: { value: bands.highMid?.percentage || null, unit: '%' },
+            presence: { value: bands.presence?.percentage || null, unit: '%' },
+            air: { value: bands.air?.percentage || null, unit: '%' }
           };
         })()
       }

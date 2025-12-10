@@ -371,6 +371,8 @@ class CoreMetricsProcessor {
           console.log("[SUGGESTIONS] Ativas (V2 rodando normalmente).");
           
           // 🎯 CORREÇÃO DEFINITIVA: CARREGAR TARGETS DO WORKER (SEGURO)
+          // REGRA 6: Fallback SÓ acontece se customTargets === undefined
+          // Nesse caso, o sistema LANÇA ERRO e aborta (não usa valores hardcoded)
           let customTargets = null;
           if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
             try {
@@ -388,6 +390,7 @@ class CoreMetricsProcessor {
               console.log(`[CORE_METRICS] ✅ Targets oficiais carregados e normalizados de work/refs/out/${detectedGenre}.json`);
               console.log(`[CORE_METRICS] 📊 LUFS: ${customTargets.lufs && customTargets.lufs.target}, TruePeak: ${customTargets.truePeak && customTargets.truePeak.target}, DR: ${customTargets.dr && customTargets.dr.target}`);
             } catch (error) {
+              // REGRA 6: Quando genreTargets === undefined, lançar erro explícito
               const errorMsg = `[CORE_METRICS-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
               console.error(errorMsg);
               throw new Error(errorMsg);
@@ -438,7 +441,29 @@ class CoreMetricsProcessor {
               }
             },
             genreTargets: customTargets  // ✅ Já normalizado - { lufs: {target, tolerance}, bands: {sub: {target_db, tol_db}} }
-          };            console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
+          };            
+          
+          // REGRA 9: Logs de auditoria mostrando consolidatedData
+          console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+          console.log('[AUDIT-CORRECTION] 📊 CONSOLIDATED DATA (core-metrics.js)');
+          console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+          console.log('[AUDIT-CORRECTION] consolidatedData.metrics:', JSON.stringify({
+            loudness: consolidatedData.metrics.loudness,
+            truePeak: consolidatedData.metrics.truePeak,
+            dr: consolidatedData.metrics.dr,
+            stereo: consolidatedData.metrics.stereo,
+            bandsCount: Object.keys(consolidatedData.metrics.bands).length
+          }, null, 2));
+          console.log('[AUDIT-CORRECTION] consolidatedData.genreTargets:', JSON.stringify({
+            lufs: consolidatedData.genreTargets.lufs,
+            truePeak: consolidatedData.genreTargets.truePeak,
+            dr: consolidatedData.genreTargets.dr,
+            stereo: consolidatedData.genreTargets.stereo,
+            hasBands: !!consolidatedData.genreTargets.bands
+          }, null, 2));
+          console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+          
+          console.log('[CORE_METRICS] 🎯 consolidatedData construído:', {
               hasMetrics: !!consolidatedData.metrics,
               hasGenreTargets: !!consolidatedData.genreTargets,
               lufsValue: consolidatedData.metrics.loudness.value,
