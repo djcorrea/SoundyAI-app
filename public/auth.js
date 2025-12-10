@@ -269,19 +269,23 @@ console.log('🚀 Carregando auth.js...');
         try {
           const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
           
+          // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
           await setDoc(doc(db, 'usuarios', user.uid), {
             uid: user.uid,
             email: user.email,
             telefone: phone,
-            plano: 'gratis',
-            mensagensRestantes: 10,
-            createdAt: new Date(),
+            plan: "free", // ✅ Novo schema: "plan" ao invés de "plano"
+            messagesToday: 0, // ✅ Novo schema: messagesToday
+            analysesToday: 0, // ✅ Novo schema: analysesToday
+            lastResetAt: new Date().toISOString().slice(0, 10), // ✅ Formato YYYY-MM-DD
             verificadoPorSMS: false, // Indicar que não foi verificado por SMS
             criadoSemSMS: true, // Indicar que foi criado no modo sem SMS
-            entrevistaConcluida: false // Inicialmente false até fazer entrevista
-          }, { merge: true }); // ✅ ADICIONADO MERGE PARA CONSISTÊNCIA
+            entrevistaConcluida: false, // Inicialmente false até fazer entrevista
+            createdAt: new Date().toISOString(), // ✅ ISO string
+            updatedAt: new Date().toISOString() // ✅ ISO string
+          }, { merge: true }); // ✅ Merge para não sobrescrever dados existentes
           
-          console.log('✅ Perfil do usuário salvo no Firestore com merge');
+          console.log('✅ Perfil do usuário salvo no Firestore com schema atualizado');
         } catch (firestoreError) {
           console.warn('⚠️ Erro ao salvar no Firestore:', firestoreError);
         }
@@ -706,13 +710,20 @@ console.log('🚀 Carregando auth.js...');
         const emailCredential = EmailAuthProvider.credential(email, password);
         await linkWithCredential(phoneResult.user, emailCredential);
 
-        // Salvar dados do usuário
+        // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
         await setDoc(doc(db, 'usuarios', phoneResult.user.uid), {
+          uid: phoneResult.user.uid,
           email: email,
-          phone: phone,
+          telefone: phone,
+          plan: "free", // ✅ Novo schema
+          messagesToday: 0, // ✅ Novo schema
+          analysesToday: 0, // ✅ Novo schema
+          lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
+          verificadoPorSMS: true, // ✅ Verificado por SMS
+          criadoSemSMS: false, // ✅ Foi criado COM SMS
           entrevistaConcluida: false,
-          createdAt: new Date(),
-          lastLogin: new Date()
+          createdAt: new Date().toISOString(), // ✅ ISO string
+          updatedAt: new Date().toISOString() // ✅ ISO string
         });
 
         // Salvar no localStorage
