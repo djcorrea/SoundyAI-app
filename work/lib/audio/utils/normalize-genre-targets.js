@@ -40,33 +40,58 @@ export function normalizeGenreTargets(rawTargets) {
   }
 
   // 🔥 CONVERSÃO: Formato JSON → Formato Analyzer
+  // ✅ PATCH RANGE-MIGRATION: Adicionar min/max explícitos para todas as métricas
+  const lufsTarget = typeof rawTargets.lufs_target === 'number' ? rawTargets.lufs_target : -14.0;
+  const lufsTol = typeof rawTargets.tol_lufs === 'number' ? rawTargets.tol_lufs : 1.0;
+  
+  const tpTarget = typeof rawTargets.true_peak_target === 'number' ? rawTargets.true_peak_target : -1.0;
+  const tpTol = typeof rawTargets.tol_true_peak === 'number' ? rawTargets.tol_true_peak : 0.5;
+  
+  const drTarget = typeof rawTargets.dr_target === 'number' ? rawTargets.dr_target : 8.0;
+  const drTol = typeof rawTargets.tol_dr === 'number' ? rawTargets.tol_dr : 2.0;
+  
+  const stereoTarget = typeof rawTargets.stereo_target === 'number' ? rawTargets.stereo_target : 0.7;
+  const stereoTol = typeof rawTargets.tol_stereo === 'number' ? rawTargets.tol_stereo : 0.15;
+  
   const normalized = {
     // LUFS
     lufs: {
-      target: typeof rawTargets.lufs_target === 'number' ? rawTargets.lufs_target : -14.0,
-      tolerance: typeof rawTargets.tol_lufs === 'number' ? rawTargets.tol_lufs : 1.0,
-      critical: typeof rawTargets.tol_lufs === 'number' ? rawTargets.tol_lufs * 1.5 : 1.5
+      target: lufsTarget,
+      tolerance: lufsTol,
+      critical: lufsTol * 1.5,
+      // ✅ NOVO: min/max explícitos (prioridade sobre cálculo artificial)
+      min: typeof rawTargets.lufs_min === 'number' ? rawTargets.lufs_min : lufsTarget - lufsTol,
+      max: typeof rawTargets.lufs_max === 'number' ? rawTargets.lufs_max : lufsTarget + lufsTol
     },
 
     // True Peak
     truePeak: {
-      target: typeof rawTargets.true_peak_target === 'number' ? rawTargets.true_peak_target : -1.0,
-      tolerance: typeof rawTargets.tol_true_peak === 'number' ? rawTargets.tol_true_peak : 0.5,
-      critical: typeof rawTargets.tol_true_peak === 'number' ? rawTargets.tol_true_peak * 1.5 : 0.75
+      target: tpTarget,
+      tolerance: tpTol,
+      critical: tpTol * 1.5,
+      // ✅ NOVO: min/max explícitos
+      min: typeof rawTargets.true_peak_min === 'number' ? rawTargets.true_peak_min : tpTarget - tpTol,
+      max: typeof rawTargets.true_peak_max === 'number' ? rawTargets.true_peak_max : tpTarget + tpTol
     },
 
     // Dynamic Range
     dr: {
-      target: typeof rawTargets.dr_target === 'number' ? rawTargets.dr_target : 8.0,
-      tolerance: typeof rawTargets.tol_dr === 'number' ? rawTargets.tol_dr : 2.0,
-      critical: typeof rawTargets.tol_dr === 'number' ? rawTargets.tol_dr * 1.5 : 3.0
+      target: drTarget,
+      tolerance: drTol,
+      critical: drTol * 1.5,
+      // ✅ NOVO: min/max explícitos
+      min: typeof rawTargets.dr_min === 'number' ? rawTargets.dr_min : drTarget - drTol,
+      max: typeof rawTargets.dr_max === 'number' ? rawTargets.dr_max : drTarget + drTol
     },
 
     // Stereo Correlation
     stereo: {
-      target: typeof rawTargets.stereo_target === 'number' ? rawTargets.stereo_target : 0.7,
-      tolerance: typeof rawTargets.tol_stereo === 'number' ? rawTargets.tol_stereo : 0.15,
-      critical: typeof rawTargets.tol_stereo === 'number' ? rawTargets.tol_stereo * 1.5 : 0.225
+      target: stereoTarget,
+      tolerance: stereoTol,
+      critical: stereoTol * 1.5,
+      // ✅ NOVO: min/max explícitos
+      min: typeof rawTargets.stereo_min === 'number' ? rawTargets.stereo_min : stereoTarget - stereoTol,
+      max: typeof rawTargets.stereo_max === 'number' ? rawTargets.stereo_max : stereoTarget + stereoTol
     },
 
     // Bandas Espectrais
@@ -110,6 +135,14 @@ export function normalizeGenreTargets(rawTargets) {
     dr: normalized.dr,
     stereo: normalized.stereo,
     bandsCount: Object.keys(normalized.bands).length
+  });
+  
+  // ✅ PATCH RANGE-MIGRATION: Log de auditoria dos ranges criados
+  console.log('[NORMALIZE-TARGETS][RANGE-MIGRATION] ✅ Ranges min/max criados:', {
+    lufs: { min: normalized.lufs.min, max: normalized.lufs.max, source: typeof rawTargets.lufs_min === 'number' ? 'JSON' : 'calculado' },
+    truePeak: { min: normalized.truePeak.min, max: normalized.truePeak.max, source: typeof rawTargets.true_peak_min === 'number' ? 'JSON' : 'calculado' },
+    dr: { min: normalized.dr.min, max: normalized.dr.max, source: typeof rawTargets.dr_min === 'number' ? 'JSON' : 'calculado' },
+    stereo: { min: normalized.stereo.min, max: normalized.stereo.max, source: typeof rawTargets.stereo_min === 'number' ? 'JSON' : 'calculado' }
   });
 
   return normalized;
