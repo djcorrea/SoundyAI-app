@@ -5,6 +5,13 @@
 import { logAudio } from '../error-handling.js';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeGenreTargets, validateNormalizedTargets } from '../utils/normalize-genre-targets.js';
+import { 
+  buildMetricSuggestion, 
+  buildBandSuggestion,
+  METRIC_LABELS,
+  BAND_LABELS,
+  FREQUENCY_RANGES
+} from '../utils/suggestion-text-builder.js';
 
 /**
  * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
@@ -534,60 +541,39 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
-    let message, explanation, action, status = 'ok';
+    // ✅ USAR NOVO BUILDER DE SUGESTÕES
+    const textSuggestion = buildMetricSuggestion({
+      key: 'lufs',
+      label: METRIC_LABELS.lufs,
+      unit: 'LUFS',
+      value: lufs,
+      target: lufsTarget,
+      tolerance: tolerance,
+      decimals: 1
+    });
     
-    if (severity.level === 'critical' || severity.level === 'warning') {
-      if (lufs > bounds.max) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const excessDb = lufs - bounds.max;
-        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 6.0 }); // LUFS permite até 6dB
-        const absRec = Math.abs(rec);
-        
-        status = 'high';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} LUFS muito alto: ${lufs.toFixed(1)} dB (máximo: ${bounds.max.toFixed(1)} dB, diff: +${excessDb.toFixed(1)} dB)`;
-        
-        explanation = `Você está ${excessDb.toFixed(1)} dB acima do máximo permitido para ${this.genre} (range ideal: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS). ` +
-          `Isso pode causar distorção digital, fadiga auditiva e rejeição em plataformas de streaming que aplicam normalização agressiva.`;
-        
-        if (mode === 'staged') {
-          action = `Reduza o loudness em etapas: primeiro aplique ~${absRec.toFixed(1)} dB de redução no limiter master, reexporte e meça novamente. ` +
-            `Se ainda estiver acima do range, repita o processo. Total a reduzir: ${excessDb.toFixed(1)} dB. ` +
-            `Use compressão de bus e ajuste do ceiling do limiter, não apenas gain bruto.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: reduza cerca de ${absRec.toFixed(1)} dB no limiter master para refinamento. Está muito próximo do ideal.`;
-        } else {
-          action = `Reduza aproximadamente ${absRec.toFixed(1)} dB no limiter master. Ajuste o ceiling e/ou reduza o input gain do limiter. ` +
-            `Preserve a dinâmica natural da música.`;
-        }
-      } else if (lufs < bounds.min) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const deficitDb = bounds.min - lufs;
-        const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 6.0 });
-        const absRec = Math.abs(rec);
-        
-        status = 'low';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} LUFS muito baixo: ${lufs.toFixed(1)} dB (mínimo: ${bounds.min.toFixed(1)} dB, diff: -${deficitDb.toFixed(1)} dB)`;
-        
-        explanation = `Você está ${deficitDb.toFixed(1)} dB abaixo do mínimo recomendado para ${this.genre} (range ideal: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS). ` +
-          `Sua música ficará muito baixa comparada a outras no mesmo contexto, prejudicando o impacto sonoro.`;
-        
-        if (mode === 'staged') {
-          action = `Aumente o loudness em etapas: primeiro eleve ~${absRec.toFixed(1)} dB usando limiter suave (ratio baixo, attack/release moderados), reexporte e meça. ` +
-            `Se ainda estiver abaixo, repita. Total a aumentar: ${deficitDb.toFixed(1)} dB. ` +
-            `Considere também compressão de bus antes do limiter para controlar picos sem destruir dinâmica.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: aumente cerca de ${absRec.toFixed(1)} dB no limiter master para refinamento. Está muito próximo do ideal.`;
-        } else {
-          action = `Aumente aproximadamente ${absRec.toFixed(1)} dB usando limiter master com configuração suave. ` +
-            `Eleve gradualmente o input gain ou reduza o threshold. Monitore o true peak para evitar clipping.`;
-        }
-      }
-    } else {
-      message = `🟢 LUFS ideal: ${lufs.toFixed(1)} dB`;
-      explanation = `Perfeito para ${this.genre}! Seu loudness está dentro do range ideal (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB LUFS) para streaming e rádio. ` +
-        `Esse nível garante competitividade sonora sem sacrificar qualidade ou dinâmica.`;
-      action = `Mantenha esse nível de LUFS. Está excelente! Nenhum ajuste necessário.`;
+    let message = textSuggestion.message;
+    let explanation = textSuggestion.explanation;
+    let action = textSuggestion.action;
+    let status = 'ok';
+    
+    // Determinar status baseado na posição no range
+    if (lufs < bounds.min) {
+      status = 'low';
+    } else if (lufs > bounds.max) {
+      status = 'high';
     }
+    
+    console.log('[GENRE-FLOW][S2_BUILDER]', {
+      metric: 'LUFS',
+      genre: this.genre,
+      currentValue: lufs,
+      targetValue: lufsTarget,
+      delta: diff,
+      deltaNum: diff,
+      rawMetricValue: lufs,
+      rawTargetObject: targetInfo
+    });
     
     const suggestion = {
       metric: 'lufs',
@@ -695,35 +681,25 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
-    let message, explanation, action, status = 'ok';
+    // ✅ USAR NOVO BUILDER DE SUGESTÕES
+    const textSuggestion = buildMetricSuggestion({
+      key: 'truePeak',
+      label: METRIC_LABELS.truePeak,
+      unit: 'dBTP',
+      value: truePeak,
+      target: tpTarget,
+      tolerance: tolerance,
+      decimals: 1
+    });
     
-    if (severity.level === 'critical' || severity.level === 'warning') {
-      if (truePeak > bounds.max) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const excessDb = truePeak - bounds.max;
-        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 3.0 }); // True Peak permite até 3dB
-        const absRec = Math.abs(rec);
-        
-        status = 'high';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} True Peak ${severity.level === 'critical' ? 'crítico' : 'alto'}: ${truePeak.toFixed(1)} dBTP (máximo seguro: ${bounds.max.toFixed(1)} dBTP, diff: +${excessDb.toFixed(1)} dB)`;
-        
-        explanation = `${severity.level === 'critical' ? 'ATENÇÃO! ' : ''}Valores acima de ${bounds.max.toFixed(1)} dBTP causam clipping digital e distorção audível. ` +
-          `Você está ${excessDb.toFixed(1)} dB acima do limite seguro. ${severity.level === 'critical' ? 'Isso quebra padrões técnicos.' : 'Alguns sistemas podem apresentar distorção leve.'}`;
-        
-        if (mode === 'staged') {
-          action = `${severity.level === 'critical' ? 'URGENTE: ' : ''}Reduza em etapas: primeiro aplique ~${absRec.toFixed(1)} dB de redução no limiter, reavalie. ` +
-            `Se ainda estiver acima, repita. Total a reduzir: ${excessDb.toFixed(1)} dB. Use oversampling 4x para evitar clipping.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: reduza cerca de ${absRec.toFixed(1)} dB no limiter para refinamento máximo. Está muito próximo do ideal.`;
-        } else {
-          action = `${severity.level === 'critical' ? 'URGENTE: ' : ''}Reduza aproximadamente ${absRec.toFixed(1)} dB no limiter. ` +
-            `Use oversampling 4x se disponível para evitar clipping digital e preservar transparência.`;
-        }
-      }
-    } else {
-      message = `🟢 True Peak seguro: ${truePeak.toFixed(1)} dBTP`;
-      explanation = `Excelente! Dentro do range seguro (até ${bounds.max.toFixed(1)} dBTP). Sem risco de clipping digital. Ideal para streaming e distribuição.`;
-      action = `Perfeito! Mantenha esse nível de true peak. Nenhum ajuste necessário.`;
+    let message = textSuggestion.message;
+    let explanation = textSuggestion.explanation;
+    let action = textSuggestion.action;
+    let status = 'ok';
+    
+    // Determinar status baseado na posição no range
+    if (truePeak > bounds.max) {
+      status = 'high';
     }
     
     suggestions.push({
@@ -807,58 +783,29 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
-    let message, explanation, action, status = 'ok';
+    // 🎯 Usar text builder para mensagens consistentes
+    const textSuggestion = buildMetricSuggestion({
+      key: 'dr',
+      label: METRIC_LABELS.dr,
+      unit: 'dB DR',
+      value: dr,
+      target: drTarget,
+      tolerance: tolerance,
+      decimals: 1,
+      genre: this.genre
+    });
     
+    let message = textSuggestion.message;
+    let explanation = textSuggestion.explanation;
+    let action = textSuggestion.action;
+    
+    let status = 'ok';
     if (severity.level === 'corrigir' || severity.level === 'ajuste_leve') {
       if (dr < bounds.min) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const deficitDb = bounds.min - dr;
-        const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 4.0 }); // DR permite até 4 LU
-        const absRec = Math.abs(rec);
-        
         status = 'low';
-        message = `${severity.level === 'corrigir' ? '🔴' : '⚠️'} ${severity.level === 'corrigir' ? 'Sobre-compressão' : 'Levemente comprimido'} para ${this.genre}: ${dr.toFixed(1)} dB DR`;
-        
-        explanation = `Dynamic Range ${severity.level === 'corrigir' ? 'muito baixo' : 'um pouco abaixo do ideal'} para ${this.genre} (range recomendado: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LU). ` +
-          `Seu DR está ${deficitDb.toFixed(1)} LU abaixo do mínimo${severity.level === 'corrigir' ? '. O áudio ficou muito "esmagado"' : ', mas ainda aceitável'}.`;
-        
-        if (mode === 'staged') {
-          action = `Aumente a dinâmica em etapas: primeiro reduza ratio dos compressors para ganhar ~${absRec.toFixed(1)} LU, reavalie. ` +
-            `Se ainda estiver abaixo, ajuste attack/release para preservar mais transientes. Total a aumentar: ${deficitDb.toFixed(1)} LU. ` +
-            `Considere refazer o mastering com menos compressão agressiva.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: reduza levemente o ratio dos compressors para ganhar ~${absRec.toFixed(1)} LU de dinâmica. Está próximo do ideal.`;
-        } else {
-          action = `${severity.level === 'corrigir' ? 'Refaça o mastering com menos compressão. ' : ''}Reduza ratio dos compressors e/ou aumente threshold para ganhar aproximadamente ${absRec.toFixed(1)} LU de dinâmica. ` +
-            `Para ${this.genre}, procure manter pelo menos ${bounds.min.toFixed(1)} LU.`;
-        }
       } else if (dr > bounds.max) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const excessDb = dr - bounds.max;
-        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 4.0 });
-        const absRec = Math.abs(rec);
-        
         status = 'high';
-        message = `${severity.level === 'corrigir' ? '🔴' : '⚠️'} Range dinâmico ${severity.level === 'corrigir' ? 'excessivo' : 'levemente amplo'} para ${this.genre}: ${dr.toFixed(1)} dB DR`;
-        
-        explanation = `Dynamic Range ${severity.level === 'corrigir' ? 'muito alto' : 'um pouco acima do ideal'} para ${this.genre} (range recomendado: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LU). ` +
-          `Você está ${excessDb.toFixed(1)} LU acima do máximo. ${severity.level === 'corrigir' ? 'Pode prejudicar a competitividade sonora.' : 'Ainda funcional dependendo do estilo.'}`;
-        
-        if (mode === 'staged') {
-          action = `Aplique compressão suave em etapas: primeiro comprima ~${absRec.toFixed(1)} LU usando ratio baixo (2:1 ou 3:1), reavalie. ` +
-            `Se ainda estiver acima, aumente sutilmente o ratio. Total a comprimir: ${excessDb.toFixed(1)} LU. ` +
-            `Use parallel compression para manter naturalidade.`;
-        } else if (mode === 'micro') {
-          action = `${severity.level === 'ajuste_leve' ? 'Monitore as partes mais baixas. ' : ''}Ajuste fino: comprima levemente (~${absRec.toFixed(1)} LU) com ratio muito baixo (2:1).`;
-        } else {
-          action = `Aplique compressão suave (ratio 2:1 a 3:1) para controlar a dinâmica em aproximadamente ${absRec.toFixed(1)} LU. ` +
-            `Use attack/release moderados e parallel compression para manter naturalidade dentro do range ${bounds.min.toFixed(1)}-${bounds.max.toFixed(1)} LU.`;
-        }
       }
-    } else {
-      message = `🟢 Dynamic Range ideal para ${this.genre}: ${dr.toFixed(1)} dB DR`;
-      explanation = `Perfeito para ${this.genre}! Dinâmica balanceada dentro do range ideal (${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LU). Compressão profissional e natural.`;
-      action = `Excelente! Sua compressão está perfeita para ${this.genre}. Mantenha esse equilíbrio.`;
     }
     
     suggestions.push({
@@ -941,59 +888,29 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const diff = Math.abs(rawDiff);
     const severity = this.calculateSeverity(diff, tolerance, critical);
     
-    let message, explanation, action, status = 'ok';
+    // 🎯 Usar text builder para mensagens consistentes
+    const textSuggestion = buildMetricSuggestion({
+      key: 'stereo',
+      label: METRIC_LABELS.stereo,
+      unit: '',
+      value: correlation,
+      target: stereoTarget,
+      tolerance: tolerance,
+      decimals: 2,
+      genre: this.genre
+    });
     
+    let message = textSuggestion.message;
+    let explanation = textSuggestion.explanation;
+    let action = textSuggestion.action;
+    
+    let status = 'ok';
     if (severity.level === 'critical' || severity.level === 'warning') {
       if (correlation < bounds.min) {
-        // 🎯 FASE 3: Calcular ajuste realista (escala 0-1, não dB)
-        const deficitDb = bounds.min - correlation;
-        const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 0.15, minStepDb: 0.05 }); // Stereo: 0.05-0.15 max
-        const absRec = Math.abs(rec);
-        
         status = 'low';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} Estéreo ${severity.level === 'critical' ? 'muito estreito' : 'estreito'}: ${correlation.toFixed(2)} (mínimo: ${bounds.min.toFixed(2)})`;
-        
-        explanation = `Sua música está ${severity.level === 'critical' ? 'muito estreita (quase mono)' : 'um pouco estreita'}. Correlação ${deficitDb.toFixed(2)} abaixo do mínimo recomendado ` +
-          `(range: ${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}). ${severity.level === 'critical' ? 'Falta largura estéreo e espacialidade.' : 'Ainda funcional, mas pode ser melhorado.'}`;
-        
-        if (mode === 'staged') {
-          action = `Aumente a largura estéreo em etapas: primeiro aplique widening suave (~${absRec.toFixed(2)} de aumento), teste em mono. ` +
-            `Se ainda estiver estreito e sem problemas de fase, repita. Total a aumentar: ~${deficitDb.toFixed(2)}. ` +
-            `Use reverb estéreo, duplicação de elementos ou panning mais agressivo.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: adicione reverb estéreo sutil ou panning para ganhar ~${absRec.toFixed(2)} de largura. Está próximo do ideal.`;
-        } else {
-          action = `Adicione largura estéreo aumentando aproximadamente ${absRec.toFixed(2)} na correlação. ` +
-            `Use reverb estéreo, duplicação de elementos ou panning mais agressivo. Experimente M/S processing para abrir o mix.`;
-        }
       } else if (correlation > bounds.max) {
-        // 🎯 FASE 3: Calcular redução realista
-        const excessDb = correlation - bounds.max;
-        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 0.15, minStepDb: 0.05 });
-        const absRec = Math.abs(rec);
-        
         status = 'high';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} Estéreo ${severity.level === 'critical' ? 'excessivamente largo' : 'amplo'}: ${correlation.toFixed(2)} (máximo seguro: ${bounds.max.toFixed(2)})`;
-        
-        explanation = `${severity.level === 'critical' ? 'Muito largo' : 'Mais largo que o usual'} (${excessDb.toFixed(2)} acima do máximo de ${bounds.max.toFixed(2)}). ` +
-          `Range recomendado: ${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}. ${severity.level === 'critical' ? 'Pode causar cancelamento de fase em reprodução mono (celulares, etc).' : 'Teste em mono para garantir sem cancelamentos.'}`;
-        
-        if (mode === 'staged') {
-          action = `Reduza largura estéreo em etapas: primeiro centralize elementos importantes (~${absRec.toFixed(2)} de redução), teste em mono. ` +
-            `Se ainda houver problemas, repita. Total a reduzir: ~${excessDb.toFixed(2)}. ` +
-            `Centralize baixo, vocal principal e elementos fundamentais. Verifique compatibilidade mono.`;
-        } else if (mode === 'micro') {
-          action = `${severity.level === 'warning' ? 'Teste em mono para garantir sem cancelamentos. ' : ''}Ajuste fino: centralize levemente (~${absRec.toFixed(2)}) elementos mais abertos.`;
-        } else {
-          action = `Reduza stereo widening em aproximadamente ${absRec.toFixed(2)}. ` +
-            `Centralize elementos importantes (baixo, vocal, kick, snare). Use M/S processing para controlar abertura lateral sem perder profundidade. ` +
-            `${severity.level === 'critical' ? 'Teste obrigatoriamente em mono!' : ''}`;
-        }
       }
-    } else {
-      message = `🟢 Estéreo ideal: ${correlation.toFixed(2)}`;
-      explanation = `Perfeita largura estéreo para ${this.genre}. Dentro do range ideal (${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}). Boa espacialidade sem exageros, compatível com reprodução mono.`;
-      action = `Excelente! Sua imagem estéreo está no ponto ideal. Nenhum ajuste necessário.`;
     }
     
     suggestions.push({
@@ -1153,58 +1070,30 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const diff = Math.abs(rawDelta);
     const severity = this.calculateSeverity(diff, tolerance, critical);
     
-    let message, explanation, action, status = 'ok';
+    // 🎯 Usar buildBandSuggestion para mensagens consistentes
+    const freqRange = FREQUENCY_RANGES[bandKey] || '';
+    const textSuggestion = buildBandSuggestion({
+      bandKey,
+      bandLabel: BAND_LABELS[bandKey] || bandName,
+      freqRange,
+      value: measured,
+      target: target,
+      tolerance: tolerance,
+      unit: 'dB', // Forçar dB explicitamente
+      genre: this.genre
+    });
     
+    let message = textSuggestion.message;
+    let explanation = textSuggestion.explanation;
+    let action = textSuggestion.action;
+    
+    let status = 'ok';
     if (severity.level === 'critical' || severity.level === 'warning') {
       if (measured > bounds.max) {
-        // 🎯 FASE 3: Calcular ajuste realista usando computeRecommendedGain()
-        const excessDb = measured - bounds.max;
-        const { value: rec, mode } = computeRecommendedGain(-excessDb, { maxStepDb: 5.0 }); // Bandas: 0.5-5 dB
-        const absRec = Math.abs(rec);
-        
         status = 'high';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito alto' : 'levemente alto'}: ${measured.toFixed(1)} dB (máximo: ${bounds.max.toFixed(1)} dB)`;
-        
-        explanation = `${severity.level === 'critical' ? 'Excesso' : 'Um pouco acima do máximo'} de ${excessDb.toFixed(1)} dB ${severity.level === 'critical' ? 'acima do máximo permitido' : 'acima de ' + bounds.max.toFixed(1) + ' dB'} ` +
-          `(range: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. ${severity.level === 'critical' ? 'Pode causar "booming" e mascarar outras frequências.' : 'Ainda controlável.'}`;
-        
-        if (mode === 'staged') {
-          action = `Ajuste em etapas: primeiro reduza ~${absRec.toFixed(1)} dB com EQ (Q médio), reavalie. ` +
-            `Se ainda estiver acima, repita. Total a reduzir: ${excessDb.toFixed(1)} dB. ` +
-            `Use bell filter ou shelf dependendo da região de frequência.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: reduza cerca de ${absRec.toFixed(1)} dB em ${bandName} com EQ sutil (Q baixo). Está próximo do ideal.`;
-        } else {
-          action = `Corte aproximadamente ${absRec.toFixed(1)} dB em ${bandName} com EQ. ` +
-            `Use filtro bell (Q ~1.0-2.0) ou shelf dependendo da região. ${severity.level === 'critical' ? 'Priorize correção desta banda.' : ''}`;
-        }
       } else if (measured < bounds.min) {
-        // 🎯 FASE 3: Calcular ajuste realista
-        const deficitDb = bounds.min - measured;
-        const { value: rec, mode } = computeRecommendedGain(deficitDb, { maxStepDb: 5.0 });
-        const absRec = Math.abs(rec);
-        
         status = 'low';
-        message = `${severity.level === 'critical' ? '🔴' : '🟠'} ${bandName} ${severity.level === 'critical' ? 'muito baixo' : 'levemente baixo'}: ${measured.toFixed(1)} dB (mínimo: ${bounds.min.toFixed(1)} dB)`;
-        
-        explanation = `${severity.level === 'critical' ? 'Falta' : 'Um pouco abaixo do mínimo'} ${deficitDb.toFixed(1)} dB ${severity.level === 'critical' ? 'para atingir o mínimo recomendado' : 'abaixo de ' + bounds.min.toFixed(1) + ' dB'} ` +
-          `(range: ${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB) para ${this.genre}. ${severity.level === 'critical' ? 'Deixa o som sem fundação e corpo.' : 'Pode funcionar dependendo do estilo.'}`;
-        
-        if (mode === 'staged') {
-          action = `Ajuste em etapas: primeiro aumente ~${absRec.toFixed(1)} dB com EQ (Q médio), reavalie. ` +
-            `Se ainda estiver abaixo, repita. Total a aumentar: ${deficitDb.toFixed(1)} dB. ` +
-            `Use bell filter ou shelf para elevar esta faixa de frequência.`;
-        } else if (mode === 'micro') {
-          action = `Ajuste fino opcional: aumente cerca de ${absRec.toFixed(1)} dB em ${bandName} com EQ sutil (Q baixo). Está próximo do ideal.`;
-        } else {
-          action = `Aumente aproximadamente ${absRec.toFixed(1)} dB em ${bandName} com EQ suave. ` +
-            `Use filtro bell (Q ~1.0-2.0) ou shelf. ${severity.level === 'critical' ? 'Esta banda precisa de corpo e presença.' : 'Considere realce sutil.'}`;
-        }
       }
-    } else {
-      message = `🟢 ${bandName} ideal: ${measured.toFixed(1)} dB`;
-      explanation = `Perfeito para ${this.genre}! Esta faixa está equilibrada dentro do range ${bounds.min.toFixed(1)}-${bounds.max.toFixed(1)} dB. Balanço espectral profissional.`;
-      action = `Excelente! Mantenha esse nível em ${bandName}. Nenhum ajuste necessário.`;
     }
     
     console.log('[GENRE-FLOW][S2_BUILDER]', {
