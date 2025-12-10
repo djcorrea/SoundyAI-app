@@ -2504,6 +2504,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
+        // ✅ CORREÇÃO CRÍTICA: Obter Firebase ID Token ANTES de fazer o fetch
+        console.log('🔐 Obtendo Firebase ID Token...');
+        
+        // Aguardar Firebase estar pronto
+        if (typeof waitForFirebase === 'function') {
+            await waitForFirebase();
+        }
+        
+        // Verificar se usuário está autenticado
+        const currentUser = window.auth?.currentUser;
+        if (!currentUser) {
+            console.error('❌ Usuário não autenticado - não é possível criar job');
+            throw new Error('Você precisa estar logado para analisar áudio.');
+        }
+        
+        // Obter token
+        const idToken = await currentUser.getIdToken();
+        console.log('✅ Token obtido com sucesso:', idToken ? 'Token válido' : 'Token ausente');
+
         // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
         // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
         console.group('🔍 [AUDIT-LOCALSTORAGE] createAnalysisJob - Leitura de referenceJobId');
@@ -2671,11 +2690,13 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         // 🔒 LOG OBRIGATÓRIO ANTES DO FETCH
         console.log("[GENRE FINAL PAYLOAD SENT]", payload);
+        console.log("[AUTH TOKEN]", idToken ? 'Token presente' : '❌ Token ausente');
 
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`, // ✅ CORREÇÃO CRÍTICA: Token adicionado
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify(payload)
