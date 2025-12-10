@@ -12541,6 +12541,66 @@ async function displayModalResults(analysis) {
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
+                
+                // ═══════════════════════════════════════════════════════════════
+                // 🔥 PARTE 1: VINCULAR SUGESTÕES ENRIQUECIDAS À UI DE IA
+                // ═══════════════════════════════════════════════════════════════
+                // Mapear sugestões enriquecidas para o formato esperado pela AI UI
+                const finalAISuggestions = enrichedSuggestions.map(sug => {
+                    // Manter campos essenciais para compatibilidade
+                    return {
+                        type: sug.metric || sug.type || 'general',
+                        message: sug.message || '',
+                        action: sug.action || sug.educationalContent?.solution || '',
+                        explanation: sug.explanation || sug.educationalContent?.explanation || '',
+                        categoria: sug.categoria || sug.category || 'técnico',
+                        priority: sug.priority || sug.severity?.priority || 3,
+                        delta: sug.delta || sug.deltaNum || 0,
+                        currentValue: sug.currentValue || '',
+                        targetValue: sug.targetValue || '',
+                        severity: sug.severity || { level: 'medium', label: 'Moderada' },
+                        // Preservar conteúdo educacional completo
+                        educationalContent: sug.educationalContent || {},
+                        // Preservar campos originais para compatibilidade total
+                        ...sug
+                    };
+                });
+                
+                // Garantir que analysis.user existe
+                if (!analysis.user) {
+                    analysis.user = {};
+                }
+                
+                // Sobrescrever com sugestões enriquecidas (fonte oficial)
+                analysis.user.aiSuggestions = finalAISuggestions;
+                analysis.aiSuggestions = finalAISuggestions; // Caminho alternativo
+                
+                // 🔍 LOG DE AUDITORIA: Confirmar vinculação
+                console.log('');
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('🔗 [AI-FRONT][ULTRA-BIND] Vinculando sugestões enriquecidas');
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('[AI-FRONT][ULTRA-BIND] Total de sugestões:', finalAISuggestions.length);
+                console.log('[AI-FRONT][ULTRA-BIND] Paths atualizados:', {
+                    'analysis.suggestions': enrichedSuggestions.length,
+                    'analysis.aiSuggestions': finalAISuggestions.length,
+                    'analysis.user.aiSuggestions': finalAISuggestions.length
+                });
+                
+                if (finalAISuggestions.length > 0) {
+                    const sample = finalAISuggestions[0];
+                    console.log('[AI-FRONT][ULTRA-BIND] Sample da primeira sugestão:', {
+                        type: sample.type,
+                        message: sample.message?.substring(0, 80) + '...',
+                        hasEducationalContent: !!sample.educationalContent,
+                        severity: sample.severity?.label,
+                        priority: sample.priority,
+                        currentValue: sample.currentValue,
+                        targetValue: sample.targetValue
+                    });
+                }
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('');
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
