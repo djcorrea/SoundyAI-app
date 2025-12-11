@@ -9661,8 +9661,76 @@ function showModalLoading() {
  * Mostra apenas: Score, True Peak, LUFS, Dynamic Range
  * Oculta: Bandas, Espectro, Sugestões, IA Avançada
  */
+// ✅ HELPER: Mascarar valor baseado em permissão do plano
+function maskValue(value, isAllowed, options = {}) {
+    const { placeholder = '—', unit = '', decimalPlaces = null } = options;
+    
+    // Se não permitido, retornar placeholder
+    if (!isAllowed) {
+        return placeholder;
+    }
+    
+    // Se valor não existe, retornar placeholder
+    if (value === undefined || value === null) {
+        return placeholder;
+    }
+    
+    // Formatar valor se permitido
+    if (decimalPlaces !== null && typeof value === 'number') {
+        return `${value.toFixed(decimalPlaces)}${unit ? ' ' + unit : ''}`;
+    }
+    
+    return `${value}${unit ? ' ' + unit : ''}`;
+}
+
+// ✅ HELPER: Aplicar classe de máscara visual com blur/overlay
+function applyMaskClass(selector, isAllowed, options = {}) {
+    const element = document.querySelector(selector);
+    if (!element) return;
+    
+    const { hideCompletely = false } = options;
+    
+    if (!isAllowed) {
+        if (hideCompletely) {
+            // Ocultar completamente o elemento
+            element.style.display = 'none';
+        } else {
+            // Aplicar blur + overlay
+            element.classList.add('metric-masked');
+            
+            // Criar overlay de upgrade se não existir
+            if (!element.querySelector('.mask-overlay')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'mask-overlay';
+                overlay.innerHTML = `
+                    <span class="mask-icon">🔒</span>
+                    <span class="mask-text">Atualize o plano</span>
+                `;
+                element.style.position = 'relative';
+                element.appendChild(overlay);
+            }
+        }
+    } else {
+        // Remover máscara se estava aplicada
+        element.classList.remove('metric-masked');
+        const overlay = element.querySelector('.mask-overlay');
+        if (overlay) overlay.remove();
+    }
+}
+
 function renderReducedMode(data) {
-    console.log('[PLAN-FILTER] 🎯 Renderizando modo reduzido:', data);
+    console.log('[PLAN-FILTER] 🎯 Renderizando modo reduzido COM JSON COMPLETO:', data);
+    console.log('[PLAN-FILTER] 📊 Campos recebidos:', Object.keys(data));
+    
+    // ✅ Obter features do plano (se disponíveis no JSON)
+    const planFeatures = data.planFeatures || {
+        canSuggestions: false,
+        canSpectralAdvanced: false,
+        canAiHelp: false,
+        canPdf: false
+    };
+    
+    console.log('[PLAN-FILTER] 🔐 Features do plano:', planFeatures);
     
     // Abrir modal de resultado
     const modal = document.getElementById('audioResultModal');
@@ -9680,67 +9748,79 @@ function renderReducedMode(data) {
     function updateField(selector, value) {
         const element = document.querySelector(selector);
         if (element) {
-            element.textContent = value || '-';
+            element.textContent = value || '—';
         }
     }
     
-    // Helper para ocultar elemento
-    function hideElement(selector) {
-        const element = document.querySelector(selector);
-        if (element) {
-            element.style.display = 'none';
-        }
-    }
+    // ✅ EXIBIR MÉTRICAS PRINCIPAIS (SEMPRE VISÍVEIS)
+    updateField('#audioScore', maskValue(data.score, true, { unit: '%' }));
+    updateField('#audioLufs', maskValue(data.lufsIntegrated || data.lufs, true, { unit: 'LUFS', decimalPlaces: 1 }));
+    updateField('#audioTruePeak', maskValue(data.truePeakDbtp || data.truePeak, true, { unit: 'dBTP', decimalPlaces: 2 }));
+    updateField('#audioDynamicRange', maskValue(data.dynamicRange || data.dr, true, { unit: 'dB', decimalPlaces: 1 }));
     
-    // Helper para mostrar elemento
-    function showElement(selector) {
-        const element = document.querySelector(selector);
-        if (element) {
-            element.style.display = 'block';
-        }
-    }
+    console.log('[PLAN-FILTER] ✅ Métricas principais renderizadas (sempre visíveis)');
     
-    // ✅ EXIBIR MÉTRICAS PRINCIPAIS
-    updateField('#audioScore', data.score !== undefined ? `${data.score}%` : '-');
-    updateField('#audioLufs', data.lufsIntegrated !== undefined ? `${data.lufsIntegrated.toFixed(1)} LUFS` : (data.lufs !== undefined ? `${data.lufs.toFixed(1)} LUFS` : '-'));
-    updateField('#audioTruePeak', data.truePeakDbtp !== undefined ? `${data.truePeakDbtp.toFixed(2)} dBTP` : (data.truePeak !== undefined ? `${data.truePeak.toFixed(2)} dBTP` : '-'));
-    updateField('#audioDynamicRange', data.dynamicRange !== undefined ? `${data.dynamicRange.toFixed(1)} dB` : (data.dr !== undefined ? `${data.dr.toFixed(1)} dB` : '-'));
-    
-    console.log('[PLAN-FILTER] ✅ Métricas principais renderizadas:', {
-        score: data.score,
-        lufs: data.lufsIntegrated || data.lufs,
-        truePeak: data.truePeakDbtp || data.truePeak,
-        dr: data.dynamicRange || data.dr
-    });
-    
-    // ❌ OCULTAR SEÇÕES AVANÇADAS
-    hideElement('#suggestionsSection');
-    hideElement('#aiSuggestionsSection');
-    hideElement('#bandsSection');
-    hideElement('#spectralSection');
-    hideElement('#spectralChart');
-    hideElement('#problemsSection');
-    hideElement('#diagnosticsSection');
-    hideElement('.comparison-table');
-    hideElement('#genreTargetsTable');
-    
-    console.log('[PLAN-FILTER] ✅ Seções avançadas ocultadas');
-    
-    // ✅ PREENCHER OUTROS CAMPOS COM "-"
-    const fieldsToDisable = [
-        '#audioHeadroom', '#audioLra', '#audioStereoWidth',
-        '#audioStereoCorrelation', '#audioPhaseCoherence',
-        '#audioPeakToAverage', '#audioCrestFactor',
-        '#audioSubBass', '#audioBass', '#audioLowMid',
-        '#audioMid', '#audioHighMid', '#audioPresence',
-        '#audioBrilliance', '#audioAir'
+    // ✅ APLICAR MÁSCARAS NAS MÉTRICAS AVANÇADAS (JSON completo preservado)
+    // Headroom, LRA, Stereo Width, etc - MASCARADOS mas dados existem
+    const advancedMetrics = [
+        { selector: '#audioHeadroom', value: data.headroom, unit: 'dB', decimals: 1 },
+        { selector: '#audioLra', value: data.lra, unit: 'dB', decimals: 1 },
+        { selector: '#audioStereoWidth', value: data.stereoWidth, unit: '', decimals: 2 },
+        { selector: '#audioStereoCorrelation', value: data.stereoCorrelation, unit: '', decimals: 2 },
+        { selector: '#audioPhaseCoherence', value: data.phaseCoherence, unit: '%', decimals: 0 },
+        { selector: '#audioPeakToAverage', value: data.peakToAverage, unit: 'dB', decimals: 1 },
+        { selector: '#audioCrestFactor', value: data.crestFactor, unit: 'dB', decimals: 1 }
     ];
     
-    fieldsToDisable.forEach(selector => {
-        updateField(selector, '-');
+    advancedMetrics.forEach(metric => {
+        // ✅ Exibir valor mascarado (placeholder) mas dados completos existem no JSON
+        const maskedValue = maskValue(metric.value, false, { 
+            unit: metric.unit, 
+            decimalPlaces: metric.decimals 
+        });
+        updateField(metric.selector, maskedValue);
+        applyMaskClass(metric.selector, false); // Aplicar blur + overlay
     });
     
-    console.log('[PLAN-FILTER] ✅ Campos avançados substituídos por "-"');
+    console.log('[PLAN-FILTER] ✅ Métricas avançadas MASCARADAS (dados completos preservados)');
+    
+    // ✅ BANDAS ESPECTRAIS - Mascarar visualmente
+    const spectralBands = [
+        { selector: '#audioSubBass', key: 'sub_bass' },
+        { selector: '#audioBass', key: 'bass' },
+        { selector: '#audioLowMid', key: 'low_mid' },
+        { selector: '#audioMid', key: 'mid' },
+        { selector: '#audioHighMid', key: 'high_mid' },
+        { selector: '#audioPresence', key: 'presence' },
+        { selector: '#audioBrilliance', key: 'brilliance' },
+        { selector: '#audioAir', key: 'air' }
+    ];
+    
+    spectralBands.forEach(band => {
+        const value = data.bands?.[band.key]?.db || data.spectralData?.[band.key]?.db;
+        const maskedValue = maskValue(value, planFeatures.canSpectralAdvanced, { 
+            unit: 'dB', 
+            decimalPlaces: 1 
+        });
+        updateField(band.selector, maskedValue);
+        applyMaskClass(band.selector, planFeatures.canSpectralAdvanced);
+    });
+    
+    console.log('[PLAN-FILTER] ✅ Bandas espectrais MASCARADAS');
+    
+    // ✅ OCULTAR SEÇÕES DE SUGESTÕES/IA (se features não permitem)
+    const sectionsToHide = [
+        { selector: '#suggestionsSection', allowed: planFeatures.canSuggestions },
+        { selector: '#aiSuggestionsSection', allowed: planFeatures.canSuggestions },
+        { selector: '#problemsSection', allowed: planFeatures.canSuggestions },
+        { selector: '#diagnosticsSection', allowed: planFeatures.canSuggestions }
+    ];
+    
+    sectionsToHide.forEach(({ selector, allowed }) => {
+        applyMaskClass(selector, allowed, { hideCompletely: !allowed });
+    });
+    
+    console.log('[PLAN-FILTER] ✅ Seções de sugestões/IA ocultadas conforme plano');
     
     // ✅ EXIBIR AVISO DE UPGRADE
     const warningContainer = document.createElement('div');
@@ -9755,12 +9835,12 @@ function renderReducedMode(data) {
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     `;
     warningContainer.innerHTML = `
-        <h3 style="margin: 0 0 10px 0; font-size: 1.3em;">⚠️ Modo Reduzido Ativado</h3>
+        <h3 style="margin: 0 0 10px 0; font-size: 1.3em;">⚠️ Modo Reduzido</h3>
         <p style="margin: 10px 0; font-size: 1em; opacity: 0.95;">
             ${data.limitWarning || 'Você atingiu o limite de análises completas do seu plano.'}
         </p>
         <p style="margin: 10px 0; font-size: 0.95em; opacity: 0.9;">
-            <strong>Exibindo apenas:</strong> Score, True Peak, LUFS e Dynamic Range
+            <strong>Métricas avançadas</strong> estão bloqueadas neste modo.
         </p>
         <button id="upgradePlanBtn" style="
             background: white;
@@ -9795,25 +9875,24 @@ function renderReducedMode(data) {
         if (upgradeBtn) {
             upgradeBtn.addEventListener('click', () => {
                 console.log('[PLAN-FILTER] 🚀 Botão de upgrade clicado');
-                // TODO: Redirecionar para página de planos
-                window.location.href = '/planos.html'; // Ajustar URL conforme necessário
+                window.location.href = '/planos.html';
             });
         }
     }
     
-    console.log('[PLAN-FILTER] ✅ Modo reduzido renderizado com sucesso');
+    console.log('[PLAN-FILTER] ✅ Modo reduzido renderizado com JSON COMPLETO e máscaras visuais');
 }
 
-// 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // ✅ VERIFICAÇÃO CRÍTICA: Modo Reduzido
-    if (analysis.analysisMode === 'reduced') {
-        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - Renderizando UI simplificada');
-        renderReducedMode(analysis);
-        return;
+    // ✅ VERIFICAÇÃO: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
+    const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
+    
+    if (isReduced) {
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO - JSON completo recebido, aplicando máscaras visuais');
+        console.log('[PLAN-FILTER] Dados recebidos:', Object.keys(analysis));
     }
     
     // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui

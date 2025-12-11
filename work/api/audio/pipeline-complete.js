@@ -1418,67 +1418,39 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
     }
 
-    // ✅ FASE FINAL: APLICAR FILTRO DE MODO REDUZIDO (FREE/PLUS sem análises completas restantes)
+    // ✅ FASE FINAL: ADICIONAR FLAGS DE PLANO (SEM MUTILAÇÃO DO JSON)
     const planContext = options.planContext || null;
     
     if (planContext) {
       console.log('[PLAN-FILTER] 📊 Plan Context detectado:', planContext);
       
-      // ✅ SEMPRE incluir analysisMode no JSON final
+      // ✅ SEMPRE incluir analysisMode e flags no JSON final
       finalJSON.analysisMode = planContext.analysisMode;
-      console.log('[PLAN-FILTER] ✅ analysisMode adicionado ao JSON:', planContext.analysisMode);
+      finalJSON.isReduced = planContext.analysisMode === 'reduced';
+      finalJSON.plan = planContext.plan;
+      finalJSON.planFeatures = planContext.features;
       
-      // Se modo reduzido: retornar APENAS métricas essenciais
+      console.log('[PLAN-FILTER] ✅ Flags de plano adicionadas ao JSON:', {
+        analysisMode: finalJSON.analysisMode,
+        isReduced: finalJSON.isReduced,
+        plan: finalJSON.plan
+      });
+      
+      // ⚠️ MODO REDUZIDO: Adicionar warning MAS manter JSON completo
       if (planContext.analysisMode === 'reduced') {
-        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO - Retornando JSON simplificado');
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - Adicionando limitWarning (JSON completo preservado)');
         console.log('[PLAN-FILTER] Plano:', planContext.plan, '| Features:', planContext.features);
         
-        // ✅ JSON reduzido com APENAS as métricas permitidas
-        const reducedJSON = {
-          analysisMode: 'reduced',
-          score: finalJSON.score,
-          truePeak: finalJSON.truePeak,
-          truePeakDbtp: finalJSON.truePeakDbtp,
-          lufs: finalJSON.lufs,
-          lufsIntegrated: finalJSON.lufsIntegrated,
-          dynamicRange: finalJSON.dynamicRange,
-          dr: finalJSON.dr,
-          limitWarning: `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa.`
-        };
+        // ✅ Adicionar warning ao JSON (sem mutilação)
+        finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa.`;
         
-        console.log('[PLAN-FILTER] ✅ JSON reduzido criado - APENAS score, TP, LUFS, DR');
-        
-        // Limpar arquivo temporário
-        cleanupTempFile(tempFilePath);
-        
-        return reducedJSON;
-      }
-      
-      // Se features não permitem sugestões: remover campos de sugestões
-      if (!planContext.features.canSuggestions) {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite sugestões - removendo campos de sugestões');
-        delete finalJSON.suggestions;
-        delete finalJSON.aiSuggestions;
-        delete finalJSON.problemsAnalysis;
-        delete finalJSON.diagnostics;
-      }
-      
-      // Se features não permitem espectro avançado: simplificar dados espectrais
-      if (!planContext.features.canSpectralAdvanced) {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite análise espectral avançada - simplificando');
-        if (finalJSON.bands) {
-          // Manter apenas resumo das bandas, sem detalhes
-          finalJSON.bands = Object.keys(finalJSON.bands || {}).reduce((acc, key) => {
-            acc[key] = { db: finalJSON.bands[key]?.db || 0 };
-            return acc;
-          }, {});
-        }
-        delete finalJSON.spectrum;
-        delete finalJSON.spectralData;
+        console.log('[PLAN-FILTER] ✅ limitWarning adicionado - JSON completo será retornado para o frontend aplicar máscara visual');
       }
     } else {
       // Se não há planContext, modo padrão é "full"
       finalJSON.analysisMode = 'full';
+      finalJSON.isReduced = false;
+      finalJSON.plan = 'free'; // fallback
       console.log('[PLAN-FILTER] ℹ️ Sem planContext - definindo analysisMode como "full"');
     }
 
