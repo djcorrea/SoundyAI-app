@@ -9683,38 +9683,35 @@ function maskValue(value, isAllowed, options = {}) {
     return `${value}${unit ? ' ' + unit : ''}`;
 }
 
-// ✅ HELPER: Aplicar classe de máscara visual com blur/overlay
-function applyMaskClass(selector, isAllowed, options = {}) {
+// ✅ HELPER SIMPLIFICADO: Aplicar classe de máscara visual (apenas CSS)
+function applyMaskClass(selector, isAllowed) {
     const element = document.querySelector(selector);
-    if (!element) return;
-    
-    const { hideCompletely = false } = options;
+    if (!element) {
+        console.warn(`[MASK] Elemento não encontrado: ${selector}`);
+        return;
+    }
     
     if (!isAllowed) {
-        if (hideCompletely) {
-            // Ocultar completamente o elemento
-            element.style.display = 'none';
-        } else {
-            // Aplicar blur + overlay
-            element.classList.add('metric-masked');
-            
-            // Criar overlay de upgrade se não existir
-            if (!element.querySelector('.mask-overlay')) {
-                const overlay = document.createElement('div');
-                overlay.className = 'mask-overlay';
-                overlay.innerHTML = `
-                    <span class="mask-icon">🔒</span>
-                    <span class="mask-text">Atualize o plano</span>
-                `;
-                element.style.position = 'relative';
-                element.appendChild(overlay);
-            }
-        }
+        // Adicionar classe de máscara (blur + "Plano limitado" via CSS::after)
+        element.classList.add('metric-masked');
     } else {
         // Remover máscara se estava aplicada
         element.classList.remove('metric-masked');
-        const overlay = element.querySelector('.mask-overlay');
-        if (overlay) overlay.remove();
+    }
+}
+
+// ✅ HELPER: Ocultar/mostrar seção completamente
+function toggleSectionVisibility(selector, isAllowed) {
+    const element = document.querySelector(selector);
+    if (!element) {
+        console.warn(`[TOGGLE] Elemento não encontrado: ${selector}`);
+        return;
+    }
+    
+    if (!isAllowed) {
+        element.classList.add('plan-section-hidden');
+    } else {
+        element.classList.remove('plan-section-hidden');
     }
 }
 
@@ -9752,7 +9749,7 @@ function renderReducedMode(data) {
         }
     }
     
-    // ✅ EXIBIR MÉTRICAS PRINCIPAIS (SEMPRE VISÍVEIS)
+    // ✅ EXIBIR MÉTRICAS PRINCIPAIS (SEMPRE VISÍVEIS) - TP, LUFS, DR, Score
     updateField('#audioScore', maskValue(data.score, true, { unit: '%' }));
     updateField('#audioLufs', maskValue(data.lufsIntegrated || data.lufs, true, { unit: 'LUFS', decimalPlaces: 1 }));
     updateField('#audioTruePeak', maskValue(data.truePeakDbtp || data.truePeak, true, { unit: 'dBTP', decimalPlaces: 2 }));
@@ -9761,7 +9758,6 @@ function renderReducedMode(data) {
     console.log('[PLAN-FILTER] ✅ Métricas principais renderizadas (sempre visíveis)');
     
     // ✅ APLICAR MÁSCARAS NAS MÉTRICAS AVANÇADAS (JSON completo preservado)
-    // Headroom, LRA, Stereo Width, etc - MASCARADOS mas dados existem
     const advancedMetrics = [
         { selector: '#audioHeadroom', value: data.headroom, unit: 'dB', decimals: 1 },
         { selector: '#audioLra', value: data.lra, unit: 'dB', decimals: 1 },
@@ -9773,13 +9769,13 @@ function renderReducedMode(data) {
     ];
     
     advancedMetrics.forEach(metric => {
-        // ✅ Exibir valor mascarado (placeholder) mas dados completos existem no JSON
-        const maskedValue = maskValue(metric.value, false, { 
+        // Exibir valor REAL (não placeholder) - máscara visual é aplicada via CSS
+        const formattedValue = maskValue(metric.value, true, { 
             unit: metric.unit, 
             decimalPlaces: metric.decimals 
         });
-        updateField(metric.selector, maskedValue);
-        applyMaskClass(metric.selector, false); // Aplicar blur + overlay
+        updateField(metric.selector, formattedValue);
+        applyMaskClass(metric.selector, false); // Aplicar blur + overlay via CSS
     });
     
     console.log('[PLAN-FILTER] ✅ Métricas avançadas MASCARADAS (dados completos preservados)');
@@ -9798,11 +9794,11 @@ function renderReducedMode(data) {
     
     spectralBands.forEach(band => {
         const value = data.bands?.[band.key]?.db || data.spectralData?.[band.key]?.db;
-        const maskedValue = maskValue(value, planFeatures.canSpectralAdvanced, { 
+        const formattedValue = maskValue(value, true, { 
             unit: 'dB', 
             decimalPlaces: 1 
         });
-        updateField(band.selector, maskedValue);
+        updateField(band.selector, formattedValue);
         applyMaskClass(band.selector, planFeatures.canSpectralAdvanced);
     });
     
@@ -9813,48 +9809,58 @@ function renderReducedMode(data) {
         { selector: '#suggestionsSection', allowed: planFeatures.canSuggestions },
         { selector: '#aiSuggestionsSection', allowed: planFeatures.canSuggestions },
         { selector: '#problemsSection', allowed: planFeatures.canSuggestions },
-        { selector: '#diagnosticsSection', allowed: planFeatures.canSuggestions }
+        { selector: '#diagnosticsSection', allowed: planFeatures.canSuggestions },
+        { selector: '.ai-suggestion-card', allowed: planFeatures.canSuggestions },
+        { selector: '.advanced-spectrum-section', allowed: planFeatures.canSpectralAdvanced }
     ];
     
     sectionsToHide.forEach(({ selector, allowed }) => {
-        applyMaskClass(selector, allowed, { hideCompletely: !allowed });
+        toggleSectionVisibility(selector, allowed);
     });
     
     console.log('[PLAN-FILTER] ✅ Seções de sugestões/IA ocultadas conforme plano');
     
-    // ✅ EXIBIR AVISO DE UPGRADE
+    // ✅ EXIBIR AVISO DE UPGRADE ATRAENTE
     const warningContainer = document.createElement('div');
     warningContainer.id = 'reducedModeWarning';
     warningContainer.style.cssText = `
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 20px;
+        padding: 24px;
         margin: 20px 0;
-        border-radius: 12px;
+        border-radius: 16px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.1);
     `;
     warningContainer.innerHTML = `
-        <h3 style="margin: 0 0 10px 0; font-size: 1.3em;">⚠️ Modo Reduzido</h3>
-        <p style="margin: 10px 0; font-size: 1em; opacity: 0.95;">
-            ${data.limitWarning || 'Você atingiu o limite de análises completas do seu plano.'}
+        <div style="font-size: 3em; margin-bottom: 10px;">🔒</div>
+        <h3 style="margin: 0 0 12px 0; font-size: 1.4em; font-weight: 700;">Modo Reduzido Ativo</h3>
+        <p style="margin: 12px 0; font-size: 1em; opacity: 0.95; line-height: 1.5;">
+            ${data.limitWarning || 'Você atingiu o limite de análises completas do seu plano atual.'}
         </p>
-        <p style="margin: 10px 0; font-size: 0.95em; opacity: 0.9;">
-            <strong>Métricas avançadas</strong> estão bloqueadas neste modo.
-        </p>
+        <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px; margin: 15px 0;">
+            <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">
+                <strong>✅ Métricas visíveis:</strong> Score, True Peak, LUFS, Dynamic Range
+            </p>
+            <p style="margin: 8px 0 0 0; font-size: 0.9em; opacity: 0.9;">
+                <strong>🔒 Bloqueadas:</strong> Métricas avançadas, espectro, sugestões IA
+            </p>
+        </div>
         <button id="upgradePlanBtn" style="
             background: white;
             color: #667eea;
             border: none;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: bold;
+            padding: 14px 36px;
+            border-radius: 10px;
+            font-size: 1.05em;
+            font-weight: 700;
             cursor: pointer;
-            margin-top: 10px;
-            transition: transform 0.2s;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-            🚀 Atualizar Plano
+            🚀 Desbloquear Análise Completa
         </button>
     `;
     
@@ -9887,13 +9893,20 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // ✅ VERIFICAÇÃO: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
+    // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
     const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
     
     if (isReduced) {
-        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO - JSON completo recebido, aplicando máscaras visuais');
-        console.log('[PLAN-FILTER] Dados recebidos:', Object.keys(analysis));
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - JSON completo recebido');
+        console.log('[PLAN-FILTER] 📊 Campos do JSON:', Object.keys(analysis));
+        console.log('[PLAN-FILTER] 🎯 Renderizando modo reduzido com máscaras visuais...');
+        
+        // ✅ Chamar renderReducedMode e parar aqui
+        renderReducedMode(analysis);
+        return; // Modal já foi aberto por renderReducedMode
     }
+    
+    console.log('[PLAN-FILTER] ℹ️ Modo normal - renderizando análise completa');
     
     // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui
     console.group('[FASE2-VALIDATION] 🎯 displayModalResults - ENTRADA');
