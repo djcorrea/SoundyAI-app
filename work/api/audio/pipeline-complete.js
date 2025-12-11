@@ -1141,15 +1141,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         }
       }
       
-      // 🔒 GARANTIA ADICIONAL: Remover referenceComparison se não for modo reference
+      // 🔒 GARANTIA ADICIONAL: Neutralizar referenceComparison se não for modo reference
+      // ⚠️ NUNCA deletar - apenas sobrescrever com null (preserva shape do JSON)
       if (mode !== "reference" && finalJSON.referenceComparison) {
-        console.log("[SECURITY] ⚠️ referenceComparison detectado em modo não-reference - removendo!");
+        console.log("[SECURITY] ⚠️ referenceComparison detectado em modo não-reference - neutralizando!");
         console.log("[SECURITY] mode atual:", mode);
         console.log("[SECURITY] isReferenceBase:", isReferenceBase);
-        delete finalJSON.referenceComparison;
-        delete finalJSON.referenceJobId;
-        delete finalJSON.referenceFileName;
-        console.log("[SECURITY] ✅ referenceComparison removido - modo gênero limpo");
+        finalJSON.referenceComparison = null;
+        finalJSON.referenceJobId = null;
+        finalJSON.referenceFileName = null;
+        console.log("[SECURITY] ✅ referenceComparison neutralizado (null) - modo gênero limpo");
       }
       
       // 🔍 LOG DE DIAGNÓSTICO: Estrutura final do JSON
@@ -1418,7 +1419,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
     }
 
-    // ✅ FASE FINAL: APLICAR FILTRO DE MODO REDUZIDO (FREE/PLUS sem análises completas restantes)
+    // ✅ FASE FINAL: APLICAR FLAGS DE MODO REDUZIDO (SEM MASCARAR DADOS)
+    // 🎯 ARQUITETURA: Backend retorna JSON completo + flags de controle
+    // 🎯 Frontend decide visualmente o que mostrar baseado em isReduced
     const planContext = options.planContext || null;
     
     console.log('🔥🔥🔥 [AUDIT-PIPELINE] options.planContext:', options.planContext);
@@ -1434,159 +1437,46 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       finalJSON.analysisMode = planContext.analysisMode;
       console.log('[PLAN-FILTER] ✅ analysisMode adicionado ao JSON:', planContext.analysisMode);
       
-      // 🎯 MODO REDUZIDO: MANTER ESTRUTURA COMPLETA, NEUTRALIZAR VALORES AVANÇADOS
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // 🎯 ARQUITETURA CORRIGIDA: BACKEND NUNCA MASCARA DADOS
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // ✅ O backend SEMPRE retorna o JSON completo com TODOS os dados reais
+      // ✅ Em modo reduced, apenas ADICIONA 3 flags de controle:
+      //    1. analysisMode: "reduced"
+      //    2. isReduced: true
+      //    3. limitWarning: "Mensagem para o usuário"
+      // ✅ O FRONTEND é responsável por decidir visualmente o que mostrar
+      // ✅ Métricas permitidas em reduced: truePeak, lufs, dynamicRange
+      // ✅ Métricas mascaradas no frontend: bands, spectrum, sugestões avançadas
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      
       if (planContext.analysisMode === 'reduced') {
-        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO - Aplicando valores neutros (estrutura preservada)');
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO');
         console.log('[PLAN-FILTER] Plano:', planContext.plan, '| Features:', planContext.features);
+        console.log('[PLAN-FILTER] 🎯 Backend retorna JSON COMPLETO + flags de controle');
+        console.log('[PLAN-FILTER] 🎯 Frontend decide visualmente o que exibir');
         
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // ✅ MÉTRICAS QUE PERMANECEM REAIS (NÃO TOCAR):
-        // - finalJSON.score
-        // - finalJSON.classification
-        // - finalJSON.lufsIntegrated (ou lufs)
-        // - finalJSON.truePeakDbtp (ou truePeak)
-        // - finalJSON.dynamicRange (ou dr)
-        // - finalJSON.metadata (informações gerais)
-        // - finalJSON.mode
-        // - finalJSON.genre
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        // ✅ 1. NEUTRALIZAR BANDAS DE FREQUÊNCIA
-        if (finalJSON.bands) {
-          Object.keys(finalJSON.bands).forEach(bandKey => {
-            finalJSON.bands[bandKey] = {
-              db: "-",
-              target_db: "-",
-              diff: 0,
-              status: "unavailable"
-            };
-          });
-          console.log('[PLAN-FILTER] ✅ Bandas neutralizadas:', Object.keys(finalJSON.bands).length, 'bandas');
-        }
-        
-        // ✅ 2. NEUTRALIZAR technicalData.bands
-        if (finalJSON.technicalData) {
-          if (finalJSON.technicalData.bands) {
-            Object.keys(finalJSON.technicalData.bands).forEach(bandKey => {
-              finalJSON.technicalData.bands[bandKey] = {
-                db: "-",
-                target_db: "-",
-                diff: 0,
-                status: "unavailable"
-              };
-            });
-            console.log('[PLAN-FILTER] ✅ technicalData.bands neutralizadas');
-          }
-          
-          // ✅ 3. LIMPAR DADOS ESPECTRAIS
-          if (finalJSON.technicalData.spectrum) finalJSON.technicalData.spectrum = null;
-          if (finalJSON.technicalData.spectralData) finalJSON.technicalData.spectralData = null;
-          console.log('[PLAN-FILTER] ✅ technicalData: spectrum/spectralData limpos');
-        }
-        
-        // ✅ 4. LIMPAR SUGESTÕES (arrays vazios, não undefined)
-        finalJSON.suggestions = [];
-        finalJSON.aiSuggestions = [];
-        console.log('[PLAN-FILTER] ✅ Sugestões limpas (arrays vazios)');
-        
-        // ✅ 5. LIMPAR ANÁLISE DE PROBLEMAS (estrutura mínima preservada)
-        finalJSON.problemsAnalysis = {
-          problems: [],
-          suggestions: [],
-          qualityAssessment: {},
-          priorityRecommendations: [],
-          metadata: {
-            mode: 'reduced',
-            reason: 'Plan limit reached',
-            appliedAt: new Date().toISOString()
-          }
-        };
-        console.log('[PLAN-FILTER] ✅ problemsAnalysis limpo (estrutura mínima)');
-        
-        // ✅ 6. LIMPAR DIAGNÓSTICOS (objeto vazio preservado)
-        finalJSON.diagnostics = {
-          problems: [],
-          suggestions: [],
-          prioritized: []
-        };
-        console.log('[PLAN-FILTER] ✅ diagnostics limpo (estrutura mínima)');
-        
-        // ✅ 7. LIMPAR ESPECTRO (top-level)
-        if (finalJSON.spectrum) finalJSON.spectrum = null;
-        if (finalJSON.spectralData) finalJSON.spectralData = null;
-        console.log('[PLAN-FILTER] ✅ Dados espectrais top-level limpos');
-        
-        // ✅ 8. LIMPAR qualityAssessment (se existir)
-        if (finalJSON.qualityAssessment) {
-          finalJSON.qualityAssessment = {};
-          console.log('[PLAN-FILTER] ✅ qualityAssessment limpo');
-        }
-        
-        // ✅ 9. LIMPAR priorityRecommendations (se existir)
-        if (finalJSON.priorityRecommendations) {
-          finalJSON.priorityRecommendations = [];
-          console.log('[PLAN-FILTER] ✅ priorityRecommendations limpo');
-        }
-        
-        // ✅ 10. AJUSTAR summary (manter estrutura, remover detalhes avançados)
-        if (finalJSON.summary) {
-          finalJSON.summary = {
-            overallRating: 'Análise reduzida - Atualize seu plano para análise completa',
-            score: finalJSON.score || 0,
-            genre: finalJSON.summary.genre || finalJSON.genre || 'unknown',
-            mode: 'reduced'
-          };
-          console.log('[PLAN-FILTER] ✅ summary ajustado (versão reduzida)');
-        }
-        
-        // ✅ 11. AJUSTAR suggestionMetadata (estatísticas zeradas)
-        if (finalJSON.suggestionMetadata) {
-          finalJSON.suggestionMetadata = {
-            totalSuggestions: 0,
-            criticalCount: 0,
-            warningCount: 0,
-            okCount: 0,
-            analysisDate: finalJSON.suggestionMetadata.analysisDate || new Date().toISOString(),
-            genre: finalJSON.suggestionMetadata.genre || finalJSON.genre || 'unknown',
-            version: finalJSON.suggestionMetadata.version || '2.0.0',
-            mode: 'reduced'
-          };
-          console.log('[PLAN-FILTER] ✅ suggestionMetadata ajustado (contadores zerados)');
-        }
-        
-        // ✅ 12. ADICIONAR AVISO DE LIMITE (mensagem clara para o usuário)
+        // ✅ APENAS ADICIONAR FLAGS (NUNCA ALTERAR DADOS)
+        finalJSON.isReduced = true;
         finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa com sugestões, bandas de frequência e dados espectrais.`;
         
-        // ✅ 13. MARCAR ANÁLISE COMO REDUZIDA (campo explícito)
-        finalJSON.analysisMode = 'reduced';
-        finalJSON.isReduced = true;
-        
-        console.log('[PLAN-FILTER] ✅✅✅ Modo reduzido aplicado completamente');
-        console.log('[PLAN-FILTER] 📊 Estrutura preservada, valores avançados neutralizados');
-        console.log('[PLAN-FILTER] 🔒 Nenhum campo removido, apenas sobrescritos com placeholders');
+        console.log('[PLAN-FILTER] ✅ Flags de controle adicionadas:');
+        console.log('[PLAN-FILTER]    - analysisMode:', finalJSON.analysisMode);
+        console.log('[PLAN-FILTER]    - isReduced:', finalJSON.isReduced);
+        console.log('[PLAN-FILTER]    - limitWarning:', finalJSON.limitWarning ? 'presente' : 'ausente');
+        console.log('[PLAN-FILTER] ✅ JSON COMPLETO preservado (TODOS os dados reais mantidos)');
+        console.log('[PLAN-FILTER] 🔒 Nenhum campo removido, mascarado ou sobrescrito');
+        console.log('[PLAN-FILTER] 🎨 Frontend renderizará máscara visual baseado em isReduced');
       }
       
-      // Se features não permitem sugestões: ARRAY VAZIO (não delete)
-      if (!planContext.features.canSuggestions && planContext.analysisMode !== 'reduced') {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite sugestões - limpando arrays');
-        finalJSON.suggestions = [];
-        finalJSON.aiSuggestions = [];
-        finalJSON.problemsAnalysis = { 
-          suggestions: [], 
-          metadata: { reason: 'Plan does not include suggestions' } 
+      // ✅ Adicionar metadados de features (opcional - para debug)
+      if (planContext.features) {
+        finalJSON.planFeatures = {
+          canSuggestions: planContext.features.canSuggestions,
+          canSpectralAdvanced: planContext.features.canSpectralAdvanced,
+          canReferenceMode: planContext.features.canReferenceMode
         };
-        finalJSON.diagnostics = null;
-      }
-      
-      // Se features não permitem espectro avançado: NULL (não delete)
-      if (!planContext.features.canSpectralAdvanced && planContext.analysisMode !== 'reduced') {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite espectro avançado - limpando');
-        if (finalJSON.spectrum) finalJSON.spectrum = null;
-        if (finalJSON.spectralData) finalJSON.spectralData = null;
-        if (finalJSON.technicalData) {
-          if (finalJSON.technicalData.spectrum) finalJSON.technicalData.spectrum = null;
-          if (finalJSON.technicalData.spectralData) finalJSON.technicalData.spectralData = null;
-        }
+        console.log('[PLAN-FILTER] ✅ planFeatures adicionado para debug:', finalJSON.planFeatures);
       }
       
     } else {

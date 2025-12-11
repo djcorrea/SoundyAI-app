@@ -10113,6 +10113,10 @@ async function displayModalResults(analysis) {
         analysis.aiSuggestions = safeArray(analysis.aiSuggestions);
         
         console.log('[SAFE-MODE] ✅ Dados sanitizados com sucesso');
+    } catch (sanitizeError) {
+        console.error('[SAFE-MODE] ⚠️ Erro na sanitização (continuando):', sanitizeError);
+        // Continuar mesmo com erro de sanitização
+    }
     
     // 🎭 APLICAR MÁSCARA DE MODO REDUZIDO (SE NECESSÁRIO)
     const processedAnalysis = applyReducedModeMask(analysis);
