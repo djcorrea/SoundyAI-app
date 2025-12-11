@@ -9804,17 +9804,205 @@ function renderReducedMode(data) {
     console.log('[PLAN-FILTER] ✅ Modo reduzido renderizado com sucesso');
 }
 
+// 🎭 APLICAR MÁSCARA DE MODO REDUZIDO
+/**
+ * Aplica máscara de modo reduzido no objeto de análise
+ * Mantém estrutura completa mas substitui valores avançados por placeholders
+ * @param {Object} analysisData - Dados da análise vindos do backend
+ * @returns {Object} Análise mascarada (cópia profunda)
+ */
+function applyReducedModeMask(analysisData) {
+    console.log('[REDUCED-MASK] 🎭 Iniciando aplicação de máscara de modo reduzido');
+    console.log('[REDUCED-MASK] analysisMode:', analysisData.analysisMode);
+    console.log('[REDUCED-MASK] isReduced:', analysisData.isReduced);
+    
+    // Se não é modo reduzido, retornar original sem alterações
+    if (analysisData.analysisMode !== 'reduced' && !analysisData.isReduced) {
+        console.log('[REDUCED-MASK] ✅ Modo FULL - Nenhuma máscara aplicada');
+        return analysisData;
+    }
+    
+    console.log('[REDUCED-MASK] ⚠️ MODO REDUZIDO DETECTADO - Aplicando máscara');
+    
+    // Criar cópia profunda para não modificar original
+    const masked = JSON.parse(JSON.stringify(analysisData));
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ✅ MÉTRICAS QUE PERMANECEM VISÍVEIS (NÃO MASCARAR):
+    // ═══════════════════════════════════════════════════════════════
+    // - score (mantém valor real)
+    // - lufsIntegrated / lufs (mantém valor real)
+    // - truePeakDbtp / truePeak (mantém valor real)
+    // - dynamicRange / dr (mantém valor real)
+    // - classification (mantém texto real)
+    // - metadata.* (informações gerais)
+    // - mode, genre, analyzedAt (informações de contexto)
+    
+    console.log('[REDUCED-MASK] 📊 Métricas preservadas:', {
+        score: masked.score,
+        lufs: masked.lufsIntegrated || masked.lufs,
+        truePeak: masked.truePeakDbtp || masked.truePeak,
+        dr: masked.dynamicRange || masked.dr
+    });
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ❌ MASCARAR MÉTRICAS AVANÇADAS (SUBSTITUIR POR "-")
+    // ═══════════════════════════════════════════════════════════════
+    
+    // 1. BANDAS DE FREQUÊNCIA
+    if (masked.bands) {
+        Object.keys(masked.bands).forEach(bandKey => {
+            masked.bands[bandKey] = {
+                db: "-",
+                target_db: "-",
+                diff: 0,
+                status: "unavailable"
+            };
+        });
+        console.log('[REDUCED-MASK] ✅ Bandas mascaradas:', Object.keys(masked.bands).length);
+    }
+    
+    // 2. technicalData.bands
+    if (masked.technicalData?.bands) {
+        Object.keys(masked.technicalData.bands).forEach(bandKey => {
+            masked.technicalData.bands[bandKey] = {
+                db: "-",
+                target_db: "-",
+                diff: 0,
+                status: "unavailable"
+            };
+        });
+        console.log('[REDUCED-MASK] ✅ technicalData.bands mascaradas');
+    }
+    
+    // 3. ESPECTRO E DADOS ESPECTRAIS
+    if (masked.spectrum) masked.spectrum = null;
+    if (masked.spectralData) masked.spectralData = null;
+    if (masked.technicalData?.spectrum) masked.technicalData.spectrum = null;
+    if (masked.technicalData?.spectralData) masked.technicalData.spectralData = null;
+    console.log('[REDUCED-MASK] ✅ Dados espectrais limpos');
+    
+    // 4. MÉTRICAS AVANÇADAS DE LOUDNESS
+    if (masked.lra !== undefined) masked.lra = null;
+    if (masked.technicalData?.lra) masked.technicalData.lra = null;
+    if (masked.headroom !== undefined) masked.headroom = null;
+    if (masked.technicalData?.headroom) masked.technicalData.headroom = null;
+    console.log('[REDUCED-MASK] ✅ Métricas avançadas de loudness mascaradas');
+    
+    // 5. MÉTRICAS DE STEREO
+    if (masked.stereoWidth !== undefined) masked.stereoWidth = null;
+    if (masked.stereoCorrelation !== undefined) masked.stereoCorrelation = null;
+    if (masked.phaseCoherence !== undefined) masked.phaseCoherence = null;
+    if (masked.technicalData?.stereoWidth) masked.technicalData.stereoWidth = null;
+    if (masked.technicalData?.stereoCorrelation) masked.technicalData.stereoCorrelation = null;
+    if (masked.technicalData?.phaseCoherence) masked.technicalData.phaseCoherence = null;
+    console.log('[REDUCED-MASK] ✅ Métricas de stereo mascaradas');
+    
+    // 6. MÉTRICAS AVANÇADAS DE DINÂMICA
+    if (masked.peakToAverage !== undefined) masked.peakToAverage = null;
+    if (masked.crestFactor !== undefined) masked.crestFactor = null;
+    if (masked.technicalData?.peakToAverage) masked.technicalData.peakToAverage = null;
+    if (masked.technicalData?.crestFactor) masked.technicalData.crestFactor = null;
+    console.log('[REDUCED-MASK] ✅ Métricas avançadas de dinâmica mascaradas');
+    
+    // 7. SUGESTÕES (LIMPAR COMPLETAMENTE)
+    masked.suggestions = [];
+    masked.aiSuggestions = [];
+    console.log('[REDUCED-MASK] ✅ Sugestões limpas (arrays vazios)');
+    
+    // 8. ANÁLISE DE PROBLEMAS
+    masked.problemsAnalysis = {
+        problems: [],
+        suggestions: [],
+        qualityAssessment: {},
+        priorityRecommendations: [],
+        metadata: {
+            mode: 'reduced',
+            reason: 'Plan limit reached',
+            appliedAt: new Date().toISOString()
+        }
+    };
+    console.log('[REDUCED-MASK] ✅ problemsAnalysis limpo');
+    
+    // 9. DIAGNÓSTICOS
+    masked.diagnostics = {
+        problems: [],
+        suggestions: [],
+        prioritized: []
+    };
+    console.log('[REDUCED-MASK] ✅ diagnostics limpo');
+    
+    // 10. QUALITY ASSESSMENT
+    if (masked.qualityAssessment) {
+        masked.qualityAssessment = {};
+        console.log('[REDUCED-MASK] ✅ qualityAssessment limpo');
+    }
+    
+    // 11. PRIORITY RECOMMENDATIONS
+    if (masked.priorityRecommendations) {
+        masked.priorityRecommendations = [];
+        console.log('[REDUCED-MASK] ✅ priorityRecommendations limpo');
+    }
+    
+    // 12. AJUSTAR SUMMARY (manter estrutura, remover detalhes)
+    if (masked.summary) {
+        masked.summary = {
+            overallRating: 'Análise reduzida - Atualize seu plano para análise completa',
+            score: masked.score || 0,
+            genre: masked.summary.genre || masked.genre || 'unknown',
+            mode: 'reduced'
+        };
+        console.log('[REDUCED-MASK] ✅ summary ajustado');
+    }
+    
+    // 13. AJUSTAR suggestionMetadata
+    if (masked.suggestionMetadata) {
+        masked.suggestionMetadata = {
+            totalSuggestions: 0,
+            criticalCount: 0,
+            warningCount: 0,
+            okCount: 0,
+            analysisDate: masked.suggestionMetadata.analysisDate || new Date().toISOString(),
+            genre: masked.suggestionMetadata.genre || masked.genre || 'unknown',
+            version: masked.suggestionMetadata.version || '2.0.0',
+            mode: 'reduced'
+        };
+        console.log('[REDUCED-MASK] ✅ suggestionMetadata ajustado');
+    }
+    
+    // 14. GARANTIR CAMPOS DE CONTROLE
+    masked.analysisMode = 'reduced';
+    masked.isReduced = true;
+    if (!masked.limitWarning) {
+        masked.limitWarning = 'Você atingiu o limite de análises completas do seu plano. Atualize para desbloquear análise completa.';
+    }
+    
+    console.log('[REDUCED-MASK] ✅✅✅ Máscara aplicada completamente');
+    console.log('[REDUCED-MASK] 📊 Estrutura preservada, valores avançados neutralizados');
+    console.log('[REDUCED-MASK] 🔒 Nenhum campo removido, apenas sobrescritos com placeholders');
+    
+    return masked;
+}
+
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+    console.log('[DEBUG-DISPLAY] analysisMode recebido:', analysis.analysisMode);
+    console.log('[DEBUG-DISPLAY] isReduced recebido:', analysis.isReduced);
     
-    // ✅ VERIFICAÇÃO CRÍTICA: Modo Reduzido
-    if (analysis.analysisMode === 'reduced') {
+    // 🎭 APLICAR MÁSCARA DE MODO REDUZIDO (SE NECESSÁRIO)
+    const processedAnalysis = applyReducedModeMask(analysis);
+    
+    // ✅ VERIFICAÇÃO CRÍTICA: Modo Reduzido (após aplicar máscara)
+    if (processedAnalysis.analysisMode === 'reduced' || processedAnalysis.isReduced) {
         console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - Renderizando UI simplificada');
-        renderReducedMode(analysis);
+        renderReducedMode(processedAnalysis);
         return;
     }
+    
+    // Continuar com análise processada (mascarada ou original)
+    analysis = processedAnalysis;
     
     // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui
     console.group('[FASE2-VALIDATION] 🎯 displayModalResults - ENTRADA');
