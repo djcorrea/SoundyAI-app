@@ -1428,54 +1428,95 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       finalJSON.analysisMode = planContext.analysisMode;
       console.log('[PLAN-FILTER] ✅ analysisMode adicionado ao JSON:', planContext.analysisMode);
       
-      // Se modo reduzido: retornar APENAS métricas essenciais
+      // 🎯 MODO REDUZIDO: MANTER ESTRUTURA, NEUTRALIZAR VALORES (NÃO REMOVER CAMPOS)
       if (planContext.analysisMode === 'reduced') {
-        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO - Retornando JSON simplificado');
+        console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO - Aplicando valores neutros (estrutura preservada)');
         console.log('[PLAN-FILTER] Plano:', planContext.plan, '| Features:', planContext.features);
         
-        // ✅ JSON reduzido com APENAS as métricas permitidas
-        const reducedJSON = {
-          analysisMode: 'reduced',
-          score: finalJSON.score,
-          truePeak: finalJSON.truePeak,
-          truePeakDbtp: finalJSON.truePeakDbtp,
-          lufs: finalJSON.lufs,
-          lufsIntegrated: finalJSON.lufsIntegrated,
-          dynamicRange: finalJSON.dynamicRange,
-          dr: finalJSON.dr,
-          limitWarning: `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa.`
-        };
+        // ✅ MANTER métricas principais (score, truePeak, lufs, dr) - JÁ EXISTEM
         
-        console.log('[PLAN-FILTER] ✅ JSON reduzido criado - APENAS score, TP, LUFS, DR');
-        
-        // Limpar arquivo temporário
-        cleanupTempFile(tempFilePath);
-        
-        return reducedJSON;
-      }
-      
-      // Se features não permitem sugestões: remover campos de sugestões
-      if (!planContext.features.canSuggestions) {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite sugestões - removendo campos de sugestões');
-        delete finalJSON.suggestions;
-        delete finalJSON.aiSuggestions;
-        delete finalJSON.problemsAnalysis;
-        delete finalJSON.diagnostics;
-      }
-      
-      // Se features não permitem espectro avançado: simplificar dados espectrais
-      if (!planContext.features.canSpectralAdvanced) {
-        console.log('[PLAN-FILTER] 🚫 Plano não permite análise espectral avançada - simplificando');
+        // ✅ NEUTRALIZAR BANDAS (manter estrutura, valores = "-")
         if (finalJSON.bands) {
-          // Manter apenas resumo das bandas, sem detalhes
-          finalJSON.bands = Object.keys(finalJSON.bands || {}).reduce((acc, key) => {
-            acc[key] = { db: finalJSON.bands[key]?.db || 0 };
-            return acc;
-          }, {});
+          Object.keys(finalJSON.bands).forEach(bandKey => {
+            finalJSON.bands[bandKey] = {
+              db: "-",
+              target_db: "-",
+              diff: 0,
+              status: "unavailable"
+            };
+          });
+          console.log('[PLAN-FILTER] ✅ Bandas neutralizadas:', Object.keys(finalJSON.bands).length, 'bandas');
         }
-        delete finalJSON.spectrum;
-        delete finalJSON.spectralData;
+        
+        // ✅ NEUTRALIZAR technicalData.bands
+        if (finalJSON.technicalData && finalJSON.technicalData.bands) {
+          Object.keys(finalJSON.technicalData.bands).forEach(bandKey => {
+            finalJSON.technicalData.bands[bandKey] = {
+              db: "-",
+              target_db: "-",
+              diff: 0,
+              status: "unavailable"
+            };
+          });
+          console.log('[PLAN-FILTER] ✅ technicalData.bands neutralizadas');
+        }
+        
+        // ✅ LIMPAR SUGESTÕES (array vazio, NÃO undefined)
+        finalJSON.suggestions = [];
+        finalJSON.aiSuggestions = [];
+        console.log('[PLAN-FILTER] ✅ Sugestões limpas (arrays vazios)');
+        
+        // ✅ LIMPAR ANÁLISE DE PROBLEMAS (estrutura mínima)
+        finalJSON.problemsAnalysis = {
+          suggestions: [],
+          metadata: {
+            mode: 'reduced',
+            reason: 'Plan limit reached'
+          }
+        };
+        console.log('[PLAN-FILTER] ✅ problemsAnalysis limpo (estrutura mínima)');
+        
+        // ✅ LIMPAR DIAGNÓSTICOS
+        finalJSON.diagnostics = null;
+        
+        // ✅ LIMPAR ESPECTRO (null explícito, NÃO undefined)
+        if (finalJSON.spectrum) finalJSON.spectrum = null;
+        if (finalJSON.spectralData) finalJSON.spectralData = null;
+        if (finalJSON.technicalData) {
+          if (finalJSON.technicalData.spectrum) finalJSON.technicalData.spectrum = null;
+          if (finalJSON.technicalData.spectralData) finalJSON.technicalData.spectralData = null;
+        }
+        console.log('[PLAN-FILTER] ✅ Dados espectrais limpos (null explícito)');
+        
+        // ✅ ADICIONAR AVISO DE LIMITE
+        finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa.`;
+        
+        console.log('[PLAN-FILTER] ✅ Modo reduzido aplicado - Estrutura preservada, valores neutralizados');
       }
+      
+      // Se features não permitem sugestões: ARRAY VAZIO (não delete)
+      if (!planContext.features.canSuggestions && planContext.analysisMode !== 'reduced') {
+        console.log('[PLAN-FILTER] 🚫 Plano não permite sugestões - limpando arrays');
+        finalJSON.suggestions = [];
+        finalJSON.aiSuggestions = [];
+        finalJSON.problemsAnalysis = { 
+          suggestions: [], 
+          metadata: { reason: 'Plan does not include suggestions' } 
+        };
+        finalJSON.diagnostics = null;
+      }
+      
+      // Se features não permitem espectro avançado: NULL (não delete)
+      if (!planContext.features.canSpectralAdvanced && planContext.analysisMode !== 'reduced') {
+        console.log('[PLAN-FILTER] 🚫 Plano não permite espectro avançado - limpando');
+        if (finalJSON.spectrum) finalJSON.spectrum = null;
+        if (finalJSON.spectralData) finalJSON.spectralData = null;
+        if (finalJSON.technicalData) {
+          if (finalJSON.technicalData.spectrum) finalJSON.technicalData.spectrum = null;
+          if (finalJSON.technicalData.spectralData) finalJSON.technicalData.spectralData = null;
+        }
+      }
+      
     } else {
       // Se não há planContext, modo padrão é "full"
       finalJSON.analysisMode = 'full';
