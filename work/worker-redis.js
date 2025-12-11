@@ -701,6 +701,31 @@ async function audioProcessor(job) {
     genreTargets,
   } = job.data;
   
+  // 🎯 EXTRAÇÃO CRÍTICA: planContext (CORREÇÃO PARA PLANOS)
+  let extractedPlanContext = null;
+  if (job.data && typeof job.data === 'object') {
+    extractedPlanContext = job.data.planContext;
+  } else if (typeof job.data === 'string') {
+    try {
+      const parsed = JSON.parse(job.data);
+      extractedPlanContext = parsed.planContext;
+    } catch (e) {
+      console.warn('[PLAN-CONTEXT][WORKER-REDIS] ⚠️ Falha ao extrair planContext:', e.message);
+    }
+  }
+  
+  // 🎯 LOG DE AUDITORIA OBRIGATÓRIO - PLANCONTEXT
+  console.log('[AUDIT-WORKER-REDIS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AUDIT-WORKER-REDIS] job.id:', job.id);
+  console.log('[AUDIT-WORKER-REDIS] job.mode:', mode);
+  console.log('[AUDIT-WORKER-REDIS] job.data.genre:', job.data?.genre);
+  console.log('[AUDIT-WORKER-REDIS] job.data.genreTargets:', job.data?.genreTargets ? 'PRESENTE' : 'AUSENTE');
+  console.log('[AUDIT-WORKER-REDIS] job.data.planContext:', extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
+  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] extractedPlanContext:', extractedPlanContext);
+  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] extractedPlanContext?.analysisMode:', extractedPlanContext?.analysisMode);
+  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] typeof:', typeof extractedPlanContext?.analysisMode);
+  console.log('[AUDIT-WORKER-REDIS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
   console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
   console.dir(job.data, { depth: 10 });
@@ -921,6 +946,8 @@ async function audioProcessor(job) {
     console.log("[PRÉ-PIPELINE] options.genre:", genre);
     console.log("[PRÉ-PIPELINE] options.genreTargets:", genreTargets);
     console.log("[PRÉ-PIPELINE] options.mode:", mode);
+    console.log("[PRÉ-PIPELINE] options.planContext:", extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
+    console.log("[PRÉ-PIPELINE] options.planContext.analysisMode:", extractedPlanContext?.analysisMode);
     console.log("[PRÉ-PIPELINE] jobId:", jobId);
     console.log("==================================================================\n");
     
@@ -931,6 +958,7 @@ async function audioProcessor(job) {
       preloadedReferenceMetrics,
       genre,
       genreTargets,
+      planContext: extractedPlanContext || null  // 🎯 CRÍTICO: Passar planContext para o pipeline
     });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
@@ -964,7 +992,33 @@ async function audioProcessor(job) {
     console.log("[PÓS-PIPELINE] Campo de targets vindo do pipeline:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
     console.log("[PÓS-PIPELINE] Campo de metrics vindo do pipeline:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
     console.log("[PÓS-PIPELINE] Número de sugestões geradas:", finalJSON?.problemsAnalysis?.suggestions?.length || 0);
+    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.analysisMode:', finalJSON?.analysisMode);
+    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.isReduced:', finalJSON?.isReduced);
+    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.limitWarning:', finalJSON?.limitWarning);
     console.log("==================================================================\n");
+    
+    // 🔥 CORREÇÃO CRÍTICA: Copiar campos de controle de plano do pipeline
+    // Garantir que analysisMode, isReduced, limitWarning sejam preservados
+    if (!finalJSON.analysisMode && extractedPlanContext?.analysisMode) {
+      console.warn('[PLAN-AUDIT] ⚠️ Pipeline não retornou analysisMode - usando planContext');
+      finalJSON.analysisMode = extractedPlanContext.analysisMode;
+    }
+    if (!finalJSON.isReduced && finalJSON.analysisMode === 'reduced') {
+      console.warn('[PLAN-AUDIT] ⚠️ isReduced ausente - inferindo de analysisMode');
+      finalJSON.isReduced = true;
+    }
+    if (!finalJSON.limitWarning && finalJSON.analysisMode === 'reduced' && extractedPlanContext) {
+      console.warn('[PLAN-AUDIT] ⚠️ limitWarning ausente - gerando mensagem padrão');
+      finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${extractedPlanContext.plan?.toUpperCase() || 'FREE'}. Atualize seu plano para desbloquear análise completa.`;
+    }
+    
+    // 🔥 LOG DE AUDITORIA: Campos de plano após correção
+    console.log('[PLAN-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[PLAN-AUDIT] Campos de plano copiados para finalJSON:');
+    console.log('[PLAN-AUDIT]   finalJSON.analysisMode:', finalJSON.analysisMode);
+    console.log('[PLAN-AUDIT]   finalJSON.isReduced:', finalJSON.isReduced);
+    console.log('[PLAN-AUDIT]   finalJSON.limitWarning:', finalJSON.limitWarning);
+    console.log('[PLAN-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Enriquecer resultado com informações do worker
     finalJSON.performance = {
@@ -1095,6 +1149,15 @@ async function audioProcessor(job) {
     
     console.log('[WORKER] ✅✅✅ JSON VALIDADO - MARCANDO COMO COMPLETED');
     
+    // 🔥 LOG DE AUDITORIA FINAL: analysisMode antes do salvamento
+    console.log('\n\n🔥🔥🔥 [PLAN-AUDIT-FINAL] ANTES DE SALVAR NO POSTGRESQL 🔥🔥🔥');
+    console.log('[PLAN-AUDIT-FINAL] finalJSON.analysisMode:', finalJSON.analysisMode);
+    console.log('[PLAN-AUDIT-FINAL] finalJSON.isReduced:', finalJSON.isReduced);
+    console.log('[PLAN-AUDIT-FINAL] finalJSON.limitWarning:', finalJSON.limitWarning);
+    console.log('[PLAN-AUDIT-FINAL] extractedPlanContext?.analysisMode:', extractedPlanContext?.analysisMode);
+    console.log('[PLAN-AUDIT-FINAL] Tamanho do JSON:', JSON.stringify(finalJSON).length, 'bytes');
+    console.log('🔥🔥🔥 [PLAN-AUDIT-FINAL] FIM DA AUDITORIA 🔥🔥🔥\n\n');
+    
     // 🎯 AUDIT: LOG DE CONCLUSÃO
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
     console.log('✅ [AUDIT_COMPLETE] Job CONCLUÍDO com sucesso');
@@ -1120,6 +1183,13 @@ async function audioProcessor(job) {
       fs.unlinkSync(localFilePath);
       console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
     }
+    
+    // 🔥 LOG DE AUDITORIA FINAL: JSON retornado ao BullMQ
+    console.log('\n\n🔥🔥🔥 [PLAN-AUDIT-RETURN] JSON FINAL RETORNADO 🔥🔥🔥');
+    console.log('[PLAN-AUDIT-RETURN] finalJSON.analysisMode:', finalJSON.analysisMode);
+    console.log('[PLAN-AUDIT-RETURN] finalJSON.isReduced:', finalJSON.isReduced);
+    console.log('[PLAN-AUDIT-RETURN] Este JSON será retornado ao frontend via polling');
+    console.log('🔥🔥🔥 [PLAN-AUDIT-RETURN] FIM 🔥🔥🔥\n\n');
 
     return finalJSON;
 
