@@ -9661,6 +9661,449 @@ function showModalLoading() {
  * Mostra apenas: Score, True Peak, LUFS, Dynamic Range
  * Oculta: Bandas, Espectro, Sugestões, IA Avançada
  */
+// ========================================
+// 🎯 SISTEMA DE MASCARAMENTO DINÂMICO PARA MODO REDUZIDO
+// ========================================
+
+/**
+ * 🔍 Escaneia o DOM e constrói mapeamento de métricas
+ * @param {Object} analysis - Dados da análise com JSON completo
+ * @returns {Object} Mapeamento de métricas encontradas
+ */
+function buildMetricDomMap(analysis) {
+    console.log('[DOM-SCAN] 🔍 Iniciando escaneamento do DOM para mapear métricas...');
+    
+    const metricMap = {};
+    const allowedMetrics = ['lufs', 'truePeak', 'dr', 'score', 'loudness', 'peak', 'dynamics'];
+    
+    // Valores a procurar (com tolerância para formatação)
+    const searchValues = {
+        score: analysis.score,
+        lufsIntegrated: analysis.loudness?.integrated || analysis.lufsIntegrated,
+        truePeak: analysis.truePeak?.maxDbtp || analysis.truePeakDbtp,
+        dr: analysis.dynamics?.range || analysis.dr || analysis.dynamicRange
+    };
+    
+    // Buscar por todos os elementos de texto no modal
+    const modalContainer = document.getElementById('audioAnalysisResults');
+    if (!modalContainer) {
+        console.warn('[DOM-SCAN] ⚠️ Container de resultados não encontrado');
+        return metricMap;
+    }
+    
+    // Escanear todos os elementos com texto
+    const allElements = modalContainer.querySelectorAll('*');
+    
+    allElements.forEach((element) => {
+        const text = element.textContent?.trim();
+        if (!text || text.length > 100) return; // Ignorar textos muito longos
+        
+        // Verificar se contém valores de métricas permitidas
+        Object.entries(searchValues).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                const valueStr = typeof value === 'number' ? value.toFixed(2) : String(value);
+                
+                if (text.includes(valueStr) || text.includes(Math.round(value).toString())) {
+                    metricMap[key] = {
+                        element: element,
+                        selector: getUniqueSelector(element),
+                        value: value,
+                        allowed: true,
+                        type: 'core-metric'
+                    };
+                    
+                    console.log(`[DOM-SCAN] ✅ Métrica permitida encontrada: ${key} = ${value}`);
+                }
+            }
+        });
+        
+        // Detectar métricas avançadas (não permitidas)
+        const advancedPatterns = [
+            /headroom/i, /lra/i, /stereo/i, /correlation/i, /phase/i,
+            /crest/i, /rms/i, /centroid/i, /flux/i, /rolloff/i,
+            /spectral/i, /sub.?bass/i, /brilliance/i, /presence/i
+        ];
+        
+        const isAdvancedMetric = advancedPatterns.some(pattern => pattern.test(text));
+        if (isAdvancedMetric && element.querySelector('[data-value]')) {
+            const metricId = 'advanced_' + Math.random().toString(36).substr(2, 9);
+            metricMap[metricId] = {
+                element: element,
+                selector: getUniqueSelector(element),
+                value: element.querySelector('[data-value]')?.textContent,
+                allowed: false,
+                type: 'advanced-metric'
+            };
+            
+            console.log(`[DOM-SCAN] 🔒 Métrica avançada encontrada: ${text.substring(0, 30)}...`);
+        }
+    });
+    
+    console.log('[DOM-SCAN] ✅ Escaneamento completo:', {
+        totalMetrics: Object.keys(metricMap).length,
+        allowed: Object.values(metricMap).filter(m => m.allowed).length,
+        restricted: Object.values(metricMap).filter(m => !m.allowed).length
+    });
+    
+    return metricMap;
+}
+
+/**
+ * 🎯 Gera seletor único para um elemento
+ * @param {HTMLElement} element - Elemento DOM
+ * @returns {string} Seletor CSS único
+ */
+function getUniqueSelector(element) {
+    if (element.id) return `#${element.id}`;
+    
+    if (element.className) {
+        const classes = element.className.split(' ').filter(c => c.trim());
+        if (classes.length > 0) {
+            const selector = element.tagName.toLowerCase() + '.' + classes.join('.');
+            // Verificar se é único
+            const matches = document.querySelectorAll(selector);
+            if (matches.length === 1) return selector;
+        }
+    }
+    
+    // Fallback: usar path do elemento
+    const path = [];
+    let current = element;
+    while (current && current !== document.body) {
+        let selector = current.tagName.toLowerCase();
+        if (current.id) {
+            selector += '#' + current.id;
+            path.unshift(selector);
+            break;
+        }
+        if (current.className) {
+            selector += '.' + current.className.split(' ').filter(c => c.trim())[0];
+        }
+        path.unshift(selector);
+        current = current.parentElement;
+    }
+    return path.join(' > ');
+}
+
+/**
+ * 🔒 Aplica máscaras visuais nas métricas restritas
+ * @param {Object} metricMap - Mapeamento de métricas
+ */
+function applyReducedModeMasks(metricMap) {
+    console.log('[MASK] 🎨 Aplicando máscaras visuais...');
+    
+    let maskedCount = 0;
+    
+    Object.entries(metricMap).forEach(([key, metric]) => {
+        if (!metric.allowed && metric.element) {
+            // Substituir valor por placeholder
+            const valueElements = metric.element.querySelectorAll('[data-value], .metric-value, .value');
+            valueElements.forEach(el => {
+                if (el && !el.classList.contains('metric-masked')) {
+                    el.setAttribute('data-original-value', el.textContent);
+                    el.textContent = '—';
+                }
+            });
+            
+            // Aplicar classe de máscara
+            metric.element.classList.add('metric-masked');
+            maskedCount++;
+            
+            console.log(`[MASK] 🔒 Mascarado: ${metric.selector}`);
+        }
+    });
+    
+    console.log(`[MASK] ✅ Total de ${maskedCount} métricas mascaradas`);
+}
+
+/**
+ * 🚫 Oculta seções completas baseado em classes e padrões
+ */
+function hideRestrictedSections() {
+    console.log('[HIDE] 🚫 Ocultando seções restritas...');
+    
+    const sectionsToHide = [
+        // Seções de sugestões
+        { selector: '#aiSuggestionsExpanded', name: 'Sugestões IA Expandidas' },
+        { selector: '.ai-suggestions-section', name: 'Seção de Sugestões IA' },
+        { selector: '[id*="suggestion"]', name: 'Elementos de Sugestão' },
+        
+        // Seções de diagnóstico
+        { selector: '[id*="diagnostic"]', name: 'Elementos de Diagnóstico' },
+        { selector: '.diagnostics-section', name: 'Seção de Diagnósticos' },
+        
+        // Análise espectral avançada
+        { selector: '[id*="spectral"]', name: 'Elementos Espectrais' },
+        { selector: '.spectral-section', name: 'Seção Espectral' },
+        { selector: '.advanced-spectrum-section', name: 'Espectro Avançado' },
+        
+        // Problemas e análises avançadas
+        { selector: '[id*="problem"]', name: 'Elementos de Problemas' },
+        { selector: '.problems-section', name: 'Seção de Problemas' }
+    ];
+    
+    let hiddenCount = 0;
+    
+    sectionsToHide.forEach(({ selector, name }) => {
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+            elements.forEach(el => {
+                if (el && !el.classList.contains('plan-section-hidden')) {
+                    el.classList.add('plan-section-hidden');
+                    hiddenCount++;
+                    console.log(`[HIDE] 🚫 Ocultado: ${name} (${selector})`);
+                }
+            });
+        }
+    });
+    
+    console.log(`[HIDE] ✅ Total de ${hiddenCount} elementos ocultados`);
+}
+
+/**
+ * 📢 Insere mensagem de upgrade no modal
+ */
+function insertUpgradeNotice() {
+    console.log('[UPGRADE] 📢 Inserindo aviso de upgrade...');
+    
+    const modalContainer = document.getElementById('audioAnalysisResults');
+    if (!modalContainer) {
+        console.warn('[UPGRADE] ⚠️ Container de resultados não encontrado');
+        return;
+    }
+    
+    // Remover aviso anterior se existir
+    const existingNotice = document.getElementById('reduced-mode-upgrade-notice');
+    if (existingNotice) {
+        existingNotice.remove();
+    }
+    
+    // Criar novo aviso
+    const notice = document.createElement('div');
+    notice.id = 'reduced-mode-upgrade-notice';
+    notice.className = 'upgrade-notice';
+    notice.innerHTML = `
+        <div class="upgrade-notice-icon">🔒</div>
+        <div class="upgrade-notice-content">
+            <h4>Recursos Avançados Bloqueados</h4>
+            <p>
+                Você atingiu o limite de análises completas do seu plano atual.
+                As métricas básicas (LUFS, True Peak, DR) estão disponíveis.
+            </p>
+            <p class="upgrade-features">
+                <strong>✨ Faça upgrade para desbloquear:</strong><br>
+                • Métricas avançadas (Stereo, Spectral, Dynamics)<br>
+                • Sugestões IA inteligentes<br>
+                • Diagnósticos detalhados<br>
+                • Análises ilimitadas
+            </p>
+            <button class="upgrade-notice-btn" onclick="window.location.href='/planos.html'">
+                🚀 Ver Planos e Preços
+            </button>
+        </div>
+    `;
+    
+    // Inserir no topo do container
+    modalContainer.insertBefore(notice, modalContainer.firstChild);
+    
+    console.log('[UPGRADE] ✅ Aviso de upgrade inserido');
+}
+
+/**
+ * 🎨 Injeta CSS dinâmico para máscaras
+ */
+function injectReducedModeCSS() {
+    // Verificar se CSS já foi injetado
+    if (document.getElementById('reduced-mode-dynamic-css')) {
+        return;
+    }
+    
+    const style = document.createElement('style');
+    style.id = 'reduced-mode-dynamic-css';
+    style.textContent = `
+        /* Máscara visual para métricas restritas */
+        .metric-masked {
+            filter: blur(6px) !important;
+            opacity: 0.4 !important;
+            position: relative !important;
+            pointer-events: none !important;
+            user-select: none !important;
+        }
+        
+        .metric-masked::after {
+            content: "Plano limitado" !important;
+            position: absolute !important;
+            inset: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 0.7rem !important;
+            color: #fff !important;
+            background: rgba(0,0,0,0.25) !important;
+            backdrop-filter: blur(3px) !important;
+            z-index: 10 !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Seções completamente ocultas */
+        .plan-section-hidden {
+            display: none !important;
+        }
+        
+        /* Aviso de upgrade */
+        .upgrade-notice {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            margin: 0 0 20px 0;
+            border-radius: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            animation: slideDown 0.4s ease-out;
+        }
+        
+        .upgrade-notice-icon {
+            font-size: 3em;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+        
+        .upgrade-notice-content {
+            flex: 1;
+        }
+        
+        .upgrade-notice-content h4 {
+            margin: 0 0 8px 0;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+        
+        .upgrade-notice-content p {
+            margin: 8px 0;
+            font-size: 0.95em;
+            line-height: 1.5;
+            opacity: 0.95;
+        }
+        
+        .upgrade-features {
+            background: rgba(255,255,255,0.15);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0 !important;
+        }
+        
+        .upgrade-notice-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            margin-top: 8px;
+        }
+        
+        .upgrade-notice-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .upgrade-notice {
+                flex-direction: column;
+                padding: 20px;
+            }
+            
+            .upgrade-notice-icon {
+                font-size: 2.5em;
+            }
+            
+            .upgrade-notice-content h4 {
+                font-size: 1.2em;
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('[CSS] ✅ CSS dinâmico injetado');
+}
+
+/**
+ * 🎯 FUNÇÃO PRINCIPAL: Renderiza modal em Modo Reduzido
+ * @param {Object} analysis - Dados completos da análise
+ */
+function renderReducedModeAdvanced(analysis) {
+    console.log('[REDUCED-MODE] 🎯 Iniciando renderização avançada do Modo Reduzido');
+    console.log('[REDUCED-MODE] 📊 Análise recebida:', {
+        hasData: !!analysis,
+        keys: Object.keys(analysis || {}),
+        analysisMode: analysis?.analysisMode,
+        plan: analysis?.plan
+    });
+    
+    // Abrir modal normalmente
+    const modal = document.getElementById('audioAnalysisModal');
+    const resultsContainer = document.getElementById('audioAnalysisResults');
+    
+    if (modal) {
+        modal.style.display = 'block';
+        modal.classList.add('show');
+    }
+    
+    if (!resultsContainer) {
+        console.error('[REDUCED-MODE] ❌ Container de resultados não encontrado');
+        return;
+    }
+    
+    // Aguardar renderização completa do DOM
+    setTimeout(() => {
+        console.log('[REDUCED-MODE] ⏱️ Aguardando renderização do DOM...');
+        
+        // 1. Injetar CSS
+        injectReducedModeCSS();
+        
+        // 2. Escanear DOM e construir mapeamento
+        const metricMap = buildMetricDomMap(analysis);
+        
+        // 3. Aplicar máscaras visuais
+        if (Object.keys(metricMap).length > 0) {
+            applyReducedModeMasks(metricMap);
+        } else {
+            console.warn('[REDUCED-MODE] ⚠️ Nenhuma métrica encontrada no DOM para mascarar');
+            console.warn('[REDUCED-MODE] 💡 As métricas podem estar sendo renderizadas de forma dinâmica');
+        }
+        
+        // 4. Ocultar seções restritas
+        hideRestrictedSections();
+        
+        // 5. Inserir aviso de upgrade
+        insertUpgradeNotice();
+        
+        console.log('[REDUCED-MODE] ✅ Modo Reduzido renderizado com sucesso');
+    }, 500); // Aguardar 500ms para garantir que o DOM foi renderizado
+}
+
+// ========================================
+// FIM DO SISTEMA DE MASCARAMENTO DINÂMICO
+// ========================================
+
 // ✅ HELPER: Mascarar valor baseado em permissão do plano
 function maskValue(value, isAllowed, options = {}) {
     const { placeholder = '—', unit = '', decimalPlaces = null } = options;
@@ -9899,14 +10342,20 @@ async function displayModalResults(analysis) {
     if (isReduced) {
         console.log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - JSON completo recebido');
         console.log('[PLAN-FILTER] 📊 Campos do JSON:', Object.keys(analysis));
-        console.log('[PLAN-FILTER] 🎯 Renderizando modo reduzido com máscaras visuais...');
+        console.log('[PLAN-FILTER] 🎯 Usando sistema avançado de mascaramento dinâmico...');
         
-        // ✅ Chamar renderReducedMode e parar aqui
-        renderReducedMode(analysis);
-        return; // Modal já foi aberto por renderReducedMode
+        // ✅ NÃO parar aqui! Continuar renderização normal
+        // O sistema de mascaramento será aplicado APÓS o DOM ser renderizado
+        
+        // Armazenar flag global para aplicação posterior
+        window.__REDUCED_MODE_ACTIVE__ = true;
+        window.__REDUCED_MODE_ANALYSIS__ = analysis;
+    } else {
+        window.__REDUCED_MODE_ACTIVE__ = false;
+        window.__REDUCED_MODE_ANALYSIS__ = null;
     }
     
-    console.log('[PLAN-FILTER] ℹ️ Modo normal - renderizando análise completa');
+    console.log('[PLAN-FILTER] ℹ️ Continuando renderização normal do modal...');
     
     // 🔥 FASE 2 - VALIDAÇÃO IMEDIATA: Verificar se genreTargets chegou até aqui
     console.group('[FASE2-VALIDATION] 🎯 displayModalResults - ENTRADA');
@@ -11226,6 +11675,16 @@ async function displayModalResults(analysis) {
     if (loading) loading.style.display = 'none';
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
+    
+    // 🎯 HOOK: Aplicar máscaras de Modo Reduzido se necessário
+    if (window.__REDUCED_MODE_ACTIVE__ && window.__REDUCED_MODE_ANALYSIS__) {
+        console.log('[REDUCED-MODE] 🔧 Aplicando sistema de mascaramento dinâmico...');
+        
+        // Aguardar um frame para garantir que o DOM foi atualizado
+        requestAnimationFrame(() => {
+            renderReducedModeAdvanced(window.__REDUCED_MODE_ANALYSIS__);
+        });
+    }
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     // ✅ PATCH: Normalização redundante REMOVIDA - dados já normalizados em handleModalFileSelection
