@@ -98,6 +98,117 @@ function extractGenreFromAnalysis(analysis) {
 console.log('✅ Genre Targets Utils carregado');
 
 // ═══════════════════════════════════════════════════════════════════
+// 🛡️ SAFE MODE - FUNÇÕES DE SANITIZAÇÃO GLOBAL
+// ═══════════════════════════════════════════════════════════════════
+/**
+ * 🛡️ SAFE MODE: Converte valores para número com fallback
+ * Garante que NUNCA ocorra erro ao renderizar métricas numéricas
+ * 
+ * @param {*} value - Valor a ser convertido (pode ser qualquer tipo)
+ * @param {number} decimals - Número de casas decimais (padrão: 1)
+ * @returns {string} Número formatado ou "—" se inválido
+ */
+function safeNumber(value, decimals = 1) {
+    try {
+        // Valores mascarados ou inválidos retornam placeholder
+        if (value === null || value === undefined || value === "—" || value === "--" || value === "") {
+            return "—";
+        }
+        
+        // Converter para número
+        const num = Number(value);
+        
+        // Validar se é número finito
+        if (!Number.isFinite(num) || isNaN(num)) {
+            return "—";
+        }
+        
+        // Retornar formatado
+        return num.toFixed(decimals);
+    } catch (err) {
+        console.error('[SAFE-UI] Erro em safeNumber:', err, 'value:', value);
+        return "—";
+    }
+}
+
+/**
+ * 🛡️ SAFE MODE: Sanitiza valores de texto
+ * Garante que NUNCA ocorra erro ao renderizar textos
+ * 
+ * @param {*} value - Valor de texto
+ * @returns {string} Texto sanitizado ou "—"
+ */
+function safeText(value) {
+    try {
+        if (value === null || value === undefined) {
+            return "—";
+        }
+        return String(value);
+    } catch (err) {
+        console.error('[SAFE-UI] Erro em safeText:', err);
+        return "—";
+    }
+}
+
+/**
+ * 🛡️ SAFE MODE: Sanitiza objetos
+ * Garante que NUNCA ocorra erro ao acessar propriedades de objetos
+ * 
+ * @param {Object} obj - Objeto a ser sanitizado
+ * @returns {Object} Objeto válido ou vazio
+ */
+function safeObject(obj) {
+    try {
+        if (obj === null || obj === undefined || typeof obj !== 'object') {
+            return {};
+        }
+        return obj;
+    } catch (err) {
+        console.error('[SAFE-UI] Erro em safeObject:', err);
+        return {};
+    }
+}
+
+/**
+ * 🛡️ SAFE MODE: Sanitiza arrays
+ * Garante que NUNCA ocorra erro ao iterar arrays
+ * 
+ * @param {Array} arr - Array a ser sanitizado
+ * @returns {Array} Array válido ou vazio
+ */
+function safeArray(arr) {
+    try {
+        if (!Array.isArray(arr)) {
+            return [];
+        }
+        return arr;
+    } catch (err) {
+        console.error('[SAFE-UI] Erro em safeArray:', err);
+        return [];
+    }
+}
+
+/**
+ * 🛡️ SAFE MODE: Wrapper de try-catch para renderização
+ * Garante que erros em renderização NUNCA quebrem o modal
+ * 
+ * @param {Function} fn - Função de renderização
+ * @param {*} fallback - Valor de fallback em caso de erro
+ * @returns {*} Resultado da função ou fallback
+ */
+function safeRender(fn, fallback = "—") {
+    try {
+        const result = fn();
+        return result !== undefined && result !== null ? result : fallback;
+    } catch (err) {
+        console.error('[SAFE-UI] Erro recuperado em safeRender:', err);
+        return fallback;
+    }
+}
+
+console.log('✅ Safe Mode Utils carregado - Modal à prova de falhas ativado');
+
+// ═══════════════════════════════════════════════════════════════════
 // 🎯 GENRE-ONLY EXTRACTION UTILS - NUNCA AFETAM REFERENCE
 // ═══════════════════════════════════════════════════════════════════
 
@@ -9990,6 +10101,18 @@ async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     console.log('[DEBUG-DISPLAY] analysisMode recebido:', analysis.analysisMode);
     console.log('[DEBUG-DISPLAY] isReduced recebido:', analysis.isReduced);
+    
+    // 🛡️ SAFE MODE ATIVADO: Try-catch global para garantir que modal SEMPRE abra
+    try {
+        // 🛡️ Sanitizar dados de entrada
+        analysis = safeObject(analysis);
+        analysis.technicalData = safeObject(analysis.technicalData);
+        analysis.data = safeObject(analysis.data);
+        analysis.metadata = safeObject(analysis.metadata);
+        analysis.suggestions = safeArray(analysis.suggestions);
+        analysis.aiSuggestions = safeArray(analysis.aiSuggestions);
+        
+        console.log('[SAFE-MODE] ✅ Dados sanitizados com sucesso');
     
     // 🎭 APLICAR MÁSCARA DE MODO REDUZIDO (SE NECESSÁRIO)
     const processedAnalysis = applyReducedModeMask(analysis);
