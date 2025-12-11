@@ -1040,6 +1040,11 @@ async function processJob(job) {
       classification: result.classification || 'Análise Concluída',
       scoringMethod: result.scoringMethod || 'default',
       
+      // 🔥 CORREÇÃO CRÍTICA: Adicionar analysisMode e isReduced do pipeline
+      analysisMode: result.analysisMode || analysisResult.analysisMode || 'full',
+      isReduced: result.isReduced || analysisResult.isReduced || false,
+      limitWarning: result.limitWarning || analysisResult.limitWarning || null,
+      
       // ✅ Data com genre garantido
       data: {
         genre: genreFromJob,
@@ -1151,6 +1156,9 @@ async function processJob(job) {
     console.log('[GENRE-PATCH-V2]    resultsForDb.summary.genre:', resultsForDb.summary.genre);
     console.log('[GENRE-PATCH-V2]    resultsForDb.metadata.genre:', resultsForDb.metadata.genre);
     console.log('[GENRE-PATCH-V2]    resultsForDb.suggestionMetadata.genre:', resultsForDb.suggestionMetadata.genre);
+    console.log('[GENRE-PATCH-V2] 🔥🔥🔥 resultsForDb.analysisMode:', resultsForDb.analysisMode);
+    console.log('[GENRE-PATCH-V2] 🔥🔥🔥 resultsForDb.isReduced:', resultsForDb.isReduced);
+    console.log('[GENRE-PATCH-V2] 🔥🔥🔥 resultsForDb.limitWarning:', resultsForDb.limitWarning);
     console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // 🚨 BLINDAGEM FINAL: NUNCA salvar genre null/default em modo genre
