@@ -9674,7 +9674,14 @@ function buildMetricDomMap(analysis) {
     console.log('[DOM-SCAN] 🔍 Iniciando escaneamento do DOM...');
     
     // 🎯 Métricas PERMITIDAS no modo reduced
-    const allowedMetrics = ['lufsIntegrated', 'truePeak', 'dr', 'scoreFinal'];
+    const allowedMetrics = [
+        'lufsIntegrated', 
+        'truePeak', 
+        'dr', 
+        'scoreFinal',
+        'band_bass',  // Bass visível
+        'band_mid'    // Mid visível
+    ];
     
     const allowedNodes = [];
     const blockedNodes = [];
@@ -9716,16 +9723,32 @@ function buildMetricDomMap(analysis) {
 function applyReducedModeMasks(scanResult) {
     console.log('[MASK] 🎨 Aplicando máscaras visuais...');
     
-    const { blockedNodes } = scanResult;
+    const { allowedNodes, blockedNodes } = scanResult;
     let maskedCount = 0;
     
+    // Log de métricas permitidas
+    allowedNodes.forEach(({ key }) => {
+        console.log(`[ALLOWED] ✅ Métrica permitida: ${key}`);
+    });
+    
+    // Aplicar blur SOMENTE nos valores numéricos (spans .value)
     blockedNodes.forEach(({ key, el }) => {
-        if (el && !el.classList.contains('metric-locked')) {
-            // Aplicar classe de máscara
-            el.classList.add('metric-locked');
+        // Buscar o span .value dentro do elemento
+        const valueSpan = el.querySelector('.value');
+        
+        if (valueSpan && !valueSpan.classList.contains('blurred-value')) {
+            // Aplicar classe de blur SOMENTE no valor
+            valueSpan.classList.add('blurred-value');
             maskedCount++;
             
-            console.log(`[MASK] 🔒 Mascarado: ${key}`);
+            console.log(`[MASK] 🔒 Aplicando blur na métrica: ${key}`);
+        } else if (!valueSpan) {
+            // Fallback: se não encontrar .value, aplicar no elemento inteiro
+            if (!el.classList.contains('blurred-value')) {
+                el.classList.add('blurred-value');
+                maskedCount++;
+                console.log(`[MASK] ⚠️ Blur aplicado no elemento completo (fallback): ${key}`);
+            }
         }
     });
     
@@ -9738,12 +9761,8 @@ function applyReducedModeMasks(scanResult) {
 function hideRestrictedSections() {
     console.log('[HIDE] 🚫 Ocultando seções restritas...');
     
+    // Seções que devem ser COMPLETAMENTE OCULTAS
     const sectionsToHide = [
-        // Seções de sugestões
-        { selector: '#aiSuggestionsExpanded', name: 'Sugestões IA Expandidas' },
-        { selector: '.ai-suggestions-section', name: 'Seção de Sugestões IA' },
-        { selector: '[id*="suggestion"]', name: 'Elementos de Sugestão' },
-        
         // Seções de diagnóstico
         { selector: '[id*="diagnostic"]', name: 'Elementos de Diagnóstico' },
         { selector: '.diagnostics-section', name: 'Seção de Diagnósticos' },
@@ -9774,6 +9793,100 @@ function hideRestrictedSections() {
     });
     
     console.log(`[HIDE] ✅ Total de ${hiddenCount} elementos ocultados`);
+}
+
+/**
+ * 🔒 Aplica blur nos textos das sugestões IA (mantém cards visíveis)
+ */
+function blurAISuggestionTexts() {
+    console.log('[BLUR-AI] 🎨 Aplicando blur nos textos de sugestões IA...');
+    
+    let blurredCount = 0;
+    
+    // Seletores para textos de sugestões
+    const suggestionTextSelectors = [
+        '.suggestion-text',
+        '.suggestion-message',
+        '.suggestion-description',
+        '.ai-suggestion-content p',
+        '.ai-card p',
+        '.suggestion-details'
+    ];
+    
+    suggestionTextSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            if (el && !el.classList.contains('blurred-value')) {
+                el.classList.add('blurred-value');
+                blurredCount++;
+                console.log(`[BLUR-AI] 🔒 Texto de sugestão borrado: ${selector}`);
+            }
+        });
+    });
+    
+    console.log(`[BLUR-AI] ✅ Total de ${blurredCount} textos de sugestões borrados`);
+}
+
+/**
+ * 🎯 Aplica blur na tabela de comparação (valores atual e alvo)
+ * Mantém visíveis: LUFS, True Peak, DR, band_bass, band_mid
+ */
+function blurComparisonTableValues() {
+    console.log('[BLUR-TABLE] 🎨 Aplicando blur na tabela de comparação...');
+    
+    // Métricas que devem permanecer VISÍVEIS na tabela
+    const allowedTableMetrics = [
+        'lufsIntegrated',
+        'lufs',
+        'truePeak',
+        'true_peak',
+        'dr',
+        'dynamic_range',
+        'band_bass',
+        'bass',
+        'band_mid',
+        'mid'
+    ];
+    
+    let blurredCount = 0;
+    
+    // Buscar todas as linhas da tabela de comparação
+    const comparisonTables = document.querySelectorAll('#referenceComparisons table, .genre-comparison-table, .comparison-table');
+    
+    comparisonTables.forEach(table => {
+        const rows = table.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            // Pegar o nome da métrica da primeira célula
+            const firstCell = row.querySelector('td:first-child, th:first-child');
+            if (!firstCell) return;
+            
+            const metricText = firstCell.textContent.toLowerCase().trim();
+            
+            // Verificar se a métrica está na lista de permitidas
+            const isAllowed = allowedTableMetrics.some(allowed => 
+                metricText.includes(allowed.toLowerCase()) ||
+                row.getAttribute('data-metric-key')?.includes(allowed)
+            );
+            
+            if (!isAllowed) {
+                // Borrar valor atual e valor alvo (células com valores numéricos)
+                const valueCells = row.querySelectorAll('.current-value, .target-value, td:nth-child(2), td:nth-child(3)');
+                
+                valueCells.forEach(cell => {
+                    if (cell && !cell.classList.contains('blurred-value')) {
+                        cell.classList.add('blurred-value');
+                        blurredCount++;
+                        console.log(`[BLUR-TABLE] 🔒 Valor borrado: ${metricText}`);
+                    }
+                });
+            } else {
+                console.log(`[BLUR-TABLE] ✅ Métrica permitida na tabela: ${metricText}`);
+            }
+        });
+    });
+    
+    console.log(`[BLUR-TABLE] ✅ Total de ${blurredCount} valores na tabela borrados`);
 }
 
 /**
@@ -9829,31 +9942,25 @@ function injectReducedModeCSS() {
     const style = document.createElement('style');
     style.id = 'reduced-mode-dynamic-css';
     style.textContent = `
-        /* 🔒 Máscara visual para métricas restritas */
-        .metric-locked {
+        /* 🔒 Máscara visual SOMENTE para valores numéricos */
+        .blurred-value {
             position: relative !important;
-            filter: blur(7px) !important;
-            opacity: 0.45 !important;
+            filter: blur(6px) !important;
+            opacity: 0.5 !important;
             pointer-events: none !important;
             user-select: none !important;
+            display: inline-block !important;
         }
         
-        .metric-locked::after {
-            content: "🔒 Desbloqueie no plano Plus" !important;
+        .blurred-value::after {
+            content: "🔒" !important;
             position: absolute !important;
-            inset: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 11px !important;
-            text-align: center !important;
-            padding: 2px 4px !important;
-            background: linear-gradient(135deg, rgba(20,0,60,0.9), rgba(120,0,180,0.85)) !important;
-            color: #ffe9ff !important;
-            border-radius: 6px !important;
-            font-weight: 600 !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            font-size: 10px !important;
+            opacity: 0.8 !important;
             z-index: 10 !important;
-            backdrop-filter: blur(2px) !important;
         }
         
         /* Seções completamente ocultas */
@@ -9861,23 +9968,24 @@ function injectReducedModeCSS() {
             display: none !important;
         }
         
-        /* 📢 Aviso de upgrade COMPACTO */
+        /* 📢 Aviso de upgrade ELEGANTE E COMPACTO */
         .upgrade-notice-compact {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 16px 20px;
-            margin: 0 0 16px 0;
-            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 0 0 12px 0;
+            border-radius: 10px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            animation: slideDown 0.4s ease-out;
+            gap: 10px;
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            animation: slideDown 0.3s ease-out;
+            font-size: 0.9em;
         }
         
         .upgrade-notice-compact .upgrade-notice-icon {
-            font-size: 2em;
+            font-size: 1.5em;
             line-height: 1;
             flex-shrink: 0;
         }
@@ -9887,29 +9995,29 @@ function injectReducedModeCSS() {
         }
         
         .upgrade-notice-compact .upgrade-notice-content h4 {
-            margin: 0 0 4px 0;
-            font-size: 1.1em;
+            margin: 0 0 3px 0;
+            font-size: 0.95em;
             font-weight: 700;
         }
         
         .upgrade-notice-compact .upgrade-notice-content p {
             margin: 0;
-            font-size: 0.85em;
-            line-height: 1.4;
-            opacity: 0.95;
+            font-size: 0.75em;
+            line-height: 1.3;
+            opacity: 0.9;
         }
         
         .upgrade-notice-compact .upgrade-notice-btn {
             background: white;
             color: #667eea;
             border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-size: 0.9em;
+            padding: 8px 16px;
+            border-radius: 7px;
+            font-size: 0.8em;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
             white-space: nowrap;
         }
         
@@ -9933,15 +10041,16 @@ function injectReducedModeCSS() {
             .upgrade-notice-compact {
                 flex-direction: column;
                 text-align: center;
-                padding: 14px 16px;
+                padding: 12px 14px;
             }
             
             .upgrade-notice-compact .upgrade-notice-icon {
-                font-size: 1.8em;
+                font-size: 1.4em;
             }
             
             .upgrade-notice-compact .upgrade-notice-btn {
                 width: 100%;
+                padding: 10px 14px;
             }
         }
     `;
@@ -9975,16 +10084,26 @@ function renderReducedModeAdvanced(analysis) {
                 // 1️⃣ Escanear DOM e construir mapeamento
                 const scanResult = buildMetricDomMap(analysis);
                 
-                // 2️⃣ Aplicar máscaras nas métricas bloqueadas
+                // 2️⃣ Aplicar máscaras nas métricas bloqueadas (SOMENTE nos valores)
                 applyReducedModeMasks(scanResult);
                 
-                // 3️⃣ Ocultar seções restritas
+                // 3️⃣ Aplicar blur nos textos das sugestões IA (mantém cards visíveis)
+                blurAISuggestionTexts();
+                
+                // 4️⃣ Aplicar blur na tabela de comparação (exceto métricas permitidas)
+                blurComparisonTableValues();
+                
+                // 5️⃣ Ocultar seções restritas (NÃO inclui sugestões)
                 hideRestrictedSections();
                 
-                // 4️⃣ Inserir aviso de upgrade
+                // 6️⃣ Inserir aviso de upgrade
                 insertUpgradeNotice();
                 
                 console.log('[REDUCED-MODE] ✅ Modo Reduzido renderizado com sucesso');
+                console.log('[REDUCED-MODE] 📊 Resumo:', {
+                    metricsAllowed: scanResult.allowedNodes.length,
+                    metricsBlocked: scanResult.blockedNodes.length
+                });
                 
             } catch (innerError) {
                 console.error('[REDUCED-MODE][ERROR] Erro no processo de mascaramento:', innerError);
