@@ -488,6 +488,11 @@ router.post("/analyze", async (req, res) => {
     console.log(`🎯 [ANALYZE] Features:`, features);
     console.log(`📈 [ANALYZE] Análises completas restantes: ${analysisCheck.remainingFull}`);
     
+    // 🔥 AUDITORIA CRÍTICA: Verificar tipo e valor de analysisMode
+    console.log('🔥🔥🔥 [AUDIT-MODE] analysisMode type:', typeof analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-MODE] analysisMode value:', analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-MODE] analysisMode === "reduced":', analysisMode === 'reduced');
+    console.log('🔥🔥🔥 [AUDIT-MODE] analysisCheck.mode:', analysisCheck.mode);    
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][BACKEND] 📥 Payload recebido do frontend:', {
       genre,
@@ -552,12 +557,16 @@ router.post("/analyze", async (req, res) => {
     // ✅ MONTAR PLAN CONTEXT PARA O PIPELINE
     const planContext = {
       plan: analysisCheck.user.plan,
-      analysisMode: analysisMode, // "full" | "reduced"
+      analysisMode: analysisMode, // "full" | "reduced" (variável definida linha 483)
       features: features,
       uid: uid
     };
     
     console.log('📊 [ANALYZE] Plan Context montado:', planContext);
+    console.log('🔥 [ANALYZE] analysisMode sendo enviado:', analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-PLANCONTEXT] planContext.analysisMode:', planContext.analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-PLANCONTEXT] typeof planContext.analysisMode:', typeof planContext.analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-PLANCONTEXT] planContext completo:', JSON.stringify(planContext, null, 2));
     
     // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre, genreTargets E planContext)
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets, planContext);

@@ -1421,6 +1421,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // ✅ FASE FINAL: APLICAR FILTRO DE MODO REDUZIDO (FREE/PLUS sem análises completas restantes)
     const planContext = options.planContext || null;
     
+    console.log('🔥🔥🔥 [AUDIT-PIPELINE] options.planContext:', options.planContext);
+    console.log('🔥🔥🔥 [AUDIT-PIPELINE] planContext:', planContext);
+    console.log('🔥🔥🔥 [AUDIT-PIPELINE] planContext?.analysisMode:', planContext?.analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-PIPELINE] typeof planContext?.analysisMode:', typeof planContext?.analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-PIPELINE] planContext?.analysisMode === "reduced":', planContext?.analysisMode === 'reduced');
+    
     if (planContext) {
       console.log('[PLAN-FILTER] 📊 Plan Context detectado:', planContext);
       
