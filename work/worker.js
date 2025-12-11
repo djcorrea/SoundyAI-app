@@ -465,6 +465,9 @@ async function processJob(job) {
     console.log('[AUDIT-WORKER] job.data.planContext:', extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
     console.log('[AUDIT-WORKER] extractedGenre:', extractedGenre);
     console.log('[AUDIT-WORKER] finalGenre (trimmed):', finalGenre);
+    console.log('🔥🔥🔥 [AUDIT-WORKER-PLANCONTEXT] extractedPlanContext:', extractedPlanContext);
+    console.log('🔥🔥🔥 [AUDIT-WORKER-PLANCONTEXT] extractedPlanContext?.analysisMode:', extractedPlanContext?.analysisMode);
+    console.log('🔥🔥🔥 [AUDIT-WORKER-PLANCONTEXT] typeof:', typeof extractedPlanContext?.analysisMode);
     console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     const options = {
