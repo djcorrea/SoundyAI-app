@@ -12,10 +12,28 @@
  * @returns {boolean} - TRUE se pode mostrar valor real, FALSE se deve usar placeholder
  */
 function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) {
-    // Se não estiver em modo reduced, sempre renderizar valores reais
-    if (!analysis || analysis.analysisMode !== 'reduced') {
+    // 🔍 DEBUG: Log detalhado da análise recebida
+    console.log('[SECURITY-GUARD] 🔍 Checking:', { 
+        metricKey, 
+        section, 
+        analysisMode: analysis?.analysisMode,
+        plan: analysis?.plan,
+        isReduced: analysis?.isReduced
+    });
+    
+    // Se não estiver em modo reduced OU plano free, sempre renderizar valores reais
+    const isReducedMode = analysis && (
+        analysis.analysisMode === 'reduced' || 
+        analysis.plan === 'free' ||
+        analysis.isReduced === true
+    );
+    
+    if (!isReducedMode) {
+        console.log('[SECURITY-GUARD] ✅ Modo FULL - renderizar tudo');
         return true;
     }
+    
+    console.log('[SECURITY-GUARD] 🔒 Modo REDUCED detectado - verificando allowlist...');
     
     // 🔓 ALLOWLIST - Métricas SEMPRE LIBERADAS no modo reduced
     const allowedMetrics = [
@@ -96,18 +114,18 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
     
     // Verificar blocklist primeiro (tem prioridade)
     if (blockedMetrics.some(blocked => normalizedKey.includes(blocked.toLowerCase()))) {
-        console.log(`[SECURITY] 🔒 Métrica bloqueada: ${metricKey}`);
+        console.log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (encontrado na blocklist)`);
         return false;
     }
     
     // Verificar allowlist
     if (allowedMetrics.some(allowed => normalizedKey.includes(allowed.toLowerCase()))) {
-        console.log(`[SECURITY] ✅ Métrica liberada: ${metricKey}`);
+        console.log(`[SECURITY-GUARD] ✅ LIBERADO: ${metricKey} (encontrado na allowlist)`);
         return true;
     }
     
     // Por padrão, bloquear se não estiver explicitamente na allowlist
-    console.log(`[SECURITY] 🔒 Métrica bloqueada (não na allowlist): ${metricKey}`);
+    console.log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (não encontrado na allowlist - bloqueio padrão)`);
     return false;
 }
 

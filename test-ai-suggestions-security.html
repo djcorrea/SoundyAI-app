@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🧪 Teste - Security Guard em Sugestões IA</title>
+    <style>
+        body {
+            font-family: system-ui;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+            border-left: 4px solid #0f3460;
+        }
+        .success { border-color: #2ecc71; }
+        .fail { border-color: #e74c3c; }
+        .metric { margin: 10px 0; padding: 10px; background: #0f3460; border-radius: 4px; }
+        .blocked { color: #e74c3c; }
+        .allowed { color: #2ecc71; }
+        code { background: #000; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Teste de Mapeamento: Categoria → Métrica</h1>
+    
+    <div id="results"></div>
+    
+    <script src="reduced-mode-security-guard.js"></script>
+    <script>
+        // Simular classe AIController com mapCategoryToMetric
+        class AIController {
+            mapCategoryToMetric(suggestion) {
+                const categoria = (suggestion.categoria || suggestion.category || '').toLowerCase();
+                const problema = (suggestion.problema || suggestion.message || '').toLowerCase();
+                const texto = `${categoria} ${problema}`;
+                
+                if (texto.includes('loudness') || texto.includes('lufs')) return 'lufs';
+                if (texto.includes('true peak') || texto.includes('truepeak') || texto.includes('tp')) return 'truePeak';
+                if (texto.includes('lra') || texto.includes('loudness range')) return 'lra';
+                if (texto.includes('dr') || texto.includes('dinâmica') || texto.includes('dynamic')) return 'dr';
+                if (texto.includes('estéreo') || texto.includes('stereo') || texto.includes('correlação')) return 'stereo';
+                if (texto.includes('sub') || texto.includes('20-60')) return 'band_sub';
+                if (texto.includes('bass') || texto.includes('60-150') || texto.includes('graves')) return 'band_bass';
+                if (texto.includes('low mid') || texto.includes('150-500') || texto.includes('lowmid')) return 'band_lowMid';
+                if (texto.includes('mid') && !texto.includes('low') && !texto.includes('high')) return 'band_mid';
+                if (texto.includes('high mid') || texto.includes('500-2k') || texto.includes('highmid')) return 'band_highMid';
+                if (texto.includes('presença') || texto.includes('presence') || texto.includes('2k-5k')) return 'band_presence';
+                if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+')) return 'band_air';
+                
+                return 'general';
+            }
+        }
+        
+        const controller = new AIController();
+        
+        // Sugestões de teste (reais do sistema)
+        const testSuggestions = [
+            {
+                categoria: "Loudness (A vs B)",
+                problema: "Sua faixa está mais baixa que a referência em 3.5 LUFS. Faixa atual: -14.2 LUFS vs Referência: -10.7 LUFS.",
+                expected: 'lufs',
+                shouldBlock: true
+            },
+            {
+                categoria: "True Peak (A vs B)",
+                problema: "True Peak maior que a referência em 0.8 dBTP. Faixa atual: -0.2 dBTP vs Referência: -1.0 dBTP.",
+                expected: 'truePeak',
+                shouldBlock: true
+            },
+            {
+                categoria: "LRA / Dinâmica Macro (A vs B)",
+                problema: "Sua LRA está mais baixa que a referência em 1.5 LU. Faixa atual: 4.2 LU vs Referência: 5.7 LU.",
+                expected: 'lra',
+                shouldBlock: true
+            },
+            {
+                categoria: "DR / Dinâmica Micro (A vs B)",
+                problema: "DR menor que a referência em 2.1 dB. Faixa atual: 5.8 dB vs Referência: 7.9 dB.",
+                expected: 'dr',
+                shouldBlock: false
+            },
+            {
+                categoria: "Estéreo",
+                problema: "Correlação estéreo muito alta (0.95), indicando imagem mono-like. Referência: 0.72.",
+                expected: 'stereo',
+                shouldBlock: false
+            },
+            {
+                categoria: "Bass (60-150 Hz)",
+                problema: "Bass está em -31.8 dB quando deveria estar entre -31 e -25 dB",
+                expected: 'band_bass',
+                shouldBlock: true
+            },
+            {
+                categoria: "Low Mid",
+                problema: "Low Mid está em -23.5 dB quando deveria estar em -22 dB",
+                expected: 'band_lowMid',
+                shouldBlock: false
+            },
+            {
+                categoria: "High Mid",
+                problema: "High Mid está em -19.2 dB quando deveria estar em -18 dB",
+                expected: 'band_highMid',
+                shouldBlock: false
+            },
+            {
+                categoria: "Presença",
+                problema: "Presença está em -16.8 dB quando deveria estar em -15 dB",
+                expected: 'band_presence',
+                shouldBlock: false
+            }
+        ];
+        
+        // Simular análise em modo reduced
+        const analysis = {
+            analysisMode: 'reduced',
+            plan: 'free'
+        };
+        
+        const resultsDiv = document.getElementById('results');
+        let passed = 0;
+        let failed = 0;
+        
+        testSuggestions.forEach((test, index) => {
+            const metricKey = controller.mapCategoryToMetric(test);
+            const canRender = shouldRenderRealValue(metricKey, 'ai-suggestion', analysis);
+            const isBlocked = !canRender;
+            
+            const success = (metricKey === test.expected) && (isBlocked === test.shouldBlock);
+            
+            if (success) passed++;
+            else failed++;
+            
+            resultsDiv.innerHTML += `
+                <div class="test-section ${success ? 'success' : 'fail'}">
+                    <h3>Teste ${index + 1}: ${test.categoria}</h3>
+                    <div class="metric">
+                        <strong>Categoria:</strong> <code>${test.categoria}</code><br>
+                        <strong>Problema:</strong> ${test.problema.substring(0, 80)}...<br>
+                        <strong>Métrica Mapeada:</strong> <code>${metricKey}</code> 
+                        ${metricKey === test.expected ? '✅' : '❌ (esperado: ' + test.expected + ')'}<br>
+                        <strong>Renderização:</strong> 
+                        <span class="${isBlocked ? 'blocked' : 'allowed'}">
+                            ${isBlocked ? '🔒 BLOQUEADO' : '✅ LIBERADO'}
+                        </span>
+                        ${isBlocked === test.shouldBlock ? '✅' : '❌ (esperado: ' + (test.shouldBlock ? 'BLOQUEADO' : 'LIBERADO') + ')'}<br>
+                        <strong>Resultado:</strong> ${success ? '✅ PASSOU' : '❌ FALHOU'}
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsDiv.innerHTML += `
+            <div class="test-section ${failed === 0 ? 'success' : 'fail'}" style="margin-top: 30px;">
+                <h2>📊 Resumo Final</h2>
+                <p><strong>Testes Passados:</strong> <span class="allowed">${passed}/${testSuggestions.length}</span></p>
+                <p><strong>Testes Falhados:</strong> <span class="blocked">${failed}/${testSuggestions.length}</span></p>
+                <p><strong>Status:</strong> ${failed === 0 ? '✅ TODOS OS TESTES PASSARAM!' : '❌ EXISTEM FALHAS'}</p>
+            </div>
+        `;
+    </script>
+</body>
+</html>

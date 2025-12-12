@@ -1267,11 +1267,23 @@ class AISuggestionUIController {
         const metricKey = this.mapCategoryToMetric(suggestion);
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || { analysisMode: 'full' };
         
-        console.log('[AI-CARD] 🔐 Security:', { categoria, metricKey, mode: analysis.analysisMode });
+        console.log('[AI-CARD] 🔐 Security Check:', { 
+            categoria, 
+            metricKey, 
+            analysisMode: analysis?.analysisMode,
+            plan: analysis?.plan,
+            analysisComplete: analysis
+        });
         
         const canRender = typeof shouldRenderRealValue === 'function' 
             ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
             : true;
+        
+        console.log('[AI-CARD] 🔐 Render Decision:', { 
+            metricKey, 
+            canRender,
+            functionExists: typeof shouldRenderRealValue === 'function'
+        });
         
         // 🔒 PLACEHOLDER SEGURO para conteúdo bloqueado
         const securePlaceholder = typeof renderSecurePlaceholder === 'function'
