@@ -641,11 +641,41 @@ class AISuggestionUIController {
             }
             
             if (container) {
-                // 🔥 RENDERIZAÇÃO FORÇADA MANUAL
+                // 🔥 RENDERIZAÇÃO FORÇADA MANUAL (COM SECURITY GUARD)
                 console.log('%c🔥 [STEP 4-DEBUG] Tentando renderização forçada manual...', 'color:#FF4444;font-weight:bold');
                 
+                // 🔐 SECURITY GUARD: Proteger renderização de fallback
+                const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+                const isReducedMode = analysis && (
+                    analysis.analysisMode === 'reduced' || 
+                    analysis.plan === 'free' ||
+                    analysis.isReduced === true
+                );
+                
+                console.log('[FALLBACK-RENDER] 🔐 Security:', { isReducedMode, analysis });
+                
+                // Mapear categoria para métrica
+                const metricKey = this.mapCategoryToMetric(extractedAI[0]);
+                const canRender = !isReducedMode || (typeof shouldRenderRealValue === 'function' 
+                    ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+                    : false);
+                
+                console.log('[FALLBACK-RENDER] 🔐 Decision:', { metricKey, canRender });
+                
+                // Preparar textos seguros
+                const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
+                const problemaReal = extractedAI[0].problema || extractedAI[0].message || '—';
+                const causaReal = extractedAI[0].causaProvavel || '—';
+                const solucaoReal = extractedAI[0].solucao || extractedAI[0].action || '—';
+                const pluginReal = extractedAI[0].pluginRecomendado || '—';
+                
+                const problema = canRender ? problemaReal : securePlaceholder;
+                const causa = canRender ? causaReal : securePlaceholder;
+                const solucao = canRender ? solucaoReal : securePlaceholder;
+                const plugin = canRender ? pluginReal : securePlaceholder;
+                
                 const forcedHTML = `
-                    <div class="ai-suggestion-card" style="
+                    <div class="ai-suggestion-card ${!canRender ? 'blocked-card' : ''}" style="
                         padding: 20px;
                         margin: 10px;
                         border: 2px solid #00FF88;
@@ -656,12 +686,12 @@ class AISuggestionUIController {
                         <h3 style="margin: 0 0 15px 0; font-size: 18px;">
                             🎯 ${extractedAI[0].categoria || 'Sugestão Técnica'}
                         </h3>
-                        <p style="margin: 10px 0;"><b>⚠️ Problema:</b> ${extractedAI[0].problema || extractedAI[0].message || '—'}</p>
-                        <p style="margin: 10px 0;"><b>🔍 Causa:</b> ${extractedAI[0].causaProvavel || '—'}</p>
-                        <p style="margin: 10px 0;"><b>🛠️ Solução:</b> ${extractedAI[0].solucao || extractedAI[0].action || '—'}</p>
-                        <p style="margin: 10px 0;"><b>🔌 Plugin:</b> ${extractedAI[0].pluginRecomendado || '—'}</p>
+                        <p style="margin: 10px 0;"><b>⚠️ Problema:</b> ${problema}</p>
+                        <p style="margin: 10px 0;"><b>🔍 Causa:</b> ${causa}</p>
+                        <p style="margin: 10px 0;"><b>🛠️ Solução:</b> ${solucao}</p>
+                        <p style="margin: 10px 0;"><b>🔌 Plugin:</b> ${plugin}</p>
                         <p style="margin: 15px 0 0 0; font-size: 12px; opacity: 0.8;">
-                            ✅ Renderizado manualmente em ${new Date().toLocaleTimeString()}
+                            ${canRender ? '✅' : '🔒'} Renderizado em ${new Date().toLocaleTimeString()}
                         </p>
                     </div>
                 `;
