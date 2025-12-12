@@ -1347,6 +1347,7 @@ class AISuggestionUIController {
         const categoria = suggestion.categoria || suggestion.category || 'Geral';
         const nivel = suggestion.nivel || suggestion.priority || 'média';
         
+        
         // � SECURITY GUARD: Verificar se deve renderizar conteúdo real
         // 🔐 SECURITY GUARD: Mapear categoria para métrica
         const metricKey = this.mapCategoryToMetric(suggestion);
