@@ -12578,7 +12578,28 @@ async function displayModalResults(analysis) {
     };
 
         // Layout com cards e KPIs, mantendo o container #modalTechnicalData
-        const kpi = (value, label, cls='', metricKey='') => {
+        
+        // 🔒 SISTEMA DE RENDERIZAÇÃO SEGURA (usando SecureRenderUtils)
+        const isReducedModeSecure = (typeof window !== 'undefined' && window.SecureRenderUtils) 
+            ? window.SecureRenderUtils.isReducedMode(analysis)
+            : false;
+        
+        console.log('[SECURE-RENDER-INTEGRATION] Modo Reduced:', isReducedModeSecure);
+        
+        const kpi = (value, label, cls='', metricKey='', section='primary') => {
+            // Se SecureRenderUtils disponível, usar renderização segura
+            if (typeof window !== 'undefined' && window.SecureRenderUtils && metricKey) {
+                return window.SecureRenderUtils.renderSecureKPI(
+                    value, 
+                    label, 
+                    metricKey, 
+                    section, 
+                    analysis, 
+                    { className: cls, decimals: 1 }
+                );
+            }
+            
+            // Fallback (modo compatibilidade)
             const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
             return `
             <div class="kpi ${cls}"${metricKeyAttr}>
@@ -12624,7 +12645,42 @@ async function displayModalResults(analysis) {
             'Assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
         };
         
-        const row = (label, valHtml, keyForSource=null, metricKey=null) => {
+        const row = (label, valHtml, keyForSource=null, metricKey=null, section='primary') => {
+            // 🔒 RENDERIZAÇÃO SEGURA: Detectar se valHtml contém valor numérico
+            // Se contiver, extrair o valor e usar SecureRenderUtils
+            if (typeof window !== 'undefined' && window.SecureRenderUtils && metricKey) {
+                // Tentar extrair valor numérico de valHtml
+                const match = valHtml.match(/([-]?\d+\.?\d*)/);
+                if (match) {
+                    const numericValue = parseFloat(match[1]);
+                    
+                    // Extrair unidade (o que vem depois do número)
+                    const unit = valHtml.replace(match[0], '').trim();
+                    
+                    // Buscar tooltip se existir
+                    const labelLowerCase = label.toLowerCase();
+                    let tooltip = null;
+                    for (const [key, value] of Object.entries(metricsTooltips)) {
+                        if (key.toLowerCase() === labelLowerCase) {
+                            tooltip = value;
+                            break;
+                        }
+                    }
+                    
+                    // Usar renderização segura
+                    return window.SecureRenderUtils.renderSecureRow(
+                        label,
+                        numericValue,
+                        unit,
+                        metricKey,
+                        section,
+                        analysis,
+                        { keyForSource, tooltip }
+                    );
+                }
+            }
+            
+            // Fallback: renderização tradicional (sem números ou SecureRenderUtils não disponível)
             // Usar sistema de enhancement se disponível
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
                 ? window.enhanceRowLabel(label, keyForSource) 
@@ -12806,22 +12862,22 @@ async function displayModalResults(analysis) {
                 // 🎯 Exibir sempre, mesmo se 0
                 if (lufsValue === null || lufsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS NÃO ENCONTRADO - exibindo 0');
-                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated');
+                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
                 }
                 if (!Number.isFinite(lufsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS valor inválido:', lufsValue);
-                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated');
+                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
                 }
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness (LUFS) RENDERIZADO:', lufsValue, 'LUFS');
-                return row('Loudness (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated');
+                return row('Loudness (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
             })(),
             
-            row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr'),
-            row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra'),
+            row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
+            row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra', 'primary'),
             // Imagem Estéreo (movido de col2)
-            row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'stereoCorrelation'),
+            row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'stereoCorrelation', 'primary'),
             // Abertura Estéreo (movido de col2)
-            row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth')
+            row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
             ].join('');
 
         const col2 = (() => {
@@ -12863,17 +12919,17 @@ async function displayModalResults(analysis) {
                                 displayValue = 'não calculado';
                             }
                             const metricKey = `band_${bandKey}`;
-                            rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey));
+                            rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
                         }
                     } else if (Number.isFinite(bandData)) {
                         const metricKey = `band_${bandKey}`;
-                        rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey));
+                        rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
                     }
                 });
             }
             
             // Frequência Central (mantém aqui)
-            rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz', 'spectralCentroid'));
+            rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz', 'spectralCentroid', 'frequency'));
             
             return rows.join('');
             // REMOVED: Correlação Estéreo - movido para col1
@@ -12918,10 +12974,10 @@ async function displayModalResults(analysis) {
                 
                 // Picos por canal separados
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
-                    rows.push(row('Pico L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb'));
+                    rows.push(row('Pico L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'peakLeft', 'advanced'));
                 }
                 if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
-                    rows.push(row('Pico R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb'));
+                    rows.push(row('Pico R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'peakRight', 'advanced'));
                 }
                 
                 // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
@@ -12932,14 +12988,14 @@ async function displayModalResults(analysis) {
                 
                 // === THD (Total Harmonic Distortion) ===
                 if (Number.isFinite(analysis.technicalData?.thd)) {
-                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thd, 4)}%`, 'thd'));
+                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thd, 4)}%`, 'thd', 'thd', 'advanced'));
                 } else if (Number.isFinite(analysis.technicalData?.thdPercent)) {
-                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thdPercent, 4)}%`, 'thdPercent'));
+                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thdPercent, 4)}%`, 'thdPercent', 'thd', 'advanced'));
                 }
                 
                 // === HEADROOM ===
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
-                    rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
+                    rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb', 'headroom', 'advanced'));
                 }
                 
                 // === FATOR DE CRISTA (movido de MÉTRICAS PRINCIPAIS) ===
@@ -12951,7 +13007,7 @@ async function displayModalResults(analysis) {
                 ]);
                 if (Number.isFinite(crestValue)) {
                     console.log('[METRICS-FIX] advancedMetricsCard > Fator de Crista RENDERIZADO:', crestValue, 'dB');
-                    rows.push(row('Fator de Crista (Crest Factor)', `${safeFixed(crestValue, 2)} dB`, 'crestFactor'));
+                    rows.push(row('Fator de Crista (Crest Factor)', `${safeFixed(crestValue, 2)} dB`, 'crestFactor', 'crestFactor', 'advanced'));
                 } else {
                     console.warn('[METRICS-FIX] advancedMetricsCard > Fator de Crista NÃO ENCONTRADO ou inválido:', crestValue);
                 }
@@ -12961,32 +13017,32 @@ async function displayModalResults(analysis) {
                 
                 // Centro Espectral
                 if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
-                    rows.push(row('Centro Espectral (Hz)', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
+                    rows.push(row('Centro Espectral (Hz)', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid', 'spectralCentroid', 'advanced'));
                 }
                 
                 // Spectral Rolloff (Extensão de agudos)
                 if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
-                    rows.push(row('Extensão de Agudos (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
+                    rows.push(row('Extensão de Agudos (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'spectralRolloff', 'advanced'));
                 }
                 
                 // Spectral Flatness (Uniformidade espectral)
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 1)}%`, 'spectralFlatness'));
+                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 1)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
                 }
                 
                 // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
-                    rows.push(row('Bandas Espectrais (n)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
+                    rows.push(row('Bandas Espectrais (n)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz', 'spectralBandwidth', 'advanced'));
                 }
                 
                 // Spectral Kurtosis
                 if (Number.isFinite(analysis.technicalData?.spectralKurtosis)) {
-                    rows.push(row('Kurtosis Espectral', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
+                    rows.push(row('Kurtosis Espectral', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis', 'spectralKurtosis', 'advanced'));
                 }
                 
                 // Spectral Skewness
                 if (Number.isFinite(analysis.technicalData?.spectralSkewness)) {
-                    rows.push(row('Assimetria Espectral', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
+                    rows.push(row('Assimetria Espectral', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness', 'spectralSkewness', 'advanced'));
                 }
                 
                 // === REMOVIDO: BANDAS ESPECTRAIS DETALHADAS (Sub, Bass, Low-Mid, etc.) ===
