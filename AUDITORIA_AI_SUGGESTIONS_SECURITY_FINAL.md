@@ -201,22 +201,54 @@ Conforme definido em `reduced-mode-security-guard.js`:
 
 ## 🧪 TESTE DE VALIDAÇÃO
 
-### Checklist de Segurança
+### Arquivo de Teste
+**Criado:** `test-ai-suggestions-security.html`
 
-1. **Modo Reduced + Métrica Bloqueada (LUFS):**
-   - [ ] Inspecionar elemento mostra apenas placeholder
-   - [ ] Copiar HTML não revela texto real
-   - [ ] DevTools Console não acessa conteúdo bloqueado
-   - [ ] Desabilitar CSS não expõe texto
+Execute em navegador para validar mapeamento categoria → métrica.
 
-2. **Modo Reduced + Métrica Liberada (DR):**
-   - [ ] Texto completo renderizado
-   - [ ] Sem placeholders
-   - [ ] Análise totalmente acessível
+### Checklist de Segurança (Produção)
 
-3. **Modo Completo (Pro):**
-   - [ ] Todas as sugestões visíveis
-   - [ ] Sem filtros aplicados
+**Teste em Modo Reduced:**
+1. Abrir análise de áudio em modo gratuito
+2. Verificar seção "Sugestões IA"
+3. Abrir DevTools → Elements tab
+
+**Sugestões BLOQUEADAS (devem mostrar apenas placeholder):**
+- [ ] LUFS / Loudness
+- [ ] True Peak
+- [ ] LRA
+- [ ] Sub (20-60 Hz)
+- [ ] Bass (60-150 Hz)
+- [ ] Mid (500-2k Hz)
+- [ ] Brilho/Air (5k+ Hz)
+
+**Inspecionar Elemento:**
+```html
+<!-- ❌ INCORRETO (texto real vaza) -->
+<div class="ai-block-content">
+    Sua faixa está mais baixa que a referência em 3.5 LUFS...
+</div>
+
+<!-- ✅ CORRETO (apenas placeholder) -->
+<div class="ai-block-content">
+    <span class="blocked-value">🔒 Conteúdo disponível no plano Pro</span>
+</div>
+```
+
+**Sugestões LIBERADAS (devem mostrar texto completo):**
+- [ ] DR / Dinâmica
+- [ ] Estéreo / Correlação
+- [ ] Low Mid (150-500 Hz)
+- [ ] High Mid (500-2k Hz)
+- [ ] Presença (2k-5k Hz)
+
+**Inspecionar Elemento:**
+```html
+<!-- ✅ CORRETO (texto real visível) -->
+<div class="ai-block-content">
+    DR menor que a referência em 2.1 dB. Faixa atual: 5.8 dB vs Referência: 7.9 dB.
+</div>
+```
 
 ### Comando de Teste
 ```javascript
