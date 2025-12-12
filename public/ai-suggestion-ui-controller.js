@@ -1321,43 +1321,58 @@ class AISuggestionUIController {
             functionExists: typeof shouldRenderRealValue === 'function'
         });
         
-        // 🔒 PLACEHOLDER SEGURO para conteúdo bloqueado
-        const securePlaceholder = typeof renderSecurePlaceholder === 'function'
-            ? renderSecurePlaceholder('action')
-            : '<span class="blocked-value">🔒 Conteúdo disponível no plano Pro</span>';
+        // 🔒 SE BLOQUEADO: Return imediato SEM acessar suggestion.texto
+        if (!canRender) {
+            console.log('[AI-CARD] 🔒 BLOCKED: Placeholder estático');
+            const isValidated = suggestion._validated === true;
+            
+            return `
+                <div class="ai-suggestion-card ai-enriched blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-category">${categoria}</span>
+                        <div class="ai-suggestion-priority ${this.getPriorityClass(nivel)}">${nivel}</div>
+                    </div>
+                    <div class="ai-suggestion-content">
+                        <div class="ai-block ai-block-problema blocked-block">
+                            <div class="ai-block-title">⚠️ Problema</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-causa blocked-block">
+                            <div class="ai-block-title">🎯 Causa Provável</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-solucao blocked-block">
+                            <div class="ai-block-title">🛠️ Solução</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-plugin blocked-block">
+                            <div class="ai-block-title">🎛️ Plugin</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                    </div>
+                    <div class="ai-pro-badge">⭐ Plano Pro</div>
+                </div>
+            `;
+        }
         
-        // 🔧 NOVO: Usar buildDefault como fallback se não houver IA enrichment
-        const problemaReal = suggestion.problema || 
+        // ✅ FULL MODE: Acessa texto agora
+        console.log('[AI-CARD] ✅ FULL: Texto completo');
+        
+        const problema = suggestion.problema || 
                         (suggestion.aiEnhanced === false && suggestion.observation 
                             ? this.buildDefaultProblemMessage(suggestion)
                             : suggestion.message || 'Problema não especificado');
         
-        const causaProvavelReal = suggestion.causaProvavel || 'Causa não analisada';
+        const causaProvavel = suggestion.causaProvavel || 'Causa não analisada';
         
-        const solucaoReal = suggestion.solucao || 
+        const solucao = suggestion.solucao || 
                        (suggestion.aiEnhanced === false && suggestion.recommendation
                            ? this.buildDefaultSolutionMessage(suggestion)
                            : suggestion.action || 'Solução não especificada');
         
-        const pluginReal = suggestion.pluginRecomendado || 'Não especificado';
-        const dicaReal = suggestion.dicaExtra || null;
-        const parametrosReal = suggestion.parametros || null;
-        
-        // 🔐 APLICAR SECURITY: Usar valores reais ou placeholders
-        const problema = canRender ? problemaReal : securePlaceholder;
-        const causaProvavel = canRender ? causaProvavelReal : securePlaceholder;
-        const solucao = canRender ? solucaoReal : securePlaceholder;
-        const plugin = canRender ? pluginReal : securePlaceholder;
-        const dica = canRender ? dicaReal : null;
-        const parametros = canRender ? parametrosReal : null;
-        
-        // 🔍 DEBUG AGRESSIVO
-        console.log('[AI-CARD] 🔍 VALORES FINAIS:', {
-            canRender,
-            problemaLength: problema.length,
-            problemaIsPlaceholder: problema.includes('blocked-value'),
-            problemaPreview: problema.substring(0, 80)
-        });
+        const plugin = suggestion.pluginRecomendado || 'Não especificado';
+        const dica = suggestion.dicaExtra || null;
+        const parametros = suggestion.parametros || null;
         
         // ✅ Badge de validação de targets
         const isValidated = suggestion._validated === true;
@@ -1422,29 +1437,25 @@ class AISuggestionUIController {
      * 🎴 Renderizar card de sugestão base
      */
     renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
-        // 🔐 SECURITY GUARD: Mapear categoria para métrica
+        // 🔐 SECURITY GUARD: PRIMEIRA COISA - Verificar modo
         const metricKey = this.mapCategoryToMetric(suggestion);
         const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
         
-        console.log('[AI-BASE-CARD] 🔐 Security:', { metricKey, mode: analysis?.analysisMode });
-        
-        // 🔐 Verificar se pode renderizar valor real ou deve mostrar placeholder
         const canRender = typeof shouldRenderRealValue === 'function' 
             ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
             : true;
         
+        console.log('[AI-BASE-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
         
-        // 🔒 SE BLOQUEADO: Retornar placeholder IMEDIATAMENTE sem acessar texto
+        // 🔒 SE BLOQUEADO: Return imediato SEM TOCAR em suggestion.texto
         if (!canRender) {
-            const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
-            const isValidated = suggestion._validated === true;
-            
-            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Retornando placeholder sem acessar texto');
+            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Retornando placeholder estático');
             
             return `
-                <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''} blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                     <div class="ai-suggestion-header">
                         <span class="ai-suggestion-category">${category}</span>
                         <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
@@ -1453,24 +1464,22 @@ class AISuggestionUIController {
                     <div class="ai-suggestion-content">
                         <div class="ai-block ai-block-problema blocked-block">
                             <div class="ai-block-title">⚠️ Observação</div>
-                            <div class="ai-block-content">${securePlaceholder}</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
                         </div>
                         
                         <div class="ai-block ai-block-solucao blocked-block">
                             <div class="ai-block-title">🛠️ Recomendação</div>
-                            <div class="ai-block-content">${securePlaceholder}</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
                         </div>
                     </div>
                     
-                    <div class="ai-base-notice">
-                        💡 Configure API Key OpenAI para análise inteligente
-                    </div>
+                    <div class="ai-base-notice">💡 Configure API Key OpenAI</div>
                 </div>
             `;
         }
         
-        // ✅ TEXTO SÓ É ACESSADO AQUI (dentro do branch full)
-        console.log('[AI-BASE-CARD] ✅ FULL MODE: Acessando texto real');
+        // ✅ MODO FULL: Acessar texto normalmente
+        console.log('[AI-BASE-CARD] ✅ FULL: Renderizando texto completo');
         
         const message = suggestion.message || suggestion.title || 'Mensagem não especificada';
         const action = suggestion.action || suggestion.description || 'Ação não especificada';
