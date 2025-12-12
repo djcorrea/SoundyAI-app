@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste - Modo Reduced Seguro</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            color: #00d4ff;
+            margin-bottom: 16px;
+            font-size: 1.5em;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .metric-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .metric-card.allowed {
+            border-left: 4px solid #4ade80;
+        }
+        
+        .metric-card.blocked {
+            border-left: 4px solid #f87171;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .metric-status {
+            font-size: 0.85em;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+        
+        .status-allowed {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        
+        .status-blocked {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+        
+        .blocked-value {
+            color: #666;
+            font-style: italic;
+            user-select: none;
+            pointer-events: none;
+        }
+        
+        .allowed-value {
+            color: #fff;
+            user-select: text;
+        }
+        
+        .test-instructions {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .test-instructions h3 {
+            color: #ffc107;
+            margin-bottom: 12px;
+        }
+        
+        .test-instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        
+        .test-result {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+        
+        .test-result h3 {
+            color: #00d4ff;
+            margin-bottom: 12px;
+        }
+        
+        .test-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            margin: 4px 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        
+        .test-item.pass {
+            border-left: 3px solid #4ade80;
+        }
+        
+        .test-item.fail {
+            border-left: 3px solid #f87171;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste - Modo Reduced Seguro</h1>
+        
+        <div class="test-instructions">
+            <h3>📋 Instruções de Teste</h3>
+            <ol>
+                <li>Abra o DevTools (F12) → Aba "Elements"</li>
+                <li>Tente selecionar e copiar os valores BLOQUEADOS</li>
+                <li>Inspecione o DOM dos valores BLOQUEADOS</li>
+                <li>Verifique que o textContent contém apenas "•••• 🔒"</li>
+                <li>Clique em "Executar Testes Automáticos" para validação</li>
+            </ol>
+        </div>
+        
+        <div class="button-group">
+            <button onclick="runAutomatedTests()">🔍 Executar Testes Automáticos</button>
+            <button onclick="simulateReducedMode()">🔒 Modo REDUCED</button>
+            <button onclick="simulateFullMode()">✅ Modo FULL</button>
+        </div>
+        
+        <!-- MÉTRICAS PRINCIPAIS -->
+        <div class="test-section">
+            <h2>🎛️ Métricas Principais</h2>
+            <div class="test-grid" id="primaryMetrics">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+        
+        <!-- FREQUÊNCIAS -->
+        <div class="test-section">
+            <h2>🎵 Análise de Frequências</h2>
+            <div class="test-grid" id="frequencyMetrics">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+        
+        <!-- MÉTRICAS AVANÇADAS -->
+        <div class="test-section">
+            <h2>⚙️ Métricas Avançadas</h2>
+            <div class="test-grid" id="advancedMetrics">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+        
+        <!-- RESULTADOS DOS TESTES -->
+        <div class="test-result" id="testResults" style="display: none;">
+            <h3>✅ Resultados dos Testes</h3>
+            <div id="testResultsContent"></div>
+        </div>
+    </div>
+    
+    <script src="secure-render-utils.js"></script>
+    <script>
+        // Mock de análise para teste
+        const mockAnalysisReduced = {
+            analysisMode: 'reduced',
+            plan: 'free',
+            qualityOverall: 78.5,
+            metrics: {
+                lufsIntegrated: -14.2,
+                truePeak: -1.5,
+                dr: 8.2,
+                rms: -18.5,
+                band_sub: 15.2,
+                band_bass: 22.8,
+                band_mid: 18.5,
+                band_high: 12.3,
+                band_presence: 8.7,
+                band_air: 5.1,
+                headroom: 1.5,
+                crestFactor: 12.3
+            }
+        };
+        
+        const mockAnalysisFull = {
+            ...mockAnalysisReduced,
+            analysisMode: 'full',
+            plan: 'plus'
+        };
+        
+        let currentMode = 'reduced';
+        
+        // Definição das métricas
+        const metrics = {
+            primary: [
+                { key: 'lufsIntegrated', label: 'Loudness (LUFS)', unit: 'LUFS', allowed: true },
+                { key: 'truePeak', label: 'True Peak', unit: 'dBTP', allowed: true },
+                { key: 'dr', label: 'Dinâmica (DR)', unit: 'DR', allowed: true },
+                { key: 'rms', label: 'RMS', unit: 'dB', allowed: false }
+            ],
+            frequency: [
+                { key: 'band_sub', label: 'Sub (20-60 Hz)', unit: '%', allowed: false },
+                { key: 'band_bass', label: 'Bass (60-150 Hz)', unit: '%', allowed: false },
+                { key: 'band_mid', label: 'Mid (500 Hz-2 kHz)', unit: '%', allowed: false },
+                { key: 'band_high', label: 'High (2-5 kHz)', unit: '%', allowed: false },
+                { key: 'band_presence', label: 'Presença (5-10 kHz)', unit: '%', allowed: false },
+                { key: 'band_air', label: 'Ar (10-20 kHz)', unit: '%', allowed: false }
+            ],
+            advanced: [
+                { key: 'headroom', label: 'Headroom', unit: 'dB', allowed: false },
+                { key: 'crestFactor', label: 'Crest Factor', unit: '', allowed: false }
+            ]
+        };
+        
+        function renderMetrics(mode = 'reduced') {
+            const analysis = mode === 'reduced' ? mockAnalysisReduced : mockAnalysisFull;
+            currentMode = mode;
+            
+            // Renderizar cada seção
+            ['primary', 'frequency', 'advanced'].forEach(section => {
+                const container = document.getElementById(`${section}Metrics`);
+                container.innerHTML = '';
+                
+                metrics[section].forEach(metric => {
+                    const value = analysis.metrics[metric.key];
+                    const isAllowed = mode === 'full' || metric.allowed;
+                    
+                    // Usar SecureRenderUtils se disponível
+                    let displayValue;
+                    if (window.SecureRenderUtils) {
+                        displayValue = window.SecureRenderUtils.renderMetricValue(
+                            value,
+                            metric.unit,
+                            metric.key,
+                            section,
+                            analysis,
+                            { decimals: 1 }
+                        );
+                    } else {
+                        // Fallback manual
+                        if (isAllowed) {
+                            displayValue = `<span class="allowed-value">${value.toFixed(1)} ${metric.unit}</span>`;
+                        } else {
+                            displayValue = `<span class="blocked-value">•••• 🔒</span>`;
+                        }
+                    }
+                    
+                    const card = document.createElement('div');
+                    card.className = `metric-card ${isAllowed ? 'allowed' : 'blocked'}`;
+                    card.innerHTML = `
+                        <div class="metric-label">${metric.label}</div>
+                        <div class="metric-value" data-metric="${metric.key}">${displayValue}</div>
+                        <div class="metric-status ${isAllowed ? 'status-allowed' : 'status-blocked'}">
+                            ${isAllowed ? '✅ Liberado' : '🔒 Bloqueado'}
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            });
+        }
+        
+        function simulateReducedMode() {
+            renderMetrics('reduced');
+            console.log('📍 Modo REDUCED ativado');
+        }
+        
+        function simulateFullMode() {
+            renderMetrics('full');
+            console.log('📍 Modo FULL ativado');
+        }
+        
+        function runAutomatedTests() {
+            const results = [];
+            
+            // Teste 1: Verificar valores bloqueados no DOM
+            console.log('🧪 Teste 1: Verificando valores bloqueados no DOM...');
+            const blockedElements = document.querySelectorAll('.blocked-value');
+            const test1Pass = Array.from(blockedElements).every(el => {
+                const text = el.textContent.trim();
+                return text === '•••• 🔒' || text === '••••🔒';
+            });
+            results.push({
+                name: 'Valores bloqueados não contêm dados reais',
+                pass: test1Pass,
+                details: `${blockedElements.length} elementos bloqueados encontrados`
+            });
+            
+            // Teste 2: Verificar se valores permitidos existem
+            console.log('🧪 Teste 2: Verificando valores permitidos...');
+            const allowedElements = document.querySelectorAll('.allowed-value');
+            const test2Pass = allowedElements.length > 0 && Array.from(allowedElements).some(el => {
+                const text = el.textContent.trim();
+                return /[-]?\d+\.?\d*/.test(text) && !text.includes('••••');
+            });
+            results.push({
+                name: 'Valores permitidos são renderizados corretamente',
+                pass: test2Pass,
+                details: `${allowedElements.length} valores permitidos encontrados`
+            });
+            
+            // Teste 3: Verificar user-select
+            console.log('🧪 Teste 3: Verificando user-select...');
+            const blockedWithNoSelect = Array.from(blockedElements).every(el => {
+                const style = window.getComputedStyle(el);
+                return style.userSelect === 'none';
+            });
+            results.push({
+                name: 'Valores bloqueados têm user-select: none',
+                pass: blockedWithNoSelect,
+                details: 'Proteção contra cópia implementada'
+            });
+            
+            // Teste 4: Verificar se frequências estão bloqueadas no modo Reduced
+            console.log('🧪 Teste 4: Verificando bloqueio de frequências...');
+            if (currentMode === 'reduced') {
+                const frequencyContainer = document.getElementById('frequencyMetrics');
+                const allFreqBlocked = frequencyContainer.querySelectorAll('.blocked-value').length === metrics.frequency.length;
+                results.push({
+                    name: 'Todas as frequências estão bloqueadas no modo Reduced',
+                    pass: allFreqBlocked,
+                    details: `${frequencyContainer.querySelectorAll('.blocked-value').length} de ${metrics.frequency.length} bloqueadas`
+                });
+            }
+            
+            // Teste 5: Verificar SecureRenderUtils
+            console.log('🧪 Teste 5: Verificando SecureRenderUtils...');
+            const hasSecureUtils = typeof window.SecureRenderUtils !== 'undefined';
+            results.push({
+                name: 'SecureRenderUtils está carregado',
+                pass: hasSecureUtils,
+                details: hasSecureUtils ? 'Sistema de segurança ativo' : 'Fallback em uso'
+            });
+            
+            // Exibir resultados
+            displayTestResults(results);
+        }
+        
+        function displayTestResults(results) {
+            const container = document.getElementById('testResults');
+            const content = document.getElementById('testResultsContent');
+            
+            const passedTests = results.filter(r => r.pass).length;
+            const totalTests = results.length;
+            
+            let html = `
+                <div style="margin-bottom: 16px; font-size: 1.2em;">
+                    <strong>Testes: ${passedTests}/${totalTests} aprovados</strong>
+                </div>
+            `;
+            
+            results.forEach(result => {
+                html += `
+                    <div class="test-item ${result.pass ? 'pass' : 'fail'}">
+                        <span style="font-size: 1.5em;">${result.pass ? '✅' : '❌'}</span>
+                        <div style="flex: 1;">
+                            <div><strong>${result.name}</strong></div>
+                            <div style="font-size: 0.9em; color: #888;">${result.details}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+            container.style.display = 'block';
+            
+            // Log detalhado
+            console.log('📊 Resultados dos Testes:');
+            results.forEach(r => {
+                console.log(`${r.pass ? '✅' : '❌'} ${r.name}: ${r.details}`);
+            });
+        }
+        
+        // Inicializar
+        renderMetrics('reduced');
+        console.log('🚀 Teste iniciado em modo REDUCED');
+        console.log('💡 Use os botões para alternar entre modos e executar testes');
+    </script>
+</body>
+</html>
