@@ -18,30 +18,51 @@
     // ============================================
     
     const REDUCED_MODE_ALLOWLISTS = {
-        // (A) MÉTRICAS PRINCIPAIS - Card "MÉTRICAS PRINCIPAIS"
+        // (A) MÉTRICAS PRINCIPAIS
+        // ✅ LIBERADAS: DR
+        // 🔒 BLOQUEADAS: LUFS, True Peak
         primary: [
-            'lufsIntegrated',
-            'truePeak', 
-            'dr',
-            'scoreFinal'
-        ],
-        
-        // (B) FREQUÊNCIAS - Card "ANÁLISE DE FREQUÊNCIAS"
-        // 🔒 BLOQUEADAS: Todas as frequências no modo reduced
-        frequency: [],
-        
-        // (C) MÉTRICAS AVANÇADAS - Card "MÉTRICAS AVANÇADAS"
-        advanced: [], // Tudo bloqueado no modo reduced
-        
-        // (D) TABELA DE COMPARAÇÃO
-        // 🔒 BLOQUEADAS: Todas as frequências (Sub, Bass, Mid, High, Presença, Ar)
-        table: [
-            'lra',
-            'loudnessRange',
             'dr',
             'dynamicRange',
+            'scoreFinal'  // Score sempre liberado
+        ],
+        
+        // (B) FREQUÊNCIAS
+        // ✅ LIBERADAS: Low Mid, High Mid, Presença
+        // 🔒 BLOQUEADAS: Sub, Bass, Mid, Brilho/Air
+        frequency: [
+            'band_lowMid',
+            'band_low_mid',
+            'lowMid',
+            'low_mid',
+            
+            'band_highMid',
+            'band_high_mid',
+            'highMid',
+            'high_mid',
+            
+            'band_presence',
+            'presence',
+            'presença'
+        ],
+        
+        // (C) MÉTRICAS AVANÇADAS: Tudo bloqueado
+        advanced: [],
+        
+        // (D) TABELA DE COMPARAÇÃO
+        // ✅ LIBERADAS: DR, Estéreo, Low Mid, High Mid, Presença
+        // 🔒 BLOQUEADAS: LUFS, True Peak, LRA, Sub, Bass, Mid, Brilho
+        table: [
+            'dr',
+            'dynamicRange',
+            'stereo',
             'stereoCorrelation',
-            'correlation'
+            'correlation',
+            'band_lowMid',
+            'band_low_mid',
+            'band_highMid',
+            'band_high_mid',
+            'band_presence'
         ]
     };
     
