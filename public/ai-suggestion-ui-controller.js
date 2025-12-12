@@ -973,7 +973,10 @@ class AISuggestionUIController {
         });
         
         return suggestions.map(suggestion => {
-            // Identificar métrica da sugestão
+            // 🔐 SECURITY NOTE: Este acesso é apenas para MAPEAMENTO de categoria,
+            // NÃO para renderização. O texto nunca entra no DOM aqui.
+            // Renderização real acontece em renderAIEnrichedCard/renderBaseSuggestionCard
+            // que possuem Security Guard próprio.
             let metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
             
             // 🔧 Normalizar métrica (reconhece "dynamicRange", "stereoCorrelation", etc)
@@ -1702,6 +1705,42 @@ class AISuggestionUIController {
      * 🎴 Renderizar card completo de sugestão
      */
     renderFullSuggestionCard(suggestion, index) {
+        // 🔐 SECURITY GUARD: Verificar modo PRIMEIRO
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+        
+        const canRender = typeof shouldRenderRealValue === 'function' 
+            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+            : true;
+        
+        console.log('[AI-FULL-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        
+        // 🔒 SE BLOQUEADO: Return placeholder SEM acessar ai_blocks
+        if (!canRender) {
+            console.log('[AI-FULL-CARD] 🔒 BLOCKED: Placeholder estático');
+            const category = suggestion.ai_category || 'geral';
+            const priority = suggestion.ai_priority || 5;
+            
+            return `
+                <div class="ai-suggestion-card blocked-card" style="animation-delay: ${index * 0.1}s">
+                    <span class="ai-suggestion-category">${category}</span>
+                    <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    
+                    <div class="ai-suggestion-blocks">
+                        <div class="ai-block blocked-block">
+                            <div class="ai-block-title">⚠️ Conteúdo</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-pro-badge">⭐ Plano Pro</div>
+                </div>
+            `;
+        }
+        
+        // ✅ FULL MODE: Acessa ai_blocks normalmente
+        console.log('[AI-FULL-CARD] ✅ FULL: Texto completo');
+        
         const category = suggestion.ai_category || 'geral';
         const priority = suggestion.ai_priority || 5;
         const blocks = suggestion.ai_blocks || {};
@@ -2055,9 +2094,36 @@ class AISuggestionUIController {
      * 📝 Gerar resumo para chat
      */
     generateChatSummary() {
+        // 🔐 SECURITY: Verificar modo reduced
+        const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+        const isReducedMode = analysis && (
+            analysis.analysisMode === 'reduced' || 
+            analysis.plan === 'free' ||
+            analysis.isReduced === true
+        );
+        
+        // 🔒 SE BLOQUEADO: Retornar mensagem genérica
+        if (isReducedMode) {
+            console.log('[CHAT-SUMMARY] 🔒 BLOCKED: Resumo genérico');
+            return `Analisei seu áudio e identifiquei ${this.currentSuggestions.length} pontos de melhoria.\n\n🔒 Upgrade para o plano Pro para ver sugestões detalhadas da IA.`;
+        }
+        
+        // ✅ FULL MODE: Gerar resumo completo
         let summary = `Analisei seu áudio e a IA gerou ${this.currentSuggestions.length} sugestões específicas:\n\n`;
         
         this.currentSuggestions.slice(0, 5).forEach((suggestion, index) => {
+            // Verificar se cada sugestão individual pode ser renderizada
+            const metricKey = this.mapCategoryToMetric(suggestion);
+            const canRender = typeof shouldRenderRealValue === 'function'
+                ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+                : true;
+            
+            if (!canRender) {
+                summary += `${index + 1}. **${suggestion.ai_category || 'Métrica Bloqueada'}**\n`;
+                summary += `   🔒 Conteúdo disponível no plano Pro\n\n`;
+                return;
+            }
+            
             const problema = suggestion.ai_blocks?.problema || suggestion.message;
             const solucao = suggestion.ai_blocks?.solucao || suggestion.action;
             
