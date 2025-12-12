@@ -1445,6 +1445,68 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${planContext.plan.toUpperCase()}. Atualize seu plano para desbloquear análise completa.`;
         
         console.log('[PLAN-FILTER] ✅ limitWarning adicionado - JSON completo será retornado para o frontend aplicar máscara visual');
+        
+        // 🔐 REMOVER TEXTO DAS SUGESTÕES IA (SEGURANÇA ABSOLUTA)
+        // Garantir que NENHUM texto real seja enviado ao frontend em modo reduced
+        if (Array.isArray(finalJSON.aiSuggestions) && finalJSON.aiSuggestions.length > 0) {
+          console.log(`[PLAN-FILTER] 🔒 Removendo texto de ${finalJSON.aiSuggestions.length} sugestões IA (modo reduced)`);
+          
+          finalJSON.aiSuggestions = finalJSON.aiSuggestions.map(suggestion => ({
+            // ✅ Manter estrutura e metadados
+            id: suggestion.id,
+            categoria: suggestion.categoria || suggestion.category,
+            nivel: suggestion.nivel || suggestion.priority || 'média',
+            metric: suggestion.metric,
+            severity: suggestion.severity,
+            aiEnhanced: suggestion.aiEnhanced,
+            _validated: suggestion._validated,
+            _realTarget: suggestion._realTarget,
+            
+            // 🔒 REMOVER TODO O TEXTO (substituir por null)
+            problema: null,
+            causaProvavel: null,
+            solucao: null,
+            pluginRecomendado: null,
+            dicaExtra: null,
+            parametros: null,
+            
+            // Aliases também devem ser null
+            message: null,
+            action: null,
+            observation: null,
+            recommendation: null,
+            
+            // Flag indicando bloqueio
+            blocked: true
+          }));
+          
+          console.log('[PLAN-FILTER] ✅ Texto das sugestões IA removido - apenas estrutura preservada');
+          console.log('[PLAN-FILTER] 🔐 Frontend renderizará placeholders via Security Guard');
+        }
+        
+        // 🔐 REMOVER TEXTO DE OUTRAS SUGESTÕES (suggestions base, comparative, etc)
+        if (Array.isArray(finalJSON.suggestions) && finalJSON.suggestions.length > 0) {
+          console.log(`[PLAN-FILTER] 🔒 Removendo texto de ${finalJSON.suggestions.length} sugestões base (modo reduced)`);
+          
+          finalJSON.suggestions = finalJSON.suggestions.map(suggestion => ({
+            id: suggestion.id,
+            category: suggestion.category || suggestion.type,
+            metric: suggestion.metric,
+            priority: suggestion.priority,
+            _validated: suggestion._validated,
+            
+            // 🔒 REMOVER TODO O TEXTO
+            message: null,
+            title: null,
+            action: null,
+            description: null,
+            
+            // Flag indicando bloqueio
+            blocked: true
+          }));
+          
+          console.log('[PLAN-FILTER] ✅ Texto das sugestões base removido');
+        }
       }
     } else {
       // Se não há planContext, modo padrão é "full"
