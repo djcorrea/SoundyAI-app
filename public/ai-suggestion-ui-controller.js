@@ -1298,6 +1298,52 @@ class AISuggestionUIController {
      * 🎴 Renderizar card de sugestão IA enriquecida
      */
     renderAIEnrichedCard(suggestion, index, genreTargets = null) {
+        // 🔐 SECURITY: Mapear categoria ANTES de acessar suggestion.*
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || { analysisMode: 'full' };
+        
+        const canRender = typeof shouldRenderRealValue === 'function' 
+            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+            : true;
+        
+        console.log('[AI-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        
+        // 🔒 SE BLOQUEADO: Return com texto genérico (ZERO suggestion.*)
+        if (!canRender) {
+            console.log('[AI-CARD] 🔒 BLOCKED: Placeholder genérico');
+            
+            return `
+                <div class="ai-suggestion-card ai-enriched blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-category">Métrica Bloqueada</span>
+                        <div class="ai-suggestion-priority priority-medium">⭐</div>
+                    </div>
+                    <div class="ai-suggestion-content">
+                        <div class="ai-block ai-block-problema blocked-block">
+                            <div class="ai-block-title">⚠️ Problema</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-causa blocked-block">
+                            <div class="ai-block-title">🎯 Causa Provável</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-solucao blocked-block">
+                            <div class="ai-block-title">🛠️ Solução</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                        <div class="ai-block ai-block-plugin blocked-block">
+                            <div class="ai-block-title">🎛️ Plugin</div>
+                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
+                        </div>
+                    </div>
+                    <div class="ai-pro-badge">⭐ Plano Pro</div>
+                </div>
+            `;
+        }
+        
+        // ✅ FULL MODE: SOMENTE AGORA acessa suggestion.*
+        console.log('[AI-CARD] ✅ FULL: Acessando texto');
+        
         const categoria = suggestion.categoria || suggestion.category || 'Geral';
         const nivel = suggestion.nivel || suggestion.priority || 'média';
         
