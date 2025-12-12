@@ -9675,16 +9675,15 @@ function buildMetricDomMap(analysis) {
     console.log('[DOM-SCAN] 🔍 Iniciando escaneamento do DOM...');
     
     // 🎯 REGRAS POR SEÇÃO - Métricas PERMITIDAS no modo reduced
-    // (A) MÉTRICAS PRINCIPAIS: LUFS, True Peak, DR
+    // (A) MÉTRICAS PRINCIPAIS: DR e RMS (LUFS e True Peak borrados)
     const allowedPrimaryMetrics = [
-        'lufsIntegrated',
-        'truePeak',
-        'dr'
+        'dr',
+        'rms'
     ];
     
-    // (B) FREQUÊNCIAS: Bass e Mid apenas
+    // (B) FREQUÊNCIAS: Sub e Mid apenas
     const allowedFrequencyMetrics = [
-        'band_bass',
+        'band_sub',
         'band_mid'
     ];
     
@@ -9835,9 +9834,31 @@ function hideRestrictedSections() {
  * Esta função foi removida pois a filtragem é feita no momento da renderização
  */
 function blurAISuggestionTexts() {
-    console.log('[BLUR-AI] ⏭️ Filtragem de sugestões feita no momento da renderização');
-    // Função mantida para compatibilidade, mas não faz nada
-    // A filtragem real acontece em filterReducedModeSuggestions()
+    console.log('[BLUR-AI] 🔒 Aplicando blur em textos internos dos cards de IA...');
+    
+    // Selecionar todos os cards de sugestão IA
+    const aiCards = document.querySelectorAll('.ai-suggestion-card');
+    
+    if (aiCards.length === 0) {
+        console.log('[BLUR-AI] ⏭️ Nenhum card de IA encontrado');
+        return;
+    }
+    
+    // Aplicar blur APENAS nos textos internos, mantendo estrutura e títulos visíveis
+    aiCards.forEach((card, index) => {
+        // Borrar conteúdos de texto dentro dos blocos, não os títulos
+        const contentBlocks = card.querySelectorAll('.ai-block-content');
+        
+        contentBlocks.forEach(block => {
+            if (!block.classList.contains('metric-blur')) {
+                block.classList.add('metric-blur');
+            }
+        });
+        
+        console.log(`[BLUR-AI] ✅ Card ${index + 1}: ${contentBlocks.length} textos borrados`);
+    });
+    
+    console.log(`[BLUR-AI] ✅ Total de ${aiCards.length} cards processados`);
 }
 
 /**
