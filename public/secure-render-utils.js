@@ -27,26 +27,21 @@
         ],
         
         // (B) FREQUÊNCIAS - Card "ANÁLISE DE FREQUÊNCIAS"
-        frequency: [
-            'band_bass',
-            'band_mid'
-        ],
+        // 🔒 BLOQUEADAS: Todas as frequências no modo reduced
+        frequency: [],
         
         // (C) MÉTRICAS AVANÇADAS - Card "MÉTRICAS AVANÇADAS"
         advanced: [], // Tudo bloqueado no modo reduced
         
         // (D) TABELA DE COMPARAÇÃO
+        // 🔒 BLOQUEADAS: Todas as frequências (Sub, Bass, Mid, High, Presença, Ar)
         table: [
             'lra',
             'loudnessRange',
             'dr',
             'dynamicRange',
             'stereoCorrelation',
-            'correlation',
-            'sub',
-            'band_sub',
-            'mid',
-            'band_mid'
+            'correlation'
         ]
     };
     

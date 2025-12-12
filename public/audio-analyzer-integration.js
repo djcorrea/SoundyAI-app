@@ -9675,17 +9675,16 @@ function buildMetricDomMap(analysis) {
     console.log('[DOM-SCAN] 🔍 Iniciando escaneamento do DOM...');
     
     // 🎯 REGRAS POR SEÇÃO - Métricas PERMITIDAS no modo reduced
-    // (A) MÉTRICAS PRINCIPAIS: DR e RMS (LUFS e True Peak borrados)
+    // (A) MÉTRICAS PRINCIPAIS: LUFS, True Peak, DR (+ Score)
     const allowedPrimaryMetrics = [
+        'lufsIntegrated',
+        'truePeak',
         'dr',
-        'rms'
+        'scoreFinal'
     ];
     
-    // (B) FREQUÊNCIAS: Sub e Mid apenas
-    const allowedFrequencyMetrics = [
-        'band_sub',
-        'band_mid'
-    ];
+    // (B) FREQUÊNCIAS: 🔒 BLOQUEADAS (todas as bandas)
+    const allowedFrequencyMetrics = [];
     
     // (C) MÉTRICAS AVANÇADAS: Nenhuma (tudo borrado)
     const allowedAdvancedMetrics = [];
@@ -9863,13 +9862,14 @@ function blurAISuggestionTexts() {
 
 /**
  * 🎯 Aplica blur na tabela de comparação (valores atual e alvo)
- * REGRA (D): Permitir LRA, DR, Estéreo, Sub, Mid
- * Blur: valores e targets de outras métricas, mas labels ficam visíveis
+ * REGRA (D): Permitir APENAS LRA, DR, Estéreo (BLOQUEAR frequências)
+ * Blur: valores e targets de métricas bloqueadas, labels ficam visíveis
  */
 function blurComparisonTableValues() {
     console.log('[BLUR-TABLE] 🎨 Aplicando blur na tabela de comparação...');
     
-    // (D) TABELA COMPARAÇÃO: LRA, DR, Estéreo, Sub, Mid permitidos
+    // (D) TABELA COMPARAÇÃO: Apenas LRA, DR, Estéreo permitidos
+    // 🔒 BLOQUEADAS: Todas as frequências (Sub, Bass, Mid, High, Presença, Ar)
     const allowedTableMetrics = [
         'lra',
         'loudnessRange',
@@ -9878,11 +9878,7 @@ function blurComparisonTableValues() {
         'dynamic_range',
         'stereo',
         'stereoCorrelation',
-        'correlation',
-        'sub',
-        'band_sub',
-        'mid',
-        'band_mid'
+        'correlation'
     ];
     
     let blurredCount = 0;
