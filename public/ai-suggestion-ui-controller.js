@@ -1315,6 +1315,23 @@ class AISuggestionUIController {
         const dica = canRender ? dicaReal : null;
         const parametros = canRender ? parametrosReal : null;
         
+        // 🔍 DEBUG AGRESSIVO
+        console.log('[AI-CARD] 🔍 VALORES FINAIS:', {
+            canRender,
+            problemaLength: problema.length,
+            problemaIsPlaceholder: problema.includes('blocked-value'),
+            problemaPreview: problema.substring(0, 80)
+        });
+        
+        // ⚠️ VALIDAÇÃO CRÍTICA: Se não pode renderizar, GARANTIR que é placeholder
+        if (!canRender) {
+            if (!problema.includes('blocked-value')) {
+                console.error('[AI-CARD] ❌ ERRO: canRender=false mas problema NÃO é placeholder!');
+                console.error('[AI-CARD] ❌ problemaReal:', problemaReal.substring(0, 100));
+                console.error('[AI-CARD] ❌ securePlaceholder:', securePlaceholder);
+            }
+        }
+        
         // ✅ Badge de validação de targets
         const isValidated = suggestion._validated === true;
         const realTarget = suggestion._realTarget;
@@ -1403,6 +1420,19 @@ class AISuggestionUIController {
         
         const actionReal = suggestion.action || suggestion.description || 'Ação não especificada';
         const action = canRender ? actionReal : securePlaceholder;
+        
+        // 🔍 DEBUG AGRESSIVO
+        console.log('[AI-BASE-CARD] 🔍 VALORES FINAIS:', {
+            canRender,
+            messageLength: message.length,
+            messageIsPlaceholder: message.includes('blocked-value'),
+            messagePreview: message.substring(0, 80)
+        });
+        
+        // ⚠️ VALIDAÇÃO CRÍTICA
+        if (!canRender && !message.includes('blocked-value')) {
+            console.error('[AI-BASE-CARD] ❌ ERRO: canRender=false mas message NÃO é placeholder!');
+        }
         
         // ✅ Badge de validação de targets
         const isValidated = suggestion._validated === true;
