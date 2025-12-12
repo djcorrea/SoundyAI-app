@@ -9667,20 +9667,34 @@ function showModalLoading() {
 
 /**
  * 🔍 Escaneia o DOM e constrói mapeamento de métricas por data-attribute
+ * Aplica regras específicas por seção conforme especificação Reduced Mode
  * @param {Object} analysis - Dados da análise com JSON completo
  * @returns {Object} { allowedNodes: [], blockedNodes: [] }
  */
 function buildMetricDomMap(analysis) {
     console.log('[DOM-SCAN] 🔍 Iniciando escaneamento do DOM...');
     
-    // 🎯 Métricas PERMITIDAS no modo reduced
+    // 🎯 REGRAS POR SEÇÃO - Métricas PERMITIDAS no modo reduced
+    // (A) MÉTRICAS PRINCIPAIS: LUFS, True Peak, DR
+    const allowedPrimaryMetrics = [
+        'lufsIntegrated',
+        'truePeak',
+        'dr'
+    ];
+    
+    // (B) FREQUÊNCIAS: Bass e Mid apenas
+    const allowedFrequencyMetrics = [
+        'band_bass',
+        'band_mid'
+    ];
+    
+    // (C) MÉTRICAS AVANÇADAS: Nenhuma (tudo borrado)
+    const allowedAdvancedMetrics = [];
+    
+    // Lista completa para scan geral
     const allowedMetrics = [
-        'lufsIntegrated', 
-        'truePeak', 
-        'dr', 
-        'scoreFinal',
-        'band_bass',  // Bass visível
-        'band_mid'    // Mid visível
+        ...allowedPrimaryMetrics,
+        ...allowedFrequencyMetrics
     ];
     
     const allowedNodes = [];
@@ -9718,10 +9732,11 @@ function buildMetricDomMap(analysis) {
 
 /**
  * 🔒 Aplica máscaras visuais nas métricas restritas
+ * ATENÇÃO: Aplica blur SOMENTE nos valores numéricos, NUNCA nos labels
  * @param {Object} scanResult - { allowedNodes, blockedNodes }
  */
 function applyReducedModeMasks(scanResult) {
-    console.log('[MASK] 🎨 Aplicando máscaras visuais...');
+    console.log('[MASK] 🎨 Aplicando máscaras visuais (valores apenas, labels preservados)...');
     
     const { allowedNodes, blockedNodes } = scanResult;
     let maskedCount = 0;
@@ -9731,23 +9746,43 @@ function applyReducedModeMasks(scanResult) {
         console.log(`[ALLOWED] ✅ Métrica permitida: ${key}`);
     });
     
-    // Aplicar blur SOMENTE nos valores numéricos (spans .value)
+    // Aplicar blur SOMENTE nos valores numéricos usando .metric-blur
     blockedNodes.forEach(({ key, el }) => {
-        // Buscar o span .value dentro do elemento
-        const valueSpan = el.querySelector('.value');
+        // Buscar spans/divs que contém valores (números, dB, LUFS, Hz, %, etc)
+        const valueSelectors = [
+            '.value',
+            '.metric-value',
+            'span[class*="value"]',
+            'div[class*="value"]'
+        ];
         
-        if (valueSpan && !valueSpan.classList.contains('blurred-value')) {
-            // Aplicar classe de blur SOMENTE no valor
-            valueSpan.classList.add('blurred-value');
-            maskedCount++;
-            
-            console.log(`[MASK] 🔒 Aplicando blur na métrica: ${key}`);
-        } else if (!valueSpan) {
-            // Fallback: se não encontrar .value, aplicar no elemento inteiro
-            if (!el.classList.contains('blurred-value')) {
-                el.classList.add('blurred-value');
+        let valueFound = false;
+        
+        for (const selector of valueSelectors) {
+            const valueSpan = el.querySelector(selector);
+            if (valueSpan && !valueSpan.classList.contains('metric-blur')) {
+                // Aplicar classe de blur SOMENTE no valor
+                valueSpan.classList.add('metric-blur');
                 maskedCount++;
-                console.log(`[MASK] ⚠️ Blur aplicado no elemento completo (fallback): ${key}`);
+                valueFound = true;
+                console.log(`[MASK] 🔒 Blur aplicado no VALOR de: ${key} (selector: ${selector})`);
+                break;
+            }
+        }
+        
+        // Se não encontrar seletores específicos, buscar elemento com texto numérico
+        if (!valueFound) {
+            const textContent = el.textContent.trim();
+            // Verificar se contém números
+            if (/\d+/.test(textContent)) {
+                // Aplicar blur no elemento inteiro apenas se contiver números
+                if (!el.classList.contains('metric-blur')) {
+                    el.classList.add('metric-blur');
+                    maskedCount++;
+                    console.log(`[MASK] ⚠️ Blur aplicado no elemento completo (contém números): ${key}`);
+                }
+            } else {
+                console.log(`[MASK] ⏭️ Ignorado (sem valores numéricos): ${key}`);
             }
         }
     });
@@ -9796,56 +9831,37 @@ function hideRestrictedSections() {
 }
 
 /**
- * 🔒 Aplica blur nos textos das sugestões IA (mantém cards visíveis)
+ * 🔒 Filtragem de sugestões já aplicada no ai-suggestion-ui-controller.js
+ * Esta função foi removida pois a filtragem é feita no momento da renderização
  */
 function blurAISuggestionTexts() {
-    console.log('[BLUR-AI] 🎨 Aplicando blur nos textos de sugestões IA...');
-    
-    let blurredCount = 0;
-    
-    // Seletores para textos de sugestões
-    const suggestionTextSelectors = [
-        '.suggestion-text',
-        '.suggestion-message',
-        '.suggestion-description',
-        '.ai-suggestion-content p',
-        '.ai-card p',
-        '.suggestion-details'
-    ];
-    
-    suggestionTextSelectors.forEach(selector => {
-        const elements = document.querySelectorAll(selector);
-        elements.forEach(el => {
-            if (el && !el.classList.contains('blurred-value')) {
-                el.classList.add('blurred-value');
-                blurredCount++;
-                console.log(`[BLUR-AI] 🔒 Texto de sugestão borrado: ${selector}`);
-            }
-        });
-    });
-    
-    console.log(`[BLUR-AI] ✅ Total de ${blurredCount} textos de sugestões borrados`);
+    console.log('[BLUR-AI] ⏭️ Filtragem de sugestões feita no momento da renderização');
+    // Função mantida para compatibilidade, mas não faz nada
+    // A filtragem real acontece em filterReducedModeSuggestions()
 }
 
 /**
  * 🎯 Aplica blur na tabela de comparação (valores atual e alvo)
- * Mantém visíveis: LUFS, True Peak, DR, band_bass, band_mid
+ * REGRA (D): Permitir LRA, DR, Estéreo, Sub, Mid
+ * Blur: valores e targets de outras métricas, mas labels ficam visíveis
  */
 function blurComparisonTableValues() {
     console.log('[BLUR-TABLE] 🎨 Aplicando blur na tabela de comparação...');
     
-    // Métricas que devem permanecer VISÍVEIS na tabela
+    // (D) TABELA COMPARAÇÃO: LRA, DR, Estéreo, Sub, Mid permitidos
     const allowedTableMetrics = [
-        'lufsIntegrated',
-        'lufs',
-        'truePeak',
-        'true_peak',
+        'lra',
+        'loudnessRange',
         'dr',
+        'dynamicRange',
         'dynamic_range',
-        'band_bass',
-        'bass',
-        'band_mid',
-        'mid'
+        'stereo',
+        'stereoCorrelation',
+        'correlation',
+        'sub',
+        'band_sub',
+        'mid',
+        'band_mid'
     ];
     
     let blurredCount = 0;
@@ -9857,25 +9873,34 @@ function blurComparisonTableValues() {
         const rows = table.querySelectorAll('tr');
         
         rows.forEach(row => {
-            // Pegar o nome da métrica da primeira célula
+            // Pegar o nome da métrica da primeira célula (label)
             const firstCell = row.querySelector('td:first-child, th:first-child');
             if (!firstCell) return;
             
             const metricText = firstCell.textContent.toLowerCase().trim();
+            const metricKey = row.getAttribute('data-metric-key');
             
             // Verificar se a métrica está na lista de permitidas
             const isAllowed = allowedTableMetrics.some(allowed => 
                 metricText.includes(allowed.toLowerCase()) ||
-                row.getAttribute('data-metric-key')?.includes(allowed)
+                (metricKey && metricKey.toLowerCase().includes(allowed.toLowerCase()))
             );
             
             if (!isAllowed) {
-                // Borrar valor atual e valor alvo (células com valores numéricos)
+                // Borrar valor atual e valor alvo SOMENTE (não severidade, ícones ou labels)
                 const valueCells = row.querySelectorAll('.current-value, .target-value, td:nth-child(2), td:nth-child(3)');
                 
                 valueCells.forEach(cell => {
-                    if (cell && !cell.classList.contains('blurred-value')) {
-                        cell.classList.add('blurred-value');
+                    // Não borrar se for coluna de severidade ou ação
+                    const cellText = cell.textContent.toLowerCase();
+                    const isSeverityOrAction = cellText.includes('crítico') || 
+                                              cellText.includes('atenção') || 
+                                              cellText.includes('ok') ||
+                                              cell.querySelector('.severity-badge') !== null ||
+                                              cell.querySelector('[class*="icon"]') !== null;
+                    
+                    if (!isSeverityOrAction && !cell.classList.contains('metric-blur')) {
+                        cell.classList.add('metric-blur');
                         blurredCount++;
                         console.log(`[BLUR-TABLE] 🔒 Valor borrado: ${metricText}`);
                     }
@@ -9942,23 +9967,33 @@ function injectReducedModeCSS() {
     const style = document.createElement('style');
     style.id = 'reduced-mode-dynamic-css';
     style.textContent = `
-        /* 🔒 Máscara visual SOMENTE para valores numéricos */
-        .blurred-value {
+        /* 🔒 Máscara visual SOMENTE para valores numéricos - NUNCA para labels */
+        .metric-blur {
             position: relative !important;
-            filter: blur(6px) !important;
-            opacity: 0.5 !important;
+            filter: blur(7px) !important;
+            opacity: 0.4 !important;
             pointer-events: none !important;
+            user-select: none !important;
             user-select: none !important;
             display: inline-block !important;
         }
         
-        .blurred-value::after {
+        /* Garantir que labels NUNCA sejam borrados */
+        .metric-label,
+        [class*="label"],
+        [class*="name"],
+        .metric-name {
+            filter: none !important;
+            opacity: 1 !important;
+        }
+        
+        .metric-blur::after {
             content: "🔒" !important;
             position: absolute !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            font-size: 10px !important;
+            font-size: 11px !important;
             opacity: 0.8 !important;
             z-index: 10 !important;
         }

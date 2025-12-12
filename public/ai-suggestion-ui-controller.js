@@ -850,12 +850,22 @@ class AISuggestionUIController {
             isEnriched: isAIEnriched
         });
         
-        // Atualizar status
+        // 🔒 Filtrar sugestões para Reduced Mode ANTES de atualizar status
+        const analysis = window.currentModalAnalysis;
+        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.plan === 'free';
+        const displayCount = isReducedMode 
+            ? Math.min(suggestions.length, 2) // Máximo de 2 no modo reduced
+            : suggestions.length;
+        
+        // Atualizar status com contagem correta
         if (isAIEnriched) {
-            this.updateStatus('success', `${suggestions.length} sugestões IA enriquecidas`);
-            console.log('[AI-UI][RENDER] ✅ Status: Sugestões IA enriquecidas');
+            const statusText = isReducedMode 
+                ? `${displayCount} sugestões disponíveis (modo gratuito)`
+                : `${suggestions.length} sugestões IA enriquecidas`;
+            this.updateStatus('success', statusText);
+            console.log('[AI-UI][RENDER] ✅ Status:', statusText);
         } else {
-            this.updateStatus('success', `${suggestions.length} sugestões disponíveis`);
+            this.updateStatus('success', `${displayCount} sugestões disponíveis`);
             console.log('[AI-UI][RENDER] ✅ Status: Sugestões base');
         }
         
@@ -1076,6 +1086,67 @@ class AISuggestionUIController {
     }
     
     /**
+     * � Filtrar sugestões para Reduced Mode
+     * Apenas "Estéreo" e "Dinâmica" são renderizadas
+     * @param {Array} suggestions - Array de sugestões
+     * @returns {Array} Sugestões filtradas
+     */
+    filterReducedModeSuggestions(suggestions) {
+        // Verificar se analysis está em modo reduced
+        const analysis = window.currentModalAnalysis;
+        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.plan === 'free';
+        
+        if (!isReducedMode) {
+            console.log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
+            return suggestions;
+        }
+        
+        console.log('[REDUCED-FILTER] 🔒 Modo Reduced detectado - filtrando sugestões...');
+        console.log('[REDUCED-FILTER] Total de sugestões:', suggestions.length);
+        
+        // Palavras-chave para identificar as sugestões permitidas
+        const allowedKeywords = {
+            estereo: ['estéreo', 'stereo', 'correlation', 'correlação', 'panorama', 'imagem estéreo'],
+            dinamica: ['dinâmica', 'dynamic', 'dr', 'range', 'compressão', 'compression', 'dynamics']
+        };
+        
+        const filtered = suggestions.filter(suggestion => {
+            const textToCheck = [
+                suggestion.categoria?.toLowerCase(),
+                suggestion.category?.toLowerCase(),
+                suggestion.problema?.toLowerCase(),
+                suggestion.message?.toLowerCase(),
+                suggestion.label?.toLowerCase(),
+                suggestion.title?.toLowerCase()
+            ].filter(Boolean).join(' ');
+            
+            // Verificar se contém palavras-chave de Estéreo
+            const isEstereo = allowedKeywords.estereo.some(keyword => 
+                textToCheck.includes(keyword.toLowerCase())
+            );
+            
+            // Verificar se contém palavras-chave de Dinâmica
+            const isDinamica = allowedKeywords.dinamica.some(keyword => 
+                textToCheck.includes(keyword.toLowerCase())
+            );
+            
+            const isAllowed = isEstereo || isDinamica;
+            
+            if (isAllowed) {
+                console.log('[REDUCED-FILTER] ✅ Sugestão permitida:', suggestion.categoria || suggestion.category || suggestion.label);
+            } else {
+                console.log('[REDUCED-FILTER] 🚫 Sugestão bloqueada:', suggestion.categoria || suggestion.category || suggestion.label);
+            }
+            
+            return isAllowed;
+        });
+        
+        console.log('[REDUCED-FILTER] 📊 Resultado: ', filtered.length, '/', suggestions.length, 'sugestões renderizadas');
+        
+        return filtered;
+    }
+    
+    /**
      * 📋 Renderizar cards de sugestões (UNIFIED)
      */
     renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null) {
@@ -1085,8 +1156,46 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
+        // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
+        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
+        
+        if (filteredSuggestions.length === 0) {
+            console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
+            // Exibir mensagem de upgrade
+            this.elements.aiContent.innerHTML = `
+                <div class="ai-reduced-notice" style="
+                    padding: 24px;
+                    text-align: center;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border-radius: 12px;
+                    margin: 20px 0;
+                ">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+                    <h3 style="margin: 0 0 12px 0;">Sugestões IA Limitadas</h3>
+                    <p style="margin: 0; opacity: 0.9;">
+                        No plano gratuito, você tem acesso apenas às sugestões de <b>Estéreo</b> e <b>Dinâmica</b>.
+                        Faça upgrade para acessar todas as sugestões técnicas avançadas.
+                    </p>
+                    <button style="
+                        margin-top: 20px;
+                        padding: 12px 24px;
+                        background: white;
+                        color: #667eea;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    " onclick="window.location.href='/planos.html'">
+                        Ver Planos
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
-        const validatedSuggestions = this.validateAndCorrectSuggestions(suggestions, genreTargets);
+        const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
         
         const cardsHtml = validatedSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
