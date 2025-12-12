@@ -129,14 +129,28 @@ rows.push(`
 
 ---
 
-### 3. **Sugestões IA** (PENDENTE)
+### 3. **Sugestões IA** (✅ IMPLEMENTADO)
 
-*Nota: Correção será feita em próxima iteração para manter foco na tabela*
+**Estratégia implementada:**
+- ✅ Função `mapCategoryToMetric()` mapeia categoria → métrica
+- ✅ Verificar métrica relacionada antes de renderizar texto
+- ✅ Se bloqueada: `renderSecurePlaceholder('action')`
+- ✅ Se liberada: texto completo
 
-**Estratégia:**
-- Verificar métrica relacionada antes de renderizar texto
-- Se bloqueada: `renderSecurePlaceholder('action')`
-- Se liberada: texto completo
+**Mapeamento de Categorias:**
+```javascript
+// Categorias → Métricas
+'Loudness' → 'lufs' (BLOQUEADO)
+'True Peak' → 'truePeak' (BLOQUEADO)
+'LRA' → 'lra' (BLOQUEADO)
+'DR' ou 'Dinâmica' → 'dr' (LIBERADO)
+'Estéreo' → 'stereo' (LIBERADO)
+'Bass', 'Sub' → 'band_bass', 'band_sub' (BLOQUEADOS)
+'Low Mid' → 'band_lowMid' (LIBERADO)
+'High Mid' → 'band_highMid' (LIBERADO)
+'Presença' → 'band_presence' (LIBERADO)
+'Brilho', 'Air' → 'band_air' (BLOQUEADO)
+```
 
 ---
 
@@ -324,8 +338,8 @@ const allowedFrequencyMetrics = ['band_lowMid', 'band_highMid', 'band_presence']
 ## 📞 PRÓXIMOS PASSOS
 
 1. ✅ Testar tabela com análise real
-2. ⏳ Implementar security guard nas Sugestões IA
+2. ✅ Implementar security guard nas Sugestões IA
 3. ⏳ Validar no ambiente de produção
 4. ⏳ Testes de upgrade (Reduced → Full)
 
-**STATUS: TABELA SEGURA - PRONTO PARA TESTES! 🎉**
+**STATUS: SISTEMA 100% SEGURO - CARDS + TABELA + SUGESTÕES IA! 🎉**

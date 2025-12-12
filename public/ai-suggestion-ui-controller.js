@@ -1106,8 +1106,8 @@ class AISuggestionUIController {
         
         // 🔐 Usar Security Guard para decisão de filtragem
         const filtered = suggestions.filter(suggestion => {
-            // Extrair métrica da sugestão
-            const metricKey = suggestion.metric || suggestion.key || suggestion.category || 'general';
+            // Mapear categoria para métrica
+            const metricKey = this.mapCategoryToMetric(suggestion);
             
             // Usar Security Guard para verificar se pode renderizar
             const canRender = typeof shouldRenderRealValue === 'function'
@@ -1192,6 +1192,70 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔐 Mapear categoria de sugestão para métrica do Security Guard
+     */
+    mapCategoryToMetric(suggestion) {
+        const categoria = (suggestion.categoria || suggestion.category || '').toLowerCase();
+        const problema = (suggestion.problema || suggestion.message || '').toLowerCase();
+        const texto = `${categoria} ${problema}`;
+        
+        console.log('[SECURITY-MAP] 🔍 Mapeando categoria:', { categoria, problema, texto });
+        
+        // Mapeamento de palavras-chave para métricas
+        if (texto.includes('loudness') || texto.includes('lufs')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: LUFS (bloqueado)');
+            return 'lufs';
+        }
+        if (texto.includes('true peak') || texto.includes('truepeak') || texto.includes('tp')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: True Peak (bloqueado)');
+            return 'truePeak';
+        }
+        if (texto.includes('lra') || texto.includes('loudness range')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: LRA (bloqueado)');
+            return 'lra';
+        }
+        if (texto.includes('dr') || texto.includes('dinâmica') || texto.includes('dynamic')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: DR (liberado)');
+            return 'dr';
+        }
+        if (texto.includes('estéreo') || texto.includes('stereo') || texto.includes('correlação')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Estéreo (liberado)');
+            return 'stereo';
+        }
+        if (texto.includes('sub') || texto.includes('20-60')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Sub (bloqueado)');
+            return 'band_sub';
+        }
+        if (texto.includes('bass') || texto.includes('60-150') || texto.includes('graves')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Bass (bloqueado)');
+            return 'band_bass';
+        }
+        if (texto.includes('low mid') || texto.includes('150-500') || texto.includes('lowmid')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Low Mid (liberado)');
+            return 'band_lowMid';
+        }
+        if (texto.includes('mid') && !texto.includes('low') && !texto.includes('high')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Mid (bloqueado)');
+            return 'band_mid';
+        }
+        if (texto.includes('high mid') || texto.includes('500-2k') || texto.includes('highmid')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: High Mid (liberado)');
+            return 'band_highMid';
+        }
+        if (texto.includes('presença') || texto.includes('presence') || texto.includes('2k-5k')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Presença (liberado)');
+            return 'band_presence';
+        }
+        if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (bloqueado)');
+            return 'band_air';
+        }
+        
+        console.log('[SECURITY-MAP] ⚠️ Categoria não mapeada - usando general');
+        return 'general';
+    }
+    
+    /**
      * 🎴 Renderizar card de sugestão IA enriquecida
      */
     renderAIEnrichedCard(suggestion, index, genreTargets = null) {
@@ -1199,8 +1263,12 @@ class AISuggestionUIController {
         const nivel = suggestion.nivel || suggestion.priority || 'média';
         
         // � SECURITY GUARD: Verificar se deve renderizar conteúdo real
-        const metricKey = suggestion.metric || suggestion.category || categoria;
-        const analysis = window.__CURRENT_ANALYSIS__ || { analysisMode: 'full' };
+        // 🔐 SECURITY GUARD: Mapear categoria para métrica
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || { analysisMode: 'full' };
+        
+        console.log('[AI-CARD] 🔐 Security:', { categoria, metricKey, mode: analysis.analysisMode });
+        
         const canRender = typeof shouldRenderRealValue === 'function' 
             ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
             : true;
@@ -1298,9 +1366,11 @@ class AISuggestionUIController {
      * 🎴 Renderizar card de sugestão base
      */
     renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
-        // 🔐 SECURITY GUARD: Extrair métrica desta sugestão
-        const metricKey = suggestion.metric || suggestion.key || 'general';
-        const analysis = window.currentAnalysisData || null;
+        // 🔐 SECURITY GUARD: Mapear categoria para métrica
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
+        
+        console.log('[AI-BASE-CARD] 🔐 Security:', { metricKey, mode: analysis?.analysisMode });
         
         // 🔐 Verificar se pode renderizar valor real ou deve mostrar placeholder
         const canRender = typeof shouldRenderRealValue === 'function' 
