@@ -1,0 +1,188 @@
+/* ============================================
+   🔒 SECURE RENDER STYLES
+   Estilos para sistema de renderização segura
+   ============================================ */
+
+/* Valor bloqueado (placeholder) */
+.blocked-value {
+    display: inline-block;
+    font-family: monospace;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+    user-select: none;
+    pointer-events: none;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.blocked-value::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    z-index: -1;
+}
+
+/* Valor permitido (normal) */
+.allowed-value {
+    display: inline-block;
+    color: inherit;
+}
+
+/* Valor inválido (traço) */
+.invalid-value {
+    display: inline-block;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Hover em valor bloqueado mostra tooltip */
+.blocked-value[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: 0;
+    z-index: 1000;
+    margin-bottom: 5px;
+    pointer-events: none;
+}
+
+/* Animação sutil para valores bloqueados */
+@keyframes pulse-lock {
+    0%, 100% {
+        opacity: 0.3;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.blocked-value:hover {
+    animation: pulse-lock 2s ease-in-out infinite;
+}
+
+/* Compatibilidade com sistema antigo de máscaras */
+.metric-blur {
+    /* Manter CSS antigo para compatibilidade */
+    filter: blur(7px) !important;
+    opacity: 0.4 !important;
+}
+
+/* Garantir que labels nunca sejam afetados */
+.metric-label,
+.kpi-label,
+[class*="label"]:not(.blocked-value):not(.allowed-value) {
+    filter: none !important;
+    opacity: 1 !important;
+    user-select: text !important;
+    pointer-events: auto !important;
+}
+
+/* Estilo específico para KPIs bloqueados */
+.kpi .blocked-value {
+    font-size: 1.5em;
+    letter-spacing: 3px;
+}
+
+/* Estilo específico para tabelas */
+td .blocked-value,
+th .blocked-value {
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    .blocked-value {
+        color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .blocked-value::before {
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
+/* Modo Reduced - Banner de upgrade compacto */
+.upgrade-notice-compact {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 0 0 16px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.upgrade-notice-icon {
+    font-size: 1.5em;
+    flex-shrink: 0;
+}
+
+.upgrade-notice-content {
+    flex: 1;
+}
+
+.upgrade-notice-content h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
+.upgrade-notice-content p {
+    margin: 0;
+    font-size: 0.85em;
+    opacity: 0.9;
+    line-height: 1.4;
+}
+
+.upgrade-notice-btn {
+    padding: 8px 16px;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.upgrade-notice-btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .upgrade-notice-compact {
+        flex-direction: column;
+        text-align: center;
+        padding: 16px;
+    }
+    
+    .upgrade-notice-icon {
+        font-size: 2em;
+    }
+    
+    .upgrade-notice-btn {
+        width: 100%;
+    }
+}
