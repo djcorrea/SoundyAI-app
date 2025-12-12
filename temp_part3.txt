@@ -1,0 +1,1153 @@
+﻿                       (suggestion.aiEnhanced === false && suggestion.recommendation
+                           ? this.buildDefaultSolutionMessage(suggestion)
+                           : suggestion.action || 'SoluÃ§Ã£o nÃ£o especificada');
+        
+        const plugin = suggestion.pluginRecomendado || 'NÃ£o especificado';
+        const dica = suggestion.dicaExtra || null;
+        const parametros = suggestion.parametros || null;
+        
+        // âœ… Badge de validaÃ§Ã£o de targets
+        const isValidated = suggestion._validated === true;
+        const realTarget = suggestion._realTarget;
+        const validationBadge = (isValidated && realTarget !== undefined) 
+            ? `<div class="ai-validation-badge" title="Target validado: ${realTarget.toFixed(1)} dB">âœ“ Validado</div>` 
+            : '';
+        
+        return `
+            <div class="ai-suggestion-card ai-enriched ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                <div class="ai-suggestion-header">
+                    <span class="ai-suggestion-category">${categoria}</span>
+                    <div class="ai-suggestion-priority ${this.getPriorityClass(nivel)}">${nivel}</div>
+                    ${validationBadge}
+                </div>
+                
+                <div class="ai-suggestion-content">
+                    <div class="ai-block ai-block-problema">
+                        <div class="ai-block-title">âš ï¸ Problema</div>
+                        <div class="ai-block-content">${problema}</div>
+                    </div>
+                    
+                    <div class="ai-block ai-block-causa">
+                        <div class="ai-block-title">ðŸŽ¯ Causa ProvÃ¡vel</div>
+                        <div class="ai-block-content">${causaProvavel}</div>
+                    </div>
+                    
+                    <div class="ai-block ai-block-solucao">
+                        <div class="ai-block-title">ðŸ› ï¸ SoluÃ§Ã£o</div>
+                        <div class="ai-block-content">${solucao}</div>
+                    </div>
+                    
+                    <div class="ai-block ai-block-plugin">
+                        <div class="ai-block-title">ðŸŽ›ï¸ Plugin Recomendado</div>
+                        <div class="ai-block-content">${plugin}</div>
+                    </div>
+                    
+                    ${dica ? `
+                        <div class="ai-block ai-block-dica">
+                            <div class="ai-block-title">ðŸ’¡ Dica Extra</div>
+                            <div class="ai-block-content">${dica}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${parametros ? `
+                        <div class="ai-block ai-block-parametros">
+                            <div class="ai-block-title">âš™ï¸ ParÃ¢metros</div>
+                            <div class="ai-block-content">${parametros}</div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                <div class="ai-enrichment-badge">
+                    <span class="ai-badge-icon">ðŸ¤–</span>
+                    <span class="ai-badge-text">Enriquecido por IA</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * ðŸŽ´ Renderizar card de sugestÃ£o base
+     */
+    renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
+        // ðŸ” SECURITY GUARD: PRIMEIRA COISA - Verificar modo
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
+        
+        const canRender = typeof shouldRenderRealValue === 'function' 
+            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+            : true;
+        
+        console.log('[AI-BASE-CARD] ðŸ” Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        
+        const category = suggestion.category || suggestion.type || 'Geral';
+        const priority = suggestion.priority || 5;
+        
+        // ðŸ”’ SE BLOQUEADO: Return imediato SEM TOCAR em suggestion.texto
+        if (!canRender) {
+            console.log('[AI-BASE-CARD] ðŸ”’ BLOCKED: Retornando placeholder estÃ¡tico');
+            
+            return `
+                <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-category">${category}</span>
+                        <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    </div>
+                    
+                    <div class="ai-suggestion-content">
+                        <div class="ai-block ai-block-problema blocked-block">
+                            <div class="ai-block-title">âš ï¸ ObservaÃ§Ã£o</div>
+                            <div class="ai-block-content"><span class="blocked-value">ðŸ”’ DisponÃ­vel no plano Pro</span></div>
+                        </div>
+                        
+                        <div class="ai-block ai-block-solucao blocked-block">
+                            <div class="ai-block-title">ðŸ› ï¸ RecomendaÃ§Ã£o</div>
+                            <div class="ai-block-content"><span class="blocked-value">ðŸ”’ DisponÃ­vel no plano Pro</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-base-notice">ðŸ’¡ Configure API Key OpenAI</div>
+                </div>
+            `;
+        }
+        
+        // âœ… MODO FULL: Acessar texto normalmente
+        console.log('[AI-BASE-CARD] âœ… FULL: Renderizando texto completo');
+        
+        const message = suggestion.message || suggestion.title || 'Mensagem nÃ£o especificada';
+        const action = suggestion.action || suggestion.description || 'AÃ§Ã£o nÃ£o especificada';
+        
+        // âœ… Badge de validaÃ§Ã£o de targets
+        const isValidated = suggestion._validated === true;
+        const realTarget = suggestion._realTarget;
+        const validationBadge = (isValidated && realTarget !== undefined) 
+            ? `<div class="ai-validation-badge" title="Target validado: ${realTarget.toFixed(1)} dB">âœ“ Validado</div>` 
+            : '';
+        
+        return `
+            <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                <div class="ai-suggestion-header">
+                    <span class="ai-suggestion-category">${category}</span>
+                    <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    ${validationBadge}
+                </div>
+                
+                <div class="ai-suggestion-content">
+                    <div class="ai-block ai-block-problema">
+                        <div class="ai-block-title">âš ï¸ ObservaÃ§Ã£o</div>
+                        <div class="ai-block-content">${message}</div>
+                    </div>
+                    
+                    <div class="ai-block ai-block-solucao">
+                        <div class="ai-block-title">ðŸ› ï¸ RecomendaÃ§Ã£o</div>
+                        <div class="ai-block-content">${action}</div>
+                    </div>
+                </div>
+                
+                <div class="ai-base-notice">
+                    ðŸ’¡ Configure API Key OpenAI para anÃ¡lise inteligente
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * ï¿½ Exibir estado de espera para faixa de referÃªncia
+     */
+    displayWaitingForReferenceState() {
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.warn('[UI-GUARD] âš ï¸ Elementos aiSection/aiContent nÃ£o encontrados');
+            return;
+        }
+        
+        console.log('[UI-GUARD] ðŸŽ§ Exibindo estado de espera para comparaÃ§Ã£o');
+        
+        this.elements.aiSection.style.display = 'block';
+        this.elements.aiContent.innerHTML = `
+            <div style="
+                grid-column: 1 / -1;
+                text-align: center;
+                padding: 60px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 16px;
+                color: white;
+            ">
+                <div style="font-size: 64px; margin-bottom: 20px;">ðŸŽµ</div>
+                <h3 style="font-size: 24px; margin: 0 0 16px 0; font-weight: 600;">
+                    AnÃ¡lise Base ConcluÃ­da
+                </h3>
+                <p style="font-size: 16px; margin: 0 0 24px 0; opacity: 0.9;">
+                    Esta Ã© a faixa de referÃªncia (A).
+                </p>
+                <p style="font-size: 16px; margin: 0 0 12px 0; font-weight: 500;">
+                    Para ver sugestÃµes comparativas:
+                </p>
+                <ol style="
+                    display: inline-block;
+                    text-align: left;
+                    font-size: 15px;
+                    line-height: 1.8;
+                    margin: 0 0 24px 0;
+                    padding-left: 20px;
+                ">
+                    <li>Envie uma segunda faixa (B) para comparaÃ§Ã£o</li>
+                    <li>Selecione esta anÃ¡lise como referÃªncia</li>
+                    <li>A IA gerarÃ¡ sugestÃµes detalhadas A vs B</li>
+                </ol>
+                <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 24px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                ">
+                    <span>ðŸ’¡</span>
+                    <span>Aguardando comparaÃ§Ã£o</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * ï¿½ðŸŽ¨ DEPRECATED: MÃ©todo antigo mantido para compatibilidade
+     */
+    displayAISuggestions(suggestions, analysis) {
+        console.warn('[AI-UI] displayAISuggestions() DEPRECATED - use renderAISuggestions()');
+        this.renderAISuggestions(suggestions);
+    }
+    
+    /**
+     * ðŸŽ¨ DEPRECATED: MÃ©todo antigo mantido para compatibilidade
+     */
+    displayBaseSuggestions(suggestions, analysis) {
+        console.warn('[AI-UI] displayBaseSuggestions() DEPRECATED - use renderAISuggestions()');
+        this.renderAISuggestions(suggestions);
+    }
+    
+    /**
+     * ðŸ“‹ DEPRECATED: MÃ©todo antigo mantido para compatibilidade
+     */
+    renderCompactPreview(suggestions, isBaseSuggestions = false) {
+        console.warn('[AI-UI] renderCompactPreview() DEPRECATED - use renderSuggestionCards()');
+        this.renderSuggestionCards(suggestions, !isBaseSuggestions);
+    }
+    
+    /**
+     * ðŸ’¡ Adicionar prompt de configuraÃ§Ã£o para sugestÃµes base
+     */
+    addConfigPrompt() {
+        if (!this.elements.aiContent) return;
+        
+        const configPrompt = document.createElement('div');
+        configPrompt.className = 'ai-config-prompt';
+        configPrompt.innerHTML = `
+            <div class="ai-config-message">
+                <span class="ai-config-icon">ðŸš€</span>
+                <div class="ai-config-text">
+                    <strong>Quer sugestÃµes mais inteligentes?</strong>
+                    <p>Configure sua API Key da OpenAI para receber anÃ¡lises detalhadas com IA</p>
+                </div>
+                <button class="action-btn primary" onclick="aiUIController.showQuickConfig()">
+                    âš™ï¸ Configurar IA
+                </button>
+            </div>
+        `;
+        
+        this.elements.aiContent.appendChild(configPrompt);
+    }
+    
+    /**
+     * ðŸ”˜ Adicionar botÃ£o de expandir
+     */
+    addExpandButton() {
+        if (!this.elements.aiContent) return;
+        
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'action-btn secondary ai-expand-btn';
+        expandBtn.innerHTML = 'ðŸ” Ver Detalhes Completos';
+        expandBtn.onclick = () => this.openFullModal();
+        
+        this.elements.aiContent.appendChild(expandBtn);
+    }
+    
+    /**
+     * ðŸ–¥ï¸ Abrir modal em tela cheia
+     */
+    openFullModal() {
+        if (!this.elements.fullModal || !this.currentSuggestions.length) return;
+        
+        // Renderizar conteÃºdo completo
+        this.renderFullSuggestions(this.currentSuggestions);
+        
+        // Exibir modal
+        this.elements.fullModal.style.display = 'flex';
+        setTimeout(() => {
+            this.elements.fullModal.classList.add('show');
+        }, 10);
+        
+        this.isFullModalOpen = true;
+        document.body.style.overflow = 'hidden';
+        
+        // Atualizar estatÃ­sticas
+        this.updateFullModalStats();
+        
+        console.log('ðŸ–¥ï¸ [AI-UI] Modal full aberto');
+    }
+    
+    /**
+     * âŒ Fechar modal em tela cheia
+     */
+    closeFullModal() {
+        if (!this.elements.fullModal) return;
+        
+        this.elements.fullModal.classList.remove('show');
+        setTimeout(() => {
+            this.elements.fullModal.style.display = 'none';
+        }, 300);
+        
+        this.isFullModalOpen = false;
+        document.body.style.overflow = '';
+        
+        console.log('âŒ [AI-UI] Modal full fechado');
+    }
+    
+    /**
+     * ðŸŽ¯ Renderizar sugestÃµes completas no modal
+     */
+    renderFullSuggestions(suggestions) {
+        if (!this.elements.fullModalContent) return;
+        
+        const gridHtml = suggestions.map((suggestion, index) => {
+            return this.renderFullSuggestionCard(suggestion, index);
+        }).join('');
+        
+        this.elements.fullModalContent.innerHTML = `
+            <div class="ai-suggestions-grid">
+                ${gridHtml}
+            </div>
+        `;
+    }
+    
+    /**
+     * ðŸŽ´ Renderizar card completo de sugestÃ£o
+     */
+    renderFullSuggestionCard(suggestion, index) {
+        // ðŸ” SECURITY GUARD: Verificar modo PRIMEIRO
+        const metricKey = this.mapCategoryToMetric(suggestion);
+        const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+        
+        const canRender = typeof shouldRenderRealValue === 'function' 
+            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+            : true;
+        
+        console.log('[AI-FULL-CARD] ðŸ” Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        
+        // ðŸ”’ SE BLOQUEADO: Return placeholder SEM acessar ai_blocks
+        if (!canRender) {
+            console.log('[AI-FULL-CARD] ðŸ”’ BLOCKED: Placeholder estÃ¡tico');
+            const category = suggestion.ai_category || 'geral';
+            const priority = suggestion.ai_priority || 5;
+            
+            return `
+                <div class="ai-suggestion-card blocked-card" style="animation-delay: ${index * 0.1}s">
+                    <span class="ai-suggestion-category">${category}</span>
+                    <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    
+                    <div class="ai-suggestion-blocks">
+                        <div class="ai-block blocked-block">
+                            <div class="ai-block-title">âš ï¸ ConteÃºdo</div>
+                            <div class="ai-block-content"><span class="blocked-value">ðŸ”’ DisponÃ­vel no plano Pro</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-pro-badge">â­ Plano Pro</div>
+                </div>
+            `;
+        }
+        
+        // âœ… FULL MODE: Acessa ai_blocks normalmente
+        console.log('[AI-FULL-CARD] âœ… FULL: Texto completo');
+        
+        const category = suggestion.ai_category || 'geral';
+        const priority = suggestion.ai_priority || 5;
+        const blocks = suggestion.ai_blocks || {};
+        const technical = suggestion.ai_technical_details || {};
+        
+        const blocksHtml = Object.entries(blocks).map(([key, content]) => {
+            const icons = {
+                problema: 'âš ï¸',
+                causa: 'ðŸŽ¯',
+                solucao: 'ðŸ› ï¸',
+                dica: 'ðŸ’¡'
+            };
+            
+            return `
+                <div class="ai-block ai-block-${key}">
+                    <div class="ai-block-title">${icons[key] || 'ðŸ“'} ${key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                    <div class="ai-block-content">${content}</div>
+                </div>
+            `;
+        }).join('');
+        
+        const technicalHtml = technical.tools_suggested ? `
+            <div class="ai-technical-details">
+                <div class="ai-tech-row">
+                    <span class="ai-tech-label">Dificuldade:</span>
+                    <span class="ai-tech-value">${technical.difficulty || 'IntermediÃ¡rio'}</span>
+                </div>
+                ${technical.frequency_range ? `
+                    <div class="ai-tech-row">
+                        <span class="ai-tech-label">FrequÃªncia:</span>
+                        <span class="ai-tech-value">${technical.frequency_range}</span>
+                    </div>
+                ` : ''}
+                <div class="ai-tools-list">
+                    ${technical.tools_suggested.map(tool => `
+                        <span class="ai-tool-tag">${tool}</span>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
+        
+        return `
+            <div class="ai-suggestion-card ai-new" style="animation-delay: ${index * 0.1}s">
+                <span class="ai-suggestion-category">${category}</span>
+                <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                
+                <div class="ai-suggestion-blocks">
+                    ${blocksHtml}
+                </div>
+                
+                ${technicalHtml}
+            </div>
+        `;
+    }
+    
+    /**
+     * ðŸ“Š Atualizar estatÃ­sticas do modal
+     */
+    updateFullModalStats() {
+        if (this.elements.aiStatsCount) {
+            this.elements.aiStatsCount.textContent = this.currentSuggestions.length;
+        }
+        
+        if (this.elements.aiStatsModel && window.aiSuggestionLayer) {
+            this.elements.aiStatsModel.textContent = window.aiSuggestionLayer.model.toUpperCase();
+        }
+        
+        if (this.elements.aiStatsTime && window.aiSuggestionLayer) {
+            const stats = window.aiSuggestionLayer.getStats();
+            this.elements.aiStatsTime.textContent = `${stats.averageResponseTime.toFixed(0)}ms`;
+        }
+    }
+    
+    /**
+     * ðŸŽ¯ Obter classe CSS para prioridade
+     */
+    getPriorityClass(priority) {
+        if (priority >= 8) return 'high';
+        if (priority >= 5) return 'medium';
+        return 'low';
+    }
+    
+    /**
+     * ðŸ“± Atualizar status da IA
+     */
+    updateStatus(type, message) {
+        console.log('[AI-STATUS] Atualizando status:', { type, message });
+        
+        if (!this.elements.aiStatusBadge) {
+            console.warn('[AI-STATUS] âš ï¸ aiStatusBadge nÃ£o encontrado');
+            return;
+        }
+        
+        // Buscar elementos filhos (se existirem)
+        const statusDot = this.elements.aiStatusBadge.querySelector('.ai-status-dot');
+        const statusText = this.elements.aiStatusBadge.querySelector('.ai-status-text');
+        
+        console.log('[AI-STATUS] Elementos encontrados:', {
+            statusDot: !!statusDot,
+            statusText: !!statusText
+        });
+        
+        // Remover classes anteriores
+        this.elements.aiStatusBadge.className = 'ai-status-indicator ' + type;
+        
+        // Atualizar dot (se existir)
+        if (statusDot) {
+            // Classes de cor para o dot
+            const dotClasses = {
+                processing: 'pulsing',
+                success: 'success',
+                error: 'error',
+                disabled: 'disabled'
+            };
+            statusDot.className = 'ai-status-dot ' + (dotClasses[type] || '');
+        }
+        
+        // Atualizar texto (se existir)
+        if (statusText) {
+            statusText.textContent = message;
+        }
+        
+        console.log('[AI-STATUS] âœ… Status atualizado para:', type);
+    }
+    
+    /**
+     * ðŸ·ï¸ Atualizar badge do modelo
+     */
+    updateModelBadge() {
+        if (!this.elements.aiModelBadge || !window.aiSuggestionLayer) return;
+        
+        this.elements.aiModelBadge.textContent = window.aiSuggestionLayer.model.toUpperCase();
+    }
+    
+    /**
+     * ðŸ™ˆ Ocultar seÃ§Ã£o de IA
+     */
+    hideAISection() {
+        if (this.elements.aiSection) {
+            this.elements.aiSection.style.display = 'none';
+        }
+    }
+    
+    /**
+     * ðŸ“­ Exibir estado vazio com mensagem amigÃ¡vel
+     */
+    displayEmptySuggestionsState() {
+        console.log('[AI-SUGGESTIONS] ðŸ“­ Exibindo estado vazio com mensagem amigÃ¡vel');
+        
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.error('[AI-SUGGESTIONS] âŒ Elementos DOM nÃ£o encontrados para estado vazio');
+            return;
+        }
+        
+        // Esconder loading
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'none';
+        }
+        
+        // Mostrar seÃ§Ã£o
+        this.elements.aiSection.style.display = 'block';
+        this.elements.aiContent.style.display = 'block';
+        
+        // Renderizar mensagem amigÃ¡vel
+        this.elements.aiContent.innerHTML = `
+            <div class="ai-empty-state" style="
+                padding: 30px;
+                text-align: center;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 8px;
+                border: 1px dashed rgba(255, 255, 255, 0.1);
+            ">
+                <div style="font-size: 48px; margin-bottom: 15px;">âœ¨</div>
+                <h3 style="color: #52f7ad; margin-bottom: 10px;">AnÃ¡lise Completa</h3>
+                <p style="color: #aaa; margin-bottom: 20px;">
+                    Suas mÃ©tricas de Ã¡udio foram analisadas com sucesso.<br>
+                    Revise os cards de mÃ©tricas acima para detalhes tÃ©cnicos.
+                </p>
+                <div style="font-size: 12px; color: #666; margin-top: 20px;">
+                    ðŸ’¡ Configure uma API Key da OpenAI para receber sugestÃµes inteligentes personalizadas
+                </div>
+            </div>
+        `;
+        
+        console.log('[AI-SUGGESTIONS] âœ… Estado vazio renderizado');
+    }
+    
+    /**
+     * ðŸ• Exibir estado de carregamento durante polling
+     * FunÃ§Ã£o que estava faltando - referenciada mas nÃ£o implementada
+     */
+    showLoadingState(message = 'Aguardando anÃ¡lise da IA...') {
+        if (!this.elements.aiSection) {
+            console.warn('[AI-UI] showLoadingState: aiSection nÃ£o encontrado');
+            return;
+        }
+        
+        this.elements.aiSection.style.display = 'block';
+        
+        // Se aiLoading existe, apenas atualizar mensagem
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'block';
+            const messageEl = this.elements.aiLoading.querySelector('p');
+            if (messageEl) {
+                messageEl.textContent = message;
+            }
+            return;
+        }
+        
+        // Fallback: renderizar no aiContent
+        if (this.elements.aiContent) {
+            this.elements.aiContent.innerHTML = `
+                <div style="
+                    grid-column: 1 / -1;
+                    text-align: center;
+                    padding: 60px 20px;
+                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                    border-radius: 16px;
+                    color: white;
+                ">
+                    <div style="font-size: 48px; animation: pulse 1.5s ease-in-out infinite;">
+                        ðŸ¤–
+                    </div>
+                    <h3>Conectando com sistema de IA</h3>
+                    <p>${message}</p>
+                    <div style="animation: spin 1s linear infinite;">
+                        Processando...
+                    </div>
+                </div>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.1); opacity: 0.8; }
+                    }
+                </style>
+            `;
+        }
+    }
+    
+    /**
+     * ðŸ”„ Toggle da camada de IA
+     */
+    toggleAILayer() {
+        if (typeof window.toggleAI === 'function') {
+            const isEnabled = window.toggleAI();
+            
+            if (isEnabled) {
+                this.updateStatus('success', 'IA ativada');
+                this.checkForExistingAISuggestions();
+            } else {
+                this.updateStatus('disabled', 'IA desativada');
+                this.hideAISection();
+            }
+            
+            // Atualizar texto do botÃ£o
+            const toggleBtn = document.getElementById('aiToggleText');
+            if (toggleBtn) {
+                toggleBtn.textContent = isEnabled ? 'Desativar IA' : 'Ativar IA';
+            }
+        }
+    }
+    
+    /**
+     * ðŸ’¾ Download das sugestÃµes IA
+     */
+    downloadAISuggestions() {
+        if (!this.currentSuggestions.length) return;
+        
+        const report = this.generateAISuggestionsReport();
+        const blob = new Blob([report], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sugestoes-ia-${new Date().toISOString().slice(0, 10)}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        console.log('ðŸ’¾ [AI-UI] RelatÃ³rio de sugestÃµes IA baixado');
+    }
+    
+    /**
+     * ðŸ“„ Gerar relatÃ³rio das sugestÃµes IA
+     */
+    generateAISuggestionsReport() {
+        const timestamp = new Date().toLocaleString('pt-BR');
+        
+        let report = `# ðŸ¤– RelatÃ³rio de SugestÃµes Inteligentes SoundyAI\n\n`;
+        report += `**Gerado em:** ${timestamp}\n`;
+        report += `**Total de sugestÃµes:** ${this.currentSuggestions.length}\n`;
+        report += `**Modelo de IA:** ${window.aiSuggestionLayer?.model || 'N/A'}\n\n`;
+        
+        this.currentSuggestions.forEach((suggestion, index) => {
+            const blocks = suggestion.ai_blocks || {};
+            const technical = suggestion.ai_technical_details || {};
+            
+            report += `## ${index + 1}. ${suggestion.ai_category || 'SugestÃ£o'}\n\n`;
+            
+            if (blocks.problema) {
+                report += `### âš ï¸ Problema\n${blocks.problema}\n\n`;
+            }
+            
+            if (blocks.causa) {
+                report += `### ðŸŽ¯ Causa\n${blocks.causa}\n\n`;
+            }
+            
+            if (blocks.solucao) {
+                report += `### ðŸ› ï¸ SoluÃ§Ã£o\n${blocks.solucao}\n\n`;
+            }
+            
+            if (blocks.dica) {
+                report += `### ðŸ’¡ Dica\n${blocks.dica}\n\n`;
+            }
+            
+            if (technical.tools_suggested) {
+                report += `**Ferramentas recomendadas:** ${technical.tools_suggested.join(', ')}\n\n`;
+            }
+            
+            report += `---\n\n`;
+        });
+        
+        return report;
+    }
+    
+    /**
+     * ðŸ’¬ Enviar sugestÃµes para chat
+     */
+    sendAISuggestionsToChat() {
+        if (!this.currentSuggestions.length) return;
+        
+        const summary = this.generateChatSummary();
+        
+        // Integrar com sistema de chat existente
+        if (typeof window.sendModalAnalysisToChat === 'function') {
+            // Usar sistema existente como base
+            window.sendModalAnalysisToChat();
+        } else if (window.prodAIChatbot) {
+            const message = `ðŸ¤– SugestÃµes Inteligentes de Ãudio:\n\n${summary}`;
+            window.prodAIChatbot.sendMessage(message);
+        }
+        
+        console.log('ðŸ’¬ [AI-UI] SugestÃµes enviadas para chat');
+    }
+    
+    /**
+     * ðŸ“ Gerar resumo para chat
+     */
+    generateChatSummary() {
+        // ðŸ” SECURITY: Verificar modo reduced
+        const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+        const isReducedMode = analysis && (
+            analysis.analysisMode === 'reduced' || 
+            analysis.plan === 'free' ||
+            analysis.isReduced === true
+        );
+        
+        // ðŸ”’ SE BLOQUEADO: Retornar mensagem genÃ©rica
+        if (isReducedMode) {
+            console.log('[CHAT-SUMMARY] ðŸ”’ BLOCKED: Resumo genÃ©rico');
+            return `Analisei seu Ã¡udio e identifiquei ${this.currentSuggestions.length} pontos de melhoria.\n\nðŸ”’ Upgrade para o plano Pro para ver sugestÃµes detalhadas da IA.`;
+        }
+        
+        // âœ… FULL MODE: Gerar resumo completo
+        let summary = `Analisei seu Ã¡udio e a IA gerou ${this.currentSuggestions.length} sugestÃµes especÃ­ficas:\n\n`;
+        
+        this.currentSuggestions.slice(0, 5).forEach((suggestion, index) => {
+            // Verificar se cada sugestÃ£o individual pode ser renderizada
+            const metricKey = this.mapCategoryToMetric(suggestion);
+            const canRender = typeof shouldRenderRealValue === 'function'
+                ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
+                : true;
+            
+            if (!canRender) {
+                summary += `${index + 1}. **${suggestion.ai_category || 'MÃ©trica Bloqueada'}**\n`;
+                summary += `   ðŸ”’ ConteÃºdo disponÃ­vel no plano Pro\n\n`;
+                return;
+            }
+            
+            const problema = suggestion.ai_blocks?.problema || suggestion.message;
+            const solucao = suggestion.ai_blocks?.solucao || suggestion.action;
+            
+            summary += `${index + 1}. **${suggestion.ai_category || 'Problema'}**\n`;
+            summary += `   Problema: ${problema}\n`;
+            summary += `   SoluÃ§Ã£o: ${solucao}\n\n`;
+        });
+        
+        if (this.currentSuggestions.length > 5) {
+            summary += `... e mais ${this.currentSuggestions.length - 5} sugestÃµes.\n\n`;
+        }
+        
+        summary += 'VocÃª pode me ajudar a implementar essas melhorias?';
+        
+        return summary;
+    }
+    
+    /**
+     * ðŸŽ›ï¸ Exibir configuraÃ§Ã£o rÃ¡pida
+     */
+    showQuickConfig() {
+        // Implementar overlay de configuraÃ§Ã£o rÃ¡pida
+        const configHtml = `
+            <div class="ai-quick-config show">
+                <div class="ai-config-title">âš™ï¸ ConfiguraÃ§Ã£o RÃ¡pida da IA</div>
+                
+                <input type="password" 
+                       class="ai-config-input" 
+                       id="aiApiKeyInput" 
+                       placeholder="Sua API Key da OpenAI"
+                       value="">
+                
+                <select class="ai-config-input" id="aiModelSelect">
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo (PadrÃ£o)</option>
+                    <option value="gpt-4">GPT-4 (Pro)</option>
+                </select>
+                
+                <div class="ai-config-actions">
+                    <button class="ai-config-btn" onclick="aiUIController.cancelConfig()">Cancelar</button>
+                    <button class="ai-config-btn" onclick="aiUIController.saveConfig()">Salvar</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', configHtml);
+    }
+    
+    /**
+     * ðŸ’¾ Salvar configuraÃ§Ã£o
+     */
+    saveConfig() {
+        const apiKey = document.getElementById('aiApiKeyInput')?.value;
+        const model = document.getElementById('aiModelSelect')?.value;
+        
+        if (apiKey && window.aiSuggestionLayer) {
+            window.aiSuggestionLayer.setApiKey(apiKey, model);
+            this.updateStatus('success', 'ConfiguraÃ§Ã£o salva');
+            this.updateModelBadge();
+        }
+        
+        this.cancelConfig();
+    }
+    
+    /**
+     * âŒ Cancelar configuraÃ§Ã£o
+     */
+    cancelConfig() {
+        const configEl = document.querySelector('.ai-quick-config');
+        if (configEl) {
+            configEl.remove();
+        }
+    }
+    
+    /**
+     * ðŸ“Š Obter estatÃ­sticas da UI
+     */
+    getUIStats() {
+        return {
+            isInitialized: this.isInitialized,
+            currentSuggestionsCount: this.currentSuggestions.length,
+            isFullModalOpen: this.isFullModalOpen,
+            elementsFound: Object.values(this.elements).filter(el => el).length,
+            totalElements: Object.keys(this.elements).length
+        };
+    }
+
+    /**
+     * ðŸŽ¯ Atualizar interface com anÃ¡lise (mÃ©todo compatibilidade)
+     */
+    updateUI(analysis) {
+        console.log('ðŸŽ¯ [AI-UI] updateUI chamado:', {
+            hasAnalysis: !!analysis,
+            suggestionCount: analysis?.suggestions?.length || 0
+        });
+        
+        // Redirecionar para checkForAISuggestions que Ã© o mÃ©todo principal
+        if (analysis) {
+            this.checkForAISuggestions(analysis);
+        }
+    }
+
+    /**
+     * ðŸŽ¯ Vincular anÃ¡lise (mÃ©todo compatibilidade)
+     */
+    bindAnalysis(analysis) {
+        console.log('ðŸŽ¯ [AI-UI] bindAnalysis chamado:', {
+            hasAnalysis: !!analysis,
+            analysisKeys: analysis ? Object.keys(analysis) : null
+        });
+        
+        // Armazenar anÃ¡lise globalmente para acesso posterior
+        if (analysis) {
+            window.currentModalAnalysis = analysis;
+            // Processar sugestÃµes se disponÃ­veis
+            this.checkForAISuggestions(analysis);
+        }
+    }
+
+    /**
+     * ðŸŽ¯ Esconder seÃ§Ã£o IA (mÃ©todo compatibilidade)
+     */
+    hideAISection() {
+        if (this.elements.aiSection) {
+            this.elements.aiSection.style.display = 'none';
+            console.log('ðŸŽ¯ [AI-UI] SeÃ§Ã£o IA ocultada');
+        }
+    }
+
+    /**
+     * ðŸŽ¨ Renderizar cards de mÃ©tricas (compatibilidade com audio-analyzer-integration.js)
+     * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
+     */
+    renderMetricCards(payload) {
+        console.log('[AUDITORIA] âœ… renderMetricCards chamado com payload:', {
+            mode: payload?.mode,
+            hasUser: !!payload?.user,
+            hasReference: !!payload?.reference,
+            userFile: payload?.user?.metadata?.fileName || payload?.user?.fileName,
+            refFile: payload?.reference?.metadata?.fileName || payload?.reference?.fileName
+        });
+
+        // Esta funÃ§Ã£o Ã© chamada pelo audio-analyzer-integration.js
+        // Por enquanto, apenas loga os dados recebidos
+        // TODO: Implementar renderizaÃ§Ã£o real dos cards de mÃ©tricas
+        
+        if (!payload) {
+            console.warn('[AI-UI] renderMetricCards: payload vazio');
+            return;
+        }
+
+        // Armazenar anÃ¡lise atual globalmente
+        if (payload.mode === 'single') {
+            window.currentModalAnalysis = payload.user;
+        } else if (payload.mode === 'reference') {
+            window.currentModalAnalysis = {
+                mode: 'reference',
+                userAnalysis: payload.user,
+                referenceAnalysis: payload.reference
+            };
+        }
+
+        console.log('[AI-UI] renderMetricCards: Dados armazenados em window.currentModalAnalysis');
+    }
+
+    /**
+     * ðŸŽ¯ Renderizar seÃ§Ã£o de score (compatibilidade com audio-analyzer-integration.js)
+     * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
+     */
+    renderScoreSection(payload) {
+        console.log('[AUDITORIA] âœ… renderScoreSection chamado com payload:', {
+            mode: payload?.mode,
+            hasUser: !!payload?.user,
+            hasReference: !!payload?.reference
+        });
+
+        // Esta funÃ§Ã£o Ã© chamada pelo audio-analyzer-integration.js
+        // Por enquanto, apenas loga os dados recebidos
+        // TODO: Implementar renderizaÃ§Ã£o real da seÃ§Ã£o de score
+        
+        if (!payload) {
+            console.warn('[AI-UI] renderScoreSection: payload vazio');
+            return;
+        }
+
+        console.log('[AI-UI] renderScoreSection: Score calculado e pronto para renderizaÃ§Ã£o');
+    }
+
+    /**
+     * ðŸ’¡ Renderizar sugestÃµes (compatibilidade com audio-analyzer-integration.js)
+     * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
+     */
+    renderSuggestions(payload) {
+        console.log('[AUDITORIA] âœ… renderSuggestions chamado com payload:', {
+            mode: payload?.mode,
+            hasUser: !!payload?.user,
+            hasReference: !!payload?.reference,
+            hasTargets: !!payload?.targets,
+            suggestionCount: payload?.user?.suggestions?.length || 0
+        });
+
+        // Esta funÃ§Ã£o Ã© chamada pelo audio-analyzer-integration.js
+        // Delega para checkForAISuggestions se houver sugestÃµes
+        
+        if (!payload || !payload.user) {
+            console.warn('[AI-UI] renderSuggestions: payload ou user vazio');
+            return;
+        }
+
+        // ðŸ©¹ PATCH: Detectar modo gÃªnero e armazenar targets para futuras validaÃ§Ãµes
+        const mode = payload.mode || payload.user.mode || 'single';
+        const hasGenreTargets = !!(payload.targets || payload.user.data?.genreTargets);
+        
+        if (mode === 'genre' && hasGenreTargets) {
+            console.log('[AI-UI] ðŸŽ¯ Modo GÃŠNERO detectado com targets:', {
+                mode,
+                hasTargets: hasGenreTargets,
+                targetsKeys: payload.targets ? Object.keys(payload.targets) : 
+                            payload.user.data?.genreTargets ? Object.keys(payload.user.data.genreTargets) : null
+            });
+            
+            // Armazenar targets no payload do usuÃ¡rio para uso futuro
+            payload.user.__genreTargets = payload.targets || payload.user.data?.genreTargets;
+        } else if (mode === 'genre' && !hasGenreTargets) {
+            console.warn('[AI-UI] âš ï¸ Modo GÃŠNERO sem targets - validaÃ§Ã£o de comparaÃ§Ã£o DESABILITADA');
+            console.warn('[AI-UI] âœ… SugestÃµes e mÃ©tricas serÃ£o exibidas normalmente');
+        }
+
+        // Verificar se hÃ¡ sugestÃµes para exibir
+        if (payload.user.suggestions && payload.user.suggestions.length > 0) {
+            console.log('[AI-UI] renderSuggestions: Delegando para checkForAISuggestions');
+            this.checkForAISuggestions(payload.user);
+        } else {
+            console.log('[AI-UI] renderSuggestions: Nenhuma sugestÃ£o disponÃ­vel');
+            this.hideAISection();
+        }
+    }
+
+    /**
+     * ðŸ† Renderizar score final no topo (compatibilidade com audio-analyzer-integration.js)
+     * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
+     */
+    renderFinalScoreAtTop(payload) {
+        console.log('[AUDITORIA] âœ… renderFinalScoreAtTop chamado com payload:', {
+            mode: payload?.mode,
+            hasUser: !!payload?.user,
+            hasReference: !!payload?.reference,
+            userScore: payload?.user?.score || payload?.user?.finalScore
+        });
+
+        // Esta funÃ§Ã£o Ã© chamada pelo audio-analyzer-integration.js
+        // Por enquanto, apenas loga os dados recebidos
+        // TODO: Implementar renderizaÃ§Ã£o real do score no topo
+        
+        if (!payload || !payload.user) {
+            console.warn('[AI-UI] renderFinalScoreAtTop: payload ou user vazio');
+            return;
+        }
+
+        const score = payload.user.score || payload.user.finalScore || 0;
+        console.log('[AI-UI] renderFinalScoreAtTop: Score final =', score);
+    }
+}
+
+// ðŸŒ FunÃ§Ãµes globais para integraÃ§Ã£o com HTML
+
+/**
+ * ðŸ”„ Toggle da camada de IA (global)
+ */
+window.toggleAILayer = function() {
+    if (window.aiUIController) {
+        window.aiUIController.toggleAILayer();
+    }
+};
+
+/**
+ * âŒ Fechar modal full (global)
+ */
+window.closeAIFullModal = function() {
+    if (window.aiUIController) {
+        window.aiUIController.closeFullModal();
+    }
+};
+
+/**
+ * ðŸ’¾ Download sugestÃµes IA (global)
+ */
+window.downloadAISuggestions = function() {
+    if (window.aiUIController) {
+        window.aiUIController.downloadAISuggestions();
+    }
+};
+
+/**
+ * ðŸ’¬ Enviar sugestÃµes para chat (global)
+ */
+window.sendAISuggestionsToChat = function() {
+    if (window.aiUIController) {
+        window.aiUIController.sendAISuggestionsToChat();
+    }
+};
+
+/**
+ * âš™ï¸ ConfiguraÃ§Ã£o rÃ¡pida (global)
+ */
+window.showAIQuickConfig = function() {
+    if (window.aiUIController) {
+        window.aiUIController.showQuickConfig();
+    }
+};
+
+// ðŸš€ InicializaÃ§Ã£o automÃ¡tica
+(function() {
+    'use strict';
+    
+    // Exportar a classe para window
+    window.AISuggestionUIController = AISuggestionUIController;
+    
+    // Aguardar carregamento da camada de IA (com fallback)
+    const initUI = () => {
+        // Tentar inicializar mesmo sem aiSuggestionLayer (modo compatibilidade)
+        if (typeof window.aiSuggestionLayer !== 'undefined' || document.readyState === 'complete') {
+            if (!window.aiUIController) {
+                window.aiUIController = new AISuggestionUIController();
+                console.log('ðŸŽ¨ [AI-UI] Sistema de interface inicializado globalmente');
+                
+                // ========================================
+                // âœ… AUDITORIA COMPLETA DE FUNÃ‡Ã•ES
+                // ========================================
+                console.log('[AUDITORIA] Controlador principal de UI detectado em: ai-suggestion-ui-controller.js');
+                
+                const requiredFunctions = [
+                    'renderMetricCards',
+                    'renderScoreSection',
+                    'renderSuggestions',
+                    'renderFinalScoreAtTop',
+                    'checkForAISuggestions'
+                ];
+                
+                const missingFunctions = requiredFunctions.filter(
+                    fn => typeof window.aiUIController[fn] !== 'function'
+                );
+                
+                if (missingFunctions.length === 0) {
+                    console.log('[COMPAT] âœ… Todas as funÃ§Ãµes esperadas estÃ£o presentes:', requiredFunctions);
+                    console.log('[COMPAT] aiUIController pronto para uso sem gambiarra');
+                } else {
+                    console.error('[COMPAT-VERIFY] âŒ FunÃ§Ãµes ausentes no controlador de UI:', missingFunctions);
+                }
+            }
+        } else {
+            setTimeout(initUI, 100);
+        }
+    };
+    
+    // Iniciar quando DOM estiver pronto
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initUI);
+    } else {
+        initUI();
+    }
+    
+})();
+
+// ========================================
+// âœ… REGISTRO GLOBAL DO CONTROLADOR DE UI
+// ========================================
+(function ensureAIUIControllerExists() {
+    try {
+        if (typeof window.aiUIController === 'undefined') {
+            window.aiUIController = {
+                renderMetricCards: () => console.log('[SAFE] renderMetricCards placeholder'),
+                renderScoreSection: () => console.log('[SAFE] renderScoreSection placeholder'),
+                renderSuggestions: () => console.log('[SAFE] renderSuggestions placeholder'),
+                renderFinalScoreAtTop: () => console.log('[SAFE] renderFinalScoreAtTop placeholder'),
+                checkForAISuggestions: () => console.log('[SAFE] checkForAISuggestions placeholder'),
+                __ready: true
+            };
+            console.warn('[SAFE-REGISTER] aiUIController nÃ£o inicializado pelo mÃ³dulo principal â€” fallback ativado.');
+        } else {
+            window.aiUIController.__ready = true;
+            console.log('[SAFE-REGISTER] âœ… aiUIController pronto.');
+        }
+    } catch (error) {
+        console.error('[ERROR] âŒ Falha ao inicializar aiUIController:', error);
+        console.error('[ERROR] Stack trace:', error.stack);
+        
+        // Criar fallback de emergÃªncia mesmo com erro
+        window.aiUIController = {
+            renderMetricCards: () => console.error('[EMERGENCY] renderMetricCards - sistema falhou'),
+            renderScoreSection: () => console.error('[EMERGENCY] renderScoreSection - sistema falhou'),
+            renderSuggestions: () => console.error('[EMERGENCY] renderSuggestions - sistema falhou'),
+            renderFinalScoreAtTop: () => console.error('[EMERGENCY] renderFinalScoreAtTop - sistema falhou'),
+            checkForAISuggestions: () => console.error('[EMERGENCY] checkForAISuggestions - sistema falhou'),
+            __ready: false,
+            __error: error
+        };
+    }
+})();
