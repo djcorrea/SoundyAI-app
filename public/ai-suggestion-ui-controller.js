@@ -662,17 +662,23 @@ class AISuggestionUIController {
                 
                 console.log('[FALLBACK-RENDER] 🔐 Decision:', { metricKey, canRender });
                 
-                // Preparar textos seguros
-                const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
-                const problemaReal = extractedAI[0].problema || extractedAI[0].message || '—';
-                const causaReal = extractedAI[0].causaProvavel || '—';
-                const solucaoReal = extractedAI[0].solucao || extractedAI[0].action || '—';
-                const pluginReal = extractedAI[0].pluginRecomendado || '—';
+                // 🔒 SE BLOQUEADO: Usar apenas placeholder, NÃO acessar texto
+                let problema, causa, solucao, plugin;
                 
-                const problema = canRender ? problemaReal : securePlaceholder;
-                const causa = canRender ? causaReal : securePlaceholder;
-                const solucao = canRender ? solucaoReal : securePlaceholder;
-                const plugin = canRender ? pluginReal : securePlaceholder;
+                if (!canRender) {
+                    console.log('[FALLBACK-RENDER] 🔒 BLOCKED: Usando apenas placeholders');
+                    const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
+                    problema = securePlaceholder;
+                    causa = securePlaceholder;
+                    solucao = securePlaceholder;
+                    plugin = securePlaceholder;
+                } else {
+                    console.log('[FALLBACK-RENDER] ✅ FULL MODE: Acessando texto real');
+                    problema = extractedAI[0].problema || extractedAI[0].message || '—';
+                    causa = extractedAI[0].causaProvavel || '—';
+                    solucao = extractedAI[0].solucao || extractedAI[0].action || '—';
+                    plugin = extractedAI[0].pluginRecomendado || '—';
+                }
                 
                 const forcedHTML = `
                     <div class="ai-suggestion-card ${!canRender ? 'blocked-card' : ''}" style="
@@ -1353,15 +1359,6 @@ class AISuggestionUIController {
             problemaPreview: problema.substring(0, 80)
         });
         
-        // ⚠️ VALIDAÇÃO CRÍTICA: Se não pode renderizar, GARANTIR que é placeholder
-        if (!canRender) {
-            if (!problema.includes('blocked-value')) {
-                console.error('[AI-CARD] ❌ ERRO: canRender=false mas problema NÃO é placeholder!');
-                console.error('[AI-CARD] ❌ problemaReal:', problemaReal.substring(0, 100));
-                console.error('[AI-CARD] ❌ securePlaceholder:', securePlaceholder);
-            }
-        }
-        
         // ✅ Badge de validação de targets
         const isValidated = suggestion._validated === true;
         const realTarget = suggestion._realTarget;
@@ -1370,7 +1367,7 @@ class AISuggestionUIController {
             : '';
         
         return `
-            <div class="ai-suggestion-card ai-enriched ai-new ${isValidated ? 'validated' : ''} ${!canRender ? 'blocked-card' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+            <div class="ai-suggestion-card ai-enriched ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                 <div class="ai-suggestion-header">
                     <span class="ai-suggestion-category">${categoria}</span>
                     <div class="ai-suggestion-priority ${this.getPriorityClass(nivel)}">${nivel}</div>
@@ -1378,35 +1375,35 @@ class AISuggestionUIController {
                 </div>
                 
                 <div class="ai-suggestion-content">
-                    <div class="ai-block ai-block-problema ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-problema">
                         <div class="ai-block-title">⚠️ Problema</div>
                         <div class="ai-block-content">${problema}</div>
                     </div>
                     
-                    <div class="ai-block ai-block-causa ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-causa">
                         <div class="ai-block-title">🎯 Causa Provável</div>
                         <div class="ai-block-content">${causaProvavel}</div>
                     </div>
                     
-                    <div class="ai-block ai-block-solucao ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-solucao">
                         <div class="ai-block-title">🛠️ Solução</div>
                         <div class="ai-block-content">${solucao}</div>
                     </div>
                     
-                    <div class="ai-block ai-block-plugin ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-plugin">
                         <div class="ai-block-title">🎛️ Plugin Recomendado</div>
                         <div class="ai-block-content">${plugin}</div>
                     </div>
                     
                     ${dica ? `
-                        <div class="ai-block ai-block-dica ${!canRender ? 'blocked-block' : ''}">
+                        <div class="ai-block ai-block-dica">
                             <div class="ai-block-title">💡 Dica Extra</div>
                             <div class="ai-block-content">${dica}</div>
                         </div>
                     ` : ''}
                     
                     ${parametros ? `
-                        <div class="ai-block ai-block-parametros ${!canRender ? 'blocked-block' : ''}">
+                        <div class="ai-block ai-block-parametros">
                             <div class="ai-block-title">⚙️ Parâmetros</div>
                             <div class="ai-block-content">${parametros}</div>
                         </div>
@@ -1436,43 +1433,57 @@ class AISuggestionUIController {
             ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
             : true;
         
-        // 🔐 Placeholder seguro se bloqueado
-        const securePlaceholder = typeof renderSecurePlaceholder === 'function'
-            ? renderSecurePlaceholder('action')
-            : '<span class="blocked-value">🔒 Conteúdo disponível no plano Pro</span>';
-        
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
         
-        // 🔐 Aplicar proteção aos textos
-        const messageReal = suggestion.message || suggestion.title || 'Mensagem não especificada';
-        const message = canRender ? messageReal : securePlaceholder;
-        
-        const actionReal = suggestion.action || suggestion.description || 'Ação não especificada';
-        const action = canRender ? actionReal : securePlaceholder;
-        
-        // 🔍 DEBUG AGRESSIVO
-        console.log('[AI-BASE-CARD] 🔍 VALORES FINAIS:', {
-            canRender,
-            messageLength: message.length,
-            messageIsPlaceholder: message.includes('blocked-value'),
-            messagePreview: message.substring(0, 80)
-        });
-        
-        // ⚠️ VALIDAÇÃO CRÍTICA
-        if (!canRender && !message.includes('blocked-value')) {
-            console.error('[AI-BASE-CARD] ❌ ERRO: canRender=false mas message NÃO é placeholder!');
+        // 🔒 SE BLOQUEADO: Retornar placeholder IMEDIATAMENTE sem acessar texto
+        if (!canRender) {
+            const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
+            const isValidated = suggestion._validated === true;
+            
+            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Retornando placeholder sem acessar texto');
+            
+            return `
+                <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''} blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-category">${category}</span>
+                        <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    </div>
+                    
+                    <div class="ai-suggestion-content">
+                        <div class="ai-block ai-block-problema blocked-block">
+                            <div class="ai-block-title">⚠️ Observação</div>
+                            <div class="ai-block-content">${securePlaceholder}</div>
+                        </div>
+                        
+                        <div class="ai-block ai-block-solucao blocked-block">
+                            <div class="ai-block-title">🛠️ Recomendação</div>
+                            <div class="ai-block-content">${securePlaceholder}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-base-notice">
+                        💡 Configure API Key OpenAI para análise inteligente
+                    </div>
+                </div>
+            `;
         }
+        
+        // ✅ TEXTO SÓ É ACESSADO AQUI (dentro do branch full)
+        console.log('[AI-BASE-CARD] ✅ FULL MODE: Acessando texto real');
+        
+        const message = suggestion.message || suggestion.title || 'Mensagem não especificada';
+        const action = suggestion.action || suggestion.description || 'Ação não especificada';
         
         // ✅ Badge de validação de targets
         const isValidated = suggestion._validated === true;
         const realTarget = suggestion._realTarget;
-        const validationBadge = (isValidated && realTarget !== undefined && canRender) 
+        const validationBadge = (isValidated && realTarget !== undefined) 
             ? `<div class="ai-validation-badge" title="Target validado: ${realTarget.toFixed(1)} dB">✓ Validado</div>` 
             : '';
         
         return `
-            <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''} ${!canRender ? 'blocked-card' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+            <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                 <div class="ai-suggestion-header">
                     <span class="ai-suggestion-category">${category}</span>
                     <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
@@ -1480,12 +1491,12 @@ class AISuggestionUIController {
                 </div>
                 
                 <div class="ai-suggestion-content">
-                    <div class="ai-block ai-block-problema ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-problema">
                         <div class="ai-block-title">⚠️ Observação</div>
                         <div class="ai-block-content">${message}</div>
                     </div>
                     
-                    <div class="ai-block ai-block-solucao ${!canRender ? 'blocked-block' : ''}">
+                    <div class="ai-block ai-block-solucao">
                         <div class="ai-block-title">🛠️ Recomendação</div>
                         <div class="ai-block-content">${action}</div>
                     </div>
