@@ -9950,17 +9950,27 @@ function blurAISuggestionTexts() {
 function blurComparisonTableValues() {
     console.log('[BLUR-TABLE] 🎨 Aplicando blur na tabela de comparação...');
     
-    // (D) TABELA COMPARAÇÃO: Apenas LRA, DR, Estéreo permitidos
-    // 🔒 BLOQUEADAS: Todas as frequências (Sub, Bass, Mid, High, Presença, Ar)
+    // (D) TABELA COMPARAÇÃO: DR, Estéreo, Low Mid, High Mid, Presença permitidos
+    // 🔒 BLOQUEADAS: LUFS, True Peak, LRA, Sub, Bass, Mid, Brilho/Air
     const allowedTableMetrics = [
-        'lra',
-        'loudnessRange',
         'dr',
         'dynamicRange',
         'dynamic_range',
+        'dinâmica',
         'stereo',
         'stereoCorrelation',
-        'correlation'
+        'correlation',
+        'estéreo',
+        'imagem estéreo',
+        'lowmid',
+        'low mid',
+        'low_mid',
+        'highmid',
+        'high mid',
+        'high_mid',
+        'presence',
+        'presença',
+        'presenca'
     ];
     
     let blurredCount = 0;
