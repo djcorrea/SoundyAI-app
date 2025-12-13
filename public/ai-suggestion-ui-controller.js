@@ -40,35 +40,45 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🔒 NORMALIZAÇÃO RADICAL - MODO REDUCED (ZERO STRINGS)
-     * 
-     * Modo Reduced: Retorna APENAS { type: 'locked', metricKey }
-     * Modo Full: Retorna objeto completo com textos
-     * 
-     * ⚠️ CRÍTICO: No modo reduced, NENHUMA string de texto pode existir
+     * 🔒 NORMALIZAÇÃO OBRIGATÓRIA DE SUGESTÕES (ZERO VAZAMENTO)
+     * Remove TODO o texto de sugestões em modo reduced
+     * Retorna objeto com __blocked: true para identificação
      */
     normalizeSuggestionForRender(suggestion, analysisMode) {
         if (!suggestion) return null;
         
-        // 🔒 MODO REDUCED: RETORNAR APENAS TYPE + METRIC
+        // 🔒 MODO REDUCED: REMOVER TODO O TEXTO
         if (analysisMode === 'reduced') {
-            console.log('[NORMALIZE] 🔒 REDUCED: Retornando apenas type=locked');
-            
-            // ❌ NENHUMA STRING DE TEXTO
-            // ✅ APENAS type e metricKey
             return {
-                type: 'locked',
-                metricKey: suggestion.metric || suggestion.categoria || 'general',
-                categoria: suggestion.categoria || 'Geral', // Apenas para UI (não é texto de sugestão)
-                nivel: suggestion.nivel || 'média' // Apenas para UI
+                ...suggestion,
+                // 🚫 TEXTO REMOVIDO (null)
+                problem: null,
+                problema: null,
+                cause: null,
+                causaProvavel: null,
+                solution: null,
+                solucao: null,
+                plugin: null,
+                pluginRecomendado: null,
+                extraTip: null,
+                dicaExtra: null,
+                parameters: null,
+                parametros: null,
+                message: null,
+                action: null,
+                description: null,
+                observation: null,
+                recommendation: null,
+                
+                // ✅ FLAG DE BLOQUEIO
+                __blocked: true
             };
         }
         
-        // ✅ MODO FULL: RETORNAR TUDO
-        console.log('[NORMALIZE] ✅ FULL: Objeto completo com textos');
+        // ✅ MODO FULL: MANTER TUDO
         return {
-            type: 'full',
-            ...suggestion
+            ...suggestion,
+            __blocked: false
         };
     }
     
@@ -127,73 +137,47 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🔐 FUNÇÃO CENTRAL DE RENDERIZAÇÃO - CREATEELEMENT APENAS
+     * 🔐 FUNÇÃO CENTRAL DE RENDERIZAÇÃO DE BLOCOS DE SUGESTÃO
+     * CONTRATO ÚNICO - ZERO VAZAMENTO DE TEXTO
      * 
-     * ❌ PROIBIDO: innerHTML, template literals
-     * ✅ OBRIGATÓRIO: document.createElement, textContent
-     * 
-     * @param {Object} normalized - Sugestão normalizada
-     * @param {string} title - Título do bloco
-     * @param {string} blockClass - Classe CSS
-     * @returns {HTMLElement} Elemento DOM
+     * @param {Object} options - Opções de renderização
+     * @param {string} options.type - Tipo do bloco (problem, cause, solution, plugin, tip, parameters)
+     * @param {string|null} options.content - Conteúdo real (null em modo reduced)
+     * @param {string} options.analysisMode - Modo de análise ('full' ou 'reduced')
+     * @param {string} options.title - Título do bloco (ex: "⚠️ Problema")
+     * @param {string} options.blockClass - Classe CSS do bloco (ex: "ai-block-problema")
+     * @returns {string} HTML do bloco
      */
-    renderSuggestionBlock(normalized, title, blockClass) {
-        console.log('[RENDER-BLOCK] 🔐 Rendering:', { type: normalized.type, blockClass });
+    renderSuggestionBlock({ type, content, analysisMode, title, blockClass }) {
+        // 🔐 SECURITY GUARD: Verificar modo reduced
+        const isReducedMode = analysisMode === 'reduced';
         
-        // Criar container do bloco
-        const block = document.createElement('div');
-        block.className = `ai-block ${blockClass}`;
+        // 🔐 RENDERIZAR CONTEÚDO SEGURO (dupla proteção)
+        const secureContent = this.renderSecureTextContent(content, isReducedMode);
         
-        // Criar título
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'ai-block-title';
-        titleDiv.textContent = title; // ✅ textContent (não innerHTML)
-        
-        // Criar conteúdo
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'ai-block-content';
-        
-        // 🔒 MODO LOCKED: Apenas placeholder
-        if (normalized.type === 'locked') {
-            console.log('[RENDER-BLOCK] 🔒 LOCKED: Renderizando placeholder');
+        // 🔐 MODO REDUCED: NUNCA USAR content original
+        if (isReducedMode || content === null || content === undefined) {
+            console.log(`[RENDER-BLOCK] 🔒 BLOCKED: ${type} - SEM TEXTO NO DOM`);
             
-            block.classList.add('blocked-block');
-            
-            const placeholder = document.createElement('span');
-            placeholder.className = 'blocked-value';
-            placeholder.textContent = '🔒 Disponível no plano Pro'; // ✅ textContent
-            
-            contentDiv.appendChild(placeholder);
-        }
-        // ✅ MODO FULL: Texto real
-        else if (normalized.type === 'full') {
-            console.log('[RENDER-BLOCK] ✅ FULL: Renderizando texto real');
-            
-            // Determinar qual propriedade usar baseado no blockClass
-            let textContent = '';
-            
-            if (blockClass.includes('problema')) {
-                textContent = normalized.problema || normalized.message || 'Problema não especificado';
-            } else if (blockClass.includes('causa')) {
-                textContent = normalized.causaProvavel || 'Causa não analisada';
-            } else if (blockClass.includes('solucao')) {
-                textContent = normalized.solucao || normalized.action || 'Solução não especificada';
-            } else if (blockClass.includes('plugin')) {
-                textContent = normalized.pluginRecomendado || 'Não especificado';
-            } else if (blockClass.includes('dica')) {
-                textContent = normalized.dicaExtra || '';
-            } else if (blockClass.includes('parametros')) {
-                textContent = normalized.parametros || '';
-            }
-            
-            contentDiv.textContent = textContent; // ✅ textContent (não innerHTML)
+            return `
+                <div class="ai-block ${blockClass} blocked-block">
+                    <div class="ai-block-title">${title}</div>
+                    <div class="ai-block-content">
+                        <span class="secure-placeholder" data-blocked="true"></span>
+                    </div>
+                </div>
+            `;
         }
         
-        // Montar estrutura
-        block.appendChild(titleDiv);
-        block.appendChild(contentDiv);
+        // ✅ MODO FULL: Renderizar texto real (já validado por renderSecureTextContent)
+        console.log(`[RENDER-BLOCK] ✅ FULL: ${type} - Texto real`);
         
-        return block; // ✅ Retorna HTMLElement (não string)
+        return `
+            <div class="ai-block ${blockClass}">
+                <div class="ai-block-title">${title}</div>
+                <div class="ai-block-content">${secureContent}</div>
+            </div>
+        `;
     }
     
     /**
@@ -1375,27 +1359,16 @@ class AISuggestionUIController {
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
         
-        // 🔐 RENDERIZAR COM CREATEELEMENT (NÃO innerHTML)
-        console.log('[AI-UI][RENDER] 🔐 Renderizando com createElement');
-        
-        // Limpar conteúdo existente
-        this.elements.aiContent.innerHTML = '';
-        
-        // Renderizar cada card e adicionar ao DOM
-        validatedSuggestions.forEach((suggestion, index) => {
-            let cardElement;
-            
+        const cardsHtml = validatedSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
-                cardElement = this.renderAIEnrichedCard(suggestion, index, genreTargets);
+                return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
-                cardElement = this.renderBaseSuggestionCard(suggestion, index, genreTargets);
+                return this.renderBaseSuggestionCard(suggestion, index, genreTargets);
             }
-            
-            // ✅ appendChild (NÃO innerHTML)
-            this.elements.aiContent.appendChild(cardElement);
-        });
+        }).join('');
         
-        console.log('[AI-UI][RENDER] ✅ Cards inseridos no DOM com appendChild');
+        this.elements.aiContent.innerHTML = cardsHtml;
+        console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
     }
     
     /**
