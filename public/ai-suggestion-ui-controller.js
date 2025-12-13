@@ -181,7 +181,44 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🚀 Inicializar controlador
+     * � DECISÃO CENTRAL - DEVE RENDERIZAR CONTEÚDO DE SUGESTÃO?
+     * Função única que determina se texto real pode ser renderizado
+     * 
+     * @param {string} analysisMode - Modo de análise ('full' ou 'reduced')
+     * @returns {boolean} true se pode renderizar texto real, false se deve mostrar CTA
+     */
+    shouldRenderSuggestionContent(analysisMode) {
+        const canRender = analysisMode === 'full';
+        console.log(`[DECISION] 🔐 shouldRenderSuggestionContent: ${canRender ? '✅ FULL' : '🔒 REDUCED'}`);
+        return canRender;
+    }
+    
+    /**
+     * 🔒 RENDERIZAR CTA DE UPGRADE (MODO REDUCED)
+     * Texto fixo, local e seguro - não depende de backend
+     * 
+     * @returns {string} HTML do CTA de upgrade
+     */
+    renderSuggestionUpgradeCTA() {
+        console.log('[CTA] 🔒 Renderizando CTA de upgrade (texto fixo)');
+        
+        return `
+            <div class="ai-suggestion-locked">
+                <div class="lock-icon">🔒</div>
+                <h3>Desbloqueie Sugestões Inteligentes</h3>
+                <p>
+                    Faça upgrade para acessar diagnósticos detalhados,
+                    parâmetros exatos e recomendações profissionais.
+                </p>
+                <button class="upgrade-btn" onclick="window.openUpgradeModal ? window.openUpgradeModal() : alert('Upgrade disponível em breve!')">
+                    Fazer upgrade
+                </button>
+            </div>
+        `;
+    }
+    
+    /**
+     * �🚀 Inicializar controlador
      */
     initialize() {
         try {
@@ -1604,13 +1641,27 @@ class AISuggestionUIController {
     
     /**
      * 🎴 Renderizar card de sugestão base
+     * 🔐 DECISÃO CENTRAL NO INÍCIO - ANTES DE ACESSAR QUALQUER TEXTO
      */
     renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
-        // 🔐 DETERMINAR MODO DE ANÁLISE
+        // 🔐 PASSO 1: DETERMINAR MODO (ANTES DE TUDO)
         const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
         const analysisMode = analysis?.analysisMode || 'full';
         
-        console.log('[AI-BASE-CARD] 🔐 Mode:', { analysisMode });
+        console.log('[AI-BASE-CARD] 🔐 DECISÃO:', { analysisMode });
+        
+        // 🔐 PASSO 2: VERIFICAR SE DEVE RENDERIZAR (DECISÃO CENTRAL)
+        if (!this.shouldRenderSuggestionContent(analysisMode)) {
+            console.log('[AI-BASE-CARD] 🔒 REDUCED: CTA (SEM TEXTO)');
+            return `
+                <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                    ${this.renderSuggestionUpgradeCTA()}
+                </div>
+            `;
+        }
+        
+        // ✅ PASSO 3: MODO FULL - AGORA SIM ACESSA TEXTO
+        console.log('[AI-BASE-CARD] ✅ FULL: Texto completo');
         
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
