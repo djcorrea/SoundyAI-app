@@ -3,290 +3,357 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste - Sistema de Interceptação</title>
-    
-    <!-- Estilos do Modal -->
-    <link rel="stylesheet" href="public/upgrade-modal-styles.css">
-    
-    <!-- Fontes -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-    
+    <title>Teste - Sistema de Interceptação de Botões Premium</title>
+    <link rel="stylesheet" href="upgrade-modal-styles.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        /* Estilos básicos para a página de teste */
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: white;
+            padding: 40px;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
         }
         
         .test-container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
             max-width: 800px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-        }
-        
-        h1 {
-            font-family: 'Orbitron', monospace;
-            color: #ffffff;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2rem;
-        }
-        
-        .section {
+            margin: 0 auto;
             background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 25px;
+            padding: 30px;
+            border-radius: 12px;
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .section h2 {
-            color: #8b5cf6;
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            font-family: 'Orbitron', monospace;
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #4a90e2;
         }
         
-        .btn {
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        .subtitle {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 40px;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+            color: #5ba3ff;
+            font-size: 18px;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .mode-btn {
+            padding: 12px 24px;
+            border: 2px solid;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            background: transparent;
             color: white;
+        }
+        
+        .mode-btn.full {
+            border-color: #2ecc71;
+        }
+        
+        .mode-btn.reduced {
+            border-color: #e74c3c;
+        }
+        
+        .mode-btn.active {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px currentColor;
+        }
+        
+        .mode-btn.full.active {
+            background: #2ecc71;
+        }
+        
+        .mode-btn.reduced.active {
+            background: #e74c3c;
+        }
+        
+        .test-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .action-btn {
+            padding: 14px 24px;
             border: none;
-            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
             font-size: 16px;
             font-weight: 600;
-            border-radius: 10px;
-            cursor: pointer;
-            margin: 5px;
             transition: all 0.3s ease;
-            font-family: 'Poppins', sans-serif;
         }
         
-        .btn:hover {
+        .action-btn.primary {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+        }
+        
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: white;
+        }
+        
+        .action-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.5);
+            box-shadow: 0 8px 24px rgba(74, 144, 226, 0.4);
         }
         
-        .btn-secondary {
-            background: linear-gradient(135deg, #64748b, #475569);
-        }
-        
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-        }
-        
-        .status {
-            background: rgba(139, 92, 246, 0.2);
-            border: 1px solid rgba(139, 92, 246, 0.5);
-            color: #ffffff;
+        .status-box {
+            margin-top: 20px;
             padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        
-        .status-indicator.full {
-            background: #10b981;
-            box-shadow: 0 0 10px #10b981;
-        }
-        
-        .status-indicator.reduced {
-            background: #ef4444;
-            box-shadow: 0 0 10px #ef4444;
-        }
-        
-        .log {
-            background: rgba(0, 0, 0, 0.5);
-            color: #00ff00;
-            padding: 15px;
-            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
             font-family: 'Courier New', monospace;
             font-size: 14px;
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 15px;
         }
         
-        .log-entry {
-            margin: 5px 0;
+        .status-box .label {
+            color: #4a90e2;
+            font-weight: bold;
+        }
+        
+        .info-box {
+            background: rgba(74, 144, 226, 0.1);
+            border-left: 4px solid #4a90e2;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .debug-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            border-radius: 8px;
+        }
+        
+        .debug-btn {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #4a90e2;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .debug-btn:hover {
+            background: #5ba3ff;
         }
     </style>
 </head>
 <body>
     <div class="test-container">
-        <h1>🧪 Teste de Interceptação</h1>
+        <h1>🧪 Teste de Interceptação de Botões Premium</h1>
+        <p class="subtitle">Sistema de bloqueio para modo reduced</p>
         
-        <!-- Status atual -->
-        <div class="section">
-            <h2>📊 Status do Sistema</h2>
-            <div class="status" id="statusDisplay">
-                <span class="status-indicator" id="statusIndicator"></span>
-                <span id="statusText">Carregando...</span>
+        <!-- Seletor de Modo -->
+        <div class="test-section">
+            <h2>1️⃣ Selecione o Modo</h2>
+            <div class="mode-selector">
+                <button class="mode-btn full active" onclick="setMode('full')">
+                    ✅ Modo FULL (Premium)
+                </button>
+                <button class="mode-btn reduced" onclick="setMode('reduced')">
+                    🔒 Modo REDUCED (Free)
+                </button>
+            </div>
+            <div class="status-box">
+                <span class="label">Modo Atual:</span> <span id="currentMode">full</span>
             </div>
         </div>
         
-        <!-- Controles de modo -->
-        <div class="section">
-            <h2>🎛️ Controles de Modo</h2>
-            <button class="btn btn-danger" onclick="setMode('reduced')">
-                🔒 Modo REDUCED (Gratuito)
-            </button>
-            <button class="btn" onclick="setMode('full')">
-                🔓 Modo FULL (Plus)
-            </button>
-            <button class="btn btn-secondary" onclick="updateStatus()">
-                🔄 Atualizar Status
-            </button>
+        <!-- Informações -->
+        <div class="info-box">
+            <strong>ℹ️ Como testar:</strong><br>
+            1. Selecione um modo acima<br>
+            2. Clique nos botões abaixo<br>
+            3. Em modo FULL: funções normais são executadas<br>
+            4. Em modo REDUCED: modal de upgrade aparece
         </div>
         
-        <!-- Botões de teste -->
-        <div class="section">
-            <h2>🎯 Botões Simulados</h2>
-            <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px;">
-                Estes botões simulam os botões reais do sistema:
+        <!-- Botões de Teste -->
+        <div class="test-section">
+            <h2>2️⃣ Teste os Botões</h2>
+            <div class="test-buttons">
+                <button class="action-btn primary" onclick="sendModalAnalysisToChat()">
+                    🤖 Pedir Ajuda à IA
+                </button>
+                <button class="action-btn secondary" onclick="downloadModalAnalysis()">
+                    📄 Baixar Relatório
+                </button>
+            </div>
+            <div class="status-box" id="actionLog">
+                <span class="label">Log de Ações:</span><br>
+                <span id="logContent">Aguardando ação...</span>
+            </div>
+        </div>
+        
+        <!-- Debug -->
+        <div class="debug-section">
+            <h3>🔧 Ferramentas de Debug</h3>
+            <button class="debug-btn" onclick="checkMode()">Verificar Modo</button>
+            <button class="debug-btn" onclick="showModalManually()">Abrir Modal</button>
+            <button class="debug-btn" onclick="hideModalManually()">Fechar Modal</button>
+            <button class="debug-btn" onclick="checkState()">Estado Completo</button>
+            <button class="debug-btn" onclick="clearLog()">Limpar Log</button>
+        </div>
+    </div>
+    
+    <!-- Modal de Upgrade -->
+    <div id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+        <div class="upgrade-modal-card">
+            <div class="upgrade-modal-icon">🔒</div>
+            <h2 class="upgrade-modal-title" id="upgradeModalTitle">Recurso Premium</h2>
+            <p class="upgrade-modal-text">
+                Este recurso está disponível apenas para usuários com plano premium.
+                Faça upgrade para desbloquear todas as funcionalidades avançadas do SoundyAI.
             </p>
-            <button class="btn" onclick="sendModalAnalysisToChat()">
-                🤖 Pedir Ajuda à IA
-            </button>
-            <button class="btn" onclick="downloadModalAnalysis()">
-                📄 Baixar Relatório
-            </button>
-        </div>
-        
-        <!-- Comandos de debug -->
-        <div class="section">
-            <h2>🐛 Debug</h2>
-            <button class="btn btn-secondary" onclick="testModal()">
-                🔍 Testar Modal
-            </button>
-            <button class="btn btn-secondary" onclick="clearLog()">
-                🗑️ Limpar Log
-            </button>
-            <button class="btn btn-secondary" onclick="window.location.href='public/index.html'">
-                🏠 Ir para Index
-            </button>
-            
-            <div class="log" id="logDisplay">
-                <div class="log-entry">Sistema pronto para testes...</div>
+            <div class="upgrade-modal-buttons">
+                <button class="upgrade-modal-btn upgrade-modal-cta" aria-label="Ver planos disponíveis">
+                    ✨ Ver Planos
+                </button>
+                <button class="upgrade-modal-btn upgrade-modal-close" aria-label="Fechar modal">
+                    Agora não
+                </button>
             </div>
         </div>
     </div>
     
-    <!-- Script de interceptação -->
-    <script src="public/upgrade-modal-interceptor.js"></script>
-    
-    <!-- Script de teste -->
+    <!-- Scripts -->
+    <script src="upgrade-modal-interceptor.js"></script>
     <script>
-        // Simular funções originais
-        function sendModalAnalysisToChat() {
-            addLog('✅ sendModalAnalysisToChat() executado (função original)');
-            console.log('✅ Chat function executed');
-        }
+        // Simular análise global
+        window.currentModalAnalysis = {
+            analysisMode: 'full',
+            plan: 'premium'
+        };
         
-        function downloadModalAnalysis() {
-            addLog('✅ downloadModalAnalysis() executado (função original)');
-            console.log('✅ Download function executed');
-        }
-        
-        // Funções de controle
+        // Função de controle de modo
         function setMode(mode) {
+            // Atualizar visual
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Atualizar estado global
             if (mode === 'reduced') {
-                window.APP_MODE = 'reduced';
-                window.currentUserPlan = 'gratis';
+                window.currentModalAnalysis.analysisMode = 'reduced';
+                window.currentModalAnalysis.plan = 'free';
             } else {
-                window.APP_MODE = 'full';
-                window.currentUserPlan = 'plus';
+                window.currentModalAnalysis.analysisMode = 'full';
+                window.currentModalAnalysis.plan = 'premium';
             }
-            updateStatus();
+            
+            // Atualizar display
+            document.getElementById('currentMode').textContent = mode.toUpperCase();
+            
+            // Log
             addLog(`🔄 Modo alterado para: ${mode.toUpperCase()}`);
         }
         
-        function updateStatus() {
-            const mode = window.upgradeModal ? window.upgradeModal.getMode() : 'unknown';
-            const isReduced = window.upgradeModal ? window.upgradeModal.isReducedMode() : false;
-            
-            const statusText = document.getElementById('statusText');
-            const statusIndicator = document.getElementById('statusIndicator');
-            
-            if (isReduced) {
-                statusText.innerHTML = `
-                    Modo: <strong>REDUCED</strong> (Gratuito)<br>
-                    Botões: <strong>BLOQUEADOS</strong><br>
-                    Modal: <strong>ATIVO</strong>
-                `;
-                statusIndicator.className = 'status-indicator reduced';
-            } else {
-                statusText.innerHTML = `
-                    Modo: <strong>FULL</strong> (Plus)<br>
-                    Botões: <strong>LIBERADOS</strong><br>
-                    Modal: <strong>INATIVO</strong>
-                `;
-                statusIndicator.className = 'status-indicator full';
-            }
-            
-            addLog(`📊 Status atualizado: ${mode.toUpperCase()}`);
+        // Funções originais (simuladas)
+        function sendModalAnalysisToChat() {
+            addLog('✅ FUNÇÃO EXECUTADA: sendModalAnalysisToChat()');
+            addLog('🤖 Chat aberto com análise');
+            console.log('✅ sendModalAnalysisToChat() executada');
         }
         
-        function testModal() {
-            if (window.upgradeModal) {
-                window.upgradeModal.open();
-                addLog('🔍 Modal aberto manualmente');
+        function downloadModalAnalysis() {
+            addLog('✅ FUNÇÃO EXECUTADA: downloadModalAnalysis()');
+            addLog('📄 Download de relatório iniciado');
+            console.log('✅ downloadModalAnalysis() executada');
+        }
+        
+        // Funções de debug
+        function checkMode() {
+            if (window.__INTERCEPTOR_DEBUG__) {
+                window.__INTERCEPTOR_DEBUG__.checkMode();
+                addLog('🔍 Verificação de modo executada (veja console)');
             } else {
-                addLog('❌ Sistema de modal não carregado');
+                addLog('❌ Debug API não disponível');
             }
         }
         
-        function addLog(message) {
-            const logDisplay = document.getElementById('logDisplay');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            const timestamp = new Date().toLocaleTimeString();
-            entry.textContent = `[${timestamp}] ${message}`;
-            logDisplay.appendChild(entry);
-            logDisplay.scrollTop = logDisplay.scrollHeight;
+        function showModalManually() {
+            if (window.__INTERCEPTOR_DEBUG__) {
+                window.__INTERCEPTOR_DEBUG__.showModal();
+                addLog('🔓 Modal aberto manualmente');
+            } else {
+                addLog('❌ Debug API não disponível');
+            }
+        }
+        
+        function hideModalManually() {
+            if (window.__INTERCEPTOR_DEBUG__) {
+                window.__INTERCEPTOR_DEBUG__.hideModal();
+                addLog('🔒 Modal fechado manualmente');
+            } else {
+                addLog('❌ Debug API não disponível');
+            }
+        }
+        
+        function checkState() {
+            const state = {
+                mode: window.currentModalAnalysis?.analysisMode,
+                plan: window.currentModalAnalysis?.plan,
+                isReduced: window.__INTERCEPTOR_DEBUG__?.isReducedMode(),
+                debugAvailable: !!window.__INTERCEPTOR_DEBUG__
+            };
+            console.table(state);
+            addLog('📊 Estado completo logado no console');
         }
         
         function clearLog() {
-            document.getElementById('logDisplay').innerHTML = '<div class="log-entry">Log limpo.</div>';
+            document.getElementById('logContent').innerHTML = 'Log limpo...';
         }
         
-        // Inicializar
-        setTimeout(() => {
-            updateStatus();
-            addLog('🚀 Sistema de teste inicializado');
-            addLog('💡 Dica: Altere o modo e clique nos botões para testar');
-        }, 500);
-        
-        // Interceptar logs do console
-        const originalLog = console.log;
-        console.log = function(...args) {
-            originalLog.apply(console, args);
-            const message = args.join(' ');
-            if (message.includes('🔒') || message.includes('✅') || message.includes('🚫') || message.includes('🔓')) {
-                addLog(message);
+        // Adicionar log
+        function addLog(message) {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toLocaleTimeString();
+            const currentText = logContent.innerHTML;
+            
+            if (currentText === 'Aguardando ação...' || currentText === 'Log limpo...') {
+                logContent.innerHTML = `[${timestamp}] ${message}`;
+            } else {
+                logContent.innerHTML = `[${timestamp}] ${message}<br>${currentText}`;
             }
-        };
+        }
+        
+        // Log inicial
+        setTimeout(() => {
+            if (window.__INTERCEPTOR_DEBUG__) {
+                addLog('✅ Sistema de interceptação carregado');
+                addLog('💡 Use os botões de debug abaixo');
+            } else {
+                addLog('⏳ Aguardando carregamento do interceptor...');
+            }
+        }, 500);
     </script>
 </body>
 </html>

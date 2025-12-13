@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="ScoreFinal.css?v=20251021-futuristic">
     <link rel="stylesheet" href="plan-mask-styles.css?v=20251211-reduced-mode">
     <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
-    <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213-modal">
+    <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
     
     <!-- Fontes otimizadas -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -696,8 +696,6 @@
     <script src="/secure-render-utils.js?v=2.0.0" defer></script>
     <!-- 🔐 Reduced Mode Security Guard - Função Centralizada de Segurança -->
     <script src="/reduced-mode-security-guard.js?v=1.0.0" defer></script>
-    <!-- 🚀 Upgrade Modal Interceptor - Sistema de Bloqueio de Botões Premium -->
-    <script src="/upgrade-modal-interceptor.js?v=20251213" defer></script>
     <script src="/audio-analyzer-integration.js?v=NO_CACHE_FORCE&ts=20251103211830" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
@@ -1075,6 +1073,29 @@
     
     <!-- 🧪 VERIFICAÇÃO: Modal de Gênero Musical -->
     <script src="verify-genre-modal.js" defer></script>
+    
+    <!-- 🔒 INTERCEPTOR: Sistema de Bloqueio de Funcionalidades Premium -->
+    <script src="upgrade-modal-interceptor.js?v=20251213" defer></script>
+    
+    <!-- 🔒 MODAL DE UPGRADE - Bloqueio de Funcionalidades Premium -->
+    <div id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+        <div class="upgrade-modal-card">
+            <div class="upgrade-modal-icon">🔒</div>
+            <h2 class="upgrade-modal-title" id="upgradeModalTitle">Recurso Premium</h2>
+            <p class="upgrade-modal-text">
+                Este recurso está disponível apenas para usuários com plano premium.
+                Faça upgrade para desbloquear todas as funcionalidades avançadas do SoundyAI.
+            </p>
+            <div class="upgrade-modal-buttons">
+                <button class="upgrade-modal-btn upgrade-modal-cta" aria-label="Ver planos disponíveis">
+                    ✨ Ver Planos
+                </button>
+                <button class="upgrade-modal-btn upgrade-modal-close" aria-label="Fechar modal">
+                    Agora não
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Template invisível para geração de PDF -->
     <div id="pdf-report-template" style="position: absolute; left: -9999px; top: 0; visibility: hidden;"></div>
