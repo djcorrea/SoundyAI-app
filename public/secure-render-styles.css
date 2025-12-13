@@ -75,6 +75,30 @@
     animation: pulse-lock 2s ease-in-out infinite;
 }
 
+/* ============================================
+   🔒 REFATORAÇÃO: Blur em wrapper interno
+   ============================================ */
+
+/* Wrapper interno para aplicar blur SEM quebrar layout da tabela */
+.metric-inner {
+    display: inline-block;
+    width: 100%;
+}
+
+/* Aplicar blur APENAS no wrapper interno, não no td */
+.metric-row-blurred .metric-inner {
+    filter: blur(7px) !important;
+    opacity: 0.4 !important;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Linhas livres (sem blur) */
+.metric-row-free .metric-inner {
+    filter: none !important;
+    opacity: 1 !important;
+}
+
 /* Compatibilidade com sistema antigo de máscaras */
 .metric-blur {
     /* Manter CSS antigo para compatibilidade */
