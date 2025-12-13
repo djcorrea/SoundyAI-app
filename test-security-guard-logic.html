@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🧪 Teste: shouldRenderRealValue Logic</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            padding: 20px; 
+            background: #0d1117; 
+            color: #c9d1d9; 
+        }
+        .test-group { 
+            margin: 20px 0; 
+            padding: 15px; 
+            background: #161b22; 
+            border: 1px solid #30363d;
+            border-radius: 6px;
+        }
+        .test-case { 
+            padding: 8px; 
+            margin: 5px 0; 
+            border-left: 3px solid #444;
+        }
+        .pass { border-left-color: #2ea043; background: #0d3a1e; }
+        .fail { border-left-color: #f85149; background: #3d1116; }
+        .warning { border-left-color: #f0883e; background: #2e2107; }
+        code { 
+            background: #0d1117; 
+            padding: 2px 6px; 
+            border-radius: 3px; 
+            color: #79c0ff;
+        }
+        h2 { color: #58a6ff; margin-top: 0; }
+        h3 { color: #8b949e; font-size: 14px; margin: 10px 0 5px 0; }
+        .metric-key { color: #ffa657; }
+        .result { color: #56d364; font-weight: bold; }
+        .result.blocked { color: #f85149; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste: Lógica shouldRenderRealValue</h1>
+    
+    <div id="results"></div>
+
+    <script src="reduced-mode-security-guard.js"></script>
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        // Mock de análise em modo reduced
+        const mockAnalysis = {
+            isReduced: true,
+            analysisMode: 'reduced',
+            plan: 'free'
+        };
+        
+        // Casos de teste organizados por categoria
+        const testGroups = [
+            {
+                name: '✅ MÉTRICAS QUE DEVEM SER LIBERADAS',
+                tests: [
+                    { key: 'dr', expected: true, description: 'Dinâmica (já funcionava)' },
+                    { key: 'dynamicRange', expected: true, description: 'Dinâmica (alternativa)' },
+                    { key: 'stereo', expected: true, description: 'Estéreo (já funcionava)' },
+                    { key: 'stereoCorrelation', expected: true, description: 'Estéreo (alternativa)' },
+                    { key: 'presence', expected: true, description: 'Presença (já funcionava)' },
+                    { key: 'lowMid', expected: true, description: '🎯 Low Mid (DEVE FUNCIONAR)' },
+                    { key: 'low_mid', expected: true, description: '🎯 Low Mid snake_case' },
+                    { key: 'highMid', expected: true, description: '🎯 High Mid (DEVE FUNCIONAR)' },
+                    { key: 'high_mid', expected: true, description: '🎯 High Mid snake_case' }
+                ]
+            },
+            {
+                name: '🔒 MÉTRICAS QUE DEVEM SER BLOQUEADAS',
+                tests: [
+                    { key: 'lufs', expected: false, description: 'LUFS' },
+                    { key: 'truePeak', expected: false, description: 'True Peak' },
+                    { key: 'lra', expected: false, description: 'LRA' },
+                    { key: 'sub', expected: false, description: 'Sub' },
+                    { key: 'bass', expected: false, description: 'Bass' },
+                    { key: 'mid', expected: false, description: 'Mid (500-2k Hz) - NÃO deve bloquear lowMid/highMid' },
+                    { key: 'band_mid', expected: false, description: 'Mid com prefixo' },
+                    { key: 'air', expected: false, description: 'Brilho/Air' }
+                ]
+            },
+            {
+                name: '⚠️ CASOS CRÍTICOS (verificação .includes() bug)',
+                tests: [
+                    { 
+                        key: 'lowMid', 
+                        expected: true, 
+                        description: 'lowMid contém "mid" mas NÃO deve ser bloqueado',
+                        critical: true
+                    },
+                    { 
+                        key: 'highMid', 
+                        expected: true, 
+                        description: 'highMid contém "mid" mas NÃO deve ser bloqueado',
+                        critical: true
+                    },
+                    { 
+                        key: 'mid', 
+                        expected: false, 
+                        description: 'mid isolado DEVE ser bloqueado',
+                        critical: true
+                    },
+                    {
+                        key: 'band_mid',
+                        expected: false,
+                        description: 'band_mid DEVE ser bloqueado',
+                        critical: true
+                    }
+                ]
+            }
+        ];
+        
+        // Executar testes
+        let totalTests = 0;
+        let passedTests = 0;
+        let failedTests = 0;
+        
+        testGroups.forEach(group => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'test-group';
+            groupDiv.innerHTML = `<h2>${group.name}</h2>`;
+            
+            group.tests.forEach(test => {
+                totalTests++;
+                const result = shouldRenderRealValue(test.key, 'table', mockAnalysis);
+                const passed = result === test.expected;
+                
+                if (passed) passedTests++;
+                else failedTests++;
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = `test-case ${passed ? 'pass' : 'fail'}`;
+                
+                const icon = passed ? '✅' : '❌';
+                const criticalBadge = test.critical ? ' <strong>[CRÍTICO]</strong>' : '';
+                
+                testDiv.innerHTML = `
+                    ${icon} <span class="metric-key">"${test.key}"</span> → 
+                    <span class="result ${result ? '' : 'blocked'}">${result ? 'LIBERADO' : 'BLOQUEADO'}</span>
+                    ${criticalBadge}<br>
+                    <small>${test.description}</small><br>
+                    <small>Esperado: ${test.expected ? 'LIBERADO' : 'BLOQUEADO'} | Resultado: ${result ? 'LIBERADO' : 'BLOQUEADO'}</small>
+                `;
+                
+                groupDiv.appendChild(testDiv);
+            });
+            
+            resultsDiv.appendChild(groupDiv);
+        });
+        
+        // Resumo final
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = `test-group ${failedTests === 0 ? 'pass' : 'fail'}`;
+        summaryDiv.innerHTML = `
+            <h2>📊 RESUMO FINAL</h2>
+            <p><strong>Total:</strong> ${totalTests} testes</p>
+            <p><strong>Passou:</strong> ${passedTests} ✅</p>
+            <p><strong>Falhou:</strong> ${failedTests} ❌</p>
+            <p style="margin-top: 15px; font-size: 18px;">
+                ${failedTests === 0 
+                    ? '🎉 <strong style="color: #2ea043;">TODOS OS TESTES PASSARAM!</strong>' 
+                    : '⚠️ <strong style="color: #f85149;">ALGUNS TESTES FALHARAM</strong>'
+                }
+            </p>
+        `;
+        resultsDiv.appendChild(summaryDiv);
+        
+        // Log console para debug
+        console.log('=== TESTE COMPLETO ===');
+        console.log(`Total: ${totalTests} | Passou: ${passedTests} | Falhou: ${failedTests}`);
+    </script>
+</body>
+</html>
