@@ -197,50 +197,62 @@
     // ==============================================
     
     function getCurrentAnalysis() {
-        // Procurar aliases globais conhecidos (baseado nos logs do projeto)
-        const possibleAliases = [
-            window.__soundyAI?.analysis,
-            window.currentModalAnalysis,
-            window.__CURRENT_ANALYSIS__,
-            window.currentAnalysis,
-            window.lastAnalysis,
-            window.__analysisGlobalAlias
-        ];
+        // 🚫 CRITICAL: Buscar análise de TODAS as fontes possíveis (sincronizado com premium-blocker.js)
+        const analysis = window.currentModalAnalysis ||      // ✅ Principal (exposta em audio-analyzer-integration.js)
+                        window.__CURRENT_ANALYSIS__ ||       // ✅ Alias secundário
+                        window.__soundyAI?.analysis ||       // ✅ Namespace unificado
+                        window.__LAST_ANALYSIS_RESULT__;     // ✅ Backup para PDF
         
-        for (const alias of possibleAliases) {
-            if (alias && typeof alias === 'object') {
-                return alias;
-            }
-        }
-        
-        return null;
+        return analysis && typeof analysis === 'object' ? analysis : null;
     }
     
     function isReducedMode() {
-        // Prioridade 1: APP_MODE global
-        if (window.APP_MODE === 'reduced') {
+        // 🚫 CRITICAL: Buscar análise de TODAS as fontes (sincronizado com premium-blocker.js)
+        const analysis = window.currentModalAnalysis ||
+                        window.__CURRENT_ANALYSIS__ ||
+                        window.__soundyAI?.analysis ||
+                        window.__LAST_ANALYSIS_RESULT__;
+        
+        // ✅ Sem análise = permitir (early return)
+        if (!analysis || typeof analysis !== 'object') {
+            console.log('⚠️ [GATE] Nenhuma análise carregada - permitindo acesso');
+            return false;
+        }
+        
+        // ✅ Log diagnóstico (sincronizado com premium-blocker.js)
+        console.log('🔍 [GATE] Análise encontrada:', {
+            plan: analysis.plan,
+            analysisMode: analysis.analysisMode,
+            isReduced: analysis.isReduced,
+            features: analysis.planFeatures
+        });
+        
+        // 🚫 CRITICAL: Prioridade 1 - isReduced explícito
+        if (analysis.isReduced === true) {
+            console.log('🔒 [GATE] Modo REDUCED detectado (isReduced: true)');
             return true;
         }
         
-        // Prioridade 2: Análise atual
-        const analysis = getCurrentAnalysis();
-        if (analysis) {
-            // Verificar flag isReduced
-            if (analysis.isReduced === true) {
-                return true;
-            }
-            
-            // Verificar plano
-            if (analysis.plan && String(analysis.plan).toLowerCase().includes('free')) {
-                return true;
-            }
-            
-            // Verificar analysisMode
-            if (analysis.analysisMode === 'reduced') {
-                return true;
-            }
+        // 🚫 CRITICAL: Prioridade 2 - analysisMode === 'reduced'
+        if (analysis.analysisMode === 'reduced') {
+            console.log('🔒 [GATE] Modo REDUCED detectado (analysisMode: reduced)');
+            return true;
         }
         
+        // 🚫 CRITICAL: Prioridade 3 - Plano PLUS (NUNCA tem IA/PDF)
+        if (analysis.plan === 'plus') {
+            console.log('🔒 [GATE] Plano PLUS detectado - IA/PDF bloqueados');
+            return true;
+        }
+        
+        // ✅ FREE TRIAL: Se FREE + analysisMode === 'full' → PERMITIR
+        if (analysis.plan === 'free' && analysis.analysisMode === 'full') {
+            console.log('🎁 [GATE] FREE TRIAL (modo FULL) - permitindo acesso');
+            return false;
+        }
+        
+        // ✅ PRO ou qualquer outro plano em modo full → PERMITIR
+        console.log('✅ [GATE] Plano válido - permitindo acesso');
         return false;
     }
     
@@ -267,17 +279,17 @@
         
         modal.style.display = 'flex';
         
-        // Debug info
-        const mode = window.APP_MODE;
-        const analysis = getCurrentAnalysis();
-        const analysisPlan = analysis?.plan;
-        const analysisIsReduced = analysis?.isReduced;
+        // ✅ Debug info (sincronizado com premium-blocker.js)
+        const analysis = window.currentModalAnalysis ||
+                        window.__CURRENT_ANALYSIS__ ||
+                        window.__soundyAI?.analysis ||
+                        window.__LAST_ANALYSIS_RESULT__;
         
         console.warn('[GATE] bloqueado:', feature, {
-            mode,
-            isReduced: isReducedMode(),
-            analysisPlan,
-            analysisIsReduced
+            plan: analysis?.plan,
+            analysisMode: analysis?.analysisMode,
+            isReduced: analysis?.isReduced,
+            features: analysis?.planFeatures
         });
     }
     
