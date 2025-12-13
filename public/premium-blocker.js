@@ -46,26 +46,54 @@
     };
     
     // ========================================
-    // 🔍 DETECÇÃO DE MODO
+    // 🔍 DETECÇÃO DE MODO (COM EARLY-RETURN)
     // ========================================
     
+    /**
+     * Verifica se deve bloquear features premium
+     * REGRA CRÍTICA: SEM análise válida = SEM bloqueio
+     * @returns {boolean} true se deve bloquear, false se pode executar
+     */
     function isReducedMode() {
-        // ✅ PRIORIDADE 1: Sistema de capabilities (mais preciso)
-        if (window.PlanCapabilities) {
-            // Bloquear se qualquer feature premium está bloqueada
-            return window.PlanCapabilities.shouldBlockPremiumFeatures();
-        }
-        
-        // ✅ PRIORIDADE 2: APP_MODE (fallback)
-        if (window.APP_MODE === 'reduced') return true;
-        
-        // ✅ PRIORIDADE 3: Análise atual
+        // 🚫 CRITICAL: Se não há análise carregada, NÃO bloquear
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
-        if (analysis) {
-            if (analysis.analysisMode === 'reduced') return true;
-            if (analysis.isReduced === true) return true;
+        
+        if (!analysis || typeof analysis !== 'object') {
+            console.log('⚠️ [BLOCKER] Nenhuma análise carregada - permitindo acesso');
+            return false; // ✅ SEM BLOQUEIO quando não há análise
         }
         
+        // ✅ PRIORIDADE 1: Verificar flags explícitos da análise
+        if (analysis.isReduced === true) {
+            console.log('🔒 [BLOCKER] Modo REDUCED detectado (isReduced: true)');
+            return true;
+        }
+        
+        if (analysis.analysisMode === 'reduced') {
+            console.log('🔒 [BLOCKER] Modo REDUCED detectado (analysisMode: reduced)');
+            return true;
+        }
+        
+        // ✅ PRIORIDADE 2: Plus sempre bloqueia IA/PDF (mesmo em modo full)
+        if (analysis.plan === 'plus') {
+            console.log('🔒 [BLOCKER] Plano PLUS detectado - IA/PDF bloqueados');
+            return true; // Plus nunca tem IA/PDF
+        }
+        
+        // ✅ PRIORIDADE 3: Free em modo FULL não bloqueia (trial)
+        if (analysis.plan === 'free' && analysis.analysisMode === 'full') {
+            console.log('🎁 [BLOCKER] FREE TRIAL (modo FULL) - permitindo acesso');
+            return false; // Free trial tem tudo
+        }
+        
+        // ✅ FALLBACK: Pro sempre liberado
+        if (analysis.plan === 'pro') {
+            console.log('✅ [BLOCKER] Plano PRO - acesso total');
+            return false;
+        }
+        
+        // ⚠️ Se chegou aqui e não identificou, não bloqueia por segurança
+        console.log('⚠️ [BLOCKER] Estado indefinido - permitindo acesso por segurança');
         return false;
     }
     
@@ -322,9 +350,19 @@
                     
                     // Criar função com guard
                     window[fnName] = function(...args) {
+                        // 🚫 CRITICAL: Verificar se há análise válida
+                        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+                        
+                        if (!analysis || typeof analysis !== 'object') {
+                            console.log(`⚠️ [BLOCKER] ${fnName}: Nenhuma análise carregada - executando normalmente`);
+                            const original = FunctionGuards.originalFunctions.get(fnName);
+                            return original.apply(this, args);
+                        }
+                        
                         // GUARD: Verificar modo
                         if (isReducedMode()) {
-                            console.warn(`🔒 [BLOCKER] Função bloqueada: ${fnName} (modo reduced)`);
+                            console.warn(`🔒 [BLOCKER] Função bloqueada: ${fnName}`);
+                            console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
                             
                             // Determinar tipo de recurso
                             const feature = fnName.includes('PDF') || fnName.includes('download') || fnName.includes('report') 
@@ -338,6 +376,7 @@
                         }
                         
                         // Modo full: executar normalmente
+                        console.log(`✅ [BLOCKER] ${fnName}: Executando normalmente (modo FULL)`);
                         const original = FunctionGuards.originalFunctions.get(fnName);
                         return original.apply(this, args);
                     };
@@ -378,12 +417,37 @@
             
             CONFIG.eventsToBlock.forEach(eventType => {
                 const handler = (e) => {
-                    // Verificar se estamos em modo reduced
-                    if (!isReducedMode()) return;
+                    // 🚫 CRITICAL: Verificar análise válida ANTES de qualquer lógica
+                    const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+                    
+                    if (!analysis || typeof analysis !== 'object') {
+                        // SEM análise carregada = SEM bloqueio
+                        return;
+                    }
                     
                     const target = e.target;
+                    const text = target.textContent?.trim() || '';
                     
-                    // ✅ VERIFICAÇÃO ESTRITA: Apenas nos 2 botões específicos
+                    // ❌ NUNCA bloquear gênero, dropdowns, inputs gerais
+                    const isGenreButton = text.includes('Escolher') || text.includes('gênero') || text.includes('Gênero');
+                    const isGenreModal = target.closest('#genreModal') || target.closest('.genre-');
+                    const isSelect = target.closest('select') || target.tagName === 'SELECT';
+                    const isInput = target.closest('input') || target.tagName === 'INPUT';
+                    
+                    if (isGenreButton || isGenreModal || isSelect || isInput) {
+                        return; // ✅ NUNCA bloquear esses elementos
+                    }
+                    
+                    // ✅ VERIFICAÇÃO ESTRITA: Apenas botões IA e PDF
+                    const isAIButton = text.includes('Pedir Ajuda à IA') || text.includes('🤖 Pedir');
+                    const isPDFButton = text.includes('Baixar Relatório') || text.includes('📄 Baixar');
+                    
+                    if (!isAIButton && !isPDFButton) {
+                        // Não é botão restrito, permitir
+                        return;
+                    }
+                    
+                    // ✅ Verificar seletores específicos também
                     const isRestrictedButton = CONFIG.buttonSelectors.some(selector => {
                         try {
                             return target.matches(selector) || target.closest(selector);
@@ -392,41 +456,37 @@
                         }
                     });
                     
-                    // ✅ Verificação por texto ESPECÍFICA: SOMENTE "Pedir Ajuda à IA" ou "Baixar Relatório"
-                    // NUNCA "Escolher gênero" ou qualquer outro botão
-                    const text = target.textContent?.trim() || '';
-                    const isAIButton = text.includes('Pedir Ajuda à IA') || text.includes('🤖 Pedir');
-                    const isPDFButton = text.includes('Baixar Relatório') || text.includes('📄 Baixar');
-                    const isRestrictedByText = isAIButton || isPDFButton;
-                    
-                    // ❌ NUNCA bloquear se for "Escolher gênero" ou elementos do modal de gênero
-                    const isGenreButton = text.includes('Escolher') || text.includes('gênero') || text.includes('Gênero');
-                    const isGenreModal = target.closest('#genreModal') || target.closest('.genre-');
-                    
-                    if (isGenreButton || isGenreModal) {
-                        console.log(`✅ [BLOCKER] Permitido: botão de gênero não é restrito`);
-                        return; // ✅ NUNCA bloquear gênero
+                    if (!isRestrictedButton && !isAIButton && !isPDFButton) {
+                        return; // Não é botão restrito
                     }
                     
-                    if (isRestrictedButton || isRestrictedByText) {
-                        // BLOQUEAR TUDO
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        
-                        console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType} em modo reduced`);
-                        console.log(`   Target:`, text);
-                        console.log(`   Plan:`, window.currentModalAnalysis?.plan);
-                        console.log(`   Mode:`, window.currentModalAnalysis?.analysisMode);
-                        console.log(`   Features:`, window.currentModalAnalysis?.planFeatures);
-                        
-                        // Determinar tipo de recurso
-                        const feature = isPDFButton ? 'pdf' : isAIButton ? 'ai' : 'premium';
-                        
-                        // Abrir modal (apenas uma vez por clique)
-                        if (eventType === 'click' && !UpgradeModal.isVisible()) {
-                            UpgradeModal.show(feature);
-                        }
+                    // 🔍 Verificar se deve bloquear baseado na análise atual
+                    const shouldBlock = isReducedMode();
+                    
+                    if (!shouldBlock) {
+                        console.log(`✅ [BLOCKER] Permitido: ${text}`);
+                        console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
+                        return; // ✅ Modo FULL ou Pro - permitir
+                    }
+                    
+                    // 🚫 BLOQUEAR: Análise em reduced ou Plus
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType}`);
+                    console.log(`   Target: ${text}`);
+                    console.log(`   Plan: ${analysis.plan}`);
+                    console.log(`   Mode: ${analysis.analysisMode}`);
+                    console.log(`   isReduced: ${analysis.isReduced}`);
+                    console.log(`   Features:`, analysis.planFeatures);
+                    
+                    // Determinar tipo de recurso
+                    const feature = isPDFButton ? 'pdf' : isAIButton ? 'ai' : 'premium';
+                    
+                    // Abrir modal (apenas uma vez por clique)
+                    if (eventType === 'click' && !UpgradeModal.isVisible()) {
+                        UpgradeModal.show(feature);
                     }
                 };
                 
@@ -459,12 +519,21 @@
         neutralizedButtons: new Map(),
         
         neutralize() {
+            // 🚫 CRITICAL: Verificar análise válida antes de neutralizar
+            const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+            
+            if (!analysis || typeof analysis !== 'object') {
+                console.log('⚠️ [BLOCKER] Nenhuma análise carregada - botões mantidos intactos');
+                return;
+            }
+            
             if (!isReducedMode()) {
                 console.log('✅ [BLOCKER] Modo FULL - botões mantidos intactos');
                 return;
             }
             
             console.log('🛡️ [BLOCKER] Neutralizando botões em modo reduced...');
+            console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
             
             let neutralized = 0;
             
