@@ -20002,9 +20002,9 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
-    // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
-    if (window.APP_MODE === 'reduced') {
-        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada em modo reduced');
+    // 🔒 GUARD: Decisão centralizada (reduced tem prioridade; Plus não pode IA/PDF)
+    if (window.SoundyAccess && !window.SoundyAccess.canUseFeature('ai', currentModalAnalysis)) {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada por plano/capability');
         // Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
@@ -20114,9 +20114,10 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 
 // 📄 Baixar relatório do modal (IMPLEMENTAÇÃO ROBUSTA COM VALIDAÇÃO)
 async function downloadModalAnalysis() {
-    // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
-    if (window.APP_MODE === 'reduced') {
-        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada em modo reduced');
+    // 🔒 GUARD: Decisão centralizada (reduced tem prioridade; Plus não pode IA/PDF)
+    const __analysisForGuard = window.__soundyAI?.analysis || currentModalAnalysis;
+    if (window.SoundyAccess && !window.SoundyAccess.canUseFeature('pdf', __analysisForGuard)) {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada por plano/capability');
         // Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
