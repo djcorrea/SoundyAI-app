@@ -421,8 +421,11 @@ export function getPlanFeatures(plan, analysisMode) {
   const p = plan || 'free';
   const isFull = analysisMode === 'full';
 
+  console.log(`📊 [USER-PLANS] getPlanFeatures - plan: ${p}, mode: ${analysisMode}, isFull: ${isFull}`);
+
   // PRO: Todas as features (sempre)
   if (p === 'pro') {
+    console.log('✅ [USER-PLANS] PRO - Todas as features liberadas');
     return {
       canSuggestions: true,
       canSpectralAdvanced: true,
@@ -431,8 +434,9 @@ export function getPlanFeatures(plan, analysisMode) {
     };
   }
 
-  // PLUS: Sugestões apenas em análise full
+  // PLUS: Sugestões apenas em análise full, IA/PDF sempre bloqueados
   if (p === 'plus') {
+    console.log(`✅ [USER-PLANS] PLUS - Sugestões: ${isFull}, IA/PDF: bloqueados`);
     return {
       canSuggestions: isFull,
       canSpectralAdvanced: false,
@@ -441,11 +445,22 @@ export function getPlanFeatures(plan, analysisMode) {
     };
   }
 
-  // FREE: Sem features extras
-  return {
-    canSuggestions: false,
-    canSpectralAdvanced: false,
-    canAiHelp: false,
-    canPdf: false,
-  };
+  // FREE: Em modo FULL (trial das 3 primeiras), libera TUDO. Em reduced, bloqueia TUDO.
+  if (isFull) {
+    console.log('🎁 [USER-PLANS] FREE TRIAL (modo FULL) - IA e PDF LIBERADOS');
+    return {
+      canSuggestions: true,
+      canSpectralAdvanced: false,
+      canAiHelp: true,  // ✅ LIBERADO NO TRIAL
+      canPdf: true,     // ✅ LIBERADO NO TRIAL
+    };
+  } else {
+    console.log('🔒 [USER-PLANS] FREE REDUCED - Tudo bloqueado');
+    return {
+      canSuggestions: false,
+      canSpectralAdvanced: false,
+      canAiHelp: false,
+      canPdf: false,
+    };
+  }
 }
