@@ -12,12 +12,14 @@
     // ========================================
     
     const CONFIG = {
-        // Seletores dos botões restritos
+        // ✅ Seletores ESPECÍFICOS dos 2 botões premium (IA e PDF)
         buttonSelectors: [
             'button[onclick*="sendModalAnalysisToChat"]',
             'button[onclick*="downloadModalAnalysis"]',
-            'button.action-btn.primary',
-            'button.action-btn.secondary'
+            '#btnAskAI',
+            '#btnDownloadReport',
+            'button[data-feature="ai-help"]',
+            'button[data-feature="pdf-download"]'
         ],
         
         // Funções que devem ser guardadas
@@ -32,14 +34,14 @@
             'startPdfGeneration'
         ],
         
-        // Eventos a serem bloqueados
+        // ⚠️ CRÍTICO: Removido 'keydown' para NÃO bloquear F5/F12/DevTools
+        // Eventos a serem bloqueados (SOMENTE nos botões específicos)
         eventsToBlock: [
             'click',
             'mousedown',
             'pointerdown',
-            'touchstart',
-            'keydown',
-            'submit'
+            'touchstart'
+            // 'keydown' REMOVIDO - não pode bloquear atalhos do navegador!
         ]
     };
     
@@ -379,8 +381,9 @@
                     // Verificar se estamos em modo reduced
                     if (!isReducedMode()) return;
                     
-                    // Verificar se evento originou de botão restrito
                     const target = e.target;
+                    
+                    // ✅ VERIFICAÇÃO ESTRITA: Apenas nos 2 botões específicos
                     const isRestrictedButton = CONFIG.buttonSelectors.some(selector => {
                         try {
                             return target.matches(selector) || target.closest(selector);
@@ -389,12 +392,21 @@
                         }
                     });
                     
-                    // Verificar também por texto (fallback)
+                    // ✅ Verificação por texto ESPECÍFICA: SOMENTE "Pedir Ajuda à IA" ou "Baixar Relatório"
+                    // NUNCA "Escolher gênero" ou qualquer outro botão
                     const text = target.textContent?.trim() || '';
-                    const isRestrictedByText = text.includes('Pedir Ajuda à IA') || 
-                                              text.includes('Baixar Relatório') ||
-                                              text.includes('🤖') ||
-                                              text.includes('📄');
+                    const isAIButton = text.includes('Pedir Ajuda à IA') || text.includes('🤖 Pedir');
+                    const isPDFButton = text.includes('Baixar Relatório') || text.includes('📄 Baixar');
+                    const isRestrictedByText = isAIButton || isPDFButton;
+                    
+                    // ❌ NUNCA bloquear se for "Escolher gênero" ou elementos do modal de gênero
+                    const isGenreButton = text.includes('Escolher') || text.includes('gênero') || text.includes('Gênero');
+                    const isGenreModal = target.closest('#genreModal') || target.closest('.genre-');
+                    
+                    if (isGenreButton || isGenreModal) {
+                        console.log(`✅ [BLOCKER] Permitido: botão de gênero não é restrito`);
+                        return; // ✅ NUNCA bloquear gênero
+                    }
                     
                     if (isRestrictedButton || isRestrictedByText) {
                         // BLOQUEAR TUDO
@@ -403,14 +415,13 @@
                         e.stopImmediatePropagation();
                         
                         console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType} em modo reduced`);
-                        console.log(`   Target:`, target.textContent?.trim());
+                        console.log(`   Target:`, text);
+                        console.log(`   Plan:`, window.currentModalAnalysis?.plan);
+                        console.log(`   Mode:`, window.currentModalAnalysis?.analysisMode);
+                        console.log(`   Features:`, window.currentModalAnalysis?.planFeatures);
                         
                         // Determinar tipo de recurso
-                        const feature = text.includes('Relatório') || text.includes('📄')
-                            ? 'pdf'
-                            : text.includes('IA') || text.includes('🤖')
-                                ? 'ai'
-                                : 'premium';
+                        const feature = isPDFButton ? 'pdf' : isAIButton ? 'ai' : 'premium';
                         
                         // Abrir modal (apenas uma vez por clique)
                         if (eventType === 'click' && !UpgradeModal.isVisible()) {
