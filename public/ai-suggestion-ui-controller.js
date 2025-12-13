@@ -117,6 +117,26 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔐 RENDERIZAR CONTEÚDO SEGURO (SECURITY GUARD)
+     * Camada adicional de proteção - garante que texto nunca vaze no DOM
+     * 
+     * @param {string|null} content - Conteúdo a ser renderizado
+     * @param {boolean} isReducedMode - Se está em modo reduced
+     * @returns {string} HTML seguro (placeholder ou conteúdo real)
+     */
+    renderSecureTextContent(content, isReducedMode) {
+        // 🔒 MODO REDUCED: Sempre retornar placeholder
+        if (isReducedMode || content === null || content === undefined) {
+            console.log('[SECURE-TEXT] 🔒 BLOCKED: Retornando placeholder');
+            return '<span class="blocked-value">•••• 🔒</span>';
+        }
+        
+        // ✅ MODO FULL: Retornar conteúdo real
+        console.log('[SECURE-TEXT] ✅ FULL: Texto real');
+        return content;
+    }
+    
+    /**
      * 🔐 FUNÇÃO CENTRAL DE RENDERIZAÇÃO DE BLOCOS DE SUGESTÃO
      * CONTRATO ÚNICO - ZERO VAZAMENTO DE TEXTO
      * 
@@ -129,8 +149,14 @@ class AISuggestionUIController {
      * @returns {string} HTML do bloco
      */
     renderSuggestionBlock({ type, content, analysisMode, title, blockClass }) {
-        // 🔐 MODO REDUCED: NUNCA USAR content
-        if (analysisMode === 'reduced' || content === null || content === undefined) {
+        // 🔐 SECURITY GUARD: Verificar modo reduced
+        const isReducedMode = analysisMode === 'reduced';
+        
+        // 🔐 RENDERIZAR CONTEÚDO SEGURO (dupla proteção)
+        const secureContent = this.renderSecureTextContent(content, isReducedMode);
+        
+        // 🔐 MODO REDUCED: NUNCA USAR content original
+        if (isReducedMode || content === null || content === undefined) {
             console.log(`[RENDER-BLOCK] 🔒 BLOCKED: ${type} - SEM TEXTO NO DOM`);
             
             return `
@@ -143,13 +169,13 @@ class AISuggestionUIController {
             `;
         }
         
-        // ✅ MODO FULL: Renderizar texto real
+        // ✅ MODO FULL: Renderizar texto real (já validado por renderSecureTextContent)
         console.log(`[RENDER-BLOCK] ✅ FULL: ${type} - Texto real`);
         
         return `
             <div class="ai-block ${blockClass}">
                 <div class="ai-block-title">${title}</div>
-                <div class="ai-block-content">${content}</div>
+                <div class="ai-block-content">${secureContent}</div>
             </div>
         `;
     }
