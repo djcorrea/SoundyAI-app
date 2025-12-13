@@ -1,22 +1,25 @@
 // 🔒 INTERCEPTOR DE BOTÕES PREMIUM - MODO REDUCED
-// Sistema isolado de interceptação de cliques para funcionalidades premium
-// NÃO ALTERA NENHUMA FUNÇÃO EXISTENTE - Apenas intercepta em modo reduced
+// Sistema de neutralização de handlers inline para funcionalidades premium
+// REMOVE onclick inline e listeners existentes em modo reduced
+// NÃO ALTERA NENHUMA FUNÇÃO EXISTENTE - Apenas neutraliza execução
 
 (function() {
     'use strict';
     
-    console.log('🔒 [INTERCEPTOR] Carregando sistema de interceptação...');
+    console.log('🔒 [INTERCEPTOR] Carregando sistema de neutralização...');
     
     // ========================================
     // 🎯 CONFIGURAÇÃO
     // ========================================
     
-    // IDs dos botões que devem ser interceptados em modo reduced
-    // ⚠️ AJUSTE CONFORME NECESSÁRIO - Atualmente usando onclick detectável
+    // Seletores dos botões que devem ser neutralizados em modo reduced
     const PREMIUM_BUTTON_SELECTORS = [
         'button[onclick*="sendModalAnalysisToChat"]',  // Botão "Pedir Ajuda à IA"
         'button[onclick*="downloadModalAnalysis"]'     // Botão "Baixar Relatório"
     ];
+    
+    // Armazenar referências dos handlers originais (para possível restauração)
+    const originalHandlers = new Map();
     
     // ========================================
     // 🔍 FUNÇÃO DE DETECÇÃO DE MODO
@@ -24,10 +27,13 @@
     
     /**
      * Detecta se o sistema está em modo reduced
-     * Compatível com a arquitetura existente do projeto
+     * PRIORIDADE: window.APP_MODE
      */
     function isReducedMode() {
-        // Método 1: Verificar análise atual no modal
+        // Método 1: Flag global (PRIORIDADE)
+        if (window.APP_MODE === 'reduced') return true;
+        
+        // Método 2: Verificar análise atual no modal
         const currentAnalysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         if (currentAnalysis) {
             if (currentAnalysis.analysisMode === 'reduced') return true;
@@ -35,10 +41,7 @@
             if (currentAnalysis.isReduced === true) return true;
         }
         
-        // Método 2: Verificar flag global (se existir)
-        if (window.APP_MODE === 'reduced') return true;
-        
-        // Método 3: Verificar plano do usuário (se existir)
+        // Método 3: Verificar plano do usuário
         if (window.userPlan === 'free') return true;
         
         // Default: modo full (não bloquear)
@@ -145,38 +148,89 @@
     };
     
     // ========================================
-    // 🛡️ INTERCEPTADOR DE CLIQUES
+    // 🛡️ NEUTRALIZADOR DE HANDLERS INLINE
     // ========================================
     
     /**
-     * Intercepta cliques em botões premium quando em modo reduced
-     * Usa capture phase para garantir execução ANTES de qualquer listener existente
+     * Neutraliza onclick inline e remove TODOS os listeners de um botão
+     * Usa técnica de clonagem para garantir limpeza total
      */
-    function interceptPremiumClick(event) {
-        // Verificar se estamos em modo reduced
+    function neutralizeButton(button) {
+        if (!button) return null;
+        
+        // 1. Armazenar handler original (para debug/restauração)
+        if (button.onclick) {
+            originalHandlers.set(button, button.onclick);
+            console.log('📦 [INTERCEPTOR] Handler original armazenado:', button.textContent.trim());
+        }
+        
+        // 2. Remover onclick inline
+        button.onclick = null;
+        button.removeAttribute('onclick');
+        
+        // 3. CLONAR o nó para remover TODOS os listeners invisíveis
+        const cleanButton = button.cloneNode(true);
+        
+        // 4. Substituir botão original pelo clone limpo
+        button.parentNode.replaceChild(cleanButton, button);
+        
+        // 5. Adicionar novo handler de upgrade
+        cleanButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            
+            console.warn('🔒 [INTERCEPTOR] Ação premium bloqueada em modo reduced');
+            console.log('🎯 [INTERCEPTOR] Botão:', cleanButton.textContent.trim());
+            
+            // Mostrar modal de upgrade
+            UpgradeModal.show();
+        });
+        
+        console.log('✅ [INTERCEPTOR] Botão neutralizado:', cleanButton.textContent.trim());
+        
+        return cleanButton;
+    }
+    
+    /**
+     * Neutraliza todos os botões premium quando em modo reduced
+     */
+    function neutralizeAllPremiumButtons() {
         if (!isReducedMode()) {
-            // Modo full: não fazer nada, deixar fluxo normal continuar
+            console.log('✅ [INTERCEPTOR] Modo FULL detectado - botões mantidos intactos');
             return;
         }
         
-        // Verificar se o clique foi em um botão premium
-        const target = event.target.closest(PREMIUM_BUTTON_SELECTORS.join(','));
-        if (!target) {
-            // Não é um botão premium
-            return;
+        console.warn('🔒 [INTERCEPTOR] Modo REDUCED detectado - neutralizando botões premium...');
+        
+        let neutralizedCount = 0;
+        
+        PREMIUM_BUTTON_SELECTORS.forEach(selector => {
+            const buttons = document.querySelectorAll(selector);
+            
+            buttons.forEach(button => {
+                neutralizeButton(button);
+                neutralizedCount++;
+            });
+        });
+        
+        if (neutralizedCount > 0) {
+            console.log(`✅ [INTERCEPTOR] ${neutralizedCount} botão(ões) neutralizado(s) com sucesso`);
+        } else {
+            console.warn('⚠️ [INTERCEPTOR] Nenhum botão premium encontrado para neutralizar');
         }
+    }
+    
+    /**
+     * Restaura botões ao estado original (para modo full)
+     * Útil para debugging ou mudança dinâmica de modo
+     */
+    function restoreAllButtons() {
+        console.log('🔄 [INTERCEPTOR] Restaurando botões ao estado original...');
         
-        // 🔒 MODO REDUCED DETECTADO - BLOQUEAR EXECUÇÃO
-        console.warn('🔒 [INTERCEPTOR] Modo reduced detectado - bloqueando ação premium');
-        console.log('🎯 [INTERCEPTOR] Botão interceptado:', target.textContent.trim());
-        
-        // Prevenir qualquer ação
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        
-        // Mostrar modal de upgrade
-        UpgradeModal.show();
+        // Esta função recarrega a página para garantir estado limpo
+        // Alternativa: implementar lógica de restauração manual se necessário
+        window.location.reload();
     }
     
     // ========================================
@@ -187,30 +241,43 @@
      * Inicializa o sistema de interceptação
      */
     function initializeInterceptor() {
-        console.log('🚀 [INTERCEPTOR] Inicializando sistema...');
+        console.log('🚀 [INTERCEPTOR] Inicializando sistema de neutralização...');
         
         // 1. Inicializar modal
         if (!UpgradeModal.init()) {
-            console.error('❌ [INTERCEPTOR] Falha ao inicializar modal - interceptação desabilitada');
+            console.error('❌ [INTERCEPTOR] Falha ao inicializar modal - sistema desabilitado');
             return;
         }
         
-        // 2. Instalar interceptador global (capture phase)
-        document.addEventListener('click', interceptPremiumClick, true);
-        console.log('✅ [INTERCEPTOR] Interceptador instalado (capture phase)');
+        // 2. Verificar modo atual
+        const currentMode = isReducedMode() ? 'REDUCED' : 'FULL';
+        console.log('🎯 [INTERCEPTOR] Modo detectado:', currentMode);
         
-        // 3. Log de configuração
+        // 3. Neutralizar botões se em modo reduced
+        neutralizeAllPremiumButtons();
+        
+        // 4. Log de configuração
         console.log('📋 [INTERCEPTOR] Botões monitorados:', PREMIUM_BUTTON_SELECTORS);
-        console.log('🎯 [INTERCEPTOR] Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
         
-        // 4. Expor API global para debug (opcional)
+        // 5. Expor API global para debug
         window.__INTERCEPTOR_DEBUG__ = {
             isReducedMode,
             showModal: () => UpgradeModal.show(),
             hideModal: () => UpgradeModal.hide(),
+            neutralizeButtons: neutralizeAllPremiumButtons,
+            restoreButtons: restoreAllButtons,
             checkMode: () => {
-                console.log('🔍 Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
+                const mode = isReducedMode() ? 'REDUCED' : 'FULL';
+                console.log('🔍 Modo atual:', mode);
                 console.log('📊 Estado da análise:', window.currentModalAnalysis);
+                console.log('🏷️ APP_MODE:', window.APP_MODE);
+                return mode;
+            },
+            getOriginalHandlers: () => {
+                console.table(Array.from(originalHandlers.entries()).map(([btn, handler]) => ({
+                    button: btn.textContent?.trim() || 'Unknown',
+                    hasHandler: !!handler
+                })));
             }
         };
         
@@ -219,13 +286,51 @@
     }
     
     // ========================================
+    // 🔄 OBSERVADOR DE MUDANÇAS DE MODO
+    // ========================================
+    
+    /**
+     * Monitora mudanças no modo e re-aplica neutralização se necessário
+     * Útil se o modo mudar dinamicamente (ex: após login/upgrade)
+     */
+    function watchModeChanges() {
+        let lastMode = isReducedMode();
+        
+        setInterval(() => {
+            const currentMode = isReducedMode();
+            
+            if (currentMode !== lastMode) {
+                console.log('🔄 [INTERCEPTOR] Mudança de modo detectada:', 
+                    lastMode ? 'REDUCED' : 'FULL', '→', 
+                    currentMode ? 'REDUCED' : 'FULL'
+                );
+                
+                if (currentMode) {
+                    // Mudou para reduced: neutralizar botões
+                    neutralizeAllPremiumButtons();
+                } else {
+                    // Mudou para full: recarregar página para restaurar
+                    console.log('🔄 [INTERCEPTOR] Modo FULL ativado - recarregando para restaurar estado...');
+                    setTimeout(() => window.location.reload(), 500);
+                }
+                
+                lastMode = currentMode;
+            }
+        }, 1000); // Verificar a cada 1 segundo
+    }
+    
+    // ========================================
     // 🎬 AUTO-INICIALIZAÇÃO
     // ========================================
     
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeInterceptor);
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeInterceptor();
+            watchModeChanges();
+        });
     } else {
         initializeInterceptor();
+        watchModeChanges();
     }
     
 })();
