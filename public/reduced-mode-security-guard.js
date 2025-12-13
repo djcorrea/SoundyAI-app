@@ -90,9 +90,9 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         'bass',
         'graves',
         
+        // IMPORTANTE: Bloquear APENAS 'mid' isolado (500-2k Hz)
+        // NÃO bloquear lowMid, highMid (que são permitidos)
         'band_mid',
-        'mid',
-        'médios',
         
         'band_air',
         'air',
