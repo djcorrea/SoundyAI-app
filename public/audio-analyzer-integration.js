@@ -20002,6 +20002,21 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
+    // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
+    if (window.APP_MODE === 'reduced') {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada em modo reduced');
+        // Abrir modal de upgrade
+        const modal = document.getElementById('upgradeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
+            if (upgradeBtn) {
+                upgradeBtn.onclick = () => window.location.href = '/planos.html';
+            }
+        }
+        return;
+    }
+    
     __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
     
     if (!currentModalAnalysis) {
@@ -20099,6 +20114,21 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 
 // 📄 Baixar relatório do modal (IMPLEMENTAÇÃO ROBUSTA COM VALIDAÇÃO)
 async function downloadModalAnalysis() {
+    // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
+    if (window.APP_MODE === 'reduced') {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada em modo reduced');
+        // Abrir modal de upgrade
+        const modal = document.getElementById('upgradeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
+            if (upgradeBtn) {
+                upgradeBtn.onclick = () => window.location.href = '/planos.html';
+            }
+        }
+        return;
+    }
+    
     // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global
     const analysis = window.__soundyAI?.analysis || currentModalAnalysis;
     
