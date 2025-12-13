@@ -47,22 +47,43 @@
     // 🔍 DETECÇÃO DE MODO
     // ========================================
     
+    function canUseFeature(featureName) {
+        try {
+            if (window.SoundyAccess && typeof window.SoundyAccess.canUseFeature === 'function') {
+                return window.SoundyAccess.canUseFeature(featureName);
+            }
+        } catch (e) {
+            // fallback abaixo
+        }
+        // Fallback conservador: manter comportamento antigo (bloqueia apenas em reduced)
+        return window.APP_MODE !== 'reduced';
+    }
+
+    // Mantido para compatibilidade com logs/monitoramento do blocker.
     function isReducedMode() {
-        // Prioridade 1: APP_MODE
+        try {
+            if (window.SoundyAccess && typeof window.SoundyAccess.isReducedAnalysis === 'function') {
+                return window.SoundyAccess.isReducedAnalysis();
+            }
+        } catch (e) {
+            // fallback abaixo
+        }
+
         if (window.APP_MODE === 'reduced') return true;
-        
-        // Prioridade 2: Análise atual
+
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         if (analysis) {
             if (analysis.analysisMode === 'reduced') return true;
             if (analysis.plan === 'free') return true;
             if (analysis.isReduced === true) return true;
         }
-        
-        // Prioridade 3: Plano do usuário
+
         if (window.userPlan === 'free') return true;
-        
         return false;
+    }
+
+    function shouldBlockFeature(featureName) {
+        return !canUseFeature(featureName);
     }
     
     // ========================================
@@ -74,14 +95,14 @@
         currentFeature: null,
         
         init() {
-            // Verificar se modal já existe
-            this.element = document.getElementById('premiumBlockModal');
-            
+            // Preferir o modal oficial do produto, se existir
+            this.element = document.getElementById('upgradeModal') || document.getElementById('premiumBlockModal');
+
             if (!this.element) {
-                // Criar modal se não existir
+                // Criar modal fallback se não existir
                 this.createModal();
             }
-            
+
             this.setupEventHandlers();
             console.log('✅ [BLOCKER] Modal de upgrade inicializado');
         },
@@ -220,17 +241,17 @@
         },
         
         setupEventHandlers() {
-            // Botão "Ver Planos"
-            const ctaBtn = this.element.querySelector('.premium-block-cta');
+            // Botão "Ver Planos" (suporta modal oficial e fallback)
+            const ctaBtn = this.element.querySelector('.upgrade-modal-cta') || this.element.querySelector('.premium-block-cta');
             if (ctaBtn) {
                 ctaBtn.addEventListener('click', () => {
                     console.log('🔗 [BLOCKER] Redirecionando para planos.html');
                     window.location.href = 'planos.html';
                 });
             }
-            
-            // Botão "Agora não"
-            const closeBtn = this.element.querySelector('.premium-block-close');
+
+            // Botão "Agora não" (suporta modal oficial e fallback)
+            const closeBtn = this.element.querySelector('.upgrade-modal-close') || this.element.querySelector('.premium-block-close');
             if (closeBtn) {
                 closeBtn.addEventListener('click', () => this.hide());
             }
@@ -265,20 +286,28 @@
                 'premium': 'Este recurso está disponível apenas para usuários premium. Faça upgrade para desbloquear todas as funcionalidades.'
             };
             
-            const textEl = this.element.querySelector('.premium-block-text');
+            const textEl = this.element.querySelector('.upgrade-modal-text') || this.element.querySelector('.premium-block-text');
             if (textEl) {
                 textEl.textContent = messages[feature] || messages['premium'];
             }
-            
+
             console.warn(`🔒 [BLOCKER] Bloqueando recurso: ${feature}`);
-            this.element.classList.add('visible');
+            // Modal oficial usa display flex; fallback usa class visible
+            if (this.element.id === 'upgradeModal') {
+                this.element.style.display = 'flex';
+            } else {
+                this.element.classList.add('visible');
+            }
         },
         
         hide() {
-            if (this.element) {
+            if (!this.element) return;
+            if (this.element.id === 'upgradeModal') {
+                this.element.style.display = 'none';
+            } else {
                 this.element.classList.remove('visible');
-                console.log('🔓 [BLOCKER] Modal fechado');
             }
+            console.log('🔓 [BLOCKER] Modal fechado');
         },
         
         isVisible() {
@@ -318,17 +347,15 @@
                     
                     // Criar função com guard
                     window[fnName] = function(...args) {
-                        // GUARD: Verificar modo
-                        if (isReducedMode()) {
-                            console.warn(`🔒 [BLOCKER] Função bloqueada: ${fnName} (modo reduced)`);
-                            
-                            // Determinar tipo de recurso
-                            const feature = fnName.includes('PDF') || fnName.includes('download') || fnName.includes('report') 
-                                ? 'pdf' 
-                                : fnName.includes('Chat') || fnName.includes('AI') || fnName.includes('help')
-                                    ? 'ai'
-                                    : 'premium';
-                            
+                        // GUARD: Verificar capability central
+                        const feature = fnName.includes('PDF') || fnName.includes('download') || fnName.includes('report')
+                            ? 'pdf'
+                            : fnName.includes('Chat') || fnName.includes('AI') || fnName.includes('help')
+                                ? 'ai'
+                                : 'premium';
+
+                        if ((feature === 'ai' || feature === 'pdf') && shouldBlockFeature(feature)) {
+                            console.warn(`🔒 [BLOCKER] Função bloqueada: ${fnName} (capability)`);
                             UpgradeModal.show(feature);
                             return; // EARLY RETURN - não executa nada
                         }
@@ -374,8 +401,7 @@
             
             CONFIG.eventsToBlock.forEach(eventType => {
                 const handler = (e) => {
-                    // Verificar se estamos em modo reduced
-                    if (!isReducedMode()) return;
+                    // Decisão de bloqueio ocorre por recurso/capability
                     
                     // Verificar se evento originou de botão restrito
                     const target = e.target;
@@ -395,20 +421,24 @@
                                               text.includes('📄');
                     
                     if (isRestrictedButton || isRestrictedByText) {
-                        // BLOQUEAR TUDO
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        
-                        console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType} em modo reduced`);
-                        console.log(`   Target:`, target.textContent?.trim());
-                        
                         // Determinar tipo de recurso
                         const feature = text.includes('Relatório') || text.includes('📄')
                             ? 'pdf'
                             : text.includes('IA') || text.includes('🤖')
                                 ? 'ai'
                                 : 'premium';
+
+                        // Só interceptar quando o recurso estiver bloqueado.
+                        if (feature !== 'ai' && feature !== 'pdf') return;
+                        if (!shouldBlockFeature(feature)) return;
+
+                        // BLOQUEAR TUDO
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+
+                        console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType} (capability)`);
+                        console.log(`   Target:`, target.textContent?.trim());
                         
                         // Abrir modal (apenas uma vez por clique)
                         if (eventType === 'click' && !UpgradeModal.isVisible()) {
@@ -446,8 +476,9 @@
         neutralizedButtons: new Map(),
         
         neutralize() {
-            if (!isReducedMode()) {
-                console.log('✅ [BLOCKER] Modo FULL - botões mantidos intactos');
+            // Neutraliza apenas se os recursos estiverem bloqueados para o usuário atual.
+            if (!shouldBlockFeature('ai') && !shouldBlockFeature('pdf')) {
+                console.log('✅ [BLOCKER] Recursos liberados - botões mantidos intactos');
                 return;
             }
             
