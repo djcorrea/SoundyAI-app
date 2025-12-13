@@ -246,7 +246,10 @@
     <!-- Scripts -->
     <script src="upgrade-modal-interceptor.js"></script>
     <script>
-        // Simular análise global
+        // Simular flag global de modo
+        window.APP_MODE = 'full'; // Iniciar em modo full
+        
+        // Simular análise global (compatibilidade)
         window.currentModalAnalysis = {
             analysisMode: 'full',
             plan: 'premium'
@@ -260,7 +263,10 @@
             });
             event.target.classList.add('active');
             
-            // Atualizar estado global
+            // Atualizar estado global (PRIORIDADE: APP_MODE)
+            window.APP_MODE = mode;
+            
+            // Atualizar análise (compatibilidade)
             if (mode === 'reduced') {
                 window.currentModalAnalysis.analysisMode = 'reduced';
                 window.currentModalAnalysis.plan = 'free';
@@ -274,6 +280,7 @@
             
             // Log
             addLog(`🔄 Modo alterado para: ${mode.toUpperCase()}`);
+            addLog(`⚠️ Aguarde 1-2 segundos para re-neutralização automática...`);
         }
         
         // Funções originais (simuladas)
@@ -292,8 +299,8 @@
         // Funções de debug
         function checkMode() {
             if (window.__INTERCEPTOR_DEBUG__) {
-                window.__INTERCEPTOR_DEBUG__.checkMode();
-                addLog('🔍 Verificação de modo executada (veja console)');
+                const mode = window.__INTERCEPTOR_DEBUG__.checkMode();
+                addLog(`🔍 Modo atual: ${mode}`);
             } else {
                 addLog('❌ Debug API não disponível');
             }
@@ -319,13 +326,20 @@
         
         function checkState() {
             const state = {
-                mode: window.currentModalAnalysis?.analysisMode,
+                APP_MODE: window.APP_MODE,
+                analysisMode: window.currentModalAnalysis?.analysisMode,
                 plan: window.currentModalAnalysis?.plan,
                 isReduced: window.__INTERCEPTOR_DEBUG__?.isReducedMode(),
                 debugAvailable: !!window.__INTERCEPTOR_DEBUG__
             };
             console.table(state);
             addLog('📊 Estado completo logado no console');
+            
+            // Mostrar handlers originais
+            if (window.__INTERCEPTOR_DEBUG__?.getOriginalHandlers) {
+                console.log('📦 Handlers originais armazenados:');
+                window.__INTERCEPTOR_DEBUG__.getOriginalHandlers();
+            }
         }
         
         function clearLog() {
@@ -348,8 +362,10 @@
         // Log inicial
         setTimeout(() => {
             if (window.__INTERCEPTOR_DEBUG__) {
-                addLog('✅ Sistema de interceptação carregado');
+                addLog('✅ Sistema de neutralização carregado');
+                addLog('🎯 Modo inicial: FULL');
                 addLog('💡 Use os botões de debug abaixo');
+                addLog('⚠️ Mudanças de modo são detectadas automaticamente');
             } else {
                 addLog('⏳ Aguardando carregamento do interceptor...');
             }
