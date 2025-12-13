@@ -27,22 +27,23 @@
     
     /**
      * Detecta se o sistema está em modo reduced
-     * PRIORIDADE: window.APP_MODE
+     * PRIORIDADE: window.PlanCapabilities > APP_MODE
      */
     function isReducedMode() {
-        // Método 1: Flag global (PRIORIDADE)
+        // ✅ Método 1: Sistema de capabilities (PRIORIDADE)
+        if (window.PlanCapabilities) {
+            return window.PlanCapabilities.shouldBlockPremiumFeatures();
+        }
+        
+        // ✅ Método 2: Flag global APP_MODE
         if (window.APP_MODE === 'reduced') return true;
         
-        // Método 2: Verificar análise atual no modal
+        // ✅ Método 3: Verificar análise atual no modal
         const currentAnalysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         if (currentAnalysis) {
             if (currentAnalysis.analysisMode === 'reduced') return true;
-            if (currentAnalysis.plan === 'free') return true;
             if (currentAnalysis.isReduced === true) return true;
         }
-        
-        // Método 3: Verificar plano do usuário
-        if (window.userPlan === 'free') return true;
         
         // Default: modo full (não bloquear)
         return false;

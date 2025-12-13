@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 TESTE: Correção do Bug do Modal</title>
+    <link rel="stylesheet" href="upgrade-modal-styles.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .test-button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+        
+        .test-button:hover {
+            background: linear-gradient(135deg, #5ba3ff 0%, #4a90e2 100%);
+            transform: translateY(-2px);
+        }
+        
+        .console-output {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+        }
+        
+        .log-line.success { color: #4caf50; }
+        .log-line.error { color: #f44336; }
+        .log-line.info { color: #5ba3ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 TESTE: Correção do Bug do Modal</h1>
+        <p style="text-align: center; opacity: 0.8; margin-bottom: 40px;">
+            Valide se o modal abre corretamente com a classe .visible
+        </p>
+        
+        <!-- Seção de Testes -->
+        <div class="test-section">
+            <h2>🎯 Cenários de Teste</h2>
+            
+            <button class="test-button" onclick="testModalOpen()">
+                🔒 Teste 1: Abrir Modal com .visible
+            </button>
+            
+            <button class="test-button" onclick="testModalWrong()">
+                ❌ Teste 2: Abrir Modal com display:flex (método antigo/errado)
+            </button>
+            
+            <button class="test-button" onclick="testModalClose()">
+                🔓 Teste 3: Fechar Modal
+            </button>
+            
+            <button class="test-button" onclick="clearLogs()">
+                🧹 Limpar Console
+            </button>
+        </div>
+        
+        <!-- Console de Logs -->
+        <div class="test-section">
+            <h2>📝 Console de Logs</h2>
+            <div id="console-output" class="console-output">
+                <div class="log-line info">🚀 Sistema de testes pronto. Execute os testes acima.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Upgrade -->
+    <div id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
+        <div class="upgrade-modal-card">
+            <div class="upgrade-modal-icon">🔒</div>
+            <h2 class="upgrade-modal-title" id="upgradeModalTitle">Recurso Premium</h2>
+            <p class="upgrade-modal-text">
+                Este recurso está disponível apenas para usuários com plano premium.
+                Faça upgrade para desbloquear todas as funcionalidades avançadas do SoundyAI.
+            </p>
+            <div class="upgrade-modal-buttons">
+                <button class="upgrade-modal-btn upgrade-modal-cta" aria-label="Ver planos disponíveis">
+                    ✨ Ver Planos
+                </button>
+                <button class="upgrade-modal-btn upgrade-modal-close" aria-label="Fechar modal">
+                    Agora não
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Função para adicionar log
+        function addLog(message, type = 'info') {
+            const consoleOutput = document.getElementById('console-output');
+            const logLine = document.createElement('div');
+            logLine.className = `log-line ${type}`;
+            logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(logLine);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Limpar logs
+        function clearLogs() {
+            const consoleOutput = document.getElementById('console-output');
+            consoleOutput.innerHTML = '<div class="log-line info">🧹 Console limpo.</div>';
+        }
+        
+        // Teste 1: Abrir modal corretamente (método CORRETO)
+        function testModalOpen() {
+            addLog('🧪 Teste 1: Tentando abrir modal com .classList.add("visible")...', 'info');
+            
+            const modal = document.getElementById('upgradeModal');
+            if (!modal) {
+                addLog('❌ ERRO: Modal não encontrado no DOM', 'error');
+                return;
+            }
+            
+            // Método CORRETO
+            modal.classList.add('visible');
+            
+            // Verificar se está visível
+            setTimeout(() => {
+                const computedStyle = window.getComputedStyle(modal);
+                const isVisible = computedStyle.opacity === '1' && computedStyle.visibility === 'visible';
+                
+                if (isVisible) {
+                    addLog('✅ SUCESSO: Modal está visível com opacity=1 e visibility=visible', 'success');
+                    addLog('✅ SUCESSO: Animação CSS funcionando corretamente', 'success');
+                } else {
+                    addLog(`❌ FALHA: opacity=${computedStyle.opacity}, visibility=${computedStyle.visibility}`, 'error');
+                }
+            }, 400); // Aguardar animação CSS (300ms + buffer)
+        }
+        
+        // Teste 2: Abrir modal incorretamente (método ANTIGO/ERRADO)
+        function testModalWrong() {
+            addLog('🧪 Teste 2: Tentando abrir modal com style.display="flex" (método antigo)...', 'info');
+            
+            const modal = document.getElementById('upgradeModal');
+            if (!modal) {
+                addLog('❌ ERRO: Modal não encontrado no DOM', 'error');
+                return;
+            }
+            
+            // Remover classe visible primeiro (se existir)
+            modal.classList.remove('visible');
+            
+            setTimeout(() => {
+                // Método ANTIGO/ERRADO
+                modal.style.display = 'flex';
+                
+                // Verificar se está visível
+                setTimeout(() => {
+                    const computedStyle = window.getComputedStyle(modal);
+                    const isVisible = computedStyle.opacity === '1' && computedStyle.visibility === 'visible';
+                    
+                    if (isVisible) {
+                        addLog('⚠️ INESPERADO: Modal ficou visível (não deveria)', 'error');
+                    } else {
+                        addLog('✅ ESPERADO: Modal NÃO está visível (opacity=' + computedStyle.opacity + ')', 'success');
+                        addLog('✅ CONFIRMADO: Método antigo (display:flex) NÃO funciona', 'success');
+                        addLog('💡 Motivo: CSS requer classe .visible para animar opacity e visibility', 'info');
+                    }
+                }, 400);
+            }, 100);
+        }
+        
+        // Teste 3: Fechar modal
+        function testModalClose() {
+            addLog('🧪 Teste 3: Fechando modal com .classList.remove("visible")...', 'info');
+            
+            const modal = document.getElementById('upgradeModal');
+            if (!modal) {
+                addLog('❌ ERRO: Modal não encontrado no DOM', 'error');
+                return;
+            }
+            
+            modal.classList.remove('visible');
+            modal.style.display = ''; // Limpar display inline também
+            
+            setTimeout(() => {
+                const computedStyle = window.getComputedStyle(modal);
+                const isClosed = computedStyle.opacity === '0' && computedStyle.visibility === 'hidden';
+                
+                if (isClosed) {
+                    addLog('✅ SUCESSO: Modal fechado com opacity=0 e visibility=hidden', 'success');
+                } else {
+                    addLog(`❌ FALHA: opacity=${computedStyle.opacity}, visibility=${computedStyle.visibility}`, 'error');
+                }
+            }, 400);
+        }
+        
+        // Inicializar handlers do modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('upgradeModal');
+            
+            // Handler: Fechar ao clicar no botão "Agora não"
+            const closeBtn = modal.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function() {
+                    modal.classList.remove('visible');
+                    addLog('🔓 Modal fechado pelo botão "Agora não"', 'success');
+                });
+            }
+            
+            // Handler: Log ao clicar em "Ver Planos"
+            const ctaBtn = modal.querySelector('.upgrade-modal-cta');
+            if (ctaBtn) {
+                ctaBtn.addEventListener('click', function() {
+                    addLog('🔗 Botão "Ver Planos" clicado', 'info');
+                    addLog('💡 Em produção, redirecionaria para /planos.html', 'info');
+                    // Não redirecionar no teste
+                });
+            }
+            
+            // Handler: Fechar ao clicar fora do card
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.remove('visible');
+                    addLog('🔓 Modal fechado (clique fora do card)', 'success');
+                }
+            });
+            
+            // Handler: Fechar com ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('visible')) {
+                    modal.classList.remove('visible');
+                    addLog('🔓 Modal fechado (tecla ESC)', 'success');
+                }
+            });
+            
+            addLog('✅ Handlers do modal inicializados', 'success');
+            addLog('💡 Pressione ESC para fechar o modal quando aberto', 'info');
+            addLog('💡 Clique fora do card para fechar o modal', 'info');
+        });
+    </script>
+</body>
+</html>

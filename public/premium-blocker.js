@@ -48,19 +48,21 @@
     // ========================================
     
     function isReducedMode() {
-        // Prioridade 1: APP_MODE
+        // ✅ PRIORIDADE 1: Sistema de capabilities (mais preciso)
+        if (window.PlanCapabilities) {
+            // Bloquear se qualquer feature premium está bloqueada
+            return window.PlanCapabilities.shouldBlockPremiumFeatures();
+        }
+        
+        // ✅ PRIORIDADE 2: APP_MODE (fallback)
         if (window.APP_MODE === 'reduced') return true;
         
-        // Prioridade 2: Análise atual
+        // ✅ PRIORIDADE 3: Análise atual
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         if (analysis) {
             if (analysis.analysisMode === 'reduced') return true;
-            if (analysis.plan === 'free') return true;
             if (analysis.isReduced === true) return true;
         }
-        
-        // Prioridade 3: Plano do usuário
-        if (window.userPlan === 'free') return true;
         
         return false;
     }

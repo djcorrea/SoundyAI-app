@@ -824,9 +824,9 @@ class AISuggestionUIController {
                 
                 // 🔐 SECURITY GUARD: Proteger renderização de fallback
                 const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+                // ✅ CORRIGIDO: Não verificar plan, apenas modo
                 const isReducedMode = analysis && (
                     analysis.analysisMode === 'reduced' || 
-                    analysis.plan === 'free' ||
                     analysis.isReduced === true
                 );
                 
@@ -1066,7 +1066,8 @@ class AISuggestionUIController {
         
         // 🔒 Filtrar sugestões para Reduced Mode ANTES de atualizar status
         const analysis = window.currentModalAnalysis;
-        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.plan === 'free';
+        // ✅ CORRIGIDO: Verificar APENAS analysisMode, não plan
+        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
         const displayCount = isReducedMode 
             ? Math.min(suggestions.length, 2) // Máximo de 2 no modo reduced
             : suggestions.length;
@@ -1311,7 +1312,8 @@ class AISuggestionUIController {
     filterReducedModeSuggestions(suggestions) {
         // Verificar se analysis está em modo reduced
         const analysis = window.currentModalAnalysis;
-        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.plan === 'free';
+        // ✅ CORRIGIDO: Verificar APENAS analysisMode/isReduced, não plan
+        const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
         
         if (!isReducedMode) {
             console.log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
@@ -2322,9 +2324,9 @@ class AISuggestionUIController {
     generateChatSummary() {
         // 🔐 SECURITY: Verificar modo reduced
         const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
+        // ✅ CORRIGIDO: Não verificar plan, apenas modo
         const isReducedMode = analysis && (
             analysis.analysisMode === 'reduced' || 
-            analysis.plan === 'free' ||
             analysis.isReduced === true
         );
         

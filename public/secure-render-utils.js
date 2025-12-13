@@ -78,9 +78,10 @@
     function isReducedMode(analysis) {
         if (!analysis) return false;
         
+        // ✅ CORRIGIDO: Verificar APENAS isReduced ou analysisMode
+        // ❌ NÃO verificar plan === 'free' (Free pode ter análises FULL)
         return analysis.analysisMode === 'reduced' || 
-               analysis.isReduced === true ||
-               analysis.plan === 'free';
+               analysis.isReduced === true;
     }
     
     /**
