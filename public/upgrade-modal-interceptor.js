@@ -1,196 +1,231 @@
-/* ============================================================================ */
-/* 🔒 SISTEMA DE INTERCEPTAÇÃO DE BOTÕES - MODO REDUCED                        */
-/* Bloqueia funcionalidades premium sem alterar código existente               */
-/* ============================================================================ */
+// 🔒 INTERCEPTOR DE BOTÕES PREMIUM - MODO REDUCED
+// Sistema isolado de interceptação de cliques para funcionalidades premium
+// NÃO ALTERA NENHUMA FUNÇÃO EXISTENTE - Apenas intercepta em modo reduced
 
 (function() {
     'use strict';
     
-    console.log('🔒 Sistema de interceptação de botões - CARREGANDO...');
+    console.log('🔒 [INTERCEPTOR] Carregando sistema de interceptação...');
     
-    /* ========================================================================== */
-    /* CONFIGURAÇÃO                                                               */
-    /* ========================================================================== */
+    // ========================================
+    // 🎯 CONFIGURAÇÃO
+    // ========================================
     
-    // Verificar se a variável global APP_MODE existe, caso contrário, usar plano do usuário
-    const getAppMode = () => {
-        // Prioridade 1: Variável global explícita
-        if (window.APP_MODE) {
-            return window.APP_MODE;
-        }
-        
-        // Prioridade 2: Verificar plano do usuário via variável global
-        if (window.currentUserPlan) {
-            return window.currentUserPlan === 'gratis' ? 'reduced' : 'full';
-        }
-        
-        // Fallback: modo full (não bloqueia)
-        return 'full';
-    };
-    
-    // Função auxiliar para verificar modo reduced
-    const isReducedMode = () => {
-        return getAppMode() === 'reduced' || getAppMode() === 'gratis';
-    };
-    
-    /* ========================================================================== */
-    /* CONTROLE DO MODAL                                                          */
-    /* ========================================================================== */
-    
-    let modalElement = null;
-    
-    // Criar modal dinamicamente se não existir
-    const createModal = () => {
-        if (modalElement) return modalElement;
-        
-        const overlay = document.createElement('div');
-        overlay.className = 'upgrade-modal-overlay';
-        overlay.id = 'upgradeModalOverlay';
-        
-        overlay.innerHTML = `
-            <div class="upgrade-modal-container" role="dialog" aria-labelledby="upgradeModalTitle" aria-describedby="upgradeModalText">
-                <div class="upgrade-modal-icon">🔒</div>
-                
-                <h2 class="upgrade-modal-title" id="upgradeModalTitle">
-                    Recurso Premium
-                    <span class="upgrade-modal-badge">PLUS</span>
-                </h2>
-                
-                <p class="upgrade-modal-text" id="upgradeModalText">
-                    Este recurso faz parte do <strong>Plano Plus</strong>.<br>
-                    Faça upgrade para ter acesso ilimitado a todas as funcionalidades.
-                </p>
-                
-                <div class="upgrade-modal-buttons">
-                    <a href="planos.html" class="upgrade-modal-btn upgrade-modal-btn-primary" id="upgradeModalGoToPlans">
-                        ⭐ Ver Planos e Fazer Upgrade
-                    </a>
-                    <button class="upgrade-modal-btn upgrade-modal-btn-secondary" id="upgradeModalClose">
-                        Agora não
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(overlay);
-        modalElement = overlay;
-        
-        // Adicionar listeners
-        const closeBtn = overlay.querySelector('#upgradeModalClose');
-        closeBtn.addEventListener('click', closeModal);
-        
-        // Fechar ao clicar fora do modal
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeModal();
-            }
-        });
-        
-        // Fechar com ESC
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && overlay.classList.contains('active')) {
-                closeModal();
-            }
-        });
-        
-        console.log('✅ Modal de upgrade criado');
-        return modalElement;
-    };
-    
-    // Abrir modal
-    const openModal = () => {
-        const modal = createModal();
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden'; // Prevenir scroll
-        console.log('🔓 Modal de upgrade aberto');
-    };
-    
-    // Fechar modal
-    const closeModal = () => {
-        if (modalElement) {
-            modalElement.classList.remove('active');
-            document.body.style.overflow = ''; // Restaurar scroll
-            console.log('🔒 Modal de upgrade fechado');
-        }
-    };
-    
-    /* ========================================================================== */
-    /* SISTEMA DE INTERCEPTAÇÃO                                                   */
-    /* ========================================================================== */
-    
-    // IDs dos botões que devem ser bloqueados
-    // ⚠️ AJUSTE AQUI: Caso os IDs reais sejam diferentes
-    const BLOCKED_BUTTON_SELECTORS = [
-        // Seletor por onclick (usado no HTML atual)
-        'button[onclick*="sendModalAnalysisToChat"]',
-        'button[onclick*="downloadModalAnalysis"]'
+    // IDs dos botões que devem ser interceptados em modo reduced
+    // ⚠️ AJUSTE CONFORME NECESSÁRIO - Atualmente usando onclick detectável
+    const PREMIUM_BUTTON_SELECTORS = [
+        'button[onclick*="sendModalAnalysisToChat"]',  // Botão "Pedir Ajuda à IA"
+        'button[onclick*="downloadModalAnalysis"]'     // Botão "Baixar Relatório"
     ];
     
-    // Handler de interceptação
-    const interceptClickHandler = (event) => {
-        // Verificar se está em modo reduced
+    // ========================================
+    // 🔍 FUNÇÃO DE DETECÇÃO DE MODO
+    // ========================================
+    
+    /**
+     * Detecta se o sistema está em modo reduced
+     * Compatível com a arquitetura existente do projeto
+     */
+    function isReducedMode() {
+        // Método 1: Verificar análise atual no modal
+        const currentAnalysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+        if (currentAnalysis) {
+            if (currentAnalysis.analysisMode === 'reduced') return true;
+            if (currentAnalysis.plan === 'free') return true;
+            if (currentAnalysis.isReduced === true) return true;
+        }
+        
+        // Método 2: Verificar flag global (se existir)
+        if (window.APP_MODE === 'reduced') return true;
+        
+        // Método 3: Verificar plano do usuário (se existir)
+        if (window.userPlan === 'free') return true;
+        
+        // Default: modo full (não bloquear)
+        return false;
+    }
+    
+    // ========================================
+    // 🎨 CONTROLE DO MODAL DE UPGRADE
+    // ========================================
+    
+    const UpgradeModal = {
+        element: null,
+        
+        /**
+         * Inicializa o modal de upgrade
+         */
+        init() {
+            this.element = document.getElementById('upgradeModal');
+            if (!this.element) {
+                console.error('❌ [INTERCEPTOR] Modal de upgrade não encontrado no DOM');
+                return false;
+            }
+            
+            // Configurar botões do modal
+            this.setupModalButtons();
+            
+            console.log('✅ [INTERCEPTOR] Modal de upgrade inicializado');
+            return true;
+        },
+        
+        /**
+         * Configura os botões do modal
+         */
+        setupModalButtons() {
+            // Botão "Ver Planos"
+            const viewPlansBtn = this.element.querySelector('.upgrade-modal-cta');
+            if (viewPlansBtn) {
+                viewPlansBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('🔗 [INTERCEPTOR] Redirecionando para planos.html');
+                    window.location.href = 'planos.html';
+                });
+            }
+            
+            // Botão "Agora não" (fechar)
+            const closeBtn = this.element.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.hide();
+                });
+            }
+            
+            // Fechar ao clicar fora do modal
+            this.element.addEventListener('click', (e) => {
+                if (e.target === this.element) {
+                    this.hide();
+                }
+            });
+            
+            // Fechar com ESC
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.isVisible()) {
+                    this.hide();
+                }
+            });
+        },
+        
+        /**
+         * Exibe o modal de upgrade
+         */
+        show() {
+            if (!this.element) {
+                console.error('❌ [INTERCEPTOR] Não é possível mostrar modal: elemento não inicializado');
+                return;
+            }
+            
+            console.log('🔓 [INTERCEPTOR] Exibindo modal de upgrade');
+            this.element.classList.add('visible');
+            
+            // Acessibilidade: focar no modal
+            const firstFocusable = this.element.querySelector('button');
+            if (firstFocusable) {
+                setTimeout(() => firstFocusable.focus(), 100);
+            }
+        },
+        
+        /**
+         * Oculta o modal de upgrade
+         */
+        hide() {
+            if (!this.element) return;
+            
+            console.log('🔒 [INTERCEPTOR] Ocultando modal de upgrade');
+            this.element.classList.remove('visible');
+        },
+        
+        /**
+         * Verifica se o modal está visível
+         */
+        isVisible() {
+            return this.element && this.element.classList.contains('visible');
+        }
+    };
+    
+    // ========================================
+    // 🛡️ INTERCEPTADOR DE CLIQUES
+    // ========================================
+    
+    /**
+     * Intercepta cliques em botões premium quando em modo reduced
+     * Usa capture phase para garantir execução ANTES de qualquer listener existente
+     */
+    function interceptPremiumClick(event) {
+        // Verificar se estamos em modo reduced
         if (!isReducedMode()) {
-            // Modo full: não fazer nada, deixar fluxo normal acontecer
+            // Modo full: não fazer nada, deixar fluxo normal continuar
             return;
         }
         
-        // Verificar se o elemento clicado é um dos botões bloqueados
-        const clickedElement = event.target.closest('button');
-        if (!clickedElement) return;
-        
-        // Verificar se o botão está na lista de bloqueados
-        const isBlocked = BLOCKED_BUTTON_SELECTORS.some(selector => {
-            return clickedElement.matches(selector);
-        });
-        
-        if (isBlocked) {
-            // BLOQUEAR: Impedir execução de qualquer listener
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            
-            console.log('🚫 Clique bloqueado em modo reduced:', clickedElement);
-            
-            // Abrir modal de upgrade
-            openModal();
+        // Verificar se o clique foi em um botão premium
+        const target = event.target.closest(PREMIUM_BUTTON_SELECTORS.join(','));
+        if (!target) {
+            // Não é um botão premium
+            return;
         }
-    };
-    
-    /* ========================================================================== */
-    /* INICIALIZAÇÃO                                                              */
-    /* ========================================================================== */
-    
-    const initialize = () => {
-        // Adicionar interceptador na fase de captura (antes de qualquer outro listener)
-        document.addEventListener('click', interceptClickHandler, true);
         
-        console.log('✅ Sistema de interceptação inicializado');
-        console.log('📊 Modo atual:', getAppMode());
-        console.log('🔒 Botões bloqueados:', BLOCKED_BUTTON_SELECTORS.length);
+        // 🔒 MODO REDUCED DETECTADO - BLOQUEAR EXECUÇÃO
+        console.warn('🔒 [INTERCEPTOR] Modo reduced detectado - bloqueando ação premium');
+        console.log('🎯 [INTERCEPTOR] Botão interceptado:', target.textContent.trim());
         
-        // Expor funções globalmente para debug/testes
-        window.upgradeModal = {
-            open: openModal,
-            close: closeModal,
-            isReducedMode: isReducedMode,
-            getMode: getAppMode
-        };
-    };
-    
-    // Inicializar quando DOM estiver pronto
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-        initialize();
+        // Prevenir qualquer ação
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        // Mostrar modal de upgrade
+        UpgradeModal.show();
     }
     
-    console.log('🔒 Sistema de interceptação de botões - CARREGADO');
+    // ========================================
+    // 🚀 INICIALIZAÇÃO
+    // ========================================
+    
+    /**
+     * Inicializa o sistema de interceptação
+     */
+    function initializeInterceptor() {
+        console.log('🚀 [INTERCEPTOR] Inicializando sistema...');
+        
+        // 1. Inicializar modal
+        if (!UpgradeModal.init()) {
+            console.error('❌ [INTERCEPTOR] Falha ao inicializar modal - interceptação desabilitada');
+            return;
+        }
+        
+        // 2. Instalar interceptador global (capture phase)
+        document.addEventListener('click', interceptPremiumClick, true);
+        console.log('✅ [INTERCEPTOR] Interceptador instalado (capture phase)');
+        
+        // 3. Log de configuração
+        console.log('📋 [INTERCEPTOR] Botões monitorados:', PREMIUM_BUTTON_SELECTORS);
+        console.log('🎯 [INTERCEPTOR] Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
+        
+        // 4. Expor API global para debug (opcional)
+        window.__INTERCEPTOR_DEBUG__ = {
+            isReducedMode,
+            showModal: () => UpgradeModal.show(),
+            hideModal: () => UpgradeModal.hide(),
+            checkMode: () => {
+                console.log('🔍 Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
+                console.log('📊 Estado da análise:', window.currentModalAnalysis);
+            }
+        };
+        
+        console.log('✅ [INTERCEPTOR] Sistema ativo e funcional');
+        console.log('💡 Debug disponível: window.__INTERCEPTOR_DEBUG__');
+    }
+    
+    // ========================================
+    // 🎬 AUTO-INICIALIZAÇÃO
+    // ========================================
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeInterceptor);
+    } else {
+        initializeInterceptor();
+    }
     
 })();
-
-/* ============================================================================ */
-/* 🧪 FUNÇÕES DE DEBUG/TESTE (disponíveis no console)                          */
-/* ============================================================================ */
-
-// Testar modal: window.upgradeModal.open()
-// Verificar modo: window.upgradeModal.getMode()
-// Verificar se está bloqueado: window.upgradeModal.isReducedMode()

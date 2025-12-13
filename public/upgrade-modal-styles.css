@@ -1,166 +1,201 @@
-/* ============================================================================ */
-/* 🚀 MODAL DE UPGRADE - MODO REDUCED                                           */
-/* Sistema de bloqueio visual para funcionalidades premium                      */
-/* ============================================================================ */
+/* 🔒 MODAL DE UPGRADE - ESTILO ISOLADO */
+/* Sistema de bloqueio visual para funcionalidades premium em modo reduced */
 
-/* Overlay - Fundo escurecido */
-.upgrade-modal-overlay {
+/* ========================================
+   🎯 OVERLAY DO MODAL
+   ======================================== */
+
+#upgradeModal {
+    /* Layout */
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    right: 0;
+    bottom: 0;
     z-index: 999999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-/* Overlay visível */
-.upgrade-modal-overlay.active {
-    opacity: 1;
-    pointer-events: all;
-}
-
-/* Container do modal */
-.upgrade-modal-container {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-radius: 20px;
-    border: 2px solid rgba(139, 92, 246, 0.5);
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.7),
-        0 0 40px rgba(139, 92, 246, 0.3);
-    max-width: 500px;
-    width: 90%;
-    padding: 40px;
-    position: relative;
-    transform: scale(0.8);
-    transition: transform 0.3s ease;
-}
-
-.upgrade-modal-overlay.active .upgrade-modal-container {
-    transform: scale(1);
-}
-
-/* Ícone de cadeado */
-.upgrade-modal-icon {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 20px;
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
-    border-radius: 50%;
+    
+    /* Aparência */
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    
+    /* Centralização */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
-    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4);
+    padding: 20px;
+    
+    /* Animação */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
-/* Título */
+#upgradeModal.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ========================================
+   🎨 CARD DO MODAL
+   ======================================== */
+
+.upgrade-modal-card {
+    /* Layout */
+    position: relative;
+    max-width: 480px;
+    width: 100%;
+    
+    /* Aparência */
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid rgba(74, 144, 226, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 40px rgba(74, 144, 226, 0.1);
+    
+    /* Espaçamento */
+    padding: 40px 30px;
+    
+    /* Animação */
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#upgradeModal.visible .upgrade-modal-card {
+    transform: scale(1) translateY(0);
+}
+
+/* ========================================
+   🎭 ÍCONE E TÍTULO
+   ======================================== */
+
+.upgrade-modal-icon {
+    /* Layout */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    
+    /* Aparência */
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+    border-radius: 50%;
+    box-shadow: 0 8px 24px rgba(74, 144, 226, 0.3);
+    
+    /* Texto */
+    font-size: 32px;
+}
+
 .upgrade-modal-title {
-    font-family: 'Orbitron', monospace;
-    font-size: 28px;
+    /* Texto */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 24px;
     font-weight: 700;
     color: #ffffff;
     text-align: center;
-    margin-bottom: 15px;
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    
+    /* Espaçamento */
+    margin: 0 0 16px 0;
+    
+    /* Efeito */
+    text-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
 }
 
-/* Texto descritivo */
 .upgrade-modal-text {
+    /* Texto */
     font-family: 'Poppins', sans-serif;
     font-size: 16px;
+    font-weight: 400;
     color: rgba(255, 255, 255, 0.85);
     text-align: center;
     line-height: 1.6;
-    margin-bottom: 30px;
+    
+    /* Espaçamento */
+    margin: 0 0 32px 0;
 }
 
-/* Container dos botões */
+/* ========================================
+   🔘 BOTÕES
+   ======================================== */
+
 .upgrade-modal-buttons {
+    /* Layout */
     display: flex;
-    gap: 15px;
+    gap: 12px;
     flex-direction: column;
 }
 
-/* Botão base */
 .upgrade-modal-btn {
+    /* Layout */
+    width: 100%;
+    padding: 14px 24px;
+    
+    /* Aparência */
+    border: none;
+    border-radius: 8px;
+    
+    /* Texto */
     font-family: 'Poppins', sans-serif;
     font-size: 16px;
     font-weight: 600;
-    padding: 15px 30px;
-    border: none;
-    border-radius: 12px;
+    text-align: center;
+    
+    /* Interação */
     cursor: pointer;
     transition: all 0.3s ease;
-    text-decoration: none;
-    display: block;
-    text-align: center;
+    
+    /* Acessibilidade */
+    outline: none;
 }
 
-/* Botão primário (Ver planos) */
-.upgrade-modal-btn-primary {
-    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+.upgrade-modal-btn:focus-visible {
+    outline: 2px solid #4a90e2;
+    outline-offset: 2px;
+}
+
+/* Botão primário (CTA) */
+.upgrade-modal-cta {
+    background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
     color: #ffffff;
-    box-shadow: 0 5px 20px rgba(139, 92, 246, 0.4);
+    box-shadow: 0 4px 16px rgba(74, 144, 226, 0.4);
 }
 
-.upgrade-modal-btn-primary:hover {
-    background: linear-gradient(135deg, #7c3aed, #4f46e5);
-    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.6);
+.upgrade-modal-cta:hover {
+    background: linear-gradient(135deg, #5ba3ff 0%, #4a90e2 100%);
+    box-shadow: 0 6px 24px rgba(74, 144, 226, 0.6);
     transform: translateY(-2px);
 }
 
-.upgrade-modal-btn-primary:active {
+.upgrade-modal-cta:active {
     transform: translateY(0);
 }
 
-/* Botão secundário (Agora não) */
-.upgrade-modal-btn-secondary {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.7);
-    border: 2px solid rgba(255, 255, 255, 0.2);
-}
-
-.upgrade-modal-btn-secondary:hover {
+/* Botão secundário (fechar) */
+.upgrade-modal-close {
     background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.upgrade-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Badge "Plus" */
-.upgrade-modal-badge {
-    display: inline-block;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #1a1a2e;
-    font-family: 'Orbitron', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 20px;
-    margin-left: 8px;
-    box-shadow: 0 2px 10px rgba(251, 191, 36, 0.4);
-}
+/* ========================================
+   📱 RESPONSIVIDADE
+   ======================================== */
 
-/* Responsividade */
 @media (max-width: 600px) {
-    .upgrade-modal-container {
-        padding: 30px 25px;
-        max-width: 95%;
+    .upgrade-modal-card {
+        padding: 32px 24px;
+        margin: 16px;
     }
     
     .upgrade-modal-title {
-        font-size: 24px;
+        font-size: 20px;
     }
     
     .upgrade-modal-text {
@@ -168,24 +203,41 @@
     }
     
     .upgrade-modal-icon {
-        width: 60px;
-        height: 60px;
-        font-size: 30px;
+        width: 56px;
+        height: 56px;
+        font-size: 28px;
     }
 }
 
-/* Animação de entrada */
-@keyframes upgradeModalFadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.8) translateY(20px);
+/* ========================================
+   ♿ ACESSIBILIDADE
+   ======================================== */
+
+/* Reduzir animações para usuários com preferência */
+@media (prefers-reduced-motion: reduce) {
+    #upgradeModal,
+    .upgrade-modal-card,
+    .upgrade-modal-btn {
+        transition: none;
     }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
+    
+    .upgrade-modal-card {
+        transform: none;
     }
 }
 
-.upgrade-modal-overlay.active .upgrade-modal-container {
-    animation: upgradeModalFadeIn 0.3s ease forwards;
+/* Alto contraste para melhor legibilidade */
+@media (prefers-contrast: high) {
+    #upgradeModal {
+        background: rgba(0, 0, 0, 0.95);
+    }
+    
+    .upgrade-modal-card {
+        border-width: 3px;
+        border-color: #4a90e2;
+    }
+    
+    .upgrade-modal-text {
+        color: #ffffff;
+    }
 }
