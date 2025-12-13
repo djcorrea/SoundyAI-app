@@ -18,8 +18,8 @@ const PLAN_LIMITS = {
     allowReducedAfterLimit: true,
   },
   plus: {
-    maxMessagesPerMonth: 80,
-    maxFullAnalysesPerMonth: 25,
+    maxMessagesPerMonth: 60,
+    maxFullAnalysesPerMonth: 20,
     hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
     allowReducedAfterLimit: true,
   },
