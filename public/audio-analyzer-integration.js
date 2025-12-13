@@ -20003,8 +20003,26 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
+    // ✅ Prioridade 1: Sistema centralizado de capabilities
+    if (window.PlanCapabilities && window.PlanCapabilities.shouldBlockAiHelp()) {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada');
+        console.log('📊 [PREMIUM-GUARD] Contexto:', window.PlanCapabilities.getCurrentContext());
+        
+        // Abrir modal de upgrade
+        const modal = document.getElementById('upgradeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
+            if (upgradeBtn) {
+                upgradeBtn.onclick = () => window.location.href = '/planos.html';
+            }
+        }
+        return;
+    }
+    
+    // ✅ Prioridade 2: Fallback para APP_MODE (compatibilidade)
     if (window.APP_MODE === 'reduced') {
-        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada em modo reduced');
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada (fallback APP_MODE)');
         // Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
@@ -20115,8 +20133,26 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 // 📄 Baixar relatório do modal (IMPLEMENTAÇÃO ROBUSTA COM VALIDAÇÃO)
 async function downloadModalAnalysis() {
     // 🔒 GUARD: Bloquear funcionalidade premium em modo reduced
+    // ✅ Prioridade 1: Sistema centralizado de capabilities
+    if (window.PlanCapabilities && window.PlanCapabilities.shouldBlockPdf()) {
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada');
+        console.log('📊 [PREMIUM-GUARD] Contexto:', window.PlanCapabilities.getCurrentContext());
+        
+        // Abrir modal de upgrade
+        const modal = document.getElementById('upgradeModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
+            if (upgradeBtn) {
+                upgradeBtn.onclick = () => window.location.href = '/planos.html';
+            }
+        }
+        return;
+    }
+    
+    // ✅ Prioridade 2: Fallback para APP_MODE (compatibilidade)
     if (window.APP_MODE === 'reduced') {
-        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada em modo reduced');
+        console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada (fallback APP_MODE)');
         // Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
