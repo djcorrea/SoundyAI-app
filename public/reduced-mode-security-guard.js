@@ -21,10 +21,10 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         isReduced: analysis?.isReduced
     });
     
-    // Se não estiver em modo reduced OU plano free, sempre renderizar valores reais
+    // Se não estiver em modo reduced, sempre renderizar valores reais
+    // ✅ CORRIGIDO: Não verificar plan === 'free' (Free pode ter análises FULL)
     const isReducedMode = analysis && (
         analysis.analysisMode === 'reduced' || 
-        analysis.plan === 'free' ||
         analysis.isReduced === true
     );
     
