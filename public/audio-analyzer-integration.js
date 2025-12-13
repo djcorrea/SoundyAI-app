@@ -6181,6 +6181,7 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (DR é LIBERADO)
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
+                console.log(`[GENRE-TABLE-SECURITY] DR → canRender: ${canRender} (isReduced: ${analysis?.isReduced})`);
                 
                 rows.push(`
                     <tr class="genre-row ${result.severityClass}">
@@ -6231,6 +6232,7 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (Stereo é LIBERADO)
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
+                console.log(`[GENRE-TABLE-SECURITY] stereo → canRender: ${canRender} (isReduced: ${analysis?.isReduced})`);
                 
                 rows.push(`
                     <tr class="genre-row ${result.severityClass}">
@@ -6351,8 +6353,9 @@ function renderGenreComparisonTable(options) {
                 
                 const nomeAmigavel = nomesBandas[targetKey] || targetKey;
                 
-                // � SECURITY GUARD: Verificar se banda deve ser renderizada
+                // 🔒 SECURITY GUARD: Verificar se banda deve ser renderizada
                 const canRender = shouldRenderRealValue(targetKey, 'table', analysis);
+                console.log(`[GENRE-TABLE-SECURITY] ${targetKey} → canRender: ${canRender} (isReduced: ${analysis?.isReduced})`);
                 
                 // 🛡️ PROTEÇÃO #7: Usar valores seguros em .toFixed()
                 const energyDbSafe = canRender && Number.isFinite(energyDb) ? energyDb.toFixed(2) + ' dB' : renderSecurePlaceholder('value');
