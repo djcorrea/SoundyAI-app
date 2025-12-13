@@ -40,6 +40,83 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔒 NORMALIZAÇÃO OBRIGATÓRIA DE SUGESTÕES (ZERO VAZAMENTO)
+     * Remove TODO o texto de sugestões em modo reduced
+     * Retorna objeto com __blocked: true para identificação
+     */
+    normalizeSuggestionForRender(suggestion, analysisMode) {
+        if (!suggestion) return null;
+        
+        // 🔒 MODO REDUCED: REMOVER TODO O TEXTO
+        if (analysisMode === 'reduced') {
+            return {
+                ...suggestion,
+                // 🚫 TEXTO REMOVIDO (null)
+                problem: null,
+                problema: null,
+                cause: null,
+                causaProvavel: null,
+                solution: null,
+                solucao: null,
+                plugin: null,
+                pluginRecomendado: null,
+                extraTip: null,
+                dicaExtra: null,
+                parameters: null,
+                parametros: null,
+                message: null,
+                action: null,
+                description: null,
+                observation: null,
+                recommendation: null,
+                
+                // ✅ FLAG DE BLOQUEIO
+                __blocked: true
+            };
+        }
+        
+        // ✅ MODO FULL: MANTER TUDO
+        return {
+            ...suggestion,
+            __blocked: false
+        };
+    }
+    
+    /**
+     * 🔒 RENDERIZAR PLACEHOLDER VAZIO (SEM TEXTO NO DOM)
+     * Retorna elemento DOM VAZIO - texto vem via CSS ::before
+     * ⚠️ Inspect Element NÃO mostra pseudo-elements
+     */
+    renderBlockedNode() {
+        const span = document.createElement('span');
+        span.className = 'secure-placeholder';
+        span.setAttribute('aria-hidden', 'true');
+        span.setAttribute('data-blocked', 'true');
+        // ⚠️ NÃO ADICIONAR textContent - elemento VAZIO
+        // Texto visual vem via CSS .secure-placeholder::before
+        return span;
+    }
+    
+    /**
+     * 🔒 RENDERIZAR CARD BLOQUEADO (SEM TEXTO NO DOM)
+     * Retorna HTML com elementos vazios - texto via CSS
+     */
+    renderBlockedCard() {
+        const card = document.createElement('div');
+        card.className = 'ai-block blocked-block';
+        card.setAttribute('data-blocked', 'true');
+        
+        const content = document.createElement('div');
+        content.className = 'ai-block-content';
+        
+        const placeholder = this.renderBlockedNode();
+        content.appendChild(placeholder);
+        
+        card.appendChild(content);
+        return card;
+    }
+    
+    /**
      * 🚀 Inicializar controlador
      */
     initialize() {

@@ -186,3 +186,103 @@ th .blocked-value {
         width: 100%;
     }
 }
+/* ============================================
+   🔐 ZERO TEXT LEAKAGE - PSEUDO-ELEMENT ONLY
+   Placeholders vazios - texto vem via CSS
+   ============================================ */
+
+/**
+ * 🔐 PLACEHOLDER SEGURO (SEM TEXTO NO DOM)
+ * Elemento vazio - texto visual via ::before
+ * Inspect Element NÃO mostra pseudo-elements
+ */
+.secure-placeholder {
+    display: inline-block;
+    position: relative;
+    min-width: 200px;
+    min-height: 20px;
+    font-family: monospace;
+    font-weight: bold;
+    user-select: none;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.secure-placeholder::before {
+    content: "🔒 Disponível no plano Pro";
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 1px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    white-space: nowrap;
+}
+
+/**
+ * 🔐 BADGE PRO (SEM TEXTO NO DOM)
+ */
+.ai-pro-badge::before {
+    content: "⭐ Plano Pro";
+}
+
+/**
+ * 🔐 BLOCKED BLOCK (CONTAINER VAZIO)
+ */
+.blocked-block .ai-block-content {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.blocked-block .secure-placeholder {
+    text-align: center;
+    width: 100%;
+}
+
+/**
+ * 🔐 ANIMAÇÃO DE BLOQUEIO
+ */
+.secure-placeholder::before {
+    animation: secureGlow 2s ease-in-out infinite;
+}
+
+@keyframes secureGlow {
+    0%, 100% {
+        opacity: 0.3;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        opacity: 0.5;
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+}
+
+/**
+ * 🔐 HOVER NO PLACEHOLDER
+ */
+.secure-placeholder:hover::before {
+    animation: none;
+    opacity: 0.6;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+/**
+ * 🔐 BLOCKED CARD - DATA ATTRIBUTE
+ */
+[data-blocked="true"] {
+    position: relative;
+    opacity: 0.7;
+}
+
+[data-blocked="true"]::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.02) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
