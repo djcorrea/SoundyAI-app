@@ -6131,15 +6131,16 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD: Verificar se deve renderizar valor real
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🔊 Loudness (LUFS)</td>
-                        <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.lufs_target.toFixed(1) + ' LUFS' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">🔊 Loudness (LUFS)</span></td>
+                        <td class="metric-value"><span class="metric-inner">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${canRender ? genreData.lufs_target.toFixed(1) + ' LUFS' : renderSecurePlaceholder('target')}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${canRender ? result.action : renderSecurePlaceholder('action')}</span></td>
                     </tr>
                 `);
                 metricsCount++;
@@ -6156,15 +6157,16 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🎚️ Pico Real (dBTP)</td>
-                        <td class="metric-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.true_peak_target.toFixed(1) + ' dBTP' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">🎚️ Pico Real (dBTP)</span></td>
+                        <td class="metric-value"><span class="metric-inner">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${canRender ? genreData.true_peak_target.toFixed(1) + ' dBTP' : renderSecurePlaceholder('target')}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${canRender ? result.action : renderSecurePlaceholder('action')}</span></td>
                     </tr>
                 `);
                 metricsCount++;
@@ -6181,15 +6183,16 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (DR é LIBERADO)
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">📊 Dinâmica (DR)</td>
-                        <td class="metric-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.dr_target.toFixed(1) + ' DR' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">📊 Dinâmica (DR)</span></td>
+                        <td class="metric-value"><span class="metric-inner">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${canRender ? genreData.dr_target.toFixed(1) + ' DR' : renderSecurePlaceholder('target')}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${canRender ? result.action : renderSecurePlaceholder('action')}</span></td>
                     </tr>
                 `);
                 metricsCount++;
@@ -6206,15 +6209,16 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (LRA é BLOQUEADO)
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
-                        <td class="metric-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.lra_target.toFixed(1) + ' LU' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">📈 LRA (Faixa de Loudness)</span></td>
+                        <td class="metric-value"><span class="metric-inner">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${canRender ? genreData.lra_target.toFixed(1) + ' LU' : renderSecurePlaceholder('target')}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${canRender ? result.action : renderSecurePlaceholder('action')}</span></td>
                     </tr>
                 `);
                 metricsCount++;
@@ -6231,15 +6235,16 @@ function renderGenreComparisonTable(options) {
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD (Stereo é LIBERADO)
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🎧 Imagem Estéreo</td>
-                        <td class="metric-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.stereo_target.toFixed(3) : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(3) : renderSecurePlaceholder('diff')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">🎧 Imagem Estéreo</span></td>
+                        <td class="metric-value"><span class="metric-inner">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${canRender ? genreData.stereo_target.toFixed(3) : renderSecurePlaceholder('target')}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(3) : renderSecurePlaceholder('diff')}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${canRender ? result.action : renderSecurePlaceholder('action')}</span></td>
                     </tr>
                 `);
                 metricsCount++;
@@ -6353,6 +6358,7 @@ function renderGenreComparisonTable(options) {
                 
                 // � SECURITY GUARD: Verificar se banda deve ser renderizada
                 const canRender = shouldRenderRealValue(`band_${targetKey}`, 'table', analysis);
+                const rowClass = canRender ? 'metric-row-free' : 'metric-row-blurred';
                 
                 // 🛡️ PROTEÇÃO #7: Usar valores seguros em .toFixed()
                 const energyDbSafe = canRender && Number.isFinite(energyDb) ? energyDb.toFixed(2) + ' dB' : renderSecurePlaceholder('value');
@@ -6364,13 +6370,13 @@ function renderGenreComparisonTable(options) {
                 const actionDisplay = canRender ? result.action : renderSecurePlaceholder('action');
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">${nomeAmigavel}</td>
-                        <td class="metric-value">${energyDbSafe}</td>
-                        <td class="metric-target">${targetLabelSafe}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${diffDisplay}</td>
-                        <td class="metric-severity ${result.severityClass}">${severityDisplay}</td>
-                        <td class="metric-action ${result.severityClass}">${actionDisplay}</td>
+                    <tr class="genre-row ${result.severityClass} ${rowClass}">
+                        <td class="metric-name"><span class="metric-inner">${nomeAmigavel}</span></td>
+                        <td class="metric-value"><span class="metric-inner">${energyDbSafe}</span></td>
+                        <td class="metric-target"><span class="metric-inner">${targetLabelSafe}</span></td>
+                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}"><span class="metric-inner">${diffDisplay}</span></td>
+                        <td class="metric-severity ${result.severityClass}"><span class="metric-inner">${severityDisplay}</span></td>
+                        <td class="metric-action ${result.severityClass}"><span class="metric-inner">${actionDisplay}</span></td>
                     </tr>
                 `);
                 bandsCount++;
