@@ -13,9 +13,9 @@
     
     const CAPABILITIES_MATRIX = {
         free: {
-            aiHelp: false,              // ❌ Sem "Pedir Ajuda à IA"
-            pdf: false,                 // ❌ Sem relatório PDF
-            fullSuggestions: false      // ❌ Sem sugestões (só em modo full que free raramente tem)
+            aiHelp: true,               // ✅ TEM IA quando em modo FULL (1-3 análises)
+            pdf: true,                  // ✅ TEM PDF quando em modo FULL (1-3 análises)
+            fullSuggestions: true       // ✅ TEM sugestões quando em modo FULL
         },
         plus: {
             aiHelp: false,              // ❌ NUNCA tem IA (mesmo em modo full)
@@ -23,8 +23,8 @@
             fullSuggestions: true       // ✅ TEM sugestões, mas só enquanto em modo full
         },
         pro: {
-            aiHelp: true,               // ✅ Tem "Pedir Ajuda à IA"
-            pdf: true,                  // ✅ Tem relatório PDF
+            aiHelp: true,               // ✅ Tem "Pedir Ajuda à IA" sempre
+            pdf: true,                  // ✅ Tem relatório PDF sempre
             fullSuggestions: true       // ✅ Tem sugestões sempre
         }
     };
@@ -78,20 +78,26 @@
             plan: context.plan,
             isReduced: context.isReduced,
             analysisMode: context.analysisMode,
-            baseCapability: capabilities[featureName],
-            decision: '...'
+            baseCapability: capabilities[featureName]
         });
         
-        // REGRA ESPECIAL: fullSuggestions requer modo full
-        if (featureName === 'fullSuggestions') {
-            const allowed = capabilities[featureName] === true && !context.isReduced;
-            console.log(`[CAPABILITIES] ✅ Decisão: ${allowed ? 'PERMITIDO' : 'BLOQUEADO'} (requer modo full + capability)`);
-            return allowed;
+        // 🔴 PRIORIDADE MÁXIMA: Se está em modo REDUCED, bloqueia features premium
+        if (context.isReduced && (featureName === 'aiHelp' || featureName === 'pdf' || featureName === 'fullSuggestions')) {
+            console.log(`[CAPABILITIES] ❌ BLOQUEADO: Modo Reduced (${context.plan})`);
+            return false;
         }
         
-        // REGRA GERAL: verificar capability direta (independente do modo)
+        // ✅ EXCEÇÃO EXPLÍCITA: Free em modo FULL tem IA e PDF
+        if (context.plan === 'free' && context.analysisMode === 'full' && !context.isReduced) {
+            if (featureName === 'aiHelp' || featureName === 'pdf') {
+                console.log(`[CAPABILITIES] ✅ PERMITIDO: Free em modo FULL (análises 1-3)`);
+                return true;
+            }
+        }
+        
+        // 📊 REGRA PADRÃO: Usar capabilities da matriz
         const allowed = capabilities[featureName] === true;
-        console.log(`[CAPABILITIES] ✅ Decisão: ${allowed ? 'PERMITIDO' : 'BLOQUEADO'} (capability direta)`);
+        console.log(`[CAPABILITIES] ${allowed ? '✅ PERMITIDO' : '❌ BLOQUEADO'}: capability da matriz (${context.plan})`);
         return allowed;
     }
 

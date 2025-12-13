@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: Free com IA/PDF em Modo FULL</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            color: #fff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-case {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #764ba2;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .result {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success {
+            background: #28a745;
+            color: white;
+        }
+        .badge-danger {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste: Free com IA/PDF em Modo FULL</h1>
+        
+        <div class="test-section">
+            <h2>📋 Resumo da Feature</h2>
+            <p><strong>Objetivo:</strong> Free deve ter acesso a IA e PDF nas primeiras 3 análises (modo FULL), e perder acesso após entrar em Reduced (análise 4+).</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Plano</th>
+                        <th>Modo</th>
+                        <th>IA</th>
+                        <th>PDF</th>
+                        <th>Sugestões</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Free 1-3</td>
+                        <td>FULL</td>
+                        <td><span class="badge badge-success">✅ SIM</span></td>
+                        <td><span class="badge badge-success">✅ SIM</span></td>
+                        <td><span class="badge badge-success">✅ Completas</span></td>
+                    </tr>
+                    <tr>
+                        <td>Free 4+</td>
+                        <td>Reduced</td>
+                        <td><span class="badge badge-danger">❌ NÃO</span></td>
+                        <td><span class="badge badge-danger">❌ NÃO</span></td>
+                        <td><span class="badge badge-danger">❌ Ocultas</span></td>
+                    </tr>
+                    <tr>
+                        <td>Plus 1-25</td>
+                        <td>FULL</td>
+                        <td><span class="badge badge-danger">❌ NÃO</span></td>
+                        <td><span class="badge badge-danger">❌ NÃO</span></td>
+                        <td><span class="badge badge-success">✅ Completas</span></td>
+                    </tr>
+                    <tr>
+                        <td>Pro</td>
+                        <td>FULL</td>
+                        <td><span class="badge badge-success">✅ SIM</span></td>
+                        <td><span class="badge badge-success">✅ SIM</span></td>
+                        <td><span class="badge badge-success">✅ Completas</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Testes Unitários</h2>
+            
+            <div class="test-case">
+                <h3>✅ Teste 1: Free - Análise 1/3 (FULL)</h3>
+                <p>Espera-se: IA ✅, PDF ✅, Sugestões ✅</p>
+                <button onclick="testFreeFull()">Executar Teste</button>
+                <div id="result-free-full" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="test-case">
+                <h3>❌ Teste 2: Free - Análise 4+ (Reduced)</h3>
+                <p>Espera-se: IA ❌, PDF ❌, Sugestões ❌</p>
+                <button onclick="testFreeReduced()">Executar Teste</button>
+                <div id="result-free-reduced" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="test-case">
+                <h3>❌ Teste 3: Plus - Análise 10/25 (FULL)</h3>
+                <p>Espera-se: IA ❌, PDF ❌, Sugestões ✅</p>
+                <button onclick="testPlusFull()">Executar Teste</button>
+                <div id="result-plus-full" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="test-case">
+                <h3>✅ Teste 4: Pro - Sempre FULL</h3>
+                <p>Espera-se: IA ✅, PDF ✅, Sugestões ✅</p>
+                <button onclick="testPro()">Executar Teste</button>
+                <div id="result-pro" class="result" style="display:none;"></div>
+            </div>
+
+            <div class="test-case">
+                <h3>🔄 Teste 5: Todos os Cenários</h3>
+                <p>Executa todos os testes acima sequencialmente</p>
+                <button onclick="testAll()">Executar Todos</button>
+                <div id="result-all" class="result" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🔍 Diagnóstico de Capabilities</h2>
+            <button onclick="showDiagnosis()">Exibir Diagnóstico Completo</button>
+            <div id="diagnosis" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <!-- Carregar plan-capabilities.js -->
+    <script src="plan-capabilities.js"></script>
+
+    <script>
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
+            element.innerHTML += `<div class="${className}">${message}</div>`;
+        }
+
+        function clearLog(elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = '';
+            element.style.display = 'block';
+        }
+
+        function testFreeFull() {
+            clearLog('result-free-full');
+            log('result-free-full', '🧪 Iniciando teste: Free - Análise 1/3 (FULL)', 'info');
+            
+            // Simular contexto
+            window.currentModalAnalysis = {
+                plan: 'free',
+                analysisMode: 'full',
+                isReduced: false
+            };
+
+            log('result-free-full', '📊 Contexto configurado:', 'info');
+            log('result-free-full', JSON.stringify(window.currentModalAnalysis, null, 2), 'info');
+
+            // Testar capabilities
+            const aiHelp = window.PlanCapabilities.canUseFeature('aiHelp');
+            const pdf = window.PlanCapabilities.canUseFeature('pdf');
+            const suggestions = window.PlanCapabilities.canUseFeature('fullSuggestions');
+
+            log('result-free-full', '\n🎯 Resultados:', 'info');
+            log('result-free-full', `AI Help: ${aiHelp ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, aiHelp ? 'success' : 'error');
+            log('result-free-full', `PDF: ${pdf ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, pdf ? 'success' : 'error');
+            log('result-free-full', `Sugestões Full: ${suggestions ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, suggestions ? 'success' : 'error');
+
+            // Verificar se passou
+            const passed = aiHelp && pdf && suggestions;
+            log('result-free-full', `\n${passed ? '✅ TESTE PASSOU' : '❌ TESTE FALHOU'}`, passed ? 'success' : 'error');
+
+            return passed;
+        }
+
+        function testFreeReduced() {
+            clearLog('result-free-reduced');
+            log('result-free-reduced', '🧪 Iniciando teste: Free - Análise 4+ (Reduced)', 'info');
+            
+            // Simular contexto
+            window.currentModalAnalysis = {
+                plan: 'free',
+                analysisMode: 'reduced',
+                isReduced: true
+            };
+
+            log('result-free-reduced', '📊 Contexto configurado:', 'info');
+            log('result-free-reduced', JSON.stringify(window.currentModalAnalysis, null, 2), 'info');
+
+            // Testar capabilities
+            const aiHelp = window.PlanCapabilities.canUseFeature('aiHelp');
+            const pdf = window.PlanCapabilities.canUseFeature('pdf');
+            const suggestions = window.PlanCapabilities.canUseFeature('fullSuggestions');
+
+            log('result-free-reduced', '\n🎯 Resultados:', 'info');
+            log('result-free-reduced', `AI Help: ${aiHelp ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, aiHelp ? 'error' : 'success');
+            log('result-free-reduced', `PDF: ${pdf ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, pdf ? 'error' : 'success');
+            log('result-free-reduced', `Sugestões Full: ${suggestions ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, suggestions ? 'error' : 'success');
+
+            // Verificar se passou (esperamos TUDO bloqueado)
+            const passed = !aiHelp && !pdf && !suggestions;
+            log('result-free-reduced', `\n${passed ? '✅ TESTE PASSOU' : '❌ TESTE FALHOU'}`, passed ? 'success' : 'error');
+
+            return passed;
+        }
+
+        function testPlusFull() {
+            clearLog('result-plus-full');
+            log('result-plus-full', '🧪 Iniciando teste: Plus - Análise 10/25 (FULL)', 'info');
+            
+            // Simular contexto
+            window.currentModalAnalysis = {
+                plan: 'plus',
+                analysisMode: 'full',
+                isReduced: false
+            };
+
+            log('result-plus-full', '📊 Contexto configurado:', 'info');
+            log('result-plus-full', JSON.stringify(window.currentModalAnalysis, null, 2), 'info');
+
+            // Testar capabilities
+            const aiHelp = window.PlanCapabilities.canUseFeature('aiHelp');
+            const pdf = window.PlanCapabilities.canUseFeature('pdf');
+            const suggestions = window.PlanCapabilities.canUseFeature('fullSuggestions');
+
+            log('result-plus-full', '\n🎯 Resultados:', 'info');
+            log('result-plus-full', `AI Help: ${aiHelp ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, aiHelp ? 'error' : 'success');
+            log('result-plus-full', `PDF: ${pdf ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, pdf ? 'error' : 'success');
+            log('result-plus-full', `Sugestões Full: ${suggestions ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, suggestions ? 'success' : 'error');
+
+            // Verificar se passou (IA/PDF bloqueados, sugestões permitidas)
+            const passed = !aiHelp && !pdf && suggestions;
+            log('result-plus-full', `\n${passed ? '✅ TESTE PASSOU' : '❌ TESTE FALHOU'}`, passed ? 'success' : 'error');
+
+            return passed;
+        }
+
+        function testPro() {
+            clearLog('result-pro');
+            log('result-pro', '🧪 Iniciando teste: Pro - Sempre FULL', 'info');
+            
+            // Simular contexto
+            window.currentModalAnalysis = {
+                plan: 'pro',
+                analysisMode: 'full',
+                isReduced: false
+            };
+
+            log('result-pro', '📊 Contexto configurado:', 'info');
+            log('result-pro', JSON.stringify(window.currentModalAnalysis, null, 2), 'info');
+
+            // Testar capabilities
+            const aiHelp = window.PlanCapabilities.canUseFeature('aiHelp');
+            const pdf = window.PlanCapabilities.canUseFeature('pdf');
+            const suggestions = window.PlanCapabilities.canUseFeature('fullSuggestions');
+
+            log('result-pro', '\n🎯 Resultados:', 'info');
+            log('result-pro', `AI Help: ${aiHelp ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, aiHelp ? 'success' : 'error');
+            log('result-pro', `PDF: ${pdf ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, pdf ? 'success' : 'error');
+            log('result-pro', `Sugestões Full: ${suggestions ? '✅ PERMITIDO' : '❌ BLOQUEADO'}`, suggestions ? 'success' : 'error');
+
+            // Verificar se passou (tudo permitido)
+            const passed = aiHelp && pdf && suggestions;
+            log('result-pro', `\n${passed ? '✅ TESTE PASSOU' : '❌ TESTE FALHOU'}`, passed ? 'success' : 'error');
+
+            return passed;
+        }
+
+        function testAll() {
+            clearLog('result-all');
+            log('result-all', '🔄 Executando todos os testes...', 'info');
+            log('result-all', '━'.repeat(60), 'info');
+
+            const results = {
+                'Free FULL': testFreeFull(),
+                'Free Reduced': testFreeReduced(),
+                'Plus FULL': testPlusFull(),
+                'Pro': testPro()
+            };
+
+            log('result-all', '\n━'.repeat(60), 'info');
+            log('result-all', '\n📊 RESUMO DE TODOS OS TESTES:', 'info');
+            log('result-all', '━'.repeat(60), 'info');
+
+            for (const [name, passed] of Object.entries(results)) {
+                log('result-all', `${name}: ${passed ? '✅ PASSOU' : '❌ FALHOU'}`, passed ? 'success' : 'error');
+            }
+
+            const allPassed = Object.values(results).every(r => r);
+            log('result-all', '\n━'.repeat(60), 'info');
+            log('result-all', `\n🎯 RESULTADO FINAL: ${allPassed ? '✅ TODOS OS TESTES PASSARAM' : '❌ ALGUNS TESTES FALHARAM'}`, allPassed ? 'success' : 'error');
+        }
+
+        function showDiagnosis() {
+            clearLog('diagnosis');
+            log('diagnosis', '🔍 Executando diagnóstico completo...', 'info');
+            log('diagnosis', '━'.repeat(60), 'info');
+
+            const debug = window.PlanCapabilities._debug();
+            
+            log('diagnosis', '\n📊 Status Atual:', 'info');
+            for (const [key, value] of Object.entries(debug)) {
+                log('diagnosis', `${key}: ${value}`, 'info');
+            }
+
+            log('diagnosis', '\n━'.repeat(60), 'info');
+            log('diagnosis', '\n🧪 Testando todos os cenários possíveis...', 'info');
+            
+            // Capturar console.log temporariamente
+            const oldLog = console.log;
+            let capturedLogs = [];
+            console.log = function(...args) {
+                capturedLogs.push(args.join(' '));
+                oldLog.apply(console, args);
+            };
+
+            window.PlanCapabilities._testAllPlans();
+
+            // Restaurar console.log
+            console.log = oldLog;
+
+            // Exibir logs capturados
+            capturedLogs.forEach(logMsg => {
+                log('diagnosis', logMsg, 'info');
+            });
+
+            log('diagnosis', '\n✅ Diagnóstico completo finalizado', 'success');
+        }
+
+        // Auto-executar diagnóstico ao carregar
+        window.addEventListener('load', () => {
+            console.log('🧪 Página de teste carregada');
+            console.log('💡 Use os botões para executar testes individuais ou todos de uma vez');
+        });
+    </script>
+</body>
+</html>
