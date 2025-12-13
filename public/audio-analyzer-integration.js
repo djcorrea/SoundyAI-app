@@ -6464,6 +6464,7 @@ function renderGenreComparisonTable(options) {
             .classic-genre-table {
                 width: 100%;
                 border-collapse: collapse;
+                table-layout: fixed;
                 font-size: 13px;
             }
             
@@ -6484,7 +6485,14 @@ function renderGenreComparisonTable(options) {
             
             .classic-genre-table th:first-child {
                 text-align: left;
+                width: 20%;
             }
+            
+            .classic-genre-table th:nth-child(2) { width: 14%; }
+            .classic-genre-table th:nth-child(3) { width: 14%; }
+            .classic-genre-table th:nth-child(4) { width: 14%; }
+            .classic-genre-table th:nth-child(5) { width: 14%; }
+            .classic-genre-table th:nth-child(6) { width: 24%; }
             
             .classic-genre-table td {
                 padding: 12px 16px;
