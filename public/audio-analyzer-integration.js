@@ -2864,9 +2864,50 @@ async function pollJobStatus(jobId) {
                     __dbg('✅ Job concluído com sucesso');
                     
                     // 🎯 NOVO: Verificar modo e decidir fluxo
-                    const jobResult = job.results || jobData.results || job.result || jobData.result || jobData;
+                    let jobResult = job.results || jobData.results || job.result || jobData.result || jobData;
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
+                    
+                    // ═══════════════════════════════════════════════════════════════
+                    // 🔐 FRONTEND GUARD: Defesa em profundidade contra vazamento
+                    // ═══════════════════════════════════════════════════════════════
+                    // Se por algum bug o backend enviar texto em modo reduced,
+                    // sanitizar em memória ANTES de renderizar (defesa extra)
+                    // ═══════════════════════════════════════════════════════════════
+                    if (jobResult.isReduced === true || jobResult.analysisMode === 'reduced') {
+                        console.log('[FRONTEND-GUARD] 🔐 Modo REDUCED detectado - Aplicando sanitização extra');
+                        
+                        const sanitizeItem = (s = {}) => ({
+                            ...s,
+                            // Preservar campos não sensíveis
+                            categoria: s.categoria ?? s.category ?? null,
+                            metricKey: s.metricKey ?? s.metric ?? null,
+                            severity: s.severity ?? null,
+                            type: s.type ?? null,
+                            // Remover texto sensível
+                            problema: null,
+                            causa: null,
+                            solucao: null,
+                            plugin: null,
+                            dica: null,
+                            texto: null,
+                            content: null,
+                            details: null,
+                            raw: null,
+                            description: null,
+                        });
+                        
+                        if (Array.isArray(jobResult.suggestions)) {
+                            jobResult.suggestions = jobResult.suggestions.map(sanitizeItem);
+                        }
+                        
+                        if (Array.isArray(jobResult.aiSuggestions)) {
+                            jobResult.aiSuggestions = jobResult.aiSuggestions.map(sanitizeItem);
+                        }
+                        
+                        console.log('[FRONTEND-GUARD] ✅ Sanitização extra aplicada');
+                    }
+                    // ═══════════════════════════════════════════════════════════════
                     
                     // ═══════════════════════════════════════════════════════════════
                     // 🔍 AUDITORIA COMPLETA - ESTRUTURA REAL DO JSON RECEBIDO

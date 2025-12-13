@@ -509,6 +509,84 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════
+ * 🔐 SANITIZAR SUGESTÕES EM MODO REDUCED
+ * ═══════════════════════════════════════════════════════════════════
+ * Remove texto sensível mas mantém estrutura compatível com o frontend.
+ * 
+ * OBJETIVO: Garantir que no modo reduced, NENHUM texto real de sugestões
+ * chegue ao browser via DevTools/Network tab.
+ * 
+ * PRESERVA: Arrays, estrutura, campos não sensíveis (categoria, metricKey)
+ * REMOVE: Todos os campos textuais (problema, solucao, causa, plugin, etc)
+ * ═══════════════════════════════════════════════════════════════════
+ */
+function sanitizeSuggestionsForReduced(analysis) {
+  // ✅ VALIDAÇÃO: Só sanitizar se realmente for modo reduced
+  const isReduced = analysis?.isReduced === true || analysis?.analysisMode === 'reduced';
+  
+  if (!isReduced) {
+    console.log('[SANITIZE] ⏭️ Modo FULL - Sem sanitização necessária');
+    return analysis;
+  }
+  
+  console.log('[SANITIZE] 🔐 Modo REDUCED detectado - Iniciando sanitização de texto');
+  
+  // 🧹 PLACEHOLDER SEGURO: null (ou mensagem genérica)
+  const placeholder = null;
+  
+  // 📋 FUNÇÃO SANITIZADORA DE ITEM INDIVIDUAL
+  const mapItem = (s = {}) => ({
+    ...s,
+    // ✅ PRESERVAR: Campos não sensíveis úteis para UI
+    categoria: s.categoria ?? s.category ?? null,
+    metricKey: s.metricKey ?? s.metric ?? null,
+    severity: s.severity ?? null,
+    type: s.type ?? null,
+    
+    // 🔐 REMOVER: Todo texto sensível
+    problema: placeholder,
+    causa: placeholder,
+    solucao: placeholder,
+    plugin: placeholder,
+    dica: placeholder,
+    texto: placeholder,
+    content: placeholder,
+    details: placeholder,
+    raw: placeholder,
+    description: placeholder,
+    problema_completo: placeholder,
+    causa_raiz: placeholder,
+    solucao_detalhada: placeholder,
+    recommendation: placeholder,
+    explanation: placeholder,
+  });
+  
+  // 🧹 SANITIZAR ARRAYS (mantém estrutura, remove texto)
+  const sanitizedSuggestions = Array.isArray(analysis.suggestions) 
+    ? analysis.suggestions.map(mapItem) 
+    : [];
+    
+  const sanitizedAiSuggestions = Array.isArray(analysis.aiSuggestions) 
+    ? analysis.aiSuggestions.map(mapItem) 
+    : [];
+  
+  console.log('[SANITIZE] ✅ Sanitização completa:', {
+    mode: analysis.analysisMode || 'reduced',
+    originalSuggestions: analysis.suggestions?.length || 0,
+    sanitizedSuggestions: sanitizedSuggestions.length,
+    originalAiSuggestions: analysis.aiSuggestions?.length || 0,
+    sanitizedAiSuggestions: sanitizedAiSuggestions.length,
+  });
+  
+  return {
+    ...analysis,
+    suggestions: sanitizedSuggestions,
+    aiSuggestions: sanitizedAiSuggestions,
+  };
+}
+
+/**
  * Atualizar status do job no PostgreSQL
  */
 async function updateJobStatus(jobId, status, results = null) {
@@ -525,6 +603,12 @@ async function updateJobStatus(jobId, status, results = null) {
     let params;
 
     if (results) {
+      // 🔐 SANITIZAÇÃO ANTES DE SALVAR (BACKEND DEFENSE)
+      // ────────────────────────────────────────────────────────────────
+      // Se modo reduced: remover texto sensível ANTES de res.json()
+      results = sanitizeSuggestionsForReduced(results);
+      // ────────────────────────────────────────────────────────────────
+      
       // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO - SUGGESTIONS BASE
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`[AI-AUDIT][SAVE] 💾 SALVANDO RESULTS NO POSTGRES`);
