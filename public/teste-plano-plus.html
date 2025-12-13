@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 TESTE: Sistema de Plano Plus</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 40px;
+        }
+        
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .test-section h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #4a90e2;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .test-card {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .test-card h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #5ba3ff;
+        }
+        
+        .test-card button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .test-card button:hover {
+            background: linear-gradient(135deg, #5ba3ff 0%, #4a90e2 100%);
+            transform: translateY(-2px);
+        }
+        
+        .result-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result-box.success {
+            border-color: #4caf50;
+        }
+        
+        .result-box.error {
+            border-color: #f44336;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .status.success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status.warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .console-output {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .log-line {
+            margin-bottom: 5px;
+        }
+        
+        .log-line.info { color: #5ba3ff; }
+        .log-line.success { color: #4caf50; }
+        .log-line.error { color: #f44336; }
+        .log-line.warning { color: #ff9800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 TESTE: Sistema de Plano Plus</h1>
+        <p class="subtitle">Validação completa do sistema de capabilities</p>
+        
+        <!-- SEÇÃO 1: Teste de Cenários -->
+        <div class="test-section">
+            <h2>📊 Teste de Cenários por Plano</h2>
+            <p>Simule diferentes planos e modos para validar o comportamento esperado.</p>
+            
+            <div class="test-grid">
+                <!-- Free - Full -->
+                <div class="test-card">
+                    <h3>🆓 Free - Modo Full</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">
+                        Análise: 1/3<br>
+                        IA: ❌ | PDF: ❌ | Sugestões: ❌
+                    </p>
+                    <button onclick="testScenario('free', 'full', false)">Testar</button>
+                    <div id="result-free-full" class="result-box" style="display:none;"></div>
+                </div>
+                
+                <!-- Free - Reduced -->
+                <div class="test-card">
+                    <h3>🆓 Free - Modo Reduced</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">
+                        Análise: 4/3 (após limite)<br>
+                        IA: ❌ | PDF: ❌ | Sugestões: ❌
+                    </p>
+                    <button onclick="testScenario('free', 'reduced', true)">Testar</button>
+                    <div id="result-free-reduced" class="result-box" style="display:none;"></div>
+                </div>
+                
+                <!-- Plus - Full -->
+                <div class="test-card">
+                    <h3>⭐ Plus - Modo Full</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">
+                        Análise: 10/25 (dentro do limite)<br>
+                        IA: ❌ | PDF: ❌ | Sugestões: ✅
+                    </p>
+                    <button onclick="testScenario('plus', 'full', false)">Testar</button>
+                    <div id="result-plus-full" class="result-box" style="display:none;"></div>
+                </div>
+                
+                <!-- Plus - Reduced -->
+                <div class="test-card">
+                    <h3>⭐ Plus - Modo Reduced</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">
+                        Análise: 26/25 (após limite)<br>
+                        IA: ❌ | PDF: ❌ | Sugestões: ❌
+                    </p>
+                    <button onclick="testScenario('plus', 'reduced', true)">Testar</button>
+                    <div id="result-plus-reduced" class="result-box" style="display:none;"></div>
+                </div>
+                
+                <!-- Pro - Full -->
+                <div class="test-card">
+                    <h3>💎 Pro - Modo Full</h3>
+                    <p style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">
+                        Análise: ilimitada<br>
+                        IA: ✅ | PDF: ✅ | Sugestões: ✅
+                    </p>
+                    <button onclick="testScenario('pro', 'full', false)">Testar</button>
+                    <div id="result-pro-full" class="result-box" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SEÇÃO 2: Diagnóstico -->
+        <div class="test-section">
+            <h2>🔍 Diagnóstico do Sistema</h2>
+            <p>Exibe o estado atual e a matriz de capabilities.</p>
+            <button onclick="runDiagnostic()" style="padding: 12px 24px; background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%); color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 15px;">
+                Executar Diagnóstico
+            </button>
+            <div id="diagnostic-output" class="result-box" style="display:none;"></div>
+        </div>
+        
+        <!-- SEÇÃO 3: Console de Logs -->
+        <div class="test-section">
+            <h2>📝 Console de Logs</h2>
+            <button onclick="clearLogs()" style="padding: 8px 16px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; font-size: 14px; cursor: pointer; margin-bottom: 15px;">
+                Limpar Console
+            </button>
+            <div id="console-output" class="console-output">
+                <div class="log-line info">🚀 Console pronto. Execute os testes acima.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Carregar sistema de capabilities -->
+    <script src="plan-capabilities.js"></script>
+    
+    <script>
+        // Função para adicionar log no console customizado
+        function addLog(message, type = 'info') {
+            const consoleOutput = document.getElementById('console-output');
+            const logLine = document.createElement('div');
+            logLine.className = `log-line ${type}`;
+            logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleOutput.appendChild(logLine);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Função para limpar logs
+        function clearLogs() {
+            const consoleOutput = document.getElementById('console-output');
+            consoleOutput.innerHTML = '<div class="log-line info">🧹 Console limpo.</div>';
+        }
+        
+        // Função para testar um cenário
+        function testScenario(plan, mode, isReduced) {
+            addLog(`🧪 Iniciando teste: ${plan.toUpperCase()} - Modo ${mode.toUpperCase()}`, 'info');
+            
+            // Simular contexto
+            window.currentModalAnalysis = {
+                plan: plan,
+                analysisMode: mode,
+                isReduced: isReduced
+            };
+            
+            addLog(`📊 Contexto simulado: plan=${plan}, mode=${mode}, isReduced=${isReduced}`, 'info');
+            
+            // Verificar capabilities
+            const context = window.PlanCapabilities.getCurrentContext();
+            const canAiHelp = window.PlanCapabilities.canUseFeature('aiHelp');
+            const canPdf = window.PlanCapabilities.canUseFeature('pdf');
+            const canSuggestions = window.PlanCapabilities.canUseFeature('fullSuggestions');
+            
+            // Montar resultado
+            const resultId = `result-${plan}-${mode}`;
+            const resultBox = document.getElementById(resultId);
+            
+            let html = '';
+            html += `<span class="status ${canAiHelp || canPdf || canSuggestions ? 'success' : 'warning'}">
+                ${canAiHelp || canPdf || canSuggestions ? '✅ TESTE PASSOU' : '⚠️ COMPORTAMENTO ESPERADO'}
+            </span><br><br>`;
+            
+            html += `<strong>📊 Contexto Detectado:</strong><br>`;
+            html += `Plano: ${context.plan}<br>`;
+            html += `Modo: ${context.analysisMode}<br>`;
+            html += `Reduced: ${context.isReduced ? '✅ Sim' : '❌ Não'}<br><br>`;
+            
+            html += `<strong>🎯 Capabilities:</strong><br>`;
+            html += `AI Help: ${canAiHelp ? '✅ PERMITIDO' : '❌ BLOQUEADO'}<br>`;
+            html += `PDF: ${canPdf ? '✅ PERMITIDO' : '❌ BLOQUEADO'}<br>`;
+            html += `Sugestões Full: ${canSuggestions ? '✅ PERMITIDO' : '❌ BLOQUEADO'}<br><br>`;
+            
+            // Validar comportamento esperado
+            const expectedBehavior = getExpectedBehavior(plan, mode, isReduced);
+            html += `<strong>✅ Comportamento Esperado:</strong><br>`;
+            html += `AI Help: ${expectedBehavior.aiHelp ? '✅ Permitido' : '❌ Bloqueado'}<br>`;
+            html += `PDF: ${expectedBehavior.pdf ? '✅ Permitido' : '❌ Bloqueado'}<br>`;
+            html += `Sugestões: ${expectedBehavior.suggestions ? '✅ Permitido' : '❌ Bloqueado'}<br><br>`;
+            
+            // Verificar se passou
+            const passed = 
+                canAiHelp === expectedBehavior.aiHelp &&
+                canPdf === expectedBehavior.pdf &&
+                canSuggestions === expectedBehavior.suggestions;
+            
+            if (passed) {
+                resultBox.className = 'result-box success';
+                html += `<strong style="color: #4caf50;">🎉 TESTE PASSOU!</strong>`;
+                addLog(`✅ Teste ${plan.toUpperCase()} - ${mode.toUpperCase()}: PASSOU`, 'success');
+            } else {
+                resultBox.className = 'result-box error';
+                html += `<strong style="color: #f44336;">❌ TESTE FALHOU!</strong>`;
+                addLog(`❌ Teste ${plan.toUpperCase()} - ${mode.toUpperCase()}: FALHOU`, 'error');
+            }
+            
+            resultBox.innerHTML = html;
+            resultBox.style.display = 'block';
+        }
+        
+        // Função auxiliar: comportamento esperado
+        function getExpectedBehavior(plan, mode, isReduced) {
+            if (plan === 'pro') {
+                return { aiHelp: true, pdf: true, suggestions: true };
+            }
+            
+            if (plan === 'plus') {
+                return { 
+                    aiHelp: false,  // Nunca tem IA
+                    pdf: false,     // Nunca tem PDF
+                    suggestions: mode === 'full' && !isReduced  // Só em modo full
+                };
+            }
+            
+            // Free
+            return { aiHelp: false, pdf: false, suggestions: false };
+        }
+        
+        // Função para executar diagnóstico
+        function runDiagnostic() {
+            addLog('🔍 Executando diagnóstico completo...', 'info');
+            
+            const diagnosticOutput = document.getElementById('diagnostic-output');
+            
+            try {
+                // Obter diagnóstico
+                const matrix = window.PlanCapabilities._debug();
+                
+                let html = '<span class="status success">✅ SISTEMA OPERACIONAL</span><br><br>';
+                html += '<strong>📊 Estado Atual:</strong><br>';
+                
+                Object.entries(matrix).forEach(([key, value]) => {
+                    html += `${key}: ${value}<br>`;
+                });
+                
+                html += '<br><strong>🎯 Matriz de Capabilities:</strong><br><pre>';
+                html += JSON.stringify(window.PlanCapabilities._matrix, null, 2);
+                html += '</pre>';
+                
+                diagnosticOutput.innerHTML = html;
+                diagnosticOutput.className = 'result-box success';
+                diagnosticOutput.style.display = 'block';
+                
+                addLog('✅ Diagnóstico completo executado com sucesso', 'success');
+            } catch (error) {
+                diagnosticOutput.innerHTML = `<span class="status error">❌ ERRO</span><br><br>${error.message}`;
+                diagnosticOutput.className = 'result-box error';
+                diagnosticOutput.style.display = 'block';
+                
+                addLog(`❌ Erro no diagnóstico: ${error.message}`, 'error');
+            }
+        }
+        
+        // Log inicial
+        addLog('✅ Sistema de testes carregado', 'success');
+        addLog('💡 Selecione um cenário acima para testar', 'info');
+    </script>
+</body>
+</html>
