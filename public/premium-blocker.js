@@ -55,13 +55,23 @@
      * @returns {boolean} true se deve bloquear, false se pode executar
      */
     function isReducedMode() {
-        // 🚫 CRITICAL: Se não há análise carregada, NÃO bloquear
-        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+        // 🚫 CRITICAL: Buscar análise de TODAS as fontes possíveis
+        const analysis = window.currentModalAnalysis || 
+                        window.__CURRENT_ANALYSIS__ || 
+                        window.__soundyAI?.analysis ||
+                        window.__LAST_ANALYSIS_RESULT__;
         
         if (!analysis || typeof analysis !== 'object') {
             console.log('⚠️ [BLOCKER] Nenhuma análise carregada - permitindo acesso');
             return false; // ✅ SEM BLOQUEIO quando não há análise
         }
+        
+        console.log('🔍 [BLOCKER] Análise encontrada:', {
+            plan: analysis.plan,
+            analysisMode: analysis.analysisMode,
+            isReduced: analysis.isReduced,
+            features: analysis.planFeatures
+        });
         
         // ✅ PRIORIDADE 1: Verificar flags explícitos da análise
         if (analysis.isReduced === true) {
@@ -351,7 +361,10 @@
                     // Criar função com guard
                     window[fnName] = function(...args) {
                         // 🚫 CRITICAL: Verificar se há análise válida
-                        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+                        const analysis = window.currentModalAnalysis || 
+                                        window.__CURRENT_ANALYSIS__ || 
+                                        window.__soundyAI?.analysis ||
+                                        window.__LAST_ANALYSIS_RESULT__;
                         
                         if (!analysis || typeof analysis !== 'object') {
                             console.log(`⚠️ [BLOCKER] ${fnName}: Nenhuma análise carregada - executando normalmente`);
@@ -418,7 +431,10 @@
             CONFIG.eventsToBlock.forEach(eventType => {
                 const handler = (e) => {
                     // 🚫 CRITICAL: Verificar análise válida ANTES de qualquer lógica
-                    const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+                    const analysis = window.currentModalAnalysis || 
+                                    window.__CURRENT_ANALYSIS__ || 
+                                    window.__soundyAI?.analysis ||
+                                    window.__LAST_ANALYSIS_RESULT__;
                     
                     if (!analysis || typeof analysis !== 'object') {
                         // SEM análise carregada = SEM bloqueio
@@ -520,7 +536,10 @@
         
         neutralize() {
             // 🚫 CRITICAL: Verificar análise válida antes de neutralizar
-            const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+            const analysis = window.currentModalAnalysis || 
+                            window.__CURRENT_ANALYSIS__ || 
+                            window.__soundyAI?.analysis ||
+                            window.__LAST_ANALYSIS_RESULT__;
             
             if (!analysis || typeof analysis !== 'object') {
                 console.log('⚠️ [BLOCKER] Nenhuma análise carregada - botões mantidos intactos');

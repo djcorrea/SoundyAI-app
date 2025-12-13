@@ -6710,6 +6710,11 @@ function closeAudioModal() {
     if (modal) {
         modal.style.display = 'none';
         currentModalAnalysis = null;
+        
+        // 🚫 CRITICAL: Limpar globalmente também
+        window.currentModalAnalysis = null;
+        window.__CURRENT_ANALYSIS__ = null;
+        
         resetModalState();
         
         // 🔧 CORREÇÃO: Garantir que o modal pode ser usado novamente
@@ -6885,6 +6890,10 @@ function resetModalState() {
     if (progressText) progressText.textContent = '';
     
     currentModalAnalysis = null;
+    
+    // 🚫 CRITICAL: Limpar globalmente também
+    window.currentModalAnalysis = null;
+    window.__CURRENT_ANALYSIS__ = null;
     
     const fileInput = document.getElementById('modalAudioFileInput');
     if (fileInput) fileInput.value = '';
@@ -8356,6 +8365,10 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // Definir como análise atual do modal
         currentModalAnalysis = normalizedResult;
         
+        // 🚫 CRITICAL: Expor globalmente para premium-blocker e outros sistemas
+        window.currentModalAnalysis = normalizedResult;
+        window.__CURRENT_ANALYSIS__ = normalizedResult;
+        
         // 🎯 ALIAS GLOBAL PARA RELATÓRIOS (Fonte de Verdade Única)
         if (typeof window !== 'undefined') {
             window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
@@ -8366,7 +8379,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             
             console.log('✅ [PDF-READY] Análise armazenada globalmente:', {
                 hasGlobalAlias: !!window.__soundyAI.analysis,
+                hasCurrentModal: !!window.currentModalAnalysis,
+                hasCurrent: !!window.__CURRENT_ANALYSIS__,
                 fileName: normalizedResult.metadata?.fileName || normalizedResult.fileName,
+                plan: normalizedResult.plan,
+                analysisMode: normalizedResult.analysisMode,
                 score: normalizedResult.score,
                 hasMetrics: !!(normalizedResult.loudness || normalizedResult.technicalData)
             });
@@ -8884,6 +8901,10 @@ async function handleGenreFileSelection(file) {
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
     currentModalAnalysis = analysis;
     
+    // 🚫 CRITICAL: Expor globalmente para premium-blocker
+    window.currentModalAnalysis = analysis;
+    window.__CURRENT_ANALYSIS__ = analysis;
+    
     // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
     try {
         if (window.wavMobileOptimizer) {
@@ -9280,6 +9301,10 @@ async function performReferenceComparison() {
         console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
+        
+        // 🚫 CRITICAL: Expor globalmente para premium-blocker
+        window.currentModalAnalysis = combinedAnalysis;
+        window.__CURRENT_ANALYSIS__ = combinedAnalysis;
         
         // 🎯 ALIAS GLOBAL PARA RELATÓRIOS (Modo Referência)
         if (typeof window !== 'undefined') {
