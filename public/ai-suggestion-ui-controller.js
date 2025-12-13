@@ -117,6 +117,44 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔐 FUNÇÃO CENTRAL DE RENDERIZAÇÃO DE BLOCOS DE SUGESTÃO
+     * CONTRATO ÚNICO - ZERO VAZAMENTO DE TEXTO
+     * 
+     * @param {Object} options - Opções de renderização
+     * @param {string} options.type - Tipo do bloco (problem, cause, solution, plugin, tip, parameters)
+     * @param {string|null} options.content - Conteúdo real (null em modo reduced)
+     * @param {string} options.analysisMode - Modo de análise ('full' ou 'reduced')
+     * @param {string} options.title - Título do bloco (ex: "⚠️ Problema")
+     * @param {string} options.blockClass - Classe CSS do bloco (ex: "ai-block-problema")
+     * @returns {string} HTML do bloco
+     */
+    renderSuggestionBlock({ type, content, analysisMode, title, blockClass }) {
+        // 🔐 MODO REDUCED: NUNCA USAR content
+        if (analysisMode === 'reduced' || content === null || content === undefined) {
+            console.log(`[RENDER-BLOCK] 🔒 BLOCKED: ${type} - SEM TEXTO NO DOM`);
+            
+            return `
+                <div class="ai-block ${blockClass} blocked-block">
+                    <div class="ai-block-title">${title}</div>
+                    <div class="ai-block-content">
+                        <span class="secure-placeholder" data-blocked="true"></span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // ✅ MODO FULL: Renderizar texto real
+        console.log(`[RENDER-BLOCK] ✅ FULL: ${type} - Texto real`);
+        
+        return `
+            <div class="ai-block ${blockClass}">
+                <div class="ai-block-title">${title}</div>
+                <div class="ai-block-content">${content}</div>
+            </div>
+        `;
+    }
+    
+    /**
      * 🚀 Inicializar controlador
      */
     initialize() {
@@ -1386,56 +1424,70 @@ class AISuggestionUIController {
         console.log('[AI-CARD] 🔐 Security Check:', { 
             categoria, 
             metricKey, 
-            analysisMode: analysis?.analysisMode,
-            plan: analysis?.plan,
-            analysisComplete: analysis
+            analysisMode: analysis?.analysisMode
         });
         
-        const canRender = typeof shouldRenderRealValue === 'function' 
-            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
-            : true;
+        // 🔐 DETERMINAR MODO DE ANÁLISE
+        const analysisMode = analysis?.analysisMode || 'full';
+        const isReduced = analysisMode === 'reduced';
         
-        console.log('[AI-CARD] 🔐 Render Decision:', { 
-            metricKey, 
-            canRender,
-            functionExists: typeof shouldRenderRealValue === 'function'
+        // 🔐 NORMALIZAR DADOS ANTES DE RENDERIZAR
+        // Se reduced: content = null (NUNCA passar texto real)
+        // Se full: content = texto real
+        const normalized = this.normalizeSuggestionForRender(suggestion, analysisMode);
+        
+        console.log('[AI-CARD] 🔐 Normalized:', { 
+            isReduced, 
+            hasBlocked: normalized.__blocked,
+            problema: normalized.problema === null ? 'NULL' : 'EXISTS'
         });
         
-        // 🔒 SE BLOQUEADO: Return imediato SEM acessar suggestion.texto
-        if (!canRender) {
-            console.log('[AI-CARD] 🔒 BLOCKED: Placeholder estático');
-            const isValidated = suggestion._validated === true;
+        // 🔒 SE BLOQUEADO: Card sem texto no DOM
+        if (normalized.__blocked) {
+            console.log('[AI-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
             
             return `
-                <div class="ai-suggestion-card ai-enriched blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                <div class="ai-suggestion-card ai-enriched blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}" data-blocked="true">
                     <div class="ai-suggestion-header">
                         <span class="ai-suggestion-category">${categoria}</span>
                         <div class="ai-suggestion-priority ${this.getPriorityClass(nivel)}">${nivel}</div>
                     </div>
                     <div class="ai-suggestion-content">
-                        <div class="ai-block ai-block-problema blocked-block">
-                            <div class="ai-block-title">⚠️ Problema</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
-                        <div class="ai-block ai-block-causa blocked-block">
-                            <div class="ai-block-title">🎯 Causa Provável</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
-                        <div class="ai-block ai-block-solucao blocked-block">
-                            <div class="ai-block-title">🛠️ Solução</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
-                        <div class="ai-block ai-block-plugin blocked-block">
-                            <div class="ai-block-title">🎛️ Plugin</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
+                        ${this.renderSuggestionBlock({
+                            type: 'problem',
+                            content: normalized.problema,
+                            analysisMode: analysisMode,
+                            title: '⚠️ Problema',
+                            blockClass: 'ai-block-problema'
+                        })}
+                        ${this.renderSuggestionBlock({
+                            type: 'cause',
+                            content: normalized.causaProvavel,
+                            analysisMode: analysisMode,
+                            title: '🎯 Causa Provável',
+                            blockClass: 'ai-block-causa'
+                        })}
+                        ${this.renderSuggestionBlock({
+                            type: 'solution',
+                            content: normalized.solucao,
+                            analysisMode: analysisMode,
+                            title: '🛠️ Solução',
+                            blockClass: 'ai-block-solucao'
+                        })}
+                        ${this.renderSuggestionBlock({
+                            type: 'plugin',
+                            content: normalized.pluginRecomendado,
+                            analysisMode: analysisMode,
+                            title: '🎛️ Plugin',
+                            blockClass: 'ai-block-plugin'
+                        })}
                     </div>
-                    <div class="ai-pro-badge">⭐ Plano Pro</div>
+                    <div class="ai-pro-badge"></div>
                 </div>
             `;
         }
         
-        // ✅ FULL MODE: Acessa texto agora
+        // ✅ FULL MODE: Renderizar com texto real
         console.log('[AI-CARD] ✅ FULL: Texto completo');
         
         const problema = suggestion.problema || 
@@ -1454,7 +1506,7 @@ class AISuggestionUIController {
         const dica = suggestion.dicaExtra || null;
         const parametros = suggestion.parametros || null;
         
-        // ✅ Badge de validação de targets
+        // Badge de validação
         const isValidated = suggestion._validated === true;
         const realTarget = suggestion._realTarget;
         const validationBadge = (isValidated && realTarget !== undefined) 
@@ -1470,39 +1522,50 @@ class AISuggestionUIController {
                 </div>
                 
                 <div class="ai-suggestion-content">
-                    <div class="ai-block ai-block-problema">
-                        <div class="ai-block-title">⚠️ Problema</div>
-                        <div class="ai-block-content">${problema}</div>
-                    </div>
+                    ${this.renderSuggestionBlock({
+                        type: 'problem',
+                        content: problema,
+                        analysisMode: 'full',
+                        title: '⚠️ Problema',
+                        blockClass: 'ai-block-problema'
+                    })}
+                    ${this.renderSuggestionBlock({
+                        type: 'cause',
+                        content: causaProvavel,
+                        analysisMode: 'full',
+                        title: '🎯 Causa Provável',
+                        blockClass: 'ai-block-causa'
+                    })}
+                    ${this.renderSuggestionBlock({
+                        type: 'solution',
+                        content: solucao,
+                        analysisMode: 'full',
+                        title: '🛠️ Solução',
+                        blockClass: 'ai-block-solucao'
+                    })}
+                    ${this.renderSuggestionBlock({
+                        type: 'plugin',
+                        content: plugin,
+                        analysisMode: 'full',
+                        title: '🎛️ Plugin Recomendado',
+                        blockClass: 'ai-block-plugin'
+                    })}
                     
-                    <div class="ai-block ai-block-causa">
-                        <div class="ai-block-title">🎯 Causa Provável</div>
-                        <div class="ai-block-content">${causaProvavel}</div>
-                    </div>
+                    ${dica ? this.renderSuggestionBlock({
+                        type: 'tip',
+                        content: dica,
+                        analysisMode: 'full',
+                        title: '💡 Dica Extra',
+                        blockClass: 'ai-block-dica'
+                    }) : ''}
                     
-                    <div class="ai-block ai-block-solucao">
-                        <div class="ai-block-title">🛠️ Solução</div>
-                        <div class="ai-block-content">${solucao}</div>
-                    </div>
-                    
-                    <div class="ai-block ai-block-plugin">
-                        <div class="ai-block-title">🎛️ Plugin Recomendado</div>
-                        <div class="ai-block-content">${plugin}</div>
-                    </div>
-                    
-                    ${dica ? `
-                        <div class="ai-block ai-block-dica">
-                            <div class="ai-block-title">💡 Dica Extra</div>
-                            <div class="ai-block-content">${dica}</div>
-                        </div>
-                    ` : ''}
-                    
-                    ${parametros ? `
-                        <div class="ai-block ai-block-parametros">
-                            <div class="ai-block-title">⚙️ Parâmetros</div>
-                            <div class="ai-block-content">${parametros}</div>
-                        </div>
-                    ` : ''}
+                    ${parametros ? this.renderSuggestionBlock({
+                        type: 'parameters',
+                        content: parametros,
+                        analysisMode: 'full',
+                        title: '⚙️ Parâmetros',
+                        blockClass: 'ai-block-parametros'
+                    }) : ''}
                 </div>
                 
                 <div class="ai-enrichment-badge">
@@ -1517,40 +1580,44 @@ class AISuggestionUIController {
      * 🎴 Renderizar card de sugestão base
      */
     renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
-        // 🔐 SECURITY GUARD: PRIMEIRA COISA - Verificar modo
-        const metricKey = this.mapCategoryToMetric(suggestion);
+        // 🔐 DETERMINAR MODO DE ANÁLISE
         const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
+        const analysisMode = analysis?.analysisMode || 'full';
         
-        const canRender = typeof shouldRenderRealValue === 'function' 
-            ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
-            : true;
-        
-        console.log('[AI-BASE-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        console.log('[AI-BASE-CARD] 🔐 Mode:', { analysisMode });
         
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
         
-        // 🔒 SE BLOQUEADO: Return imediato SEM TOCAR em suggestion.texto
-        if (!canRender) {
-            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Retornando placeholder estático');
+        // 🔐 NORMALIZAR DADOS
+        const normalized = this.normalizeSuggestionForRender(suggestion, analysisMode);
+        
+        // 🔒 SE BLOQUEADO: Card sem texto no DOM
+        if (normalized.__blocked) {
+            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
             
             return `
-                <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+                <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}" data-blocked="true">
                     <div class="ai-suggestion-header">
                         <span class="ai-suggestion-category">${category}</span>
                         <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
                     </div>
                     
                     <div class="ai-suggestion-content">
-                        <div class="ai-block ai-block-problema blocked-block">
-                            <div class="ai-block-title">⚠️ Observação</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
-                        
-                        <div class="ai-block ai-block-solucao blocked-block">
-                            <div class="ai-block-title">🛠️ Recomendação</div>
-                            <div class="ai-block-content"><span class="blocked-value">🔒 Disponível no plano Pro</span></div>
-                        </div>
+                        ${this.renderSuggestionBlock({
+                            type: 'observation',
+                            content: normalized.message,
+                            analysisMode: analysisMode,
+                            title: '⚠️ Observação',
+                            blockClass: 'ai-block-problema'
+                        })}
+                        ${this.renderSuggestionBlock({
+                            type: 'recommendation',
+                            content: normalized.action,
+                            analysisMode: analysisMode,
+                            title: '🛠️ Recomendação',
+                            blockClass: 'ai-block-solucao'
+                        })}
                     </div>
                     
                     <div class="ai-base-notice">💡 Configure API Key OpenAI</div>
@@ -1558,13 +1625,13 @@ class AISuggestionUIController {
             `;
         }
         
-        // ✅ MODO FULL: Acessar texto normalmente
+        // ✅ MODO FULL: Renderizar com texto real
         console.log('[AI-BASE-CARD] ✅ FULL: Renderizando texto completo');
         
         const message = suggestion.message || suggestion.title || 'Mensagem não especificada';
         const action = suggestion.action || suggestion.description || 'Ação não especificada';
         
-        // ✅ Badge de validação de targets
+        // Badge de validação
         const isValidated = suggestion._validated === true;
         const realTarget = suggestion._realTarget;
         const validationBadge = (isValidated && realTarget !== undefined) 
@@ -1580,15 +1647,20 @@ class AISuggestionUIController {
                 </div>
                 
                 <div class="ai-suggestion-content">
-                    <div class="ai-block ai-block-problema">
-                        <div class="ai-block-title">⚠️ Observação</div>
-                        <div class="ai-block-content">${message}</div>
-                    </div>
-                    
-                    <div class="ai-block ai-block-solucao">
-                        <div class="ai-block-title">🛠️ Recomendação</div>
-                        <div class="ai-block-content">${action}</div>
-                    </div>
+                    ${this.renderSuggestionBlock({
+                        type: 'observation',
+                        content: message,
+                        analysisMode: 'full',
+                        title: '⚠️ Observação',
+                        blockClass: 'ai-block-problema'
+                    })}
+                    ${this.renderSuggestionBlock({
+                        type: 'recommendation',
+                        content: action,
+                        analysisMode: 'full',
+                        title: '🛠️ Recomendação',
+                        blockClass: 'ai-block-solucao'
+                    })}
                 </div>
                 
                 <div class="ai-base-notice">
@@ -2189,20 +2261,19 @@ class AISuggestionUIController {
         let summary = `Analisei seu áudio e a IA gerou ${this.currentSuggestions.length} sugestões específicas:\n\n`;
         
         this.currentSuggestions.slice(0, 5).forEach((suggestion, index) => {
-            // Verificar se cada sugestão individual pode ser renderizada
-            const metricKey = this.mapCategoryToMetric(suggestion);
-            const canRender = typeof shouldRenderRealValue === 'function'
-                ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
-                : true;
+            // 🔐 NORMALIZAR SUGESTÃO
+            const normalized = this.normalizeSuggestionForRender(suggestion, analysis.analysisMode);
             
-            if (!canRender) {
+            // 🔒 SE BLOQUEADO: NÃO ACESSAR TEXTO
+            if (normalized.__blocked) {
                 summary += `${index + 1}. **${suggestion.ai_category || 'Métrica Bloqueada'}**\n`;
                 summary += `   🔒 Conteúdo disponível no plano Pro\n\n`;
                 return;
             }
             
-            const problema = suggestion.ai_blocks?.problema || suggestion.message;
-            const solucao = suggestion.ai_blocks?.solucao || suggestion.action;
+            // ✅ FULL MODE: Acessar texto real
+            const problema = suggestion.ai_blocks?.problema || suggestion.problema || suggestion.message;
+            const solucao = suggestion.ai_blocks?.solucao || suggestion.solucao || suggestion.action;
             
             summary += `${index + 1}. **${suggestion.ai_category || 'Problema'}**\n`;
             summary += `   Problema: ${problema}\n`;
