@@ -20008,31 +20008,46 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada');
         console.log('📊 [PREMIUM-GUARD] Contexto:', window.PlanCapabilities.getCurrentContext());
         
-        // Abrir modal de upgrade
+        // ✅ Abrir modal de upgrade (com classe visible para CSS)
         const modal = document.getElementById('upgradeModal');
         if (modal) {
-            modal.style.display = 'flex';
+            modal.classList.add('visible');
             const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
             if (upgradeBtn) {
                 upgradeBtn.onclick = () => window.location.href = '/planos.html';
             }
+            const closeBtn = modal.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.onclick = () => modal.classList.remove('visible');
+            }
+            console.log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (AI)');
+        } else {
+            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
-        return;
+        return; // ✅ BLOQUEIO: Não executa função real
     }
     
     // ✅ Prioridade 2: Fallback para APP_MODE (compatibilidade)
     if (window.APP_MODE === 'reduced') {
         console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Pedir Ajuda à IA" bloqueada (fallback APP_MODE)');
-        // Abrir modal de upgrade
+        
+        // ✅ Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
-            modal.style.display = 'flex';
+            modal.classList.add('visible');
             const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
             if (upgradeBtn) {
                 upgradeBtn.onclick = () => window.location.href = '/planos.html';
             }
+            const closeBtn = modal.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.onclick = () => modal.classList.remove('visible');
+            }
+            console.log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (AI - fallback)');
+        } else {
+            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
-        return;
+        return; // ✅ BLOQUEIO: Não executa função real
     }
     
     __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
@@ -20138,31 +20153,46 @@ async function downloadModalAnalysis() {
         console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada');
         console.log('📊 [PREMIUM-GUARD] Contexto:', window.PlanCapabilities.getCurrentContext());
         
-        // Abrir modal de upgrade
+        // ✅ Abrir modal de upgrade (com classe visible para CSS)
         const modal = document.getElementById('upgradeModal');
         if (modal) {
-            modal.style.display = 'flex';
+            modal.classList.add('visible');
             const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
             if (upgradeBtn) {
                 upgradeBtn.onclick = () => window.location.href = '/planos.html';
             }
+            const closeBtn = modal.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.onclick = () => modal.classList.remove('visible');
+            }
+            console.log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (PDF)');
+        } else {
+            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
-        return;
+        return; // ✅ BLOQUEIO: Não executa função real
     }
     
     // ✅ Prioridade 2: Fallback para APP_MODE (compatibilidade)
     if (window.APP_MODE === 'reduced') {
         console.log('🔒 [PREMIUM-GUARD] Funcionalidade "Baixar Relatório" bloqueada (fallback APP_MODE)');
-        // Abrir modal de upgrade
+        
+        // ✅ Abrir modal de upgrade
         const modal = document.getElementById('upgradeModal');
         if (modal) {
-            modal.style.display = 'flex';
+            modal.classList.add('visible');
             const upgradeBtn = modal.querySelector('.upgrade-modal-cta');
             if (upgradeBtn) {
                 upgradeBtn.onclick = () => window.location.href = '/planos.html';
             }
+            const closeBtn = modal.querySelector('.upgrade-modal-close');
+            if (closeBtn) {
+                closeBtn.onclick = () => modal.classList.remove('visible');
+            }
+            console.log('✅ [PREMIUM-GUARD] Modal de upgrade aberto (PDF - fallback)');
+        } else {
+            console.error('❌ [PREMIUM-GUARD] Modal upgradeModal não encontrado no DOM');
         }
-        return;
+        return; // ✅ BLOQUEIO: Não executa função real
     }
     
     // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global

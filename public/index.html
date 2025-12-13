@@ -1103,6 +1103,58 @@
         </div>
     </div>
     
+    <!-- 🎯 SCRIPT DE INICIALIZAÇÃO DO MODAL DE UPGRADE -->
+    <script>
+        // Inicializar modal de upgrade quando o DOM estiver pronto
+        (function initUpgradeModal() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const modal = document.getElementById('upgradeModal');
+                if (!modal) {
+                    console.error('❌ [UPGRADE-MODAL] Modal não encontrado no DOM');
+                    return;
+                }
+                
+                console.log('✅ [UPGRADE-MODAL] Inicializando handlers...');
+                
+                // Handler: Fechar ao clicar no botão "Agora não"
+                const closeBtn = modal.querySelector('.upgrade-modal-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        modal.classList.remove('visible');
+                        console.log('🔓 [UPGRADE-MODAL] Modal fechado pelo botão');
+                    });
+                }
+                
+                // Handler: Redirecionar ao clicar em "Ver Planos"
+                const ctaBtn = modal.querySelector('.upgrade-modal-cta');
+                if (ctaBtn) {
+                    ctaBtn.addEventListener('click', function() {
+                        console.log('🔗 [UPGRADE-MODAL] Redirecionando para planos.html');
+                        window.location.href = '/planos.html';
+                    });
+                }
+                
+                // Handler: Fechar ao clicar fora do card
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.classList.remove('visible');
+                        console.log('🔓 [UPGRADE-MODAL] Modal fechado (clique fora)');
+                    }
+                });
+                
+                // Handler: Fechar com ESC
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && modal.classList.contains('visible')) {
+                        modal.classList.remove('visible');
+                        console.log('🔓 [UPGRADE-MODAL] Modal fechado (ESC)');
+                    }
+                });
+                
+                console.log('✅ [UPGRADE-MODAL] Modal inicializado com sucesso');
+            });
+        })();
+    </script>
+    
     <!-- Template invisível para geração de PDF -->
     <div id="pdf-report-template" style="position: absolute; left: -9999px; top: 0; visibility: hidden;"></div>
 </body>
