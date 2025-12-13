@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🧪 Teste: Renderização de Bandas no Modo Reduced</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        .test-result { padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .pass { background: #2d5016; border: 2px solid #4caf50; }
+        .fail { background: #5c1a1a; border: 2px solid #f44336; }
+        pre { background: #2a2a2a; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        code { color: #4fc3f7; }
+        .metric-key { color: #ffeb3b; font-weight: bold; }
+        .status { font-size: 24px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste: Bandas no Modo Reduced</h1>
+    <p>Validando se bandas são renderizadas sem o prefixo <code>band_</code></p>
+    
+    <div id="results"></div>
+
+    <script src="reduced-mode-security-guard.js"></script>
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        // Simular análise no modo reduced
+        const mockAnalysis = {
+            isReduced: true,
+            analysisMode: 'reduced'
+        };
+        
+        // Testes
+        const tests = [
+            {
+                name: 'DR (Dinâmica)',
+                key: 'dr',
+                expected: true,
+                description: 'Métrica principal - deve ser renderizada'
+            },
+            {
+                name: 'Stereo (Imagem Estéreo)',
+                key: 'stereo',
+                expected: true,
+                description: 'Sempre liberado'
+            },
+            {
+                name: 'Low Mid (banda)',
+                key: 'lowMid',
+                expected: true,
+                description: 'Banda de frequência liberada - SEM prefixo band_'
+            },
+            {
+                name: 'High Mid (banda)',
+                key: 'highMid',
+                expected: true,
+                description: 'Banda de frequência liberada - SEM prefixo band_'
+            },
+            {
+                name: 'Presence (banda)',
+                key: 'presence',
+                expected: true,
+                description: 'Banda de frequência liberada - SEM prefixo band_'
+            },
+            {
+                name: 'Low Mid com prefixo ERRADO',
+                key: 'band_lowMid',
+                expected: true,
+                description: 'Allowlist também aceita com prefixo (retrocompatibilidade)'
+            },
+            {
+                name: 'LUFS (bloqueado)',
+                key: 'lufs',
+                expected: false,
+                description: 'Métrica bloqueada no modo reduced'
+            },
+            {
+                name: 'True Peak (bloqueado)',
+                key: 'truePeak',
+                expected: false,
+                description: 'Métrica bloqueada no modo reduced'
+            }
+        ];
+        
+        // Executar testes
+        tests.forEach(test => {
+            const result = shouldRenderRealValue(test.key, 'table', mockAnalysis);
+            const passed = result === test.expected;
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            resultDiv.innerHTML = `
+                <span class="status">${passed ? '✅' : '❌'}</span>
+                <strong>${test.name}</strong><br>
+                <span class="metric-key">Key:</span> <code>${test.key}</code><br>
+                <strong>Esperado:</strong> ${test.expected ? 'Renderizar' : 'Bloquear'}<br>
+                <strong>Resultado:</strong> ${result ? 'Renderizar' : 'Bloquear'}<br>
+                <em>${test.description}</em>
+            `;
+            resultsDiv.appendChild(resultDiv);
+        });
+        
+        // Resumo
+        const passedTests = tests.filter(t => 
+            shouldRenderRealValue(t.key, 'table', mockAnalysis) === t.expected
+        ).length;
+        
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = `test-result ${passedTests === tests.length ? 'pass' : 'fail'}`;
+        summaryDiv.innerHTML = `
+            <h2>📊 Resumo</h2>
+            <strong>Testes Passou:</strong> ${passedTests} / ${tests.length}<br>
+            ${passedTests === tests.length 
+                ? '🎉 <strong>TODOS OS TESTES PASSARAM!</strong>' 
+                : '⚠️ Alguns testes falharam'
+            }
+        `;
+        resultsDiv.appendChild(summaryDiv);
+    </script>
+</body>
+</html>
