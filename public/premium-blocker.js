@@ -294,12 +294,25 @@
         originalFunctions: new Map(),
         
         install() {
-            console.log('🛡️ [BLOCKER] Instalando guards nos entrypoints...');
+            console.log('🛡️ [BLOCKER] Verificando guards nos entrypoints...');
             
             let guardsInstalled = 0;
+            let guardsSkipped = 0;
             
             CONFIG.guardsNeeded.forEach(fnName => {
                 if (typeof window[fnName] === 'function') {
+                    // ⚠️ VERIFICAR SE JÁ EXISTE GUARD NATIVO
+                    const fnSource = window[fnName].toString();
+                    const hasNativeGuard = fnSource.includes('[PREMIUM-GUARD]') || 
+                                         fnSource.includes('window.APP_MODE === \'reduced\'') ||
+                                         fnSource.includes('GUARD: Bloquear');
+                    
+                    if (hasNativeGuard) {
+                        console.log(`   ✅ Guard nativo detectado: ${fnName} (não sobrescrever)`);
+                        guardsSkipped++;
+                        return; // NÃO SOBRESCREVER - guard já existe nativamente
+                    }
+                    
                     // Armazenar função original
                     this.originalFunctions.set(fnName, window[fnName]);
                     
@@ -326,13 +339,13 @@
                     };
                     
                     guardsInstalled++;
-                    console.log(`   ✅ Guard instalado: ${fnName}`);
+                    console.log(`   ✅ Guard wrapper instalado: ${fnName}`);
                 } else {
                     console.log(`   ⚠️ Função não encontrada: ${fnName}`);
                 }
             });
             
-            console.log(`✅ [BLOCKER] ${guardsInstalled} guards instalados\n`);
+            console.log(`✅ [BLOCKER] ${guardsInstalled} guards instalados, ${guardsSkipped} nativos preservados\n`);
         },
         
         uninstall() {
