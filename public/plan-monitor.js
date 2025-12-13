@@ -2,6 +2,9 @@
 // Verificar se o usuário mudou de plano durante a sessão
 let currentUserPlan = null;
 
+// Exportar globalmente para uso em outros módulos (ex: upgrade-modal-interceptor)
+window.currentUserPlan = currentUserPlan;
+
 async function checkUserPlanStatus() {
     try {
         // Aguardar Firebase estar disponível com verificação mais robusta
@@ -69,6 +72,9 @@ async function checkUserPlanStatus() {
         if (userData.plano !== currentUserPlan) {
             const previousPlan = currentUserPlan;
             currentUserPlan = userData.plano;
+            
+            // Atualizar também a variável global
+            window.currentUserPlan = currentUserPlan;
             
             // Se mudou de gratuito para plus, mostrar mensagem
             if (previousPlan === 'gratis' && currentUserPlan === 'plus') {
