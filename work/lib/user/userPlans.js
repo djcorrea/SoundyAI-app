@@ -26,7 +26,9 @@ const PLAN_LIMITS = {
   pro: {
     maxMessagesPerMonth: Infinity,
     maxFullAnalysesPerMonth: Infinity,
-    hardCapAnalysesPerMonth: 200,         // Hard cap: 200/mês e bloqueia
+    maxImagesPerMonth: 70,                // ✅ NOVO: Limite de mensagens com imagens
+    hardCapMessagesPerMonth: 300,         // ✅ NOVO: Hard cap invisível para mensagens
+    hardCapAnalysesPerMonth: 500,         // ✅ ATUALIZADO: 200 → 500 análises/mês (hard cap técnico)
     allowReducedAfterLimit: false,        // Sem reduced, só erro
   },
 };
@@ -68,6 +70,12 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
   
+  // ✅ NOVO: Garantir que imagesMonth existe e é número
+  if (typeof user.imagesMonth !== 'number' || isNaN(user.imagesMonth)) {
+    user.imagesMonth = 0;
+    changed = true;
+  }
+  
   // ✅ Garantir que billingMonth existe
   if (!user.billingMonth) {
     user.billingMonth = currentMonth;
@@ -79,6 +87,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     console.log(`🔄 [USER-PLANS] Reset mensal aplicado para UID=${uid} (${user.billingMonth} → ${currentMonth})`);
     user.analysesMonth = 0;
     user.messagesMonth = 0;
+    user.imagesMonth = 0; // ✅ NOVO: Resetar contador de imagens
     user.billingMonth = currentMonth;
     changed = true;
   }
@@ -106,6 +115,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       plan: user.plan,
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
+      imagesMonth: user.imagesMonth || 0, // ✅ NOVO: Persistir contador de imagens
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt || null,
       proExpiresAt: user.proExpiresAt || null,
@@ -151,6 +161,7 @@ export async function getOrCreateUser(uid, extra = {}) {
         // ✅ NOVOS CAMPOS MENSAIS
         messagesMonth: 0,
         analysesMonth: 0,
+        imagesMonth: 0, // ✅ NOVO: Contador de imagens
         billingMonth: currentMonth,
         
         createdAt: nowISO,
@@ -213,13 +224,44 @@ export async function applyPlan(uid, { plan, durationDays }) {
 /**
  * Verificar se usuário pode usar chat
  * @param {string} uid - UID do Firebase Auth
+ * @param {boolean} hasImages - Se a mensagem contém imagens (para contabilizar uso de GPT-4o)
  * @returns {Promise<Object>} { allowed: boolean, user: Object, remaining: number, errorCode?: string }
  */
-export async function canUseChat(uid) {
+export async function canUseChat(uid, hasImages = false) {
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
   
   const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+
+  // ✅ NOVO: Verificar hard cap de mensagens para PRO
+  if (limits.hardCapMessagesPerMonth != null) {
+    const currentMessages = user.messagesMonth || 0;
+    
+    if (currentMessages >= limits.hardCapMessagesPerMonth) {
+      console.log(`🚫 [USER-PLANS] HARD CAP DE MENSAGENS ATINGIDO: ${uid} (${currentMessages}/${limits.hardCapMessagesPerMonth})`);
+      return { 
+        allowed: false, 
+        user, 
+        remaining: 0,
+        errorCode: 'SYSTEM_PEAK_USAGE'
+      };
+    }
+  }
+
+  // ✅ NOVO: Verificar limite de imagens para PRO
+  if (hasImages && limits.maxImagesPerMonth != null) {
+    const currentImages = user.imagesMonth || 0;
+    
+    if (currentImages >= limits.maxImagesPerMonth) {
+      console.log(`🚫 [USER-PLANS] LIMITE DE IMAGENS ATINGIDO: ${uid} (${currentImages}/${limits.maxImagesPerMonth})`);
+      return { 
+        allowed: false, 
+        user, 
+        remaining: 0,
+        errorCode: 'IMAGE_PEAK_USAGE'
+      };
+    }
+  }
 
   if (limits.maxMessagesPerMonth === Infinity) {
     console.log(`✅ [USER-PLANS] Chat permitido (ilimitado): ${uid} (plan: ${user.plan})`);
@@ -247,21 +289,31 @@ export async function canUseChat(uid) {
 /**
  * Registrar uso de chat (incrementar contador)
  * @param {string} uid - UID do Firebase Auth
+ * @param {boolean} hasImages - Se a mensagem contém imagens
  * @returns {Promise<void>}
  */
-export async function registerChat(uid) {
+export async function registerChat(uid, hasImages = false) {
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
 
   const newCount = (user.messagesMonth || 0) + 1;
-
-  await ref.update({
+  
+  const updateData = {
     messagesMonth: newCount,
     updatedAt: new Date().toISOString(),
-  });
-  
-  console.log(`📝 [USER-PLANS] Chat registrado: ${uid} (total no mês: ${newCount})`);
+  };
+
+  // ✅ NOVO: Incrementar contador de imagens se aplicável
+  if (hasImages) {
+    const newImageCount = (user.imagesMonth || 0) + 1;
+    updateData.imagesMonth = newImageCount;
+    console.log(`📝 [USER-PLANS] Chat com imagem registrado: ${uid} (mensagens: ${newCount}, imagens: ${newImageCount})`);
+  } else {
+    console.log(`📝 [USER-PLANS] Chat registrado: ${uid} (total no mês: ${newCount})`);
+  }
+
+  await ref.update(updateData);
 }
 
 /**
@@ -276,7 +328,7 @@ export async function canUseAnalysis(uid) {
   const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
   const currentMonthAnalyses = user.analysesMonth || 0;
 
-  // ✅ HARD CAP (PRO): Após 200 análises/mês → BLOQUEAR
+  // ✅ HARD CAP (PRO): Após 500 análises/mês → BLOQUEAR com mensagem neutra
   if (limits.hardCapAnalysesPerMonth != null && 
       currentMonthAnalyses >= limits.hardCapAnalysesPerMonth) {
     console.log(`🚫 [USER-PLANS] HARD CAP ATINGIDO: ${uid} (${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth}) - BLOQUEADO`);
@@ -285,7 +337,7 @@ export async function canUseAnalysis(uid) {
       mode: 'blocked',
       user,
       remainingFull: 0,
-      errorCode: 'LIMIT_REACHED',
+      errorCode: 'SYSTEM_PEAK_USAGE',
     };
   }
 
