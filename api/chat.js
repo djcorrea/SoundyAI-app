@@ -1111,7 +1111,7 @@ export default async function handler(req, res) {
     }
 
     // Gerenciar limites de usuário com sistema centralizado
-    const chatCheck = await canUseChat(uid);
+    const chatCheck = await canUseChat(uid, hasImages); // ✅ CORRIGIDO: Passar hasImages
     if (!chatCheck.allowed) {
       return sendResponse(429, { 
         error: 'LIMIT_EXCEEDED',
@@ -1123,26 +1123,8 @@ export default async function handler(req, res) {
     
     const userData = chatCheck.user;
 
-    // Se tem imagens, verificar e consumir cota de análise
-    let imageQuotaInfo = null;
-    if (hasImages) {
-      try {
-        imageQuotaInfo = await consumeImageAnalysisQuota(db, uid, email, userData);
-        console.log(`✅ Cota de imagem consumida para análise visual`);
-      } catch (error) {
-        if (error.message === 'IMAGE_QUOTA_EXCEEDED') {
-          const limite = userData.plano === 'plus' ? 20 : 5;
-          return res.status(403).json({ 
-            error: 'Cota de análise de imagens esgotada',
-            message: `Você atingiu o limite de ${limite} análises de imagem deste mês.`,
-            plano: userData.plano,
-            limite: limite,
-            proximoReset: 'Início do próximo mês'
-          });
-        }
-        throw error;
-      }
-    }
+    // ❌ REMOVIDO: consumeImageAnalysisQuota (sistema antigo)
+    // O contador de imagens agora é gerenciado por canUseChat/registerChat
 
     // 🎯 SISTEMA AVANÇADO: Intent Detection + Context Injection + Token Management
     let detectedIntent = null;
@@ -1510,21 +1492,13 @@ export default async function handler(req, res) {
     const responseData = {
       reply,
       mensagensRestantes: userData.plano === 'gratis' ? userData.mensagensRestantes : null,
-      model: modelSelection ? modelSelection.model : 'unknown'
+      model: modelSelection ? modelSelection.model : 'unknown',
+      // ✅ Incluir info se foi análise de imagem
+      ...(hasImages && { imageAnalysisProcessed: true })
     };
 
-    // Incluir informações de cota de imagem se aplicável
-    if (hasImages && imageQuotaInfo) {
-      responseData.imageAnalysis = {
-        quotaUsed: imageQuotaInfo.usadas,
-        quotaLimit: imageQuotaInfo.limite,
-        quotaRemaining: imageQuotaInfo.limite - imageQuotaInfo.usadas,
-        planType: userData.plan
-      };
-    }
-
     // ✅ REGISTRAR USO DE CHAT NO SISTEMA DE LIMITES
-    await registerChat(uid);
+    await registerChat(uid, hasImages); // ✅ CORRIGIDO: Passar hasImages
 
     return sendResponse(200, responseData);
 
