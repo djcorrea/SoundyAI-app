@@ -470,10 +470,18 @@ router.post("/analyze", async (req, res) => {
     if (!analysisCheck.allowed) {
       console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
       console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Mode: ${analysisCheck.mode}`);
+      
+      // ✅ Mensagem UX neutra e elegante para hard cap (PRO)
+      let errorMessage = "Seu plano atual não permite mais análises. Atualize seu plano para continuar.";
+      
+      if (analysisCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
+        errorMessage = "Estamos passando por um pico temporário de uso. Para garantir estabilidade e qualidade, novas análises estão pausadas no momento. O acesso será normalizado automaticamente em breve.";
+      }
+      
       return res.status(403).json({
         success: false,
-        error: "LIMIT_REACHED",
-        message: "Seu plano atual não permite mais análises. Atualize seu plano para continuar.",
+        error: analysisCheck.errorCode || "LIMIT_REACHED",
+        message: errorMessage,
         remainingFull: analysisCheck.remainingFull,
         plan: analysisCheck.user.plan,
         mode: analysisCheck.mode
