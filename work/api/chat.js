@@ -970,13 +970,13 @@ export default async function handler(req, res) {
       console.log(`⛔ [${requestId}] Limite de chat atingido para UID: ${uid}`);
       console.log(`⛔ [${requestId}] Plano: ${chatCheck.user.plan}, Restantes: ${chatCheck.remaining}`);
       
-      // ✅ NOVO: Mensagem UX neutra para limites técnicos (PRO)
+      // ✅ Mensagens UX neutras e elegantes para limites técnicos (PRO)
       let errorMessage = 'Você atingiu o limite de mensagens do seu plano. Atualize para continuar usando o chat.';
       
       if (chatCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
-        errorMessage = 'O sistema atingiu um pico de uso do chat neste período. Para manter a estabilidade, novas mensagens estão temporariamente pausadas. O acesso será normalizado automaticamente no próximo ciclo.';
+        errorMessage = 'O sistema está passando por um pico de uso neste período. Para manter a experiência estável, novas mensagens estão temporariamente pausadas.';
       } else if (chatCheck.errorCode === 'IMAGE_PEAK_USAGE') {
-        errorMessage = 'O sistema atingiu um pico de processamento de imagens neste período. O envio de imagens será retomado automaticamente no próximo ciclo.';
+        errorMessage = 'O processamento de imagens atingiu um pico neste período. O envio de imagens será retomado automaticamente em breve.';
       }
       
       return sendResponse(403, {

@@ -115,10 +115,10 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       plan: user.plan,
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
-      imagesMonth: user.imagesMonth || 0, // ✅ NOVO: Persistir contador de imagens
+      imagesMonth: user.imagesMonth ?? 0, // ✅ CORRIGIDO: || → ?? para prevenir reset silencioso
       billingMonth: user.billingMonth,
-      plusExpiresAt: user.plusExpiresAt || null,
-      proExpiresAt: user.proExpiresAt || null,
+      plusExpiresAt: user.plusExpiresAt ?? null,
+      proExpiresAt: user.proExpiresAt ?? null,
       updatedAt: nowISO,
     });
     
