@@ -217,8 +217,16 @@ export async function applyPlan(uid, { plan, durationDays }) {
     updatedAt: new Date().toISOString(),
   };
 
-  if (plan === "plus") update.plusExpiresAt = expires;
-  if (plan === "pro") update.proExpiresAt = expires;
+  // ✅ ETAPA 2.5: Limpar campo anterior para evitar estados inconsistentes
+  if (plan === "plus") {
+    update.plusExpiresAt = expires;
+    update.proExpiresAt = null;  // Limpar PRO ao ativar PLUS
+  }
+  
+  if (plan === "pro") {
+    update.proExpiresAt = expires;
+    update.plusExpiresAt = null;  // Limpar PLUS ao ativar PRO
+  }
 
   await ref.update(update);
   
