@@ -76,6 +76,13 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
   
+  // 🧼 LIMPEZA: Remover campo legado imagemAnalises (se existir)
+  if (user.imagemAnalises !== undefined) {
+    delete user.imagemAnalises;
+    changed = true;
+    console.log(`🧹 [USER-PLANS] Campo legado imagemAnalises removido para UID=${uid}`);
+  }
+  
   // ✅ Garantir que billingMonth existe
   if (!user.billingMonth) {
     user.billingMonth = currentMonth;
