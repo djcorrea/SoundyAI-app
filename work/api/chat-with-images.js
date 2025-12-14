@@ -5,7 +5,7 @@ const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js';
-import { chatLimiter } from '../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
+import { chatLimiter } from '../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
