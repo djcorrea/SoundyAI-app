@@ -2,7 +2,7 @@
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
 import { getAuth, getFirestore } from '../../firebase/admin.js';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js'; // ✅ NOVO: Sistema de planos
-import { chatLimiter } from '../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
+import { chatLimiter } from '../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
 const auth = getAuth();
 const db = getFirestore();

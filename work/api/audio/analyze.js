@@ -26,7 +26,7 @@ import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
 import { getAuth } from '../../firebase/admin.js';
 import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/user/userPlans.js';
-import { analysisLimiter } from '../../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
+import { analysisLimiter } from '../../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
