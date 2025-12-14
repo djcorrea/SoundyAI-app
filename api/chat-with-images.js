@@ -4,6 +4,7 @@ const auth = getAuth();
 const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
+import { canUseChat, registerChat } from '../work/lib/user/userPlans.js';
 
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
@@ -308,6 +309,13 @@ export default async function handler(req, res) {
 
     const { message, conversationHistory, idToken, images, hasImages } = validatedData;
 
+    // 📝 [DEBUG] Log de detecção de imagem
+    console.log('[IMAGE DEBUG]', {
+      hasImages,
+      imagesCount: images.length,
+      messagePreview: message.substring(0, 50)
+    });
+
     // Verificar autenticação
     let decoded;
     try {
@@ -319,37 +327,38 @@ export default async function handler(req, res) {
     const uid = decoded.uid;
     const email = decoded.email;
 
-    // Gerenciar limites de usuário
-    let userData;
+    // ✅ NOVO SISTEMA: Verificar se usuário pode enviar chat (com ou sem imagem)
+    let canChat;
     try {
-      userData = await handleUserLimits(db, uid, email);
+      canChat = await canUseChat(uid, hasImages);
+      console.log(`🔐 [CHAT-CHECK] UID=${uid}, hasImages=${hasImages}, canChat=${canChat.allowed}`);
     } catch (error) {
-      if (error.message === 'LIMIT_EXCEEDED') {
-        return res.status(403).json({ error: 'Limite diário de mensagens atingido' });
-      }
+      console.error('❌ Erro ao verificar permissão de chat:', error);
       throw error;
     }
 
-    // Se tem imagens, verificar e consumir cota de análise
-    let imageQuotaInfo = null;
-    if (hasImages) {
-      try {
-        imageQuotaInfo = await consumeImageAnalysisQuota(db, uid, email, userData);
-        console.log(`✅ Cota de imagem consumida para análise visual`);
-      } catch (error) {
-        if (error.message === 'IMAGE_QUOTA_EXCEEDED') {
-          const limite = userData.plano === 'plus' ? 20 : 5;
-          return res.status(403).json({ 
-            error: 'Cota de análise de imagens esgotada',
-            message: `Você atingiu o limite de ${limite} análises de imagem deste mês.`,
-            plano: userData.plano,
-            limite: limite,
-            proximoReset: 'Início do próximo mês'
-          });
-        }
-        throw error;
+    // 🚫 Bloquear se não permitido
+    if (!canChat.allowed) {
+      console.warn(`🚫 Bloqueio aplicado: ${canChat.reason}`);
+      
+      // Se bloqueio por limite de imagens
+      if (hasImages && canChat.reason.includes('imagens')) {
+        return res.status(403).json({
+          error: 'Limite de análises de imagem atingido',
+          message: canChat.reason,
+          plano: canChat.plan || 'desconhecido'
+        });
       }
+      
+      // Se bloqueio por mensagens
+      return res.status(403).json({ 
+        error: 'Limite atingido',
+        message: canChat.reason
+      });
     }
+
+    // Obter userData para exibir na resposta (opcional)
+    const userData = canChat.user || { plano: 'gratis', mensagensRestantes: 0 };
 
     // Preparar mensagens para a IA
     const messages = [];
@@ -423,22 +432,23 @@ export default async function handler(req, res) {
 
     console.log('✅ Resposta da IA gerada com sucesso');
 
+    // ✅ INCREMENTAR CONTADOR (imagesMonth se hasImages=true)
+    try {
+      await registerChat(uid, hasImages);
+      console.log(`📊 [COUNTER] Incrementado: hasImages=${hasImages}`);
+    } catch (error) {
+      console.error('❌ Erro ao registrar chat:', error);
+      // Não falhar a resposta se incremento falhar
+    }
+
     // Preparar resposta final
     const responseData = {
       reply,
       mensagensRestantes: userData.plano === 'gratis' ? userData.mensagensRestantes : null,
-      model: model
+      model: model,
+      // ✅ Incluir info se foi análise de imagem
+      ...(hasImages && { imageAnalysisProcessed: true })
     };
-
-    // Incluir informações de cota de imagem se aplicável
-    if (hasImages && imageQuotaInfo) {
-      responseData.imageAnalysis = {
-        quotaUsed: imageQuotaInfo.usadas,
-        quotaLimit: imageQuotaInfo.limite,
-        quotaRemaining: imageQuotaInfo.limite - imageQuotaInfo.usadas,
-        planType: userData.plano
-      };
-    }
 
     return res.status(200).json(responseData);
 
