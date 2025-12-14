@@ -220,11 +220,6 @@ async function handleUserLimits(db, uid, email) {
 // - canUseChat(uid, hasImages) - verifica limite
 // - registerChat(uid, hasImages) - incrementa contador
 // Sistema novo usa campo plano: imagesMonth (não objeto imagemAnalises)
-    }
-    console.error('❌ Erro ao consumir cota de imagens:', error);
-    throw error;
-  }
-}
 
 // System prompts para diferentes cenários
 const SYSTEM_PROMPTS = {
