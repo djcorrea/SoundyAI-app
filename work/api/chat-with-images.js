@@ -128,15 +128,9 @@ async function handleUserLimits(db, uid, email) {
           plano: 'gratis',
           mensagensRestantes: 9,
           dataUltimoReset: now,
-          createdAt: now,
-          // Cota de análise de imagens
-          imagemAnalises: {
-            usadas: 0,
-            limite: 5, // Grátis: 5/mês
-            mesAtual: currentMonth,
-            anoAtual: currentYear,
-            resetEm: now
-          }
+          createdAt: now
+          // ❌ REMOVIDO: imagemAnalises (sistema antigo)
+          // O contador de imagens agora é gerenciado por userPlans.js com imagesMonth
         };
         if (email) {
           userData.email = email;
@@ -163,15 +157,9 @@ async function handleUserLimits(db, uid, email) {
               mensagensRestantes: 10,
               planExpiredAt: now,
               previousPlan: 'plus',
-              dataUltimoReset: now,
-              // Reset cota de imagens para plano gratuito
-              imagemAnalises: {
-                usadas: 0,
-                limite: 5,
-                mesAtual: currentMonth,
-                anoAtual: currentYear,
-                resetEm: now
-              }
+              dataUltimoReset: now
+              // ❌ REMOVIDO: imagemAnalises (sistema antigo)
+              // O contador de imagens agora é gerenciado por userPlans.js
             };
             
             // Atualizar no Firestore
@@ -193,26 +181,10 @@ async function handleUserLimits(db, uid, email) {
           });
         }
 
-        // Verificar reset mensal da cota de imagens
-        if (!userData.imagemAnalises || 
-            userData.imagemAnalises.mesAtual !== currentMonth || 
-            userData.imagemAnalises.anoAtual !== currentYear) {
-          
-          const limiteImagens = userData.plano === 'plus' ? 20 : 5;
-          userData.imagemAnalises = {
-            usadas: 0,
-            limite: limiteImagens,
-            mesAtual: currentMonth,
-            anoAtual: currentYear,
-            resetEm: now
-          };
-          
-          tx.update(userRef, {
-            imagemAnalises: userData.imagemAnalises
-          });
-          
-          console.log(`🔄 Reset mensal da cota de imagens: ${limiteImagens} análises disponíveis para usuário ${userData.plano}`);
-        }
+        // ❌ REMOVIDO: Reset mensal da cota de imagens (sistema antigo)
+        // O contador de imagens agora é gerenciado automaticamente por:
+        // - normalizeUserDoc() em userPlans.js
+        // - Campo plano: imagesMonth (não objeto imagemAnalises)
 
         // Verificar limite de mensagens diárias (apenas plano gratuito)
         if (userData.plano === 'gratis') {
@@ -242,67 +214,12 @@ async function handleUserLimits(db, uid, email) {
   }
 }
 
-// Função para consumir cota de análise de imagens - NOVA
-async function consumeImageAnalysisQuota(db, uid, email, userData) {
-  const userRef = db.collection('usuarios').doc(uid);
-  
-  try {
-    const result = await db.runTransaction(async (tx) => {
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      
-      // Usar userData já carregado ou buscar novamente
-      let currentUserData = userData;
-      if (!currentUserData.imagemAnalises) {
-        const snap = await tx.get(userRef);
-        currentUserData = snap.data();
-      }
-      
-      // Verificar se precisa resetar cota mensal
-      if (!currentUserData.imagemAnalises || 
-          currentUserData.imagemAnalises.mesAtual !== currentMonth || 
-          currentUserData.imagemAnalises.anoAtual !== currentYear) {
-        
-        const limiteImagens = currentUserData.plano === 'plus' ? 20 : 5;
-        currentUserData.imagemAnalises = {
-          usadas: 0,
-          limite: limiteImagens,
-          mesAtual: currentMonth,
-          anoAtual: currentYear,
-          resetEm: Timestamp.now()
-        };
-      }
-      
-      // Verificar se ainda tem cota disponível
-      if (currentUserData.imagemAnalises.usadas >= currentUserData.imagemAnalises.limite) {
-        throw new Error('IMAGE_QUOTA_EXCEEDED');
-      }
-      
-      // Consumir uma unidade da cota
-      const novaQuantidade = currentUserData.imagemAnalises.usadas + 1;
-      tx.update(userRef, {
-        'imagemAnalises.usadas': novaQuantidade,
-        'imagemAnalises.ultimoUso': Timestamp.now()
-      });
-      
-      console.log(`🖼️ Cota de imagem consumida: ${novaQuantidade}/${currentUserData.imagemAnalises.limite} para usuário ${currentUserData.plano}`);
-      
-      return {
-        ...currentUserData.imagemAnalises,
-        usadas: novaQuantidade
-      };
-    });
-    
-    return result;
-  } catch (error) {
-    if (error.message === 'IMAGE_QUOTA_EXCEEDED') {
-      console.warn('🚫 Cota de análise de imagens esgotada para:', email);
-      throw error;
-    }
-    console.error('❌ Erro ao consumir cota de imagens:', error);
-    throw error;
-  }
-}
+// ❌ FUNÇÃO REMOVIDA: consumeImageAnalysisQuota
+// Motivo: Sistema antigo causava conflito com imagesMonth (userPlans.js)
+// O contador de imagens agora é gerenciado EXCLUSIVAMENTE por:
+// - canUseChat(uid, hasImages) - verifica limite
+// - registerChat(uid, hasImages) - incrementa contador
+// Sistema novo usa campo plano: imagesMonth (não objeto imagemAnalises)
 
 // System prompts para diferentes cenários
 const SYSTEM_PROMPTS = {

@@ -40,12 +40,9 @@ if (process.env.USE_FIREBASE === "true" && process.env.FIREBASE_SERVICE_ACCOUNT)
             plano: "gratuito",
             mensagensEnviadas: 5,
             mesAtual: new Date().getMonth(),
-            anoAtual: new Date().getFullYear(),
-            imagemAnalises: {
-              quantidade: 2,
-              mesAtual: new Date().getMonth(),
-              anoAtual: new Date().getFullYear(),
-            },
+            anoAtual: new Date().getFullYear()
+            // ❌ REMOVIDO: imagemAnalises (sistema antigo)
+            // O contador de imagens agora é gerenciado por userPlans.js com imagesMonth
           }),
         }),
         set: async (data) => {
