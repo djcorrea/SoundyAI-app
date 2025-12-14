@@ -1,5 +1,6 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
+  "_comment": "⚠️ DO NOT CHANGE nodeVersion! This project requires Node 20. DO NOT add NODE_VERSION or NIXPACKS_NODE_VERSION variables to services - they override this config.",
   "build": {
     "nodeVersion": "20"
   },
