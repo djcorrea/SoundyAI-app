@@ -5,6 +5,7 @@ const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js';
+import { chatLimiter } from '../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
 
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
@@ -267,8 +268,8 @@ ESPECIALIDADES TÉCNICAS:
 - Workflow: Técnicas de produção rápida e eficiente`
 };
 
-// Função principal do handler
-export default async function handler(req, res) {
+// Função principal do handler com rate limiting
+async function handlerWithoutRateLimit(req, res) {
   console.log('🔄 Nova requisição recebida:', {
     method: req.method,
     timestamp: new Date().toISOString(),
@@ -441,4 +442,10 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno'
     });
   }
+}
+
+// ✅ EXPORTAR HANDLER COM RATE LIMITING
+// Aplica rate limiter (30 req/min por IP) antes de processar requisição
+export default function handler(req, res) {
+  return chatLimiter(req, res, () => handlerWithoutRateLimit(req, res));
 }
