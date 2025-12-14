@@ -955,7 +955,8 @@ export default async function handler(req, res) {
     
     let chatCheck;
     try {
-      chatCheck = await canUseChat(uid);
+      // ✅ NOVO: Passar hasImages para verificar limite de imagens no PRO
+      chatCheck = await canUseChat(uid, hasImages);
       console.log(`📊 [${requestId}] Resultado da verificação:`, chatCheck);
     } catch (err) {
       console.error(`❌ [${requestId}] Erro ao verificar limites de chat:`, err.message);
@@ -968,12 +969,22 @@ export default async function handler(req, res) {
     if (!chatCheck.allowed) {
       console.log(`⛔ [${requestId}] Limite de chat atingido para UID: ${uid}`);
       console.log(`⛔ [${requestId}] Plano: ${chatCheck.user.plan}, Restantes: ${chatCheck.remaining}`);
+      
+      // ✅ NOVO: Mensagem UX neutra para limites técnicos (PRO)
+      let errorMessage = 'Você atingiu o limite de mensagens do seu plano. Atualize para continuar usando o chat.';
+      
+      if (chatCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
+        errorMessage = 'O sistema atingiu um pico de uso do chat neste período. Para manter a estabilidade, novas mensagens estão temporariamente pausadas. O acesso será normalizado automaticamente no próximo ciclo.';
+      } else if (chatCheck.errorCode === 'IMAGE_PEAK_USAGE') {
+        errorMessage = 'O sistema atingiu um pico de processamento de imagens neste período. O envio de imagens será retomado automaticamente no próximo ciclo.';
+      }
+      
       return sendResponse(403, {
-        error: 'LIMIT_REACHED',
-        message: 'Você atingiu o limite de mensagens do seu plano. Atualize para continuar usando o chat.',
+        error: chatCheck.errorCode || 'LIMIT_REACHED',
+        message: errorMessage,
         remaining: chatCheck.remaining,
         plan: chatCheck.user.plan,
-        limit: chatCheck.user.plan === 'free' ? 20 : (chatCheck.user.plan === 'plus' ? 60 : 'ilimitado')
+        limit: chatCheck.user.plan === 'free' ? 20 : (chatCheck.user.plan === 'plus' ? 80 : 'ilimitado')
       });
     }
     
@@ -1133,8 +1144,9 @@ export default async function handler(req, res) {
 
     // ✅ REGISTRAR USO DE CHAT NO SISTEMA DE PLANOS
     try {
-      await registerChat(uid);
-      console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}`);
+      // ✅ NOVO: Passar hasImages para incrementar contador de imagens se aplicável
+      await registerChat(uid, hasImages);
+      console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}${hasImages ? ' (com imagem)' : ''}`);
     } catch (err) {
       console.error(`⚠️ [${requestId}] Erro ao registrar chat (resposta será enviada):`, err.message);
       // Não bloquear resposta - usuário já recebeu o serviço
