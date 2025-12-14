@@ -1037,8 +1037,7 @@ export default async function handler(req, res) {
       model: modelSelection ? modelSelection.model : 'unknown',
       hasImages: hasImages,
       responseLength: reply.length,
-      tokenEstimate: Math.ceil(reply.length / 4), // Estimativa aproximada
-      imageQuotaUsed: imageQuotaInfo?.usadas || null,
+      tokenEstimate: Math.ceil(reply.length / 4),
       userPlan: userData.plan
     });
 
