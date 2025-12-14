@@ -26,6 +26,7 @@ import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
 import { getAuth } from '../../firebase/admin.js';
 import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/user/userPlans.js';
+import { analysisLimiter } from '../../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
@@ -390,8 +391,9 @@ router.use((req, res, next) => {
 /**
  * ✅ ROTA SIMPLIFICADA: POST /analyze com verificação obrigatória da fila
  * Foco: Garantir fila pronta antes de processar qualquer requisição
+ * ✅ PROTEÇÃO: Rate limiting (10 req/min por IP)
  */
-router.post("/analyze", async (req, res) => {
+router.post("/analyze", analysisLimiter, async (req, res) => {
   // ✅ LOG OBRIGATÓRIO: Rota chamada
   console.log('🚀 [API] /analyze chamada');
   console.log('📦 [ANALYZE] Headers:', req.headers);
@@ -615,8 +617,9 @@ router.post("/analyze", async (req, res) => {
 /**
  * ✅ NOVA ROTA: POST /compare para análise comparativa
  * 🎯 Cria job de comparação entre duas músicas (user vs reference)
+ * ✅ PROTEÇÃO: Rate limiting (10 req/min por IP)
  */
-router.post("/compare", async (req, res) => {
+router.post("/compare", analysisLimiter, async (req, res) => {
   // ✅ LOG OBRIGATÓRIO: Rota chamada
   console.log('🎧 [API] /compare chamada');
   

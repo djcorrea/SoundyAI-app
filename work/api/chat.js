@@ -2,6 +2,7 @@
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
 import { getAuth, getFirestore } from '../../firebase/admin.js';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js'; // ✅ NOVO: Sistema de planos
+import { chatLimiter } from '../lib/rateLimiters.js'; // ✅ NOVO: Rate limiting anti-abuso
 
 const auth = getAuth();
 const db = getFirestore();
@@ -755,8 +756,8 @@ Seja direto, técnico e focado exclusivamente em soluções musicais.`,
 Seja um especialista musical absoluto e exclusivo.`
 };
 
-// Função principal do handler
-export default async function handler(req, res) {
+// Função principal do handler com rate limiting
+async function handlerWithoutRateLimit(req, res) {
   // ✅ CRÍTICO: Declarar todas as variáveis no início do escopo para evitar ReferenceError
   let hasImages = false;
   let modelSelection = null;
@@ -1167,4 +1168,10 @@ export default async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+}
+
+// ✅ EXPORTAR HANDLER COM RATE LIMITING
+// Aplica rate limiter (30 req/min por IP) antes de processar requisição
+export default function handler(req, res) {
+  return chatLimiter(req, res, () => handlerWithoutRateLimit(req, res));
 }
