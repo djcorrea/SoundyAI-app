@@ -4,6 +4,7 @@ const auth = getAuth();
 const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
+import { canUseChat, registerChat } from '../lib/user/userPlans.js';
 
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
@@ -319,37 +320,24 @@ export default async function handler(req, res) {
     const uid = decoded.uid;
     const email = decoded.email;
 
-    // Gerenciar limites de usuário
-    let userData;
+    // ✅ SISTEMA UNIFICADO: Verificar limites (texto e imagem)
+    let canChat;
     try {
-      userData = await handleUserLimits(db, uid, email);
+      canChat = await canUseChat(uid, hasImages);
+      console.log(`🔐 [CHAT-CHECK] hasImages=${hasImages}, allowed=${canChat.allowed}`);
     } catch (error) {
-      if (error.message === 'LIMIT_EXCEEDED') {
-        return res.status(403).json({ error: 'Limite diário de mensagens atingido' });
-      }
+      console.error('❌ Erro ao verificar permissão:', error);
       throw error;
     }
 
-    // Se tem imagens, verificar e consumir cota de análise
-    let imageQuotaInfo = null;
-    if (hasImages) {
-      try {
-        imageQuotaInfo = await consumeImageAnalysisQuota(db, uid, email, userData);
-        console.log(`✅ Cota de imagem consumida para análise visual`);
-      } catch (error) {
-        if (error.message === 'IMAGE_QUOTA_EXCEEDED') {
-          const limite = userData.plano === 'plus' ? 20 : 5;
-          return res.status(403).json({ 
-            error: 'Cota de análise de imagens esgotada',
-            message: `Você atingiu o limite de ${limite} análises de imagem deste mês.`,
-            plano: userData.plano,
-            limite: limite,
-            proximoReset: 'Início do próximo mês'
-          });
-        }
-        throw error;
-      }
+    if (!canChat.allowed) {
+      return res.status(403).json({
+        error: 'Limite atingido',
+        message: canChat.reason
+      });
     }
+
+    const userData = canChat.user || { plano: 'gratis', mensagensRestantes: 0 };
 
     // Preparar mensagens para a IA
     const messages = [];
@@ -423,22 +411,21 @@ export default async function handler(req, res) {
 
     console.log('✅ Resposta da IA gerada com sucesso');
 
+    // ✅ INCREMENTAR CONTADOR
+    try {
+      await registerChat(uid, hasImages);
+      console.log(`📊 [COUNTER] Incrementado: hasImages=${hasImages}`);
+    } catch (error) {
+      console.error('❌ Erro ao registrar chat:', error);
+    }
+
     // Preparar resposta final
     const responseData = {
       reply,
       mensagensRestantes: userData.plano === 'gratis' ? userData.mensagensRestantes : null,
-      model: model
+      model: model,
+      ...(hasImages && { imageAnalysisProcessed: true })
     };
-
-    // Incluir informações de cota de imagem se aplicável
-    if (hasImages && imageQuotaInfo) {
-      responseData.imageAnalysis = {
-        quotaUsed: imageQuotaInfo.usadas,
-        quotaLimit: imageQuotaInfo.limite,
-        quotaRemaining: imageQuotaInfo.limite - imageQuotaInfo.usadas,
-        planType: userData.plano
-      };
-    }
 
     return res.status(200).json(responseData);
 
