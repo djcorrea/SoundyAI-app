@@ -3,7 +3,7 @@
 
 import express from 'express';
 import stripe, { getPlanConfig, isValidPlan } from '../../lib/stripe/config.js';
-import { verifyFirebaseToken } from '../../../firebase/admin.js';
+import { getAuth } from '../../../firebase/admin.js';
 
 const router = express.Router();
 
@@ -34,7 +34,8 @@ router.post('/create-checkout-session', async (req, res) => {
     let decodedToken;
     
     try {
-      decodedToken = await verifyFirebaseToken(token);
+      const auth = getAuth();
+      decodedToken = await auth.verifyIdToken(token);
     } catch (error) {
       console.error('❌ [STRIPE] Token Firebase inválido:', error.message);
       return res.status(401).json({
