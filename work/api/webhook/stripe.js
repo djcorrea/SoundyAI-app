@@ -3,7 +3,7 @@
 
 import express from 'express';
 import stripe from '../../lib/stripe/config.js';
-import { applyPlan } from '../../lib/user/userPlans.js';
+import { applySubscription, cancelSubscription } from '../../lib/user/userPlans.js';
 import { isEventProcessed, markEventAsProcessed } from '../../lib/stripe/idempotency.js';
 
 const router = express.Router();

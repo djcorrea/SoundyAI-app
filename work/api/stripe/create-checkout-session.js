@@ -81,6 +81,8 @@ router.post('/create-checkout-session', async (req, res) => {
     console.log(`📋 [STRIPE] Plano selecionado: ${planConfig.displayName} (${planConfig.priceId})`);
 
     // 4️⃣ CRIAR CHECKOUT SESSION NO STRIPE (ASSINATURA RECORRENTE)
+    console.log(`🔧 [STRIPE] Criando session - Mode: subscription, Price ID: ${planConfig.priceId}`);
+    
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -114,6 +116,8 @@ router.post('/create-checkout-session', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [STRIPE] Erro ao criar checkout session:', error.message);
+    console.error('❌ [STRIPE] Stack:', error.stack);
+    console.error('❌ [STRIPE] Tipo do erro:', error.type || 'unknown');
     
     return res.status(500).json({
       error: 'server_error',

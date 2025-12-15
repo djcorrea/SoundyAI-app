@@ -112,22 +112,40 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     user.plan = "free";
     changed = true;
   }
+
+  // ✅ STRIPE: Verificar expiração de assinatura recorrente
+  if (user.subscription && user.subscription.status === 'canceled') {
+    const currentPeriodEnd = new Date(user.subscription.currentPeriodEnd).getTime();
+    if (Date.now() > currentPeriodEnd) {
+      console.log(`⏰ [USER-PLANS] Assinatura Stripe expirada para: ${uid}`);
+      user.plan = "free";
+      user.subscription = null;
+      changed = true;
+    }
+  }
   
   // ✅ Persistir no Firestore apenas se houver mudanças
   if (changed) {
     const nowISO = now.toISOString();
     const ref = getDb().collection(USERS).doc(uid);
     
-    await ref.update({
+    const updateData = {
       plan: user.plan,
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
-      imagesMonth: user.imagesMonth ?? 0, // ✅ CORRIGIDO: || → ?? para prevenir reset silencioso
+      imagesMonth: user.imagesMonth ?? 0,
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
       updatedAt: nowISO,
-    });
+    };
+
+    // ✅ STRIPE: Incluir subscription se existir
+    if (user.subscription !== undefined) {
+      updateData.subscription = user.subscription;
+    }
+    
+    await ref.update(updateData);
     
     user.updatedAt = nowISO;
     console.log(`💾 [USER-PLANS] Usuário normalizado e salvo: ${uid} (plan: ${user.plan}, billingMonth: ${user.billingMonth})`);
@@ -232,6 +250,78 @@ export async function applyPlan(uid, { plan, durationDays }) {
   
   const updatedUser = (await ref.get()).data();
   console.log(`✅ [USER-PLANS] Plano aplicado: ${uid} → ${plan} até ${expires}`);
+  
+  return updatedUser;
+}
+
+/**
+ * Aplicar assinatura Stripe (modo recorrente)
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Object} options - { plan, subscriptionId, status, currentPeriodEnd, priceId }
+ * @returns {Promise<Object>} Perfil atualizado
+ */
+export async function applySubscription(uid, { plan, subscriptionId, status, currentPeriodEnd, priceId }) {
+  console.log(`💳 [USER-PLANS] Aplicando assinatura Stripe ${plan} para ${uid}`);
+  
+  const ref = getDb().collection(USERS).doc(uid);
+  await getOrCreateUser(uid);
+
+  const update = {
+    plan,
+    subscription: {
+      id: subscriptionId,
+      status,
+      currentPeriodEnd: currentPeriodEnd.toISOString(),
+      priceId,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Limpar campos de expiração anteriores (pagamentos únicos)
+  if (plan === "plus") {
+    update.plusExpiresAt = null;
+    update.proExpiresAt = null;
+  }
+  
+  if (plan === "pro") {
+    update.proExpiresAt = null;
+    update.plusExpiresAt = null;
+  }
+
+  await ref.update(update);
+  
+  const updatedUser = (await ref.get()).data();
+  console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId})`);
+  
+  return updatedUser;
+}
+
+/**
+ * Cancelar assinatura Stripe (mantém ativo até fim do período)
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Object} options - { subscriptionId, currentPeriodEnd }
+ * @returns {Promise<Object>} Perfil atualizado
+ */
+export async function cancelSubscription(uid, { subscriptionId, currentPeriodEnd }) {
+  console.log(`🚫 [USER-PLANS] Cancelando assinatura ${subscriptionId} para ${uid}`);
+  
+  const ref = getDb().collection(USERS).doc(uid);
+  const userDoc = await ref.get();
+  
+  if (!userDoc.exists) {
+    throw new Error(`Usuário ${uid} não encontrado`);
+  }
+
+  const update = {
+    'subscription.status': 'canceled',
+    'subscription.currentPeriodEnd': currentPeriodEnd.toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await ref.update(update);
+  
+  const updatedUser = (await ref.get()).data();
+  console.log(`✅ [USER-PLANS] Assinatura cancelada (ativa até ${currentPeriodEnd.toISOString()})`);
   
   return updatedUser;
 }
