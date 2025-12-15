@@ -9,8 +9,6 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import { applyPlan } from '../../work/lib/user/userPlans.js';
-import { isPaymentProcessed, markPaymentAsProcessed } from '../../work/lib/mercadopago/idempotency.js';
-import { validateMercadoPagoSignature } from '../../work/lib/mercadopago/signature.js';
 
 const router = express.Router();
 
@@ -77,131 +75,68 @@ function determinePlan(paymentData) {
  * POST /webhook/mercadopago - Receber notificações do Mercado Pago
  */
 router.post('/mercadopago', async (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log(`🔔 [WEBHOOK] [${timestamp}] Notificação recebida do Mercado Pago`);
+  console.log('🔔 [WEBHOOK] Notificação recebida do Mercado Pago');
   console.log('📋 [WEBHOOK] Body:', JSON.stringify(req.body, null, 2));
 
   try {
-    // 1️⃣ VALIDAR ASSINATURA HMAC
-    const isSignatureValid = validateMercadoPagoSignature(req);
-    if (!isSignatureValid) {
-      console.error(`❌ [WEBHOOK] [${timestamp}] Assinatura inválida`);
-      // ✅ Retornar 200 para evitar reenvios (segurança)
-      return res.status(200).json({ received: true, error: 'invalid_signature' });
-    }
-    
-    console.log(`🔐 [WEBHOOK] [${timestamp}] Assinatura validada`);
-
-    // 2️⃣ FILTRAR TIPO DE NOTIFICAÇÃO
     // Mercado Pago envia notificações de diferentes tipos
     const { type, data } = req.body;
 
     // Só processar notificações de pagamento
     if (type !== 'payment') {
-      console.log(`⚠️ [WEBHOOK] [${timestamp}] Tipo ignorado: ${type}`);
+      console.log(`⚠️ [WEBHOOK] Tipo ignorado: ${type}`);
       return res.status(200).send('OK');
     }
 
-    // 3️⃣ OBTER ID DO PAGAMENTO
+    // Obter ID do pagamento
     const paymentId = data?.id;
     if (!paymentId) {
-      console.error(`❌ [WEBHOOK] [${timestamp}] ID de pagamento ausente`);
+      console.error('❌ [WEBHOOK] ID de pagamento ausente');
       return res.status(400).json({ error: 'Payment ID missing' });
     }
-    
-    // 4️⃣ VERIFICAR IDEMPOTÊNCIA
-    const alreadyProcessed = await isPaymentProcessed(paymentId);
-    if (alreadyProcessed) {
-      console.log(`⏭️ [WEBHOOK] [${timestamp}] Pagamento já processado: ${paymentId}`);
-      return res.status(200).json({ received: true, already_processed: true });
-    }
 
-    console.log(`🔍 [WEBHOOK] [${timestamp}] Buscando detalhes do pagamento: ${paymentId}`);
+    console.log(`🔍 [WEBHOOK] Buscando detalhes do pagamento: ${paymentId}`);
 
-    // 5️⃣ BUSCAR DETALHES DO PAGAMENTO NA API
     // Buscar detalhes completos do pagamento
     const paymentData = await getPaymentDetails(paymentId);
     
-    console.log(`💳 [WEBHOOK] [${timestamp}] Status do pagamento: ${paymentData.status}`);
-    console.log(`👤 [WEBHOOK] [${timestamp}] External reference (UID): ${paymentData.external_reference}`);
+    console.log('💳 [WEBHOOK] Status do pagamento:', paymentData.status);
+    console.log('👤 [WEBHOOK] External reference:', paymentData.external_reference);
 
-    // 6️⃣ VALIDAR STATUS DO PAGAMENTO
     // Só processar pagamentos aprovados
     if (paymentData.status !== 'approved') {
-      console.log(`⚠️ [WEBHOOK] [${timestamp}] Pagamento não aprovado: ${paymentData.status}`);
-      
-      // ✅ Marcar como processado mesmo sem aprovação (evitar reprocessamento)
-      await markPaymentAsProcessed(paymentId, {
-        status: paymentData.status,
-        uid: paymentData.external_reference,
-        result: 'payment_not_approved',
-      });
-      
+      console.log(`⚠️ [WEBHOOK] Pagamento não aprovado: ${paymentData.status}`);
       return res.status(200).send('OK');
     }
 
-    // 7️⃣ VALIDAR UID DO USUÁRIO
     // Obter UID do Firebase (enviado como external_reference no frontend)
     const uid = paymentData.external_reference;
     if (!uid) {
-      console.error(`❌ [WEBHOOK] [${timestamp}] External reference (UID) ausente`);
-      
-      // ✅ Marcar como processado com erro
-      await markPaymentAsProcessed(paymentId, {
-        error: 'uid_missing',
-        status: paymentData.status,
-        result: 'error',
-      });
-      
+      console.error('❌ [WEBHOOK] External reference (UID) ausente');
       return res.status(400).json({ error: 'User UID missing' });
     }
 
-    // 8️⃣ DETERMINAR PLANO
     // Determinar qual plano aplicar
     const planConfig = determinePlan(paymentData);
-    console.log(`📦 [WEBHOOK] [${timestamp}] Plano determinado: ${planConfig.plan} (${planConfig.durationDays} dias) para ${uid}`);
+    console.log(`📦 [WEBHOOK] Aplicando plano: ${planConfig.plan} (${planConfig.durationDays} dias) para ${uid}`);
 
-    // 9️⃣ APLICAR PLANO (ÚNICO PONTO DE MUTAÇÃO)
-    try {
-      await applyPlan(uid, planConfig);
-      console.log(`✅ [WEBHOOK] [${timestamp}] Plano aplicado com sucesso: ${uid} → ${planConfig.plan}`);
-      
-      // 🔟 REGISTRAR IDEMPOTÊNCIA
-      await markPaymentAsProcessed(paymentId, {
-        uid: uid,
-        plan: planConfig.plan,
-        durationDays: planConfig.durationDays,
-        status: paymentData.status,
-        paymentType: paymentData.payment_type_id,
-        amount: paymentData.transaction_amount,
-        currency: paymentData.currency_id,
-        result: 'success',
-      });
-      
-    } catch (error) {
-      console.error(`❌ [WEBHOOK] [${timestamp}] Erro ao aplicar plano: ${error.message}`);
-      
-      // ✅ Registrar idempotência mesmo com erro (evitar reprocessamento)
-      await markPaymentAsProcessed(paymentId, {
-        error: 'plan_activation_failed',
-        errorMessage: error.message,
-        uid: uid,
-        plan: planConfig.plan,
-        result: 'error',
-      });
-    }
+    // Aplicar plano no Firestore
+    await applyPlan(uid, planConfig);
+
+    console.log(`✅ [WEBHOOK] Plano aplicado com sucesso: ${uid} → ${planConfig.plan}`);
 
     // SEMPRE responder 200 OK para evitar reenvios
     return res.status(200).json({
       success: true,
-      message: 'Webhook processado',
-      paymentId,
+      message: 'Plano aplicado com sucesso',
+      uid,
+      plan: planConfig.plan,
+      durationDays: planConfig.durationDays
     });
 
   } catch (error) {
-    const timestamp = new Date().toISOString();
-    console.error(`💥 [WEBHOOK] [${timestamp}] Erro ao processar webhook:`, error);
-    console.error(`💥 [WEBHOOK] [${timestamp}] Stack:`, error.stack);
+    console.error('💥 [WEBHOOK] Erro ao processar webhook:', error);
+    console.error('💥 [WEBHOOK] Stack:', error.stack);
 
     // SEMPRE responder 200 OK mesmo em erro para evitar reenvios
     // O Mercado Pago reenvia automaticamente se receber 4xx/5xx

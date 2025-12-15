@@ -2,39 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /usuarios/{userId} {
-      // ✅ READ: Usuário pode ler seus próprios dados
-      allow read: if request.auth != null && request.auth.uid == userId;
-      
-      // ✅ CREATE: Usuário pode criar seu próprio documento
-      allow create: if request.auth != null && request.auth.uid == userId
-        // ✅ SEGURANÇA: Plano inicial deve ser 'free'
-        && request.resource.data.plan == 'free'
-        // ✅ SEGURANÇA: Campos de expiração devem ser null
-        && (!request.resource.data.keys().hasAny(['plusExpiresAt', 'proExpiresAt']) 
-            || (request.resource.data.get('plusExpiresAt', null) == null 
-                && request.resource.data.get('proExpiresAt', null) == null));
-      
-      // ✅ UPDATE: Usuário pode atualizar seus dados MAS NÃO pode alterar campos críticos
-      allow update: if request.auth != null && request.auth.uid == userId
-        // ✅ SEGURANÇA: NÃO pode alterar plano
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan']))
-        // ✅ SEGURANÇA: NÃO pode alterar datas de expiração
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['plusExpiresAt', 'proExpiresAt']))
-        // ✅ SEGURANÇA: NÃO pode alterar subscription
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription']))
-        // ✅ SEGURANÇA: NÃO pode alterar contadores mensais diretamente
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['messagesMonth', 'analysesMonth', 'imagesMonth']))
-        // ✅ SEGURANÇA: NÃO pode alterar billingMonth
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['billingMonth']));
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     match /phones/{phoneId} {
       allow read, write: if false;
     }
     match /fingerprints/{fpId} {
-      allow read, write: if false;
-    }
-    // ✅ SEGURANÇA: Collection de eventos Stripe processados (apenas backend)
-    match /processed_stripe_events/{eventId} {
       allow read, write: if false;
     }
   }
