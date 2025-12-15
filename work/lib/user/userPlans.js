@@ -99,18 +99,39 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
   
-  // ✅ Verificar expiração do plano Plus
-  if (user.plusExpiresAt && Date.now() > new Date(user.plusExpiresAt).getTime() && user.plan === "plus") {
-    console.log(`⏰ [USER-PLANS] Plano Plus expirado para: ${uid}`);
-    user.plan = "free";
-    changed = true;
+  // ✅ ASSINATURA ATIVA: Se tiver subscription ativa, ignorar expiração
+  if (user.subscription && user.subscription.status === 'active') {
+    // Assinatura ativa prevalece sobre expiresAt
+    console.log(`🔔 [USER-PLANS] Assinatura ativa detectada para ${uid}: ${user.subscription.subscriptionId}`);
+    // NÃO fazer downgrade, plano já está correto
   }
-  
-  // ✅ Verificar expiração do plano Pro
-  if (user.proExpiresAt && Date.now() > new Date(user.proExpiresAt).getTime() && user.plan === "pro") {
-    console.log(`⏰ [USER-PLANS] Plano Pro expirado para: ${uid}`);
-    user.plan = "free";
-    changed = true;
+  // ✅ ASSINATURA CANCELADA: Verificar se currentPeriodEnd passou
+  else if (user.subscription && user.subscription.status === 'canceled') {
+    const periodEnd = user.subscription.currentPeriodEnd?.toDate?.() || new Date(user.subscription.currentPeriodEnd);
+    if (Date.now() > periodEnd.getTime()) {
+      console.log(`⏰ [USER-PLANS] Assinatura cancelada expirada para ${uid} - downgrade para FREE`);
+      user.plan = "free";
+      user.subscription = null; // Limpar subscription
+      changed = true;
+    } else {
+      console.log(`🔔 [USER-PLANS] Assinatura cancelada mas ainda ativa até ${periodEnd.toISOString()} para ${uid}`);
+    }
+  }
+  // ✅ SEM ASSINATURA: Verificar expiração de pagamento único
+  else {
+    // Verificar expiração do plano Plus (pagamento único)
+    if (user.plusExpiresAt && Date.now() > new Date(user.plusExpiresAt).getTime() && user.plan === "plus") {
+      console.log(`⏰ [USER-PLANS] Plano Plus (pagamento único) expirado para: ${uid}`);
+      user.plan = "free";
+      changed = true;
+    }
+    
+    // Verificar expiração do plano Pro (pagamento único)
+    if (user.proExpiresAt && Date.now() > new Date(user.proExpiresAt).getTime() && user.plan === "pro") {
+      console.log(`⏰ [USER-PLANS] Plano Pro (pagamento único) expirado para: ${uid}`);
+      user.plan = "free";
+      changed = true;
+    }
   }
   
   // ✅ Persistir no Firestore apenas se houver mudanças
@@ -118,16 +139,23 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     const nowISO = now.toISOString();
     const ref = getDb().collection(USERS).doc(uid);
     
-    await ref.update({
+    const updateData = {
       plan: user.plan,
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
-      imagesMonth: user.imagesMonth ?? 0, // ✅ CORRIGIDO: || → ?? para prevenir reset silencioso
+      imagesMonth: user.imagesMonth ?? 0,
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
       updatedAt: nowISO,
-    });
+    };
+    
+    // Incluir subscription se existir (ou null se foi limpa)
+    if (user.subscription !== undefined) {
+      updateData.subscription = user.subscription;
+    }
+    
+    await ref.update(updateData);
     
     user.updatedAt = nowISO;
     console.log(`💾 [USER-PLANS] Usuário normalizado e salvo: ${uid} (plan: ${user.plan}, billingMonth: ${user.billingMonth})`);
@@ -204,7 +232,8 @@ export async function getOrCreateUser(uid, extra = {}) {
  * @returns {Promise<Object>} Perfil atualizado
  */
 export async function applyPlan(uid, { plan, durationDays }) {
-  console.log(`💳 [USER-PLANS] Aplicando plano ${plan} para ${uid} (${durationDays} dias)`);
+  const timestamp = new Date().toISOString();
+  console.log(`💳 [USER-PLANS] [${timestamp}] Aplicando plano ${plan} para ${uid} (${durationDays} dias)`);
   
   const ref = getDb().collection(USERS).doc(uid);
   await getOrCreateUser(uid);
@@ -221,19 +250,105 @@ export async function applyPlan(uid, { plan, durationDays }) {
   if (plan === "plus") {
     update.plusExpiresAt = expires;
     update.proExpiresAt = null;  // Limpar PRO ao ativar PLUS
+    console.log(`📋 [USER-PLANS] [${timestamp}] PLUS ativado: ${uid} | Expira: ${expires} | PRO limpo`);
   }
   
   if (plan === "pro") {
     update.proExpiresAt = expires;
     update.plusExpiresAt = null;  // Limpar PLUS ao ativar PRO
+    console.log(`📋 [USER-PLANS] [${timestamp}] PRO ativado: ${uid} | Expira: ${expires} | PLUS limpo`);
   }
 
+  // ✅ LOG DE AUDITORIA: Registrar mudança antes de aplicar
+  console.log(`🔍 [USER-PLANS] [${timestamp}] AUDITORIA: UID=${uid} | Plano=${plan} | Duração=${durationDays}d | ExpiresAt=${expires}`);
+  
   await ref.update(update);
   
   const updatedUser = (await ref.get()).data();
-  console.log(`✅ [USER-PLANS] Plano aplicado: ${uid} → ${plan} até ${expires}`);
+  console.log(`✅ [USER-PLANS] [${timestamp}] Plano aplicado com sucesso: ${uid} → ${plan} até ${expires}`);
   
   return updatedUser;
+}
+
+/**
+ * ✅ Aplicar ASSINATURA RECORRENTE (Stripe)
+ * - Escreve objeto subscription no Firestore
+ * - Define plan (plus ou pro)
+ * - Preserva compatibilidade com pagamentos únicos (não toca em plusExpiresAt/proExpiresAt)
+ * 
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Object} options - { plan: 'plus'|'pro', subscriptionId: string, status: string, currentPeriodEnd: Date, priceId: string }
+ * @returns {Promise<void>}
+ */
+export async function applySubscription(uid, { plan, subscriptionId, status, currentPeriodEnd, priceId }) {
+  const timestamp = new Date().toISOString();
+  console.log(`🔔 [USER-PLANS] [${timestamp}][SUBSCRIPTION] Aplicando assinatura ${plan} para ${uid}`);
+  
+  if (plan !== "plus" && plan !== "pro") {
+    throw new Error(`Plan inválido para subscription: ${plan}`);
+  }
+  
+  if (!subscriptionId || !status || !currentPeriodEnd || !priceId) {
+    throw new Error(`Dados obrigatórios ausentes: subscriptionId, status, currentPeriodEnd, priceId`);
+  }
+  
+  const ref = getDb().collection(USERS).doc(uid);
+  await getOrCreateUser(uid);
+  
+  // ✅ Escrever subscription no Firestore
+  const update = {
+    plan: plan,
+    subscription: {
+      provider: 'stripe',
+      subscriptionId: subscriptionId,
+      status: status,
+      currentPeriodEnd: currentPeriodEnd, // Firestore Timestamp ou Date
+      priceId: priceId
+    },
+    updatedAt: timestamp,
+  };
+  
+  // ✅ LOG DE AUDITORIA
+  console.log(`🔍 [USER-PLANS] [${timestamp}][SUBSCRIPTION] AUDITORIA: UID=${uid} | Plano=${plan} | SubID=${subscriptionId} | Status=${status} | PeriodEnd=${currentPeriodEnd.toISOString()}`);
+  
+  await ref.update(update);
+  
+  console.log(`✅ [USER-PLANS] [${timestamp}][SUBSCRIPTION] Assinatura aplicada com sucesso: ${subscriptionId} (${plan})`);
+}
+
+/**
+ * ✅ Cancelar ASSINATURA RECORRENTE (Stripe)
+ * - Atualiza subscription.status = 'canceled'
+ * - Preserva currentPeriodEnd (acesso até o fim do período)
+ * - normalizeUserDoc() fará o downgrade quando expirar
+ * 
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Object} options - { subscriptionId: string, currentPeriodEnd: Date }
+ * @returns {Promise<void>}
+ */
+export async function cancelSubscription(uid, { subscriptionId, currentPeriodEnd }) {
+  const timestamp = new Date().toISOString();
+  console.log(`⏸️ [USER-PLANS] [${timestamp}][SUBSCRIPTION] Cancelando assinatura ${subscriptionId} para ${uid}`);
+  
+  if (!subscriptionId || !currentPeriodEnd) {
+    throw new Error(`Dados obrigatórios ausentes para cancelamento: subscriptionId, currentPeriodEnd`);
+  }
+  
+  const ref = getDb().collection(USERS).doc(uid);
+  
+  // ✅ Atualizar status para 'canceled' mas manter currentPeriodEnd
+  const update = {
+    'subscription.status': 'canceled',
+    'subscription.currentPeriodEnd': currentPeriodEnd,
+    updatedAt: timestamp,
+  };
+  
+  // ✅ LOG DE AUDITORIA
+  console.log(`🔍 [USER-PLANS] [${timestamp}][SUBSCRIPTION] AUDITORIA CANCELAMENTO: UID=${uid} | SubID=${subscriptionId} | Ativo até=${currentPeriodEnd.toISOString()}`);
+  
+  await ref.update(update);
+  
+  console.log(`✅ [USER-PLANS] [${timestamp}][SUBSCRIPTION] Assinatura marcada como cancelada mas ativa até ${currentPeriodEnd.toISOString()}`);
 }
 
 /**

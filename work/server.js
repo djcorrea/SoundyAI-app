@@ -9,6 +9,8 @@ import cors from "cors";
 import analyzeRouter from "./api/audio/analyze.js";
 import jobsRouter from "./api/jobs/[id].js";
 import healthRouter from "./api/health/redis.js";
+import stripeCheckoutRouter from "./api/stripe/create-checkout-session.js";
+import stripeWebhookRouter from "./api/webhook/stripe.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +28,11 @@ app.use(cors({
 }));
 
 // ---------- Middleware para JSON ----------
+// ⚠️ ATENÇÃO: Webhook Stripe precisa de raw body para validar assinatura
+// Aplicar express.raw() ANTES de express.json() para a rota específica
+app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
+
+// JSON parser para outras rotas
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -62,6 +69,10 @@ app.use((req, res, next) => {
 app.use('/api/audio', analyzeRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/health', healthRouter);
+
+// ✅ STRIPE: Rotas de pagamento
+app.use('/api/stripe', stripeCheckoutRouter);
+app.use('/api/webhook', stripeWebhookRouter);
 
 // ---------- Health check endpoint ----------
 app.get('/health', (req, res) => {
