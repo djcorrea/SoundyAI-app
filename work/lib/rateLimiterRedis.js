@@ -36,27 +36,6 @@ let totalRequests = 0;
 let blockedRequests = 0;
 let redisErrors = 0;
 
-// ✅ FALLBACK EM MEMÓRIA (usado apenas se Redis cair)
-// Map: chave → { count, resetAt }
-const memoryRateLimitCache = new Map();
-const MEMORY_FALLBACK_LIMIT = 10; // Limite conservador (10 req/min)
-const MEMORY_CLEANUP_INTERVAL = 120000; // Limpar cache a cada 2 minutos
-
-// Limpar cache de memória periodicamente
-setInterval(() => {
-  const now = Date.now();
-  let cleaned = 0;
-  for (const [key, value] of memoryRateLimitCache.entries()) {
-    if (value.resetAt < now) {
-      memoryRateLimitCache.delete(key);
-      cleaned++;
-    }
-  }
-  if (cleaned > 0) {
-    console.log(`🧹 [RATE_LIMIT_MEMORY] Cache limpo: ${cleaned} entradas removidas`);
-  }
-}, MEMORY_CLEANUP_INTERVAL);
-
 /**
  * Inicializar cliente Redis
  * Chamado automaticamente na primeira requisição
@@ -111,54 +90,6 @@ function initRedis() {
 }
 
 /**
- * Rate limiting em memória (fallback quando Redis cair)
- * Limite conservador: 10 req/min
- * 
- * @param {Object} req - Request Express
- * @param {string} limitType - Tipo do limite
- * @param {number} maxRequests - Máximo de requisições
- * @returns {Object} { allowed, current, identifier, fallback }
- */
-function checkRateLimitMemory(req, limitType, maxRequests) {
-  console.warn(`⚠️ [RATE_LIMIT_MEMORY] Redis indisponível - usando fallback em memória`);
-  
-  // Obter identificador
-  const { identifier, type } = getIdentifier(req);
-  
-  // Obter minuto atual
-  const now = Date.now();
-  const minute = Math.floor(now / 60000); // Minuto atual (timestamp / 60s)
-  
-  // Chave: limitType:identifier:minute
-  const key = `${limitType}:${identifier}:${minute}`;
-  
-  // Verificar cache
-  let entry = memoryRateLimitCache.get(key);
-  
-  if (!entry) {
-    // Primeira requisição deste minuto
-    entry = {
-      count: 1,
-      resetAt: (minute + 1) * 60000, // Próximo minuto
-    };
-    memoryRateLimitCache.set(key, entry);
-    return { allowed: true, current: 1, identifier, fallback: true, type };
-  }
-  
-  // Incrementar contador
-  entry.count++;
-  
-  // Verificar limite
-  if (entry.count > maxRequests) {
-    blockedRequests++;
-    console.warn(`🛑 [RATE_LIMIT_MEMORY] BLOQUEADO: ${limitType} | ${type}: ${identifier.replace('uid_', '').replace('ip_', '')} | ${entry.count}/${maxRequests} req/min`);
-    return { allowed: false, current: entry.count, identifier, fallback: true, type };
-  }
-  
-  return { allowed: true, current: entry.count, identifier, fallback: true, type };
-}
-
-/**
  * Extrair identificador (UID ou IP)
  * Prioriza UID para limites mais precisos
  * 
@@ -203,9 +134,10 @@ async function checkRateLimit(req, limitType, maxRequests) {
   
   totalRequests++;
   
-  // ✅ FALLBACK EM MEMÓRIA: Se Redis não disponível, usar cache em memória
+  // ✅ FALLBACK: Se Redis não disponível, modo permissivo
   if (!redisAvailable || !redisClient) {
-    return checkRateLimitMemory(req, limitType, MEMORY_FALLBACK_LIMIT);
+    console.warn(`⚠️ [RATE_LIMIT_REDIS] Redis indisponível - permitindo requisição (fallback)`);
+    return { allowed: true, current: 0, identifier: 'fallback', fallback: true };
   }
   
   // Obter identificador (UID ou IP)
