@@ -741,46 +741,42 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase SDK Modular (mesma versão do projeto) -->
+    <script type="module">
+        // ✅ Importar Firebase do módulo compartilhado
+        import { auth } from './firebase.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 
-    <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBCXKP8nh_hGkO7Nzs5PH35TnzL7LGKfwA",
-            authDomain: "soundyai-app.firebaseapp.com",
-            projectId: "soundyai-app",
-            storageBucket: "soundyai-app.firebasestorage.app",
-            messagingSenderId: "746820958512",
-            appId: "1:746820958512:web:f0f11d83bb25d6bf45cac3"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+        console.log('🔥 Firebase importado de firebase.js compartilhado');
 
         // ✅ VARIÁVEL GLOBAL para armazenar usuário autenticado
-        let currentUser = null;
+        window.currentUser = null;
 
         // ✅ MONITORAR ESTADO DE AUTENTICAÇÃO
-        auth.onAuthStateChanged((user) => {
-            currentUser = user;
-            console.log('Estado de autenticação:', currentUser ? `Logado como ${currentUser.email}` : 'Não logado');
+        onAuthStateChanged(auth, (user) => {
+            window.currentUser = user;
+            if (user) {
+                console.log('✅ Estado de autenticação: LOGADO como', user.email);
+            } else {
+                console.log('❌ Estado de autenticação: NÃO LOGADO');
+            }
         });
 
         // Stripe Checkout Handler
         async function handleStripeCheckout(plan) {
             try {
                 // ✅ Verificar se usuário está autenticado usando variável global
-                if (!currentUser) {
+                if (!window.currentUser) {
                     alert('Você precisa estar logado para assinar um plano. Redirecionando para login...');
                     window.location.href = 'index.html';
                     return;
                 }
 
+                console.log(`🚀 Iniciando checkout para plano: ${plan}`);
+
                 // Obter token do Firebase
-                const idToken = await currentUser.getIdToken();
+                const idToken = await window.currentUser.getIdToken();
+                console.log('✅ Token obtido com sucesso');
 
                 // Fazer requisição ao endpoint Stripe
                 const response = await fetch('/api/stripe/create-checkout-session', {
@@ -798,27 +794,45 @@
                 }
 
                 const data = await response.json();
+                console.log('✅ Sessão de checkout criada:', data);
 
                 // Redirecionar para Stripe Checkout
                 if (data.url) {
+                    console.log('🔗 Redirecionando para Stripe Checkout...');
                     window.location.href = data.url;
                 } else {
                     throw new Error('URL de checkout não retornada');
                 }
 
             } catch (error) {
-                console.error('Erro ao processar checkout:', error);
+                console.error('❌ Erro ao processar checkout:', error);
                 alert(`Erro ao processar pagamento: ${error.message}`);
             }
         }
 
-        // Event Listeners
-        document.getElementById('btn-plus').addEventListener('click', () => {
-            handleStripeCheckout('plus');
-        });
+        // Expor função globalmente para os botões
+        window.handleStripeCheckout = handleStripeCheckout;
+    </script>
 
-        document.getElementById('btn-pro').addEventListener('click', () => {
-            handleStripeCheckout('pro');
+    <script>
+        // Event Listeners (script não-module para acessar DOM imediatamente)
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnPlus = document.getElementById('btn-plus');
+            const btnPro = document.getElementById('btn-pro');
+
+            if (btnPlus) {
+                btnPlus.addEventListener('click', () => {
+                    window.handleStripeCheckout('plus');
+                });
+            }
+
+            if (btnPro) {
+                btnPro.addEventListener('click', () => {
+                    window.handleStripeCheckout('pro');
+                });
+            }
+
+            console.log('✅ Event listeners configurados');
         });
 
         // Particle Generation - Mesmo da landing.html
