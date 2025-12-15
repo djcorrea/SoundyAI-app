@@ -8,7 +8,7 @@ import { isEventProcessed, markEventAsProcessed } from '../../lib/stripe/idempot
 
 const router = express.Router();
 
-router.post('/stripe', async (req, res) => {
+router.post('/', async (req, res) => {
   const timestamp = new Date().toISOString();
   console.log(`📨 [STRIPE WEBHOOK] [${timestamp}] Webhook recebido`);
 
