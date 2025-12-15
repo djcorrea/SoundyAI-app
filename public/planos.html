@@ -126,10 +126,10 @@
 
         .plans-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 40px;
             width: 100%;
-            max-width: 800px;
+            max-width: 1200px;
         }
 
         .plan-card {
@@ -193,6 +193,21 @@
             font-weight: 600;
             letter-spacing: 1px;
             box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .plan-card.pro-plan::after {
+            content: 'PREMIUM';
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
         }
 
         .plan-name {
@@ -686,12 +701,118 @@
                         Acesso prioritário a novos lançamentos
                     </li>
                 </ul>
-                <a href="https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2c93808497eec1c00197f19da3d600f6" class="plan-button btn-premium">Quero ser Plus</a>
+                <button id="btn-plus" class="plan-button btn-premium">Quero ser Plus</button>
+            </div>
+
+            <!-- Plano Pro -->
+            <div class="plan-card premium pro-plan">
+                <h2 class="plan-name">Plano Pro</h2>
+                <div class="plan-price">
+                    <span class="currency">R$</span>49<span style="font-size: 1.5rem;">,00</span>
+                </div>
+                <ul class="benefits-list">
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Mensagens ilimitadas
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        IA mais avançada (GPT-4o)
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Análises de áudio ilimitadas
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Imagens com IA
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Suporte premium 24/7
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Acesso antecipado a novos recursos
+                    </li>
+                </ul>
+                <button id="btn-pro" class="plan-button btn-premium">Quero ser Pro</button>
             </div>
         </div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
     <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBCXKP8nh_hGkO7Nzs5PH35TnzL7LGKfwA",
+            authDomain: "soundyai-app.firebaseapp.com",
+            projectId: "soundyai-app",
+            storageBucket: "soundyai-app.firebasestorage.app",
+            messagingSenderId: "746820958512",
+            appId: "1:746820958512:web:f0f11d83bb25d6bf45cac3"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Stripe Checkout Handler
+        async function handleStripeCheckout(plan) {
+            try {
+                // Verificar se usuário está autenticado
+                const user = auth.currentUser;
+                if (!user) {
+                    alert('Você precisa estar logado para assinar um plano. Redirecionando para login...');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Obter token do Firebase
+                const idToken = await user.getIdToken();
+
+                // Fazer requisição ao endpoint Stripe
+                const response = await fetch('/api/stripe/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({ plan })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erro ao criar sessão de checkout');
+                }
+
+                const data = await response.json();
+
+                // Redirecionar para Stripe Checkout
+                if (data.url) {
+                    window.location.href = data.url;
+                } else {
+                    throw new Error('URL de checkout não retornada');
+                }
+
+            } catch (error) {
+                console.error('Erro ao processar checkout:', error);
+                alert(`Erro ao processar pagamento: ${error.message}`);
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('btn-plus').addEventListener('click', () => {
+            handleStripeCheckout('plus');
+        });
+
+        document.getElementById('btn-pro').addEventListener('click', () => {
+            handleStripeCheckout('pro');
+        });
+
         // Particle Generation - Mesmo da landing.html
         const particlesContainer = document.getElementById('particles');
         const particleCount = 50;
