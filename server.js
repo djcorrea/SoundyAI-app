@@ -28,6 +28,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Middlewares
+// ⚠️ ATENÇÃO: Webhook Stripe precisa de raw body para validar assinatura HMAC
+// Aplicar express.raw() ANTES de express.json() para a rota específica
+app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
+
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -72,6 +76,10 @@ import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
 import presignRoute from "./api/presign.js";
 
+// ✅ STRIPE: Rotas de pagamento recorrente
+import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
+import stripeWebhookRouter from "./work/api/webhook/stripe.js";
+
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
 app.use("/api/chat-with-images", chatWithImagesRoute);
 app.use("/api/chat", chatRoute);
@@ -83,6 +91,10 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 app.use("/api", presignRoute);
+
+// ✅ STRIPE: Registrar rotas de pagamento (DEPOIS das rotas gerais)
+app.use('/api/stripe', stripeCheckoutRouter);
+app.use('/api/webhook/stripe', stripeWebhookRouter);
 
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
