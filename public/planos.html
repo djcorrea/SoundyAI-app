@@ -760,19 +760,27 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
+        // ✅ VARIÁVEL GLOBAL para armazenar usuário autenticado
+        let currentUser = null;
+
+        // ✅ MONITORAR ESTADO DE AUTENTICAÇÃO
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            console.log('Estado de autenticação:', currentUser ? `Logado como ${currentUser.email}` : 'Não logado');
+        });
+
         // Stripe Checkout Handler
         async function handleStripeCheckout(plan) {
             try {
-                // Verificar se usuário está autenticado
-                const user = auth.currentUser;
-                if (!user) {
+                // ✅ Verificar se usuário está autenticado usando variável global
+                if (!currentUser) {
                     alert('Você precisa estar logado para assinar um plano. Redirecionando para login...');
                     window.location.href = 'index.html';
                     return;
                 }
 
                 // Obter token do Firebase
-                const idToken = await user.getIdToken();
+                const idToken = await currentUser.getIdToken();
 
                 // Fazer requisição ao endpoint Stripe
                 const response = await fetch('/api/stripe/create-checkout-session', {
