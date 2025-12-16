@@ -420,14 +420,21 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
   });
   
   // 🔍 PR1: Validar invariantes do payload
+  // 🆕 PR2: VALIDAÇÃO RÍGIDA e CORREÇÃO de payload
   if (mode === 'reference' && referenceJobId) {
-    // Segunda música reference - NÃO deve ter genre/genreTargets
-    if (genre) {
-      console.error(`[PR1-INVARIANT] ${requestTraceId} ❌ VIOLATED: mode=reference with referenceJobId BUT has genre=${genre}`);
+    // Segunda música reference - REMOVER genre/genreTargets se presentes
+    if (genre || genreTargets) {
+      console.warn(`[PR2-CORRECTION] ${requestTraceId} ⚠️ Reference segunda track tem genre/targets - REMOVENDO`);
+      console.log(`[PR2-CORRECTION] ${requestTraceId} Antes: genre=${genre}, targets=${!!genreTargets}`);
+      
+      // Limpar do req.body para não propagar
+      delete req.body.genre;
+      delete req.body.genreTargets;
+      delete req.body.hasTargets;
+      
+      console.log(`[PR2-CORRECTION] ${requestTraceId} Depois: payload limpo para reference puro`);
     }
-    if (genreTargets) {
-      console.error(`[PR1-INVARIANT] ${requestTraceId} ❌ VIOLATED: mode=reference with referenceJobId BUT has genreTargets (${Object.keys(genreTargets).length} keys)`);
-    }
+    console.log(`[PR1-INVARIANT] ${requestTraceId} ✅ Reference segunda track - modo reference puro`);
   } else if (mode === 'reference' && !referenceJobId) {
     // Primeira música reference - pode ter genre (para análise base)
     console.log(`[PR1-TRACE] ${requestTraceId} ✅ First reference track - genre=${genre} is acceptable`);
