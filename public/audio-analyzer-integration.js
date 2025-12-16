@@ -2324,6 +2324,9 @@ function selectAnalysisMode(mode) {
     
     console.log('🎯 Modo selecionado:', mode);
     
+    // 🔍 AUDIT: Dump ANTES de setar state machine
+    if (window.debugDump) window.debugDump('BEFORE_SET_MODE', { mode, previousMode });
+    
     // 🆕 PR2: USAR STATE MACHINE
     const stateMachine = window.AnalysisStateMachine;
     if (!stateMachine) {
@@ -2333,6 +2336,9 @@ function selectAnalysisMode(mode) {
         stateMachine.setMode(mode, { userExplicitlySelected: true });
         console.log('[PR2] State machine atualizada:', stateMachine.getState());
     }
+    
+    // 🔍 AUDIT: Dump DEPOIS de setar state machine
+    if (window.debugDump) window.debugDump('AFTER_SET_MODE', { mode, stateMachineState: stateMachine?.getState() });
     
     // ========================================
     // 🔥 BARREIRA 4: LIMPEZA AO SELECIONAR MODO GÊNERO
@@ -2369,6 +2375,7 @@ function selectAnalysisMode(mode) {
     if (mode === 'reference') {
         userExplicitlySelectedReferenceMode = true;
         console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode ATIVADA - usuário clicou em modo A/B', 'color:#FFD700;font-weight:bold;font-size:14px;');
+        console.log('[REF_FIX] 🎯 Modo Reference selecionado pelo usuário - estado será preservado');
         
         // 🔍 PR1: Assert invariante
         if (window.assertInvariant) {
@@ -2758,7 +2765,13 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             
             if (isFirstTrack) {
                 // Primeira track: iniciar fluxo
+                // 🔍 AUDIT: Dump antes de startReferenceFirstTrack
+                if (window.debugDump) window.debugDump('BEFORE_START_REFERENCE_FIRST_TRACK', { stateMachineState: stateMachine.getState() });
+                
                 stateMachine.startReferenceFirstTrack();
+                
+                // 🔍 AUDIT: Dump depois de startReferenceFirstTrack
+                if (window.debugDump) window.debugDump('AFTER_START_REFERENCE_FIRST_TRACK', { stateMachineState: stateMachine.getState() });
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
                     isFirstTrack: true,
                     referenceJobId: null
@@ -4944,6 +4957,13 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
 
     console.log('[FIX-REFERENCE] Modal reaberto SEM limpar flags de referência');
     
+    // 🔍 AUDIT: Dump antes do guard de state machine
+    if (window.debugDump) window.debugDump('BEFORE_GUARD_STATE_MACHINE', { 
+        stateMachineAvailable: !!stateMachine,
+        isAwaitingSecondTrack: stateMachine?.isAwaitingSecondTrack(),
+        stateMachineState: stateMachine?.getState()
+    });
+    
     // 🆕 PR2: GUARD USANDO STATE MACHINE
     if (stateMachine && !stateMachine.isAwaitingSecondTrack()) {
         console.error('%c[PR2-GUARD] ❌ BLOQUEIO: State machine não está aguardando segunda track', 'color:#FF0000;font-weight:bold;font-size:14px;');
@@ -5310,14 +5330,17 @@ function openAnalysisModalForMode(mode) {
     
     modal.style.display = 'flex';
     
-    // ✅ CORREÇÃO: Reset seletivo baseado no modo
+    // ✅ FIX 2: Reset seletivo baseado no modo
     if (mode === 'genre') {
         // Modo gênero: apenas limpar visual (preserva gênero)
         clearAudioOnlyState();
-    } else {
-        // Modo referência: reset completo
+    } else if (mode === 'comparison') {
+        // Modo comparison: pode resetar
         resetModalState();
     }
+    // 🔒 Reference NÃO reseta (preserva estado da state machine)
+    
+    console.log('[REF_FIX] openAnalysisModalForMode:', mode, '- Reset aplicado:', mode === 'genre' || mode === 'comparison');
     
     modal.setAttribute('tabindex', '-1');
     modal.focus();
@@ -5419,17 +5442,14 @@ function resetReferenceStateFully(preserveGenre) {
     if (currentMode === 'genre') {
         console.log('%c[GENRE-ISOLATION] 🛡️ Modo GENRE detectado - IGNORANDO reset de referência', 'color:#FFD700;font-weight:bold;font-size:14px;');
         console.log('[GENRE-ISOLATION] ✅ Targets de gênero preservados (reset bloqueado)');
-        
-        // 🛡️ PROTEÇÃO: Resetar flag ao limpar estado de referência
-        userExplicitlySelectedReferenceMode = false;
-        console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada em resetReferenceStateFully', 'color:#00FF88;font-weight:bold;');
-        
-        return; // NÃO executar reset no modo gênero
+        console.log('[REF_FIX] 🔒 FIX 4: Flag userExplicitlySelectedReferenceMode preservada (guard 100%)');
+        // 🔒 FIX 4: NÃO resetar flag aqui - guard deve proteger TUDO
+        return; // Sai SEM tocar em nada
     }
     
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
     
-    // 🛡️ PROTEÇÃO: Resetar flag ao limpar estado de referência
+    // 🛡️ PROTEÇÃO: Resetar flag ao limpar estado de referência (SÓ se passou do guard)
     userExplicitlySelectedReferenceMode = false;
     console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada em resetReferenceStateFully', 'color:#00FF88;font-weight:bold;');
     
@@ -6898,7 +6918,28 @@ function closeAudioModal() {
         window.currentModalAnalysis = null;
         window.__CURRENT_ANALYSIS__ = null;
         
+        // 🛡️ FIX 3: Verificar se está aguardando segunda track ou em modo reference
+        const stateMachine = window.AnalysisStateMachine;
+        const isAwaitingSecond = stateMachine?.isAwaitingSecondTrack?.();
+        const currentMode = stateMachine?.getMode() || window.currentAnalysisMode;
+        
+        if (isAwaitingSecond) {
+            console.warn('[REF_FIX] 🔒 closeAudioModal() - PRESERVANDO estado (awaitingSecondTrack)');
+            console.log('[REF_FIX] Modal fechado mas estado Reference mantido');
+            // NÃO chamar resetModalState nem destruir estado
+            return; // Sai aqui sem destruir nada
+        }
+        
+        if (currentMode === 'reference') {
+            console.warn('[REF_FIX] 🔒 closeAudioModal() - PRESERVANDO estado (modo Reference)');
+            console.log('[REF_FIX] referenceJobId e flags preservados');
+            // NÃO resetar se ainda estiver em reference
+            return;
+        }
+        
+        // ✅ SEGURO: Só reseta se NÃO for reference e NÃO estiver aguardando
         resetModalState();
+        console.log('[REF_FIX] closeAudioModal() - Reset normal (modo:', currentMode, ')');
         
         // 🔧 CORREÇÃO: Garantir que o modal pode ser usado novamente
         // Limpar cache de arquivos para forçar novo processamento
@@ -7019,8 +7060,25 @@ function clearAudioOnlyState() {
 function resetModalState() {
     __dbg('🔄 Resetando estado do modal...');
     
-    // 🚨 BLINDAGEM ABSOLUTA: NUNCA resetar em modo genre
-    if (window.__CURRENT_MODE__ === 'genre') {
+    // �️ FIX 1: Verificar state machine primeiro, fallback para currentAnalysisMode
+    const stateMachine = window.AnalysisStateMachine;
+    const currentMode = stateMachine?.getMode() || window.currentAnalysisMode;
+    
+    // 🔒 Guard primário: NUNCA resetar em modo reference
+    if (currentMode === 'reference') {
+        console.warn('[REF_FIX] 🔒 resetModalState() BLOQUEADO - modo Reference ativo');
+        console.log('[REF_FIX] Fonte:', stateMachine ? 'StateMachine' : 'currentAnalysisMode');
+        return;
+    }
+    
+    // 🔒 Guard secundário: NUNCA resetar se aguardando segunda track
+    if (stateMachine?.isAwaitingSecondTrack?.()) {
+        console.warn('[REF_FIX] 🔒 resetModalState() BLOQUEADO - aguardando segunda track');
+        return;
+    }
+    
+    // 🚨 BLINDAGEM: NUNCA resetar em modo genre (guard original)
+    if (window.__CURRENT_MODE__ === 'genre' || currentMode === 'genre') {
         console.warn('[GENRE-PROTECT] ⚠️ resetModalState() BLOQUEADO em modo genre');
         console.warn('[GENRE-PROTECT]   - Preservando:', {
             selectedGenre: window.__CURRENT_SELECTED_GENRE,
