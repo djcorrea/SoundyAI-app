@@ -2324,6 +2324,16 @@ function selectAnalysisMode(mode) {
     
     console.log('🎯 Modo selecionado:', mode);
     
+    // 🆕 PR2: USAR STATE MACHINE
+    const stateMachine = window.AnalysisStateMachine;
+    if (!stateMachine) {
+        console.error('[PR2] AnalysisStateMachine não disponível');
+    } else {
+        // Atualizar state machine com modo selecionado
+        stateMachine.setMode(mode, { userExplicitlySelected: true });
+        console.log('[PR2] State machine atualizada:', stateMachine.getState());
+    }
+    
     // ========================================
     // 🔥 BARREIRA 4: LIMPEZA AO SELECIONAR MODO GÊNERO
     // ========================================
@@ -2340,7 +2350,7 @@ function selectAnalysisMode(mode) {
         // 🔥 EXECUTAR LIMPEZA COMPLETA do estado de referência
         resetReferenceStateFully();
         
-        // 🛡️ PROTEÇÃO: Resetar flag de seleção explícita
+        // 🛡️ PROTEÇÃO: Resetar flag de seleção explícita (legacy - state machine é fonte de verdade)
         userExplicitlySelectedReferenceMode = false;
         console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada para false', 'color:#00FF88;font-weight:bold;');
         
@@ -2355,7 +2365,7 @@ function selectAnalysisMode(mode) {
         }
     }
     
-    // 🛡️ PROTEÇÃO: Definir flag quando usuário seleciona modo reference EXPLICITAMENTE
+    // 🛡️ PROTEÇÃO: Definir flag quando usuário seleciona modo reference EXPLICITAMENTE (legacy)
     if (mode === 'reference') {
         userExplicitlySelectedReferenceMode = true;
         console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode ATIVADA - usuário clicou em modo A/B', 'color:#FFD700;font-weight:bold;font-size:14px;');
@@ -2370,7 +2380,7 @@ function selectAnalysisMode(mode) {
         }
     }
     
-    // Armazenar modo selecionado
+    // Armazenar modo selecionado (legacy - state machine é fonte de verdade)
     window.currentAnalysisMode = mode;
     
     // 🔍 PR1: Validar consistência
@@ -2543,6 +2553,125 @@ async function uploadToBucket(uploadUrl, file) {
 
 
 /**
+ * 🆕 PR2: CONSTRUIR PAYLOAD PARA MODO GENRE
+ * @param {string} fileKey
+ * @param {string} fileName
+ * @param {string} idToken
+ * @returns {Object} payload para mode=genre
+ */
+function buildGenrePayload(fileKey, fileName, idToken) {
+    console.log('[PR2] buildGenrePayload()');
+    
+    // Obter gênero selecionado
+    let genre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
+    const genreSelect = document.getElementById('audioRefGenreSelect');
+    if (!genre || typeof genre !== "string" || genre.trim() === "") {
+        genre = genreSelect?.value || "default";
+    }
+    genre = genre.trim();
+    
+    // Obter targets do gênero
+    let genreTargets = null;
+    const previousAnalysis = window.currentAnalysisData || window.__soundyState?.previousAnalysis;
+    if (previousAnalysis) {
+        console.log('[PR2] Extraindo targets da análise anterior');
+        genreTargets = extractGenreTargetsFromAnalysis(previousAnalysis);
+    }
+    if (!genreTargets) {
+        console.log('[PR2] FALLBACK: targets das variáveis globais');
+        genreTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
+    }
+    
+    // Validação obrigatória
+    if (!genre) {
+        throw new Error('[PR2] buildGenrePayload: genre é obrigatório');
+    }
+    if (!genreTargets || Object.keys(genreTargets).length === 0) {
+        console.warn('[PR2] buildGenrePayload: genreTargets ausentes ou vazios');
+    }
+    
+    const payload = {
+        fileKey,
+        mode: 'genre',
+        fileName,
+        genre,
+        genreTargets,
+        hasTargets: !!genreTargets,
+        idToken
+    };
+    
+    console.log('[PR2] Genre payload:', {
+        mode: payload.mode,
+        genre: payload.genre,
+        hasTargets: payload.hasTargets,
+        targetKeys: genreTargets ? Object.keys(genreTargets).length : 0
+    });
+    
+    return payload;
+}
+
+/**
+ * 🆕 PR2: CONSTRUIR PAYLOAD PARA MODO REFERENCE
+ * @param {string} fileKey
+ * @param {string} fileName
+ * @param {string} idToken
+ * @param {Object} options
+ * @param {boolean} options.isFirstTrack - Se é primeira ou segunda track
+ * @param {string|null} options.referenceJobId - Job ID da primeira track (null na primeira)
+ * @returns {Object} payload para mode=reference
+ */
+function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
+    const { isFirstTrack = true, referenceJobId = null } = options;
+    
+    console.log('[PR2] buildReferencePayload()', { isFirstTrack, referenceJobId });
+    
+    if (isFirstTrack) {
+        // PRIMEIRA TRACK: envia como genre para análise base
+        console.log('[PR2] Reference primeira track - usando buildGenrePayload como base');
+        const basePayload = buildGenrePayload(fileKey, fileName, idToken);
+        
+        // Adicionar flag indicando que é base de referência
+        basePayload.isReferenceBase = true;
+        
+        console.log('[PR2] Reference primeira track payload:', {
+            mode: basePayload.mode,
+            isReferenceBase: basePayload.isReferenceBase,
+            hasGenre: !!basePayload.genre
+        });
+        
+        return basePayload;
+    } else {
+        // SEGUNDA TRACK: payload limpo SEM genre/genreTargets
+        if (!referenceJobId) {
+            throw new Error('[PR2] buildReferencePayload: segunda track requer referenceJobId');
+        }
+        
+        const payload = {
+            fileKey,
+            mode: 'reference',
+            fileName,
+            referenceJobId,
+            idToken
+        };
+        
+        console.log('[PR2] Reference segunda track payload:', {
+            mode: payload.mode,
+            referenceJobId: payload.referenceJobId,
+            hasGenre: false, // ✅ NUNCA incluir genre
+            hasTargets: false // ✅ NUNCA incluir genreTargets
+        });
+        
+        // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
+        if (payload.genre || payload.genreTargets) {
+            console.error('[PR2] SANITY_FAIL: Reference segunda track tem genre/targets!', payload);
+            throw new Error('[PR2] Reference segunda track NÃO deve ter genre/genreTargets');
+        }
+        
+        return payload;
+    }
+}
+
+/**
  * ✅ CRIAR JOB DE ANÁLISE NO BACKEND
  * @param {string} fileKey - Chave do arquivo no bucket
  * @param {string} mode - Modo de análise ('genre' ou 'reference')
@@ -2592,172 +2721,62 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         console.log('✅ Token válido disponível para envio');
 
-        // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
-        // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
-        console.group('🔍 [AUDIT-LOCALSTORAGE] createAnalysisJob - Leitura de referenceJobId');
-        console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-        console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
-        
-        // 🎯 USA FUNÇÃO SEGURA ao invés de acesso direto
-        let referenceJobId = getCorrectJobId('reference'); // Primeira música
-        
-        console.log('   - Valor obtido via getCorrectJobId("reference"):', referenceJobId);
-        console.log('   - Mode:', mode);
-        console.trace('   - Stack trace:');
-        console.groupEnd();
-        
-        let actualMode = mode;
-        let isReferenceBase = false; // 🔧 FIX: Flag para diferenciar primeira música da referência
-        
-        // 🎯 CORREÇÃO DO FLUXO: Primeira música como "genre", segunda como "reference"
-        if (mode === 'reference') {
-            // 🔄 RECUPERAÇÃO: Tentar restaurar referenceJobId de múltiplas fontes
-            if (!referenceJobId && window.__soundyState?.previousAnalysis?.jobId) {
-                referenceJobId = window.__soundyState.previousAnalysis.jobId;
-                console.log('[REF-LOAD ✅] Reference Job ID restaurado do estado:', referenceJobId);
-            }
-
-            if (referenceJobId) {
-                // TEM referenceJobId = É A SEGUNDA MÚSICA
-                actualMode = 'reference'; // Mantém "reference"
-                isReferenceBase = false; // Segunda música não é base
-                console.log('[MODE ✅] ═══════════════════════════════════════');
-                console.log('[MODE ✅] SEGUNDA música detectada');
-                console.log('[MODE ✅] Mode enviado: "reference"');
-                console.log(`[MODE ✅] Reference Job ID: ${referenceJobId}`);
-                console.log('[MODE ✅] Comparação A/B será realizada no backend');
-                console.log('[MODE ✅] ═══════════════════════════════════════');
-            } else {
-                // NÃO TEM referenceJobId = É A PRIMEIRA MÚSICA
-                actualMode = 'genre'; // Envia como "genre" para análise normal
-                isReferenceBase = true; // 🔧 FIX: Marcar como primeira música da referência
-                console.log('[MODE ✅] ═══════════════════════════════════════');
-                console.log('[MODE ✅] PRIMEIRA música detectada');
-                console.log('[MODE ✅] Mode enviado: "genre" (base para comparação)');
-                console.log('[MODE ✅] isReferenceBase: true (diferencia de análise de gênero pura)');
-                console.log('[MODE ✅] Esta análise será salva como referência');
-                console.log('[MODE ✅] Próxima música será comparada com esta');
-                console.log('[MODE ✅] ═══════════════════════════════════════');
-            }
+        // 🆕 PR2: USAR STATE MACHINE como fonte de verdade
+        const stateMachine = window.AnalysisStateMachine;
+        if (!stateMachine) {
+            throw new Error('[PR2] AnalysisStateMachine não disponível');
         }
         
-        // 🔒 PATCH: PRESERVAR GÊNERO ANTES DE MONTAR PAYLOAD
-        preserveGenreState();
+        const currentState = stateMachine.getState();
+        console.log('[PR2] Estado atual da máquina:', currentState);
         
-        // 🎯 Usar SEMPRE o __CURRENT_SELECTED_GENRE (não o dropdown)
-        let finalGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
-        
-        // 🚨 LOG DE AUDITORIA: Genre antes de enviar
-        console.log('[GENRE-PAYLOAD-SEND] 📤 Enviando payload:', {
-            genre: finalGenre,
-            mode: actualMode,
-            selectedGenre: window.__CURRENT_SELECTED_GENRE,
-            currentMode: window.__CURRENT_MODE__
-        });
-        
-        // 🎯 CORREÇÃO CRÍTICA: Extrair targets da análise anterior se disponível
-        let finalTargets = null;
-        
-        // Prioridade 1: Se há análise anterior, extrair targets dela (FONTE OFICIAL)
-        const previousAnalysis = window.currentAnalysisData || window.__soundyState?.previousAnalysis;
-        if (previousAnalysis) {
-            console.log('[CREATE-JOB] 🎯 Extraindo targets da análise anterior (FONTE OFICIAL)');
-            finalTargets = extractGenreTargetsFromAnalysis(previousAnalysis);
-            if (finalTargets) {
-                console.log('[CREATE-JOB] ✅ Targets extraídos de analysis.data.genreTargets:', Object.keys(finalTargets));
-            }
-        }
-        
-        // Prioridade 2 (FALLBACK): Usar variáveis globais
-        if (!finalTargets) {
-            console.warn('[CREATE-JOB] ⚠️ FALLBACK: Usando targets das variáveis globais');
-            finalTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
-        }
-        
-        // 🔒 Validação robusta — nunca deixar vir vazio
-        if (!finalGenre || typeof finalGenre !== "string" || finalGenre.trim() === "") {
-            // Última tentativa: buscar do dropdown
-            const genreSelect = document.getElementById('audioRefGenreSelect');
-            finalGenre = genreSelect?.value || "default";
-        }
-        
-        // Sanitizar
-        finalGenre = finalGenre.trim();
-        
-        // ✅ GARANTIR que targets sejam incluídos no payload
-        if (finalTargets) {
-            console.log('✅ [CREATE-JOB] Targets de gênero incluídos no payload:', {
-                genre: finalGenre,
-                hasTargets: !!finalTargets,
-                targetKeys: Object.keys(finalTargets),
-                targetSource: window.__activeRefData?.targetSource
-            });
-        } else {
-            console.warn('⚠️ [CREATE-JOB] Nenhum target encontrado para gênero:', finalGenre);
-        }
-        
-        // LOG obrigatório
-        console.log("[GENRE FINAL PAYLOAD]", {
-            finalGenre,
-            hasTargets: !!finalTargets,
-            targetCount: finalTargets ? Object.keys(finalTargets).length : 0,
-            refGenre: window.PROD_AI_REF_GENRE,
-            currentSelected: window.__CURRENT_SELECTED_GENRE
-        });
-
-        // 🔍 PR1: Snapshot antes de construir payload
+        // 🔍 PR1: Trace ID para rastreamento
         const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
         if (window.logStep) {
             window.logStep(traceId, 'PAYLOAD_BUILD_START', {
-                mode: mode,
-                actualMode: actualMode,
-                referenceJobId: referenceJobId,
-                isReferenceBase: isReferenceBase,
-                hasGenre: !!finalGenre,
-                hasTargets: !!finalTargets,
+                mode,
+                stateMachineMode: currentState.mode,
+                awaitingSecondTrack: currentState.awaitingSecondTrack,
+                referenceFirstJobId: currentState.referenceFirstJobId,
             });
         }
-
-        // Montar payload com modo correto
-        const payload = {
-            fileKey: fileKey,
-            mode: actualMode,
-            fileName: fileName,
-            isReferenceBase: isReferenceBase,
-            genre: finalGenre, // 🔒 PATCH: Usar finalGenre sempre
-            genreTargets: finalTargets, // 🔒 PATCH: Incluir targets
-            hasTargets: !!finalTargets, // 🔒 PATCH: Flag indicando presença de targets
-            idToken: idToken // ✅ CORREÇÃO CRÍTICA: Chave correta para backend (req.body.idToken)
-        };
         
-        // 🔍 PR1: Validar invariantes de payload
-        if (window.assertInvariant) {
-            // Invariante 1: Se UI mode é reference, payload NÃO deve ter genre/genreTargets
-            const uiMode = window.currentAnalysisMode;
-            if (uiMode === 'reference') {
-                window.assertInvariant(
-                    'REFERENCE_PAYLOAD_NO_GENRE',
-                    !payload.genre || actualMode !== 'reference',
-                    {
-                        uiMode,
-                        actualMode,
-                        hasGenre: !!payload.genre,
-                        hasTargets: !!payload.genreTargets,
-                        isSecondTrack: !!referenceJobId,
-                    }
-                );
-                
-                window.assertInvariant(
-                    'REFERENCE_PAYLOAD_NO_TARGETS',
-                    !payload.genreTargets || actualMode !== 'reference',
-                    {
-                        uiMode,
-                        actualMode,
-                        hasTargets: !!payload.genreTargets,
-                        isSecondTrack: !!referenceJobId,
-                    }
-                );
+        // 🆕 PR2: DETERMINAR TIPO DE PAYLOAD
+        let payload;
+        
+        if (mode === 'genre') {
+            // MODO GENRE: usar builder de genre
+            console.log('[PR2] Usando buildGenrePayload');
+            payload = buildGenrePayload(fileKey, fileName, idToken);
+            
+        } else if (mode === 'reference') {
+            // MODO REFERENCE: verificar se é primeira ou segunda track
+            const isFirstTrack = !currentState.awaitingSecondTrack;
+            const referenceJobId = currentState.referenceFirstJobId;
+            
+            console.log('[PR2] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
+            
+            if (isFirstTrack) {
+                // Primeira track: iniciar fluxo
+                stateMachine.startReferenceFirstTrack();
+                payload = buildReferencePayload(fileKey, fileName, idToken, {
+                    isFirstTrack: true,
+                    referenceJobId: null
+                });
+            } else {
+                // Segunda track: comparar
+                if (!referenceJobId) {
+                    throw new Error('[PR2] Segunda track requer referenceFirstJobId na state machine');
+                }
+                stateMachine.startReferenceSecondTrack();
+                payload = buildReferencePayload(fileKey, fileName, idToken, {
+                    isFirstTrack: false,
+                    referenceJobId
+                });
             }
+            
+        } else {
+            throw new Error(`[PR2] Modo inválido: ${mode}`);
         }
         
         // 🔍 PR1: Log payload final (mascarado)
@@ -2776,69 +2795,28 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             window.logStep(traceId, 'PAYLOAD_SANITY_CHECK', {
                 uiMode,
                 payloadMode,
-                match: uiMode === payloadMode || (uiMode === 'reference' && payloadMode === 'genre' && isReferenceBase),
+                match: uiMode === payloadMode || (uiMode === 'reference' && payloadMode === 'genre' && payload.isReferenceBase),
                 hasGenreInPayload: !!payload.genre,
                 hasTargetsInPayload: !!payload.genreTargets,
-                referenceJobIdPresent: !!referenceJobId,
-                isReferenceBase,
+                referenceJobIdPresent: !!payload.referenceJobId,
+                isReferenceBase: payload.isReferenceBase || false,
             });
             
-            // Detectar mudança indevida de modo
-            if (uiMode === 'reference' && payloadMode === 'genre' && !isReferenceBase) {
-                console.error('%c[MODE_MISMATCH]', 'color:#FF0000;font-weight:bold;', {
-                    uiMode,
-                    payloadMode,
-                    expected: 'reference',
-                    traceId,
-                    stack: new Error().stack,
-                });
+            // 🆕 PR2: VALIDAÇÃO RÍGIDA - Se mode=reference (segunda track), NÃO pode ter genre/targets
+            if (payload.mode === 'reference' && payload.referenceJobId) {
+                if (payload.genre || payload.genreTargets) {
+                    console.error('%c[PR2-SANITY-FAIL]', 'color:#FF0000;font-weight:bold;', {
+                        message: 'REFERENCE mode segunda track TEM genre/genreTargets!',
+                        payload,
+                        traceId,
+                        stack: new Error().stack,
+                    });
+                    throw new Error('[PR2] SANITY FAIL: Reference segunda track não pode ter genre/genreTargets');
+                }
             }
         }
         
-        // 🔥 GUARD PREVENTIVO: NUNCA enviar sem gênero ou targets
-        if (!payload.genre || !payload.genreTargets) {
-            const errorMsg = `[GENRE-ERROR] Gênero ou targets ausentes antes do envio do job. Genre: ${payload.genre}, HasTargets: ${!!payload.genreTargets}`;
-            console.error(errorMsg);
-            throw new Error(errorMsg);
-        }
-        
-        console.log('[GENRE-GUARD] ✅ Payload validado:', {
-            genre: payload.genre,
-            hasTargets: payload.hasTargets,
-            targetCount: payload.genreTargets ? Object.keys(payload.genreTargets).length : 0
-        });
-        
-        // Adicionar referenceJobId apenas se existir
-        if (referenceJobId && actualMode === 'reference') {
-            payload.referenceJobId = referenceJobId;
-            
-            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
-            console.log('[REF-PAYLOAD ✅] Payload COM referenceJobId:');
-            console.log(`[REF-PAYLOAD ✅]   mode: "${actualMode}"`);
-            console.log(`[REF-PAYLOAD ✅]   referenceJobId: "${referenceJobId}"`);
-            console.log(`[REF-PAYLOAD ✅]   fileName: "${fileName}"`);
-            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
-        } else if (mode === 'reference' && !referenceJobId) {
-            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
-            console.log('[REF-PAYLOAD ✅] Payload SEM referenceJobId (primeira música):');
-            console.log(`[REF-PAYLOAD ✅]   mode: "${actualMode}" (análise base)`);
-            console.log(`[REF-PAYLOAD ✅]   isReferenceBase: ${isReferenceBase}`);
-            console.log(`[REF-PAYLOAD ✅]   fileName: "${fileName}"`);
-            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
-        }
-
-        // 🔍 LOG FINAL: Mostrar payload completo antes do envio com cores
-        console.log('%c[REF-FIX-VERIFY]', 'color:#00FFFF;font-weight:bold;', { mode, referenceJobId });
-        console.log('%c[REF-FIX-PAYLOAD]', 'color:#7A3FFF;font-weight:bold;', payload);
-        
-        console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
-        console.log('[FIX_REFID_PAYLOAD] Payload final sendo enviado para /api/audio/analyze:');
-        console.log('[FIX_REFID_PAYLOAD]', JSON.stringify(payload, null, 2));
-        console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
-        
-        // 🔒 LOG OBRIGATÓRIO ANTES DO FETCH
-        console.log("[GENRE FINAL PAYLOAD SENT]", payload);
-        console.log("[AUTH TOKEN]", idToken ? 'Token presente' : '❌ Token ausente');
+        console.log('[PR2] Payload final:', payload);
         
         // 🔍 PR1: Log antes do request
         if (window.logStep && window.maskSensitiveData) {
@@ -4895,6 +4873,16 @@ function openAudioModal() {
 function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     __dbg('🎯 Abrindo modal secundário para música de referência', { referenceJobId });
     
+    // 🔍 PR1: Log tentativa de abrir modal
+    const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+    if (window.logStep) {
+        window.logStep(traceId, 'OPEN_SECOND_MODAL_ATTEMPT', {
+            referenceJobId,
+            userExplicitlySelectedReferenceMode,
+            currentMode: window.currentAnalysisMode,
+        });
+    }
+    
     // 🎯 PROTEÇÃO: Garantir que primeira análise está completa
     if (!firstAnalysisResult) {
         console.error('❌ [PROTECTION] Primeira análise não está completa - abortando abertura do modal de referência');
@@ -4956,8 +4944,29 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
 
     console.log('[FIX-REFERENCE] Modal reaberto SEM limpar flags de referência');
     
+    // 🆕 PR2: GUARD USANDO STATE MACHINE
+    if (stateMachine && !stateMachine.isAwaitingSecondTrack()) {
+        console.error('%c[PR2-GUARD] ❌ BLOQUEIO: State machine não está aguardando segunda track', 'color:#FF0000;font-weight:bold;font-size:14px;');
+        console.error('[PR2-GUARD] Estado atual:', stateMachine.getState());
+        
+        // 🔍 PR1: Log guard blocked
+        if (window.logStep) {
+            window.logStep(traceId, 'GUARD_BLOCKED', {
+                guard: 'isAwaitingSecondTrack',
+                value: false,
+                reason: 'State machine not awaiting second track',
+                stateMachineState: stateMachine.getState(),
+                stack: new Error().stack,
+            });
+        }
+        
+        alert('⚠️ ERRO: Estado inválido - não é possível enviar segunda música.');
+        return;
+    }
+    
     // 🛡️ PROTEÇÃO CRÍTICA: Não permitir ativação de modo reference se usuário não selecionou explicitamente
-    if (!userExplicitlySelectedReferenceMode) {
+    // Legacy check (state machine já tem isso, mas mantém por retrocompat)
+    if (!userExplicitlySelectedReferenceMode && (!stateMachine || !stateMachine.isUserExplicitlySelected())) {
         // 🔍 PR1: Log guard blocked
         if (window.logStep) {
             window.logStep(traceId, 'GUARD_BLOCKED', {
