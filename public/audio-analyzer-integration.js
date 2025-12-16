@@ -2633,31 +2633,45 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     console.log('[PR2] buildReferencePayload()', { isFirstTrack, referenceJobId });
     
     if (isFirstTrack) {
-        // PRIMEIRA TRACK: envia como genre para análise base
-        console.log('[PR2] Reference primeira track - usando buildGenrePayload como base');
-        const basePayload = buildGenrePayload(fileKey, fileName, idToken);
+        // ✅ CORREÇÃO: PRIMEIRA TRACK em reference deve enviar mode='reference'
+        // Backend sabe que é primeira track pela ausência de referenceJobId
+        console.log('[PR2] Reference primeira track - criando payload limpo de reference');
         
-        // Adicionar flag indicando que é base de referência
-        basePayload.isReferenceBase = true;
+        const payload = {
+            fileKey,
+            mode: 'reference',  // ✅ FIX: mode correto para reference
+            fileName,
+            isReferenceBase: true,  // Flag para backend saber que é primeira
+            referenceJobId: null,   // null = primeira track
+            idToken
+        };
         
-        console.log('[PR2] Reference primeira track payload:', {
-            mode: basePayload.mode,
-            isReferenceBase: basePayload.isReferenceBase,
-            hasGenre: !!basePayload.genre
+        console.log('[PR2] ✅ Reference primeira track payload:', {
+            mode: payload.mode,
+            isReferenceBase: payload.isReferenceBase,
+            hasGenre: false,  // ✅ NUNCA incluir genre em reference
+            hasTargets: false  // ✅ NUNCA incluir genreTargets em reference
         });
         
-        return basePayload;
+        // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
+        if (payload.genre || payload.genreTargets) {
+            console.error('[PR2] SANITY_FAIL: Reference primeira track tem genre/targets!', payload);
+            throw new Error('[PR2] Reference primeira track NÃO deve ter genre/genreTargets');
+        }
+        
+        return payload;
     } else {
-        // SEGUNDA TRACK: payload limpo SEM genre/genreTargets
+        // ✅ SEGUNDA TRACK: payload com referenceJobId para comparação
         if (!referenceJobId) {
             throw new Error('[PR2] buildReferencePayload: segunda track requer referenceJobId');
         }
         
         const payload = {
             fileKey,
-            mode: 'reference',
+            mode: 'reference',  // ✅ mode correto
             fileName,
-            referenceJobId,
+            referenceJobId,     // JobId da primeira música
+            isReferenceBase: false,  // Segunda track = comparação
             idToken
         };
         
@@ -7140,8 +7154,14 @@ function resetModalState() {
         return; // NÃO executar reset
     }
     
-    // 🔒 PATCH: PRESERVAR GÊNERO ANTES DE QUALQUER OPERAÇÃO
-    preserveGenreState();
+    // ✅ CORREÇÃO: NÃO preservar gênero em modo reference
+    // Isso estava causando contaminação de estado
+    if (currentMode !== 'reference') {
+        // 🔒 PATCH: PRESERVAR GÊNERO SOMENTE EM MODO GENRE
+        preserveGenreState();
+    } else {
+        console.log('[REF_FIX] 🔒 preserveGenreState() BLOQUEADO - modo Reference não usa gênero');
+    }
     
     // ===============================================================
     // 🔒 BLOCO 1 — PRESERVAR GÊNERO ANTES DO RESET
@@ -7149,23 +7169,28 @@ function resetModalState() {
     let __PRESERVED_GENRE__ = null;
     let __PRESERVED_TARGETS__ = null;
 
-    try {
-        const genreSelect = document.getElementById("audioRefGenreSelect");
+    // ✅ CORREÇÃO: Só preservar gênero se NÃO estiver em modo reference
+    if (currentMode !== 'reference') {
+        try {
+            const genreSelect = document.getElementById("audioRefGenreSelect");
 
-        __PRESERVED_GENRE__ =
-            window.__CURRENT_SELECTED_GENRE ||
-            window.PROD_AI_REF_GENRE ||
-            (genreSelect ? genreSelect.value : null);
-        
-        __PRESERVED_TARGETS__ =
-            window.__CURRENT_GENRE_TARGETS ||
-            window.currentGenreTargets ||
-            window.__activeRefData?.targets;
+            __PRESERVED_GENRE__ =
+                window.__CURRENT_SELECTED_GENRE ||
+                window.PROD_AI_REF_GENRE ||
+                (genreSelect ? genreSelect.value : null);
+            
+            __PRESERVED_TARGETS__ =
+                window.__CURRENT_GENRE_TARGETS ||
+                window.currentGenreTargets ||
+                window.__activeRefData?.targets;
 
-        console.log("[SAFE-RESET] ⚠️ Preservando gênero selecionado:", __PRESERVED_GENRE__);
-        console.log("[SAFE-RESET] ⚠️ Preservando targets:", __PRESERVED_TARGETS__ ? Object.keys(__PRESERVED_TARGETS__) : 'null');
-    } catch (e) {
-        console.warn("[SAFE-RESET] Falha ao capturar gênero antes do reset:", e);
+            console.log("[SAFE-RESET] ⚠️ Preservando gênero selecionado:", __PRESERVED_GENRE__);
+            console.log("[SAFE-RESET] ⚠️ Preservando targets:", __PRESERVED_TARGETS__ ? Object.keys(__PRESERVED_TARGETS__) : 'null');
+        } catch (e) {
+            console.warn("[SAFE-RESET] Falha ao capturar gênero antes do reset:", e);
+        }
+    } else {
+        console.log("[REF_FIX] 🔒 Preservação de gênero/targets BLOQUEADA - modo Reference ativo");
     }
     
     // Mostrar área de upload
@@ -7247,23 +7272,28 @@ function resetModalState() {
     // 🔒 BLOCO 3 — RESTAURAR GÊNERO E TARGETS APÓS O RESET
     // ===============================================================
     try {
-        const genreSelect = document.getElementById("audioRefGenreSelect");
+        // ✅ CORREÇÃO: Só restaurar gênero se NÃO estiver em modo reference
+        if (currentMode !== 'reference') {
+            const genreSelect = document.getElementById("audioRefGenreSelect");
 
-        if (__PRESERVED_GENRE__ && typeof __PRESERVED_GENRE__ === "string") {
-            window.__CURRENT_SELECTED_GENRE = __PRESERVED_GENRE__;
-            window.PROD_AI_REF_GENRE = __PRESERVED_GENRE__;
+            if (__PRESERVED_GENRE__ && typeof __PRESERVED_GENRE__ === "string") {
+                window.__CURRENT_SELECTED_GENRE = __PRESERVED_GENRE__;
+                window.PROD_AI_REF_GENRE = __PRESERVED_GENRE__;
 
-            if (genreSelect) {
-                genreSelect.value = __PRESERVED_GENRE__;
+                if (genreSelect) {
+                    genreSelect.value = __PRESERVED_GENRE__;
+                }
+
+                console.log("[SAFE-RESET] ✅ Gênero restaurado após reset:", __PRESERVED_GENRE__);
+            } else {
+                console.warn("[SAFE-RESET] ⚠️ Nenhum gênero válido preservado.");
             }
-
-            console.log("[SAFE-RESET] ✅ Gênero restaurado após reset:", __PRESERVED_GENRE__);
         } else {
-            console.warn("[SAFE-RESET] ⚠️ Nenhum gênero válido preservado.");
+            console.log("[REF_FIX] 🔒 Restauração de gênero BLOQUEADA - modo Reference ativo");
         }
         
-        // 🔒 PATCH: RESTAURAR TARGETS TAMBÉM
-        if (__PRESERVED_TARGETS__) {
+        // 🔒 PATCH: RESTAURAR TARGETS TAMBÉM (somente em modo genre)
+        if (__PRESERVED_TARGETS__ && currentMode !== 'reference') {
             window.__CURRENT_GENRE_TARGETS = __PRESERVED_TARGETS__;
             window.currentGenreTargets = __PRESERVED_TARGETS__;
             console.log("[SAFE-RESET] ✅ Targets restaurados após reset:", Object.keys(__PRESERVED_TARGETS__));
