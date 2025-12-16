@@ -2305,12 +2305,36 @@ function trapFocus(modal) {
 
 // 🎯 Função Principal de Seleção de Modo
 function selectAnalysisMode(mode) {
+    // 🔍 PR1: Instrumentação - Seleção de modo
+    const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+    const previousMode = window.currentAnalysisMode;
+    
+    if (window.logStep) {
+        window.logStep(traceId, 'MODE_SELECTED', {
+            selectedMode: mode,
+            previousMode: previousMode,
+            userClick: true,
+        });
+    }
+    
+    // 🔍 PR1: Detectar mudança de modo
+    if (window.detectModeChange && previousMode) {
+        window.detectModeChange(previousMode, mode);
+    }
+    
     console.log('🎯 Modo selecionado:', mode);
     
     // ========================================
     // 🔥 BARREIRA 4: LIMPEZA AO SELECIONAR MODO GÊNERO
     // ========================================
     if (mode === 'genre') {
+        // 🔍 PR1: Log reset start
+        if (window.logStep) {
+            window.logStep(traceId, 'RESET_START', {
+                reason: 'genre_mode_selected',
+                willResetReferenceState: true,
+            });
+        }
         console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 4 ATIVADA: Modo gênero selecionado', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
         
         // 🔥 EXECUTAR LIMPEZA COMPLETA do estado de referência
@@ -2321,16 +2345,41 @@ function selectAnalysisMode(mode) {
         console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada para false', 'color:#00FF88;font-weight:bold;');
         
         console.log('%c[GENRE-BARRIER] ✅ BARREIRA 4 CONCLUÍDA: Estado limpo ao selecionar gênero', 'color:#00FF88;font-weight:bold;');
+        
+        // 🔍 PR1: Log reset end
+        if (window.logStep) {
+            window.logStep(traceId, 'RESET_END', {
+                userExplicitlySelectedReferenceMode: false,
+                referenceStateCleared: true,
+            });
+        }
     }
     
     // 🛡️ PROTEÇÃO: Definir flag quando usuário seleciona modo reference EXPLICITAMENTE
     if (mode === 'reference') {
         userExplicitlySelectedReferenceMode = true;
         console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode ATIVADA - usuário clicou em modo A/B', 'color:#FFD700;font-weight:bold;font-size:14px;');
+        
+        // 🔍 PR1: Assert invariante
+        if (window.assertInvariant) {
+            window.assertInvariant(
+                'REFERENCE_MODE_EXPLICIT_FLAG',
+                userExplicitlySelectedReferenceMode === true,
+                { mode: 'reference', flagValue: userExplicitlySelectedReferenceMode }
+            );
+        }
     }
     
     // Armazenar modo selecionado
     window.currentAnalysisMode = mode;
+    
+    // 🔍 PR1: Validar consistência
+    if (window.validateModeConsistency) {
+        const validation = window.validateModeConsistency(mode);
+        if (!validation.consistent) {
+            console.warn('[MODE_INCONSISTENCY]', validation);
+        }
+    }
     
     // Fechar modal de seleção
     closeModeSelectionModal();
@@ -2656,6 +2705,19 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             currentSelected: window.__CURRENT_SELECTED_GENRE
         });
 
+        // 🔍 PR1: Snapshot antes de construir payload
+        const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+        if (window.logStep) {
+            window.logStep(traceId, 'PAYLOAD_BUILD_START', {
+                mode: mode,
+                actualMode: actualMode,
+                referenceJobId: referenceJobId,
+                isReferenceBase: isReferenceBase,
+                hasGenre: !!finalGenre,
+                hasTargets: !!finalTargets,
+            });
+        }
+
         // Montar payload com modo correto
         const payload = {
             fileKey: fileKey,
@@ -2667,6 +2729,71 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             hasTargets: !!finalTargets, // 🔒 PATCH: Flag indicando presença de targets
             idToken: idToken // ✅ CORREÇÃO CRÍTICA: Chave correta para backend (req.body.idToken)
         };
+        
+        // 🔍 PR1: Validar invariantes de payload
+        if (window.assertInvariant) {
+            // Invariante 1: Se UI mode é reference, payload NÃO deve ter genre/genreTargets
+            const uiMode = window.currentAnalysisMode;
+            if (uiMode === 'reference') {
+                window.assertInvariant(
+                    'REFERENCE_PAYLOAD_NO_GENRE',
+                    !payload.genre || actualMode !== 'reference',
+                    {
+                        uiMode,
+                        actualMode,
+                        hasGenre: !!payload.genre,
+                        hasTargets: !!payload.genreTargets,
+                        isSecondTrack: !!referenceJobId,
+                    }
+                );
+                
+                window.assertInvariant(
+                    'REFERENCE_PAYLOAD_NO_TARGETS',
+                    !payload.genreTargets || actualMode !== 'reference',
+                    {
+                        uiMode,
+                        actualMode,
+                        hasTargets: !!payload.genreTargets,
+                        isSecondTrack: !!referenceJobId,
+                    }
+                );
+            }
+        }
+        
+        // 🔍 PR1: Log payload final (mascarado)
+        if (window.logStep && window.maskSensitiveData) {
+            const maskedPayload = window.maskSensitiveData(payload);
+            window.logStep(traceId, 'PAYLOAD_BUILD_END', {
+                payload: maskedPayload,
+            });
+        }
+        
+        // 🔍 PR1: Sanity check do payload
+        if (window.logStep) {
+            const uiMode = window.currentAnalysisMode;
+            const payloadMode = payload.mode;
+            
+            window.logStep(traceId, 'PAYLOAD_SANITY_CHECK', {
+                uiMode,
+                payloadMode,
+                match: uiMode === payloadMode || (uiMode === 'reference' && payloadMode === 'genre' && isReferenceBase),
+                hasGenreInPayload: !!payload.genre,
+                hasTargetsInPayload: !!payload.genreTargets,
+                referenceJobIdPresent: !!referenceJobId,
+                isReferenceBase,
+            });
+            
+            // Detectar mudança indevida de modo
+            if (uiMode === 'reference' && payloadMode === 'genre' && !isReferenceBase) {
+                console.error('%c[MODE_MISMATCH]', 'color:#FF0000;font-weight:bold;', {
+                    uiMode,
+                    payloadMode,
+                    expected: 'reference',
+                    traceId,
+                    stack: new Error().stack,
+                });
+            }
+        }
         
         // 🔥 GUARD PREVENTIVO: NUNCA enviar sem gênero ou targets
         if (!payload.genre || !payload.genreTargets) {
@@ -2712,6 +2839,14 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         // 🔒 LOG OBRIGATÓRIO ANTES DO FETCH
         console.log("[GENRE FINAL PAYLOAD SENT]", payload);
         console.log("[AUTH TOKEN]", idToken ? 'Token presente' : '❌ Token ausente');
+        
+        // 🔍 PR1: Log antes do request
+        if (window.logStep && window.maskSensitiveData) {
+            window.logStep(traceId, 'REQUEST_SENT', {
+                endpoint: '/api/audio/analyze',
+                payload: window.maskSensitiveData(payload),
+            });
+        }
 
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
@@ -2798,7 +2933,20 @@ async function pollJobStatus(jobId) {
 
                 const jobData = await response.json();
                 
-                // 🔧 COMPATIBILIDADE: Suporte para formato novo (ok/job) e antigo
+                // � PR1: Log resultado do polling (apenas no completed)
+                if (jobData.status === 'completed' && window.logStep) {
+                    const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+                    const job = jobData.job || jobData;
+                    window.logStep(traceId, 'POLL_RESULT_RECEIVED', {
+                        jobId: jobId,
+                        status: job.status,
+                        mode: job.mode || job.results?.mode,
+                        hasReferenceComparison: !!(job.results?.referenceComparison),
+                        hasGenreTargets: !!(job.results?.data?.genreTargets || job.results?.genreTargets),
+                    });
+                }
+                
+                // �🔧 COMPATIBILIDADE: Suporte para formato novo (ok/job) e antigo
                 const job = jobData.job || jobData;
                 const status = job.status || jobData.status;
                 
@@ -4810,9 +4958,35 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     // 🛡️ PROTEÇÃO CRÍTICA: Não permitir ativação de modo reference se usuário não selecionou explicitamente
     if (!userExplicitlySelectedReferenceMode) {
+        // 🔍 PR1: Log guard blocked
+        if (window.logStep) {
+            window.logStep(traceId, 'GUARD_BLOCKED', {
+                guard: 'userExplicitlySelectedReferenceMode',
+                value: userExplicitlySelectedReferenceMode,
+                reason: 'Flag is false - user did not explicitly select reference mode',
+                currentMode: window.currentAnalysisMode,
+                referenceJobId: referenceJobId,
+                stack: new Error().stack,
+            });
+        }
+        
         console.error('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
         console.error('[PROTECTION] ❌ Modo reference não pode ser ativado automaticamente - usuário está em modo genre');
         console.trace('[PROTECTION] Stack trace do bloqueio:');
+        
+        // 🔍 PR1: Assert invariante violada
+        if (window.assertInvariant) {
+            window.assertInvariant(
+                'OPEN_MODAL_REQUIRES_EXPLICIT_FLAG',
+                false, // sempre falha aqui (proposital para log)
+                {
+                    userExplicitlySelectedReferenceMode,
+                    referenceJobId,
+                    currentMode: window.currentAnalysisMode,
+                }
+            );
+        }
+        
         alert('⚠️ ERRO: Sistema tentou ativar modo A/B automaticamente. Por favor, selecione o modo A/B explicitamente.');
         return;
     }
@@ -7157,7 +7331,19 @@ async function handleModalFileSelection(file) {
             }
             
             if (!window.FirstAnalysisStore?.has()) {
-                // 🛡️ PROTEÇÃO CRÍTICA: Não salvar como referência se modo não foi selecionado explicitamente
+                // � PR1: Log tentativa de salvar primeira track
+                if (window.logStep) {
+                    const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+                    window.logStep(traceId, 'FIRST_TRACK_SAVED', {
+                        jobId: analysisResult.jobId,
+                        fileName: userClone?.fileName || userClone?.metadata?.fileName,
+                        vid: userVid,
+                        userExplicitlySelectedReferenceMode: userExplicitlySelectedReferenceMode,
+                        willSaveAsReference: userExplicitlySelectedReferenceMode,
+                    });
+                }
+                
+                // �🛡️ PROTEÇÃO CRÍTICA: Não salvar como referência se modo não foi selecionado explicitamente
                 if (!userExplicitlySelectedReferenceMode) {
                     console.warn('%c[PROTECTION] ⚠️ BLOQUEIO: Tentativa de salvar __REFERENCE_JOB_ID__ mas userExplicitlySelectedReferenceMode = false', 'color:#FFA500;font-weight:bold;');
                     console.warn('[PROTECTION] ⚠️ Sistema em modo genre - ignorando salvamento de referência');
