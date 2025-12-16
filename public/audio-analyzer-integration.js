@@ -3117,6 +3117,46 @@ async function pollJobStatus(jobId) {
                     });
                     console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
                     
+                    // ═══════════════════════════════════════════════════════════════
+                    // 🆕 FIX 6: BLOQUEADOR CRÍTICO - Setar awaitingSecondTrack=true
+                    // ═══════════════════════════════════════════════════════════════
+                    // Após primeira track Reference completar, DEVE chamar state machine
+                    // para setar awaitingSecondTrack=true, senão modal fecha e perde estado
+                    // ═══════════════════════════════════════════════════════════════
+                    const stateMachine = window.AnalysisStateMachine;
+                    if (stateMachine?.getMode() === 'reference') {
+                        const isFirstTrack = !stateMachine.isAwaitingSecondTrack();
+                        
+                        if (isFirstTrack) {
+                            console.log('[REF_FIX] 🎯 Primeira track Reference completada');
+                            console.log('[REF_FIX] Setando awaitingSecondTrack=true para preservar estado');
+                            
+                            try {
+                                stateMachine.setReferenceFirstResult({
+                                    firstJobId: jobId,
+                                    firstResultSummary: {
+                                        score: jobResult.score,
+                                        jobId: jobId,
+                                        technicalData: jobResult.technicalData || {},
+                                        spectralBands: jobResult.spectralBands || {},
+                                        classification: jobResult.classification
+                                    }
+                                });
+                                
+                                console.log('[REF_FIX] ✅ awaitingSecondTrack=true');
+                                console.log('[REF_FIX] referenceFirstJobId salvo:', jobId);
+                                console.log('[REF_FIX] sessionStorage atualizado - estado protegido');
+                            } catch (err) {
+                                console.error('[REF_FIX] ❌ Erro ao setar primeira track:', err);
+                                // Não falhar o job, apenas logar
+                            }
+                        } else {
+                            console.log('[REF_FIX] 🎯 Segunda track Reference completada');
+                            console.log('[REF_FIX] Preparando renderização de comparação A/B');
+                        }
+                    }
+                    // ═══════════════════════════════════════════════════════════════
+                    
                     resolve(jobResult);
                     return;
                 }
@@ -5312,6 +5352,18 @@ function openAnalysisModalForMode(mode) {
     }
     
     // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
+    // FIX: Guard para evitar sobrescrever reference por genre inadvertidamente
+    const stateMachine = window.AnalysisStateMachine;
+    const currentStateMode = stateMachine?.getMode();
+    
+    // Se state machine está em reference e modo solicitado é diferente, alertar
+    if (currentStateMode === 'reference' && mode !== 'reference') {
+        console.warn('[REF_FIX] ⚠️ Tentativa de abrir modal em modo', mode, 'mas state machine está em reference');
+        console.warn('[REF_FIX] Mantendo modo reference para preservar estado');
+        // Não sobrescrever - manter reference
+        mode = 'reference';
+    }
+    
     window.currentAnalysisMode = mode;
     
     const modal = document.getElementById('audioAnalysisModal');
@@ -7078,11 +7130,12 @@ function resetModalState() {
     }
     
     // 🚨 BLINDAGEM: NUNCA resetar em modo genre (guard original)
-    if (window.__CURRENT_MODE__ === 'genre' || currentMode === 'genre') {
+    // FIX: Remover dependência de window.__CURRENT_MODE__ (variável fantasma)
+    if (currentMode === 'genre') {
         console.warn('[GENRE-PROTECT] ⚠️ resetModalState() BLOQUEADO em modo genre');
         console.warn('[GENRE-PROTECT]   - Preservando:', {
             selectedGenre: window.__CURRENT_SELECTED_GENRE,
-            mode: window.__CURRENT_MODE__
+            mode: currentMode
         });
         return; // NÃO executar reset
     }
@@ -8117,19 +8170,34 @@ async function handleModalFileSelection(file) {
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
             // NÃO altere currentAnalysisMode se houver referência válida salva
             if (!window.FirstAnalysisStore?.has()) {
-                console.warn('[REF-FLOW] Erro real + sem primeira análise — fallback ativado.');
+                console.error('[REF-FLOW] ═════════════════════════════════════');
+                console.error('[REF-FLOW] ERRO CRÍTICO: Reference falhou sem primeira análise');
+                console.error('[REF-FLOW] Erro:', error.message);
+                console.error('[REF-FLOW] Stack:', error.stack);
+                console.error('[REF-FLOW] State Machine:', window.AnalysisStateMachine?.getState());
+                console.error('[REF-FLOW] ═════════════════════════════════════');
                 
                 window.logReferenceEvent('error_fallback_to_genre', { 
                     error: error.message,
                     originalMode: currentAnalysisMode 
                 });
                 
-                showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
+                // FIX: Tornar fallback EXPLÍCITO - perguntar ao usuário ao invés de forçar
+                const userWantsFallback = confirm(
+                    'A análise de referência encontrou um erro.\n\n' +
+                    'Deseja tentar novamente (OK) ou usar análise por gênero (Cancelar)?'
+                );
                 
-                setTimeout(() => {
+                if (!userWantsFallback) {
+                    // Usuário escolheu fallback para gênero
+                    console.warn('[REF-FLOW] Usuário optou por fallback para gênero');
                     currentAnalysisMode = 'genre';
                     configureModalForMode('genre');
-                }, 2000);
+                } else {
+                    // Usuário quer tentar reference novamente
+                    console.log('[REF-FLOW] Usuário optou por tentar reference novamente');
+                    showModalError('Por favor, tente fazer upload da primeira faixa novamente.');
+                }
             } else {
                 console.warn('[REF-FLOW] Erro capturado, mas primeira análise existe — mantendo modo reference');
                 console.warn('[FALLBACK] Degradando visual apenas, não alterando modo global');
