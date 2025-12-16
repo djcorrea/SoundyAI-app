@@ -394,10 +394,52 @@ router.use((req, res, next) => {
  * ✅ PROTEÇÃO: Rate limiting (10 req/min por IP)
  */
 router.post("/analyze", analysisLimiter, async (req, res) => {
+  // 🔍 PR1: Log instrumentação - Request recebido
+  const requestTraceId = `API-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  console.log(`[PR1-TRACE] ${requestTraceId} ═══════════════════════════════════════`);
+  console.log(`[PR1-TRACE] ${requestTraceId} ENDPOINT /analyze RECEBEU REQUEST`);
+  console.log(`[PR1-TRACE] ${requestTraceId} Timestamp: ${new Date().toISOString()}`);
+  
   // ✅ LOG OBRIGATÓRIO: Rota chamada
   console.log('🚀 [API] /analyze chamada');
   console.log('📦 [ANALYZE] Headers:', req.headers);
   console.log('📦 [ANALYZE] Body:', req.body);
+  
+  // 🔍 PR1: Log payload recebido (SEM token)
+  const { fileKey, mode, fileName, genre, genreTargets, referenceJobId, hasTargets } = req.body;
+  console.log(`[PR1-TRACE] ${requestTraceId} PAYLOAD RECEBIDO:`, {
+    fileKey: fileKey ? `${fileKey.substring(0, 30)}...` : null,
+    mode,
+    fileName,
+    genre: genre || null,
+    hasGenreTargets: !!genreTargets,
+    genreTargetsKeys: genreTargets ? Object.keys(genreTargets).length : 0,
+    referenceJobId: referenceJobId || null,
+    hasTargets: hasTargets || null,
+    idToken: req.body.idToken ? '***masked***' : 'absent',
+  });
+  
+  // 🔍 PR1: Validar invariantes do payload
+  if (mode === 'reference' && referenceJobId) {
+    // Segunda música reference - NÃO deve ter genre/genreTargets
+    if (genre) {
+      console.error(`[PR1-INVARIANT] ${requestTraceId} ❌ VIOLATED: mode=reference with referenceJobId BUT has genre=${genre}`);
+    }
+    if (genreTargets) {
+      console.error(`[PR1-INVARIANT] ${requestTraceId} ❌ VIOLATED: mode=reference with referenceJobId BUT has genreTargets (${Object.keys(genreTargets).length} keys)`);
+    }
+  } else if (mode === 'reference' && !referenceJobId) {
+    // Primeira música reference - pode ter genre (para análise base)
+    console.log(`[PR1-TRACE] ${requestTraceId} ✅ First reference track - genre=${genre} is acceptable`);
+  } else if (mode === 'genre') {
+    // Modo genre - deve ter genre e genreTargets
+    if (!genre) {
+      console.warn(`[PR1-INVARIANT] ${requestTraceId} ⚠️ mode=genre BUT no genre provided`);
+    }
+    if (!genreTargets) {
+      console.warn(`[PR1-INVARIANT] ${requestTraceId} ⚠️ mode=genre BUT no genreTargets provided`);
+    }
+  }
   
   try {
     console.log("🟥 [AUDIT:CONTROLLER-BODY] Payload recebido do front:");
