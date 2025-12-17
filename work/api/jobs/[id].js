@@ -199,9 +199,22 @@ router.get("/:id", async (req, res) => {
     }
     
     // ══════════════════════════════════════════════════════════════════
-    // 🔵 GENRE MODE: validação de suggestions (se existir lógica futura)
+    // 🔵 GENRE MODE: validação de suggestions (EXCLUSIVA DE GENRE)
     // ══════════════════════════════════════════════════════════════════
-    else if (isGenre && normalizedStatus === 'completed') {
+    
+    // 🎯 Detectar modo efetivo com fallback robusto
+    const effectiveMode = 
+      fullResult?.mode ||
+      job?.mode ||
+      fullResult?.analysisMode ||
+      fullResult?.analysisType ||
+      job?.analysisMode ||
+      job?.analysisType ||
+      'genre'; // Default para genre (compatibilidade com jobs antigos)
+    
+    console.log('[API-JOBS][VALIDATION] effectiveMode:', effectiveMode);
+    
+    if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
       // 🎯 VALIDAÇÃO EXCLUSIVA PARA GENRE: Verificar se dados essenciais existem
@@ -229,6 +242,10 @@ router.get("/:id", async (req, res) => {
       } else {
         console.log('[API-JOBS][GENRE] ✅ Todos os dados essenciais presentes - status COMPLETED mantido');
       }
+    } else if (effectiveMode !== 'genre' && normalizedStatus === 'completed') {
+      // 🔐 REFERENCE ou outros modos: NÃO validar suggestions
+      console.log('[API-JOBS][REFERENCE] 🔒 Mode "' + effectiveMode + '" detectado - Ignorando validação de suggestions');
+      console.log('[API-JOBS][REFERENCE] ✅ Status COMPLETED mantido sem validação (suggestions opcionais)');
     }
     // ══════════════════════════════════════════════════════════════════
     
