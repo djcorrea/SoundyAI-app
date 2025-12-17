@@ -266,34 +266,48 @@ router.get("/:id", async (req, res) => {
       
     } else if (normalizedStatus === "completed") {
       // ═══════════════════════════════════════════════════════════════
-      // ✅ GARANTIA FINAL: Normalizar response para Reference Mode
+      // ✅ NORMALIZAÇÃO FINAL: Garantir campos obrigatórios para Reference Mode
       // ═══════════════════════════════════════════════════════════════
       if (isReference && fullResult) {
         const referenceStage = fullResult?.referenceStage || 'base';
         
-        // Garantir campos obrigatórios no fullResult antes de retornar
+        // 🔒 Garantir campos obrigatórios no fullResult antes de retornar
         fullResult.mode = 'reference';
         fullResult.referenceStage = referenceStage;
         fullResult.status = 'completed';
         
+        // 📝 Garantir arrays (mesmo vazios) - suggestions são OPCIONAIS em reference
+        if (!Array.isArray(fullResult.suggestions)) {
+          fullResult.suggestions = [];
+        }
+        if (!Array.isArray(fullResult.aiSuggestions)) {
+          fullResult.aiSuggestions = [];
+        }
+        
         if (referenceStage === 'base') {
+          // 🎯 BASE: Campos obrigatórios para abrir modal de segunda música
           fullResult.requiresSecondTrack = true;
-          fullResult.referenceJobId = job.id;
-          console.log('[API-JOBS][REFERENCE][BASE] ✅ Garantindo campos obrigatórios:', {
-            mode: fullResult.mode,
-            referenceStage: fullResult.referenceStage,
-            requiresSecondTrack: fullResult.requiresSecondTrack,
-            referenceJobId: fullResult.referenceJobId,
-            status: fullResult.status
-          });
+          fullResult.referenceJobId = fullResult.referenceJobId || job.id;
+          fullResult.referenceComparison = null; // Base nunca tem comparison
+          
+          console.log('[JOBS][REFERENCE] status_in=completed status_out=completed stage=base hasSuggestions=' + 
+            (fullResult.suggestions.length > 0) + ' requiresSecondTrack=true referenceJobId=' + fullResult.referenceJobId);
+          
         } else if (referenceStage === 'compare') {
-          const hasComparison = !!fullResult?.referenceComparison;
-          console.log('[API-JOBS][REFERENCE][COMPARE] ✅ Garantindo campos obrigatórios:', {
-            mode: fullResult.mode,
-            referenceStage: fullResult.referenceStage,
-            hasComparison: hasComparison,
-            status: fullResult.status
-          });
+          // 🎯 COMPARE: referenceComparison obrigatório (objeto não-null)
+          fullResult.requiresSecondTrack = false;
+          
+          if (!fullResult.referenceComparison) {
+            console.warn('[JOBS][REFERENCE] ⚠️ Compare sem referenceComparison - adicionando objeto de erro');
+            fullResult.referenceComparison = { 
+              error: 'MISSING_REFERENCE_COMPARISON',
+              message: 'Comparação não foi gerada pelo worker'
+            };
+          }
+          
+          const hasComparison = !!fullResult?.referenceComparison && !fullResult.referenceComparison.error;
+          console.log('[JOBS][REFERENCE] status_in=completed status_out=completed stage=compare hasSuggestions=' + 
+            (fullResult.suggestions.length > 0) + ' hasValidComparison=' + hasComparison);
         }
       }
       
