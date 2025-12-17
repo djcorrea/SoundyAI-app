@@ -544,6 +544,26 @@ class AISuggestionUIController {
      * 🤖 FIX: Função interna que executa a verificação real
      */
     __runCheckForAISuggestions(analysis, retryCount = 0) {
+        // ═══════════════════════════════════════════════════════════════════════
+        // 🔐 PROTEÇÃO CRÍTICA: REFERENCE BASE - Ignorar verificação de aiSuggestions
+        // ═══════════════════════════════════════════════════════════════════════
+        // Reference base NÃO tem aiSuggestions (array vazio é intencional)
+        // Polling de aiSuggestions causaria loop infinito
+        const isReferenceBase = (
+            (analysis?.mode === 'reference' && analysis?.referenceStage === 'base') ||
+            (analysis?.referenceStage === 'base') ||
+            (analysis?.requiresSecondTrack === true)
+        );
+        
+        if (isReferenceBase) {
+            console.log('%c[AI-FRONT][REFERENCE-BASE] 🔐 Reference BASE detectado - IGNORANDO verificação de aiSuggestions', 'color:#FF6B00;font-weight:bold;font-size:14px;');
+            console.log('[AI-FRONT][REFERENCE-BASE] referenceStage:', analysis?.referenceStage);
+            console.log('[AI-FRONT][REFERENCE-BASE] requiresSecondTrack:', analysis?.requiresSecondTrack);
+            console.log('[AI-FRONT][REFERENCE-BASE] ✅ Base não precisa de aiSuggestions - retornando sem renderizar');
+            return; // ✅ RETORNAR IMEDIATAMENTE - Base não precisa de UI de sugestões
+        }
+        // ═══════════════════════════════════════════════════════════════════════
+        
         // FIX: Reset automático SEGURO com proteção contra race condition
         const currentJobId = analysis?.jobId || analysis?.userAnalysis?.jobId || window.__CURRENT_JOB_ID__;
         if (currentJobId && currentJobId !== this.lastAnalysisJobId) {
