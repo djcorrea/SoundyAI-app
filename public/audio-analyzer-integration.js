@@ -3270,6 +3270,18 @@ async function pollJobStatus(jobId) {
                                 console.log('[REF_FIX] ✅ awaitingSecondTrack=true');
                                 console.log('[REF_FIX] referenceFirstJobId salvo:', jobId);
                                 console.log('[REF_FIX] sessionStorage atualizado - estado protegido');
+                                
+                                // 🆕 CORREÇÃO CRÍTICA: Abrir modal para 2ª música após salvar estado
+                                console.log('[REF_FIX] 🎯 Abrindo modal para upload da 2ª música...');
+                                setTimeout(() => {
+                                    if (typeof openReferenceUploadModal === 'function') {
+                                        openReferenceUploadModal(jobId, jobResult);
+                                        console.log('[REF_FIX] ✅ Modal da 2ª música aberto');
+                                    } else {
+                                        console.error('[REF_FIX] ❌ openReferenceUploadModal não encontrada');
+                                        alert('✅ Música A analisada! Por favor, clique em "Comparação A/B" para enviar a Música B.');
+                                    }
+                                }, 500); // Pequeno delay para garantir que o modal anterior foi processado
                             } catch (err) {
                                 console.error('[REF_FIX] ❌ Erro ao setar primeira track:', err);
                                 // Não falhar o job, apenas logar
@@ -5149,22 +5161,27 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     }
     
     // 🛡️ PROTEÇÃO CRÍTICA: Não permitir ativação de modo reference se usuário não selecionou explicitamente
-    // Legacy check (state machine já tem isso, mas mantém por retrocompat)
-    if (!userExplicitlySelectedReferenceMode && (!stateMachine || !stateMachine.isUserExplicitlySelected())) {
+    // 🆕 FIX: Sincronizar com state machine que é fonte de verdade
+    const stateMachineExplicit = stateMachine?.isUserExplicitlySelected?.() || false;
+    const isExplicitlySelected = userExplicitlySelectedReferenceMode || stateMachineExplicit;
+    
+    if (!isExplicitlySelected) {
         // 🔍 PR1: Log guard blocked
         if (window.logStep) {
             window.logStep(traceId, 'GUARD_BLOCKED', {
                 guard: 'userExplicitlySelectedReferenceMode',
-                value: userExplicitlySelectedReferenceMode,
-                reason: 'Flag is false - user did not explicitly select reference mode',
+                legacyFlag: userExplicitlySelectedReferenceMode,
+                stateMachineFlag: stateMachineExplicit,
+                reason: 'User did not explicitly select reference mode',
                 currentMode: window.currentAnalysisMode,
                 referenceJobId: referenceJobId,
                 stack: new Error().stack,
             });
         }
         
-        console.error('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
-        console.error('[PROTECTION] ❌ Modo reference não pode ser ativado automaticamente - usuário está em modo genre');
+        console.error('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas flags de explicit = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
+        console.error('[PROTECTION] ❌ Legacy flag:', userExplicitlySelectedReferenceMode);
+        console.error('[PROTECTION] ❌ StateMachine flag:', stateMachineExplicit);
         console.trace('[PROTECTION] Stack trace do bloqueio:');
         
         // 🔍 PR1: Assert invariante violada
@@ -5174,6 +5191,7 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
                 false, // sempre falha aqui (proposital para log)
                 {
                     userExplicitlySelectedReferenceMode,
+                    stateMachineExplicit,
                     referenceJobId,
                     currentMode: window.currentAnalysisMode,
                 }
@@ -5183,6 +5201,8 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
         alert('⚠️ ERRO: Sistema tentou ativar modo A/B automaticamente. Por favor, selecione o modo A/B explicitamente.');
         return;
     }
+    
+    console.log('[REF_FIX] ✅ Flag explicit verificada - abrindo modal para 2ª música');
     
     // 🎯 CORREÇÃO: Manter modo 'reference' para segunda música também
     // O backend identifica que é comparação pela presença do referenceJobId
