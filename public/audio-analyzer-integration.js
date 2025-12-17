@@ -520,11 +520,11 @@ console.log('✅ Genre-Only Extraction Utils carregado');
         // Limpar referência
         clearReference() {
             // 🚨 BLINDAGEM ABSOLUTA: NUNCA limpar em modo genre
-            if (window.currentAnalysisMode === 'genre') {
+            if (window.__CURRENT_MODE__ === 'genre') {
                 console.warn('[GENRE-PROTECT] ⚠️ StorageManager.clearReference() BLOQUEADO em modo genre');
                 console.warn('[GENRE-PROTECT]   - Preservando:', {
                     selectedGenre: window.__CURRENT_SELECTED_GENRE,
-                    mode: window.currentAnalysisMode
+                    mode: window.__CURRENT_MODE__
                 });
                 return; // NÃO executar limpeza
             }
@@ -5060,23 +5060,6 @@ function openAudioModal() {
 
 // 🎯 NOVO: Abrir modal secundário para upload da música de referência
 function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
-    // 🔍 [INVARIANTE #0] Log completo do estado ao abrir modal
-    console.group('🔍🔍🔍 [INVARIANTE #0] openReferenceUploadModal() ENTRADA');
-    console.log('   - referenceJobId:', referenceJobId);
-    console.log('   - firstAnalysisResult keys:', firstAnalysisResult ? Object.keys(firstAnalysisResult) : 'null');
-    console.log('   - window.currentAnalysisMode:', window.currentAnalysisMode);
-    console.log('   - userExplicitlySelectedReferenceMode:', userExplicitlySelectedReferenceMode);
-    const stateMachine = window.AnalysisStateMachine;
-    console.log('   - stateMachine exists:', !!stateMachine);
-    if (stateMachine) {
-        console.log('   - stateMachine.isAwaitingSecondTrack():', stateMachine.isAwaitingSecondTrack());
-        console.log('   - stateMachine.getMode():', stateMachine.getMode());
-        console.log('   - stateMachine.referenceFirstJobId:', stateMachine.state?.referenceFirstJobId);
-        console.log('   - stateMachine.isUserExplicitlySelected():', stateMachine.isUserExplicitlySelected?.() || false);
-    }
-    console.trace('   - Stack trace:');
-    console.groupEnd();
-    
     __dbg('🎯 Abrindo modal secundário para música de referência', { referenceJobId });
     
     // 🔍 PR1: Log tentativa de abrir modal
@@ -5607,11 +5590,11 @@ function configureModalForMode(mode) {
 // 🎯 NOVO: Reset estado do modo referência (compatibilidade)
 function resetReferenceState() {
     // 🚨 BLINDAGEM ABSOLUTA: NUNCA resetar em modo genre
-    if (window.currentAnalysisMode === 'genre') {
+    if (window.__CURRENT_MODE__ === 'genre') {
         console.warn('[GENRE-PROTECT] ⚠️ resetReferenceState() BLOQUEADO em modo genre');
         console.warn('[GENRE-PROTECT]   - Preservando:', {
             selectedGenre: window.__CURRENT_SELECTED_GENRE,
-            mode: window.currentAnalysisMode
+            mode: window.__CURRENT_MODE__
         });
         return; // NÃO executar reset
     }
@@ -7171,7 +7154,7 @@ function closeAudioModal() {
         const hasActiveComparison = window.__referenceComparisonActive === true;
         
         // 🚨 BLINDAGEM: NÃO limpar FirstAnalysisStore em modo genre
-        const isGenreMode = window.currentAnalysisMode === 'genre';
+        const isGenreMode = window.__CURRENT_MODE__ === 'genre';
         
         if (!hasActiveComparison && !isGenreMode) {
             // 🧹 LIMPEZA COMPLETA: Apenas se não houver comparação ativa E não for modo genre
@@ -7200,7 +7183,7 @@ function closeAudioModal() {
             console.log('[GENRE-PROTECT] ⚠️ Limpeza FirstAnalysisStore BLOQUEADA em modo genre');
             console.log('[GENRE-PROTECT]   - Preservando:', {
                 selectedGenre: window.__CURRENT_SELECTED_GENRE,
-                mode: window.currentAnalysisMode
+                mode: window.__CURRENT_MODE__
             });
         } else {
             // Preservar dados de referência
@@ -8578,11 +8561,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     }
     
     // 🚨 BLINDAGEM: NÃO limpar estado em modo genre (preservar gênero)
-    if (window.currentAnalysisMode === 'genre') {
+    if (window.__CURRENT_MODE__ === 'genre') {
         console.warn('[GENRE-PROTECT] ⚠️ handleGenreAnalysisWithResult - limpeza BLOQUEADA em modo genre');
         console.log('[GENRE-PROTECT]   - Preservando:', {
             selectedGenre: window.__CURRENT_SELECTED_GENRE,
-            mode: window.currentAnalysisMode
+            mode: window.__CURRENT_MODE__
         });
         
         // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
@@ -11232,7 +11215,7 @@ async function displayModalResults(analysis) {
     console.log('[GENRE-BEFORE-DISPLAY] 🎵 Estado do gênero:', {
         preservedGenre: window.__CURRENT_SELECTED_GENRE,
         analysisGenre: analysis?.genre,
-        mode: window.currentAnalysisMode,
+        mode: window.__CURRENT_MODE__ || currentAnalysisMode,
         timestamp: new Date().toISOString()
     });
 
