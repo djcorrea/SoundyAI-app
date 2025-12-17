@@ -18,6 +18,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
 import { enrichSuggestionsWithAI } from './lib/ai/suggestion-enricher.js';
+import { referenceSuggestionEngine } from './lib/audio/features/reference-suggestion-engine.js';
+
 
 // ---------- Importar pipeline completo para análise REAL ----------
 let processAudioComplete = null;
@@ -781,11 +783,294 @@ async function downloadFileFromBucket(fileKey) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// 🎯 REFERENCE MODE: FUNÇÕES ISOLADAS
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🎯 PROCESSAR REFERENCE BASE (1ª MÚSICA)
+ * 
+ * CONTRATO:
+ * - Não usa genreTargets
+ * - Não chama Suggestion Engine
+ * - Retorna requiresSecondTrack: true
+ * - Salva como COMPLETED com métricas base
+ */
+async function processReferenceBase(job) {
+  const { jobId, fileKey, fileName } = job.data;
+  
+  console.log('[REFERENCE-BASE] ═══════════════════════════════════════');
+  console.log('[REFERENCE-BASE] Processando 1ª música (BASE)');
+  console.log('[REFERENCE-BASE] Job ID:', jobId);
+  console.log('[REFERENCE-BASE] File:', fileName);
+  console.log('[REFERENCE-BASE] ═══════════════════════════════════════');
+
+  let localFilePath = null;
+
+  try {
+    // Atualizar status
+    await updateJobStatus(jobId, 'processing');
+
+    // Download do arquivo
+    console.log('[REFERENCE-BASE] Baixando arquivo...');
+    localFilePath = await downloadFileFromBucket(fileKey);
+
+    // Ler buffer
+    const fileBuffer = await fs.promises.readFile(localFilePath);
+    console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
+
+    // Processar via pipeline (SEM genre, SEM suggestion engine)
+    console.log('[REFERENCE-BASE] Iniciando pipeline...');
+    const t0 = Date.now();
+    
+    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
+      jobId,
+      mode: 'reference',
+      referenceStage: 'base',
+      // SEM genre, SEM genreTargets, SEM planContext
+    });
+
+    const totalMs = Date.now() - t0;
+    console.log('[REFERENCE-BASE] Pipeline concluído em', totalMs, 'ms');
+
+    // Adicionar campos específicos de reference base
+    finalJSON.mode = 'reference';
+    finalJSON.referenceStage = 'base';
+    finalJSON.requiresSecondTrack = true;
+    finalJSON.referenceJobId = jobId; // Este job é a base para próxima comparação
+    
+    // Garantir que aiSuggestions existe (vazio para base)
+    finalJSON.aiSuggestions = [];
+    finalJSON.suggestions = [];
+
+    // Performance
+    finalJSON.performance = {
+      ...(finalJSON.performance || {}),
+      workerTotalTimeMs: totalMs,
+      workerTimestamp: new Date().toISOString(),
+      backendPhase: "reference-base",
+      workerId: process.pid
+    };
+
+    finalJSON._worker = {
+      source: "reference-base-pipeline",
+      redis: true,
+      pid: process.pid,
+      jobId
+    };
+
+    console.log('[REFERENCE-BASE] ✅ Análise base concluída');
+    console.log('[REFERENCE-BASE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
+    console.log('[REFERENCE-BASE] DR:', finalJSON.technicalData?.dynamicRange || 'N/A');
+    console.log('[REFERENCE-BASE] TP:', finalJSON.technicalData?.truePeakDbtp || 'N/A');
+
+    // Salvar como COMPLETED
+    await updateJobStatus(jobId, 'completed', finalJSON);
+
+    // Limpar arquivo temporário
+    if (localFilePath && fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
+
+    return finalJSON;
+
+  } catch (error) {
+    console.error('[REFERENCE-BASE] ❌ Erro:', error.message);
+
+    // Limpar arquivo temporário em caso de erro
+    if (localFilePath && fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
+
+    await updateJobStatus(jobId, 'failed', {
+      error: error.message,
+      mode: 'reference',
+      referenceStage: 'base'
+    });
+
+    throw error;
+  }
+}
+
+/**
+ * 🎯 PROCESSAR REFERENCE COMPARE (2ª MÚSICA)
+ * 
+ * CONTRATO:
+ * - Carrega métricas da base usando referenceJobId
+ * - Calcula referenceComparison (deltas)
+ * - Chama referenceSuggestionEngine para gerar sugestões comparativas
+ * - Retorna requiresSecondTrack: false
+ * - Salva como COMPLETED com comparação
+ */
+async function processReferenceCompare(job) {
+  const { jobId, fileKey, fileName, referenceJobId } = job.data;
+
+  console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
+  console.log('[REFERENCE-COMPARE] Processando 2ª música (COMPARE)');
+  console.log('[REFERENCE-COMPARE] Job ID:', jobId);
+  console.log('[REFERENCE-COMPARE] Reference Job ID:', referenceJobId);
+  console.log('[REFERENCE-COMPARE] File:', fileName);
+  console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
+
+  let localFilePath = null;
+
+  try {
+    // ETAPA 1: Carregar métricas da base
+    console.log('[REFERENCE-COMPARE] Carregando métricas base...');
+    
+    const refResult = await pool.query(
+      'SELECT id, status, results FROM jobs WHERE id = $1',
+      [referenceJobId]
+    );
+
+    if (refResult.rows.length === 0) {
+      throw new Error(`Job de referência ${referenceJobId} não encontrado`);
+    }
+
+    const refJob = refResult.rows[0];
+
+    if (refJob.status !== 'completed') {
+      throw new Error(`Job de referência está com status '${refJob.status}' (esperado: completed)`);
+    }
+
+    if (!refJob.results) {
+      throw new Error('Job de referência não possui resultados');
+    }
+
+    const baseMetrics = refJob.results;
+    console.log('[REFERENCE-COMPARE] ✅ Métricas base carregadas');
+    console.log('[REFERENCE-COMPARE] Base LUFS:', baseMetrics.technicalData?.lufsIntegrated || 'N/A');
+
+    // ETAPA 2: Atualizar status e baixar arquivo
+    await updateJobStatus(jobId, 'processing');
+
+    console.log('[REFERENCE-COMPARE] Baixando arquivo...');
+    localFilePath = await downloadFileFromBucket(fileKey);
+
+    // ETAPA 3: Ler buffer e processar
+    const fileBuffer = await fs.promises.readFile(localFilePath);
+    console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
+
+    console.log('[REFERENCE-COMPARE] Iniciando pipeline...');
+    const t0 = Date.now();
+
+    const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
+      jobId,
+      mode: 'reference',
+      referenceStage: 'compare',
+      referenceJobId,
+      preloadedReferenceMetrics: baseMetrics
+    });
+
+    const totalMs = Date.now() - t0;
+    console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
+
+    // ETAPA 4: Calcular referenceComparison (deltas)
+    console.log('[REFERENCE-COMPARE] Calculando deltas...');
+
+    const baseTech = baseMetrics.technicalData || {};
+    const compareTech = finalJSON.technicalData || {};
+
+    const referenceComparison = {
+      base: {
+        lufsIntegrated: baseTech.lufsIntegrated,
+        truePeakDbtp: baseTech.truePeakDbtp,
+        dynamicRange: baseTech.dynamicRange,
+        loudnessRange: baseTech.loudnessRange,
+        fileName: baseMetrics.metadata?.fileName
+      },
+      current: {
+        lufsIntegrated: compareTech.lufsIntegrated,
+        truePeakDbtp: compareTech.truePeakDbtp,
+        dynamicRange: compareTech.dynamicRange,
+        loudnessRange: compareTech.loudnessRange,
+        fileName: finalJSON.metadata?.fileName
+      },
+      deltas: {
+        lufsIntegrated: compareTech.lufsIntegrated - baseTech.lufsIntegrated,
+        truePeakDbtp: compareTech.truePeakDbtp - baseTech.truePeakDbtp,
+        dynamicRange: compareTech.dynamicRange - baseTech.dynamicRange,
+        loudnessRange: (compareTech.loudnessRange || 0) - (baseTech.loudnessRange || 0)
+      }
+    };
+
+    finalJSON.referenceComparison = referenceComparison;
+
+    console.log('[REFERENCE-COMPARE] Deltas:', {
+      LUFS: referenceComparison.deltas.lufsIntegrated.toFixed(2),
+      TP: referenceComparison.deltas.truePeakDbtp.toFixed(2),
+      DR: referenceComparison.deltas.dynamicRange.toFixed(2)
+    });
+
+    // ETAPA 5: Gerar sugestões comparativas via reference engine
+    console.log('[REFERENCE-COMPARE] Gerando sugestões comparativas...');
+
+    const comparativeSuggestions = referenceSuggestionEngine(baseMetrics, finalJSON);
+    
+    finalJSON.aiSuggestions = comparativeSuggestions;
+    finalJSON.suggestions = comparativeSuggestions; // Compatibilidade
+
+    console.log('[REFERENCE-COMPARE] ✅ Geradas', comparativeSuggestions.length, 'sugestões');
+
+    // ETAPA 6: Adicionar campos específicos
+    finalJSON.mode = 'reference';
+    finalJSON.referenceStage = 'compare';
+    finalJSON.referenceJobId = referenceJobId;
+    finalJSON.requiresSecondTrack = false; // Fluxo completo
+
+    finalJSON.performance = {
+      ...(finalJSON.performance || {}),
+      workerTotalTimeMs: totalMs,
+      workerTimestamp: new Date().toISOString(),
+      backendPhase: "reference-compare",
+      workerId: process.pid
+    };
+
+    finalJSON._worker = {
+      source: "reference-compare-pipeline",
+      redis: true,
+      pid: process.pid,
+      jobId
+    };
+
+    console.log('[REFERENCE-COMPARE] ✅ Comparação concluída');
+    console.log('[REFERENCE-COMPARE] Compare LUFS:', compareTech.lufsIntegrated || 'N/A');
+    console.log('[REFERENCE-COMPARE] Delta LUFS:', referenceComparison.deltas.lufsIntegrated.toFixed(2));
+
+    // ETAPA 7: Salvar como COMPLETED
+    await updateJobStatus(jobId, 'completed', finalJSON);
+
+    // Limpar arquivo temporário
+    if (localFilePath && fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
+
+    return finalJSON;
+
+  } catch (error) {
+    console.error('[REFERENCE-COMPARE] ❌ Erro:', error.message);
+
+    // Limpar arquivo temporário em caso de erro
+    if (localFilePath && fs.existsSync(localFilePath)) {
+      fs.unlinkSync(localFilePath);
+    }
+
+    await updateJobStatus(jobId, 'failed', {
+      error: error.message,
+      mode: 'reference',
+      referenceStage: 'compare',
+      referenceJobId
+    });
+
+    throw error;
+  }
+}
+
 /**
  * 🎵 AUDIO PROCESSOR PRINCIPAL - ANÁLISE REAL
  */
 async function audioProcessor(job) {
-  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
+  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId + referenceStage
   const {
     jobId,
     externalId,
@@ -793,9 +1078,47 @@ async function audioProcessor(job) {
     mode,
     fileName,
     referenceJobId,
+    referenceStage,
     genre,
     genreTargets,
   } = job.data;
+  
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 🎯 ROUTING: DIRECIONAR PARA PIPELINE CORRETO
+  // ══════════════════════════════════════════════════════════════════════════════
+  
+  console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
+  console.log('[WORKER-ROUTING] Job ID:', jobId);
+  console.log('[WORKER-ROUTING] Mode:', mode);
+  console.log('[WORKER-ROUTING] Reference Stage:', referenceStage || 'N/A');
+  console.log('[WORKER-ROUTING] Reference Job ID:', referenceJobId || 'N/A');
+  console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
+  
+  // 🎯 REFERENCE MODE: BASE (1ª música)
+  if (mode === 'reference' && referenceStage === 'base') {
+    console.log('[WORKER-ROUTING] ➡️ Direcionando para processReferenceBase()');
+    return processReferenceBase(job);
+  }
+  
+  // 🎯 REFERENCE MODE: COMPARE (2ª música)
+  if (mode === 'reference' && referenceStage === 'compare') {
+    console.log('[WORKER-ROUTING] ➡️ Direcionando para processReferenceCompare()');
+    return processReferenceCompare(job);
+  }
+  
+  // 🎯 GENRE MODE: Pipeline tradicional
+  if (mode === 'genre' || !mode || !referenceStage) {
+    console.log('[WORKER-ROUTING] ➡️ Direcionando para processamento GENRE (pipeline tradicional)');
+    // CONTINUAR COM LÓGICA EXISTENTE ABAIXO
+  } else {
+    // Modo desconhecido
+    console.warn('[WORKER-ROUTING] ⚠️ Modo desconhecido:', { mode, referenceStage });
+    console.warn('[WORKER-ROUTING] Usando pipeline GENRE como fallback');
+  }
+  
+  // ══════════════════════════════════════════════════════════════════════════════
+  // 🎵 GENRE MODE: LÓGICA ORIGINAL (INALTERADA)
+  // ══════════════════════════════════════════════════════════════════════════════
   
   // 🎯 EXTRAÇÃO CRÍTICA: planContext (CORREÇÃO PARA PLANOS)
   let extractedPlanContext = null;
@@ -806,99 +1129,18 @@ async function audioProcessor(job) {
       const parsed = JSON.parse(job.data);
       extractedPlanContext = parsed.planContext;
     } catch (e) {
-      console.warn('[PLAN-CONTEXT][WORKER-REDIS] ⚠️ Falha ao extrair planContext:', e.message);
+      console.warn('[WORKER][GENRE] ⚠️ Falha ao extrair planContext:', e.message);
     }
   }
   
-  // 🎯 LOG DE AUDITORIA OBRIGATÓRIO - PLANCONTEXT
-  console.log('[AUDIT-WORKER-REDIS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[AUDIT-WORKER-REDIS] job.id:', job.id);
-  console.log('[AUDIT-WORKER-REDIS] job.mode:', mode);
-  console.log('[AUDIT-WORKER-REDIS] job.data.genre:', job.data?.genre);
-  console.log('[AUDIT-WORKER-REDIS] job.data.genreTargets:', job.data?.genreTargets ? 'PRESENTE' : 'AUSENTE');
-  console.log('[AUDIT-WORKER-REDIS] job.data.planContext:', extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
-  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] extractedPlanContext:', extractedPlanContext);
-  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] extractedPlanContext?.analysisMode:', extractedPlanContext?.analysisMode);
-  console.log('🔥🔥🔥 [AUDIT-WORKER-REDIS-PLANCONTEXT] typeof:', typeof extractedPlanContext?.analysisMode);
-  console.log('[AUDIT-WORKER-REDIS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  
-  console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
-  console.dir(job.data, { depth: 10 });
-  
-  console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
-  console.dir(job.data, { depth: 10 });
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] FileKey recebido:", job.data?.fileKey);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] JobId recebido:", job.data?.jobId);
-  
-  // 🎯 AUDIT: LOG INICIAL - Job consumido da fila
-  console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
-  console.log(`🔍 [AUDIT_CONSUME] Job consumido da fila Redis`);
-  console.log(`🔍 [AUDIT_CONSUME] Redis Job ID: ${job.id}`);
-  console.log(`🔍 [AUDIT_CONSUME] PostgreSQL UUID: ${jobId}`);
-  console.log(`🔍 [AUDIT_CONSUME] Mode: ${mode || 'undefined'}`);
-  console.log(`🔍 [AUDIT_CONSUME] Reference Job ID: ${referenceJobId || 'null'}`);
-  console.log(`🔍 [AUDIT_CONSUME] File Key: ${fileKey}`);
-  console.log(`🔍 [AUDIT_CONSUME] File Name: ${fileName || 'unknown'}`);
-  console.log(`🔍 [AUDIT_CONSUME] External ID: ${externalId || 'não definido'}`);
-  console.log(`🔍 [AUDIT_CONSUME] Job Name: ${job.name}`);
-  console.log(`🔍 [AUDIT_CONSUME] Timestamp: ${new Date().toISOString()}`);
-  console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
-  
-  // 🎯 AUDIT: Validação de modo reference
-  if (mode === 'reference') {
-    console.log('🎯 [AUDIT_MODE] Modo REFERENCE detectado');
-    
-    if (!referenceJobId) {
-      console.warn('⚠️ [AUDIT_BYPASS] ═══════════════════════════════════════');
-      console.warn('⚠️ [AUDIT_BYPASS] ALERTA: Job com mode=reference MAS sem referenceJobId!');
-      console.warn(`⚠️ [AUDIT_BYPASS] Job ID: ${job.id}`);
-      console.warn(`⚠️ [AUDIT_BYPASS] Modo: ${mode}`);
-      console.warn(`⚠️ [AUDIT_BYPASS] ReferenceJobId: ${referenceJobId}`);
-      console.warn('⚠️ [AUDIT_BYPASS] Este é provavelmente o PRIMEIRO job (música base)');
-      console.warn('⚠️ [AUDIT_BYPASS] Job SERÁ PROCESSADO normalmente');
-      console.warn('⚠️ [AUDIT_BYPASS] ═══════════════════════════════════════');
-    } else {
-      console.log('✅ [AUDIT_MODE] Job REFERENCE com referenceJobId presente');
-      console.log(`✅ [AUDIT_MODE] Este é o SEGUNDO job (comparação)`);
-      console.log(`✅ [AUDIT_MODE] Referenciando job: ${referenceJobId}`);
-    }
-  } else {
-    console.log(`🎯 [AUDIT_MODE] Modo: ${mode || 'genre (default)'}`);
-  }
-  
-  // 🎯 AUDIT: Validação CRÍTICA - job deve ser processado?
-  console.log('✅ [AUDIT_PROCESS] ═══════════════════════════════════════');
-  console.log('✅ [AUDIT_PROCESS] Job VÁLIDO para processamento');
-  console.log(`✅ [AUDIT_PROCESS] Redis Job ID: ${job.id}`);
-  console.log(`✅ [AUDIT_PROCESS] Iniciando pipeline de análise...`);
-  console.log('✅ [AUDIT_PROCESS] ═══════════════════════════════════════');
-  
-  // ✅ REGRA 4: LOG OBRIGATÓRIO - Worker recebendo job
-  console.log('🎧 [WORKER] Recebendo job', job.id, job.data);
-  console.log(`🎧 [WORKER-DEBUG] Job name: '${job.name}' | Esperado: 'process-audio'`);
-  console.log(`🔑 [WORKER-DEBUG] UUID (Banco): ${jobId}`);
-  console.log(`📋 [WORKER-DEBUG] External ID: ${externalId || 'não definido'}`);
-  console.log(`🔗 [WORKER-DEBUG] Reference Job ID: ${referenceJobId || 'nenhum'}`);
-  
-  // ✅ VERIFICAÇÃO CRÍTICA: Confirmar se é o job correto
-  if (job.name !== 'process-audio') {
-    console.warn(`⚠️ [WORKER] Job com nome inesperado: '${job.name}' (esperado: 'process-audio')`);
-  }
-  
-  console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> INICIANDO job ${job.id}`, {
-    jobId,
-    externalId: externalId || 'legacy',
-    fileKey,
+  // 🎯 LOG ESSENCIAL: Job consumido
+  console.log('[WORKER][GENRE] Job consumido:', {
+    jobId: jobId.substring(0, 8),
     mode,
+    genre: genre || 'N/A',
     fileName,
-    referenceJobId,
-    jobName: job.name,
-    timestamp: new Date(job.timestamp).toISOString(),
-    attempts: job.attemptsMade + 1
+    hasTargets: !!genreTargets,
+    hasPlanContext: !!extractedPlanContext
   });
 
   let localFilePath = null;
@@ -930,13 +1172,9 @@ async function audioProcessor(job) {
 
     console.log(`✅ [PROCESSOR] fileKey válido: ${fileKey}`);
 
-    // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA ANTES DO PROCESSAMENTO PESADO
-    // 🔗 Se referenceJobId está presente, significa que é a SEGUNDA música (comparação)
+    // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA (se referenceJobId presente)
     if (referenceJobId) {
-      console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
-      console.log(`🔍 [AUDIT_REFERENCE] Modo: ${mode} | Detectada SEGUNDA música`);
-      console.log(`🔍 [AUDIT_REFERENCE] Tentando carregar métricas do job: ${referenceJobId}`);
-      console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
+      console.log('[WORKER][GENRE] Carregando métricas de referência...', referenceJobId.substring(0, 8));
       
       try {
         const refResult = await pool.query(
@@ -944,108 +1182,42 @@ async function audioProcessor(job) {
           [referenceJobId]
         );
         
-        console.log(`🔍 [AUDIT_REFERENCE] Query executada - Linhas retornadas: ${refResult.rows.length}`);
-        
         if (refResult.rows.length === 0) {
-          console.error('❌ [AUDIT_REFERENCE] ERRO: Job de referência NÃO ENCONTRADO no banco!');
-          console.error(`❌ [AUDIT_REFERENCE] Reference Job ID buscado: ${referenceJobId}`);
-          console.error('❌ [AUDIT_REFERENCE] Possível causa: UUID incorreto ou job não criado');
-          console.error('❌ [AUDIT_REFERENCE] Análise prosseguirá sem comparação');
+          console.error('[WORKER][GENRE] ❌ Job de referência não encontrado:', referenceJobId);
         } else {
           const refJob = refResult.rows[0];
-          console.log(`🔍 [AUDIT_REFERENCE] Job de referência encontrado!`);
-          console.log(`🔍 [AUDIT_REFERENCE] Status do job ref: ${refJob.status}`);
-          console.log(`🔍 [AUDIT_REFERENCE] Tem resultados: ${refJob.results ? 'SIM' : 'NÃO'}`);
           
           if (refJob.status !== 'completed') {
-            console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref com status '${refJob.status}' (esperado: 'completed')`);
-            console.warn(`⚠️ [AUDIT_REFERENCE] Job pode estar: pending, processing, ou failed`);
-            console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
+            console.warn('[WORKER][GENRE] ⚠️ Job ref status:', refJob.status);
           } else if (!refJob.results) {
-            console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref completed mas sem resultados!`);
-            console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
+            console.warn('[WORKER][GENRE] ⚠️ Job ref sem resultados');
           } else {
             preloadedReferenceMetrics = refJob.results;
-            console.log('✅ [AUDIT_REFERENCE] ═══════════════════════════════════════');
-            console.log('✅ [AUDIT_REFERENCE] Métricas de referência CARREGADAS com sucesso!');
-            console.log(`✅ [AUDIT_REFERENCE] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
-            console.log(`✅ [AUDIT_REFERENCE] LUFS ref: ${preloadedReferenceMetrics.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-            console.log(`✅ [AUDIT_REFERENCE] DR ref: ${preloadedReferenceMetrics.technicalData?.dynamicRange || 'N/A'} dB`);
-            console.log(`✅ [AUDIT_REFERENCE] TP ref: ${preloadedReferenceMetrics.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
-            console.log(`✅ [AUDIT_REFERENCE] File ref: ${preloadedReferenceMetrics.metadata?.fileName || 'N/A'}`);
-            console.log('✅ [AUDIT_REFERENCE] ═══════════════════════════════════════');
+            console.log('[WORKER][GENRE] ✅ Métricas ref carregadas');
           }
         }
       } catch (refError) {
-        console.error('❌ [AUDIT_REFERENCE] ═══════════════════════════════════════');
-        console.error('❌ [AUDIT_REFERENCE] ERRO ao carregar métricas de referência!');
-        console.error(`❌ [AUDIT_REFERENCE] Reference Job ID: ${referenceJobId}`);
-        console.error(`❌ [AUDIT_REFERENCE] Error Type: ${refError.name}`);
-        console.error(`❌ [AUDIT_REFERENCE] Error Message: ${refError.message}`);
-        console.error('❌ [AUDIT_REFERENCE] Análise prosseguirá sem comparação');
-        console.error('❌ [AUDIT_REFERENCE] ═══════════════════════════════════════');
-        // Não falhar o job principal, continuar sem comparação
+        console.error('[WORKER][GENRE] ❌ Erro ao carregar métricas ref:', refError.message);
       }
-    } else if (mode === 'reference') {
-      console.log('🎯 [AUDIT_REFERENCE] ═══════════════════════════════════════');
-      console.log(`🎯 [AUDIT_REFERENCE] Modo: ${mode} | PRIMEIRA música`);
-      console.log(`🎯 [AUDIT_REFERENCE] Reference Job ID: ${referenceJobId || 'null'}`);
-      console.log('🎯 [AUDIT_REFERENCE] Este job será a BASE para comparação futura');
-      console.log('🎯 [AUDIT_REFERENCE] Nenhuma métrica de referência necessária');
-      console.log('🎯 [AUDIT_REFERENCE] ═══════════════════════════════════════');
     }
 
-    console.log(`📝 [PROCESS][${new Date().toISOString()}] -> Atualizando status para processing no PostgreSQL...`);
+    console.log('[WORKER][GENRE] Atualizando status: processing');
     await updateJobStatus(jobId, 'processing');
 
-    console.log(`⬇️ [PROCESS][${new Date().toISOString()}] -> Iniciando download do arquivo: ${fileKey}`);
+    console.log('[WORKER][GENRE] Baixando arquivo...', fileKey.split('/').pop());
     const downloadStartTime = Date.now();
     localFilePath = await downloadFileFromBucket(fileKey);
     const downloadTime = Date.now() - downloadStartTime;
-    console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
+    console.log('[WORKER][GENRE] ✅ Arquivo baixado em', downloadTime, 'ms');
 
-    // 🎵 PROCESSAMENTO REAL VIA PIPELINE COMPLETO
-    console.log(`🔄 [PROCESS][${new Date().toISOString()}] -> Iniciando análise de áudio REAL via pipeline...`);
-    
     // Ler arquivo para buffer
     const fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log(`📊 [WORKER-REDIS] Arquivo lido: ${fileBuffer.length} bytes`);
+    console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
 
     const t0 = Date.now();
     
-    // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
-    // 🎯 PASSAR MÉTRICAS DE REFERÊNCIA PRELOADED PARA EVITAR ASYNC MID-PIPELINE
-    
-    // 🔍 LOG DIAGNÓSTICO COMPLETO
-    const isComparison = referenceJobId && preloadedReferenceMetrics;
-    console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
-    console.log(`🎯 [WORKER-ANALYSIS] Modo: ${mode}`);
-    console.log(`🎯 [WORKER-ANALYSIS] Reference Job ID: ${referenceJobId || 'nenhum'}`);
-    console.log(`🎯 [WORKER-ANALYSIS] Métricas preloaded: ${preloadedReferenceMetrics ? 'SIM ✅' : 'NÃO ❌'}`);
-    console.log(`🎯 [WORKER-ANALYSIS] Tipo de análise: ${isComparison ? 'COMPARAÇÃO (2ª música)' : 'SIMPLES (1ª música ou genre)'}`);
-    console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
-    
-    // 🚨🚨🚨 LOG SUPER VISÍVEL ANTES DO PIPELINE 🚨🚨🚨
-    console.error('\n\n\n\n\n');
-    console.error('╔══════════════════════════════════════════════════════════════╗');
-    console.error('║  🔥🔥🔥 WORKER-REDIS: INICIANDO PIPELINE 🔥🔥🔥             ║');
-    console.error('╚══════════════════════════════════════════════════════════════╝');
-    console.error('[WORKER-REDIS] JobId:', jobId);
-    console.error('[WORKER-REDIS] Genre:', genre);
-    console.error('[WORKER-REDIS] Mode:', mode);
-    console.error('[WORKER-REDIS] FileName:', fileName);
-    console.error('[WORKER-REDIS] Timestamp:', new Date().toISOString());
-    console.error('[WORKER-REDIS] processAudioComplete tipo:', typeof processAudioComplete);
-    console.error('\n\n');
-    
-    console.log("\n================ AUDITORIA: PRÉ-PIPELINE (REDIS) ================");
-    console.log("[PRÉ-PIPELINE] options.genre:", genre);
-    console.log("[PRÉ-PIPELINE] options.genreTargets:", genreTargets);
-    console.log("[PRÉ-PIPELINE] options.mode:", mode);
-    console.log("[PRÉ-PIPELINE] options.planContext:", extractedPlanContext ? 'PRESENTE' : 'AUSENTE');
-    console.log("[PRÉ-PIPELINE] options.planContext.analysisMode:", extractedPlanContext?.analysisMode);
-    console.log("[PRÉ-PIPELINE] jobId:", jobId);
-    console.log("==================================================================\n");
+    // Processar via pipeline
+    console.log('[WORKER][GENRE] Iniciando pipeline...');
     
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId,
@@ -1054,69 +1226,32 @@ async function audioProcessor(job) {
       preloadedReferenceMetrics,
       genre,
       genreTargets,
-      planContext: extractedPlanContext || null  // 🎯 CRÍTICO: Passar planContext para o pipeline
+      planContext: extractedPlanContext || null
     });
+    
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Pipeline timeout após 3 minutos para: ${fileName}`));
-      }, 180000);
+      setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
     });
 
-    console.log(`⚡ [WORKER-REDIS] Iniciando processamento de ${fileName}...`);
     const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
     const totalMs = Date.now() - t0;
     
-    console.log(`✅ [WORKER-REDIS] Pipeline concluído em ${totalMs}ms`);
+    console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
+    console.log('[WORKER][GENRE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
+    console.log('[WORKER][GENRE] Score:', finalJSON.score || 0);
     
-    // ────────────────────────────────────────
-    // STEP 1 — LOGAR AS MÉTRICAS BASE APÓS O PIPELINE
-    // ────────────────────────────────────────
-    console.log("[TRACE_S1_METRICS_BASE]", {
-      genre: finalJSON?.metadata?.genre || finalJSON?.genre,
-      metrics: finalJSON?.metrics,
-      technicalData: finalJSON?.technicalData,
-      genreTargets: finalJSON?.data?.genreTargets,
-      lufsIntegrated: finalJSON?.metrics?.loudness?.integrated,
-      truePeakDbtp: finalJSON?.technicalData?.truePeakDbtp,
-      dynamicRange: finalJSON?.technicalData?.dynamicRange,
-    });
-    
-    console.log("\n================ AUDITORIA: PÓS-PIPELINE (REDIS) ================");
-    console.log("[PÓS-PIPELINE] finalJSON.data.genreTargets existe?:", !!finalJSON?.data?.genreTargets);
-    console.log("[PÓS-PIPELINE] finalJSON.data.metrics existe?:", !!finalJSON?.data?.metrics);
-    console.log("[PÓS-PIPELINE] finalJSON.problemsAnalysis existe?:", !!finalJSON?.problemsAnalysis);
-    console.log("[PÓS-PIPELINE] Campo de targets vindo do pipeline:", JSON.stringify(finalJSON?.data?.genreTargets, null, 2));
-    console.log("[PÓS-PIPELINE] Campo de metrics vindo do pipeline:", JSON.stringify(finalJSON?.data?.metrics, null, 2));
-    console.log("[PÓS-PIPELINE] Número de sugestões geradas:", finalJSON?.problemsAnalysis?.suggestions?.length || 0);
-    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.analysisMode:', finalJSON?.analysisMode);
-    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.isReduced:', finalJSON?.isReduced);
-    console.log('🔥🔥🔥 [PÓS-PIPELINE] finalJSON.limitWarning:', finalJSON?.limitWarning);
-    console.log("==================================================================\n");
-    
-    // 🔥 CORREÇÃO CRÍTICA: Copiar campos de controle de plano do pipeline
-    // Garantir que analysisMode, isReduced, limitWarning sejam preservados
+    // Garantir planContext
     if (!finalJSON.analysisMode && extractedPlanContext?.analysisMode) {
-      console.warn('[PLAN-AUDIT] ⚠️ Pipeline não retornou analysisMode - usando planContext');
       finalJSON.analysisMode = extractedPlanContext.analysisMode;
     }
     if (!finalJSON.isReduced && finalJSON.analysisMode === 'reduced') {
-      console.warn('[PLAN-AUDIT] ⚠️ isReduced ausente - inferindo de analysisMode');
       finalJSON.isReduced = true;
     }
     if (!finalJSON.limitWarning && finalJSON.analysisMode === 'reduced' && extractedPlanContext) {
-      console.warn('[PLAN-AUDIT] ⚠️ limitWarning ausente - gerando mensagem padrão');
       finalJSON.limitWarning = `Você atingiu o limite de análises completas do plano ${extractedPlanContext.plan?.toUpperCase() || 'FREE'}. Atualize seu plano para desbloquear análise completa.`;
     }
-    
-    // 🔥 LOG DE AUDITORIA: Campos de plano após correção
-    console.log('[PLAN-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[PLAN-AUDIT] Campos de plano copiados para finalJSON:');
-    console.log('[PLAN-AUDIT]   finalJSON.analysisMode:', finalJSON.analysisMode);
-    console.log('[PLAN-AUDIT]   finalJSON.isReduced:', finalJSON.isReduced);
-    console.log('[PLAN-AUDIT]   finalJSON.limitWarning:', finalJSON.limitWarning);
-    console.log('[PLAN-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Enriquecer resultado com informações do worker
+    // Enriquecer resultado
     finalJSON.performance = {
       ...(finalJSON.performance || {}),
       workerTotalTimeMs: totalMs,
@@ -1133,65 +1268,18 @@ async function audioProcessor(job) {
       jobId: jobId
     };
     
-    console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento REAL concluído com sucesso`);
-    console.log(`📊 [PROCESS] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} | Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'}dBTP | Score: ${finalJSON.score || 0}`);
-    
-    // ✅ GARANTIR QUE SUGGESTIONS NUNCA SEJA UNDEFINED
+    // Garantir suggestions
     if (!finalJSON.suggestions) {
-      console.warn(`[AI-AUDIT][SAVE.before] ⚠️ finalJSON.suggestions estava undefined - inicializando como array vazio`);
       finalJSON.suggestions = [];
     }
     
-    // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO - SUGGESTIONS BASE
-    console.log(`[AI-AUDIT][SAVE.before] has suggestions?`, Array.isArray(finalJSON.suggestions), "len:", finalJSON.suggestions?.length || 0);
-    
-    if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
-      console.error(`[AI-AUDIT][SAVE.before] ❌ CRÍTICO: finalJSON.suggestions está vazio ou undefined!`);
-      console.error(`[AI-AUDIT][SAVE.before] finalJSON keys:`, Object.keys(finalJSON));
-    } else {
-      console.log(`[AI-AUDIT][SAVE.before] ✅ finalJSON.suggestions contém ${finalJSON.suggestions.length} itens`);
-      console.log(`[AI-AUDIT][SAVE.before] Sample:`, finalJSON.suggestions[0]);
-    }
-    
-    // 🤖 LOGS DE AUDITORIA PRÉ-SALVAMENTO - AI SUGGESTIONS (ULTRA V2)
-    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[AI-AUDIT][SAVE.before] 🤖 AUDITORIA aiSuggestions`);
-    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[AI-AUDIT][SAVE.before] has aiSuggestions?`, Array.isArray(finalJSON.aiSuggestions));
-    console.log(`[AI-AUDIT][SAVE.before] aiSuggestions length:`, finalJSON.aiSuggestions?.length || 0);
-    console.log(`[AI-AUDIT][SAVE.before] aiSuggestions type:`, typeof finalJSON.aiSuggestions);
-    
-    if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
-      console.error(`[AI-AUDIT][SAVE.before] ❌ CRÍTICO: finalJSON.aiSuggestions está vazio ou undefined!`);
-      console.error(`[AI-AUDIT][SAVE.before] Mode:`, mode);
-      console.error(`[AI-AUDIT][SAVE.before] ReferenceJobId:`, referenceJobId);
-      console.error(`[AI-AUDIT][SAVE.before] ⚠️ ISSO CAUSARÁ AUSÊNCIA DE aiSuggestions NO FRONTEND!`);
-    } else {
-      console.log(`[AI-AUDIT][SAVE.before] ✅ finalJSON.aiSuggestions contém ${finalJSON.aiSuggestions.length} itens`);
-      console.log(`[AI-AUDIT][SAVE.before] Sample aiSuggestion:`, {
-        aiEnhanced: finalJSON.aiSuggestions[0]?.aiEnhanced,
-        enrichmentStatus: finalJSON.aiSuggestions[0]?.enrichmentStatus,
-        categoria: finalJSON.aiSuggestions[0]?.categoria,
-        nivel: finalJSON.aiSuggestions[0]?.nivel,
-        hasProblema: !!finalJSON.aiSuggestions[0]?.problema,
-        hasSolucao: !!finalJSON.aiSuggestions[0]?.solucao
-      });
-    }
-    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    
-    //---------------------------------------------------------
-    // 🔥 ULTRA FIX — ADICIONAR AI ENRICHMENT ANTES DA VALIDAÇÃO
-    //---------------------------------------------------------
+    // AI Enrichment
     try {
-      console.log("\n[ENRICHMENT] Iniciando enrichment AI V2...");
+      console.log('[WORKER][GENRE] Iniciando AI enrichment...');
 
       const metrics = finalJSON.data?.metrics || finalJSON.metrics || null;
       const targets = finalJSON.data?.genreTargets || finalJSON.genreTargets || null;
       const problems = finalJSON.problemsAnalysis || null;
-
-      console.log("[ENRICHMENT] Métricas carregadas?", !!metrics);
-      console.log("[ENRICHMENT] Targets carregados?", !!targets);
-      console.log("[ENRICHMENT] Problems carregado?", !!problems);
 
       const enriched = await enrichSuggestionsWithAI(
         finalJSON.suggestions || [],
@@ -1205,122 +1293,51 @@ async function audioProcessor(job) {
         }
       );
 
-      if (Array.isArray(enriched)) {
-        finalJSON.aiSuggestions = enriched;
-        console.log("[ENRICHMENT] aiSuggestions geradas:", enriched.length);
-      } else {
-        console.warn("[ENRICHMENT] Nenhuma aiSuggestion gerada.");
-        finalJSON.aiSuggestions = [];
-      }
-
-      console.log("[ENRICHMENT] Exemplo:", enriched?.[0]);
+      finalJSON.aiSuggestions = Array.isArray(enriched) ? enriched : [];
+      console.log('[WORKER][GENRE] ✅ AI enrichment:', finalJSON.aiSuggestions.length, 'sugestões');
 
     } catch (err) {
-      console.error("❌ ERRO NO ENRICHMENT:", err);
+      console.error('[WORKER][GENRE] ❌ Erro no enrichment:', err.message);
       finalJSON.aiSuggestions = [];
     }
-    //---------------------------------------------------------
     
-    // 🛡️ FIX: VALIDAR JSON ANTES DE MARCAR COMO COMPLETED
+    // Validar JSON
     const validation = validateCompleteJSON(finalJSON, mode, referenceJobId);
     
     if (!validation.valid) {
-      console.error('[WORKER] ❌❌❌ JSON INCOMPLETO - AGUARDANDO MÓDULOS FALTANTES');
-      console.error('[WORKER] Campos ausentes:', validation.missing);
-      console.error('[WORKER] Status permanecerá como "processing"');
-      console.error('[WORKER] Job NÃO será marcado como completed');
+      console.error('[WORKER][GENRE] ❌ JSON incompleto:', validation.missing.join(', '));
       
-      // Salvar com status processing para frontend continuar aguardando
       await updateJobStatus(jobId, 'processing', finalJSON);
       
-      // Limpar arquivo temporário
       if (localFilePath && fs.existsSync(localFilePath)) {
         fs.unlinkSync(localFilePath);
-        console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
       }
       
-      // Retornar erro para BullMQ tentar novamente
       throw new Error(`JSON incompleto: ${validation.missing.join(', ')}`);
     }
     
-    console.log('[WORKER] ✅✅✅ JSON VALIDADO - MARCANDO COMO COMPLETED');
-    
-    // 🔥 LOG DE AUDITORIA FINAL: analysisMode antes do salvamento
-    console.log('\n\n🔥🔥🔥 [PLAN-AUDIT-FINAL] ANTES DE SALVAR NO POSTGRESQL 🔥🔥🔥');
-    console.log('[PLAN-AUDIT-FINAL] finalJSON.analysisMode:', finalJSON.analysisMode);
-    console.log('[PLAN-AUDIT-FINAL] finalJSON.isReduced:', finalJSON.isReduced);
-    console.log('[PLAN-AUDIT-FINAL] finalJSON.limitWarning:', finalJSON.limitWarning);
-    console.log('[PLAN-AUDIT-FINAL] extractedPlanContext?.analysisMode:', extractedPlanContext?.analysisMode);
-    console.log('[PLAN-AUDIT-FINAL] Tamanho do JSON:', JSON.stringify(finalJSON).length, 'bytes');
-    console.log('🔥🔥🔥 [PLAN-AUDIT-FINAL] FIM DA AUDITORIA 🔥🔥🔥\n\n');
-    
-    // 🎯 AUDIT: LOG DE CONCLUSÃO
-    console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
-    console.log('✅ [AUDIT_COMPLETE] Job CONCLUÍDO com sucesso');
-    console.log(`✅ [AUDIT_COMPLETE] Redis Job ID: ${job.id}`);
-    console.log(`✅ [AUDIT_COMPLETE] PostgreSQL UUID: ${jobId}`);
-    console.log(`✅ [AUDIT_COMPLETE] Status: completed`);
-    console.log(`✅ [AUDIT_COMPLETE] Mode: ${mode}`);
-    console.log(`✅ [AUDIT_COMPLETE] Reference Job ID: ${referenceJobId || 'nenhum'}`);
-    console.log(`✅ [AUDIT_COMPLETE] Score: ${finalJSON.score || 0}`);
-    console.log(`✅ [AUDIT_COMPLETE] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-    console.log(`✅ [AUDIT_COMPLETE] DR: ${finalJSON.technicalData?.dynamicRange || 'N/A'} dB`);
-    console.log(`✅ [AUDIT_COMPLETE] True Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
-    console.log(`✅ [AUDIT_COMPLETE] Suggestions: ${finalJSON.suggestions?.length || 0} items`);
-    console.log(`✅ [AUDIT_COMPLETE] aiSuggestions: ${finalJSON.aiSuggestions?.length || 0} items`);
-    console.log(`✅ [AUDIT_COMPLETE] Processing Time: ${totalMs}ms`);
-    console.log(`✅ [AUDIT_COMPLETE] Timestamp: ${new Date().toISOString()}`);
-    console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
+    console.log('[WORKER][GENRE] ✅ JSON validado - salvando como completed');
     
     await updateJobStatus(jobId, 'completed', finalJSON);
     
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
-      console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
     }
-    
-    // 🔥 LOG DE AUDITORIA FINAL: JSON retornado ao BullMQ
-    console.log('\n\n🔥🔥🔥 [PLAN-AUDIT-RETURN] JSON FINAL RETORNADO 🔥🔥🔥');
-    console.log('[PLAN-AUDIT-RETURN] finalJSON.analysisMode:', finalJSON.analysisMode);
-    console.log('[PLAN-AUDIT-RETURN] finalJSON.isReduced:', finalJSON.isReduced);
-    console.log('[PLAN-AUDIT-RETURN] Este JSON será retornado ao frontend via polling');
-    console.log('🔥🔥🔥 [PLAN-AUDIT-RETURN] FIM 🔥🔥🔥\n\n');
+
+    console.log('[WORKER][GENRE] ✅ Job concluído:', {
+      jobId: jobId.substring(0, 8),
+      score: finalJSON.score || 0,
+      suggestions: finalJSON.suggestions?.length || 0,
+      aiSuggestions: finalJSON.aiSuggestions?.length || 0
+    });
 
     return finalJSON;
 
   } catch (error) {
-    console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro no processamento:`, error.message);
+    console.error('[WORKER][GENRE] ❌ Erro:', error.message);
     
-    console.log("🔴 [AUDIT:GENRE-ERROR] Gênero chegou NU no pipeline!");
-    console.log("🔴 [AUDIT:GENRE-ERROR] job.data ===>");
-    console.dir(job.data, { depth: 10 });
-    
-    // 🎯 AUDIT: LOG DE ERRO
-    console.error('❌ [AUDIT_ERROR] ═══════════════════════════════════════');
-    console.error('❌ [AUDIT_ERROR] Job FALHOU durante processamento');
-    console.error(`❌ [AUDIT_ERROR] Redis Job ID: ${job.id}`);
-    console.error(`❌ [AUDIT_ERROR] PostgreSQL UUID: ${jobId}`);
-    console.error(`❌ [AUDIT_ERROR] Mode: ${mode}`);
-    console.error(`❌ [AUDIT_ERROR] Reference Job ID: ${referenceJobId || 'nenhum'}`);
-    console.error(`❌ [AUDIT_ERROR] File Key: ${fileKey}`);
-    console.error(`❌ [AUDIT_ERROR] Error Type: ${error.name || 'UnknownError'}`);
-    console.error(`❌ [AUDIT_ERROR] Error Message: ${error.message}`);
-    console.error(`❌ [AUDIT_ERROR] Timestamp: ${new Date().toISOString()}`);
-    
-    // Stack trace completo para diagnóstico
-    if (error.stack) {
-      console.error(`❌ [AUDIT_ERROR] Stack Trace:`);
-      console.error(error.stack);
-    }
-    
-    // Informações adicionais sobre o estado do job
-    console.error(`❌ [AUDIT_ERROR] Job Attempt: ${job.attemptsMade + 1}/${job.opts?.attempts || 'N/A'}`);
-    console.error(`❌ [AUDIT_ERROR] Local File Path: ${localFilePath || 'não baixado'}`);
-    console.error(`❌ [AUDIT_ERROR] Reference Metrics Loaded: ${preloadedReferenceMetrics ? 'SIM' : 'NÃO'}`);
-    console.error('❌ [AUDIT_ERROR] ═══════════════════════════════════════');
-    
-    // 🔥 RETORNO DE SEGURANÇA em caso de erro no pipeline
+    // 🔥 RETORNO DE SEGURANÇA
     const errorResult = {
       status: 'error',
       error: {
@@ -1358,16 +1375,15 @@ async function audioProcessor(job) {
     try {
       await updateJobStatus(jobId, 'failed', errorResult);
     } catch (dbError) {
-      console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Falha ao atualizar status do job para failed:`, dbError.message);
+      console.error('[WORKER][GENRE] ❌ Falha ao atualizar status failed:', dbError.message);
     }
     
-    // Limpar arquivo temporário em caso de erro
+    // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
       try {
         fs.unlinkSync(localFilePath);
-        console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido após erro: ${localFilePath}`);
       } catch (cleanupError) {
-        console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro ao limpar arquivo temporário:`, cleanupError.message);
+        console.error('[WORKER][GENRE] ❌ Erro ao limpar arquivo:', cleanupError.message);
       }
     }
     
