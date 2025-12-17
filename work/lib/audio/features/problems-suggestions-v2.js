@@ -1364,7 +1364,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
  * @returns {Object} - Análise completa com sugestões
  * @throws {Error} - Se customTargets ausente e finalJSON.data.genreTargets ausente
  */
-export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
+export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null, mode = 'genre') {
   process.stderr.write("\n\n");
   process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
   process.stderr.write("║  🔥🔥� DENTRO DO SUGGESTION ENGINE 🔥🔥🔥                    ║\n");
@@ -1372,6 +1372,7 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("[ENGINE] ⏰ Timestamp: " + new Date().toISOString() + "\n");
   process.stderr.write("[ENGINE] 📥 Parâmetros recebidos:\n");
   process.stderr.write("  - genre: " + genre + "\n");
+  process.stderr.write("  - mode: " + mode + "\n");
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!(finalJSON && finalJSON.data) + "\n");
@@ -1380,7 +1381,14 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   const hasCustomTargets = customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0;
   const hasGenreTargets = finalJSON && finalJSON.data && finalJSON.data.genreTargets && typeof finalJSON.data.genreTargets === 'object';
   
+  // ✅ CORREÇÃO REFERENCE: Em modo reference, targets são opcionais (primeira track)
   if (!hasCustomTargets && !hasGenreTargets) {
+    if (mode === 'reference') {
+      process.stderr.write("[ENGINE] ⚠️ MODO REFERENCE: Targets ausentes - retornando sugestões vazias\n");
+      process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+      return { aiSuggestions: [], problems: [], diagnostics: {} };
+    }
+    
     process.stderr.write("[ENGINE] 🚨 ERRO CRÍTICO: Nenhum target disponível!\n");
     process.stderr.write("[ENGINE] ❌ customTargets: ausente ou vazio\n");
     process.stderr.write("[ENGINE] ❌ finalJSON.data.genreTargets: ausente\n");
