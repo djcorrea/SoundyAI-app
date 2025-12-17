@@ -829,12 +829,20 @@ async function processReferenceBase(job) {
     finalJSON.referenceJobId = jobId; // Este job é a base para próxima comparação
     finalJSON.jobId = jobId; // ✅ jobId explícito para referência
     
-    // Garantir que aiSuggestions existe (vazio para base)
+    // ✅ GARANTIR campos obrigatórios para compatibilidade com polling/render
     finalJSON.aiSuggestions = [];
     finalJSON.suggestions = [];
+    finalJSON.referenceComparison = null; // Null no base (só existe no compare)
     
-    // Garantir referenceComparison null no base (só existe no compare)
-    finalJSON.referenceComparison = null;
+    // ✅ ADICIONAR baseMetrics explicitamente (facilita frontend)
+    finalJSON.baseMetrics = {
+      lufsIntegrated: finalJSON.technicalData?.lufsIntegrated,
+      truePeakDbtp: finalJSON.technicalData?.truePeakDbtp,
+      dynamicRange: finalJSON.technicalData?.dynamicRange,
+      loudnessRange: finalJSON.technicalData?.loudnessRange,
+      stereoWidth: finalJSON.metrics?.stereoImaging?.width,
+      spectralBalance: finalJSON.metrics?.spectralBalance
+    };
 
     // Performance
     finalJSON.performance = {
@@ -1030,6 +1038,17 @@ async function processReferenceCompare(job) {
     finalJSON.referenceJobId = referenceJobId;
     finalJSON.jobId = jobId; // ✅ jobId explícito
     finalJSON.requiresSecondTrack = false; // Fluxo completo
+    
+    // ✅ ADICIONAR baseMetrics explicitamente (facilita frontend)
+    finalJSON.baseMetrics = {
+      lufsIntegrated: baseTech.lufsIntegrated,
+      truePeakDbtp: baseTech.truePeakDbtp,
+      dynamicRange: baseTech.dynamicRange,
+      loudnessRange: baseTech.loudnessRange,
+      stereoWidth: baseMetrics.metrics?.stereoImaging?.width,
+      spectralBalance: baseMetrics.metrics?.spectralBalance,
+      fileName: baseMetrics.metadata?.fileName
+    };
 
     finalJSON.performance = {
       ...(finalJSON.performance || {}),
