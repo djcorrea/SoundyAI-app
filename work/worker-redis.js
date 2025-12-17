@@ -395,129 +395,94 @@ function startHealthCheckServer() {
 function validateCompleteJSON(finalJSON, mode, referenceJobId) {
   const missing = [];
   
-  // 🎯 Detectar se é o PRIMEIRO ou SEGUNDO job do fluxo A/B
-  const isFirstJob = !referenceJobId || referenceJobId === null;
-  const isSecondJob = mode === 'reference' && referenceJobId && referenceJobId !== null;
+  // 🎯 Detectar referenceStage explícito
+  const referenceStage = finalJSON.referenceStage || null;
   
-  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[WORKER-VALIDATION] 🔍 VALIDANDO JSON ANTES DE MARCAR COMPLETED');
-  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`[WORKER-VALIDATION] Modo: ${mode}`);
-  console.log(`[WORKER-VALIDATION] ReferenceJobId: ${referenceJobId || 'null'}`);
-  console.log(`[WORKER-VALIDATION] Tipo de análise: ${isFirstJob ? 'PRIMEIRO JOB (individual)' : 'SEGUNDO JOB (comparação A/B)'}`);
-  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  
-  // 1. Validar suggestions (base)
-  // 🎯 FIX: Só validar se for SEGUNDO job (comparação A/B)
-  if (isSecondJob) {
-    if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
-      missing.push('suggestions (array vazio ou ausente)');
-      console.error('[WORKER-VALIDATION] ❌ suggestions: AUSENTE ou VAZIO (obrigatório para comparação A/B)');
-    } else {
-      console.log(`[WORKER-VALIDATION] ✅ suggestions: ${finalJSON.suggestions.length} itens`);
-    }
-  } else {
-    // Primeiro job: suggestions vazias são VÁLIDAS
-    console.log(`[WORKER-VALIDATION] ⏭️ suggestions: ${finalJSON.suggestions?.length || 0} itens (OPCIONAL para primeiro job)`);
-  }
-  
-  // 2. Validar aiSuggestions (IA enriquecida)
-  // 🎯 FIX: Só validar se for SEGUNDO job (comparação A/B)
-  if (isSecondJob) {
-    if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
-      missing.push('aiSuggestions (array vazio ou ausente)');
-      console.error('[WORKER-VALIDATION] ❌ aiSuggestions: AUSENTE ou VAZIO (obrigatório para comparação A/B)');
-    } else {
-      console.log(`[WORKER-VALIDATION] ✅ aiSuggestions: ${finalJSON.aiSuggestions.length} itens`);
-    }
-  } else {
-    // Primeiro job: aiSuggestions vazias são VÁLIDAS
-    console.log(`[WORKER-VALIDATION] ⏭️ aiSuggestions: ${finalJSON.aiSuggestions?.length || 0} itens (OPCIONAL para primeiro job)`);
-  }
-  
-  // 3. Validar technicalData
-  if (!finalJSON.technicalData || typeof finalJSON.technicalData !== 'object') {
-    missing.push('technicalData (ausente ou inválido)');
-    console.error('[WORKER-VALIDATION] ❌ technicalData: AUSENTE');
-  } else {
-    const hasLUFS = typeof finalJSON.technicalData.lufsIntegrated === 'number';
-    const hasPeak = typeof finalJSON.technicalData.truePeakDbtp === 'number';
-    const hasDR = typeof finalJSON.technicalData.dynamicRange === 'number';
-    
-    if (!hasLUFS) missing.push('technicalData.lufsIntegrated');
-    if (!hasPeak) missing.push('technicalData.truePeakDbtp');
-    if (!hasDR) missing.push('technicalData.dynamicRange');
-    
-    console.log(`[WORKER-VALIDATION] ✅ technicalData: presente`);
-    console.log(`[WORKER-VALIDATION]    - LUFS: ${hasLUFS ? finalJSON.technicalData.lufsIntegrated : 'AUSENTE'}`);
-    console.log(`[WORKER-VALIDATION]    - Peak: ${hasPeak ? finalJSON.technicalData.truePeakDbtp : 'AUSENTE'}`);
-    console.log(`[WORKER-VALIDATION]    - DR: ${hasDR ? finalJSON.technicalData.dynamicRange : 'AUSENTE'}`);
-  }
-  
-  // 4. Validar score
-  if (typeof finalJSON.score !== 'number') {
-    missing.push('score (ausente ou não numérico)');
-    console.error('[WORKER-VALIDATION] ❌ score: AUSENTE');
-  } else {
-    console.log(`[WORKER-VALIDATION] ✅ score: ${finalJSON.score}`);
-  }
-  
-  // 5. Validar spectralBands
-  if (!finalJSON.spectralBands || typeof finalJSON.spectralBands !== 'object') {
-    missing.push('spectralBands (ausente)');
-    console.error('[WORKER-VALIDATION] ❌ spectralBands: AUSENTE');
-  } else {
-    console.log('[WORKER-VALIDATION] ✅ spectralBands: presente');
-  }
-  
-  // 6. Validar metrics
-  if (!finalJSON.metrics || typeof finalJSON.metrics !== 'object') {
-    missing.push('metrics (ausente)');
-    console.error('[WORKER-VALIDATION] ❌ metrics: AUSENTE');
-  } else {
-    console.log('[WORKER-VALIDATION] ✅ metrics: presente');
-  }
-  
-  // 7. Validar scoring
-  if (!finalJSON.scoring || typeof finalJSON.scoring !== 'object') {
-    missing.push('scoring (ausente)');
-    console.error('[WORKER-VALIDATION] ❌ scoring: AUSENTE');
-  } else {
-    console.log('[WORKER-VALIDATION] ✅ scoring: presente');
-  }
-  
-  // 8. Validar referenceComparison SOMENTE para referenceStage='compare'
-  // 🎯 FIX CRÍTICO: Base NÃO exige referenceComparison, apenas compare exige
-  const referenceStage = finalJSON.referenceStage || finalJSON.metadata?.referenceStage || null;
-  const isCompareStage = (referenceStage === 'compare') || (mode === 'reference' && referenceJobId);
-  
-  console.log('[WORKER-VALIDATION] 🔍 Reference stage detection:', {
+  console.log('[VALIDATION] Validando:', {
+    mode,
     referenceStage,
-    referenceJobId: referenceJobId || 'null',
-    isCompareStage
+    referenceJobId: referenceJobId ? referenceJobId.substring(0, 8) : 'null'
   });
   
-  if (isCompareStage) {
-    if (!finalJSON.referenceComparison || typeof finalJSON.referenceComparison !== 'object') {
-      missing.push('referenceComparison (necessário para referenceStage=compare)');
-      console.error('[WORKER-VALIDATION] ❌ referenceComparison: AUSENTE (obrigatório para compare)');
+  // ══════════════════════════════════════════════════════════
+  // REFERENCE MODE: Validação por stage
+  // ══════════════════════════════════════════════════════════
+  if (mode === 'reference') {
+    if (referenceStage === 'base') {
+      // BASE: NÃO exigir suggestions/aiSuggestions/referenceComparison
+      console.log('[VALIDATION] Reference BASE - validação mínima');
+      
+      // Validar apenas métricas técnicas
+      if (!finalJSON.technicalData || typeof finalJSON.technicalData !== 'object') {
+        missing.push('technicalData');
+      }
+      if (typeof finalJSON.score !== 'number') {
+        missing.push('score');
+      }
+      if (!finalJSON.metrics) {
+        missing.push('metrics');
+      }
+      
+      // Verificar requiresSecondTrack
+      if (!finalJSON.requiresSecondTrack) {
+        console.warn('[VALIDATION] ⚠️ Base sem requiresSecondTrack - adicionando...');
+        finalJSON.requiresSecondTrack = true;
+      }
+      
+    } else if (referenceStage === 'compare') {
+      // COMPARE: EXIGIR referenceComparison + suggestions
+      console.log('[VALIDATION] Reference COMPARE - validação completa');
+      
+      if (!finalJSON.technicalData) missing.push('technicalData');
+      if (typeof finalJSON.score !== 'number') missing.push('score');
+      if (!finalJSON.metrics) missing.push('metrics');
+      
+      // Obrigatório: referenceComparison
+      if (!finalJSON.referenceComparison || typeof finalJSON.referenceComparison !== 'object') {
+        missing.push('referenceComparison');
+        console.error('[VALIDATION] ❌ referenceComparison obrigatório para compare');
+      }
+      
+      // Obrigatório: sugestões (para renderizar UI)
+      if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
+        missing.push('aiSuggestions');
+        console.error('[VALIDATION] ❌ aiSuggestions obrigatório para compare');
+      }
+      
     } else {
-      console.log('[WORKER-VALIDATION] ✅ referenceComparison: presente');
+      console.error('[VALIDATION] ❌ Reference sem referenceStage válido:', referenceStage);
+      missing.push('referenceStage (deve ser "base" ou "compare")');
     }
-  } else if (mode === 'reference') {
-    console.log('[WORKER-VALIDATION] ⏭️ referenceComparison: NÃO OBRIGATÓRIO (referenceStage=base)');
+  }
+  
+  // ══════════════════════════════════════════════════════════
+  // GENRE MODE: Validação tradicional (INALTERADA)
+  // ══════════════════════════════════════════════════════════
+  else if (mode === 'genre') {
+    console.log('[VALIDATION] Genre mode - validação tradicional');
+    
+    if (!finalJSON.technicalData) missing.push('technicalData');
+    if (typeof finalJSON.score !== 'number') missing.push('score');
+    if (!finalJSON.spectralBands) missing.push('spectralBands');
+    if (!finalJSON.metrics) missing.push('metrics');
+    if (!finalJSON.scoring) missing.push('scoring');
+    
+    // Genre sempre exige suggestions
+    if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
+      missing.push('suggestions');
+    }
+    if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
+      missing.push('aiSuggestions');
+    }
   }
   
   const isValid = missing.length === 0;
   
-  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   if (isValid) {
-    console.log('[WORKER-VALIDATION] ✅✅✅ JSON COMPLETO - PODE MARCAR COMO COMPLETED');
+    console.log('[VALIDATION] ✅ JSON completo - pode marcar COMPLETED');
   } else {
-    console.error('[WORKER-VALIDATION] ❌❌❌ JSON INCOMPLETO - NÃO PODE MARCAR COMO COMPLETED');
-    console.error(`[WORKER-VALIDATION] Campos faltando (${missing.length}):`, missing);
+    console.error('[VALIDATION] ❌ JSON incompleto:', missing.join(', '));
   }
-  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
   return { valid: isValid, missing };
 }
