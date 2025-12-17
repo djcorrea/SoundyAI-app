@@ -429,18 +429,31 @@ async function processJob(job) {
       throw new Error(`Job ${job.id} não possui job.data (null ou undefined)`);
     }
     
-    // 🚨 VALIDAÇÃO CRÍTICA: Se genre não for string válida, REJEITAR JOB (NUNCA usar 'default')
-    if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
-      console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data.genre inválido ou ausente:', {
-        extractedGenre,
-        type: typeof extractedGenre,
-        jobId: job.id.substring(0, 8),
-        jobData: job.data
-      });
-      throw new Error(`Job ${job.id} não possui genre válido em job.data - REJEITADO (nunca usar 'default')`);
+    // 🚨 VALIDAÇÃO CRÍTICA: Se mode==='genre', genre é OBRIGATÓRIO (NUNCA usar 'default')
+    // ✅ CORREÇÃO REFERENCE MODE: Se mode==='reference', genre é OPCIONAL
+    const jobMode = job.mode || job.data?.mode || 'genre';
+    
+    if (jobMode === 'genre') {
+      // MODO GENRE: Genre é obrigatório
+      if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
+        console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data.genre inválido ou ausente em mode=genre:', {
+          extractedGenre,
+          type: typeof extractedGenre,
+          jobId: job.id.substring(0, 8),
+          jobMode,
+          jobData: job.data
+        });
+        throw new Error(`Job ${job.id} não possui genre válido em job.data - REJEITADO (modo genre requer genre válido)`);
+      }
+    } else if (jobMode === 'reference') {
+      // MODO REFERENCE: Genre é opcional
+      console.log('[REFERENCE-TRACE][WORKER] ℹ️ Modo reference detectado - genre não é obrigatório');
+      if (!extractedGenre) {
+        console.log('[REFERENCE-TRACE][WORKER] ℹ️ Genre ausente em mode=reference (OK)');
+      }
     }
     
-    const finalGenre = extractedGenre.trim();
+    const finalGenre = extractedGenre ? extractedGenre.trim() : null;
     const finalGenreTargets = extractedGenreTargets || null;
 
     // 🎯 EXTRAIR planContext do job.data (CORREÇÃO CRÍTICA PARA PLANOS)
