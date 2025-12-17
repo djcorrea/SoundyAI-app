@@ -484,14 +484,26 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
     console.log('[WORKER-VALIDATION] ✅ scoring: presente');
   }
   
-  // 8. Validar referenceComparison se necessário
-  if (mode === 'reference' && referenceJobId) {
+  // 8. Validar referenceComparison SOMENTE para referenceStage='compare'
+  // 🎯 FIX CRÍTICO: Base NÃO exige referenceComparison, apenas compare exige
+  const referenceStage = finalJSON.referenceStage || finalJSON.metadata?.referenceStage || null;
+  const isCompareStage = (referenceStage === 'compare') || (mode === 'reference' && referenceJobId);
+  
+  console.log('[WORKER-VALIDATION] 🔍 Reference stage detection:', {
+    referenceStage,
+    referenceJobId: referenceJobId || 'null',
+    isCompareStage
+  });
+  
+  if (isCompareStage) {
     if (!finalJSON.referenceComparison || typeof finalJSON.referenceComparison !== 'object') {
-      missing.push('referenceComparison (necessário para modo reference)');
-      console.error('[WORKER-VALIDATION] ❌ referenceComparison: AUSENTE (obrigatório para modo reference)');
+      missing.push('referenceComparison (necessário para referenceStage=compare)');
+      console.error('[WORKER-VALIDATION] ❌ referenceComparison: AUSENTE (obrigatório para compare)');
     } else {
       console.log('[WORKER-VALIDATION] ✅ referenceComparison: presente');
     }
+  } else if (mode === 'reference') {
+    console.log('[WORKER-VALIDATION] ⏭️ referenceComparison: NÃO OBRIGATÓRIO (referenceStage=base)');
   }
   
   const isValid = missing.length === 0;
