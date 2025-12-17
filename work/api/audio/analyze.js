@@ -90,7 +90,15 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   
   // 🆕 Normalizar analysisType (usar analysisType se presente, senão usar mode)
   const finalAnalysisType = analysisType || mode;
-  const finalReferenceStage = referenceStage || null;
+  
+  // 🎯 CORREÇÃO #1: Auto-detectar referenceStage se não vier do frontend
+  let finalReferenceStage = referenceStage;
+  
+  if (!finalReferenceStage && finalAnalysisType === 'reference') {
+    // Auto-detectar stage baseado em referenceJobId
+    finalReferenceStage = referenceJobId ? 'compare' : 'base';
+    console.log(`[ANALYZE] 🎯 Auto-detectado referenceStage: ${finalReferenceStage}`);
+  }
   
   // 📋 externalId para logs e identificação externa (pode ser personalizado)
   const externalId = `audio-${Date.now()}-${jobId.substring(0, 8)}`;

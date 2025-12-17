@@ -428,7 +428,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         genre: detectedGenre,
         genreTargets: customTargets || options.genreTargets,
         referenceJobId: options.referenceJobId,
-        referenceStage: options.referenceStage || options.analysisType === 'reference' ? (options.referenceJobId ? 'compare' : 'base') : null // 🆕 Detectar estágio
+        
+        // 🎯 CORREÇÃO #3: Detectar referenceStage com validação rigorosa de referenceJobId
+        referenceStage: options.referenceStage || (
+          options.analysisType === 'reference' ? (
+            // Validação rigorosa: deve ser string não-vazia
+            (options.referenceJobId && 
+             typeof options.referenceJobId === 'string' && 
+             options.referenceJobId.trim() !== '' 
+              ? 'compare' 
+              : 'base')
+          ) : null
+        )
       });
       
       console.log('[GENRE-FLOW][PIPELINE] ✅ Genre adicionado ao finalJSON:', {
@@ -525,21 +536,26 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'default';
     
     // 🧠 FASE 5.4.1 – Análise de problemas e sugestões V2 (fail-fast)
-    console.log('[DEBUG-SUGGESTIONS] =================================================');
-    console.log('[DEBUG-SUGGESTIONS] Entrando na FASE 5.4.1 – analyzeProblemsAndSuggestionsV2');
-    console.log('[DEBUG-SUGGESTIONS] finalGenreForAnalyzer:', finalGenreForAnalyzer);
-    console.log('[DEBUG-SUGGESTIONS] has customTargets?', !!customTargets);
-    console.log('[DEBUG-SUGGESTIONS] customTargets keys:', customTargets ? Object.keys(customTargets) : 'null');
-    console.log('[DEBUG-SUGGESTIONS] coreMetrics keys:', coreMetrics ? Object.keys(coreMetrics) : 'null');
-    console.log('[DEBUG-SUGGESTIONS] coreMetrics.lufs?.integrated:', coreMetrics?.lufs?.integrated);
-    console.log('[DEBUG-SUGGESTIONS] coreMetrics.dynamics?.dynamicRange:', coreMetrics?.dynamics?.dynamicRange);
-    console.log('[DEBUG-SUGGESTIONS] =================================================');
+    // 🎯 CORREÇÃO #6: Log consolidado ao invés de múltiplos logs
+    console.log('[DEBUG-SUGGESTIONS] ═══════════════════════════════════════════════════════');
+    console.log('[DEBUG-SUGGESTIONS] FASE 5.4.1 – analyzeProblemsAndSuggestionsV2');
+    console.log('[DEBUG-SUGGESTIONS] Estado:', {
+      genre: finalGenreForAnalyzer,
+      hasTargets: !!customTargets,
+      hasMetrics: !!coreMetrics,
+      lufs: coreMetrics?.lufs?.integrated,
+      dr: coreMetrics?.dynamics?.dynamicRange
+    });
+    console.log('[DEBUG-SUGGESTIONS] ═══════════════════════════════════════════════════════');
     
-    // 🎯 CORREÇÃO CRÍTICA: Suggestion Engine SOMENTE para mode === 'genre'
-    // Para mode === 'reference', definir aiSuggestions = [] e pular validação de targets
-    if (mode !== 'genre') {
-      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", pulando Suggestion Engine');
-      console.log('[DEBUG-SUGGESTIONS] mode atual:', mode);
+    // 🎯 CORREÇÃO #2: Usar analysisType ao invés de mode para evitar confusão
+    const finalAnalysisType = options.analysisType || mode;
+    
+    // 🎯 CORREÇÃO CRÍTICA: Suggestion Engine SOMENTE para analysisType === 'genre'
+    // Para analysisType === 'reference', definir aiSuggestions = [] e pular validação de targets
+    if (finalAnalysisType !== 'genre') {
+      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: analysisType não é "genre", pulando Suggestion Engine');
+      console.log('[DEBUG-SUGGESTIONS] analysisType atual:', finalAnalysisType);
       
       // Definir estruturas vazias para reference mode
       finalJSON.problemsAnalysis = {
