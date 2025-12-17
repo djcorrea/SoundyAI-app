@@ -534,6 +534,52 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log('[DEBUG-SUGGESTIONS] coreMetrics.dynamics?.dynamicRange:', coreMetrics?.dynamics?.dynamicRange);
     console.log('[DEBUG-SUGGESTIONS] =================================================');
     
+    // 🎯 CORREÇÃO CRÍTICA: Suggestion Engine SOMENTE para mode === 'genre'
+    // Para mode === 'reference', definir aiSuggestions = [] e pular validação de targets
+    if (mode !== 'genre') {
+      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", pulando Suggestion Engine');
+      console.log('[DEBUG-SUGGESTIONS] mode atual:', mode);
+      
+      // Definir estruturas vazias para reference mode
+      finalJSON.problemsAnalysis = {
+        problems: [],
+        suggestions: [],
+        qualityAssessment: {},
+        priorityRecommendations: []
+      };
+      
+      finalJSON.diagnostics = {
+        problems: [],
+        suggestions: [],
+        prioritized: []
+      };
+      
+      finalJSON.suggestions = [];
+      finalJSON.aiSuggestions = [];
+      
+      finalJSON.summary = {
+        overallRating: 'Reference Mode - Sem análise de problemas',
+        score: null,
+        genre: null
+      };
+      
+      finalJSON.suggestionMetadata = {
+        totalSuggestions: 0,
+        criticalCount: 0,
+        warningCount: 0,
+        okCount: 0,
+        analysisDate: new Date().toISOString(),
+        genre: null,
+        version: '2.0.0',
+        mode: 'reference',
+        skipped: true
+      };
+      
+      console.log('[DEBUG-SUGGESTIONS] ✅ Estruturas vazias definidas para reference mode');
+    } else {
+      // 🎯 MODO GENRE: Executar Suggestion Engine normalmente
+      console.log('[DEBUG-SUGGESTIONS] ▶️ Executando Suggestion Engine para mode="genre"');
+    
     try {
       // 🔥 CONSTRUIR consolidatedData a partir do finalJSON já criado
       // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
@@ -666,6 +712,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       throw suggestionsError;
     }
+    } // FIM do else (mode === 'genre')
     
     // 🔥 PATCH 3: GARANTIR QUE finalJSON TENHA genre NO TOPO ANTES DE RETORNAR
     if (!finalJSON.genre) {
