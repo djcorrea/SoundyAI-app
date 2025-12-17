@@ -84,9 +84,13 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null, planContext = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null, planContext = null, analysisType = null, referenceStage = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
+  
+  // 🆕 Normalizar analysisType (usar analysisType se presente, senão usar mode)
+  const finalAnalysisType = analysisType || mode;
+  const finalReferenceStage = referenceStage || null;
   
   // 📋 externalId para logs e identificação externa (pode ser personalizado)
   const externalId = `audio-${Date.now()}-${jobId.substring(0, 8)}`;
@@ -144,11 +148,13 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       externalId: externalId, // 📋 ID customizado para logs
       fileKey,
       fileName,
-      mode,
-      genre: genre,        // 🎯 CRÍTICO: Genre DEVE ir para Redis
-      genreTargets: genreTargets, // 🎯 CRÍTICO: GenreTargets DEVE ir para Redis
-      referenceJobId: referenceJobId, // 🔗 ID do job de referência (se mode='comparison')
-      planContext: planContext // 📊 NOVO: Contexto de plano e features
+      mode,                // Mantido por compatibilidade
+      analysisType: finalAnalysisType,  // 🆕 Campo explícito: 'genre' | 'reference'
+      referenceStage: finalReferenceStage, // 🆕 Para reference: 'base' | 'compare'
+      genre: genre,        // 🎯 Genre (obrigatório apenas em genre e reference base)
+      genreTargets: genreTargets, // 🎯 GenreTargets (obrigatório apenas em genre e reference base)
+      referenceJobId: referenceJobId, // 🔗 ID do job de referência (se referenceStage='compare')
+      planContext: planContext // 📊 Contexto de plano e features
     };
     
     console.log("🟥🟥 [AUDIT:JOB-CREATOR] Este arquivo está CRIANDO um job AGORA:");
@@ -484,12 +490,25 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     
     const { 
       fileKey, 
-      mode = "genre", 
+      mode = "genre",  // Mantido por compatibilidade
+      analysisType,    // 🆕 Campo explícito: 'genre' | 'reference'
+      referenceStage,  // 🆕 Para reference: 'base' | 'compare'
       fileName, 
       genre, 
       genreTargets,
       idToken  // ✅ NOVO: Token de autenticação
     } = req.body;
+    
+    // ✅ NORMALIZAR: usar analysisType se presente, senão fallback para mode
+    const finalAnalysisType = analysisType || mode;
+    const finalReferenceStage = referenceStage || null;
+    
+    console.log('[ANALYZE] Tipo de análise:', {
+      analysisType: finalAnalysisType,
+      referenceStage: finalReferenceStage,
+      hasGenre: !!genre,
+      hasReferenceJobId: !!req.body.referenceJobId
+    });
     
     // ✅ ETAPA 1: AUTENTICAÇÃO OBRIGATÓRIA
     console.log('🔐 [ANALYZE] Verificando autenticação...');
@@ -605,12 +624,41 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     }
 
     // 🎯 VALIDAÇÃO DE MODO: Aceita 'genre' e 'reference'
-    // Nota: 'comparison' não é um modo válido - comparação é identificada por referenceJobId
-    if (!["genre", "reference"].includes(mode)) {
+    if (!["genre", "reference"].includes(finalAnalysisType)) {
       return res.status(400).json({
         success: false,
         error: 'Modo inválido. Use "genre" ou "reference".'
       });
+    }
+    
+    // 🔒 VALIDAÇÃO DE GENRE baseada em analysisType
+    if (finalAnalysisType === 'genre') {
+      // MODO GENRE: Genre é OBRIGATÓRIO
+      if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Genre é obrigatório para análise por gênero'
+        });
+      }
+    } else if (finalAnalysisType === 'reference') {
+      // MODO REFERENCE: Validar baseado em referenceStage
+      if (finalReferenceStage === 'base') {
+        // Primeira track: genre OBRIGATÓRIO (música base)
+        if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Genre é obrigatório para primeira track de referência (base)'
+          });
+        }
+      } else if (finalReferenceStage === 'compare') {
+        // Segunda track: referenceJobId OBRIGATÓRIO
+        if (!referenceJobId) {
+          return res.status(400).json({
+            success: false,
+            error: 'referenceJobId é obrigatório para segunda track de referência'
+          });
+        }
+      }
     }
 
     // 🔗 Extrair referenceJobId do payload (indica segunda música em modo reference)
@@ -648,10 +696,25 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     
     console.log('📊 [ANALYZE] Plan Context montado:', planContext);
     
-    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre, genreTargets E planContext)
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets, planContext);
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar todos os parâmetros incluindo analysisType e referenceStage)
+    const jobRecord = await createJobInDatabase(
+      fileKey, 
+      mode,  // mantido por compatibilidade
+      fileName, 
+      referenceJobId, 
+      genre, 
+      genreTargets, 
+      planContext,
+      finalAnalysisType,    // 🆕 Campo explícito
+      finalReferenceStage   // 🆕 Campo explícito
+    );
     
-    console.log('[GENRE-TRACE][BACKEND] ✅ Job criado - genre salvo:', jobRecord.data);
+    console.log('[ANALYZE] ✅ Job criado:', {
+      jobId: jobRecord.id,
+      analysisType: finalAnalysisType,
+      referenceStage: finalReferenceStage,
+      hasGenre: !!genre
+    });
 
     // ✅ ETAPA 3: REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES (SÓ SE FOR FULL)
     console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid, '- Mode:', analysisMode);

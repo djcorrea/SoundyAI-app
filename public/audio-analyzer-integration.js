@@ -2628,7 +2628,8 @@ function buildGenrePayload(fileKey, fileName, idToken) {
     
     const payload = {
         fileKey,
-        mode: 'genre',
+        mode: 'genre',  // Mantido por compatibilidade
+        analysisType: 'genre',  // 🆕 Campo explícito sem ambiguidade
         fileName,
         genre,
         genreTargets,
@@ -2638,6 +2639,7 @@ function buildGenrePayload(fileKey, fileName, idToken) {
     
     console.log('[PR2] Genre payload:', {
         mode: payload.mode,
+        analysisType: payload.analysisType,
         genre: payload.genre,
         hasTargets: payload.hasTargets,
         targetKeys: genreTargets ? Object.keys(genreTargets).length : 0
@@ -2672,9 +2674,11 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         // Transformar em payload reference base
         const payload = {
             ...genrePayload,
-            mode: 'reference',        // Mode reference identifica o fluxo A/B
-            isReferenceBase: true,    // Flag crítica: indica que é a música BASE
-            referenceJobId: null,     // null = primeira track (não há referência ainda)
+            mode: 'reference',        // Mantido por compatibilidade
+            analysisType: 'reference',  // 🆕 Campo explícito sem ambiguidade
+            referenceStage: 'base',   // 🆕 Indica primeira música (base)
+            isReferenceBase: true,    // Flag legada mantida
+            referenceJobId: null,     // null = primeira track
         };
         
         console.log('[REF-PAYLOAD] ✅ Reference primeira track (BASE) payload:', {
@@ -2701,10 +2705,12 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         
         const payload = {
             fileKey,
-            mode: 'reference',       // Mode reference
+            mode: 'reference',       // Mantido por compatibilidade
+            analysisType: 'reference',  // 🆕 Campo explícito
+            referenceStage: 'compare',  // 🆕 Indica segunda música (comparação)
             fileName,
             referenceJobId,          // JobId da primeira música (BASE) - obrigatório
-            isReferenceBase: false,  // Segunda track = comparação
+            isReferenceBase: false,  // Flag legada mantida
             idToken
         };
         
