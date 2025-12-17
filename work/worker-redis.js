@@ -821,14 +821,20 @@ async function processReferenceBase(job) {
     });
 
     // Adicionar campos específicos de reference base
+    finalJSON.success = true; // ✅ Garantir flag de sucesso
+    finalJSON.status = 'completed'; // ✅ Status explícito
     finalJSON.mode = 'reference';
     finalJSON.referenceStage = 'base';
     finalJSON.requiresSecondTrack = true;
     finalJSON.referenceJobId = jobId; // Este job é a base para próxima comparação
+    finalJSON.jobId = jobId; // ✅ jobId explícito para referência
     
     // Garantir que aiSuggestions existe (vazio para base)
     finalJSON.aiSuggestions = [];
     finalJSON.suggestions = [];
+    
+    // Garantir referenceComparison null no base (só existe no compare)
+    finalJSON.referenceComparison = null;
 
     // Performance
     finalJSON.performance = {
@@ -1016,9 +1022,12 @@ async function processReferenceCompare(job) {
     console.log('[REFERENCE-COMPARE] ✅ Geradas', comparativeSuggestions.length, 'sugestões');
 
     // ETAPA 6: Adicionar campos específicos
+    finalJSON.success = true; // ✅ Garantir flag de sucesso
+    finalJSON.status = 'completed'; // ✅ Status explícito
     finalJSON.mode = 'reference';
     finalJSON.referenceStage = 'compare';
     finalJSON.referenceJobId = referenceJobId;
+    finalJSON.jobId = jobId; // ✅ jobId explícito
     finalJSON.requiresSecondTrack = false; // Fluxo completo
 
     finalJSON.performance = {

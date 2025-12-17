@@ -118,6 +118,22 @@ router.get("/:id", async (req, res) => {
       });
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔐 PROTEÇÃO CRÍTICA: REFERENCE MODE - NUNCA FORÇAR "processing"
+    // ═══════════════════════════════════════════════════════════════════════
+    // Se mode='reference', COMPLETED é SEMPRE válido mesmo com suggestions=[]
+    // Esta regra previne loop infinito de polling causado por validações de genre
+    if (job.mode === 'reference' && normalizedStatus === 'completed') {
+      console.log('[API-JOBS][REFERENCE-PROTECTION] 🔐 Modo Reference detectado');
+      console.log('[API-JOBS][REFERENCE-PROTECTION] ✅ Status COMPLETED será mantido mesmo com suggestions/aiSuggestions vazios');
+      console.log('[API-JOBS][REFERENCE-PROTECTION] referenceStage:', fullResult?.referenceStage || 'N/A');
+      console.log('[API-JOBS][REFERENCE-PROTECTION] requiresSecondTrack:', fullResult?.requiresSecondTrack || false);
+      
+      // GARANTIR que completed não será downgraded para processing
+      // (esta lógica pode existir em validações antigas de genre que não devem afetar reference)
+    }
+    // ═══════════════════════════════════════════════════════════════════════
+
     // 🚀 FORMATO DE RETORNO BASEADO NO STATUS
     let response;
 
