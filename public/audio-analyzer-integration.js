@@ -2782,6 +2782,17 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 // 🔍 AUDIT: Dump antes de startReferenceFirstTrack
                 if (window.debugDump) window.debugDump('BEFORE_START_REFERENCE_FIRST_TRACK', { stateMachineState: stateMachine.getState() });
                 
+                // 🔒 [INVARIANTE #1] Garantir que state machine está em 'reference' ANTES de chamar startReferenceFirstTrack
+                const currentSMMode = stateMachine.getMode();
+                if (currentSMMode !== 'reference') {
+                    console.error('%c[INVARIANTE #1 VIOLADA em createAnalysisJob] State machine não está em reference!', 'color:red;font-weight:bold;font-size:14px;');
+                    console.error('[STATE] stateMachine.getMode():', currentSMMode);
+                    console.error('[STATE] mode param:', mode);
+                    console.error('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
+                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas deveria estar em 'reference'. Isso impede chamar startReferenceFirstTrack().`);
+                }
+                
+                console.log('%c[INVARIANTE #1 OK] State machine está em reference, chamando startReferenceFirstTrack()', 'color:green;font-weight:bold;');
                 stateMachine.startReferenceFirstTrack();
                 
                 // 🔍 AUDIT: Dump depois de startReferenceFirstTrack
@@ -2795,6 +2806,15 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 if (!referenceJobId) {
                     throw new Error('[PR2] Segunda track requer referenceFirstJobId na state machine');
                 }
+                
+                // 🔒 [INVARIANTE #1] Verificar state machine antes de segunda track também
+                const currentSMMode = stateMachine.getMode();
+                if (currentSMMode !== 'reference') {
+                    console.error('%c[INVARIANTE #1 VIOLADA em createAnalysisJob - 2ª track] State machine não está em reference!', 'color:red;font-weight:bold;font-size:14px;');
+                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas deveria estar em 'reference' para segunda track.`);
+                }
+                
+                console.log('%c[INVARIANTE #1 OK] State machine está em reference, chamando startReferenceSecondTrack()', 'color:green;font-weight:bold;');
                 stateMachine.startReferenceSecondTrack();
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
                     isFirstTrack: false,
@@ -7375,6 +7395,41 @@ function setupAudioModal() {
 async function handleModalFileSelection(file) {
     __dbg('📁 Arquivo selecionado no modal:', file.name);
     
+    // 🔍 [INVARIANTE #1] Verificar estado do mode ANTES de qualquer processamento
+    const stateMachine = window.AnalysisStateMachine;
+    const currentMode = stateMachine?.getMode() || window.currentAnalysisMode;
+    
+    console.group('[REF_DEBUG] 🎯 handleModalFileSelection - INÍCIO');
+    console.log('📁 Arquivo:', file.name);
+    console.log('🎯 currentAnalysisMode (window):', window.currentAnalysisMode);
+    console.log('🎯 StateMachine.getMode():', stateMachine?.getMode());
+    console.log('🎯 StateMachine.state:', stateMachine?.getState());
+    console.log('🔒 userExplicitlySelectedReferenceMode:', window.userExplicitlySelectedReferenceMode);
+    console.log('🔑 __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+    console.log('📊 FirstAnalysisStore:', FirstAnalysisStore?.has());
+    console.groupEnd();
+    
+    // 🔒 [INVARIANTE #1] Se estamos em reference mas state machine não está, CORRIGIR
+    if (window.currentAnalysisMode === 'reference' && currentMode !== 'reference') {
+        console.error('%c[INVARIANTE #1 VIOLADA] currentAnalysisMode=reference mas StateMachine=' + currentMode, 'color:red;font-weight:bold;font-size:14px;');
+        console.error('[FIX_ATTEMPT] Tentando corrigir state machine para reference...');
+        
+        if (stateMachine) {
+            try {
+                stateMachine.setMode('reference', { userExplicitlySelected: true });
+                console.log('%c[FIX_SUCCESS] State machine corrigido para reference', 'color:green;font-weight:bold;');
+            } catch (err) {
+                console.error('[FIX_FAILED] Não foi possível corrigir state machine:', err);
+                alert('⚠️ ERRO: Estado inconsistente. Por favor, selecione o modo A/B novamente.');
+                return;
+            }
+        } else {
+            console.error('[FIX_FAILED] AnalysisStateMachine não disponível!');
+            alert('⚠️ ERRO: Sistema não inicializado corretamente.');
+            return;
+        }
+    }
+    
     // ========================================
     // 🔒 DECLARAÇÃO DE ESCOPO GLOBAL: normalizedFirst
     // ========================================
@@ -7422,45 +7477,53 @@ async function handleModalFileSelection(file) {
         const analysisResult = await pollJobStatus(jobId);
         
         // 🌐 ETAPA 5: Processar resultado baseado no modo e contexto
-        // 🎯 FLUXO CORRIGIDO: Identificar se é primeira ou segunda música
+        // 🎯 [INVARIANTE #3] Usar STATE MACHINE como fonte de verdade para isFirstTrack/isSecondTrack
         const jobMode = analysisResult.mode || currentAnalysisMode;
-        const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
         
-        // 🔍 AUDITORIA: Estado ANTES de processar resultado
-        console.groupCollapsed('[AUDITORIA_STATE_FLOW] 📌 handleModalFileSelection - INÍCIO');
-        console.log('⚙️ Função: handleModalFileSelection');
-        console.log('📁 Arquivo:', file.name);
-        console.log('🎯 Modo atual:', currentAnalysisMode);
-        console.log('🔑 jobId retornado:', jobId);
-        console.log('📊 analysisResult recebido:', {
-            jobId: analysisResult?.jobId,
-            fileName: analysisResult?.fileName || analysisResult?.metadata?.fileName,
-            lufs: analysisResult?.technicalData?.lufsIntegrated,
-            mode: analysisResult?.mode
-        });
-        console.log('🌐 Estado global ANTES de processar:');
-        console.log('  window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-        const firstAnalysis = FirstAnalysisStore.get();
-        console.log('  FirstAnalysisStore:', firstAnalysis ? {
-            fileName: firstAnalysis?.fileName || firstAnalysis?.metadata?.fileName,
-            jobId: firstAnalysis?.jobId
-        } : 'null');
-        console.log('  window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis ? {
-            fileName: window.__soundyState.previousAnalysis?.fileName || window.__soundyState.previousAnalysis?.metadata?.fileName,
-            jobId: window.__soundyState.previousAnalysis?.jobId
-        } : 'null');
-        console.groupEnd();
+        // ✅ CORREÇÃO: Usar state machine para determinar se é primeira ou segunda track
+        const smState = stateMachine?.getState();
+        const isAwaitingSecond = stateMachine?.isAwaitingSecondTrack() || false;
+        const hasReferenceFirst = smState?.referenceFirstJobId !== null;
         
-        console.log('[AUDIO-DEBUG] 🎯 Modo do job:', jobMode);
-        console.log('[AUDIO-DEBUG] 🎯 É segunda faixa?', isSecondTrack);
-        console.log('[AUDIO-DEBUG] 🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
-        console.log('[AUDIO-DEBUG] 🎯 FirstAnalysisStore:', FirstAnalysisStore.has());
-        console.log('[AUDIO-DEBUG] 🎯 Current mode:', currentAnalysisMode);
-        
-        // 🔧 FIX: Primeira música vem como "genre" (modo base), segunda como "reference"
+        // isSecondTrack = já tem referenceFirstJobId e está aguardando segunda
+        const isSecondTrack = currentAnalysisMode === 'reference' && hasReferenceFirst && isAwaitingSecond;
         const isFirstReferenceTrack = currentAnalysisMode === 'reference' && !isSecondTrack;
         
+        // 🔍 [DEBUG] Log detalhado do estado
+        console.group('[REF_DEBUG] 🎯 Determinação de Track (Primeira vs Segunda)');
+        console.log('📊 analysisResult.mode:', analysisResult?.mode);
+        console.log('🎯 currentAnalysisMode:', currentAnalysisMode);
+        console.log('🔑 jobId retornado:', jobId);
+        console.log('🎰 StateMachine.state:', smState);
+        console.log('🔍 Cálculos:');
+        console.log('  - isAwaitingSecond:', isAwaitingSecond);
+        console.log('  - hasReferenceFirst:', hasReferenceFirst);
+        console.log('  - referenceFirstJobId:', smState?.referenceFirstJobId);
+        console.log('✅ RESULTADO:');
+        console.log('  - isFirstReferenceTrack:', isFirstReferenceTrack);
+        console.log('  - isSecondTrack:', isSecondTrack);
+        console.groupEnd();
+        
         if (isFirstReferenceTrack) {
+            console.log('%c[REF_DEBUG] 🎯 PRIMEIRA TRACK EM REFERENCE MODE', 'color:cyan;font-weight:bold;font-size:14px;');
+            
+            // 🔒 [INVARIANTE #1] Garantir que state machine está em reference ANTES de startReferenceFirstTrack
+            const smMode = stateMachine?.getMode();
+            if (smMode !== 'reference') {
+                console.error('%c[INVARIANTE #1 VIOLADA] State machine não está em reference antes de startReferenceFirstTrack!', 'color:red;font-weight:bold;font-size:14px;');
+                console.error('[STATE] smMode:', smMode, '| currentAnalysisMode:', currentAnalysisMode);
+                
+                // Tentar corrigir
+                if (stateMachine && currentAnalysisMode === 'reference') {
+                    console.warn('[FIX_ATTEMPT] Corrigindo state machine para reference...');
+                    stateMachine.setMode('reference', { userExplicitlySelected: true });
+                    console.log('%c[FIX_SUCCESS] State machine corrigido', 'color:green;font-weight:bold;');
+                } else {
+                    alert('⚠️ ERRO: Estado inconsistente no modo referência. Por favor, recarregue a página.');
+                    return;
+                }
+            }
+            
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
@@ -8195,24 +8258,46 @@ async function handleModalFileSelection(file) {
         }
         
         // ========================================
-        // 🛡️ PROTEÇÃO: Nunca resetar modo se há primeira análise válida
+        // 🛡️ [INVARIANTE #4] PROTEÇÃO: Fallback para gênero SOMENTE se não estiver em reference válido
         // ========================================
-        if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
-            // NÃO altere currentAnalysisMode se houver referência válida salva
-            if (!window.FirstAnalysisStore?.has()) {
-                console.error('[REF-FLOW] ═════════════════════════════════════');
-                console.error('[REF-FLOW] ERRO CRÍTICO: Reference falhou sem primeira análise');
-                console.error('[REF-FLOW] Erro:', error.message);
-                console.error('[REF-FLOW] Stack:', error.stack);
-                console.error('[REF-FLOW] State Machine:', window.AnalysisStateMachine?.getState());
-                console.error('[REF-FLOW] ═════════════════════════════════════');
+        if (currentAnalysisMode === 'reference') {
+            console.group('[REF_DEBUG] 🛡️ FALLBACK PROTECTION');
+            console.log('⚠️ Erro capturado durante reference mode');
+            console.log('📊 Verificando se é seguro fazer fallback...');
+            
+            const smState = window.AnalysisStateMachine?.getState();
+            const hasFirstAnalysis = window.FirstAnalysisStore?.has();
+            const smMode = smState?.mode;
+            const userExplicitlySelected = smState?.userExplicitlySelected;
+            
+            console.log('State Machine:', {
+                mode: smMode,
+                userExplicitlySelected,
+                referenceFirstJobId: smState?.referenceFirstJobId,
+                awaitingSecondTrack: smState?.awaitingSecondTrack
+            });
+            console.log('FirstAnalysisStore.has():', hasFirstAnalysis);
+            console.log('userExplicitlySelectedReferenceMode:', window.userExplicitlySelectedReferenceMode);
+            console.groupEnd();
+            
+            // 🔒 [INVARIANTE #4] NUNCA fazer fallback se:
+            // 1. Usuário selecionou explicitamente reference OU
+            // 2. Já tem primeira análise salva
+            const shouldBlockFallback = userExplicitlySelected || hasFirstAnalysis;
+            
+            if (shouldBlockFallback) {
+                console.log('%c[INVARIANTE #4 OK] Fallback BLOQUEADO - mantendo reference mode', 'color:green;font-weight:bold;');
+                console.log('[REF_DEBUG] Razão:', userExplicitlySelected ? 'Usuário escolheu reference explicitamente' : 'Já tem primeira análise');
                 
-                window.logReferenceEvent('error_fallback_to_genre', { 
-                    error: error.message,
-                    originalMode: currentAnalysisMode 
-                });
+                showModalError(
+                    hasFirstAnalysis 
+                        ? 'Erro temporário. Tente fazer upload da segunda faixa novamente.' 
+                        : 'Erro na primeira faixa. Por favor, tente novamente.'
+                );
+            } else {
+                console.warn('%c[INVARIANTE #4] Fallback PERMITIDO - não há referência válida', 'color:orange;font-weight:bold;');
                 
-                // FIX: Tornar fallback EXPLÍCITO - perguntar ao usuário ao invés de forçar
+                // Perguntar ao usuário explicitamente
                 const userWantsFallback = confirm(
                     'A análise de referência encontrou um erro.\n\n' +
                     'Deseja tentar novamente (OK) ou usar análise por gênero (Cancelar)?'
@@ -8220,18 +8305,20 @@ async function handleModalFileSelection(file) {
                 
                 if (!userWantsFallback) {
                     // Usuário escolheu fallback para gênero
-                    console.warn('[REF-FLOW] Usuário optou por fallback para gênero');
+                    console.warn('[FALLBACK] Usuário optou por fallback para gênero');
                     currentAnalysisMode = 'genre';
+                    
+                    // Atualizar state machine também
+                    if (window.AnalysisStateMachine) {
+                        window.AnalysisStateMachine.setMode('genre', { userExplicitlySelected: true });
+                    }
+                    
                     configureModalForMode('genre');
                 } else {
                     // Usuário quer tentar reference novamente
-                    console.log('[REF-FLOW] Usuário optou por tentar reference novamente');
+                    console.log('[REF_DEBUG] Usuário optou por tentar reference novamente');
                     showModalError('Por favor, tente fazer upload da primeira faixa novamente.');
                 }
-            } else {
-                console.warn('[REF-FLOW] Erro capturado, mas primeira análise existe — mantendo modo reference');
-                console.warn('[FALLBACK] Degradando visual apenas, não alterando modo global');
-                showModalError('Erro temporário na análise. Tente fazer upload da segunda faixa novamente.');
             }
         } else {
             // Determinar tipo de erro para mensagem mais específica
