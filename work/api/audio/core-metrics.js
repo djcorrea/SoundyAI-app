@@ -41,6 +41,9 @@ const CORE_METRICS_CONFIG = {
   TRUE_PEAK_OVERSAMPLING: 4,
 };
 
+// 🎯 Flag para controle de logs verbosos
+const DEBUG_AUDIO = process.env.DEBUG_AUDIO === 'true';
+
 /**
  * 🧮 Instâncias dos processadores de áudio
  */
@@ -337,17 +340,21 @@ class CoreMetricsProcessor {
       
       if (!DISABLE_SUGGESTIONS) {
         try {
-          process.stderr.write("\n\n🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n");
-          process.stderr.write("[AUDIT-STDERR] ENTRANDO NO BLOCO DE SUGESTÕES\n");
-          process.stderr.write("[AUDIT-STDERR] Timestamp: " + new Date().toISOString() + "\n");
-          process.stderr.write("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n\n");
+          if (DEBUG_AUDIO) {
+            process.stderr.write("\n\n🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n");
+            process.stderr.write("[AUDIT-STDERR] ENTRANDO NO BLOCO DE SUGESTÕES\n");
+            process.stderr.write("[AUDIT-STDERR] Timestamp: " + new Date().toISOString() + "\n");
+            process.stderr.write("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥\n\n");
+          }
           
           // 🚨 BLINDAGEM ABSOLUTA: Detectar gênero SEM fallback default silencioso
           const detectedGenre = options.genre || options.data?.genre || options.reference?.genre || null;
           const mode = options.mode || 'genre';
           
-          process.stderr.write("[AUDIT-STDERR] detectedGenre: " + detectedGenre + "\n");
-          process.stderr.write("[AUDIT-STDERR] mode: " + mode + "\n");
+          if (DEBUG_AUDIO) {
+            process.stderr.write("[AUDIT-STDERR] detectedGenre: " + detectedGenre + "\n");
+            process.stderr.write("[AUDIT-STDERR] mode: " + mode + "\n");
+          }
 
           // 🚨 Se modo genre → gênero É obrigatório
           if (mode === 'genre' && (!detectedGenre || detectedGenre === 'default')) {
@@ -499,47 +506,51 @@ class CoreMetricsProcessor {
             });
           }
           
-          // 🆕 SKIP SUGGESTION ENGINE para reference base
-          if (analysisType === 'reference' && referenceStage === 'base') {
-            console.log('[CORE_METRICS] ⏭️ SKIP: Suggestion Engine não executado para referenceStage=base');
+          // 🆕 SKIP SUGGESTION ENGINE para TODO reference mode (base e compare)
+          if (analysisType === 'reference') {
+            console.log('[CORE_METRICS] ⏭️ SKIP: Suggestion Engine não executado para analysisType=reference');
             problemsAnalysis = {
               suggestions: [],
               problems: [],
               overallScore: null,
               metadata: {
                 skipped: true,
-                reason: 'referenceStage=base não requer sugestões de gênero',
+                reason: 'Reference mode não usa Suggestion Engine (baseado em gênero)',
                 analysisType,
                 referenceStage
               }
             };
           } else {
             // Executar Suggestion Engine normalmente
-            process.stderr.write("\n\n");
-            process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
-            process.stderr.write("║  🚀🚀🚀 CORE-METRICS: CHAMANDO SUGGESTION ENGINE 🚀🚀🚀     ║\n");
-            process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
-            process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
-            process.stderr.write("[CORE-METRICS] 📥 Parâmetros que serão enviados:\n");
-            process.stderr.write("[CORE-METRICS]   - genre: " + detectedGenre + "\n");
-            process.stderr.write("[CORE-METRICS]   - customTargets disponível?: " + !!customTargets + "\n");
-            process.stderr.write("[CORE-METRICS]   - consolidatedData disponível?: " + !!consolidatedData + "\n");
-            process.stderr.write("[CORE-METRICS]   - consolidatedData.metrics: " + JSON.stringify(consolidatedData?.metrics, null, 2) + "\n");
-            process.stderr.write("[CORE-METRICS]   - consolidatedData.genreTargets: " + JSON.stringify(consolidatedData?.genreTargets, null, 2) + "\n");
-            process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+            if (DEBUG_AUDIO) {
+              process.stderr.write("\n\n");
+              process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
+              process.stderr.write("║  🚀🚀🚀 CORE-METRICS: CHAMANDO SUGGESTION ENGINE 🚀🚀🚀     ║\n");
+              process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
+              process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
+              process.stderr.write("[CORE-METRICS] 📥 Parâmetros que serão enviados:\n");
+              process.stderr.write("[CORE-METRICS]   - genre: " + detectedGenre + "\n");
+              process.stderr.write("[CORE-METRICS]   - customTargets disponível?: " + !!customTargets + "\n");
+              process.stderr.write("[CORE-METRICS]   - consolidatedData disponível?: " + !!consolidatedData + "\n");
+              process.stderr.write("[CORE-METRICS]   - consolidatedData.metrics: " + JSON.stringify(consolidatedData?.metrics, null, 2) + "\n");
+              process.stderr.write("[CORE-METRICS]   - consolidatedData.genreTargets: " + JSON.stringify(consolidatedData?.genreTargets, null, 2) + "\n");
+              process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+            }
             
             problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
             
-            process.stderr.write("\n\n");
-            process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
-            process.stderr.write("║  ✅✅✅ CORE-METRICS: RETORNO DO SUGGESTION ENGINE ✅✅✅     ║\n");
-            process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
-            process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
-            process.stderr.write("[CORE-METRICS] 📤 Dados retornados:\n");
-            process.stderr.write("[CORE-METRICS]   - Número de sugestões: " + (problemsAnalysis.suggestions?.length || 0) + "\n");
-            process.stderr.write("[CORE-METRICS]   - usingConsolidatedData?: " + problemsAnalysis.metadata?.usingConsolidatedData + "\n");
-            process.stderr.write("[CORE-METRICS]   - Primeiras 2 sugestões: " + JSON.stringify(problemsAnalysis.suggestions?.slice(0, 2), null, 2) + "\n");
-            process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+            if (DEBUG_AUDIO) {
+              process.stderr.write("\n\n");
+              process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
+              process.stderr.write("║  ✅✅✅ CORE-METRICS: RETORNO DO SUGGESTION ENGINE ✅✅✅     ║\n");
+              process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
+              process.stderr.write("[CORE-METRICS] ⏰ Timestamp: " + new Date().toISOString() + "\n");
+              process.stderr.write("[CORE-METRICS] 📤 Dados retornados:\n");
+              process.stderr.write("[CORE-METRICS]   - Número de sugestões: " + (problemsAnalysis.suggestions?.length || 0) + "\n");
+              process.stderr.write("[CORE-METRICS]   - usingConsolidatedData?: " + problemsAnalysis.metadata?.usingConsolidatedData + "\n");
+              process.stderr.write("[CORE-METRICS]   - Primeiras 2 sugestões: " + JSON.stringify(problemsAnalysis.suggestions?.slice(0, 2), null, 2) + "\n");
+              process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
+            }
           }
           
           logAudio('core_metrics', 'problems_analysis_success', { 

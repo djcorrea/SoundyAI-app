@@ -410,89 +410,60 @@ async function processJob(job) {
     // 🎯 CORREÇÃO CRÍTICA: Extrair genre E genreTargets com validação explícita
     let extractedGenre = null;
     let extractedGenreTargets = null;
+    let extractedAnalysisType = null;
+    let extractedReferenceStage = null;
     
     // Tentar extrair de job.data (objeto ou string JSON)
     if (job.data && typeof job.data === 'object') {
       extractedGenre = job.data.genre;
       extractedGenreTargets = job.data.genreTargets;
-    } else if (typeof job.data === 'string') {
-      try {
-        const parsed = JSON.parse(job.data);
-        extractedGenre = parsed.genre;
-        extractedGenreTargets = parsed.genreTargets;
-      } catch (e) {
-        console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: Falha ao fazer parse de job.data:', e.message);
-        throw new Error(`Job ${job.id} possui job.data inválido (não é JSON válido)`);
-      }
-    } else {
-      console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data está null ou tipo inválido:', typeof job.data);
-      throw new Error(`Job ${job.id} não possui job.data (null ou undefined)`);
-    }
-    
-    // 🚨 VALIDAÇÃO CRÍTICA: Genre obrigatório baseado em analysisType + referenceStage
-    // REGRAS:
-    // 1. analysisType='genre' → genre OBRIGATÓRIO
-    // 2. analysisType='reference' + referenceStage='base' → genre OBRIGATÓRIO (música base)
-    // 3. analysisType='reference' + referenceStage='compare' → genre OPCIONAL
-    
-    // 🆕 Extrair analysisType e referenceStage (com fallback para mode)
-    let extractedAnalysisType = null;
-    let extractedReferenceStage = null;
-    
-    if (job.data && typeof job.data === 'object') {
       extractedAnalysisType = job.data.analysisType || job.mode || job.data.mode;
       extractedReferenceStage = job.data.referenceStage;
     } else if (typeof job.data === 'string') {
       try {
         const parsed = JSON.parse(job.data);
+        extractedGenre = parsed.genre;
+        extractedGenreTargets = parsed.genreTargets;
         extractedAnalysisType = parsed.analysisType || job.mode;
         extractedReferenceStage = parsed.referenceStage;
       } catch (e) {
+        console.error('[WORKER] ❌ Falha ao fazer parse de job.data:', e.message);
         extractedAnalysisType = job.mode || 'genre';
       }
+    } else {
+      console.error('[WORKER] ❌ job.data está null ou inválido');
+      extractedAnalysisType = job.mode || 'genre';
     }
+    
+    // 🚨 VALIDAÇÃO: Genre obrigatório APENAS em analysisType='genre'
+    // Reference mode NÃO exige genre (independente de base ou compare)
     
     const finalAnalysisType = extractedAnalysisType || 'genre';
     const finalReferenceStage = extractedReferenceStage || null;
     
-    console.log('[WORKER-VALIDATION] Tipo de análise:', {
-      analysisType: finalAnalysisType,
-      referenceStage: finalReferenceStage,
-      hasGenre: !!extractedGenre
-    });
-    
     const isGenreMode = finalAnalysisType === 'genre';
-    const isReferenceBase = finalAnalysisType === 'reference' && finalReferenceStage === 'base';
-    const isReferenceCompare = finalAnalysisType === 'reference' && finalReferenceStage === 'compare';
+    const isReferenceMode = finalAnalysisType === 'reference';
     
-    if (isGenreMode || isReferenceBase) {
-      // Genre OBRIGATÓRIO para analysisType='genre' OU reference base
+    if (isGenreMode) {
+      // APENAS analysisType='genre' exige genre obrigatório
       if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
-        const errorMsg = isGenreMode
-          ? `Job ${job.id} não possui genre válido - analysisType='genre' requer genre`
-          : `Job ${job.id} não possui genre válido - referenceStage='base' requer genre para música base`;
-        
-        console.error('[WORKER-VALIDATION] ❌ CRÍTICO:', {
-          errorMsg,
+        console.error('[WORKER-VALIDATION] ❌ CRÍTICO: Genre ausente em analysisType=genre', {
           extractedGenre,
           analysisType: finalAnalysisType,
-          referenceStage: finalReferenceStage,
           jobId: job.id.substring(0, 8)
         });
-        throw new Error(errorMsg);
+        throw new Error(`Job ${job.id} - analysisType='genre' requer genre válido`);
       }
       
-      console.log('[WORKER-VALIDATION] ✅ Genre válido:', {
-        analysisType: finalAnalysisType,
-        referenceStage: finalReferenceStage,
+      console.log('[WORKER-VALIDATION] ✅ Genre válido para mode genre:', {
         genre: extractedGenre
       });
-    } else if (isReferenceCompare) {
-      // Reference compare: Genre é OPCIONAL (comparação pura)
-      console.log('[WORKER-VALIDATION] ℹ️ Reference compare - genre opcional');
-      if (!extractedGenre) {
-        console.log('[WORKER-VALIDATION] ℹ️ Genre ausente em referenceStage=compare (OK)');
-      }
+    } else if (isReferenceMode) {
+      // Reference mode: Genre é OPCIONAL (não validar)
+      console.log('[WORKER-VALIDATION] ℹ️ Reference mode - genre opcional:', {
+        referenceStage: finalReferenceStage,
+        genrePresent: !!extractedGenre
+      });
     }
     
     const finalGenre = extractedGenre ? extractedGenre.trim() : null;
