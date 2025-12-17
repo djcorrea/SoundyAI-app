@@ -182,42 +182,32 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
-    // 🎯 CORREÇÃO DEFINITIVA: Validação de genre baseada em mode + isReferenceBase
-    // REGRAS:
-    // 1. mode='genre' → genre OBRIGATÓRIO
-    // 2. mode='reference' + isReferenceBase=true (1ª track) → genre OBRIGATÓRIO (música base)
-    // 3. mode='reference' + referenceJobId (2ª track) → genre PROIBIDO (comparação pura)
+    // 🎯 CORREÇÃO: Validação de genre APENAS em mode='genre'
+    // Reference mode NÃO exige genre (independente de ser base ou compare)
     
-    const isFirstReferenceTrack = mode === 'reference' && !referenceJobId;
-    const isSecondReferenceTrack = mode === 'reference' && referenceJobId;
-    const isGenreMode = mode === 'genre';
+    const isGenreMode = mode === 'genre' || finalAnalysisType === 'genre';
+    const isReferenceMode = mode === 'reference' || finalAnalysisType === 'reference';
     
-    if (isGenreMode || isFirstReferenceTrack) {
-      // Genre é OBRIGATÓRIO para mode=genre OU primeira track reference
+    if (isGenreMode) {
+      // APENAS mode='genre' exige genre obrigatório
       if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
-        const errorMsg = isGenreMode 
-          ? '❌ [CRITICAL] Genre é obrigatório e não pode ser vazio no modo "genre"'
-          : '❌ [CRITICAL] Genre é obrigatório para primeira track reference (música base)';
-        throw new Error(errorMsg);
+        throw new Error('❌ [CRITICAL] Genre é obrigatório no modo "genre"');
       }
       
-      // 🎯 LOG DE AUDITORIA
-      console.log('[BACKEND-VALIDATION] 💾 Salvando no banco com genre:', {
+      console.log('[BACKEND-VALIDATION] 💾 Salvando job genre:', {
         mode,
         jobId: jobId.substring(0, 8),
-        receivedGenre: genre,
-        hasGenreTargets: !!genreTargets,
-        genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null,
-        isReferenceBase: isFirstReferenceTrack
+        genre,
+        hasGenreTargets: !!genreTargets
       });
-    } else if (isSecondReferenceTrack) {
-      // Genre DEVE estar ausente na segunda track reference
-      if (genre) {
-        console.warn('[BACKEND-VALIDATION] ⚠️ Segunda track reference tem genre - ignorando');
-      }
-      
-      // 🎯 LOG DE REFERÊNCIA (segunda track)
-      console.log('[BACKEND-VALIDATION] 💾 Salvando segunda track reference (comparação):', {
+    } else if (isReferenceMode) {
+      // Reference mode: genre é OPCIONAL (não validar)
+      console.log('[BACKEND-VALIDATION] 💾 Salvando job reference:', {
+        mode,
+        jobId: jobId.substring(0, 8),
+        referenceJobId: referenceJobId || 'nenhum (primeira track)',
+        genrePresent: !!genre
+      });
         jobId: jobId.substring(0, 8),
         referenceJobId,
         genrePresent: !!genre,
@@ -521,8 +511,9 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
         message: "Token de autenticação necessário"
       });
     }
-    
-    console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
+        // 🆕 MOVER PARA ANTES DAS VALIDAÇÕES (previne 'Cannot access before initialization')
+    const referenceJobId = req.body.referenceJobId || null;
+        console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
     
     let decoded;
     try {
@@ -641,16 +632,9 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
         });
       }
     } else if (finalAnalysisType === 'reference') {
-      // MODO REFERENCE: Validar baseado em referenceStage
-      if (finalReferenceStage === 'base') {
-        // Primeira track: genre OBRIGATÓRIO (música base)
-        if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
-          return res.status(400).json({
-            success: false,
-            error: 'Genre é obrigatório para primeira track de referência (base)'
-          });
-        }
-      } else if (finalReferenceStage === 'compare') {
+      // MODO REFERENCE: Genre NÃO é obrigatório (reference é independente de gênero)
+      // Validar apenas referenceJobId na segunda track
+      if (finalReferenceStage === 'compare' || referenceJobId) {
         // Segunda track: referenceJobId OBRIGATÓRIO
         if (!referenceJobId) {
           return res.status(400).json({
@@ -659,11 +643,10 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
           });
         }
       }
+      // Primeira track: nenhuma validação adicional (genre opcional)
     }
 
-    // 🔗 Extrair referenceJobId do payload (indica segunda música em modo reference)
-    const referenceJobId = req.body.referenceJobId || null;
-    
+
     // 🧠 DEBUG: Log do modo e referenceJobId
     console.log('🧠 [ANALYZE] Modo:', mode);
     console.log('🔗 [ANALYZE] Reference Job ID:', referenceJobId || 'nenhum');
