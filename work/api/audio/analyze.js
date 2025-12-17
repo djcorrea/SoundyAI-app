@@ -176,18 +176,30 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
-    // 🎯 CORREÇÃO CRÍTICA: SEMPRE validar genre (não pode ser vazio)
-    if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
-      throw new Error('❌ [CRITICAL] Genre é obrigatório e não pode ser vazio');
+    // 🎯 CORREÇÃO CRÍTICA: Validar genre APENAS em modo 'genre'
+    // ✅ REFERENCE MODE: Genre é OPCIONAL (não precisa de validação)
+    // ✅ GENRE MODE: Genre é OBRIGATÓRIO (validação aplicada)
+    if (mode === 'genre') {
+      if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
+        throw new Error('❌ [CRITICAL] Genre é obrigatório e não pode ser vazio no modo "genre"');
+      }
+      
+      // 🎯 LOG DE AUDITORIA OBRIGATÓRIO (apenas em mode genre)
+      console.log('[GENRE-TRACE][BACKEND] 💾 Salvando no banco (mode: genre):', {
+        jobId: jobId.substring(0, 8),
+        receivedGenre: genre,
+        hasGenreTargets: !!genreTargets,
+        genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null
+      });
+    } else if (mode === 'reference') {
+      // 🎯 LOG DE REFERÊNCIA (mode: reference)
+      console.log('[REFERENCE-TRACE][BACKEND] 💾 Salvando no banco (mode: reference):', {
+        jobId: jobId.substring(0, 8),
+        referenceJobId: referenceJobId || 'primeira track (base)',
+        isFirstTrack: !referenceJobId,
+        isSecondTrack: !!referenceJobId
+      });
     }
-    
-    // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
-    console.log('[GENRE-TRACE][BACKEND] 💾 Salvando no banco:', {
-      jobId: jobId.substring(0, 8),
-      receivedGenre: genre,
-      hasGenreTargets: !!genreTargets,
-      genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null
-    });
     
     const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
