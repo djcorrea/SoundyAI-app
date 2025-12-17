@@ -1016,10 +1016,11 @@ async function processReferenceCompare(job) {
 
     const comparativeSuggestions = referenceSuggestionEngine(baseMetrics, finalJSON);
     
-    finalJSON.aiSuggestions = comparativeSuggestions;
-    finalJSON.suggestions = comparativeSuggestions; // Compatibilidade
+    // ✅ GARANTIA: Sempre retornar arrays (mesmo que vazios)
+    finalJSON.aiSuggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : [];
+    finalJSON.suggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : []; // Compatibilidade
 
-    console.log('[REFERENCE-COMPARE] ✅ Geradas', comparativeSuggestions.length, 'sugestões');
+    console.log('[REFERENCE-COMPARE] ✅ Geradas', finalJSON.aiSuggestions.length, 'sugestões');
 
     // ETAPA 6: Adicionar campos específicos
     finalJSON.success = true; // ✅ Garantir flag de sucesso

@@ -119,21 +119,79 @@ router.get("/:id", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🔐 PROTEÇÃO CRÍTICA: REFERENCE MODE - NUNCA FORÇAR "processing"
+    // 🔐 PROTEÇÃO CRÍTICA: MODE DETECTION & STATUS VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
-    // Se mode='reference', COMPLETED é SEMPRE válido mesmo com suggestions=[]
-    // Esta regra previne loop infinito de polling causado por validações de genre
-    if (job.mode === 'reference' && normalizedStatus === 'completed') {
-      console.log('[API-JOBS][REFERENCE-PROTECTION] 🔐 Modo Reference detectado');
-      console.log('[API-JOBS][REFERENCE-PROTECTION] ✅ Status COMPLETED será mantido mesmo com suggestions/aiSuggestions vazios');
-      console.log('[API-JOBS][REFERENCE-PROTECTION] referenceStage:', fullResult?.referenceStage || 'N/A');
-      console.log('[API-JOBS][REFERENCE-PROTECTION] requiresSecondTrack:', fullResult?.requiresSecondTrack || false);
+    
+    // 🎯 STEP 1: Detectar modo de forma robusta
+    const mode = 
+      job?.mode ||
+      job?.analysisMode ||
+      job?.analysisType ||
+      fullResult?.mode ||
+      fullResult?.analysisMode ||
+      fullResult?.analysisType ||
+      'unknown';
+    
+    const isReference = mode === 'reference';
+    const isGenre = mode === 'genre';
+    
+    console.log('[API-JOBS][MODE-DETECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[API-JOBS][MODE-DETECTION] Mode detectado:', mode);
+    console.log('[API-JOBS][MODE-DETECTION] isReference:', isReference);
+    console.log('[API-JOBS][MODE-DETECTION] isGenre:', isGenre);
+    console.log('[API-JOBS][MODE-DETECTION] Status atual:', normalizedStatus);
+    console.log('[API-JOBS][MODE-DETECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🎯 STEP 2: VALIDAÇÃO DE STATUS BASEADA NO MODO
+    
+    // ══════════════════════════════════════════════════════════════════
+    // 🟢 REFERENCE MODE: completed é SEMPRE válido
+    // ══════════════════════════════════════════════════════════════════
+    if (isReference && normalizedStatus === 'completed') {
+      console.log('[API-JOBS][REFERENCE] ✅ Reference Mode detectado com status COMPLETED');
+      console.log('[API-JOBS][REFERENCE] ✅ Status será mantido mesmo com suggestions/aiSuggestions vazios');
+      console.log('[API-JOBS][REFERENCE] referenceStage:', fullResult?.referenceStage || 'N/A');
+      console.log('[API-JOBS][REFERENCE] requiresSecondTrack:', fullResult?.requiresSecondTrack || false);
+      console.log('[API-JOBS][REFERENCE] 🔒 NENHUMA validação de suggestions será aplicada');
       
-      // GARANTIR que completed não será downgraded para processing
-      // (esta lógica pode existir em validações antigas de genre que não devem afetar reference)
+      // ✅ Para reference, completed é sempre válido - pular qualquer validação de suggestions
+      // Isso previne loop infinito de polling que ocorria quando base tinha suggestions=[]
     }
-    // ═══════════════════════════════════════════════════════════════════════
-
+    
+    // ══════════════════════════════════════════════════════════════════
+    // 🔵 GENRE MODE: validação de suggestions (se existir lógica futura)
+    // ══════════════════════════════════════════════════════════════════
+    else if (isGenre && normalizedStatus === 'completed') {
+      console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
+      
+      // 🎯 VALIDAÇÃO EXCLUSIVA PARA GENRE: Verificar se dados essenciais existem
+      const hasSuggestions = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
+      const hasAiSuggestions = Array.isArray(fullResult?.aiSuggestions) && fullResult.aiSuggestions.length > 0;
+      const hasTechnicalData = !!fullResult?.technicalData;
+      
+      console.log('[API-JOBS][GENRE][VALIDATION] hasSuggestions:', hasSuggestions);
+      console.log('[API-JOBS][GENRE][VALIDATION] hasAiSuggestions:', hasAiSuggestions);
+      console.log('[API-JOBS][GENRE][VALIDATION] hasTechnicalData:', hasTechnicalData);
+      
+      // 🔧 FALLBACK PARA GENRE: Se completed mas falta suggestions, pode indicar processamento incompleto
+      // Esta lógica SÓ roda para genre, NUNCA para reference
+      if (!hasSuggestions || !hasAiSuggestions || !hasTechnicalData) {
+        console.warn('[API-FIX][GENRE] ⚠️ Job marcado como "completed" mas falta dados essenciais');
+        console.warn('[API-FIX][GENRE] Dados ausentes:', {
+          suggestions: !hasSuggestions,
+          aiSuggestions: !hasAiSuggestions,
+          technicalData: !hasTechnicalData
+        });
+        console.warn('[API-FIX][GENRE] Retornando status "processing" para frontend aguardar comparacao completa');
+        
+        // Override status para processing SOMENTE para genre
+        normalizedStatus = 'processing';
+      } else {
+        console.log('[API-JOBS][GENRE] ✅ Todos os dados essenciais presentes - status COMPLETED mantido');
+      }
+    }
+    // ══════════════════════════════════════════════════════════════════
+    
     // 🚀 FORMATO DE RETORNO BASEADO NO STATUS
     let response;
 
