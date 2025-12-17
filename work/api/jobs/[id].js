@@ -265,6 +265,38 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS] ⚙️ Retornando job PROCESSING');
       
     } else if (normalizedStatus === "completed") {
+      // ═══════════════════════════════════════════════════════════════
+      // ✅ GARANTIA FINAL: Normalizar response para Reference Mode
+      // ═══════════════════════════════════════════════════════════════
+      if (isReference && fullResult) {
+        const referenceStage = fullResult?.referenceStage || 'base';
+        
+        // Garantir campos obrigatórios no fullResult antes de retornar
+        fullResult.mode = 'reference';
+        fullResult.referenceStage = referenceStage;
+        fullResult.status = 'completed';
+        
+        if (referenceStage === 'base') {
+          fullResult.requiresSecondTrack = true;
+          fullResult.referenceJobId = job.id;
+          console.log('[API-JOBS][REFERENCE][BASE] ✅ Garantindo campos obrigatórios:', {
+            mode: fullResult.mode,
+            referenceStage: fullResult.referenceStage,
+            requiresSecondTrack: fullResult.requiresSecondTrack,
+            referenceJobId: fullResult.referenceJobId,
+            status: fullResult.status
+          });
+        } else if (referenceStage === 'compare') {
+          const hasComparison = !!fullResult?.referenceComparison;
+          console.log('[API-JOBS][REFERENCE][COMPARE] ✅ Garantindo campos obrigatórios:', {
+            mode: fullResult.mode,
+            referenceStage: fullResult.referenceStage,
+            hasComparison: hasComparison,
+            status: fullResult.status
+          });
+        }
+      }
+      
       // Status completed: retorno COMPLETO com results
       response = {
         ok: true,
