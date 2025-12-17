@@ -206,10 +206,6 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
         mode,
         jobId: jobId.substring(0, 8),
         referenceJobId: referenceJobId || 'nenhum (primeira track)',
-        genrePresent: !!genre
-      });
-        jobId: jobId.substring(0, 8),
-        referenceJobId,
         genrePresent: !!genre,
         genreIgnored: true
       });
