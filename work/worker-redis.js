@@ -848,36 +848,6 @@ async function audioProcessor(job) {
   console.log(`🔍 [AUDIT_CONSUME] Timestamp: ${new Date().toISOString()}`);
   console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
   
-  // 🎯 CORREÇÃO #4: Idempotência - verificar se job já está sendo processado
-  const processingKey = `job:processing:${jobId}`;
-  
-  try {
-    const isProcessing = await redisConnection.get(processingKey);
-    
-    if (isProcessing) {
-      console.warn(`⚠️ [IDEMPOTENCY] ═══════════════════════════════════════`);
-      console.warn(`⚠️ [IDEMPOTENCY] Job ${jobId} já está sendo processado`);
-      console.warn(`⚠️ [IDEMPOTENCY] Iniciado em: ${new Date(parseInt(isProcessing)).toISOString()}`);
-      console.warn(`⚠️ [IDEMPOTENCY] Pulando reprocessamento...`);
-      console.warn(`⚠️ [IDEMPOTENCY] ═══════════════════════════════════════`);
-      
-      return {
-        success: false,
-        error: 'Job already processing',
-        jobId,
-        status: 'duplicate'
-      };
-    }
-    
-    // Marcar como processing por 10 minutos (600 segundos)
-    await redisConnection.setex(processingKey, 600, Date.now().toString());
-    console.log(`✅ [IDEMPOTENCY] Job ${jobId} marcado como processing`);
-    
-  } catch (idempotencyError) {
-    console.error(`❌ [IDEMPOTENCY] Erro ao verificar idempotência:`, idempotencyError.message);
-    // Continua processamento mesmo com erro de idempotência
-  }
-  
   // 🎯 AUDIT: Validação de modo reference
   if (mode === 'reference') {
     console.log('🎯 [AUDIT_MODE] Modo REFERENCE detectado');
@@ -1303,15 +1273,6 @@ async function audioProcessor(job) {
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
     
     await updateJobStatus(jobId, 'completed', finalJSON);
-    
-    // 🎯 CORREÇÃO #4: Limpar lock de idempotência após conclusão
-    const processingKey = `job:processing:${jobId}`;
-    try {
-      await redisConnection.del(processingKey);
-      console.log(`✅ [IDEMPOTENCY] Lock removido para job ${jobId}`);
-    } catch (lockError) {
-      console.error(`⚠️ [IDEMPOTENCY] Erro ao remover lock:`, lockError.message);
-    }
     
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
