@@ -2664,36 +2664,33 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     console.log('[REF-PAYLOAD] buildReferencePayload()', { isFirstTrack, referenceJobId });
     
     if (isFirstTrack) {
-        // ✅ CORREÇÃO DEFINITIVA: PRIMEIRA TRACK reference DEVE incluir genre e genreTargets
-        // Isso permite análise completa da música base para depois comparar
-        console.log('[REF-PAYLOAD] Reference primeira track - INCLUINDO genre e targets (música base)');
+        // ✅ PRIMEIRA TRACK: payload LIMPO sem genre/targets
+        console.log('[REF-PAYLOAD] Reference primeira track - SEM genre/targets (base pura)');
         
-        // Reutilizar buildGenrePayload para obter genre + genreTargets
-        const genrePayload = buildGenrePayload(fileKey, fileName, idToken);
-        
-        // Transformar em payload reference base
         const payload = {
-            ...genrePayload,
-            mode: 'reference',        // Mantido por compatibilidade
-            analysisType: 'reference',  // 🆕 Campo explícito sem ambiguidade
-            referenceStage: 'base',   // 🆕 Indica primeira música (base)
-            isReferenceBase: true,    // Flag legada mantida
-            referenceJobId: null,     // null = primeira track
+            fileKey,
+            mode: 'reference',
+            analysisType: 'reference',
+            referenceStage: 'base',
+            fileName,
+            isReferenceBase: true,
+            referenceJobId: null,
+            idToken
         };
         
         console.log('[REF-PAYLOAD] ✅ Reference primeira track (BASE) payload:', {
             mode: payload.mode,
-            genre: payload.genre,
-            hasGenre: !!payload.genre,
-            hasTargets: !!payload.genreTargets,
+            referenceStage: payload.referenceStage,
+            hasGenre: false,
+            hasTargets: false,
             isReferenceBase: payload.isReferenceBase,
             referenceJobId: payload.referenceJobId
         });
         
-        // 🔒 SANITY CHECK: Garantir que TEM genre/genreTargets
-        if (!payload.genre || !payload.genreTargets) {
-            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference primeira track SEM genre/targets!', payload);
-            throw new Error('[REF-PAYLOAD] Reference primeira track (base) DEVE ter genre e genreTargets');
+        // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
+        if (payload.genre || payload.genreTargets) {
+            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference primeira track NÃO deve ter genre/targets!', payload);
+            throw new Error('[REF-PAYLOAD] Reference primeira track (base) NÃO deve ter genre/genreTargets');
         }
         
         return payload;
@@ -3242,54 +3239,50 @@ async function pollJobStatus(jobId) {
                     console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
                     
                     // ═══════════════════════════════════════════════════════════════
-                    // 🆕 FIX 6: BLOQUEADOR CRÍTICO - Setar awaitingSecondTrack=true
-                    // ═══════════════════════════════════════════════════════════════
-                    // Após primeira track Reference completar, DEVE chamar state machine
-                    // para setar awaitingSecondTrack=true, senão modal fecha e perde estado
+                    // � REFERENCE MODE: Detectar se é base (1ª música) e abrir modal para 2ª
                     // ═══════════════════════════════════════════════════════════════
                     const stateMachine = window.AnalysisStateMachine;
-                    if (stateMachine?.getMode() === 'reference') {
-                        const isFirstTrack = !stateMachine.isAwaitingSecondTrack();
+                    const isReferenceMode = jobResult.mode === 'reference' || stateMachine?.getMode() === 'reference';
+                    const isReferenceBase = jobResult.referenceStage === 'base' || jobResult.requiresSecondTrack === true;
+                    
+                    if (isReferenceMode && isReferenceBase) {
+                        console.log('[POLLING][REFERENCE] 🎯 Base completada - abrindo modal para 2ª música');
+                        console.log('[POLLING][REFERENCE] referenceStage:', jobResult.referenceStage);
+                        console.log('[POLLING][REFERENCE] requiresSecondTrack:', jobResult.requiresSecondTrack);
+                        console.log('[POLLING][REFERENCE] referenceJobId:', jobResult.referenceJobId);
                         
-                        if (isFirstTrack) {
-                            console.log('[REF_FIX] 🎯 Primeira track Reference completada');
-                            console.log('[REF_FIX] Setando awaitingSecondTrack=true para preservar estado');
-                            
+                        // Salvar state machine
+                        if (stateMachine) {
                             try {
                                 stateMachine.setReferenceFirstResult({
-                                    firstJobId: jobId,
+                                    firstJobId: jobResult.referenceJobId || jobId,
                                     firstResultSummary: {
                                         score: jobResult.score,
-                                        jobId: jobId,
+                                        jobId: jobResult.referenceJobId || jobId,
                                         technicalData: jobResult.technicalData || {},
                                         spectralBands: jobResult.spectralBands || {},
                                         classification: jobResult.classification
                                     }
                                 });
-                                
-                                console.log('[REF_FIX] ✅ awaitingSecondTrack=true');
-                                console.log('[REF_FIX] referenceFirstJobId salvo:', jobId);
-                                console.log('[REF_FIX] sessionStorage atualizado - estado protegido');
-                                
-                                // 🆕 CORREÇÃO CRÍTICA: Abrir modal para 2ª música após salvar estado
-                                console.log('[REF_FIX] 🎯 Abrindo modal para upload da 2ª música...');
-                                setTimeout(() => {
-                                    if (typeof openReferenceUploadModal === 'function') {
-                                        openReferenceUploadModal(jobId, jobResult);
-                                        console.log('[REF_FIX] ✅ Modal da 2ª música aberto');
-                                    } else {
-                                        console.error('[REF_FIX] ❌ openReferenceUploadModal não encontrada');
-                                        alert('✅ Música A analisada! Por favor, clique em "Comparação A/B" para enviar a Música B.');
-                                    }
-                                }, 500); // Pequeno delay para garantir que o modal anterior foi processado
+                                console.log('[POLLING][REFERENCE] ✅ State machine atualizado');
                             } catch (err) {
-                                console.error('[REF_FIX] ❌ Erro ao setar primeira track:', err);
-                                // Não falhar o job, apenas logar
+                                console.error('[POLLING][REFERENCE] ❌ Erro ao atualizar state machine:', err);
                             }
-                        } else {
-                            console.log('[REF_FIX] 🎯 Segunda track Reference completada');
-                            console.log('[REF_FIX] Preparando renderização de comparação A/B');
                         }
+                        
+                        // Abrir modal para 2ª música
+                        setTimeout(() => {
+                            if (typeof openReferenceUploadModal === 'function') {
+                                const refJobId = jobResult.referenceJobId || jobId;
+                                openReferenceUploadModal(refJobId, jobResult);
+                                console.log('[POLLING][REFERENCE] ✅ Modal da 2ª música aberto - referenceJobId:', refJobId);
+                            } else {
+                                console.error('[POLLING][REFERENCE] ❌ openReferenceUploadModal não encontrada');
+                                alert('✅ Música A analisada! Por favor, clique em "Comparação A/B" para enviar a Música B.');
+                            }
+                        }, 500);
+                    } else if (isReferenceMode && !isReferenceBase) {
+                        console.log('[POLLING][REFERENCE] 🎯 Compare completado - preparando renderização');
                     }
                     // ═══════════════════════════════════════════════════════════════
                     
