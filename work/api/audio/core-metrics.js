@@ -373,7 +373,6 @@ class CoreMetricsProcessor {
           // 🎯 CORREÇÃO DEFINITIVA: CARREGAR TARGETS DO WORKER (SEGURO)
           // REGRA 6: Fallback SÓ acontece se customTargets === undefined
           // Nesse caso, o sistema LANÇA ERRO e aborta (não usa valores hardcoded)
-          // ✅ CORREÇÃO REFERENCE: Modo reference pode não ter targets (primeira track)
           let customTargets = null;
           if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
             try {
@@ -398,14 +397,10 @@ class CoreMetricsProcessor {
             }
           } else if (mode === 'reference') {
             console.log(`[CORE_METRICS] 🔒 Modo referência - ignorando targets de gênero`);
-            // ✅ CORREÇÃO REFERENCE: Primeira track reference pode não ter genre/targets
-            // Nesse caso, bypass suggestion engine
-            customTargets = null;
           }
           
           // 🔥 CONSTRUIR consolidatedData para passar ao analyzer
           // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
-          // ✅ CORREÇÃO REFERENCE: Apenas construir se customTargets disponível
           let consolidatedData = null;
           if (customTargets) {
           consolidatedData = {
@@ -506,19 +501,7 @@ class CoreMetricsProcessor {
           process.stderr.write("[CORE-METRICS]   - consolidatedData.genreTargets: " + JSON.stringify(consolidatedData?.genreTargets, null, 2) + "\n");
           process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
           
-          // ✅ CORREÇÃO REFERENCE: Em modo reference sem targets, bypass suggestion engine
-          if (mode === 'reference' && !customTargets && (!consolidatedData?.genreTargets)) {
-            console.log(`[CORE_METRICS] ⚠️ Modo reference sem targets - BYPASS suggestion engine`);
-            problemsAnalysis = { 
-              suggestions: [], 
-              aiSuggestions: [], 
-              problems: [], 
-              diagnostics: {},
-              metadata: { bypassed: true, reason: 'reference mode without targets' }
-            };
-          } else {
-            problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData }, mode);
-          }
+          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
           
           process.stderr.write("\n\n");
           process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
