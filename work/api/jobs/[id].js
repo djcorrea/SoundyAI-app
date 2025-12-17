@@ -149,10 +149,50 @@ router.get("/:id", async (req, res) => {
     // ══════════════════════════════════════════════════════════════════
     if (isReference && normalizedStatus === 'completed') {
       console.log('[API-JOBS][REFERENCE] ✅ Reference Mode detectado com status COMPLETED');
-      console.log('[API-JOBS][REFERENCE] ✅ Status será mantido mesmo com suggestions/aiSuggestions vazios');
-      console.log('[API-JOBS][REFERENCE] referenceStage:', fullResult?.referenceStage || 'N/A');
-      console.log('[API-JOBS][REFERENCE] requiresSecondTrack:', fullResult?.requiresSecondTrack || false);
-      console.log('[API-JOBS][REFERENCE] 🔒 NENHUMA validação de suggestions será aplicada');
+      
+      const referenceStage = fullResult?.referenceStage;
+      console.log('[API-JOBS][REFERENCE] referenceStage:', referenceStage);
+      
+      // 🎯 VALIDAÇÃO POR STAGE
+      if (referenceStage === 'base') {
+        // BASE: Apenas verificar campos mínimos (não exigir suggestions)
+        console.log('[API-JOBS][REFERENCE][BASE] ✅ Stage BASE detectado');
+        console.log('[API-JOBS][REFERENCE][BASE] requiresSecondTrack:', fullResult?.requiresSecondTrack);
+        console.log('[API-JOBS][REFERENCE][BASE] referenceJobId:', fullResult?.referenceJobId || 'N/A');
+        console.log('[API-JOBS][REFERENCE][BASE] 🔒 Status COMPLETED mantido sem validação de suggestions');
+        
+        // ✅ Garantir que arrays existem (mesmo vazios)
+        if (!Array.isArray(fullResult.suggestions)) {
+          fullResult.suggestions = [];
+        }
+        if (!Array.isArray(fullResult.aiSuggestions)) {
+          fullResult.aiSuggestions = [];
+        }
+        
+      } else if (referenceStage === 'compare') {
+        // COMPARE: Verificar se referenceComparison existe
+        console.log('[API-JOBS][REFERENCE][COMPARE] ✅ Stage COMPARE detectado');
+        console.log('[API-JOBS][REFERENCE][COMPARE] referenceComparison exists:', !!fullResult?.referenceComparison);
+        
+        if (!fullResult?.referenceComparison) {
+          console.warn('[API-JOBS][REFERENCE][COMPARE] ⚠️ referenceComparison ausente - mas mantendo status COMPLETED');
+        }
+        
+        // ✅ Garantir que arrays existem (podem estar vazios)
+        if (!Array.isArray(fullResult.suggestions)) {
+          fullResult.suggestions = [];
+        }
+        if (!Array.isArray(fullResult.aiSuggestions)) {
+          fullResult.aiSuggestions = [];
+        }
+        
+        console.log('[API-JOBS][REFERENCE][COMPARE] suggestions:', fullResult.suggestions?.length || 0);
+        console.log('[API-JOBS][REFERENCE][COMPARE] 🔒 Status COMPLETED mantido');
+        
+      } else {
+        console.warn('[API-JOBS][REFERENCE] ⚠️ referenceStage desconhecido ou ausente:', referenceStage);
+        console.warn('[API-JOBS][REFERENCE] Mantendo status COMPLETED de qualquer forma');
+      }
       
       // ✅ Para reference, completed é sempre válido - pular qualquer validação de suggestions
       // Isso previne loop infinito de polling que ocorria quando base tinha suggestions=[]
