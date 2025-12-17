@@ -22,7 +22,7 @@ window.snapshotState = function() {
         // UI Mode
         uiMode: window.currentAnalysisMode || null,
         viewMode: window.__VIEW_MODE__ || null,
-        currentMode: window.__CURRENT_MODE__ || null,
+        currentMode: window.currentAnalysisMode || null,
         
         // Flags de Reference
         userExplicitlySelectedReferenceMode: window.userExplicitlySelectedReferenceMode || false,
