@@ -429,27 +429,46 @@ async function processJob(job) {
       throw new Error(`Job ${job.id} não possui job.data (null ou undefined)`);
     }
     
-    // 🚨 VALIDAÇÃO CRÍTICA: Se mode==='genre', genre é OBRIGATÓRIO (NUNCA usar 'default')
-    // ✅ CORREÇÃO REFERENCE MODE: Se mode==='reference', genre é OPCIONAL
-    const jobMode = job.mode || job.data?.mode || 'genre';
+    // 🚨 VALIDAÇÃO CRÍTICA: Genre obrigatório baseado em mode + referenceJobId
+    // REGRAS:
+    // 1. mode='genre' → genre OBRIGATÓRIO
+    // 2. mode='reference' + SEM referenceJobId (1ª track base) → genre OBRIGATÓRIO
+    // 3. mode='reference' + COM referenceJobId (2ª track comparação) → genre OPCIONAL
     
-    if (jobMode === 'genre') {
-      // MODO GENRE: Genre é obrigatório
+    const jobMode = job.mode || job.data?.mode || 'genre';
+    const isFirstReferenceTrack = jobMode === 'reference' && !job.reference_job_id;
+    const isSecondReferenceTrack = jobMode === 'reference' && job.reference_job_id;
+    const isGenreMode = jobMode === 'genre';
+    
+    if (isGenreMode || isFirstReferenceTrack) {
+      // Genre OBRIGATÓRIO para mode=genre OU primeira track reference (música base)
       if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
-        console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data.genre inválido ou ausente em mode=genre:', {
+        const errorMsg = isGenreMode
+          ? `Job ${job.id} não possui genre válido em job.data - modo genre requer genre válido`
+          : `Job ${job.id} não possui genre válido - primeira track reference (base) requer genre`;
+        
+        console.error('[WORKER-VALIDATION] ❌ CRÍTICO:', {
+          errorMsg,
           extractedGenre,
           type: typeof extractedGenre,
           jobId: job.id.substring(0, 8),
           jobMode,
+          isFirstReferenceTrack,
           jobData: job.data
         });
-        throw new Error(`Job ${job.id} não possui genre válido em job.data - REJEITADO (modo genre requer genre válido)`);
+        throw new Error(errorMsg);
       }
-    } else if (jobMode === 'reference') {
-      // MODO REFERENCE: Genre é opcional
-      console.log('[REFERENCE-TRACE][WORKER] ℹ️ Modo reference detectado - genre não é obrigatório');
+      
+      console.log('[WORKER-VALIDATION] ✅ Genre válido:', {
+        jobMode,
+        genre: extractedGenre,
+        isReferenceBase: isFirstReferenceTrack
+      });
+    } else if (isSecondReferenceTrack) {
+      // Segunda track reference: Genre é OPCIONAL (comparação pura)
+      console.log('[WORKER-VALIDATION] ℹ️ Segunda track reference - genre opcional');
       if (!extractedGenre) {
-        console.log('[REFERENCE-TRACE][WORKER] ℹ️ Genre ausente em mode=reference (OK)');
+        console.log('[WORKER-VALIDATION] ℹ️ Genre ausente em segunda track reference (OK para comparação)');
       }
     }
     

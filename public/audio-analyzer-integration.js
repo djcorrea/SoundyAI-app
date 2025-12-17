@@ -2659,62 +2659,67 @@ function buildGenrePayload(fileKey, fileName, idToken) {
 function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     const { isFirstTrack = true, referenceJobId = null } = options;
     
-    console.log('[PR2] buildReferencePayload()', { isFirstTrack, referenceJobId });
+    console.log('[REF-PAYLOAD] buildReferencePayload()', { isFirstTrack, referenceJobId });
     
     if (isFirstTrack) {
-        // ✅ CORREÇÃO: PRIMEIRA TRACK em reference deve enviar mode='reference'
-        // Backend sabe que é primeira track pela ausência de referenceJobId
-        console.log('[PR2] Reference primeira track - criando payload limpo de reference');
+        // ✅ CORREÇÃO DEFINITIVA: PRIMEIRA TRACK reference DEVE incluir genre e genreTargets
+        // Isso permite análise completa da música base para depois comparar
+        console.log('[REF-PAYLOAD] Reference primeira track - INCLUINDO genre e targets (música base)');
         
+        // Reutilizar buildGenrePayload para obter genre + genreTargets
+        const genrePayload = buildGenrePayload(fileKey, fileName, idToken);
+        
+        // Transformar em payload reference base
         const payload = {
-            fileKey,
-            mode: 'reference',  // ✅ FIX: mode correto para reference
-            fileName,
-            isReferenceBase: true,  // Flag para backend saber que é primeira
-            referenceJobId: null,   // null = primeira track
-            idToken
+            ...genrePayload,
+            mode: 'reference',        // Mode reference identifica o fluxo A/B
+            isReferenceBase: true,    // Flag crítica: indica que é a música BASE
+            referenceJobId: null,     // null = primeira track (não há referência ainda)
         };
         
-        console.log('[PR2] ✅ Reference primeira track payload:', {
+        console.log('[REF-PAYLOAD] ✅ Reference primeira track (BASE) payload:', {
             mode: payload.mode,
+            genre: payload.genre,
+            hasGenre: !!payload.genre,
+            hasTargets: !!payload.genreTargets,
             isReferenceBase: payload.isReferenceBase,
-            hasGenre: false,  // ✅ NUNCA incluir genre em reference
-            hasTargets: false  // ✅ NUNCA incluir genreTargets em reference
+            referenceJobId: payload.referenceJobId
         });
         
-        // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
-        if (payload.genre || payload.genreTargets) {
-            console.error('[PR2] SANITY_FAIL: Reference primeira track tem genre/targets!', payload);
-            throw new Error('[PR2] Reference primeira track NÃO deve ter genre/genreTargets');
+        // 🔒 SANITY CHECK: Garantir que TEM genre/genreTargets
+        if (!payload.genre || !payload.genreTargets) {
+            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference primeira track SEM genre/targets!', payload);
+            throw new Error('[REF-PAYLOAD] Reference primeira track (base) DEVE ter genre e genreTargets');
         }
         
         return payload;
     } else {
-        // ✅ SEGUNDA TRACK: payload com referenceJobId para comparação
+        // ✅ SEGUNDA TRACK: payload LIMPO (sem genre/targets) com referenceJobId para comparação
         if (!referenceJobId) {
-            throw new Error('[PR2] buildReferencePayload: segunda track requer referenceJobId');
+            throw new Error('[REF-PAYLOAD] buildReferencePayload: segunda track requer referenceJobId');
         }
         
         const payload = {
             fileKey,
-            mode: 'reference',  // ✅ mode correto
+            mode: 'reference',       // Mode reference
             fileName,
-            referenceJobId,     // JobId da primeira música
+            referenceJobId,          // JobId da primeira música (BASE) - obrigatório
             isReferenceBase: false,  // Segunda track = comparação
             idToken
         };
         
-        console.log('[PR2] Reference segunda track payload:', {
+        console.log('[REF-PAYLOAD] ✅ Reference segunda track (COMPARAÇÃO) payload:', {
             mode: payload.mode,
             referenceJobId: payload.referenceJobId,
-            hasGenre: false, // ✅ NUNCA incluir genre
-            hasTargets: false // ✅ NUNCA incluir genreTargets
+            hasGenre: false, // ✅ Segunda track NÃO inclui genre
+            hasTargets: false, // ✅ Segunda track NÃO inclui genreTargets
+            isReferenceBase: payload.isReferenceBase
         });
         
         // 🔒 SANITY CHECK: Garantir que NÃO tem genre/genreTargets
         if (payload.genre || payload.genreTargets) {
-            console.error('[PR2] SANITY_FAIL: Reference segunda track tem genre/targets!', payload);
-            throw new Error('[PR2] Reference segunda track NÃO deve ter genre/genreTargets');
+            console.error('[REF-PAYLOAD] SANITY_FAIL: Reference segunda track tem genre/targets!', payload);
+            throw new Error('[REF-PAYLOAD] Reference segunda track NÃO deve ter genre/genreTargets');
         }
         
         return payload;

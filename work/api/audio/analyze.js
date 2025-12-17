@@ -176,28 +176,46 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
-    // 🎯 CORREÇÃO CRÍTICA: Validar genre APENAS em modo 'genre'
-    // ✅ REFERENCE MODE: Genre é OPCIONAL (não precisa de validação)
-    // ✅ GENRE MODE: Genre é OBRIGATÓRIO (validação aplicada)
-    if (mode === 'genre') {
+    // 🎯 CORREÇÃO DEFINITIVA: Validação de genre baseada em mode + isReferenceBase
+    // REGRAS:
+    // 1. mode='genre' → genre OBRIGATÓRIO
+    // 2. mode='reference' + isReferenceBase=true (1ª track) → genre OBRIGATÓRIO (música base)
+    // 3. mode='reference' + referenceJobId (2ª track) → genre PROIBIDO (comparação pura)
+    
+    const isFirstReferenceTrack = mode === 'reference' && !referenceJobId;
+    const isSecondReferenceTrack = mode === 'reference' && referenceJobId;
+    const isGenreMode = mode === 'genre';
+    
+    if (isGenreMode || isFirstReferenceTrack) {
+      // Genre é OBRIGATÓRIO para mode=genre OU primeira track reference
       if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
-        throw new Error('❌ [CRITICAL] Genre é obrigatório e não pode ser vazio no modo "genre"');
+        const errorMsg = isGenreMode 
+          ? '❌ [CRITICAL] Genre é obrigatório e não pode ser vazio no modo "genre"'
+          : '❌ [CRITICAL] Genre é obrigatório para primeira track reference (música base)';
+        throw new Error(errorMsg);
       }
       
-      // 🎯 LOG DE AUDITORIA OBRIGATÓRIO (apenas em mode genre)
-      console.log('[GENRE-TRACE][BACKEND] 💾 Salvando no banco (mode: genre):', {
+      // 🎯 LOG DE AUDITORIA
+      console.log('[BACKEND-VALIDATION] 💾 Salvando no banco com genre:', {
+        mode,
         jobId: jobId.substring(0, 8),
         receivedGenre: genre,
         hasGenreTargets: !!genreTargets,
-        genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null
+        genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null,
+        isReferenceBase: isFirstReferenceTrack
       });
-    } else if (mode === 'reference') {
-      // 🎯 LOG DE REFERÊNCIA (mode: reference)
-      console.log('[REFERENCE-TRACE][BACKEND] 💾 Salvando no banco (mode: reference):', {
+    } else if (isSecondReferenceTrack) {
+      // Genre DEVE estar ausente na segunda track reference
+      if (genre) {
+        console.warn('[BACKEND-VALIDATION] ⚠️ Segunda track reference tem genre - ignorando');
+      }
+      
+      // 🎯 LOG DE REFERÊNCIA (segunda track)
+      console.log('[BACKEND-VALIDATION] 💾 Salvando segunda track reference (comparação):', {
         jobId: jobId.substring(0, 8),
-        referenceJobId: referenceJobId || 'primeira track (base)',
-        isFirstTrack: !referenceJobId,
-        isSecondTrack: !!referenceJobId
+        referenceJobId,
+        genrePresent: !!genre,
+        genreIgnored: true
       });
     }
     
