@@ -764,6 +764,10 @@ async function downloadFileFromBucket(fileKey) {
 async function processReferenceBase(job) {
   const { jobId, fileKey, fileName } = job.data;
   
+  console.log('');
+  console.log('🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵');
+  console.log('🔵 [REFERENCE-BASE] ⚡⚡⚡ FUNÇÃO CHAMADA! ⚡⚡⚡');
+  console.log('🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵');
   console.log('[REFERENCE-BASE] ═══════════════════════════════════════');
   console.log('[REFERENCE-BASE] Processando 1ª música (BASE)');
   console.log('[REFERENCE-BASE] Job ID:', jobId);
@@ -774,7 +778,9 @@ async function processReferenceBase(job) {
 
   try {
     // Atualizar status
+    console.log('[REFERENCE-BASE] 🔄 Definindo status como PROCESSING...');
     await updateJobStatus(jobId, 'processing');
+    console.log('[REFERENCE-BASE] ✅ Status PROCESSING salvo com sucesso!');
 
     // Download do arquivo
     console.log('[REFERENCE-BASE] Baixando arquivo...');
@@ -788,6 +794,16 @@ async function processReferenceBase(job) {
     console.log('[REFERENCE-BASE] Iniciando pipeline...');
     const t0 = Date.now();
     
+    console.log('[REFERENCE-BASE] 🔍 Parâmetros para processAudioComplete:', {
+      fileName: fileName || 'unknown.wav',
+      fileBufferSize: fileBuffer.length,
+      options: {
+        jobId,
+        mode: 'reference',
+        referenceStage: 'base'
+      }
+    });
+    
     const finalJSON = await processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId,
       mode: 'reference',
@@ -796,7 +812,13 @@ async function processReferenceBase(job) {
     });
 
     const totalMs = Date.now() - t0;
-    console.log('[REFERENCE-BASE] Pipeline concluído em', totalMs, 'ms');
+    console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
+    console.log('[REFERENCE-BASE] 🔍 Pipeline retornou:', {
+      hasTechnicalData: !!finalJSON.technicalData,
+      hasScore: finalJSON.score !== undefined,
+      hasMetrics: !!finalJSON.metrics,
+      keys: Object.keys(finalJSON || {}).slice(0, 15)
+    });
 
     // Adicionar campos específicos de reference base
     finalJSON.mode = 'reference';
@@ -828,9 +850,25 @@ async function processReferenceBase(job) {
     console.log('[REFERENCE-BASE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
     console.log('[REFERENCE-BASE] DR:', finalJSON.technicalData?.dynamicRange || 'N/A');
     console.log('[REFERENCE-BASE] TP:', finalJSON.technicalData?.truePeakDbtp || 'N/A');
+    console.log('[REFERENCE-BASE] requiresSecondTrack:', finalJSON.requiresSecondTrack);
+    console.log('[REFERENCE-BASE] referenceJobId:', finalJSON.referenceJobId);
+    console.log('[REFERENCE-BASE] referenceStage:', finalJSON.referenceStage);
 
-    // Salvar como COMPLETED
+    // Salvar como COMPLETED (SEM VALIDAÇÃO)
+    console.log('[REFERENCE-BASE] 💾 Salvando no PostgreSQL como COMPLETED...');
+    console.log('[REFERENCE-BASE] 🔍 Dados sendo salvos:', {
+      mode: finalJSON.mode,
+      referenceStage: finalJSON.referenceStage,
+      requiresSecondTrack: finalJSON.requiresSecondTrack,
+      referenceJobId: finalJSON.referenceJobId,
+      hasAiSuggestions: Array.isArray(finalJSON.aiSuggestions),
+      aiSuggestionsLength: finalJSON.aiSuggestions?.length || 0,
+      hasSuggestions: Array.isArray(finalJSON.suggestions),
+      suggestionsLength: finalJSON.suggestions?.length || 0,
+      score: finalJSON.score
+    });
     await updateJobStatus(jobId, 'completed', finalJSON);
+    console.log('[REFERENCE-BASE] ✅ Status COMPLETED salvo no banco com sucesso!');
 
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
@@ -1053,14 +1091,16 @@ async function audioProcessor(job) {
   // ══════════════════════════════════════════════════════════════════════════════
   
   console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
-  console.log('[WORKER-ROUTING] Job ID:', jobId);
+  console.log('[WORKER-ROUTING] Job ID:', jobId?.substring(0, 8));
   console.log('[WORKER-ROUTING] Mode:', mode);
-  console.log('[WORKER-ROUTING] Reference Stage:', referenceStage || 'N/A');
+  console.log('[WORKER-ROUTING] Reference Stage:', referenceStage || 'UNDEFINED');
   console.log('[WORKER-ROUTING] Reference Job ID:', referenceJobId || 'N/A');
+  console.log('[WORKER-ROUTING] Job Data Keys:', Object.keys(job.data || {}));
   console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
   
   // 🎯 REFERENCE MODE: BASE (1ª música)
   if (mode === 'reference' && referenceStage === 'base') {
+    console.log('[WORKER-ROUTING] ✅ Condição atendida: mode=reference AND referenceStage=base');
     console.log('[WORKER-ROUTING] ➡️ Direcionando para processReferenceBase()');
     return processReferenceBase(job);
   }
