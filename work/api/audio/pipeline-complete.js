@@ -427,7 +427,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         mode: mode,
         genre: detectedGenre,
         genreTargets: customTargets || options.genreTargets,
-        referenceJobId: options.referenceJobId
+        referenceJobId: options.referenceJobId,
+        referenceStage: options.referenceStage || options.analysisType === 'reference' ? (options.referenceJobId ? 'compare' : 'base') : null // 🆕 Detectar estágio
       });
       
       console.log('[GENRE-FLOW][PIPELINE] ✅ Genre adicionado ao finalJSON:', {

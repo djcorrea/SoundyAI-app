@@ -601,7 +601,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   });
 
   return {
-    // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
+    // 🎯 CORREÇÃO CRÍTICA: Incluir genre, mode e referenceStage no JSON final
     // Esses campos são FUNDAMENTAIS para:
     // - Carregamento correto dos targets específicos por gênero no frontend
     // - Renderização do modo gênero vs modo referência
@@ -610,6 +610,8 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     // - Preservação do fluxo A/B no modo referência
     genre: finalGenre,
     mode: options.mode || 'genre',
+    referenceStage: options.referenceStage || options.data?.referenceStage || null, // 🆕 BASE ou COMPARE
+    referenceJobId: options.referenceJobId || null, // 🆕 ID da primeira música (se compare)
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
 
