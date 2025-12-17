@@ -378,15 +378,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🎯 CORREÇÃO DEFINITIVA: CARREGAR TARGETS DO WORKER (SEGURO)
-        // REGRA 6: Fallback SÓ acontece se customTargets === undefined
-        // Nesse caso, o sistema LANÇA ERRO e aborta (não usa valores hardcoded)
-        // ✅ CORREÇÃO REFERENCE: Modo reference pode não ter targets (primeira track)
-        let customTargets = null;
-        if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-          try {
-            // 🔥 SEMPRE usar loadGenreTargetsFromWorker - NUNCA fallback
-            customTargets = await loadGenreTargetsFromWorker(detectedGenre);
+        // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
+        // Esta função NUNCA retorna fallback - sempre lança erro se arquivo não existir
+        try {
+          customTargets = await loadGenreTargetsFromWorker(detectedGenre);
           
           // 🚨 LOG DE SUCESSO
           console.error('\n');
@@ -400,20 +395,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.error('[PIPELINE] Bands disponíveis:', customTargets.bands ? Object.keys(customTargets.bands).length : 0);
           console.error('\n');
           
-          } catch (error) {
-            // Arquivo não encontrado - erro controlado
-            const errorMsg = `[PIPELINE-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
-            console.error('╔═══════════════════════════════════════════════════════════╗');
-            console.error('║  ❌ ERRO CRÍTICO: TARGETS NÃO CARREGADOS                ║');
-            console.error('╚═══════════════════════════════════════════════════════════╝');
-            console.error(errorMsg);
-            throw new Error(errorMsg);
-          }
-        } else if (mode === 'reference') {
-          console.log(`[PIPELINE] 🔒 Modo referência - ignorando targets de gênero`);
-          // ✅ CORREÇÃO REFERENCE: Primeira track reference pode não ter genre/targets
-          // Nesse caso, bypass suggestion engine
-          customTargets = null;
+        } catch (error) {
+          // Arquivo não encontrado - erro controlado
+          const errorMsg = `[PIPELINE-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
+          console.error('╔═══════════════════════════════════════════════════════════╗');
+          console.error('║  ❌ ERRO CRÍTICO: TARGETS NÃO CARREGADOS                ║');
+          console.error('╚═══════════════════════════════════════════════════════════╝');
+          console.error(errorMsg);
+          throw new Error(errorMsg);
         }
         
         console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
