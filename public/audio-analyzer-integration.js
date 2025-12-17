@@ -2327,14 +2327,43 @@ function selectAnalysisMode(mode) {
     // 🔍 AUDIT: Dump ANTES de setar state machine
     if (window.debugDump) window.debugDump('BEFORE_SET_MODE', { mode, previousMode });
     
-    // 🆕 PR2: USAR STATE MACHINE
+    // 🆕 PR2: USAR STATE MACHINE (com guard robusto)
     const stateMachine = window.AnalysisStateMachine;
     if (!stateMachine) {
-        console.error('[PR2] AnalysisStateMachine não disponível');
+        console.error('%c[CRITICAL] AnalysisStateMachine não disponível!', 'color:red;font-weight:bold;font-size:14px;');
+        console.error('[CRITICAL] Isso impede o fluxo de referência. Script pode não ter carregado.');
+        console.error('[CRITICAL] Tentando continuar com fallback para currentAnalysisMode...');
+        
+        // Fallback: usar apenas currentAnalysisMode se state machine não existir
+        window.currentAnalysisMode = mode;
+        
+        if (mode === 'reference') {
+            userExplicitlySelectedReferenceMode = true;
+            console.log('[FALLBACK] Flag userExplicitlySelectedReferenceMode ativada manualmente');
+        }
     } else {
+        // State machine disponível - usar normalmente
+        const currentState = stateMachine.getState();
+        const currentMode = stateMachine.getMode();
+        
+        console.log('[PR2] State machine ANTES de setMode:', { currentMode, currentState });
+        
         // Atualizar state machine com modo selecionado
         stateMachine.setMode(mode, { userExplicitlySelected: true });
-        console.log('[PR2] State machine atualizada:', stateMachine.getState());
+        
+        const newState = stateMachine.getState();
+        const newMode = stateMachine.getMode();
+        
+        console.log('[PR2] State machine DEPOIS de setMode:', { newMode, newState });
+        
+        // 🔒 VERIFICAR se setMode funcionou
+        if (newMode !== mode) {
+            console.error('%c[CRITICAL] setMode falhou! Esperado:', mode, 'Obtido:', newMode, 'color:red;font-weight:bold;');
+            alert('Erro ao configurar modo de análise. Por favor, recarregue a página.');
+            return;
+        }
+        
+        console.log('%c[PR2] ✅ State machine configurado com sucesso para:', mode, 'color:green;font-weight:bold;');
     }
     
     // 🔍 AUDIT: Dump DEPOIS de setar state machine
@@ -2745,37 +2774,76 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         // 🆕 PR2: USAR STATE MACHINE como fonte de verdade
         const stateMachine = window.AnalysisStateMachine;
         if (!stateMachine) {
-            throw new Error('[PR2] AnalysisStateMachine não disponível');
-        }
-        
-        const currentState = stateMachine.getState();
-        console.log('[PR2] Estado atual da máquina:', currentState);
-        
-        // 🔍 PR1: Trace ID para rastreamento
-        const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
-        if (window.logStep) {
-            window.logStep(traceId, 'PAYLOAD_BUILD_START', {
-                mode,
-                stateMachineMode: currentState.mode,
-                awaitingSecondTrack: currentState.awaitingSecondTrack,
-                referenceFirstJobId: currentState.referenceFirstJobId,
-            });
-        }
-        
-        // 🆕 PR2: DETERMINAR TIPO DE PAYLOAD
-        let payload;
-        
-        if (mode === 'genre') {
-            // MODO GENRE: usar builder de genre
-            console.log('[PR2] Usando buildGenrePayload');
-            payload = buildGenrePayload(fileKey, fileName, idToken);
+            console.error('%c[CRITICAL] AnalysisStateMachine não disponível em createAnalysisJob!', 'color:red;font-weight:bold;font-size:14px;');
+            console.error('[CRITICAL] Modo solicitado:', mode);
+            console.error('[CRITICAL] currentAnalysisMode:', window.currentAnalysisMode);
             
-        } else if (mode === 'reference') {
-            // MODO REFERENCE: verificar se é primeira ou segunda track
-            const isFirstTrack = !currentState.awaitingSecondTrack;
-            const referenceJobId = currentState.referenceFirstJobId;
+            // Se não tem state machine MAS o mode é reference, tentar continuar com fallback
+            if (mode === 'reference') {
+                console.warn('[FALLBACK] Tentando continuar reference sem state machine...');
+                console.warn('[FALLBACK] Usando window.currentAnalysisMode e flags globais');
+                
+                // Criar payload manualmente sem state machine
+                if (window.userExplicitlySelectedReferenceMode) {
+                    // Determinar se é primeira ou segunda track pelas flags globais
+                    const hasFirstJobId = window.__REFERENCE_JOB_ID__ || window.lastReferenceJobId;
+                    
+                    payload = buildReferencePayload(fileKey, fileName, idToken, {
+                        isFirstTrack: !hasFirstJobId,
+                        referenceJobId: hasFirstJobId || null
+                    });
+                    
+                    console.log('[FALLBACK] Payload reference criado:', payload);
+                } else {
+                    throw new Error('[CRITICAL] State machine ausente E userExplicitlySelectedReferenceMode=false. Não é possível processar reference.');
+                }
+            } else {
+                // Modo genre não precisa de state machine
+                payload = buildGenrePayload(fileKey, fileName, idToken);
+            }
+        } else {
+            // State machine disponível - fluxo normal
+            const currentState = stateMachine.getState();
+            const currentSMMode = stateMachine.getMode();
             
-            console.log('[PR2] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
+            console.log('[PR2] Estado atual da máquina:', { mode: currentSMMode, state: currentState });
+            
+            // 🔒 VERIFICAÇÃO CRÍTICA: se mode é reference, state machine DEVE estar em reference
+            if (mode === 'reference' && currentSMMode !== 'reference') {
+                console.error('%c[CRITICAL] INCONSISTÊNCIA DETECTADA!', 'color:red;font-weight:bold;font-size:16px;');
+                console.error('[STATE] Parâmetro mode:', mode);
+                console.error('[STATE] stateMachine.getMode():', currentSMMode);
+                console.error('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
+                console.error('[STATE] State completo:', currentState);
+                
+                console.warn('[FIX_ATTEMPT] Tentando corrigir state machine...');
+                try {
+                    stateMachine.setMode('reference', { userExplicitlySelected: true });
+                    const fixedMode = stateMachine.getMode();
+                    console.log('[FIX_RESULT] Novo mode:', fixedMode);
+                    
+                    if (fixedMode !== 'reference') {
+                        throw new Error(`setMode falhou: ainda está em '${fixedMode}'`);
+                    }
+                    
+                    console.log('%c[FIX_SUCCESS] State machine corrigido para reference', 'color:green;font-weight:bold;');
+                } catch (fixError) {
+                    console.error('[FIX_FAILED] Não foi possível corrigir:', fixError);
+                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas mode param é '${mode}'. Correção falhou: ${fixError.message}`);
+                }
+            }
+            
+            // Agora sim, continuar com o fluxo normal baseado no modo
+            if (mode === 'genre') {
+                console.log('[PR2] Usando buildGenrePayload');
+                payload = buildGenrePayload(fileKey, fileName, idToken);
+                
+            } else if (mode === 'reference') {
+                // MODO REFERENCE: verificar se é primeira ou segunda track
+                const isFirstTrack = !currentState.awaitingSecondTrack;
+                const referenceJobId = currentState.referenceFirstJobId;
+                
+                console.log('[PR2] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
             
             if (isFirstTrack) {
                 // Primeira track: iniciar fluxo
@@ -2822,8 +2890,19 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 });
             }
             
-        } else {
-            throw new Error(`[PR2] Modo inválido: ${mode}`);
+            } else {
+                throw new Error(`[PR2] Modo inválido: ${mode}`);
+            }
+        }
+        
+        // 🔍 PR1: Trace ID para rastreamento
+        const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
+        if (window.logStep) {
+            window.logStep(traceId, 'PAYLOAD_BUILD_END', {
+                mode: payload.mode,
+                isReferenceBase: payload.isReferenceBase || false,
+                referenceJobId: payload.referenceJobId || null,
+            });
         }
         
         // 🔍 PR1: Log payload final (mascarado)
