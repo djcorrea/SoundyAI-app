@@ -2193,6 +2193,21 @@ function setViewMode(mode) {
     if (mode === "genre" && oldMode === "reference") {
         console.log("[VIEW-MODE] 🧹 Limpando estado de referência ao mudar para gênero");
         resetReferenceStateFully();
+        
+        // ✅ Resetar referenceFlow também
+        if (window.referenceFlow) {
+            window.referenceFlow.reset();
+            console.log("[VIEW-MODE] ✅ ReferenceFlow resetado");
+        }
+    }
+    
+    // ✅ Iniciar novo fluxo de referência ao mudar para reference
+    if (mode === "reference" && oldMode === "genre") {
+        console.log("[VIEW-MODE] 🎯 Iniciando novo fluxo de referência");
+        if (window.referenceFlow) {
+            window.referenceFlow.startNewReferenceFlow();
+            console.log("[VIEW-MODE] ✅ ReferenceFlow iniciado");
+        }
     }
 }
 
@@ -2847,32 +2862,22 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 payload = buildGenrePayload(fileKey, fileName, idToken);
                 
             } else if (mode === 'reference') {
-                // MODO REFERENCE: verificar se é primeira ou segunda track
-                const isFirstTrack = !currentState.awaitingSecondTrack;
-                const referenceJobId = currentState.referenceFirstJobId;
+                // MODO REFERENCE: usar ReferenceFlowController
+                const refFlow = window.referenceFlow;
+                if (!refFlow) {
+                    throw new Error('[REF-FLOW] ReferenceFlowController não disponível');
+                }
                 
-                console.log('[PR2] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
+                const isFirstTrack = refFlow.isFirstTrack() || !refFlow.isAwaitingSecond();
+                const referenceJobId = refFlow.getBaseJobId();
+                
+                console.log('[REF-FLOW] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
             
             if (isFirstTrack) {
                 // Primeira track: iniciar fluxo
-                // 🔍 AUDIT: Dump antes de startReferenceFirstTrack
-                if (window.debugDump) window.debugDump('BEFORE_START_REFERENCE_FIRST_TRACK', { stateMachineState: stateMachine.getState() });
+                console.log('[REF-FLOW] onFirstTrackSelected() chamado');
+                refFlow.onFirstTrackSelected();
                 
-                // 🔒 [INVARIANTE #1] Garantir que state machine está em 'reference' ANTES de chamar startReferenceFirstTrack
-                const currentSMMode = stateMachine.getMode();
-                if (currentSMMode !== 'reference') {
-                    console.error('%c[INVARIANTE #1 VIOLADA em createAnalysisJob] State machine não está em reference!', 'color:red;font-weight:bold;font-size:14px;');
-                    console.error('[STATE] stateMachine.getMode():', currentSMMode);
-                    console.error('[STATE] mode param:', mode);
-                    console.error('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
-                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas deveria estar em 'reference'. Isso impede chamar startReferenceFirstTrack().`);
-                }
-                
-                console.log('%c[INVARIANTE #1 OK] State machine está em reference, chamando startReferenceFirstTrack()', 'color:green;font-weight:bold;');
-                stateMachine.startReferenceFirstTrack();
-                
-                // 🔍 AUDIT: Dump depois de startReferenceFirstTrack
-                if (window.debugDump) window.debugDump('AFTER_START_REFERENCE_FIRST_TRACK', { stateMachineState: stateMachine.getState() });
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
                     isFirstTrack: true,
                     referenceJobId: null
@@ -2880,18 +2885,12 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             } else {
                 // Segunda track: comparar
                 if (!referenceJobId) {
-                    throw new Error('[PR2] Segunda track requer referenceFirstJobId na state machine');
+                    throw new Error('[REF-FLOW] Segunda track requer baseJobId');
                 }
                 
-                // 🔒 [INVARIANTE #1] Verificar state machine antes de segunda track também
-                const currentSMMode = stateMachine.getMode();
-                if (currentSMMode !== 'reference') {
-                    console.error('%c[INVARIANTE #1 VIOLADA em createAnalysisJob - 2ª track] State machine não está em reference!', 'color:red;font-weight:bold;font-size:14px;');
-                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas deveria estar em 'reference' para segunda track.`);
-                }
+                console.log('[REF-FLOW] onSecondTrackSelected() chamado');
+                refFlow.onSecondTrackSelected();
                 
-                console.log('%c[INVARIANTE #1 OK] State machine está em reference, chamando startReferenceSecondTrack()', 'color:green;font-weight:bold;');
-                stateMachine.startReferenceSecondTrack();
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
                     isFirstTrack: false,
                     referenceJobId
@@ -7580,35 +7579,37 @@ async function handleModalFileSelection(file) {
         const analysisResult = await pollJobStatus(jobId);
         
         // 🌐 ETAPA 5: Processar resultado baseado no modo e contexto
-        // 🎯 [INVARIANTE #3] Usar STATE MACHINE como fonte de verdade para isFirstTrack/isSecondTrack
+        // 🎯 [FLUXO DETERMINÍSTICO] Usar ReferenceFlowController como ÚNICA fonte de verdade
         const jobMode = analysisResult.mode || currentAnalysisMode;
         
-        // ✅ CORREÇÃO: Usar state machine para determinar se é primeira ou segunda track
-        const smState = stateMachine?.getState();
-        const isAwaitingSecond = stateMachine?.isAwaitingSecondTrack() || false;
-        const hasReferenceFirst = smState?.referenceFirstJobId !== null;
-        
-        // isSecondTrack = já tem referenceFirstJobId e está aguardando segunda
-        const isSecondTrack = currentAnalysisMode === 'reference' && hasReferenceFirst && isAwaitingSecond;
-        const isFirstReferenceTrack = currentAnalysisMode === 'reference' && !isSecondTrack;
+        // ✅ NOVO FLUXO: Usar referenceFlow controller (isolado e determinístico)
+        const refFlow = window.referenceFlow;
+        const isFirstReferenceTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isFirstTrack();
+        const isSecondTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isSecondTrack();
         
         // 🔍 [DEBUG] Log detalhado do estado
-        console.group('[REF_DEBUG] 🎯 Determinação de Track (Primeira vs Segunda)');
+        console.group('[REF-FLOW] 🎯 Determinação de Track (Primeira vs Segunda)');
         console.log('📊 analysisResult.mode:', analysisResult?.mode);
         console.log('🎯 currentAnalysisMode:', currentAnalysisMode);
         console.log('🔑 jobId retornado:', jobId);
-        console.log('🎰 StateMachine.state:', smState);
+        console.log('🎰 ReferenceFlow.stage:', refFlow?.getStage());
         console.log('🔍 Cálculos:');
-        console.log('  - isAwaitingSecond:', isAwaitingSecond);
-        console.log('  - hasReferenceFirst:', hasReferenceFirst);
-        console.log('  - referenceFirstJobId:', smState?.referenceFirstJobId);
+        console.log('  - isFirstTrack:', refFlow?.isFirstTrack());
+        console.log('  - isSecondTrack:', refFlow?.isSecondTrack());
+        console.log('  - isAwaitingSecond:', refFlow?.isAwaitingSecond());
+        console.log('  - baseJobId:', refFlow?.getBaseJobId());
         console.log('✅ RESULTADO:');
         console.log('  - isFirstReferenceTrack:', isFirstReferenceTrack);
         console.log('  - isSecondTrack:', isSecondTrack);
         console.groupEnd();
         
         if (isFirstReferenceTrack) {
-            console.log('%c[REF_DEBUG] 🎯 PRIMEIRA TRACK EM REFERENCE MODE', 'color:cyan;font-weight:bold;font-size:14px;');
+            console.log('%c[REF-FLOW] 🎯 PRIMEIRA TRACK EM REFERENCE MODE', 'color:cyan;font-weight:bold;font-size:14px;');
+            
+            // ✅ Notificar referenceFlow sobre processamento
+            if (refFlow && jobId) {
+                refFlow.onFirstTrackProcessing(jobId);
+            }
             
             // 🔒 [INVARIANTE #1] Garantir que state machine está em reference ANTES de startReferenceFirstTrack
             const smMode = stateMachine?.getMode();
@@ -7724,32 +7725,31 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
+            // ✅ Notificar referenceFlow sobre conclusão da primeira track
+            if (refFlow && normalizedFirst) {
+                refFlow.onFirstTrackCompleted(normalizedFirst);
+                console.log('[REF-FLOW] ✅ onFirstTrackCompleted() chamado');
+            }
+            
             if (normalizedFirst && normalizedFirst.jobId) {
                 openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
             } else {
                 console.error('[ERROR] ❌ Não foi possível abrir modal: normalizedFirst inválido');
             }
         } else if (isSecondTrack) {
-            // 🔥 FORÇAR: Se tem jobId de referência, SEMPRE tratar como segunda track
-            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
-            console.log('🟢 [FORCE] isSecondTrack TRUE - entrando em bloco A/B');
-            console.log('🟢 [FORCE] jobMode (pode ser null):', jobMode);
-            console.log('🟢 [FORCE] currentAnalysisMode (pode ser genre):', currentAnalysisMode);
-            console.log('🟢 [FORCE] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-            console.log('🟢 [FORCE] IGNORANDO jobMode - usando APENAS isSecondTrack como critério');
-            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
-            // SEGUNDA música em modo reference: mostrar resultado comparativo
-            console.log('🟢 [SEGUNDA-TRACK] ✅ Sistema ENTROU no bloco de segunda track!');
-            console.log('🟢 [SEGUNDA-TRACK] jobMode:', jobMode);
-            console.log('🟢 [SEGUNDA-TRACK] currentAnalysisMode:', currentAnalysisMode);
-            console.log('🟢 [SEGUNDA-TRACK] isSecondTrack:', isSecondTrack);
-            console.log('🟢 [SEGUNDA-TRACK] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-            console.log('🟢 [SEGUNDA-TRACK] analysisResult.jobId:', analysisResult?.jobId);
-            console.log('🟢 [SEGUNDA-TRACK] Aguardando processamento... (se não aparecer erro abaixo, fluxo está correto)');
-            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA] ════════════════════════════════════');
-            console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
-            console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
-            console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
+            // ✅ SEGUNDA música em modo reference: mostrar resultado comparativo
+            console.log('[REF-FLOW] ✅ Segunda track detectada - bloco de comparação A/B');
+            console.log('[REF-FLOW] jobMode:', jobMode);
+            console.log('[REF-FLOW] currentAnalysisMode:', currentAnalysisMode);
+            console.log('[REF-FLOW] analysisResult.jobId:', analysisResult?.jobId);
+            console.log('[REF-FLOW] baseJobId:', refFlow?.getBaseJobId());
+            
+            // ✅ Notificar referenceFlow sobre processamento da segunda track
+            if (refFlow) {
+                refFlow.onCompareProcessing();
+                console.log('[REF-FLOW] ✅ onCompareProcessing() chamado');
+            }
+            
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             
             // ========================================
