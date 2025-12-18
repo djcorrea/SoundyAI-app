@@ -12,6 +12,17 @@ function isValidUuid(str) {
 
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
+  // ═══════════════════════════════════════════════════════════════
+  // 🔍 PROBE: Provar qual handler está rodando em produção
+  // ═══════════════════════════════════════════════════════════════
+  res.setHeader("X-STATUS-HANDLER", "work/api/jobs/[id].js#PROBE_A");
+  res.setHeader("X-STATUS-TS", String(Date.now()));
+  console.error("[PROBE_STATUS_HANDLER] HIT work/api/jobs/[id].js", { 
+    url: req.originalUrl,
+    jobId: req.params.id 
+  });
+  // ═══════════════════════════════════════════════════════════════
+  
   const { id } = req.params;
 
   console.log("[GET-JOB] ID recebido:", id);
@@ -126,18 +137,29 @@ router.get("/:id", async (req, res) => {
     const effectiveMode = fullResult?.mode || job?.mode || req?.query?.mode || req?.body?.mode || 'genre';
     const effectiveStage = fullResult?.referenceStage || job?.referenceStage || (fullResult?.isReferenceBase ? 'base' : undefined);
     
-    // 🔒 Log de prova de deployment
-    console.log('[REF-GUARD-V7] loaded', { 
-      effectiveMode, 
-      effectiveStage, 
-      jobId: job.id 
+    // 🔒 DIAGNÓSTICO COMPLETO (1x por request, sem spam)
+    console.error('[REF-GUARD-V7] DIAGNOSTICO_COMPLETO', { 
+      jobId: job.id,
+      'job.mode': job?.mode,
+      'job.status': job?.status,
+      'job.referenceStage': job?.referenceStage,
+      'fullResult.mode': fullResult?.mode,
+      'fullResult.status': fullResult?.status,
+      'fullResult.referenceStage': fullResult?.referenceStage,
+      'fullResult.referenceJobId': fullResult?.referenceJobId,
+      'fullResult.isReferenceBase': fullResult?.isReferenceBase,
+      effectiveMode,
+      effectiveStage,
+      hasSuggestions: Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0,
+      hasAiSuggestions: Array.isArray(fullResult?.aiSuggestions) && fullResult.aiSuggestions.length > 0,
+      hasTechnicalData: !!fullResult?.technicalData
     });
     
     // ═══════════════════════════════════════════════════════════════════════
     // 🟢 EARLY RETURN INCONDICIONAL PARA REFERENCE MODE
     // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
-      console.log('[REF-GUARD-V7] 🟢 Reference Mode detectado - EARLY RETURN ativado');
+      console.error('[REF-GUARD-V7] ✅ EARLY_RETURN_EXECUTANDO para reference');
       
       const normalizedStatus = fullResult?.status || job?.status || 'processing';
       
@@ -158,15 +180,17 @@ router.get("/:id", async (req, res) => {
           baseResponse.requiresSecondTrack = true;
           baseResponse.referenceJobId = job.id; // OK existir, mas NÃO usado para inferir "segundo job"
           baseResponse.status = 'completed';
-          console.log('[REF-GUARD-V7] ✅ BASE completed - requiresSecondTrack:', true, 'referenceJobId:', job.id);
+          console.error('[REF-GUARD-V7] ✅ BASE completed - requiresSecondTrack:', true, 'referenceJobId:', job.id);
         } else if (baseResponse.referenceStage === 'compare') {
           baseResponse.status = 'completed'; // Mesmo sem suggestions
-          console.log('[REF-GUARD-V7] ✅ COMPARE completed');
+          console.error('[REF-GUARD-V7] ✅ COMPARE completed');
         }
       }
       
       res.setHeader('X-REF-GUARD', 'V7');
-      console.log('[REF-GUARD-V7] 📤 EARLY RETURN - status:', normalizedStatus, 'stage:', baseResponse.referenceStage);
+      res.setHeader('X-EARLY-RETURN', 'EXECUTED');
+      res.setHeader('X-MODE', effectiveMode);
+      console.error('[REF-GUARD-V7] 📤 EARLY RETURN - status:', normalizedStatus, 'stage:', baseResponse.referenceStage);
       return res.json(baseResponse);
     }
     // ═══════════════════════════════════════════════════════════════════════
@@ -176,6 +200,19 @@ router.get("/:id", async (req, res) => {
     // ══════════════════════════════════════════════════════════════════
     // ⚠️ Este bloco SÓ roda para effectiveMode === 'genre'
     // Reference NUNCA chega aqui (early return acima)
+    
+    // 🛡️ GUARDA EXTRA: Se reference escapou, abortar agora
+    if (effectiveMode === 'reference') {
+      console.error('[REF-GUARD-V7] 🚨 ALERTA: Reference escapou do early return! Isso é um BUG.');
+      return res.json({
+        ...fullResult,
+        ...job,
+        id: job.id,
+        jobId: job.id,
+        mode: 'reference',
+        status: fullResult?.status || job?.status || 'processing'
+      });
+    }
     
     if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
