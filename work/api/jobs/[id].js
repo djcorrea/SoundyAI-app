@@ -13,13 +13,17 @@ function isValidUuid(str) {
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
   // ═══════════════════════════════════════════════════════════════
-  // 🔍 PROBE: Provar qual handler está rodando em produção
+  // 🔍 HEADERS DE AUDITORIA: Rastreabilidade em produção
   // ═══════════════════════════════════════════════════════════════
+  res.setHeader("X-JOBS-HANDLER", "work/api/jobs/[id].js");
   res.setHeader("X-STATUS-HANDLER", "work/api/jobs/[id].js#PROBE_A");
   res.setHeader("X-STATUS-TS", String(Date.now()));
+  res.setHeader("X-BUILD", process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev");
+  
   console.error("[PROBE_STATUS_HANDLER] HIT work/api/jobs/[id].js", { 
     url: req.originalUrl,
-    jobId: req.params.id 
+    jobId: req.params.id,
+    timestamp: new Date().toISOString()
   });
   // ═══════════════════════════════════════════════════════════════
   
