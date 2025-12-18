@@ -187,10 +187,16 @@ router.get("/:id", async (req, res) => {
         }
       }
       
+      // Early return for reference
       res.setHeader('X-REF-GUARD', 'V7');
       res.setHeader('X-EARLY-RETURN', 'EXECUTED');
       res.setHeader('X-MODE', effectiveMode);
       console.error('[REF-GUARD-V7] 📤 EARLY RETURN - status:', normalizedStatus, 'stage:', baseResponse.referenceStage);
+      
+      // Adicionar canário no JSON
+      baseResponse.__handlerVersion = "REF-GUARD-V7";
+      baseResponse.__timestamp = Date.now();
+      
       return res.json(baseResponse);
     }
     // ═══════════════════════════════════════════════════════════════════════
@@ -387,6 +393,10 @@ router.get("/:id", async (req, res) => {
       status: response.job.status,
       hasResults: !!response.job.results
     });
+    
+    // Adicionar canário em TODOS os responses
+    response.__handlerVersion = "REF-GUARD-V7";
+    response.__timestamp = Date.now();
     
     return res.status(200).json(response);
   } catch (err) {
