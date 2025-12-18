@@ -119,90 +119,10 @@ router.get("/:id", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🔐 PROTEÇÃO CRÍTICA: MODE DETECTION & STATUS VALIDATION
+    // 🔐 PROTEÇÃO CRÍTICA: MODE & STAGE DETECTION + STATUS VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
     
-    // 🎯 STEP 1: Detectar modo de forma robusta
-    const mode = 
-      job?.mode ||
-      job?.analysisMode ||
-      job?.analysisType ||
-      fullResult?.mode ||
-      fullResult?.analysisMode ||
-      fullResult?.analysisType ||
-      'unknown';
-    
-    const isReference = mode === 'reference';
-    const isGenre = mode === 'genre';
-    
-    console.log('[API-JOBS][MODE-DETECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[API-JOBS][MODE-DETECTION] Mode detectado:', mode);
-    console.log('[API-JOBS][MODE-DETECTION] isReference:', isReference);
-    console.log('[API-JOBS][MODE-DETECTION] isGenre:', isGenre);
-    console.log('[API-JOBS][MODE-DETECTION] Status atual:', normalizedStatus);
-    console.log('[API-JOBS][MODE-DETECTION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // 🎯 STEP 2: VALIDAÇÃO DE STATUS BASEADA NO MODO
-    
-    // ══════════════════════════════════════════════════════════════════
-    // 🟢 REFERENCE MODE: completed é SEMPRE válido
-    // ══════════════════════════════════════════════════════════════════
-    if (isReference && normalizedStatus === 'completed') {
-      console.log('[API-JOBS][REFERENCE] ✅ Reference Mode detectado com status COMPLETED');
-      
-      const referenceStage = fullResult?.referenceStage;
-      console.log('[API-JOBS][REFERENCE] referenceStage:', referenceStage);
-      
-      // 🎯 VALIDAÇÃO POR STAGE
-      if (referenceStage === 'base') {
-        // BASE: Apenas verificar campos mínimos (não exigir suggestions)
-        console.log('[API-JOBS][REFERENCE][BASE] ✅ Stage BASE detectado');
-        console.log('[API-JOBS][REFERENCE][BASE] requiresSecondTrack:', fullResult?.requiresSecondTrack);
-        console.log('[API-JOBS][REFERENCE][BASE] referenceJobId:', fullResult?.referenceJobId || 'N/A');
-        console.log('[API-JOBS][REFERENCE][BASE] 🔒 Status COMPLETED mantido sem validação de suggestions');
-        
-        // ✅ Garantir que arrays existem (mesmo vazios)
-        if (!Array.isArray(fullResult.suggestions)) {
-          fullResult.suggestions = [];
-        }
-        if (!Array.isArray(fullResult.aiSuggestions)) {
-          fullResult.aiSuggestions = [];
-        }
-        
-      } else if (referenceStage === 'compare') {
-        // COMPARE: Verificar se referenceComparison existe
-        console.log('[API-JOBS][REFERENCE][COMPARE] ✅ Stage COMPARE detectado');
-        console.log('[API-JOBS][REFERENCE][COMPARE] referenceComparison exists:', !!fullResult?.referenceComparison);
-        
-        if (!fullResult?.referenceComparison) {
-          console.warn('[API-JOBS][REFERENCE][COMPARE] ⚠️ referenceComparison ausente - mas mantendo status COMPLETED');
-        }
-        
-        // ✅ Garantir que arrays existem (podem estar vazios)
-        if (!Array.isArray(fullResult.suggestions)) {
-          fullResult.suggestions = [];
-        }
-        if (!Array.isArray(fullResult.aiSuggestions)) {
-          fullResult.aiSuggestions = [];
-        }
-        
-        console.log('[API-JOBS][REFERENCE][COMPARE] suggestions:', fullResult.suggestions?.length || 0);
-        console.log('[API-JOBS][REFERENCE][COMPARE] 🔒 Status COMPLETED mantido');
-        
-      } else {
-        console.warn('[API-JOBS][REFERENCE] ⚠️ referenceStage desconhecido ou ausente:', referenceStage);
-        console.warn('[API-JOBS][REFERENCE] Mantendo status COMPLETED de qualquer forma');
-      }
-      
-      // ✅ Para reference, completed é sempre válido - pular qualquer validação de suggestions
-      // Isso previne loop infinito de polling que ocorria quando base tinha suggestions=[]
-    }
-    
-    // ══════════════════════════════════════════════════════════════════
-    // 🔵 GENRE MODE: validação de suggestions (EXCLUSIVA DE GENRE)
-    // ══════════════════════════════════════════════════════════════════
-    
-    // 🎯 Detectar modo efetivo com fallback robusto
+    // 🎯 STEP 1: Detectar modo efetivo (com fallback robusto)
     const effectiveMode = 
       fullResult?.mode ||
       job?.mode ||
@@ -212,8 +132,48 @@ router.get("/:id", async (req, res) => {
       job?.analysisType ||
       'genre'; // Default para genre (compatibilidade com jobs antigos)
     
-    console.log('[API-JOBS][VALIDATION] effectiveMode:', effectiveMode);
+    // 🎯 STEP 2: Detectar stage efetivo (ORDEM OBRIGATÓRIA)
+    let effectiveStage = undefined;
     
+    if (effectiveMode === 'reference') {
+      // Ordem de prioridade para detectar stage
+      effectiveStage = 
+        fullResult?.referenceStage ||
+        job?.referenceStage ||
+        (fullResult?.isReferenceBase === true ? 'base' : undefined);
+      
+      // Fallback: se tem referenceJobId MAS não tem isReferenceBase=true, assume compare
+      if (!effectiveStage && fullResult?.referenceJobId && fullResult?.isReferenceBase !== true) {
+        effectiveStage = 'compare';
+      }
+      
+      // Fallback final: se nada detectado, assume base
+      if (!effectiveStage) {
+        effectiveStage = 'base';
+      }
+    }
+    
+    // 🎯 STEP 3: Logging de instrumentação (SEM ACHISMO)
+    console.log('[API-JOBS][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[API-JOBS][AUDIT] 🔍 DETECTION COMPLETA:');
+    console.log('[API-JOBS][AUDIT] job.id:', job.id);
+    console.log('[API-JOBS][AUDIT] job.mode:', job.mode || 'null');
+    console.log('[API-JOBS][AUDIT] job.referenceStage:', job.referenceStage || 'null');
+    console.log('[API-JOBS][AUDIT] fullResult.mode:', fullResult?.mode || 'null');
+    console.log('[API-JOBS][AUDIT] fullResult.referenceStage:', fullResult?.referenceStage || 'null');
+    console.log('[API-JOBS][AUDIT] fullResult.referenceJobId:', fullResult?.referenceJobId || 'null');
+    console.log('[API-JOBS][AUDIT] fullResult.isReferenceBase:', fullResult?.isReferenceBase || 'null');
+    console.log('[API-JOBS][AUDIT] ─────────────────────────────────────────────────');
+    console.log('[API-JOBS][AUDIT] ✅ effectiveMode:', effectiveMode);
+    console.log('[API-JOBS][AUDIT] ✅ effectiveStage:', effectiveStage || 'N/A');
+    console.log('[API-JOBS][AUDIT] ✅ normalizedStatus (ANTES):', normalizedStatus);
+    console.log('[API-JOBS][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🎯 STEP 4: VALIDAÇÃO DE STATUS (ISOLADA POR MODO)
+    
+    // ══════════════════════════════════════════════════════════════════
+    // 🔵 GENRE MODE: validação de suggestions (EXCLUSIVA DE GENRE)
+    // ══════════════════════════════════════════════════════════════════
     if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
@@ -242,12 +202,19 @@ router.get("/:id", async (req, res) => {
       } else {
         console.log('[API-JOBS][GENRE] ✅ Todos os dados essenciais presentes - status COMPLETED mantido');
       }
-    } else if (effectiveMode !== 'genre' && normalizedStatus === 'completed') {
-      // 🔐 REFERENCE ou outros modos: NÃO validar suggestions
-      console.log('[API-JOBS][REFERENCE] 🔒 Mode "' + effectiveMode + '" detectado - Ignorando validação de suggestions');
-      console.log('[API-JOBS][REFERENCE] ✅ Status COMPLETED mantido sem validação (suggestions opcionais)');
+    }
+    
+    // ══════════════════════════════════════════════════════════════════
+    // 🟢 REFERENCE MODE: Status NUNCA é rebaixado
+    // ══════════════════════════════════════════════════════════════════
+    else if (effectiveMode === 'reference' && normalizedStatus === 'completed') {
+      console.log('[API-JOBS][REFERENCE] 🟢 Reference Mode - Status COMPLETED mantido');
+      console.log('[API-JOBS][REFERENCE] effectiveStage:', effectiveStage);
+      console.log('[API-JOBS][REFERENCE] 🔒 Suggestions/aiSuggestions são OPCIONAIS - não alterar status');
     }
     // ══════════════════════════════════════════════════════════════════
+    
+    console.log('[API-JOBS][AUDIT] ✅ normalizedStatus (DEPOIS):', normalizedStatus);
     
     // 🚀 FORMATO DE RETORNO BASEADO NO STATUS
     let response;
@@ -285,12 +252,11 @@ router.get("/:id", async (req, res) => {
       // ═══════════════════════════════════════════════════════════════
       // ✅ NORMALIZAÇÃO FINAL: Garantir campos obrigatórios para Reference Mode
       // ═══════════════════════════════════════════════════════════════
-      if (isReference && fullResult) {
-        const referenceStage = fullResult?.referenceStage || 'base';
+      if (effectiveMode === 'reference' && fullResult) {
         
         // 🔒 Garantir campos obrigatórios no fullResult antes de retornar
         fullResult.mode = 'reference';
-        fullResult.referenceStage = referenceStage;
+        fullResult.referenceStage = effectiveStage;
         fullResult.status = 'completed';
         
         // 📝 Garantir arrays (mesmo vazios) - suggestions são OPCIONAIS em reference
@@ -301,16 +267,22 @@ router.get("/:id", async (req, res) => {
           fullResult.aiSuggestions = [];
         }
         
-        if (referenceStage === 'base') {
+        if (effectiveStage === 'base') {
           // 🎯 BASE: Campos obrigatórios para abrir modal de segunda música
           fullResult.requiresSecondTrack = true;
           fullResult.referenceJobId = fullResult.referenceJobId || job.id;
           fullResult.referenceComparison = null; // Base nunca tem comparison
           
-          console.log('[JOBS][REFERENCE] status_in=completed status_out=completed stage=base hasSuggestions=' + 
-            (fullResult.suggestions.length > 0) + ' requiresSecondTrack=true referenceJobId=' + fullResult.referenceJobId);
+          console.log('[JOBS][REFERENCE] ✅ BASE NORMALIZATION:');
+          console.log('[JOBS][REFERENCE]   mode: reference');
+          console.log('[JOBS][REFERENCE]   referenceStage: base');
+          console.log('[JOBS][REFERENCE]   status: completed');
+          console.log('[JOBS][REFERENCE]   requiresSecondTrack: true');
+          console.log('[JOBS][REFERENCE]   referenceJobId:', fullResult.referenceJobId);
+          console.log('[JOBS][REFERENCE]   suggestions.length:', fullResult.suggestions.length);
+          console.log('[JOBS][REFERENCE]   aiSuggestions.length:', fullResult.aiSuggestions.length);
           
-        } else if (referenceStage === 'compare') {
+        } else if (effectiveStage === 'compare') {
           // 🎯 COMPARE: referenceComparison obrigatório (objeto não-null)
           fullResult.requiresSecondTrack = false;
           
@@ -323,8 +295,15 @@ router.get("/:id", async (req, res) => {
           }
           
           const hasComparison = !!fullResult?.referenceComparison && !fullResult.referenceComparison.error;
-          console.log('[JOBS][REFERENCE] status_in=completed status_out=completed stage=compare hasSuggestions=' + 
-            (fullResult.suggestions.length > 0) + ' hasValidComparison=' + hasComparison);
+          
+          console.log('[JOBS][REFERENCE] ✅ COMPARE NORMALIZATION:');
+          console.log('[JOBS][REFERENCE]   mode: reference');
+          console.log('[JOBS][REFERENCE]   referenceStage: compare');
+          console.log('[JOBS][REFERENCE]   status: completed');
+          console.log('[JOBS][REFERENCE]   requiresSecondTrack: false');
+          console.log('[JOBS][REFERENCE]   hasValidComparison:', hasComparison);
+          console.log('[JOBS][REFERENCE]   suggestions.length:', fullResult.suggestions.length);
+          console.log('[JOBS][REFERENCE]   aiSuggestions.length:', fullResult.aiSuggestions.length);
         }
       }
       
