@@ -119,61 +119,143 @@ router.get("/:id", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 🔐 PROTEÇÃO CRÍTICA: MODE & STAGE DETECTION + STATUS VALIDATION
+    // 🔐 PROTEÇÃO CRÍTICA: MODE & STAGE DETECTION + EARLY RETURN PARA REFERENCE
     // ═══════════════════════════════════════════════════════════════════════
     
-    // 🎯 STEP 1: Detectar modo efetivo (com fallback robusto)
+    // 🎯 STEP 1: Detectar modo e stage SEM heurística burra
     const effectiveMode = 
       fullResult?.mode ||
       job?.mode ||
-      fullResult?.analysisMode ||
-      fullResult?.analysisType ||
-      job?.analysisMode ||
-      job?.analysisType ||
+      req?.query?.mode ||
+      req?.body?.mode ||
       'genre'; // Default para genre (compatibilidade com jobs antigos)
     
-    // 🎯 STEP 2: Detectar stage efetivo (ORDEM OBRIGATÓRIA)
-    let effectiveStage = undefined;
+    // 🎯 STEP 2: Detectar stage (NÃO usar referenceJobId como indicador)
+    const effectiveStage = 
+      fullResult?.referenceStage ||
+      job?.referenceStage ||
+      (fullResult?.isReferenceBase === true ? 'base' : undefined);
     
+    // 🔒 VERSÃO DO GUARD PARA PROVAR DEPLOYMENT
+    console.log('[REF-GUARD-V7] loaded', { 
+      effectiveMode, 
+      effectiveStage, 
+      jobId: job.id,
+      hasFullResult: !!fullResult 
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🟢 EARLY RETURN INCONDICIONAL PARA REFERENCE MODE
+    // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
-      // Ordem de prioridade para detectar stage
-      effectiveStage = 
-        fullResult?.referenceStage ||
-        job?.referenceStage ||
-        (fullResult?.isReferenceBase === true ? 'base' : undefined);
+      console.log('[REF-GUARD-V7] 🟢 Reference Mode detectado - EARLY RETURN ativado');
+      console.log('[REF-GUARD-V7] effectiveStage:', effectiveStage);
+      console.log('[REF-GUARD-V7] normalizedStatus:', normalizedStatus);
       
-      // Fallback: se tem referenceJobId MAS não tem isReferenceBase=true, assume compare
-      if (!effectiveStage && fullResult?.referenceJobId && fullResult?.isReferenceBase !== true) {
-        effectiveStage = 'compare';
+      // Status vem diretamente do worker/banco (SEM rebaixamento)
+      const finalStatus = normalizedStatus;
+      
+      // Se completed, garantir campos obrigatórios
+      if (finalStatus === 'completed' && fullResult) {
+        // Garantir mode e stage
+        fullResult.mode = 'reference';
+        fullResult.referenceStage = effectiveStage || 'base';
+        fullResult.status = 'completed';
+        
+        // Arrays default (mesmo vazios)
+        if (!Array.isArray(fullResult.suggestions)) fullResult.suggestions = [];
+        if (!Array.isArray(fullResult.aiSuggestions)) fullResult.aiSuggestions = [];
+        
+        if (effectiveStage === 'base') {
+          // BASE: Campos para abrir modal da 2ª música
+          fullResult.requiresSecondTrack = true;
+          fullResult.referenceJobId = fullResult.referenceJobId || job.id;
+          fullResult.referenceComparison = null;
+          
+          console.log('[REF-GUARD-V7] ✅ BASE normalization applied');
+          console.log('[REF-GUARD-V7]   requiresSecondTrack:', true);
+          console.log('[REF-GUARD-V7]   referenceJobId:', fullResult.referenceJobId);
+        } else if (effectiveStage === 'compare') {
+          // COMPARE: requiresSecondTrack false
+          fullResult.requiresSecondTrack = false;
+          
+          if (!fullResult.referenceComparison) {
+            fullResult.referenceComparison = { 
+              error: 'MISSING_COMPARISON',
+              message: 'Worker did not generate comparison'
+            };
+          }
+          
+          console.log('[REF-GUARD-V7] ✅ COMPARE normalization applied');
+        }
       }
       
-      // Fallback final: se nada detectado, assume base
-      if (!effectiveStage) {
-        effectiveStage = 'base';
+      // Montar response final baseado no status
+      let response;
+      
+      if (finalStatus === 'queued') {
+        response = {
+          ok: true,
+          job: {
+            id: job.id,
+            status: 'queued',
+            file_key: job.file_key,
+            mode: 'reference',
+            created_at: job.created_at
+          }
+        };
+      } else if (finalStatus === 'processing') {
+        response = {
+          ok: true,
+          job: {
+            id: job.id,
+            status: 'processing',
+            file_key: job.file_key,
+            mode: 'reference',
+            created_at: job.created_at,
+            updated_at: job.updated_at
+          }
+        };
+      } else if (finalStatus === 'completed') {
+        response = {
+          ok: true,
+          job: {
+            id: job.id,
+            status: 'completed',
+            file_key: job.file_key,
+            mode: 'reference',
+            created_at: job.created_at,
+            updated_at: job.updated_at,
+            completed_at: job.completed_at,
+            results: fullResult,
+            error: null
+          }
+        };
+      } else if (finalStatus === 'error') {
+        response = {
+          ok: false,
+          job: {
+            id: job.id,
+            status: 'error',
+            file_key: job.file_key,
+            mode: 'reference',
+            created_at: job.created_at,
+            updated_at: job.updated_at,
+            error: job.error || 'Erro desconhecido'
+          }
+        };
       }
+      
+      console.log('[REF-GUARD-V7] 📤 EARLY RETURN - status:', finalStatus);
+      return res.status(200).json(response);
     }
-    
-    // 🎯 STEP 3: Logging de instrumentação (SEM ACHISMO)
-    console.log('[API-JOBS][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[API-JOBS][AUDIT] 🔍 DETECTION COMPLETA:');
-    console.log('[API-JOBS][AUDIT] job.id:', job.id);
-    console.log('[API-JOBS][AUDIT] job.mode:', job.mode || 'null');
-    console.log('[API-JOBS][AUDIT] job.referenceStage:', job.referenceStage || 'null');
-    console.log('[API-JOBS][AUDIT] fullResult.mode:', fullResult?.mode || 'null');
-    console.log('[API-JOBS][AUDIT] fullResult.referenceStage:', fullResult?.referenceStage || 'null');
-    console.log('[API-JOBS][AUDIT] fullResult.referenceJobId:', fullResult?.referenceJobId || 'null');
-    console.log('[API-JOBS][AUDIT] fullResult.isReferenceBase:', fullResult?.isReferenceBase || 'null');
-    console.log('[API-JOBS][AUDIT] ─────────────────────────────────────────────────');
-    console.log('[API-JOBS][AUDIT] ✅ effectiveMode:', effectiveMode);
-    console.log('[API-JOBS][AUDIT] ✅ effectiveStage:', effectiveStage || 'N/A');
-    console.log('[API-JOBS][AUDIT] ✅ normalizedStatus (ANTES):', normalizedStatus);
-    console.log('[API-JOBS][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // 🎯 STEP 4: VALIDAÇÃO DE STATUS (ISOLADA POR MODO)
+    // ═══════════════════════════════════════════════════════════════════════
     
     // ══════════════════════════════════════════════════════════════════
     // 🔵 GENRE MODE: validação de suggestions (EXCLUSIVA DE GENRE)
     // ══════════════════════════════════════════════════════════════════
+    console.log('[API-JOBS][GENRE-VALIDATION] Mode:', effectiveMode);
+    
     if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
@@ -202,19 +284,9 @@ router.get("/:id", async (req, res) => {
       } else {
         console.log('[API-JOBS][GENRE] ✅ Todos os dados essenciais presentes - status COMPLETED mantido');
       }
+    } else {
+      console.log('[API-JOBS][VALIDATION] ⚠️ Mode não é genre - pulando validação de suggestions');
     }
-    
-    // ══════════════════════════════════════════════════════════════════
-    // 🟢 REFERENCE MODE: Status NUNCA é rebaixado
-    // ══════════════════════════════════════════════════════════════════
-    else if (effectiveMode === 'reference' && normalizedStatus === 'completed') {
-      console.log('[API-JOBS][REFERENCE] 🟢 Reference Mode - Status COMPLETED mantido');
-      console.log('[API-JOBS][REFERENCE] effectiveStage:', effectiveStage);
-      console.log('[API-JOBS][REFERENCE] 🔒 Suggestions/aiSuggestions são OPCIONAIS - não alterar status');
-    }
-    // ══════════════════════════════════════════════════════════════════
-    
-    console.log('[API-JOBS][AUDIT] ✅ normalizedStatus (DEPOIS):', normalizedStatus);
     
     // 🚀 FORMATO DE RETORNO BASEADO NO STATUS
     let response;
@@ -249,65 +321,7 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS] ⚙️ Retornando job PROCESSING');
       
     } else if (normalizedStatus === "completed") {
-      // ═══════════════════════════════════════════════════════════════
-      // ✅ NORMALIZAÇÃO FINAL: Garantir campos obrigatórios para Reference Mode
-      // ═══════════════════════════════════════════════════════════════
-      if (effectiveMode === 'reference' && fullResult) {
-        
-        // 🔒 Garantir campos obrigatórios no fullResult antes de retornar
-        fullResult.mode = 'reference';
-        fullResult.referenceStage = effectiveStage;
-        fullResult.status = 'completed';
-        
-        // 📝 Garantir arrays (mesmo vazios) - suggestions são OPCIONAIS em reference
-        if (!Array.isArray(fullResult.suggestions)) {
-          fullResult.suggestions = [];
-        }
-        if (!Array.isArray(fullResult.aiSuggestions)) {
-          fullResult.aiSuggestions = [];
-        }
-        
-        if (effectiveStage === 'base') {
-          // 🎯 BASE: Campos obrigatórios para abrir modal de segunda música
-          fullResult.requiresSecondTrack = true;
-          fullResult.referenceJobId = fullResult.referenceJobId || job.id;
-          fullResult.referenceComparison = null; // Base nunca tem comparison
-          
-          console.log('[JOBS][REFERENCE] ✅ BASE NORMALIZATION:');
-          console.log('[JOBS][REFERENCE]   mode: reference');
-          console.log('[JOBS][REFERENCE]   referenceStage: base');
-          console.log('[JOBS][REFERENCE]   status: completed');
-          console.log('[JOBS][REFERENCE]   requiresSecondTrack: true');
-          console.log('[JOBS][REFERENCE]   referenceJobId:', fullResult.referenceJobId);
-          console.log('[JOBS][REFERENCE]   suggestions.length:', fullResult.suggestions.length);
-          console.log('[JOBS][REFERENCE]   aiSuggestions.length:', fullResult.aiSuggestions.length);
-          
-        } else if (effectiveStage === 'compare') {
-          // 🎯 COMPARE: referenceComparison obrigatório (objeto não-null)
-          fullResult.requiresSecondTrack = false;
-          
-          if (!fullResult.referenceComparison) {
-            console.warn('[JOBS][REFERENCE] ⚠️ Compare sem referenceComparison - adicionando objeto de erro');
-            fullResult.referenceComparison = { 
-              error: 'MISSING_REFERENCE_COMPARISON',
-              message: 'Comparação não foi gerada pelo worker'
-            };
-          }
-          
-          const hasComparison = !!fullResult?.referenceComparison && !fullResult.referenceComparison.error;
-          
-          console.log('[JOBS][REFERENCE] ✅ COMPARE NORMALIZATION:');
-          console.log('[JOBS][REFERENCE]   mode: reference');
-          console.log('[JOBS][REFERENCE]   referenceStage: compare');
-          console.log('[JOBS][REFERENCE]   status: completed');
-          console.log('[JOBS][REFERENCE]   requiresSecondTrack: false');
-          console.log('[JOBS][REFERENCE]   hasValidComparison:', hasComparison);
-          console.log('[JOBS][REFERENCE]   suggestions.length:', fullResult.suggestions.length);
-          console.log('[JOBS][REFERENCE]   aiSuggestions.length:', fullResult.aiSuggestions.length);
-        }
-      }
-      
-      // Status completed: retorno COMPLETO com results
+      // Status completed: retorno COMPLETO com results (APENAS GENRE)
       response = {
         ok: true,
         job: {
