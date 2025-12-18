@@ -122,26 +122,15 @@ router.get("/:id", async (req, res) => {
     // 🔐 PROTEÇÃO CRÍTICA: MODE & STAGE DETECTION + EARLY RETURN PARA REFERENCE
     // ═══════════════════════════════════════════════════════════════════════
     
-    // 🎯 STEP 1: Detectar modo e stage SEM heurística burra
-    const effectiveMode = 
-      fullResult?.mode ||
-      job?.mode ||
-      req?.query?.mode ||
-      req?.body?.mode ||
-      'genre'; // Default para genre (compatibilidade com jobs antigos)
+    // 🎯 Detectar modo e stage SEM heurística burra
+    const effectiveMode = fullResult?.mode || job?.mode || req?.query?.mode || req?.body?.mode || 'genre';
+    const effectiveStage = fullResult?.referenceStage || job?.referenceStage || (fullResult?.isReferenceBase ? 'base' : undefined);
     
-    // 🎯 STEP 2: Detectar stage (NÃO usar referenceJobId como indicador)
-    const effectiveStage = 
-      fullResult?.referenceStage ||
-      job?.referenceStage ||
-      (fullResult?.isReferenceBase === true ? 'base' : undefined);
-    
-    // 🔒 VERSÃO DO GUARD PARA PROVAR DEPLOYMENT
+    // 🔒 Log de prova de deployment
     console.log('[REF-GUARD-V7] loaded', { 
       effectiveMode, 
       effectiveStage, 
-      jobId: job.id,
-      hasFullResult: !!fullResult 
+      jobId: job.id 
     });
     
     // ═══════════════════════════════════════════════════════════════════════
@@ -149,112 +138,44 @@ router.get("/:id", async (req, res) => {
     // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
       console.log('[REF-GUARD-V7] 🟢 Reference Mode detectado - EARLY RETURN ativado');
-      console.log('[REF-GUARD-V7] effectiveStage:', effectiveStage);
-      console.log('[REF-GUARD-V7] normalizedStatus:', normalizedStatus);
       
-      // Status vem diretamente do worker/banco (SEM rebaixamento)
-      const finalStatus = normalizedStatus;
+      const normalizedStatus = fullResult?.status || job?.status || 'processing';
       
-      // Se completed, garantir campos obrigatórios
-      if (finalStatus === 'completed' && fullResult) {
-        // Garantir mode e stage
-        fullResult.mode = 'reference';
-        fullResult.referenceStage = effectiveStage || 'base';
-        fullResult.status = 'completed';
-        
-        // Arrays default (mesmo vazios)
-        if (!Array.isArray(fullResult.suggestions)) fullResult.suggestions = [];
-        if (!Array.isArray(fullResult.aiSuggestions)) fullResult.aiSuggestions = [];
-        
-        if (effectiveStage === 'base') {
-          // BASE: Campos para abrir modal da 2ª música
-          fullResult.requiresSecondTrack = true;
-          fullResult.referenceJobId = fullResult.referenceJobId || job.id;
-          fullResult.referenceComparison = null;
-          
-          console.log('[REF-GUARD-V7] ✅ BASE normalization applied');
-          console.log('[REF-GUARD-V7]   requiresSecondTrack:', true);
-          console.log('[REF-GUARD-V7]   referenceJobId:', fullResult.referenceJobId);
-        } else if (effectiveStage === 'compare') {
-          // COMPARE: requiresSecondTrack false
-          fullResult.requiresSecondTrack = false;
-          
-          if (!fullResult.referenceComparison) {
-            fullResult.referenceComparison = { 
-              error: 'MISSING_COMPARISON',
-              message: 'Worker did not generate comparison'
-            };
-          }
-          
-          console.log('[REF-GUARD-V7] ✅ COMPARE normalization applied');
+      const baseResponse = {
+        ...fullResult,
+        ...job,
+        id: job.id,
+        jobId: job.id,
+        mode: 'reference',
+        referenceStage: effectiveStage || (fullResult?.isReferenceBase ? 'base' : undefined),
+        status: normalizedStatus,
+        suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
+        aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : []
+      };
+      
+      if (normalizedStatus === 'completed') {
+        if (baseResponse.referenceStage === 'base') {
+          baseResponse.requiresSecondTrack = true;
+          baseResponse.referenceJobId = job.id; // OK existir, mas NÃO usado para inferir "segundo job"
+          baseResponse.status = 'completed';
+          console.log('[REF-GUARD-V7] ✅ BASE completed - requiresSecondTrack:', true, 'referenceJobId:', job.id);
+        } else if (baseResponse.referenceStage === 'compare') {
+          baseResponse.status = 'completed'; // Mesmo sem suggestions
+          console.log('[REF-GUARD-V7] ✅ COMPARE completed');
         }
       }
       
-      // Montar response final baseado no status
-      let response;
-      
-      if (finalStatus === 'queued') {
-        response = {
-          ok: true,
-          job: {
-            id: job.id,
-            status: 'queued',
-            file_key: job.file_key,
-            mode: 'reference',
-            created_at: job.created_at
-          }
-        };
-      } else if (finalStatus === 'processing') {
-        response = {
-          ok: true,
-          job: {
-            id: job.id,
-            status: 'processing',
-            file_key: job.file_key,
-            mode: 'reference',
-            created_at: job.created_at,
-            updated_at: job.updated_at
-          }
-        };
-      } else if (finalStatus === 'completed') {
-        response = {
-          ok: true,
-          job: {
-            id: job.id,
-            status: 'completed',
-            file_key: job.file_key,
-            mode: 'reference',
-            created_at: job.created_at,
-            updated_at: job.updated_at,
-            completed_at: job.completed_at,
-            results: fullResult,
-            error: null
-          }
-        };
-      } else if (finalStatus === 'error') {
-        response = {
-          ok: false,
-          job: {
-            id: job.id,
-            status: 'error',
-            file_key: job.file_key,
-            mode: 'reference',
-            created_at: job.created_at,
-            updated_at: job.updated_at,
-            error: job.error || 'Erro desconhecido'
-          }
-        };
-      }
-      
-      console.log('[REF-GUARD-V7] 📤 EARLY RETURN - status:', finalStatus);
-      return res.status(200).json(response);
+      res.setHeader('X-REF-GUARD', 'V7');
+      console.log('[REF-GUARD-V7] 📤 EARLY RETURN - status:', normalizedStatus, 'stage:', baseResponse.referenceStage);
+      return res.json(baseResponse);
     }
     // ═══════════════════════════════════════════════════════════════════════
     
     // ══════════════════════════════════════════════════════════════════
     // 🔵 GENRE MODE: validação de suggestions (EXCLUSIVA DE GENRE)
     // ══════════════════════════════════════════════════════════════════
-    console.log('[API-JOBS][GENRE-VALIDATION] Mode:', effectiveMode);
+    // ⚠️ Este bloco SÓ roda para effectiveMode === 'genre'
+    // Reference NUNCA chega aqui (early return acima)
     
     if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
