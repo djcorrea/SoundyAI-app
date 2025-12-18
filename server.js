@@ -5,6 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import crypto from "crypto";
+import fs from "fs";
 
 // 🔑 IMPORTANTE: Carregar .env ANTES de importar outros módulos
 dotenv.config();
@@ -724,10 +726,42 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// ═══════════════════════════════════════════════════════════════
+// 🔐 BUILD INFO: Checksum e rastreabilidade
+// ═══════════════════════════════════════════════════════════════
+function calculateHandlerChecksum() {
+  const handlerPath = path.join(__dirname, 'work', 'api', 'jobs', '[id].js');
+  try {
+    const content = fs.readFileSync(handlerPath, 'utf8');
+    return crypto.createHash('md5').update(content).digest('hex').substring(0, 8);
+  } catch (err) {
+    return 'unknown';
+  }
+}
+
+function logBuildInfo() {
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('🔐 BUILD INFORMATION');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('Service Name: SoundyAI API');
+  console.log('Build Signature: REF-BASE-FIX-2025-12-18');
+  console.log('Build SHA:', process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local-dev');
+  console.log('Handler Checksum (MD5):', calculateHandlerChecksum());
+  console.log('Handler Path: work/api/jobs/[id].js');
+  console.log('Node Version:', process.version);
+  console.log('Environment:', process.env.NODE_ENV || 'development');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('');
+}
+
 // Start
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
+  
+  // 🔐 Log de build info para rastreabilidade
+  logBuildInfo();
   
   // 🧪 Executar testes de validação na inicialização (apenas em desenvolvimento)
   if (process.env.NODE_ENV !== 'production') {
