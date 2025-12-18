@@ -47,25 +47,18 @@
     _getInitialState() {
       return {
         stage: Stage.IDLE,
-      sessionId: null,           // UUID para anti-vazamento
-      baseJobId: null,
-      baseMetrics: null,
-      baseFileName: null,
-      compareJobId: null,
-      startedAt: null,
-      traceId: null
-    };
-  }
-  
-  /**
-   * Gerar UUID v4 simples
-   */
-  _generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c == 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
+        baseJobId: null,
+        baseMetrics: null,
+        baseFileName: null,
+        startedAt: null,
+        traceId: null
+      };
+    }
+
+    /**
+     * Restaurar estado do sessionStorage
+     */
+    _restore() {
       try {
         const stored = sessionStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -95,42 +88,31 @@
      */
     reset() {
       console.log(DEBUG_PREFIX, 'reset() - Limpando estado de referência');
-    
-    const oldSessionId = this.state.sessionId;
-    this.state = this._getInitialState();
-    this._persist();
-    
-    // Limpar variáveis globais antigas (compatibilidade)
-    if (typeof window !== 'undefined') {
-      delete window.__REFERENCE_JOB_ID__;
-      delete window.lastReferenceJobId;
+      this.state = this._getInitialState();
+      this._persist();
       
-      // Limpar storages antigos
-      try {
-        localStorage.removeItem('referenceJobId');
-        sessionStorage.removeItem('referenceJobId');
-   * @returns {string} sessionId para validação
-   */
-  startNewReferenceFlow() {
-    console.log(DEBUG_PREFIX, 'startNewReferenceFlow() - FORÇANDO RESET TOTAL');
-    
-    // ✅ RESET FORÇADO antes de qualquer coisa
-    this.reset();
-    
-    this.state.stage = Stage.IDLE;
-    this.state.sessionId = this._generateUUID();
-    this.state.startedAt = new Date().toISOString();
-    this.state.traceId = `ref_${Date.now()}`;
-    
-    this._persist();
-    
-    console.log(DEBUG_PREFIX, '✅ Novo fluxo iniciado');
-    console.log(DEBUG_PREFIX, 'sessionId:', this.state.sessionId);
-    console.log(DEBUG_PREFIX, 'traceId:', this.state.traceId);
-    console.log(DEBUG_PREFIX, 'stage:', this.state.stage);
-    console.log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId, '(deve ser null)');
-    
-    return this.state.sessionId;      
+      // Limpar variáveis globais antigas (compatibilidade)
+      if (typeof window !== 'undefined') {
+        delete window.__REFERENCE_JOB_ID__;
+        delete window.lastReferenceJobId;
+      }
+      
+      console.log(DEBUG_PREFIX, 'Reset completo');
+    }
+
+    /**
+     * Iniciar novo fluxo de referência
+     * @returns {string} traceId para debug
+     */
+    startNewReferenceFlow() {
+      console.log(DEBUG_PREFIX, 'startNewReferenceFlow()');
+      
+      this.reset();
+      
+      this.state.stage = Stage.IDLE;
+      this.state.startedAt = new Date().toISOString();
+      this.state.traceId = `ref_${Date.now()}`;
+      
       this._persist();
       
       console.log(DEBUG_PREFIX, 'Novo fluxo iniciado', this.state.traceId);
@@ -194,7 +176,36 @@
         crestFactor: result.technicalData?.crestFactor
       };
       this.state.baseFileName = result.metadata?.fileName || result.fileName || 'unknown';
-    console.log(DEBUG_PREFIX, 'sessionId:', this.state.sessionId);
+      this.state.stage = Stage.AWAITING_SECOND;
+      
+      this._persist();
+      
+      console.log(DEBUG_PREFIX, '✅ Base completa - aguardando segunda música');
+      console.log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId);
+      console.log(DEBUG_PREFIX, 'baseFileName:', this.state.baseFileName);
+      console.log(DEBUG_PREFIX, 'Stage:', Stage.AWAITING_SECOND);
+    }
+
+    /**
+     * Usuário selecionou segunda música
+     */
+    onSecondTrackSelected() {
+      console.log(DEBUG_PREFIX, 'onSecondTrackSelected()');
+      
+      if (this.state.stage !== Stage.AWAITING_SECOND) {
+        console.error(DEBUG_PREFIX, 'onSecondTrackSelected() chamado fora de ordem!');
+        console.error(DEBUG_PREFIX, 'Stage atual:', this.state.stage, '| Esperado:', Stage.AWAITING_SECOND);
+        throw new Error('Segunda música selecionada mas não há base salva');
+      }
+      
+      this.state.stage = Stage.COMPARE_UPLOADING;
+      this._persist();
+      
+      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_UPLOADING);
+    }
+
+    /**
+     * Segunda música começou a processar
      */
     onCompareProcessing() {
       console.log(DEBUG_PREFIX, 'onCompareProcessing()');
@@ -224,17 +235,16 @@
      */
     isAwaitingSecond() {
       return this.state.stage === Stage.AWAITING_SECOND;
-   * @param {string} jobId - ID do job de comparação
-   */
-  onCompareProcessing(jobId) {
-    console.log(DEBUG_PREFIX, 'onCompareProcessing()', jobId);
-    
-    this.state.stage = Stage.COMPARE_PROCESSING;
-    this.state.compareJobId = jobId;
-    this._persist();
-    
-    console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
-    console.log(DEBUG_PREFIX, 'compareJobId:', jobId);
+    }
+
+    /**
+     * Verificar se é primeira música (base)
+     */
+    isFirstTrack() {
+      return this.state.stage === Stage.BASE_UPLOADING || 
+             this.state.stage === Stage.BASE_PROCESSING;
+    }
+
     /**
      * Verificar se é segunda música (compare)
      */
@@ -258,53 +268,10 @@
     }
 
     /**
-     * Obter sessionId atual
-     */
-    getSessionId() {
-      return this.state.sessionId;
-    }
-
-    /**
-     * Obter jobId da base
-     */
-    getBaseJobId() {
-      return this.state.baseJobId;
-    }
-
-    /**
-     * Obter métricas da base
-     */
-    getBaseMetrics() {
-      return this.state.baseMetrics;
-    }
-
-    /**
      * Obter stage atual
      */
     getStage() {
       return this.state.stage;
-    }
-
-    /**
-     * Validar se evento pertence ao fluxo atual
-     * @param {string} sessionId - sessionId do evento
-     * @returns {boolean} true se válido
-     */
-    validateSession(sessionId) {
-      if (!this.state.sessionId) {
-        console.warn(DEBUG_PREFIX, 'validateSession() - sem sessionId ativo');
-        return false;
-      }
-      
-      const isValid = sessionId === this.state.sessionId;
-      
-      if (!isValid) {
-        console.warn(DEBUG_PREFIX, '⚠️ EVENTO REJEITADO - sessionId incompatível');
-        console.warn(DEBUG_PREFIX, 'Esperado:', this.state.sessionId);
-        console.warn(DEBUG_PREFIX, 'Recebido:', sessionId);
-      }
-      
-      return isValid;
     }
 
     /**
