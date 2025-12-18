@@ -172,7 +172,28 @@ router.get("/:id", async (req, res) => {
         status: normalizedStatus
       });
       
-      const normalizedStatus = fullResult?.status || job?.status || 'processing';
+      // 🛡️ FALLBACK CRÍTICO: Se Postgres está "processing" mas fullResult tem dados completos
+      // Force completed para destravar UI (só para reference base)
+      let finalStatus = fullResult?.status || job?.status || 'processing';
+      
+      if (effectiveStage === 'base' && finalStatus === 'processing' && fullResult) {
+        const hasRequiredData = !!(
+          fullResult.technicalData &&
+          fullResult.metrics &&
+          typeof fullResult.score === 'number'
+        );
+        
+        if (hasRequiredData) {
+          console.warn('[REF-BASE-FALLBACK] 🚨 Job em processing mas dados completos - FORÇANDO completed', {
+            traceId,
+            jobId: job.id,
+            hasTechnicalData: !!fullResult.technicalData,
+            hasMetrics: !!fullResult.metrics,
+            hasScore: typeof fullResult.score === 'number'
+          });
+          finalStatus = 'completed';
+        }
+      }
       
       const baseResponse = {
         ...fullResult,
@@ -181,19 +202,18 @@ router.get("/:id", async (req, res) => {
         jobId: job.id,
         mode: 'reference',
         referenceStage: effectiveStage || (fullResult?.isReferenceBase ? 'base' : undefined),
-        status: normalizedStatus,
+        status: finalStatus,
         suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
         aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : []
       };
       
-      if (normalizedStatus === 'completed') {
+      if (finalStatus === 'completed') {
         if (baseResponse.referenceStage === 'base') {
           baseResponse.requiresSecondTrack = true;
           baseResponse.referenceJobId = job.id;
           baseResponse.status = 'completed';
           baseResponse.nextAction = 'upload_second_track'; // ✅ SINALIZA FRONTEND ABRIR MODAL 2
           
-          const traceId = fullResult?.traceId || baseResponse.traceId || `trace_${Date.now()}`;
           console.error('[REF-GUARD-V7] ✅ BASE completed', {
             traceId,
             jobId: job.id,
@@ -205,7 +225,6 @@ router.get("/:id", async (req, res) => {
           baseResponse.status = 'completed';
           baseResponse.nextAction = 'show_comparison'; // ✅ SINALIZA COMPARAÇÃO PRONTA
           
-          const traceId = fullResult?.traceId || baseResponse.traceId || `trace_${Date.now()}`;
           console.error('[REF-GUARD-V7] ✅ COMPARE completed', {
             traceId,
             jobId: job.id,
@@ -217,7 +236,7 @@ router.get("/:id", async (req, res) => {
       res.setHeader('X-REF-GUARD', 'V7');
       res.setHeader('X-EARLY-RETURN', 'EXECUTED');
       res.setHeader('X-MODE', effectiveMode);
-      console.error('[REF-GUARD-V7] 📤 EARLY RETURN - status:', normalizedStatus, 'stage:', baseResponse.referenceStage);
+      console.error('[REF-GUARD-V7] 📤 EARLY RETURN - status:', finalStatus, 'stage:', baseResponse.referenceStage);
       return res.json(baseResponse);
     }
     // ═══════════════════════════════════════════════════════════════════════
