@@ -1,15 +1,15 @@
 // reference-flow.js
-//  Controlador ISOLADO e DETERMINSTICO para fluxo de Anlise de Referncia
+// 🎯 Controlador ISOLADO e DETERMINÍSTICO para fluxo de Análise de Referência
 // 
 // FLUXO CORRETO:
-// 1) PRIMEIRA MSICA (Base): Upload  Anlise  Salvar mtricas base  Abrir modal 2 msica
-// 2) SEGUNDA MSICA (Compare): Upload  Anlise com comparao  Renderizar deltas + sugestes
+// 1) PRIMEIRA MÚSICA (Base): Upload → Análise → Salvar métricas base → Abrir modal 2ª música
+// 2) SEGUNDA MÚSICA (Compare): Upload → Análise com comparação → Renderizar deltas + sugestões
 //
 // REGRAS DE OURO:
-// - Mode 'reference' SEMPRE vem do estado explcito, NUNCA de heurstica
-// - Stage 'base' vs 'compare'  determinado pelo fluxo, no por cache
-// - Reset automtico ao iniciar novo fluxo ou mudar para genre
-// - Persistncia em sessionStorage (nunca localStorage para referncia)
+// - Mode 'reference' SEMPRE vem do estado explícito, NUNCA de heurística
+// - Stage 'base' vs 'compare' é determinado pelo fluxo, não por cache
+// - Reset automático ao iniciar novo fluxo ou mudar para genre
+// - Persistência em sessionStorage (nunca localStorage para referência)
 
 (function() {
   'use strict';
@@ -18,21 +18,21 @@
   const DEBUG_PREFIX = '[REF-FLOW]';
 
   /**
-   * Estados possveis do fluxo
+   * Estados possíveis do fluxo
    * @enum {string}
    */
   const Stage = {
     IDLE: 'idle',                      // Nenhum fluxo ativo
-    BASE_UPLOADING: 'base_uploading',  // Upload da 1 msica em progresso
-    BASE_PROCESSING: 'base_processing',// Processando 1 msica
-    AWAITING_SECOND: 'awaiting_second',// Base completada, aguardando 2 msica
-    COMPARE_UPLOADING: 'compare_uploading', // Upload da 2 msica em progresso
-    COMPARE_PROCESSING: 'compare_processing', // Processando comparao
+    BASE_UPLOADING: 'base_uploading',  // Upload da 1ª música em progresso
+    BASE_PROCESSING: 'base_processing',// Processando 1ª música
+    AWAITING_SECOND: 'awaiting_second',// Base completada, aguardando 2ª música
+    COMPARE_UPLOADING: 'compare_uploading', // Upload da 2ª música em progresso
+    COMPARE_PROCESSING: 'compare_processing', // Processando comparação
     DONE: 'done'                       // Fluxo completo
   };
 
   /**
-   * Controlador de fluxo de referncia
+   * Controlador de fluxo de referência
    */
   class ReferenceFlowController {
     constructor() {
@@ -47,21 +47,25 @@
     _getInitialState() {
       return {
         stage: Stage.IDLE,
-        baseJobId: null,
-        baseMetrics: null,
-        baseFileName: null,
-        compareJobId: null,
-        compareMetrics: null,
-        compareFileName: null,
-        startedAt: null,
-        traceId: null
-      };
-    }
-
-    /**
-     * Restaurar estado do sessionStorage
-     */
-    _restore() {
+      sessionId: null,           // UUID para anti-vazamento
+      baseJobId: null,
+      baseMetrics: null,
+      baseFileName: null,
+      compareJobId: null,
+      startedAt: null,
+      traceId: null
+    };
+  }
+  
+  /**
+   * Gerar UUID v4 simples
+   */
+  _generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
       try {
         const stored = sessionStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -90,58 +94,57 @@
      * Resetar fluxo completamente
      */
     reset() {
-      console.log(DEBUG_PREFIX, 'reset() - Limpando estado de referncia');
-      this.state = this._getInitialState();
-      this._persist();
+      console.log(DEBUG_PREFIX, 'reset() - Limpando estado de referência');
+    
+    const oldSessionId = this.state.sessionId;
+    this.state = this._getInitialState();
+    this._persist();
+    
+    // Limpar variáveis globais antigas (compatibilidade)
+    if (typeof window !== 'undefined') {
+      delete window.__REFERENCE_JOB_ID__;
+      delete window.lastReferenceJobId;
       
-      // Limpar variveis globais antigas (compatibilidade)
-      if (typeof window !== 'undefined') {
-        delete window.__REFERENCE_JOB_ID__;
-        delete window.lastReferenceJobId;
-      }
-      
-      console.log(DEBUG_PREFIX, 'Reset completo');
-    }
-
-    /**
-     * Iniciar novo fluxo de referncia
-     * @returns {string} traceId para debug
-     */
-    startNewReferenceFlow() {
-      console.log(DEBUG_PREFIX, 'startNewReferenceFlow()');
-      
-      this.reset();
-      
-      this.state.stage = Stage.IDLE;
-      this.state.startedAt = new Date().toISOString();
-      this.state.traceId = `ref_${Date.now()}`;
-      
+      // Limpar storages antigos
+      try {
+        localStorage.removeItem('referenceJobId');
+        sessionStorage.removeItem('referenceJobId');
+   * @returns {string} sessionId para validação
+   */
+  startNewReferenceFlow() {
+    console.log(DEBUG_PREFIX, 'startNewReferenceFlow() - FORÇANDO RESET TOTAL');
+    
+    // ✅ RESET FORÇADO antes de qualquer coisa
+    this.reset();
+    
+    this.state.stage = Stage.IDLE;
+    this.state.sessionId = this._generateUUID();
+    this.state.startedAt = new Date().toISOString();
+    this.state.traceId = `ref_${Date.now()}`;
+    
+    this._persist();
+    
+    console.log(DEBUG_PREFIX, '✅ Novo fluxo iniciado');
+    console.log(DEBUG_PREFIX, 'sessionId:', this.state.sessionId);
+    console.log(DEBUG_PREFIX, 'traceId:', this.state.traceId);
+    console.log(DEBUG_PREFIX, 'stage:', this.state.stage);
+    console.log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId, '(deve ser null)');
+    
+    return this.state.sessionId;      
       this._persist();
       
       console.log(DEBUG_PREFIX, 'Novo fluxo iniciado', this.state.traceId);
       return this.state.traceId;
     }
-    
-    /**
-     * Inicializar fluxo se necessrio (idempotente)
-     * Garante que existe storage mesmo aps limpar
-     */
-    initFlowIfNeeded() {
-      if (this.state.stage === Stage.IDLE && !this.state.traceId) {
-        console.log(DEBUG_PREFIX, 'initFlowIfNeeded() - criando estado inicial');
-        this.startNewReferenceFlow();
-      }
-      return this.state;
-    }
 
     /**
-     * Usurio selecionou primeira msica
+     * Usuário selecionou primeira música
      */
     onFirstTrackSelected() {
       console.log(DEBUG_PREFIX, 'onFirstTrackSelected()');
       
       if (this.state.stage !== Stage.IDLE) {
-        console.warn(DEBUG_PREFIX, 'Iniciando nova anlise - resetando fluxo anterior');
+        console.warn(DEBUG_PREFIX, 'Iniciando nova análise - resetando fluxo anterior');
         this.reset();
         this.startNewReferenceFlow();
       }
@@ -153,7 +156,7 @@
     }
 
     /**
-     * Primeira msica comeou a processar
+     * Primeira música começou a processar
      * @param {string} jobId
      */
     onFirstTrackProcessing(jobId) {
@@ -167,18 +170,18 @@
     }
 
     /**
-     * Primeira msica completada - salvar mtricas base
-     * @param {Object} result - Resultado completo da anlise base
+     * Primeira música completada - salvar métricas base
+     * @param {Object} result - Resultado completo da análise base
      */
     onFirstTrackCompleted(result) {
       console.log(DEBUG_PREFIX, 'onFirstTrackCompleted()', result?.jobId);
       
       if (!result || !result.jobId) {
-        console.error(DEBUG_PREFIX, 'onFirstTrackCompleted() - resultado invlido', result);
+        console.error(DEBUG_PREFIX, 'onFirstTrackCompleted() - resultado inválido', result);
         return;
       }
       
-      // Salvar SOMENTE mtricas necessrias (no suggestions de gnero)
+      // Salvar SOMENTE métricas necessárias (não suggestions de gênero)
       this.state.baseJobId = result.jobId;
       this.state.baseMetrics = {
         lufsIntegrated: result.technicalData?.lufsIntegrated,
@@ -191,109 +194,49 @@
         crestFactor: result.technicalData?.crestFactor
       };
       this.state.baseFileName = result.metadata?.fileName || result.fileName || 'unknown';
-      this.state.stage = Stage.AWAITING_SECOND;
-      
-      this._persist();
-      
-      console.log(DEBUG_PREFIX, ' Base completa - aguardando segunda msica');
-      console.log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId);
-      console.log(DEBUG_PREFIX, 'baseFileName:', this.state.baseFileName);
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.AWAITING_SECOND);
-    }
-
-    /**
-     * Usurio selecionou segunda msica
+    console.log(DEBUG_PREFIX, 'sessionId:', this.state.sessionId);
      */
-    onSecondTrackSelected() {
-      console.log(DEBUG_PREFIX, 'onSecondTrackSelected()');
-      
-      if (this.state.stage !== Stage.AWAITING_SECOND) {
-        console.error(DEBUG_PREFIX, 'onSecondTrackSelected() chamado fora de ordem!');
-        console.error(DEBUG_PREFIX, 'Stage atual:', this.state.stage, '| Esperado:', Stage.AWAITING_SECOND);
-        throw new Error('Segunda msica selecionada mas no h base salva');
-      }
-      
-      this.state.stage = Stage.COMPARE_UPLOADING;
-      this._persist();
-      
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_UPLOADING);
-    }
-
-    /**
-     * Segunda msica comeou a processar
-     * @param {string} jobId
-     */
-    onSecondTrackProcessing(jobId) {
-      console.log(DEBUG_PREFIX, 'onSecondTrackProcessing()', jobId);
+    onCompareProcessing() {
+      console.log(DEBUG_PREFIX, 'onCompareProcessing()');
       
       this.state.stage = Stage.COMPARE_PROCESSING;
-      this.state.compareJobId = jobId;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Compare processando, jobId:', jobId);
-    }
-    
-    // Alias para compatibilidade
-    onCompareProcessing(jobId) {
-      return this.onSecondTrackProcessing(jobId);
+      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
     }
 
     /**
-     * Comparao completada
-     * @param {Object} result - Resultado com comparao e sugestes
+     * Comparação completada
+     * @param {Object} result - Resultado com comparação e sugestões
      */
-    onSecondTrackCompleted(result) {
-      console.log(DEBUG_PREFIX, 'onSecondTrackCompleted()', result?.jobId);
+    onCompareCompleted(result) {
+      console.log(DEBUG_PREFIX, 'onCompareCompleted()', result?.jobId);
       
-      if (!result || !result.jobId) {
-        console.error(DEBUG_PREFIX, 'onSecondTrackCompleted() - resultado invlido', result);
-        return;
-      }
-      
-      this.state.compareJobId = result.jobId;
-      this.state.compareMetrics = {
-        lufsIntegrated: result.technicalData?.lufsIntegrated,
-        truePeakDbtp: result.technicalData?.truePeakDbtp,
-        dynamicRange: result.technicalData?.dynamicRange,
-        stereoCorrelation: result.technicalData?.stereoCorrelation,
-        lra: result.technicalData?.lra,
-        spectralBands: result.spectralAnalysis?.spectralBands,
-        rmsEnergy: result.technicalData?.rmsEnergy,
-        crestFactor: result.technicalData?.crestFactor
-      };
-      this.state.compareFileName = result.metadata?.fileName || result.fileName || 'unknown';
       this.state.stage = Stage.DONE;
-      
       this._persist();
       
-      console.log(DEBUG_PREFIX, ' Fluxo de referncia completo');
-      console.log(DEBUG_PREFIX, 'compareJobId:', this.state.compareJobId);
-      console.log(DEBUG_PREFIX, 'compareFileName:', this.state.compareFileName);
+      console.log(DEBUG_PREFIX, '✅ Fluxo de referência completo');
       console.log(DEBUG_PREFIX, 'Stage:', Stage.DONE);
     }
-    
-    // Alias para compatibilidade
-    onCompareCompleted(result) {
-      return this.onSecondTrackCompleted(result);
-    }
 
     /**
-     * Verificar se est aguardando segunda msica
+     * Verificar se está aguardando segunda música
      */
     isAwaitingSecond() {
       return this.state.stage === Stage.AWAITING_SECOND;
-    }
-
+   * @param {string} jobId - ID do job de comparação
+   */
+  onCompareProcessing(jobId) {
+    console.log(DEBUG_PREFIX, 'onCompareProcessing()', jobId);
+    
+    this.state.stage = Stage.COMPARE_PROCESSING;
+    this.state.compareJobId = jobId;
+    this._persist();
+    
+    console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
+    console.log(DEBUG_PREFIX, 'compareJobId:', jobId);
     /**
-     * Verificar se  primeira msica (base)
-     */
-    isFirstTrack() {
-      return this.state.stage === Stage.BASE_UPLOADING || 
-             this.state.stage === Stage.BASE_PROCESSING;
-    }
-
-    /**
-     * Verificar se  segunda msica (compare)
+     * Verificar se é segunda música (compare)
      */
     isSecondTrack() {
       return this.state.stage === Stage.COMPARE_UPLOADING || 
@@ -308,7 +251,28 @@
     }
 
     /**
-     * Obter mtricas da base
+     * Obter métricas da base
+     */
+    getBaseMetrics() {
+      return this.state.baseMetrics;
+    }
+
+    /**
+     * Obter sessionId atual
+     */
+    getSessionId() {
+      return this.state.sessionId;
+    }
+
+    /**
+     * Obter jobId da base
+     */
+    getBaseJobId() {
+      return this.state.baseJobId;
+    }
+
+    /**
+     * Obter métricas da base
      */
     getBaseMetrics() {
       return this.state.baseMetrics;
@@ -322,12 +286,34 @@
     }
 
     /**
+     * Validar se evento pertence ao fluxo atual
+     * @param {string} sessionId - sessionId do evento
+     * @returns {boolean} true se válido
+     */
+    validateSession(sessionId) {
+      if (!this.state.sessionId) {
+        console.warn(DEBUG_PREFIX, 'validateSession() - sem sessionId ativo');
+        return false;
+      }
+      
+      const isValid = sessionId === this.state.sessionId;
+      
+      if (!isValid) {
+        console.warn(DEBUG_PREFIX, '⚠️ EVENTO REJEITADO - sessionId incompatível');
+        console.warn(DEBUG_PREFIX, 'Esperado:', this.state.sessionId);
+        console.warn(DEBUG_PREFIX, 'Recebido:', sessionId);
+      }
+      
+      return isValid;
+    }
+
+    /**
      * Debug info
      */
     getDebugInfo() {
       return {
         ...this.state,
-        Stage, // Enums disponveis
+        Stage, // Enums disponíveis
         isAwaitingSecond: this.isAwaitingSecond(),
         isFirstTrack: this.isFirstTrack(),
         isSecondTrack: this.isSecondTrack()
@@ -335,30 +321,18 @@
     }
   }
 
-  // 
+  // ════════════════════════════════════════════════════════════════════════
   // EXPOR GLOBALMENTE
-  // 
+  // ════════════════════════════════════════════════════════════════════════
   
   window.ReferenceFlowController = ReferenceFlowController;
   window.ReferenceFlowStage = Stage;
 
-  // Instancia global singleton
+  // Instância global singleton
   if (!window.referenceFlow) {
     window.referenceFlow = new ReferenceFlowController();
   }
 
-  /**
-   * Getter function para compatibilidade com codigo existente
-   * @returns {ReferenceFlowController}
-   */
-  window.getRefFlow = function getRefFlow() {
-    if (!window.referenceFlow) {
-      console.warn('[REF-FLOW] referenceFlow nao inicializado, criando instancia...');
-      window.referenceFlow = new ReferenceFlowController();
-    }
-    return window.referenceFlow;
-  };
-
-  console.log('[REF-FLOW] Modulo carregado - window.referenceFlow e window.getRefFlow() disponiveis');
+  console.log('[REF-FLOW] ✅ Módulo carregado - window.referenceFlow disponível');
 
 })();
