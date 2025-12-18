@@ -711,6 +711,14 @@
     <!-- Inicializar Audio Analyzer -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // 🔒 GARANTIR que ReferenceFlowController existe SEMPRE
+            if (typeof window.getRefFlow === 'function') {
+                const refFlow = window.getRefFlow();
+                console.log('✅ [INIT] ReferenceFlowController inicializado:', refFlow.getStage());
+            } else {
+                console.warn('⚠️ [INIT] getRefFlow() não disponível ainda - será criado no primeiro uso');
+            }
+            
             // Force external refs loading (bypass embedded)
             window.REFS_ALLOW_NETWORK = true;
             window.DEBUG_ANALYZER = true;
