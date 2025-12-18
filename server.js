@@ -12,7 +12,7 @@ dotenv.config();
 // Rotas principais
 // 🔧 FIX: Usar arquivo correto que suporta referenceJobId e enfileira no Redis/BullMQ
 import analyzeRoute from "./work/api/audio/analyze.js";
-import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres
+import jobsRoute from "./work/api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres (work/)
 
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
