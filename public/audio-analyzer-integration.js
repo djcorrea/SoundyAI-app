@@ -3243,9 +3243,25 @@ async function pollJobStatus(jobId) {
                     const stateMachine = window.AnalysisStateMachine;
                     const isReferenceMode = jobResult.mode === 'reference' || stateMachine?.getMode() === 'reference';
                     const isReferenceBase = jobResult.referenceStage === 'base' || jobResult.requiresSecondTrack === true;
+                    const hasNextAction = jobResult.nextAction === 'upload_second_track';
+                    
+                    // 🔍 Log de trace para produção
+                    const traceId = jobResult.traceId || window.referenceFlow?.state?.traceId || `trace_${Date.now()}`;
+                    console.log('[POLL-TRACE]', {
+                        traceId,
+                        timestamp: new Date().toISOString(),
+                        jobId: jobResult.id || jobResult.jobId || jobId,
+                        status: jobResult.status,
+                        mode: jobResult.mode,
+                        referenceStage: jobResult.referenceStage,
+                        nextAction: jobResult.nextAction,
+                        requiresSecondTrack: jobResult.requiresSecondTrack,
+                        baseJobId: window.referenceFlow?.state?.baseJobId,
+                        willOpenModal: isReferenceMode && isReferenceBase && hasNextAction
+                    });
                     
                     if (isReferenceMode && isReferenceBase) {
-                        console.log('[POLLING][REFERENCE] 🎯 Base completada - abrindo modal para 2ª música');
+                        console.log('[POLLING][REFERENCE] 🎯 Base completada', { hasNextAction, traceId });
                         console.log('[POLLING][REFERENCE] referenceStage:', jobResult.referenceStage);
                         console.log('[POLLING][REFERENCE] requiresSecondTrack:', jobResult.requiresSecondTrack);
                         console.log('[POLLING][REFERENCE] referenceJobId:', jobResult.referenceJobId);
@@ -7573,6 +7589,12 @@ async function handleModalFileSelection(file) {
         
         // 🌐 ETAPA 3: Criar job de análise no backend
         const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
+        
+        // ✅ CORREÇÃO CRÍTICA: Setar baseJobId IMEDIATAMENTE após criar job (antes de polling)
+        if (currentAnalysisMode === 'reference' && window.referenceFlow && jobId) {
+            window.referenceFlow.onFirstTrackProcessing(jobId);
+            console.log('[REF-FLOW] ✅ baseJobId setado imediatamente:', jobId);
+        }
         
         // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);

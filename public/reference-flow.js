@@ -123,18 +123,28 @@
      * Usuário selecionou primeira música
      */
     onFirstTrackSelected() {
-      console.log(DEBUG_PREFIX, 'onFirstTrackSelected()');
+      const traceId = this.state.traceId || `trace_${Date.now()}`;
+      console.log(DEBUG_PREFIX, 'onFirstTrackSelected()', { traceId, currentStage: this.state.stage });
       
-      if (this.state.stage !== Stage.IDLE) {
-        console.warn(DEBUG_PREFIX, 'Iniciando nova análise - resetando fluxo anterior');
+      // ✅ CORREÇÃO: Só resetar se stage for terminal (AWAITING_SECOND, DONE)
+      // Não resetar se já processando (BASE_UPLOADING, BASE_PROCESSING) - preservar baseJobId
+      if (this.state.stage === Stage.AWAITING_SECOND || this.state.stage === Stage.DONE) {
+        console.warn(DEBUG_PREFIX, 'Iniciando nova análise - resetando fluxo concluído', { traceId });
         this.reset();
         this.startNewReferenceFlow();
+      } else if (this.state.stage !== Stage.IDLE) {
+        console.warn(DEBUG_PREFIX, '⚠️ Fluxo em andamento - NÃO resetando', { 
+          traceId, 
+          stage: this.state.stage, 
+          baseJobId: this.state.baseJobId 
+        });
+        // Não resetar - manter baseJobId existente
       }
       
       this.state.stage = Stage.BASE_UPLOADING;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.BASE_UPLOADING);
+      console.log(DEBUG_PREFIX, 'Stage:', Stage.BASE_UPLOADING, { traceId, baseJobId: this.state.baseJobId });
     }
 
     /**
@@ -142,13 +152,21 @@
      * @param {string} jobId
      */
     onFirstTrackProcessing(jobId) {
-      console.log(DEBUG_PREFIX, 'onFirstTrackProcessing()', jobId);
+      const traceId = this.state.traceId || `trace_${Date.now()}`;
+      console.log('[REF-STATE-TRACE]', {
+        traceId,
+        event: 'onFirstTrackProcessing',
+        jobId: jobId,
+        oldBaseJobId: this.state.baseJobId,
+        newBaseJobId: jobId,
+        stage: 'BASE_PROCESSING'
+      });
       
       this.state.stage = Stage.BASE_PROCESSING;
       this.state.baseJobId = jobId;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Base processando, jobId:', jobId);
+      console.log(DEBUG_PREFIX, 'Base processando, jobId:', jobId, { traceId });
     }
 
     /**
