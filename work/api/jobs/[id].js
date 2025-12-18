@@ -1,4 +1,15 @@
 // api/jobs/[id].js
+// ═══════════════════════════════════════════════════════════════
+// 🐦 CANÁRIO: Prova de carregamento do arquivo correto
+// ═══════════════════════════════════════════════════════════════
+console.error("[CANARY-JOBS-HANDLER] LOADED", { 
+  file: "work/api/jobs/[id].js",
+  ts: Date.now(), 
+  commit: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT || "local",
+  node: process.version
+});
+// ═══════════════════════════════════════════════════════════════
+
 import express from "express";
 import pool from "../../db.js";
 
@@ -13,13 +24,17 @@ function isValidUuid(str) {
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
   // ═══════════════════════════════════════════════════════════════
-  // 🔍 PROBE: Provar qual handler está rodando em produção
+  // � CANÁRIO: Headers de prova irrefutável
   // ═══════════════════════════════════════════════════════════════
+  res.setHeader("X-JOBS-HANDLER", "work/api/jobs/[id].js");
+  res.setHeader("X-JOBS-HANDLER-V", "CANARY-V1");
   res.setHeader("X-STATUS-HANDLER", "work/api/jobs/[id].js#PROBE_A");
   res.setHeader("X-STATUS-TS", String(Date.now()));
-  console.error("[PROBE_STATUS_HANDLER] HIT work/api/jobs/[id].js", { 
+  
+  console.error("[CANARY-REQUEST] HIT work/api/jobs/[id].js", { 
     url: req.originalUrl,
-    jobId: req.params.id 
+    jobId: req.params.id,
+    ts: Date.now()
   });
   // ═══════════════════════════════════════════════════════════════
   
@@ -172,7 +187,11 @@ router.get("/:id", async (req, res) => {
         referenceStage: effectiveStage || (fullResult?.isReferenceBase ? 'base' : undefined),
         status: normalizedStatus,
         suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
-        aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : []
+        aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : [],
+        // 🐦 CANÁRIO: Prova de que o handler correto está rodando
+        __handlerVersion: 'CANARY-V1',
+        __handlerFile: 'work/api/jobs/[id].js',
+        __handlerTs: Date.now()
       };
       
       if (normalizedStatus === 'completed') {
@@ -273,7 +292,11 @@ router.get("/:id", async (req, res) => {
           file_key: job.file_key,
           mode: job.mode,
           created_at: job.created_at,
-          updated_at: job.updated_at
+          updated_at: job.updated_at,
+          // 🐦 CANÁRIO: Prova de handler correto (processing path)
+          __handlerVersion: 'CANARY-V1',
+          __handlerFile: 'work/api/jobs/[id].js',
+          __handlerTs: Date.now()
         }
       };
       console.log('[API-JOBS] ⚙️ Retornando job PROCESSING');
@@ -291,7 +314,11 @@ router.get("/:id", async (req, res) => {
           updated_at: job.updated_at,
           completed_at: job.completed_at,
           results: fullResult,
-          error: null
+          error: null,
+          // 🐦 CANÁRIO: Prova de handler correto (Genre path)
+          __handlerVersion: 'CANARY-V1',
+          __handlerFile: 'work/api/jobs/[id].js',
+          __handlerTs: Date.now()
         }
       };
       console.log('[API-JOBS] ✅ Retornando job COMPLETED com results');
