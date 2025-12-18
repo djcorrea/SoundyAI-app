@@ -868,7 +868,7 @@ async function processReferenceBase(job) {
     console.log('[REFERENCE-BASE] referenceJobId:', finalJSON.referenceJobId);
     console.log('[REFERENCE-BASE] referenceStage:', finalJSON.referenceStage);
 
-    // Salvar como COMPLETED (SEM VALIDAÇÃO)
+    // Salvar como COMPLETED com fallback Redis
     console.log('[REFERENCE-BASE] 💾 Salvando no PostgreSQL como COMPLETED...');
     console.log('[REFERENCE-BASE] 🔍 Dados sendo salvos:', {
       mode: finalJSON.mode,
@@ -881,8 +881,31 @@ async function processReferenceBase(job) {
       suggestionsLength: finalJSON.suggestions?.length || 0,
       score: finalJSON.score
     });
-    await updateJobStatus(jobId, 'completed', finalJSON);
-    console.log('[REFERENCE-BASE] ✅ Status COMPLETED salvo no banco com sucesso!');
+    
+    try {
+      await updateJobStatus(jobId, 'completed', finalJSON);
+      console.log('[REFERENCE-BASE] ✅ Status COMPLETED salvo no banco com sucesso!');
+    } catch (dbError) {
+      console.error('[DB-SAVE-ERROR][REFERENCE-BASE] ❌ Falha ao salvar no Postgres:', dbError.message);
+      console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] 🔄 Tentando fallback: salvar no Redis...');
+      
+      try {
+        // Fallback: salvar pelo menos no Redis para API poder servir
+        const redisKey = `job:${jobId}:results`;
+        await redisClient.set(redisKey, JSON.stringify({
+          ...finalJSON,
+          status: 'completed',
+          _fallback: true,
+          _savedAt: new Date().toISOString()
+        }), 'EX', 3600); // 1 hora de TTL
+        
+        console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] ✅ Salvo no Redis como fallback');
+        console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] ⚠️ ATENÇÃO: PostgreSQL pode estar com status desatualizado!');
+      } catch (redisError) {
+        console.error('[DB-SAVE-ERROR][REFERENCE-BASE] ❌ Falha no fallback Redis também:', redisError.message);
+        // Continuar - pelo menos o processamento não falhou
+      }
+    }
 
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
