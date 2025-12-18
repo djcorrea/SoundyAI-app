@@ -159,7 +159,14 @@ router.get("/:id", async (req, res) => {
     // 🟢 EARLY RETURN INCONDICIONAL PARA REFERENCE MODE
     // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
-      console.error('[REF-GUARD-V7] ✅ EARLY_RETURN_EXECUTANDO para reference');
+      const traceId = fullResult?.traceId || `trace_${Date.now()}`;
+      console.error('[REF-GUARD-V7] ✅ EARLY_RETURN_EXECUTANDO para reference', {
+        traceId,
+        jobId: job.id,
+        mode: effectiveMode,
+        stage: effectiveStage,
+        status: normalizedStatus
+      });
       
       const normalizedStatus = fullResult?.status || job?.status || 'processing';
       
@@ -178,12 +185,28 @@ router.get("/:id", async (req, res) => {
       if (normalizedStatus === 'completed') {
         if (baseResponse.referenceStage === 'base') {
           baseResponse.requiresSecondTrack = true;
-          baseResponse.referenceJobId = job.id; // OK existir, mas NÃO usado para inferir "segundo job"
+          baseResponse.referenceJobId = job.id;
           baseResponse.status = 'completed';
-          console.error('[REF-GUARD-V7] ✅ BASE completed - requiresSecondTrack:', true, 'referenceJobId:', job.id);
+          baseResponse.nextAction = 'upload_second_track'; // ✅ SINALIZA FRONTEND ABRIR MODAL 2
+          
+          const traceId = fullResult?.traceId || baseResponse.traceId || `trace_${Date.now()}`;
+          console.error('[REF-GUARD-V7] ✅ BASE completed', {
+            traceId,
+            jobId: job.id,
+            requiresSecondTrack: true,
+            nextAction: 'upload_second_track',
+            referenceJobId: job.id
+          });
         } else if (baseResponse.referenceStage === 'compare') {
-          baseResponse.status = 'completed'; // Mesmo sem suggestions
-          console.error('[REF-GUARD-V7] ✅ COMPARE completed');
+          baseResponse.status = 'completed';
+          baseResponse.nextAction = 'show_comparison'; // ✅ SINALIZA COMPARAÇÃO PRONTA
+          
+          const traceId = fullResult?.traceId || baseResponse.traceId || `trace_${Date.now()}`;
+          console.error('[REF-GUARD-V7] ✅ COMPARE completed', {
+            traceId,
+            jobId: job.id,
+            nextAction: 'show_comparison'
+          });
         }
       }
       
