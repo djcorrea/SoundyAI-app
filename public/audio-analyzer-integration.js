@@ -2324,6 +2324,19 @@ function selectAnalysisMode(mode) {
     const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
     const previousMode = window.currentAnalysisMode;
     
+    // ✅ CRÍTICO: RESET FORÇADO ao selecionar reference
+    if (mode === 'reference') {
+        console.log('%c[REF-FLOW] 🔄 RESET FORÇADO - Modo Reference selecionado', 'color:#FF5722;font-weight:bold;font-size:14px;');
+        
+        if (window.referenceFlow) {
+            const sessionId = window.referenceFlow.startNewReferenceFlow();
+            console.log('[REF-FLOW] ✅ Novo fluxo iniciado - sessionId:', sessionId);
+            console.log('[REF-FLOW] Estado limpo:', window.referenceFlow.getDebugInfo());
+        } else {
+            console.error('[REF-FLOW] ❌ referenceFlow não disponível!');
+        }
+    }
+    
     if (window.logStep) {
         window.logStep(traceId, 'MODE_SELECTED', {
             selectedMode: mode,
@@ -2676,7 +2689,16 @@ function buildGenrePayload(fileKey, fileName, idToken) {
 function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     const { isFirstTrack = true, referenceJobId = null } = options;
     
-    console.log('[REF-PAYLOAD] buildReferencePayload()', { isFirstTrack, referenceJobId });
+    // ✅ Obter sessionId do referenceFlow
+    const refFlow = window.referenceFlow;
+    const sessionId = refFlow ? refFlow.getSessionId() : null;
+    
+    console.log('[REF-PAYLOAD] buildReferencePayload()', { isFirstTrack, referenceJobId, sessionId });
+    
+    if (!sessionId) {
+        console.error('[REF-PAYLOAD] ❌ sessionId ausente - fluxo não foi iniciado!');
+        throw new Error('[REF-PAYLOAD] sessionId obrigatório - chame referenceFlow.startNewReferenceFlow() primeiro');
+    }
     
     if (isFirstTrack) {
         // ✅ PRIMEIRA TRACK: payload LIMPO sem genre/targets
@@ -2687,6 +2709,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
             mode: 'reference',
             analysisType: 'reference',
             referenceStage: 'base',
+            referenceSessionId: sessionId,  // ✅ Anti-vazamento
             fileName,
             isReferenceBase: true,
             referenceJobId: null,
@@ -2696,6 +2719,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         console.log('[REF-PAYLOAD] ✅ Reference primeira track (BASE) payload:', {
             mode: payload.mode,
             referenceStage: payload.referenceStage,
+            referenceSessionId: payload.referenceSessionId,
             hasGenre: false,
             hasTargets: false,
             isReferenceBase: payload.isReferenceBase,
@@ -2720,6 +2744,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
             mode: 'reference',       // Mantido por compatibilidade
             analysisType: 'reference',  // 🆕 Campo explícito
             referenceStage: 'compare',  // 🆕 Indica segunda música (comparação)
+            referenceSessionId: sessionId,  // ✅ Anti-vazamento
             fileName,
             referenceJobId,          // JobId da primeira música (BASE) - obrigatório
             isReferenceBase: false,  // Flag legada mantida
@@ -2728,6 +2753,8 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         
         console.log('[REF-PAYLOAD] ✅ Reference segunda track (COMPARAÇÃO) payload:', {
             mode: payload.mode,
+            referenceStage: payload.referenceStage,
+            referenceSessionId: payload.referenceSessionId,
             referenceJobId: payload.referenceJobId,
             hasGenre: false, // ✅ Segunda track NÃO inclui genre
             hasTargets: false, // ✅ Segunda track NÃO inclui genreTargets
@@ -7606,6 +7633,18 @@ async function handleModalFileSelection(file) {
         if (isFirstReferenceTrack) {
             console.log('%c[REF-FLOW] 🎯 PRIMEIRA TRACK EM REFERENCE MODE', 'color:cyan;font-weight:bold;font-size:14px;');
             
+            // ✅ VALIDAR sessionId antes de processar
+            const receivedSessionId = analysisResult.referenceSessionId || analysisResult.metadata?.referenceSessionId;
+            if (refFlow && receivedSessionId) {
+                const isValid = refFlow.validateSession(receivedSessionId);
+                if (!isValid) {
+                    console.error('[REF-FLOW] ❌ SessionId inválido - resultado de fluxo antigo!');
+                    console.error('[REF-FLOW] Ignorando resultado:', analysisResult.jobId);
+                    return; // Abortar processamento
+                }
+                console.log('[REF-FLOW] ✅ SessionId válido - prosseguindo');
+            }
+            
             // ✅ Notificar referenceFlow sobre processamento
             if (refFlow && jobId) {
                 refFlow.onFirstTrackProcessing(jobId);
@@ -7744,9 +7783,21 @@ async function handleModalFileSelection(file) {
             console.log('[REF-FLOW] analysisResult.jobId:', analysisResult?.jobId);
             console.log('[REF-FLOW] baseJobId:', refFlow?.getBaseJobId());
             
+            // ✅ VALIDAR sessionId antes de processar
+            const receivedSessionId = analysisResult.referenceSessionId || analysisResult.metadata?.referenceSessionId;
+            if (refFlow && receivedSessionId) {
+                const isValid = refFlow.validateSession(receivedSessionId);
+                if (!isValid) {
+                    console.error('[REF-FLOW] ❌ SessionId inválido - resultado de fluxo antigo!');
+                    console.error('[REF-FLOW] Ignorando resultado:', analysisResult.jobId);
+                    return; // Abortar processamento
+                }
+                console.log('[REF-FLOW] ✅ SessionId válido - prosseguindo');
+            }
+            
             // ✅ Notificar referenceFlow sobre processamento da segunda track
             if (refFlow) {
-                refFlow.onCompareProcessing();
+                refFlow.onCompareProcessing(analysisResult.jobId);
                 console.log('[REF-FLOW] ✅ onCompareProcessing() chamado');
             }
             
