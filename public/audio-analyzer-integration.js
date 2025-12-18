@@ -2194,9 +2194,10 @@ function setViewMode(mode) {
         console.log("[VIEW-MODE] 🧹 Limpando estado de referência ao mudar para gênero");
         resetReferenceStateFully();
         
-        // ✅ Resetar referenceFlow também
-        if (window.referenceFlow) {
-            window.referenceFlow.reset();
+        // ✅ Resetar referenceFlow também (com guard)
+        const refFlow = window.getRefFlow();
+        if (refFlow) {
+            refFlow.reset();
             console.log("[VIEW-MODE] ✅ ReferenceFlow resetado");
         }
     }
@@ -2204,8 +2205,9 @@ function setViewMode(mode) {
     // ✅ Iniciar novo fluxo de referência ao mudar para reference
     if (mode === "reference" && oldMode === "genre") {
         console.log("[VIEW-MODE] 🎯 Iniciando novo fluxo de referência");
-        if (window.referenceFlow) {
-            window.referenceFlow.startNewReferenceFlow();
+        const refFlow = window.getRefFlow();
+        if (refFlow) {
+            refFlow.startNewReferenceFlow();
             console.log("[VIEW-MODE] ✅ ReferenceFlow iniciado");
         }
     }
@@ -2328,10 +2330,11 @@ function selectAnalysisMode(mode) {
     if (mode === 'reference') {
         console.log('%c[REF-FLOW] 🔄 RESET FORÇADO - Modo Reference selecionado', 'color:#FF5722;font-weight:bold;font-size:14px;');
         
-        if (window.referenceFlow) {
-            const sessionId = window.referenceFlow.startNewReferenceFlow();
+        const refFlow = window.getRefFlow();
+        if (refFlow) {
+            const sessionId = refFlow.startNewReferenceFlow();
             console.log('[REF-FLOW] ✅ Novo fluxo iniciado - sessionId:', sessionId);
-            console.log('[REF-FLOW] Estado limpo:', window.referenceFlow.getDebugInfo());
+            console.log('[REF-FLOW] Estado limpo:', refFlow.getDebugInfo());
         } else {
             console.error('[REF-FLOW] ❌ referenceFlow não disponível!');
         }
@@ -2889,8 +2892,8 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 payload = buildGenrePayload(fileKey, fileName, idToken);
                 
             } else if (mode === 'reference') {
-                // MODO REFERENCE: usar ReferenceFlowController
-                const refFlow = window.referenceFlow;
+                // MODO REFERENCE: usar ReferenceFlowController (com guard)
+                const refFlow = window.getRefFlow();
                 if (!refFlow) {
                     throw new Error('[REF-FLOW] ReferenceFlowController não disponível');
                 }
@@ -7609,8 +7612,8 @@ async function handleModalFileSelection(file) {
         // 🎯 [FLUXO DETERMINÍSTICO] Usar ReferenceFlowController como ÚNICA fonte de verdade
         const jobMode = analysisResult.mode || currentAnalysisMode;
         
-        // ✅ NOVO FLUXO: Usar referenceFlow controller (isolado e determinístico)
-        const refFlow = window.referenceFlow;
+        // ✅ NOVO FLUXO: Usar referenceFlow controller (isolado e determinístico) com guard
+        const refFlow = window.getRefFlow();
         const isFirstReferenceTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isFirstTrack();
         const isSecondTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isSecondTrack();
         
