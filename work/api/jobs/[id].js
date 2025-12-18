@@ -19,6 +19,13 @@ router.get("/:id", async (req, res) => {
   res.setHeader("X-STATUS-HANDLER", "work/api/jobs/[id].js#PROBE_A");
   res.setHeader("X-STATUS-TS", String(Date.now()));
   res.setHeader("X-BUILD", process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev");
+  res.setHeader("X-BUILD-SIGNATURE", "REF-BASE-FIX-2025-12-18");
+  
+  // 🚫 ANTI-CACHE: Forçar polling sempre buscar dados frescos
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
   
   console.error("[PROBE_STATUS_HANDLER] HIT work/api/jobs/[id].js", { 
     url: req.originalUrl,
@@ -118,7 +125,8 @@ router.get("/:id", async (req, res) => {
         console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
       } catch (parseError) {
         console.error("[API-JOBS] ❌ Erro ao fazer parse do results JSON:", parseError);
-        fullResult = resultData;
+        console.error("[API-JOBS] ⚠️ fullResult será null - job pode ficar em processing");
+        fullResult = null;
       }
     }
 
@@ -140,6 +148,24 @@ router.get("/:id", async (req, res) => {
     // 🎯 Detectar modo e stage SEM heurística burra
     const effectiveMode = fullResult?.mode || job?.mode || req?.query?.mode || req?.body?.mode || 'genre';
     const effectiveStage = fullResult?.referenceStage || job?.referenceStage || (fullResult?.isReferenceBase ? 'base' : undefined);
+    
+    // 🛡️ DETECÇÃO FORTE DE REFERENCE (múltiplas fontes)
+    const isReference = effectiveMode === 'reference' 
+      || job?.mode === 'reference' 
+      || fullResult?.mode === 'reference'
+      || !!job?.referenceStage 
+      || !!fullResult?.referenceStage
+      || fullResult?.requiresSecondTrack === true;
+    
+    console.error('[REF-DETECT] Detecção forte:', {
+      isReference,
+      effectiveMode,
+      'job.mode': job?.mode,
+      'fullResult.mode': fullResult?.mode,
+      'job.referenceStage': job?.referenceStage,
+      'fullResult.referenceStage': fullResult?.referenceStage,
+      'fullResult.requiresSecondTrack': fullResult?.requiresSecondTrack
+    });
     
     // 🔒 DIAGNÓSTICO COMPLETO (1x por request, sem spam)
     console.error('[REF-GUARD-V7] DIAGNOSTICO_COMPLETO', { 
@@ -260,7 +286,8 @@ router.get("/:id", async (req, res) => {
       });
     }
     
-    if (effectiveMode === 'genre' && normalizedStatus === 'completed') {
+    // 🔒 VALIDAÇÃO GENRE: SOMENTE se NÃO for reference
+    if (effectiveMode === 'genre' && !isReference && normalizedStatus === 'completed') {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
       // 🎯 VALIDAÇÃO EXCLUSIVA PARA GENRE: Verificar se dados essenciais existem
@@ -273,7 +300,7 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS][GENRE][VALIDATION] hasTechnicalData:', hasTechnicalData);
       
       // 🔧 FALLBACK PARA GENRE: Se completed mas falta suggestions, pode indicar processamento incompleto
-      // Esta lógica SÓ roda para genre, NUNCA para reference
+      // Esta lógica SÓ roda para genre puro - reference é bloqueado pelo !isReference acima
       if (!hasSuggestions || !hasAiSuggestions || !hasTechnicalData) {
         console.warn('[API-FIX][GENRE] ⚠️ Job marcado como "completed" mas falta dados essenciais');
         console.warn('[API-FIX][GENRE] Dados ausentes:', {
