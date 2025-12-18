@@ -2824,88 +2824,37 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         console.log('✅ Token válido disponível para envio');
 
-        // 🆕 PR2: USAR STATE MACHINE como fonte de verdade
-        const stateMachine = window.AnalysisStateMachine;
-        if (!stateMachine) {
-            console.error('%c[CRITICAL] AnalysisStateMachine não disponível em createAnalysisJob!', 'color:red;font-weight:bold;font-size:14px;');
-            console.error('[CRITICAL] Modo solicitado:', mode);
-            console.error('[CRITICAL] currentAnalysisMode:', window.currentAnalysisMode);
-            
-            // Se não tem state machine MAS o mode é reference, tentar continuar com fallback
-            if (mode === 'reference') {
-                console.warn('[FALLBACK] Tentando continuar reference sem state machine...');
-                console.warn('[FALLBACK] Usando window.currentAnalysisMode e flags globais');
-                
-                // Criar payload manualmente sem state machine
-                if (window.userExplicitlySelectedReferenceMode) {
-                    // Determinar se é primeira ou segunda track pelas flags globais
-                    const hasFirstJobId = window.__REFERENCE_JOB_ID__ || window.lastReferenceJobId;
-                    
-                    payload = buildReferencePayload(fileKey, fileName, idToken, {
-                        isFirstTrack: !hasFirstJobId,
-                        referenceJobId: hasFirstJobId || null
-                    });
-                    
-                    console.log('[FALLBACK] Payload reference criado:', payload);
-                } else {
-                    throw new Error('[CRITICAL] State machine ausente E userExplicitlySelectedReferenceMode=false. Não é possível processar reference.');
-                }
-            } else {
-                // Modo genre não precisa de state machine
-                payload = buildGenrePayload(fileKey, fileName, idToken);
-            }
-        } else {
-            // State machine disponível - fluxo normal
-            const currentState = stateMachine.getState();
-            const currentSMMode = stateMachine.getMode();
-            
-            console.log('[PR2] Estado atual da máquina:', { mode: currentSMMode, state: currentState });
-            
-            // 🔒 VERIFICAÇÃO CRÍTICA: se mode é reference, state machine DEVE estar em reference
-            if (mode === 'reference' && currentSMMode !== 'reference') {
-                console.error('%c[CRITICAL] INCONSISTÊNCIA DETECTADA!', 'color:red;font-weight:bold;font-size:16px;');
-                console.error('[STATE] Parâmetro mode:', mode);
-                console.error('[STATE] stateMachine.getMode():', currentSMMode);
-                console.error('[STATE] currentAnalysisMode:', window.currentAnalysisMode);
-                console.error('[STATE] State completo:', currentState);
-                
-                console.warn('[FIX_ATTEMPT] Tentando corrigir state machine...');
-                try {
-                    stateMachine.setMode('reference', { userExplicitlySelected: true });
-                    const fixedMode = stateMachine.getMode();
-                    console.log('[FIX_RESULT] Novo mode:', fixedMode);
-                    
-                    if (fixedMode !== 'reference') {
-                        throw new Error(`setMode falhou: ainda está em '${fixedMode}'`);
-                    }
-                    
-                    console.log('%c[FIX_SUCCESS] State machine corrigido para reference', 'color:green;font-weight:bold;');
-                } catch (fixError) {
-                    console.error('[FIX_FAILED] Não foi possível corrigir:', fixError);
-                    throw new Error(`[INVARIANTE] State machine está em '${currentSMMode}' mas mode param é '${mode}'. Correção falhou: ${fixError.message}`);
-                }
+        // � [REF-FLOW] DECISÃO DE PAYLOAD - Não usar AnalysisStateMachine para reference
+        console.log('[REF-FLOW] Criando payload para mode:', mode);
+        
+        if (mode === 'reference') {
+            // ✅ MODO REFERENCE: usar EXCLUSIVAMENTE o ReferenceFlowController
+            const refFlow = window.getRefFlow?.();
+            if (!refFlow) {
+                console.error('[REF-FLOW] ❌ window.getRefFlow() não disponível!');
+                console.error('[REF-FLOW] Verifique se reference-flow.js foi carregado ANTES deste script');
+                throw new Error('[REF-FLOW] ReferenceFlowController não disponível. Não é possível processar modo referência.');
             }
             
-            // Agora sim, continuar com o fluxo normal baseado no modo
-            if (mode === 'genre') {
-                console.log('[PR2] Usando buildGenrePayload');
-                payload = buildGenrePayload(fileKey, fileName, idToken);
-                
-            } else if (mode === 'reference') {
-                // MODO REFERENCE: usar ReferenceFlowController (com guard)
-                const refFlow = window.getRefFlow();
-                if (!refFlow) {
-                    throw new Error('[REF-FLOW] ReferenceFlowController não disponível');
-                }
-                
-                const isFirstTrack = refFlow.isFirstTrack() || !refFlow.isAwaitingSecond();
-                const referenceJobId = refFlow.getBaseJobId();
-                
-                console.log('[REF-FLOW] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
+            // 🔒 GARANTIR que o fluxo está inicializado (mesmo após limpar storage)
+            refFlow.initFlowIfNeeded();
+            
+            const currentStage = refFlow.getStage();
+            console.log('[REF-FLOW] Stage atual:', currentStage);
+            
+            // Determinar se é primeira ou segunda track baseado no stage
+            const isFirstTrack = !refFlow.isAwaitingSecond();
+            const baseJobId = refFlow.getBaseJobId();
+            
+            console.log('[REF-FLOW] Decisão:', {
+                isFirstTrack,
+                baseJobId,
+                hasBaseMetrics: !!refFlow.getBaseMetrics()
+            });
             
             if (isFirstTrack) {
-                // Primeira track: iniciar fluxo
-                console.log('[REF-FLOW] onFirstTrackSelected() chamado');
+                // PRIMEIRA MÚSICA (BASE)
+                console.log('[REF-FLOW] 📤 Upload da PRIMEIRA música (BASE)');
                 refFlow.onFirstTrackSelected();
                 
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
@@ -2913,23 +2862,31 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                     referenceJobId: null
                 });
             } else {
-                // Segunda track: comparar
-                if (!referenceJobId) {
-                    throw new Error('[REF-FLOW] Segunda track requer baseJobId');
+                // SEGUNDA MÚSICA (COMPARE)
+                if (!baseJobId) {
+                    console.error('[REF-FLOW] ❌ Segunda música selecionada mas não há baseJobId!');
+                    throw new Error('[REF-FLOW] Erro no fluxo: segunda música requer análise base concluída');
                 }
                 
-                console.log('[REF-FLOW] onSecondTrackSelected() chamado');
+                console.log('[REF-FLOW] 📤 Upload da SEGUNDA música (COMPARE)');
+                console.log('[REF-FLOW] Comparando com baseJobId:', baseJobId);
                 refFlow.onSecondTrackSelected();
                 
                 payload = buildReferencePayload(fileKey, fileName, idToken, {
                     isFirstTrack: false,
-                    referenceJobId
+                    referenceJobId: baseJobId
                 });
             }
             
-            } else {
-                throw new Error(`[PR2] Modo inválido: ${mode}`);
-            }
+        } else if (mode === 'genre') {
+            // ✅ MODO GENRE: fluxo normal
+            console.log('[GENRE] Criando payload para análise por gênero');
+            payload = buildGenrePayload(fileKey, fileName, idToken);
+            
+        } else {
+            // ❌ Modo inválido
+            console.error('[CREATE-JOB] ❌ Modo inválido:', mode);
+            throw new Error(`Modo de análise inválido: ${mode}`);
         }
         
         // 🔍 PR1: Trace ID para rastreamento
@@ -3268,50 +3225,66 @@ async function pollJobStatus(jobId) {
                     console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
                     
                     // ═══════════════════════════════════════════════════════════════
-                    // � REFERENCE MODE: Detectar se é base (1ª música) e abrir modal para 2ª
+                    // 🎯 [REF-FLOW] MODO REFERÊNCIA: Salvar métricas e gerenciar fluxo
                     // ═══════════════════════════════════════════════════════════════
-                    const stateMachine = window.AnalysisStateMachine;
-                    const isReferenceMode = jobResult.mode === 'reference' || stateMachine?.getMode() === 'reference';
-                    const isReferenceBase = jobResult.referenceStage === 'base' || jobResult.requiresSecondTrack === true;
+                    const isReferenceMode = jobResult.mode === 'reference' || window.currentAnalysisMode === 'reference';
                     
-                    if (isReferenceMode && isReferenceBase) {
-                        console.log('[POLLING][REFERENCE] 🎯 Base completada - abrindo modal para 2ª música');
-                        console.log('[POLLING][REFERENCE] referenceStage:', jobResult.referenceStage);
-                        console.log('[POLLING][REFERENCE] requiresSecondTrack:', jobResult.requiresSecondTrack);
-                        console.log('[POLLING][REFERENCE] referenceJobId:', jobResult.referenceJobId);
+                    if (isReferenceMode) {
+                        console.log('[REF-FLOW] 🎯 Resultado de análise REFERENCE recebido');
                         
-                        // Salvar state machine
-                        if (stateMachine) {
-                            try {
-                                stateMachine.setReferenceFirstResult({
-                                    firstJobId: jobResult.referenceJobId || jobId,
-                                    firstResultSummary: {
-                                        score: jobResult.score,
-                                        jobId: jobResult.referenceJobId || jobId,
-                                        technicalData: jobResult.technicalData || {},
-                                        spectralBands: jobResult.spectralBands || {},
-                                        classification: jobResult.classification
-                                    }
-                                });
-                                console.log('[POLLING][REFERENCE] ✅ State machine atualizado');
-                            } catch (err) {
-                                console.error('[POLLING][REFERENCE] ❌ Erro ao atualizar state machine:', err);
+                        const refFlow = window.getRefFlow?.();
+                        if (!refFlow) {
+                            console.error('[REF-FLOW] ❌ ReferenceFlowController não disponível!');
+                        } else {
+                            const currentStage = refFlow.getStage();
+                            console.log('[REF-FLOW] Stage atual:', currentStage);
+                            
+                            // Determinar se é base ou compare baseado no stage
+                            if (currentStage === 'base_processing') {
+                                // ✅ PRIMEIRA MÚSICA (BASE) COMPLETADA
+                                console.log('[REF-FLOW] ✅ PRIMEIRA música completada - salvando métricas base');
+                                
+                                try {
+                                    refFlow.onFirstTrackProcessing(jobId);
+                                    refFlow.onFirstTrackCompleted(jobResult);
+                                    
+                                    console.log('[REF-FLOW] ✅ Métricas base salvas com sucesso');
+                                    console.log('[REF-FLOW] baseJobId:', refFlow.getBaseJobId());
+                                    console.log('[REF-FLOW] Novo stage:', refFlow.getStage());
+                                    
+                                    // Abrir modal para 2ª música
+                                    setTimeout(() => {
+                                        if (typeof openReferenceUploadModal === 'function') {
+                                            openReferenceUploadModal(jobId, jobResult);
+                                            console.log('[REF-FLOW] ✅ Modal da 2ª música aberto');
+                                        } else {
+                                            console.warn('[REF-FLOW] ⚠️ openReferenceUploadModal não encontrada');
+                                            alert('✅ Música BASE analisada! Por favor, envie a segunda música para comparação.');
+                                        }
+                                    }, 500);
+                                    
+                                } catch (err) {
+                                    console.error('[REF-FLOW] ❌ Erro ao salvar métricas base:', err);
+                                }
+                                
+                            } else if (currentStage === 'compare_processing') {
+                                // ✅ SEGUNDA MÚSICA (COMPARE) COMPLETADA
+                                console.log('[REF-FLOW] ✅ SEGUNDA música completada - preparando renderização');
+                                
+                                try {
+                                    refFlow.onSecondTrackProcessing(jobId);
+                                    refFlow.onSecondTrackCompleted(jobResult);
+                                    
+                                    console.log('[REF-FLOW] ✅ Análise de referência completa!');
+                                    console.log('[REF-FLOW] Stage final:', refFlow.getStage());
+                                    
+                                } catch (err) {
+                                    console.error('[REF-FLOW] ❌ Erro ao finalizar compare:', err);
+                                }
+                            } else {
+                                console.warn('[REF-FLOW] ⚠️ Stage inesperado:', currentStage);
                             }
                         }
-                        
-                        // Abrir modal para 2ª música
-                        setTimeout(() => {
-                            if (typeof openReferenceUploadModal === 'function') {
-                                const refJobId = jobResult.referenceJobId || jobId;
-                                openReferenceUploadModal(refJobId, jobResult);
-                                console.log('[POLLING][REFERENCE] ✅ Modal da 2ª música aberto - referenceJobId:', refJobId);
-                            } else {
-                                console.error('[POLLING][REFERENCE] ❌ openReferenceUploadModal não encontrada');
-                                alert('✅ Música A analisada! Por favor, clique em "Comparação A/B" para enviar a Música B.');
-                            }
-                        }, 500);
-                    } else if (isReferenceMode && !isReferenceBase) {
-                        console.log('[POLLING][REFERENCE] 🎯 Compare completado - preparando renderização');
                     }
                     // ═══════════════════════════════════════════════════════════════
                     
