@@ -12,6 +12,7 @@
     "worker": "node work/worker-redis.js",
     "start:web": "node work/server.js",
     "start:worker": "node work/worker-redis.js",
+    "prebuild": "node scripts/check-utf8.js",
     "build:refs": "node tools/reference-builder.js",
     "validate:refs": "node tools/reference-validator.js",
     "calibrate:refs": "node tools/ref-calibrator.js",
