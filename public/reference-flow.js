@@ -50,6 +50,9 @@
         baseJobId: null,
         baseMetrics: null,
         baseFileName: null,
+        compareJobId: null,
+        compareMetrics: null,
+        compareFileName: null,
         startedAt: null,
         traceId: null
       };
@@ -117,6 +120,18 @@
       
       console.log(DEBUG_PREFIX, 'Novo fluxo iniciado', this.state.traceId);
       return this.state.traceId;
+    }
+    
+    /**
+     * Inicializar fluxo se necessrio (idempotente)
+     * Garante que existe storage mesmo aps limpar
+     */
+    initFlowIfNeeded() {
+      if (this.state.stage === Stage.IDLE && !this.state.traceId) {
+        console.log(DEBUG_PREFIX, 'initFlowIfNeeded() - criando estado inicial');
+        this.startNewReferenceFlow();
+      }
+      return this.state;
     }
 
     /**
@@ -206,28 +221,60 @@
 
     /**
      * Segunda msica comeou a processar
+     * @param {string} jobId
      */
-    onCompareProcessing() {
-      console.log(DEBUG_PREFIX, 'onCompareProcessing()');
+    onSecondTrackProcessing(jobId) {
+      console.log(DEBUG_PREFIX, 'onSecondTrackProcessing()', jobId);
       
       this.state.stage = Stage.COMPARE_PROCESSING;
+      this.state.compareJobId = jobId;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
+      console.log(DEBUG_PREFIX, 'Compare processando, jobId:', jobId);
+    }
+    
+    // Alias para compatibilidade
+    onCompareProcessing(jobId) {
+      return this.onSecondTrackProcessing(jobId);
     }
 
     /**
      * Comparao completada
      * @param {Object} result - Resultado com comparao e sugestes
      */
-    onCompareCompleted(result) {
-      console.log(DEBUG_PREFIX, 'onCompareCompleted()', result?.jobId);
+    onSecondTrackCompleted(result) {
+      console.log(DEBUG_PREFIX, 'onSecondTrackCompleted()', result?.jobId);
       
+      if (!result || !result.jobId) {
+        console.error(DEBUG_PREFIX, 'onSecondTrackCompleted() - resultado invlido', result);
+        return;
+      }
+      
+      this.state.compareJobId = result.jobId;
+      this.state.compareMetrics = {
+        lufsIntegrated: result.technicalData?.lufsIntegrated,
+        truePeakDbtp: result.technicalData?.truePeakDbtp,
+        dynamicRange: result.technicalData?.dynamicRange,
+        stereoCorrelation: result.technicalData?.stereoCorrelation,
+        lra: result.technicalData?.lra,
+        spectralBands: result.spectralAnalysis?.spectralBands,
+        rmsEnergy: result.technicalData?.rmsEnergy,
+        crestFactor: result.technicalData?.crestFactor
+      };
+      this.state.compareFileName = result.metadata?.fileName || result.fileName || 'unknown';
       this.state.stage = Stage.DONE;
+      
       this._persist();
       
       console.log(DEBUG_PREFIX, ' Fluxo de referncia completo');
+      console.log(DEBUG_PREFIX, 'compareJobId:', this.state.compareJobId);
+      console.log(DEBUG_PREFIX, 'compareFileName:', this.state.compareFileName);
       console.log(DEBUG_PREFIX, 'Stage:', Stage.DONE);
+    }
+    
+    // Alias para compatibilidade
+    onCompareCompleted(result) {
+      return this.onSecondTrackCompleted(result);
     }
 
     /**
@@ -295,11 +342,23 @@
   window.ReferenceFlowController = ReferenceFlowController;
   window.ReferenceFlowStage = Stage;
 
-  // Instncia global singleton
+  // Instancia global singleton
   if (!window.referenceFlow) {
     window.referenceFlow = new ReferenceFlowController();
   }
 
-  console.log('[REF-FLOW]  Mdulo carregado - window.referenceFlow disponvel');
+  /**
+   * Getter function para compatibilidade com codigo existente
+   * @returns {ReferenceFlowController}
+   */
+  window.getRefFlow = function getRefFlow() {
+    if (!window.referenceFlow) {
+      console.warn('[REF-FLOW] referenceFlow nao inicializado, criando instancia...');
+      window.referenceFlow = new ReferenceFlowController();
+    }
+    return window.referenceFlow;
+  };
+
+  console.log('[REF-FLOW] Modulo carregado - window.referenceFlow e window.getRefFlow() disponiveis');
 
 })();
