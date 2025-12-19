@@ -465,59 +465,48 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
       // 🎯 VALIDAÇÃO EXCLUSIVA PARA GENRE: Verificar se dados essenciais existem
-      // ⚠️ CORREÇÃO: Aceitar suggestions de múltiplas fontes
-      const hasSuggestionsMain = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
-      const hasSuggestionsDiag = Array.isArray(fullResult?.diagnostics?.suggestions) && fullResult.diagnostics.suggestions.length > 0;
-      const hasSuggestionsProblems = Array.isArray(fullResult?.problemsAnalysis?.suggestions) && fullResult.problemsAnalysis.suggestions.length > 0;
+      // ⚠️ CRÍTICO: [] é válido (resultado final processado), só aguardar se campo AUSENTE
       
-      const hasSuggestions = hasSuggestionsMain || hasSuggestionsDiag || hasSuggestionsProblems;
+      // Verificar se campos EXISTEM (não se estão vazios)
+      const suggestionsExists = fullResult?.hasOwnProperty('suggestions') || 
+                                fullResult?.diagnostics?.hasOwnProperty('suggestions') ||
+                                fullResult?.problemsAnalysis?.hasOwnProperty('suggestions');
+      
+      const suggestionsFieldsPresent = {
+        main: fullResult?.hasOwnProperty('suggestions'),
+        diagnostics: fullResult?.diagnostics?.hasOwnProperty('suggestions'),
+        problemsAnalysis: fullResult?.problemsAnalysis?.hasOwnProperty('suggestions')
+      };
+      
+      // Só verificar length para fins informativos (não para bloquear)
+      const suggestionsLengths = {
+        main: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions.length : null,
+        diagnostics: Array.isArray(fullResult?.diagnostics?.suggestions) ? fullResult.diagnostics.suggestions.length : null,
+        problemsAnalysis: Array.isArray(fullResult?.problemsAnalysis?.suggestions) ? fullResult.problemsAnalysis.suggestions.length : null
+      };
+      
       const hasTechnicalData = !!fullResult?.technicalData;
       
-      // 🔍 INSTRUMENTAÇÃO DETALHADA
-      console.error('[IDJS-VALIDATION] Avaliando completude genre:', {
-        effectiveMode,
-        'job.mode': job?.mode,
-        'fullResult.mode': fullResult?.mode,
-        normalizedStatus,
-        checks: {
-          hasSuggestionsMain,
-          hasSuggestionsDiag,
-          hasSuggestionsProblems,
-          hasSuggestions,
-          hasTechnicalData
-        },
-        types: {
-          'fullResult.suggestions': {
-            type: typeof fullResult?.suggestions,
-            isArray: Array.isArray(fullResult?.suggestions),
-            length: fullResult?.suggestions?.length
-          },
-          'fullResult.diagnostics.suggestions': {
-            type: typeof fullResult?.diagnostics?.suggestions,
-            isArray: Array.isArray(fullResult?.diagnostics?.suggestions),
-            length: fullResult?.diagnostics?.suggestions?.length
-          },
-          'fullResult.problemsAnalysis.suggestions': {
-            type: typeof fullResult?.problemsAnalysis?.suggestions,
-            isArray: Array.isArray(fullResult?.problemsAnalysis?.suggestions),
-            length: fullResult?.problemsAnalysis?.suggestions?.length
-          },
-          'fullResult.aiSuggestions': {
-            type: typeof fullResult?.aiSuggestions,
-            isArray: Array.isArray(fullResult?.aiSuggestions),
-            length: fullResult?.aiSuggestions?.length
-          },
-          'fullResult.technicalData': typeof fullResult?.technicalData
-        }
+      // 🔍 DEBUG TEMPORÁRIO: Log detalhado para diagnóstico
+      console.error('[VALIDATION-DEBUG]', {
+        mode: effectiveMode,
+        referenceStage: effectiveStage,
+        stage: normalizedStatus,
+        suggestionsFieldsPresent,
+        suggestionsExists,
+        suggestionsLengths,
+        hasTechnicalData,
+        jobId: job.id
       });
       
-      // 🔧 FALLBACK PARA GENRE: Se completed mas falta dados essenciais
-      // ⚠️ CORREÇÃO: aiSuggestions NÃO é obrigatório (pode ser enrichment assíncrono)
-      if (!hasSuggestions || !hasTechnicalData) {
+      // 🔧 FALLBACK PARA GENRE: Só aguardar se campo AUSENTE (não se vazio)
+      // ✅ suggestions: [] é resultado VÁLIDO (processado mas sem issues)
+      if (!suggestionsExists || !hasTechnicalData) {
         console.warn('[API-FIX][GENRE] ⚠️ Job marcado como "completed" mas falta dados essenciais');
-        console.warn('[API-FIX][GENRE] Dados ausentes:', {
-          suggestions: !hasSuggestions,
-          technicalData: !hasTechnicalData
+        console.warn('[API-FIX][GENRE] Campos ausentes:', {
+          suggestionsField: !suggestionsExists ? 'MISSING' : 'EXISTS',
+          technicalData: !hasTechnicalData ? 'MISSING' : 'EXISTS',
+          note: 'suggestions=[] é VÁLIDO, só aguardar se campo AUSENTE'
         });
         console.warn('[API-FIX][GENRE] Retornando status "processing" para frontend aguardar conclusão');
         
@@ -525,6 +514,7 @@ router.get("/:id", async (req, res) => {
         normalizedStatus = 'processing';
       } else {
         console.log('[API-JOBS][GENRE] ✅ Todos os dados essenciais presentes - status COMPLETED mantido');
+        console.log('[API-JOBS][GENRE] ✅ suggestions=[] é resultado válido (processado sem issues)');
       }
     } else {
       console.log('[API-JOBS][VALIDATION] ⚠️ Mode não é genre - pulando validação de suggestions');
