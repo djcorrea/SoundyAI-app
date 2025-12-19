@@ -198,7 +198,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, file_key, mode, status, error, results, result,
-              created_at, updated_at, completed_at, reference_job_id
+              created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
         LIMIT 1`,
