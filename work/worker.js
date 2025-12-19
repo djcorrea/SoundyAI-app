@@ -438,11 +438,17 @@ async function processJob(job) {
     // 🚨 VALIDAÇÃO: Genre obrigatório APENAS em analysisType='genre'
     // Reference mode NÃO exige genre (independente de base ou compare)
     
-    const finalAnalysisType = extractedAnalysisType || 'genre';
+    // 🔥 CORREÇÃO CRÍTICA: Prevenir fallback 'genre' quando mode='reference'
+    const finalAnalysisType = (job.mode === 'reference' || extractedAnalysisType === 'reference') 
+      ? 'reference' 
+      : (extractedAnalysisType || 'genre');
     const finalReferenceStage = extractedReferenceStage || null;
     
     const isGenreMode = finalAnalysisType === 'genre';
     const isReferenceMode = finalAnalysisType === 'reference';
+    
+    // 📊 LOG DE MODO (para debug)
+    console.log(isReferenceMode ? '[REFERENCE-MODE]' : '[GENRE-MODE]', 'finalAnalysisType:', finalAnalysisType);
     
     if (isGenreMode) {
       // APENAS analysisType='genre' exige genre obrigatório
@@ -508,14 +514,25 @@ async function processJob(job) {
       planContext: extractedPlanContext || null  // 🎯 CRÍTICO: Passar planContext para o pipeline
     };
     
-    // 🔥 PATCH 1: GARANTIR QUE options.genre RECEBE O GÊNERO DE data
+    // 🔥 PATCH 1: GARANTIR QUE options.genre RECEBE O GÊNERO DE data (APENAS EM GENRE MODE)
     if (finalAnalysisType === 'genre' && job.data && job.data.genre && !options.genre) {
       options.genre = job.data.genre;
       console.log('[AUDIT-FIX] Propagando job.data.genre para options.genre:', options.genre);
     }
     
+    // 🚫 GUARD CRÍTICO: NÃO carregar genre em reference mode
+    if (isReferenceMode) {
+      console.log('[REFERENCE-MODE] ✅ Pulando pipeline de genre - modo comparação A/B');
+      console.log('[REFERENCE-MODE] referenceStage:', finalReferenceStage);
+      // Genre não é necessário em reference mode
+    } else if (isGenreMode) {
+      console.log('[GENRE-MODE] ✅ Pipeline com genre:', options.genre);
+    }
+    
     console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[GENRE-FLOW] 📊 Parâmetros enviados para pipeline:');
+    console.log('[GENRE-FLOW] mode:', options.mode);
+    console.log('[GENRE-FLOW] analysisType:', options.analysisType);
     console.log('[GENRE-FLOW] genre:', options.genre);
     console.log('[GENRE-FLOW] hasTargets:', !!options.genreTargets);
     console.log('[GENRE-FLOW] targetKeys:', options.genreTargets ? Object.keys(options.genreTargets) : null);

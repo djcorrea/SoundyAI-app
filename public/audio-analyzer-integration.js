@@ -11330,36 +11330,46 @@ async function displayModalResults(analysis) {
     }
     
     if (!analysis.data?.genreTargets) {
-        console.error("[AUDIT-FINAL-FRONT] ❌ genreTargets AUSENTE!");
-        console.error("[AUDIT-FINAL-FRONT] Tabelas de comparação NÃO vão funcionar!");
+        // 🔍 IDENTIFICAR O MODO DE ANÁLISE
+        const mode = analysis.mode || window.currentAnalysisMode || 'single';
         
-        // 🩹 PATCH CRÍTICO: Tentar reconstruir genreTargets do estado global
-        const mode = analysis.mode || 'single';
-        if (mode === 'genre') {
-            const genre = analysis.data?.genre || analysis.genre || window.__CURRENT_SELECTED_GENRE || window.__CURRENT_GENRE;
-            const activeRef = window.__activeRefData || 
-                             (genre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[genre]) || 
-                             null;
+        // 🚫 REFERENCE MODE: Não exige genreTargets - usa buildComparisonRows
+        if (mode === 'reference') {
+            console.log('[REFERENCE-MODE] ✅ Modo referência - genreTargets NÃO necessário');
+            console.log('[REFERENCE-MODE] Tabela A vs B será construída via buildComparisonRows()');
+            // Skip validação - reference mode não usa genreTargets
+        } else {
+            // ❌ GENRE MODE: genreTargets é obrigatório
+            console.error("[GENRE-MODE] ❌ genreTargets AUSENTE!");
+            console.error("[GENRE-MODE] Tabelas de comparação NÃO vão funcionar!");
             
-            if (activeRef) {
-                const reconstructedTargets = activeRef.bands || 
-                                           activeRef.spectralBands || 
-                                           activeRef.spectral_bands ||
-                                           (activeRef.targets && (activeRef.targets.bands || activeRef.targets.spectral_bands)) || 
-                                           null;
+            // 🩹 PATCH CRÍTICO: Tentar reconstruir genreTargets do estado global (APENAS GENRE)
+            if (mode === 'genre') {
+                const genre = analysis.data?.genre || analysis.genre || window.__CURRENT_SELECTED_GENRE || window.__CURRENT_GENRE;
+                const activeRef = window.__activeRefData || 
+                                 (genre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[genre]) || 
+                                 null;
                 
-                if (reconstructedTargets) {
-                    console.log('[GENRE-FLOW-PATCH] ✅ genreTargets reconstruído do estado global:', {
-                        genre,
-                        keys: Object.keys(reconstructedTargets),
-                        source: 'window.__activeRefData'
-                    });
+                if (activeRef) {
+                    const reconstructedTargets = activeRef.bands || 
+                                               activeRef.spectralBands || 
+                                               activeRef.spectral_bands ||
+                                               (activeRef.targets && (activeRef.targets.bands || activeRef.targets.spectral_bands)) || 
+                                               null;
                     
-                    // Garantir que analysis.data exista e persistir genreTargets
-                    analysis.data = analysis.data || {};
-                    analysis.data.genreTargets = reconstructedTargets;
-                    
-                    console.log("[GENRE-FLOW-PATCH] ✅ analysis.data.genreTargets restaurado com sucesso");
+                    if (reconstructedTargets) {
+                        console.log('[GENRE-FLOW-PATCH] ✅ genreTargets reconstruído do estado global:', {
+                            genre,
+                            keys: Object.keys(reconstructedTargets),
+                            source: 'window.__activeRefData'
+                        });
+                        
+                        // Garantir que analysis.data exista e persistir genreTargets
+                        analysis.data = analysis.data || {};
+                        analysis.data.genreTargets = reconstructedTargets;
+                        
+                        console.log("[GENRE-FLOW-PATCH] ✅ analysis.data.genreTargets restaurado com sucesso");
+                    }
                 }
             }
         }
@@ -12402,6 +12412,24 @@ async function displayModalResults(analysis) {
         });
         console.log('✅ [METRICS-DEBUG] Se os valores acima forem IGUAIS, há contaminação!');
         console.groupEnd();
+        
+        // 🔥 NOVO: Construir tabela A vs B via buildComparisonRows em reference mode
+        console.log('[REFERENCE-MODE] 🔨 Construindo tabela de comparação A vs B');
+        const comparisonRows = buildComparisonRows(renderUserAnalysis, renderRefAnalysis);
+        
+        if (comparisonRows && comparisonRows.length > 0) {
+            console.log('[REFERENCE-MODE] ✅ Tabela construída com', comparisonRows.length, 'linhas');
+            console.table(comparisonRows);
+            
+            // Anexar ao analysis para renderReferenceComparisons usar
+            renderUserAnalysis.referenceComparisonRows = comparisonRows;
+            renderRefAnalysis.referenceComparisonRows = comparisonRows;
+            
+            // Também disponibilizar globalmente se necessário
+            window.__REFERENCE_COMPARISON_ROWS__ = comparisonRows;
+        } else {
+            console.warn('[REFERENCE-MODE] ⚠️ buildComparisonRows retornou vazio');
+        }
         
         renderReferenceComparisons({
             mode: 'reference',
