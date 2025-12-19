@@ -4,6 +4,25 @@
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🛡️ SAFE STATE MACHINE ACCESSOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getSafeStateMachine() {
+  if (window.AnalysisStateMachine) {
+    return window.AnalysisStateMachine;
+  }
+  
+  // Retornar stub seguro se não existir
+  console.warn('[SAFE-SM] StateMachine não disponível - usando stub');
+  return {
+    getState: () => ({ mode: 'unknown', awaitingSecondTrack: false }),
+    getMode: () => 'unknown',
+    setMode: () => { console.warn('[SAFE-SM] setMode chamado em stub'); },
+    isAwaitingSecondTrack: () => false,
+    isUserExplicitlySelected: () => false
+  };
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MODE ENGINE: Fonte única de verdade para modo de análise
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 window.SOUNDY_MODE_ENGINE = {
@@ -2882,6 +2901,9 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                     isFirstTrack: true,
                     referenceJobId: null
                 });
+                
+                // 🔒 BIND: Marcar payload para binding posterior
+                payload._pendingBinding = { track: 'base', baseJobId: null, referenceJobId: null };
             } else {
                 // Segunda track: comparar
                 if (!referenceJobId) {
@@ -2895,6 +2917,9 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                     isFirstTrack: false,
                     referenceJobId
                 });
+                
+                // 🔒 BIND: Marcar payload para binding posterior
+                payload._pendingBinding = { track: 'compare', baseJobId: referenceJobId, referenceJobId };
             }
             
             } else {
@@ -2994,6 +3019,12 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             mode: data.mode,
             fileKey: data.fileKey
         });
+
+        // 🔒 BIND: Registrar binding se payload tinha _pendingBinding
+        if (payload._pendingBinding && window.referenceFlow) {
+            window.referenceFlow.bindJob(newJobId, payload._pendingBinding);
+            console.log('[REF-BIND] Job bound após POST:', newJobId, payload._pendingBinding);
+        }
 
         return {
             jobId: newJobId,
@@ -5142,6 +5173,8 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     console.log('[FIX-REFERENCE] Modal reaberto SEM limpar flags de referência');
     
     // 🔍 AUDIT: Dump antes do guard de state machine
+    const stateMachine = getSafeStateMachine();
+    
     if (window.debugDump) window.debugDump('BEFORE_GUARD_STATE_MACHINE', { 
         stateMachineAvailable: !!stateMachine,
         isAwaitingSecondTrack: stateMachine?.isAwaitingSecondTrack(),
@@ -7590,36 +7623,32 @@ async function handleModalFileSelection(file) {
         // 🌐 ETAPA 3: Criar job de análise no backend
         const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
         
-        // ✅ CORREÇÃO CRÍTICA: Setar baseJobId IMEDIATAMENTE após criar job (antes de polling)
-        if (currentAnalysisMode === 'reference' && window.referenceFlow && jobId) {
-            window.referenceFlow.onFirstTrackProcessing(jobId);
-            console.log('[REF-FLOW] ✅ baseJobId setado imediatamente:', jobId);
-        }
-        
         // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
         // 🌐 ETAPA 5: Processar resultado baseado no modo e contexto
-        // 🎯 [FLUXO DETERMINÍSTICO] Usar ReferenceFlowController como ÚNICA fonte de verdade
+        // 🎯 [FLUXO DETERMINÍSTICO] Usar BINDING como ÚNICA fonte de verdade
         const jobMode = analysisResult.mode || currentAnalysisMode;
         
-        // ✅ NOVO FLUXO: Usar referenceFlow controller (isolado e determinístico)
+        // ✅ NOVO FLUXO: Usar binding de job (imutável e confiável)
         const refFlow = window.referenceFlow;
-        const isFirstReferenceTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isFirstTrack();
-        const isSecondTrack = refFlow && currentAnalysisMode === 'reference' && refFlow.isSecondTrack();
+        const jobBinding = refFlow ? refFlow.getJobBinding(jobId) : null;
+        
+        const isFirstReferenceTrack = jobBinding && jobBinding.track === 'base';
+        const isSecondTrack = jobBinding && jobBinding.track === 'compare';
         
         // 🔍 [DEBUG] Log detalhado do estado
         console.group('[REF-FLOW] 🎯 Determinação de Track (Primeira vs Segunda)');
         console.log('📊 analysisResult.mode:', analysisResult?.mode);
         console.log('🎯 currentAnalysisMode:', currentAnalysisMode);
         console.log('🔑 jobId retornado:', jobId);
+        console.log('🔒 jobBinding:', jobBinding);
         console.log('🎰 ReferenceFlow.stage:', refFlow?.getStage());
-        console.log('🔍 Cálculos:');
-        console.log('  - isFirstTrack:', refFlow?.isFirstTrack());
-        console.log('  - isSecondTrack:', refFlow?.isSecondTrack());
-        console.log('  - isAwaitingSecond:', refFlow?.isAwaitingSecond());
-        console.log('  - baseJobId:', refFlow?.getBaseJobId());
+        console.log('🔍 Binding Info:');
+        console.log('  - track:', jobBinding?.track);
+        console.log('  - baseJobId:', jobBinding?.baseJobId);
+        console.log('  - referenceJobId:', jobBinding?.referenceJobId);
         console.log('✅ RESULTADO:');
         console.log('  - isFirstReferenceTrack:', isFirstReferenceTrack);
         console.log('  - isSecondTrack:', isSecondTrack);
@@ -7628,12 +7657,13 @@ async function handleModalFileSelection(file) {
         if (isFirstReferenceTrack) {
             console.log('%c[REF-FLOW] 🎯 PRIMEIRA TRACK EM REFERENCE MODE', 'color:cyan;font-weight:bold;font-size:14px;');
             
-            // ✅ Notificar referenceFlow sobre processamento
+            // ✅ Chamar onFirstTrackCompleted quando job completa
             if (refFlow && jobId) {
-                refFlow.onFirstTrackProcessing(jobId);
+                refFlow.onFirstTrackCompleted(analysisResult);
             }
             
             // 🔒 [INVARIANTE #1] Garantir que state machine está em reference ANTES de startReferenceFirstTrack
+            const stateMachine = getSafeStateMachine();
             const smMode = stateMachine?.getMode();
             if (smMode !== 'reference') {
                 console.error('%c[INVARIANTE #1 VIOLADA] State machine não está em reference antes de startReferenceFirstTrack!', 'color:red;font-weight:bold;font-size:14px;');
@@ -7766,10 +7796,10 @@ async function handleModalFileSelection(file) {
             console.log('[REF-FLOW] analysisResult.jobId:', analysisResult?.jobId);
             console.log('[REF-FLOW] baseJobId:', refFlow?.getBaseJobId());
             
-            // ✅ Notificar referenceFlow sobre processamento da segunda track
+            // ✅ Notificar referenceFlow sobre conclusão da segunda track
             if (refFlow) {
-                refFlow.onCompareProcessing();
-                console.log('[REF-FLOW] ✅ onCompareProcessing() chamado');
+                refFlow.onCompareCompleted(analysisResult);
+                console.log('[REF-FLOW] ✅ onCompareCompleted() chamado');
             }
             
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');

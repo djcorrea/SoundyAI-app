@@ -37,7 +37,9 @@
   class ReferenceFlowController {
     constructor() {
       this.state = this._getInitialState();
+      this.jobBindings = new Map(); // jobId -> { track: 'base'|'compare', baseJobId, referenceJobId }
       this._restore();
+      this._restoreBindings();
       console.log(DEBUG_PREFIX, 'Initialized', this.state);
     }
 
@@ -84,11 +86,76 @@
     }
 
     /**
+     * Restaurar bindings do sessionStorage
+     */
+    _restoreBindings() {
+      try {
+        const stored = sessionStorage.getItem(STORAGE_KEY + '_BINDINGS');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          this.jobBindings = new Map(Object.entries(parsed));
+          console.log('[REF-BIND] Restored bindings:', this.jobBindings.size, 'jobs');
+        }
+      } catch (error) {
+        console.error('[REF-BIND] Failed to restore bindings', error);
+      }
+    }
+
+    /**
+     * Persistir bindings no sessionStorage
+     */
+    _persistBindings() {
+      try {
+        const obj = Object.fromEntries(this.jobBindings);
+        sessionStorage.setItem(STORAGE_KEY + '_BINDINGS', JSON.stringify(obj));
+        console.log('[REF-BIND] Persisted', this.jobBindings.size, 'bindings');
+      } catch (error) {
+        console.error('[REF-BIND] Failed to persist bindings', error);
+      }
+    }
+
+    /**
+     * Bind um jobId com tipo de track
+     * @param {string} jobId
+     * @param {Object} binding - { track: 'base'|'compare', baseJobId, referenceJobId }
+     */
+    bindJob(jobId, binding) {
+      if (!jobId) {
+        console.error('[REF-BIND] jobId inválido:', jobId);
+        return;
+      }
+      
+      this.jobBindings.set(jobId, binding);
+      this._persistBindings();
+      
+      console.log('[REF-BIND] Job bound:', jobId, binding);
+    }
+
+    /**
+     * Obter binding de um jobId
+     * @param {string} jobId
+     * @returns {Object|null} binding ou null
+     */
+    getJobBinding(jobId) {
+      return this.jobBindings.get(jobId) || null;
+    }
+
+    /**
+     * Limpar todos os bindings
+     */
+    clearBindings() {
+      this.jobBindings.clear();
+      this._persistBindings();
+      console.log('[REF-BIND] Bindings cleared');
+    }
+
+    /**
      * Resetar fluxo completamente
      */
     reset() {
       console.log(DEBUG_PREFIX, 'reset() - Limpando estado de referência');
       this.state = this._getInitialState();
+      this.clearBindings();
       this._persist();
       
       // Limpar variáveis globais antigas (compatibilidade)
@@ -153,6 +220,25 @@
      */
     onFirstTrackProcessing(jobId) {
       const traceId = this.state.traceId || `trace_${Date.now()}`;
+      
+      // 🛡️ PROTEÇÃO: Não sobrescrever baseJobId se já existe e stage é pós-base
+      const isPostBase = [
+        Stage.AWAITING_SECOND,
+        Stage.COMPARE_UPLOADING,
+        Stage.COMPARE_PROCESSING,
+        Stage.DONE
+      ].includes(this.state.stage);
+      
+      if (isPostBase && this.state.baseJobId && this.state.baseJobId !== jobId) {
+        console.warn('[REF-FLOW][GUARD] ⚠️ Ignorando onFirstTrackProcessing - já existe baseJobId e stage pós-base');
+        console.warn('[REF-FLOW][GUARD] Current:', {
+          stage: this.state.stage,
+          baseJobId: this.state.baseJobId,
+          incomingJobId: jobId
+        });
+        return;
+      }
+      
       console.log('[REF-STATE-TRACE]', {
         traceId,
         event: 'onFirstTrackProcessing',
