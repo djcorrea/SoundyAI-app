@@ -11,14 +11,27 @@ function getSafeStateMachine() {
     return window.AnalysisStateMachine;
   }
   
-  // Retornar stub seguro se não existir
-  console.warn('[SAFE-SM] StateMachine não disponível - usando stub');
+  // ✅ Retornar stub funcional completo ao invés de null
+  console.warn('[SAFE-SM] StateMachine não disponível - usando stub funcional');
   return {
-    getState: () => ({ mode: 'unknown', awaitingSecondTrack: false }),
-    getMode: () => 'unknown',
-    setMode: () => { console.warn('[SAFE-SM] setMode chamado em stub'); },
-    isAwaitingSecondTrack: () => false,
-    isUserExplicitlySelected: () => false
+    getState: () => ({
+      mode: window.currentAnalysisMode || 'genre',
+      userExplicitlySelected: window.userExplicitlySelectedReferenceMode || false,
+      referenceFirstJobId: window.__REFERENCE_JOB_ID__ || null,
+      awaitingSecondTrack: !!(window.__REFERENCE_JOB_ID__ && window.FirstAnalysisStore?.has()),
+      timestamp: new Date().toISOString()
+    }),
+    getMode: () => window.currentAnalysisMode || 'genre',
+    setMode: (mode, opts = {}) => {
+      console.log('[SAFE-SM-STUB] setMode:', mode, opts);
+      window.currentAnalysisMode = mode;
+      if (opts.userExplicitlySelected && typeof persistReferenceFlag === 'function') {
+        persistReferenceFlag(mode === 'reference');
+      }
+    },
+    isAwaitingSecondTrack: () => !!(window.__REFERENCE_JOB_ID__ && window.FirstAnalysisStore?.has()),
+    isUserExplicitlySelected: () => window.userExplicitlySelectedReferenceMode || false,
+    assertInvariants: () => true
   };
 }
 
@@ -5341,6 +5354,16 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
     
+    // 🎯 TRANSIÇÃO DE ESTADO: Modal 2 ABERTO → REF_B_WAIT_UPLOAD
+    console.log('%c[REF-FLOW] 🎯 TRANSIÇÃO: Modal 2 ABERTO → REF_B_WAIT_UPLOAD', 'color:#00FF88;font-weight:bold;font-size:14px;');
+    console.log('[REF-FLOW] Estado atual:', {
+        stage: 'REF_B_WAIT_UPLOAD',
+        modal2Open: true,
+        awaitingSecondUpload: true,
+        referenceJobId: referenceJobId,
+        currentMode: window.currentAnalysisMode
+    });
+    
     __dbg('✅ Modal secundário de referência aberto');
 }
 
@@ -7839,6 +7862,16 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
+            // 🎯 TRANSIÇÃO DE ESTADO: REF_A_DONE → REF_B_WAIT_UPLOAD
+            console.log('%c[REF-FLOW] 🎯 TRANSIÇÃO DE ESTADO: REF_A_DONE → REF_B_WAIT_UPLOAD', 'color:#00FF88;font-weight:bold;font-size:14px;');
+            console.log('[REF-FLOW] Estado atual:', {
+                stage: 'REF_A_DONE',
+                firstJobId: normalizedFirst?.jobId,
+                hasFirstAnalysis: FirstAnalysisStore?.has(),
+                currentMode: window.currentAnalysisMode,
+                userExplicitFlag: window.userExplicitlySelectedReferenceMode
+            });
+            
             // ✅ Notificar referenceFlow sobre conclusão da primeira track
             if (refFlow && normalizedFirst) {
                 refFlow.onFirstTrackCompleted(normalizedFirst);
@@ -7852,11 +7885,16 @@ async function handleModalFileSelection(file) {
             }
         } else if (isSecondTrack) {
             // ✅ SEGUNDA música em modo reference: mostrar resultado comparativo
-            console.log('[REF-FLOW] ✅ Segunda track detectada - bloco de comparação A/B');
-            console.log('[REF-FLOW] jobMode:', jobMode);
-            console.log('[REF-FLOW] currentAnalysisMode:', currentAnalysisMode);
-            console.log('[REF-FLOW] analysisResult.jobId:', analysisResult?.jobId);
-            console.log('[REF-FLOW] baseJobId:', refFlow?.getBaseJobId());
+            console.log('%c[REF-FLOW] 🎯 TRANSIÇÃO: REF_B_PROCESSING → REF_B_DONE', 'color:#00FF88;font-weight:bold;font-size:14px;');
+            console.log('[REF-FLOW] Segunda track detectada - bloco de comparação A/B');
+            console.log('[REF-FLOW] Estado atual:', {
+                stage: 'REF_B_DONE',
+                jobMode: jobMode,
+                currentAnalysisMode: currentAnalysisMode,
+                secondJobId: analysisResult?.jobId,
+                baseJobId: refFlow?.getBaseJobId(),
+                hasFirstAnalysis: FirstAnalysisStore?.has()
+            });
             
             // ✅ Notificar referenceFlow sobre conclusão da segunda track
             if (refFlow) {
@@ -8506,41 +8544,50 @@ async function handleModalFileSelection(file) {
         // 🛡️ [INVARIANTE #4] PROTEÇÃO: Fallback para gênero SOMENTE se não estiver em reference válido
         // ========================================
         if (currentAnalysisMode === 'reference') {
-            console.group('[REF_DEBUG] 🛡️ FALLBACK PROTECTION');
+            console.group('[FALLBACK-GUARD] 🛡️ Verificando segurança do fallback');
             console.log('⚠️ Erro capturado durante reference mode');
             console.log('📊 Verificando se é seguro fazer fallback...');
             
             const smState = window.AnalysisStateMachine?.getState();
-            const hasFirstAnalysis = window.FirstAnalysisStore?.has();
+            const hasFirstAnalysis = window.FirstAnalysisStore?.has() || false;
+            const hasContext = hasActiveReferenceContext();
             const smMode = smState?.mode;
             const userExplicitlySelected = smState?.userExplicitlySelected;
             
-            console.log('State Machine:', {
+            console.log('[FALLBACK-GUARD] State Machine:', {
                 mode: smMode,
                 userExplicitlySelected,
                 referenceFirstJobId: smState?.referenceFirstJobId,
                 awaitingSecondTrack: smState?.awaitingSecondTrack
             });
-            console.log('FirstAnalysisStore.has():', hasFirstAnalysis);
-            console.log('userExplicitlySelectedReferenceMode:', window.userExplicitlySelectedReferenceMode);
+            console.log('[FALLBACK-GUARD] FirstAnalysisStore.has():', hasFirstAnalysis);
+            console.log('[FALLBACK-GUARD] hasActiveReferenceContext():', hasContext);
+            console.log('[FALLBACK-GUARD] userExplicitlySelectedReferenceMode:', window.userExplicitlySelectedReferenceMode);
             console.groupEnd();
             
             // 🔒 [INVARIANTE #4] NUNCA fazer fallback se:
             // 1. Usuário selecionou explicitamente reference OU
-            // 2. Já tem primeira análise salva
-            const shouldBlockFallback = userExplicitlySelected || hasFirstAnalysis;
+            // 2. Já tem primeira análise salva OU
+            // 3. Existe contexto ativo de referência
+            const shouldBlockFallback = userExplicitlySelected || hasFirstAnalysis || hasContext;
             
             if (shouldBlockFallback) {
-                console.log('%c[INVARIANTE #4 OK] Fallback BLOQUEADO - mantendo reference mode', 'color:green;font-weight:bold;');
-                console.log('[REF_DEBUG] Razão:', userExplicitlySelected ? 'Usuário escolheu reference explicitamente' : 'Já tem primeira análise');
+                console.log('%c[FALLBACK-GUARD] BLOQUEADO - mantendo reference mode', 'color:green;font-weight:bold;');
+                console.log('[FALLBACK-GUARD] Razão:', 
+                    userExplicitlySelected ? 'Usuário escolheu reference explicitamente' : 
+                    hasFirstAnalysis ? 'Já tem primeira análise salva' :
+                    'Contexto ativo de referência detectado'
+                );
                 
                 showModalError(
                     hasFirstAnalysis 
-                        ? 'Erro temporário. Tente fazer upload da segunda faixa novamente.' 
+                        ? 'Erro temporário na segunda faixa. Tente fazer upload novamente.' 
                         : 'Erro na primeira faixa. Por favor, tente novamente.'
                 );
+                // ✅ NÃO resetar modo - apenas mostrar erro e permitir retry
+                return;
             } else {
-                console.warn('%c[INVARIANTE #4] Fallback PERMITIDO - não há referência válida', 'color:orange;font-weight:bold;');
+                console.warn('%c[FALLBACK-GUARD] Permitindo fallback - sem contexto ativo', 'color:orange;font-weight:bold;');
                 
                 // Perguntar ao usuário explicitamente
                 const userWantsFallback = confirm(
@@ -8550,8 +8597,9 @@ async function handleModalFileSelection(file) {
                 
                 if (!userWantsFallback) {
                     // Usuário escolheu fallback para gênero
-                    console.warn('[FALLBACK] Usuário optou por fallback para gênero');
+                    console.warn('[FALLBACK-GUARD] Usuário optou por fallback para gênero');
                     currentAnalysisMode = 'genre';
+                    persistReferenceFlag(false);
                     
                     // Atualizar state machine também
                     if (window.AnalysisStateMachine) {
@@ -15900,6 +15948,148 @@ if (typeof window.comparisonLock === "undefined") {
     console.log("[LOCK-INIT] comparisonLock inicializado como false");
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🎯 BUILD COMPARISON ROWS - TABELA A/B COM DELTA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * Constrói linhas de comparação side-by-side entre duas músicas (A vs B)
+ * @param {Object} metricsA - Métricas da primeira música (base/referência)
+ * @param {Object} metricsB - Métricas da segunda música (comparação)
+ * @returns {Array} Array de objetos {key, label, aValue, bValue, delta, unit, status}
+ */
+function buildComparisonRows(metricsA, metricsB) {
+    console.log('[AB-TABLE] 🔨 Construindo tabela de comparação A vs B');
+    
+    if (!metricsA || !metricsB) {
+        console.error('[AB-TABLE] ❌ Métricas ausentes:', { hasA: !!metricsA, hasB: !!metricsB });
+        return [];
+    }
+    
+    // Definir mapeamento de métricas (key, label, unit, path)
+    const metricsMappings = [
+        {
+            key: 'lufs',
+            label: 'LUFS Integrado',
+            unit: 'LUFS',
+            pathA: ['technicalData', 'lufsIntegrated'],
+            pathB: ['technicalData', 'lufsIntegrated'],
+            format: (v) => v?.toFixed(1) || 'N/A',
+            inverse: false // menor é pior (mais negativo)
+        },
+        {
+            key: 'truePeak',
+            label: 'True Peak',
+            unit: 'dBTP',
+            pathA: ['technicalData', 'truePeakDbtp'],
+            pathB: ['technicalData', 'truePeakDbtp'],
+            format: (v) => v?.toFixed(2) || 'N/A',
+            inverse: true // maior é pior (clipping)
+        },
+        {
+            key: 'dynamicRange',
+            label: 'Dynamic Range',
+            unit: 'dB',
+            pathA: ['technicalData', 'dynamicRange'],
+            pathB: ['technicalData', 'dynamicRange'],
+            format: (v) => v?.toFixed(1) || 'N/A',
+            inverse: false // maior é melhor
+        },
+        {
+            key: 'lra',
+            label: 'LRA (Loudness Range)',
+            unit: 'LU',
+            pathA: ['technicalData', 'lra'],
+            pathB: ['technicalData', 'lra'],
+            format: (v) => v?.toFixed(1) || 'N/A',
+            inverse: false
+        },
+        {
+            key: 'rms',
+            label: 'RMS',
+            unit: 'dBFS',
+            pathA: ['technicalData', 'rmsLeft'], // Usar left como referência
+            pathB: ['technicalData', 'rmsLeft'],
+            format: (v) => v?.toFixed(2) || 'N/A',
+            inverse: false
+        },
+        {
+            key: 'crestFactor',
+            label: 'Crest Factor',
+            unit: 'dB',
+            pathA: ['technicalData', 'crestFactor'],
+            pathB: ['technicalData', 'crestFactor'],
+            format: (v) => v?.toFixed(2) || 'N/A',
+            inverse: false
+        },
+        {
+            key: 'stereoCorrelation',
+            label: 'Correlação Estéreo',
+            unit: '',
+            pathA: ['technicalData', 'stereoCorrelation'],
+            pathB: ['technicalData', 'stereoCorrelation'],
+            format: (v) => v?.toFixed(3) || 'N/A',
+            inverse: false // maior é melhor (até 1.0)
+        }
+    ];
+    
+    const rows = [];
+    
+    for (const mapping of metricsMappings) {
+        // Extrair valor de A percorrendo path
+        let valueA = metricsA;
+        for (const key of mapping.pathA) {
+            valueA = valueA?.[key];
+        }
+        
+        // Extrair valor de B percorrendo path
+        let valueB = metricsB;
+        for (const key of mapping.pathB) {
+            valueB = valueB?.[key];
+        }
+        
+        // Formatar valores
+        const aFormatted = mapping.format(valueA);
+        const bFormatted = mapping.format(valueB);
+        
+        // Calcular delta (B - A)
+        let delta = null;
+        let deltaFormatted = 'N/A';
+        let status = 'neutral';
+        
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+            delta = valueB - valueA;
+            deltaFormatted = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+            
+            // Determinar status (melhor/pior/neutro)
+            const threshold = 0.5; // Threshold para considerar diferença significativa
+            if (Math.abs(delta) < threshold) {
+                status = 'neutral';
+            } else if (mapping.inverse) {
+                // Para métricas inversas (true peak), menor delta é melhor
+                status = delta < 0 ? 'better' : 'worse';
+            } else {
+                // Para métricas normais (LUFS, DR), maior delta é melhor
+                status = delta > 0 ? 'better' : 'worse';
+            }
+        }
+        
+        rows.push({
+            key: mapping.key,
+            label: mapping.label,
+            aValue: aFormatted,
+            bValue: bFormatted,
+            delta: deltaFormatted,
+            unit: mapping.unit,
+            status: status
+        });
+    }
+    
+    console.log('[AB-TABLE] ✅ Tabela construída com', rows.length, 'linhas');
+    console.table(rows);
+    
+    return rows;
+}
+
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
@@ -18398,6 +18588,17 @@ function renderReferenceComparisons(ctx) {
         rowsGenerated: rows.length,
         titleDisplayed: titleText,
         tableVisible: renderMode === 'reference'
+    });
+    
+    // 🎯 TRANSIÇÃO DE ESTADO FINAL: REF_B_DONE → REF_AB_RENDERED
+    console.log('%c[REF-FLOW] 🎯 TRANSIÇÃO FINAL: REF_B_DONE → REF_AB_RENDERED', 'color:#00FF88;font-weight:bold;font-size:16px;');
+    console.log('[REF-FLOW] ✅ Fluxo A/B COMPLETADO COM SUCESSO!');
+    console.log('[REF-FLOW] Estado final:', {
+        stage: 'REF_AB_RENDERED',
+        tableRendered: true,
+        comparisonComplete: true,
+        rowsDisplayed: rows.length,
+        currentMode: window.currentAnalysisMode
     });
     
     // 🎯 LOG FINAL DE VERIFICAÇÃO (conforme solicitado)
