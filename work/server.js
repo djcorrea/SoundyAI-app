@@ -9,6 +9,7 @@ import cors from "cors";
 import analyzeRouter from "./api/audio/analyze.js";
 import jobsRouter from "./api/jobs/[id].js";
 import healthRouter from "./api/health/redis.js";
+import versionRouter from "./api/health/version.js";
 import stripeCheckoutRouter from "./api/stripe/create-checkout-session.js";
 import stripeWebhookRouter from "./api/webhook/stripe.js";
 
@@ -69,6 +70,7 @@ app.use((req, res, next) => {
 app.use('/api/audio', analyzeRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/health', healthRouter);
+app.use('/api/health/version', versionRouter); // 🔖 Endpoint de versão/rastreabilidade
 
 // ✅ STRIPE: Rotas de pagamento
 app.use('/api/stripe', stripeCheckoutRouter);
@@ -248,8 +250,29 @@ process.on('SIGTERM', () => {
 
 // ---------- Start server ----------
 app.listen(PORT, () => {
+  const GIT_SHA = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev";
+  const BOOT_INFO = {
+    buildTag: "SOUNDYAI_2025_12_18_B",
+    gitSha: GIT_SHA,
+    entrypoint: "work/server.js",
+    jobsHandlerPath: "work/api/jobs/[id].js",
+    port: PORT,
+    architecture: "redis-workers",
+    nodeVersion: process.version,
+    pid: process.pid,
+    cwd: process.cwd(),
+    timestamp: new Date().toISOString()
+  };
+  
+  console.log('╔═══════════════════════════════════════════════════════════════════╗');
+  console.log('║  🚀 SOUNDYAI API BOOT                                            ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════╝');
+  console.error('[SOUNDYAI-BOOT]', JSON.stringify(BOOT_INFO, null, 2));
   console.log(`🚀 [API] SoundyAI API rodando na porta ${PORT}`);
   console.log(`🏗️ [API] Arquitetura: Redis Workers Only`);
   console.log(`📍 [API] Endpoints: /api/audio/analyze, /api/jobs/:id, /health`);
+  console.log(`📍 [API] Version: GET /api/health/version`);
+  console.log(`🔖 [API] Build: ${GIT_SHA.substring(0, 7)}`);
   console.log(`🔗 [API] CORS configurado para produção e desenvolvimento`);
+  console.log('═══════════════════════════════════════════════════════════════════');
 });
