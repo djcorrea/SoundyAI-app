@@ -5,7 +5,9 @@ import pool from "../../db.js";
 const router = express.Router();
 
 // � BUILD TAG para rastreamento em produção
-const BUILD_TAG = "IDJS_WORK_BUILD_2025_12_18_A";
+const BUILD_TAG = "IDJS_WORK_BUILD_2025_12_18_B";
+const GIT_SHA = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev";
+const FILE_PATH = "work/api/jobs/[id].js";
 let hasLoggedBuild = false;
 
 // �🔧 Validação UUID (inline, sem dependência externa)
@@ -99,9 +101,11 @@ function hasRequiredMetrics(fullResult) {
 router.get("/:id", async (req, res) => {
   // 🔍 LOG BUILD UMA VEZ (primeira chamada)
   if (!hasLoggedBuild) {
-    console.error('[IDJS-BUILD]', {
+    console.error('[SOUNDYAI-BOOT]', {
       BUILD_TAG,
-      file: import.meta.url,
+      GIT_SHA,
+      FILE_PATH,
+      entrypoint: 'work/server.js',
       cwd: process.cwd(),
       pid: process.pid,
       timestamp: new Date().toISOString()
@@ -112,11 +116,10 @@ router.get("/:id", async (req, res) => {
   // ═══════════════════════════════════════════════════════════════
   // 🔍 HEADERS DE AUDITORIA: Rastreabilidade em produção
   // ═══════════════════════════════════════════════════════════════
-  res.setHeader("X-JOBS-HANDLER", "work/api/jobs/[id].js");
-  res.setHeader("X-STATUS-HANDLER", "work/api/jobs/[id].js#PROBE_A");
-  res.setHeader("X-STATUS-TS", String(Date.now()));
-  res.setHeader("X-BUILD", process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local-dev");
-  res.setHeader("X-BUILD-SIGNATURE", "REF-BASE-FIX-2025-12-18");
+  const handlerSignature = `${FILE_PATH}|${GIT_SHA}|${Date.now()}`;
+  res.setHeader("X-SOUNDYAI-JOBS-HANDLER", handlerSignature);
+  res.setHeader("X-BUILD-TAG", BUILD_TAG);
+  res.setHeader("X-GIT-SHA", GIT_SHA);
   
   // 🚫 ANTI-CACHE: Forçar polling sempre buscar dados frescos
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -243,23 +246,26 @@ router.get("/:id", async (req, res) => {
     // ═══════════════════════════════════════════════════════════════════════
     
     // 🎯 Detectar modo e stage com funções robustas
-    const effectiveMode = getEffectiveMode(fullResult, job);
-    const effectiveStage = getReferenceStage(fullResult, job);
+    // ⚠️ CRÍTICO: Prioridade fullResult > job > null (nunca query params)
+    const effectiveMode = fullResult?.mode ?? job?.mode ?? null;
+    const effectiveStage = fullResult?.referenceStage ?? job?.referenceStage ?? (fullResult?.isReferenceBase ? 'base' : null);
     const isReference = effectiveMode === 'reference';
     
-    console.error('[MODE-DETECT] 🔍 Detecção:', {
-      effectiveMode,
-      effectiveStage,
-      isReference,
-      sources: {
-        'fullResult.mode': fullResult?.mode,
-        'fullResult.analysisMode': fullResult?.analysisMode,
-        'fullResult.referenceStage': fullResult?.referenceStage,
-        'job.mode': job?.mode,
-        'job.referenceStage': job?.referenceStage,
-        'fullResult.requiresSecondTrack': fullResult?.requiresSecondTrack
-      }
-    });
+    // 🔍 Log apenas em transições ou primeiro hit (reduzir spam)
+    if (!hasLoggedBuild || normalizedStatus !== 'processing') {
+      console.error('[MODE-DETECT]', {
+        effectiveMode,
+        effectiveStage,
+        isReference,
+        normalizedStatus,
+        sources: {
+          'fullResult.mode': fullResult?.mode,
+          'job.mode': job?.mode,
+          'fullResult.referenceStage': fullResult?.referenceStage,
+          'job.referenceStage': job?.referenceStage
+        }
+      });
+    }
     
     // 🔒 DIAGNÓSTICO COMPLETO (1x por request, sem spam)
     console.error('[REF-GUARD-V7] DIAGNOSTICO_COMPLETO', { 
@@ -283,17 +289,16 @@ router.get("/:id", async (req, res) => {
     // 🟢 EARLY RETURN INCONDICIONAL PARA REFERENCE MODE
     // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
-      const traceId = fullResult?.traceId || `trace_${Date.now()}`;
-      console.error('[REFERENCE] ✅ Mode detectado - processando...', {
-        traceId,
+      console.error('[REFERENCE-MODE]', {
         jobId: job.id,
         stage: effectiveStage,
         dbStatus: job?.status,
-        resultStatus: fullResult?.status
+        normalizedStatus
       });
       
-      // Determinar status final
-      let finalStatus = fullResult?.status || job?.status || 'processing';
+      // ⚠️ REGRA CRÍTICA: Se DB diz completed, endpoint DEVE responder completed
+      // Reference NUNCA volta para processing por falta de suggestions
+      let finalStatus = normalizedStatus; // Usar status do DB diretamente
       let warnings = [];
       
       // ═════════════════════════════════════════════════════════════════
@@ -330,7 +335,7 @@ router.get("/:id", async (req, res) => {
           referenceStage: 'base',
           status: finalStatus,
           requiresSecondTrack: true,
-          referenceJobId: job.id,
+          referenceJobId: null, // ⚠️ CRÍTICO: Base não tem referenceJobId (é a primeira música)
           nextAction: finalStatus === 'completed' ? 'upload_second_track' : undefined,
           baseMetrics: fullResult?.metrics || fullResult?.technicalData || fullResult?.baseMetrics,
           suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
@@ -339,7 +344,8 @@ router.get("/:id", async (req, res) => {
           debug: {
             effectiveMode,
             effectiveStage,
-            file: 'work/api/jobs/[id].js',
+            file: FILE_PATH,
+            gitSha: GIT_SHA,
             metricsOk,
             finalStatus
           }
