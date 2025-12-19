@@ -38,6 +38,18 @@ function getSafeStateMachine() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MODE ENGINE: Fonte única de verdade para modo de análise
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * 🎯 FONTE-DE-VERDADE: Detecta se há contexto de referência ativo
+ * Verifica múltiplas fontes para garantir detecção robusta
+ */
+function hasActiveReferenceContext() {
+    const hasRefJobId = !!(window.__REFERENCE_JOB_ID__ || window.__soundyState?.referenceJobId);
+    const hasFirstStore = !!(window.FirstAnalysisStore?.has?.());
+    const hasRefData = !!(window.referenceAnalysisData || window.__FIRST_ANALYSIS_FROZEN__);
+    
+    return hasRefJobId && (hasFirstStore || hasRefData);
+}
+
 window.SOUNDY_MODE_ENGINE = {
     mode: "genre",          // "genre" | "reference_base" | "reference_compare"
     referenceBase: null,    // análise completa da primeira música
@@ -15747,34 +15759,48 @@ function deriveTolerance(rangeOrValue, fallback = 2.0) {
  * @returns {Object|null} - Métricas de comparação ou null
  */
 function getActiveReferenceComparisonMetrics(normalizedResult) {
-    // 🔥 BYPASS TOTAL: Modo gênero NUNCA retorna referenceComparisonMetrics
-    if (SOUNDY_MODE_ENGINE.isGenre()) {
-        console.log('[GENRE-BYPASS] getActiveReferenceComparisonMetrics: modo gênero detectado, retornando null');
-        return null;
-    }
+    // 🎯 DETECÇÃO CORRETA DE MODO: Verificar genreTargets VÁLIDOS, não apenas mode='genre'
+    const mode = normalizedResult?.mode || window.currentAnalysisMode || 'genre';
+    const hasValidGenreTargets = normalizedResult?.data?.genreTargets && 
+                                  Object.keys(normalizedResult.data.genreTargets).length > 0;
+    const isRealGenreMode = mode === 'genre' && hasValidGenreTargets;
+    const hasRefContext = hasActiveReferenceContext();
     
-    const mode = normalizedResult?.mode || window.__soundyState?.render?.mode || 'genre';
-    const genre = normalizedResult?.genre || 
-                  normalizedResult?.metadata?.genre ||
-                  window.__CURRENT_GENRE || 
-                  window.__soundyState?.render?.genre ||
-                  window.PROD_AI_REF_GENRE;
+    console.group('🔍 [REF-METRICS] getActiveReferenceComparisonMetrics');
+    console.log('mode:', mode);
+    console.log('hasValidGenreTargets:', hasValidGenreTargets);
+    console.log('isRealGenreMode:', isRealGenreMode);
+    console.log('hasActiveReferenceContext():', hasRefContext);
 
-    console.group('🔍 [GENRE-FIX] getActiveReferenceComparisonMetrics');
-    console.log('Mode:', mode);
-    console.log('Genre:', genre);
-
-    // 1️⃣ MODO REFERÊNCIA: usa o que veio do backend
-    if (mode === 'reference' && normalizedResult?.referenceComparisonMetrics) {
-        console.log('✅ [GENRE-FIX] Usando referenceComparisonMetrics do backend (modo reference)');
-        console.log('   - Fonte: backend');
-        console.log('   - Tem bands:', !!normalizedResult.referenceComparisonMetrics.bands);
-        console.groupEnd();
-        return normalizedResult.referenceComparisonMetrics;
+    // 1️⃣ MODO REFERÊNCIA: usa o que veio do backend OU constrói de FirstAnalysisStore
+    if (mode === 'reference' || hasRefContext) {
+        if (normalizedResult?.referenceComparisonMetrics) {
+            console.log('✅ [REF-METRICS] Usando referenceComparisonMetrics do backend');
+            console.log('   - Fonte: backend');
+            console.log('   - Tem bands:', !!normalizedResult.referenceComparisonMetrics.bands);
+            console.groupEnd();
+            return normalizedResult.referenceComparisonMetrics;
+        }
+        
+        // 🔨 Construir a partir de FirstAnalysisStore se disponível
+        if (window.FirstAnalysisStore?.has?.()) {
+            const firstAnalysis = window.FirstAnalysisStore.get();
+            console.log('✅ [REF-METRICS] Construindo a partir de FirstAnalysisStore');
+            console.log('   - Fonte: FirstAnalysisStore');
+            console.log('   - Tem technicalData:', !!firstAnalysis?.technicalData);
+            console.groupEnd();
+            return {
+                bands: firstAnalysis?.technicalData?.spectral_balance || firstAnalysis?.bands,
+                lufs: firstAnalysis?.technicalData?.lufsIntegrated,
+                truePeak: firstAnalysis?.technicalData?.truePeakDbtp,
+                dynamicRange: firstAnalysis?.technicalData?.dynamicRange,
+                _isReferenceMode: true
+            };
+        }
     }
 
-    // 2️⃣ MODO GÊNERO: 🎯 CORREÇÃO CRÍTICA - Usar analysis.data.genreTargets
-    if (mode === 'genre') {
+    // 2️⃣ MODO GÊNERO REAL: 🎯 Usar analysis.data.genreTargets
+    if (isRealGenreMode) {
         console.log('🎯 [GENRE-TARGETS] Extraindo targets da análise (FONTE OFICIAL)');
         
         // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
@@ -15838,21 +15864,33 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
 }
 
 function computeHasReferenceComparisonMetrics(analysis) {
-    // 🔥 BYPASS TOTAL: Modo gênero NUNCA tem referenceComparisonMetrics
-    if (SOUNDY_MODE_ENGINE.isGenre()) {
-        console.log('[GENRE-BYPASS] computeHasReferenceComparisonMetrics: modo gênero detectado, retornando false');
+    // 🎯 DETECÇÃO CORRETA: Verificar se é REALMENTE modo gênero (com targets válidos)
+    const hasValidGenreTargets = analysis?.data?.genreTargets && 
+                                  Object.keys(analysis.data.genreTargets).length > 0;
+    const isRealGenreMode = analysis?.mode === 'genre' && hasValidGenreTargets;
+    const hasRefContext = hasActiveReferenceContext();
+    
+    // Se for modo gênero REAL, não tem referenceComparisonMetrics
+    if (isRealGenreMode && !hasRefContext) {
+        console.log('[REF-METRICS] Modo gênero REAL (mode=genre + genreTargets válidos) - sem referenceComparisonMetrics');
         return false;
     }
     
-    // 🎯 CORREÇÃO CRÍTICA: Usar getActiveReferenceComparisonMetrics() ao invés de só verificar analysis
+    // 🎯 VERIFICAR MÚLTIPLAS FONTES
     const comparisonMetrics = getActiveReferenceComparisonMetrics(analysis);
-    const hasMetrics = !!comparisonMetrics;
+    const hasComparisonRows = window.__REFERENCE_COMPARISON_ROWS__?.length > 0;
+    const hasFirstStore = window.FirstAnalysisStore?.has?.();
     
-    console.log('[GENRE-FIX] computeHasReferenceComparisonMetrics:', {
+    const hasMetrics = !!(comparisonMetrics || (hasRefContext && (hasComparisonRows || hasFirstStore)));
+    
+    console.log('[REF-METRICS] computeHasReferenceComparisonMetrics:', {
         hasMetrics,
         mode: analysis?.mode,
-        hasActiveRefData: !!window.__activeRefData,
-        hasProdAiRefData: !!window.PROD_AI_REF_DATA
+        isRealGenreMode,
+        hasRefContext,
+        hasComparisonRows,
+        hasFirstStore,
+        hasComparisonMetrics: !!comparisonMetrics
     });
     
     return hasMetrics;
@@ -16121,20 +16159,41 @@ function buildComparisonRows(metricsA, metricsB) {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🎯 PASSO 0: GUARD - APENAS PARA MODO REFERÊNCIA
+    // 🎯 PASSO 0: GUARD - DETECÇÃO ROBUSTA DE MODO REFERÊNCIA
     // ========================================
-    if (!SOUNDY_MODE_ENGINE.isReferenceCompare()) {
-        console.log('[RENDER-REF] ⏭️ Modo não é referência - abortando');
+    const hasRefContext = hasActiveReferenceContext();
+    const isModeEngineRef = SOUNDY_MODE_ENGINE.isReferenceCompare();
+    const isCurrentModeRef = window.currentAnalysisMode === 'reference';
+    
+    // 🔍 LOG DE DEBUG: Estado completo do gate
+    const refJobIdForLog = window.__REFERENCE_JOB_ID__ || window.__soundyState?.referenceJobId;
+    const currJobIdForLog = window.__CURRENT_JOB_ID__ || ctx?.userAnalysis?.jobId;
+    
+    console.group('[REF-RENDER-GATE] 🔍 Validação de Modo');
+    console.log('hasActiveReferenceContext():', hasRefContext);
+    console.log('SOUNDY_MODE_ENGINE.isReferenceCompare():', isModeEngineRef);
+    console.log('window.currentAnalysisMode:', window.currentAnalysisMode, '→ isRef:', isCurrentModeRef);
+    console.log('JobIds:', { refJobId: refJobIdForLog, currJobId: currJobIdForLog, areDifferent: refJobIdForLog !== currJobIdForLog });
+    console.groupEnd();
+    
+    // ✅ Permitir renderização se QUALQUER condição indicar modo reference
+    if (!hasRefContext && !isModeEngineRef && !isCurrentModeRef) {
+        console.log('[RENDER-REF] ⏭️ Nenhum indicador de modo referência - abortando');
         return;
     }
     
-    // 🛡️ PATCH 3: GUARD ADICIONAL - Se for modo gênero, não renderizar A/B
+    // 🛡️ GUARD: Validar se é realmente modo gênero (não apenas genre='default' falso positivo)
     const analysisCheck = ctx?.userAnalysis || ctx?.user;
-    if (analysisCheck?.mode === 'genre') {
-        console.log('[RENDER-REF] 🎯 Modo gênero detectado - deve usar renderGenreComparisonTable');
-        console.warn('[RENDER-REF] ⚠️ Esta função não deve ser chamada para modo gênero!');
-        return; // Modo gênero deve usar renderGenreComparisonTable
+    const hasValidGenreTargets = analysisCheck?.data?.genreTargets && 
+                                  Object.keys(analysisCheck.data.genreTargets).length > 0;
+    const isExplicitGenreMode = analysisCheck?.mode === 'genre' && hasValidGenreTargets;
+    
+    if (isExplicitGenreMode) {
+        console.log('[RENDER-REF] 🎯 Modo gênero REAL detectado (mode=genre + genreTargets válidos) - abortando');
+        return;
     }
+    
+    console.log('[RENDER-REF] ✅ Modo referência confirmado - prosseguindo com renderização');
     
     // ========================================
     // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL (MODO REFERENCE)
@@ -19505,7 +19564,79 @@ function calculateStereoScore(analysis, refData) {
     return result;
 }
 
-// 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
+// 6A. CALCULAR SCORE DE FREQUÊNCIA EM MODO REFERENCE (COMPARAÇÃO DIRETA A vs B)
+function calculateFrequencyScoreReference(bandsA, bandsB) {
+    console.log('[FREQ-SCORE-REF] 🎵 Calculando score de frequência em modo reference (A vs B)');
+    
+    if (!bandsA || !bandsB) {
+        console.warn('[FREQ-SCORE-REF] ⚠️ Bandas ausentes:', { hasA: !!bandsA, hasB: !!bandsB });
+        return null;
+    }
+    
+    // 8 bandas principais (mesmo mapeamento usado em buildComparisonRows)
+    const bandKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    const aliases = {
+        'low_bass': 'bass',
+        'low_mid': 'lowMid',
+        'high_mid': 'highMid',
+        'brilho': 'air',
+        'presenca': 'presence'
+    };
+    
+    const diffs = [];
+    
+    for (const key of bandKeys) {
+        // Buscar banda em A
+        let valueA = null;
+        if (bandsA[key] !== undefined) {
+            valueA = typeof bandsA[key] === 'object' ? 
+                     (bandsA[key].energy_db ?? bandsA[key].rms_db ?? bandsA[key].value) : 
+                     bandsA[key];
+        }
+        
+        // Buscar banda em B (com aliases)
+        let valueB = null;
+        const keyB = aliases[key] || key;
+        if (bandsB[keyB] !== undefined) {
+            valueB = typeof bandsB[keyB] === 'object' ? 
+                     (bandsB[keyB].energy_db ?? bandsB[keyB].rms_db ?? bandsB[keyB].value) : 
+                     bandsB[keyB];
+        } else if (bandsB[key] !== undefined) {
+            valueB = typeof bandsB[key] === 'object' ? 
+                     (bandsB[key].energy_db ?? bandsB[key].rms_db ?? bandsB[key].value) : 
+                     bandsB[key];
+        }
+        
+        if (Number.isFinite(valueA) && Number.isFinite(valueB)) {
+            const diff = Math.abs(valueA - valueB);
+            diffs.push(diff);
+            console.log(`[FREQ-SCORE-REF] ${key}: A=${valueA.toFixed(2)}dB, B=${valueB.toFixed(2)}dB, diff=${diff.toFixed(2)}dB`);
+        }
+    }
+    
+    if (diffs.length === 0) {
+        console.warn('[FREQ-SCORE-REF] ⚠️ Nenhuma banda válida encontrada');
+        return null;
+    }
+    
+    // Calcular média das diferenças
+    const diffAbsMean = diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
+    
+    // Score: 100 - (diffAbsMean * K)
+    // K = 10: cada 1dB de diferença reduz 10 pontos
+    // diffAbsMean < 1dB → score > 90 (excelente)
+    // diffAbsMean = 5dB → score = 50 (médio)
+    // diffAbsMean > 10dB → score = 0 (ruim)
+    const K = 10;
+    const rawScore = 100 - (diffAbsMean * K);
+    const score = Math.max(0, Math.min(100, Math.round(rawScore)));
+    
+    console.log(`[FREQ-SCORE-REF] 🎵 Resultado: diffAbsMean=${diffAbsMean.toFixed(2)}dB → score=${score}% (${diffs.length} bandas)`);
+    
+    return score;
+}
+
+// 6B. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
 function calculateFrequencyScore(analysis, refData) {
     if (!analysis || !refData || !refData.bands) return null;
     
@@ -19537,11 +19668,26 @@ function calculateFrequencyScore(analysis, refData) {
     
     const scores = [];
     const isReferenceMode = refData._isReferenceMode === true;
+    const hasRefContext = hasActiveReferenceContext();
     
     console.log('🎵 Calculando Score de Frequência...', {
         mode: isReferenceMode ? 'REFERENCE (valores diretos)' : 'GENRE (target_range)',
-        bandsAvailable: Object.keys(refData.bands)
+        bandsAvailable: Object.keys(refData.bands),
+        hasRefContext
     });
+    
+    // 🎯 MODO REFERENCE: Usar comparação direta A vs B
+    if (isReferenceMode && hasRefContext) {
+        console.log('[FREQ-SCORE] 🔄 Redirecionando para calculateFrequencyScoreReference (comparação direta A vs B)');
+        const firstAnalysis = window.FirstAnalysisStore?.get?.();
+        if (firstAnalysis) {
+            const bandsA = firstAnalysis.technicalData?.spectral_balance || firstAnalysis.bands;
+            const bandsB = bandsToUse;
+            return calculateFrequencyScoreReference(bandsA, bandsB);
+        } else {
+            console.warn('[FREQ-SCORE] ⚠️ FirstAnalysisStore não disponível - fallback para cálculo normal');
+        }
+    }
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
