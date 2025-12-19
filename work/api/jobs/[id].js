@@ -10,6 +10,87 @@ function isValidUuid(str) {
   return typeof str === 'string' && uuidRegex.test(str);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🎯 FUNÇÕES AUXILIARES: Detecção robusta de modo e estágio
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Detecta modo efetivo (reference vs genre) com fallback seguro
+ * @param {Object} fullResult - Resultado completo do Redis/Postgres
+ * @param {Object} job - Job do Postgres
+ * @returns {string} 'reference' ou 'genre'
+ */
+function getEffectiveMode(fullResult, job) {
+  // Prioridade:
+  // 1. fullResult.mode (Redis cache mais recente)
+  // 2. fullResult.analysisMode (campo alternativo)
+  // 3. job.mode (Postgres)
+  // 4. Detectar por presença de campos reference
+  // 5. Fallback: 'genre'
+  
+  if (fullResult?.mode === 'reference') return 'reference';
+  if (fullResult?.analysisMode === 'reference') return 'reference';
+  if (job?.mode === 'reference') return 'reference';
+  
+  // Detectar por campos inequívocos de reference
+  if (fullResult?.referenceStage) return 'reference';
+  if (fullResult?.requiresSecondTrack === true) return 'reference';
+  if (fullResult?.referenceJobId && fullResult?.isReferenceBase === false) return 'reference';
+  if (job?.referenceStage) return 'reference';
+  
+  // Default: genre
+  return fullResult?.mode || fullResult?.analysisMode || job?.mode || 'genre';
+}
+
+/**
+ * Detecta estágio da análise reference (base vs comparison)
+ * @param {Object} fullResult - Resultado completo
+ * @param {Object} job - Job do Postgres
+ * @returns {string|undefined} 'base', 'comparison', ou undefined se não for reference
+ */
+function getReferenceStage(fullResult, job) {
+  // Fonte 1: campo explícito
+  if (fullResult?.referenceStage) return fullResult.referenceStage;
+  if (job?.referenceStage) return job.referenceStage;
+  
+  // Fonte 2: heurística por requiresSecondTrack
+  if (fullResult?.requiresSecondTrack === true) return 'base';
+  if (fullResult?.requiresSecondTrack === false && fullResult?.referenceJobId) return 'comparison';
+  
+  // Fonte 3: detectar por presença de referenceComparison
+  if (fullResult?.referenceComparison) return 'comparison';
+  
+  // Fonte 4: isReferenceBase (campo legado)
+  if (fullResult?.isReferenceBase === true) return 'base';
+  if (fullResult?.isReferenceBase === false) return 'comparison';
+  
+  return undefined;
+}
+
+/**
+ * Verifica se job tem métricas suficientes para considerar reference-base completo
+ * @param {Object} fullResult - Resultado completo
+ * @returns {boolean}
+ */
+function hasRequiredMetrics(fullResult) {
+  if (!fullResult) return false;
+  
+  // Opção 1: technicalData completo
+  const hasTechnicalData = !!fullResult.technicalData;
+  
+  // Opção 2: metrics direto
+  const hasMetrics = !!fullResult.metrics;
+  
+  // Opção 3: baseMetrics
+  const hasBaseMetrics = !!fullResult.baseMetrics;
+  
+  // Opção 4: score calculado
+  const hasScore = typeof fullResult.score === 'number';
+  
+  // Precisa de pelo menos technicalData OU metrics, mais score
+  return (hasTechnicalData || hasMetrics || hasBaseMetrics) && hasScore;
+}
+
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
   // ═══════════════════════════════════════════════════════════════
@@ -145,26 +226,23 @@ router.get("/:id", async (req, res) => {
     // 🔐 PROTEÇÃO CRÍTICA: MODE & STAGE DETECTION + EARLY RETURN PARA REFERENCE
     // ═══════════════════════════════════════════════════════════════════════
     
-    // 🎯 Detectar modo e stage SEM heurística burra
-    const effectiveMode = fullResult?.mode || job?.mode || req?.query?.mode || req?.body?.mode || 'genre';
-    const effectiveStage = fullResult?.referenceStage || job?.referenceStage || (fullResult?.isReferenceBase ? 'base' : undefined);
+    // 🎯 Detectar modo e stage com funções robustas
+    const effectiveMode = getEffectiveMode(fullResult, job);
+    const effectiveStage = getReferenceStage(fullResult, job);
+    const isReference = effectiveMode === 'reference';
     
-    // 🛡️ DETECÇÃO FORTE DE REFERENCE (múltiplas fontes)
-    const isReference = effectiveMode === 'reference' 
-      || job?.mode === 'reference' 
-      || fullResult?.mode === 'reference'
-      || !!job?.referenceStage 
-      || !!fullResult?.referenceStage
-      || fullResult?.requiresSecondTrack === true;
-    
-    console.error('[REF-DETECT] Detecção forte:', {
-      isReference,
+    console.error('[MODE-DETECT] 🔍 Detecção:', {
       effectiveMode,
-      'job.mode': job?.mode,
-      'fullResult.mode': fullResult?.mode,
-      'job.referenceStage': job?.referenceStage,
-      'fullResult.referenceStage': fullResult?.referenceStage,
-      'fullResult.requiresSecondTrack': fullResult?.requiresSecondTrack
+      effectiveStage,
+      isReference,
+      sources: {
+        'fullResult.mode': fullResult?.mode,
+        'fullResult.analysisMode': fullResult?.analysisMode,
+        'fullResult.referenceStage': fullResult?.referenceStage,
+        'job.mode': job?.mode,
+        'job.referenceStage': job?.referenceStage,
+        'fullResult.requiresSecondTrack': fullResult?.requiresSecondTrack
+      }
     });
     
     // 🔒 DIAGNÓSTICO COMPLETO (1x por request, sem spam)
@@ -190,80 +268,154 @@ router.get("/:id", async (req, res) => {
     // ═══════════════════════════════════════════════════════════════════════
     if (effectiveMode === 'reference') {
       const traceId = fullResult?.traceId || `trace_${Date.now()}`;
-      console.error('[REF-GUARD-V7] ✅ EARLY_RETURN_EXECUTANDO para reference', {
+      console.error('[REFERENCE] ✅ Mode detectado - processando...', {
         traceId,
         jobId: job.id,
-        mode: effectiveMode,
         stage: effectiveStage,
-        status: normalizedStatus
+        dbStatus: job?.status,
+        resultStatus: fullResult?.status
       });
       
-      // 🛡️ FALLBACK CRÍTICO: Se Postgres está "processing" mas fullResult tem dados completos
-      // Force completed para destravar UI (só para reference base)
+      // Determinar status final
       let finalStatus = fullResult?.status || job?.status || 'processing';
+      let warnings = [];
       
-      if (effectiveStage === 'base' && finalStatus === 'processing' && fullResult) {
-        const hasRequiredData = !!(
-          fullResult.technicalData &&
-          fullResult.metrics &&
-          typeof fullResult.score === 'number'
-        );
+      // ═════════════════════════════════════════════════════════════════
+      // CASO 1: REFERENCE BASE (primeira música)
+      // ═════════════════════════════════════════════════════════════════
+      if (effectiveStage === 'base') {
+        console.error('[REFERENCE][BASE] 📊 Primeira música detectada');
         
-        if (hasRequiredData) {
-          console.warn('[REF-BASE-FALLBACK] 🚨 Job em processing mas dados completos - FORÇANDO completed', {
-            traceId,
-            jobId: job.id,
-            hasTechnicalData: !!fullResult.technicalData,
-            hasMetrics: !!fullResult.metrics,
-            hasScore: typeof fullResult.score === 'number'
-          });
+        // Se tiver métricas suficientes, considerar completed
+        const metricsOk = hasRequiredMetrics(fullResult);
+        
+        if (metricsOk && finalStatus === 'processing') {
+          console.warn('[REFERENCE][BASE] 🚨 Forçando completed - métricas presentes');
           finalStatus = 'completed';
         }
+        
+        if (finalStatus === 'completed' && !metricsOk) {
+          console.warn('[REFERENCE][BASE] ⚠️ Completed mas métricas incompletas');
+          warnings.push('metrics_incomplete');
+        }
+        
+        // NUNCA downgrade por falta de suggestions
+        const hasSuggestions = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
+        if (!hasSuggestions) {
+          console.log('[REFERENCE][BASE] ℹ️ Suggestions ausentes (OK para base)');
+          warnings.push('suggestions_optional');
+        }
+        
+        const baseResponse = {
+          ...fullResult,
+          id: job.id,
+          jobId: job.id,
+          mode: 'reference',
+          referenceStage: 'base',
+          status: finalStatus,
+          requiresSecondTrack: true,
+          referenceJobId: job.id,
+          nextAction: finalStatus === 'completed' ? 'upload_second_track' : undefined,
+          baseMetrics: fullResult?.metrics || fullResult?.technicalData || fullResult?.baseMetrics,
+          suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
+          aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : [],
+          warnings: warnings.length > 0 ? warnings : undefined,
+          debug: {
+            effectiveMode,
+            effectiveStage,
+            file: 'work/api/jobs/[id].js',
+            metricsOk,
+            finalStatus
+          }
+        };
+        
+        res.setHeader('X-REF-STAGE', 'base');
+        res.setHeader('X-FINAL-STATUS', finalStatus);
+        console.error('[REFERENCE][BASE] 📤 Retornando:', {
+          status: finalStatus,
+          nextAction: baseResponse.nextAction,
+          warnings: warnings.length
+        });
+        
+        return res.json(baseResponse);
       }
       
-      const baseResponse = {
+      // ═════════════════════════════════════════════════════════════════
+      // CASO 2: REFERENCE COMPARISON (segunda música)
+      // ═════════════════════════════════════════════════════════════════
+      if (effectiveStage === 'comparison') {
+        console.error('[REFERENCE][COMPARISON] 📊 Segunda música detectada');
+        
+        const hasComparison = !!fullResult?.referenceComparison;
+        const hasSuggestions = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
+        
+        // Se tiver comparison, considerar completed mesmo sem suggestions
+        if (hasComparison && finalStatus === 'processing') {
+          console.warn('[REFERENCE][COMPARISON] 🚨 Forçando completed - comparison presente');
+          finalStatus = 'completed';
+        }
+        
+        if (!hasSuggestions) {
+          console.warn('[REFERENCE][COMPARISON] ⚠️ Suggestions ausentes');
+          warnings.push('missing_suggestions');
+        }
+        
+        const comparisonResponse = {
+          ...fullResult,
+          id: job.id,
+          jobId: job.id,
+          mode: 'reference',
+          referenceStage: 'comparison',
+          status: finalStatus,
+          requiresSecondTrack: false,
+          nextAction: finalStatus === 'completed' ? 'show_comparison' : undefined,
+          suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
+          aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : [],
+          warnings: warnings.length > 0 ? warnings : undefined,
+          debug: {
+            effectiveMode,
+            effectiveStage,
+            file: 'work/api/jobs/[id].js',
+            hasComparison,
+            finalStatus
+          }
+        };
+        
+        res.setHeader('X-REF-STAGE', 'comparison');
+        res.setHeader('X-FINAL-STATUS', finalStatus);
+        console.error('[REFERENCE][COMPARISON] 📤 Retornando:', {
+          status: finalStatus,
+          nextAction: comparisonResponse.nextAction,
+          warnings: warnings.length
+        });
+        
+        return res.json(comparisonResponse);
+      }
+      
+      // ═════════════════════════════════════════════════════════════════
+      // FALLBACK: Stage desconhecido
+      // ═════════════════════════════════════════════════════════════════
+      console.error('[REFERENCE] ⚠️ Stage desconhecido:', effectiveStage);
+      
+      const fallbackResponse = {
         ...fullResult,
         ...job,
         id: job.id,
         jobId: job.id,
         mode: 'reference',
-        referenceStage: effectiveStage || (fullResult?.isReferenceBase ? 'base' : undefined),
+        referenceStage: effectiveStage || 'unknown',
         status: finalStatus,
-        suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
-        aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : []
+        warnings: ['unknown_stage'],
+        debug: {
+          effectiveMode,
+          effectiveStage,
+          file: 'work/api/jobs/[id].js',
+          finalStatus
+        }
       };
       
-      if (finalStatus === 'completed') {
-        if (baseResponse.referenceStage === 'base') {
-          baseResponse.requiresSecondTrack = true;
-          baseResponse.referenceJobId = job.id;
-          baseResponse.status = 'completed';
-          baseResponse.nextAction = 'upload_second_track'; // ✅ SINALIZA FRONTEND ABRIR MODAL 2
-          
-          console.error('[REF-GUARD-V7] ✅ BASE completed', {
-            traceId,
-            jobId: job.id,
-            requiresSecondTrack: true,
-            nextAction: 'upload_second_track',
-            referenceJobId: job.id
-          });
-        } else if (baseResponse.referenceStage === 'compare') {
-          baseResponse.status = 'completed';
-          baseResponse.nextAction = 'show_comparison'; // ✅ SINALIZA COMPARAÇÃO PRONTA
-          
-          console.error('[REF-GUARD-V7] ✅ COMPARE completed', {
-            traceId,
-            jobId: job.id,
-            nextAction: 'show_comparison'
-          });
-        }
-      }
-      
-      res.setHeader('X-REF-GUARD', 'V7');
-      res.setHeader('X-EARLY-RETURN', 'EXECUTED');
-      res.setHeader('X-MODE', effectiveMode);
-      console.error('[REF-GUARD-V7] 📤 EARLY RETURN - status:', finalStatus, 'stage:', baseResponse.referenceStage);
-      return res.json(baseResponse);
+      res.setHeader('X-REF-STAGE', effectiveStage || 'unknown');
+      return res.json(fallbackResponse);
     }
     // ═══════════════════════════════════════════════════════════════════════
     
