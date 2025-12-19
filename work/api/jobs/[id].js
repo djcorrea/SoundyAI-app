@@ -4,7 +4,11 @@ import pool from "../../db.js";
 
 const router = express.Router();
 
-// 🔧 Validação UUID (inline, sem dependência externa)
+// � BUILD TAG para rastreamento em produção
+const BUILD_TAG = "IDJS_WORK_BUILD_2025_12_18_A";
+let hasLoggedBuild = false;
+
+// �🔧 Validação UUID (inline, sem dependência externa)
 function isValidUuid(str) {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return typeof str === 'string' && uuidRegex.test(str);
@@ -93,6 +97,18 @@ function hasRequiredMetrics(fullResult) {
 
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
+  // 🔍 LOG BUILD UMA VEZ (primeira chamada)
+  if (!hasLoggedBuild) {
+    console.error('[IDJS-BUILD]', {
+      BUILD_TAG,
+      file: import.meta.url,
+      cwd: process.cwd(),
+      pid: process.pid,
+      timestamp: new Date().toISOString()
+    });
+    hasLoggedBuild = true;
+  }
+  
   // ═══════════════════════════════════════════════════════════════
   // 🔍 HEADERS DE AUDITORIA: Rastreabilidade em produção
   // ═══════════════════════════════════════════════════════════════
@@ -443,24 +459,61 @@ router.get("/:id", async (req, res) => {
       console.log('[API-JOBS][GENRE] 🔵 Genre Mode detectado com status COMPLETED');
       
       // 🎯 VALIDAÇÃO EXCLUSIVA PARA GENRE: Verificar se dados essenciais existem
-      const hasSuggestions = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
-      const hasAiSuggestions = Array.isArray(fullResult?.aiSuggestions) && fullResult.aiSuggestions.length > 0;
+      // ⚠️ CORREÇÃO: Aceitar suggestions de múltiplas fontes
+      const hasSuggestionsMain = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
+      const hasSuggestionsDiag = Array.isArray(fullResult?.diagnostics?.suggestions) && fullResult.diagnostics.suggestions.length > 0;
+      const hasSuggestionsProblems = Array.isArray(fullResult?.problemsAnalysis?.suggestions) && fullResult.problemsAnalysis.suggestions.length > 0;
+      
+      const hasSuggestions = hasSuggestionsMain || hasSuggestionsDiag || hasSuggestionsProblems;
       const hasTechnicalData = !!fullResult?.technicalData;
       
-      console.log('[API-JOBS][GENRE][VALIDATION] hasSuggestions:', hasSuggestions);
-      console.log('[API-JOBS][GENRE][VALIDATION] hasAiSuggestions:', hasAiSuggestions);
-      console.log('[API-JOBS][GENRE][VALIDATION] hasTechnicalData:', hasTechnicalData);
+      // 🔍 INSTRUMENTAÇÃO DETALHADA
+      console.error('[IDJS-VALIDATION] Avaliando completude genre:', {
+        effectiveMode,
+        'job.mode': job?.mode,
+        'fullResult.mode': fullResult?.mode,
+        normalizedStatus,
+        checks: {
+          hasSuggestionsMain,
+          hasSuggestionsDiag,
+          hasSuggestionsProblems,
+          hasSuggestions,
+          hasTechnicalData
+        },
+        types: {
+          'fullResult.suggestions': {
+            type: typeof fullResult?.suggestions,
+            isArray: Array.isArray(fullResult?.suggestions),
+            length: fullResult?.suggestions?.length
+          },
+          'fullResult.diagnostics.suggestions': {
+            type: typeof fullResult?.diagnostics?.suggestions,
+            isArray: Array.isArray(fullResult?.diagnostics?.suggestions),
+            length: fullResult?.diagnostics?.suggestions?.length
+          },
+          'fullResult.problemsAnalysis.suggestions': {
+            type: typeof fullResult?.problemsAnalysis?.suggestions,
+            isArray: Array.isArray(fullResult?.problemsAnalysis?.suggestions),
+            length: fullResult?.problemsAnalysis?.suggestions?.length
+          },
+          'fullResult.aiSuggestions': {
+            type: typeof fullResult?.aiSuggestions,
+            isArray: Array.isArray(fullResult?.aiSuggestions),
+            length: fullResult?.aiSuggestions?.length
+          },
+          'fullResult.technicalData': typeof fullResult?.technicalData
+        }
+      });
       
-      // 🔧 FALLBACK PARA GENRE: Se completed mas falta suggestions, pode indicar processamento incompleto
-      // Esta lógica SÓ roda para genre puro - reference é bloqueado pelo !isReference acima
-      if (!hasSuggestions || !hasAiSuggestions || !hasTechnicalData) {
+      // 🔧 FALLBACK PARA GENRE: Se completed mas falta dados essenciais
+      // ⚠️ CORREÇÃO: aiSuggestions NÃO é obrigatório (pode ser enrichment assíncrono)
+      if (!hasSuggestions || !hasTechnicalData) {
         console.warn('[API-FIX][GENRE] ⚠️ Job marcado como "completed" mas falta dados essenciais');
         console.warn('[API-FIX][GENRE] Dados ausentes:', {
           suggestions: !hasSuggestions,
-          aiSuggestions: !hasAiSuggestions,
           technicalData: !hasTechnicalData
         });
-        console.warn('[API-FIX][GENRE] Retornando status "processing" para frontend aguardar comparacao completa');
+        console.warn('[API-FIX][GENRE] Retornando status "processing" para frontend aguardar conclusão');
         
         // Override status para processing SOMENTE para genre
         normalizedStatus = 'processing';
