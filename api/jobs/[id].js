@@ -11,6 +11,48 @@ const pool = new Pool({
   ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
 });
 
+/**
+ * 🛠️ FUNÇÃO UTILITÁRIA: Extrai suggestions de múltiplos caminhos
+ * Diferencia: MISSING (campo inexistente) vs EMPTY (array vazio válido)
+ * 
+ * @param {Object} fullResult - Resultado completo do job
+ * @returns {Object} { suggestionsArray, exists, missing, length }
+ */
+function extractSuggestions(fullResult) {
+  if (!fullResult) {
+    return { suggestionsArray: [], exists: false, missing: true, length: 0 };
+  }
+
+  // Verificar múltiplos caminhos possíveis
+  const rootSuggestions = fullResult.suggestions;
+  const problemsSuggestions = fullResult.problemsAnalysis?.suggestions;
+  
+  // Determinar se campo existe (mesmo que vazio)
+  const hasRootField = fullResult.hasOwnProperty('suggestions');
+  const hasProblemsField = fullResult.problemsAnalysis?.hasOwnProperty('suggestions');
+  
+  // Campo existe se está em qualquer caminho
+  const exists = hasRootField || hasProblemsField;
+  
+  // Campo está missing se não existe em nenhum caminho
+  const missing = !exists;
+  
+  // Preferir root, depois problems
+  let suggestionsArray = [];
+  if (Array.isArray(rootSuggestions)) {
+    suggestionsArray = rootSuggestions;
+  } else if (Array.isArray(problemsSuggestions)) {
+    suggestionsArray = problemsSuggestions;
+  }
+  
+  return {
+    suggestionsArray,
+    exists,
+    missing,
+    length: suggestionsArray.length
+  };
+}
+
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
@@ -73,46 +115,149 @@ router.get("/:id", async (req, res) => {
     if (normalizedStatus === "completed") {
       const hasTechnicalData = fullResult?.technicalData && typeof fullResult.technicalData === 'object';
       
-      // Detectar se é primeiro ou segundo job
+      // 🔍 DETECÇÃO DE MODO E ESTÁGIO REFERENCE
+      const isReferenceMode = job.mode === 'reference';
       const referenceJobId = fullResult?.referenceJobId || job.reference_job_id;
-      const isSecondJob = job.mode === 'reference' && referenceJobId;
       
-      // Validar technicalData sempre (obrigatório para ambos os jobs)
+      // ✅ CORREÇÃO: isSecondJob só é true se referenceJobId existe E é diferente do job.id
+      const isSecondJob = isReferenceMode && referenceJobId && referenceJobId !== job.id;
+      const isFirstJob = isReferenceMode && !isSecondJob;
+      
+      // Verificar se comparação está pronta (segundo job processado)
+      const hasComparison = !!fullResult?.referenceComparison;
+      
+      // Extrair suggestions com função utilitária
+      const suggestionsInfo = extractSuggestions(fullResult);
+      
+      // 📊 LOG DEBUG CONTROLADO: Apenas quando DB está completed
+      console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[API-FIX][DEBUG] Job: ${job.id}`);
+      console.log(`[API-FIX][DEBUG] mode: ${job.mode}`);
+      console.log(`[API-FIX][DEBUG] isReferenceMode: ${isReferenceMode}`);
+      console.log(`[API-FIX][DEBUG] isFirstJob: ${isFirstJob}`);
+      console.log(`[API-FIX][DEBUG] isSecondJob: ${isSecondJob}`);
+      console.log(`[API-FIX][DEBUG] hasComparison: ${hasComparison}`);
+      console.log(`[API-FIX][DEBUG] suggestionsExists: ${suggestionsInfo.exists}`);
+      console.log(`[API-FIX][DEBUG] suggestionsMissing: ${suggestionsInfo.missing}`);
+      console.log(`[API-FIX][DEBUG] suggestionsLen: ${suggestionsInfo.length}`);
+      console.log(`[API-FIX][DEBUG] hasTechnicalData: ${hasTechnicalData}`);
+      
+      // ✅ VALIDAÇÃO 1: technicalData sempre obrigatório
       if (!hasTechnicalData) {
-        console.warn(`[API-FIX] Job ${job.id} marcado como 'completed' mas falta technicalData`);
-        console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar dados completos`);
+        console.warn(`[API-FIX] ⚠️ Job ${job.id} falta technicalData - aguardando`);
+        console.log(`[API-FIX][DEBUG] computedStatus: processing (falta technicalData)`);
+        console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
         
         return res.json({
           id: job.id,
           status: "processing",
+          mode: job.mode,
           createdAt: job.created_at,
           updatedAt: job.updated_at
         });
       }
       
-      // Validar suggestions/aiSuggestions SOMENTE no segundo job
-      if (isSecondJob) {
-        const hasSuggestions = fullResult?.suggestions && 
-                              Array.isArray(fullResult.suggestions) && 
-                              fullResult.suggestions.length > 0;
+      // ✅ FLUXO REFERENCE: Lógica específica para análise de referência
+      if (isReferenceMode) {
+        // CASO 1: PRIMEIRO JOB (base/primeira música)
+        // - Deve permitir upload da segunda música
+        // - suggestions=[] é válido (faixa sem problemas)
+        if (isFirstJob) {
+          console.log(`[API-FIX] ✅ PRIMEIRO JOB (base) - suggestions=[] é válido`);
+          console.log(`[API-FIX][DEBUG] computedStatus: completed + requiresSecondTrack`);
+          console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          
+          // Retornar estado que permite frontend abrir modal 2
+          const firstJobResponse = {
+            id: job.id,
+            fileKey: job.file_key,
+            mode: job.mode,
+            status: "completed", // Mantém completed para compatibilidade
+            requiresSecondTrack: true, // Sinaliza que precisa segunda faixa
+            error: job.error || null,
+            createdAt: job.created_at,
+            updatedAt: job.updated_at,
+            completedAt: job.completed_at,
+            ...(fullResult || {}),
+            suggestions: suggestionsInfo.suggestionsArray,
+            aiSuggestions: fullResult?.aiSuggestions || [],
+            referenceJobId: null // Primeiro job não tem referência
+          };
+          
+          return res.json(firstJobResponse);
+        }
         
-        if (!hasSuggestions) {
-          console.warn(`[API-FIX] Job ${job.id} (SEGUNDO JOB) marcado como 'completed' mas falta suggestions`);
-          console.warn(`[API-FIX] Mode: ${job.mode}, referenceJobId: ${referenceJobId}`);
-          console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar comparacao completa`);
+        // CASO 2: SEGUNDO JOB (comparação)
+        // - Comparação pronta = hasComparison true
+        // - suggestions=[] ainda é válido (comparação sem problemas)
+        if (isSecondJob) {
+          // Se comparação está pronta, retornar completed independente de suggestions
+          if (hasComparison) {
+            console.log(`[API-FIX] ✅ SEGUNDO JOB - comparação pronta, suggestions=[] é válido`);
+            console.log(`[API-FIX][DEBUG] computedStatus: completed`);
+            console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            
+            const secondJobResponse = {
+              id: job.id,
+              fileKey: job.file_key,
+              mode: job.mode,
+              status: "completed",
+              requiresSecondTrack: false,
+              error: job.error || null,
+              createdAt: job.created_at,
+              updatedAt: job.updated_at,
+              completedAt: job.completed_at,
+              ...(fullResult || {}),
+              suggestions: suggestionsInfo.suggestionsArray,
+              aiSuggestions: fullResult?.aiSuggestions || [],
+              referenceComparison: fullResult?.referenceComparison,
+              referenceJobId: fullResult?.referenceJobId,
+              referenceFileName: fullResult?.referenceFileName
+            };
+            
+            return res.json(secondJobResponse);
+          } else {
+            // Comparação ainda não está pronta, aguardar
+            console.warn(`[API-FIX] ⚠️ SEGUNDO JOB - aguardando comparação`);
+            console.log(`[API-FIX][DEBUG] computedStatus: processing (comparação não pronta)`);
+            console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+            
+            return res.json({
+              id: job.id,
+              status: "processing",
+              mode: job.mode,
+              createdAt: job.created_at,
+              updatedAt: job.updated_at
+            });
+          }
+        }
+      }
+      
+      // ✅ FLUXO NORMAL (genre/não-reference)
+      // - Apenas diferenciar missing vs empty
+      // - empty=[] é válido se campo existe
+      if (!isReferenceMode) {
+        // Se suggestions está realmente MISSING (não existe), aguardar
+        if (suggestionsInfo.missing) {
+          console.warn(`[API-FIX] ⚠️ Job ${job.id} (genre) - campo suggestions ausente`);
+          console.log(`[API-FIX][DEBUG] computedStatus: processing (suggestions missing)`);
+          console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
           
           return res.json({
             id: job.id,
             status: "processing",
+            mode: job.mode,
             createdAt: job.created_at,
             updatedAt: job.updated_at
           });
         }
-      } else {
-        // Primeiro job: suggestions vazias sao normais
-        console.log(`[API-FIX] Job ${job.id} (PRIMEIRO JOB) - suggestions vazias sao validas`);
-        console.log(`[API-FIX] Mode: ${job.mode}, referenceJobId: ${referenceJobId || 'null'}`);
+        
+        // Se campo existe (mesmo vazio), aceitar como completo
+        console.log(`[API-FIX] ✅ Job ${job.id} (genre) - suggestions existe (len=${suggestionsInfo.length})`);
+        console.log(`[API-FIX][DEBUG] computedStatus: completed`);
       }
+      
+      console.log(`[API-FIX][DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     }
 
     // �🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
