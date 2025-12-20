@@ -135,6 +135,76 @@ function extractABMetrics(analysisOrResult) {
 }
 
 /**
+ * 🎯 Helper: Recupera referenceJobId de forma robusta
+ * Prioridade: window > sessionStorage > localStorage
+ * @returns {string|null} jobId da referência ou null
+ */
+function getReferenceJobId() {
+    // Prioridade 1: Memória (mais rápido e confiável)
+    if (window.__REFERENCE_JOB_ID__) {
+        return window.__REFERENCE_JOB_ID__;
+    }
+    
+    // Prioridade 2: sessionStorage (dura sessão do navegador)
+    try {
+        const fromSession = sessionStorage.getItem('referenceJobId');
+        if (fromSession) {
+            console.log('[REF-FIX] Recuperado de sessionStorage:', fromSession);
+            window.__REFERENCE_JOB_ID__ = fromSession; // Sincronizar
+            return fromSession;
+        }
+    } catch (e) {
+        console.warn('[REF-FIX] Erro ao ler sessionStorage:', e);
+    }
+    
+    // Prioridade 3: localStorage (persiste entre sessões)
+    try {
+        const fromLocal = localStorage.getItem('referenceJobId');
+        if (fromLocal) {
+            console.log('[REF-FIX] Recuperado de localStorage:', fromLocal);
+            window.__REFERENCE_JOB_ID__ = fromLocal; // Sincronizar
+            return fromLocal;
+        }
+    } catch (e) {
+        console.warn('[REF-FIX] Erro ao ler localStorage:', e);
+    }
+    
+    console.warn('[REF-FIX] Nenhum referenceJobId encontrado');
+    return null;
+}
+
+/**
+ * 🎯 Helper: Salva referenceJobId em todos os locais
+ * @param {string} jobId - ID do job da referência
+ */
+function saveReferenceJobId(jobId) {
+    if (!jobId) {
+        console.warn('[REF-FIX] Tentativa de salvar jobId vazio');
+        return;
+    }
+    
+    // Salvar em memória
+    window.__REFERENCE_JOB_ID__ = jobId;
+    console.log('[REF-FIX] ✅ Salvo em window.__REFERENCE_JOB_ID__:', jobId);
+    
+    // Salvar em sessionStorage
+    try {
+        sessionStorage.setItem('referenceJobId', jobId);
+        console.log('[REF-FIX] ✅ Salvo em sessionStorage');
+    } catch (e) {
+        console.error('[REF-FIX] ❌ Erro ao salvar em sessionStorage:', e);
+    }
+    
+    // Salvar em localStorage
+    try {
+        localStorage.setItem('referenceJobId', jobId);
+        console.log('[REF-FIX] ✅ Salvo em localStorage');
+    } catch (e) {
+        console.error('[REF-FIX] ❌ Erro ao salvar em localStorage:', e);
+    }
+}
+
+/**
  * 🎯 Helper: Garante que container de referência A/B existe no DOM
  * Cria se necessário (modo reference only)
  * @returns {HTMLElement|null} Container ou null se falhar
@@ -1548,12 +1618,15 @@ function getComparisonPair() {
     }
     
     // Prioridade 3: fileName (terciária - apenas se ambos strings válidas)
-    if (refIdentity.fileName && currIdentity.fileName && 
-        refIdentity.fileName === currIdentity.fileName) {
+    // ✅ CORREÇÃO: Só comparar fileName se AMBOS são strings não vazias
+    const refHasValidFileName = refIdentity.fileName && typeof refIdentity.fileName === 'string' && refIdentity.fileName.trim().length > 0;
+    const currHasValidFileName = currIdentity.fileName && typeof currIdentity.fileName === 'string' && currIdentity.fileName.trim().length > 0;
+    
+    if (refHasValidFileName && currHasValidFileName && refIdentity.fileName === currIdentity.fileName) {
         console.info('ℹ️ [STORE-INFO] Nomes de arquivo iguais:', refIdentity.fileName);
         console.info('   Isso é OK se jobIds/fileKeys forem diferentes');
-    } else if (!refIdentity.fileName || !currIdentity.fileName) {
-        console.info('ℹ️ [STORE-INFO] fileName ausente em uma ou ambas análises (normal no reference BASE)');
+    } else if (!refHasValidFileName || !currHasValidFileName) {
+        console.info('ℹ️ [STORE-INFO] fileName ausente/inválido (normal no reference BASE)');
     }
     
     return { ref, curr };
@@ -11774,8 +11847,21 @@ async function displayModalResults(analysis) {
         // 🎯 TENTATIVA DE HIDRATAÇÃO: Recuperar de FirstAnalysisStore
         const refFromStore = FirstAnalysisStore?.getRef?.();
         
+        // 🔍 LOGS DIAGNÓSTICOS
+        console.log('[REF-FIX] 📦 Verificando store:', {
+            hasRefInStore: !!refFromStore,
+            refKeys: refFromStore ? Object.keys(refFromStore) : null,
+            refJobId: refFromStore?.jobId,
+            hasMetrics: !!refFromStore?.metrics,
+            hasTechnicalData: !!refFromStore?.technicalData
+        });
+        
         // 🔍 NOVA VALIDAÇÃO: Verificar métricas A/B ao invés de bands
         const refMetrics = extractABMetrics(refFromStore);
+        console.log('[REF-FIX] 🔍 Extração de métricas:', {
+            ok: refMetrics.ok,
+            debugShape: refMetrics.debugShape
+        });
         console.log('[AB-DATA] refFromStore keys:', refFromStore ? Object.keys(refFromStore) : null);
         console.log('[AB-DATA] ref metrics extraction:', refMetrics);
         
@@ -11802,20 +11888,33 @@ async function displayModalResults(analysis) {
             
             console.log('[AB-HYDRATE] ✅ window.referenceAnalysisData hidratado com sucesso');
         } else {
-            console.error('[AB-BLOCK] ❌ Hidratação falhou - referência não disponível em nenhuma fonte');
+            // ❌ DIAGNÓSTICO DETALHADO antes de mostrar fallback
+            console.error('[REF-FIX] ❌ Hidratação falhou - DIAGNÓSTICO:');
+            console.error('[REF-FIX]   1. FirstAnalysisStore.getRef() retornou:', refFromStore ? 'objeto' : 'null/undefined');
+            console.error('[REF-FIX]   2. refFromStore.jobId:', refFromStore?.jobId);
+            console.error('[REF-FIX]   3. refFromStore.technicalData existe?', !!refFromStore?.technicalData);
+            console.error('[REF-FIX]   4. refFromStore.metrics existe?', !!refFromStore?.metrics);
+            console.error('[REF-FIX]   5. extractABMetrics debugShape:', refMetrics.debugShape);
+            console.error('[REF-FIX]   6. window.__REFERENCE_JOB_ID__:', getReferenceJobId());
+            console.error('[REF-FIX]   7. Chaves disponíveis:', refFromStore ? Object.keys(refFromStore) : 'N/A');
             console.error('[AB-BLOCK] abState:', abState);
             console.error('[AB-BLOCK] FirstAnalysisStore.getRef():', refFromStore);
             console.error('[AB-DATA] ref metrics extraction failed:', refMetrics.debugShape);
             
-            // 🎯 FALLBACK VISUAL: Renderizar mensagem de erro no container A/B
+            // Renderizar fallback com diagnóstico preciso
             const container = ensureReferenceContainer();
             if (container) {
+                const diagnosticDetails = refFromStore 
+                    ? `jobId: ${refFromStore.jobId || 'ausente'}, metrics: ${!!refFromStore.metrics ? 'presente' : 'ausente'}, technicalData: ${!!refFromStore.technicalData ? 'presente' : 'ausente'}`
+                    : 'Store completamente vazio';
+                
                 container.innerHTML = `
                     <div class="card" style="margin-top: 20px; background: #2a1a1a; border: 2px solid #ff4444;">
                         <div class="card-title" style="color: #ff6666;">⚠️ Comparação A/B Indisponível</div>
                         <div style="padding: 15px; color: #ffaaaa; line-height: 1.6;">
-                            <p><strong>Motivo:</strong> Dados da primeira música não estão disponíveis.</p>
-                            <p><strong>Solução:</strong> Por favor, selecione novamente o modo "Análise de Referência A/B" e faça upload das duas músicas.</p>
+                            <p><strong>Motivo:</strong> Não foi possível recuperar métricas da primeira música.</p>
+                            <p><strong>Diagnóstico:</strong> ${diagnosticDetails}</p>
+                            <p><strong>Solução:</strong> Selecione novamente o modo "Análise de Referência A/B" e faça upload das duas músicas.</p>
                         </div>
                     </div>
                 `;
