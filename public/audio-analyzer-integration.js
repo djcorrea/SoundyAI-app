@@ -205,36 +205,81 @@ function saveReferenceJobId(jobId) {
 }
 
 /**
- * 🎯 Helper: Garante que container de referência A/B existe no DOM
- * Cria se necessário (modo reference only)
+ * 🎯 [AUDIT-FIX] Helper: Garante que container de referência A/B existe NO LOCAL CORRETO
+ * Posição: ABAIXO dos cards, ACIMA das sugestões
  * @returns {HTMLElement|null} Container ou null se falhar
  */
 function ensureReferenceContainer() {
     let container = document.getElementById('referenceComparisons');
+    
+    // Se já existe, verificar se está no lugar certo
     if (container) {
-        console.log('[CONTAINER] ✅ #referenceComparisons já existe');
-        return container;
+        const modalResults = document.getElementById('audioAnalysisResults');
+        if (modalResults && !modalResults.contains(container)) {
+            console.warn('[CONTAINER] ⚠️ #referenceComparisons existe mas está FORA do modal ativo - removendo');
+            container.remove();
+            container = null;
+        } else {
+            console.log('[CONTAINER] ✅ #referenceComparisons já existe e está no modal correto');
+            return container;
+        }
     }
     
-    // Criar container dinamicamente
-    const modalContent = document.querySelector('#audioAnalysisModal .modal-content') || 
-                       document.getElementById('audioAnalysisResults') ||
-                       document.getElementById('modalTechnicalData');
+    // 🎯 [AUDIT-FIX] Localizar ponto de inserção correto
+    // Ordem desejada: Cards → Tabela Comparação → Sugestões
+    const modalResults = document.getElementById('audioAnalysisResults');
+    const modalTechnical = document.getElementById('modalTechnicalData');
     
-    if (!modalContent) {
-        console.error('[CONTAINER] ❌ Não foi possível localizar elemento pai para criar container');
+    // Buscar elemento de sugestões (deve aparecer DEPOIS da tabela)
+    const suggestionsContainer = modalResults?.querySelector('.ai-suggestions-container, #aiSuggestionsContainer, [class*="suggestion"]');
+    
+    let insertionPoint = null;
+    let parentContainer = null;
+    
+    if (modalResults) {
+        parentContainer = modalResults;
+        
+        // Se encontrou container de sugestões, inserir ANTES dele
+        if (suggestionsContainer) {
+            insertionPoint = suggestionsContainer;
+            console.log('[CONTAINER] 📍 Inserção: ANTES do container de sugestões');
+        } 
+        // Se não, inserir após modalTechnicalData (onde ficam os cards)
+        else if (modalTechnical && modalResults.contains(modalTechnical)) {
+            insertionPoint = modalTechnical.nextSibling;
+            console.log('[CONTAINER] 📍 Inserção: APÓS modalTechnicalData (cards)');
+        }
+        // Último recurso: inserir no final de modalResults
+        else {
+            insertionPoint = null; // appendChild
+            console.log('[CONTAINER] 📍 Inserção: FINAL de audioAnalysisResults');
+        }
+    } else {
+        console.error('[CONTAINER] ❌ audioAnalysisResults não encontrado - não é possível criar container');
         return null;
     }
     
+    // Criar container
     container = document.createElement('div');
     container.id = 'referenceComparisons';
     container.className = 'reference-comparisons-container';
     container.style.marginTop = '20px';
+    container.style.marginBottom = '20px';
     
-    // Inserir no topo do modal
-    modalContent.insertBefore(container, modalContent.firstChild);
+    // Inserir no local correto
+    if (insertionPoint) {
+        parentContainer.insertBefore(container, insertionPoint);
+    } else {
+        parentContainer.appendChild(container);
+    }
     
-    console.log('[CONTAINER] ✅ #referenceComparisons criado dinamicamente');
+    console.log('[CONTAINER] ✅ #referenceComparisons criado dinamicamente no local correto');
+    console.log('[CONTAINER] 📊 Posição relativa:', {
+        'está em modalResults': modalResults.contains(container),
+        'antes de sugestões': suggestionsContainer ? container.nextSibling === suggestionsContainer : 'N/A',
+        'depois de cards': modalTechnical ? modalTechnical.compareDocumentPosition(container) & Node.DOCUMENT_POSITION_FOLLOWING : 'N/A'
+    });
+    
     return container;
 }
 
@@ -17857,7 +17902,26 @@ function renderReferenceComparisons(ctx) {
     
     // 🚨 CRÍTICO: NÃO reavaliar "se tem ref" para mudar o modo
     // O modo é determinístico e vem do caller
-    const renderMode = explicitMode;
+    let renderMode = explicitMode;
+    
+    // 🛡️ [AUDIT-FIX] VALIDAÇÃO CRÍTICA: garantir que renderMode seja válido
+    if (renderMode !== 'reference' && renderMode !== 'genre') {
+        console.error('🚨 [AUDIT-FIX] renderMode INVÁLIDO detectado:', renderMode);
+        console.error('🚨 [AUDIT-FIX] explicitMode:', explicitMode);
+        console.error('🚨 [AUDIT-FIX] opts.mode:', opts.mode);
+        console.error('🚨 [AUDIT-FIX] stateV3.render.mode:', stateV3?.render?.mode);
+        
+        // Tentar recuperar modo correto
+        if (opts.mode === 'reference' || stateV3?.render?.mode === 'reference' || stateV3?.reference?.isSecondTrack) {
+            renderMode = 'reference';
+            console.warn('⚠️ [AUDIT-FIX] Forçando renderMode = "reference"');
+        } else {
+            renderMode = 'genre';
+            console.warn('⚠️ [AUDIT-FIX] Forçando renderMode = "genre" (fallback)');
+        }
+    }
+    
+    console.log('📊 [AUDIT-FIX] renderMode VALIDADO:', renderMode, '(válido:', renderMode === 'reference' || renderMode === 'genre', ')');
     
     // 🎯 PATCH 5: Asserts de validação de modo (NÃO ABORTAM, apenas logam)
     if (renderMode === 'reference') {
@@ -18268,9 +18332,30 @@ function renderReferenceComparisons(ctx) {
             source: window.__activeRefData ? 'window.__activeRefData' : (window.PROD_AI_REF_DATA ? 'PROD_AI_REF_DATA' : 'analysis')
         });
     } else {
-        // FALLBACK: Não deveria cair aqui
-        console.warn('⚠️ [RENDER-REF] MODO INDETERMINADO - renderMode:', renderMode);
-        container.innerHTML = '<div style="font-size:12px;opacity:.6">Modo de análise não identificado</div>'; 
+        // 🛡️ [AUDIT-FIX] FALLBACK SEGURO: não destruir conteúdo válido existente
+        console.error('🚨 [AUDIT-FIX] MODO INDETERMINADO - renderMode:', renderMode);
+        console.error('🚨 [AUDIT-FIX] Dados de diagnóstico:', {
+            explicitMode,
+            'opts.mode': opts.mode,
+            'stateV3.render.mode': stateV3?.render?.mode,
+            'stateV3.reference.isSecondTrack': stateV3?.reference?.isSecondTrack,
+            'container.innerHTML.length': container.innerHTML.length,
+            'containerHasTable': !!container.querySelector('table')
+        });
+        
+        // Não sobrescrever se container já tem tabela válida
+        const hasExistingTable = container.querySelector('table');
+        if (hasExistingTable) {
+            console.warn('⚠️ [AUDIT-FIX] Container já tem tabela válida - preservando conteúdo');
+            return;
+        }
+        
+        // Se não tem tabela, mostrar erro mas sem quebrar modal
+        container.innerHTML = `<div class="card" style="margin-top:12px;padding:16px;text-align:center;background:rgba(255,165,0,.1);border:1px solid rgba(255,165,0,.3);">
+            <strong style="color:#ffa500;">⚠️ Erro de configuração</strong><br>
+            <span style="font-size:11px;color:#ffb366;">Modo de análise não identificado (renderMode: ${renderMode})</span><br>
+            <span style="font-size:10px;color:#888;margin-top:8px;display:block;">Por favor, recarregue a página ou tente novamente.</span>
+        </div>`;
         return;
     }
     
