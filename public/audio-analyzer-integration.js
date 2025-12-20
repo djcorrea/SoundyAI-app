@@ -239,6 +239,108 @@ function ensureReferenceContainer() {
 }
 
 /**
+ * 🎯 HELPER PRINCIPAL: Normaliza análise para shape consistente
+ * Garante que TODOS os dados tenham bands e metrics no top-level
+ * @param {Object} raw - Análise bruta do backend ou store
+ * @returns {Object} Análise normalizada com shape consistente
+ */
+function normalizeAnalysis(raw) {
+    if (!raw) return null;
+    
+    console.log('[NORMALIZE] 🔄 Normalizando análise:', { jobId: raw.jobId, hasData: !!raw.data, hasTechnicalData: !!raw.technicalData });
+    
+    // Base: clonar para não mutar original
+    const normalized = { ...raw };
+    
+    // 1. Extrair technicalData de todas as fontes possíveis
+    const technicalData = 
+        raw.technicalData ||
+        raw.data?.technicalData ||
+        raw.results?.technicalData ||
+        {};
+    
+    // 2. Extrair bands de todas as fontes
+    const bands = 
+        raw.bands ||
+        raw.spectralBands ||
+        technicalData.spectral_balance ||
+        raw.data?.bands ||
+        raw.results?.bands ||
+        {};
+    
+    // 3. Extrair metrics usando helper existente
+    const metrics = extractMetrics(raw);
+    
+    // 4. Garantir estrutura unificada no TOP-LEVEL
+    normalized.bands = bands;
+    normalized.metrics = metrics;
+    normalized.technicalData = technicalData;
+    
+    // 5. Se technicalData tem spectral_balance mas bands não foi copiado, garantir
+    if (!normalized.bands || Object.keys(normalized.bands).length === 0) {
+        if (technicalData.spectral_balance) {
+            normalized.bands = technicalData.spectral_balance;
+            console.log('[NORMALIZE] ✅ Copiado spectral_balance → bands');
+        }
+    }
+    
+    // 6. Se metrics vazio mas technicalData tem valores, copiar
+    if (!normalized.metrics || Object.keys(normalized.metrics).length === 0) {
+        normalized.metrics = {
+            lufsIntegrated: technicalData.lufsIntegrated,
+            truePeakDbtp: technicalData.truePeakDbtp,
+            dynamicRange: technicalData.dynamicRange,
+            lra: technicalData.lra,
+            rmsLeft: technicalData.rmsLeft,
+            rmsRight: technicalData.rmsRight,
+            crestFactor: technicalData.crestFactor,
+            stereoCorrelation: technicalData.stereoCorrelation
+        };
+        console.log('[NORMALIZE] ✅ Copiado technicalData → metrics');
+    }
+    
+    console.log('[NORMALIZE] ✅ Normalização completa:', {
+        hasBands: !!normalized.bands && Object.keys(normalized.bands).length > 0,
+        hasMetrics: !!normalized.metrics && Object.keys(normalized.metrics).length > 0,
+        bandsKeys: Object.keys(normalized.bands || {}),
+        metricsKeys: Object.keys(normalized.metrics || {})
+    });
+    
+    return normalized;
+}
+
+/**
+ * 🎯 HELPER: Retorna state machine seguro (nunca undefined)
+ * @returns {Object} State machine real ou stub funcional
+ */
+function getSafeStateMachine() {
+    if (window.AnalysisStateMachine) {
+        return window.AnalysisStateMachine;
+    }
+    
+    console.warn('[STATE-MACHINE] ⚠️ AnalysisStateMachine não carregado - usando stub');
+    
+    // Stub funcional que preserva estado
+    return {
+        getMode: () => window.currentAnalysisMode || 'genre',
+        setMode: (mode, opts) => {
+            console.log('[STATE-MACHINE-STUB] setMode:', mode, opts);
+            window.currentAnalysisMode = mode;
+            if (opts?.userExplicitlySelected) {
+                window.userExplicitlySelectedReferenceMode = (mode === 'reference');
+            }
+        },
+        getState: () => ({
+            mode: window.currentAnalysisMode || 'genre',
+            userExplicitlySelected: window.userExplicitlySelectedReferenceMode || false,
+            referenceFirstJobId: window.__REFERENCE_JOB_ID__ || null,
+            awaitingSecondTrack: !!window.__REFERENCE_JOB_ID__
+        }),
+        isReferenceCompare: () => window.currentAnalysisMode === 'reference'
+    };
+}
+
+/**
  * 🎯 Helper: Extrai identidade de track para validação de duplicação
  * @param {Object} track - Objeto de análise
  * @returns {Object} { jobId, fileKey, fileName }
@@ -7895,12 +7997,41 @@ function setupAudioModal() {
 }
 
 // 📁 Processar arquivo selecionado no modal
+/**
+ * 🎯 HELPER: Retorna state machine seguro (nunca undefined)
+ * @returns {Object} State machine real ou stub funcional
+ */
+function getSafeStateMachine() {
+    if (window.AnalysisStateMachine) {
+        return window.AnalysisStateMachine;
+    }
+    
+    console.warn('[STATE-MACHINE] ⚠️ AnalysisStateMachine não carregado - usando stub');
+    
+    // Stub funcional que preserva estado
+    return {
+        getMode: () => window.currentAnalysisMode || 'genre',
+        setMode: (mode, opts) => {
+            console.log('[STATE-MACHINE-STUB] setMode:', mode, opts);
+            window.currentAnalysisMode = mode;
+            if (opts?.userExplicitlySelected) {
+                window.userExplicitlySelectedReferenceMode = (mode === 'reference');
+            }
+        },
+        getState: () => ({
+            mode: window.currentAnalysisMode || 'genre',
+            userExplicitlySelected: window.userExplicitlySelectedReferenceMode || false,
+            referenceFirstJobId: window.__REFERENCE_JOB_ID__ || null
+        })
+    };
+}
+
 async function handleModalFileSelection(file) {
     __dbg('📁 Arquivo selecionado no modal:', file.name);
     
     // 🔍 [INVARIANTE #1] Verificar estado do mode ANTES de qualquer processamento
-    const stateMachine = window.AnalysisStateMachine;
-    const currentMode = stateMachine?.getMode() || window.currentAnalysisMode;
+    const stateMachine = getSafeStateMachine();  // ✅ Nunca undefined
+    const currentMode = stateMachine.getMode();
     
     console.group('[REF_DEBUG] 🎯 handleModalFileSelection - INÍCIO');
     console.log('📁 Arquivo:', file.name);
@@ -8194,8 +8325,17 @@ async function handleModalFileSelection(file) {
             // 💾 SALVAR NO STORE ISOLADO (fonte de verdade principal)
             saveSecondAnalysis(refClone || analysisResult);
             
+            // 🎯 NORMALIZAR ANTES DE SALVAR: Garante shape consistente
+            const refNormalized = normalizeAnalysis(refClone || analysisResult);
+            
             // Salvar como REF no FirstAnalysisStore (mantido para compatibilidade)
-            FirstAnalysisStore.setRef(refClone, refVid, analysisResult.jobId);
+            FirstAnalysisStore.setRef(refNormalized, refVid, analysisResult.jobId);
+            
+            console.log('[STORE-SAVE] ✅ Referência salva NORMALIZADA:', {
+                jobId: analysisResult.jobId,
+                hasBands: !!refNormalized.bands && Object.keys(refNormalized.bands).length > 0,
+                hasMetrics: !!refNormalized.metrics && Object.keys(refNormalized.metrics).length > 0
+            });
             
             console.log('[A/B] 🧊 segunda faixa salva com VID', {
                 vid: refVid,
@@ -16760,8 +16900,19 @@ function renderReferenceComparisons(ctx) {
     // 🛡️ BLOQUEIO DEFINITIVO DE SELF-COMPARE POR CONTEÚDO
     // ========================================
     // Recuperar faixas do FirstAnalysisStore usando papéis (USER/REF)
-    const userFromStore = FirstAnalysisStore.getUser();
-    const refFromStore = FirstAnalysisStore.getRef();
+    const userFromStoreRaw = FirstAnalysisStore.getUser();
+    const refFromStoreRaw = FirstAnalysisStore.getRef();
+    
+    // 🎯 HIDRATAR E NORMALIZAR: Garantir shape consistente (dupla proteção)
+    const userFromStore = normalizeAnalysis(userFromStoreRaw);
+    const refFromStore = normalizeAnalysis(refFromStoreRaw);
+    
+    console.log('[HYDRATE] 🔄 Dados normalizados do store:', {
+        userHasBands: !!userFromStore?.bands,
+        refHasBands: !!refFromStore?.bands,
+        userHasMetrics: !!userFromStore?.metrics,
+        refHasMetrics: !!refFromStore?.metrics
+    });
     
     // 🔍 NOVA VALIDAÇÃO: Verificar métricas A/B ao invés de bands
     const userMetricsCheck = extractABMetrics(userFromStore);
@@ -22119,7 +22270,15 @@ async function downloadModalAnalysis() {
         
         // RESTAURAR: Estilos originais
         Object.assign(container.style, originalStyles);
-        setTimeout(() => container.innerHTML = '', 100);
+        
+        // 🔒 GUARD: Não limpar container se estiver em modo reference (apagaria tabela A/B!)
+        const currentMode = window.currentAnalysisMode || window.__soundyState?.render?.mode;
+        if (currentMode !== 'reference') {
+            setTimeout(() => container.innerHTML = '', 100);
+            console.log('[PDF-CLEANUP] Container limpo (modo não-reference)');
+        } else {
+            console.log('[PDF-CLEANUP] ⚠️ Container PRESERVADO (modo reference ativo)');
+        }
         
     } catch (error) {
         console.error('❌ [PDF-ERROR] Erro ao gerar relatório:', error);
