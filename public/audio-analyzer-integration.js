@@ -39,6 +39,32 @@ function getSafeStateMachine() {
 // 🎯 MODE ENGINE: Fonte única de verdade para modo de análise
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 /**
+ * 🎯 Helper: Extrai compareMode de forma deterministica
+ * @param {Object} input - Objeto de análise ou contexto
+ * @returns {string} 'A_B' ou 'B_A' (fallback: 'A_B')
+ */
+function getCompareMode(input) {
+    const mode = input?.compareMode || input?.analysis?.compareMode;
+    if (mode === 'B_A' || mode === 'b_a') return 'B_A';
+    return 'A_B'; // default seguro
+}
+
+/**
+ * 🎯 Helper: Extrai identidade de track para validação de duplicação
+ * @param {Object} track - Objeto de análise
+ * @returns {Object} { jobId, fileKey, fileName }
+ */
+function getTrackIdentity(track) {
+    const jobId = track?.jobId || null;
+    const fileKey = track?.fileKey || track?.storageKey || track?.s3Key || null;
+    const rawFileName = track?.fileName || track?.metadata?.fileName || null;
+    const fileName = (typeof rawFileName === 'string' && rawFileName.trim().length > 0) 
+                     ? rawFileName 
+                     : null;
+    return { jobId, fileKey, fileName };
+}
+
+/**
  * 🎯 FONTE-DE-VERDADE: Detecta se há contexto de referência ativo
  * Verifica múltiplas fontes para garantir detecção robusta
  */
@@ -1382,24 +1408,32 @@ function getComparisonPair() {
         sameName: (ref?.fileName || ref?.metadata?.fileName) === (curr?.fileName || curr?.metadata?.fileName)
     });
     
-    // 🚨 VALIDAÇÃO CRÍTICA: Usar jobId como chave primária (não fileName)
-    if (ref?.jobId && curr?.jobId && ref.jobId === curr.jobId) {
+    // 🚨 VALIDAÇÃO CRÍTICA: Usar identidade de track (jobId > fileKey > fileName)
+    const refIdentity = getTrackIdentity(ref);
+    const currIdentity = getTrackIdentity(curr);
+    
+    // Prioridade 1: jobId (chave primária)
+    if (refIdentity.jobId && currIdentity.jobId && refIdentity.jobId === currIdentity.jobId) {
         console.error('🚨 [STORE-ERROR] CONTAMINAÇÃO DETECTADA!');
-        console.error('   JobIds são IGUAIS:', ref.jobId);
+        console.error('   JobIds são IGUAIS:', refIdentity.jobId);
         console.error('   Isso NÃO DEVERIA ACONTECER com sistema isolado');
         console.trace();
+        return null; // Bloquear renderização se jobIds iguais
     }
     
-    // ⚠️ VALIDAÇÃO SECUNDÁRIA: fileName (apenas se ambos existirem e forem strings válidas)
-    const refFileName = ref?.fileName || ref?.metadata?.fileName;
-    const currFileName = curr?.fileName || curr?.metadata?.fileName;
+    // Prioridade 2: fileKey (chave secundária)
+    if (refIdentity.fileKey && currIdentity.fileKey && refIdentity.fileKey === currIdentity.fileKey) {
+        console.warn('⚠️ [STORE-WARNING] FileKeys iguais (porém jobIds diferentes):', refIdentity.fileKey);
+        console.warn('   Isso pode indicar re-upload do mesmo arquivo');
+        // Não bloqueia reference BASE, apenas avisa
+    }
     
-    if (refFileName && currFileName && 
-        typeof refFileName === 'string' && typeof currFileName === 'string' &&
-        refFileName === currFileName) {
-        console.warn('⚠️ [STORE-WARNING] Nomes de arquivo iguais (porém jobIds diferentes):', refFileName);
-        console.info('   Isso pode ser OK se forem análises diferentes do mesmo arquivo');
-    } else if (!refFileName || !currFileName) {
+    // Prioridade 3: fileName (terciária - apenas se ambos strings válidas)
+    if (refIdentity.fileName && currIdentity.fileName && 
+        refIdentity.fileName === currIdentity.fileName) {
+        console.info('ℹ️ [STORE-INFO] Nomes de arquivo iguais:', refIdentity.fileName);
+        console.info('   Isso é OK se jobIds/fileKeys forem diferentes');
+    } else if (!refIdentity.fileName || !currIdentity.fileName) {
         console.info('ℹ️ [STORE-INFO] fileName ausente em uma ou ambas análises (normal no reference BASE)');
     }
     
@@ -12481,8 +12515,8 @@ async function displayModalResults(analysis) {
             console.warn('[REFERENCE-MODE] ⚠️ buildComparisonRows retornou vazio');
         }
         
-        // 🎯 DEFINIR compareMode antes de renderizar (prevenir ReferenceError)
-        const compareMode = analysis?.compareMode || 'A_B';
+        // 🎯 Usar helper getCompareMode (NUNCA ctx.mode como fallback)
+        const compareMode = getCompareMode(analysis);
         
         renderReferenceComparisons({
             mode: 'reference',
@@ -15469,12 +15503,10 @@ async function displayModalResults(analysis) {
             console.log('🎵 [REFERENCE-MODE] isSecondTrack:', isSecondTrack);
             console.log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
             
-            // 🎯 DEFINIR compareMode CORRETAMENTE (prevenir ReferenceError)
-            const compareMode = analysis?.compareMode || 
-                              analysis?.analysis?.compareMode || 
-                              'A_B'; // fallback seguro
+            // 🎯 Usar helper getCompareMode (NUNCA ctx.mode como fallback)
+            const compareMode = getCompareMode(analysis);
             
-            console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - modo: ${compareMode}`);
+            console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - compareMode: ${compareMode}`);
             console.log('[RENDER-FLOW] mustBeReference:', mustBeReference);
             console.log('[RENDER-FLOW] __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
             console.log('[RENDER-FLOW] referenceAnalysisData.bands:', !!window.referenceAnalysisData?.bands);
@@ -16212,8 +16244,8 @@ function renderReferenceComparisons(ctx) {
     const isModeEngineRef = SOUNDY_MODE_ENGINE.isReferenceCompare();
     const isCurrentModeRef = window.currentAnalysisMode === 'reference';
     
-    // 🎯 Extrair compareMode do contexto (prevenir ReferenceError)
-    const compareMode = ctx?.compareMode || ctx?.mode || 'A_B';
+    // 🎯 Extrair compareMode usando helper (NUNCA ctx.mode)
+    const compareMode = getCompareMode(ctx);
     
     // 🔍 LOG DE DEBUG: Estado completo do gate
     const refJobIdForLog = window.__REFERENCE_JOB_ID__ || window.__soundyState?.referenceJobId;
@@ -16223,7 +16255,7 @@ function renderReferenceComparisons(ctx) {
     console.log('hasActiveReferenceContext():', hasRefContext);
     console.log('SOUNDY_MODE_ENGINE.isReferenceCompare():', isModeEngineRef);
     console.log('window.currentAnalysisMode:', window.currentAnalysisMode, '→ isRef:', isCurrentModeRef);
-    console.log('compareMode:', compareMode, '(fonte:', ctx?.compareMode ? 'ctx.compareMode' : ctx?.mode ? 'ctx.mode' : 'fallback)', ')');
+    console.log('compareMode:', compareMode, '(fonte: getCompareMode helper)');
     console.log('JobIds:', { refJobId: refJobIdForLog, currJobId: currJobIdForLog, areDifferent: refJobIdForLog !== currJobIdForLog });
     console.groupEnd();
     
