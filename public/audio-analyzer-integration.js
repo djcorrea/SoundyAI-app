@@ -89,6 +89,52 @@ function extractBands(analysisOrResult) {
 }
 
 /**
+ * 🎯 Helper: Extrai métricas A/B de forma tolerante (não requer bands)
+ * Valida existência de métricas mínimas necessárias para comparação A/B
+ * @param {Object} analysisOrResult - Objeto de análise ou resultado
+ * @returns {Object} { ok: boolean, metrics: {...}, technicalData: {...}, debugShape: {...} }
+ */
+function extractABMetrics(analysisOrResult) {
+    if (!analysisOrResult) {
+        return { ok: false, metrics: {}, technicalData: {}, debugShape: { error: 'payload null' } };
+    }
+    
+    // Tentar extrair technicalData de múltiplas localizações
+    const technicalData = 
+        analysisOrResult.technicalData ||
+        analysisOrResult.data?.technicalData ||
+        analysisOrResult.results?.technicalData ||
+        {};
+    
+    // Extrair métricas via helper existente
+    const metrics = extractMetrics(analysisOrResult);
+    
+    // Validar se tem métricas mínimas necessárias para A/B
+    const hasMinimalMetrics = (
+        technicalData.lufsIntegrated != null ||
+        technicalData.truePeakDbtp != null ||
+        technicalData.dynamicRange != null ||
+        metrics.lufsIntegrated != null ||
+        metrics.truePeakDbtp != null ||
+        metrics.dynamicRange != null
+    );
+    
+    return {
+        ok: hasMinimalMetrics,
+        metrics: metrics,
+        technicalData: technicalData,
+        debugShape: {
+            hasTechnicalData: !!technicalData,
+            hasMetrics: !!metrics && Object.keys(metrics).length > 0,
+            hasLufs: technicalData.lufsIntegrated != null || metrics.lufsIntegrated != null,
+            hasTruePeak: technicalData.truePeakDbtp != null || metrics.truePeakDbtp != null,
+            hasDR: technicalData.dynamicRange != null || metrics.dynamicRange != null,
+            topLevelKeys: Object.keys(analysisOrResult)
+        }
+    };
+}
+
+/**
  * 🎯 Helper: Garante que container de referência A/B existe no DOM
  * Cria se necessário (modo reference only)
  * @returns {HTMLElement|null} Container ou null se falhar
@@ -11728,20 +11774,26 @@ async function displayModalResults(analysis) {
         // 🎯 TENTATIVA DE HIDRATAÇÃO: Recuperar de FirstAnalysisStore
         const refFromStore = FirstAnalysisStore?.getRef?.();
         
-        if (refFromStore?.bands) {
+        // 🔍 NOVA VALIDAÇÃO: Verificar métricas A/B ao invés de bands
+        const refMetrics = extractABMetrics(refFromStore);
+        console.log('[AB-DATA] refFromStore keys:', refFromStore ? Object.keys(refFromStore) : null);
+        console.log('[AB-DATA] ref metrics extraction:', refMetrics);
+        
+        if (refMetrics.ok) {
             console.log('[AB-HYDRATE] ✅ Recuperado de FirstAnalysisStore:', {
                 jobId: refFromStore.jobId,
                 fileName: refFromStore.fileName || refFromStore.metadata?.fileName,
-                bandsCount: Object.keys(refFromStore.bands).length
+                hasMetrics: refMetrics.ok,
+                debugShape: refMetrics.debugShape
             });
             
             // Hidratar window.referenceAnalysisData
             window.referenceAnalysisData = {
                 ...refFromStore,
                 jobId: refFromStore.jobId,
-                bands: refFromStore.bands,
-                metrics: extractMetrics(refFromStore),
-                technicalData: refFromStore.technicalData || {}
+                bands: refFromStore.bands || extractBands(refFromStore),
+                metrics: refMetrics.metrics,
+                technicalData: refMetrics.technicalData
             };
             
             // Atualizar abState
@@ -11753,6 +11805,7 @@ async function displayModalResults(analysis) {
             console.error('[AB-BLOCK] ❌ Hidratação falhou - referência não disponível em nenhuma fonte');
             console.error('[AB-BLOCK] abState:', abState);
             console.error('[AB-BLOCK] FirstAnalysisStore.getRef():', refFromStore);
+            console.error('[AB-DATA] ref metrics extraction failed:', refMetrics.debugShape);
             
             // 🎯 FALLBACK VISUAL: Renderizar mensagem de erro no container A/B
             const container = ensureReferenceContainer();
@@ -16611,38 +16664,57 @@ function renderReferenceComparisons(ctx) {
     const userFromStore = FirstAnalysisStore.getUser();
     const refFromStore = FirstAnalysisStore.getRef();
     
-    if (!userFromStore?.bands || !refFromStore?.bands) {
-        console.warn('[AB-BLOCK] ⚠️ Bands ausentes no store - tentando hidratar...');
+    // 🔍 NOVA VALIDAÇÃO: Verificar métricas A/B ao invés de bands
+    const userMetricsCheck = extractABMetrics(userFromStore);
+    const refMetricsCheck = extractABMetrics(refFromStore);
+    
+    console.log('[AB-DATA] user metrics extraction ok?', userMetricsCheck.ok, userMetricsCheck.debugShape);
+    console.log('[AB-DATA] ref metrics extraction ok?', refMetricsCheck.ok, refMetricsCheck.debugShape);
+    
+    if (!userMetricsCheck.ok || !refMetricsCheck.ok) {
+        console.warn('[AB-BLOCK] ⚠️ Métricas A/B ausentes no store - tentando hidratar...');
         
         // 🎯 TENTATIVA DE HIDRATAÇÃO: Recuperar da análise atual se disponível
-        if (!refFromStore?.bands && window.referenceAnalysisData?.bands) {
-            console.log('[AB-HYDRATE] 🔄 Hidratando refFromStore com window.referenceAnalysisData');
-            const hydratedRef = {
-                ...refFromStore,
-                bands: window.referenceAnalysisData.bands,
-                metrics: extractMetrics(window.referenceAnalysisData),
-                jobId: window.referenceAnalysisData.jobId || window.__REFERENCE_JOB_ID__
-            };
-            FirstAnalysisStore.setRef(hydratedRef);
+        if (!refMetricsCheck.ok && window.referenceAnalysisData) {
+            const refFromWindow = extractABMetrics(window.referenceAnalysisData);
+            if (refFromWindow.ok) {
+                console.log('[AB-HYDRATE] 🔄 Hidratando refFromStore com window.referenceAnalysisData');
+                const hydratedRef = {
+                    ...refFromStore,
+                    bands: extractBands(window.referenceAnalysisData),
+                    metrics: refFromWindow.metrics,
+                    technicalData: refFromWindow.technicalData,
+                    jobId: window.referenceAnalysisData.jobId || window.__REFERENCE_JOB_ID__
+                };
+                FirstAnalysisStore.setRef(hydratedRef);
+            }
         }
         
-        if (!userFromStore?.bands && ctx?.userAnalysis?.bands) {
-            console.log('[AB-HYDRATE] 🔄 Hidratando userFromStore com ctx.userAnalysis');
-            const hydratedUser = {
-                ...userFromStore,
-                bands: extractBands(ctx.userAnalysis),
-                metrics: extractMetrics(ctx.userAnalysis),
-                jobId: ctx.userAnalysis.jobId
-            };
-            FirstAnalysisStore.setUser(hydratedUser);
+        if (!userMetricsCheck.ok && ctx?.userAnalysis) {
+            const userFromCtx = extractABMetrics(ctx.userAnalysis);
+            if (userFromCtx.ok) {
+                console.log('[AB-HYDRATE] 🔄 Hidratando userFromStore com ctx.userAnalysis');
+                const hydratedUser = {
+                    ...userFromStore,
+                    bands: extractBands(ctx.userAnalysis),
+                    metrics: userFromCtx.metrics,
+                    technicalData: userFromCtx.technicalData,
+                    jobId: ctx.userAnalysis.jobId
+                };
+                FirstAnalysisStore.setUser(hydratedUser);
+            }
         }
         
         // Re-verificar após hidratação
         const reCheckUser = FirstAnalysisStore.getUser();
         const reCheckRef = FirstAnalysisStore.getRef();
+        const reCheckUserMetrics = extractABMetrics(reCheckUser);
+        const reCheckRefMetrics = extractABMetrics(reCheckRef);
         
-        if (!reCheckUser?.bands || !reCheckRef?.bands) {
+        if (!reCheckUserMetrics.ok || !reCheckRefMetrics.ok) {
             console.error('[AB-BLOCK] ❌ Hidratação falhou - abortando A/B');
+            console.error('[AB-DATA] user recheck:', reCheckUserMetrics.debugShape);
+            console.error('[AB-DATA] ref recheck:', reCheckRefMetrics.debugShape);
             return;
         }
         
@@ -18894,12 +18966,20 @@ function renderReferenceComparisons(ctx) {
     // 🎯 RENDERIZAR TABELA NO DOM COM PROTEÇÃO DE ERRO
     try {
         container.innerHTML = abTableHTML;
+        
+        // 🔍 LOGS OBRIGATÓRIOS DE VERIFICAÇÃO
+        console.log('[AB-RENDER] container exists?', !!container);
+        console.log('[AB-RENDER] rows count:', rows.length);
+        console.log('[AB-RENDER] inserted?', container.innerHTML.length > 0);
         console.log('[RENDER-REF] ✅ HTML da tabela A/B inserido no DOM:', {
             htmlLength: abTableHTML.length,
-            containerHasContent: container.innerHTML.length > 0
+            containerHasContent: container.innerHTML.length > 0,
+            containerId: container.id,
+            rowsGenerated: rows.length
         });
     } catch (err) {
         console.error('[RENDER-REF] ❌ Erro ao inserir HTML da tabela A/B:', err);
+        console.log('[AB-RENDER] inserted?', false);
         container.innerHTML = `<div class="error-message" style="padding: 20px; color: #ff4444; background: #1a1a1f; border-radius: 8px;">
             ❌ Erro ao renderizar tabela de comparação A/B: ${err.message}
         </div>`;
