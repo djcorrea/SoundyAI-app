@@ -50,6 +50,33 @@ function hasActiveReferenceContext() {
     return hasRefJobId && (hasFirstStore || hasRefData);
 }
 
+/**
+ * 🧹 ISOLAMENTO DO MODO REFERENCE: Limpa contaminação de estado de gênero
+ * Garante que o modo reference não seja influenciado por selectedGenre/genreTargets
+ */
+function resetGenreContextForReference() {
+    console.log('[REFERENCE-ISOLATION] 🧹 Resetando contexto de gênero para modo reference');
+    
+    // Zerar flags de gênero que causam contaminação
+    if (window.__soundyState) {
+        window.__soundyState.selectedGenre = null;
+        window.__soundyState.hasGenreTargets = false;
+        window.__soundyState.currentAnalysisMode = 'reference';
+    }
+    
+    // Garantir que currentAnalysisMode está correto
+    window.currentAnalysisMode = 'reference';
+    
+    // Não tocar em variáveis de UI (usuário pode ter selecionado gênero no menu)
+    // Apenas garantir que não influenciam a análise de referência
+    
+    console.log('[REFERENCE-ISOLATION] ✅ Contexto isolado:', {
+        selectedGenre: window.__soundyState?.selectedGenre,
+        hasGenreTargets: window.__soundyState?.hasGenreTargets,
+        currentAnalysisMode: window.currentAnalysisMode
+    });
+}
+
 window.SOUNDY_MODE_ENGINE = {
     mode: "genre",          // "genre" | "reference_base" | "reference_compare"
     referenceBase: null,    // análise completa da primeira música
@@ -1355,19 +1382,25 @@ function getComparisonPair() {
         sameName: (ref?.fileName || ref?.metadata?.fileName) === (curr?.fileName || curr?.metadata?.fileName)
     });
     
-    // 🚨 VALIDAÇÃO CRÍTICA
-    if (ref?.jobId === curr?.jobId) {
+    // 🚨 VALIDAÇÃO CRÍTICA: Usar jobId como chave primária (não fileName)
+    if (ref?.jobId && curr?.jobId && ref.jobId === curr.jobId) {
         console.error('🚨 [STORE-ERROR] CONTAMINAÇÃO DETECTADA!');
         console.error('   JobIds são IGUAIS:', ref.jobId);
         console.error('   Isso NÃO DEVERIA ACONTECER com sistema isolado');
         console.trace();
     }
     
-    if ((ref?.fileName || ref?.metadata?.fileName) === (curr?.fileName || curr?.metadata?.fileName)) {
-        console.error('🚨 [STORE-ERROR] NOMES DE ARQUIVO IGUAIS!');
-        console.error('   FileName:', ref?.fileName || ref?.metadata?.fileName);
-        console.error('   Possível self-compare ou upload duplicado');
-        console.trace();
+    // ⚠️ VALIDAÇÃO SECUNDÁRIA: fileName (apenas se ambos existirem e forem strings válidas)
+    const refFileName = ref?.fileName || ref?.metadata?.fileName;
+    const currFileName = curr?.fileName || curr?.metadata?.fileName;
+    
+    if (refFileName && currFileName && 
+        typeof refFileName === 'string' && typeof currFileName === 'string' &&
+        refFileName === currFileName) {
+        console.warn('⚠️ [STORE-WARNING] Nomes de arquivo iguais (porém jobIds diferentes):', refFileName);
+        console.info('   Isso pode ser OK se forem análises diferentes do mesmo arquivo');
+    } else if (!refFileName || !currFileName) {
+        console.info('ℹ️ [STORE-INFO] fileName ausente em uma ou ambas análises (normal no reference BASE)');
     }
     
     return { ref, curr };
@@ -7648,6 +7681,11 @@ async function handleModalFileSelection(file) {
     console.log('📊 FirstAnalysisStore:', FirstAnalysisStore?.has());
     console.groupEnd();
     
+    // 🧹 ISOLAMENTO: Se modo reference, resetar contexto de gênero
+    if (window.currentAnalysisMode === 'reference' || currentMode === 'reference') {
+        resetGenreContextForReference();
+    }
+    
     // 🔒 [INVARIANTE #1] Se estamos em reference mas state machine não está, CORRIGIR
     if (window.currentAnalysisMode === 'reference' && currentMode !== 'reference') {
         console.error('%c[INVARIANTE #1 VIOLADA] currentAnalysisMode=reference mas StateMachine=' + currentMode, 'color:red;font-weight:bold;font-size:14px;');
@@ -12443,8 +12481,12 @@ async function displayModalResults(analysis) {
             console.warn('[REFERENCE-MODE] ⚠️ buildComparisonRows retornou vazio');
         }
         
+        // 🎯 DEFINIR compareMode antes de renderizar (prevenir ReferenceError)
+        const compareMode = analysis?.compareMode || 'A_B';
+        
         renderReferenceComparisons({
             mode: 'reference',
+            compareMode: compareMode,  // ✅ Passar explicitamente
             userAnalysis: renderUserAnalysis,        // 1ª faixa (sua música) - CLONE INDEPENDENTE
             referenceAnalysis: renderRefAnalysis,    // 2ª faixa (referência) - CLONE INDEPENDENTE
             analysis: {
@@ -15427,6 +15469,11 @@ async function displayModalResults(analysis) {
             console.log('🎵 [REFERENCE-MODE] isSecondTrack:', isSecondTrack);
             console.log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
             
+            // 🎯 DEFINIR compareMode CORRETAMENTE (prevenir ReferenceError)
+            const compareMode = analysis?.compareMode || 
+                              analysis?.analysis?.compareMode || 
+                              'A_B'; // fallback seguro
+            
             console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - modo: ${compareMode}`);
             console.log('[RENDER-FLOW] mustBeReference:', mustBeReference);
             console.log('[RENDER-FLOW] __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
@@ -16165,6 +16212,9 @@ function renderReferenceComparisons(ctx) {
     const isModeEngineRef = SOUNDY_MODE_ENGINE.isReferenceCompare();
     const isCurrentModeRef = window.currentAnalysisMode === 'reference';
     
+    // 🎯 Extrair compareMode do contexto (prevenir ReferenceError)
+    const compareMode = ctx?.compareMode || ctx?.mode || 'A_B';
+    
     // 🔍 LOG DE DEBUG: Estado completo do gate
     const refJobIdForLog = window.__REFERENCE_JOB_ID__ || window.__soundyState?.referenceJobId;
     const currJobIdForLog = window.__CURRENT_JOB_ID__ || ctx?.userAnalysis?.jobId;
@@ -16173,6 +16223,7 @@ function renderReferenceComparisons(ctx) {
     console.log('hasActiveReferenceContext():', hasRefContext);
     console.log('SOUNDY_MODE_ENGINE.isReferenceCompare():', isModeEngineRef);
     console.log('window.currentAnalysisMode:', window.currentAnalysisMode, '→ isRef:', isCurrentModeRef);
+    console.log('compareMode:', compareMode, '(fonte:', ctx?.compareMode ? 'ctx.compareMode' : ctx?.mode ? 'ctx.mode' : 'fallback)', ')');
     console.log('JobIds:', { refJobId: refJobIdForLog, currJobId: currJobIdForLog, areDifferent: refJobIdForLog !== currJobIdForLog });
     console.groupEnd();
     
