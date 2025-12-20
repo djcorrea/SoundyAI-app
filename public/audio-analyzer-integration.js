@@ -13950,8 +13950,21 @@ async function displayModalResults(analysis) {
       if (!refData || typeof refData !== 'object') refData = {};
       if (!__num(refData.tol_spectral) || refData.tol_spectral <= 0) refData.tol_spectral = 300;
 
-      // 🎯 CORREÇÃO: Detectar modo gênero e targets de múltiplas fontes
-      const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
+      // 🎯 CORREÇÃO: Detectar modo APENAS pelo state.render.mode (fonte da verdade)
+      // NUNCA usar SOUNDY_MODE_ENGINE.isGenre() para lógica de score (causa falsos positivos em reference)
+      const explicitMode = state?.render?.mode || window.currentAnalysisMode;
+      const isGenreMode = explicitMode === 'genre';
+      const DEBUG = window.__DEBUG_SCORE_REFERENCE__ || false;
+      
+      if (DEBUG) {
+          console.log('[MODE-DETECTION-SCORES] Mode detectado:', {
+              explicitMode,
+              isGenreMode,
+              source: state?.render?.mode ? 'state.render.mode' : 'currentAnalysisMode',
+              stateRenderMode: state?.render?.mode,
+              currentAnalysisMode: window.currentAnalysisMode
+          });
+      }
       
       // 🎯 CORREÇÃO: Buscar targets de gênero de todas as fontes possíveis
       const genreTargets = window.__activeRefData || 
@@ -21004,8 +21017,21 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         bandsCount: refData?.bands ? Object.keys(refData.bands).length : 0
     });
     
-    // 🎯 MODO GÊNERO: Detectar se é modo gênero e se há targets carregados
-    const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
+    // 🎯 CORREÇÃO: Detectar modo APENAS pelo state.render.mode (fonte da verdade)
+    // NUNCA usar SOUNDY_MODE_ENGINE.isGenre() para lógica de score (causa falsos positivos em reference)
+    const explicitMode = state?.render?.mode || window.currentAnalysisMode;
+    const isGenreMode = explicitMode === 'genre';
+    const DEBUG_SUBSCORES = window.__DEBUG_SCORE_REFERENCE__ || false;
+    
+    if (DEBUG_SUBSCORES) {
+        console.log('[MODE-DETECTION-SUBSCORES] Mode detectado:', {
+            explicitMode,
+            isGenreMode,
+            source: state?.render?.mode ? 'state.render.mode' : 'currentAnalysisMode',
+            stateRenderMode: state?.render?.mode,
+            currentAnalysisMode: window.currentAnalysisMode
+        });
+    }
     
     // 🎯 MODO GÊNERO: Extrair targets de gênero de referenceComparison
     let genreTargetBands = null;
@@ -24933,12 +24959,37 @@ if (typeof window !== 'undefined') {
         // 🎵 SUGESTÕES DE FREQUÊNCIA EM MODO REFERENCE
         const isReferenceMode = state?.render?.mode === 'reference' || window.currentAnalysisMode === 'reference';
         const isGenreModeCheck = state?.render?.mode === 'genre';
+        const DEBUG_FREQ_SUGGESTIONS = window.__DEBUG_SCORE_REFERENCE__ || false;
         
         if (isReferenceMode && !isGenreModeCheck && state?.reference?.referenceAnalysis && state?.reference?.userAnalysis) {
             console.log('[SUGGESTIONS-GEN] 🎵 Gerando sugestões de frequência para modo REFERENCE...');
             
+            // Validar que temos os dados necessários antes de extrair bandas
+            if (DEBUG_FREQ_SUGGESTIONS) {
+                console.log('[FREQ-SUGGESTIONS-DEBUG] Estado antes da extração:', {
+                    hasUserAnalysis: !!state.reference.userAnalysis,
+                    hasRefAnalysis: !!state.reference.referenceAnalysis,
+                    userAnalysisKeys: state.reference.userAnalysis ? Object.keys(state.reference.userAnalysis).slice(0, 5) : null,
+                    refAnalysisKeys: state.reference.referenceAnalysis ? Object.keys(state.reference.referenceAnalysis).slice(0, 5) : null,
+                    userHasTechnicalData: !!state.reference.userAnalysis?.technicalData,
+                    refHasTechnicalData: !!state.reference.referenceAnalysis?.technicalData
+                });
+            }
+            
             const userBands = extractBandsMap(state.reference.userAnalysis);
             const refBands = extractBandsMap(state.reference.referenceAnalysis);
+            
+            // Log de diagnóstico se extração falhar
+            if (!userBands || !refBands) {
+                console.error('[FREQ-SUGGESTIONS] ❌ Falha ao extrair bandas:', {
+                    userBands: !!userBands,
+                    refBands: !!refBands,
+                    userAnalysisPath: state.reference.userAnalysis ? 'presente' : 'ausente',
+                    refAnalysisPath: state.reference.referenceAnalysis ? 'presente' : 'ausente',
+                    userTechnicalData: state.reference.userAnalysis?.technicalData ? Object.keys(state.reference.userAnalysis.technicalData).slice(0, 5) : 'ausente',
+                    refTechnicalData: state.reference.referenceAnalysis?.technicalData ? Object.keys(state.reference.referenceAnalysis.technicalData).slice(0, 5) : 'ausente'
+                });
+            }
             
             if (userBands && refBands) {
                 const bandNames = {
