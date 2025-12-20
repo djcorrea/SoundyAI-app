@@ -16752,7 +16752,35 @@ function buildComparisonRows(metricsA, metricsB) {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🎯 PASSO 0: GUARD - DETECÇÃO ROBUSTA DE MODO REFERÊNCIA
+    // 🎯 PASSO 0A: DECLARAÇÃO LOCAL DE `analysis` (FIX: ReferenceError)
+    // ========================================
+    // ✅ Corrige crash "ReferenceError: analysis is not defined"
+    // Extrai `analysis` do contexto recebido com múltiplos fallbacks
+    const analysis = ctx?.analysis || 
+                     ctx?.analysisResult || 
+                     ctx?.currentAnalysis || 
+                     { 
+                         userAnalysis: ctx?.userAnalysis, 
+                         referenceAnalysis: ctx?.referenceAnalysis 
+                     };
+    
+    console.log('[REF-RENDER-FIX] ✅ Variable analysis declarada:', {
+        hasAnalysis: !!analysis,
+        hasUserAnalysis: !!analysis?.userAnalysis,
+        hasReferenceAnalysis: !!analysis?.referenceAnalysis,
+        source: ctx?.analysis ? 'ctx.analysis' : 
+                ctx?.analysisResult ? 'ctx.analysisResult' : 
+                ctx?.currentAnalysis ? 'ctx.currentAnalysis' : 'constructed'
+    });
+    
+    // ========================================
+    // 🛡️ TRY/CATCH WRAPPER: Proteção contra crashes na renderização
+    // ========================================
+    try {
+        console.log('[REF-RENDER-SAFE] Iniciando renderização protegida');
+    
+    // ========================================
+    // 🎯 PASSO 0B: GUARD - DETECÇÃO ROBUSTA DE MODO REFERÊNCIA
     // ========================================
     const hasRefContext = hasActiveReferenceContext();
     const isModeEngineRef = SOUNDY_MODE_ENGINE.isReferenceCompare();
@@ -19655,6 +19683,38 @@ function renderReferenceComparisons(ctx) {
         throw new Error("Reference not used");
     }
     window.__refRenderInProgress = false;
+    
+    // ========================================
+    // 🛡️ FIM DO TRY/CATCH WRAPPER
+    // ========================================
+    } catch (error) {
+        console.error('❌ [REF-RENDER-ERROR] Erro durante renderização:', error);
+        console.error('❌ [REF-RENDER-ERROR] Stack:', error.stack);
+        
+        // Liberar locks para evitar travamento
+        window.comparisonLock = false;
+        window.__refRenderInProgress = false;
+        
+        // Exibir mensagem amigável ao usuário
+        const container = document.getElementById('referenceComparisons');
+        if (container) {
+            container.innerHTML = `
+                <div class="card" style="margin-top:12px;padding:16px;text-align:center;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);">
+                    <strong style="color:#ff5252;">⚠️ Erro ao renderizar comparação</strong><br>
+                    <span style="font-size:11px;color:#ffb3b3;">Ocorreu um erro ao exibir os resultados. Por favor, tente novamente.</span><br>
+                    <span style="font-size:10px;color:#888;margin-top:8px;display:block;">Erro: ${error.message}</span>
+                </div>
+            `;
+        }
+        
+        // Liberar modal para evitar travamento
+        const loading = document.getElementById('audioAnalysisLoading');
+        const results = document.getElementById('audioAnalysisResults');
+        if (loading) loading.style.display = 'none';
+        if (results) results.style.display = 'block';
+        
+        console.log('[REF-RENDER-SAFE] ✅ Erro capturado e tratado com segurança');
+    }
 }
 
 // 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
