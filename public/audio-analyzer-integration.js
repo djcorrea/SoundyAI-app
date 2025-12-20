@@ -7089,7 +7089,7 @@ function renderGenreComparisonTable(options) {
                 
                 rows.push(`
                     <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🔊 Loudness (LUFS)</td>
+                        <td class="metric-name">🔊 Loudness (LUFS Integrado)</td>
                         <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
                         <td class="metric-target">${canRender ? genreData.lufs_target.toFixed(1) + ' LUFS' : renderSecurePlaceholder('target')}</td>
                         <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
@@ -14379,14 +14379,14 @@ async function displayModalResults(analysis) {
                 // 🎯 Exibir sempre, mesmo se 0
                 if (lufsValue === null || lufsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS NÃO ENCONTRADO - exibindo 0');
-                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
+                    return row('Loudness (LUFS Integrado)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
                 }
                 if (!Number.isFinite(lufsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS valor inválido:', lufsValue);
-                    return row('Loudness (LUFS)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
+                    return row('Loudness (LUFS Integrado)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
                 }
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness (LUFS) RENDERIZADO:', lufsValue, 'LUFS');
-                return row('Loudness (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
+                return row('Loudness (LUFS Integrado)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
             })(),
             
             row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
@@ -19279,7 +19279,7 @@ function renderReferenceComparisons(ctx) {
         };
         
         // ===== MÉTRICAS PRINCIPAIS =====
-        addABRow('Loudness (LUFS)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs', 0.5);
+        addABRow('Loudness (LUFS Integrado)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs', 0.5);
         addABRow('True Peak (dBTP)', userTech.truePeakDbtp, refTech.truePeakDbtp, ' dBTP', 'truepeak', 0.3);
         addABRow('Dynamic Range (LU)', userTech.dynamicRange, refTech.dynamicRange, ' LU', 'dr', 1.0);
         addABRow('LRA (LU)', userTech.lra, refTech.lra, ' LU', 'lra', 1.0);
@@ -19928,7 +19928,7 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     };
     
     // ===== MÉTRICAS PRINCIPAIS =====
-    addRow('Loudness (LUFS)', currTech.lufsIntegrated || currTech.lufs_integrated, 
+    addRow('Loudness (LUFS Integrado)', currTech.lufsIntegrated || currTech.lufs_integrated, 
            refTech.lufsIntegrated || refTech.lufs_integrated, ' LUFS', 5);
     
     addRow('True Peak (dBTP)', currTech.truePeakDbtp || currTech.true_peak_dbtp,
