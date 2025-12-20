@@ -17826,8 +17826,12 @@ function renderReferenceComparisons(ctx) {
     userBands = userBandsLocal;
     refBands = refBandsLocal;
     
+    // 🎯 HOTFIX: Declarar detectedRenderMode ANTES de usar (evitar TDZ)
+    const detectedRenderMode = opts.mode || stateV3?.render?.mode || 
+                                (stateV3.reference?.isSecondTrack === true ? 'reference' : 'genre');
+    
     // 🎯 PATCH CRÍTICO A: Persistir bandas em estrutura canônica para subscore
-    if (renderMode === 'reference' && userBandsLocal && refBandsLocal) {
+    if (detectedRenderMode === 'reference' && userBandsLocal && refBandsLocal) {
         stateV3.reference = stateV3.reference || {};
         stateV3.reference.bands = {
             userBands: userBandsLocal,
@@ -20677,85 +20681,148 @@ function calculateFrequencyScore(analysis, refData) {
     
     // 🎯 MODO REFERENCE: Usar comparação direta A vs B
     if (isReferenceMode && hasRefContext) {
-        console.log('[FREQ-SCORE] 🔄 Modo reference detectado - usando bandas canônicas de stateV3');
+        console.log('[FREQ-SCORE] 🔄 Modo reference detectado - extraindo bandas de análises');
         
-        // 🎯 PATCH CRÍTICO B: Usar bandas persistidas do stateV3.reference.bands
-        const stateV3 = window.__soundyState || {};
-        const persistedBands = stateV3?.reference?.bands;
-        
-        if (persistedBands?.userBands && persistedBands?.refBands) {
-            console.log('[FREQ-SCORE] ✅ Usando bandas persistidas do stateV3.reference.bands');
+        // 🎯 HOTFIX B: Helper local para extrair bandas (aceita technicalData.bands e spectralBands)
+        const extractBandsLocal = (analysis, label) => {
+            if (!analysis) return { bandsMap: null, source: 'null-analysis' };
             
-            const userBandsA = persistedBands.userBands;
-            const refBandsB = persistedBands.refBands;
+            // Prioridades:
+            // 1. technicalData.bands (objeto com {sub:{energy_db}, bass:{}, ...})
+            // 2. technicalData.spectralBands (array com [{name, energy_db}, ...])
+            // 3. bands direto (fallback)
+            const techBands = analysis.technicalData?.bands;
+            const spectralBands = analysis.technicalData?.spectralBands;
+            const directBands = analysis.bands;
             
-            // 🛡️ GUARDRAIL 1: Validar âncoras (sub, bass, mid)
-            const anchorKeysA = ['sub', 'bass', 'mid'].filter(k => {
-                const val = userBandsA[k]?.energy_db ?? userBandsA[k];
-                return Number.isFinite(val);
-            });
+            let rawBands = null;
+            let source = 'unknown';
             
-            const anchorKeysB = ['sub', 'bass', 'mid'].filter(k => {
-                const val = refBandsB[k]?.energy_db ?? refBandsB[k];
-                return Number.isFinite(val);
-            });
-            
-            console.log('[FREQ-SCORE-AUDIT] 🔍 Validação de âncoras:', {
-                anchorKeysA,
-                anchorKeysB,
-                subA: userBandsA.sub?.energy_db ?? userBandsA.sub,
-                bassA: userBandsA.bass?.energy_db ?? userBandsA.bass,
-                midA: userBandsA.mid?.energy_db ?? userBandsA.mid,
-                subB: refBandsB.sub?.energy_db ?? refBandsB.sub,
-                bassB: refBandsB.bass?.energy_db ?? refBandsB.bass,
-                midB: refBandsB.mid?.energy_db ?? refBandsB.mid
-            });
-            
-            // 🛡️ GUARDRAIL 2: Se B não tem âncoras válidas -> ERRO EXPLÍCITO (NÃO copiar A)
-            if (anchorKeysB.length === 0) {
-                console.error('[FREQ-SCORE] ❌ ERRO CRÍTICO: refBands B sem âncoras válidas!');
-                console.error('[FREQ-SCORE] refBands B:', refBandsB);
-                console.error('[FREQ-SCORE] NÃO copiar userBands A - retornando null');
-                return null;
+            if (techBands && typeof techBands === 'object' && Object.keys(techBands).length > 0) {
+                rawBands = techBands;
+                source = 'technicalData.bands';
+            } else if (spectralBands && Array.isArray(spectralBands) && spectralBands.length > 0) {
+                // Converter array [{name, energy_db}] para map {sub: {energy_db}}
+                rawBands = {};
+                for (const band of spectralBands) {
+                    if (band && band.name) {
+                        const key = band.name.toLowerCase().replace(/\s+/g, '');
+                        const energy = band.energy_db ?? band.energyDb ?? band.db ?? band.energy;
+                        if (Number.isFinite(energy)) {
+                            rawBands[key] = { energy_db: energy };
+                        }
+                    }
+                }
+                source = 'technicalData.spectralBands (array→map)';
+            } else if (directBands && typeof directBands === 'object' && Object.keys(directBands).length > 0) {
+                rawBands = directBands;
+                source = 'analysis.bands';
             }
             
-            // 🛡️ GUARDRAIL 3: Detectar se A === B (same reference)
-            if (userBandsA === refBandsB) {
-                console.error('[FREQ-SCORE] ❌ ERRO: userBands e refBands são o MESMO objeto (same reference)!');
-                console.error('[FREQ-SCORE] Isso causaria diff=0 sempre - retornando null');
-                return null;
+            if (!rawBands) {
+                console.warn(`[FREQ-SCORE] ⚠️ ${label}: Nenhuma banda encontrada`);
+                return { bandsMap: null, source: 'not-found' };
             }
             
-            // 🛡️ GUARDRAIL 4: Comparar alguns valores para detectar cópias
-            let identicalCount = 0;
-            for (const key of ['sub', 'bass', 'mid']) {
-                const valA = userBandsA[key]?.energy_db ?? userBandsA[key];
-                const valB = refBandsB[key]?.energy_db ?? refBandsB[key];
-                if (Number.isFinite(valA) && Number.isFinite(valB) && Math.abs(valA - valB) < 0.001) {
-                    identicalCount++;
+            // Normalizar para garantir energy_db
+            const normalized = {};
+            for (const [key, value] of Object.entries(rawBands)) {
+                if (typeof value === 'object' && value !== null) {
+                    const energy = value.energy_db ?? value.energyDb ?? value.db ?? value.energy ?? value.rms_db;
+                    if (Number.isFinite(energy)) {
+                        normalized[key] = { energy_db: energy };
+                    }
+                } else if (Number.isFinite(value)) {
+                    normalized[key] = { energy_db: value };
                 }
             }
             
-            if (identicalCount === 3) {
-                console.warn('[FREQ-SCORE] ⚠️ SUSPEITO: Todas 3 âncoras (sub/bass/mid) idênticas entre A e B!');
-                console.warn('[FREQ-SCORE] Pode ser mesmo áudio analisado 2x - prosseguindo mas verificar');
-                console.warn('[FREQ-SCORE] A vs B:', {
-                    subA: userBandsA.sub?.energy_db ?? userBandsA.sub,
-                    subB: refBandsB.sub?.energy_db ?? refBandsB.sub,
-                    bassA: userBandsA.bass?.energy_db ?? userBandsA.bass,
-                    bassB: refBandsB.bass?.energy_db ?? refBandsB.bass,
-                    midA: userBandsA.mid?.energy_db ?? userBandsA.mid,
-                    midB: refBandsB.mid?.energy_db ?? refBandsB.mid
-                });
-            }
-            
-            return calculateFrequencyScoreReference(userBandsA, refBandsB);
+            console.log(`[FREQ-SCORE] ✅ ${label}: ${Object.keys(normalized).length} bandas de ${source}`);
+            return { bandsMap: normalized, source };
+        };
+        
+        // 🎯 HOTFIX B: Tentar usar stateV3.reference.bands primeiro (cache), senão extrair
+        const stateV3 = window.__soundyState || {};
+        let userBandsA = null;
+        let refBandsB = null;
+        
+        if (stateV3?.reference?.bands?.userBands && stateV3?.reference?.bands?.refBands) {
+            console.log('[FREQ-SCORE] ✅ Usando bandas CACHEADAS de stateV3.reference.bands');
+            userBandsA = stateV3.reference.bands.userBands;
+            refBandsB = stateV3.reference.bands.refBands;
         } else {
-            console.error('[FREQ-SCORE] ❌ ERRO: stateV3.reference.bands não encontrado!');
-            console.error('[FREQ-SCORE] stateV3.reference:', stateV3?.reference);
-            console.error('[FREQ-SCORE] Retornando null - NÃO usar fallback que copia A->B');
+            console.log('[FREQ-SCORE] ⚠️ Cache ausente - extraindo bandas diretamente de análises');
+            
+            const userAnalysisRef = stateV3?.reference?.userAnalysis || analysis;
+            const refAnalysisRef = stateV3?.reference?.referenceAnalysis || refData._referenceAnalysisFull;
+            
+            const extractedA = extractBandsLocal(userAnalysisRef, 'userAnalysis');
+            const extractedB = extractBandsLocal(refAnalysisRef, 'referenceAnalysis');
+            
+            userBandsA = extractedA.bandsMap;
+            refBandsB = extractedB.bandsMap;
+            
+            // 🎯 CACHEAR para próximas chamadas
+            if (userBandsA && refBandsB) {
+                stateV3.reference = stateV3.reference || {};
+                stateV3.reference.bands = {
+                    userBands: userBandsA,
+                    refBands: refBandsB
+                };
+                stateV3.reference.analysis = stateV3.reference.analysis || {};
+                stateV3.reference.analysis.bands = refBandsB;
+                window.__soundyState = stateV3;
+                console.log('[FREQ-SCORE] ✅ Bandas cacheadas em stateV3.reference.bands');
+            }
+        }
+        
+        // 🛡️ GUARDRAILS
+        if (!userBandsA || !refBandsB) {
+            console.error('[FREQ-SCORE] ❌ ERRO: Bandas ausentes após extração!');
+            console.error('[FREQ-SCORE] userBandsA:', !!userBandsA, 'refBandsB:', !!refBandsB);
             return null;
         }
+        
+        // 🛡️ GUARDRAIL: Validar âncoras B
+        const anchorKeysB = ['sub', 'bass', 'mid'].filter(k => {
+            const val = refBandsB[k]?.energy_db ?? refBandsB[k];
+            return Number.isFinite(val);
+        });
+        
+        if (anchorKeysB.length === 0) {
+            console.error('[FREQ-SCORE] ❌ ERRO: refBands B sem âncoras válidas (sub/bass/mid)!');
+            console.error('[FREQ-SCORE] refBands B keys:', Object.keys(refBandsB));
+            return null;
+        }
+        
+        // 🛡️ GUARDRAIL: Detectar same reference
+        if (userBandsA === refBandsB) {
+            console.error('[FREQ-SCORE] ❌ ERRO: userBands === refBands (same object reference)!');
+            return null;
+        }
+        
+        // 🛡️ GUARDRAIL: Detectar valores idênticos (warning apenas)
+        let identicalCount = 0;
+        for (const key of ['sub', 'bass', 'mid']) {
+            const valA = userBandsA[key]?.energy_db ?? userBandsA[key];
+            const valB = refBandsB[key]?.energy_db ?? refBandsB[key];
+            if (Number.isFinite(valA) && Number.isFinite(valB) && Math.abs(valA - valB) < 0.001) {
+                identicalCount++;
+            }
+        }
+        
+        if (identicalCount === 3) {
+            console.warn('[FREQ-SCORE] ⚠️ SUSPEITO: sub/bass/mid idênticas entre A e B!');
+        }
+        
+        console.log('[FREQ-SCORE-AUDIT] 🔍 Âncoras validadas:', {
+            subA: userBandsA.sub?.energy_db ?? userBandsA.sub,
+            subB: refBandsB.sub?.energy_db ?? refBandsB.sub,
+            bassA: userBandsA.bass?.energy_db ?? userBandsA.bass,
+            bassB: refBandsB.bass?.energy_db ?? refBandsB.bass
+        });
+        
+        return calculateFrequencyScoreReference(userBandsA, refBandsB);
     }
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
