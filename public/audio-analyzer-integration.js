@@ -50,6 +50,45 @@ function getCompareMode(input) {
 }
 
 /**
+ * 🎯 Helper: Extrai métricas de análise de forma robusta
+ * Tenta múltiplas localizações no payload para garantir compatibilidade
+ * @param {Object} analysisOrResult - Objeto de análise ou resultado
+ * @returns {Object} Objeto de métricas (mesmo que vazio)
+ */
+function extractMetrics(analysisOrResult) {
+    if (!analysisOrResult) return {};
+    
+    // Tentar múltiplas localizações (ordem de prioridade)
+    const metrics = 
+        analysisOrResult.data?.metrics ||
+        analysisOrResult.metrics ||
+        analysisOrResult.results?.metrics ||
+        analysisOrResult.normalizedResult?.metrics ||
+        analysisOrResult.referenceAnalysis?.data?.metrics ||
+        {};
+    
+    return metrics;
+}
+
+/**
+ * 🎯 Helper: Extrai bands de análise de forma robusta
+ * @param {Object} analysisOrResult - Objeto de análise ou resultado
+ * @returns {Object} Objeto de bands (mesmo que vazio)
+ */
+function extractBands(analysisOrResult) {
+    if (!analysisOrResult) return {};
+    
+    const bands = 
+        analysisOrResult.bands ||
+        analysisOrResult.technicalData?.spectral_balance ||
+        analysisOrResult.data?.bands ||
+        analysisOrResult.spectralBands ||
+        {};
+    
+    return bands;
+}
+
+/**
  * 🎯 Helper: Extrai identidade de track para validação de duplicação
  * @param {Object} track - Objeto de análise
  * @returns {Object} { jobId, fileKey, fileName }
@@ -7016,15 +7055,20 @@ function renderGenreComparisonTable(options) {
         rowsCount: rows.length
     });
     
-    container.innerHTML = tableHTML;
-    
-    // 🔥 AUDITORIA CRÍTICA: Verificar container DEPOIS de inserir HTML
-    console.log('[GENRE-TABLE-AUDIT] 🔍 DEPOIS de innerHTML:', {
-        containerInnerHTMLLength: container.innerHTML.length,
-        containerFirstChild: container.firstChild ? container.firstChild.className : 'N/A',
-        tableExists: !!container.querySelector('.classic-genre-table'),
-        rowsInDOM: container.querySelectorAll('tr').length
-    });
+    try {
+        container.innerHTML = tableHTML;
+        
+        // 🔥 AUDITORIA CRÍTICA: Verificar container DEPOIS de inserir HTML
+        console.log('[GENRE-TABLE-AUDIT] 🔍 DEPOIS de innerHTML:', {
+            containerInnerHTMLLength: container.innerHTML.length,
+            containerFirstChild: container.firstChild ? container.firstChild.className : 'N/A',
+            tableExists: !!container.querySelector('.classic-genre-table'),
+            rowsInDOM: container.querySelectorAll('tr').length
+        });
+    } catch (err) {
+        console.error('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
+        container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
+    }
     
     // Forçar visibilidade
     container.classList.remove('hidden');
@@ -12499,7 +12543,17 @@ async function displayModalResults(analysis) {
         
         // 🔥 NOVO: Construir tabela A vs B via buildComparisonRows em reference mode
         console.log('[REFERENCE-MODE] 🔨 Construindo tabela de comparação A vs B');
-        const comparisonRows = buildComparisonRows(renderUserAnalysis, renderRefAnalysis);
+        
+        // 🎯 CORREÇÃO: Usar extractMetrics para garantir acesso robusto às métricas
+        const userMetrics = extractMetrics(renderUserAnalysis) || renderUserAnalysis;
+        const refMetrics = extractMetrics(renderRefAnalysis) || renderRefAnalysis;
+        
+        console.log('[REFERENCE-MODE] 📊 Métricas extraídas:', {
+            userMetricsKeys: Object.keys(userMetrics),
+            refMetricsKeys: Object.keys(refMetrics)
+        });
+        
+        const comparisonRows = buildComparisonRows(userMetrics, refMetrics);
         
         if (comparisonRows && comparisonRows.length > 0) {
             console.log('[REFERENCE-MODE] ✅ Tabela construída com', comparisonRows.length, 'linhas');
@@ -15478,11 +15532,20 @@ async function displayModalResults(analysis) {
             const mode = analysis?.mode || currentAnalysisMode;
             const state = window.__soundyState || {};
             
+            // 🎯 CORREÇÃO: Declarar mustBeReference ANTES de usar (previne ReferenceError)
+            const mustBeReference = (
+                mode === 'reference' ||
+                isSecondTrack ||
+                hasActiveReferenceContext() ||
+                SOUNDY_MODE_ENGINE?.isReferenceCompare?.()
+            );
+            
             console.log('🔍 [RENDER-FLOW] Verificando modo e decisão de renderização:', {
                 'analysis.mode': analysis.mode,
                 'analysis.isReferenceBase': analysis.isReferenceBase,
                 'currentAnalysisMode': window.currentAnalysisMode,
                 isSecondTrack,
+                mustBeReference,
                 hasReferenceAnalysisData: !!window.referenceAnalysisData,
                 '__REFERENCE_JOB_ID__': window.__REFERENCE_JOB_ID__,
                 stateRenderMode: state.render?.mode
@@ -16457,8 +16520,41 @@ function renderReferenceComparisons(ctx) {
     const refFromStore = FirstAnalysisStore.getRef();
     
     if (!userFromStore?.bands || !refFromStore?.bands) {
-        console.warn('[AB-BLOCK] ⚠️ Bands ausentes - abortando A/B');
-        return;
+        console.warn('[AB-BLOCK] ⚠️ Bands ausentes no store - tentando hidratar...');
+        
+        // 🎯 TENTATIVA DE HIDRATAÇÃO: Recuperar da análise atual se disponível
+        if (!refFromStore?.bands && window.referenceAnalysisData?.bands) {
+            console.log('[AB-HYDRATE] 🔄 Hidratando refFromStore com window.referenceAnalysisData');
+            const hydratedRef = {
+                ...refFromStore,
+                bands: window.referenceAnalysisData.bands,
+                metrics: extractMetrics(window.referenceAnalysisData),
+                jobId: window.referenceAnalysisData.jobId || window.__REFERENCE_JOB_ID__
+            };
+            FirstAnalysisStore.setRef(hydratedRef);
+        }
+        
+        if (!userFromStore?.bands && ctx?.userAnalysis?.bands) {
+            console.log('[AB-HYDRATE] 🔄 Hidratando userFromStore com ctx.userAnalysis');
+            const hydratedUser = {
+                ...userFromStore,
+                bands: extractBands(ctx.userAnalysis),
+                metrics: extractMetrics(ctx.userAnalysis),
+                jobId: ctx.userAnalysis.jobId
+            };
+            FirstAnalysisStore.setUser(hydratedUser);
+        }
+        
+        // Re-verificar após hidratação
+        const reCheckUser = FirstAnalysisStore.getUser();
+        const reCheckRef = FirstAnalysisStore.getRef();
+        
+        if (!reCheckUser?.bands || !reCheckRef?.bands) {
+            console.error('[AB-BLOCK] ❌ Hidratação falhou - abortando A/B');
+            return;
+        }
+        
+        console.log('[AB-HYDRATE] ✅ Hidratação bem-sucedida');
     }
     
     // Detectar self-compare por múltiplos critérios de conteúdo
@@ -18692,7 +18788,19 @@ function renderReferenceComparisons(ctx) {
         </div>`;
     }
     
-    container.innerHTML = abTableHTML;
+    // 🎯 RENDERIZAR TABELA NO DOM COM PROTEÇÃO DE ERRO
+    try {
+        container.innerHTML = abTableHTML;
+        console.log('[RENDER-REF] ✅ HTML da tabela A/B inserido no DOM:', {
+            htmlLength: abTableHTML.length,
+            containerHasContent: container.innerHTML.length > 0
+        });
+    } catch (err) {
+        console.error('[RENDER-REF] ❌ Erro ao inserir HTML da tabela A/B:', err);
+        container.innerHTML = `<div class="error-message" style="padding: 20px; color: #ff4444; background: #1a1a1f; border-radius: 8px;">
+            ❌ Erro ao renderizar tabela de comparação A/B: ${err.message}
+        </div>`;
+    }
     
     // 🎯 FORÇAR VISIBILIDADE DA TABELA EM AMBOS OS MODOS
     console.log('[UI_RENDER] Forçando renderização da tabela comparativa');
