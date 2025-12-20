@@ -759,16 +759,24 @@ class AISuggestionUIController {
                 ? getCorrectTargets(analysis) 
                 : (analysis?.data?.genreTargets || null);
             
+            // 🎯 VALIDAÇÃO CONDICIONAL: genreTargets só é obrigatório em modo genre
+            const analysisMode = analysis?.mode || window.currentAnalysisMode || 'genre';
+            const isGenreMode = analysisMode === 'genre';
+            
             if (!metrics) {
                 console.error('[AI-UI][VALIDATION] ❌ analysis.data.metrics não encontrado');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas');
             }
             
-            if (!genreTargets) {
-                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado (POSTGRES)');
+            if (!genreTargets && isGenreMode) {
+                // ❌ Apenas erro em modo genre
+                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado em modo GENRE');
                 console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
                 console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
                 console.warn('[AI-UI][VALIDATION] analysis.data:', !!analysis?.data);
+            } else if (!genreTargets && !isGenreMode) {
+                // ℹ️ Apenas info em modo reference
+                console.info('[AI-UI][VALIDATION] ℹ️ genreTargets ausente em modo REFERENCE (OK - esperado)');
             }
             
             if (metrics && genreTargets) {
