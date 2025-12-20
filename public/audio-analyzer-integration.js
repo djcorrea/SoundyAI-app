@@ -1277,6 +1277,99 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
     }
 
     // ==========================================
+    // 6️⃣ FREQUÊNCIA (BANDAS ESPECTRAIS A vs B)
+    // ==========================================
+    const extractBandsForSuggestions = (analysis) => {
+        return analysis?.technicalData?.spectral_balance ||
+               analysis?.technicalData?.bands ||
+               analysis?.bands ||
+               analysis?.spectralBands ||
+               null;
+    };
+    
+    const userBands = extractBandsForSuggestions(userAnalysis);
+    const refBands = extractBandsForSuggestions(refAnalysis);
+    
+    if (userBands && refBands) {
+        console.log('[A/B-SUGGESTIONS] 🎵 Processando bandas espectrais...');
+        
+        const bandNames = {
+            sub: { name: 'Sub (20-60Hz)', icon: '🔊', threshold: 2.0 },
+            bass: { name: 'Bass (60-150Hz)', icon: '🎸', threshold: 2.0 },
+            lowMid: { name: 'Low-Mid (150-500Hz)', icon: '🎹', threshold: 1.5 },
+            mid: { name: 'Mid (500-2kHz)', icon: '🎤', threshold: 1.5 },
+            highMid: { name: 'High-Mid (2-5kHz)', icon: '🎺', threshold: 1.5 },
+            presence: { name: 'Presence (5-10kHz)', icon: '🎻', threshold: 2.0 },
+            air: { name: 'Air (10-20kHz)', icon: '✨', threshold: 2.0 }
+        };
+        
+        const aliases = {
+            'low_bass': 'bass',
+            'upper_bass': 'bass',
+            'low_mid': 'lowMid',
+            'high_mid': 'highMid',
+            'brilho': 'air',
+            'presenca': 'presence'
+        };
+        
+        let bandsProcessed = 0;
+        
+        for (const [key, config] of Object.entries(bandNames)) {
+            const getBandValue = (bands, bandKey) => {
+                let val = bands[bandKey];
+                if (val === undefined && aliases[bandKey]) {
+                    val = bands[aliases[bandKey]];
+                }
+                if (val === undefined) {
+                    val = bands[bandKey];
+                }
+                return typeof val === 'object' ? 
+                       (val.energy_db ?? val.rms_db ?? val.value) : val;
+            };
+            
+            const userVal = getBandValue(userBands, key);
+            const refVal = getBandValue(refBands, key);
+            
+            if (Number.isFinite(userVal) && Number.isFinite(refVal)) {
+                const delta = userVal - refVal;
+                const absDelta = Math.abs(delta);
+                
+                if (absDelta >= config.threshold) {
+                    bandsProcessed++;
+                    const severidade = absDelta >= 4.0 ? "MODERADA" : "LEVE";
+                    const acao = delta > 0 ? "reduzir" : "aumentar";
+                    const eqTipo = delta > 0 ? "corte" : "boost";
+                    
+                    suggestions.push({
+                        categoria: `Frequência - ${config.name}`,
+                        severidade: severidade,
+                        problema: `${config.icon} Banda ${config.name} está ${Math.abs(delta).toFixed(1)}dB ${delta > 0 ? 'acima' : 'abaixo'} da referência. Sua faixa: ${userVal.toFixed(1)}dB vs Referência: ${refVal.toFixed(1)}dB.`,
+                        causaProvavel: `Balanceamento espectral diferente na região ${config.name.toLowerCase()}.`,
+                        solucao: `${acao.charAt(0).toUpperCase() + acao.slice(1)} ${Math.abs(delta).toFixed(1)}dB na região ${config.name} usando EQ paramétrico. Aplique ${eqTipo} de ${Math.abs(delta).toFixed(1)}dB com Q médio (1.0-2.0).`,
+                        pluginRecomendado: "FabFilter Pro-Q 3, Waves SSL E-Channel, iZotope Neutron EQ",
+                        dicaExtra: `Use analyzer visual para confirmar o ajuste. Compare antes/depois com faixa de referência usando match EQ.`,
+                        parametros: {
+                            banda: config.name,
+                            userValue: userVal.toFixed(1) + ' dB',
+                            refValue: refVal.toFixed(1) + ' dB',
+                            diferenca: delta.toFixed(1) + ' dB',
+                            ajusteRecomendado: `${eqTipo} ${Math.abs(delta).toFixed(1)}dB`
+                        },
+                        aiEnhanced: true
+                    });
+                }
+            }
+        }
+        
+        console.log(`[A/B-SUGGESTIONS] 🎵 Bandas processadas: ${bandsProcessed}`);
+    } else {
+        console.warn('[A/B-SUGGESTIONS] ⚠️ Bandas espectrais ausentes:', {
+            hasUserBands: !!userBands,
+            hasRefBands: !!refBands
+        });
+    }
+
+    // ==========================================
     // 📊 RESULTADO FINAL
     // ==========================================
     console.log(`[A/B-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões comparativas`);
@@ -1287,11 +1380,11 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
         );
     }
 
-    // Limitar a 5 sugestões mais relevantes (ordenadas por severidade)
+    // Limitar a 8 sugestões mais relevantes (ordenadas por severidade)
     const severityOrder = { "CRÍTICA": 0, "ALTA": 1, "MODERADA": 2, "IMPORTANTE": 3, "LEVE": 4 };
     return suggestions
         .sort((a, b) => (severityOrder[a.severidade] || 5) - (severityOrder[b.severidade] || 5))
-        .slice(0, 5);
+        .slice(0, 8);  // Aumentado de 5 para 8 para acomodar sugestões de frequência
 }
 
 // ========================================
@@ -20559,12 +20652,43 @@ function calculateFrequencyScore(analysis, refData) {
     if (isReferenceMode && hasRefContext) {
         console.log('[FREQ-SCORE] 🔄 Redirecionando para calculateFrequencyScoreReference (comparação direta A vs B)');
         const firstAnalysis = window.FirstAnalysisStore?.get?.();
-        if (firstAnalysis) {
-            const bandsA = firstAnalysis.technicalData?.spectral_balance || firstAnalysis.bands;
-            const bandsB = bandsToUse;
+        
+        // 🎯 CORREÇÃO CRÍTICA: bandsA e bandsB devem vir de fontes DIFERENTES!
+        // bandsA = primeira faixa (userAnalysis) via FirstAnalysisStore
+        // bandsB = segunda faixa (referenceAnalysis) via refData.bands
+        const bandsA = firstAnalysis?.technicalData?.spectral_balance || 
+                       firstAnalysis?.technicalData?.bands ||
+                       firstAnalysis?.bands;
+        
+        const bandsB = refData.bands ||  // <-- CORREÇÃO: usar refData.bands, NÃO bandsToUse!
+                       refData.spectral_balance ||
+                       refData.technicalData?.spectral_balance;
+        
+        // 🔍 LOG DE AUDITORIA: Verificar se são DIFERENTES
+        console.log('[FREQ-SCORE-AUDIT] 🔍 Verificação de fonte de bandas:');
+        console.log('[FREQ-SCORE-AUDIT]   bandsA source:', bandsA ? 'FirstAnalysisStore (userAnalysis)' : 'AUSENTE');
+        console.log('[FREQ-SCORE-AUDIT]   bandsB source:', bandsB ? 'refData.bands (referenceAnalysis)' : 'AUSENTE');
+        console.log('[FREQ-SCORE-AUDIT]   sameRef?', bandsA === bandsB, Object.is(bandsA, bandsB));
+        
+        if (bandsA && bandsB) {
+            // Log de 3 âncoras para validação
+            const getSafeValue = (obj, key) => {
+                const val = obj[key];
+                return typeof val === 'object' ? (val.energy_db ?? val.rms_db ?? val.value) : val;
+            };
+            console.log('[FREQ-SCORE-AUDIT]   Âncoras A: sub=', getSafeValue(bandsA, 'sub')?.toFixed(2), 
+                        'bass=', getSafeValue(bandsA, 'bass')?.toFixed(2), 
+                        'mid=', getSafeValue(bandsA, 'mid')?.toFixed(2));
+            console.log('[FREQ-SCORE-AUDIT]   Âncoras B: sub=', getSafeValue(bandsB, 'sub')?.toFixed(2), 
+                        'bass=', getSafeValue(bandsB, 'bass')?.toFixed(2), 
+                        'mid=', getSafeValue(bandsB, 'mid')?.toFixed(2));
+            
             return calculateFrequencyScoreReference(bandsA, bandsB);
         } else {
-            console.warn('[FREQ-SCORE] ⚠️ FirstAnalysisStore não disponível - fallback para cálculo normal');
+            console.error('[FREQ-SCORE] ❌ ERRO: Bandas ausentes no modo reference!');
+            console.error('[FREQ-SCORE]   bandsA (user):', !!bandsA, 'bandsB (ref):', !!bandsB);
+            console.error('[FREQ-SCORE]   Retornando NULL (não 100 fake!)');
+            return null;  // Retorna NULL explícito, não 100 fake
         }
     }
     
