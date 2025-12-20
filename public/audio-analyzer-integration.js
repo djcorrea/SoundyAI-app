@@ -1520,7 +1520,18 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                 status: data.status
             });
             
-            // ✅ VERIFICAÇÃO: aiSuggestions existe E tem conteúdo
+            // 🎯 CORREÇÃO #5: Se status=completed E aiSuggestions>0, renderizar (não esperar aiEnhanced)
+            if (data.status === 'completed' && Array.isArray(data.aiSuggestions) && data.aiSuggestions.length > 0) {
+                console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('[AI-SYNC] ✅ Status COMPLETED + aiSuggestions disponíveis');
+                console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('[AI-SYNC] 📊 Total:', data.aiSuggestions.length, 'sugestões');
+                console.log('[AI-SYNC] ⏱️ Tempo decorrido:', Date.now() - startTime, 'ms');
+                console.log('[AI-SYNC] 🔓 Renderizando SEM esperar aiEnhanced (evitar loop)');
+                return data;
+            }
+            
+            // ✅ VERIFICAÇÃO SECUNDÁRIA: aiSuggestions existe E tem conteúdo com aiEnhanced
             if (Array.isArray(data.aiSuggestions) && data.aiSuggestions.length > 0) {
                 // Verificar se pelo menos 1 tem aiEnhanced: true
                 const aiEnhancedCount = data.aiSuggestions.filter(s => s.aiEnhanced === true).length;
@@ -1547,13 +1558,11 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     
                     return data;
-                } else {
-                    console.warn(`[AI-SYNC] ⚠️ aiSuggestions existe mas nenhum tem aiEnhanced: true`);
-                    console.warn(`[AI-SYNC] ⚠️ Aguardando processamento IA completar...`);
                 }
-            } else {
-                console.log(`[AI-SYNC] ⏳ aiSuggestions ainda não disponível, aguardando...`);
             }
+            
+            // Se chegou aqui, ainda aguardando
+            console.log(`[AI-SYNC] ⏳ Aguardando aiSuggestions... (status: ${data.status})`);
             
         } catch (error) {
             console.error(`[AI-SYNC] ❌ Erro na tentativa ${attempt}:`, error.message);
@@ -10393,6 +10402,24 @@ async function performReferenceComparison() {
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
+        // 🎯 CORREÇÃO #4: Garantir pelo menos 3 sugestões A/B
+        console.log('🔍 [AB-SUGGESTIONS] Sugestões geradas:', suggestions.length);
+        if (suggestions.length < 3) {
+            console.warn('[AB-SUGGESTIONS] ⚠️ Menos de 3 sugestões - gerando padrão');
+            // Garantir pelo menos 3 sugestões mínimas
+            while (suggestions.length < 3) {
+                suggestions.push({
+                    type: 'reference_info',
+                    message: 'Análise de comparação A/B concluída',
+                    action: 'Continue monitorando as diferenças entre suas faixas',
+                    explanation: 'Use a tabela acima para identificar áreas de melhoria',
+                    frequency_range: 'N/A',
+                    adjustment_db: 0,
+                    direction: 'info'
+                });
+            }
+        }
+        
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
         console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
         console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
@@ -10401,7 +10428,11 @@ async function performReferenceComparison() {
         const combinedAnalysis = {
             ...userAnalysis,
             comparison,
-            suggestions: [...(userAnalysis.suggestions || []), ...suggestions],
+            // 🎯 CORREÇÃO #4: Merge seguro de sugestões (user + A/B), sem duplicar
+            suggestions: [
+                ...(userAnalysis.suggestions || []),
+                ...suggestions.filter(s => !userAnalysis.suggestions?.some(us => us.type === s.type))
+            ],
             analysisMode: 'reference',
             referenceFile: referenceStepState.referenceAudioFile.name,
             userFile: referenceStepState.userAudioFile.name,
@@ -16549,11 +16580,47 @@ if (typeof window.comparisonLock === "undefined") {
  * @param {Object} metricsB - Métricas da segunda música (comparação)
  * @returns {Array} Array de objetos {key, label, aValue, bValue, delta, unit, status}
  */
+/**
+ * 🎯 Helper: Extrai métricas de analysis.metrics OU technicalData
+ */
+function pickFromTechnicalData(technicalData) {
+    if (!technicalData) return {};
+    return {
+        lufsIntegrated: technicalData.lufsIntegrated,
+        truePeakDbtp: technicalData.truePeakDbtp,
+        dynamicRange: technicalData.dynamicRange,
+        lra: technicalData.lra,
+        rmsLeft: technicalData.rmsLeft,
+        crestFactor: technicalData.crestFactor,
+        stereoCorrelation: technicalData.stereoCorrelation
+    };
+}
+
 function buildComparisonRows(metricsA, metricsB) {
     console.log('[AB-TABLE] 🔨 Construindo tabela de comparação A vs B');
     
     if (!metricsA || !metricsB) {
         console.error('[AB-TABLE] ❌ Métricas ausentes:', { hasA: !!metricsA, hasB: !!metricsB });
+        return [];
+    }
+    
+    // 🎯 CORREÇÃO #2: Extrair de metrics OU technicalData
+    const userMetrics = metricsA.metrics ?? pickFromTechnicalData(metricsA.technicalData ?? metricsA);
+    const refMetrics = metricsB.metrics ?? pickFromTechnicalData(metricsB.technicalData ?? metricsB);
+    
+    console.log('[AB-TABLE] 📊 Métricas extraídas:', {
+        userKeys: Object.keys(userMetrics),
+        refKeys: Object.keys(refMetrics),
+        userLufs: userMetrics.lufsIntegrated,
+        refLufs: refMetrics.lufsIntegrated
+    });
+    
+    // Validar que temos pelo menos 1 métrica válida
+    const userHasMetrics = Object.values(userMetrics).some(v => v != null);
+    const refHasMetrics = Object.values(refMetrics).some(v => v != null);
+    
+    if (!userHasMetrics || !refHasMetrics) {
+        console.error('[AB-TABLE] ❌ Nenhuma métrica válida encontrada:', { userHasMetrics, refHasMetrics });
         return [];
     }
     
@@ -16563,8 +16630,8 @@ function buildComparisonRows(metricsA, metricsB) {
             key: 'lufs',
             label: 'LUFS Integrado',
             unit: 'LUFS',
-            pathA: ['technicalData', 'lufsIntegrated'],
-            pathB: ['technicalData', 'lufsIntegrated'],
+            pathA: ['lufsIntegrated'],
+            pathB: ['lufsIntegrated'],
             format: (v) => v?.toFixed(1) || 'N/A',
             inverse: false // menor é pior (mais negativo)
         },
@@ -16572,8 +16639,8 @@ function buildComparisonRows(metricsA, metricsB) {
             key: 'truePeak',
             label: 'True Peak',
             unit: 'dBTP',
-            pathA: ['technicalData', 'truePeakDbtp'],
-            pathB: ['technicalData', 'truePeakDbtp'],
+            pathA: ['truePeakDbtp'],
+            pathB: ['truePeakDbtp'],
             format: (v) => v?.toFixed(2) || 'N/A',
             inverse: true // maior é pior (clipping)
         },
@@ -16581,8 +16648,8 @@ function buildComparisonRows(metricsA, metricsB) {
             key: 'dynamicRange',
             label: 'Dynamic Range',
             unit: 'dB',
-            pathA: ['technicalData', 'dynamicRange'],
-            pathB: ['technicalData', 'dynamicRange'],
+            pathA: ['dynamicRange'],
+            pathB: ['dynamicRange'],
             format: (v) => v?.toFixed(1) || 'N/A',
             inverse: false // maior é melhor
         },
@@ -16590,8 +16657,8 @@ function buildComparisonRows(metricsA, metricsB) {
             key: 'lra',
             label: 'LRA (Loudness Range)',
             unit: 'LU',
-            pathA: ['technicalData', 'lra'],
-            pathB: ['technicalData', 'lra'],
+            pathA: ['lra'],
+            pathB: ['lra'],
             format: (v) => v?.toFixed(1) || 'N/A',
             inverse: false
         },
@@ -16627,14 +16694,14 @@ function buildComparisonRows(metricsA, metricsB) {
     const rows = [];
     
     for (const mapping of metricsMappings) {
-        // Extrair valor de A percorrendo path
-        let valueA = metricsA;
+        // Extrair valor de A percorrendo path (agora de userMetrics)
+        let valueA = userMetrics;
         for (const key of mapping.pathA) {
             valueA = valueA?.[key];
         }
         
-        // Extrair valor de B percorrendo path
-        let valueB = metricsB;
+        // Extrair valor de B percorrendo path (agora de refMetrics)
+        let valueB = refMetrics;
         for (const key of mapping.pathB) {
             valueB = valueB?.[key];
         }
@@ -23544,6 +23611,13 @@ function normalizeBackendAnalysisData(result) {
         'result.data.genre': result?.data?.genre,
         'hasGenreTargets': !!(data.genreTargets || result?.data?.genreTargets)
     });
+    
+    // 🎯 CORREÇÃO #3: targets em reference mode
+    // Se mode=reference e targets=null, normalizar para [] (não bloquear pipeline)
+    if (backendMode === 'reference' && !data.genreTargets && !result?.data?.genreTargets) {
+        console.log('[NORMALIZE] 🔧 Modo reference sem targets - normalizando para []');
+        data.genreTargets = [];
+    }
 
     const loudness = src.loudness || data.loudness || data.technicalData?.loudness || {};
     const dynamics = src.dynamics || data.dynamics || data.technicalData?.dynamics || {};
@@ -23574,12 +23648,28 @@ function normalizeBackendAnalysisData(result) {
         console.log('[GENRE-BEFORE-RESTORE]', { backendGenre, preservedGenre, finalGenre });
     }
     
+    // 🎯 CORREÇÃO #1: Criar metrics NO TOP-LEVEL a partir de technicalData
+    const metricsFromTechnicalData = {
+        lufs: src.lufsIntegrated ?? loudness.integrated ?? null,
+        truePeak: src.truePeakDbtp ?? truePeak.maxDbtp ?? null,
+        dynamicRange: src.dynamicRange ?? dynamics.range ?? null,
+        lra: src.lra ?? loudness.range ?? null,
+        rms: src.avgLoudness ?? src.rmsLeft ?? null,
+        crestFactor: src.crestFactor ?? dynamics.crest ?? null,
+        stereoCorrelation: src.stereoCorrelation ?? null
+    };
+    
+    console.log('[NORMALIZE] 📊 Metrics extraídas de technicalData:', metricsFromTechnicalData);
+
     const normalized = {
         // Preservar estrutura original
         ...data,
         
         genre: finalGenre,
         mode: backendMode,
+        
+        // 🎯 NOVO: Garantir metrics no top-level (FONTE ÚNICA)
+        metrics: metricsFromTechnicalData,
         
         // 🎯 CRÍTICO: Garantir que data.genre venha da FONTE CORRETA
         // 🔥 CORREÇÃO DEFINITIVA: SPREAD PRIMEIRO, DEPOIS SOBRESCREVER com valores corretos
