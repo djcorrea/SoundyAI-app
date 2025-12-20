@@ -18994,7 +18994,7 @@ function renderReferenceComparisons(ctx) {
             hasRefBands: !!ref?.bands,
             refBandsKeys: ref?.bands ? Object.keys(ref.bands) : [],
             spectralBandsKeys: Object.keys(spectralBands),
-            stateRefAnalysis: !!state?.reference?.analysis?.bands
+            stateRefAnalysis: !!stateV3?.reference?.analysis?.bands
         });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
@@ -19007,16 +19007,16 @@ function renderReferenceComparisons(ctx) {
             if (isReferenceMode) {
                 // 2ª faixa: referência/alvo
                 const refTech = opts?.referenceAnalysis?.technicalData
-                             || state?.referenceAnalysis?.technicalData
-                             || state?.reference?.referenceAnalysis?.technicalData
+                             || stateV3?.referenceAnalysis?.technicalData
+                             || stateV3?.reference?.referenceAnalysis?.technicalData
                              || referenceComparisonMetrics?.target
                              || referenceComparisonMetrics?.userFull?.technicalData /* legado confuso */ 
                              || null;
                 
                 // 1ª faixa: base/origem
                 const userTech = opts?.userAnalysis?.technicalData
-                              || state?.userAnalysis?.technicalData
-                              || state?.reference?.userAnalysis?.technicalData
+                              || stateV3?.userAnalysis?.technicalData
+                              || stateV3?.reference?.userAnalysis?.technicalData
                               || referenceComparisonMetrics?.analyzed
                               || referenceComparisonMetrics?.referenceFull?.technicalData /* legado confuso */
                               || null;
@@ -19025,8 +19025,8 @@ function renderReferenceComparisons(ctx) {
                 refBands = refTech?.spectral_balance ||
                           opts?.referenceAnalysis?.bands ||
                           opts?.referenceAnalysis?.frequencyBands ||
-                          state?.referenceAnalysis?.bands ||
-                          state?.referenceAnalysis?.frequencyBands ||
+                          stateV3?.referenceAnalysis?.bands ||
+                          stateV3?.referenceAnalysis?.frequencyBands ||
                           null;
                 
                 userBands = userTech?.spectral_balance || null;
