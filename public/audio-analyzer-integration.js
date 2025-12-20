@@ -419,12 +419,17 @@ function hasActiveReferenceContext() {
 function resetGenreContextForReference() {
     console.log('[REFERENCE-ISOLATION] 🧹 Resetando contexto de gênero para modo reference');
     
-    // Zerar flags de gênero que causam contaminação
+    // 🎯 PATCH CRÍTICO D: Zerar TODAS variáveis de gênero
     if (window.__soundyState) {
         window.__soundyState.selectedGenre = null;
         window.__soundyState.hasGenreTargets = false;
         window.__soundyState.currentAnalysisMode = 'reference';
+        window.__soundyState.genreTargets = null;
     }
+    
+    // Zerar variáveis globais de gênero
+    window.__CURRENT_SELECTED_GENRE = null;
+    window.PROD_AI_REF_GENRE = null;
     
     // Garantir que currentAnalysisMode está correto
     window.currentAnalysisMode = 'reference';
@@ -435,7 +440,9 @@ function resetGenreContextForReference() {
     console.log('[REFERENCE-ISOLATION] ✅ Contexto isolado:', {
         selectedGenre: window.__soundyState?.selectedGenre,
         hasGenreTargets: window.__soundyState?.hasGenreTargets,
-        currentAnalysisMode: window.currentAnalysisMode
+        currentAnalysisMode: window.currentAnalysisMode,
+        CURRENT_SELECTED_GENRE: window.__CURRENT_SELECTED_GENRE,
+        PROD_AI_REF_GENRE: window.PROD_AI_REF_GENRE
     });
 }
 
@@ -3182,6 +3189,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     
     console.log('[REF-PAYLOAD] buildReferencePayload()', { isFirstTrack, referenceJobId });
     
+    // 🎯 PATCH CRÍTICO D: Garantir genre=null em TODAS chamadas
     if (isFirstTrack) {
         // ✅ PRIMEIRA TRACK: payload LIMPO sem genre/targets
         console.log('[REF-PAYLOAD] Reference primeira track - SEM genre/targets (base pura)');
@@ -3194,14 +3202,16 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
             fileName,
             isReferenceBase: true,
             referenceJobId: null,
+            genre: null, // 🎯 PATCH D: Explícito
+            genreTargets: null, // 🎯 PATCH D: Explícito
             idToken
         };
         
         console.log('[REF-PAYLOAD] ✅ Reference primeira track (BASE) payload:', {
             mode: payload.mode,
             referenceStage: payload.referenceStage,
-            hasGenre: false,
-            hasTargets: false,
+            hasGenre: payload.genre !== null,
+            hasTargets: payload.genreTargets !== null,
             isReferenceBase: payload.isReferenceBase,
             referenceJobId: payload.referenceJobId
         });
@@ -3227,14 +3237,16 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
             fileName,
             referenceJobId,          // JobId da primeira música (BASE) - obrigatório
             isReferenceBase: false,  // Flag legada mantida
+            genre: null, // 🎯 PATCH D: Explícito
+            genreTargets: null, // 🎯 PATCH D: Explícito
             idToken
         };
         
         console.log('[REF-PAYLOAD] ✅ Reference segunda track (COMPARAÇÃO) payload:', {
             mode: payload.mode,
             referenceJobId: payload.referenceJobId,
-            hasGenre: false, // ✅ Segunda track NÃO inclui genre
-            hasTargets: false, // ✅ Segunda track NÃO inclui genreTargets
+            hasGenre: payload.genre !== null, // ✅ Segunda track NÃO inclui genre
+            hasTargets: payload.genreTargets !== null, // ✅ Segunda track NÃO inclui genreTargets
             isReferenceBase: payload.isReferenceBase
         });
         
@@ -13812,7 +13824,8 @@ async function displayModalResults(analysis) {
         spectral_centroid_target: refTd.spectralCentroidHz ?? refTd.spectral_centroid,
         bands: finalRefBands, // <- bandas reais (de referência A/B ou gênero)
         tol_lufs: 0.5, tol_true_peak: 0.3, tol_dr: 1.0, tol_lra: 1.0, tol_stereo: 0.08, tol_spectral: 300,
-        _isReferenceMode: true
+        _isReferenceMode: true,
+        _referenceAnalysisFull: refFull // 🎯 PATCH: análise completa de referência para extração de bandas no subscore
       };
     }
 
@@ -17813,6 +17826,28 @@ function renderReferenceComparisons(ctx) {
     userBands = userBandsLocal;
     refBands = refBandsLocal;
     
+    // 🎯 PATCH CRÍTICO A: Persistir bandas em estrutura canônica para subscore
+    if (renderMode === 'reference' && userBandsLocal && refBandsLocal) {
+        stateV3.reference = stateV3.reference || {};
+        stateV3.reference.bands = {
+            userBands: userBandsLocal,
+            refBands: refBandsLocal
+        };
+        
+        // 🎯 PATCH CRÍTICO C: Compatibilidade - preencher stateV3.reference.analysis.bands
+        stateV3.reference.analysis = stateV3.reference.analysis || {};
+        stateV3.reference.analysis.bands = refBandsLocal;
+        
+        window.__soundyState = stateV3;
+        
+        console.log('[FREQ-FIX] ✅ Bandas persistidas em stateV3.reference:', {
+            userBandsKeys: Object.keys(userBandsLocal),
+            refBandsKeys: Object.keys(refBandsLocal),
+            stateV3RefBands: !!stateV3.reference.bands,
+            stateV3RefAnalysisBands: !!stateV3.reference.analysis.bands
+        });
+    }
+    
     // [AUDIT-FLOW] Log após atribuição final
     console.log("[AUDIT-FLOW] 🔍 Após atribuição final:", {
         userBands,
@@ -20444,6 +20479,91 @@ function calculateStereoScore(analysis, refData) {
 }
 
 // 6A. CALCULAR SCORE DE FREQUÊNCIA EM MODO REFERENCE (COMPARAÇÃO DIRETA A vs B)
+// 🎯 HELPER: Extrair bandas de qualquer analysis object (normaliza estruturas variadas)
+function extractBandsFromAnalysis(analysis) {
+    if (!analysis) return { bands: null, source: 'null-analysis' };
+    
+    // Prioridade de leitura:
+    // 1) analysis.bands (formato direto)
+    // 2) analysis.technicalData.bands (caminho principal)
+    // 3) analysis.technicalData.spectralBands (array)
+    // 4) analysis.technicalData.spectral_balance (legado)
+    // 5) analysis.metrics.bands (centralizado)
+    
+    let rawBands = null;
+    let source = 'unknown';
+    
+    if (analysis.bands && Object.keys(analysis.bands).length > 0) {
+        rawBands = analysis.bands;
+        source = 'analysis.bands';
+    } else if (analysis.technicalData?.bands && Object.keys(analysis.technicalData.bands).length > 0) {
+        rawBands = analysis.technicalData.bands;
+        source = 'technicalData.bands';
+    } else if (analysis.technicalData?.spectralBands) {
+        rawBands = analysis.technicalData.spectralBands;
+        source = 'technicalData.spectralBands';
+    } else if (analysis.technicalData?.spectral_balance && Object.keys(analysis.technicalData.spectral_balance).length > 0) {
+        rawBands = analysis.technicalData.spectral_balance;
+        source = 'technicalData.spectral_balance';
+    } else if (analysis.metrics?.bands && Object.keys(analysis.metrics.bands).length > 0) {
+        rawBands = analysis.metrics.bands;
+        source = 'metrics.bands';
+    }
+    
+    if (!rawBands) {
+        return { bands: null, source: 'not-found' };
+    }
+    
+    // 🎯 NORMALIZAR: Se for array, converter para map {sub:{energy_db}, bass:{}, ...}
+    if (Array.isArray(rawBands)) {
+        const normalized = {};
+        for (const band of rawBands) {
+            if (!band || !band.name) continue;
+            
+            // Normalizar nome da banda (remover espaços, lowercasing)
+            const key = band.name.toLowerCase().replace(/\s+/g, '');
+            
+            // Extrair energia (aceitar energy_db, energyDb, db, energy)
+            const energy = band.energy_db ?? band.energyDb ?? band.db ?? band.energy;
+            
+            if (Number.isFinite(energy)) {
+                normalized[key] = { energy_db: energy };
+            }
+        }
+        
+        console.log('[EXTRACT-BANDS] 🔄 Normalizado array → map:', {
+            source,
+            originalLength: rawBands.length,
+            normalizedKeys: Object.keys(normalized)
+        });
+        
+        return { bands: normalized, source: source + ' (normalized-from-array)' };
+    }
+    
+    // 🎯 Já é objeto: garantir que tem energy_db em cada banda
+    const normalized = {};
+    for (const [key, value] of Object.entries(rawBands)) {
+        if (typeof value === 'object' && value !== null) {
+            // Já tem estrutura {energy_db: number} ou similar
+            const energy = value.energy_db ?? value.energyDb ?? value.db ?? value.energy ?? value.rms_db ?? value.value;
+            if (Number.isFinite(energy)) {
+                normalized[key] = { energy_db: energy };
+            }
+        } else if (Number.isFinite(value)) {
+            // É um número direto: banda: -24.5
+            normalized[key] = { energy_db: value };
+        }
+    }
+    
+    console.log('[EXTRACT-BANDS] ✅ Extraído:', {
+        source,
+        keysFound: Object.keys(normalized),
+        sampleValues: Object.keys(normalized).slice(0, 3).map(k => `${k}:${normalized[k].energy_db.toFixed(1)}dB`)
+    });
+    
+    return { bands: normalized, source };
+}
+
 function calculateFrequencyScoreReference(bandsA, bandsB) {
     console.log('[FREQ-SCORE-REF] 🎵 Calculando score de frequência em modo reference (A vs B)');
     
@@ -20557,14 +20677,84 @@ function calculateFrequencyScore(analysis, refData) {
     
     // 🎯 MODO REFERENCE: Usar comparação direta A vs B
     if (isReferenceMode && hasRefContext) {
-        console.log('[FREQ-SCORE] 🔄 Redirecionando para calculateFrequencyScoreReference (comparação direta A vs B)');
-        const firstAnalysis = window.FirstAnalysisStore?.get?.();
-        if (firstAnalysis) {
-            const bandsA = firstAnalysis.technicalData?.spectral_balance || firstAnalysis.bands;
-            const bandsB = bandsToUse;
-            return calculateFrequencyScoreReference(bandsA, bandsB);
+        console.log('[FREQ-SCORE] 🔄 Modo reference detectado - usando bandas canônicas de stateV3');
+        
+        // 🎯 PATCH CRÍTICO B: Usar bandas persistidas do stateV3.reference.bands
+        const stateV3 = window.__soundyState || {};
+        const persistedBands = stateV3?.reference?.bands;
+        
+        if (persistedBands?.userBands && persistedBands?.refBands) {
+            console.log('[FREQ-SCORE] ✅ Usando bandas persistidas do stateV3.reference.bands');
+            
+            const userBandsA = persistedBands.userBands;
+            const refBandsB = persistedBands.refBands;
+            
+            // 🛡️ GUARDRAIL 1: Validar âncoras (sub, bass, mid)
+            const anchorKeysA = ['sub', 'bass', 'mid'].filter(k => {
+                const val = userBandsA[k]?.energy_db ?? userBandsA[k];
+                return Number.isFinite(val);
+            });
+            
+            const anchorKeysB = ['sub', 'bass', 'mid'].filter(k => {
+                const val = refBandsB[k]?.energy_db ?? refBandsB[k];
+                return Number.isFinite(val);
+            });
+            
+            console.log('[FREQ-SCORE-AUDIT] 🔍 Validação de âncoras:', {
+                anchorKeysA,
+                anchorKeysB,
+                subA: userBandsA.sub?.energy_db ?? userBandsA.sub,
+                bassA: userBandsA.bass?.energy_db ?? userBandsA.bass,
+                midA: userBandsA.mid?.energy_db ?? userBandsA.mid,
+                subB: refBandsB.sub?.energy_db ?? refBandsB.sub,
+                bassB: refBandsB.bass?.energy_db ?? refBandsB.bass,
+                midB: refBandsB.mid?.energy_db ?? refBandsB.mid
+            });
+            
+            // 🛡️ GUARDRAIL 2: Se B não tem âncoras válidas -> ERRO EXPLÍCITO (NÃO copiar A)
+            if (anchorKeysB.length === 0) {
+                console.error('[FREQ-SCORE] ❌ ERRO CRÍTICO: refBands B sem âncoras válidas!');
+                console.error('[FREQ-SCORE] refBands B:', refBandsB);
+                console.error('[FREQ-SCORE] NÃO copiar userBands A - retornando null');
+                return null;
+            }
+            
+            // 🛡️ GUARDRAIL 3: Detectar se A === B (same reference)
+            if (userBandsA === refBandsB) {
+                console.error('[FREQ-SCORE] ❌ ERRO: userBands e refBands são o MESMO objeto (same reference)!');
+                console.error('[FREQ-SCORE] Isso causaria diff=0 sempre - retornando null');
+                return null;
+            }
+            
+            // 🛡️ GUARDRAIL 4: Comparar alguns valores para detectar cópias
+            let identicalCount = 0;
+            for (const key of ['sub', 'bass', 'mid']) {
+                const valA = userBandsA[key]?.energy_db ?? userBandsA[key];
+                const valB = refBandsB[key]?.energy_db ?? refBandsB[key];
+                if (Number.isFinite(valA) && Number.isFinite(valB) && Math.abs(valA - valB) < 0.001) {
+                    identicalCount++;
+                }
+            }
+            
+            if (identicalCount === 3) {
+                console.warn('[FREQ-SCORE] ⚠️ SUSPEITO: Todas 3 âncoras (sub/bass/mid) idênticas entre A e B!');
+                console.warn('[FREQ-SCORE] Pode ser mesmo áudio analisado 2x - prosseguindo mas verificar');
+                console.warn('[FREQ-SCORE] A vs B:', {
+                    subA: userBandsA.sub?.energy_db ?? userBandsA.sub,
+                    subB: refBandsB.sub?.energy_db ?? refBandsB.sub,
+                    bassA: userBandsA.bass?.energy_db ?? userBandsA.bass,
+                    bassB: refBandsB.bass?.energy_db ?? refBandsB.bass,
+                    midA: userBandsA.mid?.energy_db ?? userBandsA.mid,
+                    midB: refBandsB.mid?.energy_db ?? refBandsB.mid
+                });
+            }
+            
+            return calculateFrequencyScoreReference(userBandsA, refBandsB);
         } else {
-            console.warn('[FREQ-SCORE] ⚠️ FirstAnalysisStore não disponível - fallback para cálculo normal');
+            console.error('[FREQ-SCORE] ❌ ERRO: stateV3.reference.bands não encontrado!');
+            console.error('[FREQ-SCORE] stateV3.reference:', stateV3?.reference);
+            console.error('[FREQ-SCORE] Retornando null - NÃO usar fallback que copia A->B');
+            return null;
         }
     }
     
