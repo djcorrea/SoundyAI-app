@@ -89,6 +89,40 @@ function extractBands(analysisOrResult) {
 }
 
 /**
+ * 🎯 Helper: Garante que container de referência A/B existe no DOM
+ * Cria se necessário (modo reference only)
+ * @returns {HTMLElement|null} Container ou null se falhar
+ */
+function ensureReferenceContainer() {
+    let container = document.getElementById('referenceComparisons');
+    if (container) {
+        console.log('[CONTAINER] ✅ #referenceComparisons já existe');
+        return container;
+    }
+    
+    // Criar container dinamicamente
+    const modalContent = document.querySelector('#audioAnalysisModal .modal-content') || 
+                       document.getElementById('audioAnalysisResults') ||
+                       document.getElementById('modalTechnicalData');
+    
+    if (!modalContent) {
+        console.error('[CONTAINER] ❌ Não foi possível localizar elemento pai para criar container');
+        return null;
+    }
+    
+    container = document.createElement('div');
+    container.id = 'referenceComparisons';
+    container.className = 'reference-comparisons-container';
+    container.style.marginTop = '20px';
+    
+    // Inserir no topo do modal
+    modalContent.insertBefore(container, modalContent.firstChild);
+    
+    console.log('[CONTAINER] ✅ #referenceComparisons criado dinamicamente');
+    return container;
+}
+
+/**
  * 🎯 Helper: Extrai identidade de track para validação de duplicação
  * @param {Object} track - Objeto de análise
  * @returns {Object} { jobId, fileKey, fileName }
@@ -10554,6 +10588,11 @@ function showModalError(message) {
     if (loading) loading.style.display = 'none';
     if (results) {
         results.style.display = 'block';
+        
+        // 🛡️ PRESERVAR #referenceComparisons antes de limpar
+        const refContainer = document.getElementById('referenceComparisons');
+        const refHTML = refContainer ? refContainer.outerHTML : '';
+        
         results.innerHTML = `
             <div style="color: #ff4444; text-align: center; padding: 30px;">
                 <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
@@ -10575,6 +10614,14 @@ function showModalError(message) {
                 </button>
             </div>
         `;
+        
+        // 🛡️ RESTAURAR #referenceComparisons após limpar
+        if (refHTML) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = refHTML;
+            results.appendChild(tempDiv.firstElementChild);
+            console.log('[ERROR-HANDLER] ✅ #referenceComparisons preservado durante erro');
+        }
     }
 }
 
@@ -11674,12 +11721,57 @@ async function displayModalResults(analysis) {
         console.log('%c[PROTECTION] ✅ Modo forçado para reference em displayModalResults - flag verificada', 'color:#00FF88;font-weight:bold;');
     }
 
-    // Validar referência
+    // Validar referência e tentar hidratação se necessário
     if (isSecondTrack && (!abState.ok || !window.referenceAnalysisData?.bands)) {
-        console.error('[AB-BLOCK] Referência não hidratada para comparação', abState);
-        console.error('[AB-BLOCK] Segunda faixa detectada mas sem referência válida - abortando comparação A/B');
-        // Não degrade para genre; aborte a comparação para evitar self-compare
-        // Continue renderizando cards da segunda faixa normalmente (modo single)
+        console.warn('[AB-BLOCK] Referência inicial não hidratada - tentando recuperar...');
+        
+        // 🎯 TENTATIVA DE HIDRATAÇÃO: Recuperar de FirstAnalysisStore
+        const refFromStore = FirstAnalysisStore?.getRef?.();
+        
+        if (refFromStore?.bands) {
+            console.log('[AB-HYDRATE] ✅ Recuperado de FirstAnalysisStore:', {
+                jobId: refFromStore.jobId,
+                fileName: refFromStore.fileName || refFromStore.metadata?.fileName,
+                bandsCount: Object.keys(refFromStore.bands).length
+            });
+            
+            // Hidratar window.referenceAnalysisData
+            window.referenceAnalysisData = {
+                ...refFromStore,
+                jobId: refFromStore.jobId,
+                bands: refFromStore.bands,
+                metrics: extractMetrics(refFromStore),
+                technicalData: refFromStore.technicalData || {}
+            };
+            
+            // Atualizar abState
+            abState.ok = true;
+            abState.hasBands = true;
+            
+            console.log('[AB-HYDRATE] ✅ window.referenceAnalysisData hidratado com sucesso');
+        } else {
+            console.error('[AB-BLOCK] ❌ Hidratação falhou - referência não disponível em nenhuma fonte');
+            console.error('[AB-BLOCK] abState:', abState);
+            console.error('[AB-BLOCK] FirstAnalysisStore.getRef():', refFromStore);
+            
+            // 🎯 FALLBACK VISUAL: Renderizar mensagem de erro no container A/B
+            const container = ensureReferenceContainer();
+            if (container) {
+                container.innerHTML = `
+                    <div class="card" style="margin-top: 20px; background: #2a1a1a; border: 2px solid #ff4444;">
+                        <div class="card-title" style="color: #ff6666;">⚠️ Comparação A/B Indisponível</div>
+                        <div style="padding: 15px; color: #ffaaaa; line-height: 1.6;">
+                            <p><strong>Motivo:</strong> Dados da primeira música não estão disponíveis.</p>
+                            <p><strong>Solução:</strong> Por favor, selecione novamente o modo "Análise de Referência A/B" e faça upload das duas músicas.</p>
+                        </div>
+                    </div>
+                `;
+                container.style.display = 'block';
+                console.log('[AB-FALLBACK] ✅ Mensagem de erro renderizada no DOM');
+            }
+            
+            // NÃO abortar completamente - continuar renderizando cards da 2ª música
+        }
     } else if (isSecondTrack) {
         console.log('[AB-SAFETY] ✅ Referência validada:', {
             ok: abState.ok,
@@ -16796,11 +16888,22 @@ function renderReferenceComparisons(ctx) {
         refBandsKeys: refBandsCheck ? Object.keys(refBandsCheck) : []
     });
     
-    // 🧩 [FINAL-FIX] Validação real das bandas antes de renderizar
-    const container = document.getElementById('referenceComparisons');
+    // 🎯 GARANTIR QUE CONTAINER EXISTE ANTES DE RENDERIZAR
+    const container = ensureReferenceContainer();
     if (!container) {
+        console.error('[RENDER-REF] ❌ Não foi possível criar/localizar container #referenceComparisons');
         window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (container ausente)");
+        console.log("[LOCK] comparisonLock liberado (container indisponível)");
+        
+        // Tentar criar mensagem de erro em local alternativo
+        const modalContent = document.getElementById('audioAnalysisResults');
+        if (modalContent) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.style.cssText = 'padding: 20px; margin: 20px 0; background: #2a1a1a; border: 2px solid #ff4444; border-radius: 8px; color: #ff6666;';
+            errorDiv.innerHTML = '<strong>❌ Erro:</strong> Não foi possível renderizar tabela de comparação A/B (container ausente).';
+            modalContent.insertBefore(errorDiv, modalContent.firstChild);
+        }
         return;
     }
     
@@ -18835,6 +18938,49 @@ function renderReferenceComparisons(ctx) {
                 console.groupEnd();
             }, 100);
         }
+        
+        // 🔍 VERIFICAÇÃO FINAL DE VISIBILIDADE (PATCH SENIOR)
+        setTimeout(() => {
+            const finalCheck = document.querySelector('#referenceComparisons');
+            if (finalCheck) {
+                const rect = finalCheck.getBoundingClientRect();
+                const computed = window.getComputedStyle(finalCheck);
+                
+                console.log('[DOM-FINAL-CHECK] 🔍 Estado do container #referenceComparisons:', {
+                    exists: true,
+                    hasContent: finalCheck.innerHTML.length > 0,
+                    childrenCount: finalCheck.children.length,
+                    display: computed.display,
+                    visibility: computed.visibility,
+                    opacity: computed.opacity,
+                    width: rect.width,
+                    height: rect.height,
+                    isVisible: rect.width > 0 && rect.height > 0 && computed.display !== 'none'
+                });
+                
+                // 🛡️ FORÇAR VISIBILIDADE se necessário
+                if (computed.display === 'none' || computed.visibility === 'hidden' || computed.opacity === '0') {
+                    console.warn('[DOM-FINAL-CHECK] ⚠️ Container oculto - FORÇANDO VISIBILIDADE');
+                    finalCheck.style.display = 'block';
+                    finalCheck.style.visibility = 'visible';
+                    finalCheck.style.opacity = '1';
+                }
+            } else {
+                console.error('[DOM-FINAL-CHECK] ❌ #referenceComparisons NÃO EXISTE NO DOM!');
+                
+                // 🚨 DIAGNÓSTICO COMPLETO
+                console.group('[DOM-DIAGNOSTIC] 🔬 Diagnóstico completo do DOM');
+                console.log('audioAnalysisResults existe?', !!document.getElementById('audioAnalysisResults'));
+                console.log('modalTechnicalData existe?', !!document.getElementById('modalTechnicalData'));
+                console.log('Todos os elementos do modal:', {
+                    results: document.getElementById('audioAnalysisResults')?.innerHTML?.length || 0,
+                    technical: document.getElementById('modalTechnicalData')?.innerHTML?.length || 0,
+                    children: document.getElementById('audioAnalysisResults')?.children?.length || 0
+                });
+                console.groupEnd();
+            }
+        }, 500);
+
     } else {
         console.error('❌ [RENDER-REF] Elemento #referenceComparisons NÃO encontrado no DOM!');
     }
@@ -22793,6 +22939,10 @@ window.displayReferenceResults = function(referenceResults) {
         // Fallback display
         const results = document.getElementById('results');
         if (results) {
+            // 🛡️ PRESERVAR #referenceComparisons antes de limpar
+            const refContainer = document.getElementById('referenceComparisons');
+            const refHTML = refContainer ? refContainer.outerHTML : '';
+            
             results.innerHTML = `
                 <div class="error-display">
                     <h3>❌ Erro na Exibição dos Resultados</h3>
@@ -22800,6 +22950,14 @@ window.displayReferenceResults = function(referenceResults) {
                     <p>Baseline Source: ${referenceResults.baseline_source}</p>
                 </div>
             `;
+            
+            // 🛡️ RESTAURAR #referenceComparisons após limpar
+            if (refHTML) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = refHTML;
+                results.appendChild(tempDiv.firstElementChild);
+                console.log('[FALLBACK-ERROR] ✅ #referenceComparisons preservado durante erro');
+            }
         }
     }
 };
