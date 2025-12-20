@@ -3130,12 +3130,12 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
     
     if (isFirstTrack) {
         // ✅ PRIMEIRA TRACK: payload LIMPO sem genre/targets
-        console.log('[REF_FLOW] Reference primeira track - SEM genre/targets (base pura)');
+        console.log('[REF-PAYLOAD] Reference primeira track - SEM genre/targets (base pura)');
         
         const payload = {
             fileKey,
             mode: 'reference',
-            analysisType: 'reference_base',  // 🎯 Explícito: primeira música
+            analysisType: 'reference',
             referenceStage: 'base',
             fileName,
             isReferenceBase: true,
@@ -3168,7 +3168,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
         const payload = {
             fileKey,
             mode: 'reference',       // Mantido por compatibilidade
-            analysisType: 'reference_compare',  // 🎯 Explícito: segunda música (comparação)
+            analysisType: 'reference',  // 🆕 Campo explícito
             referenceStage: 'compare',  // 🆕 Indica segunda música (comparação)
             fileName,
             referenceJobId,          // JobId da primeira música (BASE) - obrigatório
@@ -3203,29 +3203,7 @@ function buildReferencePayload(fileKey, fileName, idToken, options = {}) {
  */
 async function createAnalysisJob(fileKey, mode, fileName) {
     try {
-        console.log('[REF_FLOW] 🎯 createAnalysisJob chamado:', { fileKey, mode, fileName });
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
-
-        // 🎯 NOVO: Determinar analysisType explícito LOGO NO INÍCIO
-        let analysisType = 'genre';  // Default
-        
-        if (mode === 'reference') {
-            // Detectar se é primeira ou segunda track
-            const hasFirstJobId = window.__REFERENCE_JOB_ID__ || 
-                                  window.lastReferenceJobId || 
-                                  FirstAnalysisStore?.has?.();
-            
-            if (!hasFirstJobId) {
-                analysisType = 'reference_base';
-                console.log('[REF_FLOW] 📍 Detectado: PRIMEIRA TRACK → analysisType = "reference_base"');
-            } else {
-                analysisType = 'reference_compare';
-                console.log('[REF_FLOW] 📍 Detectado: SEGUNDA TRACK → analysisType = "reference_compare"');
-            }
-        } else {
-            analysisType = 'genre';
-            console.log('[REF_FLOW] 📍 Modo genre → analysisType = "genre"');
-        }
 
         // ✅ CORREÇÃO CRÍTICA: Obter Firebase ID Token ANTES de fazer o fetch
         console.log('🔐 Obtendo Firebase ID Token...');
@@ -3266,15 +3244,40 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         console.log('✅ Token válido disponível para envio');
 
-        // 🆕 USAR getSafeStateMachine() em vez de window.AnalysisStateMachine direto
-        const stateMachine = getSafeStateMachine();
-        let payload = null;
-        
-        console.log('[REF_FLOW] 🔍 Estado do stateMachine:', stateMachine.getState());
-        
-        // State machine disponível - fluxo normal
-        const currentState = stateMachine.getState();
-        const currentSMMode = stateMachine.getMode();
+        // 🆕 PR2: USAR STATE MACHINE como fonte de verdade
+        const stateMachine = window.AnalysisStateMachine;
+        if (!stateMachine) {
+            console.error('%c[CRITICAL] AnalysisStateMachine não disponível em createAnalysisJob!', 'color:red;font-weight:bold;font-size:14px;');
+            console.error('[CRITICAL] Modo solicitado:', mode);
+            console.error('[CRITICAL] currentAnalysisMode:', window.currentAnalysisMode);
+            
+            // Se não tem state machine MAS o mode é reference, tentar continuar com fallback
+            if (mode === 'reference') {
+                console.warn('[FALLBACK] Tentando continuar reference sem state machine...');
+                console.warn('[FALLBACK] Usando window.currentAnalysisMode e flags globais');
+                
+                // Criar payload manualmente sem state machine
+                if (window.userExplicitlySelectedReferenceMode) {
+                    // Determinar se é primeira ou segunda track pelas flags globais
+                    const hasFirstJobId = window.__REFERENCE_JOB_ID__ || window.lastReferenceJobId;
+                    
+                    payload = buildReferencePayload(fileKey, fileName, idToken, {
+                        isFirstTrack: !hasFirstJobId,
+                        referenceJobId: hasFirstJobId || null
+                    });
+                    
+                    console.log('[FALLBACK] Payload reference criado:', payload);
+                } else {
+                    throw new Error('[CRITICAL] State machine ausente E userExplicitlySelectedReferenceMode=false. Não é possível processar reference.');
+                }
+            } else {
+                // Modo genre não precisa de state machine
+                payload = buildGenrePayload(fileKey, fileName, idToken);
+            }
+        } else {
+            // State machine disponível - fluxo normal
+            const currentState = stateMachine.getState();
+            const currentSMMode = stateMachine.getMode();
             
             console.log('[PR2] Estado atual da máquina:', { mode: currentSMMode, state: currentState });
             
@@ -3320,39 +3323,40 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 
                 console.log('[REF-FLOW] Usando buildReferencePayload', { isFirstTrack, referenceJobId });
             
-                if (isFirstTrack) {
-                    // Primeira track: iniciar fluxo
-                    console.log('[REF-FLOW] onFirstTrackSelected() chamado');
-                    refFlow.onFirstTrackSelected();
-                    
-                    payload = buildReferencePayload(fileKey, fileName, idToken, {
-                        isFirstTrack: true,
-                        referenceJobId: null
-                    });
-                    
-                    // 🔒 BIND: Marcar payload para binding posterior
-                    payload._pendingBinding = { track: 'base', baseJobId: null, referenceJobId: null };
-                } else {
-                    // Segunda track: comparar
-                    if (!referenceJobId) {
-                        throw new Error('[REF-FLOW] Segunda track requer baseJobId');
-                    }
-                    
-                    console.log('[REF-FLOW] onSecondTrackSelected() chamado');
-                    refFlow.onSecondTrackSelected();
-                    
-                    payload = buildReferencePayload(fileKey, fileName, idToken, {
-                        isFirstTrack: false,
-                        referenceJobId
-                    });
-                    
-                    // 🔒 BIND: Marcar payload para binding posterior
-                    payload._pendingBinding = { track: 'compare', baseJobId: referenceJobId, referenceJobId };
+            if (isFirstTrack) {
+                // Primeira track: iniciar fluxo
+                console.log('[REF-FLOW] onFirstTrackSelected() chamado');
+                refFlow.onFirstTrackSelected();
+                
+                payload = buildReferencePayload(fileKey, fileName, idToken, {
+                    isFirstTrack: true,
+                    referenceJobId: null
+                });
+                
+                // 🔒 BIND: Marcar payload para binding posterior
+                payload._pendingBinding = { track: 'base', baseJobId: null, referenceJobId: null };
+            } else {
+                // Segunda track: comparar
+                if (!referenceJobId) {
+                    throw new Error('[REF-FLOW] Segunda track requer baseJobId');
                 }
                 
+                console.log('[REF-FLOW] onSecondTrackSelected() chamado');
+                refFlow.onSecondTrackSelected();
+                
+                payload = buildReferencePayload(fileKey, fileName, idToken, {
+                    isFirstTrack: false,
+                    referenceJobId
+                });
+                
+                // 🔒 BIND: Marcar payload para binding posterior
+                payload._pendingBinding = { track: 'compare', baseJobId: referenceJobId, referenceJobId };
+            }
+            
             } else {
                 throw new Error(`[PR2] Modo inválido: ${mode}`);
             }
+        }
         
         // 🔍 PR1: Trace ID para rastreamento
         const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
@@ -3584,47 +3588,6 @@ async function pollJobStatus(jobId) {
                     let jobResult = job.results || jobData.results || job.result || jobData.result || jobData;
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
-                    
-                    // 🎯 NOVA LÓGICA: Validar sucesso baseado em analysisType
-                    const analysisType = job.analysisType || jobResult.analysisType || jobData.analysisType;
-                    const hasMetrics = jobResult.technicalData?.lufsIntegrated != null || 
-                                      jobResult.metrics?.lufsIntegrated != null;
-                    const hasSuggestions = Array.isArray(jobResult.suggestions) && jobResult.suggestions.length > 0;
-                    
-                    console.log('[REF_FLOW] ✅ Job completado:', {
-                        jobId,
-                        status,
-                        analysisType,
-                        mode: jobResult.mode,
-                        hasSuggestions,
-                        hasMetrics
-                    });
-                    
-                    // ✅ REGRA: reference_base NÃO precisa de suggestions
-                    if (analysisType === 'reference_base') {
-                        if (!hasMetrics) {
-                            console.error('[REF_FLOW] ❌ reference_base sem métricas básicas!');
-                            reject(new Error('Análise incompleta: métricas ausentes'));
-                            return;
-                        }
-                        
-                        console.log('[REF_FLOW] ✅ reference_base VÁLIDO (métricas presentes, suggestions não obrigatórias)');
-                        resolve(jobResult);
-                        return;
-                    }
-                    
-                    // ✅ REGRA: reference_compare e genre esperam suggestions (mas não bloqueiam)
-                    if (!hasMetrics) {
-                        console.error('[REF_FLOW] ❌ Análise sem métricas básicas!');
-                        reject(new Error('Análise incompleta: métricas ausentes'));
-                        return;
-                    }
-                    
-                    if (!hasSuggestions) {
-                        console.warn('[REF_FLOW] ⚠️ Análise sem suggestions (pode estar sendo gerada)');
-                    }
-                    
-                    console.log('[REF_FLOW] ✅ Análise válida:', { analysisType, hasMetrics, hasSuggestions });
                     
                     // ═══════════════════════════════════════════════════════════════
                     // 🔐 FRONTEND GUARD: Defesa em profundidade contra vazamento
@@ -9047,20 +9010,29 @@ async function handleModalFileSelection(file) {
             } else {
                 console.warn('%c[FALLBACK-GUARD] Permitindo fallback - sem contexto ativo', 'color:orange;font-weight:bold;');
                 
-                // [REF_FLOW] 🔒 BLOQUEIO: Não permitir reset para genre durante referência ativa
-                console.error('[REF_FLOW] ❌ Erro durante fluxo de referência - preservando modo reference');
-                console.log('[REF_FLOW] 🔒 currentAnalysisMode mantido:', currentAnalysisMode);
-                console.log('[REF_FLOW] 🔒 window.__REFERENCE_JOB_ID__ preservado:', window.__REFERENCE_JOB_ID__);
-                
-                // Mostrar erro sem mudar modo
-                showModalError(
-                    'Erro durante análise de referência.\n\n' +
-                    'Por favor, tente fazer upload do arquivo novamente.'
+                // Perguntar ao usuário explicitamente
+                const userWantsFallback = confirm(
+                    'A análise de referência encontrou um erro.\n\n' +
+                    'Deseja tentar novamente (OK) ou usar análise por gênero (Cancelar)?'
                 );
                 
-                // NÃO executar: currentAnalysisMode = 'genre'
-                // NÃO executar: persistReferenceFlag(false)
-                // Modo reference permanece ativo para retry
+                if (!userWantsFallback) {
+                    // Usuário escolheu fallback para gênero
+                    console.warn('[FALLBACK-GUARD] Usuário optou por fallback para gênero');
+                    currentAnalysisMode = 'genre';
+                    persistReferenceFlag(false);
+                    
+                    // Atualizar state machine também
+                    if (window.AnalysisStateMachine) {
+                        window.AnalysisStateMachine.setMode('genre', { userExplicitlySelected: true });
+                    }
+                    
+                    configureModalForMode('genre');
+                } else {
+                    // Usuário quer tentar reference novamente
+                    console.log('[REF_DEBUG] Usuário optou por tentar reference novamente');
+                    showModalError('Por favor, tente fazer upload da primeira faixa novamente.');
+                }
             }
         } else {
             // Determinar tipo de erro para mensagem mais específica
@@ -11717,38 +11689,6 @@ function renderReducedMode(data) {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
-    
-    // [REF_FLOW] 🎯 VERIFICAÇÃO ANALYSISTYPE: Aceitar reference_base sem suggestions
-    const analysisType = analysis.analysisType || analysis.data?.analysisType || 'genre';
-    console.log('[REF_FLOW] 📍 displayModalResults - analysisType:', analysisType);
-    
-    if (analysisType === 'reference_base') {
-        console.log('[REF_FLOW] ✅ reference_base detectado - suggestions NÃO obrigatórias');
-        console.log('[REF_FLOW] Validando apenas métricas técnicas...');
-        
-        // Validar métricas mínimas
-        const hasMetrics = analysis.technicalData && analysis.technicalData.lufsIntegrated != null;
-        if (!hasMetrics) {
-            console.error('[REF_FLOW] ❌ reference_base SEM métricas - exibir erro');
-            showModalError('Análise incompleta: métricas técnicas ausentes.');
-            return;
-        }
-        
-        console.log('[REF_FLOW] ✅ reference_base VÁLIDO - prosseguir renderização');
-        // Continuar fluxo normal - suggestions opcionais
-    } else if (analysisType === 'reference_compare') {
-        console.log('[REF_FLOW] 📊 reference_compare - validando métricas + suggestions');
-        const hasMetrics = analysis.technicalData && analysis.technicalData.lufsIntegrated != null;
-        const hasSuggestions = Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0;
-        
-        if (!hasMetrics || !hasSuggestions) {
-            console.error('[REF_FLOW] ❌ reference_compare INCOMPLETO:', { hasMetrics, hasSuggestions });
-            showModalError('Análise comparativa incompleta.');
-            return;
-        }
-    } else {
-        console.log('[REF_FLOW] 📌 Modo genre - fluxo padrão (sem mudanças)');
-    }
     
     // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
     const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
