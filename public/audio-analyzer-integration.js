@@ -13407,12 +13407,124 @@ async function displayModalResults(analysis) {
       return out;
     }
 
+    // 🎯 ADAPTER UNIVERSAL: Extrai bandas de qualquer estrutura (technicalData, bands, spectral_balance)
+    function extractBandsMap(analysisOrTechnicalData) {
+        if (!analysisOrTechnicalData) return null;
+        
+        const DEBUG_BANDS_EXTRACT = window.__DEBUG_SCORE_REFERENCE__ || false;
+        
+        // Normalizar input: pode ser analysis completo ou só technicalData
+        const tech = analysisOrTechnicalData.technicalData || analysisOrTechnicalData;
+        
+        // Fonte 1: technicalData.bands (estrutura padrão)
+        if (tech.bands && typeof tech.bands === 'object') {
+            const bandsObj = tech.bands;
+            const result = {};
+            
+            // Mapear keys padrão
+            const keyMap = {
+                'sub': tech.bandSub || bandsObj.sub || bandsObj.bandSub,
+                'bass': tech.bandBass || bandsObj.bass || bandsObj.bandBass || bandsObj.low_bass,
+                'lowMid': tech.bandLowMid || bandsObj.lowMid || bandsObj.bandLowMid || bandsObj.low_mid,
+                'mid': tech.bandMid || bandsObj.mid || bandsObj.bandMid,
+                'highMid': tech.bandHighMid || bandsObj.highMid || bandsObj.bandHighMid || bandsObj.high_mid,
+                'presence': tech.bandPresence || bandsObj.presence || bandsObj.bandPresence || bandsObj.presenca,
+                'air': tech.bandAir || bandsObj.air || bandsObj.bandAir || bandsObj.brilho
+            };
+            
+            Object.entries(keyMap).forEach(([key, val]) => {
+                if (val !== undefined) {
+                    // Extrair valor numérico
+                    const numVal = typeof val === 'object' ? 
+                        (val.energy_db ?? val.rms_db ?? val.value ?? val) : 
+                        val;
+                    if (Number.isFinite(numVal)) {
+                        result[key] = numVal;
+                    }
+                }
+            });
+            
+            if (Object.keys(result).length >= 3) {
+                if (DEBUG_BANDS_EXTRACT) console.log('[EXTRACT-BANDS] ✅ Fonte 1: technicalData.bands + bandXxx', result);
+                return result;
+            }
+        }
+        
+        // Fonte 2: Propriedades diretas technicalData.bandSub/bandBass/...
+        const directKeys = {
+            'sub': tech.bandSub,
+            'bass': tech.bandBass,
+            'lowMid': tech.bandLowMid,
+            'mid': tech.bandMid,
+            'highMid': tech.bandHighMid,
+            'presence': tech.bandPresence,
+            'air': tech.bandAir
+        };
+        
+        const directResult = {};
+        Object.entries(directKeys).forEach(([key, val]) => {
+            if (Number.isFinite(val)) {
+                directResult[key] = val;
+            }
+        });
+        
+        if (Object.keys(directResult).length >= 3) {
+            if (DEBUG_BANDS_EXTRACT) console.log('[EXTRACT-BANDS] ✅ Fonte 2: technicalData.bandXxx', directResult);
+            return directResult;
+        }
+        
+        // Fonte 3: spectral_balance
+        if (tech.spectral_balance && typeof tech.spectral_balance === 'object') {
+            const sb = tech.spectral_balance;
+            const sbResult = {};
+            
+            const sbMap = {
+                'sub': sb.sub,
+                'bass': sb.bass || sb.low_bass,
+                'lowMid': sb.lowMid || sb.low_mid,
+                'mid': sb.mid,
+                'highMid': sb.highMid || sb.high_mid,
+                'presence': sb.presence || sb.presenca,
+                'air': sb.air || sb.brilho
+            };
+            
+            Object.entries(sbMap).forEach(([key, val]) => {
+                const numVal = typeof val === 'object' ? 
+                    (val.energy_db ?? val.rms_db ?? val) : 
+                    val;
+                if (Number.isFinite(numVal)) {
+                    sbResult[key] = numVal;
+                }
+            });
+            
+            if (Object.keys(sbResult).length >= 3) {
+                if (DEBUG_BANDS_EXTRACT) console.log('[EXTRACT-BANDS] ✅ Fonte 3: spectral_balance', sbResult);
+                return sbResult;
+            }
+        }
+        
+        if (DEBUG_BANDS_EXTRACT) console.warn('[EXTRACT-BANDS] ⚠️ Nenhuma fonte de bandas válida');
+        return null;
+    }
+
     function __bandsAreMeaningful(bands) {
       if (!bands) return false;
-      const k = __keys(bands).filter(k => ['sub','bass','lowMid','mid','highMid','presence','air'].includes(k));
+      
+      // 🎯 USAR ADAPTER: Se bands não tem keys padrão, tentar extrair
+      let normalizedBands = bands;
+      const hasStandardKeys = ['sub','bass','lowMid','mid','highMid','presence','air']
+          .some(k => bands[k] !== undefined);
+      
+      if (!hasStandardKeys) {
+          // Tentar extrair via adapter
+          normalizedBands = extractBandsMap(bands);
+          if (!normalizedBands) return false;
+      }
+      
+      const k = __keys(normalizedBands).filter(k => ['sub','bass','lowMid','mid','highMid','presence','air'].includes(k));
       if (k.length < __MIN_BANDS) return false;
       // precisa ter variação real (evita vetor todo zero)
-      const vals = k.map(k => bands[k]).filter(__num);
+      const vals = k.map(k => normalizedBands[k]).filter(__num);
       if (vals.length < __MIN_BANDS) return false;
       const max = Math.max(...vals), min = Math.min(...vals);
       return isFinite(max) && isFinite(min) && (Math.abs(max - min) > 0.2); // >0.2 dB de amplitude mínima
@@ -13665,9 +13777,18 @@ async function displayModalResults(analysis) {
         console.log('[INTEGRITY CHECK] ✅ userFull e refFull são diferentes — prosseguindo com cálculo');
     }
     
-    // 🎯 ROOT CAUSE FIX: Detectar modo gênero ANTES de calcular refBandsOK
-    // Em modo gênero, refBands vem de genreTargets, NÃO de referenceAnalysis!
-    const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
+    // 🎯 ROOT CAUSE FIX: Detectar modo APENAS pelo state.render.mode
+    // NUNCA usar SOUNDY_MODE_ENGINE.isGenre() para lógica de score
+    const explicitMode = state.render?.mode || window.currentAnalysisMode;
+    const isGenreMode = explicitMode === 'genre';
+    
+    console.log('🎯 [MODE-DETECTION] Mode detectado:', {
+        explicitMode,
+        isGenreMode,
+        source: state.render?.mode ? 'state.render.mode' : 'currentAnalysisMode',
+        warning: isGenreMode && referenceComparisonMetrics ? 
+            '⚠️ Modo genre mas tem referenceComparisonMetrics - verificar!' : null
+    });
     
     let finalRefBands = refBands;
     
@@ -20517,33 +20638,17 @@ function calculateFrequencyScoreReference(bandsA, bandsB) {
 
 // 6B. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
 function calculateFrequencyScore(analysis, refData) {
-    if (!analysis || !refData || !refData.bands) return null;
+    if (!analysis || !refData || !refData.bands) return 0; // ✅ retorna 0 não null
     
-    // 🎯 CASCATA COMPLETA DE FALLBACKS (confirmada segura em CONFIRMACAO_MIGRACAO_TECHNICALDATA_BANDS.md)
-    // Prioridade 1: technicalData.bands (caminho principal - SEMPRE existe)
-    // Prioridade 2: metrics.bands (compatibilidade - pode não existir)
-    // Prioridade 3: technicalData.spectral_balance (fonte real - alias de bands)
-    // Prioridade 4: technicalData.bandEnergies (legado)
-    const technicalBands = analysis.technicalData?.bands;
-    const centralizedBands = analysis.metrics?.bands;
-    const spectralBalance = analysis.technicalData?.spectral_balance;
-    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
-
-    const bandsToUse = 
-        (technicalBands && Object.keys(technicalBands).length > 0) ? technicalBands :
-        (centralizedBands && Object.keys(centralizedBands).length > 0) ? centralizedBands :
-        (spectralBalance && Object.keys(spectralBalance).length > 0) ? spectralBalance :
-        legacyBandEnergies;
-
-    console.log('[FREQ-SCORE] 🎵 Fonte de bandas:', 
-        technicalBands ? '✅ technicalData.bands (prioridade 1)' : 
-        centralizedBands ? '⚠️ metrics.bands (fallback 2)' : 
-        spectralBalance ? '⚠️ spectral_balance (fallback 3)' : 
-        '⚠️ bandEnergies (fallback 4 - legado)');
+    // 🎯 USAR ADAPTER UNIVERSAL para extrair bandas
+    const bandsToUse = extractBandsMap(analysis);
     
-    console.log('[FREQ-SCORE] 🎵 Bandas disponíveis:', bandsToUse ? Object.keys(bandsToUse) : 'NENHUMA');
+    if (!bandsToUse) {
+        console.warn('[FREQ-SCORE] ⚠️ Adapter não conseguiu extrair bandas');
+        return 0;
+    }
     
-    if (!bandsToUse) return null;
+    console.log('[FREQ-SCORE] ✅ Bandas extraídas via adapter:', Object.keys(bandsToUse));
     
     const scores = [];
     const isReferenceMode = refData._isReferenceMode === true;
@@ -20647,8 +20752,9 @@ function calculateFrequencyScore(analysis, refData) {
         }
     });
     
-    // Se não encontrou scores válidos, retornar null
+    // Se não encontrou scores válidos, retornar 0 (não null nem 100)
     if (scores.length === 0) {
+        console.warn('[FREQ-SCORE] ⚠️ Nenhuma banda válida processada - retornando score=0');
         try {
             console.log('[AUDIT-SCORE]', {
                 func: 'calculateFrequencyScore',
@@ -20656,7 +20762,7 @@ function calculateFrequencyScore(analysis, refData) {
                 target: 'N/A',
                 diff: 'N/A',
                 tolerance: 'N/A',
-                result: null,
+                result: 0, // ✅ MUDADO DE null PARA 0
                 condition: 'no valid scores',
                 scoresCount: 0,
                 isReferenceMode,
@@ -20665,7 +20771,7 @@ function calculateFrequencyScore(analysis, refData) {
         } catch (err) {
             console.warn('[AUDIT-ERROR]', 'calculateFrequencyScore (no scores)', err);
         }
-        return null;
+        return 0; // ✅ MUDADO DE null PARA 0
     }
     
     // Média aritmética simples das bandas válidas
@@ -24821,6 +24927,86 @@ if (typeof window !== 'undefined') {
                     details: `Presence: ${bands.presence.toFixed(1)} dB`
                 });
                 console.log('[SUGGESTIONS-GEN] ✅ Sugestão de presence baixo adicionada');
+            }
+        }
+        
+        // 🎵 SUGESTÕES DE FREQUÊNCIA EM MODO REFERENCE
+        const isReferenceMode = state?.render?.mode === 'reference' || window.currentAnalysisMode === 'reference';
+        const isGenreModeCheck = state?.render?.mode === 'genre';
+        
+        if (isReferenceMode && !isGenreModeCheck && state?.reference?.referenceAnalysis && state?.reference?.userAnalysis) {
+            console.log('[SUGGESTIONS-GEN] 🎵 Gerando sugestões de frequência para modo REFERENCE...');
+            
+            const userBands = extractBandsMap(state.reference.userAnalysis);
+            const refBands = extractBandsMap(state.reference.referenceAnalysis);
+            
+            if (userBands && refBands) {
+                const bandNames = {
+                    'sub': 'Sub (20-60Hz)',
+                    'bass': 'Bass (60-150Hz)',
+                    'lowMid': 'Low-Mid (150-500Hz)',
+                    'mid': 'Mid (500-2kHz)',
+                    'highMid': 'High-Mid (2-5kHz)',
+                    'presence': 'Presence (5-10kHz)',
+                    'air': 'Air (10-20kHz)'
+                };
+                
+                const bandIcons = {
+                    'sub': '🔊',
+                    'bass': '🎸',
+                    'lowMid': '🎹',
+                    'mid': '🎤',
+                    'highMid': '🎺',
+                    'presence': '🎻',
+                    'air': '✨'
+                };
+                
+                // Threshold: >3dB = sugestão (médio), >6dB = crítico
+                const THRESHOLD_MEDIUM = 3.0;
+                const THRESHOLD_CRITICAL = 6.0;
+                
+                let freqSuggestionsCount = 0;
+                
+                Object.entries(bandNames).forEach(([key, displayName]) => {
+                    const userVal = userBands[key];
+                    const refVal = refBands[key];
+                    
+                    if (!Number.isFinite(userVal) || !Number.isFinite(refVal)) return;
+                    
+                    const delta = userVal - refVal; // positivo = você tem mais, negativo = você tem menos
+                    const absDelta = Math.abs(delta);
+                    
+                    if (absDelta > THRESHOLD_MEDIUM) {
+                        const priority = absDelta > THRESHOLD_CRITICAL ? 'high' : 'medium';
+                        const icon = bandIcons[key] || '🎵';
+                        
+                        let message, action;
+                        if (delta > 0) {
+                            // Usuário tem energia MAIOR que referência
+                            message = `${icon} Banda ${displayName} está ${absDelta.toFixed(1)}dB acima da referência`;
+                            action = `Reduza em ${absDelta.toFixed(1)}dB usando EQ ou compressor multiband`;
+                        } else {
+                            // Usuário tem energia MENOR que referência
+                            message = `${icon} Banda ${displayName} está ${Math.abs(delta).toFixed(1)}dB abaixo da referência`;
+                            action = `Aumente em ${Math.abs(delta).toFixed(1)}dB usando EQ ou excitador`;
+                        }
+                        
+                        normalized.suggestions.push({
+                            type: 'frequency',
+                            message,
+                            action,
+                            details: `Sua faixa: ${userVal.toFixed(2)}dB | Referência: ${refVal.toFixed(2)}dB | Delta: ${delta > 0 ? '+' : ''}${delta.toFixed(2)}dB`,
+                            severity: priority
+                        });
+                        
+                        freqSuggestionsCount++;
+                        console.log(`[FREQ-SUGGESTION] ${key}: user=${userVal.toFixed(2)}dB, ref=${refVal.toFixed(2)}dB, delta=${delta.toFixed(2)}dB → ${priority}`);
+                    }
+                });
+                
+                console.log(`[SUGGESTIONS-GEN] ✅ ${freqSuggestionsCount} sugestões de frequência adicionadas (modo reference)`);
+            } else {
+                console.warn('[SUGGESTIONS-GEN] ⚠️ Não foi possível extrair bandas para sugestões de frequência');
             }
         }
         
