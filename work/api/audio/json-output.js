@@ -156,8 +156,12 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   if (coreMetrics.truePeak) {
     technicalData.truePeakDbtp = safeSanitize(coreMetrics.truePeak.maxDbtp);
     technicalData.truePeakLinear = safeSanitize(coreMetrics.truePeak.maxLinear);
+    
+    // ⚠️ ATENÇÃO: samplePeakLeftDb/RightDb são do FFmpeg ebur128 (não são o "Sample Peak" real)
+    // O "Sample Peak" REAL está em technicalData.samplePeakDbfs (calculado separadamente)
     technicalData.samplePeakLeftDb = safeSanitize(coreMetrics.truePeak.samplePeakLeftDb);
     technicalData.samplePeakRightDb = safeSanitize(coreMetrics.truePeak.samplePeakRightDb);
+    
     technicalData.clippingSamples = safeSanitize(coreMetrics.truePeak.clippingSamples, 0);
     technicalData.clippingPct = safeSanitize(coreMetrics.truePeak.clippingPct, 0);
     
@@ -436,6 +440,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     
     // 🔄 Manter aliases legados para compatibilidade (backward compat)
     technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated Use rmsPeak300msDb
+    technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak; // 🎯 ALIAS: consistência de nomenclatura
     technicalData.rms = technicalData.rmsLevels.average;
     technicalData.avgLoudness = technicalData.rmsLevels.average; // alias para Volume Médio
     
@@ -451,13 +456,13 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);
     technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);
     
-    console.log(`[DEBUG JSON FINAL] samplePeakDbfs=${technicalData.samplePeakDbfs}`);
+    console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
   } else {
     technicalData.samplePeakDbfs = null;
     technicalData.samplePeakLeftDbfs = null;
     technicalData.samplePeakRightDbfs = null;
     technicalData.samplePeakLinear = null;
-    console.warn('[DEBUG JSON] samplePeak não disponível (modo sem PCM?)');
+    console.warn('[JSON-OUTPUT] ⚠️ samplePeak não disponível (coreMetrics.samplePeak = null)');
   }
 
   // 🔍 SANITY-CHECK: Validação de invariantes matemáticas (log-only, não aborta job)
