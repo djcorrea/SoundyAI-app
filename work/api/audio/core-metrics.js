@@ -757,6 +757,18 @@ class CoreMetricsProcessor {
         dynamicRange: coreMetrics.dynamics?.dynamicRange
       });
       
+      // 📊 LOG CRÍTICO: Confirmar Sample Peak antes do return
+      if (coreMetrics.samplePeak) {
+        console.log('[CORE-METRICS] ✅ CONFIRMAÇÃO FINAL - Sample Peak no objeto de retorno:', {
+          maxDbfs: coreMetrics.samplePeak.maxDbfs,
+          leftDbfs: coreMetrics.samplePeak.leftDbfs,
+          rightDbfs: coreMetrics.samplePeak.rightDbfs,
+          hasValidValues: coreMetrics.samplePeak.maxDbfs !== null && coreMetrics.samplePeak.maxDbfs !== undefined
+        });
+      } else {
+        console.warn('[CORE-METRICS] ⚠️ Sample Peak NULL no objeto final - coreMetrics.samplePeak não existe');
+      }
+      
       logAudio('core_metrics', 'completed', { 
         ms: totalTime, 
         lufs: rawLufsMetrics.integrated, // ✅ CORREÇÃO: usar rawLufsMetrics

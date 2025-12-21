@@ -115,6 +115,20 @@ function validateCoreMetricsStructure(coreMetrics) {
 }
 
 function extractTechnicalData(coreMetrics, jobId = 'unknown') {
+  console.log('[JSON-OUTPUT] 🔍 INÍCIO extractTechnicalData');
+  
+  // 📊 DEBUG CRÍTICO: Verificar estado do samplePeak logo no início
+  if (coreMetrics.samplePeak) {
+    console.log('[JSON-OUTPUT] 📊 Sample Peak recebido de coreMetrics:', {
+      maxDbfs: coreMetrics.samplePeak.maxDbfs,
+      leftDbfs: coreMetrics.samplePeak.leftDbfs,
+      rightDbfs: coreMetrics.samplePeak.rightDbfs,
+      estruturaCompleta: Object.keys(coreMetrics.samplePeak)
+    });
+  } else {
+    console.warn('[JSON-OUTPUT] ⚠️ coreMetrics.samplePeak é NULL/UNDEFINED no início de extractTechnicalData');
+  }
+  
   const technicalData = {};
 
   function safeSanitize(value, fallback = null) {
@@ -455,6 +469,15 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakLeftDbfs = safeSanitize(coreMetrics.samplePeak.leftDbfs);
     technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);
     technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);
+    
+    // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores do Sample Peak REAL
+    // (as chaves samplePeakLeftDb/RightDb anteriormente vinham do FFmpeg e eram null)
+    if (!technicalData.samplePeakLeftDb || technicalData.samplePeakLeftDb === null) {
+      technicalData.samplePeakLeftDb = technicalData.samplePeakLeftDbfs;
+    }
+    if (!technicalData.samplePeakRightDb || technicalData.samplePeakRightDb === null) {
+      technicalData.samplePeakRightDb = technicalData.samplePeakRightDbfs;
+    }
     
     console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
   } else {
