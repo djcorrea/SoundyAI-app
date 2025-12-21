@@ -144,6 +144,12 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.originalLUFS = safeSanitize(coreMetrics.lufs.originalLUFS);
     technicalData.normalizedTo = safeSanitize(coreMetrics.lufs.normalizedTo);
     technicalData.gainAppliedDB = safeSanitize(coreMetrics.lufs.gainAppliedDB);
+    
+    // 🎯 LOG DE CONFIRMAÇÃO: Valores RAW sendo usados
+    console.log('[JSON-OUTPUT] ✅ Valores RAW extraídos para technicalData:', {
+      lufsIntegrated: technicalData.lufsIntegrated,
+      sourceIsRaw: coreMetrics.metadata?.usesRawMetrics || false
+    });
   }
 
   // ===== True Peak =====
@@ -154,6 +160,12 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakRightDb = safeSanitize(coreMetrics.truePeak.samplePeakRightDb);
     technicalData.clippingSamples = safeSanitize(coreMetrics.truePeak.clippingSamples, 0);
     technicalData.clippingPct = safeSanitize(coreMetrics.truePeak.clippingPct, 0);
+    
+    // 🎯 LOG DE CONFIRMAÇÃO: True Peak RAW
+    console.log('[JSON-OUTPUT] ✅ True Peak RAW extraído:', {
+      truePeakDbtp: technicalData.truePeakDbtp,
+      sourceIsRaw: coreMetrics.metadata?.usesRawMetrics || false
+    });
   }
 
   // ===== Dynamics =====
@@ -163,6 +175,12 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.peakRmsDb = safeSanitize(coreMetrics.dynamics.peakRmsDb);
     technicalData.averageRmsDb = safeSanitize(coreMetrics.dynamics.averageRmsDb);
     technicalData.drCategory = safeSanitize(coreMetrics.dynamics.drCategory, 'unknown');
+    
+    // 🎯 LOG DE CONFIRMAÇÃO: DR RAW
+    console.log('[JSON-OUTPUT] ✅ Dynamic Range RAW extraído:', {
+      dynamicRange: technicalData.dynamicRange,
+      sourceIsRaw: coreMetrics.metadata?.usesRawMetrics || false
+    });
   }
 
   // ===== Stereo =====

@@ -99,7 +99,37 @@ class CoreMetricsProcessor {
       this.validateInputFrom5_2(segmentedAudio);
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
-      // ========= NORMALIZAÇÃO PRÉ-ANÁLISE A -23 LUFS =========
+      // ========= 🎯 ETAPA 1: CALCULAR MÉTRICAS RAW (ANTES DA NORMALIZAÇÃO) =========
+      logAudio('core_metrics', 'raw_metrics_start', { 
+        message: '🎯 Calculando LUFS/TruePeak/DR no buffer RAW (original)' 
+      });
+
+      // 🎯 CÁLCULO RAW: LUFS Integrado (áudio original)
+      logAudio('core_metrics', 'raw_lufs_start', { frames: segmentedAudio.framesRMS?.count });
+      const rawLufsMetrics = await this.calculateLUFSMetrics(leftChannel, rightChannel, { jobId });
+      assertFinite(rawLufsMetrics, 'core_metrics');
+      console.log('[RAW_METRICS] ✅ LUFS integrado (RAW):', rawLufsMetrics.integrated);
+
+      // 🎯 CÁLCULO RAW: True Peak (áudio original)
+      logAudio('core_metrics', 'raw_truepeak_start', { channels: 2, method: 'ffmpeg_ebur128' });
+      const rawTruePeakMetrics = await this.calculateTruePeakMetrics(leftChannel, rightChannel, { 
+        jobId, 
+        tempFilePath: options.tempFilePath 
+      });
+      assertFinite(rawTruePeakMetrics, 'core_metrics');
+      console.log('[RAW_METRICS] ✅ True Peak (RAW):', rawTruePeakMetrics.maxDbtp);
+
+      // 🎯 CÁLCULO RAW: Dynamic Range (áudio original, precisa do LRA do RAW)
+      logAudio('core_metrics', 'raw_dynamics_start', { length: leftChannel.length });
+      const rawDynamicsMetrics = calculateDynamicsMetrics(
+        leftChannel, 
+        rightChannel, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        rawLufsMetrics.lra // Usar LRA já calculado do RAW
+      );
+      console.log('[RAW_METRICS] ✅ Dynamic Range (RAW):', rawDynamicsMetrics.dynamicRange);
+
+      // ========= 🎯 ETAPA 2: NORMALIZAÇÃO A -23 LUFS (PARA BANDAS/SPECTRAL) =========
       logAudio('core_metrics', 'normalization_start', { targetLUFS: -23.0 });
       const normalizationResult = await normalizeAudioToTargetLUFS(
         { leftChannel, rightChannel },
@@ -107,7 +137,7 @@ class CoreMetricsProcessor {
         { jobId, targetLUFS: -23.0 }
       );
       
-      // Usar canais normalizados para todas as análises
+      // Usar canais normalizados APENAS para análises espectrais/bandas
       const normalizedLeft = normalizationResult.leftChannel;
       const normalizedRight = normalizationResult.rightChannel;
       
@@ -117,59 +147,66 @@ class CoreMetricsProcessor {
         gainDB: normalizationResult.gainAppliedDB 
       });
 
+      // ========= 🎯 ETAPA 3: CALCULAR MÉTRICAS NORM (OPCIONAIS - DEBUG) =========
+      // Calcular LUFS/TP/DR no buffer normalizado APENAS para debug (_norm)
+      logAudio('core_metrics', 'norm_metrics_debug', { 
+        message: '🔍 Calculando métricas NORM (debug apenas)' 
+      });
+      const normLufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
+      const normTruePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { 
+        jobId, 
+        tempFilePath: options.tempFilePath 
+      });
+      const normDynamicsMetrics = calculateDynamicsMetrics(
+        normalizedLeft, 
+        normalizedRight, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        normLufsMetrics.lra
+      );
+      console.log('[NORM_FREQ] 🔍 Métricas normalizadas (debug):', {
+        lufsIntegrated: normLufsMetrics.integrated,
+        truePeakDbtp: normTruePeakMetrics.maxDbtp,
+        dynamicRange: normDynamicsMetrics.dynamicRange
+      });
+
       // ========= CÁLCULO DE MÉTRICAS FFT CORRIGIDAS =========
       logAudio('core_metrics', 'fft_start', { frames: segmentedAudio.framesFFT?.count });
       const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
       assertFinite(fftResults, 'core_metrics');
 
-      // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
+      // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) - BUFFER NORMALIZADO =========
       logAudio('core_metrics', 'spectral_bands_start', { 
         hasFramesFFT: !!segmentedAudio.framesFFT,
         frameCount: segmentedAudio.framesFFT?.frames?.length || 0
       });
       const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
       
-      // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
+      // ========= SPECTRAL CENTROID CORRIGIDO (Hz) - BUFFER NORMALIZADO =========
       logAudio('core_metrics', 'spectral_centroid_start', {
         hasFramesFFT: !!segmentedAudio.framesFFT,
         frameCount: segmentedAudio.framesFFT?.frames?.length || 0
       });
       const spectralCentroidResults = await this.calculateSpectralCentroidMetrics(segmentedAudio.framesFFT, { jobId });
 
-      // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
-      logAudio('core_metrics', 'lufs_start', { frames: segmentedAudio.framesRMS?.count });
-      const lufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
-      assertFinite(lufsMetrics, 'core_metrics');
-
-      // ========= TRUE PEAK FFmpeg (SEM FALLBACK) =========
-      logAudio('core_metrics', 'truepeak_start', { channels: 2, method: 'ffmpeg_ebur128' });
-      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { 
-        jobId, 
-        tempFilePath: options.tempFilePath 
-      });
-      assertFinite(truePeakMetrics, 'core_metrics');
-
-      // ========= ANÁLISE ESTÉREO CORRIGIDA =========
+      // ========= ANÁLISE ESTÉREO - BUFFER NORMALIZADO =========
       logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
       const stereoMetrics = await this.calculateStereoMetricsCorrect(normalizedLeft, normalizedRight, { jobId });
       assertFinite(stereoMetrics, 'core_metrics');
-
-      // ========= MÉTRICAS DE DINÂMICA CORRIGIDAS =========
-      logAudio('core_metrics', 'dynamics_start', { length: normalizedLeft.length });
-      const dynamicsMetrics = calculateDynamicsMetrics(
-        normalizedLeft, 
-        normalizedRight, 
-        CORE_METRICS_CONFIG.SAMPLE_RATE,
-        lufsMetrics.lra // Usar LRA já calculado
-      );
+      // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
+      // 🎯 LOG CRÍTICO: Confirmar que valores RAW serão usados
+      console.log('[RAW_METRICS] ═══════════════════════════════════════════════════════════════');
+      console.log('[RAW_METRICS] 📊 VALORES RAW (que serão salvos em technicalData):');
+      console.log('[RAW_METRICS]   - lufsIntegrated:', rawLufsMetrics.integrated, 'LUFS');
+      console.log('[RAW_METRICS]   - truePeakDbtp:', rawTruePeakMetrics.maxDbtp, 'dBTP');
+      console.log('[RAW_METRICS]   - dynamicRange:', rawDynamicsMetrics.dynamicRange, 'dB');
+      console.log('[RAW_METRICS]   - lra:', rawLufsMetrics.lra, 'LU');
+      console.log('[RAW_METRICS] ═══════════════════════════════════════════════════════════════');
       
-      if (dynamicsMetrics.dynamicRange !== null) {
-        logAudio('core_metrics', 'dynamics_calculated', {
-          dr: dynamicsMetrics.dynamicRange.toFixed(2),
-          crest: dynamicsMetrics.crestFactor?.toFixed(2) || 'null',
-          lra: dynamicsMetrics.lra?.toFixed(2) || 'null'
-        });
-      }
+      console.log('[NORM_FREQ] ═══════════════════════════════════════════════════════════════');
+      console.log('[NORM_FREQ] 🔊 BANDAS ESPECTRAIS (calculadas no buffer normalizado):');
+      console.log('[NORM_FREQ]   - bands present:', !!spectralBandsResults);
+      console.log('[NORM_FREQ]   - spectral_balance keys:', spectralBandsResults ? Object.keys(spectralBandsResults) : []);
+      console.log('[NORM_FREQ] ═══════════════════════════════════════════════════════════════');
 
       // ========= ANÁLISE AUXILIAR - VERSÃO SIMPLIFICADA SEM CLASSES =========
       // 🚨 IMPORTANTE: Usando apenas funções standalone para evitar erros de classe
@@ -256,21 +293,30 @@ class CoreMetricsProcessor {
       // Removed to improve speed from ~150s to ~104s per analysis.
       const bmpMetrics = { bpm: null, bpmConfidence: null, bpmSource: 'DISABLED' };
 
-      // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
+      // ========= MONTAGEM DE RESULTADO CORRIGIDO COM VALORES RAW =========
+      // 🎯 OPÇÃO C HÍBRIDA: technicalData usa RAW, bandas usam NORM
       const coreMetrics = {
         fft: fftResults,
-        spectralBands: spectralBandsResults, // ✅ NOVO: 7 bandas profissionais
-        spectralCentroid: spectralCentroidResults, // ✅ NOVO: Centro de brilho em Hz
+        spectralBands: spectralBandsResults, // ✅ CALCULADO NO BUFFER NORMALIZADO
+        spectralCentroid: spectralCentroidResults, // ✅ CALCULADO NO BUFFER NORMALIZADO
+        
+        // 🎯 LUFS: Usar valores RAW + adicionar metadados de normalização
         lufs: {
-          ...lufsMetrics,
+          ...rawLufsMetrics,
           // Adicionar dados de normalização aos LUFS
           originalLUFS: normalizationResult.originalLUFS,
           normalizedTo: -23.0,
           gainAppliedDB: normalizationResult.gainAppliedDB
         },
-        truePeak: truePeakMetrics,
-        stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
-        dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
+        
+        // 🎯 TRUE PEAK: Usar valores RAW
+        truePeak: rawTruePeakMetrics,
+        
+        stereo: stereoMetrics, // ✅ CALCULADO NO BUFFER NORMALIZADO
+        
+        // 🎯 DYNAMICS: Usar valores RAW (DR, Crest Factor, LRA)
+        dynamics: rawDynamicsMetrics,
+        
         rms: (() => {
           console.log(`[DEBUG CORE] Chamando processRMSMetrics com segmentedAudio.framesRMS:`, {
             hasFramesRMS: !!segmentedAudio.framesRMS,
@@ -290,8 +336,17 @@ class CoreMetricsProcessor {
         dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
         spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
         bpm: bmpMetrics.bpm, // ✅ NOVO: Beats Per Minute
-        bpmConfidence: bmpMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence (corrigido bmpConfidence → bpmConfidence)
-        bpmSource: bmpMetrics.bpmSource, // ✅ NOVO: Fonte do cálculo BPM (NORMAL, FALLBACK_STRICT, etc)
+        bpmConfidence: bmpMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence
+        bpmSource: bmpMetrics.bpmSource, // ✅ NOVO: Fonte do cálculo BPM
+        
+        // 🎯 OPCIONAL: Adicionar valores NORM para debug (não usado pela UI)
+        _norm: {
+          lufsIntegrated: normLufsMetrics.integrated,
+          truePeakDbtp: normTruePeakMetrics.maxDbtp,
+          dynamicRange: normDynamicsMetrics.dynamicRange,
+          lra: normLufsMetrics.lra,
+          note: 'Valores calculados no buffer normalizado (-23 LUFS) - apenas para debug'
+        },
         
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -309,6 +364,7 @@ class CoreMetricsProcessor {
           fftSize: CORE_METRICS_CONFIG.FFT_SIZE,
           stage: 'core_metrics_completed',
           normalizationEnabled: true,
+          usesRawMetrics: true, // 🎯 FLAG: Indica que LUFS/TP/DR são RAW
           jobId
         }
       };
@@ -418,16 +474,18 @@ class CoreMetricsProcessor {
           }
           
           // 🔥 CONSTRUIR consolidatedData para passar ao analyzer
-          // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
+          // 🎯 GARANTIR: Usar valores RAW (idênticos aos da tabela)
           let consolidatedData = null;
           if (customTargets) {
           consolidatedData = {
             metrics: {
-              loudness: { value: coreMetrics.lufs && coreMetrics.lufs.lufs_integrated, unit: 'LUFS' },
+              // 🎯 Usar valores RAW das métricas
+              loudness: { value: coreMetrics.lufs && coreMetrics.lufs.integrated, unit: 'LUFS' },
               truePeak: { value: coreMetrics.truePeak && coreMetrics.truePeak.maxDbtp, unit: 'dBTP' },
               dr: { value: coreMetrics.dynamics && coreMetrics.dynamics.dynamicRange, unit: 'dB' },
               stereo: { value: coreMetrics.stereo && coreMetrics.stereo.correlation, unit: 'correlation' },
               bands: {
+                // 🎯 Bandas continuam usando valores do buffer normalizado
                 sub: {
                   value: coreMetrics.spectralBands && coreMetrics.spectralBands.sub && (coreMetrics.spectralBands.sub.energy_db !== undefined ? coreMetrics.spectralBands.sub.energy_db : null),
                   unit: 'dBFS'
@@ -458,7 +516,7 @@ class CoreMetricsProcessor {
                 }
               }
             },
-            genreTargets: customTargets  // ✅ Já normalizado - { lufs: {target, tolerance}, bands: {sub: {target_db, tol_db}} }
+            genreTargets: customTargets  // ✅ Já normalizado
           };            
           
           // 🔥 LOG CRÍTICO: AUDITORIA COMPLETA DE consolidatedData.metrics.bands
