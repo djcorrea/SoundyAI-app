@@ -452,11 +452,14 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;
     technicalData.rmsAverageDb = technicalData.rmsLevels.average;
     
+    // 🎯 CORREÇÃO FINAL: Chave preferencial para RMS Average
+    technicalData.rmsDb = technicalData.rmsLevels.average;
+    
     // 🔄 Manter aliases legados para compatibilidade (backward compat)
     technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated Use rmsPeak300msDb
     technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak; // 🎯 ALIAS: consistência de nomenclatura
-    technicalData.rms = technicalData.rmsLevels.average;
-    technicalData.avgLoudness = technicalData.rmsLevels.average; // alias para Volume Médio
+    technicalData.rms = technicalData.rmsLevels.average; // @deprecated Use rmsDb
+    technicalData.avgLoudness = technicalData.rmsLevels.average; // @deprecated Use rmsDb
     
     console.log(`[DEBUG JSON FINAL] rmsPeak300msDb=${technicalData.rmsPeak300msDb}, rmsAverageDb=${technicalData.rmsAverageDb}, avgLoudness=${technicalData.avgLoudness}`);
   } else {
@@ -470,6 +473,9 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);
     technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);
     
+    // 🎯 CORREÇÃO FINAL: Chave aggregate market-ready (max(L,R) já calculado)
+    technicalData.samplePeakDb = technicalData.samplePeakDbfs;
+    
     // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores do Sample Peak REAL
     // (as chaves samplePeakLeftDb/RightDb anteriormente vinham do FFmpeg e eram null)
     if (!technicalData.samplePeakLeftDb || technicalData.samplePeakLeftDb === null) {
@@ -482,16 +488,27 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
   } else {
     technicalData.samplePeakDbfs = null;
+    technicalData.samplePeakDb = null;
     technicalData.samplePeakLeftDbfs = null;
     technicalData.samplePeakRightDbfs = null;
     technicalData.samplePeakLinear = null;
     console.warn('[JSON-OUTPUT] ⚠️ samplePeak não disponível (coreMetrics.samplePeak = null)');
   }
 
+  // 🎯 LOG FINAL: Métricas market-ready para validação
+  console.log('[METRICS-EXPORT] 📊 Métricas principais exportadas:', {
+    samplePeakDb: technicalData.samplePeakDb,
+    samplePeakLeftDb: technicalData.samplePeakLeftDb,
+    samplePeakRightDb: technicalData.samplePeakRightDb,
+    rmsPeak300msDb: technicalData.rmsPeak300msDb,
+    rmsDb: technicalData.rmsDb,
+    truePeakDbtp: technicalData.truePeakDbtp
+  });
+  
   // 🔍 SANITY-CHECK: Validação de invariantes matemáticas (log-only, não aborta job)
   const rmsPeak = technicalData.rmsPeak300msDb;
-  const rmsAvg = technicalData.rmsAverageDb;
-  const samplePeak = technicalData.samplePeakDbfs;
+  const rmsAvg = technicalData.rmsDb;
+  const samplePeak = technicalData.samplePeakDb;
   const truePeak = technicalData.truePeakDbtp;
   
   if (rmsPeak !== null && rmsAvg !== null) {

@@ -14320,36 +14320,23 @@ async function displayModalResults(analysis) {
                 return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDb');
             })(),
             
-            // 🎯 Sample Peak (dBFS) - NOVO: max absolute sample (calculado de L/R)
+            // 🎯 Sample Peak (dBFS) - CORRIGIDO: usar chave direta aggregate
             (() => {
-                // Buscar valores de L e R com fallbacks para diferentes nomenclaturas
-                const leftDb = getMetric('samplePeakLeftDb') ?? getMetric('samplePeakLeftDbfs');
-                const rightDb = getMetric('samplePeakRightDb') ?? getMetric('samplePeakRightDbfs');
-                
-                // Calcular max(L, R) ou usar o que estiver disponível
-                let spValue = null;
-                if (leftDb != null && rightDb != null) {
-                    spValue = Math.max(leftDb, rightDb);
-                } else if (leftDb != null) {
-                    spValue = leftDb;
-                } else if (rightDb != null) {
-                    spValue = rightDb;
-                } else {
-                    // Tentar buscar valor agregado direto (se existir)
-                    spValue = getMetric('samplePeakDbfs');
-                }
+                // Buscar valor aggregate direto (max(L,R) já calculado no backend)
+                const spValue = getMetric('samplePeakDb') ?? getMetric('samplePeakDbfs');
                 
                 if (spValue === null || spValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak NÃO disponível (samplePeakLeftDb/RightDb ausentes)');
+                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (samplePeakDb ausente)');
                     return '';
                 }
                 if (!Number.isFinite(spValue)) {
                     console.warn('[METRICS-FIX] col1 > Sample Peak valor inválido:', spValue);
                     return '';
                 }
+                
                 const spStatus = getTruePeakStatus(spValue); // Usar mesma escala de clipping
-                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS (L:', leftDb, 'R:', rightDb, ') status:', spStatus.status);
-                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
+                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS - status:', spStatus.status);
+                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDb');
             })(),
             
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
@@ -14377,28 +14364,25 @@ async function displayModalResults(analysis) {
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp', 'truePeak');
             })(),
             
-            // 🎯 Volume Médio (RMS) - energia real em dBFS
+            // 🎯 Volume Médio (RMS) - CORRIGIDO: usar rmsDb preferencial
             (() => {
-                const rmsValue = getMetricWithFallback([
-                    ['energy', 'rms'],
-                    'avgLoudness',
-                    'rms',
-                    'technicalData.avgLoudness',
-                    'technicalData.rms'
-                ]);
+                // Buscar RMS Average com fallback para aliases legados
+                const rmsValue = getMetric('rmsDb') ?? getMetric('rmsAverageDb') ?? getMetric('avgLoudness') ?? getMetric('rms');
+                
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
                 
                 // 🎯 Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo 0');
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'rmsDb');
                 }
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'rmsDb');
                 }
+                
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness', 'rms');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'rmsDb');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
