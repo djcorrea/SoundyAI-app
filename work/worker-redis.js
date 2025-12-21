@@ -299,8 +299,8 @@ async function initializeWorker() {
     // ⚙️ ETAPA 2: CONFIGURAR WORKER
     console.log('⚙️ [WORKER-INIT] Etapa 2: Configurando Worker BullMQ...');
     
-    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 3;
-    console.log(`⚙️ [WORKER-INIT] Concorrência: ${concurrency}`);
+    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 6;
+    console.log(`🚀 [WORKER-INIT] Worker iniciado com concurrency = ${concurrency} (WORKER_CONCURRENCY=${process.env.WORKER_CONCURRENCY || 'não definida, usando fallback'})`);
     
     // 🎯 CRIAR WORKER COM CONEXÃO ESTABELECIDA
     // ⚙️ PARTE 2: Worker com configuração otimizada e lockDuration aumentado

@@ -65,8 +65,8 @@ async function initializeWorker() {
     console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Conexão Redis centralizada obtida`);
     
     // ✅ Configuração de concorrência
-    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 3;
-    console.log(`⚙️ [WORKER-INIT][${new Date().toISOString()}] -> Concorrência configurada: ${concurrency}`);
+    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 6;
+    console.log(`🚀 [WORKER-INIT][${new Date().toISOString()}] -> Worker iniciado com concurrency = ${concurrency} (WORKER_CONCURRENCY=${process.env.WORKER_CONCURRENCY || 'não definida, usando fallback'})`);
 
     // ✅ REGRA 1: Importação correta do audioProcessor - DEFINIDO LOCALMENTE
     console.log(`🔧 [WORKER-INIT][${new Date().toISOString()}] -> Registrando audioProcessor...`);

@@ -139,9 +139,9 @@ audioQueue.on('removed', (job) => {
 export const createWorker = (
   queueName, 
   processor, 
-  concurrency = Number(process.env.WORKER_CONCURRENCY) || 5
+  concurrency = Number(process.env.WORKER_CONCURRENCY) || 6
 ) => {
-  console.log(`[WORKER-FACTORY][${new Date().toISOString()}] -> 🚀 Criando worker para fila '${queueName}' com concorrência: ${concurrency}`);
+  console.log(`[WORKER-FACTORY][${new Date().toISOString()}] -> 🚀 Worker iniciado com concurrency = ${concurrency} (WORKER_CONCURRENCY=${process.env.WORKER_CONCURRENCY || 'não definida, usando fallback'})`);
   
   const worker = new Worker(queueName, processor, { 
     connection, 
