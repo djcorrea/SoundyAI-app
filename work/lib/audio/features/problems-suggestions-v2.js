@@ -577,7 +577,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     const suggestion = {
-      metric: 'lufs',
+      metric: 'lufsIntegrated',  // 🔧 CORREÇÃO: Key padronizada
+      metricKey: 'lufs',  // Compatibilidade legado
       severity,
       message,
       explanation,
@@ -613,7 +614,13 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    suggestions.push(suggestion);
+    // 🔧 CORREÇÃO: Só adicionar sugestão se severity NÃO for 'ok'
+    if (severity.level !== 'ok') {
+      suggestions.push(suggestion);
+      console.log('[SUGGESTION_FILTER] ✅ Sugestão LUFS gerada (severity:', severity.level, ')');
+    } else {
+      console.log('[SUGGESTION_FILTER] ⚠️ LUFS OK - sugestão NÃO gerada (valor dentro do range)');
+    }
   }
   
   /**
@@ -703,8 +710,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
-    suggestions.push({
-      metric: 'truePeak',
+    const suggestion = {
+      metric: 'truePeakDbtp',  // 🔧 CORREÇÃO: Key padronizada
+      metricKey: 'truePeak',  // Compatibilidade legado
       severity,
       message,
       explanation,
@@ -715,7 +723,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    });
+    };
+    
+    // 🔧 CORREÇÃO: Só adicionar sugestão se severity NÃO for 'ok'
+    if (severity.level !== 'ok') {
+      suggestions.push(suggestion);
+      console.log('[SUGGESTION_FILTER] ✅ Sugestão True Peak gerada (severity:', severity.level, ')');
+    } else {
+      console.log('[SUGGESTION_FILTER] ⚠️ True Peak OK - sugestão NÃO gerada (valor dentro do range)');
+    }
   }
   
   /**
@@ -809,8 +825,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    suggestions.push({
-      metric: 'dynamicRange',
+    const suggestion = {
+      metric: 'dynamicRange',  // ✅ Já está correto
       severity,
       message,
       explanation,
@@ -822,7 +838,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority,
       genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
-    });
+    };
+    
+    // 🔧 CORREÇÃO: Só adicionar sugestão se severity NÃO for 'ok'
+    if (severity.level !== 'ok') {
+      suggestions.push(suggestion);
+      console.log('[SUGGESTION_FILTER] ✅ Sugestão Dynamic Range gerada (severity:', severity.level, ')');
+    } else {
+      console.log('[SUGGESTION_FILTER] ⚠️ Dynamic Range OK - sugestão NÃO gerada (valor dentro do range)');
+    }
   }
   
   /**
@@ -914,8 +938,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    suggestions.push({
-      metric: 'stereoCorrelation',
+    const suggestion = {
+      metric: 'stereoCorrelation',  // ✅ Já está correto
       severity,
       message,
       explanation,
@@ -926,7 +950,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: rawDiff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    });
+    };
+    
+    // 🔧 CORREÇÃO: Só adicionar sugestão se severity NÃO for 'ok'
+    if (severity.level !== 'ok') {
+      suggestions.push(suggestion);
+      console.log('[SUGGESTION_FILTER] ✅ Sugestão Stereo Correlation gerada (severity:', severity.level, ')');
+    } else {
+      console.log('[SUGGESTION_FILTER] ⚠️ Stereo Correlation OK - sugestão NÃO gerada (valor dentro do range)');
+    }
   }
   
   /**
@@ -1132,7 +1164,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     const suggestion = {
-      metric: `band_${bandKey}`,
+      metric: `band_${bandKey}`,  // ✅ Já usa formato correto (band_sub, band_bass, etc)
       severity,
       message,
       explanation,
@@ -1155,7 +1187,13 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    suggestions.push(suggestion);
+    // 🔧 CORREÇÃO: Só adicionar sugestão se severity NÃO for 'ok'
+    if (severity.level !== 'ok') {
+      suggestions.push(suggestion);
+      console.log('[SUGGESTION_FILTER] ✅ Sugestão banda', bandKey, 'gerada (severity:', severity.level, ')');
+    } else {
+      console.log('[SUGGESTION_FILTER] ⚠️ Banda', bandKey, 'OK - sugestão NÃO gerada (valor dentro do range)');
+    }
   }
   
   /**

@@ -322,17 +322,41 @@ class LUFSMeter {
     
     // LRA (Loudness Range) – duas variantes: legacy (sem gating) e R128 oficial com gating relativo (-20 LU)
     const legacyLRA = this.calculateLRA(shortTermLoudness);
-    let lra = legacyLRA;
-    let lraMeta = { algorithm: 'legacy', gated_count: null, used_count: shortTermLoudness.length };
+    let lra = legacyLRA; // Pode ser null agora 🔧
+    let lraMeta = { 
+      algorithm: 'legacy', 
+      gated_count: null, 
+      used_count: shortTermLoudness.length,
+      status: lra === null ? 'insufficient_data' : 'calculated'
+    };
+    
     // 🎯 USE R128 LRA as DEFAULT (EBU 3342 compliant) - changed from opt-in to opt-out
     const useR128LRA = (typeof window !== 'undefined' ? window.USE_R128_LRA !== false : true);
     if (useR128LRA) {
       const r128 = this.calculateR128LRA(shortTermLoudness, integratedLoudness);
       if (r128 && Number.isFinite(r128.lra)) {
         lra = r128.lra;
-        lraMeta = { algorithm: 'EBU_R128', gated_count: r128.remaining, used_count: r128.remaining, rel_threshold: r128.relativeThreshold, abs_threshold: LUFS_CONSTANTS.ABSOLUTE_THRESHOLD };
+        lraMeta = { 
+          algorithm: 'EBU_R128', 
+          gated_count: r128.remaining, 
+          used_count: r128.remaining, 
+          rel_threshold: r128.relativeThreshold, 
+          abs_threshold: LUFS_CONSTANTS.ABSOLUTE_THRESHOLD,
+          status: 'calculated'
+        };
+      } else if (r128 === null) {
+        // R128 falhou, manter legacy se existir
+        console.warn('[LUFS] ⚠️ R128 LRA falhou, usando legacy:', lra !== null ? lra.toFixed(2) + ' LU' : 'null');
+        lraMeta.status = lra === null ? 'insufficient_data' : 'legacy_fallback';
       }
     }
+    
+    // 🔧 LOG CRÍTICO: Mostrar LRA calculado ou null
+    console.log('[LUFS] LRA final:', {
+      lra: lra !== null ? lra.toFixed(2) + ' LU' : 'N/A (dados insuficientes)',
+      algorithm: lraMeta.algorithm,
+      status: lraMeta.status
+    });
     
     // Momentary peaks
     const momentaryPeaks = this.findMomentaryPeaks(blockLoudness);
@@ -511,12 +535,19 @@ class LUFSMeter {
    * 📈 Calcular LRA (Loudness Range)
    */
   calculateLRA(shortTermLoudness) {
-    if (shortTermLoudness.length === 0) return 0;
+    // 🔧 CORREÇÃO: Retornar null quando dados insuficientes
+    if (!shortTermLoudness || shortTermLoudness.length === 0) {
+      console.warn('[LRA] ⚠️ Sem dados short-term loudness disponíveis');
+      return null;
+    }
     
     // Filtrar valores válidos e ordenar
     const validValues = shortTermLoudness.filter(v => v > -Infinity).sort((a, b) => a - b);
     
-    if (validValues.length < 2) return 0;
+    if (validValues.length < 2) {
+      console.warn('[LRA] ⚠️ Dados insuficientes para cálculo (<2 valores válidos)');
+      return null;
+    }
     
     // Percentis 10% e 95%
     const p10Index = Math.floor(validValues.length * 0.10);
@@ -525,7 +556,16 @@ class LUFSMeter {
     const p10 = validValues[p10Index];
     const p95 = validValues[Math.min(p95Index, validValues.length - 1)];
     
-    return p95 - p10; // LRA em LU
+    const lra = p95 - p10; // LRA em LU
+    
+    console.log('[LRA] ✅ Calculado:', {
+      lra: lra.toFixed(2) + ' LU',
+      validValues: validValues.length,
+      p10: p10.toFixed(2),
+      p95: p95.toFixed(2)
+    });
+    
+    return lra;
   }
 
   /**
@@ -540,21 +580,37 @@ class LUFSMeter {
    */
   calculateR128LRA(shortTermLoudness, integratedLoudness) {
     if (!Array.isArray(shortTermLoudness) || !shortTermLoudness.length || !Number.isFinite(integratedLoudness) || integratedLoudness === -Infinity) {
+      console.warn('[R128-LRA] ⚠️ Dados de entrada inválidos');
       return null;
     }
     // 1 & 2: Absoluto
     const absFiltered = shortTermLoudness.filter(v => Number.isFinite(v) && v >= LUFS_CONSTANTS.ABSOLUTE_THRESHOLD);
-    if (!absFiltered.length) return { lra: 0, remaining: 0, relativeThreshold: null };
+    if (!absFiltered.length) {
+      console.warn('[R128-LRA] ⚠️ Nenhum valor passou gating absoluto (-70 LUFS)');
+      return null; // 🔧 CORREÇÃO: null em vez de { lra: 0 }
+    }
     // 3: Relativo (para LRA usa -20 LU do integrado, diferente do -10 usado para gating do integrado)
     const relativeThreshold = integratedLoudness - 20.0;
     const relFiltered = absFiltered.filter(v => v >= relativeThreshold);
-    if (!relFiltered.length) return { lra: 0, remaining: 0, relativeThreshold };
+    if (!relFiltered.length) {
+      console.warn('[R128-LRA] ⚠️ Nenhum valor passou gating relativo (threshold:', relativeThreshold.toFixed(2), 'LUFS)');
+      return null; // 🔧 CORREÇÃO: null em vez de { lra: 0 }
+    }
     // 4: Percentis
     const s = relFiltered.slice().sort((a,b)=>a-b);
     const p = (arr, q) => arr[Math.min(arr.length-1, Math.max(0, Math.floor(arr.length * q)) )];
     const p10 = p(s, 0.10);
     const p95 = p(s, 0.95);
     const lra = p95 - p10;
+    
+    console.log('[R128-LRA] ✅ Calculado:', {
+      lra: lra.toFixed(2) + ' LU',
+      remaining: relFiltered.length,
+      relativeThreshold: relativeThreshold.toFixed(2) + ' LUFS',
+      p10: p10.toFixed(2),
+      p95: p95.toFixed(2)
+    });
+    
     return { lra, remaining: relFiltered.length, relativeThreshold };
   }
 

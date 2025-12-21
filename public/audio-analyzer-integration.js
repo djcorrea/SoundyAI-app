@@ -8952,6 +8952,16 @@ async function handleModalFileSelection(file) {
                 } // PATCH JOB-ID: Fim do bloco de validação
             }
 
+            // 🔧 CORREÇÃO: Garantir que suggestions sempre seja um array antes de chamar displayModalResults
+            if (!normalizedResult.aiSuggestions) {
+                console.warn('[SUGGESTION_SAFETY] ⚠️ aiSuggestions ausente após enriquecimento - usando fallback');
+                normalizedResult.aiSuggestions = normalizedResult.suggestions || [];
+            }
+            if (!normalizedResult.suggestions) {
+                console.warn('[SUGGESTION_SAFETY] ⚠️ suggestions ausente - usando array vazio');
+                normalizedResult.suggestions = [];
+            }
+            
             // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
@@ -9713,6 +9723,16 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 hideAILoadingSpinner();
             }
             } // PATCH JOB-ID: Fim do bloco de validação
+        }
+        
+        // 🔧 CORREÇÃO: Garantir que suggestions sempre seja um array antes de chamar displayModalResults
+        if (!normalizedResult.aiSuggestions) {
+            console.warn('[SUGGESTION_SAFETY][GENRE] ⚠️ aiSuggestions ausente - usando fallback');
+            normalizedResult.aiSuggestions = normalizedResult.suggestions || [];
+        }
+        if (!normalizedResult.suggestions) {
+            console.warn('[SUGGESTION_SAFETY][GENRE] ⚠️ suggestions ausente - usando array vazio');
+            normalizedResult.suggestions = [];
         }
         
         // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
@@ -11777,6 +11797,16 @@ function renderReducedMode(data) {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+    
+    // 🔧 CORREÇÃO CRÍTICA: Garantir que suggestions sempre seja um array
+    if (!analysis.aiSuggestions) {
+        console.warn('[SUGGESTION_SAFETY] ⚠️ aiSuggestions ausente - usando array vazio');
+        analysis.aiSuggestions = [];
+    }
+    if (!analysis.suggestions) {
+        console.warn('[SUGGESTION_SAFETY] ⚠️ suggestions ausente - usando array vazio');
+        analysis.suggestions = [];
+    }
     
     // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
     const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
@@ -18470,6 +18500,19 @@ function renderReferenceComparisons(ctx) {
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
             ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
             : label;
+            
+        // 🔧 CORREÇÃO: Tratamento especial para valores null (dados insuficientes)
+        if (val === null || val === undefined) {
+            rows.push(`<tr>
+                <td>${enhancedLabel}</td>
+                <td style="color: #888;">N/A</td>
+                <td>${Number.isFinite(target) ? nf(target) + unit : '—'}</td>
+                <td class="info" style="text-align: center; padding: 8px;">
+                    <div style="font-size: 12px; font-weight: 600;">Dados insuficientes</div>
+                </td>
+            </tr>`);
+            return;
+        }
             
         // Tratar target null ou NaN como N/A explicitamente
         const targetIsNA = (target == null || target === '' || (typeof target==='number' && !Number.isFinite(target)));
