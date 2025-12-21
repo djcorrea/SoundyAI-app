@@ -14308,6 +14308,19 @@ async function displayModalResults(analysis) {
             return { status: 'ESTOURADO', class: 'status-critical' };
         };
 
+        // 🎯 HELPER: Obter Sample Peak (max de L/R) de forma robusta
+        const getSamplePeakMaxDbfs = (analysis) => {
+            const leftDb = analysis.technicalData?.samplePeakLeftDb;
+            const rightDb = analysis.technicalData?.samplePeakRightDb;
+            
+            // Verificar se ambos são números finitos
+            if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
+                return null;
+            }
+            
+            return Math.max(leftDb, rightDb);
+        };
+
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
             // 🎯 1. RMS Peak (300ms): rmsPeak300msDbfs canônico
@@ -14413,6 +14426,39 @@ async function displayModalResults(analysis) {
             // Abertura Estéreo (movido de col2)
             row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
             ].join('');
+
+        // 🎯 SANITY CHECK: Validação leve das métricas principais (não bloqueia renderização)
+        (() => {
+            const rmsPeak = getMetric('rmsPeak300msDbfs') ?? getMetric('peak');
+            const avgRms = analysis.technicalData?.avgLoudness;
+            const samplePeak = getSamplePeakMaxDbfs(analysis);
+            
+            // Check 1: RMS Peak deve ser maior (menos negativo) que RMS médio
+            if (Number.isFinite(rmsPeak) && Number.isFinite(avgRms) && rmsPeak < avgRms) {
+                console.debug('[METRICS-SANITY] ⚠️ Alerta: Pico RMS (300ms) menor que Volume Médio (RMS)', {
+                    rmsPeak300ms: rmsPeak,
+                    avgLoudness: avgRms,
+                    diff: avgRms - rmsPeak
+                });
+            }
+            
+            // Check 2: Sample Peak principal deve corresponder ao max(L,R) em métricas avançadas
+            if (Number.isFinite(samplePeak)) {
+                const advancedL = analysis.technicalData?.samplePeakLeftDb;
+                const advancedR = analysis.technicalData?.samplePeakRightDb;
+                const maxAdvanced = Math.max(advancedL || -Infinity, advancedR || -Infinity);
+                
+                if (Math.abs(samplePeak - maxAdvanced) > 0.1) {
+                    console.debug('[METRICS-SANITY] ℹ️ Info: Sample Peak principal difere de max(L,R) avançado', {
+                        samplePeakPrincipal: samplePeak,
+                        samplePeakLeft: advancedL,
+                        samplePeakRight: advancedR,
+                        maxAdvanced: maxAdvanced,
+                        diff: Math.abs(samplePeak - maxAdvanced)
+                    });
+                }
+            }
+        })();
 
         const col2 = (() => {
             // 🔵 CARD 2: ANÁLISE DE FREQUÊNCIAS - Reorganizado com sub-bandas espectrais
