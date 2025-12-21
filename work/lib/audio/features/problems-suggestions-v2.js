@@ -12,6 +12,7 @@ import {
   BAND_LABELS,
   FREQUENCY_RANGES
 } from '../utils/suggestion-text-builder.js';
+import { classifyMetric, classifyMetricWithRange, getStatusText, getCssClass } from '../utils/metric-classifier.js';
 
 /**
  * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
@@ -1159,15 +1160,35 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * ⚖️ Calcular Severidade Baseada em Tolerância
+   * 🎯 REFATORADO: Usa classificador unificado metric-classifier.js
+   * REGRA: OK se diff ≤ tol, ATTENTION se diff ≤ 2×tol, CRITICAL se > 2×tol
    */
   calculateSeverity(diff, tolerance, critical) {
-    if (diff <= tolerance) {
-      return this.severity.OK;
-    } else if (diff <= critical) {
-      return this.severity.WARNING;
-    } else {
-      return this.severity.CRITICAL;
-    }
+    console.log('[AUDIT_FIX][CALC_SEVERITY] Usando classificador unificado:', {
+      diff: typeof diff === 'number' ? diff.toFixed(3) : diff,
+      tolerance: typeof tolerance === 'number' ? tolerance.toFixed(3) : tolerance,
+      critical_ignored: 'DEPRECATED - usando 2×tolerance sempre'
+    });
+    
+    // 🎯 Usar classificador unificado (ignora parâmetro 'critical' obsoleto)
+    const classification = classifyMetric(diff, tolerance, { metricName: 'generic' });
+    
+    // 🔄 Mapear para estrutura antiga (backward compatibility)
+    const severityMap = {
+      'ok': this.severity.OK,
+      'attention': this.severity.WARNING,  // ⚠️ Mapeado para WARNING (compatibilidade)
+      'critical': this.severity.CRITICAL
+    };
+    
+    const result = severityMap[classification.level] || this.severity.CRITICAL;
+    
+    console.log('[AUDIT_FIX][CALC_SEVERITY] Resultado:', {
+      level: result.level,
+      label: result.label,
+      priority: result.priority
+    });
+    
+    return result;
   }
   
   /**
