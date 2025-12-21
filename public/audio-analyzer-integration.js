@@ -14309,77 +14309,65 @@ async function displayModalResults(analysis) {
         };
 
         const col1 = [
-            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
-            // 🎯 1. RMS Peak (300ms): rmsPeak300msDbfs canônico
+            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Labels e mapeamento corretos
+            
+            // 1️⃣ Pico RMS (300ms) - RMS Peak de janelas 300ms
             (() => {
-                const rmsPeakValue = getMetric('rmsPeak300msDbfs') ?? getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
+                const rmsPeakValue = analysis.technicalData?.peak ?? getMetric('peak_db', 'peak');
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
-                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue, 1)} dBFS`, 'peak');
             })(),
             
-            // 🎯 2. Sample Peak (dBFS): max(left, right)
+            // 2️⃣ Sample Peak (dBFS) - Max absolute sample
             (() => {
                 const leftDb = analysis.technicalData?.samplePeakLeftDb;
                 const rightDb = analysis.technicalData?.samplePeakRightDb;
                 
                 // Calcular max(L, R) se ambos existirem
                 if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (left ou right ausente)');
+                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível');
                     return '';
                 }
                 
                 const samplePeakDbfs = Math.max(leftDb, rightDb);
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
-                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
+                console.log('[METRICS-FIX] col1 > Sample Peak:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
                 return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
             })(),
             
-            // 🎯 3. True Peak (dBTP): truePeakDbtp canônico
+            // 3️⃣ Pico Real (dBTP) - True Peak ITU-R BS.1770-4
             (() => {
-                const tpValue = getMetric('truePeakDbtp') ?? getMetricWithFallback([['truePeak','maxDbtp'], 'technicalData.truePeakDbtp']);
+                const tpValue = analysis.technicalData?.truePeakDbtp ?? analysis.technicalData?.truePeakDbTP ?? getMetric('truePeakDbtp');
                 
-                console.log('[METRICS-FIX] col1 > Pico Real - advancedReady:', advancedReady, 'tpValue:', tpValue);
                 if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real BLOQUEADO por advancedReady=false');
-                    return '';
-                }
-                if (tpValue === null || tpValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO');
                     return '';
                 }
                 if (!Number.isFinite(tpValue)) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real valor inválido:', tpValue);
+                    console.warn('[METRICS-FIX] col1 > Pico Real não disponível');
                     return '';
                 }
                 
                 const tpStatus = getTruePeakStatus(tpValue);
-                console.log('[METRICS-FIX] col1 > Pico Real RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
+                console.log('[METRICS-FIX] col1 > Pico Real:', tpValue, 'dBTP');
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 4. RMS Average (Volume Médio): avgLoudness
+            // 4️⃣ Volume Médio (RMS) - RMS médio em dBFS
             (() => {
                 const rmsValue = analysis.technicalData?.avgLoudness;
                 
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
-                
-                // Exibir sempre, mesmo se 0 (valor técnico válido)
-                if (rmsValue === null || rmsValue === undefined) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo —');
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
-                }
                 if (!Number.isFinite(rmsValue)) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
+                    console.warn('[METRICS-FIX] col1 > Volume Médio (RMS) não disponível');
+                    return '';
                 }
                 
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
+                console.log('[METRICS-FIX] col1 > Volume Médio (RMS):', rmsValue, 'dBFS');
                 return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
             })(),
             
-            // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
+            // 5️⃣ Loudness (LUFS) - Loudness perceptiva integrada
             (() => {
                 const lufsValue = getMetricWithFallback([
                     ['loudness', 'integrated'],
@@ -14387,30 +14375,29 @@ async function displayModalResults(analysis) {
                     'lufsIntegrated',
                     'technicalData.lufsIntegrated'
                 ]);
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness (LUFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
                 
                 if (!advancedReady) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS BLOQUEADO por advancedReady=false');
                     return '';
                 }
-                // 🎯 Exibir sempre, mesmo se 0
-                if (lufsValue === null || lufsValue === undefined) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS NÃO ENCONTRADO - exibindo 0');
-                    return row('Loudness (LUFS Integrado)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
-                }
                 if (!Number.isFinite(lufsValue)) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS valor inválido:', lufsValue);
-                    return row('Loudness (LUFS Integrado)', `0.0 LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
+                    console.warn('[METRICS-FIX] col1 > Loudness (LUFS) não disponível');
+                    return '';
                 }
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness (LUFS) RENDERIZADO:', lufsValue, 'LUFS');
+                
+                console.log('[METRICS-FIX] col1 > Loudness (LUFS):', lufsValue, 'LUFS');
                 return row('Loudness (LUFS Integrado)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
             })(),
             
+            // 6️⃣ Dinâmica (DR) - Dynamic Range
             row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
+            
+            // 7️⃣ Consistência de Volume (LRA) - Loudness Range
             row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra', 'primary'),
-            // Imagem Estéreo (movido de col2)
+            
+            // 8️⃣ Imagem Estéreo
             row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'stereoCorrelation', 'primary'),
-            // Abertura Estéreo (movido de col2)
+            
+            // 9️⃣ Abertura Estéreo
             row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
             ].join('');
 
