@@ -14310,8 +14310,8 @@ async function displayModalResults(analysis) {
 
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
-            // CONDITIONAL: Pico Máximo - só exibir se não for placeholder 0.000
-            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico Máximo (dBFS)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
+            // 🔧 PATCH 1: Corrigido label para refletir dado real (RMS Peak de janelas 300ms)
+            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('RMS Peak (300ms)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
             
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
             (() => {
@@ -19281,7 +19281,7 @@ function renderReferenceComparisons(ctx) {
         // ===== MÉTRICAS PRINCIPAIS =====
         addABRow('Loudness (LUFS Integrado)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs', 0.5);
         addABRow('True Peak (dBTP)', userTech.truePeakDbtp, refTech.truePeakDbtp, ' dBTP', 'truepeak', 0.3);
-        addABRow('Dynamic Range (LU)', userTech.dynamicRange, refTech.dynamicRange, ' LU', 'dr', 1.0);
+        addABRow('Dynamic Range (dB)', userTech.dynamicRange, refTech.dynamicRange, ' dB', 'dr', 1.0);
         addABRow('LRA (LU)', userTech.lra, refTech.lra, ' LU', 'lra', 1.0);
         addABRow('Stereo Corr.', userTech.stereoCorrelation, refTech.stereoCorrelation, '', 'stereo', 0.08);
         
@@ -19934,8 +19934,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     addRow('True Peak (dBTP)', currTech.truePeakDbtp || currTech.true_peak_dbtp,
            refTech.truePeakDbtp || refTech.true_peak_dbtp, ' dBTP', 10);
     
-    addRow('Dynamic Range (LU)', currTech.dynamicRange || currTech.dynamic_range,
-           refTech.dynamicRange || refTech.dynamic_range, ' LU', 15);
+    addRow('Dynamic Range (dB)', currTech.dynamicRange || currTech.dynamic_range,
+           refTech.dynamicRange || refTech.dynamic_range, ' dB', 15);
     
     addRow('LRA (LU)', currTech.lra, refTech.lra, ' LU', 15);
     
