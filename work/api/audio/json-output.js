@@ -429,11 +429,17 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       peak: safeSanitize(coreMetrics.rms.peak),
       count: safeSanitize(coreMetrics.rms.count, 0)
     };
-    technicalData.peak = technicalData.rmsLevels.peak;
+    
+    // 🆕 PATCH 3: Chaves explícitas para clareza (market-ready)
+    technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;
+    technicalData.rmsAverageDb = technicalData.rmsLevels.average;
+    
+    // 🔄 Manter aliases legados para compatibilidade (backward compat)
+    technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated Use rmsPeak300msDb
     technicalData.rms = technicalData.rmsLevels.average;
     technicalData.avgLoudness = technicalData.rmsLevels.average; // alias para Volume Médio
     
-    console.log(`[DEBUG JSON FINAL] technicalData.avgLoudness=${technicalData.avgLoudness}, technicalData.rms=${technicalData.rms}`);
+    console.log(`[DEBUG JSON FINAL] rmsPeak300msDb=${technicalData.rmsPeak300msDb}, rmsAverageDb=${technicalData.rmsAverageDb}, avgLoudness=${technicalData.avgLoudness}`);
   } else {
     console.error(`[DEBUG JSON ERROR] coreMetrics.rms é ${typeof coreMetrics.rms} (${coreMetrics.rms})`);
   }
