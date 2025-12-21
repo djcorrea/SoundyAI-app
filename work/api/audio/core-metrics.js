@@ -23,6 +23,56 @@ import { normalizeGenreTargets } from "../../lib/audio/utils/normalize-genre-tar
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
 
 /**
+ * 🎯 FUNÇÃO PURA: Calcular Sample Peak REAL (max absolute sample)
+ * HOTFIX: Implementado como função standalone (não método de classe) para evitar contexto `this`
+ * @param {Float32Array} leftChannel - Canal esquerdo
+ * @param {Float32Array} rightChannel - Canal direito
+ * @returns {object|null} - { left, right, max, leftDbfs, rightDbfs, maxDbfs } ou null se erro
+ */
+function calculateSamplePeakDbfs(leftChannel, rightChannel) {
+  try {
+    if (!leftChannel || !rightChannel || leftChannel.length === 0 || rightChannel.length === 0) {
+      console.warn('[SAMPLE_PEAK] Canais inválidos ou vazios');
+      return null;
+    }
+
+    // Max absolute sample por canal (linear 0.0-1.0)
+    let peakLeftLinear = 0;
+    let peakRightLinear = 0;
+    
+    for (let i = 0; i < leftChannel.length; i++) {
+      const absLeft = Math.abs(leftChannel[i]);
+      if (absLeft > peakLeftLinear) peakLeftLinear = absLeft;
+    }
+    
+    for (let i = 0; i < rightChannel.length; i++) {
+      const absRight = Math.abs(rightChannel[i]);
+      if (absRight > peakRightLinear) peakRightLinear = absRight;
+    }
+    
+    const peakMaxLinear = Math.max(peakLeftLinear, peakRightLinear);
+    
+    // Converter para dBFS (com segurança para silêncio)
+    const peakLeftDbfs = peakLeftLinear > 0 ? 20 * Math.log10(peakLeftLinear) : -120;
+    const peakRightDbfs = peakRightLinear > 0 ? 20 * Math.log10(peakRightLinear) : -120;
+    const peakMaxDbfs = peakMaxLinear > 0 ? 20 * Math.log10(peakMaxLinear) : -120;
+    
+    return {
+      left: peakLeftLinear,
+      right: peakRightLinear,
+      max: peakMaxLinear,
+      leftDbfs: peakLeftDbfs,
+      rightDbfs: peakRightDbfs,
+      maxDbfs: peakMaxDbfs
+    };
+    
+  } catch (error) {
+    console.error('[SAMPLE_PEAK] Erro ao calcular:', error.message);
+    return null;
+  }
+}
+
+/**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
  */
 const CORE_METRICS_CONFIG = {
@@ -100,13 +150,25 @@ class CoreMetricsProcessor {
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
       // ========= 🎯 ETAPA 0: CALCULAR SAMPLE PEAK (RAW, ANTES DE QUALQUER PROCESSAMENTO) =========
-      logAudio('core_metrics', 'sample_peak_start', { 
-        message: '🎯 Calculando Sample Peak no buffer RAW (original)' 
-      });
-      const samplePeakMetrics = this.calculateSamplePeak(leftChannel, rightChannel);
-      console.log('[SAMPLE_PEAK] ✅ Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs, 'dBFS');
+      // HOTFIX: Sample Peak é feature nova e OPCIONAL - não deve quebrar pipeline
+      let samplePeakMetrics = null;
+      try {
+        logAudio('core_metrics', 'sample_peak_start', { 
+          message: '🎯 Calculando Sample Peak no buffer RAW (original)' 
+        });
+        samplePeakMetrics = calculateSamplePeakDbfs(leftChannel, rightChannel);
+        if (samplePeakMetrics && samplePeakMetrics.maxDbfs !== null) {
+          console.log('[SAMPLE_PEAK] ✅ Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs.toFixed(2), 'dBFS');
+        } else {
+          console.warn('[SAMPLE_PEAK] ⚠️ Não foi possível calcular (canais inválidos)');
+        }
+      } catch (error) {
+        console.warn('[SAMPLE_PEAK] ⚠️ Erro ao calcular - continuando pipeline:', error.message);
+        samplePeakMetrics = null;
+      }
 
       // ========= 🎯 ETAPA 1: CALCULAR MÉTRICAS RAW (ANTES DA NORMALIZAÇÃO) =========
+      // GARANTIA: Pipeline continua mesmo se Sample Peak falhar
       logAudio('core_metrics', 'raw_metrics_start', { 
         message: '🎯 Calculando LUFS/TruePeak/DR no buffer RAW (original)' 
       });
