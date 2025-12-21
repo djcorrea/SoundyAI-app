@@ -14316,7 +14316,7 @@ async function displayModalResults(analysis) {
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
-                return row('Volume Médio (RMS)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
             })(),
             
             // 🎯 2. Sample Peak (dBFS): max(left, right)
@@ -14333,7 +14333,7 @@ async function displayModalResults(analysis) {
                 const samplePeakDbfs = Math.max(leftDb, rightDb);
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
                 console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
-                return row('Pico RMS (300ms)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
+                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
             })(),
             
             // 🎯 3. True Peak (dBTP): truePeakDbtp canônico
@@ -14375,8 +14375,8 @@ async function displayModalResults(analysis) {
                     return row('Volume Médio (RMS)', `—`, 'avgLoudness');
                 }
                 
-                console.log('[AUDITORIA-RMS-LUFS] col1 > avgLoudness (Volume Médio real) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Sample Peak (dBFS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
