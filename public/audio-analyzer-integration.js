@@ -14313,17 +14313,21 @@ async function displayModalResults(analysis) {
             
             // 1️⃣ Pico RMS (300ms) - RMS Peak de janelas 300ms
             (() => {
-                const rmsPeakValue = analysis.technicalData?.peak ?? getMetric('peak_db', 'peak');
+                // ✅ Usar chave canônica: rmsPeak300msDb
+                const rmsPeakValue = analysis.technicalData?.rmsPeak300msDb ?? 
+                                     analysis.technicalData?.peak ?? 
+                                     getMetric('peak_db', 'peak');
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
-                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue, 1)} dBFS`, 'peak');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue, 1)} dBFS`, 'rmsPeak300msDb');
             })(),
             
             // 2️⃣ Sample Peak (dBFS) - Max absolute sample
             (() => {
-                const leftDb = analysis.technicalData?.samplePeakLeftDb;
-                const rightDb = analysis.technicalData?.samplePeakRightDb;
+                // ✅ Usar chaves canônicas: samplePeakLeftDbfs / samplePeakRightDbfs
+                const leftDb = analysis.technicalData?.samplePeakLeftDbfs;
+                const rightDb = analysis.technicalData?.samplePeakRightDbfs;
                 
                 // Calcular max(L, R) se ambos existirem
                 if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
@@ -14334,7 +14338,7 @@ async function displayModalResults(analysis) {
                 const samplePeakDbfs = Math.max(leftDb, rightDb);
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
                 console.log('[METRICS-FIX] col1 > Sample Peak:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
-                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
+                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
             })(),
             
             // 3️⃣ Pico Real (dBTP) - True Peak ITU-R BS.1770-4
@@ -14356,7 +14360,9 @@ async function displayModalResults(analysis) {
             
             // 4️⃣ Volume Médio (RMS) - RMS médio em dBFS
             (() => {
-                const rmsValue = analysis.technicalData?.avgLoudness;
+                // ✅ Usar chave canônica: avgLoudnessDb
+                const rmsValue = analysis.technicalData?.avgLoudnessDb ?? 
+                                 analysis.technicalData?.avgLoudness;
                 
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('[METRICS-FIX] col1 > Volume Médio (RMS) não disponível');
@@ -14364,7 +14370,7 @@ async function displayModalResults(analysis) {
                 }
                 
                 console.log('[METRICS-FIX] col1 > Volume Médio (RMS):', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudnessDb');
             })(),
             
             // 5️⃣ Loudness (LUFS) - Loudness perceptiva integrada
@@ -14494,11 +14500,12 @@ async function displayModalResults(analysis) {
                 // True Peak deve existir apenas em Métricas Principais para evitar duplicação
                 
                 // Picos por canal separados (Sample Peak)
-                if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
-                    rows.push(row('Sample Peak L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'peakLeft', 'advanced'));
+                // ✅ Usar chaves canônicas: samplePeakLeftDbfs / samplePeakRightDbfs
+                if (Number.isFinite(analysis.technicalData?.samplePeakLeftDbfs)) {
+                    rows.push(row('Sample Peak L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDbfs, 1)} dBFS`, 'samplePeakLeftDbfs', 'peakLeft', 'advanced'));
                 }
-                if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
-                    rows.push(row('Sample Peak R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'peakRight', 'advanced'));
+                if (Number.isFinite(analysis.technicalData?.samplePeakRightDbfs)) {
+                    rows.push(row('Sample Peak R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDbfs, 1)} dBFS`, 'samplePeakRightDbfs', 'peakRight', 'advanced'));
                 }
                 
                 // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
