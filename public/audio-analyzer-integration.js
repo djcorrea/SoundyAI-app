@@ -14319,22 +14319,21 @@ async function displayModalResults(analysis) {
                 return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
             })(),
             
-            // 🎯 2. Sample Peak (dBFS): samplePeakDbfs canônico
+            // 🎯 2. Sample Peak (dBFS): max(left, right)
             (() => {
-                const spValue = getMetric('samplePeakDbfs') ?? getMetric('samplePeakDb');
+                const leftDb = analysis.technicalData?.samplePeakLeftDb;
+                const rightDb = analysis.technicalData?.samplePeakRightDb;
                 
-                if (spValue === null || spValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (samplePeakDbfs ausente)');
-                    return '';
-                }
-                if (!Number.isFinite(spValue)) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak valor inválido:', spValue);
+                // Calcular max(L, R) se ambos existirem
+                if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
+                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (left ou right ausente)');
                     return '';
                 }
                 
-                const spStatus = getTruePeakStatus(spValue);
-                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS - status:', spStatus.status);
-                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
+                const samplePeakDbfs = Math.max(leftDb, rightDb);
+                const spStatus = getTruePeakStatus(samplePeakDbfs);
+                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
+                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
             })(),
             
             // 🎯 3. True Peak (dBTP): truePeakDbtp canônico
@@ -14360,24 +14359,24 @@ async function displayModalResults(analysis) {
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 4. RMS Average (dBFS): rmsAvgDbfs canônico
+            // 🎯 4. RMS Average (Volume Médio): avgLoudness
             (() => {
-                const rmsValue = getMetric('rmsAvgDbfs') ?? getMetric('rmsDb') ?? getMetric('rmsAverageDb') ?? getMetric('avgLoudness') ?? getMetric('rms');
+                const rmsValue = analysis.technicalData?.avgLoudness;
                 
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
                 
-                // 🎯 Exibir sempre, mesmo se 0 (valor técnico válido)
+                // Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo —');
-                    return row('Volume Médio (RMS)', `—`, 'rmsAvgDbfs');
+                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
                 }
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `—`, 'rmsAvgDbfs');
+                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
                 }
                 
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'rmsAvgDbfs');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
@@ -14507,12 +14506,12 @@ async function displayModalResults(analysis) {
                 // Se truePeakDbtp estiver mapeado no card de avançadas, remova de lá. 
                 // True Peak deve existir apenas em Métricas Principais para evitar duplicação
                 
-                // Picos por canal separados
+                // Picos por canal separados (Sample Peak)
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
-                    rows.push(row('Pico L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'peakLeft', 'advanced'));
+                    rows.push(row('Sample Peak L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'peakLeft', 'advanced'));
                 }
                 if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
-                    rows.push(row('Pico R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'peakRight', 'advanced'));
+                    rows.push(row('Sample Peak R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'peakRight', 'advanced'));
                 }
                 
                 // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
