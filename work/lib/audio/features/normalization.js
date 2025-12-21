@@ -50,9 +50,15 @@ async function calculateQuickLUFS(leftChannel, rightChannel, sampleRate) {
 
 /**
  * 🎛️ Normalizar áudio para target LUFS
+ * 
+ * 🔥 AUDITORIA SÊNIOR: Receber originalLUFS como parâmetro obrigatório
+ * ❌ REMOVIDO: calculateQuickLUFS (gambiarra de 1 segundo)
+ * ✅ CORREÇÃO: Usar LUFS integrado REAL calculado em core-metrics.js
+ * 
  * @param {Object} audioData - Dados de áudio com leftChannel e rightChannel
  * @param {number} sampleRate - Sample rate do áudio
  * @param {Object} options - Opções de normalização
+ * @param {number} options.originalLUFS - LUFS integrado REAL (obrigatório)
  * @returns {Object} Áudio normalizado + metadata de normalização
  */
 export async function normalizeAudioToTargetLUFS(audioData, sampleRate, options = {}) {
@@ -60,22 +66,33 @@ export async function normalizeAudioToTargetLUFS(audioData, sampleRate, options 
   const jobId = options.jobId || 'unknown';
   const targetLUFS = options.targetLUFS || NORMALIZATION_CONFIG.TARGET_LUFS;
   
+  // 🔥 PATCH AUDITORIA: originalLUFS agora é OBRIGATÓRIO
+  const originalLUFS = options.originalLUFS;
+  
   logAudio('normalization', 'start', { 
     targetLUFS, 
     jobId: jobId.substring(0, 8),
-    duration: audioData.leftChannel.length / sampleRate 
+    duration: audioData.leftChannel.length / sampleRate,
+    originalLUFS_provided: Number.isFinite(originalLUFS)
   });
   
   try {
-    // 1. Calcular LUFS original (rápido)
-    const originalLUFS = await calculateQuickLUFS(
-      audioData.leftChannel, 
-      audioData.rightChannel, 
-      sampleRate
-    );
+    // 🛡️ VALIDAÇÃO CRÍTICA: originalLUFS deve ser fornecido
+    if (!Number.isFinite(originalLUFS)) {
+      console.error('[AUDIT_FIX][NORMALIZATION] ❌ originalLUFS não fornecido ou inválido:', originalLUFS);
+      console.error('[AUDIT_FIX][NORMALIZATION] ❌ Normalização REQUER LUFS integrado real calculado previamente');
+      throw new Error('AUDIT_FIX: originalLUFS obrigatório para normalização precisa - use rawLufsMetrics.integrated de core-metrics');
+    }
+    
+    console.log('[AUDIT_FIX][NORMALIZATION] ✅ Usando LUFS integrado REAL:', {
+      originalLUFS: originalLUFS.toFixed(2),
+      source: 'core-metrics rawLufsMetrics.integrated',
+      method: 'FULL_INTEGRATED (não Quick LUFS)'
+    });
     
     logAudio('normalization', 'original_lufs', { 
-      originalLUFS: originalLUFS.toFixed(2) 
+      originalLUFS: originalLUFS.toFixed(2),
+      source: 'parameter_from_core_metrics'
     });
     
     // 2. Verificar se é silêncio digital

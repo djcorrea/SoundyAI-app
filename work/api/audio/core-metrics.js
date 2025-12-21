@@ -130,11 +130,21 @@ class CoreMetricsProcessor {
       console.log('[RAW_METRICS] ✅ Dynamic Range (RAW):', rawDynamicsMetrics.dynamicRange);
 
       // ========= 🎯 ETAPA 2: NORMALIZAÇÃO A -23 LUFS (PARA BANDAS/SPECTRAL) =========
-      logAudio('core_metrics', 'normalization_start', { targetLUFS: -23.0 });
+      // 🔥 PATCH AUDITORIA: Passar originalLUFS como parâmetro (não recalcular Quick LUFS)
+      logAudio('core_metrics', 'normalization_start', { 
+        targetLUFS: -23.0,
+        originalLUFS: rawLufsMetrics.integrated,
+        method: 'FULL_INTEGRATED'
+      });
+      
       const normalizationResult = await normalizeAudioToTargetLUFS(
         { leftChannel, rightChannel },
         CORE_METRICS_CONFIG.SAMPLE_RATE,
-        { jobId, targetLUFS: -23.0 }
+        { 
+          jobId, 
+          targetLUFS: -23.0,
+          originalLUFS: rawLufsMetrics.integrated  // ✅ Passar LUFS integrado REAL
+        }
       );
       
       // Usar canais normalizados APENAS para análises espectrais/bandas
