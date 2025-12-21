@@ -663,10 +663,22 @@ class CoreMetricsProcessor {
       }
 
       const totalTime = Date.now() - startTime;
+      
+      // 🎯 LOG DE DEBUG: Verificar estrutura antes do return
+      console.log('[CORE-METRICS-RETURN] ✅ Estrutura final:', {
+        hasLufs: !!coreMetrics.lufs,
+        hasTruePeak: !!coreMetrics.truePeak,
+        hasDynamics: !!coreMetrics.dynamics,
+        hasSpectralBands: !!coreMetrics.spectralBands,
+        lufsIntegrated: coreMetrics.lufs?.integrated,
+        truePeakDbtp: coreMetrics.truePeak?.maxDbtp,
+        dynamicRange: coreMetrics.dynamics?.dynamicRange
+      });
+      
       logAudio('core_metrics', 'completed', { 
         ms: totalTime, 
-        lufs: lufsMetrics.integrated,
-        peak: truePeakMetrics.maxDbtp,
+        lufs: rawLufsMetrics.integrated, // ✅ CORREÇÃO: usar rawLufsMetrics
+        peak: rawTruePeakMetrics.maxDbtp, // ✅ CORREÇÃO: usar rawTruePeakMetrics
         correlation: stereoMetrics.correlation
       });
 
