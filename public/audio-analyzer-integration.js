@@ -14321,25 +14321,6 @@ async function displayModalResults(analysis) {
             return Math.max(leftDb, rightDb);
         };
 
-        // 🚨 AUDITORIA ETAPA 6: Rastreio completo com renderId
-        if (!window.__RENDER_COUNTER__) window.__RENDER_COUNTER__ = 0;
-        window.__RENDER_COUNTER__++;
-        const renderId = window.__RENDER_COUNTER__;
-
-        console.group(`🔍 [MAIN_METRICS][RENDER #${renderId}] INÍCIO DA CONSTRUÇÃO`);
-        console.log('[OBJETO FONTE] analysis.technicalData:', {
-            peak: analysis.technicalData?.peak,
-            avgLoudness: analysis.technicalData?.avgLoudness,
-            rms: analysis.technicalData?.rms,
-            samplePeakLeftDb: analysis.technicalData?.samplePeakLeftDb,
-            samplePeakRightDb: analysis.technicalData?.samplePeakRightDb,
-            truePeakDbtp: analysis.technicalData?.truePeakDbtp,
-            rmsPeak300msDbfs: analysis.technicalData?.rmsPeak300msDbfs,
-            allKeys: Object.keys(analysis.technicalData || {})
-        });
-        console.trace('[STACK TRACE] Quem chamou displayModalResults:');
-        console.groupEnd();
-
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
             
@@ -14455,25 +14436,13 @@ async function displayModalResults(analysis) {
             row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
             ].join('');
 
-        // 🚨 AUDITORIA ETAPA 6.2: Log do array final ANTES do join
-        console.group(`🔍 [MAIN_METRICS][RENDER #${renderId}] ARRAY col1 MONTADO`);
-        console.log('[ARRAY LENGTH]', col1.length);
-        console.log('[ITEMS NO ARRAY]', col1.map((item, idx) => ({
-            index: idx,
-            isEmpty: item === '',
-            length: item.length,
-            preview: item.substring(0, 100)
-        })));
-        console.groupEnd();
-
         // 🎯 RESUMO FINAL: Card montado com sucesso
         console.group('✅ [METRICS-FINAL] Card MÉTRICAS PRINCIPAIS - Resumo');
         console.log('🎯 Linha 1: Pico RMS (300ms) → technicalData.peak');
         console.log('🎯 Linha 2: Sample Peak (dBFS) → max(samplePeakLeftDb, samplePeakRightDb)');
         console.log('🎯 Linha 3: Pico Real (dBTP) → technicalData.truePeakDbtp');
         console.log('🎯 Linha 4: Volume Médio (RMS) → technicalData.avgLoudness');
-        console.log('📊 HTML gerado (length):', col1.length);
-        console.log('📊 HTML concatenado (preview):', col1.substring(0, 300));
+        console.log('📊 HTML gerado:', col1.length > 0 ? 'OK' : 'VAZIO');
         console.groupEnd();
 
         // 🎯 SANITY CHECK: Validação leve das métricas principais (não bloqueia renderização)
@@ -16019,14 +15988,6 @@ async function displayModalResults(analysis) {
         renderFinalScoreAtTop(analysis.scores);
         
         console.log('[RENDER_SCORE_TOP] ✅ renderFinalScoreAtTop FINALIZADO');
-
-        // 🚨 AUDITORIA ETAPA 6.3: Log ANTES de escrever no DOM
-        console.group(`🔍 [MAIN_METRICS][RENDER #${renderId}] ESCRITA NO DOM`);
-        console.log('[CONTAINER]', '#modalTechnicalData');
-        console.log('[COL1 LENGTH]', col1.length);
-        console.log('[COL1 PREVIEW (primeiros 500 chars)]:', col1.substring(0, 500));
-        console.trace('[STACK TRACE] Momento da escrita no DOM:');
-        console.groupEnd();
 
         console.log('[RENDER_CARDS] ✅ Atribuindo HTML ao technicalData.innerHTML');
         technicalData.innerHTML = `
