@@ -444,6 +444,52 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     console.error(`[DEBUG JSON ERROR] coreMetrics.rms é ${typeof coreMetrics.rms} (${coreMetrics.rms})`);
   }
 
+  // 🎯 PATCH: Exportar Sample Peak REAL (max absolute sample)
+  if (coreMetrics.samplePeak) {
+    technicalData.samplePeakDbfs = safeSanitize(coreMetrics.samplePeak.maxDbfs);
+    technicalData.samplePeakLeftDbfs = safeSanitize(coreMetrics.samplePeak.leftDbfs);
+    technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);
+    technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);
+    
+    console.log(`[DEBUG JSON FINAL] samplePeakDbfs=${technicalData.samplePeakDbfs}`);
+  } else {
+    technicalData.samplePeakDbfs = null;
+    technicalData.samplePeakLeftDbfs = null;
+    technicalData.samplePeakRightDbfs = null;
+    technicalData.samplePeakLinear = null;
+    console.warn('[DEBUG JSON] samplePeak não disponível (modo sem PCM?)');
+  }
+
+  // 🔍 SANITY-CHECK: Validação de invariantes matemáticas (log-only, não aborta job)
+  const rmsPeak = technicalData.rmsPeak300msDb;
+  const rmsAvg = technicalData.rmsAverageDb;
+  const samplePeak = technicalData.samplePeakDbfs;
+  const truePeak = technicalData.truePeakDbtp;
+  
+  if (rmsPeak !== null && rmsAvg !== null) {
+    if (rmsPeak < rmsAvg - 0.5) {
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: RMS Peak (${rmsPeak.toFixed(2)}) < RMS Average (${rmsAvg.toFixed(2)}) - Esperado: Peak >= Average`);
+    } else {
+      console.log(`[SANITY-CHECK] ✅ RMS Average (${rmsAvg.toFixed(2)}) <= RMS Peak (${rmsPeak.toFixed(2)})`);
+    }
+  }
+  
+  if (samplePeak !== null && truePeak !== null) {
+    if (truePeak < samplePeak - 0.5) {
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: True Peak (${truePeak.toFixed(2)}) < Sample Peak (${samplePeak.toFixed(2)}) - Esperado: TruePeak >= SamplePeak`);
+    } else {
+      console.log(`[SANITY-CHECK] ✅ True Peak (${truePeak.toFixed(2)}) >= Sample Peak (${samplePeak.toFixed(2)})`);
+    }
+  }
+  
+  if (samplePeak !== null && rmsPeak !== null) {
+    if (samplePeak < rmsPeak - 0.5) {
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: Sample Peak (${samplePeak.toFixed(2)}) < RMS Peak (${rmsPeak.toFixed(2)}) - Esperado: SamplePeak >= RMSPeak`);
+    } else {
+      console.log(`[SANITY-CHECK] ✅ Sample Peak (${samplePeak.toFixed(2)}) >= RMS Peak (${rmsPeak.toFixed(2)})`);
+    }
+  }
+
   // ===== DC Offset =====
   if (coreMetrics.dcOffset && typeof coreMetrics.dcOffset === 'object') {
     technicalData.dcOffset = {

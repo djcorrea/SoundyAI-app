@@ -14313,6 +14313,22 @@ async function displayModalResults(analysis) {
             // 🔧 PATCH 1: Corrigido label para refletir dado real (RMS Peak de janelas 300ms)
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('RMS Peak (300ms)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
             
+            // 🎯 Sample Peak (dBFS) - NOVO: max absolute sample (não usar fallback para RMS Peak)
+            (() => {
+                const spValue = getMetric('samplePeakDbfs');
+                if (spValue === null || spValue === undefined) {
+                    console.warn('[METRICS-FIX] col1 > Sample Peak NÃO disponível (modo sem PCM?)');
+                    return '';
+                }
+                if (!Number.isFinite(spValue)) {
+                    console.warn('[METRICS-FIX] col1 > Sample Peak valor inválido:', spValue);
+                    return '';
+                }
+                const spStatus = getTruePeakStatus(spValue); // Usar mesma escala de clipping
+                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS status:', spStatus.status);
+                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 2)} dB <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
+            })(),
+            
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
             (() => {
                 const tpValue = getMetricWithFallback([
