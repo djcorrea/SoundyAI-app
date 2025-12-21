@@ -448,67 +448,69 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       count: safeSanitize(coreMetrics.rms.count, 0)
     };
     
-    // 🆕 PATCH 3: Chaves explícitas para clareza (market-ready)
-    technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;
-    technicalData.rmsAverageDb = technicalData.rmsLevels.average;
+    // 🆕 CHAVES CANÔNICAS (market-ready, padrão mercado)
+    technicalData.rmsAvgDbfs = technicalData.rmsLevels.average;  // ✅ CANÔNICA: RMS médio
+    technicalData.rmsPeak300msDbfs = technicalData.rmsLevels.peak;  // ✅ CANÔNICA: RMS peak 300ms
     
-    // 🎯 CORREÇÃO FINAL: Chave preferencial para RMS Average
-    technicalData.rmsDb = technicalData.rmsLevels.average;
-    
-    // 🔄 Manter aliases legados para compatibilidade (backward compat)
-    technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated Use rmsPeak300msDb
-    technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak; // 🎯 ALIAS: consistência de nomenclatura
-    technicalData.rms = technicalData.rmsLevels.average; // @deprecated Use rmsDb
-    technicalData.avgLoudness = technicalData.rmsLevels.average; // @deprecated Use rmsDb
+    // 🔄 ALIASES LEGADOS (backward compatibility - @deprecated)
+    technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rmsAverageDb = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.rmsDb = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rms = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.avgLoudness = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
     
     console.log(`[DEBUG JSON FINAL] rmsPeak300msDb=${technicalData.rmsPeak300msDb}, rmsAverageDb=${technicalData.rmsAverageDb}, avgLoudness=${technicalData.avgLoudness}`);
   } else {
     console.error(`[DEBUG JSON ERROR] coreMetrics.rms é ${typeof coreMetrics.rms} (${coreMetrics.rms})`);
   }
 
-  // 🎯 PATCH: Exportar Sample Peak REAL (max absolute sample)
+  // 🎯 SAMPLE PEAK: Exportar valores canônicos (max absolute sample)
   if (coreMetrics.samplePeak) {
-    technicalData.samplePeakDbfs = safeSanitize(coreMetrics.samplePeak.maxDbfs);
-    technicalData.samplePeakLeftDbfs = safeSanitize(coreMetrics.samplePeak.leftDbfs);
-    technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);
-    technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);
+    // ✅ CHAVES CANÔNICAS
+    technicalData.samplePeakDbfs = safeSanitize(coreMetrics.samplePeak.maxDbfs);  // ✅ CANÔNICA: Max(L,R)
+    technicalData.samplePeakLeftDbfs = safeSanitize(coreMetrics.samplePeak.leftDbfs);  // ✅ CANÔNICA: Canal L
+    technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);  // ✅ CANÔNICA: Canal R
+    technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);  // Valor linear
     
-    // 🎯 CORREÇÃO FINAL: Chave aggregate market-ready (max(L,R) já calculado)
-    technicalData.samplePeakDb = technicalData.samplePeakDbfs;
-    
-    // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores do Sample Peak REAL
+    // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores reais
     // (as chaves samplePeakLeftDb/RightDb anteriormente vinham do FFmpeg e eram null)
+    // Usar lógica PRESERVADORA: só sobrescreve se for null
     if (!technicalData.samplePeakLeftDb || technicalData.samplePeakLeftDb === null) {
-      technicalData.samplePeakLeftDb = technicalData.samplePeakLeftDbfs;
+      technicalData.samplePeakLeftDb = technicalData.samplePeakLeftDbfs;  // @deprecated use samplePeakLeftDbfs
     }
     if (!technicalData.samplePeakRightDb || technicalData.samplePeakRightDb === null) {
-      technicalData.samplePeakRightDb = technicalData.samplePeakRightDbfs;
+      technicalData.samplePeakRightDb = technicalData.samplePeakRightDbfs;  // @deprecated use samplePeakRightDbfs
     }
+    // Alias aggregate (manter para compatibilidade)
+    technicalData.samplePeakDb = technicalData.samplePeakDbfs;  // @deprecated use samplePeakDbfs
     
     console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
   } else {
+    // Fail-soft: setar null mas não quebrar pipeline
     technicalData.samplePeakDbfs = null;
     technicalData.samplePeakDb = null;
     technicalData.samplePeakLeftDbfs = null;
     technicalData.samplePeakRightDbfs = null;
     technicalData.samplePeakLinear = null;
-    console.warn('[JSON-OUTPUT] ⚠️ samplePeak não disponível (coreMetrics.samplePeak = null)');
+    console.warn('[JSON-OUTPUT] ⚠️ samplePeak não disponível (coreMetrics.samplePeak = null) - continuando...');
   }
 
-  // 🎯 LOG FINAL: Métricas market-ready para validação
-  console.log('[METRICS-EXPORT] 📊 Métricas principais exportadas:', {
-    samplePeakDb: technicalData.samplePeakDb,
-    samplePeakLeftDb: technicalData.samplePeakLeftDb,
-    samplePeakRightDb: technicalData.samplePeakRightDb,
-    rmsPeak300msDb: technicalData.rmsPeak300msDb,
-    rmsDb: technicalData.rmsDb,
+  // 🎯 LOG FINAL: Métricas canônicas market-ready
+  console.log('[METRICS-EXPORT] 📊 CHAVES CANÔNICAS:', {
+    rmsAvgDbfs: technicalData.rmsAvgDbfs,
+    rmsPeak300msDbfs: technicalData.rmsPeak300msDbfs,
+    samplePeakDbfs: technicalData.samplePeakDbfs,
+    samplePeakLeftDbfs: technicalData.samplePeakLeftDbfs,
+    samplePeakRightDbfs: technicalData.samplePeakRightDbfs,
     truePeakDbtp: technicalData.truePeakDbtp
   });
   
   // 🔍 SANITY-CHECK: Validação de invariantes matemáticas (log-only, não aborta job)
-  const rmsPeak = technicalData.rmsPeak300msDb;
-  const rmsAvg = technicalData.rmsDb;
-  const samplePeak = technicalData.samplePeakDb;
+  const rmsPeak = technicalData.rmsPeak300msDbfs;
+  const rmsAvg = technicalData.rmsAvgDbfs;
+  const samplePeak = technicalData.samplePeakDbfs;
   const truePeak = technicalData.truePeakDbtp;
   
   if (rmsPeak !== null && rmsAvg !== null) {

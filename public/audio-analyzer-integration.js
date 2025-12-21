@@ -14309,24 +14309,22 @@ async function displayModalResults(analysis) {
         };
 
         const col1 = [
-            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
-            // 🔧 PATCH 1: Corrigido label para refletir dado real (RMS Peak de janelas 300ms)
+            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
+            // 🎯 1. RMS Peak (300ms): rmsPeak300msDbfs canônico
             (() => {
-                // Buscar RMS Peak com fallback: rmsPeak300msDb > rmsPeakDbfs > peak (legacy)
-                const rmsPeakValue = getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
+                const rmsPeakValue = getMetric('rmsPeak300msDbfs') ?? getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
-                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDb');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
             })(),
             
-            // 🎯 Sample Peak (dBFS) - CORRIGIDO: usar chave direta aggregate
+            // 🎯 2. Sample Peak (dBFS): samplePeakDbfs canônico
             (() => {
-                // Buscar valor aggregate direto (max(L,R) já calculado no backend)
-                const spValue = getMetric('samplePeakDb') ?? getMetric('samplePeakDbfs');
+                const spValue = getMetric('samplePeakDbfs') ?? getMetric('samplePeakDb');
                 
                 if (spValue === null || spValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (samplePeakDb ausente)');
+                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (samplePeakDbfs ausente)');
                     return '';
                 }
                 if (!Number.isFinite(spValue)) {
@@ -14334,55 +14332,52 @@ async function displayModalResults(analysis) {
                     return '';
                 }
                 
-                const spStatus = getTruePeakStatus(spValue); // Usar mesma escala de clipping
+                const spStatus = getTruePeakStatus(spValue);
                 console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS - status:', spStatus.status);
-                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDb');
+                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
             })(),
             
-            // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
+            // 🎯 3. True Peak (dBTP): truePeakDbtp canônico
             (() => {
-                const tpValue = getMetricWithFallback([
-                    ['truePeak', 'maxDbtp'],
-                    'truePeakDbtp',
-                    'technicalData.truePeakDbtp'
-                ]);
+                const tpValue = getMetric('truePeakDbtp') ?? getMetricWithFallback([['truePeak','maxDbtp'], 'technicalData.truePeakDbtp']);
+                
                 console.log('[METRICS-FIX] col1 > Pico Real - advancedReady:', advancedReady, 'tpValue:', tpValue);
                 if (!advancedReady) {
                     console.warn('[METRICS-FIX] col1 > Pico Real BLOQUEADO por advancedReady=false');
                     return '';
                 }
                 if (tpValue === null || tpValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO em nenhum caminho');
+                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO');
                     return '';
                 }
                 if (!Number.isFinite(tpValue)) {
                     console.warn('[METRICS-FIX] col1 > Pico Real valor inválido:', tpValue);
                     return '';
                 }
+                
                 const tpStatus = getTruePeakStatus(tpValue);
                 console.log('[METRICS-FIX] col1 > Pico Real RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
-                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp', 'truePeak');
+                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 Volume Médio (RMS) - CORRIGIDO: usar rmsDb preferencial
+            // 🎯 4. RMS Average (dBFS): rmsAvgDbfs canônico
             (() => {
-                // Buscar RMS Average com fallback para aliases legados
-                const rmsValue = getMetric('rmsDb') ?? getMetric('rmsAverageDb') ?? getMetric('avgLoudness') ?? getMetric('rms');
+                const rmsValue = getMetric('rmsAvgDbfs') ?? getMetric('rmsDb') ?? getMetric('rmsAverageDb') ?? getMetric('avgLoudness') ?? getMetric('rms');
                 
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
                 
                 // 🎯 Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo 0');
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'rmsDb');
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo —');
+                    return row('Volume Médio (RMS)', `—`, 'rmsAvgDbfs');
                 }
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'rmsDb');
+                    return row('Volume Médio (RMS)', `—`, 'rmsAvgDbfs');
                 }
                 
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'rmsDb');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'rmsAvgDbfs');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
