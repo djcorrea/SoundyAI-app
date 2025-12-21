@@ -14323,72 +14323,81 @@ async function displayModalResults(analysis) {
 
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
-            // 🎯 1. RMS Peak (300ms): rmsPeak300msDbfs canônico
+            
+            // 🎯 DEBUG: Imprimir valores das métricas ANTES de renderizar
+            (() => {
+                console.group('🔍 [METRICS-DEBUG] Card MÉTRICAS PRINCIPAIS - Valores Brutos');
+                console.log('📊 technicalData.peak (Pico RMS 300ms):', analysis.technicalData?.peak);
+                console.log('📊 technicalData.avgLoudness (Volume Médio RMS):', analysis.technicalData?.avgLoudness);
+                console.log('📊 technicalData.samplePeakLeftDb:', analysis.technicalData?.samplePeakLeftDb);
+                console.log('📊 technicalData.samplePeakRightDb:', analysis.technicalData?.samplePeakRightDb);
+                console.log('📊 Sample Peak Max (calculado):', getSamplePeakMaxDbfs(analysis));
+                console.log('📊 technicalData.truePeakDbtp:', analysis.technicalData?.truePeakDbtp);
+                console.groupEnd();
+                return ''; // Não renderiza nada, só debug
+            })(),
+            
+            // 🎯 1. RMS Peak (300ms): technicalData.peak
             (() => {
                 const rmsPeakValue = getMetric('rmsPeak300msDbfs') ?? getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
+                console.log('✅ [RENDER] Pico RMS (300ms) =', rmsPeakValue, 'dB');
                 return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
             })(),
             
-            // 🎯 2. Sample Peak (dBFS): max(left, right)
+            // 🎯 2. Sample Peak (dBFS): max(samplePeakLeftDb, samplePeakRightDb)
             (() => {
-                const leftDb = analysis.technicalData?.samplePeakLeftDb;
-                const rightDb = analysis.technicalData?.samplePeakRightDb;
+                const samplePeakDbfs = getSamplePeakMaxDbfs(analysis);
                 
-                // Calcular max(L, R) se ambos existirem
-                if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak não disponível (left ou right ausente)');
+                if (samplePeakDbfs === null) {
+                    console.warn('⚠️ [RENDER] Sample Peak não disponível (left ou right ausente)');
                     return '';
                 }
                 
-                const samplePeakDbfs = Math.max(leftDb, rightDb);
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
-                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', samplePeakDbfs, 'dBFS (L:', leftDb, 'R:', rightDb, ')');
+                console.log('✅ [RENDER] Sample Peak (dBFS) =', samplePeakDbfs, 'dBFS');
                 return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
             })(),
             
-            // 🎯 3. True Peak (dBTP): truePeakDbtp canônico
+            // 🎯 3. True Peak (dBTP): technicalData.truePeakDbtp
             (() => {
                 const tpValue = getMetric('truePeakDbtp') ?? getMetricWithFallback([['truePeak','maxDbtp'], 'technicalData.truePeakDbtp']);
                 
-                console.log('[METRICS-FIX] col1 > Pico Real - advancedReady:', advancedReady, 'tpValue:', tpValue);
                 if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real BLOQUEADO por advancedReady=false');
+                    console.warn('⚠️ [RENDER] Pico Real BLOQUEADO por advancedReady=false');
                     return '';
                 }
                 if (tpValue === null || tpValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO');
+                    console.warn('⚠️ [RENDER] Pico Real NÃO ENCONTRADO');
                     return '';
                 }
                 if (!Number.isFinite(tpValue)) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real valor inválido:', tpValue);
+                    console.warn('⚠️ [RENDER] Pico Real valor inválido:', tpValue);
                     return '';
                 }
                 
                 const tpStatus = getTruePeakStatus(tpValue);
-                console.log('[METRICS-FIX] col1 > Pico Real RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
+                console.log('✅ [RENDER] Pico Real (dBTP) =', tpValue, 'dBTP');
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 4. RMS Average (Volume Médio): avgLoudness
+            // 🎯 4. Volume Médio (RMS): technicalData.avgLoudness
             (() => {
-                const rmsValue = analysis.technicalData?.avgLoudness;
-                
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
+                const rmsValue = analysis.technicalData?.avgLoudness ?? analysis.technicalData?.rms;
                 
                 // Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo —');
+                    console.warn('⚠️ [RENDER] Volume Médio (RMS) NÃO ENCONTRADO');
                     return row('Volume Médio (RMS)', `—`, 'avgLoudness');
                 }
                 if (!Number.isFinite(rmsValue)) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
+                    console.warn('⚠️ [RENDER] Volume Médio (RMS) valor inválido:', rmsValue);
                     return row('Volume Médio (RMS)', `—`, 'avgLoudness');
                 }
                 
-                console.log('[AUDITORIA-RMS-LUFS] col1 > avgLoudness (Volume Médio real) RENDERIZADO:', rmsValue, 'dBFS');
+                console.log('✅ [RENDER] Volume Médio (RMS) =', rmsValue, 'dBFS');
                 return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
             })(),
             
@@ -14427,19 +14436,32 @@ async function displayModalResults(analysis) {
             row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
             ].join('');
 
+        // 🎯 RESUMO FINAL: Card montado com sucesso
+        console.group('✅ [METRICS-FINAL] Card MÉTRICAS PRINCIPAIS - Resumo');
+        console.log('🎯 Linha 1: Pico RMS (300ms) → technicalData.peak');
+        console.log('🎯 Linha 2: Sample Peak (dBFS) → max(samplePeakLeftDb, samplePeakRightDb)');
+        console.log('🎯 Linha 3: Pico Real (dBTP) → technicalData.truePeakDbtp');
+        console.log('🎯 Linha 4: Volume Médio (RMS) → technicalData.avgLoudness');
+        console.log('📊 HTML gerado:', col1.length > 0 ? 'OK' : 'VAZIO');
+        console.groupEnd();
+
         // 🎯 SANITY CHECK: Validação leve das métricas principais (não bloqueia renderização)
         (() => {
             const rmsPeak = getMetric('rmsPeak300msDbfs') ?? getMetric('peak');
             const avgRms = analysis.technicalData?.avgLoudness;
             const samplePeak = getSamplePeakMaxDbfs(analysis);
             
+            console.group('🔍 [METRICS-SANITY] Validação de Consistência');
+            
             // Check 1: RMS Peak deve ser maior (menos negativo) que RMS médio
             if (Number.isFinite(rmsPeak) && Number.isFinite(avgRms) && rmsPeak < avgRms) {
-                console.debug('[METRICS-SANITY] ⚠️ Alerta: Pico RMS (300ms) menor que Volume Médio (RMS)', {
+                console.warn('⚠️ Alerta: Pico RMS (300ms) menor que Volume Médio (RMS)', {
                     rmsPeak300ms: rmsPeak,
                     avgLoudness: avgRms,
                     diff: avgRms - rmsPeak
                 });
+            } else {
+                console.log('✅ Pico RMS vs Volume Médio: OK');
             }
             
             // Check 2: Sample Peak principal deve corresponder ao max(L,R) em métricas avançadas
@@ -14449,15 +14471,19 @@ async function displayModalResults(analysis) {
                 const maxAdvanced = Math.max(advancedL || -Infinity, advancedR || -Infinity);
                 
                 if (Math.abs(samplePeak - maxAdvanced) > 0.1) {
-                    console.debug('[METRICS-SANITY] ℹ️ Info: Sample Peak principal difere de max(L,R) avançado', {
+                    console.debug('ℹ️ Info: Sample Peak principal difere de max(L,R) avançado', {
                         samplePeakPrincipal: samplePeak,
                         samplePeakLeft: advancedL,
                         samplePeakRight: advancedR,
                         maxAdvanced: maxAdvanced,
                         diff: Math.abs(samplePeak - maxAdvanced)
                     });
+                } else {
+                    console.log('✅ Sample Peak vs max(L,R): OK');
                 }
             }
+            
+            console.groupEnd();
         })();
 
         const col2 = (() => {
