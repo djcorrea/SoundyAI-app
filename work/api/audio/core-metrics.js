@@ -99,6 +99,13 @@ class CoreMetricsProcessor {
       this.validateInputFrom5_2(segmentedAudio);
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
+      // ========= 🎯 ETAPA 0: CALCULAR SAMPLE PEAK (RAW, ANTES DE QUALQUER PROCESSAMENTO) =========
+      logAudio('core_metrics', 'sample_peak_start', { 
+        message: '🎯 Calculando Sample Peak no buffer RAW (original)' 
+      });
+      const samplePeakMetrics = this.calculateSamplePeak(leftChannel, rightChannel);
+      console.log('[SAMPLE_PEAK] ✅ Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs, 'dBFS');
+
       // ========= 🎯 ETAPA 1: CALCULAR MÉTRICAS RAW (ANTES DA NORMALIZAÇÃO) =========
       logAudio('core_metrics', 'raw_metrics_start', { 
         message: '🎯 Calculando LUFS/TruePeak/DR no buffer RAW (original)' 
@@ -321,6 +328,9 @@ class CoreMetricsProcessor {
         
         // 🎯 TRUE PEAK: Usar valores RAW
         truePeak: rawTruePeakMetrics,
+        
+        // 🎯 SAMPLE PEAK: Usar valores RAW (max absolute sample)
+        samplePeak: samplePeakMetrics,
         
         stereo: stereoMetrics, // ✅ CALCULADO NO BUFFER NORMALIZADO
         
