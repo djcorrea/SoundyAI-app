@@ -36,12 +36,25 @@
 **Mudança:**
 ```javascript
 // 🛡️ VALIDAÇÃO: Detectar PCM int não normalizado (ex: 32767 ao invés de 1.0)
-const maxAbsLeft = Math.max(...Array.from(leftChannel).map(Math.abs));
-const maxAbsRight = Math.max(...Array.from(rightChannel).map(Math.abs));
+// IMPORTANTE: NÃO usar Math.max(...array) - causa stack overflow em arrays grandes
+let maxAbsLeft = 0;
+let maxAbsRight = 0;
+
+// Loop manual (evita stack overflow do spread operator)
+for (let i = 0; i < leftChannel.length; i++) {
+  const absLeft = Math.abs(leftChannel[i]);
+  if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
+}
+
+for (let i = 0; i < rightChannel.length; i++) {
+  const absRight = Math.abs(rightChannel[i]);
+  if (absRight > maxAbsRight) maxAbsRight = absRight;
+}
+
 const maxAbsSample = Math.max(maxAbsLeft, maxAbsRight);
 
 if (maxAbsSample > 100) {
-  console.error(`[SAMPLE_PEAK] ❌ PCM int NÃO NORMALIZADO detectado! maxAbsSample=${maxAbsSample}`);
+  console.error(`[SAMPLE_PEAK] ❌ PCM int NÃO NORMALIZADO detectado!`);
   
   // Auto-correção: normalizar de volta
   let normalizer = 32768;  // Padrão int16
@@ -53,8 +66,24 @@ if (maxAbsSample > 100) {
   
   leftChannel = leftChannel.map(s => s / normalizer);
   rightChannel = rightChannel.map(s => s / normalizer);
-  console.log(`[SAMPLE_PEAK] ✅ Normalização aplicada.`);
+  
+  // Recalcular após normalização
+  maxAbsLeft = 0;
+  maxAbsRight = 0;
+  for (let i = 0; i < leftChannel.length; i++) {
+    const absLeft = Math.abs(leftChannel[i]);
+    if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
+  }
+  for (let i = 0; i < rightChannel.length; i++) {
+    const absRight = Math.abs(rightChannel[i]);
+    if (absRight > maxAbsRight) maxAbsRight = absRight;
+  }
 }
+
+// Reutilizar valores já calculados
+const peakLeftLinear = maxAbsLeft;
+const peakRightLinear = maxAbsRight;
+const peakMaxLinear = Math.max(peakLeftLinear, peakRightLinear);
 ```
 
 **O que resolve:**
@@ -63,6 +92,7 @@ if (maxAbsSample > 100) {
 - ✅ Detecta PCM int32 (2147483648) passado sem normalização
 - ✅ **Auto-corrige** dividindo pelo normalizador apropriado
 - ✅ Log detalhado para debug
+- ✅ **HOTFIX:** Usa loop manual ao invés de `Math.max(...array)` para evitar stack overflow em arrays grandes (milhões de samples)
 
 **Impacto:**
 - ⚡ Overhead: **~0.1ms** por análise (negligível)
