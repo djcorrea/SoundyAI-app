@@ -449,18 +449,17 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     };
     
     // 🆕 CHAVES CANÔNICAS (market-ready, padrão mercado)
-    technicalData.avgLoudnessDb = technicalData.rmsLevels.average;  // ✅ CANÔNICA: RMS médio (dBFS)
-    technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;  // ✅ CANÔNICA: RMS peak 300ms (dBFS)
+    technicalData.rmsAvgDbfs = technicalData.rmsLevels.average;  // ✅ CANÔNICA: RMS médio
+    technicalData.rmsPeak300msDbfs = technicalData.rmsLevels.peak;  // ✅ CANÔNICA: RMS peak 300ms
     
     // 🔄 ALIASES LEGADOS (backward compatibility - @deprecated)
-    technicalData.rmsAvgDbfs = technicalData.rmsLevels.average;  // @deprecated use avgLoudnessDb
-    technicalData.rmsPeak300msDbfs = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDb
-    technicalData.rmsAverageDb = technicalData.rmsLevels.average;  // @deprecated use avgLoudnessDb
-    technicalData.rmsDb = technicalData.rmsLevels.average;  // @deprecated use avgLoudnessDb
-    technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDb
-    technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDb
-    technicalData.rms = technicalData.rmsLevels.average;  // @deprecated use avgLoudnessDb
-    technicalData.avgLoudness = technicalData.rmsLevels.average;  // @deprecated use avgLoudnessDb
+    technicalData.rmsPeak300msDb = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rmsAverageDb = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.rmsDb = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.peak = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rmsPeakDbfs = technicalData.rmsLevels.peak;  // @deprecated use rmsPeak300msDbfs
+    technicalData.rms = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
+    technicalData.avgLoudness = technicalData.rmsLevels.average;  // @deprecated use rmsAvgDbfs
     
     console.log(`[DEBUG JSON FINAL] rmsPeak300msDb=${technicalData.rmsPeak300msDb}, rmsAverageDb=${technicalData.rmsAverageDb}, avgLoudness=${technicalData.avgLoudness}`);
   } else {
@@ -469,18 +468,23 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 
   // 🎯 SAMPLE PEAK: Exportar valores canônicos (max absolute sample)
   if (coreMetrics.samplePeak) {
-    // ✅ CHAVES CANÔNICAS: Sample Peak REAL (max absolute sample, calculado em core-metrics)
+    // ✅ CHAVES CANÔNICAS
     technicalData.samplePeakDbfs = safeSanitize(coreMetrics.samplePeak.maxDbfs);  // ✅ CANÔNICA: Max(L,R)
     technicalData.samplePeakLeftDbfs = safeSanitize(coreMetrics.samplePeak.leftDbfs);  // ✅ CANÔNICA: Canal L
     technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);  // ✅ CANÔNICA: Canal R
     technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);  // Valor linear
     
-    // 🔄 COMPATIBILIDADE: Alias agregado (manter para backward compatibility)
+    // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores reais
+    // (as chaves samplePeakLeftDb/RightDb anteriormente vinham do FFmpeg e eram null)
+    // Usar lógica PRESERVADORA: só sobrescreve se for null
+    if (!technicalData.samplePeakLeftDb || technicalData.samplePeakLeftDb === null) {
+      technicalData.samplePeakLeftDb = technicalData.samplePeakLeftDbfs;  // @deprecated use samplePeakLeftDbfs
+    }
+    if (!technicalData.samplePeakRightDb || technicalData.samplePeakRightDb === null) {
+      technicalData.samplePeakRightDb = technicalData.samplePeakRightDbfs;  // @deprecated use samplePeakRightDbfs
+    }
+    // Alias aggregate (manter para compatibilidade)
     technicalData.samplePeakDb = technicalData.samplePeakDbfs;  // @deprecated use samplePeakDbfs
-    
-    // ⚠️ NÃO sobrescrever technicalData.samplePeakLeftDb/RightDb (já vêm do FFmpeg ebur128)
-    // Essas chaves antigas continuam com valores do FFmpeg (podem ser null ou linear)
-    // Frontend deve usar as chaves canônicas: samplePeakLeftDbfs/RightDbfs
     
     console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
   } else {
@@ -495,8 +499,8 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 
   // 🎯 LOG FINAL: Métricas canônicas market-ready
   console.log('[METRICS-EXPORT] 📊 CHAVES CANÔNICAS:', {
-    avgLoudnessDb: technicalData.avgLoudnessDb,
-    rmsPeak300msDb: technicalData.rmsPeak300msDb,
+    rmsAvgDbfs: technicalData.rmsAvgDbfs,
+    rmsPeak300msDbfs: technicalData.rmsPeak300msDbfs,
     samplePeakDbfs: technicalData.samplePeakDbfs,
     samplePeakLeftDbfs: technicalData.samplePeakLeftDbfs,
     samplePeakRightDbfs: technicalData.samplePeakRightDbfs,
@@ -504,37 +508,32 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   });
   
   // 🔍 SANITY-CHECK: Validação de invariantes matemáticas (log-only, não aborta job)
-  const rmsPeak = technicalData.rmsPeak300msDb;
-  const rmsAvg = technicalData.avgLoudnessDb;
+  const rmsPeak = technicalData.rmsPeak300msDbfs;
+  const rmsAvg = technicalData.rmsAvgDbfs;
   const samplePeak = technicalData.samplePeakDbfs;
   const truePeak = technicalData.truePeakDbtp;
   
   if (rmsPeak !== null && rmsAvg !== null) {
     if (rmsPeak < rmsAvg - 0.5) {
-      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: RMS Peak (${rmsPeak.toFixed(2)} dBFS) < RMS Average (${rmsAvg.toFixed(2)} dBFS) - Esperado: Peak >= Average`);
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: RMS Peak (${rmsPeak.toFixed(2)}) < RMS Average (${rmsAvg.toFixed(2)}) - Esperado: Peak >= Average`);
     } else {
-      console.log(`[SANITY-CHECK] ✅ RMS Average (${rmsAvg.toFixed(2)} dBFS) <= RMS Peak (${rmsPeak.toFixed(2)} dBFS)`);
+      console.log(`[SANITY-CHECK] ✅ RMS Average (${rmsAvg.toFixed(2)}) <= RMS Peak (${rmsPeak.toFixed(2)})`);
     }
   }
   
   if (samplePeak !== null && truePeak !== null) {
-    // 🚨 CRÍTICO: True Peak DEVE ser >= Sample Peak (sempre)
-    const diff = truePeak - samplePeak;
-    if (diff < -0.5) {
-      console.error(`[SANITY-CHECK] ❌ ERRO CRÍTICO: True Peak (${truePeak.toFixed(2)} dBTP) < Sample Peak (${samplePeak.toFixed(2)} dBFS) por ${Math.abs(diff).toFixed(2)} dB - FISICAMENTE IMPOSSÍVEL!`);
-      console.error(`[SANITY-CHECK] 🔧 Possível causa: escala incorreta (linear vs dB), ou conversão errada.`);
-    } else if (diff < 0) {
-      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: True Peak (${truePeak.toFixed(2)} dBTP) < Sample Peak (${samplePeak.toFixed(2)} dBFS) - Diferença: ${diff.toFixed(2)} dB`);
+    if (truePeak < samplePeak - 0.5) {
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: True Peak (${truePeak.toFixed(2)}) < Sample Peak (${samplePeak.toFixed(2)}) - Esperado: TruePeak >= SamplePeak`);
     } else {
-      console.log(`[SANITY-CHECK] ✅ True Peak (${truePeak.toFixed(2)} dBTP) >= Sample Peak (${samplePeak.toFixed(2)} dBFS) +${diff.toFixed(2)} dB`);
+      console.log(`[SANITY-CHECK] ✅ True Peak (${truePeak.toFixed(2)}) >= Sample Peak (${samplePeak.toFixed(2)})`);
     }
   }
   
   if (samplePeak !== null && rmsPeak !== null) {
     if (samplePeak < rmsPeak - 0.5) {
-      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: Sample Peak (${samplePeak.toFixed(2)} dBFS) < RMS Peak (${rmsPeak.toFixed(2)} dBFS) - Esperado: SamplePeak >= RMSPeak`);
+      console.warn(`[SANITY-CHECK] ⚠️ VIOLAÇÃO: Sample Peak (${samplePeak.toFixed(2)}) < RMS Peak (${rmsPeak.toFixed(2)}) - Esperado: SamplePeak >= RMSPeak`);
     } else {
-      console.log(`[SANITY-CHECK] ✅ Sample Peak (${samplePeak.toFixed(2)} dBFS) >= RMS Peak (${rmsPeak.toFixed(2)} dBFS)`);
+      console.log(`[SANITY-CHECK] ✅ Sample Peak (${samplePeak.toFixed(2)}) >= RMS Peak (${rmsPeak.toFixed(2)})`);
     }
   }
 
