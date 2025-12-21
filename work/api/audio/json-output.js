@@ -474,6 +474,39 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakRightDbfs = safeSanitize(coreMetrics.samplePeak.rightDbfs);  // ✅ CANÔNICA: Canal R
     technicalData.samplePeakLinear = safeSanitize(coreMetrics.samplePeak.max);  // Valor linear
     
+    // �️ GUARDRAIL: Detectar valores suspeitos (32-bit float overshoot, conversão dupla, PCM int)
+    const peakDbfs = technicalData.samplePeakDbfs;
+    let isSuspicious = false;
+    let suspiciousReason = null;
+    
+    if (!Number.isFinite(peakDbfs) || isNaN(peakDbfs)) {
+      isSuspicious = true;
+      suspiciousReason = 'Sample Peak NaN/Infinity (possível divisão por zero ou buffer corrompido)';
+    } else if (peakDbfs > 3.0) {
+      isSuspicious = true;
+      const linearValue = technicalData.samplePeakLinear?.toFixed(2) || 'N/A';
+      suspiciousReason = `Sample Peak > +3.0 dBFS (${peakDbfs.toFixed(2)} dBFS, linear=${linearValue}). Possível: 32-bit float overshoot, PCM int não normalizado, ou conversão dupla`;
+    } else if (peakDbfs < -100) {
+      isSuspicious = true;
+      suspiciousReason = `Sample Peak < -100 dBFS (${peakDbfs.toFixed(2)} dBFS). Possível: silêncio digital ou buffer vazio`;
+    }
+    
+    // 🚨 SANITY CHECK: True Peak deve ser >= Sample Peak (por definição)
+    if (technicalData.truePeakDbtp !== null && technicalData.truePeakDbtp !== undefined) {
+      if (peakDbfs > technicalData.truePeakDbtp + 3.0) {
+        isSuspicious = true;
+        suspiciousReason = (suspiciousReason || '') + ` | Sample Peak (${peakDbfs.toFixed(2)}) > True Peak (${technicalData.truePeakDbtp.toFixed(2)}) + 3dB - INCOERENTE!`;
+      }
+    }
+    
+    technicalData.samplePeakSuspicious = isSuspicious;
+    technicalData.samplePeakSuspiciousReason = suspiciousReason;
+    
+    if (isSuspicious) {
+      console.error(`[JSON-OUTPUT] 🚨 SAMPLE PEAK SUSPEITO: ${suspiciousReason}`);
+      console.error(`[JSON-OUTPUT] Contexto: formato=${audioInfo?.format}, bitDepth=${audioInfo?.bitDepth}, channels=${audioInfo?.channels}`);
+    }
+    
     // 🔄 COMPATIBILIDADE: Popular chaves antigas com valores reais
     // (as chaves samplePeakLeftDb/RightDb anteriormente vinham do FFmpeg e eram null)
     // Usar lógica PRESERVADORA: só sobrescreve se for null
@@ -486,7 +519,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     // Alias aggregate (manter para compatibilidade)
     technicalData.samplePeakDb = technicalData.samplePeakDbfs;  // @deprecated use samplePeakDbfs
     
-    console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}`);
+    console.log(`[JSON-OUTPUT] ✅ Sample Peak REAL exportado: max=${technicalData.samplePeakDbfs}, L=${technicalData.samplePeakLeftDbfs}, R=${technicalData.samplePeakRightDbfs}, suspicious=${isSuspicious}`);
   } else {
     // Fail-soft: setar null mas não quebrar pipeline
     technicalData.samplePeakDbfs = null;

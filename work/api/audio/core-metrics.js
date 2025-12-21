@@ -36,6 +36,32 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
       return null;
     }
 
+    // 🛡️ VALIDAÇÃO: Detectar PCM int não normalizado (ex: 32767 ao invés de 1.0)
+    const maxAbsLeft = Math.max(...Array.from(leftChannel).map(Math.abs));
+    const maxAbsRight = Math.max(...Array.from(rightChannel).map(Math.abs));
+    const maxAbsSample = Math.max(maxAbsLeft, maxAbsRight);
+    
+    if (maxAbsSample > 100) {
+      console.error(`[SAMPLE_PEAK] ❌ PCM int NÃO NORMALIZADO detectado! maxAbsSample=${maxAbsSample}`);
+      console.error(`[SAMPLE_PEAK] Possível int16 (32767), int24 (8388608) ou int32 (2147483648) sem divisão`);
+      
+      // Auto-correção: normalizar de volta
+      let normalizer = 32768;  // Padrão int16
+      if (maxAbsSample > 8388608) {
+        normalizer = 2147483648;  // int32
+        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int32 (2147483648)');
+      } else if (maxAbsSample > 32768) {
+        normalizer = 8388608;  // int24
+        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int24 (8388608)');
+      } else {
+        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int16 (32768)');
+      }
+      
+      leftChannel = leftChannel.map(s => s / normalizer);
+      rightChannel = rightChannel.map(s => s / normalizer);
+      console.log(`[SAMPLE_PEAK] ✅ Normalização aplicada. Novo maxAbsSample=${Math.max(...Array.from(leftChannel).map(Math.abs))}`);
+    }
+
     // Max absolute sample por canal (linear 0.0-1.0)
     let peakLeftLinear = 0;
     let peakRightLinear = 0;
