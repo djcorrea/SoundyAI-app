@@ -12033,6 +12033,10 @@ async function displayModalResults(analysis) {
 
     console.log('[SAFE] ✅ aiUIController detectado, renderização liberada.');
 
+    // 🔍 FLAG DE DEBUG PARA MÉTRICAS PRINCIPAIS
+    const DEBUG_MAIN_METRICS = true;
+    let RENDER_ID = Date.now();
+
     // ========================================
     // ✅ CORREÇÃO 2: AB SAFETY - Hidratação e Forçar Modo Reference
     // ========================================
@@ -14434,7 +14438,137 @@ async function displayModalResults(analysis) {
             row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'stereoCorrelation', 'primary'),
             // Abertura Estéreo (movido de col2)
             row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth', 'stereoWidth', 'primary')
-            ].join('');
+            ];
+
+        // 🔍 [DEBUG_MAIN_METRICS] Sistema de Tracking Completo
+        if (DEBUG_MAIN_METRICS) {
+            const trackingData = [];
+            
+            // Linha 1: Pico RMS (300ms)
+            const rmsPeakValue = getMetric('rmsPeak300msDbfs') ?? getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
+            trackingData.push({
+                rowId: 1,
+                labelHardcoded: 'Pico RMS (300ms)',
+                labelKeyUsed: 'peak',
+                valueKeyUsed: 'peak / rmsPeak300msDbfs',
+                computedLabel: 'Pico RMS (300ms)',
+                value: rmsPeakValue,
+                rawSourcePath: 'analysis.technicalData.peak',
+                actualSourceValue: analysis.technicalData?.peak
+            });
+            
+            // Linha 2: Sample Peak
+            const samplePeakDbfs = getSamplePeakMaxDbfs(analysis);
+            trackingData.push({
+                rowId: 2,
+                labelHardcoded: 'Sample Peak (dBFS)',
+                labelKeyUsed: 'samplePeak',
+                valueKeyUsed: 'max(samplePeakLeftDb, samplePeakRightDb)',
+                computedLabel: 'Sample Peak (dBFS)',
+                value: samplePeakDbfs,
+                rawSourcePath: 'Math.max(technicalData.samplePeakLeftDb, technicalData.samplePeakRightDb)',
+                actualSourceValue: `L:${analysis.technicalData?.samplePeakLeftDb} R:${analysis.technicalData?.samplePeakRightDb}`
+            });
+            
+            // Linha 3: True Peak
+            const tpValue = getMetric('truePeakDbtp') ?? getMetricWithFallback([['truePeak','maxDbtp'], 'technicalData.truePeakDbtp']);
+            trackingData.push({
+                rowId: 3,
+                labelHardcoded: 'Pico Real (dBTP)',
+                labelKeyUsed: 'truePeakDbtp',
+                valueKeyUsed: 'truePeakDbtp',
+                computedLabel: 'Pico Real (dBTP)',
+                value: tpValue,
+                rawSourcePath: 'analysis.technicalData.truePeakDbtp',
+                actualSourceValue: analysis.technicalData?.truePeakDbtp
+            });
+            
+            // Linha 4: Volume Médio (RMS)
+            const rmsValue = analysis.technicalData?.avgLoudness ?? analysis.technicalData?.rms;
+            trackingData.push({
+                rowId: 4,
+                labelHardcoded: 'Volume Médio (RMS)',
+                labelKeyUsed: 'avgLoudness',
+                valueKeyUsed: 'avgLoudness',
+                computedLabel: 'Volume Médio (RMS)',
+                value: rmsValue,
+                rawSourcePath: 'analysis.technicalData.avgLoudness',
+                actualSourceValue: analysis.technicalData?.avgLoudness
+            });
+            
+            // Linha 5: LUFS
+            const lufsValue = getMetricWithFallback([
+                ['loudness', 'integrated'],
+                'lufs_integrated',
+                'lufsIntegrated',
+                'technicalData.lufsIntegrated'
+            ]);
+            trackingData.push({
+                rowId: 5,
+                labelHardcoded: 'Loudness (LUFS Integrado)',
+                labelKeyUsed: 'lufsIntegrated',
+                valueKeyUsed: 'lufsIntegrated / lufs_integrated',
+                computedLabel: 'Loudness (LUFS Integrado)',
+                value: lufsValue,
+                rawSourcePath: 'analysis.technicalData.lufsIntegrated',
+                actualSourceValue: analysis.technicalData?.lufsIntegrated
+            });
+            
+            console.groupCollapsed(`🔍 [MAIN_METRICS] render #${RENDER_ID}`);
+            console.table(trackingData);
+            console.log('📦 technicalData keys:', Object.keys(analysis.technicalData || {}));
+            console.log('📦 technicalData completo:', analysis.technicalData);
+            console.trace('🔍 Stack trace:');
+            console.groupEnd();
+        }
+
+        // Juntar HTML
+        const col1Html = col1.join('');
+
+        // 🔍 [DEBUG_MAIN_METRICS] Log do HTML gerado
+        if (DEBUG_MAIN_METRICS) {
+            console.group(`🔍 [MAIN_METRICS] HTML Gerado #${RENDER_ID}`);
+            console.log('📝 col1Html length:', col1Html.length);
+            console.log('📝 col1Html preview:', col1Html.substring(0, 500));
+            console.log('📝 col1 array length:', col1.length);
+            console.log('📝 col1 array items:', col1.map((item, idx) => ({ idx, isEmpty: item === '', length: item.length })));
+            console.groupEnd();
+        }
+
+        // 🔍 [DEBUG_MAIN_METRICS] Ler DOM renderizado e comparar
+        if (DEBUG_MAIN_METRICS) {
+            // Agendar leitura do DOM após renderização
+            setTimeout(() => {
+                const modalTechData = document.getElementById('modalTechnicalData');
+                if (!modalTechData) {
+                    console.warn('[MAIN_METRICS] modalTechnicalData não encontrado no DOM');
+                    return;
+                }
+                
+                const dataRows = modalTechData.querySelectorAll('.data-row');
+                const domContent = [];
+                
+                dataRows.forEach((row, idx) => {
+                    const labelEl = row.querySelector('.label');
+                    const valueEl = row.querySelector('.value');
+                    
+                    if (labelEl && valueEl) {
+                        domContent.push({
+                            domIndex: idx + 1,
+                            domLabelText: labelEl.textContent.trim().replace(/ℹ️/g, '').trim(),
+                            domValueText: valueEl.textContent.trim(),
+                            domLabelHTML: labelEl.innerHTML.substring(0, 100),
+                            domValueHTML: valueEl.innerHTML.substring(0, 100)
+                        });
+                    }
+                });
+                
+                console.groupCollapsed(`🔍 [MAIN_METRICS] DOM Renderizado #${RENDER_ID}`);
+                console.table(domContent.slice(0, 5)); // Primeiras 5 linhas (métricas principais)
+                console.log('📊 Total de rows no DOM:', dataRows.length);
+                console.groupEnd();
+            }, 500); // Aguardar 500ms para DOM estar pronto
+        }
 
         // 🎯 RESUMO FINAL: Card montado com sucesso
         console.group('✅ [METRICS-FINAL] Card MÉTRICAS PRINCIPAIS - Resumo');
@@ -15996,7 +16130,7 @@ async function displayModalResults(analysis) {
             <div class="cards-grid">
                 <div class="card">
                     <div class="card-title">MÉTRICAS PRINCIPAIS</div>
-                    ${col1}
+                    ${col1Html}
                 </div>
                 <div class="card">
                     <div class="card-title">ANÁLISE DE FREQUÊNCIAS</div>
