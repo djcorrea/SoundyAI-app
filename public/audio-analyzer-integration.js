@@ -14311,13 +14311,36 @@ async function displayModalResults(analysis) {
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
             // 🔧 PATCH 1: Corrigido label para refletir dado real (RMS Peak de janelas 300ms)
-            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('RMS Peak (300ms)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
-            
-            // 🎯 Sample Peak (dBFS) - NOVO: max absolute sample (não usar fallback para RMS Peak)
             (() => {
-                const spValue = getMetric('samplePeakDbfs');
+                // Buscar RMS Peak com fallback: rmsPeak300msDb > rmsPeakDbfs > peak (legacy)
+                const rmsPeakValue = getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
+                if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
+                    return '';
+                }
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDb');
+            })(),
+            
+            // 🎯 Sample Peak (dBFS) - NOVO: max absolute sample (calculado de L/R)
+            (() => {
+                // Buscar valores de L e R com fallbacks para diferentes nomenclaturas
+                const leftDb = getMetric('samplePeakLeftDb') ?? getMetric('samplePeakLeftDbfs');
+                const rightDb = getMetric('samplePeakRightDb') ?? getMetric('samplePeakRightDbfs');
+                
+                // Calcular max(L, R) ou usar o que estiver disponível
+                let spValue = null;
+                if (leftDb != null && rightDb != null) {
+                    spValue = Math.max(leftDb, rightDb);
+                } else if (leftDb != null) {
+                    spValue = leftDb;
+                } else if (rightDb != null) {
+                    spValue = rightDb;
+                } else {
+                    // Tentar buscar valor agregado direto (se existir)
+                    spValue = getMetric('samplePeakDbfs');
+                }
+                
                 if (spValue === null || spValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Sample Peak NÃO disponível (modo sem PCM?)');
+                    console.warn('[METRICS-FIX] col1 > Sample Peak NÃO disponível (samplePeakLeftDb/RightDb ausentes)');
                     return '';
                 }
                 if (!Number.isFinite(spValue)) {
@@ -14325,8 +14348,8 @@ async function displayModalResults(analysis) {
                     return '';
                 }
                 const spStatus = getTruePeakStatus(spValue); // Usar mesma escala de clipping
-                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS status:', spStatus.status);
-                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 2)} dB <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
+                console.log('[METRICS-FIX] col1 > Sample Peak RENDERIZADO:', spValue, 'dBFS (L:', leftDb, 'R:', rightDb, ') status:', spStatus.status);
+                return row('Sample Peak (dBFS)', `${safeFixed(spValue, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeakDbfs');
             })(),
             
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
