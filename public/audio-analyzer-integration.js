@@ -14310,19 +14310,19 @@ async function displayModalResults(analysis) {
 
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Chaves canônicas
-            // 🎯 1. RMS Peak (300ms): rmsPeak300msDbfs canônico
+            // 🎯 1. Pico RMS (300ms): busca campo 'peak'
             (() => {
-                const rmsPeakValue = getMetric('rmsPeak300msDbfs') ?? getMetric('rmsPeak300msDb') ?? getMetric('rmsPeakDbfs') ?? getMetric('peak_db', 'peak');
+                const rmsPeakValue = analysis.technicalData?.peak;
                 if (!Number.isFinite(rmsPeakValue) || rmsPeakValue === 0) {
                     return '';
                 }
-                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'peak');
             })(),
             
-            // 🎯 2. Sample Peak (dBFS): max(left, right)
+            // 🎯 2. Sample Peak (dBFS): max(samplePeakLeft, samplePeakRight)
             (() => {
-                const leftDb = analysis.technicalData?.samplePeakLeftDb;
-                const rightDb = analysis.technicalData?.samplePeakRightDb;
+                const leftDb = analysis.technicalData?.samplePeakLeft;
+                const rightDb = analysis.technicalData?.samplePeakRight;
                 
                 // Calcular max(L, R) se ambos existirem
                 if (!Number.isFinite(leftDb) || !Number.isFinite(rightDb)) {
@@ -14359,24 +14359,24 @@ async function displayModalResults(analysis) {
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 4. RMS Average (Volume Médio): avgLoudness
+            // 🎯 4. Volume Médio (RMS): busca campo 'rms'
             (() => {
-                const rmsValue = analysis.technicalData?.avgLoudness;
+                const rmsValue = analysis.technicalData?.rms;
                 
                 console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
                 
                 // Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo —');
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `—`, 'rms');
                 }
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `—`, 'rms');
                 }
                 
-                console.log('[AUDITORIA-RMS-LUFS] col1 > avgLoudness (Volume Médio real) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'rms');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
