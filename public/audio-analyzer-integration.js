@@ -12035,6 +12035,7 @@ async function displayModalResults(analysis) {
 
     // 🔍 FLAG DE DEBUG PARA MÉTRICAS PRINCIPAIS
     const DEBUG_MAIN_METRICS = true;
+    const DEBUG_LABEL_AUDIT = true; // 🚨 AUDITORIA DE LABELS
     let RENDER_ID = Date.now();
 
     // ========================================
@@ -14167,6 +14168,10 @@ async function displayModalResults(analysis) {
         };
         
         const row = (label, valHtml, keyForSource=null, metricKey=null, section='primary') => {
+            // � [LABEL-AUDIT][RENDER] Log ANTES de qualquer transformação
+            const originalLabel = label;
+            const originalKey = keyForSource;
+            
             // 🔒 RENDERIZAÇÃO SEGURA: Detectar se valHtml contém valor numérico
             // Se contiver, extrair o valor e usar SecureRenderUtils
             if (typeof window !== 'undefined' && window.SecureRenderUtils && metricKey) {
@@ -14202,10 +14207,34 @@ async function displayModalResults(analysis) {
             }
             
             // Fallback: renderização tradicional (sem números ou SecureRenderUtils não disponível)
-            // Usar sistema de enhancement se disponível
+            // 🚨 PONTO CRÍTICO: window.enhanceRowLabel PODE TROCAR O LABEL AQUI
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
                 ? window.enhanceRowLabel(label, keyForSource) 
                 : label;
+            
+            // 🔍 [LABEL-AUDIT][RENDER] Log DEPOIS do enhanceRowLabel
+            if (DEBUG_LABEL_AUDIT && metricKey) {
+                const labelChanged = originalLabel !== enhancedLabel;
+                console.log(`[LABEL-AUDIT][RENDER] metricKey="${metricKey}" section="${section}"`, {
+                    originalLabel,
+                    enhancedLabel,
+                    labelChanged,
+                    keyForSource: originalKey,
+                    valueHtml: valHtml.substring(0, 50),
+                    enhanceRowLabelExists: !!(window.enhanceRowLabel)
+                });
+                
+                if (labelChanged) {
+                    console.warn(`🚨 [LABEL-AUDIT] LABEL FOI ALTERADO POR enhanceRowLabel!`, {
+                        de: originalLabel,
+                        para: enhancedLabel,
+                        metricKey,
+                        keyForSource: originalKey
+                    });
+                    // Stack trace para ver quem chamou
+                    console.trace('[LABEL-AUDIT] Stack trace do enhanceRowLabel:');
+                }
+            }
             
             // Limpar label (trim) e capitalizar primeira letra
             const cleanLabel = enhancedLabel.trim();
@@ -14234,12 +14263,13 @@ async function displayModalResults(analysis) {
                    </div>`
                 : capitalizedLabel;
             
-            // 🎯 Adicionar data-metric-key para mascaramento do modo reduced
+            // 🎯 Adicionar data-metric-key para rastreamento + data-original-label para auditoria
             const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
+            const originalLabelAttr = DEBUG_LABEL_AUDIT ? ` data-original-label="${originalLabel}"` : '';
             
             return `
-                <div class="data-row"${keyForSource?src(keyForSource):''}${metricKeyAttr}>
-                    <span class="label">${labelHtml}</span>
+                <div class="data-row"${keyForSource?src(keyForSource):''}${metricKeyAttr}${originalLabelAttr}>
+                    <span class="label" data-label-source="row-function">${labelHtml}</span>
                     <span class="value"${metricKeyAttr}>${valHtml}</span>
                 </div>`;
         };
@@ -14558,7 +14588,9 @@ async function displayModalResults(analysis) {
                             domLabelText: labelEl.textContent.trim().replace(/ℹ️/g, '').trim(),
                             domValueText: valueEl.textContent.trim(),
                             domLabelHTML: labelEl.innerHTML.substring(0, 100),
-                            domValueHTML: valueEl.innerHTML.substring(0, 100)
+                            domValueHTML: valueEl.innerHTML.substring(0, 100),
+                            metricKey: row.getAttribute('data-metric-key'),
+                            originalLabel: row.getAttribute('data-original-label')
                         });
                     }
                 });
@@ -14567,6 +14599,92 @@ async function displayModalResults(analysis) {
                 console.table(domContent.slice(0, 5)); // Primeiras 5 linhas (métricas principais)
                 console.log('📊 Total de rows no DOM:', dataRows.length);
                 console.groupEnd();
+                
+                // 🔍 [LABEL-AUDIT] Instalar MutationObserver
+                if (DEBUG_LABEL_AUDIT) {
+                    console.log('🔍 [LABEL-AUDIT] Instalando MutationObserver...');
+                    
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                                const target = mutation.target;
+                                const parentLabel = target.nodeType === Node.TEXT_NODE 
+                                    ? target.parentElement 
+                                    : target;
+                                
+                                // Verificar se é uma label
+                                if (parentLabel && (
+                                    parentLabel.classList.contains('label') || 
+                                    parentLabel.classList.contains('metric-label-friendly') ||
+                                    parentLabel.closest('.label')
+                                )) {
+                                    const row = parentLabel.closest('.data-row');
+                                    const metricKey = row ? row.getAttribute('data-metric-key') : null;
+                                    const originalLabel = row ? row.getAttribute('data-original-label') : null;
+                                    
+                                    console.group('🚨 [LABEL-AUDIT][MUTATION] Label foi alterada!');
+                                    console.log('Timestamp:', new Date().toISOString());
+                                    console.log('metricKey:', metricKey);
+                                    console.log('originalLabel (data-attr):', originalLabel);
+                                    console.log('Label atual (textContent):', parentLabel.textContent.trim());
+                                    console.log('Tipo de mutação:', mutation.type);
+                                    console.log('Target:', mutation.target);
+                                    console.log('Elemento pai:', parentLabel);
+                                    
+                                    // Stack trace
+                                    const e = new Error('[LABEL-AUDIT] Label mutated');
+                                    console.log('Stack trace:');
+                                    console.log(e.stack);
+                                    console.groupEnd();
+                                }
+                            }
+                        });
+                    });
+                    
+                    // Observar todo o container de métricas
+                    observer.observe(modalTechData, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true,
+                        characterDataOldValue: true
+                    });
+                    
+                    console.log('✅ [LABEL-AUDIT] MutationObserver instalado com sucesso');
+                    
+                    // Guardar referência global para debug
+                    window.__LABEL_AUDIT_OBSERVER__ = observer;
+                    
+                    // 📊 Imprimir relatório resumido no console após 2s
+                    setTimeout(() => {
+                        console.group('📋 [LABEL-AUDIT] RELATÓRIO RESUMIDO');
+                        console.log('%c🔍 AUDITORIA DE LABELS - Card "Métricas Principais"', 'font-size:14px;font-weight:bold;color:#00ffff');
+                        console.log('');
+                        console.log('%c📌 CAUSA RAIZ IDENTIFICADA:', 'font-weight:bold;color:#ff6b6b');
+                        console.log('   Sistema friendly-labels.js com busca por substring causa matches espúrios');
+                        console.log('   Arquivo: public/friendly-labels.js linha 159-195');
+                        console.log('   Função: window.enhanceRowLabel()');
+                        console.log('');
+                        console.log('%c🚨 PROBLEMA:', 'font-weight:bold;color:#ffd700');
+                        console.log('   1. enhanceRowLabel() busca substring em labels');
+                        console.log('   2. "Sample Peak (dBFS)" contém "peak" → match com \'peak\': \'Pico RMS (300ms)\'');
+                        console.log('   3. Primeiro match vence, causando labels trocados');
+                        console.log('');
+                        console.log('%c💡 SOLUÇÃO SUGERIDA:', 'font-weight:bold;color:#00ff92');
+                        console.log('   Opção 1: Desabilitar enhanceRowLabel para métricas principais (section === "primary")');
+                        console.log('   Opção 2: Melhorar lógica de match (exato antes de substring)');
+                        console.log('   Opção 3: Whitelist de keys permitidas para substring match');
+                        console.log('');
+                        console.log('%c📄 RELATÓRIO COMPLETO:', 'font-weight:bold');
+                        console.log('   Arquivo: REPORT_LABEL_AUDIT.md');
+                        console.log('   Para desabilitar auditoria: DEBUG_LABEL_AUDIT = false (linha ~12037)');
+                        console.log('');
+                        console.log('%c🔍 DADOS COLETADOS:', 'font-weight:bold');
+                        console.log('   - Logs [LABEL-AUDIT][RENDER]: Antes/depois do enhanceRowLabel');
+                        console.log('   - Logs [LABEL-AUDIT][MUTATION]: Mudanças pós-render (se houver)');
+                        console.log('   - Tabelas [MAIN_METRICS]: Mapeamento original vs DOM final');
+                        console.groupEnd();
+                    }, 2000);
+                }
             }, 500); // Aguardar 500ms para DOM estar pronto
         }
 
