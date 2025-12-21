@@ -155,31 +155,180 @@ window.createTooltipLabel = function(key, originalLabel) {
 window.enhanceRowLabel = function(label, key) {
     if (!label) return label;
     
-    // Primeiro, tentar obter o label amigável diretamente
-    let friendlyLabel = window.getFriendlyLabel(label);
+    // 🔧 HELPER: Normalizar string para match robusto
+    const normalize = (str) => {
+        if (!str) return '';
+        return str.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove acentos
+            .replace(/[^\w\s]/g, ' ') // Remove pontuação
+            .replace(/\s+/g, ' ') // Múltiplos espaços -> um espaço
+            .trim();
+    };
     
-    // Se não mudou, tentar com a key
-    if (friendlyLabel === label && key) {
-        friendlyLabel = window.getFriendlyLabel(key);
+    // 🔧 DEBUG (opcional)
+    const DEBUG = typeof window !== 'undefined' && window.DEBUG_LABEL_AUDIT === true;
+    
+    const originalLabel = label;
+    let friendlyLabel = label;
+    let matchedKey = null;
+    let matchMethod = null;
+    
+    // ============================================================
+    // ESTRATÉGIA 1: Match exato pela KEY (mais confiável)
+    // ============================================================
+    if (key) {
+        // Tentar match exato com a key fornecida
+        if (window.FRIENDLY_METRIC_LABELS[key]) {
+            friendlyLabel = window.FRIENDLY_METRIC_LABELS[key];
+            matchedKey = key;
+            matchMethod = 'exact-key';
+        } else if (window.FRIENDLY_BAND_LABELS[key]) {
+            friendlyLabel = window.FRIENDLY_BAND_LABELS[key];
+            matchedKey = key;
+            matchMethod = 'exact-key-band';
+        }
+        
+        // Tentar variações da key (camelCase, snake_case)
+        if (!matchedKey) {
+            const keyLower = key.toLowerCase();
+            const keySnake = key.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '');
+            
+            for (const [metricKey, friendlyName] of Object.entries(window.FRIENDLY_METRIC_LABELS)) {
+                if (metricKey.toLowerCase() === keyLower || metricKey.toLowerCase() === keySnake) {
+                    friendlyLabel = friendlyName;
+                    matchedKey = metricKey;
+                    matchMethod = 'exact-key-variation';
+                    break;
+                }
+            }
+        }
     }
     
-    // Se ainda não mudou, tentar buscar partes da label
-    if (friendlyLabel === label) {
-        const normalizedLabel = label.toLowerCase().trim();
+    // ============================================================
+    // ESTRATÉGIA 2: Match exato pela LABEL normalizada
+    // ============================================================
+    if (!matchedKey) {
+        const normalizedLabel = normalize(label);
+        
+        // Buscar em METRIC_LABELS
         for (const [metricKey, friendlyName] of Object.entries(window.FRIENDLY_METRIC_LABELS)) {
-            if (normalizedLabel.includes(metricKey.toLowerCase()) || metricKey.toLowerCase().includes(normalizedLabel)) {
+            const normalizedKey = normalize(metricKey);
+            const normalizedFriendly = normalize(friendlyName);
+            
+            if (normalizedLabel === normalizedKey || normalizedLabel === normalizedFriendly) {
                 friendlyLabel = friendlyName;
+                matchedKey = metricKey;
+                matchMethod = 'exact-label';
                 break;
             }
         }
         
-        // Buscar também nas bandas
-        for (const [bandKey, bandName] of Object.entries(window.FRIENDLY_BAND_LABELS)) {
-            if (normalizedLabel.includes(bandKey.toLowerCase()) || bandKey.toLowerCase().includes(normalizedLabel)) {
-                friendlyLabel = bandName;
-                break;
+        // Buscar em BAND_LABELS
+        if (!matchedKey) {
+            for (const [bandKey, bandName] of Object.entries(window.FRIENDLY_BAND_LABELS)) {
+                const normalizedKey = normalize(bandKey);
+                const normalizedBand = normalize(bandName);
+                
+                if (normalizedLabel === normalizedKey || normalizedLabel === normalizedBand) {
+                    friendlyLabel = bandName;
+                    matchedKey = bandKey;
+                    matchMethod = 'exact-label-band';
+                    break;
+                }
             }
         }
+    }
+    
+    // ============================================================
+    // ESTRATÉGIA 3: Longest-match com word boundaries (fail-safe)
+    // ============================================================
+    if (!matchedKey) {
+        const normalizedLabel = normalize(label);
+        const words = normalizedLabel.split(/\s+/);
+        
+        // Lista negra: keys muito genéricas (causam matches espúrios)
+        const BLACKLIST = ['peak', 'rms', 'db', 'lufs', 'stereo', 'dr'];
+        
+        let bestMatch = null;
+        let bestMatchLength = 0;
+        
+        // Buscar em METRIC_LABELS
+        for (const [metricKey, friendlyName] of Object.entries(window.FRIENDLY_METRIC_LABELS)) {
+            const normalizedKey = normalize(metricKey);
+            
+            // Skip keys na blacklist se forem exatamente elas (sozinhas)
+            if (BLACKLIST.includes(normalizedKey) && normalizedKey.split(/\s+/).length === 1) {
+                continue;
+            }
+            
+            // Verificar se a key aparece como palavra completa na label
+            const keyWords = normalizedKey.split(/\s+/);
+            let allWordsMatch = true;
+            
+            for (const keyWord of keyWords) {
+                if (!words.includes(keyWord)) {
+                    allWordsMatch = false;
+                    break;
+                }
+            }
+            
+            // Se todos os words da key aparecem na label, considerar como candidato
+            if (allWordsMatch && normalizedKey.length > bestMatchLength) {
+                bestMatch = { key: metricKey, friendly: friendlyName, type: 'metric' };
+                bestMatchLength = normalizedKey.length;
+            }
+        }
+        
+        // Buscar em BAND_LABELS (mesma lógica)
+        for (const [bandKey, bandName] of Object.entries(window.FRIENDLY_BAND_LABELS)) {
+            const normalizedKey = normalize(bandKey);
+            
+            if (BLACKLIST.includes(normalizedKey) && normalizedKey.split(/\s+/).length === 1) {
+                continue;
+            }
+            
+            const keyWords = normalizedKey.split(/\s+/);
+            let allWordsMatch = true;
+            
+            for (const keyWord of keyWords) {
+                if (!words.includes(keyWord)) {
+                    allWordsMatch = false;
+                    break;
+                }
+            }
+            
+            if (allWordsMatch && normalizedKey.length > bestMatchLength) {
+                bestMatch = { key: bandKey, friendly: bandName, type: 'band' };
+                bestMatchLength = normalizedKey.length;
+            }
+        }
+        
+        if (bestMatch) {
+            friendlyLabel = bestMatch.friendly;
+            matchedKey = bestMatch.key;
+            matchMethod = 'longest-word-match';
+        }
+    }
+    
+    // ============================================================
+    // DEBUG LOG (se habilitado)
+    // ============================================================
+    if (DEBUG && (friendlyLabel !== originalLabel || matchedKey)) {
+        console.log('[FRIENDLY-LABELS][enhanceRowLabel]', {
+            originalLabel,
+            finalLabel: friendlyLabel,
+            matchedKey,
+            matchMethod,
+            keyParam: key,
+            changed: friendlyLabel !== originalLabel
+        });
+    }
+    
+    // ============================================================
+    // FAIL-SAFE: Se não encontrou match confiável, manter original
+    // ============================================================
+    if (!matchedKey) {
+        friendlyLabel = label; // Manter original se não encontrou match
     }
     
     const explanation = window.getMetricExplanation(key || label);
