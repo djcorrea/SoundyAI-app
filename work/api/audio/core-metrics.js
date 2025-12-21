@@ -37,8 +37,20 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
     }
 
     // 🛡️ VALIDAÇÃO: Detectar PCM int não normalizado (ex: 32767 ao invés de 1.0)
-    const maxAbsLeft = Math.max(...Array.from(leftChannel).map(Math.abs));
-    const maxAbsRight = Math.max(...Array.from(rightChannel).map(Math.abs));
+    // IMPORTANTE: NÃO usar Math.max(...array) - causa stack overflow em arrays grandes (milhões de samples)
+    let maxAbsLeft = 0;
+    let maxAbsRight = 0;
+    
+    for (let i = 0; i < leftChannel.length; i++) {
+      const absLeft = Math.abs(leftChannel[i]);
+      if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
+    }
+    
+    for (let i = 0; i < rightChannel.length; i++) {
+      const absRight = Math.abs(rightChannel[i]);
+      if (absRight > maxAbsRight) maxAbsRight = absRight;
+    }
+    
     const maxAbsSample = Math.max(maxAbsLeft, maxAbsRight);
     
     if (maxAbsSample > 100) {
@@ -59,23 +71,26 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
       
       leftChannel = leftChannel.map(s => s / normalizer);
       rightChannel = rightChannel.map(s => s / normalizer);
-      console.log(`[SAMPLE_PEAK] ✅ Normalização aplicada. Novo maxAbsSample=${Math.max(...Array.from(leftChannel).map(Math.abs))}`);
+      
+      // Recalcular max após normalização
+      maxAbsLeft = 0;
+      maxAbsRight = 0;
+      for (let i = 0; i < leftChannel.length; i++) {
+        const absLeft = Math.abs(leftChannel[i]);
+        if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
+      }
+      for (let i = 0; i < rightChannel.length; i++) {
+        const absRight = Math.abs(rightChannel[i]);
+        if (absRight > maxAbsRight) maxAbsRight = absRight;
+      }
+      
+      console.log(`[SAMPLE_PEAK] ✅ Normalização aplicada. Novo maxAbsSample=${Math.max(maxAbsLeft, maxAbsRight)}`);
     }
 
     // Max absolute sample por canal (linear 0.0-1.0)
-    let peakLeftLinear = 0;
-    let peakRightLinear = 0;
-    
-    for (let i = 0; i < leftChannel.length; i++) {
-      const absLeft = Math.abs(leftChannel[i]);
-      if (absLeft > peakLeftLinear) peakLeftLinear = absLeft;
-    }
-    
-    for (let i = 0; i < rightChannel.length; i++) {
-      const absRight = Math.abs(rightChannel[i]);
-      if (absRight > peakRightLinear) peakRightLinear = absRight;
-    }
-    
+    // NOTA: Já calculamos maxAbsLeft e maxAbsRight acima durante a validação
+    const peakLeftLinear = maxAbsLeft;
+    const peakRightLinear = maxAbsRight;
     const peakMaxLinear = Math.max(peakLeftLinear, peakRightLinear);
     
     // Converter para dBFS (com segurança para silêncio)
