@@ -22,6 +22,16 @@ import { normalizeGenreTargets } from "../../lib/audio/utils/normalize-genre-tar
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
 
+// 🔍 Sistema de diagnóstico de Sample Peak (detecta erros de escala PCM 24-bit)
+import {
+  analyzeBufferScale,
+  confirmExpectedScale,
+  detectWrongPCM24Divisor,
+  samplePeakSanityCheck,
+  ffmpegSamplePeakFallback,
+  correctSamplePeakIfNeeded
+} from './sample-peak-diagnostics.js';
+
 /**
  * 🎯 FUNÇÃO PURA: Calcular Sample Peak REAL (max absolute sample)
  * HOTFIX: Implementado como função standalone (não método de classe) para evitar contexto `this`
@@ -149,14 +159,39 @@ class CoreMetricsProcessor {
       this.validateInputFrom5_2(segmentedAudio);
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
-      // ========= 🎯 ETAPA 0: CALCULAR SAMPLE PEAK (RAW, ANTES DE QUALQUER PROCESSAMENTO) =========
+      // ========= 🎯 ETAPA 0: DIAGNÓSTICO E CÁLCULO DE SAMPLE PEAK =========
+      // 🔍 TAREFA 1: Analisar escala do buffer ANTES do cálculo
+      const bufferAnalysis = analyzeBufferScale(leftChannel, rightChannel, `File: ${fileName}`);
+      
+      // 🔍 TAREFA 2: Confirmar escala esperada
+      confirmExpectedScale({ 
+        leftChannel, 
+        rightChannel, 
+        sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+        numberOfChannels: 2,
+        length: leftChannel.length,
+        duration: leftChannel.length / CORE_METRICS_CONFIG.SAMPLE_RATE
+      }, 'CoreMetrics processMetrics');
+      
+      // 🔍 TAREFA 3: Detectar erro de PCM 24-bit
+      const pcm24Check = detectWrongPCM24Divisor({ leftChannel, rightChannel }, { fileName });
+      
       // HOTFIX: Sample Peak é feature nova e OPCIONAL - não deve quebrar pipeline
       let samplePeakMetrics = null;
       try {
         logAudio('core_metrics', 'sample_peak_start', { 
           message: '🎯 Calculando Sample Peak no buffer RAW (original)' 
         });
+        
+        // Calcular Sample Peak
         samplePeakMetrics = calculateSamplePeakDbfs(leftChannel, rightChannel);
+        
+        // 🔍 TAREFA 3B: Aplicar correção se detectado erro de escala
+        if (bufferAnalysis.needsCorrection) {
+          console.warn(`[SAMPLE_PEAK] ⚠️ Aplicando correção de escala (divisor=${bufferAnalysis.divisorNeeded})`);
+          samplePeakMetrics = correctSamplePeakIfNeeded(samplePeakMetrics, bufferAnalysis);
+        }
+        
         if (samplePeakMetrics && samplePeakMetrics.maxDbfs !== null) {
           console.log('[SAMPLE_PEAK] ✅ Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs.toFixed(2), 'dBFS');
         } else {
@@ -187,6 +222,48 @@ class CoreMetricsProcessor {
       });
       assertFinite(rawTruePeakMetrics, 'core_metrics');
       console.log('[RAW_METRICS] ✅ True Peak (RAW):', rawTruePeakMetrics.maxDbtp);
+
+      // 🔍 TAREFA 5: Sanity Check - comparar Sample Peak vs True Peak
+      if (samplePeakMetrics && samplePeakMetrics.maxDbfs !== null && rawTruePeakMetrics && rawTruePeakMetrics.maxDbtp !== null) {
+        const sanityCheck = samplePeakSanityCheck(
+          samplePeakMetrics.maxDbfs,
+          rawTruePeakMetrics.maxDbtp,
+          `File: ${fileName}`
+        );
+        
+        // 🔍 TAREFA 6: Se suspeito, rodar FFmpeg fallback
+        if (sanityCheck.needsFallback && options.tempFilePath) {
+          console.warn(`[SANITY_CHECK] ⚠️ Sample Peak suspeito - rodando FFmpeg fallback...`);
+          try {
+            const ffmpegResult = await ffmpegSamplePeakFallback(options.tempFilePath);
+            
+            // Usar valores do FFmpeg se disponíveis
+            if (ffmpegResult.samplePeakMaxDb !== null) {
+              console.log(`[FALLBACK] ✅ FFmpeg retornou Sample Peak: ${ffmpegResult.samplePeakMaxDb.toFixed(2)} dBFS`);
+              
+              // Converter valor dB de volta para linear
+              const fallbackLinear = Math.pow(10, ffmpegResult.samplePeakMaxDb / 20);
+              
+              // Sobrescrever com valores confiáveis do FFmpeg
+              samplePeakMetrics = {
+                left: ffmpegResult.samplePeakLeftDb !== null ? Math.pow(10, ffmpegResult.samplePeakLeftDb / 20) : fallbackLinear,
+                right: ffmpegResult.samplePeakRightDb !== null ? Math.pow(10, ffmpegResult.samplePeakRightDb / 20) : fallbackLinear,
+                max: fallbackLinear,
+                leftDbfs: ffmpegResult.samplePeakLeftDb || ffmpegResult.samplePeakMaxDb,
+                rightDbfs: ffmpegResult.samplePeakRightDb || ffmpegResult.samplePeakMaxDb,
+                maxDbfs: ffmpegResult.samplePeakMaxDb,
+                _fallbackUsed: true,
+                _fallbackSource: 'ffmpeg_astats'
+              };
+              
+              console.log(`[FALLBACK] ✅ Sample Peak corrigido: ${samplePeakMetrics.maxDbfs.toFixed(2)} dBFS`);
+            }
+          } catch (fallbackError) {
+            console.error(`[FALLBACK] ❌ Erro ao executar FFmpeg fallback:`, fallbackError.message);
+            // Continuar com valor original mesmo que suspeito
+          }
+        }
+      }
 
       // 🎯 CÁLCULO RAW: Dynamic Range (áudio original, precisa do LRA do RAW)
       logAudio('core_metrics', 'raw_dynamics_start', { length: leftChannel.length });
