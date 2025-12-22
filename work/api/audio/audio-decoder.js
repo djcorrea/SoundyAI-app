@@ -165,6 +165,7 @@ function decodeWavFloat32Stereo(wav, filename) {
   }
 
   let fmtOffset = -1;
+  let fmtSize = 0; // ⚠️ ADICIONAR: Tamanho do chunk fmt para validar Extensible
   let dataOffset = -1;
   let dataSize = 0;
 
@@ -172,22 +173,30 @@ function decodeWavFloat32Stereo(wav, filename) {
   let off = 12;
   let chunkCount = 0;
   
+  console.log(`[WAV_PARSE] Iniciando parse: ${wav.length} bytes, arquivo=${filename}`);
+  
   while (off + 8 <= wav.length && chunkCount < 20) {
     const id = wav.toString('ascii', off, off + 4);
     const sz = wav.readUInt32LE(off + 4);
     const payloadStart = off + 8;
     const next = payloadStart + sz + (sz % 2); // alinhamento
 
+    console.log(`[WAV_PARSE] Chunk #${chunkCount}: id="${id}", offset=${off}, size=${sz}, payloadStart=${payloadStart}, next=${next}`);
+
     if (id === 'fmt ') {
       fmtOffset = payloadStart;
+      fmtSize = sz; // ⚠️ SALVAR TAMANHO
+      console.log(`[WAV_PARSE] ✅ fmt chunk encontrado: offset=${fmtOffset}, size=${fmtSize}`);
     } else if (id === 'data') {
       dataOffset = payloadStart;
       dataSize = sz;
+      console.log(`[WAV_PARSE] ✅ data chunk encontrado: offset=${dataOffset}, size=${dataSize}`);
       break; // dados encontrados, podemos parar
     }
     
     // Proteção contra chunks inválidos
     if (next <= off || next > wav.length || sz > wav.length) {
+      console.warn(`[WAV_PARSE] ⚠️ Chunk inválido detectado, parando parse`);
       break;
     }
     
@@ -208,10 +217,50 @@ function decodeWavFloat32Stereo(wav, filename) {
   const sampleRate = wav.readUInt32LE(fmtOffset + 4);
   const bitsPerSample = wav.readUInt16LE(fmtOffset + 14);
 
+  console.log(`[WAV_PARSE] Formato: audioFormat=${audioFormat}, channels=${numChannels}, sampleRate=${sampleRate}, bitsPerSample=${bitsPerSample}`);
+
   // Validações rigorosas do formato
   if (audioFormat !== 3 && audioFormat !== 65534) {
     throw makeErr('decode', `WAV: formato não suportado. Esperado Float (3) ou Extensible (65534), recebido ${audioFormat}`, 'wav_unsupported_format');
   }
+  
+  // ========= VALIDAÇÃO EXTENSIBLE: Verificar GUID ==========
+  if (audioFormat === 65534) {
+    console.log(`[WAV_PARSE] 🔍 Formato Extensible detectado - validando GUID...`);
+    
+    if (fmtSize < 40) {
+      throw makeErr('decode', `WAV Extensible: chunk fmt muito pequeno (${fmtSize} bytes, esperado >= 40)`, 'wav_invalid_extensible');
+    }
+    
+    const cbSize = wav.readUInt16LE(fmtOffset + 16);
+    console.log(`[WAV_PARSE] cbSize=${cbSize}`);
+    
+    if (cbSize >= 22) {
+      const validBitsPerSample = wav.readUInt16LE(fmtOffset + 18);
+      const channelMask = wav.readUInt32LE(fmtOffset + 20);
+      
+      // Ler GUID (16 bytes em fmtOffset + 24)
+      const guidBytes = [];
+      for (let i = 0; i < 16; i++) {
+        guidBytes.push(wav.readUInt8(fmtOffset + 24 + i));
+      }
+      
+      // GUID para Float32 PCM: 03 00 00 00 00 00 10 00 80 00 00 AA 00 38 9B 71
+      const float32Guid = [0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71];
+      
+      const isFloat32 = guidBytes.every((byte, i) => byte === float32Guid[i]);
+      
+      if (!isFloat32) {
+        const guidHex = guidBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+        throw makeErr('decode', `WAV Extensible: SubFormat não é Float32 (GUID: ${guidHex}, esperado: 0300000000001000800000aa00389b71)`, 'wav_unsupported_subformat');
+      }
+      
+      console.log(`[WAV_PARSE] ✅ Extensible validado: SubFormat=Float32, validBits=${validBitsPerSample}, channelMask=0x${channelMask.toString(16)}`);
+    } else {
+      console.warn(`[WAV_PARSE] ⚠️ Extensible sem GUID (cbSize=${cbSize} < 22) - assumindo Float32`);
+    }
+  }
+  
   if (bitsPerSample !== 32) {
     throw makeErr('decode', `WAV: bit depth não suportado. Esperado 32-bit, recebido ${bitsPerSample}`, 'wav_unsupported_bitdepth');
   }
@@ -268,6 +317,43 @@ function decodeWavFloat32Stereo(wav, filename) {
   // Validar duração
   if (duration > MAX_DURATION_SECONDS) {
     throw makeErr('decode', `WAV: duração muito longa: ${duration.toFixed(1)}s > ${MAX_DURATION_SECONDS}s`, 'wav_duration_too_long');
+  }
+
+  // ========= 🔍 SANITY CHECK: Sample Peak deve estar em [-1, 1] =========
+  console.log(`[WAV_SANITY] Verificando normalização do buffer...`);
+  
+  let maxAbsoluteFound = 0;
+  let outOfRangeCount = 0;
+  
+  for (let i = 0; i < samplesPerChannel; i++) {
+    const absL = Math.abs(left[i]);
+    const absR = Math.abs(right[i]);
+    
+    if (absL > maxAbsoluteFound) maxAbsoluteFound = absL;
+    if (absR > maxAbsoluteFound) maxAbsoluteFound = absR;
+    
+    if (absL > 1.0 || absR > 1.0) {
+      outOfRangeCount++;
+      
+      // Log primeiros 5 valores fora de range
+      if (outOfRangeCount <= 5) {
+        console.warn(`[WAV_SANITY] ⚠️ Sample ${i} fora de range: L=${left[i].toFixed(6)}, R=${right[i].toFixed(6)}`);
+      }
+    }
+  }
+  
+  const maxDb = maxAbsoluteFound > 0 ? 20 * Math.log10(maxAbsoluteFound) : -120;
+  const outOfRangePct = (outOfRangeCount / samplesPerChannel) * 100;
+  
+  console.log(`[WAV_SANITY] Max Absolute: ${maxAbsoluteFound.toFixed(6)} linear (${maxDb.toFixed(2)} dBFS)`);
+  console.log(`[WAV_SANITY] Out of range [-1, 1]: ${outOfRangeCount} / ${samplesPerChannel} samples (${outOfRangePct.toFixed(2)}%)`);
+  
+  if (maxAbsoluteFound > 1.1) {
+    throw makeErr('decode', `WAV: valores muito acima de 1.0 (max=${maxAbsoluteFound.toFixed(2)} = ${maxDb.toFixed(2)} dBFS). Buffer não está normalizado! Possível erro na conversão FFmpeg ou leitura de offset incorreto.`, 'wav_not_normalized');
+  } else if (maxAbsoluteFound > 1.0) {
+    console.warn(`[WAV_SANITY] ⚠️ Valores ligeiramente > 1.0 (clipping permitido, max=${maxAbsoluteFound.toFixed(4)})`);
+  } else {
+    console.log(`[WAV_SANITY] ✅ Buffer normalizado corretamente`);
   }
 
   return {
@@ -336,19 +422,38 @@ export async function decodeAudioFile(fileBuffer, filename, options = {}) {
       throw makeErr(stage, `WAV decode failed: ${err.message}`, 'wav_decode_failed');
     }
 
+    // ========= DETECÇÃO DE CLIPPING (antes de pós-processar) =========
+    
+    // Detectar clipping nos canais ORIGINAIS (antes de filtro DC)
+    const clippingLeft = detectClipping(audioData.leftChannel);
+    const clippingRight = detectClipping(audioData.rightChannel);
+    
     // ========= PÓS-PROCESSAMENTO (OPCIONAL) =========
     
-    // Remover DC offset (filtro 20Hz)
-    const leftProcessed = removeDCOffset(audioData.leftChannel, audioData.sampleRate, 20);
-    const rightProcessed = removeDCOffset(audioData.rightChannel, audioData.sampleRate, 20);
+    // 🚨 CORREÇÃO CRÍTICA: NÃO aplicar filtro DC em áudios clipados
+    // O filtro DC pode introduzir overshoots em sinais clipados (valores exatos de ±1.0)
+    // resultando em Sample Peak > 0 dBFS quando deveria ser = 0 dBFS
     
-    // Validar que pós-processamento não introduziu NaN/Infinity
-    ensureFiniteArray(leftProcessed, stage, 'left channel after DC removal');
-    ensureFiniteArray(rightProcessed, stage, 'right channel after DC removal');
+    const avgClipping = (clippingLeft.clippingPct + clippingRight.clippingPct) / 2;
+    const isClipped = avgClipping > 2.0; // > 2% de samples clipados
     
-    // Detectar clipping
-    const clippingLeft = detectClipping(leftProcessed);
-    const clippingRight = detectClipping(rightProcessed);
+    let leftProcessed, rightProcessed;
+    
+    if (isClipped) {
+      console.log(`[AUDIO_DECODE] ⚠️ Áudio clipado detectado (${avgClipping.toFixed(1)}%) - PULANDO filtro DC`);
+      // Usar canais originais sem filtro DC
+      leftProcessed = audioData.leftChannel;
+      rightProcessed = audioData.rightChannel;
+    } else {
+      console.log(`[AUDIO_DECODE] ✅ Aplicando filtro DC (20Hz)...`);
+      // Remover DC offset (filtro 20Hz)
+      leftProcessed = removeDCOffset(audioData.leftChannel, audioData.sampleRate, 20);
+      rightProcessed = removeDCOffset(audioData.rightChannel, audioData.sampleRate, 20);
+      
+      // Validar que pós-processamento não introduziu NaN/Infinity
+      ensureFiniteArray(leftProcessed, stage, 'left channel after DC removal');
+      ensureFiniteArray(rightProcessed, stage, 'right channel after DC removal');
+    }
     const clippingTotal = {
       clippedSamples: clippingLeft.clippedSamples + clippingRight.clippedSamples,
       totalSamples: clippingLeft.totalSamples + clippingRight.totalSamples,
