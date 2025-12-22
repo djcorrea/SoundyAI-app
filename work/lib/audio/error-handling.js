@@ -128,34 +128,38 @@ export function clamp(value, min, max) {
 
 /**
  * Remove DC offset (high-pass filter muito baixo)
+ * 🚨 CORREÇÃO CRÍTICA: Algoritmo anterior estava AMPLIFICANDO sinais por 1000x+
+ * 
+ * Nova implementação: DC blocking filter de primeira ordem (passa-alta)
  * @param {Float32Array} samples - Amostras de áudio
  * @param {number} sampleRate - Sample rate
  * @param {number} cutoffHz - Frequência de corte (default: 20Hz)
  */
 export function removeDCOffset(samples, sampleRate, cutoffHz = 20) {
-  // Simple DC removal: média móvel
-  const windowSize = Math.floor(sampleRate / cutoffHz);
+  // DC blocking filter: y[n] = x[n] - x[n-1] + R * y[n-1]
+  // onde R = 1 - (2 * PI * cutoff / sampleRate)
+  
   const output = new Float32Array(samples.length);
   
-  let sum = 0;
+  if (samples.length === 0) return output;
   
-  // Preenche janela inicial
-  for (let i = 0; i < Math.min(windowSize, samples.length); i++) {
-    sum += samples[i];
-  }
+  // Calcular coeficiente do filtro
+  const R = 1.0 - (2.0 * Math.PI * cutoffHz / sampleRate);
   
-  // Aplica filtro
+  // Aplicar filtro recursivo
+  let prevInput = samples[0];
+  let prevOutput = 0;
+  
   for (let i = 0; i < samples.length; i++) {
-    const avgDC = sum / Math.min(i + 1, windowSize);
-    output[i] = samples[i] - avgDC;
+    const currentInput = samples[i];
     
-    // Atualiza janela móvel
-    if (i + windowSize < samples.length) {
-      sum += samples[i + windowSize];
-    }
-    if (i >= windowSize) {
-      sum -= samples[i - windowSize];
-    }
+    // y[n] = x[n] - x[n-1] + R * y[n-1]
+    const currentOutput = currentInput - prevInput + R * prevOutput;
+    
+    output[i] = currentOutput;
+    
+    prevInput = currentInput;
+    prevOutput = currentOutput;
   }
   
   return output;
