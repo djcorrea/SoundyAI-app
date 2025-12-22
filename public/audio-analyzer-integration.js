@@ -15138,8 +15138,23 @@ async function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
+                // 🎯 FILTRO DEFENSIVO: Remover sugestões OK/ideal antes de renderizar
+                const rawSuggestions = analysis.suggestions || [];
+                const filteredSuggestions = rawSuggestions.filter(sug => {
+                    const level = sug.severity?.level;
+                    const isOK = level === 'ideal' || level === 'ok' || sug.severity?.colorHex === 'green';
+                    
+                    if (isOK) {
+                        console.log('[FILTER_SUGGESTIONS] ⏭️ Ignorando sugestão OK:', sug.metric, `(severity=${level})`);
+                        return false;
+                    }
+                    return true;
+                });
+                
+                console.log(`[FILTER_SUGGESTIONS] ✅ Sugestões filtradas: ${rawSuggestions.length} → ${filteredSuggestions.length}`);
+
                 // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO V2: Enriquecimento direto das sugestões existentes
-                let enrichedSuggestions = analysis.suggestions || [];
+                let enrichedSuggestions = filteredSuggestions;
                 
                 if (typeof window.UltraAdvancedSuggestionEnhancer !== 'undefined' && enrichedSuggestions.length > 0) {
                     try {
@@ -15295,6 +15310,31 @@ async function displayModalResults(analysis) {
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
+
+                // 🎯 MENSAGEM SE NÃO HOUVER SUGESTÕES (todas métricas OK)
+                if (enrichedSuggestions.length === 0) {
+                    console.log('[SUGGESTIONS] ✅ Nenhuma sugestão após filtro - todas métricas dentro do padrão');
+                    blocks.push(`
+                        <div class="suggestion-card all-ok" style="
+                            background: linear-gradient(135deg, rgba(40, 167, 69, 0.12), rgba(40, 200, 100, 0.08));
+                            border: 2px solid rgba(40, 200, 100, 0.3);
+                            border-radius: 12px;
+                            padding: 24px;
+                            text-align: center;
+                            margin: 16px 0;
+                        ">
+                            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                            <h3 style="color: #28c864; margin: 12px 0; font-size: 18px; font-weight: 600;">
+                                Tudo Dentro do Padrão
+                            </h3>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 14px; margin: 8px 0;">
+                                Todas as métricas estão dentro dos valores ideais para o gênero selecionado.
+                                Nenhuma correção necessária.
+                            </p>
+                        </div>
+                    `);
+                    return blocks.join('');
+                }
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
