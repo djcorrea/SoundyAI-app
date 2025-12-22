@@ -15138,17 +15138,53 @@ async function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
-                // 🎯 FILTRO DEFENSIVO: Remover sugestões OK/ideal antes de renderizar
+                // 🎯 FILTRO DEFENSIVO ROBUSTO: Remover sugestões OK/ideal antes de renderizar
+                // 🛡️ PROTEÇÃO CONTRA TODOS OS FORMATOS POSSÍVEIS
                 const rawSuggestions = analysis.suggestions || [];
                 const filteredSuggestions = rawSuggestions.filter(sug => {
-                    const level = sug.severity?.level;
-                    const isOK = level === 'ideal' || level === 'ok' || sug.severity?.colorHex === 'green';
+                    if (!sug || !sug.severity) {
+                        console.warn('[FILTER_SUGGESTIONS] ⚠️ Sugestão sem severity - INCLUINDO por segurança:', sug);
+                        return true; // Incluir se não tem severity (defensivo)
+                    }
+                    
+                    const sev = sug.severity;
+                    const level = sev.level;
+                    const severityClass = sev.severityClass;
+                    const colorHex = sev.colorHex;
+                    const status = sug.status;
+                    
+                    // 🎯 FILTRO ROBUSTO: Detectar OK/ideal em QUALQUER formato
+                    const isOK = (
+                        // Formato 1: level explícito
+                        level === 'ideal' ||
+                        level === 'ok' ||
+                        level === 'OK' ||
+                        level === 'IDEAL' ||
+                        // Formato 2: severityClass
+                        severityClass === 'ok' ||
+                        severityClass === 'ideal' ||
+                        // Formato 3: colorHex verde
+                        colorHex === 'green' ||
+                        colorHex === '#00ff00' ||
+                        colorHex === 'rgba(40, 167, 69, 1)' ||
+                        // Formato 4: status
+                        status === 'ok' ||
+                        status === 'ideal'
+                    );
                     
                     if (isOK) {
-                        console.log('[FILTER_SUGGESTIONS] ⏭️ Ignorando sugestão OK:', sug.metric, `(severity=${level})`);
-                        return false;
+                        console.log('[FILTER_SUGGESTIONS] ⏭️ Ignorando sugestão OK:', {
+                            metric: sug.metric,
+                            level,
+                            severityClass,
+                            colorHex,
+                            status,
+                            reason: 'Métrica OK/verde - não deve gerar card'
+                        });
+                        return false; // EXCLUIR
                     }
-                    return true;
+                    
+                    return true; // INCLUIR
                 });
                 
                 console.log(`[FILTER_SUGGESTIONS] ✅ Sugestões filtradas: ${rawSuggestions.length} → ${filteredSuggestions.length}`);
