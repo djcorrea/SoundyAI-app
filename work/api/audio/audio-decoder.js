@@ -422,30 +422,73 @@ export async function decodeAudioFile(fileBuffer, filename, options = {}) {
       throw makeErr(stage, `WAV decode failed: ${err.message}`, 'wav_decode_failed');
     }
 
-    // ========= DETECÇÃO DE CLIPPING (antes de pós-processar) =========
+    // ========= DETECÇÃO DE CLIPPING/NEAR-CLIPPING (antes de pós-processar) =========
     
-    // Detectar clipping nos canais ORIGINAIS (antes de filtro DC)
+    // 🔍 ANÁLISE DETALHADA: Detectar samples em diferentes faixas de amplitude
+    let maxAbsLeft = 0;
+    let maxAbsRight = 0;
+    let countExact1 = 0;  // Exatamente ±1.0
+    let countNear1 = 0;   // >= 0.995 (quase clipado - filtro DC pode causar overshoot)
+    let countHigh = 0;    // >= 0.99 (threshold padrão detectClipping)
+    
+    for (let i = 0; i < audioData.leftChannel.length; i++) {
+      const absL = Math.abs(audioData.leftChannel[i]);
+      const absR = Math.abs(audioData.rightChannel[i]);
+      
+      if (absL > maxAbsLeft) maxAbsLeft = absL;
+      if (absR > maxAbsRight) maxAbsRight = absR;
+      
+      // Contagem de diferentes níveis de clipping
+      if (absL === 1.0) countExact1++;
+      if (absR === 1.0) countExact1++;
+      
+      if (absL >= 0.995) countNear1++;
+      if (absR >= 0.995) countNear1++;
+      
+      if (absL >= 0.99) countHigh++;
+      if (absR >= 0.99) countHigh++;
+    }
+    
+    const totalSamples = audioData.leftChannel.length * 2; // L+R
+    const pctExact1 = (countExact1 / totalSamples) * 100;
+    const pctNear1 = (countNear1 / totalSamples) * 100;
+    const pctHigh = (countHigh / totalSamples) * 100;
+    const maxAbsOverall = Math.max(maxAbsLeft, maxAbsRight);
+    
+    console.log(`[AUDIO_DECODE] 🔍 Análise de amplitude do buffer:`);
+    console.log(`   Max absolute: ${maxAbsOverall.toFixed(6)} (${(20 * Math.log10(maxAbsOverall)).toFixed(2)} dBFS)`);
+    console.log(`   Samples = ±1.000: ${countExact1} (${pctExact1.toFixed(2)}%)`);
+    console.log(`   Samples >= 0.995: ${countNear1} (${pctNear1.toFixed(2)}%)`);
+    console.log(`   Samples >= 0.990: ${countHigh} (${pctHigh.toFixed(2)}%)`);
+    
+    // Detectar clipping usando threshold padrão (0.99) para stats gerais
     const clippingLeft = detectClipping(audioData.leftChannel);
     const clippingRight = detectClipping(audioData.rightChannel);
     
     // ========= PÓS-PROCESSAMENTO (OPCIONAL) =========
     
-    // 🚨 CORREÇÃO CRÍTICA: NÃO aplicar filtro DC em áudios clipados
-    // O filtro DC pode introduzir overshoots em sinais clipados (valores exatos de ±1.0)
-    // resultando em Sample Peak > 0 dBFS quando deveria ser = 0 dBFS
+    // 🚨 CORREÇÃO CRÍTICA: NÃO aplicar filtro DC em áudios com samples >= 0.995
+    // O filtro DC (high-pass recursivo) pode introduzir overshoots de até +33% em sinais
+    // próximos de ±1.0, resultando em Sample Peak > 0 dBFS quando deveria ser <= 0 dBFS
+    // 
+    // Threshold conservador: >= 0.995 (99.5% de full scale) já é considerado "near-clipped"
+    // porque o overshoot pode chegar a +2-3 dB em arquivos PCM inteiro quase clipados
     
-    const avgClipping = (clippingLeft.clippingPct + clippingRight.clippingPct) / 2;
-    const isClipped = avgClipping > 2.0; // > 2% de samples clipados
+    const shouldSkipDcFilter = (
+      pctNear1 >= 0.1 ||     // >= 0.1% de samples próximos de full scale
+      maxAbsOverall >= 0.998 // Ou pico >= 99.8% (-0.017 dB)
+    );
     
     let leftProcessed, rightProcessed;
     
-    if (isClipped) {
-      console.log(`[AUDIO_DECODE] ⚠️ Áudio clipado detectado (${avgClipping.toFixed(1)}%) - PULANDO filtro DC`);
+    if (shouldSkipDcFilter) {
+      console.log(`[AUDIO_DECODE] ⚠️ Near-clipping detectado - PULANDO filtro DC para evitar overshoots`);
+      console.log(`   Razão: ${pctNear1 >= 0.1 ? `${pctNear1.toFixed(2)}% >= 0.995` : `maxAbs=${maxAbsOverall.toFixed(4)}`}`);
       // Usar canais originais sem filtro DC
       leftProcessed = audioData.leftChannel;
       rightProcessed = audioData.rightChannel;
     } else {
-      console.log(`[AUDIO_DECODE] ✅ Aplicando filtro DC (20Hz)...`);
+      console.log(`[AUDIO_DECODE] ✅ Aplicando filtro DC (20Hz) - áudio com headroom suficiente`);
       // Remover DC offset (filtro 20Hz)
       leftProcessed = removeDCOffset(audioData.leftChannel, audioData.sampleRate, 20);
       rightProcessed = removeDCOffset(audioData.rightChannel, audioData.sampleRate, 20);

@@ -50,14 +50,22 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
     let peakLeftLinear = 0;
     let peakRightLinear = 0;
     
+    // 🔍 DIAGNÓSTICO: Contar samples em diferentes faixas
+    let countExact1 = 0;
+    let countNear1 = 0;  // >= 0.995
+    
     for (let i = 0; i < leftChannel.length; i++) {
       const absLeft = Math.abs(leftChannel[i]);
       if (absLeft > peakLeftLinear) peakLeftLinear = absLeft;
+      if (absLeft === 1.0) countExact1++;
+      if (absLeft >= 0.995) countNear1++;
     }
     
     for (let i = 0; i < rightChannel.length; i++) {
       const absRight = Math.abs(rightChannel[i]);
       if (absRight > peakRightLinear) peakRightLinear = absRight;
+      if (absRight === 1.0) countExact1++;
+      if (absRight >= 0.995) countNear1++;
     }
     
     const peakMaxLinear = Math.max(peakLeftLinear, peakRightLinear);
@@ -67,13 +75,37 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
     const peakRightDbfs = peakRightLinear > 0 ? 20 * Math.log10(peakRightLinear) : -120;
     const peakMaxDbfs = peakMaxLinear > 0 ? 20 * Math.log10(peakMaxLinear) : -120;
     
+    // 🔍 LOG DIAGNÓSTICO
+    const totalSamples = leftChannel.length + rightChannel.length;
+    console.log(`[SAMPLE_PEAK] 🔍 Diagnóstico do buffer:`);
+    console.log(`   Peak L: ${peakLeftLinear.toFixed(6)} (${peakLeftDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Peak R: ${peakRightLinear.toFixed(6)} (${peakRightDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Peak Max: ${peakMaxLinear.toFixed(6)} (${peakMaxDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Samples = ±1.000: ${countExact1} (${(countExact1 / totalSamples * 100).toFixed(3)}%)`);
+    console.log(`   Samples >= 0.995: ${countNear1} (${(countNear1 / totalSamples * 100).toFixed(3)}%)`);
+    
+    // ⚠️ AVISO se Sample Peak > 0.2 dB (suspeito para PCM inteiro)
+    if (peakMaxDbfs > 0.2) {
+      console.warn(`[SAMPLE_PEAK] ⚠️ Sample Peak > 0.2 dBFS (${peakMaxDbfs.toFixed(2)} dB) - SUSPEITO para PCM inteiro!`);
+      console.warn(`   Possíveis causas:`);
+      console.warn(`   1. Filtro DC introduziu overshoots (verificar audio-decoder logs)`);
+      console.warn(`   2. Buffer não normalizado corretamente (verificar FFmpeg conversion)`);
+      console.warn(`   3. Arquivo em formato float (permitido Sample Peak > 0 dBFS)`);
+    }
+    
     return {
       left: peakLeftLinear,
       right: peakRightLinear,
       max: peakMaxLinear,
       leftDbfs: peakLeftDbfs,
       rightDbfs: peakRightDbfs,
-      maxDbfs: peakMaxDbfs
+      maxDbfs: peakMaxDbfs,
+      // Metadados diagnósticos
+      _diagnostics: {
+        countExact1,
+        countNear1,
+        totalSamples
+      }
     };
     
   } catch (error) {
