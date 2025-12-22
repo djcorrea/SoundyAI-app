@@ -36,61 +36,20 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
       return null;
     }
 
-    // 🛡️ VALIDAÇÃO: Detectar PCM int não normalizado (ex: 32767 ao invés de 1.0)
-    // IMPORTANTE: NÃO usar Math.max(...array) - causa stack overflow em arrays grandes (milhões de samples)
-    let maxAbsLeft = 0;
-    let maxAbsRight = 0;
+    // Max absolute sample por canal (linear 0.0-1.0)
+    let peakLeftLinear = 0;
+    let peakRightLinear = 0;
     
     for (let i = 0; i < leftChannel.length; i++) {
       const absLeft = Math.abs(leftChannel[i]);
-      if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
+      if (absLeft > peakLeftLinear) peakLeftLinear = absLeft;
     }
     
     for (let i = 0; i < rightChannel.length; i++) {
       const absRight = Math.abs(rightChannel[i]);
-      if (absRight > maxAbsRight) maxAbsRight = absRight;
+      if (absRight > peakRightLinear) peakRightLinear = absRight;
     }
     
-    const maxAbsSample = Math.max(maxAbsLeft, maxAbsRight);
-    
-    if (maxAbsSample > 100) {
-      console.error(`[SAMPLE_PEAK] ❌ PCM int NÃO NORMALIZADO detectado! maxAbsSample=${maxAbsSample}`);
-      console.error(`[SAMPLE_PEAK] Possível int16 (32767), int24 (8388608) ou int32 (2147483648) sem divisão`);
-      
-      // Auto-correção: normalizar de volta
-      let normalizer = 32768;  // Padrão int16
-      if (maxAbsSample > 8388608) {
-        normalizer = 2147483648;  // int32
-        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int32 (2147483648)');
-      } else if (maxAbsSample > 32768) {
-        normalizer = 8388608;  // int24
-        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int24 (8388608)');
-      } else {
-        console.warn('[SAMPLE_PEAK] 🔧 Auto-corrigindo com normalizer int16 (32768)');
-      }
-      
-      leftChannel = leftChannel.map(s => s / normalizer);
-      rightChannel = rightChannel.map(s => s / normalizer);
-      
-      // Recalcular max após normalização
-      maxAbsLeft = 0;
-      maxAbsRight = 0;
-      for (let i = 0; i < leftChannel.length; i++) {
-        const absLeft = Math.abs(leftChannel[i]);
-        if (absLeft > maxAbsLeft) maxAbsLeft = absLeft;
-      }
-      for (let i = 0; i < rightChannel.length; i++) {
-        const absRight = Math.abs(rightChannel[i]);
-        if (absRight > maxAbsRight) maxAbsRight = absRight;
-      }
-      
-      console.log(`[SAMPLE_PEAK] ✅ Normalização aplicada. Novo maxAbsSample=${Math.max(maxAbsLeft, maxAbsRight)}`);
-    }
-
-    // Max absolute sample por canal (linear 0.0-1.0)
-    // NOTA: Já calculamos maxAbsLeft e maxAbsRight acima durante a validação
-    const peakLeftLinear = maxAbsLeft;
-    const peakRightLinear = maxAbsRight;
     const peakMaxLinear = Math.max(peakLeftLinear, peakRightLinear);
     
     // Converter para dBFS (com segurança para silêncio)

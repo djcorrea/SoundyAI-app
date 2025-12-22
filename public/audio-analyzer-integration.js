@@ -14390,24 +14390,6 @@ async function displayModalResults(analysis) {
                     return '';
                 }
                 
-                // 🛡️ GUARDRAIL: Verificar se backend marcou como suspeito
-                const isSuspicious = analysis?.technicalData?.samplePeakSuspicious === true;
-                const suspiciousReason = analysis?.technicalData?.samplePeakSuspiciousReason;
-                
-                if (isSuspicious) {
-                    console.error('🚨 [RENDER] Sample Peak SUSPEITO detectado!');
-                    console.error('Valor:', samplePeakDbfs, 'dBFS');
-                    console.error('Motivo:', suspiciousReason || 'Não especificado');
-                    console.error('Formato:', analysis?.audioInfo?.format, 'Bit Depth:', analysis?.audioInfo?.bitDepth);
-                    console.error('Linear:', analysis?.technicalData?.samplePeakLinear);
-                    
-                    return row(
-                        'Sample Peak (dBFS)',
-                        `<span style="color: #ff3333; font-weight: bold;">${safeFixed(samplePeakDbfs, 1)} dBFS ⚠️ ESTOURADO/SUSPEITO</span><br><small style="color: #ff9999;">${suspiciousReason || 'Valor anômalo detectado'}</small>`,
-                        'samplePeak'
-                    );
-                }
-                
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
                 console.log('✅ [RENDER] Sample Peak (dBFS) =', samplePeakDbfs, 'dBFS');
                 return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
