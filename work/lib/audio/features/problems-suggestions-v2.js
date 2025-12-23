@@ -266,68 +266,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
 
   /**
-   * 🎯 HELPER ROBUSTO: Verificar se sugestão deve ser incluída (filtrar OK/ideal)
-   * ✅ REGRA DE OURO: Só incluir se métrica NÃO estiver OK/verde/ideal
-   * ❌ NUNCA incluir métricas verdes na lista de sugestões
-   * 🛡️ PROTEÇÃO CONTRA TODOS OS FORMATOS POSSÍVEIS
-   * 
-   * @param {Object} suggestion - Objeto de sugestão com severity
-   * @param {string} metricName - Nome da métrica (para logs)
-   * @returns {boolean} - true se deve incluir, false se deve ignorar
-   */
-  shouldIncludeSuggestion(suggestion, metricName = 'unknown') {
-    if (!suggestion || !suggestion.severity) {
-      console.warn(`[SUGGESTION_FILTER][${metricName.toUpperCase()}] ⚠️ Sugestão sem severity - INCLUINDO por segurança`);
-      return true;
-    }
-    
-    const sev = suggestion.severity;
-    const level = sev.level;
-    const severityClass = sev.severityClass;
-    const colorHex = sev.colorHex;
-    const status = suggestion.status;
-    
-    // 🎯 FILTRO ROBUSTO: Detectar OK/ideal em QUALQUER formato
-    const isOK = (
-      // Formato 1: level explícito
-      level === 'ideal' ||
-      level === 'ok' ||
-      level === 'OK' ||
-      level === 'IDEAL' ||
-      // Formato 2: severityClass
-      severityClass === 'ok' ||
-      severityClass === 'ideal' ||
-      // Formato 3: colorHex verde
-      colorHex === 'green' ||
-      colorHex === '#00ff00' ||
-      colorHex === 'rgba(40, 167, 69, 1)' ||
-      // Formato 4: status
-      status === 'ok' ||
-      status === 'ideal'
-    );
-    
-    if (isOK) {
-      console.log(`[SUGGESTION_FILTER][${metricName.toUpperCase()}] ⏭️ Sugestão IGNORADA:`, {
-        level,
-        severityClass,
-        colorHex,
-        status,
-        reason: 'Métrica OK/verde - não deve gerar card'
-      });
-      return false;
-    }
-    
-    // ✅ Incluir 'ajuste_leve', 'corrigir', 'warning', 'critical', 'caution', 'attention'
-    console.log(`[SUGGESTION_FILTER][${metricName.toUpperCase()}] ✅ Sugestão INCLUÍDA:`, {
-      level,
-      severityClass,
-      colorHex,
-      reason: 'Métrica precisa ajuste/correção'
-    });
-    return true;
-  }
-
-  /**
    * 🎯 HELPER CENTRALIZADO: Obter target e tolerance de forma segura
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.genreTargets
    * ❌ NUNCA usa customTargets, this.thresholds, ou fallbacks
@@ -675,17 +613,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    // 🎯 FILTRO: Só adiciona se NÃO for 'ideal' ou 'ok'
-    console.log('[DIAGNOSTIC][LUFS] 🔍 PRÉ-FILTRO:', {
-      metric: 'lufs', value: lufs.toFixed(2), target: lufsTarget.toFixed(2),
-      diff: diff.toFixed(2), severity_level: severity.level, severity_color: severity.colorHex, status
-    });
-    if (this.shouldIncludeSuggestion(suggestion, 'LUFS')) {
-      suggestions.push(suggestion);
-      console.log('[DIAGNOSTIC][LUFS] ✅ INCLUÍDA');
-    } else {
-      console.log('[DIAGNOSTIC][LUFS] ⏭️ EXCLUÍDA (métrica OK)');
-    }
+    suggestions.push(suggestion);
   }
   
   /**
@@ -775,7 +703,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
-    const truePeakSuggestion = {
+    suggestions.push({
       metric: 'truePeak',
       severity,
       message,
@@ -787,19 +715,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    };
-    
-    // 🎯 FILTRO: Só adiciona se NÃO for 'ideal' ou 'ok'
-    console.log('[DIAGNOSTIC][TruePeak] 🔍 PRÉ-FILTRO:', {
-      metric: 'truePeak', value: truePeak.toFixed(2), target: tpTarget.toFixed(2),
-      diff: diff.toFixed(2), severity_level: severity.level, severity_color: severity.colorHex, status
     });
-    if (this.shouldIncludeSuggestion(truePeakSuggestion, 'TruePeak')) {
-      suggestions.push(truePeakSuggestion);
-      console.log('[DIAGNOSTIC][TruePeak] ✅ INCLUÍDA');
-    } else {
-      console.log('[DIAGNOSTIC][TruePeak] ⏭️ EXCLUÍDA (métrica OK)');
-    }
   }
   
   /**
@@ -893,7 +809,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    const drSuggestion = {
+    suggestions.push({
       metric: 'dynamicRange',
       severity,
       message,
@@ -906,33 +822,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority,
       genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
-    };
-    
-    // 🔥🔥🔥 LOG CRÍTICO ANTES DO FILTRO: Por que DR sempre aparece?
-    console.log('[DIAGNOSTIC][DR] 🚨 Sugestão DINÂMICA completa ANTES do filtro:', {
-      metricKey: 'dynamicRange',
-      currentValue: dr.toFixed(2),
-      targetInfo: { target: drTarget.toFixed(2), tolerance: tolerance.toFixed(2) },
-      bounds: { min: bounds.min.toFixed(2), max: bounds.max.toFixed(2) },
-      diff: diff.toFixed(2),
-      absDiff: Math.abs(diff).toFixed(2),
-      severity: { 
-        level: severity.level, 
-        label: severity.label,
-        colorHex: severity.colorHex,
-        priority: severity.priority
-      },
-      status: status,
-      willInclude: '(aguardando filtro shouldIncludeSuggestion)'
     });
-    
-    // 🎯 FILTRO ROBUSTO: Só adiciona se NÃO for 'ideal' ou 'ok'
-    if (this.shouldIncludeSuggestion(drSuggestion, 'DynamicRange')) {
-      suggestions.push(drSuggestion);
-      console.log('[DIAGNOSTIC][DR] ✅ Sugestão DINÂMICA ADICIONADA ao array');
-    } else {
-      console.log('[DIAGNOSTIC][DR] ⏭️ Sugestão DINÂMICA EXCLUÍDA (métrica OK/verde)');
-    }
   }
   
   /**
@@ -1024,7 +914,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    const stereoSuggestion = {
+    suggestions.push({
       metric: 'stereoCorrelation',
       severity,
       message,
@@ -1036,19 +926,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: rawDiff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    };
-    
-    // 🎯 FILTRO: Só adiciona se NÃO for 'ideal' ou 'ok'
-    console.log('[DIAGNOSTIC][Stereo] 🔍 PRÉ-FILTRO:', {
-      metric: 'stereoWidth', value: correlation.toFixed(3), target: stereoTarget.toFixed(3),
-      diff: rawDiff.toFixed(3), severity_level: severity.level, severity_color: severity.colorHex, status
     });
-    if (this.shouldIncludeSuggestion(stereoSuggestion, 'Stereo')) {
-      suggestions.push(stereoSuggestion);
-      console.log('[DIAGNOSTIC][Stereo] ✅ INCLUÍDA');
-    } else {
-      console.log('[DIAGNOSTIC][Stereo] ⏭️ EXCLUÍDA (métrica OK)');
-    }
   }
   
   /**
@@ -1277,10 +1155,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    // 🎯 FILTRO: Só adiciona se NÃO for 'ideal' ou 'ok'
-    if (this.shouldIncludeSuggestion(suggestion, `Band_${bandKey}`)) {
-      suggestions.push(suggestion);
-    }
+    suggestions.push(suggestion);
   }
   
   /**
