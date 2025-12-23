@@ -1124,7 +1124,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
             air: { value: bands.air?.energy_db || null, unit: 'dB' }
           };
         })()
-      }
+      },
+      // 🎯 CORREÇÃO CRÍTICA: Incluir perMetric para sugestões usarem severity da TABELA
+      // Este array contém a severity calculada por scoring.js (source of truth)
+      perMetric: scoringResult.perMetric || []
     }
   };
 }

@@ -266,6 +266,61 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
 
   /**
+   * 🎯 NOVA FUNÇÃO: Obter severity da TABELA (perMetric)
+   * ✅ REGRA ABSOLUTA: Usa severity calculada por scoring.js (source of truth)
+   * ❌ NUNCA recalcular severity - usar apenas o que está em perMetric
+   * 
+   * @param {string} metricKey - Chave da métrica ('lufsIntegrated', 'truePeakDbtp', 'tt_dr', etc)
+   * @param {Object} consolidatedData - Dados consolidados do finalJSON.data
+   * @returns {Object|null} { status, severity, level } ou null se não encontrado
+   */
+  getMetricSeverityFromTable(metricKey, consolidatedData) {
+    const perMetric = consolidatedData && consolidatedData.perMetric;
+    if (!Array.isArray(perMetric)) {
+      console.error(`[SEVERITY-FROM-TABLE] ❌ perMetric ausente em consolidatedData`);
+      return null;
+    }
+
+    // 🔍 Buscar métrica exata no perMetric
+    const metricData = perMetric.find(m => m.key === metricKey);
+    if (!metricData) {
+      console.error(`[SEVERITY-FROM-TABLE] ❌ Métrica ${metricKey} não encontrada em perMetric`);
+      console.error(`[SEVERITY-FROM-TABLE] Métricas disponíveis:`, perMetric.map(m => m.key));
+      return null;
+    }
+
+    // 🎯 Mapear severity para level usado no sistema de sugestões
+    // scoring.js: 'leve' | 'media' | 'alta' | null
+    // sugestões: 'ok' | 'attention' | 'critical'
+    let level = 'ok';
+    if (metricData.status === 'OK') {
+      level = 'ok';
+    } else if (metricData.severity === 'leve') {
+      level = 'attention';
+    } else if (metricData.severity === 'media' || metricData.severity === 'alta') {
+      level = 'critical';
+    }
+
+    console.log(`[SEVERITY-FROM-TABLE] ✅ ${metricKey}:`, {
+      status: metricData.status,
+      severity: metricData.severity,
+      level: level,
+      value: metricData.value,
+      target: metricData.target,
+      n: metricData.n
+    });
+
+    return {
+      status: metricData.status,
+      severity: metricData.severity,
+      level: level,
+      // ✅ Compatibilidade com sistema antigo
+      priority: level === 'ok' ? 1 : (level === 'attention' ? 2 : 3),
+      label: level === 'ok' ? 'OK' : (level === 'attention' ? 'Ajuste leve' : 'Corrigir')
+    };
+  }
+
+  /**
    * 🎯 HELPER CENTRALIZADO: Obter target e tolerance de forma segura
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.genreTargets
    * ❌ NUNCA usa customTargets, this.thresholds, ou fallbacks
@@ -540,7 +595,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       formula: diff === 0 ? 'dentro do range' : (lufs > bounds.max ? `${lufs.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${lufs.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
     });
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // 🎯 CORREÇÃO CRÍTICA: Usar severity da TABELA (perMetric) em vez de recalcular
+    // Esta é a ÚNICA fonte de verdade - garante que table severity === suggestion severity
+    const severity = this.getMetricSeverityFromTable('lufsIntegrated', consolidatedData);
+    
+    if (!severity) {
+      console.error('[LUFS] ❌ Severity não encontrada em perMetric - pulando sugestão');
+      return;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
@@ -701,7 +763,13 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       formula: diff === 0 ? 'dentro do range' : (truePeak > bounds.max ? `${truePeak.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${truePeak.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
     });
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // 🎯 CORREÇÃO CRÍTICA: Usar severity da TABELA (perMetric) em vez de recalcular
+    const severity = this.getMetricSeverityFromTable('truePeakDbtp', consolidatedData);
+    
+    if (!severity) {
+      console.error('[TRUE_PEAK] ❌ Severity não encontrada em perMetric - pulando sugestão');
+      return;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
@@ -824,7 +892,16 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       formula: diff === 0 ? 'dentro do range' : (dr < bounds.min ? `${dr.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}` : `${dr.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}`)
     });
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // 🎯 CORREÇÃO CRÍTICA: Usar severity da TABELA (perMetric) em vez de recalcular
+    // Tentar múltiplas keys pois DR pode ser tt_dr, dr_stat ou dr
+    let severity = this.getMetricSeverityFromTable('tt_dr', consolidatedData);
+    if (!severity) severity = this.getMetricSeverityFromTable('dr_stat', consolidatedData);
+    if (!severity) severity = this.getMetricSeverityFromTable('dr', consolidatedData);
+    
+    if (!severity) {
+      console.error('[DR] ❌ Severity não encontrada em perMetric (tentou: tt_dr, dr_stat, dr) - pulando sugestão');
+      return;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
@@ -950,7 +1027,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     const diff = Math.abs(rawDiff);
-    const severity = this.calculateSeverity(diff, tolerance, critical);
+    
+    // 🎯 CORREÇÃO CRÍTICA: Usar severity da TABELA (perMetric) em vez de recalcular
+    const severity = this.getMetricSeverityFromTable('stereoCorrelation', consolidatedData);
+    
+    if (!severity) {
+      console.error('[STEREO] ❌ Severity não encontrada em perMetric - pulando sugestão');
+      return;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
@@ -1176,7 +1260,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     const diff = Math.abs(rawDelta);
-    const severity = this.calculateSeverity(diff, tolerance, critical);
+    
+    // 🎯 CORREÇÃO CRÍTICA: Usar severity da TABELA (perMetric) em vez de recalcular
+    const severity = this.getMetricSeverityFromTable(`band_${bandKey}`, consolidatedData);
+    
+    if (!severity) {
+      console.error(`[BANDS][${bandKey.toUpperCase()}] ❌ Severity não encontrada em perMetric - pulando sugestão`);
+      return;
+    }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
