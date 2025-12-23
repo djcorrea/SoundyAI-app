@@ -15138,6 +15138,253 @@ async function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 NORMALIZAÇÃO E VALIDAÇÃO BASEADA NA TABELA
+                // ═══════════════════════════════════════════════════════════════════
+                
+                /**
+                 * Normaliza nomes de severidade para padrão único
+                 * @param {string|object} sev - Severidade (string ou objeto com .level/.label)
+                 * @returns {string} - 'OK', 'ATENÇÃO', 'ALTA', 'CRÍTICA', 'N/A'
+                 */
+                const normalizeSeverity = (sev) => {
+                    if (!sev) return 'N/A';
+                    
+                    const str = (typeof sev === 'object' ? (sev.level || sev.label || '') : String(sev)).toLowerCase().trim();
+                    
+                    // Mapear variações para padrão da tabela
+                    if (str === 'ok' || str === 'ideal' || str === 'perfeito') return 'OK';
+                    if (str.includes('aten') || str === 'warning' || str === 'caution' || str === 'ajuste_leve' || str === 'leve') return 'ATENÇÃO';
+                    if (str.includes('alt') || str === 'high') return 'ALTA';
+                    if (str.includes('crit') || str.includes('crít') || str === 'corrigir' || str === 'severa' || str === 'critical') return 'CRÍTICA';
+                    
+                    // Se não reconhecer, assumir que precisa atenção
+                    return 'ATENÇÃO';
+                };
+                
+                /**
+                 * Normaliza chaves de métricas para buscar nos dados
+                 * @param {string} key - Chave da métrica
+                 * @returns {string} - Chave normalizada
+                 */
+                const normalizeMetricKey = (key) => {
+                    if (!key) return '';
+                    const k = String(key).toLowerCase().replace(/[^a-z0-9_]/g, '');
+                    
+                    // Métricas principais
+                    if (k.includes('loudness') || k.includes('lufs') || k === 'lufsintegrated') return 'loudness_integrated';
+                    if (k.includes('truepeak') || k.includes('dbtp') || k === 'tp') return 'true_peak';
+                    if (k.includes('dynamic') || k === 'dr') return 'dynamics';
+                    if (k === 'lra' || k.includes('loudnessrange')) return 'lra';
+                    if (k.includes('stereo') || k.includes('image')) return 'stereo';
+                    
+                    return k;
+                };
+                
+                /**
+                 * Normaliza chaves de bandas espectrais
+                 * @param {string} key - Chave da banda
+                 * @returns {string} - Chave normalizada
+                 */
+                const normalizeBandKey = (key) => {
+                    if (!key) return '';
+                    const k = String(key).toLowerCase().replace(/[^a-z0-9_]/g, '');
+                    
+                    // Remover prefixo band_ se existir
+                    const clean = k.replace(/^band_/, '');
+                    
+                    // Mapeamento de aliases
+                    if (clean === 'sub' || clean === 'subbass') return 'sub';
+                    if (clean === 'bass' || clean === 'lowbass' || clean === 'low_bass') return 'bass';
+                    if (clean === 'upperbass' || clean === 'upper_bass') return 'upperBass';
+                    if (clean === 'lowmid' || clean === 'low_mid') return 'lowMid';
+                    if (clean === 'mid' || clean === 'midrange') return 'mid';
+                    if (clean === 'highmid' || clean === 'high_mid') return 'highMid';
+                    if (clean === 'presence' || clean === 'presenca' || clean === 'presença') return 'presence';
+                    if (clean === 'air' || clean === 'brilliance' || clean === 'brilho') return 'air';
+                    
+                    return clean;
+                };
+                
+                /**
+                 * Calcula severidade da métrica usando MESMA LÓGICA DA TABELA
+                 * @param {number} value - Valor medido
+                 * @param {number} target - Valor target
+                 * @param {number} tolerance - Tolerância
+                 * @param {object} options - { targetRange }
+                 * @returns {object} - { severity, diff, action }
+                 */
+                const calcTableSeverity = (value, target, tolerance, options = {}) => {
+                    const { targetRange } = options;
+                    
+                    if (!Number.isFinite(value)) {
+                        return { severity: 'N/A', diff: 0, action: 'Sem dados' };
+                    }
+                    
+                    // PRIORIDADE: target_range
+                    if (targetRange && typeof targetRange === 'object') {
+                        const min = targetRange.min ?? targetRange.min_db;
+                        const max = targetRange.max ?? targetRange.max_db;
+                        
+                        if (typeof min === 'number' && typeof max === 'number') {
+                            // Dentro do range = OK
+                            if (value >= min && value <= max) {
+                                return { severity: 'OK', diff: 0, action: '✅ Dentro do padrão' };
+                            }
+                            
+                            // Fora do range: calcular distância
+                            let diff, absDelta;
+                            if (value < min) {
+                                diff = value - min;
+                                absDelta = min - value;
+                            } else {
+                                diff = value - max;
+                                absDelta = value - max;
+                            }
+                            
+                            if (absDelta >= 2) {
+                                const action = diff > 0 ? `Reduzir ${absDelta.toFixed(1)}` : `Aumentar ${absDelta.toFixed(1)}`;
+                                return { severity: 'CRÍTICA', diff, action };
+                            } else {
+                                const action = diff > 0 ? `Reduzir ${absDelta.toFixed(1)}` : `Aumentar ${absDelta.toFixed(1)}`;
+                                return { severity: 'ATENÇÃO', diff, action };
+                            }
+                        }
+                    }
+                    
+                    // FALLBACK: target ± tolerance
+                    if (target === null || target === undefined) {
+                        return { severity: 'N/A', diff: 0, action: 'Sem dados' };
+                    }
+                    
+                    const diff = value - target;
+                    const absDiff = Math.abs(diff);
+                    
+                    if (absDiff <= tolerance) {
+                        return { severity: 'OK', diff, action: '✅ Dentro do padrão' };
+                    } else if (absDiff <= tolerance * 2) {
+                        return { severity: 'ATENÇÃO', diff, action: diff > 0 ? `Reduzir ${absDiff.toFixed(1)}` : `Aumentar ${absDiff.toFixed(1)}` };
+                    } else if (absDiff <= tolerance * 3) {
+                        return { severity: 'ALTA', diff, action: diff > 0 ? `Reduzir ${absDiff.toFixed(1)}` : `Aumentar ${absDiff.toFixed(1)}` };
+                    } else {
+                        return { severity: 'CRÍTICA', diff, action: diff > 0 ? `Reduzir ${absDiff.toFixed(1)}` : `Aumentar ${absDiff.toFixed(1)}` };
+                    }
+                };
+                
+                // ═══════════════════════════════════════════════════════════════════
+                // 🛡️ FILTRO MASTER: Validar cada sugestão contra severidade da TABELA
+                // ═══════════════════════════════════════════════════════════════════
+                
+                const validateSuggestionAgainstTable = (sug) => {
+                    try {
+                        // Extrair dados da análise
+                        const metrics = analysis?.data?.metrics;
+                        const targets = analysis?.data?.genreTargets;
+                        
+                        if (!metrics || !targets) {
+                            console.warn('[SUGGESTION_VALIDATOR] Sem metrics/targets - permitindo sugestão', sug.metric);
+                            return { valid: true, reason: 'no_data_to_validate' };
+                        }
+                        
+                        // Normalizar métrica/banda
+                        const metricRaw = sug.metric || sug.type || '';
+                        const isBand = metricRaw.includes('band_') || metricRaw.includes('Bass') || metricRaw.includes('Mid') || metricRaw.includes('Sub');
+                        
+                        let measuredValue = null;
+                        let targetConfig = null;
+                        let metricName = '';
+                        
+                        if (isBand) {
+                            const bandKey = normalizeBandKey(metricRaw);
+                            metricName = `band_${bandKey}`;
+                            
+                            // Buscar valor medido
+                            const bandData = metrics.bands?.[bandKey];
+                            if (bandData) {
+                                measuredValue = bandData.energy_db ?? bandData.rms_db ?? bandData.db ?? bandData.value;
+                            }
+                            
+                            // Buscar target
+                            targetConfig = targets.bands?.[bandKey];
+                        } else {
+                            const metricKey = normalizeMetricKey(metricRaw);
+                            metricName = metricKey;
+                            
+                            // Mapeamento de métricas principais
+                            const metricMap = {
+                                'loudness_integrated': { key: 'loudness', targetKey: 'lufs', tolKey: 'tol_lufs' },
+                                'true_peak': { key: 'truePeak', targetKey: 'truePeak', tolKey: 'tol_true_peak' },
+                                'dynamics': { key: 'dr', targetKey: 'dr', tolKey: 'tol_dr' },
+                                'lra': { key: 'lra', targetKey: 'lra', tolKey: 'tol_lra' },
+                                'stereo': { key: 'stereo', targetKey: 'stereo', tolKey: 'tol_stereo' }
+                            };
+                            
+                            const mapping = metricMap[metricKey];
+                            if (mapping) {
+                                const metricData = metrics[mapping.key];
+                                measuredValue = metricData?.value ?? metricData;
+                                
+                                targetConfig = {
+                                    target: targets[mapping.targetKey]?.target,
+                                    tolerance: targets[mapping.targetKey]?.tolerance ?? targets[mapping.tolKey] ?? 1.0,
+                                    target_range: targets[mapping.targetKey]?.target_range
+                                };
+                            }
+                        }
+                        
+                        // Se não conseguiu encontrar valor ou target, permitir (fail-safe)
+                        if (!Number.isFinite(measuredValue) || !targetConfig) {
+                            console.warn('[SUGGESTION_VALIDATOR] ⚠️ Não encontrou dados para validar:', {
+                                metric: metricName,
+                                measuredValue,
+                                hasTarget: !!targetConfig
+                            });
+                            return { valid: true, reason: 'incomplete_data' };
+                        }
+                        
+                        // Calcular severidade usando MESMA lógica da tabela
+                        const tableSeverity = calcTableSeverity(
+                            measuredValue,
+                            targetConfig.target ?? targetConfig.target_db,
+                            targetConfig.tolerance ?? targetConfig.tol_db ?? 2.0,
+                            { targetRange: targetConfig.target_range }
+                        );
+                        
+                        // Normalizar severidade da sugestão
+                        const sugSeverity = normalizeSeverity(sug.severity);
+                        
+                        // REGRA ABSOLUTA: Se tabela diz OK, PROIBIR sugestão
+                        if (tableSeverity.severity === 'OK') {
+                            console.log(`[SUGGESTION_VALIDATOR] ❌ BLOQUEADO: ${metricName} está OK na tabela`, {
+                                measured: measuredValue.toFixed(2),
+                                tableSeverity: tableSeverity.severity,
+                                sugSeverity: sugSeverity,
+                                diff: tableSeverity.diff
+                            });
+                            return { valid: false, reason: 'table_says_ok', tableSeverity: 'OK' };
+                        }
+                        
+                        // Se tabela diz que precisa atenção/correção, PERMITIR
+                        console.log(`[SUGGESTION_VALIDATOR] ✅ PERMITIDO: ${metricName}`, {
+                            measured: measuredValue.toFixed(2),
+                            tableSeverity: tableSeverity.severity,
+                            sugSeverity: sugSeverity,
+                            diff: tableSeverity.diff
+                        });
+                        
+                        return { 
+                            valid: true, 
+                            reason: 'table_confirms_issue',
+                            tableSeverity: tableSeverity.severity,
+                            tableCalc: tableSeverity
+                        };
+                        
+                    } catch (error) {
+                        console.error('[SUGGESTION_VALIDATOR] Erro ao validar:', error);
+                        return { valid: true, reason: 'validation_error' };  // Fail-safe: permitir em caso de erro
+                    }
+                };
+
                 // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO V2: Enriquecimento direto das sugestões existentes
                 let enrichedSuggestions = analysis.suggestions || [];
                 
@@ -15293,22 +15540,45 @@ async function displayModalResults(analysis) {
                     }
                 }
                 
-                // 🛡️ CAMADA DEFENSIVA: Filtrar sugestões com status OK/ideal (não devem existir, mas protege caso backend falhe)
-                const filteredSuggestions = enrichedSuggestions.filter(s => {
-                    const level = s.severity?.level || s.severity;
-                    if (level === 'ok' || level === 'ideal') {
-                        console.log('[SUGGESTION_GATE_FRONTEND] 🗑️ Removida sugestão OK que vazou do backend:', {
-                            metric: s.metric,
-                            severity: level,
-                            reason: 'Camada defensiva - métrica OK não deve gerar sugestão'
+                // 🛡️ FILTRO MASTER: Validar TODAS as sugestões contra severidade da TABELA
+                console.log('[SUGGESTION_FILTER] ═══════════════════════════════════════════');
+                console.log('[SUGGESTION_FILTER] Iniciando validação de', enrichedSuggestions.length, 'sugestões');
+                
+                let countOk = 0;
+                let countBlocked = 0;
+                let countAllowed = 0;
+                let countErrors = 0;
+                
+                const validatedSuggestions = enrichedSuggestions.filter((s, idx) => {
+                    const validation = validateSuggestionAgainstTable(s);
+                    
+                    if (!validation.valid) {
+                        countBlocked++;
+                        if (validation.tableSeverity === 'OK') countOk++;
+                        console.log(`[SUGGESTION_FILTER] ❌ #${idx + 1} BLOQUEADO:`, {
+                            metric: s.metric || s.type,
+                            reason: validation.reason,
+                            tableSeverity: validation.tableSeverity
                         });
                         return false;
                     }
+                    
+                    countAllowed++;
+                    if (validation.reason === 'validation_error') countErrors++;
                     return true;
                 });
                 
-                // Atualizar analysis.suggestions com as sugestões filtradas
-                analysis.suggestions = filteredSuggestions;
+                console.log('[SUGGESTION_FILTER] ═══════════════════════════════════════════');
+                console.log('[SUGGESTION_FILTER] 📊 RESULTADO DA VALIDAÇÃO:');
+                console.log('[SUGGESTION_FILTER]   - Total recebidas:', enrichedSuggestions.length);
+                console.log('[SUGGESTION_FILTER]   - ✅ Permitidas:', countAllowed);
+                console.log('[SUGGESTION_FILTER]   - ❌ Bloqueadas:', countBlocked);
+                console.log('[SUGGESTION_FILTER]   - 🔴 Falso-positivos (OK na tabela):', countOk);
+                console.log('[SUGGESTION_FILTER]   - ⚠️ Erros de validação:', countErrors);
+                console.log('[SUGGESTION_FILTER] ═══════════════════════════════════════════');
+                
+                // Atualizar analysis.suggestions com as sugestões validadas
+                analysis.suggestions = validatedSuggestions;
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
