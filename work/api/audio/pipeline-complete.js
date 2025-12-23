@@ -21,9 +21,6 @@ import pool from '../../db.js';
 // 🔮 Sistema de enriquecimento IA (ULTRA V2)
 import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';
 
-// 🎯 Sistema de finalização de sugestões (alinhamento tabela ↔ sugestões)
-import { finalizeSuggestionsFromTable } from '../../lib/audio/utils/suggestions-finalizer.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -888,31 +885,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.problemsAnalysis.suggestions = v2Suggestions;
         finalJSON.diagnostics.suggestions = v2Suggestions;
         
-        // 🎯 FINALIZAÇÃO: Alinhar sugestões com tabela (fonte da verdade)
-        // Executar APÓS V2 mas ANTES do enrichment IA
-        console.log('[FINALIZER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[FINALIZER] 🎯 APLICANDO FINALIZAÇÃO: Tabela → Sugestões');
-        console.log('[FINALIZER] 📊 Input V2:', finalJSON.suggestions.length, 'sugestões');
-        
-        finalJSON.suggestions = finalizeSuggestionsFromTable(
-          finalJSON.suggestions,
-          coreMetrics.scoring,
-          jobId || 'pipeline'
-        );
-        
-        // Sincronizar com outras listas
-        finalJSON.problemsAnalysis.suggestions = finalJSON.suggestions;
-        finalJSON.diagnostics.suggestions = finalJSON.suggestions;
-        
-        console.log('[FINALIZER] 📤 Output final:', finalJSON.suggestions.length, 'sugestões');
-        console.log('[FINALIZER] ✅ Alinhamento tabela ↔ sugestões completo');
-        console.log('[FINALIZER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[SUGGESTIONS] 🛠️ CORREÇÃO FASE 2: V1 DESABILITADO');
         console.log('[SUGGESTIONS] V1 original count (ignorado):', v1Count);
-        console.log('[SUGGESTIONS] V2 Enhanced count (ANTES finalização):', v2Suggestions.length);
-        console.log('[SUGGESTIONS] Final count (APÓS finalização):', finalJSON.suggestions.length);
+        console.log('[SUGGESTIONS] V2 Enhanced count (USADO):', v2Suggestions.length);
+        console.log('[SUGGESTIONS] Final count:', finalJSON.suggestions.length);
         console.log('[SUGGESTIONS] ✅ Duplicação eliminada: apenas V2 ativo');
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log(`[V2-SYSTEM] ✅ V2 integrado: ${v2Suggestions.length} sugestões (V1 desabilitado)`);
@@ -2455,16 +2432,7 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
   // True Peak
   if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
     const tp = technicalData.truePeak.maxDbtp;
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE DENTRO DO LIMITE
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (tp > -1.0) {
-      console.log('[LEGACY-SUGGEST] ⚠️ True Peak acima do limite - criar sugestão', {
-        value: tp.toFixed(2),
-        limit: -1.0,
-        createdSuggestion: true
-      });
-      
       suggestions.push({
         type: 'clipping',
         category: 'mastering',
@@ -2475,12 +2443,6 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
         pluginRecomendado: 'FabFilter Pro-L 2',
         band: 'full_spectrum'
       });
-    } else {
-      console.log('[LEGACY-SUGGEST] ✅ True Peak OK - NÃO criar sugestão', {
-        value: tp.toFixed(2),
-        limit: -1.0,
-        createdSuggestion: false
-      });
     }
   }
   
@@ -2490,17 +2452,7 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
     const target = -10.5;
     const delta = Math.abs(lufs - target);
     
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE DELTA PEQUENO
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (delta > 1.0) {
-      console.log('[LEGACY-SUGGEST] ⚠️ LUFS fora do alvo - criar sugestão', {
-        value: lufs.toFixed(1),
-        target: target,
-        delta: delta.toFixed(1),
-        createdSuggestion: true
-      });
-      
       suggestions.push({
         type: 'loudness',
         category: 'loudness',
@@ -2510,13 +2462,6 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
         solucao: `Ajustar loudness em ${(target - lufs).toFixed(1)} dB`,
         pluginRecomendado: 'FabFilter Pro-L 2',
         band: 'full_spectrum'
-      });
-    } else {
-      console.log('[LEGACY-SUGGEST] ✅ LUFS próximo ao alvo - NÃO criar sugestão', {
-        value: lufs.toFixed(1),
-        target: target,
-        delta: delta.toFixed(1),
-        createdSuggestion: false
       });
     }
   }
