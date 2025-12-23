@@ -1068,7 +1068,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     // 🎯 Calcular range de tolerância (min/max)
-    const threshold = { target, tolerance, critical };
+    // ✅ CORREÇÃO CRÍTICA: Incluir target_range para que getRangeBounds use os valores corretos
+    const threshold = { target, tolerance, critical, target_range };
     const bounds = this.getRangeBounds(threshold);
     
     // 🎯 Calcular delta: diferença até borda mais próxima do range
