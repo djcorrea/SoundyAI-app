@@ -15293,8 +15293,22 @@ async function displayModalResults(analysis) {
                     }
                 }
                 
-                // Atualizar analysis.suggestions com as sugestões enriched
-                analysis.suggestions = enrichedSuggestions;
+                // 🛡️ CAMADA DEFENSIVA: Filtrar sugestões com status OK/ideal (não devem existir, mas protege caso backend falhe)
+                const filteredSuggestions = enrichedSuggestions.filter(s => {
+                    const level = s.severity?.level || s.severity;
+                    if (level === 'ok' || level === 'ideal') {
+                        console.log('[SUGGESTION_GATE_FRONTEND] 🗑️ Removida sugestão OK que vazou do backend:', {
+                            metric: s.metric,
+                            severity: level,
+                            reason: 'Camada defensiva - métrica OK não deve gerar sugestão'
+                        });
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Atualizar analysis.suggestions com as sugestões filtradas
+                analysis.suggestions = filteredSuggestions;
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {

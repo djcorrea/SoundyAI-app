@@ -613,6 +613,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
+    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
+    if (diff === 0) {
+      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
+        metric: 'LUFS',
+        value: lufs.toFixed(2),
+        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+        delta: diff,
+        severity: severity.level,
+        reason: 'diff === 0 (dentro do range)'
+      });
+      return;
+    }
+    
     suggestions.push(suggestion);
   }
   
@@ -701,6 +714,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // Determinar status baseado na posição no range
     if (truePeak > bounds.max) {
       status = 'high';
+    }
+    
+    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
+    if (diff === 0) {
+      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
+        metric: 'True Peak',
+        value: truePeak.toFixed(2),
+        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+        delta: diff,
+        severity: severity.level,
+        reason: 'diff === 0 (dentro do range)'
+      });
+      return;
     }
     
     suggestions.push({
@@ -809,6 +835,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
+    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
+    if (diff === 0) {
+      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
+        metric: 'Dynamic Range',
+        value: dr.toFixed(2),
+        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+        delta: diff,
+        severity: severity.level,
+        reason: 'diff === 0 (dentro do range)'
+      });
+      return;
+    }
+    
     suggestions.push({
       metric: 'dynamicRange',
       severity,
@@ -912,6 +951,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       } else if (correlation > bounds.max) {
         status = 'high';
       }
+    }
+    
+    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
+    if (rawDiff === 0) {
+      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
+        metric: 'Stereo Correlation',
+        value: correlation.toFixed(2),
+        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+        delta: rawDiff,
+        severity: severity.level,
+        reason: 'rawDiff === 0 (dentro do range)'
+      });
+      return;
     }
     
     suggestions.push({
@@ -1154,6 +1206,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       diff: rawDelta,
       suggestionPreview: suggestion
     });
+    
+    // 🎯 GATE: Bloquear sugestão se banda está OK (dentro do range)
+    if (rawDelta === 0) {
+      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (banda OK):', {
+        metric: `BAND_${bandKey.toUpperCase()}`,
+        bandName: bandName,
+        value: measured.toFixed(2),
+        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+        delta: rawDelta,
+        severity: severity.level,
+        reason: 'rawDelta === 0 (dentro do range)'
+      });
+      return;
+    }
     
     suggestions.push(suggestion);
   }
