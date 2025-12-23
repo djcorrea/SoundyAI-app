@@ -7074,6 +7074,9 @@ function renderGenreComparisonTable(options) {
     let metricsCount = 0;
     let bandsCount = 0;
     
+    // 🎯 NOVO: Capturar métricas problemáticas para sincronizar com modal
+    const tableIssues = [];
+    
     // ════════════════════════════════════════════════════════════════════
     // 1️⃣ MÉTRICAS PRINCIPAIS (LUFS, TRUE PEAK, DR, LRA, STEREO)
     // ════════════════════════════════════════════════════════════════════
@@ -7099,6 +7102,20 @@ function renderGenreComparisonTable(options) {
                 `);
                 metricsCount++;
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
+                
+                // 🎯 Capturar issue se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: 'lufs',
+                        metricName: 'Loudness (LUFS Integrado)',
+                        value: lufsValue,
+                        target: genreData.lufs_target,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
             }
         }
     }
@@ -7124,6 +7141,20 @@ function renderGenreComparisonTable(options) {
                 `);
                 metricsCount++;
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
+                
+                // 🎯 Capturar issue se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: 'truePeak',
+                        metricName: 'Pico Real (dBTP)',
+                        value: tpValue,
+                        target: genreData.true_peak_target,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
             }
         }
     }
@@ -7149,6 +7180,20 @@ function renderGenreComparisonTable(options) {
                 `);
                 metricsCount++;
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
+                
+                // 🎯 Capturar issue se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: 'dynamicRange',
+                        metricName: 'Dinâmica (DR)',
+                        value: drValue,
+                        target: genreData.dr_target,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
             }
         }
     }
@@ -7174,6 +7219,20 @@ function renderGenreComparisonTable(options) {
                 `);
                 metricsCount++;
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
+                
+                // 🎯 Capturar issue se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: 'lra',
+                        metricName: 'LRA (Faixa de Loudness)',
+                        value: lraValue,
+                        target: genreData.lra_target,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
             }
         }
     }
@@ -7199,6 +7258,20 @@ function renderGenreComparisonTable(options) {
                 `);
                 metricsCount++;
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
+                
+                // 🎯 Capturar issue se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: 'stereoWidth',
+                        metricName: 'Imagem Estéreo',
+                        value: stereoValue,
+                        target: genreData.stereo_target,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
             }
         }
     }
@@ -7336,6 +7409,21 @@ function renderGenreComparisonTable(options) {
                     : (targetValue !== null ? targetValue.toFixed(1) : 'N/A');
                 console.log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetInfo} | ${result.severity}`);
                 
+                // 🎯 Capturar issue de banda se não for OK
+                if (result.severity !== 'OK') {
+                    tableIssues.push({
+                        metricKey: `band_${targetKey}`,
+                        metricName: nomeAmigavel,
+                        value: energyDb,
+                        target: targetValue,
+                        targetRange: targetRange,
+                        diff: result.diff,
+                        severity: result.severity,
+                        severityClass: result.severityClass,
+                        action: result.action
+                    });
+                }
+                
             } catch (err) {
                 // 🛡️ PROTEÇÃO #8: Capturar qualquer erro e continuar com próxima banda
                 console.warn(`[GENRE-TABLE][SAFE-FAIL] Erro ao processar banda ${targetKey}:`, err.message);
@@ -7396,6 +7484,12 @@ function renderGenreComparisonTable(options) {
     container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
+    
+    // 🎯 ARMAZENAR tableIssues em analysis para sincronização com modal
+    analysis.tableIssues = tableIssues;
+    console.log('[GENRE-TABLE] 💾 tableIssues armazenados:', tableIssues.length);
+    console.log('[GENRE-TABLE] 📊 Métricas Principais:', metricsCount);
+    console.log('[GENRE-TABLE] 🎵 Bandas Espectrais:', bandsCount);
     
     // 🔥 AUDITORIA FINAL: Verificar visibilidade computada
     const computedStyle = window.getComputedStyle(container);
@@ -15347,9 +15441,93 @@ async function displayModalResults(analysis) {
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
 
+                // 🎯 SISTEMA SINCRONIZADO COM TABELA: Usar tableIssues como fonte principal
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('🎯 [SYNC_TABLE] SISTEMA DE SINCRONIZAÇÃO TABELA → MODAL');
+                console.log('═══════════════════════════════════════════════════════════════');
+                
+                const tableIssues = analysis.tableIssues || [];
+                console.log('[SYNC_TABLE] 📋 Issues da tabela:', tableIssues.length);
+                console.log('[SYNC_TABLE] 🤖 Sugestões IA enriched:', enrichedSuggestions.length);
+                
+                // 🔍 Criar índice de sugestões IA por metricKey para merge
+                const aiSuggestionsIndex = {};
+                enrichedSuggestions.forEach(sug => {
+                    const key = sug.metric || sug.metricKey;
+                    if (key) {
+                        aiSuggestionsIndex[key] = sug;
+                    }
+                });
+                
+                console.log('[SYNC_TABLE] 🗂️ Índice IA criado com chaves:', Object.keys(aiSuggestionsIndex));
+                
+                // 🎯 CRIAR suggestionCandidates baseado em tableIssues
+                const suggestionCandidates = tableIssues.map(issue => {
+                    // Tentar buscar conteúdo IA correspondente
+                    const aiContent = aiSuggestionsIndex[issue.metricKey];
+                    
+                    // Se tem conteúdo IA, fazer merge; senão, criar template local
+                    if (aiContent) {
+                        console.log(`[SYNC_TABLE] ✅ Merge: ${issue.metricKey} com conteúdo IA`);
+                        return {
+                            ...aiContent,
+                            // Preservar dados da tabela (fonte verdadeira)
+                            metricKey: issue.metricKey,
+                            metricName: issue.metricName,
+                            currentValue: issue.value,
+                            targetValue: issue.target,
+                            diff: issue.diff,
+                            severity: {
+                                level: issue.severity,
+                                severityClass: issue.severityClass,
+                                label: issue.severity
+                            }
+                        };
+                    } else {
+                        console.log(`[SYNC_TABLE] 📝 Template local: ${issue.metricKey}`);
+                        // Criar sugestão com template local
+                        return {
+                            metric: issue.metricKey,
+                            metricKey: issue.metricKey,
+                            metricName: issue.metricName,
+                            message: `${issue.metricName} fora do padrão`,
+                            explanation: `Valor atual: ${typeof issue.value === 'number' ? issue.value.toFixed(2) : issue.value}. ${issue.action}`,
+                            action: issue.action,
+                            currentValue: issue.value,
+                            targetValue: issue.target,
+                            diff: issue.diff,
+                            severity: {
+                                level: issue.severity,
+                                severityClass: issue.severityClass,
+                                label: issue.severity
+                            },
+                            priority: issue.severity === 'CRÍTICA' ? 1 : 2
+                        };
+                    }
+                });
+                
+                console.log('[SYNC_TABLE] 🎯 Candidates criados:', suggestionCandidates.length);
+                console.log('[SYNC_TABLE] 📊 MetricKeys:', suggestionCandidates.map(c => c.metricKey));
+                
+                // 🎯 VALIDAÇÃO: Comparar tableIssues vs suggestionCandidates
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('🔍 [VALIDAÇÃO] SINCRONIZAÇÃO TABELA → MODAL');
+                console.log('═══════════════════════════════════════════════════════════════');
+                console.log('[VALIDAÇÃO] 📋 Issues da tabela:', tableIssues.length);
+                console.log('[VALIDAÇÃO] 🎯 Cards a renderizar:', suggestionCandidates.length);
+                console.log('[VALIDAÇÃO] 🔑 Keys das issues:', tableIssues.map(i => i.metricKey));
+                console.log('[VALIDAÇÃO] 🔑 Keys dos cards:', suggestionCandidates.map(c => c.metricKey));
+                
+                if (tableIssues.length !== suggestionCandidates.length) {
+                    console.warn('[VALIDAÇÃO] ⚠️ DIVERGÊNCIA! tableIssues !== suggestionCandidates');
+                } else {
+                    console.log('[VALIDAÇÃO] ✅ MATCH: tableIssues === suggestionCandidates');
+                }
+                console.log('═══════════════════════════════════════════════════════════════');
+                
                 // 🎯 MENSAGEM SE NÃO HOUVER SUGESTÕES (todas métricas OK)
-                if (enrichedSuggestions.length === 0) {
-                    console.log('[SUGGESTIONS] ✅ Nenhuma sugestão após filtro - todas métricas dentro do padrão');
+                if (suggestionCandidates.length === 0) {
+                    console.log('[SUGGESTIONS] ✅ Nenhuma sugestão - todas métricas OK');
                     blocks.push(`
                         <div class="suggestion-card all-ok" style="
                             background: linear-gradient(135deg, rgba(40, 167, 69, 0.12), rgba(40, 200, 100, 0.08));
@@ -15954,6 +16132,33 @@ async function displayModalResults(analysis) {
                     // [CÓDIGO COMENTADO - Card de sugestões antigas removido]
                 }
                 */
+                
+                // 🎯 RENDERIZAR SUGESTÕES SINCRONIZADAS COM TABELA
+                if (suggestionCandidates.length > 0) {
+                    console.log('[RENDER_SUGGESTIONS] 🎨 Renderizando', suggestionCandidates.length, 'cards sincronizados com tabela');
+                    
+                    // Ordenar por severidade (CRÍTICA primeiro, depois ATENÇÃO)
+                    const sortedCandidates = [...suggestionCandidates].sort((a, b) => {
+                        const priorityA = a.severity.level === 'CRÍTICA' ? 0 : 1;
+                        const priorityB = b.severity.level === 'CRÍTICA' ? 0 : 1;
+                        return priorityA - priorityB;
+                    });
+                    
+                    const suggestionCards = sortedCandidates.map((sug, index) => {
+                        console.log(`[RENDER_CARD] ${index + 1}/${sortedCandidates.length} - ${sug.metricKey} (${sug.severity.level})`);
+                        return renderSuggestionItem(sug);
+                    }).join('');
+                    
+                    blocks.push(`
+                        <div class="diag-section">
+                            <div class="diag-heading">🤖 Sugestões IA Enriquecidas (${suggestionCandidates.length})</div>
+                            ${suggestionCards}
+                        </div>
+                    `);
+                    
+                    console.log('[RENDER_SUGGESTIONS] ✅ Cards renderizados:', suggestionCandidates.length);
+                }
+                
                 // Subbloco opcional com diagnósticos do V2 PRO (quando disponíveis)
                 const v2Pro = analysis.v2Pro || analysis.v2Diagnostics; // Compatibilidade
                 if (v2Pro && (typeof window === 'undefined' || window.SUGESTOES_AVANCADAS !== false)) {
@@ -15964,7 +16169,7 @@ async function displayModalResults(analysis) {
                         </div>`).join('');
                     // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
-                console.log('[RENDER_SUGGESTIONS] ✅ Finalizada - Total de sugestões:', enrichedSuggestions?.length || 0);
+                console.log('[RENDER_SUGGESTIONS] ✅ Finalizada - Total de cards renderizados:', suggestionCandidates?.length || 0);
                 return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
             };
 
