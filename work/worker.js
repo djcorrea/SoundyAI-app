@@ -835,22 +835,7 @@ async function processJob(job) {
       ),
       
       // 🔥 Campos EXPLÍCITOS de analysisResult (sem spread cego)
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 🚨 SUGGESTION GATE - CAMADA DE SEGURANÇA ADICIONAL NO WORKER
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // Filtrar novamente para garantir que nenhuma sugestão OK chegue ao Postgres
-      suggestions: (analysisResult.suggestions || []).filter(s => {
-        const severity = (s.severity || '').toLowerCase();
-        const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito'];
-        const isOk = okSeverities.includes(severity);
-        
-        if (isOk && analysisResult.suggestions?.length > 0) {
-          console.log(`[WORKER-GATE] ⚠️ Sugestão OK detectada e removida: ${s.metric} (${s.severity})`);
-        }
-        
-        return !isOk;
-      }),
-      
+      suggestions: analysisResult.suggestions || [],
       aiSuggestions: analysisResult.aiSuggestions || [],
       problems: analysisResult.problems || [],
       problemsAnalysis: analysisResult.problemsAnalysis || { problems: [], suggestions: [] },
