@@ -1167,7 +1167,18 @@ class AISuggestionUIController {
     validateAndCorrectSuggestions(suggestions, genreTargets) {
         if (!genreTargets || !Array.isArray(suggestions)) {
             console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não fornecido - validação ignorada');
-            return suggestions;
+            
+            // ═════════════════════════════════════════════════════════════════════════
+            // 🎯 FILTRO CRÍTICO: MESMO SEM VALIDATION, REMOVER SUGESTÕES OK
+            // ═════════════════════════════════════════════════════════════════════════
+            const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'];
+            const filtered = suggestions.filter(s => {
+                const severity = (s.severity || s.nivel || s.priority || '').toLowerCase().trim();
+                return !okSeverities.includes(severity);
+            });
+            console.log('[AI-UI][VALIDATION] 🔍 Filtrado sem validation:', suggestions.length, '→', filtered.length);
+            return filtered;
+            // ═════════════════════════════════════════════════════════════════════════
         }
         
         console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais (Postgres)');
@@ -1179,7 +1190,7 @@ class AISuggestionUIController {
             keys: Object.keys(genreTargets)
         });
         
-        return suggestions.map(suggestion => {
+        const validatedSuggestions = suggestions.map(suggestion => {
             // 🔐 SECURITY NOTE: Este acesso é apenas para MAPEAMENTO de categoria,
             // NÃO para renderização. O texto nunca entra no DOM aqui.
             // Renderização real acontece em renderAIEnrichedCard/renderBaseSuggestionCard
@@ -1259,6 +1270,31 @@ class AISuggestionUIController {
             
             return correctedSuggestion;
         });
+        
+        // ═════════════════════════════════════════════════════════════════════════
+        // 🎯 FILTRO CRÍTICO FINAL: REMOVER TODAS AS SUGESTÕES COM SEVERITY OK
+        // ═════════════════════════════════════════════════════════════════════════
+        const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'];
+        const finalFiltered = validatedSuggestions.filter(s => {
+            const severity = (s.severity || s.nivel || s.priority || '').toLowerCase().trim();
+            const isOk = okSeverities.includes(severity);
+            
+            if (isOk) {
+                console.log('[AI-UI][VALIDATION-FILTER] ❌ Removendo sugestão OK após validação:', {
+                    categoria: s.categoria,
+                    severity: severity,
+                    problema: s.problema?.substring(0, 50)
+                });
+            }
+            
+            return !isOk;
+        });
+        
+        console.log('[AI-UI][VALIDATION-FILTER] 🔍 Filtro pós-validação:', validatedSuggestions.length, '→', finalFiltered.length);
+        console.log('[AI-UI][VALIDATION-FILTER] ✅ Retornando apenas WARNING/CRITICAL');
+        
+        return finalFiltered;
+        // ═════════════════════════════════════════════════════════════════════════
     }
     
     /**
@@ -1385,8 +1421,34 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
+        // ═════════════════════════════════════════════════════════════════════════
+        // 🎯 FILTRO CRÍTICO: REMOVER TODAS AS SUGESTÕES COM SEVERITY OK/VERDE
+        // ═════════════════════════════════════════════════════════════════════════
+        console.log('[AI-UI][FILTER-SEVERITY] 🔍 Aplicando filtro de severidade (remover OK/verde)');
+        console.log('[AI-UI][FILTER-SEVERITY] Antes:', suggestions.length, 'sugestões');
+        
+        const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'];
+        const nonOkSuggestions = suggestions.filter(s => {
+            const severity = (s.severity || s.nivel || s.priority || '').toLowerCase().trim();
+            const isOk = okSeverities.includes(severity);
+            
+            if (isOk) {
+                console.log('[AI-UI][FILTER-SEVERITY] ❌ Removendo sugestão OK:', {
+                    categoria: s.categoria,
+                    severity: severity,
+                    problema: s.problema?.substring(0, 50)
+                });
+            }
+            
+            return !isOk; // Retorna apenas não-OK (WARNING/CRITICAL)
+        });
+        
+        console.log('[AI-UI][FILTER-SEVERITY] Depois:', nonOkSuggestions.length, 'sugestões');
+        console.log('[AI-UI][FILTER-SEVERITY] ✅ Filtro aplicado - apenas WARNING/CRITICAL renderizadas');
+        // ═════════════════════════════════════════════════════════════════════════
+        
         // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
-        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
+        const filteredSuggestions = this.filterReducedModeSuggestions(nonOkSuggestions);
         
         if (filteredSuggestions.length === 0) {
             console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
