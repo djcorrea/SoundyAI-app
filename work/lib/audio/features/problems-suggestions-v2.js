@@ -542,6 +542,27 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (severity.level === 'ok' || severity.level === 'ideal' || severity.level === 'within_range') {
+      console.log('[LUFS] ✅ Métrica OK - NÃO criar sugestão', {
+        metric: 'LUFS',
+        value: lufs.toFixed(2),
+        severity: severity.level,
+        createdSuggestion: false
+      });
+      return; // ✅ NÃO cria sugestão
+    }
+    
+    console.log('[LUFS] ⚠️ Métrica precisa ajuste - CRIAR sugestão', {
+      metric: 'LUFS',
+      value: lufs.toFixed(2),
+      severity: severity.level,
+      createdSuggestion: true
+    });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
       key: 'lufs',
@@ -682,6 +703,27 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (severity.level === 'ok' || severity.level === 'ideal' || severity.level === 'within_range') {
+      console.log('[TRUE_PEAK] ✅ Métrica OK - NÃO criar sugestão', {
+        metric: 'TruePeak',
+        value: truePeak.toFixed(2),
+        severity: severity.level,
+        createdSuggestion: false
+      });
+      return; // ✅ NÃO cria sugestão
+    }
+    
+    console.log('[TRUE_PEAK] ⚠️ Métrica precisa ajuste - CRIAR sugestão', {
+      metric: 'TruePeak',
+      value: truePeak.toFixed(2),
+      severity: severity.level,
+      createdSuggestion: true
+    });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
       key: 'truePeak',
@@ -783,6 +825,27 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (severity.level === 'ok' || severity.level === 'ideal' || severity.level === 'within_range') {
+      console.log('[DR] ✅ Métrica OK - NÃO criar sugestão', {
+        metric: 'Dynamic Range',
+        value: dr.toFixed(2),
+        severity: severity.level,
+        createdSuggestion: false
+      });
+      return; // ✅ NÃO cria sugestão
+    }
+    
+    console.log('[DR] ⚠️ Métrica precisa ajuste - CRIAR sugestão', {
+      metric: 'Dynamic Range',
+      value: dr.toFixed(2),
+      severity: severity.level,
+      createdSuggestion: true
+    });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
     // 🎯 Usar text builder para mensagens consistentes
     const textSuggestion = buildMetricSuggestion({
@@ -888,6 +951,27 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const diff = Math.abs(rawDiff);
     const severity = this.calculateSeverity(diff, tolerance, critical);
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (severity.level === 'ok' || severity.level === 'ideal' || severity.level === 'within_range') {
+      console.log('[STEREO] ✅ Métrica OK - NÃO criar sugestão', {
+        metric: 'Stereo Correlation',
+        value: correlation.toFixed(2),
+        severity: severity.level,
+        createdSuggestion: false
+      });
+      return; // ✅ NÃO cria sugestão
+    }
+    
+    console.log('[STEREO] ⚠️ Métrica precisa ajuste - CRIAR sugestão', {
+      metric: 'Stereo Correlation',
+      value: correlation.toFixed(2),
+      severity: severity.level,
+      createdSuggestion: true
+    });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
     // 🎯 Usar text builder para mensagens consistentes
     const textSuggestion = buildMetricSuggestion({
@@ -1093,6 +1177,27 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     const diff = Math.abs(rawDelta);
     const severity = this.calculateSeverity(diff, tolerance, critical);
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE SEVERITY === OK
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (severity.level === 'ok' || severity.level === 'ideal' || severity.level === 'within_range') {
+      console.log(`[BANDS][${bandKey.toUpperCase()}] ✅ Métrica OK - NÃO criar sugestão`, {
+        metric: bandName,
+        value: measured.toFixed(2),
+        severity: severity.level,
+        createdSuggestion: false
+      });
+      return; // ✅ NÃO cria sugestão
+    }
+    
+    console.log(`[BANDS][${bandKey.toUpperCase()}] ⚠️ Métrica precisa ajuste - CRIAR sugestão`, {
+      metric: bandName,
+      value: measured.toFixed(2),
+      severity: severity.level,
+      createdSuggestion: true
+    });
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
     // 🎯 Usar buildBandSuggestion para mensagens consistentes
     const freqRange = FREQUENCY_RANGES[bandKey] || '';
