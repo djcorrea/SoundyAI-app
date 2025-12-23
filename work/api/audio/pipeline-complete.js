@@ -2432,7 +2432,16 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
   // True Peak
   if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
     const tp = technicalData.truePeak.maxDbtp;
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE DENTRO DO LIMITE
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (tp > -1.0) {
+      console.log('[LEGACY-SUGGEST] ⚠️ True Peak acima do limite - criar sugestão', {
+        value: tp.toFixed(2),
+        limit: -1.0,
+        createdSuggestion: true
+      });
+      
       suggestions.push({
         type: 'clipping',
         category: 'mastering',
@@ -2443,6 +2452,12 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
         pluginRecomendado: 'FabFilter Pro-L 2',
         band: 'full_spectrum'
       });
+    } else {
+      console.log('[LEGACY-SUGGEST] ✅ True Peak OK - NÃO criar sugestão', {
+        value: tp.toFixed(2),
+        limit: -1.0,
+        createdSuggestion: false
+      });
     }
   }
   
@@ -2452,7 +2467,17 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
     const target = -10.5;
     const delta = Math.abs(lufs - target);
     
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🚫 REGRA CRÍTICA: NÃO CRIAR SUGESTÃO SE DELTA PEQUENO
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (delta > 1.0) {
+      console.log('[LEGACY-SUGGEST] ⚠️ LUFS fora do alvo - criar sugestão', {
+        value: lufs.toFixed(1),
+        target: target,
+        delta: delta.toFixed(1),
+        createdSuggestion: true
+      });
+      
       suggestions.push({
         type: 'loudness',
         category: 'loudness',
@@ -2462,6 +2487,13 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
         solucao: `Ajustar loudness em ${(target - lufs).toFixed(1)} dB`,
         pluginRecomendado: 'FabFilter Pro-L 2',
         band: 'full_spectrum'
+      });
+    } else {
+      console.log('[LEGACY-SUGGEST] ✅ LUFS próximo ao alvo - NÃO criar sugestão', {
+        value: lufs.toFixed(1),
+        target: target,
+        delta: delta.toFixed(1),
+        createdSuggestion: false
       });
     }
   }
