@@ -541,14 +541,62 @@ function sanitizeSuggestionsForReduced(analysis) {
     explanation: placeholder,
   });
   
-  // 🧹 SANITIZAR ARRAYS (mantém estrutura, remove texto)
-  const sanitizedSuggestions = Array.isArray(analysis.suggestions) 
+  // ═══════════════════════════════════════════════════════════════
+  // 🚨 SUGGESTION GATE - FILTRO FINAL NO WORKER REDIS
+  // ═══════════════════════════════════════════════════════════════
+  // REGRA: Remover TODAS as sugestões com severity OK/VERDE
+  // Apenas AMARELAS (warning) e VERMELHAS (critical) devem passar
+  
+  console.log('[SUGGESTION-GATE] ═══════════════════════════════════════════');
+  console.log('[SUGGESTION-GATE] 🔍 WORKER-REDIS - FILTRANDO SUGESTÕES');
+  console.log('[SUGGESTION-GATE] Total PRÉ-FILTRO:', analysis.suggestions?.length || 0);
+  
+  // 🧹 SANITIZAR E FILTRAR SUGESTÕES
+  let sanitizedSuggestions = Array.isArray(analysis.suggestions) 
     ? analysis.suggestions.map(mapItem) 
     : [];
+  
+  // ✅ APLICAR FILTRO: Remover sugestões OK/IDEAL
+  const beforeFilter = sanitizedSuggestions.length;
+  sanitizedSuggestions = sanitizedSuggestions.filter(s => {
+    const severity = (s.severity || '').toLowerCase();
+    const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito'];
+    const isOk = okSeverities.includes(severity);
+    
+    if (isOk) {
+      console.log(`[SUGGESTION-GATE] ❌ REMOVIDA: ${s.metric || s.type} (severity: ${s.severity})`);
+    }
+    
+    return !isOk;
+  });
+  
+  const afterFilter = sanitizedSuggestions.length;
+  const removed = beforeFilter - afterFilter;
     
   const sanitizedAiSuggestions = Array.isArray(analysis.aiSuggestions) 
     ? analysis.aiSuggestions.map(mapItem) 
     : [];
+  
+  console.log('[SUGGESTION-GATE] Total PÓS-FILTRO:', sanitizedSuggestions.length);
+  console.log('[SUGGESTION-GATE] 🗑️  Removidas:', removed);
+  
+  if (afterFilter === 0 && beforeFilter > 0) {
+    console.log('[SUGGESTION-GATE] ✅ Todas as métricas estão OK - sem sugestões necessárias');
+  }
+  
+  // Validação: garantir que nenhuma OK passou
+  const okRemaining = sanitizedSuggestions.filter(s => {
+    const sev = (s.severity || '').toLowerCase();
+    return sev === 'ok' || sev === 'ideal';
+  }).length;
+  
+  if (okRemaining > 0) {
+    console.error('[SUGGESTION-GATE] 🚨 ERRO: Sugestões OK ainda presentes após filtro!');
+  } else if (sanitizedSuggestions.length > 0) {
+    console.log('[SUGGESTION-GATE] ✅ Validado: Apenas WARNING/CRITICAL no resultado');
+  }
+  
+  console.log('[SUGGESTION-GATE] ═══════════════════════════════════════════');
   
   console.log('[SANITIZE] ✅ Sanitização completa:', {
     mode: analysis.analysisMode || 'reduced',
