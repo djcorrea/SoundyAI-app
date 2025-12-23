@@ -21,9 +21,6 @@ import pool from '../../db.js';
 // 🔮 Sistema de enriquecimento IA (ULTRA V2)
 import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';
 
-// 🎯 Sistema de sincronização tabela ↔ sugestões (SYNC GATE)
-import { syncAndFilterSuggestionsWithTable } from '../../lib/audio/utils/table-suggestions-sync.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -1567,19 +1564,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[PLAN-FILTER] ℹ️ Sem planContext - definindo analysisMode como "full"');
     }
 
-    // 🎯 SYNC GATE: Sincronizar sugestões com tabela (ÚLTIMO PASSO)
-    // Aplicar DEPOIS de toda geração/enrichment mas ANTES de retornar
-    console.log('[PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[PIPELINE] 🎯 APLICANDO SYNC GATE (Tabela → Sugestões)');
-    console.log('[PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    finalJSON = syncAndFilterSuggestionsWithTable(finalJSON, jobId);
-    
-    console.log('[PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[PIPELINE] ✅ SYNC GATE APLICADO COM SUCESSO');
-    console.log('[PIPELINE] 📊 Sugestões finais:', finalJSON.suggestions?.length || 0);
-    console.log('[PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
