@@ -663,8 +663,121 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           prioritized: problemsAndSuggestions.diagnostics?.prioritized || []
         };
         
-        finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🚨 SUGGESTION GATE - ÚNICO PONTO DE FILTRAGEM FINAL
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // REGRA ABSOLUTA: Apenas métricas AMARELAS ou VERMELHAS no JSON público
+        // Sugestões OK/IDEAL são removidas aqui (mantidas apenas em logs internos)
+        
+        console.log('[SUGGESTION-GATE] ════════════════════════════════════════════════════');
+        console.log('[SUGGESTION-GATE] 🔍 AUDITORIA PRÉ-FILTRO');
+        console.log('[SUGGESTION-GATE] Total de sugestões ANTES:', problemsAndSuggestions.suggestions?.length || 0);
+        
+        // Contadores pré-filtro
+        const preCounts = {
+          ok: problemsAndSuggestions.suggestions?.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'ok' || sev === 'ideal';
+          }).length || 0,
+          warning: problemsAndSuggestions.suggestions?.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'warning' || sev === 'ajuste_leve' || sev === 'corrigir' || sev === 'atenção';
+          }).length || 0,
+          critical: problemsAndSuggestions.suggestions?.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'critical' || sev === 'crítica';
+          }).length || 0
+        };
+        
+        console.log('[SUGGESTION-GATE] Distribuição PRÉ-FILTRO:');
+        console.log('[SUGGESTION-GATE]   - 🟢 OK/IDEAL:', preCounts.ok);
+        console.log('[SUGGESTION-GATE]   - 🟡 WARNING:', preCounts.warning);
+        console.log('[SUGGESTION-GATE]   - 🔴 CRITICAL:', preCounts.critical);
+        
+        // Log primeiras 3 sugestões antes do filtro
+        if (problemsAndSuggestions.suggestions?.length > 0) {
+          console.log('[SUGGESTION-GATE] Primeiras 3 sugestões (PRÉ):');
+          problemsAndSuggestions.suggestions.slice(0, 3).forEach((s, i) => {
+            console.log(`[SUGGESTION-GATE]   [${i}] ${s.metric}: ${s.severity} - "${s.message?.substring(0, 50)}..."`);
+          });
+        }
+        
+        // ✅ APLICAR FILTRO: Remover TODAS as sugestões OK/IDEAL
+        const filteredSuggestions = (problemsAndSuggestions.suggestions || []).filter(s => {
+          const severity = (s.severity || '').toLowerCase();
+          
+          // Lista de severidades que DEVEM SER REMOVIDAS
+          const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito'];
+          
+          // Se severity está na lista de OK, REMOVER
+          const isOk = okSeverities.includes(severity);
+          
+          if (isOk) {
+            console.log(`[SUGGESTION-GATE] ❌ REMOVIDA: ${s.metric} (severity: ${s.severity})`);
+          }
+          
+          // Retornar TRUE apenas se NÃO for OK (ou seja, manter WARNING/CRITICAL)
+          return !isOk;
+        });
+        
+        console.log('[SUGGESTION-GATE] ════════════════════════════════════════════════════');
+        console.log('[SUGGESTION-GATE] ✅ AUDITORIA PÓS-FILTRO');
+        console.log('[SUGGESTION-GATE] Total de sugestões DEPOIS:', filteredSuggestions.length);
+        console.log('[SUGGESTION-GATE] 🗑️  Removidas:', (problemsAndSuggestions.suggestions?.length || 0) - filteredSuggestions.length);
+        
+        // Contadores pós-filtro
+        const postCounts = {
+          ok: filteredSuggestions.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'ok' || sev === 'ideal';
+          }).length,
+          warning: filteredSuggestions.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'warning' || sev === 'ajuste_leve' || sev === 'corrigir' || sev === 'atenção';
+          }).length,
+          critical: filteredSuggestions.filter(s => {
+            const sev = (s.severity || '').toLowerCase();
+            return sev === 'critical' || sev === 'crítica';
+          }).length
+        };
+        
+        console.log('[SUGGESTION-GATE] Distribuição PÓS-FILTRO:');
+        console.log('[SUGGESTION-GATE]   - 🟢 OK/IDEAL:', postCounts.ok, '(DEVE SER 0)');
+        console.log('[SUGGESTION-GATE]   - 🟡 WARNING:', postCounts.warning);
+        console.log('[SUGGESTION-GATE]   - 🔴 CRITICAL:', postCounts.critical);
+        
+        // Validação crítica: garantir que nenhuma OK passou
+        if (postCounts.ok > 0) {
+          console.error('[SUGGESTION-GATE] 🚨 ERRO CRÍTICO: Sugestões OK ainda presentes após filtro!');
+          console.error('[SUGGESTION-GATE] Sugestões OK encontradas:', 
+            filteredSuggestions.filter(s => {
+              const sev = (s.severity || '').toLowerCase();
+              return sev === 'ok' || sev === 'ideal';
+            }).map(s => `${s.metric}: ${s.severity}`)
+          );
+        } else {
+          console.log('[SUGGESTION-GATE] ✅ VALIDAÇÃO OK: Nenhuma sugestão OK no JSON final');
+        }
+        
+        // Log primeiras 3 sugestões depois do filtro
+        if (filteredSuggestions.length > 0) {
+          console.log('[SUGGESTION-GATE] Primeiras 3 sugestões (PÓS):');
+          filteredSuggestions.slice(0, 3).forEach((s, i) => {
+            console.log(`[SUGGESTION-GATE]   [${i}] ${s.metric}: ${s.severity} - "${s.message?.substring(0, 50)}..."`);
+          });
+        } else {
+          console.log('[SUGGESTION-GATE] ✅ JSON final sem sugestões (todas as métricas estão OK)');
+        }
+        
+        console.log('[SUGGESTION-GATE] ════════════════════════════════════════════════════');
+        
+        // ✅ ATRIBUIR SUGESTÕES FILTRADAS AO JSON FINAL PÚBLICO
+        finalJSON.suggestions = filteredSuggestions;
         finalJSON.aiSuggestions = problemsAndSuggestions.aiSuggestions || [];
+        
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // FIM DO SUGGESTION GATE
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
         finalJSON.summary = problemsAndSuggestions.summary || {
           overallRating: 'Análise não disponível',
