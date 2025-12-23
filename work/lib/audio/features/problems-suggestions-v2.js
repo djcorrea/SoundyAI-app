@@ -266,6 +266,35 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
 
   /**
+   * 🎯 HELPER: Verifica se sugestão deve ser incluída no array
+   * ✅ REGRA: Não incluir sugestões com severity.level === 'ideal' ou 'ok'
+   * 📋 Retorna true se deve incluir, false caso contrário
+   * 
+   * @param {Object} suggestion - Objeto de sugestão a verificar
+   * @returns {boolean} - true se deve incluir, false caso contrário
+   */
+  shouldIncludeSuggestion(suggestion) {
+    if (!suggestion || !suggestion.severity) {
+      console.warn('[FILTER_SUGGESTION] ⚠️ Sugestão sem severity - incluindo por segurança');
+      return true;
+    }
+
+    const level = suggestion.severity.level;
+    const shouldInclude = level !== 'ideal' && level !== 'ok';
+
+    // 🔍 LOG temporário para auditoria (pode ser removido após validação)
+    console.log('[FILTER_SUGGESTION]', {
+      metric: suggestion.metric,
+      severityLevel: level,
+      deltaNum: suggestion.deltaNum,
+      included: shouldInclude,
+      reason: shouldInclude ? 'requer correção' : 'métrica OK - não gerar card'
+    });
+
+    return shouldInclude;
+  }
+
+  /**
    * 🎯 HELPER CENTRALIZADO: Obter target e tolerance de forma segura
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.genreTargets
    * ❌ NUNCA usa customTargets, this.thresholds, ou fallbacks
@@ -613,7 +642,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    suggestions.push(suggestion);
+    // ✅ FILTRO: Só incluir se não for 'ideal' ou 'ok'
+    if (this.shouldIncludeSuggestion(suggestion)) {
+      suggestions.push(suggestion);
+    }
   }
   
   /**
@@ -703,7 +735,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
-    suggestions.push({
+    // ✅ FILTRO: Só incluir se não for 'ideal' ou 'ok'
+    const suggestion = {
       metric: 'truePeak',
       severity,
       message,
@@ -715,7 +748,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    });
+    };
+    
+    if (this.shouldIncludeSuggestion(suggestion)) {
+      suggestions.push(suggestion);
+    }
   }
   
   /**
@@ -809,7 +846,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    suggestions.push({
+    // ✅ FILTRO: Só incluir se não for 'ideal' ou 'ok'
+    const suggestion = {
       metric: 'dynamicRange',
       severity,
       message,
@@ -822,7 +860,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority,
       genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
-    });
+    };
+    
+    if (this.shouldIncludeSuggestion(suggestion)) {
+      suggestions.push(suggestion);
+    }
   }
   
   /**
@@ -914,7 +956,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
     }
     
-    suggestions.push({
+    // ✅ FILTRO: Só incluir se não for 'ideal' ou 'ok'
+    const suggestion = {
       metric: 'stereoCorrelation',
       severity,
       message,
@@ -926,7 +969,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       deltaNum: rawDiff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
       priority: severity.priority
-    });
+    };
+    
+    if (this.shouldIncludeSuggestion(suggestion)) {
+      suggestions.push(suggestion);
+    }
   }
   
   /**
@@ -1155,7 +1202,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       suggestionPreview: suggestion
     });
     
-    suggestions.push(suggestion);
+    // ✅ FILTRO: Só incluir se não for 'ideal' ou 'ok'
+    if (this.shouldIncludeSuggestion(suggestion)) {
+      suggestions.push(suggestion);
+    }
   }
   
   /**

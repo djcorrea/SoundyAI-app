@@ -15296,6 +15296,31 @@ async function displayModalResults(analysis) {
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
 
+                // ✅ FILTRO DEFENSIVO: Remover sugestões com severity 'ideal' ou 'ok'
+                // Previne renderização de cards para métricas que estão dentro do range esperado
+                const originalCount = analysis.suggestions?.length || 0;
+                analysis.suggestions = (analysis.suggestions || []).filter(sug => {
+                    const level = sug.severity?.level;
+                    const shouldKeep = level !== 'ideal' && level !== 'ok';
+                    
+                    if (!shouldKeep) {
+                        console.log('[FILTER_FRONTEND] 🚫 Removendo sugestão OK/ideal:', {
+                            metric: sug.metric,
+                            severityLevel: level,
+                            deltaNum: sug.deltaNum
+                        });
+                    }
+                    
+                    return shouldKeep;
+                });
+                
+                const filteredCount = analysis.suggestions?.length || 0;
+                console.log('[FILTER_FRONTEND] ✅ Filtro aplicado:', {
+                    original: originalCount,
+                    mantidas: filteredCount,
+                    removidas: originalCount - filteredCount
+                });
+
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
                     if (!text || typeof text !== 'string') return '';
@@ -15888,8 +15913,16 @@ async function displayModalResults(analysis) {
                         </div>`).join('');
                     // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
+                
+                // ✅ MENSAGEM QUANDO TODAS AS MÉTRICAS ESTÃO OK
+                // Se após filtro não há sugestões, mostrar mensagem positiva
+                if (blocks.length === 0 || (analysis.suggestions?.length || 0) === 0) {
+                    console.log('[RENDER_SUGGESTIONS] ✅ Todas as métricas estão dentro do padrão');
+                    return '<div class="diag-empty" style="text-align:center;padding:20px;color:#00ff88;"><span style="font-size:24px;">✅</span><br>Tudo dentro do padrão — nenhuma correção necessária.</div>';
+                }
+                
                 console.log('[RENDER_SUGGESTIONS] ✅ Finalizada - Total de sugestões:', enrichedSuggestions?.length || 0);
-                return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
+                return blocks.join('');
             };
 
         // 🎯 SUBSCORES: Corrigir mapeamento para backend Node.js
