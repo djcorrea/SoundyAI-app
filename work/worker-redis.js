@@ -541,114 +541,14 @@ function sanitizeSuggestionsForReduced(analysis) {
     explanation: placeholder,
   });
   
-  // ═══════════════════════════════════════════════════════════════
-  // 🚨 SUGGESTION GATE - FILTRO FINAL NO WORKER REDIS
-  // ═══════════════════════════════════════════════════════════════
-  // REGRA: Remover TODAS as sugestões com severity OK/VERDE
-  // Apenas AMARELAS (warning) e VERMELHAS (critical) devem passar
-  
-  console.log('[SUGGESTION-GATE] ═══════════════════════════════════════════');
-  console.log('[SUGGESTION-GATE] 🔍 WORKER-REDIS - FILTRANDO SUGESTÕES');
-  console.log('[SUGGESTION-GATE] Total PRÉ-FILTRO:', analysis.suggestions?.length || 0);
-  
-  // 🧹 SANITIZAR E FILTRAR SUGESTÕES
-  let sanitizedSuggestions = Array.isArray(analysis.suggestions) 
+  // 🧹 SANITIZAR ARRAYS (mantém estrutura, remove texto)
+  const sanitizedSuggestions = Array.isArray(analysis.suggestions) 
     ? analysis.suggestions.map(mapItem) 
     : [];
-  
-  // ✅ APLICAR FILTRO: Remover sugestões OK/IDEAL
-  const beforeFilter = sanitizedSuggestions.length;
-  
-  // 🔍 AUDITORIA: Ver TODAS as severities antes do filtro
-  console.log('[SUGGESTION-GATE] 📊 Severities PRÉ-FILTRO:');
-  sanitizedSuggestions.forEach((s, i) => {
-    console.log(`  [${i}] ${s.metric || s.type}: "${s.severity}" (nivel: "${s.nivel}")`);
-  });
-  
-  sanitizedSuggestions = sanitizedSuggestions.filter(s => {
-    const severity = (s.severity || s.nivel || '').toLowerCase().trim();
-    const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'];
-    const isOk = okSeverities.includes(severity);
     
-    if (isOk) {
-      console.log(`[SUGGESTION-GATE] ❌ REMOVIDA: ${s.metric || s.type} (severity: "${severity}")`);
-    } else {
-      console.log(`[SUGGESTION-GATE] ✅ MANTIDA: ${s.metric || s.type} (severity: "${severity}")`);
-    }
-    
-    return !isOk;
-  });
-  
-  const afterFilter = sanitizedSuggestions.length;
-  const removed = beforeFilter - afterFilter;
-  
-  // ═══════════════════════════════════════════════════════════════
-  // 🚨 APLICAR FILTRO TAMBÉM EM aiSuggestions (CRÍTICO!)
-  // ═══════════════════════════════════════════════════════════════
-  let sanitizedAiSuggestions = Array.isArray(analysis.aiSuggestions) 
+  const sanitizedAiSuggestions = Array.isArray(analysis.aiSuggestions) 
     ? analysis.aiSuggestions.map(mapItem) 
     : [];
-  
-  const beforeAiFilter = sanitizedAiSuggestions.length;
-  console.log('[SUGGESTION-GATE] 🔍 FILTRANDO aiSuggestions...');
-  console.log('[SUGGESTION-GATE] aiSuggestions PRÉ-FILTRO:', beforeAiFilter);
-  
-  // 🔍 AUDITORIA: Ver TODAS as severities/niveis em aiSuggestions
-  console.log('[SUGGESTION-GATE] 📊 aiSuggestions - Severities PRÉ-FILTRO:');
-  sanitizedAiSuggestions.forEach((s, i) => {
-    console.log(`  [${i}] ${s.categoria || s.metric}: severity="${s.severity}" nivel="${s.nivel}"`);
-  });
-  
-  sanitizedAiSuggestions = sanitizedAiSuggestions.filter(s => {
-    // 🔍 VERIFICAR MÚLTIPLOS CAMPOS: severity, nivel, priority
-    const severity = (s.severity || s.nivel || s.priority || '').toLowerCase().trim();
-    const okSeverities = ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'];
-    const isOk = okSeverities.includes(severity);
-    
-    if (isOk) {
-      console.log(`[SUGGESTION-GATE] ❌ REMOVIDA aiSuggestion: ${s.categoria || s.metric} (severity: "${severity}")`);
-    } else {
-      console.log(`[SUGGESTION-GATE] ✅ MANTIDA aiSuggestion: ${s.categoria || s.metric} (severity: "${severity}")`);
-    }
-    
-    return !isOk;
-  });
-  
-  const afterAiFilter = sanitizedAiSuggestions.length;
-  const removedAi = beforeAiFilter - afterAiFilter;
-  // ═══════════════════════════════════════════════════════════════
-    
-  
-  console.log('[SUGGESTION-GATE] Total PÓS-FILTRO:', sanitizedSuggestions.length);
-  console.log('[SUGGESTION-GATE] 🗑️  Removidas (suggestions):', removed);
-  console.log('[SUGGESTION-GATE] Total aiSuggestions PÓS-FILTRO:', sanitizedAiSuggestions.length);
-  console.log('[SUGGESTION-GATE] 🗑️  Removidas (aiSuggestions):', removedAi);
-  
-  if (afterFilter === 0 && beforeFilter > 0) {
-    console.log('[SUGGESTION-GATE] ✅ Todas as métricas estão OK - sem sugestões necessárias');
-  }
-  
-  // Validação: garantir que nenhuma OK passou em suggestions
-  const okRemaining = sanitizedSuggestions.filter(s => {
-    const sev = (s.severity || s.nivel || '').toLowerCase().trim();
-    return ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'].includes(sev);
-  }).length;
-  
-  // Validação: garantir que nenhuma OK passou em aiSuggestions
-  const okRemainingAi = sanitizedAiSuggestions.filter(s => {
-    const sev = (s.severity || s.nivel || s.priority || '').toLowerCase().trim();
-    return ['ok', 'ideal', 'within_range', 'validado', 'perfeito', 'adequado'].includes(sev);
-  }).length;
-  
-  if (okRemaining > 0 || okRemainingAi > 0) {
-    console.error('[SUGGESTION-GATE] 🚨 ERRO: Sugestões OK ainda presentes após filtro!');
-    console.error('[SUGGESTION-GATE] OK em suggestions:', okRemaining);
-    console.error('[SUGGESTION-GATE] OK em aiSuggestions:', okRemainingAi);
-  } else if (sanitizedSuggestions.length > 0 || sanitizedAiSuggestions.length > 0) {
-    console.log('[SUGGESTION-GATE] ✅ Validado: Apenas WARNING/CRITICAL no resultado');
-  }
-  
-  console.log('[SUGGESTION-GATE] ═══════════════════════════════════════════');
   
   console.log('[SANITIZE] ✅ Sanitização completa:', {
     mode: analysis.analysisMode || 'reduced',
