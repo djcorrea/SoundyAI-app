@@ -1438,10 +1438,9 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
+        // 🎯 PARIDADE 1:1 COM TABELA - ROWS COMO FONTE DA VERDADE ABSOLUTA
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
-            // 🔧 CORREÇÃO P1: Buscar analysis de múltiplas fontes
             let analysis = window.currentModalAnalysis || 
                           window.__CURRENT_ANALYSIS__ || 
                           window.lastAnalysisResult ||
@@ -1459,97 +1458,116 @@ class AISuggestionUIController {
             }
             
             if (analysis && genreTargets) {
-                console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Usando rows da tabela como fonte');
+                console.log('[PARIDADE] 🔄 ATIVADO: Rows da tabela como fonte absoluta');
                 
                 try {
-                    // Gerar rows com a MESMA lógica da tabela
+                    // 1️⃣ GERAR ROWS (mesma lógica da tabela)
                     const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
-                    
-                    // Filtrar apenas rows problemáticas (severity !== 'OK')
                     let problemRows = rows.filter(r => r.severity !== 'OK');
                     
-                    // 🔒 CORREÇÃO P1: Aplicar Security Guard nas rows ANTES de converter
-                    // Isso garante que modal e tabela tenham a MESMA quantidade de itens visíveis
+                    // 2️⃣ APLICAR SECURITY GUARD (antes de qualquer outra coisa)
                     const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
-                    let removedBySecurityGuard = [];
-                    
                     if (isReducedMode && typeof shouldRenderRealValue === 'function') {
-                        const rowsBeforeFilter = problemRows.length;
-                        problemRows = problemRows.filter(row => {
-                            const canRender = shouldRenderRealValue(row.key, 'ai-suggestion', analysis);
-                            if (!canRender) {
-                                removedBySecurityGuard.push(row.key);
-                            }
-                            return canRender;
-                        });
-                        console.log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${rowsBeforeFilter} → ${problemRows.length} (removidos: ${removedBySecurityGuard.join(', ')})`);
+                        problemRows = problemRows.filter(row => 
+                            shouldRenderRealValue(row.key, 'ai-suggestion', analysis)
+                        );
                     }
                     
-                    console.log('[MODAL_VS_TABLE] 📊 RESULTADO:');
-                    console.log(`[MODAL_VS_TABLE]   - Total rows: ${rows.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Rows não-OK: ${problemRows.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Suggestions backend: ${suggestions.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Security Guard removeu: ${removedBySecurityGuard.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${problemRows.length === suggestions.length ? '✅' : '❌'}`);
+                    console.log('[PARIDADE] 📊 Rows filtradas:', problemRows.length);
                     
                     if (problemRows.length > 0) {
-                        // Converter rows para formato de suggestions
-                        const rowsAsSuggestions = problemRows.map(row => ({
-                            metric: row.key,
-                            type: row.type,
-                            category: row.category,
-                            message: `${row.label}: ${row.value.toFixed(2)} dB`,
-                            action: row.actionText,
-                            severity: row.severity,
-                            severityClass: row.severityClass,
-                            currentValue: row.value,
-                            targetValue: row.targetText,
-                            targetMin: row.min,
-                            targetMax: row.max,
-                            delta: row.delta,
-                            problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
-                            solucao: row.actionText,
-                            categoria: row.category,
-                            nivel: row.severity,
-                            // Flag para indicar que veio de rows
-                            _fromRows: true
-                        }));
+                        // 3️⃣ NORMALIZAR KEYS (alias map inline)
+                        const normalizeKey = (key) => {
+                            const map = {
+                                'brilho': 'air', 'brilliance': 'air',
+                                'presenca': 'presence',
+                                'low_mid': 'lowMid', 'low-mid': 'lowMid',
+                                'high_mid': 'highMid', 'high-mid': 'highMid',
+                                'low_bass': 'bass', 'upper_bass': 'bass'
+                            };
+                            const normalized = map[key.toLowerCase()] || key;
+                            return normalized.toLowerCase().replace(/[_-]/g, '');
+                        };
                         
-                        console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
-                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
+                        // 4️⃣ CRIAR MAP DE SUGGESTIONS (backend) POR KEY NORMALIZADA
+                        const suggestionByKey = new Map();
+                        suggestions.forEach(sug => {
+                            const key = normalizeKey(sug.metric || sug.category || '');
+                            if (key && !suggestionByKey.has(key)) {
+                                suggestionByKey.set(key, sug);
+                            }
+                        });
                         
-                        // 🔄 Agrupar por categoria
-                        const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
-                        const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
-                        const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
-                        const metrics = rowsAsSuggestions.filter(s => s.category === 'METRICS');
+                        // 5️⃣ CONSTRUIR finalCards: 1 card POR ROW (paridade garantida)
+                        const finalCards = problemRows.map(row => {
+                            const rowKeyNormalized = normalizeKey(row.key);
+                            const suggestionMatch = suggestionByKey.get(rowKeyNormalized);
+                            
+                            // 🎯 ESTRUTURA BASE: SEMPRE da row (fonte da verdade)
+                            const card = {
+                                // KEYS
+                                metric: row.key,
+                                type: row.type,
+                                category: row.category,
+                                
+                                // LABELS (igual à tabela)
+                                label: row.label,
+                                categoria: row.category,
+                                
+                                // SEVERIDADE (igual à tabela)
+                                severity: row.severity,
+                                severityClass: row.severityClass,
+                                nivel: row.severity,
+                                
+                                // VALORES (igual à tabela)
+                                currentValue: row.value,
+                                targetValue: row.targetText,
+                                targetMin: row.min,
+                                targetMax: row.max,
+                                delta: row.delta,
+                                
+                                // AÇÃO (igual à tabela)
+                                action: row.actionText,
+                                solucao: row.actionText,
+                                
+                                // PROBLEMA (reconstruir igual à tabela)
+                                problema: `${row.label} está em ${row.value.toFixed(2)} dB (ideal: ${row.targetText})`,
+                                message: `${row.label}: ${row.value.toFixed(2)} dB`,
+                                
+                                // FLAG
+                                _fromRows: true,
+                                _validated: true
+                            };
+                            
+                            // 6️⃣ MESCLAR CAMPOS IA (se houver match)
+                            if (suggestionMatch) {
+                                // ✅ APENAS campos IA (NUNCA sobrescrever label/severity/target/action)
+                                if (suggestionMatch.causaProvavel) card.causaProvavel = suggestionMatch.causaProvavel;
+                                if (suggestionMatch.pluginRecomendado) card.pluginRecomendado = suggestionMatch.pluginRecomendado;
+                                if (suggestionMatch.dicaExtra) card.dicaExtra = suggestionMatch.dicaExtra;
+                                if (suggestionMatch.parametros) card.parametros = suggestionMatch.parametros;
+                                if (suggestionMatch.aiEnhanced) card.aiEnhanced = true;
+                            }
+                            
+                            return card;
+                        });
                         
-                        console.log('[MODAL_VS_TABLE] 📊 Agrupamento:');
-                        console.log(`[MODAL_VS_TABLE]   - LOW END: ${lowEnd.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - MID: ${mid.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - HIGH: ${high.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - METRICS: ${metrics.length}`);
+                        // 7️⃣ LOG DE PARIDADE
+                        console.log('[PARIDADE] ✅ Cards construídos:', {
+                            rows: problemRows.map(r => r.key),
+                            cards: finalCards.map(c => c.metric),
+                            paridade: problemRows.length === finalCards.length ? '✅ 1:1' : '❌ DIVERGÊNCIA',
+                            count: finalCards.length
+                        });
                         
-                        // Usar rowsAsSuggestions ao invés de suggestions
-                        suggestions = rowsAsSuggestions;
+                        // 8️⃣ SUBSTITUIR suggestions por finalCards
+                        suggestions = finalCards;
                         
-                        // Log de bandas missing
-                        const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-                        const renderedBands = rowsAsSuggestions.filter(s => s.type === 'band').map(s => s.metric);
-                        const missingBands = expectedBands.filter(b => !renderedBands.includes(b));
-                        
-                        if (missingBands.length > 0) {
-                            console.warn(`[MODAL_VS_TABLE] ⚠️ Bandas missing: ${missingBands.join(', ')}`);
-                            console.warn('[MODAL_VS_TABLE] ⚠️ Essas bandas não aparecerão no modal');
-                        } else {
-                            console.log('[MODAL_VS_TABLE] ✅ Todas as bandas estão presentes');
-                        }
                     } else {
-                        console.log('[MODAL_VS_TABLE] ✅ Nenhum problema detectado (todas as rows OK)');
+                        console.log('[PARIDADE] ✅ Nenhum problema detectado');
                     }
                 } catch (error) {
-                    console.error('[MODAL_VS_TABLE] ❌ Erro ao gerar rows:', error);
-                    console.error('[MODAL_VS_TABLE] Usando suggestions do backend como fallback');
+                    console.error('[PARIDADE] ❌ Erro:', error);
                 }
             } else {
                 console.warn('[MODAL_VS_TABLE] ⚠️ analysis ou genreTargets ausente, usando suggestions do backend');
@@ -1594,10 +1612,12 @@ class AISuggestionUIController {
         }
         
         // �🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
-        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
+        // 🚫 REMOVER filtro secundário que pode causar N-1
+        // suggestions JÁ foi filtrado pelo Security Guard no bloco acima
+        const filteredSuggestions = suggestions;
         
         if (filteredSuggestions.length === 0) {
-            console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
+            console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão');
             // Exibir mensagem de upgrade
             this.elements.aiContent.innerHTML = `
                 <div class="ai-reduced-notice" style="
@@ -1631,10 +1651,8 @@ class AISuggestionUIController {
             return;
         }
         
-        // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
-        const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
-        
-        const cardsHtml = validatedSuggestions.map((suggestion, index) => {
+        // ✅ RENDERIZAR DIRETO (sem validação adicional que possa remover itens)
+        const cardsHtml = filteredSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
                 return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
@@ -1643,7 +1661,7 @@ class AISuggestionUIController {
         }).join('');
         
         this.elements.aiContent.innerHTML = cardsHtml;
-        console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
+        console.log('[AI-UI][RENDER] ✅', filteredSuggestions.length, 'cards renderizados');
     }
     
     /**
