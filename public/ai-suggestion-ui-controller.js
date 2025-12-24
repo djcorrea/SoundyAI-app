@@ -1284,11 +1284,19 @@ class AISuggestionUIController {
             
             // 🔧 CORREÇÃO P3/P4: Sobrescrever range da suggestion com valores reais
             if (realRange && realRange.min !== undefined && realRange.max !== undefined) {
+                const beforeMin = correctedSuggestion.targetMin;
+                const beforeMax = correctedSuggestion.targetMax;
+                
                 correctedSuggestion.targetMin = realRange.min;
                 correctedSuggestion.targetMax = realRange.max;
-                console.log(`[AI-UI][VALIDATION] 🔧 Range corrigido para "${metric}":`, {
-                    before: { min: suggestion.targetMin, max: suggestion.targetMax },
-                    after: { min: realRange.min, max: realRange.max }
+                
+                // 🔍 LOG DIAGNÓSTICO: Comparar range ANTES vs DEPOIS
+                const rangeChanged = (beforeMin !== realRange.min || beforeMax !== realRange.max);
+                console.log(`[RANGE-FIX] ${rangeChanged ? '🔧 CORRIGIDO' : '✅ JÁ CORRETO'} "${metric}":`, {
+                    before: { min: beforeMin?.toFixed(2) || 'undefined', max: beforeMax?.toFixed(2) || 'undefined' },
+                    after: { min: realRange.min.toFixed(2), max: realRange.max.toFixed(2) },
+                    changed: rangeChanged,
+                    source: 'genreTargets.target_range'
                 });
             }
             
