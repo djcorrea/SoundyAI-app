@@ -6608,10 +6608,11 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         return rows;
     }
     
-    // 🎯 ALIAS MAP: upper_bass → bass (não aparece como key final)
+    // 🎯 ALIAS MAP: Normalização de keys snake_case → camelCase
+    // ⚠️ CORREÇÃO: upper_bass e low_bass mantêm identidade (não unificar em 'bass')
     const BAND_ALIAS_MAP = {
-        'upper_bass': 'bass',
-        'low_bass': 'bass',
+        'upper_bass': 'upperBass',  // 120-250 Hz (mantém separado)
+        'low_bass': 'lowBass',      // 60-120 Hz (mantém separado)  
         'low_mid': 'lowMid',
         'high_mid': 'highMid',
         'presenca': 'presence',
@@ -6619,13 +6620,15 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     };
     
     // 🎯 LISTA CANÔNICA DE BANDAS (ordem LOW END → MID → HIGH)
+    // ⚠️ CORREÇÃO: Incluir lowBass e upperBass como bandas separadas
     const CANONICAL_BANDS = [
         { key: 'sub', label: '🔉 Sub (20-60 Hz)', category: 'LOW END' },
-        { key: 'bass', label: '🔊 Bass (60-150 Hz)', category: 'LOW END' },
-        { key: 'lowMid', label: '🎵 Low Mid (150-500 Hz)', category: 'MID' },
+        { key: 'lowBass', label: '🔊 Grave (60-120 Hz)', category: 'LOW END' },
+        { key: 'upperBass', label: '🔊 Bass (120-250 Hz)', category: 'LOW END' },
+        { key: 'lowMid', label: '🎵 Low Mid (250-500 Hz)', category: 'MID' },
         { key: 'mid', label: '🎵 Mid (500-2k Hz)', category: 'MID' },
-        { key: 'highMid', label: '🎸 High Mid (2k-5k Hz)', category: 'HIGH' },
-        { key: 'presence', label: '💎 Presença (5k-10k Hz)', category: 'HIGH' },
+        { key: 'highMid', label: '🎸 High Mid (2k-4k Hz)', category: 'HIGH' },
+        { key: 'presence', label: '💎 Presença (4k-10k Hz)', category: 'HIGH' },
         { key: 'air', label: '✨ Brilho (10k-20k Hz)', category: 'HIGH' }
     ];
     
