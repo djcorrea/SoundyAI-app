@@ -53,12 +53,24 @@ export function buildMetricSuggestion({
   value, 
   target, 
   tolerance,
+  min,  // ✅ ACEITAR min/max REAIS do target_range
+  max,  // ✅ ACEITAR min/max REAIS do target_range
   decimals = 1
 }) {
-  // Calcular range permitido
-  const min = target - tolerance;
-  const max = target + tolerance;
+  // ✅ USAR min/max REAIS se fornecidos, caso contrário calcular como fallback
+  const rangeMin = (min !== undefined && min !== null) ? min : (target - tolerance);
+  const rangeMax = (max !== undefined && max !== null) ? max : (target + tolerance);
   const delta = value - target;
+  
+  console.log(`[BUILD-METRIC] 🔍 Range para ${key}:`, {
+    receivedMin: min,
+    receivedMax: max,
+    calculatedMin: target - tolerance,
+    calculatedMax: target + tolerance,
+    usedMin: rangeMin,
+    usedMax: rangeMax,
+    source: (min !== undefined && max !== undefined) ? 'target_range (REAL)' : 'calculated (FALLBACK)'
+  });
   
   // Ajustar decimais para correlação estéreo
   if (key === 'stereo' || unit === 'correlation') {
@@ -67,8 +79,8 @@ export function buildMetricSuggestion({
   
   // Formatar valores
   const valueStr = formatValue(value, decimals);
-  const minStr = formatValue(min, decimals);
-  const maxStr = formatValue(max, decimals);
+  const minStr = formatValue(rangeMin, decimals);  // ✅ USAR rangeMin
+  const maxStr = formatValue(rangeMax, decimals);  // ✅ USAR rangeMax
   const targetStr = formatValue(target, decimals);
   const deltaStr = formatDelta(delta, decimals);
   const deltaAbs = Math.abs(delta);
@@ -101,7 +113,7 @@ export function buildMetricSuggestion({
   let action = '\n\n➜ Orientação prática:\n';
   
   // Verificar se está dentro do range
-  const isWithinRange = value >= min && value <= max;
+  const isWithinRange = value >= rangeMin && value <= rangeMax;  // ✅ USAR rangeMin/rangeMax
   const isClose = deltaAbs <= tolerance * 0.3; // Dentro de 30% da tolerância
   
   if (isWithinRange && isClose) {
@@ -111,9 +123,9 @@ export function buildMetricSuggestion({
       action += `\n- Para pista / carro: mantenha este nível.\n`;
       action += `- Para streaming: considere versão a -14 LUFS.`;
     }
-  } else if (value > max) {
+  } else if (value > rangeMax) {  // ✅ USAR rangeMax
     // Acima do máximo
-    const excess = value - max;
+    const excess = value - rangeMax;  // ✅ USAR rangeMax
     const excessStr = formatValue(excess, decimals);
     
     switch (key) {
@@ -260,6 +272,8 @@ export function buildBandSuggestion({
   value,
   target,
   tolerance,
+  min,  // ✅ ACEITAR min/max REAIS do target_range
+  max,  // ✅ ACEITAR min/max REAIS do target_range
   unit = 'dB'  // ✅ SEMPRE dB por padrão (nunca % em sugestões)
 }) {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -297,9 +311,19 @@ export function buildBandSuggestion({
     };
   }
   
-  // === CALCULAR RANGE SEMPRE EM dB ===
-  const min = target - tolerance;
-  const max = target + tolerance;
+  // === USAR RANGE REAL (ou calcular como fallback) ===
+  const rangeMin = (min !== undefined && min !== null) ? min : (target - tolerance);
+  const rangeMax = (max !== undefined && max !== null) ? max : (target + tolerance);
+  
+  console.log(`[BUILD-BAND] 🔍 Range para ${bandKey}:`, {
+    receivedMin: min,
+    receivedMax: max,
+    calculatedMin: target - tolerance,
+    calculatedMax: target + tolerance,
+    usedMin: rangeMin,
+    usedMax: rangeMax,
+    source: (min !== undefined && max !== undefined) ? 'target_range (REAL)' : 'calculated (FALLBACK)'
+  });
   
   // === ÍCONES POR BANDA ===
   const icons = {
@@ -327,7 +351,7 @@ export function buildBandSuggestion({
   // ✅ SEMPRE renderizar em dB (sem casos especiais)
   const delta = value - target;
   message += `• Valor atual: ${value.toFixed(1)} dB\n`;
-  message += `• Faixa ideal: ${min.toFixed(1)} a ${max.toFixed(1)} dB\n`;
+  message += `• Faixa ideal: ${rangeMin.toFixed(1)} a ${rangeMax.toFixed(1)} dB\n`;  // ✅ USAR rangeMin/rangeMax
   message += `• Alvo recomendado: ${target.toFixed(1)} dB`;
   
   // 🔥 LOG CRÍTICO: MENSAGEM FINAL GERADA
