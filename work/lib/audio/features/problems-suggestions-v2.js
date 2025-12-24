@@ -323,8 +323,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       }
       
       // ✅ CORREÇÃO: Retornar target_range se disponível (bandas sempre têm)
-      const tolerance = typeof t.tol_db === 'number' ? t.tol_db : 3.0;
-      const critical = typeof t.critical === 'number' ? t.critical : tolerance * 1.5;
+      // 🔥 CRÍTICO: Usar ?? ao invés de || para preservar tol_db = 0
+      const tolerance = t.tol_db ?? 3.0;
+      const critical = t.critical ?? tolerance * 1.5;
 
       console.log(`[TARGET-HELPER] ✅ Banda ${bandKey}:`, {
         target_db: t.target_db,
@@ -353,10 +354,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
     
     // ✅ Para métricas gerais, NÃO incluir target_range (elas não têm)
+    // 🔥 CRÍTICO: Usar ?? ao invés de || para preservar tolerance = 0
     return {
       target: t.target,
-      tolerance: typeof t.tolerance === 'number' ? t.tolerance : 1.0,
-      critical: typeof t.critical === 'number' ? t.critical : (typeof t.tolerance === 'number' ? t.tolerance : 1.0) * 1.5
+      tolerance: t.tolerance ?? 1.0,
+      critical: t.critical ?? (t.tolerance ?? 1.0) * 1.5
     };
   }
   
@@ -859,6 +861,17 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
+    // 🔥 VALIDAÇÃO CRÍTICA: DR nunca deve ter targetValue negativo
+    if (bounds.min < 0 || bounds.max < 0) {
+      console.error('[DR] ❌❌❌ BUG CRÍTICO: Range negativo detectado!');
+      console.error('[DR] ❌ bounds.min:', bounds.min, 'bounds.max:', bounds.max);
+      console.error('[DR] ❌ drTarget:', drTarget, 'tolerance:', tolerance);
+      console.error('[DR] ❌ Isso indica que o target errado foi usado (provavelmente LUFS ao invés de DR)');
+      console.error('[DR] ❌ genreTargets.dr:', consolidatedData.genreTargets?.dr);
+      // Bloquear sugestão inválida
+      return;
+    }
+    
     suggestions.push({
       metric: 'dynamicRange',
       severity,
@@ -1163,9 +1176,26 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       source: 'consolidatedData'
     });
     
-    // 🎯 Calcular range de tolerância (min/max)
-    const threshold = { target, tolerance, critical };
+    // 🎯 BANDAS: SEMPRE usar target_range.min/max, NUNCA calcular com tolerância
+    // 🔥 CRÍTICO: Bandas não usam target ± tolerance, apenas target_range explícito
+    const threshold = { 
+      target, 
+      tolerance, 
+      critical,
+      target_range: target_range  // ✅ Passar target_range para getRangeBounds priorizar
+    };
     const bounds = this.getRangeBounds(threshold);
+    
+    // 🛡️ VALIDAÇÃO: Se target_range existia mas não foi usado, abortar
+    if (target_range && (bounds.min === target - tolerance || bounds.max === target + tolerance)) {
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ BUG: target_range ignorado, usando target±tol!`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ target_range:`, target_range);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ bounds calculados:`, bounds);
+      // Forçar uso do target_range
+      bounds.min = target_range.min ?? target_range.min_db;
+      bounds.max = target_range.max ?? target_range.max_db;
+      console.log(`[BAND-${bandKey.toUpperCase()}] ✅ CORRIGIDO: bounds forçados para target_range:`, bounds);
+    }
     
     // 🎯 Calcular delta: diferença até borda mais próxima do range
     let rawDelta;
