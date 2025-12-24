@@ -1073,9 +1073,39 @@ class AISuggestionUIController {
         // Mostrar grid de conteúdo
         this.elements.aiContent.style.display = 'grid';
         
-        // Verificar se são sugestões IA ou base
+        // 🔧 CORREÇÃO P2: Verificar se são sugestões IA COM CONTEÚDO VÁLIDO
+        // Badge enriched só deve aparecer se textos (problema, causa, solução) existirem
+        const aiEnhancedWithContent = suggestions.filter(s => {
+            if (s.aiEnhanced !== true) return false;
+            
+            // Verificar se tem conteúdo real (não placeholders)
+            const hasProblema = s.problema && s.problema !== 'Problema não especificado' && s.problema.length > 10;
+            const hasCausa = s.causaProvavel && s.causaProvavel !== 'Causa não analisada' && s.causaProvavel.length > 10;
+            const hasSolucao = s.solucao && s.solucao !== 'Solução não especificada' && s.solucao.length > 10;
+            
+            const hasContent = hasProblema && hasCausa && hasSolucao;
+            
+            if (s.aiEnhanced && !hasContent) {
+                console.warn('[AI-UI][BADGE] ⚠️ Suggestion marcada como enriched MAS sem conteúdo:', {
+                    metric: s.metric || s.category,
+                    hasProblema,
+                    hasCausa,
+                    hasSolucao
+                });
+            }
+            
+            return hasContent;
+        }).length;
+        
         const aiEnhancedCount = suggestions.filter(s => s.aiEnhanced === true).length;
-        const isAIEnriched = aiEnhancedCount > 0;
+        const isAIEnriched = aiEnhancedWithContent > 0;
+        
+        console.log('[AI-UI][BADGE] 🏷️ Badge Logic:', {
+            totalSuggestions: suggestions.length,
+            aiEnhancedFlag: aiEnhancedCount,
+            aiEnhancedWithContent: aiEnhancedWithContent,
+            willShowBadge: isAIEnriched
+        });
         
         // 🧩 ETAPA 2 — CORREÇÃO DE TEMPLATE
         // 🚀 Forçar template correto se for IA enriquecida
@@ -1252,6 +1282,20 @@ class AISuggestionUIController {
                 }
             });
             
+            // 🔧 CORREÇÃO P3/P4: Sobrescrever range da suggestion com valores reais
+            if (realRange && realRange.min !== undefined && realRange.max !== undefined) {
+                correctedSuggestion.targetMin = realRange.min;
+                correctedSuggestion.targetMax = realRange.max;
+                console.log(`[AI-UI][VALIDATION] 🔧 Range corrigido para "${metric}":`, {
+                    before: { min: suggestion.targetMin, max: suggestion.targetMax },
+                    after: { min: realRange.min, max: realRange.max }
+                });
+            }
+            
+            if (realTarget !== null) {
+                correctedSuggestion.targetValue = realTarget;
+            }
+            
             // Adicionar badge de conformidade
             correctedSuggestion._validated = true;
             correctedSuggestion._realTarget = realTarget;
@@ -1389,7 +1433,22 @@ class AISuggestionUIController {
         // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
-            const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+            // 🔧 CORREÇÃO P1: Buscar analysis de múltiplas fontes
+            let analysis = window.currentModalAnalysis || 
+                          window.__CURRENT_ANALYSIS__ || 
+                          window.lastAnalysisResult ||
+                          window.currentAnalysisData;
+            
+            // Se não encontrar, criar objeto com dados essenciais do window
+            if (!analysis && window.lastAudioAnalysis) {
+                analysis = {
+                    technicalData: window.lastAudioAnalysis.technicalData,
+                    bands: window.lastAudioAnalysis.bands,
+                    analysisMode: window.lastAudioAnalysis.analysisMode || 'full',
+                    isReduced: window.lastAudioAnalysis.isReduced || false
+                };
+                console.log('[MODAL_VS_TABLE] 🔧 Analysis reconstruído de window.lastAudioAnalysis');
+            }
             
             if (analysis && genreTargets) {
                 console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Usando rows da tabela como fonte');
@@ -1399,12 +1458,30 @@ class AISuggestionUIController {
                     const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
                     
                     // Filtrar apenas rows problemáticas (severity !== 'OK')
-                    const problemRows = rows.filter(r => r.severity !== 'OK');
+                    let problemRows = rows.filter(r => r.severity !== 'OK');
+                    
+                    // 🔒 CORREÇÃO P1: Aplicar Security Guard nas rows ANTES de converter
+                    // Isso garante que modal e tabela tenham a MESMA quantidade de itens visíveis
+                    const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
+                    let removedBySecurityGuard = [];
+                    
+                    if (isReducedMode && typeof shouldRenderRealValue === 'function') {
+                        const rowsBeforeFilter = problemRows.length;
+                        problemRows = problemRows.filter(row => {
+                            const canRender = shouldRenderRealValue(row.key, 'ai-suggestion', analysis);
+                            if (!canRender) {
+                                removedBySecurityGuard.push(row.key);
+                            }
+                            return canRender;
+                        });
+                        console.log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${rowsBeforeFilter} → ${problemRows.length} (removidos: ${removedBySecurityGuard.join(', ')})`);
+                    }
                     
                     console.log('[MODAL_VS_TABLE] 📊 RESULTADO:');
                     console.log(`[MODAL_VS_TABLE]   - Total rows: ${rows.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Rows não-OK: ${problemRows.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Suggestions backend: ${suggestions.length}`);
+                    console.log(`[MODAL_VS_TABLE]   - Security Guard removeu: ${removedBySecurityGuard.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${problemRows.length === suggestions.length ? '✅' : '❌'}`);
                     
                     if (problemRows.length > 0) {
@@ -1474,7 +1551,41 @@ class AISuggestionUIController {
         }
         // ════════════════════════════════════════════════════════════════════════════════
         
-        // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
+        // � INSTRUMENTAÇÃO: Logs de debug para validação
+        if (window.DEBUG_SUGGESTIONS || true) { // TODO: mudar para false após validação
+            console.group('[DEBUG] 📊 INSTRUMENTAÇÃO MODAL vs TABELA');
+            
+            // Contar rows não-OK na tabela (simulado)
+            const tableRows = document.querySelectorAll('.metric-row.critical, .metric-row.high, .metric-row.caution');
+            const tableNonOKCount = tableRows.length;
+            
+            console.log('[DEBUG] Contagens:', {
+                tableNonOKCount: tableNonOKCount,
+                modalSuggestionsCount: suggestions.length,
+                match: tableNonOKCount === suggestions.length ? '✅' : '❌'
+            });
+            
+            // Amostra de 3 cards: comparar range
+            const sampleCards = suggestions.slice(0, 3);
+            console.log('[DEBUG] Amostra de ranges (3 primeiros):');
+            sampleCards.forEach((s, i) => {
+                const tableRow = document.querySelector(`[data-metric="${s.metric}"]`);
+                const tableMin = tableRow?.dataset?.min;
+                const tableMax = tableRow?.dataset?.max;
+                
+                console.log(`[DEBUG]   Card ${i+1} (${s.metric}):`, {
+                    modalMin: s.targetMin?.toFixed(2),
+                    modalMax: s.targetMax?.toFixed(2),
+                    tableMin: tableMin ? parseFloat(tableMin).toFixed(2) : 'N/A',
+                    tableMax: tableMax ? parseFloat(tableMax).toFixed(2) : 'N/A',
+                    match: (s.targetMin?.toFixed(2) === tableMin && s.targetMax?.toFixed(2) === tableMax) ? '✅' : '❌'
+                });
+            });
+            
+            console.groupEnd();
+        }
+        
+        // �🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
         const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
         
         if (filteredSuggestions.length === 0) {
