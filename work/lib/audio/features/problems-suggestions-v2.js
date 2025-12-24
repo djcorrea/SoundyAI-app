@@ -563,6 +563,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: lufs,
       target: lufsTarget,
       tolerance: tolerance,
+      min: bounds.min,  // ✅ PASSAR min REAL
+      max: bounds.max,  // ✅ PASSAR max REAL
       decimals: 1
     });
     
@@ -716,6 +718,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: truePeak,
       target: tpTarget,
       tolerance: tolerance,
+      min: bounds.min,  // ✅ PASSAR min REAL
+      max: bounds.max,  // ✅ PASSAR max REAL
       decimals: 1
     });
     
@@ -831,6 +835,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: dr,
       target: drTarget,
       tolerance: tolerance,
+      min: bounds.min,  // ✅ PASSAR min REAL
+      max: bounds.max,  // ✅ PASSAR max REAL
       decimals: 1,
       genre: this.genre
     });
@@ -960,6 +966,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: correlation,
       target: stereoTarget,
       tolerance: tolerance,
+      min: bounds.min,  // ✅ PASSAR min REAL
+      max: bounds.max,  // ✅ PASSAR max REAL
       decimals: 2,
       genre: this.genre
     });
@@ -1303,6 +1311,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: measured,
       target: target,
       tolerance: tolerance,
+      min: bounds.min,  // ✅ PASSAR min REAL do target_range
+      max: bounds.max,  // ✅ PASSAR max REAL do target_range
       unit: 'dB', // Forçar dB explicitamente
       genre: this.genre
     });
