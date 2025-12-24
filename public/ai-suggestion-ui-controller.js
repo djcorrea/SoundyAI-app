@@ -1023,42 +1023,6 @@ class AISuggestionUIController {
      * @param {Object} genreTargets - Targets do gênero para validação
      */
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
-        // 🌉 BRIDGE: Se existirem rows canônicas, usar elas ao invés das sugestões do backend
-        if (window.__CANONICAL_TABLE_ROWS__) {
-            console.log('[AI-UI][BRIDGE] 🌉 Detectadas rows canônicas da tabela');
-            
-            // Filtrar apenas rows problemáticas (≠ OK)
-            const problematicRows = window.__CANONICAL_TABLE_ROWS__.filter(row => row.severity !== 'OK');
-            
-            console.log('[AI-UI][BRIDGE] 📊 Total rows:', window.__CANONICAL_TABLE_ROWS__.length);
-            console.log('[AI-UI][BRIDGE] 🔴 Rows problemáticas:', problematicRows.length);
-            
-            if (problematicRows.length > 0) {
-                // Converter rows em sugestões
-                const rowSuggestions = problematicRows.map(row => {
-                    if (typeof window.rowToSuggestionCard === 'function') {
-                        return window.rowToSuggestionCard(row);
-                    } else {
-                        // Fallback se bridge não carregou
-                        return {
-                            categoria: 'Geral',
-                            problema: `${row.label} está em ${row.valueFormatted}`,
-                            solucao: row.action,
-                            nivel: row.severity === 'CRÍTICA' ? 1 : 3,
-                            _tableRow: row
-                        };
-                    }
-                });
-                
-                // 🔄 SUBSTITUIR sugestões do backend por rows da tabela
-                console.log('[AI-UI][BRIDGE] ✅ Substituindo', suggestions.length, 'sugestões backend por', rowSuggestions.length, 'rows da tabela');
-                suggestions = rowSuggestions;
-            } else {
-                console.log('[AI-UI][BRIDGE] ✅ Todas as métricas estão OK, nenhuma sugestão necessária');
-                suggestions = [];
-            }
-        }
-        
         // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
         console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
         console.log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
@@ -1462,59 +1426,16 @@ class AISuggestionUIController {
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
         
-        // 🎨 AGRUPAR POR CATEGORIA (LOW END / MID / HIGH) se houver _group
-        const hasGroups = validatedSuggestions.some(s => s._tableRow?.group);
+        const cardsHtml = validatedSuggestions.map((suggestion, index) => {
+            if (isAIEnriched) {
+                return this.renderAIEnrichedCard(suggestion, index, genreTargets);
+            } else {
+                return this.renderBaseSuggestionCard(suggestion, index, genreTargets);
+            }
+        }).join('');
         
-        if (hasGroups) {
-            console.log('[AI-UI][RENDER] 🎨 Agrupando cards por categoria');
-            
-            const groupedSuggestions = {
-                'LOW END': validatedSuggestions.filter(s => s._tableRow?.group === 'LOW END'),
-                'MID': validatedSuggestions.filter(s => s._tableRow?.group === 'MID'),
-                'HIGH': validatedSuggestions.filter(s => s._tableRow?.group === 'HIGH'),
-                'OTHER': validatedSuggestions.filter(s => !s._tableRow?.group)
-            };
-            
-            let cardsHtml = '';
-            
-            Object.entries(groupedSuggestions).forEach(([groupName, groupSuggestions]) => {
-                if (groupSuggestions.length === 0) return;
-                
-                cardsHtml += `
-                    <div class="ai-suggestion-group">
-                        <div class="ai-group-header">${groupName}</div>
-                        ${groupSuggestions.map((suggestion, index) => {
-                            if (isAIEnriched) {
-                                return this.renderAIEnrichedCard(suggestion, index, genreTargets);
-                            } else {
-                                return this.renderBaseSuggestionCard(suggestion, index, genreTargets);
-                            }
-                        }).join('')}
-                    </div>
-                `;
-            });
-            
-            this.elements.aiContent.innerHTML = cardsHtml;
-        } else {
-            // Renderização tradicional sem agrupamento
-            const cardsHtml = validatedSuggestions.map((suggestion, index) => {
-                if (isAIEnriched) {
-                    return this.renderAIEnrichedCard(suggestion, index, genreTargets);
-                } else {
-                    return this.renderBaseSuggestionCard(suggestion, index, genreTargets);
-                }
-            }).join('');
-            
-            this.elements.aiContent.innerHTML = cardsHtml;
-        }
-        
+        this.elements.aiContent.innerHTML = cardsHtml;
         console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
-        
-        // 📊 LOG TEMPORÁRIO: Mostrar quantos cards foram renderizados
-        console.group('🎴 [MODAL] Cards Renderizados');
-        console.log('✅ Total de cards no DOM:', this.elements.aiContent.children.length);
-        console.log('📋 Cards renderizados:', validatedSuggestions.map((s, i) => `${i+1}. ${s.problema?.substring(0, 50) || s.message?.substring(0, 50)}`));
-        console.groupEnd();
     }
     
     /**

@@ -1,25 +1,6 @@
 /* 🤖 AI SUGGESTION LAYER - Estilos Futuristas Glassmorphism
    Sistema de interface moderna para sugestões inteligentes */
 
-/* 🎨 AGRUPAMENTO DE CARDS POR CATEGORIA */
-.ai-suggestion-group {
-    margin-bottom: 24px;
-}
-
-.ai-group-header {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: rgba(59, 130, 246, 0.9);
-    text-transform: uppercase;
-    padding: 8px 12px;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
-    border-left: 3px solid rgba(59, 130, 246, 0.7);
-    border-radius: 4px;
-    margin-bottom: 12px;
-    backdrop-filter: blur(10px);
-}
-
 /* === CONTAINER PRINCIPAL NA MODAL EXISTENTE === */
 .ai-suggestions-container {
     margin-top: 24px;
@@ -1007,8 +988,12 @@
 .ai-config-btn:hover {
     background: rgba(59, 130, 246, 0.2);
 }
+/* 
+    ETAPA 3  CORRE��O DE LAYOUT PARA CARDS DE SUGEST�ES DE IA
+   Garante renderiza��o visual correta mesmo com varia��es de estrutura
+    */
 
-/* 🎨 CORREÇÃO DE LAYOUT PARA CARDS DE SUGESTÕES DE IA */
+/*  CORRE��O DE LAYOUT PARA .ai-content .ai-card */
 .ai-content .ai-card,
 .ai-content .ai-suggestion-card {
     background: rgba(80, 40, 200, 0.25) !important;
@@ -1031,6 +1016,7 @@
     box-shadow: 0 0 18px rgba(180, 140, 255, 0.35) !important;
 }
 
+/*  �cones e labels */
 .ai-card .ai-label,
 .ai-suggestion-card .ai-label {
     font-weight: 600 !important;
@@ -1041,6 +1027,7 @@
     letter-spacing: 0.6px !important;
 }
 
+/*  A��o / bot�o interno */
 .ai-card button,
 .ai-suggestion-card button {
     background: linear-gradient(90deg, #8F5BFF, #00C9FF) !important;
@@ -1060,6 +1047,7 @@
     opacity: 0.9 !important;
 }
 
+/*  Garantir visibilidade de blocos internos */
 .ai-block {
     margin: 12px 0 !important;
     padding: 10px !important;
@@ -1079,6 +1067,7 @@
     line-height: 1.6 !important;
 }
 
+/*  Prioridade visual */
 .ai-suggestion-priority {
     padding: 4px 10px !important;
     border-radius: 12px !important;
@@ -1111,6 +1100,7 @@
     border: 1px solid rgba(34, 197, 94, 0.4) !important;
 }
 
+/*  Anima��o de entrada */
 .ai-card.ai-new,
 .ai-suggestion-card.ai-new {
     animation: aiCardFadeIn 0.4s ease forwards !important;
@@ -1126,3 +1116,7 @@
         transform: translateY(0);
     }
 }
+
+/* 
+   FIM DA CORRE��O DE LAYOUT - Cards agora renderizam com estilo correto
+    */
