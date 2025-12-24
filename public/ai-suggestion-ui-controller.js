@@ -1330,6 +1330,112 @@ class AISuggestionUIController {
         
         return `${actionVerb} aproximadamente ${adjustmentDb} dB em ${label} com EQ suave.`;
     }
+
+    /**
+     * 🎯 FONTE ÚNICA DA VERDADE: Construir suggestions a partir das rows da tabela
+     * 
+     * Esta função garante que o modal renderiza EXATAMENTE as mesmas métricas/bandas
+     * não-OK que a tabela mostra (1:1), eliminando divergências.
+     * 
+     * @param {Object} analysis - Objeto de análise completo
+     * @param {Object} genreTargets - Targets do gênero (do Postgres)
+     * @returns {Array} Array de suggestions baseadas nas rows não-OK
+     */
+    buildSuggestionsFromTableRows(analysis, genreTargets) {
+        console.group('[BUILD_SUGGESTIONS_FROM_ROWS] 🏗️ Construindo suggestions da tabela');
+        
+        // Verificar se função buildMetricRows está disponível
+        if (typeof window.buildMetricRows !== 'function') {
+            console.error('[BUILD_SUGGESTIONS_FROM_ROWS] ❌ window.buildMetricRows não disponível');
+            console.groupEnd();
+            return [];
+        }
+        
+        try {
+            // Chamar a MESMA função que a tabela usa
+            const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
+            
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] 📊 Rows totais:', rows.length);
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] 📊 Keys:', rows.map(r => r.key));
+            
+            // Filtrar apenas rows não-OK (severity !== 'OK')
+            const rowsNonOk = rows.filter(r => r.severity && r.severity !== 'OK');
+            
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] 📊 Rows não-OK:', rowsNonOk.length);
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] 📊 Keys não-OK:', rowsNonOk.map(r => r.key));
+            
+            // Converter rows para formato de suggestions
+            const suggestions = rowsNonOk.map(row => {
+                // Determinar categoria legível
+                const categoryMap = {
+                    'LOW END': 'Graves',
+                    'MID': 'Médios',
+                    'HIGH': 'Agudos',
+                    'METRICS': 'Mastering'
+                };
+                
+                return {
+                    // 🎯 KEY CANÔNICA (fonte de verdade)
+                    metric: row.key,
+                    metricKey: row.key,  // Duplicado para compatibilidade
+                    
+                    // Tipo e categoria
+                    type: row.type,  // 'band' | 'metric'
+                    category: row.category,  // 'LOW END' | 'MID' | 'HIGH' | 'METRICS'
+                    categoria: categoryMap[row.category] || row.category,  // PT-BR
+                    
+                    // Valores
+                    currentValue: row.value,
+                    value: row.value,
+                    
+                    // Targets
+                    targetMin: row.min,
+                    targetMax: row.max,
+                    target: row.target,
+                    targetValue: row.targetText,
+                    targetText: row.targetText,
+                    
+                    // Severidade
+                    severity: row.severity,
+                    severityClass: row.severityClass,
+                    nivel: row.severity.toLowerCase(),
+                    
+                    // Delta
+                    delta: row.delta,
+                    diff: row.delta,
+                    
+                    // Mensagens
+                    label: row.label,
+                    message: `${row.label}: ${row.value.toFixed(2)} dB`,
+                    problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
+                    action: row.actionText,
+                    solucao: row.actionText,
+                    suggestedAction: row.actionText,
+                    
+                    // 🚩 FLAG CRÍTICA: Indica que veio das rows da tabela
+                    _fromRows: true,
+                    _rowSource: 'buildMetricRows',
+                    _timestamp: Date.now()
+                };
+            });
+            
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] ✅ Suggestions criadas:', suggestions.length);
+            console.log('[BUILD_SUGGESTIONS_FROM_ROWS] 📊 Agrupamento:', {
+                lowEnd: suggestions.filter(s => s.category === 'LOW END').length,
+                mid: suggestions.filter(s => s.category === 'MID').length,
+                high: suggestions.filter(s => s.category === 'HIGH').length,
+                metrics: suggestions.filter(s => s.category === 'METRICS').length
+            });
+            
+            console.groupEnd();
+            return suggestions;
+            
+        } catch (error) {
+            console.error('[BUILD_SUGGESTIONS_FROM_ROWS] ❌ Erro:', error);
+            console.groupEnd();
+            return [];
+        }
+    }
     
     /**
      * � Filtrar sugestões para Reduced Mode
@@ -1343,17 +1449,29 @@ class AISuggestionUIController {
         // ✅ CORRIGIDO: Verificar APENAS analysisMode/isReduced, não plan
         const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
         
+        console.log('[REDUCED-FILTER] 📊 ENTRADA:', {
+            total: suggestions.length,
+            mode: isReducedMode ? 'REDUCED' : 'FULL',
+            fromRows: suggestions.filter(s => s._fromRows).length
+        });
+        
         if (!isReducedMode) {
             console.log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
             return suggestions;
         }
         
         console.log('[REDUCED-FILTER] 🔒 Modo Reduced detectado - filtrando sugestões...');
-        console.log('[REDUCED-FILTER] Total de sugestões:', suggestions.length);
         
         // 🔐 Usar Security Guard para decisão de filtragem
         const filtered = suggestions.filter(suggestion => {
-            // Mapear categoria para métrica
+            // 🚩 PROTEÇÃO: Se veio das rows da tabela, NUNCA filtrar
+            // (pode mascarar valores, mas NÃO pode ocultar o card)
+            if (suggestion._fromRows === true) {
+                console.log('[REDUCED-FILTER] 🎯 PASS-THROUGH (fromRows):', suggestion.metricKey || suggestion.metric);
+                return true;  // ✅ PASSA DIRETO
+            }
+            
+            // Mapear categoria para métrica (só para suggestions antigas)
             const metricKey = this.mapCategoryToMetric(suggestion);
             
             // Usar Security Guard para verificar se pode renderizar
@@ -1370,7 +1488,11 @@ class AISuggestionUIController {
             return canRender;
         });
         
-        console.log('[REDUCED-FILTER] 📊 Resultado: ', filtered.length, '/', suggestions.length, 'sugestões renderizadas');
+        console.log('[REDUCED-FILTER] 📊 SAÍDA:', {
+            total: filtered.length,
+            perdidos: suggestions.length - filtered.length,
+            fromRows: filtered.filter(s => s._fromRows).length
+        });
         
         return filtered;
     }
@@ -1386,91 +1508,65 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
+        // 🎯 CORREÇÃO DEFINITIVA: USAR ROWS DA TABELA COMO FONTE ÚNICA DA VERDADE
+        // ════════════════════════════════════════════════════════════════════════════════
+        // ⚠️ IMPORTANTE: Aplicar ANTES de qualquer filtro/security guard para garantir
+        // que o modal renderiza EXATAMENTE as mesmas métricas não-OK da tabela (1:1)
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
             const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
             
             if (analysis && genreTargets) {
                 console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Usando rows da tabela como fonte');
+                console.log('[MODAL_VS_TABLE] 📊 Analysis:', analysis ? 'OK' : 'NULL');
+                console.log('[MODAL_VS_TABLE] 📊 genreTargets:', genreTargets ? Object.keys(genreTargets).length + ' keys' : 'NULL');
                 
                 try {
-                    // Gerar rows com a MESMA lógica da tabela
-                    const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
-                    
-                    // Filtrar apenas rows problemáticas (severity !== 'OK')
-                    const problemRows = rows.filter(r => r.severity !== 'OK');
+                    // 🎯 Chamar função única de conversão
+                    const rowsAsSuggestions = this.buildSuggestionsFromTableRows(analysis, genreTargets);
                     
                     console.log('[MODAL_VS_TABLE] 📊 RESULTADO:');
-                    console.log(`[MODAL_VS_TABLE]   - Total rows: ${rows.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Rows não-OK: ${problemRows.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Suggestions backend: ${suggestions.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${problemRows.length === suggestions.length ? '✅' : '❌'}`);
+                    console.log(`[MODAL_VS_TABLE]   - Suggestions de rows: ${rowsAsSuggestions.length}`);
+                    console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${rowsAsSuggestions.length === suggestions.length ? '✅' : '❌'}`);
                     
-                    if (problemRows.length > 0) {
-                        // Converter rows para formato de suggestions
-                        const rowsAsSuggestions = problemRows.map(row => ({
-                            metric: row.key,
-                            type: row.type,
-                            category: row.category,
-                            message: `${row.label}: ${row.value.toFixed(2)} dB`,
-                            action: row.actionText,
-                            severity: row.severity,
-                            severityClass: row.severityClass,
-                            currentValue: row.value,
-                            targetValue: row.targetText,
-                            targetMin: row.min,
-                            targetMax: row.max,
-                            delta: row.delta,
-                            problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
-                            solucao: row.actionText,
-                            categoria: row.category,
-                            nivel: row.severity,
-                            // Flag para indicar que veio de rows
-                            _fromRows: true
-                        }));
-                        
-                        console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
-                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
-                        
-                        // 🔄 Agrupar por categoria
-                        const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
-                        const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
-                        const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
-                        const metrics = rowsAsSuggestions.filter(s => s.category === 'METRICS');
-                        
-                        console.log('[MODAL_VS_TABLE] 📊 Agrupamento:');
-                        console.log(`[MODAL_VS_TABLE]   - LOW END: ${lowEnd.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - MID: ${mid.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - HIGH: ${high.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - METRICS: ${metrics.length}`);
-                        
-                        // Usar rowsAsSuggestions ao invés de suggestions
+                    if (rowsAsSuggestions.length > 0) {
+                        // ✅ SUBSTITUIR suggestions por rowsAsSuggestions
                         suggestions = rowsAsSuggestions;
                         
-                        // Log de bandas missing
-                        const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-                        const renderedBands = rowsAsSuggestions.filter(s => s.type === 'band').map(s => s.metric);
-                        const missingBands = expectedBands.filter(b => !renderedBands.includes(b));
+                        console.log('[MODAL_VS_TABLE] ✅ Substituído:', {
+                            total: suggestions.length,
+                            keys: suggestions.map(s => s.metricKey)
+                        });
                         
+                        // 📊 Validação: Verificar 1:1 com tabela
+                        const modalKeys = new Set(suggestions.map(s => s.metricKey));
+                        const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+                        const presentBands = expectedBands.filter(b => modalKeys.has(b));
+                        const missingBands = expectedBands.filter(b => !modalKeys.has(b));
+                        
+                        console.log('[MODAL_VS_TABLE] 📊 Bandas presentes:', presentBands);
                         if (missingBands.length > 0) {
-                            console.warn(`[MODAL_VS_TABLE] ⚠️ Bandas missing: ${missingBands.join(', ')}`);
-                            console.warn('[MODAL_VS_TABLE] ⚠️ Essas bandas não aparecerão no modal');
-                        } else {
-                            console.log('[MODAL_VS_TABLE] ✅ Todas as bandas estão presentes');
+                            console.warn('[MODAL_VS_TABLE] ⚠️ Bandas ausentes (OK - estão verdes):', missingBands);
                         }
                     } else {
                         console.log('[MODAL_VS_TABLE] ✅ Nenhum problema detectado (todas as rows OK)');
                     }
                 } catch (error) {
-                    console.error('[MODAL_VS_TABLE] ❌ Erro ao gerar rows:', error);
+                    console.error('[MODAL_VS_TABLE] ❌ Erro ao gerar suggestions de rows:', error);
+                    console.error('[MODAL_VS_TABLE] Stack:', error.stack);
                     console.error('[MODAL_VS_TABLE] Usando suggestions do backend como fallback');
                 }
             } else {
-                console.warn('[MODAL_VS_TABLE] ⚠️ analysis ou genreTargets ausente, usando suggestions do backend');
+                console.warn('[MODAL_VS_TABLE] ⚠️ Dados insuficientes para usar rows:');
+                console.warn('[MODAL_VS_TABLE]    - analysis:', !!analysis);
+                console.warn('[MODAL_VS_TABLE]    - genreTargets:', !!genreTargets);
+                console.warn('[MODAL_VS_TABLE] Usando suggestions do backend como fallback');
             }
         } else {
-            console.log('[MODAL_VS_TABLE] ❌ Flag desativada ou buildMetricRows não disponível');
+            console.log('[MODAL_VS_TABLE] ❌ Flag desativada ou buildMetricRows não disponível:');
+            console.log('[MODAL_VS_TABLE]    - USE_TABLE_ROWS_FOR_MODAL:', window.USE_TABLE_ROWS_FOR_MODAL);
+            console.log('[MODAL_VS_TABLE]    - buildMetricRows exists:', typeof window.buildMetricRows === 'function');
         }
         // ════════════════════════════════════════════════════════════════════════════════
         
@@ -1514,6 +1610,51 @@ class AISuggestionUIController {
         
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
+        
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 📊 VALIDAÇÃO FINAL 1:1: MODAL VS TABELA
+        // ════════════════════════════════════════════════════════════════════════════════
+        console.group('[MODAL_VS_TABLE] 📊 VALIDAÇÃO FINAL 1:1');
+        console.log('[MODAL_VS_TABLE] 📋 Suggestions que serão renderizadas:', validatedSuggestions.length);
+        
+        const modalKeys = validatedSuggestions.map(s => s.metricKey || s.metric);
+        const modalKeysSet = new Set(modalKeys);
+        
+        console.log('[MODAL_VS_TABLE] 🔑 Keys no modal:', Array.from(modalKeysSet));
+        
+        // Agrupar por tipo
+        const modalBands = validatedSuggestions.filter(s => s.type === 'band');
+        const modalMetrics = validatedSuggestions.filter(s => s.type === 'metric');
+        
+        console.log('[MODAL_VS_TABLE] 📊 Composição:', {
+            total: validatedSuggestions.length,
+            bands: modalBands.length,
+            metrics: modalMetrics.length
+        });
+        
+        console.log('[MODAL_VS_TABLE] 🎵 Bandas:', modalBands.map(s => s.metricKey || s.metric));
+        console.log('[MODAL_VS_TABLE] 📏 Métricas:', modalMetrics.map(s => s.metricKey || s.metric));
+        
+        // Verificar se todas vieram das rows
+        const fromRows = validatedSuggestions.filter(s => s._fromRows === true).length;
+        const fromBackend = validatedSuggestions.filter(s => !s._fromRows).length;
+        
+        console.log('[MODAL_VS_TABLE] 📍 Origem:', {
+            fromRows,
+            fromBackend,
+            ratio: fromRows > 0 ? `${(fromRows / validatedSuggestions.length * 100).toFixed(0)}%` : '0%'
+        });
+        
+        if (fromRows === validatedSuggestions.length) {
+            console.log('[MODAL_VS_TABLE] ✅ SUCESSO: 100% das suggestions vieram das rows da tabela');
+        } else if (fromRows > 0) {
+            console.warn('[MODAL_VS_TABLE] ⚠️ HÍBRIDO: Mistura de rows e backend');
+        } else {
+            console.warn('[MODAL_VS_TABLE] ❌ FALLBACK: Todas as suggestions vieram do backend');
+        }
+        
+        console.groupEnd();
+        // ════════════════════════════════════════════════════════════════════════════════
         
         const cardsHtml = validatedSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
