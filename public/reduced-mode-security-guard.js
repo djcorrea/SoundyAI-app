@@ -61,7 +61,12 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         
         'band_presence',
         'presence',
-        'presença'
+        'presença',
+        
+        // 🔓 CORREÇÃO: Air/Brilho liberado (10k-20k Hz)
+        'band_air',
+        'air',
+        'brilho'
     ];
     
     // 🔒 BLOCKLIST - Métricas SEMPRE BLOQUEADAS no modo reduced
@@ -94,10 +99,7 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         // NÃO bloquear lowMid, highMid (que são permitidos)
         'band_mid',
         
-        'band_air',
-        'air',
-        'ar',
-        'brilho',
+        // ⚠️ Air/Brilho MOVIDO PARA ALLOWLIST (necessário no modal)
         
         // Métricas avançadas
         'rms',
