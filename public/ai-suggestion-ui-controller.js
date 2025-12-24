@@ -1385,16 +1385,8 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
-        // 🔍 LOG DE DIAGNÓSTICO: Keys originais recebidas
-        const DEBUG_BAND_RENDERING = true;
-        if (DEBUG_BAND_RENDERING) {
-            console.log('[BAND-DEBUG] 📊 Suggestions originais:', suggestions.length);
-            console.log('[BAND-DEBUG] Keys:', suggestions.map(s => s.metric || s.category || s.label));
-        }
-        
         // ════════════════════════════════════════════════════════════════════════════════
         // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
-        // ⚠️ CRÍTICO: Executar ANTES do filtro Security Guard para ter todos os dados
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
             const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
@@ -1441,14 +1433,7 @@ class AISuggestionUIController {
                         console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
                         console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
                         
-                        // � LOG DE DIAGNÓSTICO: Keys após conversão
-                        if (DEBUG_BAND_RENDERING) {
-                            console.log('[BAND-DEBUG] 📊 Após conversão rows → suggestions:');
-                            console.log('[BAND-DEBUG] Keys:', rowsAsSuggestions.map(s => s.metric));
-                            console.log('[BAND-DEBUG] Bandas:', rowsAsSuggestions.filter(s => s.type === 'band').map(s => `${s.metric} (${s.category})`));
-                        }
-                        
-                        // �🔄 Agrupar por categoria
+                        // 🔄 Agrupar por categoria
                         const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
                         const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
                         const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
@@ -1491,18 +1476,6 @@ class AISuggestionUIController {
         
         // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
         const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
-        
-        // 🔍 LOG DE DIAGNÓSTICO: Keys após filtro Security Guard
-        const DEBUG_BAND_RENDERING = true;
-        if (DEBUG_BAND_RENDERING) {
-            console.log('[BAND-DEBUG] 📊 Após filtro Security Guard:');
-            console.log('[BAND-DEBUG] Total:', filteredSuggestions.length, '/', suggestions.length);
-            console.log('[BAND-DEBUG] Keys permitidas:', filteredSuggestions.map(s => s.metric || s.category));
-            const blocked = suggestions.filter(s => !filteredSuggestions.includes(s));
-            if (blocked.length > 0) {
-                console.warn('[BAND-DEBUG] ❌ Bloqueadas:', blocked.map(s => s.metric || s.category));
-            }
-        }
         
         if (filteredSuggestions.length === 0) {
             console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
@@ -1560,19 +1533,11 @@ class AISuggestionUIController {
     mapCategoryToMetric(suggestion) {
         const categoria = (suggestion.categoria || suggestion.category || '').toLowerCase();
         const problema = (suggestion.problema || suggestion.message || '').toLowerCase();
-        const metricKey = (suggestion.metric || '').toLowerCase();
-        const texto = `${categoria} ${problema} ${metricKey}`;
+        const texto = `${categoria} ${problema}`;
         
-        console.log('[SECURITY-MAP] 🔍 Mapeando:', { categoria, problema, metricKey, texto: texto.substring(0, 100) });
+        console.log('[SECURITY-MAP] 🔍 Mapeando categoria:', { categoria, problema, texto });
         
-        // 🎯 PRIORIDADE 1: Usar metricKey direto se já está normalizado
-        if (metricKey && metricKey.startsWith('band_') || ['sub', 'lowbass', 'upperbass', 'lowmid', 'mid', 'highmid', 'presence', 'air'].includes(metricKey)) {
-            console.log('[SECURITY-MAP] ✅ Usando metricKey direto:', metricKey);
-            return metricKey;
-        }
-        
-        // 🎯 PRIORIDADE 2: Mapeamento por palavras-chave
-        // Métricas principais
+        // Mapeamento de palavras-chave para métricas
         if (texto.includes('loudness') || texto.includes('lufs')) {
             console.log('[SECURITY-MAP] ✅ Detectado: LUFS (bloqueado)');
             return 'lufs';
@@ -1593,22 +1558,15 @@ class AISuggestionUIController {
             console.log('[SECURITY-MAP] ✅ Detectado: Estéreo (liberado)');
             return 'stereo';
         }
-        
-        // Bandas espectrais
-        if (texto.includes('sub') || texto.includes('20-60') || texto.includes('subgrave')) {
+        if (texto.includes('sub') || texto.includes('20-60')) {
             console.log('[SECURITY-MAP] ✅ Detectado: Sub (bloqueado)');
             return 'band_sub';
         }
-        // 🔧 CORREÇÃO: Distinguir lowBass (60-120) e upperBass (120-250)
-        if (texto.includes('grave') || texto.includes('60-120') || texto.includes('low bass') || texto.includes('lowbass')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Low Bass/Grave (bloqueado)');
-            return 'band_lowBass';
+        if (texto.includes('bass') || texto.includes('60-150') || texto.includes('graves')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Bass (bloqueado)');
+            return 'band_bass';
         }
-        if (texto.includes('bass') || texto.includes('120-250') || texto.includes('upper bass') || texto.includes('upperbass')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Upper Bass (bloqueado)');
-            return 'band_upperBass';
-        }
-        if (texto.includes('low mid') || texto.includes('250-500') || texto.includes('lowmid')) {
+        if (texto.includes('low mid') || texto.includes('150-500') || texto.includes('lowmid')) {
             console.log('[SECURITY-MAP] ✅ Detectado: Low Mid (liberado)');
             return 'band_lowMid';
         }
@@ -1616,16 +1574,16 @@ class AISuggestionUIController {
             console.log('[SECURITY-MAP] ✅ Detectado: Mid (bloqueado)');
             return 'band_mid';
         }
-        if (texto.includes('high mid') || texto.includes('2k-4k') || texto.includes('2-4k') || texto.includes('highmid')) {
+        if (texto.includes('high mid') || texto.includes('500-2k') || texto.includes('highmid')) {
             console.log('[SECURITY-MAP] ✅ Detectado: High Mid (liberado)');
             return 'band_highMid';
         }
-        if (texto.includes('presença') || texto.includes('presence') || texto.includes('4k-10k') || texto.includes('4-10k')) {
+        if (texto.includes('presença') || texto.includes('presence') || texto.includes('2k-5k')) {
             console.log('[SECURITY-MAP] ✅ Detectado: Presença (liberado)');
             return 'band_presence';
         }
-        if (texto.includes('brilho') || texto.includes('air') || texto.includes('10k-20k') || texto.includes('10-20k')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (LIBERADO - corrigido)');
+        if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (bloqueado)');
             return 'band_air';
         }
         
