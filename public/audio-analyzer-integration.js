@@ -6893,6 +6893,21 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
+    // 🌉 USAR BRIDGE: Gerar rows canônicas (fonte da verdade)
+    const canonicalRows = typeof window.generateCanonicalRows === 'function'
+        ? window.generateCanonicalRows(analysis, genreData)
+        : null;
+    
+    if (!canonicalRows || canonicalRows.length === 0) {
+        console.warn('[GENRE-TABLE] ⚠️ Bridge não gerou rows, usando lógica legada');
+    } else {
+        console.log('[GENRE-TABLE] 🌉 Bridge gerou', canonicalRows.length, 'rows canônicas');
+        
+        // 💾 SALVAR GLOBALMENTE para o modal consumir
+        window.__CANONICAL_TABLE_ROWS__ = canonicalRows;
+        console.log('[GENRE-TABLE] 💾 Rows salvas em window.__CANONICAL_TABLE_ROWS__');
+    }
+    
     console.log('[GENRE-TABLE] 📦 Genre data:', {
         lufs_target: genreData.lufs_target,
         true_peak_target: genreData.true_peak_target,
@@ -7069,8 +7084,8 @@ function renderGenreComparisonTable(options) {
         }
     };
     
-    // Construir linhas da tabela
-    const rows = [];
+    // ⚠️ LÓGICA LEGADA (será removida após validação do bridge)
+    const legacyRows = [];
     let metricsCount = 0;
     let bandsCount = 0;
     
@@ -7087,7 +7102,7 @@ function renderGenreComparisonTable(options) {
                 // 🔐 SECURITY GUARD: Verificar se deve renderizar valor real
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🔊 Loudness (LUFS Integrado)</td>
                         <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
@@ -7112,7 +7127,7 @@ function renderGenreComparisonTable(options) {
                 // 🔐 SECURITY GUARD
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🎚️ Pico Real (dBTP)</td>
                         <td class="metric-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</td>
@@ -7137,7 +7152,7 @@ function renderGenreComparisonTable(options) {
                 // 🔐 SECURITY GUARD (DR é LIBERADO)
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">📊 Dinâmica (DR)</td>
                         <td class="metric-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</td>
@@ -7162,7 +7177,7 @@ function renderGenreComparisonTable(options) {
                 // 🔐 SECURITY GUARD (LRA é BLOQUEADO)
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
                         <td class="metric-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</td>
@@ -7187,7 +7202,7 @@ function renderGenreComparisonTable(options) {
                 // 🔐 SECURITY GUARD (Stereo é LIBERADO)
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🎧 Imagem Estéreo</td>
                         <td class="metric-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</td>
@@ -7318,7 +7333,7 @@ function renderGenreComparisonTable(options) {
                 const severityDisplay = canRender ? result.severity : renderSecurePlaceholder('severity');
                 const actionDisplay = canRender ? result.action : renderSecurePlaceholder('action');
                 
-                rows.push(`
+                legacyRows.push(`
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">${nomeAmigavel}</td>
                         <td class="metric-value">${energyDbSafe}</td>
@@ -7344,6 +7359,46 @@ function renderGenreComparisonTable(options) {
         });
     }
     
+    // 🌉 RENDERIZAR TABELA: Priorizar rows do bridge, fallback para legacyRows
+    let finalRows = [];
+    
+    if (canonicalRows && canonicalRows.length > 0) {
+        console.log('[GENRE-TABLE] ✅ Usando rows do BRIDGE');
+        // ✅ Usar rows do bridge
+        canonicalRows.forEach(row => {
+            // 🔐 SECURITY GUARD: Verificar se deve renderizar
+            const canRender = typeof shouldRenderRealValue === 'function'
+                ? shouldRenderRealValue(row.key, 'table', analysis)
+                : true;
+            
+            // Formatar target com range se disponível
+            let targetDisplay;
+            if (row.targetMin !== undefined && row.targetMax !== undefined && row.targetMin !== row.targetMax) {
+                targetDisplay = `${row.targetMin.toFixed(1)} a ${row.targetMax.toFixed(1)} ${row.unit}`;
+            } else if (row.targetRecommended !== undefined) {
+                targetDisplay = `${row.targetRecommended.toFixed(1)} ${row.unit}`;
+            } else {
+                targetDisplay = '—';
+            }
+            
+            finalRows.push(`
+                <tr class="genre-row ${row.severityClass}">
+                    <td class="metric-name">${row.label}</td>
+                    <td class="metric-value">${canRender ? row.valueFormatted : renderSecurePlaceholder('value')}</td>
+                    <td class="metric-target">${canRender ? targetDisplay : renderSecurePlaceholder('target')}</td>
+                    <td class="metric-diff ${row.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (row.diff >= 0 ? '+' : '') + row.diff.toFixed(2) + ' ' + row.unit : renderSecurePlaceholder('diff')}</td>
+                    <td class="metric-severity ${row.severityClass}">${canRender ? row.severity : renderSecurePlaceholder('severity')}</td>
+                    <td class="metric-action ${row.severityClass}">${canRender ? row.action : renderSecurePlaceholder('action')}</td>
+                </tr>
+            `);
+        });
+        
+        console.log('[GENRE-TABLE] ✅ Renderizadas', finalRows.length, 'rows do bridge');
+    } else {
+        console.warn('[GENRE-TABLE] ⚠️ Bridge não disponível, usando legacyRows');
+        finalRows = legacyRows;
+    }
+    
     // Renderizar HTML completo
     const tableHTML = `
         <div class="card genre-comparison-classic" style="margin-top:12px;">
@@ -7360,7 +7415,7 @@ function renderGenreComparisonTable(options) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${rows.join('')}
+                    ${finalRows.join('')}
                 </tbody>
             </table>
         </div>
@@ -7395,6 +7450,18 @@ function renderGenreComparisonTable(options) {
     container.classList.remove('hidden');
     container.style.display = 'block';
     container.style.visibility = 'visible';
+    
+    // 📊 LOG TEMPORÁRIO: Mostrar comparação tabela vs modal
+    if (canonicalRows && canonicalRows.length > 0) {
+        const problematicRows = canonicalRows.filter(r => r.severity !== 'OK');
+        console.group('📊 [TABELA-MODAL-COMPARAÇÃO] 1:1 Verificação');
+        console.log('✅ Total de rows na tabela:', canonicalRows.length);
+        console.log('🔴 Rows problemáticas (≠ OK):', problematicRows.length);
+        console.log('📋 Rows problemáticas:', problematicRows.map(r => `${r.label} (${r.severity})`));
+        console.log('💾 Salvo em window.__CANONICAL_TABLE_ROWS__:', !!window.__CANONICAL_TABLE_ROWS__);
+        console.log('🎴 Modal deve renderizar:', problematicRows.length, 'cards');
+        console.groupEnd();
+    }
     container.style.opacity = '1';
     
     // 🔥 AUDITORIA FINAL: Verificar visibilidade computada
