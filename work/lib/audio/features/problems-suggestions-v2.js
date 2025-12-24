@@ -1024,88 +1024,136 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     const bands = consolidatedData.metrics.bands;
+    const targetBands = consolidatedData.genreTargets?.bands || {};
+    
+    // 🎯 MAPEAMENTO DE ALIASES: JSON usa português, código pode usar inglês
+    const BAND_ALIAS_MAP = {
+      'brilho': 'air',           // JSON portugês → código inglês
+      'air': 'air',              // já inglês
+      'brilliance': 'air',       // alias antigo
+      'presenca': 'presence',    // JSON português → código inglês
+      'presence': 'presence',    // já inglês
+      'low_mid': 'low_mid',      // snake_case
+      'lowMid': 'low_mid',       // camelCase
+      'high_mid': 'high_mid',    // snake_case
+      'highMid': 'high_mid',     // camelCase
+      'upper_bass': 'bass',      // alias para bass
+      'low_bass': 'bass'         // alias para bass
+    };
+    
+    // 🎯 LABELS LEGÍVEIS PARA CADA BANDA
+    const BAND_LABELS = {
+      'sub': 'Sub Bass (20-60Hz)',
+      'bass': 'Bass (60-150Hz)',
+      'low_mid': 'Low Mid (150-500Hz)',
+      'mid': 'Mid (500-2kHz)',
+      'high_mid': 'High Mid (2-5kHz)',
+      'presence': 'Presença (3-6kHz)',
+      'air': 'Brilho (6-20kHz)'
+    };
     
     // 🔥 LOG CRÍTICO: Inventário completo de TODAS as bandas antes de análise
-    console.log('[BANDS][INVENTORY] 📊 ═══════════════════════════════════════════');
-    console.log('[BANDS][INVENTORY] INVENTÁRIO COMPLETO DE BANDAS:');
-    console.log('[BANDS][INVENTORY] Total de bandas disponíveis:', Object.keys(bands).length);
-    Object.keys(bands).forEach(key => {
-      const band = bands[key];
-      const target = consolidatedData.genreTargets?.bands?.[key];
-      console.log(`[BANDS][INVENTORY] 📍 ${key}:`, {
-        hasValue: Number.isFinite(band?.value),
-        value: band?.value?.toFixed(2),
-        hasTarget: !!target,
-        target_db: target?.target_db?.toFixed(2),
-        target_range: target?.target_range ? `${target.target_range.min?.toFixed(2)} a ${target.target_range.max?.toFixed(2)}` : 'MISSING',
-        will_analyze: Number.isFinite(band?.value) && !!target
+    const DEBUG = process.env.DEBUG_SUGGESTIONS === '1';
+    if (DEBUG) {
+      console.log('[BANDS][INVENTORY] 📊 ═══════════════════════════════════════════');
+      console.log('[BANDS][INVENTORY] INVENTÁRIO COMPLETO DE BANDAS:');
+      console.log('[BANDS][INVENTORY] Bandas medidas:', Object.keys(bands));
+      console.log('[BANDS][INVENTORY] Bandas no target:', Object.keys(targetBands));
+      Object.keys(bands).forEach(key => {
+        const band = bands[key];
+        const normalizedKey = BAND_ALIAS_MAP[key] || key;
+        const target = targetBands[key] || targetBands[normalizedKey];
+        console.log(`[BANDS][INVENTORY] 📍 ${key} (→ ${normalizedKey}):`, {
+          hasValue: Number.isFinite(band?.value),
+          value: band?.value?.toFixed(2),
+          hasTarget: !!target,
+          target_db: target?.target_db?.toFixed(2),
+          target_range: target?.target_range ? `${target.target_range.min?.toFixed(2)} a ${target.target_range.max?.toFixed(2)}` : 'MISSING',
+          will_analyze: Number.isFinite(band?.value) && !!target
+        });
       });
-    });
-    console.log('[BANDS][INVENTORY] ═══════════════════════════════════════════');
+      console.log('[BANDS][INVENTORY] ═══════════════════════════════════════════');
+    }
     
     console.log('[BANDS] ✅ Usando EXCLUSIVAMENTE consolidatedData.metrics.bands:', {
       bandsCount: Object.keys(bands).length,
       source: 'consolidatedData'
     });
     
-    // 🎯 Sub Bass (20-60Hz)
-    const subValue = consolidatedData.metrics.bands.sub?.value;
-    if (Number.isFinite(subValue)) {
-      this.analyzeBand('sub', subValue, 'Sub Bass (20-60Hz)', suggestions, consolidatedData);
-    }
+    // 🔥 LOOP DINÂMICO: Iterar sobre TODAS as bandas medidas
+    // Isso garante que NENHUMA banda seja esquecida (brilho, presenca, etc)
+    const processedKeys = new Set();
     
-    // 🎯 Bass (60-150Hz)  
-    const bassValue = consolidatedData.metrics.bands.bass?.value;
-    if (Number.isFinite(bassValue)) {
-      this.analyzeBand('bass', bassValue, 'Bass (60-150Hz)', suggestions, consolidatedData);
-    }
-
-    // 🎯 Low Mid (150-500Hz)
-    const lowMidValue = consolidatedData.metrics.bands.low_mid?.value;
-    if (Number.isFinite(lowMidValue)) {
-      this.analyzeBand('low_mid', lowMidValue, 'Low Mid (150-500Hz)', suggestions, consolidatedData);
-    }
-
-    // 🎯 Mid (500-2000Hz)
-    const midValue = consolidatedData.metrics.bands.mid?.value;
-    if (Number.isFinite(midValue)) {
-      this.analyzeBand('mid', midValue, 'Mid (500-2000Hz)', suggestions, consolidatedData);
-    }
-
-    // 🎯 High Mid (2000-5000Hz)
-    const highMidValue = consolidatedData.metrics.bands.high_mid?.value;
-    if (Number.isFinite(highMidValue)) {
-      this.analyzeBand('high_mid', highMidValue, 'High Mid (2-5kHz)', suggestions, consolidatedData);
-    }
-
-    // 🎯 Presença (3000-6000Hz)
-    const presenceValue = consolidatedData.metrics.bands.presence?.value;
-    if (Number.isFinite(presenceValue)) {
-      this.analyzeBand('presence', presenceValue, 'Presença (3-6kHz)', suggestions, consolidatedData);
-    }
-
-    // 🎯 Brilho/Air (6000-20000Hz)
-    const brillianceValue = consolidatedData.metrics.bands.brilliance?.value;
-    if (Number.isFinite(brillianceValue)) {
-      this.analyzeBand('brilliance', brillianceValue, 'Brilho (6-20kHz)', suggestions, consolidatedData);
+    for (const rawKey of Object.keys(bands)) {
+      const bandValue = bands[rawKey]?.value;
+      
+      if (!Number.isFinite(bandValue)) {
+        if (DEBUG) console.log(`[BANDS] ⏭️ Pulando ${rawKey}: valor não finito`);
+        continue;
+      }
+      
+      // 🎯 NORMALIZAR KEY: aplicar alias map
+      const normalizedKey = BAND_ALIAS_MAP[rawKey] || rawKey;
+      
+      // 🚫 EVITAR DUPLICATAS: Se já processamos essa banda normalizada, pular
+      if (processedKeys.has(normalizedKey)) {
+        if (DEBUG) console.log(`[BANDS] ⏭️ Pulando ${rawKey}: já processado como ${normalizedKey}`);
+        continue;
+      }
+      
+      // 🔍 BUSCAR TARGET: tentar com rawKey primeiro, depois normalizedKey
+      let targetInfo = targetBands[rawKey] || targetBands[normalizedKey];
+      
+      if (!targetInfo) {
+        // 🔄 TENTATIVA EXTRA: Buscar aliases reversos no target
+        for (const [alias, canonical] of Object.entries(BAND_ALIAS_MAP)) {
+          if (canonical === normalizedKey && targetBands[alias]) {
+            targetInfo = targetBands[alias];
+            if (DEBUG) console.log(`[BANDS] ✅ Target encontrado via alias: ${alias} → ${normalizedKey}`);
+            break;
+          }
+        }
+      }
+      
+      if (!targetInfo) {
+        if (DEBUG) console.log(`[BANDS] ⚠️ Pulando ${rawKey}: sem target disponível`);
+        continue;
+      }
+      
+      // ✅ PROCESSAR BANDA
+      const label = BAND_LABELS[normalizedKey] || `${normalizedKey} (sem label)`;
+      this.analyzeBand(normalizedKey, bandValue, label, suggestions, consolidatedData, rawKey);
+      processedKeys.add(normalizedKey);
+      
+      if (DEBUG) {
+        console.log(`[BANDS] ✅ Processado: ${rawKey} → ${normalizedKey} (${label})`);
+      }
     }
     
     // 🔥 LOG FINAL: Resumo de sugestões geradas por bandas
     const bandSuggestions = suggestions.filter(s => s.metric && s.metric.startsWith('band_'));
-    console.log('[BANDS][SUMMARY] 📊 ═══════════════════════════════════════════');
-    console.log('[BANDS][SUMMARY] RESUMO DE SUGESTÕES GERADAS:');
-    console.log('[BANDS][SUMMARY] Total:', bandSuggestions.length);
-    bandSuggestions.forEach(s => {
-      console.log(`[BANDS][SUMMARY] ✅ ${s.metric}:`, {
-        severity: s.severity?.level,
-        delta: s.deltaNum?.toFixed(2),
-        status: s.status
+    // DEBUG já declarado no topo da função (linha 1056)
+    
+    if (DEBUG) {
+      console.log('[BANDS][SUMMARY] 📊 ════════════════════════════════════════════');
+      console.log('[BANDS][SUMMARY] RESUMO DE SUGESTÕES GERADAS:');
+      console.log('[BANDS][SUMMARY] Total:', bandSuggestions.length);
+      console.log('[BANDS][SUMMARY] Keys processadas:', Array.from(processedKeys).join(', '));
+      bandSuggestions.forEach(s => {
+        console.log(`[BANDS][SUMMARY] ✅ ${s.metric}:`, {
+          severity: s.severity?.level,
+          delta: s.deltaNum?.toFixed(2),
+          status: s.status
+        });
       });
-    });
-    console.log('[BANDS][SUMMARY] ═══════════════════════════════════════════');
+      console.log('[BANDS][SUMMARY] ════════════════════════════════════════════');
+    } else {
+      console.log('[BANDS][SUMMARY] 📊 Bandas processadas:', processedKeys.size, '| Sugestões geradas:', bandSuggestions.length);
+    }
 
     logAudio('problems_v2', 'spectral_analysis', { 
       bandsDetected: Object.keys(bands).length,
+      bandsProcessed: processedKeys.size,
       suggestionsGenerated: bandSuggestions.length
     });
   }
@@ -1114,8 +1162,16 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🎵 Análise Individual de Banda Espectral
    * ✅ REGRA ABSOLUTA: Usa EXCLUSIVAMENTE consolidatedData (metrics + genreTargets)
    * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, value passado por parâmetro, ou fallbacks
+   * @param {string} bandKey - Key normalizada da banda (air, presence, low_mid, etc)
+   * @param {number} value - Valor medido (dBFS)
+   * @param {string} bandName - Label legível
+   * @param {Array} suggestions - Array de sugestões
+   * @param {Object} consolidatedData - Dados consolidados
+   * @param {string} rawKey - Key original do JSON (brilho, presenca, etc) - usado para buscar target
    */
-  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData) {
+  analyzeBand(bandKey, value, bandName, suggestions, consolidatedData, rawKey = null) {
+    const DEBUG = process.env.DEBUG_SUGGESTIONS === '1';
+    
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
     if (!consolidatedData) {
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão`);
@@ -1123,23 +1179,28 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
 
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics.bands
-    const bandData = consolidatedData.metrics && consolidatedData.metrics.bands && consolidatedData.metrics.bands[bandKey];
+    // Tentar com rawKey primeiro (ex: 'brilho'), depois normalizedKey (ex: 'air')
+    const searchKey = rawKey || bandKey;
+    let bandData = consolidatedData.metrics?.bands?.[searchKey] || consolidatedData.metrics?.bands?.[bandKey];
     
-    // 🔥 LOG CRÍTICO: AUDITORIA COMPLETA DA ESTRUTURA DE DADOS
-    console.log(`[BAND-${bandKey.toUpperCase()}] 🔍 AUDITORIA CRÍTICA DE DADOS:`);
-    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData completo:`, JSON.stringify(bandData, null, 2));
-    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value:`, bandData?.value);
-    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.unit:`, bandData?.unit);
-    console.log(`[BAND-${bandKey.toUpperCase()}] - typeof bandData.value:`, typeof bandData?.value);
-    console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value < 0:`, bandData?.value < 0);
+    if (DEBUG) {
+      console.log(`[BAND-${bandKey.toUpperCase()}] 🔍 AUDITORIA CRÍTICA DE DADOS:`);
+      console.log(`[BAND-${bandKey.toUpperCase()}] - searchKey: ${searchKey} (rawKey: ${rawKey}, bandKey: ${bandKey})`);
+      console.log(`[BAND-${bandKey.toUpperCase()}] - bandData completo:`, JSON.stringify(bandData, null, 2));
+      console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value:`, bandData?.value);
+      console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.unit:`, bandData?.unit);
+      console.log(`[BAND-${bandKey.toUpperCase()}] - typeof bandData.value:`, typeof bandData?.value);
+      console.log(`[BAND-${bandKey.toUpperCase()}] - bandData.value < 0:`, bandData?.value < 0);
+    }
     
-    const measured = bandData && bandData.value;
+    const measured = bandData?.value ?? value;  // Fallback para value passado por parâmetro
     
-    // 🔥 LOG CRÍTICO: VALOR FINAL EXTRAÍDO
-    console.log(`[BAND-${bandKey.toUpperCase()}] 🎯 VALOR MEDIDO FINAL: ${measured} ${bandData?.unit || 'NO_UNIT'}`);
+    if (DEBUG) {
+      console.log(`[BAND-${bandKey.toUpperCase()}] 🎯 VALOR MEDIDO FINAL: ${measured} ${bandData?.unit || 'NO_UNIT'}`);
+    }
     
     if (!Number.isFinite(measured)) {
-      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${bandKey}.value ausente ou inválido`);
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands.${searchKey}.value ausente ou inválido`);
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor encontrado:`, bandData);
       return;
     }
@@ -1149,13 +1210,26 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌❌❌ BUG CRÍTICO DETECTADO! ❌❌❌`);
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Valor positivo ${measured} detectado quando deveria ser dBFS NEGATIVO!`);
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ Isso indica que .value está com PERCENTAGE ao invés de energy_db!`);
-      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands[${bandKey}]:`, JSON.stringify(bandData, null, 2));
+      console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.metrics.bands[${searchKey}]:`, JSON.stringify(bandData, null, 2));
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ ABORTING SUGESTÃO - DADOS CORROMPIDOS`);
       return;
     }
 
     // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets.bands
-    const targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData);
+    // Tentar com rawKey primeiro (ex: 'brilho'), depois normalizedKey (ex: 'air')
+    let targetInfo = null;
+    if (rawKey) {
+      targetInfo = this.getMetricTarget('bands', rawKey, consolidatedData);
+      if (DEBUG && targetInfo) {
+        console.log(`[BAND-${bandKey.toUpperCase()}] ✅ Target encontrado com rawKey: ${rawKey}`);
+      }
+    }
+    if (!targetInfo) {
+      targetInfo = this.getMetricTarget('bands', bandKey, consolidatedData);
+      if (DEBUG && targetInfo) {
+        console.log(`[BAND-${bandKey.toUpperCase()}] ✅ Target encontrado com bandKey: ${bandKey}`);
+      }
+    }
     if (!targetInfo) {
       console.error(`[BAND-${bandKey.toUpperCase()}] ❌ consolidatedData.genreTargets.bands.${bandKey} ausente - pulando sugestão`);
       return;
