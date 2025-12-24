@@ -6594,6 +6594,9 @@ function searchBandWithAlias(bandKey, bandsObject) {
  * @param {string} mode - 'genre' ou 'reference'
  * @returns {Array<Object>} rows com { key, type, label, value, targetText, min, max, target, delta, severity, severityClass, actionText, category }
  */
+// 🔍 FLAG DE DEBUG: Ative para logs detalhados de auditoria
+window.DEBUG_MODAL_BANDS = true;
+
 window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     console.group('[BUILD_ROWS] 🏗️ Construindo rows compartilhados');
     console.log('[BUILD_ROWS] Mode:', mode);
@@ -6608,20 +6611,24 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         return rows;
     }
     
-    // 🎯 ALIAS MAP: upper_bass → bass (não aparece como key final)
+    // 🎯 ALIAS MAP: Normalizar keys diferentes
+    // ⚠️ CORREÇÃO: Não mapear low_bass e upper_bass para 'bass' genérico
+    // Tabela mostra separado: "Bass (60-120 Hz)" = low_bass, "Upper Bass (120-250 Hz)" = upper_bass
     const BAND_ALIAS_MAP = {
-        'upper_bass': 'bass',
-        'low_bass': 'bass',
+        // Mapeamento snake_case → camelCase
         'low_mid': 'lowMid',
         'high_mid': 'highMid',
         'presenca': 'presence',
         'brilho': 'air'
+        // REMOVIDO: 'upper_bass': 'bass', 'low_bass': 'bass' (causava troca de targets)
     };
     
     // 🎯 LISTA CANÔNICA DE BANDAS (ordem LOW END → MID → HIGH)
+    // ⚠️ CORREÇÃO: Incluir low_bass e upper_bass separados
     const CANONICAL_BANDS = [
         { key: 'sub', label: '🔉 Sub (20-60 Hz)', category: 'LOW END' },
-        { key: 'bass', label: '🔊 Bass (60-150 Hz)', category: 'LOW END' },
+        { key: 'low_bass', label: '🔊 Bass (60-120 Hz)', category: 'LOW END' },
+        { key: 'upper_bass', label: '🔊 Upper Bass (120-250 Hz)', category: 'LOW END' },
         { key: 'lowMid', label: '🎵 Low Mid (150-500 Hz)', category: 'MID' },
         { key: 'mid', label: '🎵 Mid (500-2k Hz)', category: 'MID' },
         { key: 'highMid', label: '🎸 High Mid (2k-5k Hz)', category: 'HIGH' },
@@ -6794,17 +6801,25 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     CANONICAL_BANDS.forEach(bandInfo => {
         const bandKey = bandInfo.key;
         
-        // 🔍 Buscar target (com suporte a alias)
+        // 🔍 Buscar target (com suporte a alias bidirecional)
+        // Agora suporta: lowMid ↔ low_mid, low_bass ↔ bass, etc.
+        const reverseAliases = {
+            'lowMid': ['low_mid'],
+            'low_mid': ['lowMid'],
+            'highMid': ['high_mid'],
+            'high_mid': ['highMid'],
+            'presence': ['presenca'],
+            'presenca': ['presence'],
+            'air': ['brilho'],
+            'brilho': ['air'],
+            // ⚠️ CORREÇÃO: Não mais mapear 'bass' genérico
+            // low_bass e upper_bass são bandas distintas
+            'low_bass': ['bass'],  // Aceitar 'bass' como alias de low_bass
+            'bass': ['low_bass']   // Se alguém procurar 'bass', usar low_bass
+        };
+        
         let targetBand = targetBands[bandKey];
         if (!targetBand) {
-            // Buscar por alias reverso (ex: 'bass' pode estar como 'low_bass' no target)
-            const reverseAliases = {
-                'bass': ['low_bass', 'upper_bass'],
-                'lowMid': ['low_mid'],
-                'highMid': ['high_mid'],
-                'presence': ['presenca'],
-                'air': ['brilho']
-            };
             const aliases = reverseAliases[bandKey];
             if (aliases) {
                 for (const alias of aliases) {
@@ -6825,12 +6840,15 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         
         // 🔍 Buscar valor do usuário
         let bandData = userBands[bandKey];
-        if (!bandData && reverseAliases[bandKey]) {
-            for (const alias of reverseAliases[bandKey]) {
-                if (userBands[alias]) {
-                    bandData = userBands[alias];
-                    console.log(`[BUILD_ROWS] 🔄 User alias: ${bandKey} ← ${alias}`);
-                    break;
+        if (!bandData) {
+            const aliases = reverseAliases[bandKey];
+            if (aliases) {
+                for (const alias of aliases) {
+                    if (userBands[alias]) {
+                        bandData = userBands[alias];
+                        console.log(`[BUILD_ROWS] 🔄 User alias: ${bandKey} ← ${alias}`);
+                        break;
+                    }
                 }
             }
         }
