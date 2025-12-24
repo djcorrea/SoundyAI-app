@@ -6575,6 +6575,342 @@ function searchBandWithAlias(bandKey, bandsObject) {
  * @param {Object} analysis - Objeto de análise completo
  * @returns {Object|null} Dados da banda com source
  */
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 🎯 FONTE ÚNICA DA VERDADE: buildMetricRows()
+// ════════════════════════════════════════════════════════════════════════════════
+/**
+ * 📊 FUNÇÃO COMPARTILHADA: Gera rows de métricas e bandas para TABELA e MODAL.
+ * 
+ * REGRAS OBRIGATÓRIAS:
+ * 1. BANDAS: Se target_range existe, usar SOMENTE min/max (NÃO aplicar tolerância)
+ * 2. BANDAS: Fallback para target_db ± tol_db SOMENTE se target_range ausente
+ * 3. MÉTRICAS: Sempre usar target ± tolerance
+ * 4. SEVERIDADE: Mesma lógica em todos os casos (calcSeverity)
+ * 5. ALIAS: upper_bass → bass (não aparece como key final)
+ * 
+ * @param {Object} analysis - Objeto de análise completo
+ * @param {Object} targets - Targets de gênero ou referência
+ * @param {string} mode - 'genre' ou 'reference'
+ * @returns {Array<Object>} rows com { key, type, label, value, targetText, min, max, target, delta, severity, severityClass, actionText, category }
+ */
+window.buildMetricRows = function(analysis, targets, mode = 'genre') {
+    console.group('[BUILD_ROWS] 🏗️ Construindo rows compartilhados');
+    console.log('[BUILD_ROWS] Mode:', mode);
+    console.log('[BUILD_ROWS] Targets:', targets ? Object.keys(targets) : 'null');
+    
+    const rows = [];
+    
+    // ✅ FLAG DE CONTROLE
+    if (!window.USE_TABLE_ROWS_FOR_MODAL) {
+        console.warn('[BUILD_ROWS] ⚠️ Flag USE_TABLE_ROWS_FOR_MODAL = false, usando lógica antiga');
+        console.groupEnd();
+        return rows;
+    }
+    
+    // 🎯 ALIAS MAP: upper_bass → bass (não aparece como key final)
+    const BAND_ALIAS_MAP = {
+        'upper_bass': 'bass',
+        'low_bass': 'bass',
+        'low_mid': 'lowMid',
+        'high_mid': 'highMid',
+        'presenca': 'presence',
+        'brilho': 'air'
+    };
+    
+    // 🎯 LISTA CANÔNICA DE BANDAS (ordem LOW END → MID → HIGH)
+    const CANONICAL_BANDS = [
+        { key: 'sub', label: '🔉 Sub (20-60 Hz)', category: 'LOW END' },
+        { key: 'bass', label: '🔊 Bass (60-150 Hz)', category: 'LOW END' },
+        { key: 'lowMid', label: '🎵 Low Mid (150-500 Hz)', category: 'MID' },
+        { key: 'mid', label: '🎵 Mid (500-2k Hz)', category: 'MID' },
+        { key: 'highMid', label: '🎸 High Mid (2k-5k Hz)', category: 'HIGH' },
+        { key: 'presence', label: '💎 Presença (5k-10k Hz)', category: 'HIGH' },
+        { key: 'air', label: '✨ Brilho (10k-20k Hz)', category: 'HIGH' }
+    ];
+    
+    // 🎯 HELPER: Calcular severidade (mesma lógica da tabela)
+    const calcSeverity = (value, target, tolerance, options = {}) => {
+        const { targetRange } = options;
+        
+        if (!Number.isFinite(value)) {
+            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
+        }
+        
+        // 🔥 PRIORIDADE 1: target_range (BANDAS)
+        if (targetRange && typeof targetRange === 'object') {
+            const min = targetRange.min ?? targetRange.min_db;
+            const max = targetRange.max ?? targetRange.max_db;
+            
+            if (typeof min === 'number' && typeof max === 'number') {
+                // ✅ Dentro do range
+                if (value >= min && value <= max) {
+                    return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
+                }
+                
+                // ❌ Fora do range: calcular distância
+                let diff, absDelta;
+                if (value < min) {
+                    diff = value - min;
+                    absDelta = min - value;
+                } else {
+                    diff = value - max;
+                    absDelta = value - max;
+                }
+                
+                if (absDelta >= 2) {
+                    const action = diff > 0 ? `🔴 Reduzir ${absDelta.toFixed(1)} dB` : `🔴 Aumentar ${absDelta.toFixed(1)} dB`;
+                    return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
+                } else {
+                    const action = diff > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} dB` : `⚠️ Aumentar ${absDelta.toFixed(1)} dB`;
+                    return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+                }
+            }
+        }
+        
+        // 🔄 FALLBACK: target fixo ± tolerance (MÉTRICAS)
+        if (target === null || target === undefined) {
+            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
+        }
+        
+        const diff = value - target;
+        const absDiff = Math.abs(diff);
+        
+        if (absDiff <= tolerance) {
+            return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff };
+        } else if (absDiff <= tolerance * 2) {
+            const action = diff > 0 ? `⚠️ Reduzir ${absDiff.toFixed(1)}` : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+        } else if (absDiff <= tolerance * 3) {
+            const action = diff > 0 ? `🟡 Reduzir ${absDiff.toFixed(1)}` : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'ALTA', severityClass: 'warning', action, diff };
+        } else {
+            const action = diff > 0 ? `🔴 Reduzir ${absDiff.toFixed(1)}` : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
+        }
+    };
+    
+    // ════════════════════════════════════════════════════════════════════
+    // 1️⃣ MÉTRICAS PRINCIPAIS
+    // ════════════════════════════════════════════════════════════════════
+    
+    const genreData = targets;
+    const technicalData = analysis.technicalData || {};
+    
+    // 🔊 LUFS
+    if (genreData.lufs_target != null && Number.isFinite(technicalData.lufsIntegrated)) {
+        const result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0);
+        rows.push({
+            key: 'lufsIntegrated',
+            type: 'metric',
+            label: '🔊 Loudness (LUFS)',
+            value: technicalData.lufsIntegrated,
+            targetText: `${genreData.lufs_target.toFixed(1)} LUFS`,
+            min: genreData.lufs_target - (genreData.tol_lufs || 1.0),
+            max: genreData.lufs_target + (genreData.tol_lufs || 1.0),
+            target: genreData.lufs_target,
+            delta: result.diff,
+            severity: result.severity,
+            severityClass: result.severityClass,
+            actionText: result.action,
+            category: 'METRICS'
+        });
+    }
+    
+    // 🎚️ True Peak
+    if (genreData.true_peak_target != null && Number.isFinite(technicalData.truePeakDbtp)) {
+        const result = calcSeverity(technicalData.truePeakDbtp, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+        rows.push({
+            key: 'truePeak',
+            type: 'metric',
+            label: '🎚️ True Peak (dBTP)',
+            value: technicalData.truePeakDbtp,
+            targetText: `${genreData.true_peak_target.toFixed(1)} dBTP`,
+            min: genreData.true_peak_target - (genreData.tol_true_peak || 0.5),
+            max: genreData.true_peak_target + (genreData.tol_true_peak || 0.5),
+            target: genreData.true_peak_target,
+            delta: result.diff,
+            severity: result.severity,
+            severityClass: result.severityClass,
+            actionText: result.action,
+            category: 'METRICS'
+        });
+    }
+    
+    // 📊 DR
+    if (genreData.dr_target != null && Number.isFinite(technicalData.dynamicRange)) {
+        const result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0);
+        rows.push({
+            key: 'dr',
+            type: 'metric',
+            label: '📊 Dynamic Range (DR)',
+            value: technicalData.dynamicRange,
+            targetText: `${genreData.dr_target.toFixed(1)} DR`,
+            min: genreData.dr_target - (genreData.tol_dr || 1.0),
+            max: genreData.dr_target + (genreData.tol_dr || 1.0),
+            target: genreData.dr_target,
+            delta: result.diff,
+            severity: result.severity,
+            severityClass: result.severityClass,
+            actionText: result.action,
+            category: 'METRICS'
+        });
+    }
+    
+    // 🎧 Stereo
+    if (genreData.stereo_target != null && Number.isFinite(technicalData.stereoCorrelation)) {
+        const result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
+        rows.push({
+            key: 'stereo',
+            type: 'metric',
+            label: '🎧 Stereo Correlation',
+            value: technicalData.stereoCorrelation,
+            targetText: `${genreData.stereo_target.toFixed(3)}`,
+            min: genreData.stereo_target - (genreData.tol_stereo || 0.1),
+            max: genreData.stereo_target + (genreData.tol_stereo || 0.1),
+            target: genreData.stereo_target,
+            delta: result.diff,
+            severity: result.severity,
+            severityClass: result.severityClass,
+            actionText: result.action,
+            category: 'METRICS'
+        });
+    }
+    
+    // ════════════════════════════════════════════════════════════════════
+    // 2️⃣ BANDAS ESPECTRAIS
+    // ════════════════════════════════════════════════════════════════════
+    
+    const userBands = technicalData.spectral_balance || technicalData.bands || analysis.bands || {};
+    const targetBands = genreData.bands || genreData.spectral_bands || {};
+    
+    console.log('[BUILD_ROWS] 🎵 Processando bandas:');
+    console.log('[BUILD_ROWS]   - userBands keys:', Object.keys(userBands));
+    console.log('[BUILD_ROWS]   - targetBands keys:', Object.keys(targetBands));
+    
+    let bandsProcessed = 0;
+    let bandsMissing = [];
+    
+    CANONICAL_BANDS.forEach(bandInfo => {
+        const bandKey = bandInfo.key;
+        
+        // 🔍 Buscar target (com suporte a alias)
+        let targetBand = targetBands[bandKey];
+        if (!targetBand) {
+            // Buscar por alias reverso (ex: 'bass' pode estar como 'low_bass' no target)
+            const reverseAliases = {
+                'bass': ['low_bass', 'upper_bass'],
+                'lowMid': ['low_mid'],
+                'highMid': ['high_mid'],
+                'presence': ['presenca'],
+                'air': ['brilho']
+            };
+            const aliases = reverseAliases[bandKey];
+            if (aliases) {
+                for (const alias of aliases) {
+                    if (targetBands[alias]) {
+                        targetBand = targetBands[alias];
+                        console.log(`[BUILD_ROWS] 🔄 Alias encontrado: ${bandKey} ← ${alias}`);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!targetBand) {
+            console.log(`[BUILD_ROWS] ⏭️ Banda sem target: ${bandKey}`);
+            bandsMissing.push(bandKey);
+            return;
+        }
+        
+        // 🔍 Buscar valor do usuário
+        let bandData = userBands[bandKey];
+        if (!bandData && reverseAliases[bandKey]) {
+            for (const alias of reverseAliases[bandKey]) {
+                if (userBands[alias]) {
+                    bandData = userBands[alias];
+                    console.log(`[BUILD_ROWS] 🔄 User alias: ${bandKey} ← ${alias}`);
+                    break;
+                }
+            }
+        }
+        
+        if (!bandData) {
+            console.log(`[BUILD_ROWS] ⏭️ Banda sem dados user: ${bandKey}`);
+            bandsMissing.push(bandKey);
+            return;
+        }
+        
+        // Extrair valor
+        let energyDb = typeof bandData === 'number' ? bandData : (bandData.energy_db ?? bandData.rms_db ?? null);
+        if (!Number.isFinite(energyDb)) {
+            console.log(`[BUILD_ROWS] ⏭️ Banda sem valor numérico: ${bandKey}`);
+            bandsMissing.push(bandKey);
+            return;
+        }
+        
+        // 🔥 REGRA OBRIGATÓRIA: Priorizar target_range
+        const targetRange = targetBand.target_range || targetBand.targetRange;
+        let targetText, min, max, target;
+        
+        if (targetRange && (typeof targetRange.min === 'number' || typeof targetRange.min_db === 'number')) {
+            // ✅ Usar range explícito (NUNCA aplicar tolerância)
+            min = targetRange.min ?? targetRange.min_db;
+            max = targetRange.max ?? targetRange.max_db;
+            target = (min + max) / 2;
+            targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dB`;
+            console.log(`[BUILD_ROWS] ✅ ${bandKey}: target_range [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+        } else if (typeof targetBand.target_db === 'number') {
+            // 🔄 Fallback: target_db ± tol_db
+            target = targetBand.target_db;
+            const tolerance = targetBand.tol_db ?? 2.0;
+            min = target - tolerance;
+            max = target + tolerance;
+            targetText = `${target.toFixed(1)} dB (±${tolerance.toFixed(1)})`;
+            console.log(`[BUILD_ROWS] ⚠️ ${bandKey}: fallback target_db ± tol_db`);
+        } else {
+            console.log(`[BUILD_ROWS] ❌ Banda sem target válido: ${bandKey}`);
+            bandsMissing.push(bandKey);
+            return;
+        }
+        
+        // Calcular severidade
+        const result = calcSeverity(energyDb, target, null, { targetRange: { min, max } });
+        
+        rows.push({
+            key: bandKey,
+            type: 'band',
+            label: bandInfo.label,
+            value: energyDb,
+            targetText,
+            min,
+            max,
+            target,
+            delta: result.diff,
+            severity: result.severity,
+            severityClass: result.severityClass,
+            actionText: result.action,
+            category: bandInfo.category
+        });
+        
+        bandsProcessed++;
+        console.log(`[BUILD_ROWS] ✅ ${bandKey}: ${energyDb.toFixed(2)} dB | ${result.severity}`);
+    });
+    
+    // 📊 LOGS DE VALIDAÇÃO
+    console.log('[BUILD_ROWS] 📊 RESULTADO:');
+    console.log(`[BUILD_ROWS]   - Total rows: ${rows.length}`);
+    console.log(`[BUILD_ROWS]   - Bandas processadas: ${bandsProcessed}/7`);
+    console.log(`[BUILD_ROWS]   - Bandas missing: ${bandsMissing.length}`, bandsMissing);
+    console.log(`[BUILD_ROWS]   - Rows não-OK: ${rows.filter(r => r.severity !== 'OK').length}`);
+    console.groupEnd();
+    
+    return rows;
+};
+
+// ✅ FLAG GLOBAL
+window.USE_TABLE_ROWS_FOR_MODAL = true;
+
 /**
  * Normaliza nomes de bandas do backend para formato dos targets de gênero.
  * Backend: ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air']
