@@ -48,7 +48,7 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         'correlation',
         'stereoWidth',
         
-        // 🎵 Frequências liberadas (TODAS as bandas não-OK devem aparecer)
+        // Frequências liberadas
         'band_lowMid',
         'band_low_mid',
         'lowMid',
@@ -61,13 +61,7 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         
         'band_presence',
         'presence',
-        'presença',
-        'presenca',
-        
-        // ✨ CORREÇÃO: Adicionar air/brilho na allowlist (estava bloqueado)
-        'band_air',
-        'air',
-        'brilho'
+        'presença'
     ];
     
     // 🔒 BLOCKLIST - Métricas SEMPRE BLOQUEADAS no modo reduced
@@ -100,8 +94,10 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
         // NÃO bloquear lowMid, highMid (que são permitidos)
         'band_mid',
         
-        // ✨ REMOVIDO: air/brilho (agora está na allowlist)
-        // 'band_air', 'air', 'brilho'
+        'band_air',
+        'air',
+        'ar',
+        'brilho',
         
         // Métricas avançadas
         'rms',

@@ -1433,17 +1433,7 @@ class AISuggestionUIController {
                         console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
                         console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
                         
-                        // � AUDITORIA: Mostrar TODAS as keys antes do filtro
-                        if (window.DEBUG_MODAL_BANDS) {
-                            console.group('[AUDIT] 🎯 ANTES DO FILTRO SECURITY GUARD');
-                            console.log('[AUDIT] Total suggestions:', rowsAsSuggestions.length);
-                            console.log('[AUDIT] Keys:', rowsAsSuggestions.map(s => s.metric));
-                            console.log('[AUDIT] Categorias:', rowsAsSuggestions.map(s => s.category));
-                            console.log('[AUDIT] Severities:', rowsAsSuggestions.map(s => `${s.metric}: ${s.severity}`));
-                            console.groupEnd();
-                        }
-                        
-                        // �🔄 Agrupar por categoria
+                        // 🔄 Agrupar por categoria
                         const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
                         const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
                         const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
@@ -1485,24 +1475,7 @@ class AISuggestionUIController {
         // ════════════════════════════════════════════════════════════════════════════════
         
         // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
-        const beforeFilter = suggestions.length;
-        const beforeKeys = suggestions.map(s => s.metric || s.category);
-        
         const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
-        
-        // 🔍 AUDITORIA: Comparar ANTES vs DEPOIS do filtro
-        if (window.DEBUG_MODAL_BANDS) {
-            const afterFilter = filteredSuggestions.length;
-            const afterKeys = filteredSuggestions.map(s => s.metric || s.category);
-            const blocked = beforeKeys.filter(k => !afterKeys.includes(k));
-            
-            console.group('[AUDIT] 🔒 APÓS FILTRO SECURITY GUARD');
-            console.log('[AUDIT] ANTES:', beforeFilter, '→', beforeKeys);
-            console.log('[AUDIT] DEPOIS:', afterFilter, '→', afterKeys);
-            console.log('[AUDIT] BLOQUEADOS:', blocked.length, '→', blocked);
-            console.log('[AUDIT] ⚠️ PERDA:', beforeFilter - afterFilter, 'itens removidos');
-            console.groupEnd();
-        }
         
         if (filteredSuggestions.length === 0) {
             console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
@@ -1609,19 +1582,9 @@ class AISuggestionUIController {
             console.log('[SECURITY-MAP] ✅ Detectado: Presença (liberado)');
             return 'band_presence';
         }
-        if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+') || texto.includes('10k')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (LIBERADO)');
+        if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (bloqueado)');
             return 'band_air';
-        }
-        
-        // 🆕 CORREÇÃO: Detectar low_bass e upper_bass separadamente
-        if (texto.includes('low bass') || texto.includes('60-120')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Low Bass (bloqueado)');
-            return 'band_low_bass';
-        }
-        if (texto.includes('upper bass') || texto.includes('120-250')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Upper Bass (bloqueado)');
-            return 'band_upper_bass';
         }
         
         console.log('[SECURITY-MAP] ⚠️ Categoria não mapeada - usando general');
