@@ -732,11 +732,19 @@ class AISuggestionUIController {
             suggestionsToRender = analysis.suggestions;
         }
         
-        console.log('%c[AI-UI][RENDER-SOURCE] 🎯 Fonte:', 'color:#FFD700;font-weight:bold;', renderSource);
-        console.log('[AI-UI][RENDER-SOURCE] Length:', suggestionsToRender.length);
+        // 🎯 LOG OBRIGATÓRIO: FONTE ÚNICA DE RENDER
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color:#FFD700;font-weight:bold;');
+        console.log('%c[AI-UI][RENDER-SOURCE] 🎯 FONTE ÚNICA:', 'color:#FFD700;font-weight:bold;', renderSource);
+        console.log('%c[AI-UI][RENDER-SOURCE] 📊 LENGTH:', 'color:#FFD700;font-weight:bold;', suggestionsToRender.length);
         if (suggestionsToRender.length > 0) {
-            console.log('[AI-UI][RENDER-SOURCE] Sample keys:', Object.keys(suggestionsToRender[0]));
+            console.log('%c[AI-UI][RENDER-SOURCE] 🔑 Sample keys:', 'color:#FFD700;font-weight:bold;', Object.keys(suggestionsToRender[0]));
+            console.log('%c[AI-UI][RENDER-SOURCE] 📝 Sample data:', 'color:#FFD700;font-weight:bold;', {
+                categoria: suggestionsToRender[0].categoria || suggestionsToRender[0].category,
+                problema: (suggestionsToRender[0].problema || suggestionsToRender[0].message || '').substring(0, 60),
+                aiEnhanced: suggestionsToRender[0].aiEnhanced
+            });
         }
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color:#FFD700;font-weight:bold;');
         
         // 🔧 CORREÇÃO: Bypass de status se aiSuggestions existir
         const hasValidAISuggestions = suggestionsToRender.length > 0;
@@ -1309,13 +1317,30 @@ class AISuggestionUIController {
      * @param {string} metricName - Nome bruto da métrica
      * @returns {string|null} Nome normalizado ou null
      */
+    /**
+     * 🎵 NORMALIZAR MÉTRICAS PARA CHAVES CANÔNICAS DO genreTargets.bands
+     * Mapeia aliases bidirecionalmente (air<->brilho, presence<->presenca)
+     * Retorna a chave canônica que existe em genreTargets.bands
+     */
     normalizeMetricNameForUI(metricName) {
         if (!metricName) return null;
         const key = String(metricName).toLowerCase().replace(/\s|_/g, "");
 
-        // 🎵 ALIASES DE BANDAS (backend PT → frontend EN)
-        if (key === "brilho") return "air";
-        if (key === "presenca") return "presence";
+        // 🎵 BANDAS: Normalizar para chaves que existem em genreTargets.bands
+        // Backend usa PT (brilho, presenca), frontend/IA podem usar EN (air, presence)
+        if (key === "air") return "brilho";        // EN → PT (chave canônica)
+        if (key === "brilho") return "brilho";     // PT → PT (já é canônica)
+        if (key === "presence") return "presenca"; // EN → PT (chave canônica)
+        if (key === "presenca") return "presenca";  // PT → PT (já é canônica)
+        
+        // Outras bandas já estão em formato canônico (sub, bass, lowMid, mid, highMid)
+        const canonicalBands = ['sub', 'bass', 'lowmid', 'mid', 'highmid'];
+        if (canonicalBands.includes(key)) {
+            // Retornar com camelCase correto
+            if (key === 'lowmid') return 'lowMid';
+            if (key === 'highmid') return 'highMid';
+            return key;
+        }
         
         // Métricas técnicas
         if (key.includes("lufs")) return "lufs";
@@ -1323,7 +1348,8 @@ class AISuggestionUIController {
         if (key.includes("dynamicrange") || key === "dr") return "dr";
         if (key.includes("stereocorrelation") || key.includes("stereo")) return "stereo";
 
-        return null;
+        // Se não encontrou, retornar a chave original (não null)
+        return metricName;
     }
     
     /**
@@ -1351,16 +1377,20 @@ class AISuggestionUIController {
             // NÃO para renderização. O texto nunca entra no DOM aqui.
             // Renderização real acontece em renderAIEnrichedCard/renderBaseSuggestionCard
             // que possuem Security Guard próprio.
-            let metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
+            const metricOriginal = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
             
-            // 🔧 Normalizar métrica (reconhece "dynamicRange", "stereoCorrelation", etc)
-            const normalizedMetric = this.normalizeMetricNameForUI(metric);
-            if (normalizedMetric) {
-                metric = normalizedMetric;
-                console.log('[AI-UI][VALIDATION] 🔧 Métrica normalizada:', suggestion.metric, '→', metric);
-            }
+            // 🎵 Normalizar para chave canônica do genreTargets.bands
+            const metricCanonical = this.normalizeMetricNameForUI(metricOriginal);
             
-            if (!metric || metric === 'info') {
+            // 📊 LOG OBRIGATÓRIO: Métrica original → canônica
+            console.log('[AI-UI][VALIDATION] 🔄 Métrica:', {
+                original: metricOriginal,
+                canonical: metricCanonical,
+                normalized: metricOriginal !== metricCanonical ? '✅' : '⏭️'
+            });
+            
+            if (!metricCanonical || metricCanonical === 'info') {
+                console.log('[AI-UI][VALIDATION] ⏭️ Sugestão informativa - sem validação necessária');
                 return suggestion; // Sugestões informativas não precisam validação
             }
             
@@ -1369,35 +1399,32 @@ class AISuggestionUIController {
             let realTarget = null;
             let realRange = null;
             
-            // 🎵 MAPEAR ALIASES (air → brilho, presence → presenca)
-            const metricAliases = {
-                'air': 'brilho',
-                'presence': 'presenca'
-            };
-            const aliasedMetric = metricAliases[metric] || metric;
-            
             // Tentar estrutura aninhada primeiro: genreTargets.lufs.target
-            if (genreTargets[aliasedMetric] && typeof genreTargets[aliasedMetric] === 'object') {
-                targetData = genreTargets[aliasedMetric];
+            if (genreTargets[metricCanonical] && typeof genreTargets[metricCanonical] === 'object') {
+                targetData = genreTargets[metricCanonical];
                 realTarget = targetData.target_db || targetData.target;
                 realRange = targetData.target_range;
-                console.log('[AI-UI][VALIDATION] ✅ Target encontrado (top-level):', aliasedMetric);
+                console.log('[AI-UI][VALIDATION] ✅ Target encontrado (top-level):', metricCanonical);
             }
             // Tentar dentro de bands: genreTargets.bands.brilho.target_db
-            else if (genreTargets.bands && genreTargets.bands[aliasedMetric]) {
-                targetData = genreTargets.bands[aliasedMetric];
+            else if (genreTargets.bands && genreTargets.bands[metricCanonical]) {
+                targetData = genreTargets.bands[metricCanonical];
                 realTarget = targetData.target_db || targetData.target;
                 realRange = targetData.target_range;
-                console.log('[AI-UI][VALIDATION] ✅ Target encontrado em bands:', aliasedMetric);
+                console.log('[AI-UI][VALIDATION] ✅ Target encontrado em bands:', metricCanonical, {
+                    target: realTarget,
+                    range: realRange
+                });
             }
             // Fallback: estrutura plana legada (SEM CROSSOVER de bandas)
-            else if (typeof genreTargets[aliasedMetric + '_target'] === 'number') {
-                realTarget = genreTargets[aliasedMetric + '_target'];
-                console.log('[AI-UI][VALIDATION] ⚠️ Target encontrado em estrutura legada:', aliasedMetric);
+            else if (typeof genreTargets[metricCanonical + '_target'] === 'number') {
+                realTarget = genreTargets[metricCanonical + '_target'];
+                console.log('[AI-UI][VALIDATION] ⚠️ Target encontrado em estrutura legada:', metricCanonical);
             }
             
             if (!realTarget && !realRange) {
-                console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}" (tentou também: "${aliasedMetric}")`);
+                console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metricOriginal}" (canônica: "${metricCanonical}")`);
+                console.warn('[AI-UI][VALIDATION] ⚠️ Bandas disponíveis em genreTargets.bands:', Object.keys(genreTargets.bands || {}));
                 return suggestion;
             }
             
@@ -1606,10 +1633,10 @@ class AISuggestionUIController {
             }
             
             if (analysis && genreTargets) {
-                console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Usando rows da tabela como fonte');
+                console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Gerando rows APENAS para comparação (não substitui aiSuggestions)');
                 
                 try {
-                    // Gerar rows com a MESMA lógica da tabela
+                    // Gerar rows com a MESMA lógica da tabela (APENAS para logs de paridade)
                     const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
                     
                     // Filtrar apenas rows problemáticas (severity !== 'OK')
