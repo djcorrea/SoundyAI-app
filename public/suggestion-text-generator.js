@@ -81,9 +81,9 @@ class SuggestionTextGenerator {
                 },
                 {
                     match: /banda.*mid[^_]|(?:^|\s)mid.*acima|(?:^|\s)mid.*abaixo/i,
-                    title: "🎤 Médios (500Hz-2kHz)",
+                    title: "🎤 Médios",
                     explanation: "O coração da música! Esta região define a presença e inteligibilidade dos vocais e instrumentos melódicos. É onde nosso ouvido é mais sensível.",
-                    action: "Trabalhe 500Hz-2kHz com cuidado - pequenos ajustes fazem grande diferença",
+                    action: "Trabalhe os médios com cuidado - pequenos ajustes fazem grande diferença",
                     rationale: "Médios balanceados garantem clareza vocal e presença instrumental",
                     technical: "Banda mid central apresenta desequilíbrio que afeta a presença geral"
                 },
