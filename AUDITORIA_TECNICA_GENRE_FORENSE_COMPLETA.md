@@ -23,7 +23,7 @@ O frontend está enviando `genre` vazio/null/undefined quando:
 3. ✅ `window.__CURRENT_SELECTED_GENRE` está `undefined`
 4. ✅ `window.PROD_AI_REF_GENRE` está `undefined`
 5. ✅ Fallback final para `"default"` é ativado **CORRETAMENTE**
-
+N
 ### ✅ **CORREÇÃO JÁ APLICADA**
 A correção preventiva foi aplicada em **`public/audio-analyzer-integration.js`** linhas 1943-1953:
 - Validação robusta: `selectedGenre && typeof selectedGenre === "string" && selectedGenre.trim() !== ""`
