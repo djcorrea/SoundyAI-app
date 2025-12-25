@@ -1,6 +1,9 @@
 ﻿// 🎨 AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
 // Sistema de interface futurista para exibição de sugestões educativas
 
+// ✅ LOG DE ASSINATURA - CONFIRMAÇÃO DE ARQUIVO CORRETO
+console.log('✅ SUGGESTIONS_UI_VERSION=FIX_2025-12-25 - AI-SUGGESTION-UI-CONTROLLER CARREGADO');
+
 /**
  * 🎨 Controlador de Interface para Sugestões de IA
  */
