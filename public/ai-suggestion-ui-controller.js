@@ -1,38 +1,22 @@
-﻿// 🎨 AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
+﻿//  AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
 // Sistema de interface futurista para exibição de sugestões educativas
 
 /**
- * � BAND_ALIASES: Mapeamento determinístico de nomes alternativos de bandas
- * Usado para fazer merge correto entre rows da tabela e aiSuggestions do backend
- * Referência: audio-analyzer-integration.js BAND_ALIASES
- */
-const BAND_ALIASES = {
-    'presence': 'presenca',
-    'presenca': 'presenca',
-    'air': 'brilho',
-    'brilho': 'brilho',
-    'sub': 'sub',
-    'bass': 'bass',
-    'lowMid': 'lowMid',
-    'lowmid': 'lowMid',
-    'mid': 'mid',
-    'highMid': 'highMid',
-    'highmid': 'highMid'
-};
-
-/**
- * 🔧 Resolve uma chave de banda para seu nome canônico
- * @param {string} key - Nome da banda (pode ser alias)
- * @returns {string} Nome canônico da banda
+ *  Resolve uma chave de banda para seu nome canônico
+ * Usa BAND_ALIASES de audio-analyzer-integration.js se disponível, senão fallback local
  */
 function resolveBandAlias(key) {
     if (!key) return key;
     const k = String(key).toLowerCase().trim();
-    return BAND_ALIASES[k] || key;
+    if (typeof BAND_ALIASES !== 'undefined' && BAND_ALIASES[k]) {
+        return BAND_ALIASES[k];
+    }
+    const localAliases = { 'presence': 'presenca', 'air': 'brilho' };
+    return localAliases[k] || key;
 }
 
 /**
- * �🎨 Controlador de Interface para Sugestões de IA
+ *  Controlador de Interface para Sugestões de IA
  */
 class AISuggestionUIController {
     constructor() {
