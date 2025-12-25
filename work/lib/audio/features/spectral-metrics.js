@@ -1,7 +1,7 @@
 // 🎵 SPECTRAL METRICS - Implementação correta com fórmulas matemáticas padrão
 // Schema numérico único, sem objetos/arrays/strings
 
-import { makeErr } from '../error-handling.js';
+import { logAudio, makeErr } from '../error-handling.js';
 
 /**
  * 🎯 Configurações e constantes
@@ -74,6 +74,10 @@ export class SpectralMetricsCalculator {
       
       // Verificar energia mínima
       if (totalEnergy <= SPECTRAL_CONFIG.MIN_VALID_ENERGY) {
+        logAudio('spectral', 'low_energy', { 
+          frame: frameIndex, 
+          energy: totalEnergy.toExponential(3) 
+        });
         return this.getNullMetrics();
       }
       
@@ -84,6 +88,24 @@ export class SpectralMetricsCalculator {
       const flatness = this.calculateFlatness(halfSpectrum);
       const crest = this.calculateCrest(halfSpectrum, totalMagnitude);
       const { skewness, kurtosis } = this.calculateMoments(mag2, totalEnergy, centroidHz);
+      
+      // Log temporário para auditoria
+      if (centroidHz !== null) {
+        logAudio('spectral', 'centroid_calculated', {
+          frame: frameIndex,
+          energy: totalEnergy.toFixed(6),
+          meanMag2: (totalEnergy / this.numBins).toFixed(6),
+          centroidHz: centroidHz.toFixed(2)
+        });
+      }
+      
+      if (rolloffHz !== null) {
+        logAudio('spectral', 'rolloff_calculated', {
+          frame: frameIndex,
+          threshold: (0.85 * totalEnergy).toFixed(6),
+          rolloffHz: rolloffHz.toFixed(2)
+        });
+      }
       
       return {
         spectralCentroidHz: num(centroidHz),
@@ -97,6 +119,10 @@ export class SpectralMetricsCalculator {
       };
       
     } catch (error) {
+      logAudio('spectral', 'calculation_error', { 
+        frame: frameIndex, 
+        error: error.message 
+      });
       return this.getNullMetrics();
     }
   }
@@ -318,3 +344,5 @@ export function serializeSpectralMetrics(metrics) {
     spectralKurtosis: num(metrics.spectralKurtosis) ?? null
   };
 }
+
+console.log('🎵 Spectral Metrics Calculator carregado - Schema numérico padrão');
