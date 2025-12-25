@@ -12,6 +12,7 @@ class AISuggestionUIController {
         this.animationQueue = [];
         this.lastAnalysisJobId = null; // 🔧 Rastrear última análise processada
         this.lastAnalysisTimestamp = null; // 🔧 Timestamp da última análise
+        this.lastRenderedJobId = null; // 🔧 Prevenir re-render do mesmo job
         
         // FIX: Timer para debounce de checkForAISuggestions
         this.__debounceTimer = null;
@@ -1116,10 +1117,20 @@ class AISuggestionUIController {
             console.log('%c[AI-RENDER-FIX] ⚠️ Modo genérico ativo (sem IA específica)', 'color:#FFA500;');
         }
         
+        const renderJobId = window.__CURRENT_JOB_ID__ || window.currentModalAnalysis?.jobId || suggestions?.[0]?.jobId || this.lastAnalysisJobId;
+
+        // Anti-race: não re-renderizar o mesmo job se já concluído
+        if (this.lastRenderedJobId && this.lastRenderedJobId === renderJobId && window.__AI_RENDER_COMPLETED__ === true) {
+            console.warn('[AI-RENDER-GUARD] 🔒 Render já concluído para este jobId — ignorando nova chamada');
+            return;
+        }
+        this.lastRenderedJobId = renderJobId;
+
         console.log('[AI-UI][RENDER] Tipo de sugestões:', {
             total: suggestions.length,
             aiEnhanced: aiEnhancedCount,
-            isEnriched: isAIEnriched
+            isEnriched: isAIEnriched,
+            renderJobId
         });
         
         // 🔒 Filtrar sugestões para Reduced Mode ANTES de atualizar status
@@ -1148,16 +1159,21 @@ class AISuggestionUIController {
         }
         
         // Renderizar cards
-        this.renderSuggestionCards(suggestions, isAIEnriched, genreTargets);
+        this.renderSuggestionCards(suggestions, isAIEnriched, genreTargets, renderJobId);
         
         // 🧩 ETAPA 4 — FORÇAR REVALIDAÇÃO DE CLASSES NO DOM
         setTimeout(() => {
+            const retryJobId = window.__CURRENT_JOB_ID__ || window.currentModalAnalysis?.jobId || suggestions?.[0]?.jobId || this.lastAnalysisJobId;
+            if (this.lastRenderedJobId && retryJobId && retryJobId !== this.lastRenderedJobId) {
+                console.warn('[AI-RENDER-GUARD] 🔒 JobId mudou antes do retry, abortando re-render');
+                return;
+            }
             const cards = this.elements.aiContent?.querySelectorAll('.ai-suggestion-card');
             console.log('%c[AI-RENDER-VERIFY] 🔍 Cards detectados no DOM:', 'color:#00FF88;', cards?.length);
             if (!cards || cards.length === 0) {
                 console.warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
                 this.currentTemplate = 'ai';
-                this.renderSuggestionCards(suggestions, true, genreTargets); // força renderização IA
+                this.renderSuggestionCards(suggestions, true, genreTargets, retryJobId); // força renderização IA
             } else {
                 console.log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
                 
@@ -1209,6 +1225,26 @@ class AISuggestionUIController {
             keys: Object.keys(genreTargets)
         });
         
+        const resolveBandMetric = (metricKey) => {
+            if (!metricKey) return metricKey;
+            if (!genreTargets?.bands) return metricKey;
+            const key = String(metricKey).toLowerCase();
+
+            if ((key === 'presence' || key === 'presenca') && genreTargets.bands.presenca) {
+                return 'presenca';
+            }
+            if ((key === 'presence' || key === 'presenca') && genreTargets.bands.presence) {
+                return 'presence';
+            }
+            if ((key === 'air' || key === 'brilho') && genreTargets.bands.brilho) {
+                return 'brilho';
+            }
+            if ((key === 'air' || key === 'brilho') && genreTargets.bands.air) {
+                return 'air';
+            }
+            return metricKey;
+        };
+
         return suggestions.map(suggestion => {
             // 🔐 SECURITY NOTE: Este acesso é apenas para MAPEAMENTO de categoria,
             // NÃO para renderização. O texto nunca entra no DOM aqui.
@@ -1221,6 +1257,13 @@ class AISuggestionUIController {
             if (normalizedMetric) {
                 metric = normalizedMetric;
                 console.log('[AI-UI][VALIDATION] 🔧 Métrica normalizada:', suggestion.metric, '→', metric);
+            }
+
+            // Alias de bandas (presence/presenca, air/brilho) para casar com genreTargets
+            const resolvedMetric = resolveBandMetric(metric);
+            if (resolvedMetric !== metric) {
+                console.log('[AI-UI][VALIDATION] 🔄 Alias aplicado:', metric, '→', resolvedMetric);
+                metric = resolvedMetric;
             }
             
             if (!metric || metric === 'info') {
@@ -1430,7 +1473,7 @@ class AISuggestionUIController {
     /**
      * 📋 Renderizar cards de sugestões (UNIFIED)
      */
-    renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null) {
+    renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null, renderJobId = null) {
         if (!this.elements.aiContent) return;
         
         console.log('[AI-UI][RENDER] 📋 Renderizando', suggestions.length, 'cards');
@@ -1438,7 +1481,7 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
+        // 🎯 PATCH: USAR ROWS COMO META, SEM PERDER TEXTO ENRIQUECIDO
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
             // 🔧 CORREÇÃO P1: Buscar analysis de múltiplas fontes
@@ -1493,49 +1536,63 @@ class AISuggestionUIController {
                     console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${problemRows.length === suggestions.length ? '✅' : '❌'}`);
                     
                     if (problemRows.length > 0) {
-                        // Converter rows para formato de suggestions
-                        const rowsAsSuggestions = problemRows.map(row => ({
-                            metric: row.key,
-                            type: row.type,
-                            category: row.category,
-                            message: `${row.label}: ${row.value.toFixed(2)} dB`,
-                            action: row.actionText,
-                            severity: row.severity,
-                            severityClass: row.severityClass,
-                            currentValue: row.value,
-                            targetValue: row.targetText,
-                            targetMin: row.min,
-                            targetMax: row.max,
-                            delta: row.delta,
-                            problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
-                            solucao: row.actionText,
-                            categoria: row.category,
-                            nivel: row.severity,
-                            // Flag para indicar que veio de rows
-                            _fromRows: true
-                        }));
-                        
-                        console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
-                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
-                        
-                        // 🔄 Agrupar por categoria
-                        const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
-                        const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
-                        const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
-                        const metrics = rowsAsSuggestions.filter(s => s.category === 'METRICS');
-                        
-                        console.log('[MODAL_VS_TABLE] 📊 Agrupamento:');
-                        console.log(`[MODAL_VS_TABLE]   - LOW END: ${lowEnd.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - MID: ${mid.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - HIGH: ${high.length}`);
-                        console.log(`[MODAL_VS_TABLE]   - METRICS: ${metrics.length}`);
-                        
-                        // Usar rowsAsSuggestions ao invés de suggestions
-                        suggestions = rowsAsSuggestions;
-                        
-                        // Log de bandas missing
+                        // 📌 NOVO FLUXO: Merge por chave mantendo texto IA
+                        const originalSuggestions = analysis.aiSuggestions || analysis.suggestions || suggestions || [];
+
+                        const normalizeKey = (key) => {
+                            if (!key) return null;
+                            const k = String(key).trim();
+                            if (k.startsWith('band_')) return k.replace('band_', '');
+                            return k;
+                        };
+
+                        const mergedList = problemRows.map(row => {
+                            const rowKey = normalizeKey(row.key);
+                            const enriched = originalSuggestions.find(s => {
+                                const sm = normalizeKey(s.metric || s.type || s.id || s.key);
+                                return sm === rowKey;
+                            });
+                            if (enriched) {
+                                return {
+                                    ...enriched,
+                                    __rowMeta: row,
+                                    severity: row.severity,
+                                    severityClass: row.severityClass,
+                                    target_range: row.target_range,
+                                    targetMin: row.min,
+                                    targetMax: row.max,
+                                    currentValue: row.value,
+                                    targetValue: row.targetText
+                                };
+                            }
+                            // Fallback estruturado (sem texto vazio)
+                            return {
+                                metric: rowKey,
+                                type: row.type,
+                                categoria: row.category,
+                                problema: `Sugestão ainda não gerada pela IA para esta métrica (${rowKey}).`,
+                                causaProvavel: 'Causa ainda não analisada pela IA.',
+                                solucao: row.actionText || 'Ação sugerida pela tabela: ajuste conforme severidade.',
+                                pluginRecomendado: 'Aguardando IA.',
+                                aiEnhanced: false,
+                                __rowMeta: row,
+                                severity: row.severity,
+                                severityClass: row.severityClass,
+                                target_range: row.target_range,
+                                targetMin: row.min,
+                                targetMax: row.max,
+                                currentValue: row.value,
+                                targetValue: row.targetText,
+                                _fromRows: true
+                            };
+                        });
+
+                        console.log('[MODAL_VS_TABLE] ✅ Merge concluído (mantendo textos IA)');
+                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', mergedList.length);
+
+                        // Log de bandas missing com base nas rows processadas
                         const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-                        const renderedBands = rowsAsSuggestions.filter(s => s.type === 'band').map(s => s.metric);
+                        const renderedBands = mergedList.filter(s => s.type === 'band').map(s => normalizeKey(s.metric));
                         const missingBands = expectedBands.filter(b => !renderedBands.includes(b));
                         
                         if (missingBands.length > 0) {
@@ -1544,6 +1601,8 @@ class AISuggestionUIController {
                         } else {
                             console.log('[MODAL_VS_TABLE] ✅ Todas as bandas estão presentes');
                         }
+
+                        suggestions = mergedList;
                     } else {
                         console.log('[MODAL_VS_TABLE] ✅ Nenhum problema detectado (todas as rows OK)');
                     }
