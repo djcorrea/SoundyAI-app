@@ -210,12 +210,6 @@ export class SpectralBandsCalculator {
       // Calcular percentuais normalizados (relativos ao totalEnergy - CORRETO)
       const percentages = this.calculateBandPercentages(bandEnergies, totalEnergy);
       
-      // ✅ CORREÇÃO: dBFS ABSOLUTO - Full Scale Reference
-      // Precisamos determinar o valor máximo teórico possível após FFT
-      // Para garantir que energy_db seja sempre ≤ 0 dBFS
-      const maxPossibleMagnitude = Math.max(...magnitude, 1e-12);
-      const FULL_SCALE = Math.max(maxPossibleMagnitude, 1.0); // Referência dinâmica dBFS
-      
       // Preparar resultado final
       const result = {};
       for (const [key, band] of Object.entries(SPECTRAL_BANDS)) {
@@ -227,21 +221,25 @@ export class SpectralBandsCalculator {
           Math.sqrt(energyLinear / binInfo.binCount) : 
           1e-12;
         
-        // ✅ CORREÇÃO: dBFS PADRÃO (Full Scale = 1.0)
-        // Fórmula padrão: dBFS = 20 * log10(amplitude / 1.0)
-        // bandRMS = 1.0 → 0 dBFS
-        // bandRMS = 0.5 → -6 dBFS
-        // bandRMS = 0.1 → -20 dBFS
-        let energyDb = 20 * Math.log10(Math.max(bandRMS, 1e-12));
+        // ✅ ROLLBACK COMPLETO: Fórmula empírica que funcionava
+        // (RMS típico de FFT 48kHz é ~0.0001 a 0.001, log10 dá valores -4 a -3,
+        // então -40 + 10*log10 resulta em ~ -10 a 0 dB, com pico ajustável)
+        let energyDb = -40 + 10 * Math.log10(Math.max(bandRMS, 1e-12));
         
-        // ✅ CLAMP de segurança (matematicamente já deve ser ≤ 0)
-        energyDb = Math.min(energyDb, 0);
+        // Clamp de segurança (deve ser sempre ≤ 0)
+        if (energyDb > 0) {
+          console.warn(`[SPECTRAL_BANDS] ${band.name}: dB positivo detectado (${energyDb.toFixed(1)}), clamping para 0`);
+          energyDb = 0;
+        }
         
-        console.log(`🔧 [dBFS_CORRETO] ${band.name}: energyDb=${energyDb.toFixed(1)}dB (escala padrão)`);        
+        // Se ficou muito negativo (banda vazia), usar null
+        if (energyDb < -80) {
+          energyDb = null;
+        }
         
         result[key] = {
           energy: energyLinear,
-          energy_db: Number(Math.min(energyDb, 0).toFixed(1)), // ✅ FORÇA CLAMP INLINE
+          energy_db: energyDb !== null ? Number(energyDb.toFixed(1)) : null,
           percentage: Number(percentages[key].toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
           frequencyRange: `${band.min}-${band.max}Hz`,
           name: band.name,
@@ -361,54 +359,81 @@ export class SpectralBandsAggregator {
     const aggregated = {};
     const bandKeys = Object.keys(SPECTRAL_BANDS);
     
-    // Agregar cada banda usando mediana para robustez
+    // ETAPA 1: Agregar energias lineares por banda (mediana)
+    const aggregatedEnergies = {};
     for (const key of bandKeys) {
-      const percentages = validBands
-        .map(b => b.bands[key].percentage)
-        .filter(p => p !== null && isFinite(p))
+      const energies = validBands
+        .map(b => b.bands[key].energy)
+        .filter(e => e !== null && isFinite(e) && e > 0)
         .sort((a, b) => a - b);
       
+      if (energies.length > 0) {
+        const medianIndex = Math.floor(energies.length / 2);
+        const medianEnergy = energies.length % 2 === 0
+          ? (energies[medianIndex - 1] + energies[medianIndex]) / 2
+          : energies[medianIndex];
+        aggregatedEnergies[key] = medianEnergy;
+      } else {
+        aggregatedEnergies[key] = 0;
+      }
+    }
+    
+    // ETAPA 2: Calcular % global a partir das energias agregadas
+    const totalAggEnergy = Object.values(aggregatedEnergies).reduce((sum, e) => sum + e, 0);
+    const aggregatedPercentages = {};
+    
+    if (totalAggEnergy > 0) {
+      for (const key of bandKeys) {
+        aggregatedPercentages[key] = (aggregatedEnergies[key] / totalAggEnergy) * 100;
+      }
+    } else {
+      for (const key of bandKeys) {
+        aggregatedPercentages[key] = 0;
+      }
+    }
+    
+    // ETAPA 3: Agregar dB por banda (mediana)
+    for (const key of bandKeys) {
       const energyDbs = validBands
         .map(b => b.bands[key].energy_db)
         .filter(db => db !== null && isFinite(db))
         .sort((a, b) => a - b);
       
-      if (percentages.length > 0 && energyDbs.length > 0) {
-        const medianIndex = Math.floor(percentages.length / 2);
-        const medianPercentage = percentages.length % 2 === 0
-          ? (percentages[medianIndex - 1] + percentages[medianIndex]) / 2
-          : percentages[medianIndex];
-        
+      let medianEnergyDb = null;
+      if (energyDbs.length > 0) {
         const medianDbIndex = Math.floor(energyDbs.length / 2);
-        const medianEnergyDb = energyDbs.length % 2 === 0
+        medianEnergyDb = energyDbs.length % 2 === 0
           ? (energyDbs[medianDbIndex - 1] + energyDbs[medianDbIndex]) / 2
           : energyDbs[medianDbIndex];
-        
-        aggregated[key] = {
-          energy: null, // Não agregar energia bruta
-          energy_db: Number(medianEnergyDb.toFixed(1)),
-          percentage: Number(medianPercentage.toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
-          frequencyRange: SPECTRAL_BANDS[key].min + '-' + SPECTRAL_BANDS[key].max + 'Hz',
-          name: SPECTRAL_BANDS[key].name,
-          description: SPECTRAL_BANDS[key].description,
-          status: "calculated"
-        };
-      } else {
-        aggregated[key] = {
-          energy: null,
-          energy_db: null,
-          percentage: null,
-          frequencyRange: SPECTRAL_BANDS[key].min + '-' + SPECTRAL_BANDS[key].max + 'Hz',
-          name: SPECTRAL_BANDS[key].name,
-          description: SPECTRAL_BANDS[key].description,
-          status: "not_calculated"
-        };
       }
+      
+      aggregated[key] = {
+        energy: aggregatedEnergies[key],
+        energy_db: medianEnergyDb !== null ? Number(medianEnergyDb.toFixed(1)) : null,
+        percentage: Number(aggregatedPercentages[key].toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
+        frequencyRange: SPECTRAL_BANDS[key].min + '-' + SPECTRAL_BANDS[key].max + 'Hz',
+        name: SPECTRAL_BANDS[key].name,
+        description: SPECTRAL_BANDS[key].description,
+        status: aggregatedEnergies[key] > 0 ? "calculated" : "not_calculated"
+      };
     }
     
     // Calcular percentual total agregado
     const totalPercentage = Object.values(aggregated)
       .reduce((sum, band) => sum + (band.percentage || 0), 0);
+    
+    // 🚨 SANITY CHECK: Validar soma de percentuais
+    if (totalPercentage < 99 || totalPercentage > 101) {
+      console.warn('[SPECTRAL_BANDS] ⚠️ Soma de percentuais fora do esperado:', {
+        totalPercentage: totalPercentage.toFixed(2),
+        totalAggEnergy,
+        framesValid: validBands.length,
+        framesTotal: bandsArray.length,
+        bandPercentages: Object.fromEntries(
+          Object.entries(aggregated).map(([k, v]) => [k, v.percentage])
+        )
+      });
+    }
     
     const finalResult = {
       bands: aggregated,
