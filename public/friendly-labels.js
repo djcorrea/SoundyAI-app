@@ -155,7 +155,14 @@ window.createTooltipLabel = function(key, originalLabel) {
 window.enhanceRowLabel = function(label, key) {
     if (!label) return label;
     
-    // 🔧 HELPER: Normalizar string para match robusto
+    // �️ GUARD: Não alterar bandas principais (formato canônico)
+    const PROTECTED_KEYS = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    if (key && PROTECTED_KEYS.includes(key)) {
+        // Retornar label original sem modificação
+        return label;
+    }
+    
+    // 🎯 HELPER: Normalizar string para match robusto
     const normalize = (str) => {
         if (!str) return '';
         return str.toLowerCase()
