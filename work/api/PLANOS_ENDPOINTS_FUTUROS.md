@@ -5,7 +5,7 @@
 O sistema de planos foi implementado em `work/lib/user/userPlans.js` e integrado ao endpoint de análise de áudio e chat. Os endpoints de **"Pedir ajuda à IA"** e **"Exportar PDF"** ainda não existem no projeto, mas quando forem criados, devem seguir as instruções abaixo.
 
 ---
-
+F
 ## 🔒 Endpoint: Pedir Ajuda à IA (Análise Completa)
 
 ### Rota sugerida
