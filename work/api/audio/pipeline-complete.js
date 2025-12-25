@@ -25,16 +25,7 @@ import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-logger.info('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');
-
-// 🚨 LOG DE INICIALIZAÇÃO DO PIPELINE
-console.error('\n\n');
-console.error('╔══════════════════════════════════════════════════════════════╗');
-console.error('║  🔥 PIPELINE-COMPLETE.JS INICIALIZADO                       ║');
-console.error('╚══════════════════════════════════════════════════════════════╝');
-console.error('[PIPELINE-INIT] Módulo carregado em:', new Date().toISOString());
-console.error('[PIPELINE-INIT] loadGenreTargetsFromWorker importado:', typeof loadGenreTargetsFromWorker);
-console.error('\n\n');
+logger.info('🎵 Pipeline Completo (Fases 5.1-5.4) carregado');
 
 /**
  * 🎯 FUNÇÃO DE ORDENAÇÃO PROFISSIONAL DE SUGESTÕES

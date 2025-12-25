@@ -1,8 +1,6 @@
 // 🎵 SPECTRAL UNIFORMITY ANALYZER - Análise de Uniformidade Espectral
 // Implementação para calcular uniformidade e equilíbrio do espectro de frequência
 
-import { logAudio } from '../error-handling.js';
-
 /**
  * 🎯 Configurações para análise de uniformidade espectral
  */
@@ -47,10 +45,6 @@ export class SpectralUniformityAnalyzer {
   analyzeSpectralUniformity(fftData, frequencyBins) {
     try {
       if (!fftData || !frequencyBins || fftData.length < this.config.MIN_FFT_SIZE) {
-        logAudio('uniformity', 'insufficient_data', { 
-          fftLength: fftData?.length || 0,
-          binsLength: frequencyBins?.length || 0
-        });
         return this.getNullResult();
       }
       
@@ -123,16 +117,9 @@ export class SpectralUniformityAnalyzer {
         }
       };
       
-      logAudio('uniformity', 'analysis_completed', {
-        coefficient: result.uniformity.coefficient,
-        rating: result.rating,
-        dominantBand: result.characteristics.dominantBand
-      });
-      
       return result;
       
     } catch (error) {
-      logAudio('uniformity', 'analysis_error', { error: error.message });
       return this.getNullResult();
     }
   }
