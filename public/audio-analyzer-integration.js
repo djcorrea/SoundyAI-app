@@ -14496,9 +14496,9 @@ async function displayModalResults(analysis) {
             // Métricas Avançadas
             'Fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
             'Centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
-            'Extensão de agudos (hz)': 'Indica até onde chegam as altas frequências.',
+            'Rolloff espectral 85% (hz)': 'Frequência onde acumula 85% da energia espectral. Valores baixos (<8kHz) indicam mix escuro.',
             'Uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
-            'Bandas espectrais (n)': 'Quantidade de faixas de frequência analisadas.',
+            'Largura espectral (hz)': 'Dispersão das frequências ao redor do centro espectral. Valores altos indicam som rico/cheio.',
             'Kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
             'Assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
         };
@@ -15226,17 +15226,17 @@ async function displayModalResults(analysis) {
                 
                 // Spectral Rolloff (Extensão de agudos)
                 if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
-                    rows.push(row('Extensão de Agudos (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'spectralRolloff', 'advanced'));
+                    rows.push(row('Rolloff Espectral 85% (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'spectralRolloff', 'advanced'));
                 }
                 
                 // Spectral Flatness (Uniformidade espectral)
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 1)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
+                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
                 }
                 
                 // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
-                    rows.push(row('Bandas Espectrais (n)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz', 'spectralBandwidth', 'advanced'));
+                    rows.push(row('Largura Espectral (Hz)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz', 'spectralBandwidth', 'advanced'));
                 }
                 
                 // Spectral Kurtosis
