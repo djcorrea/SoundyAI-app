@@ -1075,6 +1075,28 @@ class AISuggestionUIController {
         
         // 🔧 CORREÇÃO P2: Verificar se são sugestões IA COM CONTEÚDO VÁLIDO
         // Badge enriched só deve aparecer se textos (problema, causa, solução) existirem
+        // 🛡️ PROTEÇÃO: Forçar aiEnhanced=false se campos vazios
+        suggestions.forEach(s => {
+            if (s.aiEnhanced === true) {
+                const hasProblema = s.problema && s.problema !== 'Problema não especificado' && s.problema.length > 10;
+                const hasCausa = s.causaProvavel && s.causaProvavel !== 'Causa não analisada' && s.causaProvavel.length > 10;
+                const hasSolucao = s.solucao && s.solucao !== 'Solução não especificada' && s.solucao.length > 10;
+                
+                const hasContent = hasProblema && hasCausa && hasSolucao;
+                
+                if (!hasContent) {
+                    console.warn('[AI-UI][VALIDATION] ⚠️ Forçando aiEnhanced=false (sem conteúdo):', {
+                        id: s.id,
+                        metric: s.metric || s.category,
+                        hasProblema,
+                        hasCausa,
+                        hasSolucao
+                    });
+                    s.aiEnhanced = false;
+                }
+            }
+        });
+        
         const aiEnhancedWithContent = suggestions.filter(s => {
             if (s.aiEnhanced !== true) return false;
             
@@ -1083,18 +1105,7 @@ class AISuggestionUIController {
             const hasCausa = s.causaProvavel && s.causaProvavel !== 'Causa não analisada' && s.causaProvavel.length > 10;
             const hasSolucao = s.solucao && s.solucao !== 'Solução não especificada' && s.solucao.length > 10;
             
-            const hasContent = hasProblema && hasCausa && hasSolucao;
-            
-            if (s.aiEnhanced && !hasContent) {
-                console.warn('[AI-UI][BADGE] ⚠️ Suggestion marcada como enriched MAS sem conteúdo:', {
-                    metric: s.metric || s.category,
-                    hasProblema,
-                    hasCausa,
-                    hasSolucao
-                });
-            }
-            
-            return hasContent;
+            return hasProblema && hasCausa && hasSolucao;
         }).length;
         
         const aiEnhancedCount = suggestions.filter(s => s.aiEnhanced === true).length;

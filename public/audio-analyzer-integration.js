@@ -490,6 +490,62 @@ window.SOUNDY_MODE_ENGINE = {
 // ═══════════════════════════════════════════════════════════════════
 // 🎯 GENRE TARGETS UTILS - FONTE ÚNICA DE VERDADE
 // ═══════════════════════════════════════════════════════════════════
+
+// 🎯 MAPA CANÔNICO DE BANDAS - FONTE ÚNICA DA VERDADE
+// Define o padrão único usado em TODO o sistema (tabela, modal, sugestões)
+const CANONICAL_BAND_MAP = {
+    // Bandas canônicas (formato usado no sistema)
+    'sub': 'sub',
+    'bass': 'bass',
+    'lowMid': 'lowMid',
+    'mid': 'mid',
+    'highMid': 'highMid',
+    'presence': 'presence',
+    'air': 'air',
+    
+    // Aliases do backend/targets → canônico
+    'low_bass': 'bass',
+    'upper_bass': 'bass',
+    'low_mid': 'lowMid',
+    'high_mid': 'highMid',
+    'presenca': 'presence',
+    'brilho': 'air'
+};
+
+/**
+ * 🎯 NORMALIZA NOME DE BANDA PARA FORMATO CANÔNICO
+ * Converte qualquer alias para o padrão único usado em todo o sistema
+ * @param {string} bandName - Nome da banda (pode ser alias)
+ * @returns {string} Nome normalizado
+ */
+function normalizeBandName(bandName) {
+    if (!bandName || typeof bandName !== 'string') return bandName;
+    const normalized = CANONICAL_BAND_MAP[bandName];
+    if (normalized && normalized !== bandName) {
+        console.log(`[BAND-NORM] ${bandName} → ${normalized}`);
+    }
+    return normalized || bandName;
+}
+
+/**
+ * 🎯 NORMALIZA OBJETO DE BANDAS COMPLETO
+ * Converte todas as chaves para formato canônico
+ * @param {Object} bands - Objeto com bandas (user ou targets)
+ * @returns {Object} Objeto normalizado
+ */
+function normalizeBandsObject(bands) {
+    if (!bands || typeof bands !== 'object') return {};
+    
+    const normalized = {};
+    for (const [key, value] of Object.entries(bands)) {
+        const canonicalKey = normalizeBandName(key);
+        if (!normalized[canonicalKey]) {
+            normalized[canonicalKey] = value;
+        }
+    }
+    return normalized;
+}
+
 /**
  * 🎯 EXTRAI GENRE TARGETS DE UMA ANÁLISE (ALIAS COMPATÍVEL)
  * 
@@ -613,14 +669,31 @@ function extractGenreTargets(source) {
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // ETAPA 2: EXTRAIR GÊNERO
+    // ETAPA 2: EXTRAIR GÊNERO (OBRIGATÓRIO - NÃO PODE SER UNDEFINED)
     // ═══════════════════════════════════════════════════════════════
-    const genre = source?.data?.genre || 
-                  source?.genre || 
-                  source?.metadata?.genre || 
-                  'unknown';
+    let genre = source?.data?.genre || 
+                source?.genre || 
+                source?.metadata?.genre;
     
-    console.log('[EXTRACT-TARGETS] Gênero identificado:', genre);
+    // 🛡️ PROTEÇÃO: Se gênero vier undefined, tentar fontes alternativas
+    if (!genre) {
+        genre = window.__CURRENT_GENRE || 
+                window.PROD_AI_REF_GENRE || 
+                extractGenreName(source);
+        console.warn('[EXTRACT-TARGETS] ⚠️ Gênero não estava em source, usando fallback:', genre);
+    }
+    
+    // 🛡️ CRÍTICO: Se ainda estiver undefined, abortar com erro claro
+    if (!genre) {
+        console.error('[EXTRACT-TARGETS] ❌ CRÍTICO: Gênero é undefined após todos fallbacks');
+        console.error('[EXTRACT-TARGETS]    source.data?.genre:', source?.data?.genre);
+        console.error('[EXTRACT-TARGETS]    source?.genre:', source?.genre);
+        console.error('[EXTRACT-TARGETS]    window.__CURRENT_GENRE:', window.__CURRENT_GENRE);
+        // Retornar estrutura vazia ao invés de continuar com undefined
+        return createEmptyTargetsStructure();
+    }
+    
+    console.log('[EXTRACT-TARGETS] ✅ Gênero identificado:', genre);
     
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 3: BUSCAR TARGETS NA ORDEM DE PRIORIDADE
@@ -661,10 +734,18 @@ function extractGenreTargets(source) {
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // ETAPA 4: VALIDAR E RETORNAR SE ENCONTRADO
+    // ETAPA 4: VALIDAR, NORMALIZAR BANDAS E RETORNAR
     // ═══════════════════════════════════════════════════════════════
     if (targets && isValidTargetsStructure(targets)) {
         console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em:', targetSource);
+        
+        // 🎯 NORMALIZAR BANDAS: Converter aliases para formato canônico
+        if (targets.bands && typeof targets.bands === 'object') {
+            const originalBands = Object.keys(targets.bands);
+            targets.bands = normalizeBandsObject(targets.bands);
+            console.log('[EXTRACT-TARGETS] 🔄 Bandas normalizadas:', originalBands, '→', Object.keys(targets.bands));
+        }
+        
         console.log('[EXTRACT-TARGETS] 📊 Estrutura:', {
             hasLufs: !!targets.lufs,
             hasTruePeak: !!targets.truePeak,
@@ -746,6 +827,14 @@ function extractGenreTargets(source) {
     
     // Retornar estrutura vazia válida ao invés de null
     console.warn('[EXTRACT-TARGETS] ⚠️ Retornando estrutura vazia válida');
+    return createEmptyTargetsStructure();
+}
+
+/**
+ * Cria estrutura vazia válida de targets
+ * @returns {Object} Estrutura vazia mas válida
+ */
+function createEmptyTargetsStructure() {
     return {
         lufs: { target: -14, tolerance: 1 },
         truePeak: { target: -1, tolerance: 0.5 },
@@ -7007,28 +7096,17 @@ function mapBackendBandsToGenreBands(bands) {
         return {};
     }
     
-    console.group('[BAND-MAPPER] 🔄 Convertendo bandas do backend para formato de gênero');
+    console.group('[BAND-MAPPER] 🔄 Convertendo bandas do backend para formato CANÔNICO');
     console.log('[BAND-MAPPER] Bandas originais (backend):', Object.keys(bands));
     
-    const mapped = {
-        // Mapeamento direto (mesma chave)
-        sub: bands.sub || null,
-        mid: bands.mid || null,
-        
-        // Conversões necessárias
-        low_bass: bands.bass || null,           // bass → low_bass
-        upper_bass: null,                       // ❌ não existe no backend atual
-        low_mid: bands.lowMid || null,          // lowMid → low_mid
-        high_mid: bands.highMid || null,        // highMid → high_mid
-        brilho: bands.air || null,              // air → brilho
-        presenca: bands.presence || null        // presence → presenca
-    };
+    // 🎯 USAR NORMALIZAÇÃO CANÔNICA - Todas as bandas em um formato único
+    const normalized = normalizeBandsObject(bands);
     
-    console.log('[BAND-MAPPER] Bandas convertidas (targets):', Object.keys(mapped).filter(k => mapped[k] !== null));
-    console.log('[BAND-MAPPER] Bandas ausentes:', Object.keys(mapped).filter(k => mapped[k] === null));
+    console.log('[BAND-MAPPER] ✅ Bandas normalizadas (canônico):', Object.keys(normalized).filter(k => normalized[k] !== null));
+    console.log('[BAND-MAPPER] 📊 Paridade:', Object.keys(bands).length, '→', Object.keys(normalized).length);
     console.groupEnd();
     
-    return mapped;
+    return normalized;
 }
 
 /**
@@ -7044,18 +7122,34 @@ function applyGenreBandConversion(analysis) {
         return analysis;
     }
     
-    console.group('[BAND-MAPPER] 🎯 Aplicando conversão de bandas para modo GÊNERO');
+    console.group('[BAND-MAPPER] 🎯 Aplicando NORMALIZAÇÃO CANÔNICA de bandas');
     console.log('[BAND-MAPPER] Mode:', analysis.mode);
     console.log('[BAND-MAPPER] Bandas originais:', analysis.bands ? Object.keys(analysis.bands) : 'N/A');
     
-    // Converter bandas do backend para formato de targets
+    // 🎯 NORMALIZAR USER BANDS (do backend)
     if (analysis.bands) {
         analysis.genreBands = mapBackendBandsToGenreBands(analysis.bands);
-        console.log('[BAND-MAPPER] ✅ analysis.genreBands criado com', Object.keys(analysis.genreBands).filter(k => analysis.genreBands[k] !== null).length, 'bandas');
+        console.log('[BAND-MAPPER] ✅ User bands normalizados:', Object.keys(analysis.genreBands).length, 'bandas');
     } else {
         console.warn('[BAND-MAPPER] ⚠️ analysis.bands não disponível');
         analysis.genreBands = {};
     }
+    
+    // 🎯 NORMALIZAR TARGET BANDS (dos targets de gênero)
+    if (analysis.data?.genreTargets?.bands) {
+        const originalTargetBands = Object.keys(analysis.data.genreTargets.bands);
+        analysis.data.genreTargets.bands = normalizeBandsObject(analysis.data.genreTargets.bands);
+        console.log('[BAND-MAPPER] ✅ Target bands normalizados:', originalTargetBands.length, '→', Object.keys(analysis.data.genreTargets.bands).length);
+    }
+    
+    // 🎯 LOG DE VALIDAÇÃO: Garantir paridade
+    const userBandKeys = Object.keys(analysis.genreBands || {});
+    const targetBandKeys = Object.keys(analysis.data?.genreTargets?.bands || {});
+    console.log('[BAND-MAPPER] 📊 PARIDADE:', {
+        userBands: userBandKeys,
+        targetBands: targetBandKeys,
+        match: userBandKeys.every(k => targetBandKeys.includes(k))
+    });
     
     console.groupEnd();
     return analysis;
@@ -7189,6 +7283,27 @@ function renderGenreView(analysis) {
         console.error('[GENRE-VIEW] ❌ Container #referenceComparisons NÃO ENCONTRADO!');
     }
     
+    // 🎯 LOGS DE VALIDAÇÃO FINAL
+    console.log('%c[GENRE-VIEW] 🔍 VALIDAÇÃO FINAL', 'color:#FFD700;font-weight:bold;');
+    console.log('[GENRE-VIEW] ═══════════════════════════════════════════════════');
+    console.log('[GENRE-VIEW] ✅ Gênero usado:', genre, '(não-undefined)');
+    console.log('[GENRE-VIEW] ✅ User bands disponíveis:', Object.keys(analysis.genreBands || {}).length);
+    console.log('[GENRE-VIEW] ✅ Target bands disponíveis:', Object.keys(genreTargets?.bands || {}).length);
+    console.log('[GENRE-VIEW] ✅ Bandas canônicas:', Object.keys(analysis.genreBands || {}).join(', '));
+    
+    // Verificar problemas vs sugestões
+    const tableProblems = document.querySelectorAll('.problem-row').length;
+    const modalSuggestions = analysis.aiSuggestions?.length || 0;
+    console.log('[GENRE-VIEW] 📊 Problemas na tabela:', tableProblems);
+    console.log('[GENRE-VIEW] 📊 Sugestões no modal:', modalSuggestions);
+    
+    if (tableProblems !== modalSuggestions && modalSuggestions > 0) {
+        console.warn('[GENRE-VIEW] ⚠️ PARIDADE INCORRETA: tabela≠modal');
+    } else if (tableProblems === modalSuggestions && tableProblems > 0) {
+        console.log('[GENRE-VIEW] ✅ PARIDADE OK: tabela==modal');
+    }
+    
+    console.log('[GENRE-VIEW] ═══════════════════════════════════════════════════');
     console.log('%c[GENRE-VIEW] ✅ Renderização de gênero concluída', 'color:#00FF88;font-weight:bold;');
     console.groupEnd();
 }
@@ -7585,13 +7700,16 @@ function renderGenreComparisonTable(options) {
                     return;
                 }
                 
-                // 🔄 NORMALIZAR nome da banda para buscar no userBands
-                // targetKey já está normalizado (camelCase), procurar no userBands
-                const bandData = userBands?.[targetKey];
+                // 🔄 NORMALIZAR targetKey para formato canônico
+                const canonicalKey = normalizeBandName(targetKey);
+                
+                // Buscar no userBands usando key normalizado
+                const bandData = userBands?.[canonicalKey];
                 
                 // 🛡️ PROTEÇÃO #3: Verificar se usuário tem essa banda
                 if (!bandData) {
-                    console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem dados do usuário: ${targetKey}`);
+                    console.warn(`[GENRE-TABLE] ⚠️ Banda ausente no user: ${targetKey} (canônico: ${canonicalKey})`);
+                    console.warn(`[GENRE-TABLE]    Available user bands:`, Object.keys(userBands || {}));
                     return;
                 }
                 
@@ -7953,6 +8071,27 @@ function renderGenreComparisonTable(options) {
         document.head.appendChild(style);
         console.log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
     }
+    
+    // 🔍 LOGS DE VALIDAÇÃO FINAL DA TABELA
+    console.log('%c[GENRE-TABLE] 🔍 VALIDAÇÃO FINAL', 'color:#FFD700;font-weight:bold;');
+    console.log('[GENRE-TABLE] ═══════════════════════════════════════════════════');
+    console.log('[GENRE-TABLE] ✅ Total de linhas renderizadas:', rows.length);
+    console.log('[GENRE-TABLE] ✅ Métricas:', metricsCount);
+    console.log('[GENRE-TABLE] ✅ Bandas:', bandsCount);
+    
+    const userBandKeys = Object.keys(userBands || {});
+    const targetBandKeys = Object.keys(targets?.bands || {});
+    console.log('[GENRE-TABLE] ✅ User bands:', userBandKeys.join(', '));
+    console.log('[GENRE-TABLE] ✅ Target bands:', targetBandKeys.join(', '));
+    
+    // Verificar se alguma banda foi pulada
+    const skippedBands = targetBandKeys.filter(tb => !userBandKeys.includes(tb));
+    if (skippedBands.length > 0) {
+        console.warn('[GENRE-TABLE] ⚠️ Bandas puladas (ausentes no user):', skippedBands.join(', '));
+    } else {
+        console.log('[GENRE-TABLE] ✅ Nenhuma banda pulada - paridade total');
+    }
+    console.log('[GENRE-TABLE] ═══════════════════════════════════════════════════');
     
     console.log('[GENRE-TABLE] ✅ Tabela COMPLETA renderizada:', {
         metricas: metricsCount,
@@ -14543,9 +14682,10 @@ async function displayModalResults(analysis) {
             }
             
             // Fallback: renderização tradicional (sem números ou SecureRenderUtils não disponível)
-            // 🚨 PONTO CRÍTICO: window.enhanceRowLabel PODE TROCAR O LABEL AQUI
+            // � PASSAR metricKey NORMALIZADO para enhanceRowLabel respeitar PROTECTED_KEYS
+            const normalizedKey = normalizeBandName(keyForSource) || keyForSource;
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
-                ? window.enhanceRowLabel(label, keyForSource) 
+                ? window.enhanceRowLabel(label, normalizedKey) 
                 : label;
             
             // 🔍 [LABEL-AUDIT][RENDER] Log DEPOIS do enhanceRowLabel
