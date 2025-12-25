@@ -127,20 +127,33 @@ export class SpectralBandsCalculator {
   }
   
   /**
-   * 📈 Calcular percentuais e normalizar para somar 100%
+   * 📈 Calcular percentuais CORRIGIDO: normalizado por densidade espectral (energia/Hz)
+   * Isso elimina o viés de largura de banda (banda Mid não domina mais artificialmente)
    */
   calculateBandPercentages(bandEnergies, totalEnergy) {
     const percentages = {};
-    let percentageSum = 0;
     
-    // Calcular percentuais brutos
+    // ETAPA 1: Calcular densidade espectral (energia por Hz) para cada banda
+    const energyDensities = {};
+    let totalDensity = 0;
+    
     for (const [key, energy] of Object.entries(bandEnergies)) {
-      const percentage = (energy / totalEnergy) * 100;
+      const band = SPECTRAL_BANDS[key];
+      const bandWidthHz = band.max - band.min;  // Largura em Hz
+      const density = energy / bandWidthHz;      // Energia por Hz
+      energyDensities[key] = density;
+      totalDensity += density;
+    }
+    
+    // ETAPA 2: Calcular percentuais baseados em densidade (não em soma bruta)
+    let percentageSum = 0;
+    for (const [key, density] of Object.entries(energyDensities)) {
+      const percentage = (density / totalDensity) * 100;
       percentages[key] = percentage;
       percentageSum += percentage;
     }
     
-    // Normalizar para somar exatamente 100% (força matemática)
+    // ETAPA 3: Normalizar para somar exatamente 100% (força matemática)
     if (percentageSum > 0) {
       const normalizationFactor = 100.0 / percentageSum;
       for (const key of Object.keys(percentages)) {
@@ -214,15 +227,17 @@ export class SpectralBandsCalculator {
           Math.sqrt(energyLinear / binInfo.binCount) : 
           1e-12;
         
-        // ✅ CORREÇÃO CRÍTICA: energy_db em dBFS ABSOLUTO
-        // Usar valor FIXO negativo baseado no RMS da banda vs total
-        // Garantido: SEMPRE negativo
-        let energyDb = -40 + 10 * Math.log10(Math.max(bandRMS, 1e-12));
+        // ✅ CORREÇÃO: dBFS PADRÃO (Full Scale = 1.0)
+        // Fórmula padrão: dBFS = 20 * log10(amplitude / 1.0)
+        // bandRMS = 1.0 → 0 dBFS
+        // bandRMS = 0.5 → -6 dBFS
+        // bandRMS = 0.1 → -20 dBFS
+        let energyDb = 20 * Math.log10(Math.max(bandRMS, 1e-12));
         
-        // ✅ CLAMP FORÇADO: garantir que NUNCA passe de 0 dBFS
+        // ✅ CLAMP de segurança (matematicamente já deve ser ≤ 0)
         energyDb = Math.min(energyDb, 0);
         
-        console.log(`🔧 [FORÇA_CLAMP] ${band.name}: energyDb=${energyDb.toFixed(1)}dB (sempre ≤ 0)`);        
+        console.log(`🔧 [dBFS_CORRETO] ${band.name}: energyDb=${energyDb.toFixed(1)}dB (escala padrão)`);        
         
         result[key] = {
           energy: energyLinear,
