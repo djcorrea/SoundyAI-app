@@ -1035,7 +1035,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const targetBands = consolidatedData.genreTargets?.bands || {};
     
     // 🎯 MAPEAMENTO DE ALIASES: JSON usa português, código pode usar inglês
-    // ✅ CORREÇÃO BUG A: bass, low_bass e upper_bass são bandas DIFERENTES
     const BAND_ALIAS_MAP = {
       'brilho': 'air',           // JSON portugês → código inglês
       'air': 'air',              // já inglês
@@ -1046,20 +1045,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       'lowMid': 'low_mid',       // camelCase
       'high_mid': 'high_mid',    // snake_case
       'highMid': 'high_mid',     // camelCase
-      // ✅ CORREÇÃO: bass, low_bass e upper_bass são bandas SEPARADAS
-      'bass': 'low_bass',        // 60-120 Hz (backend usa low_bass)
-      'low_bass': 'low_bass',    // 60-120 Hz
-      'upper_bass': 'upper_bass' // 120-250 Hz (separado)
+      'upper_bass': 'bass',      // alias para bass
+      'low_bass': 'bass'         // alias para bass
     };
     
     // 🎯 LABELS LEGÍVEIS PARA CADA BANDA
-    // ✅ CORREÇÃO BUG A: Usar ranges corretos (alinhados com FREQUENCY_RANGES)
     const BAND_LABELS = {
       'sub': 'Sub Bass (20-60Hz)',
-      'bass': 'Bass (60-120Hz)',         // ✅ CORRIGIDO: 60-120 Hz (não 60-150)
-      'low_bass': 'Bass (60-120Hz)',     // ✅ Mesmo range que bass
-      'upper_bass': 'Upper Bass (120-250Hz)', // ✅ ADICIONADO: separado de bass
-      'low_mid': 'Low Mid (250-500Hz)',  // ✅ CORRIGIDO: 250-500 Hz (não 150-500)
+      'bass': 'Bass (60-150Hz)',
+      'low_mid': 'Low Mid (150-500Hz)',
       'mid': 'Mid (500-2kHz)',
       'high_mid': 'High Mid (2-5kHz)',
       'presence': 'Presença (3-6kHz)',

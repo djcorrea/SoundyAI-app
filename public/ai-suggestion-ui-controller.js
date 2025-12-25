@@ -1,9 +1,6 @@
 ﻿// 🎨 AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
 // Sistema de interface futurista para exibição de sugestões educativas
 
-// ✅ LOG DE ASSINATURA - CONFIRMAÇÃO DE ARQUIVO CORRETO
-console.log('✅ SUGGESTIONS_UI_VERSION=FIX_2025-12-25 - AI-SUGGESTION-UI-CONTROLLER CARREGADO');
-
 /**
  * 🎨 Controlador de Interface para Sugestões de IA
  */
@@ -1441,10 +1438,10 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 CORREÇÃO BUG B: MERGE INTELIGENTE (ROWS DA TABELA + AI QUANDO DISPONÍVEL)
+        // 🎯 PATCH: USAR ROWS DA TABELA COMO FONTE DA VERDADE
         // ════════════════════════════════════════════════════════════════════════════════
         if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
-            // 🔧 Buscar analysis de múltiplas fontes
+            // 🔧 CORREÇÃO P1: Buscar analysis de múltiplas fontes
             let analysis = window.currentModalAnalysis || 
                           window.__CURRENT_ANALYSIS__ || 
                           window.lastAnalysisResult ||
@@ -1464,21 +1461,6 @@ class AISuggestionUIController {
             if (analysis && genreTargets) {
                 console.log('[MODAL_VS_TABLE] 🔄 ATIVADO: Usando rows da tabela como fonte');
                 
-                // 🤖 BUSCAR aiSuggestions RECEBIDAS (se existirem)
-                const aiSuggestionsReceived = this.extractAISuggestions(analysis);
-                const hasAI = Array.isArray(aiSuggestionsReceived) && aiSuggestionsReceived.length > 0;
-                
-                console.log(`[AI-MERGE] 🤖 aiSuggestions recebidas: ${hasAI ? aiSuggestionsReceived.length : 0}`);
-                if (hasAI) {
-                    console.log('[AI-MERGE] 📋 Primeira amostra:', {
-                        aiEnhanced: aiSuggestionsReceived[0]?.aiEnhanced,
-                        categoria: aiSuggestionsReceived[0]?.categoria,
-                        hasProblema: !!aiSuggestionsReceived[0]?.problema,
-                        hasCausaProvavel: !!aiSuggestionsReceived[0]?.causaProvavel,
-                        hasPlugin: !!aiSuggestionsReceived[0]?.pluginRecomendado
-                    });
-                }
-                
                 try {
                     // Gerar rows com a MESMA lógica da tabela
                     const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
@@ -1486,7 +1468,8 @@ class AISuggestionUIController {
                     // Filtrar apenas rows problemáticas (severity !== 'OK')
                     let problemRows = rows.filter(r => r.severity !== 'OK');
                     
-                    // 🔒 Aplicar Security Guard nas rows ANTES de converter
+                    // 🔒 CORREÇÃO P1: Aplicar Security Guard nas rows ANTES de converter
+                    // Isso garante que modal e tabela tenham a MESMA quantidade de itens visíveis
                     const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
                     let removedBySecurityGuard = [];
                     
@@ -1506,136 +1489,60 @@ class AISuggestionUIController {
                     console.log(`[MODAL_VS_TABLE]   - Total rows: ${rows.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Rows não-OK: ${problemRows.length}`);
                     console.log(`[MODAL_VS_TABLE]   - Suggestions backend: ${suggestions.length}`);
-                    console.log(`[MODAL_VS_TABLE]   - aiSuggestions recebidas: ${hasAI ? aiSuggestionsReceived.length : 0}`);
                     console.log(`[MODAL_VS_TABLE]   - Security Guard removeu: ${removedBySecurityGuard.length}`);
+                    console.log(`[MODAL_VS_TABLE]   - Ratio 1:1: ${problemRows.length === suggestions.length ? '✅' : '❌'}`);
                     
                     if (problemRows.length > 0) {
-                        // 🔀 MERGE POR ITEM: Row + AI (quando disponível)
-                        const mergedSuggestions = problemRows.map(row => {
-                            // 🔍 Tentar encontrar aiSuggestion correspondente
-                            let matchedAI = null;
-                            
-                            if (hasAI) {
-                                // Normalizar chave do row para match
-                                const rowKey = row.key?.toLowerCase();
-                                const rowType = row.type?.toLowerCase();
-                                const rowCategory = row.category?.toLowerCase();
-                                
-                                // Estratégias de match (ordem de prioridade)
-                                matchedAI = aiSuggestionsReceived.find(ai => {
-                                    const aiMetric = ai.metric?.toLowerCase();
-                                    const aiBand = ai.band?.toLowerCase();
-                                    const aiType = ai.type?.toLowerCase();
-                                    const aiCategory = (ai.categoria || ai.category)?.toLowerCase();
-                                    
-                                    // Match 1: metric exato
-                                    if (aiMetric === rowKey) return true;
-                                    
-                                    // Match 2: band exato
-                                    if (aiBand === rowKey) return true;
-                                    
-                                    // Match 3: type + category
-                                    if (aiType === rowType && aiCategory?.includes(rowCategory)) return true;
-                                    
-                                    // Match 4: problema contém a banda/métrica
-                                    const aiProblema = ai.problema?.toLowerCase() || '';
-                                    if (rowKey && aiProblema.includes(rowKey)) return true;
-                                    
-                                    return false;
-                                });
-                            }
-                            
-                            // ✅ SE ENCONTROU AI: usar campos enriquecidos
-                            if (matchedAI && matchedAI.aiEnhanced === true) {
-                                console.log(`[AI-MERGE] ✅ Match encontrado para ${row.key}: usando IA`);
-                                return {
-                                    // 📊 Dados estruturais do row (garantem consistência com tabela)
-                                    metric: row.key,
-                                    type: row.type,
-                                    category: row.category,
-                                    severity: row.severity,
-                                    severityClass: row.severityClass,
-                                    currentValue: row.value,
-                                    targetValue: row.targetText,
-                                    targetMin: row.min,
-                                    targetMax: row.max,
-                                    delta: row.delta,
-                                    
-                                    // 🤖 Campos enriquecidos pela IA (quando disponível)
-                                    aiEnhanced: true,
-                                    categoria: matchedAI.categoria || row.category,
-                                    nivel: matchedAI.nivel || row.severity,
-                                    problema: matchedAI.problema || row.actionText,
-                                    causaProvavel: matchedAI.causaProvavel || null,
-                                    solucao: matchedAI.solucao || row.actionText,
-                                    pluginRecomendado: matchedAI.pluginRecomendado || null,
-                                    dicaExtra: matchedAI.dicaExtra || null,
-                                    parametros: matchedAI.parametros || null,
-                                    message: matchedAI.problema || `${row.label}: ${row.value.toFixed(2)} dB`,
-                                    action: matchedAI.solucao || row.actionText,
-                                    
-                                    _fromRows: true,
-                                    _aiMerged: true
-                                };
-                            }
-                            
-                            // ❌ SE NÃO ENCONTROU AI: usar fallback do row
-                            console.log(`[AI-MERGE] ⚠️ Sem match AI para ${row.key}: usando fallback`);
-                            return {
-                                metric: row.key,
-                                type: row.type,
-                                category: row.category,
-                                severity: row.severity,
-                                severityClass: row.severityClass,
-                                currentValue: row.value,
-                                targetValue: row.targetText,
-                                targetMin: row.min,
-                                targetMax: row.max,
-                                delta: row.delta,
-                                message: `${row.label}: ${row.value.toFixed(2)} dB`,
-                                action: row.actionText,
-                                problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
-                                solucao: row.actionText,
-                                categoria: row.category,
-                                nivel: row.severity,
-                                aiEnhanced: false,
-                                _fromRows: true,
-                                _aiMerged: false
-                            };
-                        });
+                        // Converter rows para formato de suggestions
+                        const rowsAsSuggestions = problemRows.map(row => ({
+                            metric: row.key,
+                            type: row.type,
+                            category: row.category,
+                            message: `${row.label}: ${row.value.toFixed(2)} dB`,
+                            action: row.actionText,
+                            severity: row.severity,
+                            severityClass: row.severityClass,
+                            currentValue: row.value,
+                            targetValue: row.targetText,
+                            targetMin: row.min,
+                            targetMax: row.max,
+                            delta: row.delta,
+                            problema: `${row.label} está em ${row.value.toFixed(2)} dB`,
+                            solucao: row.actionText,
+                            categoria: row.category,
+                            nivel: row.severity,
+                            // Flag para indicar que veio de rows
+                            _fromRows: true
+                        }));
                         
-                        // 📊 ESTATÍSTICAS DE MERGE
-                        const aiMergedCount = mergedSuggestions.filter(s => s._aiMerged === true).length;
-                        const fallbackCount = mergedSuggestions.filter(s => s._aiMerged === false).length;
+                        console.log('[MODAL_VS_TABLE] ✅ Substituindo suggestions por rows');
+                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', rowsAsSuggestions.length);
                         
-                        console.log('[AI-MERGE] 📊 RESULTADO DO MERGE:');
-                        console.log(`[AI-MERGE]   - Total cards: ${mergedSuggestions.length}`);
-                        console.log(`[AI-MERGE]   - Com IA: ${aiMergedCount}`);
-                        console.log(`[AI-MERGE]   - Fallback: ${fallbackCount}`);
-                        console.log(`[AI-MERGE]   - Coverage IA: ${hasAI ? Math.round((aiMergedCount / mergedSuggestions.length) * 100) : 0}%`);
+                        // 🔄 Agrupar por categoria
+                        const lowEnd = rowsAsSuggestions.filter(s => s.category === 'LOW END');
+                        const mid = rowsAsSuggestions.filter(s => s.category === 'MID');
+                        const high = rowsAsSuggestions.filter(s => s.category === 'HIGH');
+                        const metrics = rowsAsSuggestions.filter(s => s.category === 'METRICS');
                         
-                        // ✅ GUARD DE QUALIDADE: Verificar consistência
-                        console.log('[QUALITY-GUARD] 🔍 Validando consistência:');
-                        console.log(`[QUALITY-GUARD]   - problemRows: ${problemRows.length}`);
-                        console.log(`[QUALITY-GUARD]   - mergedSuggestions: ${mergedSuggestions.length}`);
-                        console.log(`[QUALITY-GUARD]   - Match 1:1: ${problemRows.length === mergedSuggestions.length ? '✅' : '❌ FALHA!'}`);
+                        console.log('[MODAL_VS_TABLE] 📊 Agrupamento:');
+                        console.log(`[MODAL_VS_TABLE]   - LOW END: ${lowEnd.length}`);
+                        console.log(`[MODAL_VS_TABLE]   - MID: ${mid.length}`);
+                        console.log(`[MODAL_VS_TABLE]   - HIGH: ${high.length}`);
+                        console.log(`[MODAL_VS_TABLE]   - METRICS: ${metrics.length}`);
                         
-                        if (problemRows.length !== mergedSuggestions.length) {
-                            console.error('[QUALITY-GUARD] ❌ CRÍTICO: Contagem divergente!');
-                        }
-                        
-                        // Usar merged suggestions
-                        suggestions = mergedSuggestions;
+                        // Usar rowsAsSuggestions ao invés de suggestions
+                        suggestions = rowsAsSuggestions;
                         
                         // Log de bandas missing
                         const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-                        const renderedBands = mergedSuggestions.filter(s => s.type === 'band').map(s => s.metric);
+                        const renderedBands = rowsAsSuggestions.filter(s => s.type === 'band').map(s => s.metric);
                         const missingBands = expectedBands.filter(b => !renderedBands.includes(b));
                         
                         if (missingBands.length > 0) {
                             console.warn(`[MODAL_VS_TABLE] ⚠️ Bandas missing: ${missingBands.join(', ')}`);
+                            console.warn('[MODAL_VS_TABLE] ⚠️ Essas bandas não aparecerão no modal');
                         } else {
-                            console.log('[MODAL_VS_TABLE] ✅ Todas as bandas presentes');
+                            console.log('[MODAL_VS_TABLE] ✅ Todas as bandas estão presentes');
                         }
                     } else {
                         console.log('[MODAL_VS_TABLE] ✅ Nenhum problema detectado (todas as rows OK)');
@@ -1728,25 +1635,6 @@ class AISuggestionUIController {
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
         
         const cardsHtml = validatedSuggestions.map((suggestion, index) => {
-            // ✅ VALIDAÇÃO E: Assert de enriquecimento
-            if (suggestion.aiEnhanced === true) {
-                const hasCausa = suggestion.causaProvavel && 
-                               !suggestion.causaProvavel.includes('não analisada') && 
-                               !suggestion.causaProvavel.includes('processamento');
-                const hasPlugin = suggestion.pluginRecomendado && 
-                                 suggestion.pluginRecomendado !== 'Não especificado';
-                
-                if (!hasCausa || !hasPlugin) {
-                    console.warn(`[VALIDATION] ⚠️ Card ${index} marcado aiEnhanced mas campos incompletos:`, {
-                        metric: suggestion.metric,
-                        hasCausa,
-                        hasPlugin,
-                        causaProvavel: suggestion.causaProvavel,
-                        pluginRecomendado: suggestion.pluginRecomendado
-                    });
-                }
-            }
-            
             if (isAIEnriched) {
                 return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
@@ -1756,72 +1644,6 @@ class AISuggestionUIController {
         
         this.elements.aiContent.innerHTML = cardsHtml;
         console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
-        
-        // ✅ VALIDAÇÃO E: Assert contagem tabela vs modal
-        setTimeout(() => {
-            const tableRows = document.querySelectorAll('.metric-row.critical, .metric-row.high, .metric-row.caution');
-            const modalCards = document.querySelectorAll('.ai-suggestion-card');
-            const match = tableRows.length === modalCards.length;
-            
-            console.group('[VALIDATION] 🔢 Contagem Tabela vs Modal');
-            console.log(`Tabela problemáticas: ${tableRows.length}`);
-            console.log(`Modal cards: ${modalCards.length}`);
-            console.log(`Match 1:1: ${match ? '✅' : '❌ FALHOU'}`);
-            
-            if (!match) {
-                console.error('❌ BUG DETECTADO: Contagens divergem!');
-                console.log('Tabela métricas:', Array.from(tableRows).map(r => r.dataset.metric));
-                console.log('Modal cards:', Array.from(modalCards).map((c, i) => `Card ${i}`));
-            }
-            console.groupEnd();
-        }, 500);
-    }
-    
-    /**
-     * 🎯 HELPER: Obter range de frequência correto (prioriza genreTargets sobre hardcode)
-     * @param {string} bandKey - Chave da banda (ex: 'bass', 'lowMid')
-     * @param {object} genreTargets - Targets do gênero
-     * @returns {string} - Range formatado (ex: '60-120 Hz')
-     */
-    getBandFrequencyRange(bandKey, genreTargets = null) {
-        // 🎯 PRIORIDADE 1: Buscar em genreTargets.bands (fonte da verdade)
-        if (genreTargets && genreTargets.bands && genreTargets.bands[bandKey]) {
-            const bandTarget = genreTargets.bands[bandKey];
-            if (bandTarget.range_hz) {
-                console.log(`[RANGE-HELPER] ✅ Range de ${bandKey} via genreTargets: ${bandTarget.range_hz}`);
-                return bandTarget.range_hz;
-            }
-        }
-        
-        // 🎯 PRIORIDADE 2: Buscar em spectral_bands (estrutura alternativa)
-        if (genreTargets && genreTargets.spectral_bands && genreTargets.spectral_bands[bandKey]) {
-            const bandTarget = genreTargets.spectral_bands[bandKey];
-            if (bandTarget.range_hz) {
-                console.log(`[RANGE-HELPER] ✅ Range de ${bandKey} via spectral_bands: ${bandTarget.range_hz}`);
-                return bandTarget.range_hz;
-            }
-        }
-        
-        // 🎯 FALLBACK: Usar FREQUENCY_RANGES (agora corrigido)
-        const FREQUENCY_RANGES = {
-            sub: '20-60 Hz',
-            bass: '60-120 Hz',           // ✅ CORRIGIDO
-            low_bass: '60-120 Hz',       // ✅ CORRIGIDO
-            upper_bass: '120-250 Hz',    // ✅ SEPARADO
-            lowMid: '250-500 Hz',
-            low_mid: '250-500 Hz',
-            mid: '500-2000 Hz',
-            highMid: '2000-5000 Hz',
-            high_mid: '2000-5000 Hz',
-            presence: '3000-6000 Hz',
-            presenca: '3000-6000 Hz',
-            air: '6000-20000 Hz',
-            brilho: '6000-20000 Hz'
-        };
-        
-        const fallbackRange = FREQUENCY_RANGES[bandKey] || 'N/A';
-        console.log(`[RANGE-HELPER] ⚠️ Range de ${bandKey} via fallback: ${fallbackRange}`);
-        return fallbackRange;
     }
     
     /**
@@ -1974,11 +1796,7 @@ class AISuggestionUIController {
                             ? this.buildDefaultProblemMessage(suggestion)
                             : suggestion.message || 'Problema não especificado');
         
-        // ✅ CORREÇÃO D: NÃO mostrar "Causa não analisada" se aiEnhanced = true
-        const causaProvavel = suggestion.causaProvavel || 
-                             (suggestion.aiEnhanced === true 
-                                 ? 'Análise em processamento...' 
-                                 : 'Causa não analisada');
+        const causaProvavel = suggestion.causaProvavel || 'Causa não analisada';
         
         const solucao = suggestion.solucao || 
                        (suggestion.aiEnhanced === false && suggestion.recommendation

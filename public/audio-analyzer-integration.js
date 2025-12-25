@@ -3,9 +3,6 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// ✅ LOG DE ASSINATURA - CONFIRMAÇÃO DE ARQUIVO CORRETO
-console.log('✅ ANALYZER_INTEGRATION_VERSION=FIX_2025-12-25 - AUDIO-ANALYZER-INTEGRATION CARREGADO');
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🛡️ SAFE STATE MACHINE ACCESSOR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -6611,11 +6608,10 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         return rows;
     }
     
-    // 🎯 CORREÇÃO C: NÃO colapsar aliases - preservar chaves específicas
-    // ❌ ERRO ANTERIOR: low_bass → bass causava targetValue undefined
-    // ✅ CORREÇÃO: Cada banda mantém sua chave para lookup correto no genreTargets
+    // 🎯 ALIAS MAP: upper_bass → bass (não aparece como key final)
     const BAND_ALIAS_MAP = {
-        // Mantido apenas para compatibilidade legado - NÃO usar para colapsar keys
+        'upper_bass': 'bass',
+        'low_bass': 'bass',
         'low_mid': 'lowMid',
         'high_mid': 'highMid',
         'presenca': 'presence',
@@ -6623,16 +6619,14 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     };
     
     // 🎯 LISTA CANÔNICA DE BANDAS (ordem LOW END → MID → HIGH)
-    // ✅ CORREÇÃO B: Labels SEM range hardcoded - será adicionado dinamicamente do genreTarget
     const CANONICAL_BANDS = [
-        { key: 'sub', name: 'Sub', emoji: '🔉', category: 'LOW END' },
-        { key: 'low_bass', name: 'Bass', emoji: '🔊', category: 'LOW END' },
-        { key: 'upper_bass', name: 'Upper Bass', emoji: '🔊', category: 'LOW END' },
-        { key: 'lowMid', name: 'Low Mid', emoji: '🎵', category: 'MID' },
-        { key: 'mid', name: 'Mid', emoji: '🎵', category: 'MID' },
-        { key: 'highMid', name: 'High Mid', emoji: '🎸', category: 'HIGH' },
-        { key: 'presence', name: 'Presença', emoji: '💎', category: 'HIGH' },
-        { key: 'air', name: 'Brilho', emoji: '✨', category: 'HIGH' }
+        { key: 'sub', label: '🔉 Sub (20-60 Hz)', category: 'LOW END' },
+        { key: 'bass', label: '🔊 Bass (60-150 Hz)', category: 'LOW END' },
+        { key: 'lowMid', label: '🎵 Low Mid (150-500 Hz)', category: 'MID' },
+        { key: 'mid', label: '🎵 Mid (500-2k Hz)', category: 'MID' },
+        { key: 'highMid', label: '🎸 High Mid (2k-5k Hz)', category: 'HIGH' },
+        { key: 'presence', label: '💎 Presença (5k-10k Hz)', category: 'HIGH' },
+        { key: 'air', label: '✨ Brilho (10k-20k Hz)', category: 'HIGH' }
     ];
     
     // 🎯 HELPER: Calcular severidade (mesma lógica da tabela)
@@ -6800,21 +6794,26 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     CANONICAL_BANDS.forEach(bandInfo => {
         const bandKey = bandInfo.key;
         
-        // 🔍 Buscar target DIRETAMENTE (sem alias - cada banda é única)
+        // 🔍 Buscar target (com suporte a alias)
         let targetBand = targetBands[bandKey];
-        
-        // ✅ CORREÇÃO C: Suporte a nomes alternativos SEM colapsar
         if (!targetBand) {
-            const altNames = {
-                'lowMid': 'low_mid',
-                'highMid': 'high_mid',
-                'presence': 'presenca',
-                'air': 'brilho'
+            // Buscar por alias reverso (ex: 'bass' pode estar como 'low_bass' no target)
+            const reverseAliases = {
+                'bass': ['low_bass', 'upper_bass'],
+                'lowMid': ['low_mid'],
+                'highMid': ['high_mid'],
+                'presence': ['presenca'],
+                'air': ['brilho']
             };
-            const altKey = altNames[bandKey];
-            if (altKey && targetBands[altKey]) {
-                targetBand = targetBands[altKey];
-                console.log(`[BUILD_ROWS] 🔄 Alt name: ${bandKey} ← ${altKey}`);
+            const aliases = reverseAliases[bandKey];
+            if (aliases) {
+                for (const alias of aliases) {
+                    if (targetBands[alias]) {
+                        targetBand = targetBands[alias];
+                        console.log(`[BUILD_ROWS] 🔄 Alias encontrado: ${bandKey} ← ${alias}`);
+                        break;
+                    }
+                }
             }
         }
         
@@ -6824,21 +6823,15 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             return;
         }
         
-        // 🔍 Buscar valor do usuário DIRETAMENTE
+        // 🔍 Buscar valor do usuário
         let bandData = userBands[bandKey];
-        
-        // Suporte a nomes alternativos no userBands
-        if (!bandData) {
-            const altNames = {
-                'lowMid': 'low_mid',
-                'highMid': 'high_mid',
-                'presence': 'presenca',
-                'air': 'brilho'
-            };
-            const altKey = altNames[bandKey];
-            if (altKey && userBands[altKey]) {
-                bandData = userBands[altKey];
-                console.log(`[BUILD_ROWS] 🔄 User alt: ${bandKey} ← ${altKey}`);
+        if (!bandData && reverseAliases[bandKey]) {
+            for (const alias of reverseAliases[bandKey]) {
+                if (userBands[alias]) {
+                    bandData = userBands[alias];
+                    console.log(`[BUILD_ROWS] 🔄 User alias: ${bandKey} ← ${alias}`);
+                    break;
+                }
             }
         }
         
@@ -6884,16 +6877,10 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         // Calcular severidade
         const result = calcSeverity(energyDb, target, null, { targetRange: { min, max } });
         
-        // ✅ CORREÇÃO B: Construir label com range_hz do genreTarget (FONTE DA VERDADE)
-        const rangeHz = targetBand.range_hz || `${Math.round(targetBand.min || 0)}-${Math.round(targetBand.max || 0)}`;
-        const labelWithRange = `${bandInfo.emoji} ${bandInfo.name} (${rangeHz} Hz)`;
-        
-        console.log(`[BUILD_ROWS] 📊 ${bandKey}: label="${labelWithRange}" target_range=[${min.toFixed(1)}, ${max.toFixed(1)}]`);
-        
         rows.push({
             key: bandKey,
             type: 'band',
-            label: labelWithRange,  // ✅ Label com range correto
+            label: bandInfo.label,
             value: energyDb,
             targetText,
             min,
@@ -6903,8 +6890,7 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: bandInfo.category,
-            rangeHz: rangeHz  // ✅ ADICIONAL: range_hz para uso no modal
+            category: bandInfo.category
         });
         
         bandsProcessed++;
@@ -6917,23 +6903,6 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     console.log(`[BUILD_ROWS]   - Bandas processadas: ${bandsProcessed}/7`);
     console.log(`[BUILD_ROWS]   - Bandas missing: ${bandsMissing.length}`, bandsMissing);
     console.log(`[BUILD_ROWS]   - Rows não-OK: ${rows.filter(r => r.severity !== 'OK').length}`);
-    
-    // ✅ VALIDAÇÃO E: Assert de consistência range Hz
-    console.group('[VALIDATION] 📊 Validando ranges Hz das bandas');
-    rows.filter(r => r.type === 'band').forEach(row => {
-        const bandTarget = targetBands[row.key];
-        if (bandTarget && bandTarget.range_hz) {
-            const rangeInLabel = row.label.match(/\((.*?)\s*Hz\)/)?.[1];
-            const rangeInTarget = bandTarget.range_hz;
-            const match = rangeInLabel === rangeInTarget;
-            console.log(`${match ? '✅' : '❌'} ${row.key}: label="${rangeInLabel}" vs target="${rangeInTarget}"`);
-            if (!match) {
-                console.error(`❌ BUG DETECTADO: Range divergente em ${row.key}!`);
-            }
-        }
-    });
-    console.groupEnd();
-    
     console.groupEnd();
     
     return rows;
