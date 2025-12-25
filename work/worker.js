@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
+import logger from "./lib/logger.js";
 
 // ---------- Worker Health Monitoring ----------
 let workerHealthy = true;
@@ -21,15 +22,14 @@ function updateWorkerHealth() {
 setInterval(() => {
   const timeSinceLastCheck = Date.now() - lastHealthCheck;
   if (timeSinceLastCheck > 120000) { // 2 minutos sem health check
-    console.error(`🚨 Worker unhealthy: ${timeSinceLastCheck}ms sem update`);
+    logger.error(`Worker unhealthy: ${timeSinceLastCheck}ms sem update`);
     workerHealthy = false;
   }
 }, 30000);
 
 // Tratamento de exceções não capturadas
 process.on('uncaughtException', (err) => {
-  console.error('🚨 UNCAUGHT EXCEPTION - Worker crashing:', err.message);
-  console.error('📜 Stack:', err.stack);
+  logger.error('UNCAUGHT EXCEPTION - Worker crashing:', err.message, err.stack);
   
   // Tentar cleanup de jobs órfãos antes de sair
   client.query(`
@@ -39,15 +39,14 @@ process.on('uncaughtException', (err) => {
         updated_at = NOW()
     WHERE status = 'processing'
   `).catch(cleanupErr => {
-    console.error('❌ Failed to cleanup jobs on crash:', cleanupErr);
+    logger.error('Failed to cleanup jobs on crash:', cleanupErr);
   }).finally(() => {
     process.exit(1);
   });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 UNHANDLED REJECTION:', reason);
-  console.error('📍 Promise:', promise);
+  logger.error('UNHANDLED REJECTION:', reason);
   // Não mata o worker imediatamente, mas registra o problema
   workerHealthy = false;
 });
@@ -62,14 +61,10 @@ let processAudioComplete = null;
 try {
   const imported = await import("../api/audio/pipeline-complete.js");
   processAudioComplete = imported.processAudioComplete;
-  console.log("✅ Pipeline completo carregado com sucesso!");
+  logger.info("Pipeline completo carregado");
 } catch (err) {
-  console.error("❌ CRÍTICO: Falha ao carregar pipeline:", err.message);
-  console.log("🔍 Debug info:");
-  console.log("   import.meta.url:", import.meta.url);
-  console.log("   process.cwd():", process.cwd());
-  console.log("   __dirname equivalent:", path.dirname(fileURLToPath(import.meta.url)));
-  process.exit(1); // encerra só se pipeline não existir
+  logger.error("CRÍTICO: Falha ao carregar pipeline:", err.message, { cwd: process.cwd() });
+  process.exit(1);
 }
 
 // ---------- Importar enrichment de IA ----------
@@ -78,10 +73,9 @@ let enrichSuggestionsWithAI = null;
 try {
   const imported = await import("./lib/ai/suggestion-enricher.js");
   enrichSuggestionsWithAI = imported.enrichSuggestionsWithAI;
-  console.log("✅ Enrichment de IA carregado com sucesso!");
+  logger.info("AI enrichment carregado");
 } catch (err) {
-  console.warn("⚠️ Enrichment de IA não disponível:", err.message);
-  // Não é crítico - worker funciona sem IA
+  logger.warn("AI enrichment não disponível:", err.message);
 }
 
 // ---------- Conectar ao Postgres ----------
@@ -91,14 +85,9 @@ const client = new Client({
   ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
 });
 await client.connect();
-console.log("✅ Worker conectado ao Postgres");
+logger.info("Worker conectado ao Postgres");
 
-// ---------- Configuração Backblaze ----------
-console.log("🔍 Debug B2 Config:");
-console.log("   B2_KEY_ID:", process.env.B2_KEY_ID);
-console.log("   B2_APP_KEY:", process.env.B2_APP_KEY?.substring(0,10) + "...");
-console.log("   B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
-console.log("   B2_ENDPOINT:", process.env.B2_ENDPOINT);
+// Configuração Backblaze (sem logs de debug)
 
 const s3 = new S3Client({
   endpoint: process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com",
@@ -113,10 +102,8 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
 // ---------- Baixar arquivo do bucket ----------
 async function downloadFileFromBucket(key) {
-  console.log(`🔍 Tentando baixar: ${key}`);
-  console.log(`🔍 Bucket: ${BUCKET_NAME}`);
-  
-  const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
+  logger.debug(`Baixando: ${key}`);
+  const localPath = path.join("/tmp", path.basename(key));
   return new Promise(async (resolve, reject) => {
     try {
       const write = fs.createWriteStream(localPath);
@@ -133,19 +120,17 @@ async function downloadFileFromBucket(key) {
 
       read.on("error", (err) => {
         clearTimeout(timeout);
-        console.error(`❌ Erro no stream de leitura para ${key}:`, err.message);
-        console.error(`❌ Código do erro:`, err.code);
-        console.error(`❌ Status:`, err.statusCode);
+        logger.error(`Stream leitura erro para ${key}:`, err.message, { code: err.code });
         reject(err);
       });
       write.on("error", (err) => {
         clearTimeout(timeout);
-        console.error(`❌ Erro no stream de escrita para ${key}:`, err.message);
+        logger.error(`Stream escrita erro para ${key}:`, err.message);
         reject(err);
       });
       write.on("finish", () => {
         clearTimeout(timeout);
-        console.log(`✅ Download concluído para ${key}`);
+        logger.debug(`Download concluído: ${key}`);
         resolve(localPath);
       });
 
@@ -163,17 +148,11 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
   
   try {
     const fileBuffer = await fs.promises.readFile(localFilePath);
-    console.log(`📊 Arquivo lido: ${fileBuffer.length} bytes`);
-
     const t0 = Date.now();
 
-    // Normalizar tanto o "job" antigo quanto o novo "options"
-    // 🎯 Determine if we're in pure genre mode
     const isGenreMode = jobOrOptions.mode === "genre";
-
     let resolvedGenre = null;
 
-    // 🎯 MODO GÊNERO: sem fallback "default"
     if (isGenreMode) {
         resolvedGenre =
             jobOrOptions.genre ||
@@ -185,27 +164,16 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         }
 
         if (!resolvedGenre) {
-            console.error("[GENRE-ERROR] Modo gênero, mas gênero ausente:", jobOrOptions);
-            resolvedGenre = null; // NÃO usar default
+            logger.error("[GENRE-ERROR] Modo gênero sem gênero válido", { mode: jobOrOptions.mode, genre: jobOrOptions.genre });
+            resolvedGenre = null;
         }
     } else {
-        // Para modos diferentes de gênero, pode usar fallback antigo
         resolvedGenre =
             jobOrOptions.genre ||
             jobOrOptions.data?.genre ||
             jobOrOptions.genre_detected ||
             "default";
     }
-
-    // 🔥 LOG CIRÚRGICO: Rastrear genre ANTES de entrar no pipeline
-    console.log('[GENRE-DEEP-TRACE][WORKER-PRE-PIPELINE]', {
-      ponto: 'analyzeAudioWithPipeline - ANTES de criar pipelineOptions',
-      'jobOrOptions.genre': jobOrOptions.genre,
-      'jobOrOptions.data?.genre': jobOrOptions.data?.genre,
-      'resolvedGenre': resolvedGenre,
-      'isGenreMode': isGenreMode,
-      'mode': jobOrOptions.mode
-    });
 
     const pipelineOptions = {
       // ID do job
@@ -237,45 +205,24 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         jobOrOptions.is_reference_base ??
         false,
 
-      // 🎯 CRÍTICO: Propagar planContext para o pipeline
       planContext:
         jobOrOptions.planContext ||
         jobOrOptions.data?.planContext ||
         null,
     };
 
-    // 🔥 LOG CIRÚRGICO: Rastrear genre DEPOIS de criar pipelineOptions
-    console.log('[GENRE-DEEP-TRACE][WORKER-POST-OPTIONS]', {
-      ponto: 'analyzeAudioWithPipeline - DEPOIS de criar pipelineOptions',
-      'pipelineOptions.genre': pipelineOptions.genre,
-      'pipelineOptions.genreTargets': pipelineOptions.genreTargets ? Object.keys(pipelineOptions.genreTargets) : null,
-      'pipelineOptions.mode': pipelineOptions.mode
-    });
-
-    console.log("[DEBUG-GENRE] pipelineOptions FINAL:", pipelineOptions.genre, pipelineOptions.genreTargets);
-    console.log('[GENRE-FLOW][PIPELINE] ▶ Enviando options para processAudioComplete:', pipelineOptions);
-
-    // 🚨 AUDIT LOG OBRIGATÓRIO: Rastrear genre antes de entrar no pipeline
-    console.log('[AUDIT-WORKER → PIPELINE] Enviando para pipeline:', {
-      genre: pipelineOptions.genre,
-      genreTargets: pipelineOptions.genreTargets,
-      mode: pipelineOptions.mode,
-      jobId: pipelineOptions.jobId
-    });
-
-    // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
     const pipelinePromise = processAudioComplete(fileBuffer, filename, pipelineOptions);
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         reject(new Error(`Pipeline timeout após 3 minutos para: ${filename}`));
-      }, 180000); // 3 minutos (reduzido de 5)
+      }, 180000);
     });
 
-    console.log(`⚡ Iniciando processamento de ${filename}...`);
+    logger.debug(`Iniciando pipeline: ${filename}`);
     const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
     const totalMs = Date.now() - t0;
     
-    console.log(`✅ Pipeline concluído em ${totalMs}ms`);
+    logger.info(`Pipeline concluído: ${filename}`, { duration_ms: totalMs });
 
     finalJSON.performance = {
       ...(finalJSON.performance || {}),
@@ -289,7 +236,7 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
     return finalJSON;
     
   } catch (error) {
-    console.error(`❌ Erro crítico no pipeline para ${filename}:`, error.message);
+    logger.error(`Erro crítico no pipeline: ${filename}`, error.message, { stack: error.stack });
     
     // 🔥 RETORNO DE SEGURANÇA - NÃO MATA O WORKER
     return {
@@ -332,33 +279,12 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
 
 // ---------- Processar 1 job ----------
 async function processJob(job) {
-  console.log("📥 Processando job:", job.id);
-
-  console.log('\n\n===== [DEBUG-WORKER-JOB.DATA] Recebido no Worker (WORK) =====');
-  console.dir(job.data, { depth: 10 });
-  console.log('===============================================================\n\n');
-
-  console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
-  console.dir(job.data, { depth: 10 });
-  
-  console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
-  console.dir(job.data, { depth: 10 });
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] FileKey recebido:", job.data?.fileKey);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] JobId recebido:", job.data?.jobId);
+  logger.info(`Processando job: ${job.id.substring(0,8)}`, { mode: job.data?.mode, genre: job.data?.genre });
 
   let localFilePath = null;
   let heartbeatInterval = null;
 
   try {
-    // 🔥 ATUALIZAR STATUS + VERIFICAR SE FUNCIONOU
-    const updateResult = await client.query(
-      "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
-      ["processing", job.id]
-    );
     
     if (updateResult.rowCount === 0) {
       throw new Error(`Falha ao atualizar job ${job.id} para status 'processing'`);
@@ -427,11 +353,11 @@ async function processJob(job) {
         extractedAnalysisType = parsed.analysisType || job.mode;
         extractedReferenceStage = parsed.referenceStage;
       } catch (e) {
-        console.error('[WORKER] ❌ Falha ao fazer parse de job.data:', e.message);
+        logger.error('[WORKER] Parse error job.data:', e.message);
         extractedAnalysisType = job.mode || 'genre';
       }
     } else {
-      console.error('[WORKER] ❌ job.data está null ou inválido');
+      logger.error('[WORKER] job.data null ou inválido');
       extractedAnalysisType = job.mode || 'genre';
     }
     
@@ -447,35 +373,21 @@ async function processJob(job) {
     const isGenreMode = finalAnalysisType === 'genre';
     const isReferenceMode = finalAnalysisType === 'reference';
     
-    // 📊 LOG DE MODO (para debug)
-    console.log(isReferenceMode ? '[REFERENCE-MODE]' : '[GENRE-MODE]', 'finalAnalysisType:', finalAnalysisType);
-    
     if (isGenreMode) {
-      // APENAS analysisType='genre' exige genre obrigatório
       if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
-        console.error('[WORKER-VALIDATION] ❌ CRÍTICO: Genre ausente em analysisType=genre', {
+        logger.error('[WORKER-VALIDATION] Genre ausente em analysisType=genre', {
           extractedGenre,
           analysisType: finalAnalysisType,
           jobId: job.id.substring(0, 8)
         });
         throw new Error(`Job ${job.id} - analysisType='genre' requer genre válido`);
       }
-      
-      console.log('[WORKER-VALIDATION] ✅ Genre válido para mode genre:', {
-        genre: extractedGenre
-      });
-    } else if (isReferenceMode) {
-      // Reference mode: Genre é OPCIONAL (não validar)
-      console.log('[WORKER-VALIDATION] ℹ️ Reference mode - genre opcional:', {
-        referenceStage: finalReferenceStage,
-        genrePresent: !!extractedGenre
-      });
+      logger.debug('[WORKER-VALIDATION] Genre válido:', { genre: extractedGenre });
     }
     
     const finalGenre = extractedGenre ? extractedGenre.trim() : null;
     const finalGenreTargets = extractedGenreTargets || null;
 
-    // 🎯 EXTRAIR planContext do job.data (CORREÇÃO CRÍTICA PARA PLANOS)
     let extractedPlanContext = null;
     if (job.data && typeof job.data === 'object') {
       extractedPlanContext = job.data.planContext;
@@ -484,7 +396,7 @@ async function processJob(job) {
         const parsed = JSON.parse(job.data);
         extractedPlanContext = parsed.planContext;
       } catch (e) {
-        console.warn('[PLAN-CONTEXT][WORKER] ⚠️ Falha ao extrair planContext:', e.message);
+        logger.debug('[PLAN-CONTEXT] Falha ao extrair planContext:', e.message);
       }
     }
 
@@ -543,23 +455,18 @@ async function processJob(job) {
     console.log('[AUDIT-WORKER] options.mode:', options.mode);
     console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // ✅ DETECÇÃO DO MODO COMPARISON
     if (job.mode === "comparison") {
-      console.log("🎧 [Worker] Iniciando análise comparativa entre faixas...");
+      logger.info("Iniciando análise comparativa");
 
-      // Baixar arquivo de referência
       const refPath = await downloadFileFromBucket(job.reference_file_key);
-      console.log(`🎵 Arquivo de referência pronto: ${refPath}`);
+      logger.debug(`Arquivo de referência pronto: ${refPath}`);
 
-      // Analisar ambos os arquivos
       const userMetrics = await analyzeAudioWithPipeline(localFilePath, job);
       const refMetrics = await analyzeAudioWithPipeline(refPath, job);
 
-      // Importar função de comparação
       const { compareMetrics } = await import("../api/audio/pipeline-complete.js");
       const comparison = await compareMetrics(userMetrics, refMetrics);
 
-      // 🛡️ BLINDAGEM: Forçar genre correto no modo comparison
       const forcedGenre = options.genre || job.data?.genre;
 
       const comparisonResult = {
@@ -583,19 +490,15 @@ async function processJob(job) {
         }
       };
 
-      // 🔒 GARANTIA: Validar campos obrigatórios antes de salvar no banco
       if (!Array.isArray(comparisonResult.suggestions)) {
-        console.error("[SUGGESTIONS_ERROR] suggestions ausente na comparação - aplicando fallback");
+        logger.warn("[SUGGESTIONS_ERROR] suggestions ausente - aplicando fallback");
         comparisonResult.suggestions = [];
       }
       if (!Array.isArray(comparisonResult.aiSuggestions)) {
-        console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente na comparação - aplicando fallback");
+        logger.warn("[SUGGESTIONS_ERROR] aiSuggestions ausente - aplicando fallback");
         comparisonResult.aiSuggestions = [];
       }
 
-      console.log('[GENRE-COMPARISON] Genre forçado no resultado comparativo:', forcedGenre);
-
-      // 🛡️ BLINDAGEM DEFINITIVA: Garantir genre correto ANTES do UPDATE (modo comparison)
       const originalPayloadComparison = job.data || {};
       const safeGenreComparison = 
         (forcedGenre && forcedGenre !== 'default' && forcedGenre !== null)
@@ -606,20 +509,11 @@ async function processJob(job) {
             comparisonResult.data?.genre ||
             'default';
 
-      // Forçar em todas as estruturas
       comparisonResult.genre = safeGenreComparison;
       if (comparisonResult.summary) comparisonResult.summary.genre = safeGenreComparison;
       if (comparisonResult.metadata) comparisonResult.metadata.genre = safeGenreComparison;
       if (comparisonResult.suggestionMetadata) comparisonResult.suggestionMetadata.genre = safeGenreComparison;
 
-      console.log("[GENRE-WORKER-BEFORE-SAVE][COMPARISON]", {
-        incomingGenre: comparisonResult.genre,
-        jobDataGenre: job.data?.genre,
-        payloadGenre: originalPayloadComparison?.genre,
-        safeGenreComparison: safeGenreComparison
-      });
-
-      // Salvar resultado comparativo
       const finalUpdateResult = await client.query(
         `UPDATE jobs SET result = $1, results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
         [JSON.stringify(comparisonResult), job.id]

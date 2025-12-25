@@ -1,8 +1,6 @@
 // 🎵 DOMINANT FREQUENCIES - Análise de Picos Espectrais
 // Implementação para identificar frequências dominantes no espectro
 
-import { logAudio } from '../error-handling.js';
-
 /**
  * 🎯 Configurações para análise de frequências dominantes
  */
@@ -65,10 +63,6 @@ export class DominantFrequencyAnalyzer {
       }));
       
     } catch (error) {
-      logAudio('dominant_freq', 'frame_error', { 
-        frame: frameIndex, 
-        error: error.message 
-      });
       return [];
     }
   }
@@ -265,7 +259,6 @@ export function serializeDominantFrequencies(frequencies) {
 export function calculateDominantFrequencies(magnitudeSpectrum, sampleRate, fftSize) {
   try {
     if (!magnitudeSpectrum || !Array.isArray(magnitudeSpectrum) || magnitudeSpectrum.length === 0) {
-      console.warn('calculateDominantFrequencies: Spectrum inválido');
       return {
         value: null,
         unit: 'Hz',
@@ -323,5 +316,3 @@ export function calculateDominantFrequencies(magnitudeSpectrum, sampleRate, fftS
     };
   }
 }
-
-console.log('🎵 Dominant Frequency Analyzer carregado - Análise de picos espectrais');

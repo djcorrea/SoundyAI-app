@@ -11,8 +11,6 @@ class SpectrumAnalyzer {
     this.fftSize = fftSize;
     this.hopSize = hopSize;
     this.stft = new STFTEngine(fftSize, hopSize, windowType);
-    
-    console.log(`🌈 Spectrum Analyzer: FFT=${fftSize}, hop=${hopSize}, window=${windowType}`);
   }
 
   /**
@@ -22,7 +20,6 @@ class SpectrumAnalyzer {
    * @returns {Object} Features espectrais
    */
   analyze(signal, sampleRate = 48000) {
-    console.log('🌈 Executando análise espectral...');
     const startTime = Date.now();
     
     // STFT
@@ -48,8 +45,6 @@ class SpectrumAnalyzer {
     const envelopeFeatures = this.calculateSpectralEnvelope(powerSpectrum, freqBins);
     
     const processingTime = Date.now() - startTime;
-    
-    console.log(`✅ Análise espectral concluída em ${processingTime}ms`);
     
     return {
       // Features básicas
