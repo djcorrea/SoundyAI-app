@@ -3,6 +3,9 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// ✅ LOG DE ASSINATURA - CONFIRMAÇÃO DE ARQUIVO CORRETO
+console.log('✅ ANALYZER_INTEGRATION_VERSION=FIX_2025-12-25 - AUDIO-ANALYZER-INTEGRATION CARREGADO');
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🛡️ SAFE STATE MACHINE ACCESSOR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

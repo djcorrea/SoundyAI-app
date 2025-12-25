@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validação de Correções - Bugs Críticos</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ffff;
+            text-align: center;
+            border-bottom: 2px solid #00ffff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #ffff00;
+            margin-top: 30px;
+        }
+        .test-section {
+            background: #0a0a0a;
+            border: 1px solid #00ff00;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .pass {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .fail {
+            color: #ff0000;
+            font-weight: bold;
+        }
+        .info {
+            color: #ffff00;
+        }
+        .log-output {
+            background: #000;
+            border: 1px solid #333;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #00ffff;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #00ff00;
+        }
+        th {
+            background: #00ff00;
+            color: #000;
+            padding: 10px;
+            text-align: left;
+        }
+        td {
+            padding: 8px;
+        }
+        .metric-match {
+            color: #00ff00;
+        }
+        .metric-mismatch {
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 VALIDAÇÃO DE CORREÇÕES - BUGS CRÍTICOS</h1>
+        
+        <div class="test-section">
+            <h2>PARTE 0: Confirmação de Arquivos Carregados</h2>
+            <button onclick="testParte0()">Executar Teste PARTE 0</button>
+            <div id="parte0-output" class="log-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>PARTE 1: aiSuggestions Usado Quando Existe</h2>
+            <button onclick="testParte1()">Executar Teste PARTE 1</button>
+            <div id="parte1-output" class="log-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>PARTE 2: targetValue Preservado no Merge</h2>
+            <button onclick="testParte2()">Executar Teste PARTE 2</button>
+            <div id="parte2-output" class="log-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>PARTE 3: Mapeamento band_bass Correto</h2>
+            <button onclick="testParte3()">Executar Teste PARTE 3</button>
+            <div id="parte3-output" class="log-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>PARTE 4: Validação Tabela vs Modal</h2>
+            <p class="info">Este teste requer uma análise ativa. Faça uma análise primeiro e depois clique no botão.</p>
+            <button onclick="testParte4()">Executar Teste PARTE 4</button>
+            <div id="parte4-output" class="log-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Resumo Geral</h2>
+            <button onclick="runAllTests()">Executar Todos os Testes</button>
+            <div id="summary-output" class="log-output"></div>
+        </div>
+    </div>
+
+    <script>
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PARTE 0: CONFIRMAÇÃO DE ARQUIVOS CORRETOS
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function testParte0() {
+            const output = document.getElementById('parte0-output');
+            let html = '<h3>🔍 Verificando assinaturas dos arquivos...</h3>';
+            
+            // Capturar logs do console
+            const originalLog = console.log;
+            const logs = [];
+            console.log = (...args) => {
+                logs.push(args.join(' '));
+                originalLog.apply(console, args);
+            };
+            
+            // Esperar um pouco para capturar os logs
+            setTimeout(() => {
+                // Verificar se os logs de assinatura apareceram
+                const uiControllerLog = logs.find(log => log.includes('SUGGESTIONS_UI_VERSION=FIX_2025-12-25'));
+                const analyzerLog = logs.find(log => log.includes('ANALYZER_INTEGRATION_VERSION=FIX_2025-12-25'));
+                
+                if (uiControllerLog) {
+                    html += `<div class="pass">✅ ai-suggestion-ui-controller.js CARREGADO</div>`;
+                    html += `<div style="margin-left: 20px; color: #888;">${uiControllerLog}</div>`;
+                } else {
+                    html += `<div class="fail">❌ ai-suggestion-ui-controller.js NÃO DETECTADO</div>`;
+                }
+                
+                if (analyzerLog) {
+                    html += `<div class="pass">✅ audio-analyzer-integration.js CARREGADO</div>`;
+                    html += `<div style="margin-left: 20px; color: #888;">${analyzerLog}</div>`;
+                } else {
+                    html += `<div class="fail">❌ audio-analyzer-integration.js NÃO DETECTADO</div>`;
+                }
+                
+                // Verificar se AISuggestionUIController existe
+                if (typeof AISuggestionUIController !== 'undefined') {
+                    html += `<div class="pass">✅ AISuggestionUIController classe disponível</div>`;
+                } else {
+                    html += `<div class="fail">❌ AISuggestionUIController classe NÃO disponível</div>`;
+                }
+                
+                // Verificar buildMetricRows
+                if (typeof window.buildMetricRows === 'function') {
+                    html += `<div class="pass">✅ window.buildMetricRows disponível</div>`;
+                } else {
+                    html += `<div class="fail">❌ window.buildMetricRows NÃO disponível</div>`;
+                }
+                
+                html += '<h4>📋 Conclusão:</h4>';
+                if (uiControllerLog && analyzerLog) {
+                    html += '<div class="pass">✅ PARTE 0: PASSOU - Arquivos corretos carregados</div>';
+                } else {
+                    html += '<div class="fail">❌ PARTE 0: FALHOU - Verifique os arquivos no index.html</div>';
+                }
+                
+                output.innerHTML = html;
+                console.log = originalLog;
+            }, 1000);
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PARTE 1: aiSuggestions USADO QUANDO EXISTE
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function testParte1() {
+            const output = document.getElementById('parte1-output');
+            let html = '<h3>🤖 Testando uso de aiSuggestions...</h3>';
+            
+            // Verificar flag USE_TABLE_ROWS_FOR_MODAL
+            html += `<div>Flag USE_TABLE_ROWS_FOR_MODAL: <span class="info">${window.USE_TABLE_ROWS_FOR_MODAL}</span></div>`;
+            
+            // Verificar se a função de merge existe
+            if (window.AISuggestionUIController) {
+                html += '<div class="pass">✅ AISuggestionUIController encontrado</div>';
+                
+                // Verificar se extractAISuggestions existe
+                const controller = new AISuggestionUIController();
+                if (typeof controller.extractAISuggestions === 'function') {
+                    html += '<div class="pass">✅ Método extractAISuggestions() disponível</div>';
+                } else {
+                    html += '<div class="fail">❌ Método extractAISuggestions() NÃO disponível</div>';
+                }
+            } else {
+                html += '<div class="fail">❌ AISuggestionUIController NÃO encontrado</div>';
+            }
+            
+            // Verificar análise atual
+            const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.lastAnalysisResult;
+            if (analysis) {
+                html += '<div class="pass">✅ Análise disponível no window</div>';
+                
+                // Verificar aiSuggestions
+                const hasAiSuggestions = analysis.aiSuggestions && Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0;
+                const hasEnriched = analysis.enriched && Array.isArray(analysis.enriched) && analysis.enriched.length > 0;
+                
+                if (hasAiSuggestions) {
+                    html += `<div class="pass">✅ analysis.aiSuggestions existe: ${analysis.aiSuggestions.length} itens</div>`;
+                    
+                    // Verificar se tem campos enriquecidos
+                    const firstAI = analysis.aiSuggestions[0];
+                    const hasEnrichedFields = firstAI.aiEnhanced === true && firstAI.problema && firstAI.causaProvavel;
+                    
+                    if (hasEnrichedFields) {
+                        html += '<div class="pass">✅ aiSuggestions contém campos enriquecidos (problema, causaProvavel)</div>';
+                    } else {
+                        html += '<div class="fail">❌ aiSuggestions SEM campos enriquecidos</div>';
+                    }
+                } else if (hasEnriched) {
+                    html += `<div class="info">⚠️ analysis.enriched existe (${analysis.enriched.length} itens), mas aiSuggestions não</div>`;
+                } else {
+                    html += '<div class="fail">❌ Nenhum aiSuggestions ou enriched encontrado</div>';
+                }
+            } else {
+                html += '<div class="info">⚠️ Nenhuma análise disponível - faça uma análise primeiro</div>';
+            }
+            
+            html += '<h4>📋 Conclusão:</h4>';
+            html += '<div class="info">Execute uma análise e abra o modal de sugestões. Verifique os logs [AI-MERGE] no console.</div>';
+            html += '<div class="info">Deve mostrar: "Coverage IA: X%" com X próximo de 100% quando aiSuggestions existir.</div>';
+            
+            output.innerHTML = html;
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PARTE 2: targetValue PRESERVADO NO MERGE
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function testParte2() {
+            const output = document.getElementById('parte2-output');
+            let html = '<h3>🔒 Testando preservação de targetValue...</h3>';
+            
+            // Verificar se há análise
+            const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || window.lastAnalysisResult;
+            
+            if (!analysis) {
+                html += '<div class="fail">❌ Nenhuma análise disponível - faça uma análise primeiro</div>';
+                output.innerHTML = html;
+                return;
+            }
+            
+            html += '<div class="pass">✅ Análise encontrada</div>';
+            
+            // Verificar aiSuggestions
+            const suggestions = analysis.aiSuggestions || analysis.enriched || analysis.suggestions || [];
+            html += `<div class="info">Total de sugestões: ${suggestions.length}</div>`;
+            
+            // Contar quantos têm targetValue
+            let withTargetValue = 0;
+            let withoutTargetValue = 0;
+            const sampleProblems = [];
+            
+            suggestions.forEach((sug, idx) => {
+                if (sug.targetValue !== undefined && sug.targetValue !== null) {
+                    withTargetValue++;
+                } else {
+                    withoutTargetValue++;
+                    if (sampleProblems.length < 3) {
+                        sampleProblems.push({
+                            index: idx,
+                            metric: sug.metric || sug.type || 'desconhecido',
+                            problema: sug.problema || sug.message || 'N/A'
+                        });
+                    }
+                }
+            });
+            
+            html += `<div class="${withTargetValue > 0 ? 'pass' : 'fail'}">Com targetValue: ${withTargetValue}</div>`;
+            html += `<div class="${withoutTargetValue === 0 ? 'pass' : 'fail'}">Sem targetValue: ${withoutTargetValue}</div>`;
+            
+            if (withoutTargetValue > 0) {
+                html += '<h4>⚠️ Sugestões sem targetValue (primeiras 3):</h4>';
+                html += '<table><tr><th>Index</th><th>Métrica</th><th>Problema</th></tr>';
+                sampleProblems.forEach(p => {
+                    html += `<tr><td>${p.index}</td><td>${p.metric}</td><td>${p.problema.substring(0, 60)}...</td></tr>`;
+                });
+                html += '</table>';
+            }
+            
+            html += '<h4>📋 Conclusão:</h4>';
+            if (withoutTargetValue === 0 && withTargetValue > 0) {
+                html += '<div class="pass">✅ PARTE 2: PASSOU - Todos os targetValue preservados</div>';
+            } else if (withoutTargetValue > 0) {
+                html += '<div class="fail">❌ PARTE 2: FALHOU - Alguns targetValue estão undefined</div>';
+                html += '<div class="info">Verifique os logs [GENRE-FLOW][S3_AI_ENRICH_BEFORE] e [S3_AI_ENRICH_AFTER] no backend</div>';
+            } else {
+                html += '<div class="info">⚠️ Nenhuma sugestão para validar</div>';
+            }
+            
+            output.innerHTML = html;
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PARTE 3: MAPEAMENTO band_bass CORRETO
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function testParte3() {
+            const output = document.getElementById('parte3-output');
+            let html = '<h3>🎸 Testando mapeamento de band_bass...</h3>';
+            
+            // Verificar FREQUENCY_RANGES
+            html += '<h4>Verificando FREQUENCY_RANGES:</h4>';
+            html += '<div class="info">Bass esperado: 60-120 Hz</div>';
+            html += '<div class="info">Low Mid esperado: 250-500 Hz</div>';
+            
+            // Tentar acessar se disponível
+            if (typeof FREQUENCY_RANGES !== 'undefined') {
+                html += '<div class="pass">✅ FREQUENCY_RANGES disponível</div>';
+                html += `<div>bass: <span class="${FREQUENCY_RANGES.bass === '60-120 Hz' ? 'pass' : 'fail'}">${FREQUENCY_RANGES.bass}</span></div>`;
+                html += `<div>low_bass: <span class="${FREQUENCY_RANGES.low_bass === '60-120 Hz' ? 'pass' : 'fail'}">${FREQUENCY_RANGES.low_bass}</span></div>`;
+                html += `<div>upper_bass: <span class="${FREQUENCY_RANGES.upper_bass === '120-250 Hz' ? 'pass' : 'fail'}">${FREQUENCY_RANGES.upper_bass || 'MISSING'}</span></div>`;
+                html += `<div>low_mid: <span class="${FREQUENCY_RANGES.low_mid === '250-500 Hz' ? 'pass' : 'fail'}">${FREQUENCY_RANGES.low_mid}</span></div>`;
+            } else {
+                html += '<div class="fail">❌ FREQUENCY_RANGES NÃO disponível no escopo global</div>';
+            }
+            
+            html += '<h4>📋 Conclusão:</h4>';
+            html += '<div class="info">Faça uma análise e verifique os logs [BANDS][INVENTORY] no backend</div>';
+            html += '<div class="info">Bass deve usar target_db de low_bass (60-120 Hz)</div>';
+            html += '<div class="info">Low Mid deve usar target_db de low_mid (250-500 Hz)</div>';
+            html += '<div class="info">Upper Bass deve ser banda separada (120-250 Hz)</div>';
+            
+            output.innerHTML = html;
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PARTE 4: VALIDAÇÃO TABELA VS MODAL
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function testParte4() {
+            const output = document.getElementById('parte4-output');
+            let html = '<h3>📊 Validando consistência Tabela vs Modal...</h3>';
+            
+            // Verificar se há tabela
+            const tableRows = document.querySelectorAll('.metric-row.critical, .metric-row.high, .metric-row.caution');
+            const tableNonOKCount = tableRows.length;
+            
+            html += `<div>Linhas problemáticas na tabela: <span class="info">${tableNonOKCount}</span></div>`;
+            
+            // Verificar se há modal aberto
+            const modalCards = document.querySelectorAll('.ai-suggestion-card, .suggestion-card');
+            const modalCardsCount = modalCards.length;
+            
+            html += `<div>Cards no modal: <span class="info">${modalCardsCount}</span></div>`;
+            
+            // Comparar contagem
+            if (tableNonOKCount > 0 && modalCardsCount > 0) {
+                if (tableNonOKCount === modalCardsCount) {
+                    html += '<div class="pass">✅ Contagem 1:1 - Tabela e Modal consistentes</div>';
+                } else {
+                    html += `<div class="fail">❌ DIVERGÊNCIA: Tabela tem ${tableNonOKCount}, Modal tem ${modalCardsCount}</div>`;
+                }
+                
+                // Validar métricas específicas
+                html += '<h4>Validando métricas individuais:</h4>';
+                html += '<table><tr><th>Métrica</th><th>Tabela Target</th><th>Modal Target</th><th>Match</th></tr>';
+                
+                const tableMetrics = Array.from(tableRows).map(row => ({
+                    metric: row.dataset.metric,
+                    min: row.dataset.min,
+                    max: row.dataset.max,
+                    label: row.querySelector('.metric-name')?.textContent || 'N/A'
+                }));
+                
+                const modalMetrics = Array.from(modalCards).map(card => {
+                    const metricSpan = card.querySelector('[data-metric]');
+                    const targetSpan = card.querySelector('.target-value, [data-target]');
+                    return {
+                        metric: metricSpan?.dataset?.metric || card.dataset?.metric || 'unknown',
+                        target: targetSpan?.textContent || targetSpan?.dataset?.target || 'N/A'
+                    };
+                });
+                
+                // Comparar
+                tableMetrics.forEach(table => {
+                    const modal = modalMetrics.find(m => m.metric === table.metric);
+                    if (modal) {
+                        const rangeMatch = modal.target.includes(table.min) || modal.target.includes(table.max);
+                        html += `<tr>
+                            <td>${table.metric}</td>
+                            <td>${table.min} a ${table.max}</td>
+                            <td>${modal.target}</td>
+                            <td class="${rangeMatch ? 'pass' : 'fail'}">${rangeMatch ? '✅' : '❌'}</td>
+                        </tr>`;
+                    } else {
+                        html += `<tr>
+                            <td>${table.metric}</td>
+                            <td>${table.min} a ${table.max}</td>
+                            <td class="fail">AUSENTE</td>
+                            <td class="fail">❌</td>
+                        </tr>`;
+                    }
+                });
+                
+                html += '</table>';
+            } else if (tableNonOKCount === 0 && modalCardsCount === 0) {
+                html += '<div class="pass">✅ Nenhum problema detectado (análise OK)</div>';
+            } else {
+                html += '<div class="fail">❌ Tabela ou Modal não disponível - faça uma análise e abra o modal</div>';
+            }
+            
+            html += '<h4>📋 Conclusão:</h4>';
+            html += '<div class="info">Faça uma análise, aguarde completar, e abra o modal de sugestões</div>';
+            html += '<div class="info">Verifique os logs [QUALITY-GUARD] no console - deve mostrar "Match 1:1: ✅"</div>';
+            
+            output.innerHTML = html;
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // EXECUTAR TODOS OS TESTES
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        function runAllTests() {
+            const summary = document.getElementById('summary-output');
+            summary.innerHTML = '<div class="info">Executando todos os testes...</div>';
+            
+            testParte0();
+            setTimeout(() => {
+                testParte1();
+                testParte2();
+                testParte3();
+                testParte4();
+                
+                setTimeout(() => {
+                    summary.innerHTML = `
+                        <h3>📋 Resumo Completo</h3>
+                        <div class="pass">✅ PARTE 0: Arquivos carregados - Verifique logs de assinatura no console</div>
+                        <div class="info">⚠️ PARTE 1: Faça análise e verifique logs [AI-MERGE] no console</div>
+                        <div class="info">⚠️ PARTE 2: Verifique logs [S3_AI_ENRICH_AFTER] no backend</div>
+                        <div class="info">⚠️ PARTE 3: Faça análise e verifique logs [BANDS][INVENTORY] no backend</div>
+                        <div class="info">⚠️ PARTE 4: Abra modal e verifique [QUALITY-GUARD] no console</div>
+                        <h4>🎯 Como validar manualmente:</h4>
+                        <ol>
+                            <li>Abra o console do browser (F12)</li>
+                            <li>Faça uma análise de áudio (qualquer gênero)</li>
+                            <li>Aguarde completar a análise</li>
+                            <li>Abra o modal de sugestões</li>
+                            <li>Verifique os logs no console:
+                                <ul>
+                                    <li>[AI-MERGE] Coverage IA: deve estar próximo de 100%</li>
+                                    <li>[QUALITY-GUARD] Match 1:1: deve mostrar ✅</li>
+                                    <li>Bass deve mostrar "60-120 Hz" (não "60-250 Hz")</li>
+                                    <li>Low Mid deve mostrar "250-500 Hz"</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    `;
+                }, 2000);
+            }, 1500);
+        }
+
+        // Auto-executar teste de assinaturas ao carregar
+        window.addEventListener('load', () => {
+            console.log('🧪 Página de validação carregada - Execute os testes');
+        });
+    </script>
+</body>
+</html>

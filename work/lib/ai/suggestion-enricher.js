@@ -992,13 +992,16 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       action: baseSug.action,
       priority: baseSug.priority,
       band: baseSug.band,
+      metric: baseSug.metric, // ✅ CORREÇÃO BUG B2: preservar metric
       isComparison: baseSug.isComparison,
       referenceValue: baseSug.referenceValue,
       userValue: baseSug.userValue,
       delta: baseSug.delta,
+      deltaNum: baseSug.deltaNum, // ✅ CORREÇÃO BUG B2: preservar deltaNum
       
       // 🔒 NUMERIC LOCK - Campos numéricos SEMPRE preservados do base
       currentValue: baseSug.currentValue,
+      targetValue: baseSug.targetValue, // ✅ CORREÇÃO BUG B2: NUNCA APAGAR targetValue
       targetRange: baseSug.targetRange,
       targetMin: baseSug.targetMin,
       targetMax: baseSug.targetMax,
@@ -1022,6 +1025,21 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       enrichedAt: new Date().toISOString(),
       enrichmentVersion: 'ULTRA_V2'
     };
+    
+    // 🛡️ VALIDAÇÃO PÓS-MERGE: Garantir targetValue nunca vira undefined
+    if (!merged.targetValue && baseSug.targetValue) {
+      console.warn(`[AI-AUDIT][VALIDATION] ⚠️ targetValue perdido durante merge para ${merged.metric || merged.type}, restaurando...`);
+      merged.targetValue = baseSug.targetValue;
+    }
+    
+    // 🛡️ FALLBACK DE EMERGÊNCIA: Extrair targetValue do texto se ainda estiver undefined
+    if (!merged.targetValue && merged.problema) {
+      const rangeMatch = merged.problema.match(/(-?\d+\.?\d*)\s*a\s*(-?\d+\.?\d*)/);
+      if (rangeMatch) {
+        merged.targetValue = `${rangeMatch[1]} a ${rangeMatch[2]} dB`;
+        console.warn(`[AI-AUDIT][VALIDATION] 🔧 targetValue extraído do texto: ${merged.targetValue}`);
+      }
+    }
     
     console.log('[GENRE-FLOW][S3_AI_ENRICH_AFTER]', {
       metric: merged.metric || merged.type,
