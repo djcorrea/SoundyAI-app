@@ -2,17 +2,26 @@
 // Sistema de interface futurista para exibição de sugestões educativas
 
 /**
- *  Resolve uma chave de banda para seu nome canônico
- * Usa BAND_ALIASES de audio-analyzer-integration.js se disponível, senão fallback local
+ * 🔧 Resolve uma chave de banda para seu nome CANÔNICO
+ * Aliases → Canonical: presenca → presence, brilho → air
+ * Isso garante que rowKey (ex: 'presence') case com aiSuggestion.metric (ex: 'presenca' ou 'presence')
  */
-function resolveBandAlias(key) {
-    if (!key) return key;
+function getCanonicalBandKey(key) {
+    if (!key) return null;
     const k = String(key).toLowerCase().trim();
-    if (typeof BAND_ALIASES !== 'undefined' && BAND_ALIASES[k]) {
-        return BAND_ALIASES[k];
-    }
-    const localAliases = { 'presence': 'presenca', 'air': 'brilho' };
-    return localAliases[k] || key;
+    
+    // Mapa: alias → canonical (buildMetricRows usa keys canônicas)
+    const aliasToCanonical = {
+        'presenca': 'presence',
+        'presença': 'presence',
+        'brilho': 'air',
+        'low_bass': 'bass',
+        'upper_bass': 'bass',
+        'low_mid': 'lowmid',
+        'high_mid': 'highmid'
+    };
+    
+    return aliasToCanonical[k] || k;
 }
 
 /**
@@ -1263,7 +1272,7 @@ class AISuggestionUIController {
             let realRange = null;
             
             // 🔧 CORREÇÃO: Resolver alias de banda antes de buscar target
-            const resolvedMetric = resolveBandAlias(metric);
+            const resolvedMetric = getCanonicalBandKey(metric);
             
             // Tentar estrutura aninhada primeiro: genreTargets.lufs.target
             if (genreTargets[metric] && typeof genreTargets[metric] === 'object') {
@@ -1541,25 +1550,41 @@ class AISuggestionUIController {
                         // 📌 NOVO FLUXO: Merge por chave mantendo texto IA
                         const originalSuggestions = analysis.aiSuggestions || analysis.suggestions || suggestions || [];
 
-                        // 🔧 CORREÇÃO: normalizeKey agora resolve aliases de bandas
+                        // 🔧 CORREÇÃO: normalizeKey retorna key CANÔNICA (presenca→presence, brilho→air)
                         const normalizeKey = (key) => {
                             if (!key) return null;
                             let k = String(key).trim();
                             if (k.startsWith('band_')) k = k.replace('band_', '');
-                            // ✅ Resolver alias para nome canônico (air→brilho, presence→presenca)
-                            return resolveBandAlias(k);
+                            // ✅ Resolver alias para nome canônico
+                            return getCanonicalBandKey(k);
                         };
 
-                        const mergedList = problemRows.map(row => {
+                        // 🔍 DEBUG: Logar keys antes do merge
+                        console.log('[MODAL_VS_TABLE] 🔍 DEBUG - Keys disponíveis:');
+                        console.log('[MODAL_VS_TABLE]   - problemRows keys:', problemRows.map(r => r.key));
+                        console.log('[MODAL_VS_TABLE]   - aiSuggestions metrics:', originalSuggestions.map(s => s.metric || s.type || s.key));
+
+                        const mergedList = problemRows.map((row, idx) => {
                             const rowKey = normalizeKey(row.key);
+                            
+                            // 🚫 GUARD: Nunca criar card com key null/undefined
+                            if (!rowKey) {
+                                console.error(`[MODAL_VS_TABLE] ❌ Row ${idx} com key inválida:`, row);
+                                return null; // Será filtrado depois
+                            }
+                            
                             const enriched = originalSuggestions.find(s => {
                                 const sm = normalizeKey(s.metric || s.type || s.id || s.key);
-                                // ✅ Comparação via alias canônico
                                 return sm === rowKey;
                             });
+                            
+                            // 🔍 DEBUG: Logar match
+                            console.log(`[MODAL_VS_TABLE] 🔗 Row ${idx}: rowKey="${rowKey}" → ${enriched ? '✅ Match encontrado' : '⚠️ Fallback'}`);
+                            
                             if (enriched) {
                                 return {
                                     ...enriched,
+                                    metric: rowKey, // Garantir key canônica
                                     __rowMeta: row,
                                     severity: row.severity,
                                     severityClass: row.severityClass,
@@ -1570,15 +1595,15 @@ class AISuggestionUIController {
                                     targetValue: row.targetText
                                 };
                             }
-                            // Fallback estruturado (sem texto vazio)
+                            // Fallback estruturado (NUNCA texto vazio ou unknown)
                             return {
                                 metric: rowKey,
-                                type: row.type,
-                                categoria: row.category,
-                                problema: `Sugestão ainda não gerada pela IA para esta métrica (${rowKey}).`,
-                                causaProvavel: 'Causa ainda não analisada pela IA.',
-                                solucao: row.actionText || 'Ação sugerida pela tabela: ajuste conforme severidade.',
-                                pluginRecomendado: 'Aguardando IA.',
+                                type: row.type || 'metric',
+                                categoria: row.category || 'Geral',
+                                problema: `Métrica "${row.label || rowKey}" fora do padrão para o gênero.`,
+                                causaProvavel: `Valor atual (${typeof row.value === 'number' ? row.value.toFixed(1) : 'N/A'}) difere do target (${row.targetText || 'N/A'}).`,
+                                solucao: row.actionText || 'Ajuste conforme indicado na tabela de métricas.',
+                                pluginRecomendado: 'EQ ou compressor de banda.',
                                 aiEnhanced: false,
                                 __rowMeta: row,
                                 severity: row.severity,
@@ -1593,11 +1618,18 @@ class AISuggestionUIController {
                         });
 
                         console.log('[MODAL_VS_TABLE] ✅ Merge concluído (mantendo textos IA)');
-                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', mergedList.length);
+                        
+                        // 🚫 GUARD: Filtrar items null (rows com key inválida)
+                        const validMergedList = mergedList.filter(item => item !== null && item.metric);
+                        if (validMergedList.length !== mergedList.length) {
+                            console.warn(`[MODAL_VS_TABLE] ⚠️ Removidos ${mergedList.length - validMergedList.length} cards com key inválida`);
+                        }
+                        
+                        console.log('[MODAL_VS_TABLE] Cards que serão renderizados:', validMergedList.length);
 
                         // Log de bandas missing com base nas rows processadas
                         const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-                        const renderedBands = mergedList.filter(s => s.type === 'band').map(s => normalizeKey(s.metric));
+                        const renderedBands = validMergedList.filter(s => s.type === 'band').map(s => normalizeKey(s.metric));
                         const missingBands = expectedBands.filter(b => !renderedBands.includes(b));
                         
                         if (missingBands.length > 0) {
@@ -1607,7 +1639,7 @@ class AISuggestionUIController {
                             console.log('[MODAL_VS_TABLE] ✅ Todas as bandas estão presentes');
                         }
 
-                        suggestions = mergedList;
+                        suggestions = validMergedList;
                     } else {
                         console.log('[MODAL_VS_TABLE] ✅ Nenhum problema detectado (todas as rows OK)');
                     }
