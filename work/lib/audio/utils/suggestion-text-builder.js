@@ -543,8 +543,9 @@ export const BAND_LABELS = {
  */
 export const FREQUENCY_RANGES = {
   sub: '20-60 Hz',
-  bass: '60-250 Hz',
-  low_bass: '60-250 Hz',
+  bass: '60-120 Hz',           // ✅ CORRIGIDO: alinhado com low_bass backend (não mais 60-250)
+  low_bass: '60-120 Hz',       // ✅ CORRIGIDO: alinhado com genreTargets.bands.low_bass
+  upper_bass: '120-250 Hz',    // ✅ ADICIONADO: separado de bass (conforme backend)
   lowMid: '250-500 Hz',
   low_mid: '250-500 Hz',
   mid: '500 Hz - 2 kHz',
