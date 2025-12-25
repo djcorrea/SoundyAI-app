@@ -40,6 +40,62 @@
 //   target: m.target
 // }));
 
+// 🎯 NORMALIZAÇÃO DE CHAVES DE BANDA - Resolve mismatch PT↔EN
+// spectralBands usa: sub, bass, lowMid, mid, highMid, presence, air (EN)
+// targets de gênero podem usar: presenca, brilho, low_mid, high_mid (PT/snake_case)
+const BAND_ALIASES = {
+  // Português → Inglês (canônico)
+  'presenca': 'presence',
+  'brilho': 'air',
+  // Snake_case → camelCase
+  'low_mid': 'lowMid',
+  'high_mid': 'highMid',
+  'low_bass': 'bass',      // fallback se não existir low_bass
+  'upper_bass': 'lowMid',  // fallback se não existir upper_bass
+  // Inverso Inglês → Português (para lookup em targets PT)
+  'presence': 'presenca',
+  'air': 'brilho',
+  'lowMid': 'low_mid',
+  'highMid': 'high_mid'
+};
+
+/**
+ * 🔧 Normaliza chave de banda para o formato canônico (Inglês/camelCase)
+ * @param {string} key - Chave original (pode ser PT ou EN)
+ * @returns {string} - Chave normalizada
+ */
+function normalizeBandKey(key) {
+  if (!key) return key;
+  const lower = key.toLowerCase();
+  // Mapeamento direto se existir
+  if (BAND_ALIASES[lower]) return BAND_ALIASES[lower];
+  if (BAND_ALIASES[key]) return BAND_ALIASES[key];
+  return key; // Retorna original se não houver alias
+}
+
+/**
+ * 🔧 Busca banda em objeto usando aliases
+ * @param {object} obj - Objeto com bandas (bandEnergies ou ref.bands)
+ * @param {string} bandKey - Chave da banda a buscar
+ * @returns {object|null} - Dados da banda ou null
+ */
+function getBandWithAlias(obj, bandKey) {
+  if (!obj || typeof obj !== 'object') return null;
+  
+  // Tentar chave original
+  if (obj[bandKey]) return obj[bandKey];
+  
+  // Tentar alias normalizado
+  const normalized = normalizeBandKey(bandKey);
+  if (obj[normalized]) return obj[normalized];
+  
+  // Tentar inverso (se veio em EN, buscar PT ou vice-versa)
+  const inverse = BAND_ALIASES[normalized] || BAND_ALIASES[bandKey];
+  if (inverse && obj[inverse]) return obj[inverse];
+  
+  return null;
+}
+
 // Configuração de pesos para scoring
 function initScoringWeights() {
     const winCfg = (typeof window !== 'undefined') ? window : {};
@@ -542,10 +598,19 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   addMetric('stereo', 'balanceLR', metrics.balanceLR, DEFAULT_TARGETS.balanceLR.target, DEFAULT_TARGETS.balanceLR.tol);
   if (ref?.bands && metrics.bandEnergies) {
     for (const [band, refBand] of Object.entries(ref.bands)) {
-      const mBand = metrics.bandEnergies[band];
-      if (!mBand) continue;
+      // 🔧 CORREÇÃO: Usar getBandWithAlias para resolver mismatch PT↔EN
+      // targets podem ter 'presenca'/'brilho' mas bandEnergies tem 'presence'/'air'
+      const mBand = getBandWithAlias(metrics.bandEnergies, band);
+      if (!mBand) {
+        console.log(`[SCORING_BAND_ALIAS] ⚠️ Banda ${band} não encontrada em bandEnergies (tentou aliases)`);
+        continue;
+      }
       const val = Number.isFinite(mBand.rms_db) ? mBand.rms_db : null;
       if (val == null) continue;
+      
+      // 🔧 Normalizar nome da banda para penalties (usar formato canônico EN)
+      const canonicalBand = normalizeBandKey(band);
+      console.log(`[SCORING_BAND_ALIAS] ✅ Banda ${band} → ${canonicalBand}, valor=${val}`);
       
       // 🎯 NOVA LÓGICA: Suporte a target_range para bandas espectrais
       // Prioridade: target_range > target_db (fallback)
@@ -556,13 +621,13 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
         const target = (refBand.target_range.min + refBand.target_range.max) / 2; // Centro do range para compatibilidade
         const tol = Number.isFinite(refBand.tol_db) ? refBand.tol_db : Math.abs(refBand.target_range.max - refBand.target_range.min) * 0.25;
         
-        addMetric('tonal', `band_${band}`, val, target, tol, { 
+        addMetric('tonal', `band_${canonicalBand}`, val, target, tol, { 
           target_range: refBand.target_range,
           tolMin: null, 
           tolMax: null 
         });
         
-        console.log(`[SCORING_BAND_RANGE] ${band}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
+        console.log(`[SCORING_BAND_RANGE] ${canonicalBand}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
         
       } else if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
         
@@ -571,9 +636,9 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
         const tolMax = Number.isFinite(refBand.tol_max) ? refBand.tol_max : (Number.isFinite(refBand.tol_db) ? refBand.tol_db : null);
         const tolAvg = ((tolMin||0)+(tolMax||0))/2 || refBand.tol_db || 1;
         
-        addMetric('tonal', `band_${band}`, val, refBand.target_db, tolAvg, { tolMin, tolMax });
+        addMetric('tonal', `band_${canonicalBand}`, val, refBand.target_db, tolAvg, { tolMin, tolMax });
         
-        console.log(`[SCORING_BAND_FIXED] ${band}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
+        console.log(`[SCORING_BAND_FIXED] ${canonicalBand}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
       }
     }
   } else if (metrics.tonalBalance) {
@@ -656,16 +721,25 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   }
 
   // Mapear pesos base (somam 0.95 + 0.05 contextual = 1.0)
+  // 🔧 CORREÇÃO: Usar nomes canônicos (EN) E aliases (PT) para garantir match
   const baseWeights = {
     lufsIntegrated: 0.18,
     truePeakDbtp: 0.14, // headroom substituído por truePeak
-    band_high_mid: 0.14,
-    band_brilho: 0.12,
-    band_presenca: 0.12,
-    band_low_bass: 0.08,
-    band_upper_bass: 0.07,
-    band_low_mid: 0.05,
+    // Bandas com nomes canônicos (EN) - agora normalizados pelo addMetric
+    band_highMid: 0.14,
+    band_high_mid: 0.14,  // alias snake_case
+    band_air: 0.12,
+    band_brilho: 0.12,    // alias PT
+    band_presence: 0.12,
+    band_presenca: 0.12,  // alias PT
+    band_bass: 0.08,
+    band_low_bass: 0.08,  // alias (pode mapear para bass)
+    band_lowMid: 0.07,
+    band_upper_bass: 0.07, // alias
+    band_low_mid: 0.05,   // alias snake_case
     band_mid: 0.05,
+    // Sub banda (se existir)
+    band_sub: 0.03,
     // Contextuais (espalhar 0.05): lra, dr|dr_stat, stereoCorrelation, stereoWidth
     lra: 0, // atribuído depois
     dr: 0,

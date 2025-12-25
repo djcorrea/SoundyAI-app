@@ -26,6 +26,62 @@ const __dirname = path.dirname(__filename);
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
 
+// 🎯 NORMALIZAÇÃO DE CHAVES DE BANDA - Resolve mismatch PT↔EN
+// spectralBands usa: sub, bass, lowMid, mid, highMid, presence, air (EN)
+// targets de gênero podem usar: presenca, brilho, low_mid, high_mid (PT/snake_case)
+const BAND_ALIASES = {
+  // Português → Inglês (canônico)
+  'presenca': 'presence',
+  'brilho': 'air',
+  // Snake_case → camelCase
+  'low_mid': 'lowMid',
+  'high_mid': 'highMid',
+  'low_bass': 'bass',      // fallback se não existir low_bass
+  'upper_bass': 'lowMid',  // fallback se não existir upper_bass
+  // Inverso Inglês → Português (para lookup em targets PT)
+  'presence': 'presenca',
+  'air': 'brilho',
+  'lowMid': 'low_mid',
+  'highMid': 'high_mid'
+};
+
+/**
+ * 🔧 Normaliza chave de banda para o formato canônico (Inglês/camelCase)
+ * @param {string} key - Chave original (pode ser PT ou EN)
+ * @returns {string} - Chave normalizada
+ */
+function normalizeBandKey(key) {
+  if (!key) return key;
+  const lower = key.toLowerCase();
+  // Mapeamento direto se existir
+  if (BAND_ALIASES[lower]) return BAND_ALIASES[lower];
+  if (BAND_ALIASES[key]) return BAND_ALIASES[key];
+  return key; // Retorna original se não houver alias
+}
+
+/**
+ * 🔧 Busca banda em objeto usando aliases
+ * @param {object} obj - Objeto com bandas (spectralBands ou genreTargets.bands)
+ * @param {string} bandKey - Chave da banda a buscar
+ * @returns {object|null} - Dados da banda ou null
+ */
+function getBandWithAlias(obj, bandKey) {
+  if (!obj || typeof obj !== 'object') return null;
+  
+  // Tentar chave original
+  if (obj[bandKey]) return obj[bandKey];
+  
+  // Tentar alias normalizado
+  const normalized = normalizeBandKey(bandKey);
+  if (obj[normalized]) return obj[normalized];
+  
+  // Tentar inverso (se veio em EN, buscar PT ou vice-versa)
+  const inverse = BAND_ALIASES[normalized] || BAND_ALIASES[bandKey];
+  if (inverse && obj[inverse]) return obj[inverse];
+  
+  return null;
+}
+
 // 🚨 LOG DE INICIALIZAÇÃO DO PIPELINE
 console.error('\n\n');
 console.error('╔══════════════════════════════════════════════════════════════╗');
@@ -2304,103 +2360,97 @@ function getMetricValue(technicalData, key, genreTargets) {
 
 /**
  * 🔍 Extrair valor de banda espectral
+ * 🔧 CORREÇÃO: Usa getBandWithAlias para resolver mismatch PT↔EN
  */
 function getBandValue(technicalData, bandKey, genreTargets) {
   const bands = technicalData.spectralBands;
-  if (!bands || !bands[bandKey]) return null;
   
-  const bandData = bands[bandKey];
+  // 🔧 CORREÇÃO: Usar getBandWithAlias para resolver mismatch de chaves
+  const bandData = getBandWithAlias(bands, bandKey);
+  if (!bandData) {
+    console.log(`[ADVANCED-SUGGEST] ⚠️ Banda ${bandKey} não encontrada em spectralBands (tentou aliases)`);
+    return null;
+  }
+  
   const value = bandData.energy_db;
   if (!Number.isFinite(value)) return null;
+  
+  // 🔧 Normalizar bandKey para log e busca consistente
+  const canonicalBand = normalizeBandKey(bandKey);
   
   // 🔍 AUDITORIA LOG 5: genreTargets na ENTRADA do getBandValue
   console.log('[AUDIT-GETBAND] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[AUDIT-GETBAND] LOG 5: genreTargets NA ENTRADA DE getBandValue');
-  console.log('[AUDIT-GETBAND] bandKey:', bandKey);
+  console.log('[AUDIT-GETBAND] bandKey original:', bandKey);
+  console.log('[AUDIT-GETBAND] bandKey canônico:', canonicalBand);
   console.log('[AUDIT-GETBAND] value (energy_db):', value);
   console.log('[AUDIT-GETBAND] genreTargets existe?', !!genreTargets);
   if (genreTargets) {
     console.log('[AUDIT-GETBAND] Top-level keys:', Object.keys(genreTargets));
     console.log('[AUDIT-GETBAND] Tem .bands?', 'bands' in genreTargets);
-    console.log('[AUDIT-GETBAND] Tem .' + bandKey + '?', bandKey in genreTargets);
     
-    // Testar condição 1 (estrutura padronizada)
-    const cond1 = genreTargets?.bands?.[bandKey]?.target_range;
-    console.log('[AUDIT-GETBAND] CONDIÇÃO 1: genreTargets?.bands?.[bandKey]?.target_range =', !!cond1);
-    if (cond1) {
-      console.log('[AUDIT-GETBAND] CONDIÇÃO 1 DADOS:', JSON.stringify(cond1, null, 2));
-    }
-    
-    // Testar condição 2 (compatibilidade)
-    const cond2 = genreTargets?.[bandKey]?.target_range;
-    console.log('[AUDIT-GETBAND] CONDIÇÃO 2: genreTargets?.[bandKey]?.target_range =', !!cond2);
-    if (cond2) {
-      console.log('[AUDIT-GETBAND] CONDIÇÃO 2 DADOS:', JSON.stringify(cond2, null, 2));
-    }
-    
-    // Mostrar estrutura real
-    if (genreTargets.bands && genreTargets.bands[bandKey]) {
-      console.log('[AUDIT-GETBAND] genreTargets.bands[' + bandKey + ']:', JSON.stringify(genreTargets.bands[bandKey], null, 2));
-    }
-    if (genreTargets[bandKey]) {
-      console.log('[AUDIT-GETBAND] genreTargets[' + bandKey + '] (achatado):', JSON.stringify(genreTargets[bandKey], null, 2));
-    }
+    // 🔧 CORREÇÃO: Testar ambos os formatos usando aliases
+    const bandFromTargets = getBandWithAlias(genreTargets?.bands, bandKey);
+    const bandFromTopLevel = getBandWithAlias(genreTargets, bandKey);
+    console.log('[AUDIT-GETBAND] getBandWithAlias(genreTargets.bands) encontrou?', !!bandFromTargets);
+    console.log('[AUDIT-GETBAND] getBandWithAlias(genreTargets) encontrou?', !!bandFromTopLevel);
   }
   console.log('[AUDIT-GETBAND] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
-  // 🎯 Ler range REAL de genreTargets (estrutura padronizada ou compatibilidade)
+  // 🎯 Ler range REAL de genreTargets usando ALIASES
   let targetMin, targetMax;
   
-  // 🔧 FASE 3: Tentar estrutura padronizada primeiro (genreTargets.bands.bandKey)
-  if (genreTargets?.bands?.[bandKey]?.target_range) {
-    targetMin = genreTargets.bands[bandKey].target_range.min;
-    targetMax = genreTargets.bands[bandKey].target_range.max;
-    console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL (estrutura padronizada) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+  // 🔧 FASE 3: Tentar estrutura padronizada primeiro (genreTargets.bands) COM ALIASES
+  const bandTargetFromBands = getBandWithAlias(genreTargets?.bands, bandKey);
+  if (bandTargetFromBands?.target_range) {
+    targetMin = bandTargetFromBands.target_range.min;
+    targetMax = bandTargetFromBands.target_range.max;
+    console.log(`[ADVANCED-SUGGEST] ✅ Usando range REAL (via alias) para ${bandKey} → ${canonicalBand}: [${targetMin}, ${targetMax}]`);
     
-    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = PADRONIZADO
-    console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: ESTRUTURA PADRONIZADA (genreTargets.bands.' + bandKey + ')');
+    console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: ESTRUTURA PADRONIZADA COM ALIAS');
     console.log('[AUDIT-GETBAND] targetMin:', targetMin);
     console.log('[AUDIT-GETBAND] targetMax:', targetMax);
   } 
-  // 🔧 FASE 3: Fallback de compatibilidade - suportar estrutura antiga (genreTargets.bandKey)
-  else if (genreTargets?.[bandKey]?.target_range) {
-    targetMin = genreTargets[bandKey].target_range.min;
-    targetMax = genreTargets[bandKey].target_range.max;
-    console.log(`[ADVANCED-SUGGEST] ⚠️ Usando range REAL (compatibilidade) para ${bandKey}: [${targetMin}, ${targetMax}]`);
-    
-    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = COMPATIBILIDADE
-    console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: COMPATIBILIDADE (genreTargets.' + bandKey + ')');
-    console.log('[AUDIT-GETBAND] targetMin:', targetMin);
-    console.log('[AUDIT-GETBAND] targetMax:', targetMax);
-  } 
-  // ❌ Último recurso: Fallback hardcoded (APENAS se genreTargets não disponível)
+  // 🔧 FASE 3: Fallback de compatibilidade - estrutura achatada COM ALIASES
   else {
-    const fallbackRanges = {
-      sub: { min: -38, max: -28 },
-      bass: { min: -31, max: -25 },
-      low_bass: { min: -32, max: -24 },
-      upper_bass: { min: -33, max: -26 },
-      lowMid: { min: -28, max: -22 },
-      low_mid: { min: -34, max: -28 },
-      mid: { min: -23, max: -17 },
-      highMid: { min: -20, max: -14 },
-      high_mid: { min: -42, max: -33 },
-      presence: { min: -23, max: -17 },
-      presenca: { min: -44, max: -33 },
-      air: { min: -30, max: -24 },
-      brilho: { min: -48, max: -32 }
-    };
-    const range = fallbackRanges[bandKey];
-    if (!range) return null;
-    targetMin = range.min;
-    targetMax = range.max;
-    console.log(`[ADVANCED-SUGGEST] ⚠️ Usando FALLBACK hardcoded para ${bandKey}: [${targetMin}, ${targetMax}]`);
-    
-    // 🔍 AUDITORIA LOG 6: CAMINHO USADO = FALLBACK
-    console.log('[AUDIT-GETBAND] ⚠️⚠️⚠️ CAMINHO USADO: FALLBACK HARDCODED (VALORES GENÉRICOS)');
-    console.log('[AUDIT-GETBAND] targetMin:', targetMin);
-    console.log('[AUDIT-GETBAND] targetMax:', targetMax);
-    console.log('[AUDIT-GETBAND] ⚠️⚠️⚠️ ISTO É UM PROBLEMA - genreTargets deveria ter os valores reais!');
+    const bandTargetFromTopLevel = getBandWithAlias(genreTargets, bandKey);
+    if (bandTargetFromTopLevel?.target_range) {
+      targetMin = bandTargetFromTopLevel.target_range.min;
+      targetMax = bandTargetFromTopLevel.target_range.max;
+      console.log(`[ADVANCED-SUGGEST] ⚠️ Usando range REAL (compatibilidade via alias) para ${bandKey}: [${targetMin}, ${targetMax}]`);
+      
+      console.log('[AUDIT-GETBAND] 👉 CAMINHO USADO: COMPATIBILIDADE COM ALIAS');
+      console.log('[AUDIT-GETBAND] targetMin:', targetMin);
+      console.log('[AUDIT-GETBAND] targetMax:', targetMax);
+    } 
+    // ❌ Último recurso: Fallback hardcoded
+    else {
+      const fallbackRanges = {
+        sub: { min: -38, max: -28 },
+        bass: { min: -31, max: -25 },
+        low_bass: { min: -32, max: -24 },
+        upper_bass: { min: -33, max: -26 },
+        lowMid: { min: -28, max: -22 },
+        low_mid: { min: -34, max: -28 },
+        mid: { min: -23, max: -17 },
+        highMid: { min: -20, max: -14 },
+        high_mid: { min: -42, max: -33 },
+        presence: { min: -23, max: -17 },
+        presenca: { min: -44, max: -33 },
+        air: { min: -30, max: -24 },
+        brilho: { min: -48, max: -32 }
+      };
+      // Tentar chave original e normalizada
+      const range = fallbackRanges[bandKey] || fallbackRanges[canonicalBand];
+      if (!range) return null;
+      targetMin = range.min;
+      targetMax = range.max;
+      console.log(`[ADVANCED-SUGGEST] ⚠️ Usando FALLBACK hardcoded para ${bandKey}: [${targetMin}, ${targetMax}]`);
+      
+      console.log('[AUDIT-GETBAND] ⚠️⚠️⚠️ CAMINHO USADO: FALLBACK HARDCODED (VALORES GENÉRICOS)');
+      console.log('[AUDIT-GETBAND] targetMin:', targetMin);
+      console.log('[AUDIT-GETBAND] targetMax:', targetMax);
+    }
   }
   
   return { value, targetMin, targetMax };
