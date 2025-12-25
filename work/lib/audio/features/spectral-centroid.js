@@ -35,6 +35,14 @@ export class SpectralCentroidCalculator {
     
     // Pre-calcular frequências dos bins
     this.frequencies = this.calculateBinFrequencies();
+    
+    logAudio('spectral_centroid', 'init', {
+      sampleRate,
+      fftSize,
+      frequencyResolution: this.frequencyResolution.toFixed(2),
+      nyquistFreq: this.nyquistFreq,
+      binsCount: this.frequencies.length
+    });
   }
   
   /**
@@ -101,6 +109,13 @@ export class SpectralCentroidCalculator {
       
       // Validar energia total suficiente
       if (totalMagnitude < CENTROID_CONFIG.MIN_TOTAL_MAGNITUDE || validBins < 10) {
+        if (shouldLogFrame(frameIndex)) {
+          logAudio('spectral_centroid', 'insufficient_energy', {
+            frame: frameIndex,
+            totalMagnitude: totalMagnitude.toExponential(3),
+            validBins
+          });
+        }
         return null;
       }
       
@@ -111,10 +126,29 @@ export class SpectralCentroidCalculator {
       if (!isFinite(centroidHz) || 
           centroidHz < CENTROID_CONFIG.FREQUENCY_MIN || 
           centroidHz > CENTROID_CONFIG.FREQUENCY_MAX) {
+        if (shouldLogFrame(frameIndex)) {
+          logAudio('spectral_centroid', 'invalid_result', {
+            frame: frameIndex,
+            centroidHz,
+            weightedSum,
+            totalMagnitude
+          });
+        }
         return null;
       }
-
+      
       const roundedCentroid = Number(centroidHz.toFixed(CENTROID_CONFIG.PRECISION_DIGITS));
+      
+      // 🎯 Log throttled: apenas quando SOUNDY_DEBUG=true e a cada 200 frames
+      if (shouldLogFrame(frameIndex)) {
+        logAudio('spectral_centroid', 'calculated', {
+          frame: frameIndex,
+          centroidHz: roundedCentroid,
+          totalMagnitude: totalMagnitude.toExponential(3),
+          validBins,
+          brightnessCategory: this.categorizeBrightness(roundedCentroid)
+        });
+      }
       
       return {
         centroidHz: roundedCentroid,
@@ -126,8 +160,12 @@ export class SpectralCentroidCalculator {
       };
       
     } catch (error) {
+      // ⚠️ Erros sempre logados (não throttle em erros críticos)
+      logAudio('spectral_centroid', 'calculation_error', {
+        frame: frameIndex,
+        error: error.message
+      });
       return null;
-    }
     }
   }
   

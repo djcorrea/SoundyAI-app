@@ -40,6 +40,13 @@ export class SpectralBandsCalculator {
     
     // Pre-calcular bins das bandas
     this.bandBins = this.calculateBandBins();
+    
+    logAudio('spectral_bands', 'init', {
+      sampleRate,
+      fftSize,
+      frequencyResolution: this.frequencyResolution.toFixed(2),
+      bandsCount: Object.keys(SPECTRAL_BANDS).length
+    });
   }
   
   /**
@@ -110,6 +117,9 @@ export class SpectralBandsCalculator {
     
     // Validar energia total
     if (totalEnergy < SPECTRAL_CONFIG.MIN_ENERGY_THRESHOLD) {
+      logAudio('spectral_bands', 'insufficient_energy', { 
+        totalEnergy: totalEnergy.toExponential(3) 
+      });
       return null;
     }
     

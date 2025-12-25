@@ -1,7 +1,6 @@
 // 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4 - CORRIGIDO
 // Integração completa com tratamento de erros padronizado e fail-fast
 
-import logger from "../../lib/logger.js";
 import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
@@ -25,7 +24,16 @@ import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-logger.info('🎵 Pipeline Completo (Fases 5.1-5.4) carregado');
+console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
+
+// 🚨 LOG DE INICIALIZAÇÃO DO PIPELINE
+console.error('\n\n');
+console.error('╔══════════════════════════════════════════════════════════════╗');
+console.error('║  🔥 PIPELINE-COMPLETE.JS INICIALIZADO                       ║');
+console.error('╚══════════════════════════════════════════════════════════════╝');
+console.error('[PIPELINE-INIT] Módulo carregado em:', new Date().toISOString());
+console.error('[PIPELINE-INIT] loadGenreTargetsFromWorker importado:', typeof loadGenreTargetsFromWorker);
+console.error('\n\n');
 
 /**
  * 🎯 FUNÇÃO DE ORDENAÇÃO PROFISSIONAL DE SUGESTÕES
@@ -173,12 +181,25 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   let customTargets = null; // 🔧 Declaração antecipada para evitar ReferenceError
   
-  logger.analysisStart(jobId, { fileName, mode: options?.mode, genre: options?.genre });
-  logger.debugFFT('[DEBUG-PIPELINE-GENRE]', {
-    mode: options?.mode,
-    genre: options?.genre,
-    hasTargets: !!options?.genreTargets,
-    jobId: jobId.substring(0,8)
+  console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline (WORK) =====');
+  console.log('mode:', options?.mode);
+  console.log('genre (options.genre):', options?.genre);
+  console.log('finalGenre:', options?.finalGenre);
+  console.log('selectedGenre:', options?.selectedGenre);
+  console.log('genreTargets keys:', options?.genreTargets ? Object.keys(options.genreTargets) : null);
+  console.log('jobId:', jobId);
+  console.log('=====================================================\n\n');
+  
+  console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
+  console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
+  console.log(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
+  
+  // 🔥 LOG OBRIGATÓRIO: ENTRADA DO PIPELINE
+  console.log('[GENRE-TRACE][PIPELINE-INPUT]', {
+    jobId: jobId.substring(0, 8),
+    incomingGenre: options.genre,
+    incomingTargets: options.genreTargets ? Object.keys(options.genreTargets) : null,
+    mode: options.mode
   });
   
   // PASSO 2: GARANTIR QUE O MODO NÃO VAZA PARA REFERÊNCIA
@@ -201,7 +222,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       audioData = await decodeAudioFile(audioBuffer, fileName, { jobId });
       
       timings.phase1_decode = Date.now() - phase1StartTime;
-      logger.debug(`[${jobId.substring(0,8)}] Fase 5.1: ${timings.phase1_decode}ms - ${audioData.sampleRate}Hz, ${audioData.numberOfChannels}ch, ${audioData.duration.toFixed(2)}s`);
+      console.log(`✅ [${jobId.substring(0,8)}] Fase 5.1 concluída em ${timings.phase1_decode}ms`);
+      console.log(`📊 [${jobId.substring(0,8)}] Audio: ${audioData.sampleRate}Hz, ${audioData.numberOfChannels}ch, ${audioData.duration.toFixed(2)}s`);
       
       // Criar arquivo temporário para FFmpeg True Peak
       tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
@@ -219,7 +241,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       segmentedData = segmentAudioTemporal(audioData, { jobId, fileName });
       
       timings.phase2_segmentation = Date.now() - phase2StartTime;
-      logger.debugFFT(`[${jobId.substring(0,8)}] Fase 5.2: ${timings.phase2_segmentation}ms - FFT=${segmentedData.framesFFT.count}, RMS=${segmentedData.framesRMS.count}`);
+      console.log(`✅ [${jobId.substring(0,8)}] Fase 5.2 concluída em ${timings.phase2_segmentation}ms`);
+      console.log(`📊 [${jobId.substring(0,8)}] Frames: FFT=${segmentedData.framesFFT.count}, RMS=${segmentedData.framesRMS.count}`);
       
     } catch (error) {
       if (error.stage === 'segmentation') {
@@ -240,7 +263,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       timings.phase3_core_metrics = Date.now() - phase3StartTime;
-      logger.debug(`[${jobId.substring(0,8)}] Fase 5.3: ${timings.phase3_core_metrics}ms`);
+      console.log(`✅ [${jobId.substring(0,8)}] Fase 5.3 concluída em ${timings.phase3_core_metrics}ms`);
       
       // Logs condicionais para evitar erros se métricas não existirem
       const lufsStr = coreMetrics.lufs?.integrated ? coreMetrics.lufs.integrated.toFixed(1) : 'N/A';

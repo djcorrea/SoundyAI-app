@@ -2,7 +2,6 @@
 // FFT, LUFS ITU-R BS.1770-4, True Peak 4x Oversampling, Stereo Analysis
 // Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
-import logger, { summarizeArray } from "../../lib/logger.js";
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetricsCorrected as calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
@@ -43,7 +42,7 @@ import {
 function calculateSamplePeakDbfs(leftChannel, rightChannel) {
   try {
     if (!leftChannel || !rightChannel || leftChannel.length === 0 || rightChannel.length === 0) {
-      logger.warn('[SAMPLE_PEAK] Canais inválidos ou vazios');
+      console.warn('[SAMPLE_PEAK] Canais inválidos ou vazios');
       return null;
     }
 
@@ -78,11 +77,20 @@ function calculateSamplePeakDbfs(leftChannel, rightChannel) {
     
     // 🔍 LOG DIAGNÓSTICO
     const totalSamples = leftChannel.length + rightChannel.length;
-    logger.debugFFT(`[SAMPLE_PEAK] Peak L: ${peakLeftDbfs.toFixed(2)} dBFS, R: ${peakRightDbfs.toFixed(2)} dBFS, Max: ${peakMaxDbfs.toFixed(2)} dBFS`);
+    console.log(`[SAMPLE_PEAK] 🔍 Diagnóstico do buffer:`);
+    console.log(`   Peak L: ${peakLeftLinear.toFixed(6)} (${peakLeftDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Peak R: ${peakRightLinear.toFixed(6)} (${peakRightDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Peak Max: ${peakMaxLinear.toFixed(6)} (${peakMaxDbfs.toFixed(2)} dBFS)`);
+    console.log(`   Samples = ±1.000: ${countExact1} (${(countExact1 / totalSamples * 100).toFixed(3)}%)`);
+    console.log(`   Samples >= 0.995: ${countNear1} (${(countNear1 / totalSamples * 100).toFixed(3)}%)`);
     
     // ⚠️ AVISO se Sample Peak > 0.2 dB (suspeito para PCM inteiro)
     if (peakMaxDbfs > 0.2) {
-      logger.warn(`[SAMPLE_PEAK] Peak > 0.2 dBFS (${peakMaxDbfs.toFixed(2)} dB) - Possíveis causas: DC filter overshoots, normalização incorreta, ou float format`);
+      console.warn(`[SAMPLE_PEAK] ⚠️ Sample Peak > 0.2 dBFS (${peakMaxDbfs.toFixed(2)} dB) - SUSPEITO para PCM inteiro!`);
+      console.warn(`   Possíveis causas:`);
+      console.warn(`   1. Filtro DC introduziu overshoots (verificar audio-decoder logs)`);
+      console.warn(`   2. Buffer não normalizado corretamente (verificar FFmpeg conversion)`);
+      console.warn(`   3. Arquivo em formato float (permitido Sample Peak > 0 dBFS)`);
     }
     
     return {
@@ -212,17 +220,17 @@ class CoreMetricsProcessor {
         
         // 🔍 TAREFA 3B: Aplicar correção se detectado erro de escala
         if (bufferAnalysis.needsCorrection) {
-          logger.warn(`[SAMPLE_PEAK] Aplicando correção de escala (divisor=${bufferAnalysis.divisorNeeded})`);
+          console.warn(`[SAMPLE_PEAK] ⚠️ Aplicando correção de escala (divisor=${bufferAnalysis.divisorNeeded})`);
           samplePeakMetrics = correctSamplePeakIfNeeded(samplePeakMetrics, bufferAnalysis);
         }
         
         if (samplePeakMetrics && samplePeakMetrics.maxDbfs !== null) {
-          logger.debug('[SAMPLE_PEAK] Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs.toFixed(2), 'dBFS');
+          console.log('[SAMPLE_PEAK] ✅ Max Sample Peak (RAW):', samplePeakMetrics.maxDbfs.toFixed(2), 'dBFS');
         } else {
-          logger.warn('[SAMPLE_PEAK] Não foi possível calcular (canais inválidos)');
+          console.warn('[SAMPLE_PEAK] ⚠️ Não foi possível calcular (canais inválidos)');
         }
       } catch (error) {
-        logger.warn('[SAMPLE_PEAK] Erro ao calcular:', error.message);
+        console.warn('[SAMPLE_PEAK] ⚠️ Erro ao calcular - continuando pipeline:', error.message);
         samplePeakMetrics = null;
       }
 
@@ -280,7 +288,7 @@ class CoreMetricsProcessor {
                 _fallbackSource: 'ffmpeg_astats'
               };
               
-              logger.debug(`[FALLBACK] Sample Peak corrigido: ${samplePeakMetrics.maxDbfs.toFixed(2)} dBFS`);
+              console.log(`[FALLBACK] ✅ Sample Peak corrigido: ${samplePeakMetrics.maxDbfs.toFixed(2)} dBFS`);
             }
           } catch (fallbackError) {
             console.error(`[FALLBACK] ❌ Erro ao executar FFmpeg fallback:`, fallbackError.message);
@@ -378,8 +386,15 @@ class CoreMetricsProcessor {
       console.log('[RAW_METRICS] 📊 VALORES RAW (que serão salvos em technicalData):');
       console.log('[RAW_METRICS]   - lufsIntegrated:', rawLufsMetrics.integrated, 'LUFS');
       console.log('[RAW_METRICS]   - truePeakDbtp:', rawTruePeakMetrics.maxDbtp, 'dBTP');
-      logger.debugFFT('[RAW_METRICS] DR:', rawDynamicsMetrics.dynamicRange, 'dB | LRA:', rawLufsMetrics.lra, 'LU');
-      logger.debugFFT('[NORM_FREQ] Bandas espectrais calculadas:', !!spectralBandsResults, 'keys:', spectralBandsResults ? Object.keys(spectralBandsResults).length : 0);
+      console.log('[RAW_METRICS]   - dynamicRange:', rawDynamicsMetrics.dynamicRange, 'dB');
+      console.log('[RAW_METRICS]   - lra:', rawLufsMetrics.lra, 'LU');
+      console.log('[RAW_METRICS] ═══════════════════════════════════════════════════════════════');
+      
+      console.log('[NORM_FREQ] ═══════════════════════════════════════════════════════════════');
+      console.log('[NORM_FREQ] 🔊 BANDAS ESPECTRAIS (calculadas no buffer normalizado):');
+      console.log('[NORM_FREQ]   - bands present:', !!spectralBandsResults);
+      console.log('[NORM_FREQ]   - spectral_balance keys:', spectralBandsResults ? Object.keys(spectralBandsResults) : []);
+      console.log('[NORM_FREQ] ═══════════════════════════════════════════════════════════════');
 
       // ========= ANÁLISE AUXILIAR - VERSÃO SIMPLIFICADA SEM CLASSES =========
       // 🚨 IMPORTANTE: Usando apenas funções standalone para evitar erros de classe
@@ -401,14 +416,21 @@ class CoreMetricsProcessor {
       try {
         if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
           const spectrum = fftResults.magnitudeSpectrum[0];
-          logger.debugFFT('[DEBUG_DOMINANT] Spectrum:', summarizeArray(spectrum));
+          console.log('[DEBUG_DOMINANT] Espectro recebido:', {
+            length: spectrum.length,
+            maxValue: Math.max(...spectrum),
+            avgValue: spectrum.reduce((sum, val) => sum + val, 0) / spectrum.length,
+            first5: spectrum.slice(0, 5),
+            nonZeroCount: spectrum.filter(v => v > 0.001).length
+          });
           
           dominantFreqMetrics = calculateDominantFrequencies(
             fftResults.magnitudeSpectrum[0], // Usar primeiro frame
             CORE_METRICS_CONFIG.SAMPLE_RATE,
             CORE_METRICS_CONFIG.FFT_SIZE
           );
-          logger.debugFFT('[SUCCESS] Dominant Frequencies:', dominantFreqMetrics);
+          console.log('[DEBUG_DOMINANT] Resultado da função:', dominantFreqMetrics);
+          console.log('[SUCCESS] Dominant Frequencies calculado via função standalone');
         } else {
           console.log('[DEBUG_DOMINANT] FFT spectrum não disponível:', {
             hasSpectrum: !!fftResults.magnitudeSpectrum,
@@ -430,10 +452,12 @@ class CoreMetricsProcessor {
             (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
           );
           
-          logger.debugFFT('[DEBUG_UNIFORMITY]', {
-            spectrumLen: representativeSpectrum.length,
-            binsLen: frequencyBins.length,
-            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE
+          console.log('[DEBUG_UNIFORMITY] Dados de entrada:', {
+            spectrumLength: representativeSpectrum.length,
+            binsLength: frequencyBins.length,
+            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+            first5Values: representativeSpectrum.slice(0, 5),
+            first5Bins: frequencyBins.slice(0, 5)
           });
           
           spectralUniformityMetrics = calculateSpectralUniformity(
@@ -442,7 +466,8 @@ class CoreMetricsProcessor {
             CORE_METRICS_CONFIG.SAMPLE_RATE
           );
           
-          logger.debugFFT('[SUCCESS] Spectral Uniformity:', spectralUniformityMetrics);
+          console.log('[DEBUG_UNIFORMITY] Resultado da função:', spectralUniformityMetrics);
+          console.log('[SUCCESS] Spectral Uniformity calculado via função standalone');
         } else {
           console.log('[DEBUG_UNIFORMITY] FFT spectrum não disponível');
         }
