@@ -11075,14 +11075,14 @@ function generateReferenceSuggestions(comparison) {
         
         if (Math.abs(data.difference) > 2) {
             const freqRanges = {
-                subBass: '20-60 Hz',
-                bass: '60-250 Hz',
-                lowMid: '250-500 Hz',
-                mid: '500-2k Hz',
-                upperMid: '2k-4k Hz',
-                presence: '4k-6k Hz',
-                brilliance: '6k-12k Hz',
-                air: '12k-20k Hz'
+                subBass: bandData.sub?.frequencyRange || '20-60 Hz',
+                bass: bandData.bass?.frequencyRange || '60-150 Hz',
+                lowMid: bandData.lowMid?.frequencyRange || '150-500 Hz',
+                mid: bandData.mid?.frequencyRange || '500-2k Hz',
+                upperMid: bandData.highMid?.frequencyRange || '2k-5k Hz',
+                presence: bandData.presence?.frequencyRange || '5k-10k Hz',
+                brilliance: bandData.air?.frequencyRange || '10k-20k Hz',
+                air: bandData.air?.frequencyRange || '10k-20k Hz'
             };
             
             const suggestion = {
@@ -15113,11 +15113,21 @@ async function displayModalResults(analysis) {
                                 displayValue = 'não calculado';
                             }
                             const metricKey = `band_${bandKey}`;
-                            rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
+                            
+                            // ✅ PRIORIZAR: Usar frequencyRange do backend se existir
+                            const displayName = bandData.frequencyRange 
+                                ? `${bandMap[bandKey].name.split('(')[0].trim()} (${bandData.frequencyRange})`
+                                : bandMap[bandKey].name;
+                            
+                            rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
                         }
                     } else if (Number.isFinite(bandData)) {
                         const metricKey = `band_${bandKey}`;
-                        rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
+                        
+                        // ✅ Fallback também usa range do backend se existir
+                        const displayName = bandMap[bandKey].name;
+                        
+                        rows.push(row(displayName, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`, metricKey, 'frequency'));
                     }
                 });
             }

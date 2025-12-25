@@ -438,13 +438,13 @@ class SuggestionTextGeneratorUnified {
         };
         
         this.bandTemplates = {
-            sub: { name: 'Sub Bass (20-60 Hz)', impact: 'fundação e poder' },
-            bass: { name: 'Bass (60-250 Hz)', impact: 'groove e energia' },
-            low_mid: { name: 'Low Mid (250-500 Hz)', impact: 'clareza e definição' },
-            mid: { name: 'Mid (500-2000 Hz)', impact: 'presença vocal' },
-            high_mid: { name: 'High Mid (2-4 kHz)', impact: 'brilho e articulação' },
-            presence: { name: 'Presence (4-8 kHz)', impact: 'presença e definição' },
-            air: { name: 'Air (8+ kHz)', impact: 'espacialidade e brilho' }
+            sub: { name: 'Sub Bass', impact: 'fundação e poder' },
+            bass: { name: 'Bass', impact: 'groove e energia' },
+            low_mid: { name: 'Low Mid', impact: 'clareza e definição' },
+            mid: { name: 'Mid', impact: 'presença vocal' },
+            high_mid: { name: 'High Mid', impact: 'brilho e articulação' },
+            presence: { name: 'Presence', impact: 'presença e definição' },
+            air: { name: 'Air', impact: 'espacialidade e brilho' }
         };
     }
 
