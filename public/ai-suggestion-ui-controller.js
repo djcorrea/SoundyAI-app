@@ -1728,6 +1728,25 @@ class AISuggestionUIController {
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);
         
         const cardsHtml = validatedSuggestions.map((suggestion, index) => {
+            // ✅ VALIDAÇÃO E: Assert de enriquecimento
+            if (suggestion.aiEnhanced === true) {
+                const hasCausa = suggestion.causaProvavel && 
+                               !suggestion.causaProvavel.includes('não analisada') && 
+                               !suggestion.causaProvavel.includes('processamento');
+                const hasPlugin = suggestion.pluginRecomendado && 
+                                 suggestion.pluginRecomendado !== 'Não especificado';
+                
+                if (!hasCausa || !hasPlugin) {
+                    console.warn(`[VALIDATION] ⚠️ Card ${index} marcado aiEnhanced mas campos incompletos:`, {
+                        metric: suggestion.metric,
+                        hasCausa,
+                        hasPlugin,
+                        causaProvavel: suggestion.causaProvavel,
+                        pluginRecomendado: suggestion.pluginRecomendado
+                    });
+                }
+            }
+            
             if (isAIEnriched) {
                 return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
@@ -1737,6 +1756,25 @@ class AISuggestionUIController {
         
         this.elements.aiContent.innerHTML = cardsHtml;
         console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
+        
+        // ✅ VALIDAÇÃO E: Assert contagem tabela vs modal
+        setTimeout(() => {
+            const tableRows = document.querySelectorAll('.metric-row.critical, .metric-row.high, .metric-row.caution');
+            const modalCards = document.querySelectorAll('.ai-suggestion-card');
+            const match = tableRows.length === modalCards.length;
+            
+            console.group('[VALIDATION] 🔢 Contagem Tabela vs Modal');
+            console.log(`Tabela problemáticas: ${tableRows.length}`);
+            console.log(`Modal cards: ${modalCards.length}`);
+            console.log(`Match 1:1: ${match ? '✅' : '❌ FALHOU'}`);
+            
+            if (!match) {
+                console.error('❌ BUG DETECTADO: Contagens divergem!');
+                console.log('Tabela métricas:', Array.from(tableRows).map(r => r.dataset.metric));
+                console.log('Modal cards:', Array.from(modalCards).map((c, i) => `Card ${i}`));
+            }
+            console.groupEnd();
+        }, 500);
     }
     
     /**
@@ -1936,7 +1974,11 @@ class AISuggestionUIController {
                             ? this.buildDefaultProblemMessage(suggestion)
                             : suggestion.message || 'Problema não especificado');
         
-        const causaProvavel = suggestion.causaProvavel || 'Causa não analisada';
+        // ✅ CORREÇÃO D: NÃO mostrar "Causa não analisada" se aiEnhanced = true
+        const causaProvavel = suggestion.causaProvavel || 
+                             (suggestion.aiEnhanced === true 
+                                 ? 'Análise em processamento...' 
+                                 : 'Causa não analisada');
         
         const solucao = suggestion.solucao || 
                        (suggestion.aiEnhanced === false && suggestion.recommendation
