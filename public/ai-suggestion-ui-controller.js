@@ -1560,181 +1560,136 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 MODAL_VS_TABLE v2: ROW-DRIVEN COM PRESERVAÇÃO DE SUGESTÕES ENRIQUECIDAS
+        // 🎯 MODAL_VS_TABLE v3: SUGGESTION-DRIVEN (aiSuggestions como fonte ÚNICA)
         // ════════════════════════════════════════════════════════════════════════════════
-        // REGRAS:
-        // 1. Rows servem SOMENTE para: (a) decidir quais métricas são "não-OK" e (b) ordenar
-        // 2. Se existir suggestion enriquecida do backend para aquela métrica, USAR ELA
-        // 3. Se não existir, criar fallback minimalista (aiEnhanced=false)
-        // 4. NUNCA substituir sugestões enriquecidas por objetos derivados de rows
+        // REGRAS FUNDAMENTAIS:
+        // 1. SEMPRE usar analysis.aiSuggestions como fonte única de cards
+        // 2. Rows/genreTargets servem SOMENTE para FILTRAR sugestões OK (nunca substituir)
+        // 3. TruePeak/LUFS/DR NUNCA desaparecem se o backend mandou sugestão
+        // 4. Nunca fazer `suggestions = rowsAsSuggestions` - PROIBIDO
         // ════════════════════════════════════════════════════════════════════════════════
         
-        if (window.USE_TABLE_ROWS_FOR_MODAL && typeof window.buildMetricRows === 'function') {
+        if (window.USE_TABLE_ROWS_FOR_MODAL && genreTargets) {
             let analysis = window.currentModalAnalysis || 
                           window.__CURRENT_ANALYSIS__ || 
                           window.lastAnalysisResult ||
-                          window.currentAnalysisData;
+                          window.currentAnalysisData ||
+                          window.lastAudioAnalysis;
             
-            if (!analysis && window.lastAudioAnalysis) {
-                analysis = {
-                    technicalData: window.lastAudioAnalysis.technicalData,
-                    bands: window.lastAudioAnalysis.bands,
-                    analysisMode: window.lastAudioAnalysis.analysisMode || 'full',
-                    isReduced: window.lastAudioAnalysis.isReduced || false,
-                    aiSuggestions: window.lastAudioAnalysis.aiSuggestions || []
-                };
-                console.log('[MODAL_VS_TABLE] 🔧 Analysis reconstruído de window.lastAudioAnalysis');
-            }
+            console.log('[MODAL_VS_TABLE] 🔄 v3 ATIVADO: Suggestion-driven (filtragem apenas)');
             
-            if (analysis && genreTargets) {
-                console.log('[MODAL_VS_TABLE] 🔄 v2 ATIVADO: Row-driven com preservação de sugestões');
+            try {
+                // ════════════════════════════════════════════════════════════════
+                // FONTE ÚNICA: aiSuggestions do backend
+                // ════════════════════════════════════════════════════════════════
+                const originalSuggestions = analysis?.aiSuggestions || analysis?.suggestions || suggestions || [];
+                console.log('[MODAL_VS_TABLE] 📦 Sugestões do backend:', originalSuggestions.length);
                 
-                try {
-                    // ════════════════════════════════════════════════════════════════
-                    // PASSO 1: Gerar rows e filtrar problemáticas
-                    // ════════════════════════════════════════════════════════════════
-                    const rows = window.buildMetricRows(analysis, genreTargets, 'genre');
-                    let problemRows = rows.filter(r => r.severity !== 'OK' && r.severity !== 'N/A');
+                // ════════════════════════════════════════════════════════════════
+                // HELPER LOCAL: Verificar se métrica está OK/ideal
+                // ════════════════════════════════════════════════════════════════
+                const isMetricOK = (metric, genreTargets, analysis) => {
+                    if (!metric || !genreTargets) return false; // Manter se não puder validar
                     
-                    // Security Guard para modo reduced
-                    const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
-                    let removedBySecurityGuard = [];
+                    const key = normalizeMetricKey(metric);
+                    const technicalData = analysis?.technicalData || {};
                     
-                    if (isReducedMode && typeof shouldRenderRealValue === 'function') {
-                        const rowsBeforeFilter = problemRows.length;
-                        problemRows = problemRows.filter(row => {
-                            const canRender = shouldRenderRealValue(row.key, 'ai-suggestion', analysis);
-                            if (!canRender) removedBySecurityGuard.push(row.key);
-                            return canRender;
-                        });
-                        console.log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${rowsBeforeFilter} → ${problemRows.length}`);
+                    // Métricas globais
+                    const globalMetrics = {
+                        'lufs': { value: technicalData.lufsIntegrated, target: genreTargets.lufs_target, tol: genreTargets.tol_lufs || 1.0 },
+                        'truepeak': { value: technicalData.truePeakDbtp, target: genreTargets.true_peak_target, tol: genreTargets.tol_true_peak || 0.5 },
+                        'dr': { value: technicalData.dynamicRange, target: genreTargets.dr_target, tol: genreTargets.tol_dr || 1.0 },
+                        'stereo': { value: technicalData.stereoCorrelation, target: genreTargets.stereo_target, tol: genreTargets.tol_stereo || 0.1 }
+                    };
+                    
+                    if (globalMetrics[key]) {
+                        const m = globalMetrics[key];
+                        if (!Number.isFinite(m.value) || m.target == null) return false;
+                        const diff = Math.abs(m.value - m.target);
+                        return diff <= m.tol;
                     }
                     
-                    // ════════════════════════════════════════════════════════════════
-                    // PASSO 2: Construir problemKeys (normalizado)
-                    // ════════════════════════════════════════════════════════════════
-                    const problemKeys = problemRows.map(r => normalizeMetricKey(r.key)).filter(k => k !== null);
-                    
-                    // ════════════════════════════════════════════════════════════════
-                    // PASSO 3: Construir suggestionMap a partir de aiSuggestions do backend
-                    // ════════════════════════════════════════════════════════════════
-                    const originalSuggestions = analysis.aiSuggestions || analysis.suggestions || suggestions || [];
-                    const suggestionMap = new Map();
-                    
-                    originalSuggestions.forEach(s => {
-                        const key = normalizeMetricKey(s.metric || s.metricKey || s.type || s.key || s.id);
-                        if (key) {
-                            suggestionMap.set(key, s);
-                        }
-                    });
-                    
-                    // ════════════════════════════════════════════════════════════════
-                    // PASSO 4: Construir rowMap para metadata (severity, targets, etc)
-                    // ════════════════════════════════════════════════════════════════
-                    const rowMap = new Map();
-                    problemRows.forEach(r => {
-                        const key = normalizeMetricKey(r.key);
-                        if (key) rowMap.set(key, r);
-                    });
-                    
-                    // ════════════════════════════════════════════════════════════════
-                    // INSTRUMENTAÇÃO: Logar conjuntos comparativos
-                    // ════════════════════════════════════════════════════════════════
-                    const aiSuggestionKeys = Array.from(suggestionMap.keys());
-                    
-                    console.group('[MODAL_VS_TABLE] 📊 INSTRUMENTAÇÃO');
-                    console.log('problemKeys (tabela):', problemKeys);
-                    console.log('aiSuggestionKeys (backend):', aiSuggestionKeys);
-                    console.log('Interseção:', problemKeys.filter(k => suggestionMap.has(k)));
-                    console.log('Só na tabela:', problemKeys.filter(k => !suggestionMap.has(k)));
-                    console.log('Só no backend:', aiSuggestionKeys.filter(k => !problemKeys.includes(k)));
-                    console.groupEnd();
-                    
-                    // ════════════════════════════════════════════════════════════════
-                    // PASSO 5: Montar finalSuggestions na ORDEM das problemRows
-                    // ════════════════════════════════════════════════════════════════
-                    const finalSuggestions = [];
-                    
-                    problemRows.forEach((row, idx) => {
-                        const key = normalizeMetricKey(row.key);
-                        if (!key) {
-                            console.error(`[MODAL_VS_TABLE] ❌ Row ${idx} sem key válida:`, row);
-                            return;
+                    // Bandas espectrais
+                    const bandTarget = getBandTarget(key, genreTargets);
+                    if (bandTarget) {
+                        const userBands = technicalData.spectral_balance || technicalData.bands || analysis?.bands || {};
+                        const bandData = userBands[key] || userBands[metric];
+                        const energyDb = typeof bandData === 'number' ? bandData : (bandData?.energy_db ?? bandData?.rms_db);
+                        
+                        if (!Number.isFinite(energyDb)) return false;
+                        
+                        const range = bandTarget.target_range || bandTarget.targetRange;
+                        if (range && typeof range.min === 'number' && typeof range.max === 'number') {
+                            return energyDb >= range.min && energyDb <= range.max;
                         }
                         
-                        const enrichedSuggestion = suggestionMap.get(key);
-                        
-                        if (enrichedSuggestion) {
-                            // ✅ USAR SUGESTÃO ENRIQUECIDA DO BACKEND (preservar todos os campos!)
-                            console.log(`[MODAL_VS_TABLE] ✅ ${key}: Usando sugestão enriquecida do backend`);
-                            finalSuggestions.push({
-                                ...enrichedSuggestion,
-                                metric: key, // Garantir key canônica
-                                __rowMeta: row,
-                                severity: row.severity,
-                                severityClass: row.severityClass,
-                                targetMin: row.min,
-                                targetMax: row.max,
-                                currentValue: row.value,
-                                targetValue: row.targetText
-                            });
-                        } else {
-                            // ⚠️ CRIAR FALLBACK MINIMALISTA (aiEnhanced=false)
-                            console.log(`[MODAL_VS_TABLE] ⚠️ ${key}: Criando fallback (sem sugestão IA)`);
-                            finalSuggestions.push({
-                                metric: key,
-                                type: row.type || 'metric',
-                                categoria: row.category || 'Geral',
-                                problema: `${row.label || key}: ${row.actionText || 'Valor fora do padrão'}`,
-                                causaProvavel: `Valor atual: ${typeof row.value === 'number' ? row.value.toFixed(1) : 'N/A'} | Target: ${row.targetText || 'N/A'}`,
-                                solucao: row.actionText || 'Ajuste conforme a tabela de métricas.',
-                                pluginRecomendado: row.type === 'band' ? 'EQ paramétrico' : 'Limiter/Compressor',
-                                aiEnhanced: false,
-                                _fromRows: true,
-                                __rowMeta: row,
-                                severity: row.severity,
-                                severityClass: row.severityClass,
-                                targetMin: row.min,
-                                targetMax: row.max,
-                                currentValue: row.value,
-                                targetValue: row.targetText
-                            });
+                        if (typeof bandTarget.target_db === 'number') {
+                            const tol = bandTarget.tol_db ?? 2.0;
+                            return Math.abs(energyDb - bandTarget.target_db) <= tol;
                         }
+                    }
+                    
+                    return false; // Não conseguiu validar = manter sugestão
+                };
+                
+                // ════════════════════════════════════════════════════════════════
+                // FILTRAR: Remover apenas sugestões que estão OK/ideal
+                // ════════════════════════════════════════════════════════════════
+                const filteredSuggestions = originalSuggestions.filter(suggestion => {
+                    const metric = suggestion.metric || suggestion.metricKey || suggestion.type || suggestion.key;
+                    const isOK = isMetricOK(metric, genreTargets, analysis);
+                    
+                    if (isOK) {
+                        console.log(`[MODAL_VS_TABLE] ✅ ${metric}: REMOVIDO (dentro do padrão)`);
+                        return false;
+                    } else {
+                        console.log(`[MODAL_VS_TABLE] ⚠️ ${metric}: MANTIDO (fora do padrão ou não validável)`);
+                        return true;
+                    }
+                });
+                
+                // ════════════════════════════════════════════════════════════════
+                // Security Guard para modo reduced
+                // ════════════════════════════════════════════════════════════════
+                const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
+                let finalSuggestions = filteredSuggestions;
+                
+                if (isReducedMode && typeof shouldRenderRealValue === 'function') {
+                    const beforeCount = finalSuggestions.length;
+                    finalSuggestions = finalSuggestions.filter(s => {
+                        const key = normalizeMetricKey(s.metric || s.metricKey || s.type || s.key);
+                        return shouldRenderRealValue(key, 'ai-suggestion', analysis);
                     });
-                    
-                    // ════════════════════════════════════════════════════════════════
-                    // INSTRUMENTAÇÃO FINAL
-                    // ════════════════════════════════════════════════════════════════
-                    const finalKeys = finalSuggestions.map(s => s.metric);
-                    const enrichedCount = finalSuggestions.filter(s => s.aiEnhanced !== false).length;
-                    const fallbackCount = finalSuggestions.filter(s => s.aiEnhanced === false).length;
-                    
-                    console.group('[MODAL_VS_TABLE] 📋 RESULTADO FINAL');
-                    console.log('finalKeys:', finalKeys);
-                    console.log('Total cards:', finalSuggestions.length);
-                    console.log('Enriquecidos (IA):', enrichedCount);
-                    console.log('Fallback (rows):', fallbackCount);
-                    console.log('Ratio problemKeys vs finalKeys:', problemKeys.length === finalKeys.length ? '✅ 1:1' : '❌ Mismatch');
-                    
-                    // Verificar se LUFS/TruePeak estão presentes quando deveriam
-                    const hasLufs = finalKeys.includes('lufs');
-                    const hasTruePeak = finalKeys.includes('truePeak');
-                    const hasPresence = finalKeys.includes('presence');
-                    const hasAir = finalKeys.includes('air');
-                    console.log('Métricas críticas:', { hasLufs, hasTruePeak, hasPresence, hasAir });
-                    console.groupEnd();
-                    
-                    suggestions = finalSuggestions;
-                    
-                } catch (error) {
-                    console.error('[MODAL_VS_TABLE] ❌ Erro:', error);
-                    console.error('[MODAL_VS_TABLE] Usando suggestions do backend como fallback');
+                    console.log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${beforeCount} → ${finalSuggestions.length}`);
                 }
-            } else {
-                console.warn('[MODAL_VS_TABLE] ⚠️ analysis ou genreTargets ausente');
+                
+                // ════════════════════════════════════════════════════════════════
+                // INSTRUMENTAÇÃO FINAL
+                // ════════════════════════════════════════════════════════════════
+                const originalKeys = originalSuggestions.map(s => normalizeMetricKey(s.metric || s.type || s.key));
+                const finalKeys = finalSuggestions.map(s => normalizeMetricKey(s.metric || s.type || s.key));
+                const removedKeys = originalKeys.filter(k => !finalKeys.includes(k));
+                
+                console.group('[MODAL_VS_TABLE] 📋 RESULTADO v3');
+                console.log('Original (backend):', originalKeys);
+                console.log('Final (após filtro OK):', finalKeys);
+                console.log('Removidos (OK):', removedKeys);
+                console.log('Total cards:', finalSuggestions.length);
+                
+                const hasLufs = finalKeys.includes('lufs');
+                const hasTruePeak = finalKeys.includes('truepeak') || finalKeys.includes('truePeak');
+                const hasDr = finalKeys.includes('dr');
+                console.log('Métricas críticas presentes:', { hasLufs, hasTruePeak, hasDr });
+                console.groupEnd();
+                
+                suggestions = finalSuggestions;
+                
+            } catch (error) {
+                console.error('[MODAL_VS_TABLE] ❌ Erro:', error);
+                console.error('[MODAL_VS_TABLE] Usando suggestions do backend sem filtro');
             }
         } else {
-            console.log('[MODAL_VS_TABLE] ❌ Flag desativada ou buildMetricRows indisponível');
+            console.log('[MODAL_VS_TABLE] ℹ️ Sem genreTargets ou flag desativada - usando aiSuggestions direto');
         }
         // ════════════════════════════════════════════════════════════════════════════════
         
