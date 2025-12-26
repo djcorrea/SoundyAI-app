@@ -1305,29 +1305,52 @@ async function audioProcessor(job) {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🆕 STREAMING MODE: Override de targets APENAS para LUFS e True Peak
     // ═══════════════════════════════════════════════════════════════════════════════
+    console.log('[WORKER][STREAMING-DEBUG] soundDestination:', validSoundDestination);
+    console.log('[WORKER][STREAMING-DEBUG] finalJSON.data existe?', !!finalJSON.data);
+    console.log('[WORKER][STREAMING-DEBUG] finalJSON.data.genreTargets existe?', !!finalJSON.data?.genreTargets);
+    console.log('[WORKER][STREAMING-DEBUG] finalJSON.genreTargets existe?', !!finalJSON.genreTargets);
+    
     if (validSoundDestination === 'streaming') {
       console.log('[WORKER][STREAMING] 📡 Aplicando targets de Streaming...');
       
-      // 🎯 Override targets no genreTargets (se existir no resultado)
-      if (finalJSON.data?.genreTargets) {
-        console.log('[WORKER][STREAMING] Targets ANTES:', {
-          lufs_target: finalJSON.data.genreTargets.lufs_target,
-          true_peak_target: finalJSON.data.genreTargets.true_peak_target
-        });
-        
-        finalJSON.data.genreTargets.lufs_target = -14;
-        finalJSON.data.genreTargets.true_peak_target = -1.0;
-        
-        console.log('[WORKER][STREAMING] Targets DEPOIS:', {
-          lufs_target: finalJSON.data.genreTargets.lufs_target,
-          true_peak_target: finalJSON.data.genreTargets.true_peak_target
-        });
+      // 🛡️ GARANTIR que finalJSON.data existe
+      if (!finalJSON.data) {
+        finalJSON.data = {};
+        console.log('[WORKER][STREAMING] ⚠️ Criando finalJSON.data (não existia)');
       }
+      
+      // 🛡️ GARANTIR que finalJSON.data.genreTargets existe
+      if (!finalJSON.data.genreTargets) {
+        // Se há genreTargets na raiz, copiar
+        if (finalJSON.genreTargets) {
+          finalJSON.data.genreTargets = { ...finalJSON.genreTargets };
+          console.log('[WORKER][STREAMING] ⚠️ Copiando genreTargets da raiz para data.genreTargets');
+        } else {
+          // Criar estrutura mínima
+          finalJSON.data.genreTargets = {};
+          console.log('[WORKER][STREAMING] ⚠️ Criando genreTargets vazio (não existia em nenhum lugar)');
+        }
+      }
+      
+      // 🎯 Override targets no genreTargets
+      console.log('[WORKER][STREAMING] Targets ANTES:', {
+        lufs_target: finalJSON.data.genreTargets.lufs_target,
+        true_peak_target: finalJSON.data.genreTargets.true_peak_target
+      });
+      
+      finalJSON.data.genreTargets.lufs_target = -14;
+      finalJSON.data.genreTargets.true_peak_target = -1.0;
+      
+      console.log('[WORKER][STREAMING] Targets DEPOIS:', {
+        lufs_target: finalJSON.data.genreTargets.lufs_target,
+        true_peak_target: finalJSON.data.genreTargets.true_peak_target
+      });
       
       // 🎯 Override também em genreTargets raiz (se existir)
       if (finalJSON.genreTargets) {
         finalJSON.genreTargets.lufs_target = -14;
         finalJSON.genreTargets.true_peak_target = -1.0;
+        console.log('[WORKER][STREAMING] ✅ Override aplicado em genreTargets raiz também');
       }
       
       // 🎯 Override em resolvedTargets (se existir)
@@ -1338,15 +1361,22 @@ async function audioProcessor(job) {
         if (finalJSON.resolvedTargets.truePeak) {
           finalJSON.resolvedTargets.truePeak.target = -1.0;
         }
+        console.log('[WORKER][STREAMING] ✅ Override aplicado em resolvedTargets também');
       }
       
       // 🎯 Marcar resultado como streaming
       finalJSON.soundDestination = 'streaming';
       
-      console.log('[WORKER][STREAMING] ✅ Targets de streaming aplicados');
+      console.log('[WORKER][STREAMING] ✅ Targets de streaming aplicados com sucesso');
+      console.log('[WORKER][STREAMING] 📊 Estado final:', {
+        'data.genreTargets.lufs_target': finalJSON.data.genreTargets.lufs_target,
+        'data.genreTargets.true_peak_target': finalJSON.data.genreTargets.true_peak_target,
+        'soundDestination': finalJSON.soundDestination
+      });
     } else {
       // 🔊 Pista: manter tudo como está
       finalJSON.soundDestination = 'pista';
+      console.log('[WORKER][PISTA] 🎵 Modo Pista - targets originais mantidos');
     }
     // ═══════════════════════════════════════════════════════════════════════════════
     
