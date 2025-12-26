@@ -5871,8 +5871,21 @@ function selectAnalysisMode(mode) {
     // Fechar modal de seleção de modo
     closeModeSelectionModal();
     
-    // Abrir modal de análise configurado para o modo selecionado
-    openAnalysisModalForMode(mode);
+    if (mode === 'genre') {
+        // 🆕 STREAMING MODE: Abrir modal de destino ANTES do modal de gênero
+        openSoundDestinationModal((destinationMode) => {
+            console.log('[SELECT-MODE] Destino escolhido:', destinationMode);
+            // Modo tradicional - abrir modal de análise normal
+            openAnalysisModalForMode('genre');
+        });
+    } else if (mode === 'reference') {
+        // Modo referência - abrir interface específica (sem modal de destino)
+        setSoundDestinationMode('pista'); // Reset para default
+        openAnalysisModalForMode('reference');
+    } else {
+        // Fallback para outros modos
+        openAnalysisModalForMode(mode);
+    }
 }
 
 // � NOVO MODAL DE GÊNERO MUSICAL - Sistema completo
@@ -6091,14 +6104,26 @@ function openSoundDestinationModal(callback) {
     window.__destinationModalCallback__ = callback;
     
     const modal = document.getElementById('soundDestinationModal');
+    console.log('[DEST-MODAL] Modal encontrado:', !!modal);
+    
     if (modal) {
         modal.classList.add('active');
+        modal.style.display = 'flex'; // Forçar display flex como backup
+        console.log('[DEST-MODAL] ✅ Modal ativado com classe active');
         
         // Focus no primeiro botão
         setTimeout(() => {
             const firstBtn = modal.querySelector('.destination-btn');
             if (firstBtn) firstBtn.focus();
         }, 100);
+    } else {
+        console.error('[DEST-MODAL] ❌ Modal não encontrado no DOM!');
+        // Fallback: continuar sem o modal de destino
+        if (typeof callback === 'function') {
+            console.log('[DEST-MODAL] Usando fallback: modo pista');
+            setSoundDestinationMode('pista');
+            callback('pista');
+        }
     }
 }
 
@@ -6109,6 +6134,8 @@ function closeSoundDestinationModal() {
     const modal = document.getElementById('soundDestinationModal');
     if (modal) {
         modal.classList.remove('active');
+        modal.style.display = 'none'; // Garantir que esconda
+        console.log('[DEST-MODAL] Modal fechado');
     }
 }
 
