@@ -5994,7 +5994,6 @@ function setSoundDestinationMode(mode) {
 
 /**
  * Injetar estilos do modal de destino
- * Refatorado para usar identidade visual do Modal de Gênero
  */
 function injectDestinationModalStyles() {
     if (document.getElementById('destination-modal-styles')) return;
@@ -6002,96 +6001,202 @@ function injectDestinationModalStyles() {
     const styles = document.createElement('style');
     styles.id = 'destination-modal-styles';
     styles.textContent = `
-        /* 🎯 Modal de Destino do Som - Visual Refatorado (Estilo Gênero) */
-        
-        /* Ajustes específicos para o layout de 2 colunas */
-        #soundDestinationModal .genre-modal-container {
-            max-width: 680px;
-            background: linear-gradient(135deg, rgba(14, 20, 34, 0.98), rgba(31, 43, 64, 0.98));
-            border: 1px solid rgba(106, 154, 255, 0.2);
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(106, 0, 255, 0.15);
+        /* 🎯 Modal de Destino do Som - Glassmorphism Premium */
+        #soundDestinationModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
         
-        #soundDestinationModal .genre-grid {
-            grid-template-columns: 1fr 1fr;
+        #soundDestinationModal.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .destination-modal-container {
+            max-width: 800px;
+            width: 90%;
+            background: radial-gradient(
+                circle at 20% 20%, 
+                rgba(93, 21, 134, 0.85) 0%,
+                rgba(0, 0, 0, 0.95) 60%,
+                rgba(0, 102, 255, 0.4) 100%
+            );
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 
+                0 20px 40px rgba(91, 11, 156, 0.49),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 48px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalFadeIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Efeito de fundo neural */
+        .destination-modal-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(106, 154, 255, 0.03) 40px, rgba(106, 154, 255, 0.03) 41px),
+                repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(106, 0, 255, 0.03) 40px, rgba(106, 0, 255, 0.03) 41px);
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .destination-modal-container > * {
+            position: relative;
+            z-index: 5;
+        }
+        
+        .destination-modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #fff;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+        
+        .destination-modal-subtitle {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+        }
+        
+        .destination-grid {
+            display: flex;
             gap: 24px;
-            margin-top: 20px;
+            justify-content: center;
         }
         
-        #soundDestinationModal .genre-card {
-            height: auto;
-            min-height: 280px;
+        .destination-card {
+            flex: 1;
+            max-width: 340px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
             padding: 32px 24px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
-            justify-content: flex-start;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        
-        #soundDestinationModal .genre-card:hover {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(106, 154, 255, 0.5);
-            transform: translateY(-6px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(106, 154, 255, 0.2);
-        }
-        
-        /* Tipografia e Elementos Internos */
-        .destination-card-desc {
-            font-size: 0.95rem;
-            color: rgba(255, 255, 255, 0.9);
-            margin: 16px 0 20px 0;
-            line-height: 1.5;
-            font-weight: 500;
+            align-items: center;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-appearance: none;
+            appearance: none;
+            color: inherit;
+            font-family: inherit;
         }
         
-        .destination-card-list {
-            width: 100%;
-            margin-top: auto;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            text-align: left;
+        .destination-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        }
+
+        .destination-card.pista:hover {
+            border-color: rgba(255, 170, 0, 0.5);
+            box-shadow: 0 0 30px rgba(255, 170, 0, 0.15);
+        }
+
+        .destination-card.streaming:hover {
+            border-color: rgba(0, 212, 255, 0.5);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.15);
         }
         
-        .destination-card-list ul {
-            list-style: none;
+        .destination-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+        }
+        
+        .destination-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+        
+        .destination-desc {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 20px;
+            line-height: 1.4;
+            min-height: 3em;
+        }
+        
+        .destination-features {
             padding: 0;
             margin: 0;
+            text-align: left;
+            width: 100%;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
         }
         
-        .destination-card-list li {
+        .destination-feature {
             font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.65);
-            margin-bottom: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 8px;
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            line-height: 1.4;
+            align-items: center;
+            gap: 8px;
         }
         
-        .destination-card-list li:last-child {
-            margin-bottom: 0;
-        }
-        
-        .destination-card-list li::before {
-            content: '•';
-            color: #00d4ff;
+        .destination-feature::before {
+            content: '✓';
+            color: #00ff88;
             font-weight: bold;
-            font-size: 1.2em;
-            line-height: 1;
         }
-        
-        /* Responsividade */
-        @media (max-width: 700px) {
-            #soundDestinationModal .genre-grid {
-                grid-template-columns: 1fr;
-                gap: 16px;
+
+        @media (max-width: 768px) {
+            .destination-grid {
+                flex-direction: column;
+                align-items: center;
             }
-            
-            #soundDestinationModal .genre-card {
-                min-height: auto;
-                padding: 24px;
+            .destination-card {
+                width: 100%;
+                max-width: 100%;
+            }
+            .destination-modal-container {
+                padding: 32px 20px;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            .destination-modal-title {
+                font-size: 1.6rem;
             }
         }
     `;
@@ -6100,58 +6205,37 @@ function injectDestinationModalStyles() {
 
 /**
  * Criar modal de destino no DOM (se não existir)
- * Refatorado para usar estrutura do Modal de Gênero
  */
 function ensureDestinationModalExists() {
     if (document.getElementById('soundDestinationModal')) return;
     
     const modal = document.createElement('div');
     modal.id = 'soundDestinationModal';
-    modal.className = 'genre-modal'; // Reutiliza classes do modal de gênero
-    modal.style.display = 'none'; // Inicia oculto
-    
     modal.innerHTML = `
-        <div class="genre-modal-container">
-            <h2 class="genre-modal-title">
-                <span>ONDE ESSE SOM</span><br>
-                <span>VAI TOCAR?</span>
-            </h2>
-            <div class="genre-modal-subtitle">Escolha o destino para otimizar a análise</div>
+        <div class="destination-modal-container">
+            <div class="destination-modal-title">Onde esse som vai tocar?</div>
+            <div class="destination-modal-subtitle">Escolha o destino para otimizar a análise</div>
             
-            <div class="genre-grid">
-                <!-- CARD PISTA -->
-                <button class="genre-card" data-mode="pista">
-                    <span class="genre-icon">🔊</span>
-                    <span class="genre-name" style="font-size: 1.4rem; margin: 8px 0;">Pista</span>
-                    
-                    <div class="destination-card-desc">
-                        Para tocar alto em sistemas de som, carros, festas e shows.
-                    </div>
-                    
-                    <div class="destination-card-list">
-                        <ul>
-                            <li>P.A, paredão e automotivo</li>
-                            <li>Mais impacto e pressão sonora</li>
-                            <li>Energia máxima para pista</li>
-                        </ul>
+            <div class="destination-grid">
+                <button class="destination-card pista" data-mode="pista">
+                    <div class="destination-icon">🔊</div>
+                    <div class="destination-name">Pista</div>
+                    <div class="destination-desc">Para tocar alto em sistemas de som, carros, festas e shows.</div>
+                    <div class="destination-features">
+                        <div class="destination-feature">P.A, paredão e automotivo</div>
+                        <div class="destination-feature">Mais impacto e pressão sonora</div>
+                        <div class="destination-feature">Energia máxima para pista</div>
                     </div>
                 </button>
                 
-                <!-- CARD STREAMING -->
-                <button class="genre-card" data-mode="streaming">
-                    <span class="genre-icon">📡</span>
-                    <span class="genre-name" style="font-size: 1.4rem; margin: 8px 0;">Streaming</span>
-                    
-                    <div class="destination-card-desc">
-                        Para subir em plataformas digitais com padrão profissional.
-                    </div>
-                    
-                    <div class="destination-card-list">
-                        <ul>
-                            <li>Spotify, Deezer, Apple Music</li>
-                            <li>Loudness padronizado (-14 LUFS)</li>
-                            <li>Evita distorção e normalização</li>
-                        </ul>
+                <button class="destination-card streaming" data-mode="streaming">
+                    <div class="destination-icon">📡</div>
+                    <div class="destination-name">Streaming</div>
+                    <div class="destination-desc">Para subir em plataformas digitais com padrão profissional.</div>
+                    <div class="destination-features">
+                        <div class="destination-feature">Spotify, Deezer, Apple Music</div>
+                        <div class="destination-feature">Loudness padronizado (-14 LUFS)</div>
+                        <div class="destination-feature">Evita distorção e normalização agressiva</div>
                     </div>
                 </button>
             </div>
@@ -6160,18 +6244,14 @@ function ensureDestinationModalExists() {
     document.body.appendChild(modal);
     
     // Event listeners
-    modal.querySelectorAll('.genre-card').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            // Encontrar o botão mesmo se clicar em elementos filhos
-            const targetBtn = e.target.closest('.genre-card');
-            if (!targetBtn) return;
-            
-            const mode = targetBtn.dataset.mode;
+    modal.querySelectorAll('.destination-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            const mode = card.dataset.mode;
             selectSoundDestination(mode);
         });
     });
     
-    // Fechar ao clicar fora (opcional, mantido desativado para forçar escolha)
+    // Fechar ao clicar fora
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             // Não fechar ao clicar fora - forçar escolha
@@ -6202,7 +6282,7 @@ function openSoundDestinationModal(callback) {
         
         // Focus no primeiro botão
         setTimeout(() => {
-            const firstBtn = modal.querySelector('.genre-card');
+            const firstBtn = modal.querySelector('.destination-card');
             if (firstBtn) firstBtn.focus();
         }, 100);
     } else {
