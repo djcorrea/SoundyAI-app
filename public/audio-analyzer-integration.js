@@ -557,27 +557,62 @@ console.log('✅ Genre Targets Utils carregado');
 function getCorrectTargets(analysis) {
     console.log('[TARGETS] 🔍 Buscando targets corretos...');
     
+    let targets = null;
+    
     if (analysis?.data?.genreTargets && typeof analysis.data.genreTargets === 'object') {
         console.log('[TARGETS] ✅ Usando analysis.data.genreTargets (CAMPO REAL DO POSTGRES)');
         console.log('[TARGETS] Keys:', Object.keys(analysis.data.genreTargets));
-        console.log('[TARGETS] Valores:', {
+        console.log('[TARGETS] Valores originais:', {
             lufs: analysis.data.genreTargets.lufs,
             truePeak: analysis.data.genreTargets.truePeak,
             dr: analysis.data.genreTargets.dr,
             stereo: analysis.data.genreTargets.stereo,
             hasBands: !!(analysis.data.genreTargets.bands)
         });
-        return analysis.data.genreTargets;
+        targets = analysis.data.genreTargets;
     }
     
-    console.warn('[TARGETS] ⚠️ Campo "data.genreTargets" não encontrado no JSON recebido.');
-    console.warn('[TARGETS] Estrutura recebida:', {
-        hasAnalysis: !!analysis,
-        analysisKeys: analysis ? Object.keys(analysis) : null,
-        hasData: !!analysis?.data,
-        hasDataGenreTargets: !!analysis?.data?.genreTargets
-    });
-    return null;
+    if (!targets) {
+        console.warn('[TARGETS] ⚠️ Campo "data.genreTargets" não encontrado no JSON recebido.');
+        console.warn('[TARGETS] Estrutura recebida:', {
+            hasAnalysis: !!analysis,
+            analysisKeys: analysis ? Object.keys(analysis) : null,
+            hasData: !!analysis?.data,
+            hasDataGenreTargets: !!analysis?.data?.genreTargets
+        });
+        return null;
+    }
+    
+    // 🆕 STREAMING OVERRIDE: Aplicar -14 LUFS e -1.0 TP se modo streaming
+    const mode = getSoundDestinationMode();
+    if (mode === 'streaming') {
+        console.log('[TARGETS] 📡 Modo STREAMING detectado - aplicando override nos targets');
+        // Deep copy para não modificar o original
+        const overridenTargets = JSON.parse(JSON.stringify(targets));
+        
+        // Sobrescrever LUFS (ambos formatos possíveis)
+        if (overridenTargets.lufs && typeof overridenTargets.lufs === 'object') {
+            overridenTargets.lufs.target = -14;
+        }
+        overridenTargets.lufs_target = -14;
+        
+        // Sobrescrever True Peak (ambos formatos possíveis)
+        if (overridenTargets.truePeak && typeof overridenTargets.truePeak === 'object') {
+            overridenTargets.truePeak.target = -1.0;
+        }
+        overridenTargets.true_peak_target = -1.0;
+        
+        console.log('[TARGETS] 📡 Targets após streaming override:', {
+            lufs_target: overridenTargets.lufs_target,
+            true_peak_target: overridenTargets.true_peak_target,
+            lufs_nested: overridenTargets.lufs?.target,
+            truePeak_nested: overridenTargets.truePeak?.target
+        });
+        
+        return overridenTargets;
+    }
+    
+    return targets;
 }
 
 /**
@@ -680,7 +715,9 @@ function extractGenreTargets(source) {
             hasBands: !!targets.bands,
             keys: Object.keys(targets)
         });
-        return targets;
+        
+        // 🆕 STREAMING OVERRIDE: Aplicar -14 LUFS e -1.0 TP se modo streaming
+        return applyStreamingOverrideToTargets(targets);
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -699,7 +736,7 @@ function extractGenreTargets(source) {
             const fallbackTargets = activeData.targets || activeData.data?.genreTargets || activeData;
             
             if (isValidTargetsStructure(fallbackTargets)) {
-                return fallbackTargets;
+                return applyStreamingOverrideToTargets(fallbackTargets);
             }
         } else {
             console.warn('[EXTRACT-TARGETS] ⚠️ window.__activeRefData ignorado - gênero diferente:', activeGenre, '≠', genre);
@@ -719,7 +756,7 @@ function extractGenreTargets(source) {
         const fallbackTargets = window.PROD_AI_REF_DATA[genre];
         
         if (isValidTargetsStructure(fallbackTargets)) {
-            return fallbackTargets;
+            return applyStreamingOverrideToTargets(fallbackTargets);
         }
     }
     
@@ -735,7 +772,7 @@ function extractGenreTargets(source) {
         // Verificar se é um objeto único (não um dicionário de gêneros)
         if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
             console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA (objeto único)');
-            return window.PROD_AI_REF_DATA;
+            return applyStreamingOverrideToTargets(window.PROD_AI_REF_DATA);
         }
     }
     
@@ -5925,6 +5962,7 @@ const STREAMING_TARGETS = {
 
 /**
  * 🆕 Aplica override de streaming nos targets (FRONTEND)
+ * APENAS sobrescreve LUFS e True Peak, preserva TODAS as outras propriedades
  * @param {Object} targets - Targets originais
  * @returns {Object} - Targets com override se streaming
  */
@@ -5933,15 +5971,64 @@ function applyStreamingOverride(targets) {
     if (mode !== 'streaming') return targets;
     
     if (!targets || typeof targets !== 'object') {
-        console.log('[STREAMING] Criando targets minimos');
-        return { lufs_target: -14, true_peak_target: -1.0 };
+        console.log('[STREAMING] Targets vazios, retornando original');
+        return targets;
     }
     
-    const result = { ...targets };
+    // Deep copy para preservar objetos aninhados (bands, etc)
+    const result = JSON.parse(JSON.stringify(targets));
+    
+    // APENAS sobrescrever LUFS e True Peak
     result.lufs_target = -14;
     result.true_peak_target = -1.0;
     
-    console.log('[STREAMING] Override aplicado: LUFS=-14, TP=-1.0');
+    console.log('[STREAMING] Override aplicado: LUFS=-14, TP=-1.0, outras métricas preservadas:', {
+        dr_target: result.dr_target,
+        stereo_target: result.stereo_target,
+        hasBands: !!result.bands
+    });
+    
+    return result;
+}
+
+/**
+ * 🆕 Aplica streaming override especificamente para estrutura de targets do extractGenreTargets
+ * Suporta tanto formato flat (lufs_target) quanto nested (lufs.target)
+ * @param {Object} targets - Targets originais
+ * @returns {Object} - Targets com override se streaming
+ */
+function applyStreamingOverrideToTargets(targets) {
+    const mode = getSoundDestinationMode();
+    if (mode !== 'streaming') return targets;
+    
+    if (!targets || typeof targets !== 'object') {
+        return targets;
+    }
+    
+    console.log('[STREAMING-TARGETS] 📡 Aplicando override para modo streaming');
+    
+    // Deep copy para não modificar original
+    const result = JSON.parse(JSON.stringify(targets));
+    
+    // Override formato flat (lufs_target, true_peak_target)
+    if (result.lufs_target !== undefined) result.lufs_target = -14;
+    if (result.true_peak_target !== undefined) result.true_peak_target = -1.0;
+    
+    // Override formato nested (lufs.target, truePeak.target)
+    if (result.lufs && typeof result.lufs === 'object' && result.lufs.target !== undefined) {
+        result.lufs.target = -14;
+    }
+    if (result.truePeak && typeof result.truePeak === 'object' && result.truePeak.target !== undefined) {
+        result.truePeak.target = -1.0;
+    }
+    
+    console.log('[STREAMING-TARGETS] 📡 Override aplicado:', {
+        lufs_target: result.lufs_target,
+        true_peak_target: result.true_peak_target,
+        'lufs.target': result.lufs?.target,
+        'truePeak.target': result.truePeak?.target
+    });
+    
     return result;
 }
 
