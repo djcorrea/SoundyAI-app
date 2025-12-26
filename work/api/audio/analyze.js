@@ -84,13 +84,16 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null, planContext = null, analysisType = null, referenceStage = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null, planContext = null, analysisType = null, referenceStage = null, soundDestination = 'pista') {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
   // 🆕 Normalizar analysisType (usar analysisType se presente, senão usar mode)
   const finalAnalysisType = analysisType || mode;
   const finalReferenceStage = referenceStage || null;
+  
+  // 🆕 STREAMING MODE: Validar soundDestination
+  const validSoundDestination = ['pista', 'streaming'].includes(soundDestination) ? soundDestination : 'pista';
   
   // 📋 externalId para logs e identificação externa (pode ser personalizado)
   const externalId = `audio-${Date.now()}-${jobId.substring(0, 8)}`;
@@ -100,6 +103,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   console.log(`   📋 ID Externo: ${externalId}`);
   console.log(`   📁 Arquivo: ${fileKey}`);
   console.log(`   ⚙️ Modo: ${mode}`);
+  console.log(`   📡 Sound Destination: ${validSoundDestination}`);
   console.log(`   🎵 Gênero: ${genre || 'não especificado'}`);
   console.log(`   🎯 Targets: ${genreTargets ? 'presentes' : 'ausentes'}`);
   console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
@@ -151,6 +155,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       mode,                // Mantido por compatibilidade
       analysisType: finalAnalysisType,  // 🆕 Campo explícito: 'genre' | 'reference'
       referenceStage: finalReferenceStage, // 🆕 Para reference: 'base' | 'compare'
+      soundDestination: validSoundDestination, // 🆕 STREAMING MODE: 'pista' | 'streaming'
       genre: genre,        // 🎯 Genre (obrigatório apenas em genre e reference base)
       genreTargets: genreTargets, // 🎯 GenreTargets (obrigatório apenas em genre e reference base)
       referenceJobId: referenceJobId, // 🔗 ID do job de referência (se referenceStage='compare')
@@ -479,11 +484,16 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       mode = "genre",  // Mantido por compatibilidade
       analysisType,    // 🆕 Campo explícito: 'genre' | 'reference'
       referenceStage,  // 🆕 Para reference: 'base' | 'compare'
+      soundDestination = 'pista',  // 🆕 STREAMING MODE: 'pista' | 'streaming' - default seguro
       fileName, 
       genre, 
       genreTargets,
       idToken  // ✅ NOVO: Token de autenticação
     } = req.body;
+    
+    // 🆕 STREAMING MODE: Validar e logar soundDestination
+    const validSoundDestination = ['pista', 'streaming'].includes(soundDestination) ? soundDestination : 'pista';
+    console.log(`📡 [ANALYZE] Sound Destination: ${validSoundDestination} (original: ${soundDestination})`);
     
     // ✅ NORMALIZAR: usar analysisType se presente, senão fallback para mode
     const finalAnalysisType = analysisType || mode;
@@ -685,13 +695,15 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       genreTargets, 
       planContext,
       finalAnalysisType,    // 🆕 Campo explícito
-      finalReferenceStage   // 🆕 Campo explícito
+      finalReferenceStage,  // 🆕 Campo explícito
+      validSoundDestination // 🆕 STREAMING MODE: 'pista' | 'streaming'
     );
     
     console.log('[ANALYZE] ✅ Job criado:', {
       jobId: jobRecord.id,
       analysisType: finalAnalysisType,
       referenceStage: finalReferenceStage,
+      soundDestination: validSoundDestination,
       hasGenre: !!genre
     });
 
