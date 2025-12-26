@@ -1,0 +1,737 @@
+/**
+ * PLANOS.CSS - Layout Premium com Orbs, Grid e Glass Effect
+ * ==========================================================
+ * Baseado no design de referência com orbs animadas, grid overlay,
+ * cards glass com glow, badges e shimmer.
+ * 
+ * SELETORES CRÍTICOS PRESERVADOS (Stripe):
+ * - #btn-plus (botão assinatura Plus)
+ * - #btn-pro (botão assinatura Pro)
+ * - .plan-button (classe base botões)
+ * - .btn-premium (classe estilo premium)
+ */
+
+/* ===================================
+   CSS CUSTOM PROPERTIES (Tokens)
+   PALETA: Azul escuro dominante + Roxo acento
+   =================================== */
+:root {
+    /* Cores principais - Azul escuro dominante */
+    --color-bg-dark: #050814;
+    --color-bg-surface: #070B1E;
+    --color-bg-card: rgba(10, 18, 45, 0.55);
+    --color-border: rgba(59, 130, 246, 0.2);
+    --color-border-hover: rgba(139, 92, 246, 0.4);
+    
+    /* Cores accent - Roxo como acento */
+    --color-purple: #8B5CF6;
+    --color-purple-dark: #7c3aed;
+    --color-purple-glow: rgba(139, 92, 246, 0.4);
+    --color-cyan: #22d3ee;
+    --color-blue: #3b82f6;
+    --color-blue-dark: #1D4ED8;
+    
+    /* Texto - Alto contraste */
+    --color-text-primary: rgba(255, 255, 255, 0.95);
+    --color-text-secondary: rgba(255, 255, 255, 0.75);
+    --color-text-muted: rgba(255, 255, 255, 0.55);
+    
+    /* Espaçamentos */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+    --spacing-2xl: 4rem;
+    
+    /* Border radius */
+    --radius-sm: 0.5rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
+    
+    /* Shadows */
+    --shadow-glow-purple: 0 0 40px rgba(168, 85, 247, 0.3);
+    --shadow-glow-strong: 0 0 60px rgba(168, 85, 247, 0.4);
+}
+
+/* ===================================
+   RESET & BASE
+   =================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body.planos-page {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    color: var(--color-text-primary);
+    overflow-x: hidden;
+    background: var(--color-bg-dark);
+}
+
+/* ===================================
+   BACKGROUND COM ORBS ANIMADAS
+   Azul escuro dominante + roxo acento
+   =================================== */
+.pricing-background {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: linear-gradient(135deg, #050814 0%, #070B1E 40%, #0A1628 100%);
+}
+
+/* Orbs com gradiente radial e animação */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.5;
+    animation: glow-pulse 8s ease-in-out infinite;
+}
+
+/* Orb 1 - Azul principal (maior) */
+.orb-1 {
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, transparent 70%);
+    top: -200px;
+    left: -100px;
+    animation-delay: 0s;
+}
+
+/* Orb 2 - Azul escuro */
+.orb-2 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(29, 78, 216, 0.3) 0%, transparent 70%);
+    top: 50%;
+    right: -150px;
+    animation-delay: 2s;
+}
+
+/* Orb 3 - Roxo acento (menor e mais fraco) */
+.orb-3 {
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, transparent 70%);
+    bottom: -50px;
+    left: 30%;
+    animation-delay: 4s;
+}
+
+@keyframes glow-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+}
+
+/* Grid Overlay - Azul sutil */
+.grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+}
+
+/* ===================================
+   CONTAINER PRINCIPAL
+   =================================== */
+.pricing-container {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding: var(--spacing-2xl) var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ===================================
+   HEADER DA SEÇÃO
+   =================================== */
+.pricing-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+    max-width: 800px;
+}
+
+.pricing-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-blue);
+    margin-bottom: var(--spacing-md);
+}
+
+.pricing-badge svg {
+    width: 16px;
+    height: 16px;
+}
+
+.pricing-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: var(--spacing-md);
+    background: linear-gradient(135deg, #fff 0%, #3b82f6 60%, #8B5CF6 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.glow-text {
+    text-shadow: 
+        0 0 20px rgba(168, 85, 247, 0.5),
+        0 0 40px rgba(168, 85, 247, 0.3);
+}
+
+.pricing-subtitle {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* ===================================
+   GRID DE CARDS
+   =================================== */
+.pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+    max-width: 1200px;
+    width: 100%;
+    margin-bottom: var(--spacing-2xl);
+}
+
+/* ===================================
+   CARD BASE (Glass Effect)
+   =================================== */
+.pricing-card {
+    position: relative;
+    background: var(--color-bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: float 6s ease-in-out infinite;
+    min-height: 580px;
+}
+
+.pricing-card:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.pricing-card:nth-child(2) {
+    animation-delay: 0.5s;
+}
+
+.pricing-card:nth-child(3) {
+    animation-delay: 1s;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+.pricing-card:hover {
+    transform: translateY(-12px) scale(1.02);
+    border-color: var(--color-border-hover);
+    box-shadow: var(--shadow-glow-purple);
+}
+
+/* Glass effect utilitário - Azul escuro translúcido */
+.glass-effect {
+    background: rgba(10, 18, 45, 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* ===================================
+   CARD POPULAR (PLUS)
+   =================================== */
+.pricing-card.popular {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.15);
+}
+
+.pricing-card.popular:hover {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
+}
+
+/* ===================================
+   CARD PRO (DESTAQUE MÁXIMO)
+   =================================== */
+.pricing-card.pro-highlight {
+    border-color: rgba(139, 92, 246, 0.5);
+    background: linear-gradient(135deg, rgba(10, 18, 45, 0.8) 0%, rgba(20, 25, 55, 0.7) 100%);
+    box-shadow: 
+        0 0 35px rgba(139, 92, 246, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Shimmer effect para o card PRO - roxo acento */
+.pricing-card.pro-highlight::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(139, 92, 246, 0.08),
+        transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+.pricing-card.pro-highlight:hover {
+    box-shadow: 
+        0 0 50px rgba(139, 92, 246, 0.35),
+        0 0 80px rgba(139, 92, 246, 0.15);
+}
+
+/* Glow roxo utilitário */
+.glow-purple {
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.25);
+}
+
+/* ===================================
+   BADGES
+   =================================== */
+.card-badge {
+    position: absolute;
+    top: -12px;
+    right: 20px;
+    padding: 6px 16px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    z-index: 10;
+}
+
+.badge-popular {
+    background: linear-gradient(135deg, #3b82f6, #8B5CF6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.badge-best {
+    background: linear-gradient(135deg, #3b82f6, #8B5CF6);
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ===================================
+   CARD HEADER
+   =================================== */
+.card-header {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.12);
+}
+
+.card-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto var(--spacing-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: var(--radius-md);
+    color: var(--color-blue);
+}
+
+.card-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.card-plan-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.card-description {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+/* ===================================
+   PREÇO
+   =================================== */
+.card-price-section {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.card-price {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+}
+
+.currency {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.price-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff, #3b82f6);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.price-period {
+    font-size: 1rem;
+    color: var(--color-text-muted);
+}
+
+.price-annual {
+    font-size: 0.875rem;
+    color: var(--color-blue);
+    margin-top: var(--spacing-xs);
+}
+
+/* ===================================
+   LISTA DE FEATURES
+   =================================== */
+.card-features {
+    flex: 1;
+    margin-bottom: var(--spacing-lg);
+}
+
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) 0;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.feature-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.feature-icon.check {
+    color: #34d399;
+}
+
+.feature-icon.cross {
+    color: #f87171;
+    opacity: 0.6;
+}
+
+.feature-text {
+    flex: 1;
+}
+
+.feature-text.disabled {
+    color: var(--color-text-muted);
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+/* ===================================
+   BOTÕES CTA (PRESERVANDO SELETORES STRIPE)
+   =================================== */
+.card-cta {
+    margin-top: auto;
+}
+
+/* Estilos aplicados ao .plan-button existente */
+.plan-button {
+    width: 100%;
+    padding: 16px 24px;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+}
+
+/* Botão Free - Azul escuro com borda roxa sutil */
+.btn-free {
+    background: rgba(10, 18, 45, 0.6);
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    color: var(--color-text-primary);
+}
+
+.btn-free:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--color-purple);
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+    transform: translateY(-2px);
+}
+
+/* Botão Premium (Plus e Pro) - Azul com glow roxo no hover */
+.btn-premium {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.btn-premium::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.15),
+        transparent
+    );
+    transition: left 0.5s ease;
+}
+
+.btn-premium:hover {
+    transform: translateY(-3px);
+    background: linear-gradient(135deg, #3b82f6 0%, #8B5CF6 100%);
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
+}
+
+.btn-premium:hover::before {
+    left: 100%;
+}
+
+/* Botão Pro (destaque especial) - Roxo mais forte */
+.btn-pro-special {
+    background: linear-gradient(135deg, #8B5CF6 0%, #7c3aed 100%);
+    box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
+}
+
+.btn-pro-special:hover {
+    background: linear-gradient(135deg, #a855f7 0%, #8B5CF6 100%);
+    box-shadow: 0 8px 30px rgba(139, 92, 246, 0.5);
+}
+
+/* ===================================
+   TRUST INDICATORS
+   =================================== */
+.trust-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-xl);
+    border-top: 1px solid rgba(59, 130, 246, 0.1);
+    max-width: 800px;
+}
+
+.trust-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.trust-icon {
+    color: #34d399;
+}
+
+/* ===================================
+   RESPONSIVO
+   =================================== */
+@media (max-width: 1024px) {
+    .pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+        max-width: 800px;
+    }
+    
+    .pricing-card:nth-child(3) {
+        grid-column: span 2;
+        max-width: 400px;
+        justify-self: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .pricing-container {
+        padding: var(--spacing-xl) var(--spacing-sm);
+    }
+    
+    .pricing-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+        max-width: 400px;
+    }
+    
+    .pricing-card {
+        min-height: auto;
+        padding: var(--spacing-md);
+    }
+    
+    .pricing-card:nth-child(3) {
+        grid-column: span 1;
+        max-width: none;
+    }
+    
+    .pricing-title {
+        font-size: 2rem;
+    }
+    
+    .price-value {
+        font-size: 2.5rem;
+    }
+    
+    .trust-section {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-sm);
+    }
+    
+    /* Desabilitar float animation em mobile para performance */
+    .pricing-card {
+        animation: none;
+    }
+    
+    .pricing-card:hover {
+        transform: translateY(-4px);
+    }
+    
+    /* Orbs menores em mobile */
+    .orb-1 {
+        width: 300px;
+        height: 300px;
+    }
+    
+    .orb-2 {
+        width: 250px;
+        height: 250px;
+    }
+    
+    .orb-3 {
+        width: 200px;
+        height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .pricing-header {
+        margin-bottom: var(--spacing-xl);
+    }
+    
+    .pricing-title {
+        font-size: 1.75rem;
+    }
+    
+    .pricing-subtitle {
+        font-size: 1rem;
+    }
+    
+    .card-plan-name {
+        font-size: 1.25rem;
+    }
+    
+    .price-value {
+        font-size: 2rem;
+    }
+    
+    .feature-item {
+        font-size: 0.875rem;
+    }
+    
+    .plan-button {
+        padding: 14px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ===================================
+   PREFERÊNCIA DE MOVIMENTO REDUZIDO
+   =================================== */
+@media (prefers-reduced-motion: reduce) {
+    .pricing-card,
+    .orb,
+    .pricing-card.pro-highlight::before,
+    .btn-premium::before {
+        animation: none;
+    }
+    
+    .pricing-card:hover {
+        transform: translateY(-4px);
+    }
+}
