@@ -1392,14 +1392,22 @@ function buildGenreBasedAISuggestions(analysis, genreTargets) {
         stereo: extractMetric('stereo')
     };
 
+    // 📡 STREAMING MODE: Verificar se deve usar targets de streaming
+    const isStreamingMode = getSoundDestinationMode() === 'streaming';
+    
     // 🎯 Targets do gênero (estrutura flat do backend normalizado)
+    // 📡 No modo streaming, LUFS = -14 e TP = -1.0
     const T = {
-        lufs: genreTargets.lufs_target,
+        lufs: isStreamingMode ? STREAMING_TARGETS.lufs_target : genreTargets.lufs_target,
         lra: genreTargets.lra_target,
-        tp: genreTargets.true_peak_target,
+        tp: isStreamingMode ? STREAMING_TARGETS.true_peak_target : genreTargets.true_peak_target,
         dr: genreTargets.dr_target,
         stereo: genreTargets.stereo_target
     };
+    
+    if (isStreamingMode) {
+        console.log('[GENRE-SUGGESTIONS] 📡 STREAMING MODE - Usando targets: LUFS=-14, TP=-1.0');
+    }
 
     // 🔢 Tolerâncias
     const TOL = {
