@@ -5994,6 +5994,7 @@ function setSoundDestinationMode(mode) {
 
 /**
  * Injetar estilos do modal de destino
+ * Refatorado para usar identidade visual do Modal de Gênero
  */
 function injectDestinationModalStyles() {
     if (document.getElementById('destination-modal-styles')) return;
@@ -6001,110 +6002,97 @@ function injectDestinationModalStyles() {
     const styles = document.createElement('style');
     styles.id = 'destination-modal-styles';
     styles.textContent = `
-        /* 🎯 Modal de Destino do Som */
-        #soundDestinationModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 10001;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.2s ease-out;
+        /* 🎯 Modal de Destino do Som - Visual Refatorado (Estilo Gênero) */
+        
+        /* Ajustes específicos para o layout de 2 colunas */
+        #soundDestinationModal .genre-modal-container {
+            max-width: 680px;
+            background: linear-gradient(135deg, rgba(14, 20, 34, 0.98), rgba(31, 43, 64, 0.98));
+            border: 1px solid rgba(106, 154, 255, 0.2);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(106, 0, 255, 0.15);
         }
         
-        #soundDestinationModal.active {
-            display: flex;
+        #soundDestinationModal .genre-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 20px;
         }
         
-        .destination-modal-content {
-            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
-            border: 1px solid rgba(0, 255, 136, 0.3);
-            border-radius: 16px;
-            padding: 32px 40px;
-            max-width: 420px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.1);
-            animation: slideUp 0.3s ease-out;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        
-        .destination-modal-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #fff;
-            margin-bottom: 8px;
-        }
-        
-        .destination-modal-subtitle {
-            font-size: 0.95rem;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 28px;
-        }
-        
-        .destination-buttons {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-        }
-        
-        .destination-btn {
-            flex: 1;
-            max-width: 160px;
-            padding: 16px 24px;
-            border-radius: 12px;
-            border: 2px solid transparent;
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        #soundDestinationModal .genre-card {
+            height: auto;
+            min-height: 280px;
+            padding: 32px 24px;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 8px;
+            justify-content: flex-start;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         
-        .destination-btn:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-2px);
+        #soundDestinationModal .genre-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(106, 154, 255, 0.5);
+            transform: translateY(-6px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(106, 154, 255, 0.2);
         }
         
-        .destination-btn.pista {
-            border-color: rgba(255, 170, 0, 0.5);
+        /* Tipografia e Elementos Internos */
+        .destination-card-desc {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin: 16px 0 20px 0;
+            line-height: 1.5;
+            font-weight: 500;
+            text-align: center;
         }
         
-        .destination-btn.pista:hover {
-            border-color: rgba(255, 170, 0, 0.8);
-            box-shadow: 0 4px 20px rgba(255, 170, 0, 0.2);
+        .destination-card-list {
+            width: 100%;
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
         }
         
-        .destination-btn.streaming {
-            border-color: rgba(0, 200, 255, 0.5);
+        .destination-card-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
         
-        .destination-btn.streaming:hover {
-            border-color: rgba(0, 200, 255, 0.8);
-            box-shadow: 0 4px 20px rgba(0, 200, 255, 0.2);
+        .destination-card-list li {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.65);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.4;
         }
         
-        .destination-btn-icon {
-            font-size: 2rem;
+        .destination-card-list li:last-child {
+            margin-bottom: 0;
         }
         
-        .destination-btn-label {
-            font-size: 0.9rem;
-            opacity: 0.8;
+        .destination-card-list li::before {
+            content: '•';
+            color: #00d4ff;
+            font-weight: bold;
+            font-size: 1.2em;
+            line-height: 1;
+        }
+        
+        /* Responsividade */
+        @media (max-width: 700px) {
+            #soundDestinationModal .genre-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            #soundDestinationModal .genre-card {
+                min-height: auto;
+                padding: 24px;
+            }
         }
     `;
     document.head.appendChild(styles);
@@ -6112,24 +6100,59 @@ function injectDestinationModalStyles() {
 
 /**
  * Criar modal de destino no DOM (se não existir)
+ * Refatorado para usar estrutura do Modal de Gênero
  */
 function ensureDestinationModalExists() {
     if (document.getElementById('soundDestinationModal')) return;
     
     const modal = document.createElement('div');
     modal.id = 'soundDestinationModal';
+    modal.className = 'genre-modal'; // Reutiliza classes do modal de gênero
+    modal.style.display = 'none'; // Inicia oculto
+    
     modal.innerHTML = `
-        <div class="destination-modal-content">
-            <div class="destination-modal-title">Onde esse som vai tocar?</div>
-            <div class="destination-modal-subtitle">Escolha o destino para otimizar a análise</div>
-            <div class="destination-buttons">
-                <button class="destination-btn pista" data-mode="pista">
-                    <span class="destination-btn-icon">🔊</span>
-                    <span class="destination-btn-label">Pista</span>
+        <div class="genre-modal-container">
+            <h2 class="genre-modal-title">
+                <span>ONDE ESSE SOM</span><br>
+                <span>VAI TOCAR?</span>
+            </h2>
+            <div class="genre-modal-subtitle">Escolha o destino para otimizar a análise</div>
+            
+            <div class="genre-grid">
+                <!-- CARD PISTA -->
+                <button class="genre-card" data-mode="pista">
+                    <span class="genre-icon">🔊</span>
+                    <span class="genre-name" style="font-size: 1.4rem; margin: 8px 0;">Pista</span>
+                    
+                    <div class="destination-card-desc">
+                        Para tocar alto em sistemas de som, carros, festas e shows.
+                    </div>
+                    
+                    <div class="destination-card-list">
+                        <ul>
+                            <li>P.A, paredão e automotivo</li>
+                            <li>Mais impacto e pressão sonora</li>
+                            <li>Energia máxima para pista</li>
+                        </ul>
+                    </div>
                 </button>
-                <button class="destination-btn streaming" data-mode="streaming">
-                    <span class="destination-btn-icon">📡</span>
-                    <span class="destination-btn-label">Streaming</span>
+                
+                <!-- CARD STREAMING -->
+                <button class="genre-card" data-mode="streaming">
+                    <span class="genre-icon">📡</span>
+                    <span class="genre-name" style="font-size: 1.4rem; margin: 8px 0;">Streaming</span>
+                    
+                    <div class="destination-card-desc">
+                        Para subir em plataformas digitais com padrão profissional.
+                    </div>
+                    
+                    <div class="destination-card-list">
+                        <ul>
+                            <li>Spotify, Deezer, Apple Music</li>
+                            <li>Loudness padronizado (-14 LUFS)</li>
+                            <li>Evita distorção e normalização</li>
+                        </ul>
+                    </div>
                 </button>
             </div>
         </div>
@@ -6137,14 +6160,18 @@ function ensureDestinationModalExists() {
     document.body.appendChild(modal);
     
     // Event listeners
-    modal.querySelectorAll('.destination-btn').forEach(btn => {
+    modal.querySelectorAll('.genre-card').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const mode = btn.dataset.mode;
+            // Encontrar o botão mesmo se clicar em elementos filhos
+            const targetBtn = e.target.closest('.genre-card');
+            if (!targetBtn) return;
+            
+            const mode = targetBtn.dataset.mode;
             selectSoundDestination(mode);
         });
     });
     
-    // Fechar ao clicar fora
+    // Fechar ao clicar fora (opcional, mantido desativado para forçar escolha)
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             // Não fechar ao clicar fora - forçar escolha
@@ -6175,7 +6202,7 @@ function openSoundDestinationModal(callback) {
         
         // Focus no primeiro botão
         setTimeout(() => {
-            const firstBtn = modal.querySelector('.destination-btn');
+            const firstBtn = modal.querySelector('.genre-card');
             if (firstBtn) firstBtn.focus();
         }, 100);
     } else {
