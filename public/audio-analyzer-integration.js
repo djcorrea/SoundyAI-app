@@ -774,11 +774,15 @@ function isValidTargetsStructure(targets) {
     }
     
     // Verificar se tem pelo menos uma das propriedades essenciais
+    // 🔧 CORREÇÃO: Aceitar tanto camelCase (lufs) quanto snake_case (lufs_target)
     const hasEssentials = targets.lufs || 
                          targets.truePeak || 
                          targets.dr || 
                          targets.bands ||
-                         targets.legacy_compatibility;
+                         targets.legacy_compatibility ||
+                         targets.lufs_target !== undefined ||  // 🆕 snake_case do backend
+                         targets.true_peak_target !== undefined ||  // 🆕 snake_case do backend
+                         targets.dr_target !== undefined;  // 🆕 snake_case do backend
     
     return hasEssentials;
 }
@@ -7424,8 +7428,20 @@ function renderGenreView(analysis) {
     // 🎯 PRIORIDADE 1: analysis.data.genreTargets (FONTE OFICIAL)
     let genreTargets = extractGenreTargets(analysis);
     
+    // � STREAMING MODE: Se for streaming, FORÇAR uso de analysis.data.genreTargets
+    // (evita que fallback sobrescreva o override de streaming)
+    if (analysis?.soundDestination === 'streaming' && analysis?.data?.genreTargets) {
+        console.log('[GENRE-VIEW] 📡 STREAMING MODE: Forçando uso de analysis.data.genreTargets');
+        genreTargets = analysis.data.genreTargets;
+        console.log('[GENRE-VIEW] 📡 Targets de streaming:', {
+            lufs_target: genreTargets.lufs_target,
+            true_peak_target: genreTargets.true_peak_target
+        });
+    }
+    
     // 🎯 FALLBACK 1: Tentar carregar de PROD_AI_REF_DATA
-    if (!genreTargets && window.PROD_AI_REF_DATA) {
+    // ⚠️ NÃO usar fallback se for streaming mode (já temos os targets corretos)
+    if (!genreTargets && window.PROD_AI_REF_DATA && analysis?.soundDestination !== 'streaming') {
         if (typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
             // Estrutura de dicionário: { genre1: {...}, genre2: {...} }
             genreTargets = window.PROD_AI_REF_DATA[genre];
@@ -7438,7 +7454,8 @@ function renderGenreView(analysis) {
     }
     
     // 🎯 FALLBACK 2: __activeRefData
-    if (!genreTargets && window.__activeRefData) {
+    // ⚠️ NÃO usar fallback se for streaming mode
+    if (!genreTargets && window.__activeRefData && analysis?.soundDestination !== 'streaming') {
         genreTargets = window.__activeRefData;
         console.log('[GENRE-VIEW] 📦 Targets obtidos de __activeRefData (fallback final)');
     }
