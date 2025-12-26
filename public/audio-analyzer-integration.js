@@ -2957,10 +2957,16 @@ function selectAnalysisMode(mode) {
     closeModeSelectionModal();
     
     if (mode === 'genre') {
-        // Modo tradicional - abrir modal de análise normal
-        openAnalysisModalForMode('genre');
+        // 🆕 STREAMING MODE: Abrir modal de destino ANTES do modal de gênero
+        openSoundDestinationModal((destinationMode) => {
+            console.log('[SELECT-MODE] Destino escolhido:', destinationMode);
+            // Modo tradicional - abrir modal de análise normal
+            openAnalysisModalForMode('genre');
+        });
     } else if (mode === 'reference') {
-        // Modo referência - abrir interface específica
+        // Modo referência - abrir interface específica (sem modal de destino)
+        // Reference mode sempre usa targets da referência, não precisa de Pista/Streaming
+        setSoundDestinationMode('pista'); // Reset para default
         openAnalysisModalForMode('reference');
     }
 }
@@ -3152,10 +3158,15 @@ function buildGenrePayload(fileKey, fileName, idToken) {
         console.warn('[PR2] buildGenrePayload: genreTargets ausentes ou vazios');
     }
     
+    // 🆕 STREAMING MODE: Obter destino do som (pista/streaming)
+    const soundDestination = getSoundDestinationMode();
+    console.log('[PR2] soundDestination:', soundDestination);
+    
     const payload = {
         fileKey,
         mode: 'genre',  // Mantido por compatibilidade
         analysisType: 'genre',  // 🆕 Campo explícito sem ambiguidade
+        soundDestination,  // 🆕 'pista' | 'streaming' - NUNCA undefined
         fileName,
         genre,
         genreTargets,
@@ -3166,6 +3177,7 @@ function buildGenrePayload(fileKey, fileName, idToken) {
     console.log('[PR2] Genre payload:', {
         mode: payload.mode,
         analysisType: payload.analysisType,
+        soundDestination: payload.soundDestination,
         genre: payload.genre,
         hasTargets: payload.hasTargets,
         targetKeys: genreTargets ? Object.keys(genreTargets).length : 0
@@ -5867,6 +5879,269 @@ function selectAnalysisMode(mode) {
 // Feature flag para controlar ativação
 window.FEATURE_NEW_GENRE_MODAL = true; // Definir como false para usar seletor antigo
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎯 MODAL DE DESTINO DO SOM (PISTA vs STREAMING)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * @type {'pista' | 'streaming'}
+ * @description Modo de destino do som - NUNCA deve ser undefined
+ * @default 'pista'
+ */
+window.__SOUNDY_ANALYSIS_MODE__ = 'pista';
+
+/**
+ * Getter seguro para analysisMode (sempre retorna valor válido)
+ */
+function getSoundDestinationMode() {
+    const mode = window.__SOUNDY_ANALYSIS_MODE__;
+    if (mode !== 'pista' && mode !== 'streaming') {
+        console.warn('[DEST-MODE] ⚠️ Modo inválido detectado, resetando para "pista"');
+        window.__SOUNDY_ANALYSIS_MODE__ = 'pista';
+        return 'pista';
+    }
+    return mode;
+}
+
+/**
+ * Setter seguro para analysisMode
+ * @param {'pista' | 'streaming'} mode
+ */
+function setSoundDestinationMode(mode) {
+    if (mode !== 'pista' && mode !== 'streaming') {
+        console.error('[DEST-MODE] ❌ Tentativa de setar modo inválido:', mode);
+        return false;
+    }
+    window.__SOUNDY_ANALYSIS_MODE__ = mode;
+    console.log(`[DEST-MODE] ✅ Modo definido: ${mode}`);
+    return true;
+}
+
+/**
+ * Injetar estilos do modal de destino
+ */
+function injectDestinationModalStyles() {
+    if (document.getElementById('destination-modal-styles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'destination-modal-styles';
+    styles.textContent = `
+        /* 🎯 Modal de Destino do Som */
+        #soundDestinationModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        #soundDestinationModal.active {
+            display: flex;
+        }
+        
+        .destination-modal-content {
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 16px;
+            padding: 32px 40px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 255, 136, 0.1);
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .destination-modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        
+        .destination-modal-subtitle {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 28px;
+        }
+        
+        .destination-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        
+        .destination-btn {
+            flex: 1;
+            max-width: 160px;
+            padding: 16px 24px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .destination-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .destination-btn.pista {
+            border-color: rgba(255, 170, 0, 0.5);
+        }
+        
+        .destination-btn.pista:hover {
+            border-color: rgba(255, 170, 0, 0.8);
+            box-shadow: 0 4px 20px rgba(255, 170, 0, 0.2);
+        }
+        
+        .destination-btn.streaming {
+            border-color: rgba(0, 200, 255, 0.5);
+        }
+        
+        .destination-btn.streaming:hover {
+            border-color: rgba(0, 200, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(0, 200, 255, 0.2);
+        }
+        
+        .destination-btn-icon {
+            font-size: 2rem;
+        }
+        
+        .destination-btn-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    `;
+    document.head.appendChild(styles);
+}
+
+/**
+ * Criar modal de destino no DOM (se não existir)
+ */
+function ensureDestinationModalExists() {
+    if (document.getElementById('soundDestinationModal')) return;
+    
+    const modal = document.createElement('div');
+    modal.id = 'soundDestinationModal';
+    modal.innerHTML = `
+        <div class="destination-modal-content">
+            <div class="destination-modal-title">Onde esse som vai tocar?</div>
+            <div class="destination-modal-subtitle">Escolha o destino para otimizar a análise</div>
+            <div class="destination-buttons">
+                <button class="destination-btn pista" data-mode="pista">
+                    <span class="destination-btn-icon">🔊</span>
+                    <span class="destination-btn-label">Pista</span>
+                </button>
+                <button class="destination-btn streaming" data-mode="streaming">
+                    <span class="destination-btn-icon">📡</span>
+                    <span class="destination-btn-label">Streaming</span>
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Event listeners
+    modal.querySelectorAll('.destination-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const mode = btn.dataset.mode;
+            selectSoundDestination(mode);
+        });
+    });
+    
+    // Fechar ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            // Não fechar ao clicar fora - forçar escolha
+        }
+    });
+}
+
+/**
+ * Abrir modal de destino do som
+ * @param {Function} callback - Função a chamar após seleção
+ */
+function openSoundDestinationModal(callback) {
+    console.log('[DEST-MODAL] 🎯 Abrindo modal de destino do som...');
+    
+    injectDestinationModalStyles();
+    ensureDestinationModalExists();
+    
+    // Guardar callback para chamar após seleção
+    window.__destinationModalCallback__ = callback;
+    
+    const modal = document.getElementById('soundDestinationModal');
+    if (modal) {
+        modal.classList.add('active');
+        
+        // Focus no primeiro botão
+        setTimeout(() => {
+            const firstBtn = modal.querySelector('.destination-btn');
+            if (firstBtn) firstBtn.focus();
+        }, 100);
+    }
+}
+
+/**
+ * Fechar modal de destino
+ */
+function closeSoundDestinationModal() {
+    const modal = document.getElementById('soundDestinationModal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+/**
+ * Selecionar destino do som
+ * @param {'pista' | 'streaming'} mode
+ */
+function selectSoundDestination(mode) {
+    console.log(`[DEST-MODAL] ✅ Destino selecionado: ${mode}`);
+    
+    // Definir modo
+    setSoundDestinationMode(mode);
+    
+    // Fechar modal
+    closeSoundDestinationModal();
+    
+    // Chamar callback se existir
+    if (typeof window.__destinationModalCallback__ === 'function') {
+        window.__destinationModalCallback__(mode);
+        window.__destinationModalCallback__ = null;
+    }
+}
+
+// Expor funções globalmente
+window.getSoundDestinationMode = getSoundDestinationMode;
+window.setSoundDestinationMode = setSoundDestinationMode;
+window.openSoundDestinationModal = openSoundDestinationModal;
+window.closeSoundDestinationModal = closeSoundDestinationModal;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIM DO MODAL DE DESTINO DO SOM
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // 🎵 Funções do Modal de Gênero Musical
 function openGenreModal() {
     __dbg('[GENRE_MODAL] Abrindo modal de seleção de gênero...');
@@ -7683,15 +7958,21 @@ function renderGenreComparisonTable(options) {
     }
     
     // Renderizar HTML completo
+    // 🆕 STREAMING MODE: Verificar se é análise streaming e adicionar badge
+    const isStreamingMode = analysis.soundDestination === 'streaming';
+    const targetColumnHeader = isStreamingMode 
+        ? 'Alvo <span class="streaming-badge" title="Targets otimizados para Streaming (LUFS -14, TP -1.0)">📡</span>'
+        : 'Alvo';
+    
     const tableHTML = `
         <div class="card genre-comparison-classic" style="margin-top:12px;">
-            <div class="card-title">COMPARAÇÃO COM ${genre.toUpperCase()}</div>
+            <div class="card-title">COMPARAÇÃO COM ${genre.toUpperCase()}${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</div>
             <table class="classic-genre-table">
                 <thead>
                     <tr>
                         <th>Métrica</th>
                         <th>Valor</th>
-                        <th>Alvo</th>
+                        <th>${targetColumnHeader}</th>
                         <th>Diferença</th>
                         <th>Severidade</th>
                         <th>Ação Sugerida</th>
@@ -7950,6 +8231,30 @@ function renderGenreComparisonTable(options) {
                     font-size: 13px !important;
                     padding: 8px 0 !important;
                 }
+            }
+            
+            /* 🆕 STREAMING MODE BADGE */
+            .streaming-badge {
+                display: inline-block;
+                font-size: 0.85em;
+                margin-left: 4px;
+                vertical-align: middle;
+                cursor: help;
+            }
+            
+            .streaming-mode-label {
+                display: inline-block;
+                background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 150, 255, 0.1));
+                border: 1px solid rgba(0, 200, 255, 0.4);
+                color: #00c8ff;
+                font-size: 0.7em;
+                padding: 2px 8px;
+                border-radius: 12px;
+                margin-left: 8px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                vertical-align: middle;
             }
         `;
         document.head.appendChild(style);

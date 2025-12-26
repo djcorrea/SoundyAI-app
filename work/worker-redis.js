@@ -1136,7 +1136,11 @@ async function audioProcessor(job) {
     referenceStage,
     genre,
     genreTargets,
+    soundDestination = 'pista',  // 🆕 STREAMING MODE: 'pista' | 'streaming'
   } = job.data;
+  
+  // 🆕 STREAMING MODE: Validar e logar soundDestination
+  const validSoundDestination = ['pista', 'streaming'].includes(soundDestination) ? soundDestination : 'pista';
   
   // ══════════════════════════════════════════════════════════════════════════════
   // 🎯 ROUTING: DIRECIONAR PARA PIPELINE CORRETO
@@ -1145,6 +1149,7 @@ async function audioProcessor(job) {
   console.log('[WORKER-ROUTING] ═══════════════════════════════════════');
   console.log('[WORKER-ROUTING] Job ID:', jobId?.substring(0, 8));
   console.log('[WORKER-ROUTING] Mode:', mode);
+  console.log('[WORKER-ROUTING] Sound Destination:', validSoundDestination);
   console.log('[WORKER-ROUTING] Reference Stage:', referenceStage || 'UNDEFINED');
   console.log('[WORKER-ROUTING] Reference Job ID:', referenceJobId || 'N/A');
   console.log('[WORKER-ROUTING] Job Data Keys:', Object.keys(job.data || {}));
@@ -1296,6 +1301,54 @@ async function audioProcessor(job) {
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
     console.log('[WORKER][GENRE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
     console.log('[WORKER][GENRE] Score:', finalJSON.score || 0);
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🆕 STREAMING MODE: Override de targets APENAS para LUFS e True Peak
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (validSoundDestination === 'streaming') {
+      console.log('[WORKER][STREAMING] 📡 Aplicando targets de Streaming...');
+      
+      // 🎯 Override targets no genreTargets (se existir no resultado)
+      if (finalJSON.data?.genreTargets) {
+        console.log('[WORKER][STREAMING] Targets ANTES:', {
+          lufs_target: finalJSON.data.genreTargets.lufs_target,
+          true_peak_target: finalJSON.data.genreTargets.true_peak_target
+        });
+        
+        finalJSON.data.genreTargets.lufs_target = -14;
+        finalJSON.data.genreTargets.true_peak_target = -1.0;
+        
+        console.log('[WORKER][STREAMING] Targets DEPOIS:', {
+          lufs_target: finalJSON.data.genreTargets.lufs_target,
+          true_peak_target: finalJSON.data.genreTargets.true_peak_target
+        });
+      }
+      
+      // 🎯 Override também em genreTargets raiz (se existir)
+      if (finalJSON.genreTargets) {
+        finalJSON.genreTargets.lufs_target = -14;
+        finalJSON.genreTargets.true_peak_target = -1.0;
+      }
+      
+      // 🎯 Override em resolvedTargets (se existir)
+      if (finalJSON.resolvedTargets) {
+        if (finalJSON.resolvedTargets.lufs) {
+          finalJSON.resolvedTargets.lufs.target = -14;
+        }
+        if (finalJSON.resolvedTargets.truePeak) {
+          finalJSON.resolvedTargets.truePeak.target = -1.0;
+        }
+      }
+      
+      // 🎯 Marcar resultado como streaming
+      finalJSON.soundDestination = 'streaming';
+      
+      console.log('[WORKER][STREAMING] ✅ Targets de streaming aplicados');
+    } else {
+      // 🔊 Pista: manter tudo como está
+      finalJSON.soundDestination = 'pista';
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
     
     // Garantir planContext
     if (!finalJSON.analysisMode && extractedPlanContext?.analysisMode) {
