@@ -5916,6 +5916,36 @@ window.FEATURE_NEW_GENRE_MODAL = true; // Definir como false para usar seletor a
 window.__SOUNDY_ANALYSIS_MODE__ = 'pista';
 
 /**
+ * 🆕 STREAMING TARGETS FIXOS
+ */
+const STREAMING_TARGETS = {
+    lufs_target: -14,
+    true_peak_target: -1.0
+};
+
+/**
+ * 🆕 Aplica override de streaming nos targets (FRONTEND)
+ * @param {Object} targets - Targets originais
+ * @returns {Object} - Targets com override se streaming
+ */
+function applyStreamingOverride(targets) {
+    const mode = getSoundDestinationMode();
+    if (mode !== 'streaming') return targets;
+    
+    if (!targets || typeof targets !== 'object') {
+        console.log('[STREAMING] Criando targets minimos');
+        return { lufs_target: -14, true_peak_target: -1.0 };
+    }
+    
+    const result = { ...targets };
+    result.lufs_target = -14;
+    result.true_peak_target = -1.0;
+    
+    console.log('[STREAMING] Override aplicado: LUFS=-14, TP=-1.0');
+    return result;
+}
+
+/**
  * Getter seguro para analysisMode (sempre retorna valor válido)
  */
 function getSoundDestinationMode() {
@@ -7554,11 +7584,15 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
-    // 🎯 CORREÇÃO CRÍTICA: Usar targets recebidos por parâmetro (já validados)
-    let genreData = targets;
-    console.log('[GENRE-TABLE] 🎯 Usando targets recebidos por parâmetro (fonte oficial)');
+    // � STREAMING OVERRIDE: Aplicar targets de streaming se necessário
+    let genreData = applyStreamingOverride(targets);
+    console.log('[GENRE-TABLE] 🎯 Targets após streaming check:', {
+        lufs_target: genreData?.lufs_target,
+        true_peak_target: genreData?.true_peak_target,
+        mode: getSoundDestinationMode()
+    });
     
-    console.log('[GENRE-TABLE] 📦 Genre data recebido (flat object):', Object.keys(genreData));
+    console.log('[GENRE-TABLE] 📦 Genre data recebido (flat object):', Object.keys(genreData || {}));
     
     if (!genreData) {
         console.error('[GENRE-TABLE] ❌ CRÍTICO: Nenhum target disponível!');
