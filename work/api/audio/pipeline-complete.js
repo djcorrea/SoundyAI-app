@@ -2163,11 +2163,21 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
   };
   
   // 🎯 FASE 1: PROCESSAR PENALTIES E GERAR SUGESTÕES BASE
+  console.log('[ADVANCED-SUGGEST] 📋 Listando todas as penalties a processar:');
+  penalties.forEach((p, i) => {
+    console.log(`[ADVANCED-SUGGEST]   ${i+1}. ${p.key}: status=${p.status}, severity=${p.severity}, n=${p.n?.toFixed(2)}`);
+  });
+  
   for (const penalty of penalties) {
     const { key, n, status, severity } = penalty;
     
     // Pular métricas OK (sem problemas)
-    if (status === 'OK') continue;
+    if (status === 'OK') {
+      console.log(`[ADVANCED-SUGGEST] ⏭️ Pulando ${key}: status=OK`);
+      continue;
+    }
+    
+    console.log(`[ADVANCED-SUGGEST] 🔧 Processando penalty: ${key} (status=${status}, severity=${severity})`);
     
     // Determinar prioridade baseada no tipo de métrica
     let priority = 'média';
@@ -2177,7 +2187,17 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
     
     // Buscar conhecimento técnico
     const knowledge = technicalKnowledge[key];
-    const isBand = !knowledge && (bandKnowledge[key] || key.includes('_db'));
+    
+    // 🔧 CORREÇÃO: Detectar bandas de forma mais robusta
+    // Bandas vêm como band_sub, band_air, band_presence, etc OU chave direta (air, presence)
+    const strippedKey = key.replace(/^band_/, '').replace('_db', '');
+    const normalizedStripped = normalizeBandKey(strippedKey);
+    const isBand = !knowledge && (
+      key.startsWith('band_') || 
+      key.includes('_db') || 
+      bandKnowledge[strippedKey] || 
+      bandKnowledge[normalizedStripped]
+    );
     
     if (knowledge) {
       // 🔧 MÉTRICA PRINCIPAL (LUFS, True Peak, DR, etc)
@@ -2229,6 +2249,8 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
       suggestions.push({
         type: key,
         category: knowledge.categoria.toLowerCase(),
+        // 🔧 CORREÇÃO: metricKey canônico para frontend não precisar adivinhar
+        metricKey: key,  // truePeakDbtp, lufsIntegrated, dynamicRange, stereoCorrelation, lra
         priority,
         severity,
         problema,
@@ -2248,12 +2270,25 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
       
     } else if (isBand) {
       // 🔧 BANDA ESPECTRAL
-      const bandKey = key.replace('_db', '');
-      const bandInfo = bandKnowledge[bandKey];
-      if (!bandInfo) continue;
+      // 🔧 CORREÇÃO: Remover prefixo band_ e sufixo _db para obter chave limpa
+      let bandKey = key.replace('_db', '').replace(/^band_/, '');
       
-      const bandData = getBandValue(technicalData, bandKey, genreTargets);
-      if (!bandData) continue;
+      // 🔧 CORREÇÃO: Normalizar nome da banda para aliases (brilho→air, presenca→presence)
+      const canonicalBandKey = normalizeBandKey(bandKey);
+      
+      // 🔧 CORREÇÃO: Buscar bandInfo usando nome normalizado OU original
+      const bandInfo = bandKnowledge[canonicalBandKey] || bandKnowledge[bandKey];
+      if (!bandInfo) {
+        console.log(`[ADVANCED-SUGGEST] ⚠️ bandKnowledge não encontrado para: ${bandKey} (canônico: ${canonicalBandKey})`);
+        continue;
+      }
+      
+      // 🔧 Usar nome canônico para buscar dados reais
+      const bandData = getBandValue(technicalData, canonicalBandKey, genreTargets);
+      if (!bandData) {
+        console.log(`[ADVANCED-SUGGEST] ⚠️ getBandValue retornou null para: ${canonicalBandKey}`);
+        continue;
+      }
       
       const { value, targetMin, targetMax } = bandData;
       const isBelow = value < targetMin;
@@ -2282,9 +2317,13 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
       
       const parametros = `Q: 1.0-2.0, Frequency: centro da banda, Gain: ${isBelow ? '+' : '-'}${Math.abs(delta).toFixed(1)} dB`;
       
+      // 🔧 metricKey usando canonicalBandKey já definido acima
+      
       suggestions.push({
         type: 'eq',
         category: bandInfo.categoria.toLowerCase().replace(' ', '_'),
+        // 🔧 CORREÇÃO: metricKey canônico para frontend não precisar adivinhar
+        metricKey: `band_${canonicalBandKey}`,  // band_sub, band_bass, band_lowMid, band_mid, band_highMid, band_presence, band_air
         priority,
         severity,
         problema,
@@ -2293,7 +2332,7 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
         pluginRecomendado,
         dicaExtra,
         parametros,
-        band: bandKey,
+        band: canonicalBandKey,
         frequencyRange: bandInfo.nome,
         delta: `${isBelow ? '+' : '-'}${delta.toFixed(1)}`,
         targetRange: `${targetMin} a ${targetMax} dB`,
@@ -2323,6 +2362,16 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
   suggestions.forEach((sug, i) => {
     console.log(`[ADVANCED-SUGGEST] ${i + 1}. [${sug.priority}] ${sug.problema.substring(0, 70)}...`);
   });
+  
+  // 🔍 DEBUG: Log de metricKeys para diagnóstico (desativar em produção com LOG_LEVEL)
+  const metricKeys = suggestions.map(s => s.metricKey).filter(Boolean);
+  console.log(`[ADVANCED-SUGGEST] 🔑 metricKeys gerados:`, metricKeys);
+  
+  // 🔍 DEBUG: Verificar se air/presence foram incluídos
+  const hasAir = metricKeys.includes('band_air');
+  const hasPresence = metricKeys.includes('band_presence');
+  console.log(`[ADVANCED-SUGGEST] 🎯 Bandas críticas: air=${hasAir}, presence=${hasPresence}`);
+  
   console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   
   return suggestions;

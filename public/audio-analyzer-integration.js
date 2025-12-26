@@ -6619,14 +6619,16 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     };
     
     // 🎯 LISTA CANÔNICA DE BANDAS (ordem LOW END → MID → HIGH)
+    // ⚠️ CORREÇÃO: Frequências alinhadas com padrão do projeto
+    // air = Brilho (4k-10k Hz), presence = Presença (10k-20k Hz)
     const CANONICAL_BANDS = [
         { key: 'sub', label: '🔉 Sub (20-60 Hz)', category: 'LOW END' },
         { key: 'bass', label: '🔊 Bass (60-150 Hz)', category: 'LOW END' },
         { key: 'lowMid', label: '🎵 Low Mid (150-500 Hz)', category: 'MID' },
         { key: 'mid', label: '🎵 Mid (500-2k Hz)', category: 'MID' },
-        { key: 'highMid', label: '🎸 High Mid (2k-5k Hz)', category: 'HIGH' },
-        { key: 'presence', label: '💎 Presença (5k-10k Hz)', category: 'HIGH' },
-        { key: 'air', label: '✨ Brilho (10k-20k Hz)', category: 'HIGH' }
+        { key: 'highMid', label: '🎸 High Mid (2k-4k Hz)', category: 'HIGH' },
+        { key: 'air', label: '✨ Brilho (4k-10k Hz)', category: 'HIGH' },
+        { key: 'presence', label: '💎 Presença (10k-20k Hz)', category: 'HIGH' }
     ];
     
     // 🎯 HELPER: Calcular severidade (mesma lógica da tabela)
