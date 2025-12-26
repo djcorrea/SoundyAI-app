@@ -1073,14 +1073,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     };
     
     // 🎯 LABELS LEGÍVEIS PARA CADA BANDA
+    // 🔧 CORRIGIDO: Brilho = 4k-10kHz, Presença = 10k-20kHz (alinhado com tabela de referência)
     const BAND_LABELS = {
       'sub': 'Sub Bass (20-60Hz)',
       'bass': 'Bass (60-150Hz)',
+      'low_bass': 'Graves (60-120Hz)',
+      'upper_bass': 'Graves Altos (120-200Hz)',
       'low_mid': 'Low Mid (150-500Hz)',
       'mid': 'Mid (500-2kHz)',
-      'high_mid': 'High Mid (2-5kHz)',
-      'presence': 'Presença (3-6kHz)',
-      'air': 'Brilho (6-20kHz)'
+      'high_mid': 'High Mid (2-4kHz)',
+      // 🔧 CORRIGIDO: Ranges corretos para air/presence e aliases PT
+      'air': 'Brilho (4k-10kHz)',
+      'brilho': 'Brilho (4k-10kHz)',
+      'presence': 'Presença (10k-20kHz)',
+      'presenca': 'Presença (10k-20kHz)'
     };
     
     // 🔥 LOG CRÍTICO: Inventário completo de TODAS as bandas antes de análise
