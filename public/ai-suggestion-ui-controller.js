@@ -1784,59 +1784,101 @@ class AISuggestionUIController {
      * 🔐 Mapear categoria de sugestão para métrica do Security Guard
      */
     mapCategoryToMetric(suggestion) {
+        // 🔧 CORREÇÃO: Se metricKey já existe, usar diretamente (backend canônico)
+        if (suggestion.metricKey) {
+            console.log('[SECURITY-MAP] ✅ Usando metricKey do backend:', suggestion.metricKey);
+            return suggestion.metricKey;
+        }
+        
         const categoria = (suggestion.categoria || suggestion.category || '').toLowerCase();
         const problema = (suggestion.problema || suggestion.message || '').toLowerCase();
         const texto = `${categoria} ${problema}`;
         
-        console.log('[SECURITY-MAP] 🔍 Mapeando categoria:', { categoria, problema, texto });
+        console.log('[SECURITY-MAP] 🔍 Mapeando categoria (fallback):', { categoria, problema, texto });
         
         // Mapeamento de palavras-chave para métricas
         if (texto.includes('loudness') || texto.includes('lufs')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: LUFS (bloqueado)');
-            return 'lufs';
+            console.log('[SECURITY-MAP] ✅ Detectado: LUFS');
+            return 'lufsIntegrated';
         }
         if (texto.includes('true peak') || texto.includes('truepeak') || texto.includes('tp')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: True Peak (bloqueado)');
-            return 'truePeak';
+            console.log('[SECURITY-MAP] ✅ Detectado: True Peak');
+            return 'truePeakDbtp';
         }
         if (texto.includes('lra') || texto.includes('loudness range')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: LRA (bloqueado)');
+            console.log('[SECURITY-MAP] ✅ Detectado: LRA');
             return 'lra';
         }
         if (texto.includes('dr') || texto.includes('dinâmica') || texto.includes('dynamic')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: DR (liberado)');
-            return 'dr';
+            console.log('[SECURITY-MAP] ✅ Detectado: DR');
+            return 'dynamicRange';
         }
         if (texto.includes('estéreo') || texto.includes('stereo') || texto.includes('correlação')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Estéreo (liberado)');
-            return 'stereo';
+            console.log('[SECURITY-MAP] ✅ Detectado: Estéreo');
+            return 'stereoCorrelation';
         }
-        if (texto.includes('sub') || texto.includes('20-60')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Sub (bloqueado)');
+        
+        // 🔧 CORREÇÃO: Bandas com ranges corretos
+        // Sub: 20-60Hz
+        if (texto.includes('sub') || texto.includes('20-60') || texto.includes('subgrave')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Sub (20-60Hz)');
             return 'band_sub';
         }
-        if (texto.includes('bass') || texto.includes('60-150') || texto.includes('graves')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Bass (bloqueado)');
+        // Bass/Grave: 60-150Hz ou 60-250Hz
+        if (texto.includes('bass') || texto.includes('60-150') || texto.includes('60-250') || 
+            (texto.includes('grave') && !texto.includes('sub'))) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Bass/Grave (60-250Hz)');
             return 'band_bass';
         }
-        if (texto.includes('low mid') || texto.includes('150-500') || texto.includes('lowmid')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Low Mid (liberado)');
+        // Low Mid: 150-500Hz ou 250-500Hz
+        if (texto.includes('low mid') || texto.includes('low-mid') || texto.includes('150-500') || 
+            texto.includes('250-500') || texto.includes('lowmid')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Low Mid (150-500Hz)');
             return 'band_lowMid';
         }
-        if (texto.includes('mid') && !texto.includes('low') && !texto.includes('high')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Mid (bloqueado)');
+        // Mid: 500Hz-2kHz
+        if ((texto.includes('mid') && !texto.includes('low') && !texto.includes('high')) ||
+            texto.includes('500hz-2k') || texto.includes('500-2k')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Mid (500Hz-2kHz)');
             return 'band_mid';
         }
-        if (texto.includes('high mid') || texto.includes('500-2k') || texto.includes('highmid')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: High Mid (liberado)');
+        // High Mid: 2-5kHz
+        if (texto.includes('high mid') || texto.includes('high-mid') || texto.includes('2k-5k') || 
+            texto.includes('2-5k') || texto.includes('highmid')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: High Mid (2-5kHz)');
             return 'band_highMid';
         }
-        if (texto.includes('presença') || texto.includes('presence') || texto.includes('2k-5k')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Presença (liberado)');
+        // 🔧 CORREÇÃO CRÍTICA: Brilho/Air = 4k-10k ou 5k-10k (NÃO é presença!)
+        if (texto.includes('brilho') || texto.includes('4k-10k') || texto.includes('5k-10k') ||
+            (texto.includes('air') && !texto.includes('repair'))) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (4k-10kHz)');
+            return 'band_air';
+        }
+        // 🔧 CORREÇÃO CRÍTICA: Presença = 10k-20kHz (agudos extremos)
+        if (texto.includes('presença') || texto.includes('presence') || texto.includes('10k-20k') ||
+            texto.includes('10-20k')) {
+            console.log('[SECURITY-MAP] ✅ Detectado: Presença (10k-20kHz)');
             return 'band_presence';
         }
-        if (texto.includes('brilho') || texto.includes('air') || texto.includes('5k+')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (bloqueado)');
+        
+        // Fallback para LOW END categoria
+        if (categoria.includes('low end') || categoria.includes('low_end')) {
+            // Tentar extrair da frequência no texto
+            if (texto.includes('60') || texto.includes('250') || texto.includes('grave')) {
+                console.log('[SECURITY-MAP] ✅ LOW END → band_bass (por frequência)');
+                return 'band_bass';
+            }
+            console.log('[SECURITY-MAP] ✅ LOW END genérico → band_bass');
+            return 'band_bass';
+        }
+        
+        // Fallback para HIGH END categoria
+        if (categoria.includes('high end') || categoria.includes('high_end')) {
+            if (texto.includes('10k') || texto.includes('20k')) {
+                console.log('[SECURITY-MAP] ✅ HIGH END → band_presence (por frequência)');
+                return 'band_presence';
+            }
+            console.log('[SECURITY-MAP] ✅ HIGH END genérico → band_air');
             return 'band_air';
         }
         
