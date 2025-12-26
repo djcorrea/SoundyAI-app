@@ -692,11 +692,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         });
       }
       
+      // 🆕 STREAMING MODE: Passar soundDestination para o analyzer aplicar override
+      const soundDestination = options.soundDestination || 'pista';
+      console.log('[DEBUG-SUGGESTIONS] 📡 soundDestination:', soundDestination);
+      
       const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(
         coreMetrics,
         finalGenreForAnalyzer,
         customTargets,
-        { data: consolidatedData }  // 🔥 Passar finalJSON wrapper
+        { 
+          data: consolidatedData,
+          soundDestination: soundDestination  // 🆕 Passar para o analyzer
+        }
       );
       
       console.log('[DEBUG-SUGGESTIONS] ✅ analyzeProblemsAndSuggestionsV2 retornou com sucesso');
@@ -907,7 +914,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         });
       }
       
-      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2, { data: consolidatedDataV2 });
+      // 🆕 STREAMING MODE: Passar soundDestination para V2 também
+      const soundDestinationV2 = options.soundDestination || 'pista';
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2, { 
+        data: consolidatedDataV2,
+        soundDestination: soundDestinationV2
+      });
       
       const v2Suggestions = v2.suggestions || [];
       const v2Problems = v2.problems || [];

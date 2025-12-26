@@ -677,14 +677,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     });
     
     // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🔧 STREAMING EXCEPTION: LUFS no modo Streaming SEMPRE gera sugestão
-    // Isso é obrigatório porque o usuário PRECISA ver o target de streaming (-14 LUFS)
-    // mesmo quando o áudio já está no valor correto
-    // ═══════════════════════════════════════════════════════════════════════════════
-    const isStreamingMode = consolidatedData?.soundDestination === 'streaming';
-    
-    if (diff === 0 && !isStreamingMode) {
+    if (diff === 0) {
       console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
         metric: 'LUFS',
         value: lufs.toFixed(2),
@@ -694,17 +687,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         reason: 'diff === 0 (dentro do range)'
       });
       return;
-    }
-    
-    // 📡 LOG para modo Streaming
-    if (isStreamingMode) {
-      console.log('[SUGGESTION_GATE] 📡 STREAMING MODE: Sugestão LUFS FORÇADA:', {
-        metric: 'LUFS',
-        value: lufs.toFixed(2),
-        target: bounds.max.toFixed(2),
-        diff: diff,
-        reason: 'Streaming mode sempre mostra sugestão de LUFS'
-      });
     }
     
     suggestions.push(suggestion);
@@ -1741,11 +1723,12 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
 export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null, finalJSON = null) {
   process.stderr.write("\n\n");
   process.stderr.write("╔════════════════════════════════════════════════════════════════╗\n");
-  process.stderr.write("║  🔥🔥� DENTRO DO SUGGESTION ENGINE 🔥🔥🔥                    ║\n");
+  process.stderr.write("║  🔥🔥🔥 DENTRO DO SUGGESTION ENGINE 🔥🔥🔥                    ║\n");
   process.stderr.write("╚════════════════════════════════════════════════════════════════╝\n");
   process.stderr.write("[ENGINE] ⏰ Timestamp: " + new Date().toISOString() + "\n");
   process.stderr.write("[ENGINE] 📥 Parâmetros recebidos:\n");
   process.stderr.write("  - genre: " + genre + "\n");
+  process.stderr.write("  - soundDestination: " + (finalJSON?.soundDestination || 'pista (default)') + "\n");
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!(finalJSON && finalJSON.data) + "\n");
@@ -1818,8 +1801,7 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   // NÃO usar finalJSON.data.genreTargets diretamente (pode estar no formato errado)
   const consolidatedData = {
     genreTargets: effectiveTargets,  // ✅ Targets normalizados + streaming override
-    metrics: finalJSON?.data?.metrics || null,
-    soundDestination: soundDestination  // 🆕 STREAMING FIX: Passar modo para analyzeLUFS
+    metrics: finalJSON?.data?.metrics || null
   };
   
   process.stderr.write("[ENGINE] ✅ consolidatedData.genreTargets.lufs.target = " + 

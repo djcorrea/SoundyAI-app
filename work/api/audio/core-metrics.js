@@ -786,7 +786,12 @@ class CoreMetricsProcessor {
               process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
             }
             
-            problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { data: consolidatedData });
+            // 🆕 STREAMING MODE: Passar soundDestination para o analyzer
+            const soundDestinationCM = options.soundDestination || 'pista';
+            problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets, { 
+              data: consolidatedData,
+              soundDestination: soundDestinationCM
+            });
             
             if (DEBUG_AUDIO) {
               process.stderr.write("\n\n");
