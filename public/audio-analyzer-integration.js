@@ -5925,7 +5925,6 @@ const STREAMING_TARGETS = {
 
 /**
  * 🆕 Aplica override de streaming nos targets (FRONTEND)
- * APENAS sobrescreve LUFS e True Peak, preserva TODO o resto
  * @param {Object} targets - Targets originais
  * @returns {Object} - Targets com override se streaming
  */
@@ -5934,56 +5933,15 @@ function applyStreamingOverride(targets) {
     if (mode !== 'streaming') return targets;
     
     if (!targets || typeof targets !== 'object') {
-        console.warn('[STREAMING] ⚠️ Targets vazios, retornando sem override');
-        return targets;
+        console.log('[STREAMING] Criando targets minimos');
+        return { lufs_target: -14, true_peak_target: -1.0 };
     }
     
-    // Deep copy para preservar tudo (incluindo bands, tolerâncias, etc)
-    const result = JSON.parse(JSON.stringify(targets));
-    
-    // 🔧 EXPANSÃO: Se targets tem legacy_compatibility, expandir para raiz
-    if (result.legacy_compatibility && typeof result.legacy_compatibility === 'object') {
-        const legacy = result.legacy_compatibility;
-        console.log('[STREAMING] 🔄 Expandindo legacy_compatibility para raiz');
-        
-        // Mapear propriedades principais (apenas se não existirem na raiz)
-        if (legacy.lufs_target !== undefined && result.lufs_target === undefined) result.lufs_target = legacy.lufs_target;
-        if (legacy.tol_lufs !== undefined && result.tol_lufs === undefined) result.tol_lufs = legacy.tol_lufs;
-        if (legacy.true_peak_target !== undefined && result.true_peak_target === undefined) result.true_peak_target = legacy.true_peak_target;
-        if (legacy.tol_true_peak !== undefined && result.tol_true_peak === undefined) result.tol_true_peak = legacy.tol_true_peak;
-        if (legacy.dr_target !== undefined && result.dr_target === undefined) result.dr_target = legacy.dr_target;
-        if (legacy.tol_dr !== undefined && result.tol_dr === undefined) result.tol_dr = legacy.tol_dr;
-        if (legacy.lra_target !== undefined && result.lra_target === undefined) result.lra_target = legacy.lra_target;
-        if (legacy.tol_lra !== undefined && result.tol_lra === undefined) result.tol_lra = legacy.tol_lra;
-        if (legacy.stereo_target !== undefined && result.stereo_target === undefined) result.stereo_target = legacy.stereo_target;
-        if (legacy.tol_stereo !== undefined && result.tol_stereo === undefined) result.tol_stereo = legacy.tol_stereo;
-        
-        // Mapear bandas de frequência
-        if (legacy.bands && typeof legacy.bands === 'object' && !result.bands) {
-            result.bands = legacy.bands;
-        }
-    }
-    
-    // 🔧 EXPANSÃO: Se targets tem hybrid_processing.spectral_bands, expandir para raiz.bands
-    if (result.hybrid_processing?.spectral_bands && !result.bands) {
-        console.log('[STREAMING] 🔄 Expandindo hybrid_processing.spectral_bands para bands');
-        result.bands = result.hybrid_processing.spectral_bands;
-    }
-    
-    // APENAS sobrescrever LUFS e True Peak para streaming
+    const result = { ...targets };
     result.lufs_target = -14;
     result.true_peak_target = -1.0;
     
-    console.log('[STREAMING] ✅ Override aplicado:', {
-        lufs_target: result.lufs_target,
-        true_peak_target: result.true_peak_target,
-        dr_target: result.dr_target,
-        stereo_target: result.stereo_target,
-        hasBands: !!result.bands,
-        bandsCount: result.bands ? Object.keys(result.bands).length : 0,
-        bandKeys: result.bands ? Object.keys(result.bands) : []
-    });
-    
+    console.log('[STREAMING] Override aplicado: LUFS=-14, TP=-1.0');
     return result;
 }
 
@@ -13155,30 +13113,7 @@ async function displayModalResults(analysis) {
         // 🎯 PATCH 1: MODO GÊNERO COM TARGETS
         console.log('[GENRE-FLOW] 🎯 Renderizando modo gênero com targets');
         
-        // 📡 STREAMING: Obter targets e aplicar override se necessário
-        let genreTargets = analysis.data?.genreTargets;
-        
-        // 🆕 STREAMING OVERRIDE: Aplicar targets de streaming em todas as renderizações
-        if (genreTargets) {
-            genreTargets = applyStreamingOverride(genreTargets);
-            console.log('[GENRE-FLOW] 📡 Targets após streaming check:', {
-                lufs_target: genreTargets.lufs_target,
-                true_peak_target: genreTargets.true_peak_target,
-                isStreaming: getSoundDestinationMode() === 'streaming'
-            });
-            
-            // 📡 STREAMING: Regenerar sugestões usando targets de streaming
-            if (getSoundDestinationMode() === 'streaming') {
-                console.log('[GENRE-FLOW] 📡 STREAMING: Regenerando sugestões com targets de streaming');
-                const streamingSuggestions = buildGenreBasedAISuggestions(analysis, genreTargets);
-                if (streamingSuggestions && streamingSuggestions.length > 0) {
-                    // Substituir sugestões do backend pelas de streaming
-                    analysis.suggestions = streamingSuggestions;
-                    analysis.aiSuggestions = streamingSuggestions;
-                    console.log('[GENRE-FLOW] 📡 Sugestões de streaming geradas:', streamingSuggestions.length);
-                }
-            }
-        }
+        const genreTargets = analysis.data?.genreTargets;
         
         if (!genreTargets) {
             console.warn('[GENRE-FLOW] ⚠️ genreTargets não encontrado em analysis.data!');
