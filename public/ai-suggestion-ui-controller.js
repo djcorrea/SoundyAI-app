@@ -1308,11 +1308,7 @@ class AISuggestionUIController {
             return suggestions;
         }
         
-        // 📡 STREAMING MODE: Detectar modo de destino
-        const isStreamingMode = window.__SOUNDY_ANALYSIS_MODE__ === 'streaming';
-        
         console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais (Postgres)');
-        console.log('[AI-UI][VALIDATION] 📡 Modo destino:', isStreamingMode ? 'STREAMING' : 'PISTA');
         console.log('[AI-UI][VALIDATION] 📊 Estrutura genreTargets:', {
             hasLufs: !!genreTargets.lufs,
             hasTruePeak: !!genreTargets.truePeak,
@@ -1322,58 +1318,9 @@ class AISuggestionUIController {
         });
         
         return suggestions.map(suggestion => {
-            // 📡 STREAMING MODE: Corrigir textos de LUFS e TP para targets de streaming
-            let correctedSuggestion = { ...suggestion };
-            
-            if (isStreamingMode) {
-                // Detectar se é sugestão de LUFS ou True Peak
-                const categoria = (correctedSuggestion.categoria || correctedSuggestion.category || '').toLowerCase();
-                const problema = (correctedSuggestion.problema || correctedSuggestion.message || '').toLowerCase();
-                const textoCompleto = `${categoria} ${problema}`;
-                
-                const isLufsSuggestion = textoCompleto.includes('lufs') || textoCompleto.includes('loudness');
-                const isTruePeakSuggestion = textoCompleto.includes('true peak') || textoCompleto.includes('truepeak') || textoCompleto.includes('mastering');
-                
-                if (isLufsSuggestion || isTruePeakSuggestion) {
-                    console.log('[AI-UI][STREAMING] 📡 Corrigindo texto de sugestão para streaming:', categoria);
-                    
-                    // Campos que podem conter texto a ser corrigido
-                    ['problema', 'message', 'causaProvavel', 'solucao', 'action'].forEach(field => {
-                        if (correctedSuggestion[field] && typeof correctedSuggestion[field] === 'string') {
-                            let texto = correctedSuggestion[field];
-                            
-                            if (isLufsSuggestion) {
-                                // Substituir ranges de LUFS para -14 (streaming)
-                                // Padrão: "-10.0 a -8.0 LUFS" → "-15.0 a -13.0 LUFS" (±1 de -14)
-                                texto = texto.replace(/(-?\d+\.?\d*)\s*a\s*(-?\d+\.?\d*)\s*(LUFS|dB)/gi, '-15.0 a -13.0 LUFS');
-                                // Padrão: "alvo de -9 LUFS" ou "target -8 LUFS" → "-14 LUFS"
-                                texto = texto.replace(/(alvo|target|ideal|objetivo)\s*(de|:)?\s*-?\d+\.?\d*\s*(LUFS|dB)/gi, '$1 $2 -14 LUFS');
-                                // Mencionar streaming no texto
-                                if (!texto.toLowerCase().includes('streaming')) {
-                                    texto = texto.replace(/(LUFS)/gi, 'LUFS (padrão streaming)');
-                                }
-                            }
-                            
-                            if (isTruePeakSuggestion) {
-                                // Substituir ranges de TP para -1.0 (streaming)
-                                // Padrão: "-0.5 a 0.0 dBTP" → "-1.5 a -0.5 dBTP" (±0.5 de -1.0)
-                                texto = texto.replace(/(-?\d+\.?\d*)\s*a\s*(-?\d+\.?\d*)\s*(dBTP|dB\s*TP)/gi, '-1.5 a -0.5 dBTP');
-                                // Padrão: "máximo de 0 dBTP" → "máximo de -1.0 dBTP"
-                                texto = texto.replace(/(máximo|ceiling|limite)\s*(de|:)?\s*-?\d+\.?\d*\s*(dBTP|dB\s*TP)/gi, '$1 $2 -1.0 dBTP');
-                            }
-                            
-                            if (texto !== correctedSuggestion[field]) {
-                                console.log('[AI-UI][STREAMING] ✅ Texto corrigido:', field);
-                                correctedSuggestion[field] = texto;
-                            }
-                        }
-                    });
-                }
-            }
-            
             // 🔐 SECURITY NOTE: Este acesso é apenas para MAPEAMENTO de categoria,
             // NÃO para renderização. O texto nunca entra no DOM aqui.
-            let metric = correctedSuggestion.metric || correctedSuggestion.category || this.guessMetricFromText(correctedSuggestion.problema || correctedSuggestion.message);
+            let metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
             
             // 🔧 Normalizar métrica usando função universal
             const canonicalMetric = normalizeMetricKey(metric);
@@ -1383,7 +1330,7 @@ class AISuggestionUIController {
             }
             
             if (!metric || metric === 'info') {
-                return correctedSuggestion; // Sugestões informativas não precisam validação
+                return suggestion; // Sugestões informativas não precisam validação
             }
             
             // 🔧 Obter target real do JSON usando EXCLUSIVAMENTE genreTargets (Postgres)
@@ -1426,12 +1373,13 @@ class AISuggestionUIController {
             
             if (!realTarget && !realRange) {
                 console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}"`);
-                return correctedSuggestion;
+                return suggestion;
             }
             
             console.log(`[AI-UI][VALIDATION] ✅ Target encontrado para "${metric}":`, { realTarget, realRange });
             
-            // A variável correctedSuggestion já foi criada no início do map
+            // Corrigir textos que mencionam valores "ideal" incorretos
+            const correctedSuggestion = { ...suggestion };
             
             // Regex para encontrar padrões como "ideal: -14 dB" ou "target: -29 dB"
             const idealRegex = /(ideal|target|alvo|objetivo):\s*[-+]?\d+\.?\d*\s*(dB|LUFS)/gi;
