@@ -303,11 +303,32 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         return null;
       }
       
-      const t = genreTargets.bands && genreTargets.bands[bandKey];
+      // 🔥 PATCH CRÍTICO: Alias mapping para resolver mismatch PT↔EN
+      // JSON do gênero usa: brilho, presenca (português)
+      // Código/FFT usa: air, presence (inglês)
+      const TARGET_KEY_ALIASES = {
+        'air': 'brilho',           // EN → PT
+        'presence': 'presenca',    // EN → PT
+        'brilho': 'air',           // PT → EN (fallback reverso)
+        'presenca': 'presence'     // PT → EN (fallback reverso)
+      };
+      
+      // Tentar chave original primeiro, depois alias
+      let t = genreTargets.bands && genreTargets.bands[bandKey];
+      let resolvedKey = bandKey;
+      
+      if (!t && TARGET_KEY_ALIASES[bandKey]) {
+        const aliasKey = TARGET_KEY_ALIASES[bandKey];
+        t = genreTargets.bands && genreTargets.bands[aliasKey];
+        if (t) {
+          resolvedKey = aliasKey;
+          console.log(`[TARGET-HELPER] 🔄 Alias aplicado: ${bandKey} → ${aliasKey}`);
+        }
+      }
       
       // ✅ CORREÇÃO: JSON usa "target_db" nas bandas, NÃO "target"
       if (!t) {
-        console.error(`[TARGET-HELPER] ❌ Banda ${bandKey} ausente em genreTargets.bands`);
+        console.error(`[TARGET-HELPER] ❌ Banda ${bandKey} ausente em genreTargets.bands (tentou alias: ${TARGET_KEY_ALIASES[bandKey] || 'nenhum'})`);
         console.error(`[TARGET-HELPER] Bandas disponíveis:`, Object.keys(genreTargets.bands || {}));
         return null;
       }
@@ -1035,6 +1056,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const targetBands = consolidatedData.genreTargets?.bands || {};
     
     // 🎯 MAPEAMENTO DE ALIASES: JSON usa português, código pode usar inglês
+    // 🔥 CORRIGIDO: upper_bass e low_bass são bandas DISTINTAS no JSON do gênero
     const BAND_ALIAS_MAP = {
       'brilho': 'air',           // JSON portugês → código inglês
       'air': 'air',              // já inglês
@@ -1045,8 +1067,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       'lowMid': 'low_mid',       // camelCase
       'high_mid': 'high_mid',    // snake_case
       'highMid': 'high_mid',     // camelCase
-      'upper_bass': 'bass',      // alias para bass
-      'low_bass': 'bass'         // alias para bass
+      'upper_bass': 'upper_bass', // ✅ CORRIGIDO: preservar key original (tem target próprio)
+      'low_bass': 'low_bass',     // ✅ CORRIGIDO: preservar key original (tem target próprio)
+      'bass': 'bass'              // bass genérico (se existir)
     };
     
     // 🎯 LABELS LEGÍVEIS PARA CADA BANDA
@@ -1141,6 +1164,29 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // 🔥 LOG FINAL: Resumo de sugestões geradas por bandas
     const bandSuggestions = suggestions.filter(s => s.metric && s.metric.startsWith('band_'));
     // DEBUG já declarado no topo da função (linha 1056)
+    
+    // 🔥 AUDITORIA CRÍTICA: Verificar se air/presence foram processados
+    const hasAir = processedKeys.has('air') || processedKeys.has('brilho');
+    const hasPresence = processedKeys.has('presence') || processedKeys.has('presenca');
+    const airSuggestion = bandSuggestions.find(s => s.metric === 'band_air');
+    const presenceSuggestion = bandSuggestions.find(s => s.metric === 'band_presence');
+    
+    // 🚨 LOG SEMPRE VISÍVEL para bandas críticas (independente de DEBUG)
+    console.log('[BANDS][AUDIT] 🔍 ════════════════════════════════════════════');
+    console.log('[BANDS][AUDIT] AUDITORIA BANDAS CRÍTICAS (air/presence):');
+    console.log('[BANDS][AUDIT] Banda "air" (brilho):', {
+      processado: hasAir,
+      sugestaoGerada: !!airSuggestion,
+      metric: airSuggestion?.metric || 'NÃO GERADA',
+      severity: airSuggestion?.severity?.level || 'N/A'
+    });
+    console.log('[BANDS][AUDIT] Banda "presence" (presenca):', {
+      processado: hasPresence,
+      sugestaoGerada: !!presenceSuggestion,
+      metric: presenceSuggestion?.metric || 'NÃO GERADA',
+      severity: presenceSuggestion?.severity?.level || 'N/A'
+    });
+    console.log('[BANDS][AUDIT] ════════════════════════════════════════════');
     
     if (DEBUG) {
       console.log('[BANDS][SUMMARY] 📊 ════════════════════════════════════════════');
