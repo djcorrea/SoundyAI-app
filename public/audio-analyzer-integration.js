@@ -638,6 +638,14 @@ function extractGenreTargets(source) {
     if (source?.data?.genreTargets && typeof source.data.genreTargets === 'object') {
         targets = source.data.genreTargets;
         targetSource = 'source.data.genreTargets (OFICIAL)';
+        
+        // 🆕 LOG STREAMING MODE: Verificar se targets foram overriden
+        console.log('[EXTRACT-TARGETS] 📡 STREAMING CHECK:', {
+            soundDestination: source?.soundDestination,
+            lufs_target: targets.lufs_target,
+            true_peak_target: targets.true_peak_target,
+            isStreamingOverride: targets.lufs_target === -14 && targets.true_peak_target === -1.0
+        });
     }
     // 🎯 PRIORIDADE 2: source.genreTargets (fallback direto)
     else if (source?.genreTargets && typeof source.genreTargets === 'object') {
@@ -7503,6 +7511,16 @@ function renderGenreComparisonTable(options) {
     console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
     console.log('[GENRE-TABLE] 🎯 Gênero:', genre);
     console.log('[GENRE-TABLE] 📁 Targets recebidos (parâmetro):', targets);
+    
+    // 🆕 LOG DE DIAGNÓSTICO STREAMING MODE
+    console.log('[GENRE-TABLE] 📡 STREAMING DIAGNÓSTICO:', {
+        soundDestination: analysis?.soundDestination,
+        'analysis.data.genreTargets.lufs_target': analysis?.data?.genreTargets?.lufs_target,
+        'analysis.data.genreTargets.true_peak_target': analysis?.data?.genreTargets?.true_peak_target,
+        'targets.lufs_target': targets?.lufs_target,
+        'targets.true_peak_target': targets?.true_peak_target,
+        isStreaming: analysis?.soundDestination === 'streaming'
+    });
     
     // 🛡️ GUARD: Apenas para modo gênero
     if (analysis?.mode !== 'genre') {
