@@ -1280,6 +1280,7 @@ async function audioProcessor(job) {
     
     // Processar via pipeline
     console.log('[WORKER][GENRE] Iniciando pipeline...');
+    console.log('[WORKER][GENRE] soundDestination para pipeline:', validSoundDestination);
     
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId,
@@ -1288,7 +1289,8 @@ async function audioProcessor(job) {
       preloadedReferenceMetrics,
       genre,
       genreTargets,
-      planContext: extractedPlanContext || null
+      planContext: extractedPlanContext || null,
+      soundDestination: validSoundDestination  // 🆕 Passar para o pipeline
     });
     
     const timeoutPromise = new Promise((_, reject) => {
