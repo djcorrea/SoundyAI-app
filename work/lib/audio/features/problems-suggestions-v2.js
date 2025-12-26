@@ -522,6 +522,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
 
+    // 🔍 DEBUG: Verificar estrutura de genreTargets recebida
+    console.log('[LUFS][DEBUG] genreTargets recebido:', {
+      exists: !!consolidatedData.genreTargets,
+      hasLufsNested: !!consolidatedData.genreTargets?.lufs,
+      hasLufsTarget: consolidatedData.genreTargets?.lufs?.target,
+      hasLufsFlat: consolidatedData.genreTargets?.lufs_target,
+      keys: consolidatedData.genreTargets ? Object.keys(consolidatedData.genreTargets) : []
+    });
+
     // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
     const metric = consolidatedData.metrics && consolidatedData.metrics.loudness;
     if (!metric || typeof metric.value !== 'number') {

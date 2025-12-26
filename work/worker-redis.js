@@ -1335,21 +1335,65 @@ async function audioProcessor(job) {
       // 🎯 Override targets no genreTargets
       console.log('[WORKER][STREAMING] Targets ANTES:', {
         lufs_target: finalJSON.data.genreTargets.lufs_target,
-        true_peak_target: finalJSON.data.genreTargets.true_peak_target
+        true_peak_target: finalJSON.data.genreTargets.true_peak_target,
+        'lufs.target': finalJSON.data.genreTargets.lufs?.target
       });
       
+      // ═══════════════════════════════════════════════════════════════════════════════
+      // 🔧 CORREÇÃO CRÍTICA: Override em AMBOS os formatos (FLAT e NESTED)
+      // O analyzer usa formato NESTED: genreTargets.lufs.target
+      // O frontend usa formato FLAT: genreTargets.lufs_target
+      // ═══════════════════════════════════════════════════════════════════════════════
+      
+      // 1️⃣ Formato FLAT (para frontend e compatibilidade)
       finalJSON.data.genreTargets.lufs_target = -14;
       finalJSON.data.genreTargets.true_peak_target = -1.0;
       
-      console.log('[WORKER][STREAMING] Targets DEPOIS:', {
-        lufs_target: finalJSON.data.genreTargets.lufs_target,
-        true_peak_target: finalJSON.data.genreTargets.true_peak_target
+      // 2️⃣ Formato NESTED (para analyzer/problems-suggestions-v2.js)
+      // 🔥 CRÍTICO: O analyzer espera { lufs: { target, tolerance, min, max } }
+      if (!finalJSON.data.genreTargets.lufs) {
+        finalJSON.data.genreTargets.lufs = {};
+      }
+      finalJSON.data.genreTargets.lufs.target = -14;
+      finalJSON.data.genreTargets.lufs.tolerance = 1.0;
+      finalJSON.data.genreTargets.lufs.min = -14;
+      finalJSON.data.genreTargets.lufs.max = -14;
+      finalJSON.data.genreTargets.lufs.critical = 1.5;
+      
+      if (!finalJSON.data.genreTargets.truePeak) {
+        finalJSON.data.genreTargets.truePeak = {};
+      }
+      finalJSON.data.genreTargets.truePeak.target = -1.0;
+      finalJSON.data.genreTargets.truePeak.tolerance = 0.5;
+      finalJSON.data.genreTargets.truePeak.min = -1.5;
+      finalJSON.data.genreTargets.truePeak.max = -1.0;
+      finalJSON.data.genreTargets.truePeak.critical = 0.75;
+      
+      console.log('[WORKER][STREAMING] Targets DEPOIS (NESTED):', {
+        'lufs.target': finalJSON.data.genreTargets.lufs?.target,
+        'lufs.min': finalJSON.data.genreTargets.lufs?.min,
+        'lufs.max': finalJSON.data.genreTargets.lufs?.max,
+        'truePeak.target': finalJSON.data.genreTargets.truePeak?.target
       });
       
-      // 🎯 Override também em genreTargets raiz (se existir)
+      // 🎯 Override também em genreTargets raiz (se existir) - AMBOS formatos
       if (finalJSON.genreTargets) {
+        // Flat
         finalJSON.genreTargets.lufs_target = -14;
         finalJSON.genreTargets.true_peak_target = -1.0;
+        // Nested
+        if (!finalJSON.genreTargets.lufs) finalJSON.genreTargets.lufs = {};
+        finalJSON.genreTargets.lufs.target = -14;
+        finalJSON.genreTargets.lufs.tolerance = 1.0;
+        finalJSON.genreTargets.lufs.min = -14;
+        finalJSON.genreTargets.lufs.max = -14;
+        
+        if (!finalJSON.genreTargets.truePeak) finalJSON.genreTargets.truePeak = {};
+        finalJSON.genreTargets.truePeak.target = -1.0;
+        finalJSON.genreTargets.truePeak.tolerance = 0.5;
+        finalJSON.genreTargets.truePeak.min = -1.5;
+        finalJSON.genreTargets.truePeak.max = -1.0;
+        
         console.log('[WORKER][STREAMING] ✅ Override aplicado em genreTargets raiz também');
       }
       
@@ -1357,9 +1401,13 @@ async function audioProcessor(job) {
       if (finalJSON.resolvedTargets) {
         if (finalJSON.resolvedTargets.lufs) {
           finalJSON.resolvedTargets.lufs.target = -14;
+          finalJSON.resolvedTargets.lufs.min = -14;
+          finalJSON.resolvedTargets.lufs.max = -14;
         }
         if (finalJSON.resolvedTargets.truePeak) {
           finalJSON.resolvedTargets.truePeak.target = -1.0;
+          finalJSON.resolvedTargets.truePeak.min = -1.5;
+          finalJSON.resolvedTargets.truePeak.max = -1.0;
         }
         console.log('[WORKER][STREAMING] ✅ Override aplicado em resolvedTargets também');
       }
@@ -1370,6 +1418,7 @@ async function audioProcessor(job) {
       console.log('[WORKER][STREAMING] ✅ Targets de streaming aplicados com sucesso');
       console.log('[WORKER][STREAMING] 📊 Estado final:', {
         'data.genreTargets.lufs_target': finalJSON.data.genreTargets.lufs_target,
+        'data.genreTargets.lufs.target': finalJSON.data.genreTargets.lufs?.target,
         'data.genreTargets.true_peak_target': finalJSON.data.genreTargets.true_peak_target,
         'soundDestination': finalJSON.soundDestination
       });
