@@ -374,12 +374,21 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return null;
     }
     
-    // ✅ Para métricas gerais, NÃO incluir target_range (elas não têm)
+    // ✅ Para métricas gerais, incluir min/max se disponíveis
     // 🔥 CRÍTICO: Usar ?? ao invés de || para preservar tolerance = 0
+    const tolerance = t.tolerance ?? 1.0;
+    const critical = t.critical ?? tolerance * 1.5;
+    
+    // 🎯 STREAMING FIX: Usar min/max explícitos se disponíveis
+    const min = typeof t.min === 'number' ? t.min : t.target - tolerance;
+    const max = typeof t.max === 'number' ? t.max : t.target + tolerance;
+    
     return {
       target: t.target,
-      tolerance: t.tolerance ?? 1.0,
-      critical: t.critical ?? (t.tolerance ?? 1.0) * 1.5
+      tolerance: tolerance,
+      critical: critical,
+      min: min,  // ✅ INCLUIR min
+      max: max   // ✅ INCLUIR max
     };
   }
   
@@ -555,13 +564,22 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: lufs.toFixed(2),
       target: lufsTarget.toFixed(2),
       tolerance: tolerance.toFixed(2),
+      min: targetInfo.min,  // 🆕 LOG min
+      max: targetInfo.max,  // 🆕 LOG max
       source: 'genreTargets'
     });
 
     if (!Number.isFinite(lufs)) return;
     
     // PATCH: Usar getRangeBounds para suportar target_range
-    const lufsThreshold = { target: lufsTarget, tolerance, critical };
+    // 🔧 STREAMING FIX: Incluir min/max do targetInfo
+    const lufsThreshold = { 
+      target: lufsTarget, 
+      tolerance, 
+      critical,
+      min: targetInfo.min,  // ✅ PASSAR min do targetInfo
+      max: targetInfo.max   // ✅ PASSAR max do targetInfo
+    };
     const bounds = this.getRangeBounds(lufsThreshold);
     
     let diff;
@@ -710,13 +728,22 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       value: truePeak.toFixed(2),
       target: tpTarget.toFixed(2),
       tolerance: tolerance.toFixed(2),
+      min: targetInfo.min,  // 🆕 LOG min
+      max: targetInfo.max,  // 🆕 LOG max
       source: 'genreTargets'
     });
 
     if (!Number.isFinite(truePeak)) return;
     
     // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
-    const tpThreshold = { target: tpTarget, tolerance, critical };
+    // 🔧 STREAMING FIX: Incluir min/max do targetInfo
+    const tpThreshold = { 
+      target: tpTarget, 
+      tolerance, 
+      critical,
+      min: targetInfo.min,  // ✅ PASSAR min do targetInfo
+      max: targetInfo.max   // ✅ PASSAR max do targetInfo
+    };
     const bounds = this.getRangeBounds(tpThreshold);
     
     let diff;
@@ -1733,6 +1760,35 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
     throw new Error(`[SUGGESTION_ENGINE] Targets inválidos após normalização para gênero: ${genre}`);
   }
   
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 🔧 STREAMING OVERRIDE: Aplicar DEPOIS da normalização, ANTES do analyzer
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const soundDestination = finalJSON?.soundDestination || 'pista';
+  if (soundDestination === 'streaming') {
+    process.stderr.write("[ENGINE] 📡 STREAMING MODE DETECTADO - Aplicando override de LUFS/TP\n");
+    
+    // Override LUFS para streaming (formato NESTED que o analyzer espera)
+    if (!effectiveTargets.lufs) effectiveTargets.lufs = {};
+    effectiveTargets.lufs.target = -14;
+    effectiveTargets.lufs.min = -14;
+    effectiveTargets.lufs.max = -14;
+    effectiveTargets.lufs.tolerance = 1.0;
+    effectiveTargets.lufs.critical = 1.5;
+    
+    // Override True Peak para streaming
+    if (!effectiveTargets.truePeak) effectiveTargets.truePeak = {};
+    effectiveTargets.truePeak.target = -1.0;
+    effectiveTargets.truePeak.min = -1.5;
+    effectiveTargets.truePeak.max = -1.0;
+    effectiveTargets.truePeak.tolerance = 0.5;
+    effectiveTargets.truePeak.critical = 0.75;
+    
+    process.stderr.write("[ENGINE] 📡 LUFS override: target=" + effectiveTargets.lufs.target + 
+                        ", min=" + effectiveTargets.lufs.min + 
+                        ", max=" + effectiveTargets.lufs.max + "\n");
+  }
+  // ═══════════════════════════════════════════════════════════════════════════════
+  
   process.stderr.write("[ENGINE] 🎯 Targets usados: " + (hasGenreTargets ? 'finalJSON.data.genreTargets' : 'customTargets') + "\n");
   process.stderr.write("[ENGINE] 📊 Targets disponíveis: " + JSON.stringify(Object.keys(effectiveTargets)) + "\n");
   process.stderr.write("════════════════════════════════════════════════════════════════\n\n");
@@ -1740,19 +1796,17 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   // ✅ NOVA POLÍTICA: Construtor recebe APENAS genre
   const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre);
   
-  // 🔥 CRÍTICO: Se finalJSON disponível, extrair metrics e targets consolidados
-  if (finalJSON && finalJSON.data) {
-    console.error('[SUGGESTION_REFACTOR] ✅ Usando finalJSON.data.metrics e finalJSON.data.genreTargets');
-    return analyzer.analyzeWithEducationalSuggestions(audioMetrics, finalJSON.data);
-  } else {
-    console.error('[SUGGESTION_REFACTOR] ⚠️ Usando customTargets sem consolidatedData');
-    // Criar consolidatedData mínimo para compatibilidade
-    const minimalConsolidatedData = {
-      genreTargets: effectiveTargets,
-      metrics: null // Será preenchido pelo analyzer via audioMetrics
-    };
-    return analyzer.analyzeWithEducationalSuggestions(audioMetrics, minimalConsolidatedData);
-  }
+  // 🔥 CRÍTICO: SEMPRE usar effectiveTargets (já normalizado + streaming override)
+  // NÃO usar finalJSON.data.genreTargets diretamente (pode estar no formato errado)
+  const consolidatedData = {
+    genreTargets: effectiveTargets,  // ✅ Targets normalizados + streaming override
+    metrics: finalJSON?.data?.metrics || null
+  };
+  
+  process.stderr.write("[ENGINE] ✅ consolidatedData.genreTargets.lufs.target = " + 
+                      consolidatedData.genreTargets?.lufs?.target + "\n");
+  
+  return analyzer.analyzeWithEducationalSuggestions(audioMetrics, consolidatedData);
 }
 
 /**
