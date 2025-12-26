@@ -4,6 +4,7 @@
  */
 
 // Mapeamento das bandas de frequência
+// 🔧 CORRIGIDO: Brilho = 4k-10kHz, Presença = 10k-20kHz (conforme tabela de referência)
 window.FRIENDLY_BAND_LABELS = {
     'sub': 'Sub (20-60Hz)',
     'low_bass': 'Graves (60-120Hz)', 
@@ -11,8 +12,12 @@ window.FRIENDLY_BAND_LABELS = {
     'low_mid': 'Médios Graves (200-500Hz)',
     'mid': 'Médios (500-2kHz)',
     'high_mid': 'Médios Agudos (2-4kHz)',
-    'brilho': 'Agudos (4-8kHz)',
-    'presenca': 'Presença (8-12kHz)'
+    // 🔧 CORRIGIDO: Ranges alinhados com tabela de referência
+    'brilho': 'Brilho (4k-10kHz)',
+    'presenca': 'Presença (10k-20kHz)',
+    // 🔧 ALIASES EN→PT: air e presence mapeiam para os mesmos labels
+    'air': 'Brilho (4k-10kHz)',
+    'presence': 'Presença (10k-20kHz)'
 };
 
 // Mapeamento das métricas técnicas
@@ -86,8 +91,12 @@ window.METRIC_EXPLANATIONS = {
     'low_mid': 'Médios graves, onde ficam vocais masculinos e instrumentos de corpo',
     'mid': 'Médios centrais, região mais sensível do ouvido humano. Vocais e melodias principais',
     'high_mid': 'Médios agudos, presença de vocais e clareza de instrumentos',
-    'brilho': 'Agudos, responsáveis pelo brilho e clareza. Pratos, hi-hats e harmonicos',
-    'presenca': 'Presença, frequências muito agudas que dão ar e espacialidade'
+    // 🔧 CORRIGIDO: Descrições alinhadas com ranges corretos
+    'brilho': 'Brilho (4k-10kHz): clareza e definição de agudos. Pratos, hi-hats e harmônicos.',
+    'presenca': 'Presença (10k-20kHz): ar e espacialidade. Frequências muito agudas.',
+    // 🔧 ALIASES EN→PT
+    'air': 'Brilho (4k-10kHz): clareza e definição de agudos. Pratos, hi-hats e harmônicos.',
+    'presence': 'Presença (10k-20kHz): ar e espacialidade. Frequências muito agudas.'
 };
 
 // Função para obter label amigável
@@ -99,6 +108,18 @@ window.getFriendlyLabel = function(key, useShort = false) {
     
     // Remover prefixo 'band:' se existir
     const cleanKey = normalizedKey.replace(/^band:/, '');
+    
+    // 🔧 DEBUG LOG (remover após validação)
+    const DEBUG_LABELS = typeof window !== 'undefined' && window.DEBUG_LABEL_MAPPING === true;
+    if (DEBUG_LABELS && (cleanKey.includes('air') || cleanKey.includes('brilho') || 
+        cleanKey.includes('presence') || cleanKey.includes('presenca'))) {
+        console.log('[LABEL-MAP] 🔍', {
+            keyOriginal: key,
+            cleanKey: cleanKey,
+            matchBand: window.FRIENDLY_BAND_LABELS[cleanKey] || 'NOT_FOUND',
+            useShort: useShort
+        });
+    }
     
     if (useShort && window.FRIENDLY_BAND_LABELS[cleanKey]) {
         // Versão curta para bandas (sem Hz)
