@@ -4013,6 +4013,21 @@ function handleReferenceFileSelection(type) {
                 // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
                 
+                // 🎯 FIX CRÍTICO: Injetar file.name no resultado ANTES de salvar no store
+                if (file && file.name) {
+                    if (!analysisResult.fileName) {
+                        analysisResult.fileName = file.name;
+                        console.log('[FILENAME-FIX-REF] ✅ Injetado fileName:', file.name);
+                    }
+                    if (!analysisResult.metadata) {
+                        analysisResult.metadata = {};
+                    }
+                    if (!analysisResult.metadata.fileName) {
+                        analysisResult.metadata.fileName = file.name;
+                        console.log('[FILENAME-FIX-REF] ✅ Injetado metadata.fileName:', file.name);
+                    }
+                }
+                
                 // 🔍 LOG DE DEBUG: Verificar se análise está completa
                 console.log('🔍 [DEBUG] Análise retornada do polling:', {
                     hasResult: !!analysisResult,
@@ -9340,7 +9355,24 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
-        // 🌐 ETAPA 5: Processar resultado baseado no modo e contexto
+        // � FIX CRÍTICO: Injetar file.name no resultado ANTES de salvar no store
+        // O backend retorna technicalData mas não inclui fileName no resultado
+        // Garantimos que fileName esteja disponível em ambos os caminhos (root e metadata)
+        if (file && file.name) {
+            if (!analysisResult.fileName) {
+                analysisResult.fileName = file.name;
+                console.log('[FILENAME-FIX] ✅ Injetado fileName no analysisResult:', file.name);
+            }
+            if (!analysisResult.metadata) {
+                analysisResult.metadata = {};
+            }
+            if (!analysisResult.metadata.fileName) {
+                analysisResult.metadata.fileName = file.name;
+                console.log('[FILENAME-FIX] ✅ Injetado metadata.fileName no analysisResult:', file.name);
+            }
+        }
+        
+        // �🌐 ETAPA 5: Processar resultado baseado no modo e contexto
         // 🎯 [FLUXO DETERMINÍSTICO] Usar BINDING como ÚNICA fonte de verdade
         const jobMode = analysisResult.mode || currentAnalysisMode;
         
@@ -21187,7 +21219,7 @@ function renderReferenceComparisons(ctx) {
                         gap: 5px;
                     ">
                         <span style="font-size: 13px;">🎧</span>
-                        <span>Faixa 1</span>
+                        <span>SUA FAIXA</span>
                     </div>
                     <div style="
                         font-weight: 600; 
@@ -21216,7 +21248,7 @@ function renderReferenceComparisons(ctx) {
                         gap: 5px;
                     ">
                         <span style="font-size: 13px;">🎚️</span>
-                        <span>Faixa 2</span>
+                        <span>REFERÊNCIA</span>
                     </div>
                     <div style="
                         font-weight: 600; 
@@ -21233,8 +21265,8 @@ function renderReferenceComparisons(ctx) {
                 <thead>
                     <tr>
                         <th style="text-align: left; padding-left: 12px;">Métrica</th>
-                        <th class="ab-user-header">Faixa 1</th>
-                        <th class="ab-ref-header">Faixa 2</th>
+                        <th class="ab-user-header">${userName}</th>
+                        <th class="ab-ref-header">${refName}</th>
                         <th>Δ</th>
                         <th>Status</th>
                     </tr>
