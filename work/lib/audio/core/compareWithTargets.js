@@ -223,26 +223,32 @@ export function compareWithTargets(metrics, targets) {
 function evaluateTruePeak(value, target) {
   const { min, max, warnFrom, hardCap } = target;
   const effectiveHardCap = hardCap ?? TRUE_PEAK_HARD_CAP;
+  const tpTarget = target.target ?? max;
   const unit = METRIC_UNITS.truePeak;
+  
+  // 🎯 CORREÇÃO: A recomendação final deve ser o MENOR entre hard cap e target do gênero
+  const recommendedFinal = Math.min(tpTarget, effectiveHardCap);
+  const reduceBy = Math.max(0, value - recommendedFinal);
+  
+  console.debug('[TP-BACKEND]', { value, tpTarget, hardCap: effectiveHardCap, recommendedFinal, reduceBy });
   
   let severity, action, severityClass, scoreValue;
   
   // 🚨 REGRA CRÍTICA: TP > 0.0 dBTP = CRÍTICA SEMPRE
   if (value > effectiveHardCap) {
-    const delta = value - effectiveHardCap;
     severity = 'CRÍTICA';
     severityClass = 'critical';
-    action = `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} ${unit}`;
+    action = `🔴 CLIPPING! Reduzir ${reduceBy.toFixed(2)} ${unit} (alvo: ${recommendedFinal.toFixed(1)} ${unit})`;
     scoreValue = 0;
     
-    console.log('[COMPARE][TRUE-PEAK] 🚨 CRÍTICA: TP > 0.0 dBTP detectado:', value);
+    console.log('[COMPARE][TRUE-PEAK] 🚨 CRÍTICA: TP > 0.0 dBTP detectado:', value, '→ Reduzir', reduceBy.toFixed(2), 'dB para', recommendedFinal.toFixed(1), 'dBTP');
   }
   // WARNING ZONE: Acima de warnFrom
   else if (warnFrom !== null && value > warnFrom) {
-    const delta = value - warnFrom;
+    const deltaToTarget = Math.max(0, value - recommendedFinal);
     severity = 'ALTA';
     severityClass = 'warning';
-    action = `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} ${unit}`;
+    action = `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} ${unit} (alvo: ${recommendedFinal.toFixed(1)} ${unit})`;
     scoreValue = 0.5;
   }
   // ABAIXO DO MÍNIMO (muito baixo)

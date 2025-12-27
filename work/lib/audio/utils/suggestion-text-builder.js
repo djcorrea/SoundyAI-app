@@ -125,7 +125,7 @@ export function buildMetricSuggestion({
     }
   } else if (value > rangeMax) {  // ✅ USAR rangeMax
     // Acima do máximo
-    const excess = value - rangeMax;  // ✅ USAR rangeMax
+    const excess = value - rangeMax;  // Excesso em relação ao máximo do range
     const excessStr = formatValue(excess, decimals);
     
     switch (key) {
@@ -136,14 +136,28 @@ export function buildMetricSuggestion({
         break;
         
       case 'truePeak':
+        // 🎯 CORREÇÃO: A recomendação final deve ser para chegar ao TARGET do gênero,
+        // não apenas ao hard cap (0.0 dBTP)
+        // recommendedFinal = min(target, 0.0)
+        const recommendedFinal = Math.min(target, 0.0);
+        const reduceToTarget = value - recommendedFinal;
+        const reduceToTargetStr = formatValue(reduceToTarget, decimals);
+        
+        console.debug('[TP-SUGGESTION-BUILDER]', { 
+          value, target, rangeMax, 
+          recommendedFinal, 
+          reduceToTarget, 
+          excess
+        });
+        
         if (value >= 0) {
           action += `🔴 CRÍTICO: True Peak em ${valueStr} dBTP - CLIPPING DIGITAL!\n`;
           action += `- O limite máximo absoluto é 0.0 dBTP.\n`;
-          action += `- Reduza imediatamente o limiter ou o gain master em pelo menos ${excessStr} dB.\n`;
-          action += `- O target para este estilo é ${targetStr} dBTP.`;
+          action += `- Reduza imediatamente o limiter ou o gain master em ${reduceToTargetStr} dB.\n`;
+          action += `- O alvo para este estilo é ${targetStr} dBTP.`;
         } else {
           action += `⚠️ True Peak ${excessStr} dB acima do máximo (${maxStr} dBTP).\n`;
-          action += `- Reduza o limiter para chegar próximo de ${targetStr} dBTP.`;
+          action += `- Reduza o limiter em ${reduceToTargetStr} dB para chegar próximo de ${targetStr} dBTP.`;
         }
         break;
         
