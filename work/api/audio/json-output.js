@@ -5,6 +5,10 @@
 
 import { computeMixScore } from "../../lib/audio/features/scoring.js";
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
+import { normalizeGenreTargets, calculateMetricSeverity, calculateBandSeverity } from '../../lib/audio/utils/normalize-genre-targets.js';
+
+// 🎯 CONSTANTE FÍSICA - True Peak NUNCA > 0 dBTP
+const TRUE_PEAK_HARD_CAP = 0.0;
 
 // 🚨 CORREÇÃO SUPER AGRESSIVA: Força campo 'type' em TODAS as sugestões
 function FORCE_TYPE_FIELD(suggestions) {
@@ -23,7 +27,7 @@ function FORCE_TYPE_FIELD(suggestions) {
   });
 }
 
-console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 COMPLETO + CORREÇÃO AGRESSIVA");
+console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 COMPLETO + FONTE ÚNICA TARGETS");
 
 export function generateJSONOutput(coreMetrics, reference = null, metadata = {}, options = {}) {
   const jobId = options.jobId || 'unknown';
@@ -1089,6 +1093,61 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         // ✅ BANDAS: Passar objeto completo preservado
         bands: options.genreTargets.bands || options.genreTargets.spectral_bands || null
       } : null,
+      
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 🎯 NOVO: FONTE ÚNICA DA VERDADE - Targets Normalizados
+      // Frontend DEVE usar APENAS este campo para decisões de severidade/score/sugestões
+      // Isso elimina divergências entre tabela, score e sugestões
+      // ═══════════════════════════════════════════════════════════════════════════
+      referenceTargetsNormalized: (() => {
+        if (!options.genreTargets) return null;
+        
+        // Normalizar targets usando a função fonte única
+        const normalized = normalizeGenreTargets(options.genreTargets);
+        if (!normalized) return null;
+        
+        // Pré-calcular severidades para as métricas atuais (para frontend usar diretamente)
+        const preCalculatedSeverities = {
+          // MÉTRICAS PRINCIPAIS
+          metrics: {
+            lufs: calculateMetricSeverity('lufs', technicalData.lufsIntegrated, normalized),
+            truePeak: calculateMetricSeverity('truePeak', technicalData.truePeakDbtp, normalized),
+            dr: calculateMetricSeverity('dr', technicalData.dynamicRange, normalized),
+            stereo: calculateMetricSeverity('stereo', technicalData.stereoCorrelation, normalized)
+          },
+          // BANDAS ESPECTRAIS
+          bands: (() => {
+            const bands = technicalData.spectral_balance;
+            if (!bands || bands._status !== 'calculated') return {};
+            
+            const bandSeverities = {};
+            const bandKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+            
+            for (const key of bandKeys) {
+              const bandValue = bands[key]?.energy_db;
+              if (Number.isFinite(bandValue)) {
+                bandSeverities[key] = calculateBandSeverity(key, bandValue, normalized);
+              }
+            }
+            
+            return bandSeverities;
+          })()
+        };
+        
+        // Log resumido (evitar flood)
+        console.log('[JSON-OUTPUT] 🎯 referenceTargetsNormalized gerado:', {
+          lufs: `[${normalized.metrics.lufs.min.toFixed(1)}, ${normalized.metrics.lufs.max.toFixed(1)}] → ${preCalculatedSeverities.metrics.lufs.severity}`,
+          truePeak: `[${normalized.metrics.truePeak.min.toFixed(1)}, ${normalized.metrics.truePeak.max.toFixed(1)}] hardCap=${normalized.metrics.truePeak.hardCap} → ${preCalculatedSeverities.metrics.truePeak.severity}`,
+          dr: `[${normalized.metrics.dr.min.toFixed(1)}, ${normalized.metrics.dr.max.toFixed(1)}] → ${preCalculatedSeverities.metrics.dr.severity}`,
+          bandsWithSeverity: Object.keys(preCalculatedSeverities.bands).length
+        });
+        
+        return {
+          ...normalized,
+          preCalculatedSeverities
+        };
+      })(),
+      
       // 🎯 NOVO: Métricas consolidadas para sugestões usarem valores EXATOS
       metrics: {
         loudness: {

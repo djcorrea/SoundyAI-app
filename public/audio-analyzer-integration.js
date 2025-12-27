@@ -7097,6 +7097,18 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         return rows;
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎯 FONTE ÚNICA: Tentar usar targets normalizados do backend
+    // ═══════════════════════════════════════════════════════════════════════════
+    const normalizedTargets = getNormalizedTargetsFromAnalysis(analysis);
+    const useNormalizedTargets = normalizedTargets !== null;
+    
+    if (useNormalizedTargets) {
+        console.log('[BUILD_ROWS] ✅ Usando referenceTargetsNormalized do backend');
+    } else {
+        console.log('[BUILD_ROWS] ⚠️ Usando targets locais (fallback)');
+    }
+    
     // 🎯 ALIAS MAP: upper_bass → bass (não aparece como key final)
     const BAND_ALIAS_MAP = {
         'upper_bass': 'bass',
@@ -7188,26 +7200,58 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     const genreData = targets;
     const technicalData = analysis.technicalData || {};
     
-    // 🔊 LUFS - AGORA COM SUPORTE A lufs_min/lufs_max
+    // 🔊 LUFS - AGORA COM SUPORTE A TARGETS NORMALIZADOS DO BACKEND
     if (genreData.lufs_target != null && Number.isFinite(technicalData.lufsIntegrated)) {
-        // 🎯 PRIORIDADE: Usar min/max explícitos se disponíveis
-        const lufsBounds = getMetricBounds(genreData, 'lufs');
+        
+        // 🎯 PRIORIDADE 1: Usar severidade pré-calculada do backend (FONTE ÚNICA)
+        const preCalcSeverity = useNormalizedTargets ? getSeverityFromNormalized(normalizedTargets, 'lufs') : null;
+        
         let min, max, targetText;
         
-        if (lufsBounds && lufsBounds.mode === 'minmax') {
-            min = lufsBounds.min;
-            max = lufsBounds.max;
+        if (useNormalizedTargets && normalizedTargets.metrics?.lufs) {
+            // Usar targets normalizados do backend
+            const lufs = normalizedTargets.metrics.lufs;
+            min = lufs.min;
+            max = lufs.max;
             targetText = `${min.toFixed(1)} a ${max.toFixed(1)} LUFS`;
-            console.log(`[BUILD_ROWS] ✅ LUFS: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            console.log(`[BUILD_ROWS] ✅ LUFS: usando normalizedTargets [${min.toFixed(1)}, ${max.toFixed(1)}]`);
         } else {
-            // Fallback para target ± tol
-            min = genreData.lufs_target - (genreData.tol_lufs || 1.0);
-            max = genreData.lufs_target + (genreData.tol_lufs || 1.0);
-            targetText = `${genreData.lufs_target.toFixed(1)} LUFS`;
+            // Fallback: calcular localmente
+            const lufsBounds = getMetricBounds(genreData, 'lufs');
+            
+            if (lufsBounds && lufsBounds.mode === 'minmax') {
+                min = lufsBounds.min;
+                max = lufsBounds.max;
+                targetText = `${min.toFixed(1)} a ${max.toFixed(1)} LUFS`;
+                console.log(`[BUILD_ROWS] ⚠️ LUFS: usando min/max local [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            } else {
+                // Fallback para target ± tol
+                min = genreData.lufs_target - (genreData.tol_lufs || 1.0);
+                max = genreData.lufs_target + (genreData.tol_lufs || 1.0);
+                targetText = `${genreData.lufs_target.toFixed(1)} LUFS`;
+            }
         }
         
-        const result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0, 
-            { targetRange: { min, max } });
+        // Calcular severidade
+        let result;
+        
+        if (preCalcSeverity) {
+            // 🎯 USAR SEVERIDADE DO BACKEND
+            result = {
+                severity: preCalcSeverity.severity,
+                severityClass: preCalcSeverity.severity === 'CRÍTICA' ? 'critical' : 
+                              preCalcSeverity.severity === 'ALTA' ? 'warning' :
+                              preCalcSeverity.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+                action: preCalcSeverity.action,
+                diff: preCalcSeverity.delta
+            };
+            console.log(`[BUILD_ROWS] ✅ LUFS: severidade do backend = ${result.severity}`);
+        } else {
+            // 🔄 FALLBACK: calcular localmente
+            result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0, 
+                { targetRange: { min, max } });
+        }
+        
         rows.push({
             key: 'lufsIntegrated',
             type: 'metric',
@@ -7221,35 +7265,60 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: 'METRICS'
+            category: 'METRICS',
+            _sourceNormalized: useNormalizedTargets
         });
     }
     
     // 🎚️ True Peak - AGORA COM SUPORTE A true_peak_min/true_peak_max
     // 🚨 REGRA CRÍTICA: true_peak_max NUNCA pode ser > 0 dBTP
     if (genreData.true_peak_target != null && Number.isFinite(technicalData.truePeakDbtp)) {
-        const tpBounds = getMetricBounds(genreData, 'true_peak');
+        
+        // 🎯 PRIORIDADE 1: Usar severidade pré-calculada do backend (FONTE ÚNICA)
+        const preCalcSeverity = useNormalizedTargets ? getSeverityFromNormalized(normalizedTargets, 'truePeak') : null;
+        
+        // Extrair bounds
         let min, max, targetText;
         
-        if (tpBounds && tpBounds.mode === 'minmax') {
-            min = tpBounds.min;
-            max = Math.min(tpBounds.max, 0.0); // 🚨 NUNCA > 0 dBTP
+        if (useNormalizedTargets && normalizedTargets.metrics?.truePeak) {
+            // Usar targets normalizados do backend
+            const tp = normalizedTargets.metrics.truePeak;
+            min = tp.min;
+            max = Math.min(tp.max, TRUE_PEAK_HARD_CAP); // 🚨 GARANTIR HARD CAP
             targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dBTP`;
-            console.log(`[BUILD_ROWS] ✅ True Peak: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            console.log(`[BUILD_ROWS] ✅ True Peak: usando normalizedTargets [${min.toFixed(1)}, ${max.toFixed(1)}] hardCap=${tp.hardCap}`);
         } else {
-            // Fallback para target ± tol
-            min = genreData.true_peak_target - (genreData.tol_true_peak || 0.5);
-            max = Math.min(genreData.true_peak_target + (genreData.tol_true_peak || 0.5), 0.0);
-            targetText = `${genreData.true_peak_target.toFixed(1)} dBTP`;
+            // Fallback: calcular localmente
+            const tpBounds = getMetricBounds(genreData, 'true_peak');
+            
+            if (tpBounds && tpBounds.mode === 'minmax') {
+                min = tpBounds.min;
+                max = Math.min(tpBounds.max, TRUE_PEAK_HARD_CAP); // 🚨 NUNCA > 0 dBTP
+                targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dBTP`;
+            } else {
+                min = genreData.true_peak_target - (genreData.tol_true_peak || 0.5);
+                max = Math.min(genreData.true_peak_target + (genreData.tol_true_peak || 0.5), TRUE_PEAK_HARD_CAP);
+                targetText = `${genreData.true_peak_target.toFixed(1)} dBTP`;
+            }
         }
         
-        // Severidade especial para True Peak: acima de 0 = CRÍTICO
+        // Calcular severidade
         let result;
-        if (technicalData.truePeakDbtp > 0) {
-            result = { severity: 'CRÍTICA', severityClass: 'critical', action: `🔴 CLIPPING! Reduzir ${technicalData.truePeakDbtp.toFixed(1)} dB`, diff: technicalData.truePeakDbtp };
+        
+        if (preCalcSeverity) {
+            // 🎯 USAR SEVERIDADE DO BACKEND
+            result = {
+                severity: preCalcSeverity.severity,
+                severityClass: preCalcSeverity.severity === 'CRÍTICA' ? 'critical' : 
+                              preCalcSeverity.severity === 'ALTA' ? 'warning' :
+                              preCalcSeverity.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+                action: preCalcSeverity.action,
+                diff: preCalcSeverity.delta
+            };
+            console.log(`[BUILD_ROWS] ✅ True Peak: severidade do backend = ${result.severity}`);
         } else {
-            result = calcSeverity(technicalData.truePeakDbtp, genreData.true_peak_target, genreData.tol_true_peak || 0.5,
-                { targetRange: { min, max } });
+            // 🔄 FALLBACK: calcular localmente
+            result = calculateTruePeakSeverityLocal(technicalData.truePeakDbtp, normalizedTargets || genreData);
         }
         
         rows.push({
@@ -7265,29 +7334,63 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: 'METRICS'
+            category: 'METRICS',
+            _sourceNormalized: useNormalizedTargets // Debug: indicar fonte
         });
     }
     
-    // 📊 DR - AGORA COM SUPORTE A dr_min/dr_max
+    // 📊 DR - AGORA COM SUPORTE A TARGETS NORMALIZADOS DO BACKEND
     if (genreData.dr_target != null && Number.isFinite(technicalData.dynamicRange)) {
-        const drBounds = getMetricBounds(genreData, 'dr');
+        
+        // 🎯 PRIORIDADE 1: Usar severidade pré-calculada do backend (FONTE ÚNICA)
+        const preCalcSeverity = useNormalizedTargets ? getSeverityFromNormalized(normalizedTargets, 'dr') : null;
+        
         let min, max, targetText;
         
-        if (drBounds && drBounds.mode === 'minmax') {
-            min = drBounds.min;
-            max = drBounds.max;
+        if (useNormalizedTargets && normalizedTargets.metrics?.dr) {
+            // Usar targets normalizados do backend
+            const dr = normalizedTargets.metrics.dr;
+            min = dr.min;
+            max = dr.max;
             targetText = `${min.toFixed(1)} a ${max.toFixed(1)} DR`;
-            console.log(`[BUILD_ROWS] ✅ DR: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            console.log(`[BUILD_ROWS] ✅ DR: usando normalizedTargets [${min.toFixed(1)}, ${max.toFixed(1)}]`);
         } else {
-            // Fallback para target ± tol
-            min = genreData.dr_target - (genreData.tol_dr || 1.0);
-            max = genreData.dr_target + (genreData.tol_dr || 1.0);
-            targetText = `${genreData.dr_target.toFixed(1)} DR`;
+            // Fallback: calcular localmente
+            const drBounds = getMetricBounds(genreData, 'dr');
+            
+            if (drBounds && drBounds.mode === 'minmax') {
+                min = drBounds.min;
+                max = drBounds.max;
+                targetText = `${min.toFixed(1)} a ${max.toFixed(1)} DR`;
+                console.log(`[BUILD_ROWS] ⚠️ DR: usando min/max local [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            } else {
+                // Fallback para target ± tol
+                min = genreData.dr_target - (genreData.tol_dr || 1.0);
+                max = genreData.dr_target + (genreData.tol_dr || 1.0);
+                targetText = `${genreData.dr_target.toFixed(1)} DR`;
+            }
         }
         
-        const result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0,
-            { targetRange: { min, max } });
+        // Calcular severidade
+        let result;
+        
+        if (preCalcSeverity) {
+            // 🎯 USAR SEVERIDADE DO BACKEND
+            result = {
+                severity: preCalcSeverity.severity,
+                severityClass: preCalcSeverity.severity === 'CRÍTICA' ? 'critical' : 
+                              preCalcSeverity.severity === 'ALTA' ? 'warning' :
+                              preCalcSeverity.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+                action: preCalcSeverity.action,
+                diff: preCalcSeverity.delta
+            };
+            console.log(`[BUILD_ROWS] ✅ DR: severidade do backend = ${result.severity}`);
+        } else {
+            // 🔄 FALLBACK: calcular localmente
+            result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0,
+                { targetRange: { min, max } });
+        }
+        
         rows.push({
             key: 'dr',
             type: 'metric',
@@ -7301,40 +7404,84 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: 'METRICS'
+            category: 'METRICS',
+            _sourceNormalized: useNormalizedTargets
         });
     }
     
-    // 🎧 Stereo (mantém sistema legado - sem min/max)
+    // 🎧 Stereo - AGORA COM SUPORTE A TARGETS NORMALIZADOS DO BACKEND
     if (genreData.stereo_target != null && Number.isFinite(technicalData.stereoCorrelation)) {
-        const result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
+        
+        // 🎯 PRIORIDADE 1: Usar severidade pré-calculada do backend (FONTE ÚNICA)
+        const preCalcSeverity = useNormalizedTargets ? getSeverityFromNormalized(normalizedTargets, 'stereo') : null;
+        
+        let min, max, targetText;
+        
+        if (useNormalizedTargets && normalizedTargets.metrics?.stereo) {
+            // Usar targets normalizados do backend
+            const stereo = normalizedTargets.metrics.stereo;
+            min = stereo.min;
+            max = stereo.max;
+            targetText = `${min.toFixed(3)} a ${max.toFixed(3)}`;
+            console.log(`[BUILD_ROWS] ✅ Stereo: usando normalizedTargets [${min.toFixed(3)}, ${max.toFixed(3)}]`);
+        } else {
+            // Fallback: calcular localmente
+            min = genreData.stereo_target - (genreData.tol_stereo || 0.1);
+            max = genreData.stereo_target + (genreData.tol_stereo || 0.1);
+            targetText = `${genreData.stereo_target.toFixed(3)}`;
+        }
+        
+        // Calcular severidade
+        let result;
+        
+        if (preCalcSeverity) {
+            // 🎯 USAR SEVERIDADE DO BACKEND
+            result = {
+                severity: preCalcSeverity.severity,
+                severityClass: preCalcSeverity.severity === 'CRÍTICA' ? 'critical' : 
+                              preCalcSeverity.severity === 'ALTA' ? 'warning' :
+                              preCalcSeverity.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+                action: preCalcSeverity.action,
+                diff: preCalcSeverity.delta
+            };
+            console.log(`[BUILD_ROWS] ✅ Stereo: severidade do backend = ${result.severity}`);
+        } else {
+            // 🔄 FALLBACK: calcular localmente
+            result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
+        }
+        
         rows.push({
             key: 'stereo',
             type: 'metric',
             label: '🎧 Stereo Correlation',
             value: technicalData.stereoCorrelation,
-            targetText: `${genreData.stereo_target.toFixed(3)}`,
-            min: genreData.stereo_target - (genreData.tol_stereo || 0.1),
-            max: genreData.stereo_target + (genreData.tol_stereo || 0.1),
+            targetText,
+            min,
+            max,
             target: genreData.stereo_target,
             delta: result.diff,
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: 'METRICS'
+            category: 'METRICS',
+            _sourceNormalized: useNormalizedTargets
         });
     }
     
     // ════════════════════════════════════════════════════════════════════
-    // 2️⃣ BANDAS ESPECTRAIS
+    // 2️⃣ BANDAS ESPECTRAIS - COM SUPORTE A TARGETS NORMALIZADOS DO BACKEND
     // ════════════════════════════════════════════════════════════════════
     
     const userBands = technicalData.spectral_balance || technicalData.bands || analysis.bands || {};
     const targetBands = genreData.bands || genreData.spectral_bands || {};
     
+    // 🎯 Usar bandas normalizadas do backend se disponíveis
+    const normalizedBands = useNormalizedTargets ? normalizedTargets.bands : null;
+    
     console.log('[BUILD_ROWS] 🎵 Processando bandas:');
     console.log('[BUILD_ROWS]   - userBands keys:', Object.keys(userBands));
     console.log('[BUILD_ROWS]   - targetBands keys:', Object.keys(targetBands));
+    console.log('[BUILD_ROWS]   - normalizedBands:', normalizedBands ? Object.keys(normalizedBands) : 'N/A');
     
     let bandsProcessed = 0;
     let bandsMissing = [];
@@ -7342,9 +7489,15 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     CANONICAL_BANDS.forEach(bandInfo => {
         const bandKey = bandInfo.key;
         
-        // 🔍 Buscar target (com suporte a alias)
+        // 🔍 PRIORIDADE 1: Verificar se temos severidade pré-calculada para esta banda
+        const preCalcBandSeverity = useNormalizedTargets ? 
+            getBandSeverityFromNormalized(normalizedTargets, bandKey) : null;
+        
+        // 🔍 Buscar target (do backend normalizado ou local)
+        let normalizedBand = normalizedBands?.[bandKey];
         let targetBand = targetBands[bandKey];
-        if (!targetBand) {
+        
+        if (!targetBand && !normalizedBand) {
             // Buscar por alias reverso (ex: 'bass' pode estar como 'low_bass' no target)
             const reverseAliases = {
                 'bass': ['low_bass', 'upper_bass'],
@@ -7361,17 +7514,30 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
                         console.log(`[BUILD_ROWS] 🔄 Alias encontrado: ${bandKey} ← ${alias}`);
                         break;
                     }
+                    if (normalizedBands?.[alias]) {
+                        normalizedBand = normalizedBands[alias];
+                        console.log(`[BUILD_ROWS] 🔄 Normalized alias: ${bandKey} ← ${alias}`);
+                        break;
+                    }
                 }
             }
         }
         
-        if (!targetBand) {
+        if (!targetBand && !normalizedBand) {
             console.log(`[BUILD_ROWS] ⏭️ Banda sem target: ${bandKey}`);
             bandsMissing.push(bandKey);
             return;
         }
         
-        // 🔍 Buscar valor do usuário
+        // 🔍 Buscar valor do usuário (mesma lógica anterior)
+        const reverseAliases = {
+            'bass': ['low_bass', 'upper_bass'],
+            'lowMid': ['low_mid'],
+            'highMid': ['high_mid'],
+            'presence': ['presenca'],
+            'air': ['brilho']
+        };
+        
         let bandData = userBands[bandKey];
         if (!bandData && reverseAliases[bandKey]) {
             for (const alias of reverseAliases[bandKey]) {
@@ -7397,33 +7563,60 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             return;
         }
         
-        // 🔥 REGRA OBRIGATÓRIA: Priorizar target_range
-        const targetRange = targetBand.target_range || targetBand.targetRange;
+        // 🎯 PRIORIDADE 1: Usar targets normalizados do backend
         let targetText, min, max, target;
         
-        if (targetRange && (typeof targetRange.min === 'number' || typeof targetRange.min_db === 'number')) {
-            // ✅ Usar range explícito (NUNCA aplicar tolerância)
-            min = targetRange.min ?? targetRange.min_db;
-            max = targetRange.max ?? targetRange.max_db;
-            target = (min + max) / 2;
+        if (normalizedBand) {
+            // ✅ USAR TARGETS NORMALIZADOS DO BACKEND (FONTE ÚNICA)
+            min = normalizedBand.min;
+            max = normalizedBand.max;
+            target = normalizedBand.target;
             targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dB`;
-            console.log(`[BUILD_ROWS] ✅ ${bandKey}: target_range [${min.toFixed(1)}, ${max.toFixed(1)}]`);
-        } else if (typeof targetBand.target_db === 'number') {
-            // 🔄 Fallback: target_db ± tol_db
-            target = targetBand.target_db;
-            const tolerance = targetBand.tol_db ?? 2.0;
-            min = target - tolerance;
-            max = target + tolerance;
-            targetText = `${target.toFixed(1)} dB (±${tolerance.toFixed(1)})`;
-            console.log(`[BUILD_ROWS] ⚠️ ${bandKey}: fallback target_db ± tol_db`);
+            console.log(`[BUILD_ROWS] ✅ ${bandKey}: normalizedTargets [${min.toFixed(1)}, ${max.toFixed(1)}]`);
         } else {
-            console.log(`[BUILD_ROWS] ❌ Banda sem target válido: ${bandKey}`);
-            bandsMissing.push(bandKey);
-            return;
+            // 🔄 FALLBACK: calcular localmente
+            const targetRange = targetBand.target_range || targetBand.targetRange;
+            
+            if (targetRange && (typeof targetRange.min === 'number' || typeof targetRange.min_db === 'number')) {
+                // ✅ Usar range explícito (NUNCA aplicar tolerância)
+                min = targetRange.min ?? targetRange.min_db;
+                max = targetRange.max ?? targetRange.max_db;
+                target = (min + max) / 2;
+                targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dB`;
+                console.log(`[BUILD_ROWS] ⚠️ ${bandKey}: fallback target_range [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+            } else if (typeof targetBand.target_db === 'number') {
+                // 🔄 Fallback: target_db ± tol_db
+                target = targetBand.target_db;
+                const tolerance = targetBand.tol_db ?? 2.0;
+                min = target - tolerance;
+                max = target + tolerance;
+                targetText = `${target.toFixed(1)} dB (±${tolerance.toFixed(1)})`;
+                console.log(`[BUILD_ROWS] ⚠️ ${bandKey}: fallback target_db ± tol_db`);
+            } else {
+                console.log(`[BUILD_ROWS] ❌ Banda sem target válido: ${bandKey}`);
+                bandsMissing.push(bandKey);
+                return;
+            }
         }
         
         // Calcular severidade
-        const result = calcSeverity(energyDb, target, null, { targetRange: { min, max } });
+        let result;
+        
+        if (preCalcBandSeverity) {
+            // 🎯 USAR SEVERIDADE DO BACKEND
+            result = {
+                severity: preCalcBandSeverity.severity,
+                severityClass: preCalcBandSeverity.severity === 'CRÍTICA' ? 'critical' : 
+                              preCalcBandSeverity.severity === 'ALTA' ? 'warning' :
+                              preCalcBandSeverity.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+                action: preCalcBandSeverity.action,
+                diff: preCalcBandSeverity.delta
+            };
+            console.log(`[BUILD_ROWS] ✅ ${bandKey}: severidade do backend = ${result.severity}`);
+        } else {
+            // 🔄 FALLBACK: calcular localmente
+            result = calcSeverity(energyDb, target, null, { targetRange: { min, max } });
+        }
         
         rows.push({
             key: bandKey,
@@ -7438,11 +7631,12 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
-            category: bandInfo.category
+            category: bandInfo.category,
+            _sourceNormalized: !!normalizedBand
         });
         
         bandsProcessed++;
-        console.log(`[BUILD_ROWS] ✅ ${bandKey}: ${energyDb.toFixed(2)} dB | ${result.severity}`);
+        console.log(`[BUILD_ROWS] ✅ ${bandKey}: ${energyDb.toFixed(2)} dB | ${result.severity} | normalized=${!!normalizedBand}`);
     });
     
     // 📊 LOGS DE VALIDAÇÃO
@@ -21730,6 +21924,158 @@ const GENRE_SCORING_WEIGHTS = {
         tecnico: 0.15
     }
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 FONTE ÚNICA DA VERDADE: Usar targets normalizados do backend
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🎯 CONSTANTE FÍSICA - True Peak NUNCA > 0 dBTP
+ */
+const TRUE_PEAK_HARD_CAP = 0.0;
+
+/**
+ * 🎯 getNormalizedTargetsFromAnalysis - Extrai targets normalizados do resultado do backend
+ * 
+ * PRIORIDADE:
+ * 1. analysis.data.referenceTargetsNormalized (FONTE ÚNICA - backend normalizou)
+ * 2. Fallback: calcular localmente usando getMetricBounds (legado)
+ * 
+ * @param {Object} analysis - Objeto de análise retornado pelo backend
+ * @returns {Object|null} Targets normalizados { metrics: {...}, bands: {...}, preCalculatedSeverities: {...} }
+ */
+function getNormalizedTargetsFromAnalysis(analysis) {
+    // 🎯 PRIORIDADE 1: Usar targets normalizados do backend (FONTE ÚNICA)
+    if (analysis?.data?.referenceTargetsNormalized) {
+        console.log('[NORMALIZED-TARGETS] ✅ Usando referenceTargetsNormalized do backend');
+        return analysis.data.referenceTargetsNormalized;
+    }
+    
+    // 🔄 FALLBACK: Se backend não enviou, retornar null (frontend usará getMetricBounds)
+    console.log('[NORMALIZED-TARGETS] ⚠️ Backend não enviou referenceTargetsNormalized');
+    return null;
+}
+
+/**
+ * 🎯 getSeverityFromNormalized - Obtém severidade pré-calculada do backend
+ * 
+ * @param {Object} normalizedTargets - Targets normalizados do backend
+ * @param {string} metricKey - Chave da métrica ('lufs', 'truePeak', 'dr', 'stereo')
+ * @returns {Object|null} { severity, delta, action }
+ */
+function getSeverityFromNormalized(normalizedTargets, metricKey) {
+    if (!normalizedTargets?.preCalculatedSeverities) {
+        return null;
+    }
+    
+    // 🎯 NOVA ESTRUTURA: preCalculatedSeverities.metrics.{metricKey}
+    if (normalizedTargets.preCalculatedSeverities.metrics?.[metricKey]) {
+        return normalizedTargets.preCalculatedSeverities.metrics[metricKey];
+    }
+    
+    // 🔄 FALLBACK: Estrutura antiga (preCalculatedSeverities.{metricKey})
+    return normalizedTargets.preCalculatedSeverities[metricKey] || null;
+}
+
+/**
+ * 🎯 getBandSeverityFromNormalized - Obtém severidade pré-calculada de banda do backend
+ * 
+ * @param {Object} normalizedTargets - Targets normalizados do backend
+ * @param {string} bandKey - Chave da banda ('sub', 'bass', 'lowMid', etc)
+ * @returns {Object|null} { severity, delta, action }
+ */
+function getBandSeverityFromNormalized(normalizedTargets, bandKey) {
+    if (!normalizedTargets?.preCalculatedSeverities?.bands) {
+        return null;
+    }
+    return normalizedTargets.preCalculatedSeverities.bands[bandKey] || null;
+}
+
+/**
+ * 🎯 calculateTruePeakSeverityLocal - Calcula severidade de True Peak localmente
+ * 
+ * REGRA OBRIGATÓRIA: truePeak > 0 dBTP = SEMPRE CRÍTICA
+ * 
+ * @param {number} value - Valor de True Peak em dBTP
+ * @param {Object} targets - Targets (normalizados ou legados)
+ * @returns {Object} { severity, severityClass, action, diff, isCritical }
+ */
+function calculateTruePeakSeverityLocal(value, targets) {
+    if (!Number.isFinite(value)) {
+        return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
+    }
+    
+    // 🚨 REGRA ABSOLUTA: True Peak > 0 dBTP = CRÍTICA
+    if (value > TRUE_PEAK_HARD_CAP) {
+        const delta = value - TRUE_PEAK_HARD_CAP;
+        return {
+            severity: 'CRÍTICA',
+            severityClass: 'critical',
+            action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
+            diff: delta,
+            isCritical: true
+        };
+    }
+    
+    // Extrair bounds dos targets
+    let min, max, warnFrom;
+    
+    // Tentar extrair do formato normalizado (backend)
+    if (targets?.metrics?.truePeak) {
+        const tp = targets.metrics.truePeak;
+        min = tp.min;
+        max = Math.min(tp.max, TRUE_PEAK_HARD_CAP); // Garantir hard cap
+        warnFrom = tp.warnFrom;
+    } 
+    // Fallback: formato legado
+    else if (targets?.truePeak) {
+        min = targets.truePeak.min ?? (targets.truePeak.target - targets.truePeak.tolerance);
+        max = Math.min(targets.truePeak.max ?? 0, TRUE_PEAK_HARD_CAP);
+        warnFrom = targets.truePeak.warnFrom;
+    }
+    // Fallback: campos flat (true_peak_min, etc)
+    else {
+        const tpTarget = targets?.true_peak_target ?? -1.0;
+        const tpTol = targets?.tol_true_peak ?? 0.5;
+        min = targets?.true_peak_min ?? (tpTarget - tpTol);
+        max = Math.min(targets?.true_peak_max ?? 0, TRUE_PEAK_HARD_CAP);
+        warnFrom = targets?.true_peak_warn_from;
+    }
+    
+    // ATENÇÃO: Na zona de warning
+    if (warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
+        const delta = value - warnFrom;
+        return {
+            severity: 'ATENÇÃO',
+            severityClass: 'caution',
+            action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dB`,
+            diff: delta
+        };
+    }
+    
+    // ATENÇÃO: Abaixo do mínimo
+    if (min !== undefined && value < min) {
+        const delta = min - value;
+        return {
+            severity: 'ATENÇÃO',
+            severityClass: 'caution',
+            action: `⚠️ Muito baixo. Pode aumentar até ${delta.toFixed(1)} dB`,
+            diff: -delta
+        };
+    }
+    
+    // OK: Dentro do range ou aceitável
+    return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
+}
+
+// Expor funções globalmente
+if (typeof window !== 'undefined') {
+    window.getNormalizedTargetsFromAnalysis = getNormalizedTargetsFromAnalysis;
+    window.getSeverityFromNormalized = getSeverityFromNormalized;
+    window.getBandSeverityFromNormalized = getBandSeverityFromNormalized;
+    window.calculateTruePeakSeverityLocal = calculateTruePeakSeverityLocal;
+    window.TRUE_PEAK_HARD_CAP = TRUE_PEAK_HARD_CAP;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🎯 SISTEMA DE BOUNDS MIN/MAX PARA MÉTRICAS (NOVO - SUPORTE A RANGE ASSIMÉTRICO)
