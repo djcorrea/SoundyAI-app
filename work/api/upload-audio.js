@@ -17,8 +17,8 @@ export const config = {
   },
 };
 
-// Limite padrão 60MB (ajustável via env)
-const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
+// Limite padrão 150MB (ajustável via env)
+const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "150");
 const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
 
 // Formatos aceitos
