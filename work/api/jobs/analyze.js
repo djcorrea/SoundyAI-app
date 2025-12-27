@@ -12,7 +12,7 @@ import pool from "../../db.js";
 const router = express.Router();
 
 // Configuração via variável de ambiente
-const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || '60');
+const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || '150');
 
 // Extensões aceitas (verificação por fileKey)
 const ALLOWED_EXTENSIONS = ['.wav', '.flac', '.mp3'];
