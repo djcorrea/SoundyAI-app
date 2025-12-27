@@ -960,10 +960,19 @@
 
         /* Responsive */
         @media (max-width: 992px) {
-            .hero-container { flex-direction: column; text-align: center; }
-            .hero-content { margin-bottom: 50px; }
-            .hero p { border-left: none; padding-left: 0; }
-            .hero-ctas { justify-content: center; }
+            .hero-container { 
+                flex-direction: column; 
+                text-align: center;
+                align-items: center;
+            }
+            .hero-content { 
+                margin-bottom: 50px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .hero p { border-left: none; padding-left: 0; text-align: center; }
+            .hero-ctas { justify-content: center; align-items: center; }
             .nav-links { display: none; }
             .mobile-menu-toggle { display: flex; }
         }
@@ -1034,15 +1043,44 @@
                 padding: 120px 20px 60px;
                 display: flex;
                 align-items: center;
+                justify-content: center;
             }
             
             .hero-container {
                 gap: 0;
+                justify-content: center;
+                text-align: center;
             }
             
             .hero-content {
                 max-width: 100%;
                 margin-bottom: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            
+            .hero h1 {
+                text-align: center;
+            }
+            
+            .hero p {
+                text-align: center;
+                border-left: none;
+                padding-left: 0;
+                max-width: 90%;
+            }
+            
+            .hero-ctas {
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+            }
+            
+            .trust-badge {
+                text-align: center;
+                width: 100%;
             }
             
             /* ---- 3. TABELA DE COMPARAÇÃO → CARDS ---- */
@@ -1218,6 +1256,7 @@
                 flex-direction: column;
                 gap: 15px;
                 width: 100%;
+                align-items: center;
             }
             
             .btn-primary,
@@ -1227,12 +1266,14 @@
                 padding: 16px 30px;
                 font-size: 0.95rem;
                 text-align: center;
+                margin: 0 auto;
             }
             
             /* Trust badge */
             .trust-badge {
                 font-size: 0.85rem;
                 margin-top: 15px;
+                text-align: center;
             }
             
             /* Footer mobile */
