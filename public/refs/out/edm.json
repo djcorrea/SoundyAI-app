@@ -1,7 +1,7 @@
 {
   "edm": {
     "version": "v2_hybrid_safe",
-    "generated_at": "2025-12-26T00:00:00.000Z",
+    "generated_at": "2025-12-27T14:56:55.775Z",
     "num_tracks": 9,
     "processing_mode": "fallback_safe",
     "legacy_id": "funk_automotivo",
@@ -10,9 +10,9 @@
     "dr_target": 6.4,
     "lra_target": 4,
     "stereo_target": 0.915,
-    "tol_lufs": 1,
-    "tol_true_peak": 0.25,
-    "tol_dr": 1.25,
+    "tol_lufs": 2.9,
+    "tol_true_peak": 1.5,
+    "tol_dr": 3,
     "tol_lra": 1.5,
     "tol_stereo": 0.065,
     "bands": {
@@ -21,7 +21,7 @@
           "min": -27,
           "max": -18
         },
-        "target_db": -26,
+        "target_db": -22.5,
         "energy_pct": 32.5,
         "tol_db": 0,
         "severity": "soft"
@@ -31,7 +31,7 @@
           "min": -27,
           "max": -19
         },
-        "target_db": -26,
+        "target_db": -23,
         "energy_pct": 28.2,
         "tol_db": 0,
         "severity": "soft"
@@ -41,7 +41,7 @@
           "min": -27,
           "max": -19
         },
-        "target_db": -29,
+        "target_db": -23,
         "energy_pct": 11.5,
         "tol_db": 0,
         "severity": "soft"
@@ -51,7 +51,7 @@
           "min": -31.5,
           "max": -24
         },
-        "target_db": -29,
+        "target_db": -27.75,
         "energy_pct": 10.8,
         "tol_db": 0,
         "severity": "soft"
@@ -61,7 +61,7 @@
           "min": -32,
           "max": -26.5
         },
-        "target_db": -31.5,
+        "target_db": -29.25,
         "energy_pct": 12.5,
         "tol_db": 0,
         "severity": "soft"
@@ -71,7 +71,7 @@
           "min": -38,
           "max": -31.5
         },
-        "target_db": -37.5,
+        "target_db": -34.75,
         "energy_pct": 3.2,
         "tol_db": 0,
         "severity": "soft"
@@ -81,7 +81,7 @@
           "min": -44,
           "max": -34
         },
-        "target_db": -43,
+        "target_db": -39,
         "energy_pct": 1.1,
         "tol_db": 0,
         "severity": "soft"
@@ -100,8 +100,8 @@
     "hybrid_processing": {
       "original_metrics": {
         "lufs_integrated": -9,
-        "true_peak_dbtp": -0.25,
-        "dynamic_range": 6.75,
+        "true_peak_dbtp": -1,
+        "dynamic_range": 6.4,
         "rms_db": -12,
         "stereo_correlation": 0.915,
         "lra": 4
@@ -112,7 +112,7 @@
             "min": -27,
             "max": -18
           },
-          "target_db": -26,
+          "target_db": -22.5,
           "energy_pct": 32.5,
           "tol_db": 0,
           "severity": "soft"
@@ -122,7 +122,7 @@
             "min": -27,
             "max": -19
           },
-          "target_db": -26,
+          "target_db": -23,
           "energy_pct": 28.2,
           "tol_db": 0,
           "severity": "soft"
@@ -132,7 +132,7 @@
             "min": -27,
             "max": -19
           },
-          "target_db": -29,
+          "target_db": -23,
           "energy_pct": 11.5,
           "tol_db": 0,
           "severity": "soft"
@@ -142,7 +142,7 @@
             "min": -31.5,
             "max": -24
           },
-          "target_db": -29,
+          "target_db": -27.75,
           "energy_pct": 10.8,
           "tol_db": 0,
           "severity": "soft"
@@ -152,7 +152,7 @@
             "min": -32,
             "max": -26.5
           },
-          "target_db": -31.5,
+          "target_db": -29.25,
           "energy_pct": 12.5,
           "tol_db": 0,
           "severity": "soft"
@@ -162,7 +162,7 @@
             "min": -38,
             "max": -31.5
           },
-          "target_db": -37.5,
+          "target_db": -34.75,
           "energy_pct": 3.2,
           "tol_db": 0,
           "severity": "soft"
@@ -172,7 +172,7 @@
             "min": -44,
             "max": -34
           },
-          "target_db": -43,
+          "target_db": -39,
           "energy_pct": 1.1,
           "tol_db": 0,
           "severity": "soft"
@@ -195,9 +195,9 @@
       "true_peak_target": -1,
       "dr_target": 6.4,
       "stereo_target": 0.915,
-      "tol_lufs": 1,
-      "tol_true_peak": 0.25,
-      "tol_dr": 1.25,
+      "tol_lufs": 2.9,
+      "tol_true_peak": 1.5,
+      "tol_dr": 3,
       "lra_target": 4,
       "tol_lra": 1.5,
       "tol_stereo": 0.065,
@@ -207,7 +207,7 @@
             "min": -27,
             "max": -18
           },
-          "target_db": -26,
+          "target_db": -22.5,
           "energy_pct": 32.5,
           "tol_db": 0,
           "severity": "soft"
@@ -217,7 +217,7 @@
             "min": -27,
             "max": -19
           },
-          "target_db": -26,
+          "target_db": -23,
           "energy_pct": 28.2,
           "tol_db": 0,
           "severity": "soft"
@@ -227,7 +227,7 @@
             "min": -27,
             "max": -19
           },
-          "target_db": -29,
+          "target_db": -23,
           "energy_pct": 11.5,
           "tol_db": 0,
           "severity": "soft"
@@ -237,7 +237,7 @@
             "min": -31.5,
             "max": -24
           },
-          "target_db": -29,
+          "target_db": -27.75,
           "energy_pct": 10.8,
           "tol_db": 0,
           "severity": "soft"
@@ -247,7 +247,7 @@
             "min": -32,
             "max": -26.5
           },
-          "target_db": -31.5,
+          "target_db": -29.25,
           "energy_pct": 12.5,
           "tol_db": 0,
           "severity": "soft"
@@ -257,7 +257,7 @@
             "min": -38,
             "max": -31.5
           },
-          "target_db": -37.5,
+          "target_db": -34.75,
           "energy_pct": 3.2,
           "tol_db": 0,
           "severity": "soft"
@@ -267,7 +267,7 @@
             "min": -44,
             "max": -34
           },
-          "target_db": -43,
+          "target_db": -39,
           "energy_pct": 1.1,
           "tol_db": 0,
           "severity": "soft"
@@ -291,8 +291,8 @@
       "true_peak_max": 0,
       "true_peak_warn_from": -0.5
     },
-    "last_updated": "2025-12-26T00:00:00.000Z",
-    "cache_bust": 1735171200003,
+    "last_updated": "2025-12-27T14:56:55.775Z",
+    "cache_bust": 1766847415775,
     "processing_info": {
       "hybrid_mode": true,
       "safe_mode": true,

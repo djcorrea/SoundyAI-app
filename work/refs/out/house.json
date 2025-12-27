@@ -1,14 +1,14 @@
 {
   "house": {
     "version": "v2_hybrid_safe",
-    "generated_at": "2025-10-14T00:00:00.000Z",
+    "generated_at": "2025-12-27T14:56:55.803Z",
     "num_tracks": 10,
     "processing_mode": "fallback_safe",
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -10.5,
-        "true_peak_dbtp": -0.65,
-        "dynamic_range": 8.5,
+        "lufs_integrated": -9.5,
+        "true_peak_dbtp": -1,
+        "dynamic_range": 8,
         "rms_db": -13.5,
         "stereo_correlation": 0.915,
         "lra": 6
@@ -19,7 +19,7 @@
             "min": -25.5,
             "max": -18
           },
-          "target_db": -28.5,
+          "target_db": -21.75,
           "energy_pct": 21.5,
           "tol_db": 0,
           "severity": "soft"
@@ -29,7 +29,7 @@
             "min": -25.5,
             "max": -19
           },
-          "target_db": -28,
+          "target_db": -22.25,
           "energy_pct": 23.8,
           "tol_db": 0,
           "severity": "soft"
@@ -39,7 +39,7 @@
             "min": -25.5,
             "max": -19
           },
-          "target_db": -30,
+          "target_db": -22.25,
           "energy_pct": 13.5,
           "tol_db": 0,
           "severity": "soft"
@@ -49,7 +49,7 @@
             "min": -32,
             "max": -25
           },
-          "target_db": -30,
+          "target_db": -28.5,
           "energy_pct": 15.8,
           "tol_db": 0,
           "severity": "soft"
@@ -59,7 +59,7 @@
             "min": -32.5,
             "max": -27.5
           },
-          "target_db": -32,
+          "target_db": -30,
           "energy_pct": 17.5,
           "tol_db": 0,
           "severity": "soft"
@@ -69,7 +69,7 @@
             "min": -39,
             "max": -33.5
           },
-          "target_db": -38.5,
+          "target_db": -36.25,
           "energy_pct": 6.2,
           "tol_db": 0,
           "severity": "soft"
@@ -79,7 +79,7 @@
             "min": -44,
             "max": -35
           },
-          "target_db": -41,
+          "target_db": -39.5,
           "energy_pct": 1.5,
           "tol_db": 0,
           "severity": "soft"
@@ -89,7 +89,7 @@
             "min": -47,
             "max": -39
           },
-          "target_db": -41,
+          "target_db": -43,
           "energy_pct": 0.12,
           "tol_db": 0,
           "severity": "soft"
@@ -102,9 +102,9 @@
       "true_peak_target": -1,
       "dr_target": 8,
       "stereo_target": 0.915,
-      "tol_lufs": 1,
-      "tol_true_peak": 0.35,
-      "tol_dr": 1.5,
+      "tol_lufs": 3,
+      "tol_true_peak": 1.5,
+      "tol_dr": 2.5,
       "lra_target": 6,
       "tol_lra": 2.5,
       "tol_stereo": 0.065,
@@ -114,7 +114,7 @@
             "min": -25.5,
             "max": -18
           },
-          "target_db": -28.5,
+          "target_db": -21.75,
           "energy_pct": 21.5,
           "tol_db": 0,
           "severity": "soft"
@@ -124,7 +124,7 @@
             "min": -25.5,
             "max": -19
           },
-          "target_db": -28,
+          "target_db": -22.25,
           "energy_pct": 23.8,
           "tol_db": 0,
           "severity": "soft"
@@ -134,7 +134,7 @@
             "min": -25.5,
             "max": -19
           },
-          "target_db": -30,
+          "target_db": -22.25,
           "energy_pct": 13.5,
           "tol_db": 0,
           "severity": "soft"
@@ -144,7 +144,7 @@
             "min": -32,
             "max": -25
           },
-          "target_db": -30,
+          "target_db": -28.5,
           "energy_pct": 15.8,
           "tol_db": 0,
           "severity": "soft"
@@ -154,7 +154,7 @@
             "min": -32.5,
             "max": -27.5
           },
-          "target_db": -32,
+          "target_db": -30,
           "energy_pct": 17.5,
           "tol_db": 0,
           "severity": "soft"
@@ -164,7 +164,7 @@
             "min": -39,
             "max": -33.5
           },
-          "target_db": -38.5,
+          "target_db": -36.25,
           "energy_pct": 6.2,
           "tol_db": 0,
           "severity": "soft"
@@ -174,7 +174,7 @@
             "min": -44,
             "max": -35
           },
-          "target_db": -41,
+          "target_db": -39.5,
           "energy_pct": 1.5,
           "tol_db": 0,
           "severity": "soft"
@@ -184,7 +184,7 @@
             "min": -47,
             "max": -39
           },
-          "target_db": -41,
+          "target_db": -43,
           "energy_pct": 0.12,
           "tol_db": 0,
           "severity": "soft"
@@ -198,8 +198,8 @@
       "true_peak_max": 0,
       "true_peak_warn_from": -0.5
     },
-    "last_updated": "2025-10-14T00:00:00.000Z",
-    "cache_bust": 1728864000002,
+    "last_updated": "2025-12-27T14:56:55.803Z",
+    "cache_bust": 1766847415803,
     "processing_info": {
       "hybrid_mode": true,
       "safe_mode": true,
@@ -218,6 +218,12 @@
     "dr_max": 11,
     "true_peak_min": -3,
     "true_peak_max": 0,
-    "true_peak_warn_from": -0.5
+    "true_peak_warn_from": -0.5,
+    "lufs_target": -9.5,
+    "true_peak_target": -1,
+    "dr_target": 8,
+    "tol_lufs": 3,
+    "tol_dr": 2.5,
+    "tol_true_peak": 1.5
   }
 }

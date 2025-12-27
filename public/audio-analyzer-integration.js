@@ -7182,23 +7182,40 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     };
     
     // ════════════════════════════════════════════════════════════════════
-    // 1️⃣ MÉTRICAS PRINCIPAIS
+    // 1️⃣ MÉTRICAS PRINCIPAIS - AGORA COM SUPORTE A MIN/MAX EXPLÍCITO
     // ════════════════════════════════════════════════════════════════════
     
     const genreData = targets;
     const technicalData = analysis.technicalData || {};
     
-    // 🔊 LUFS
+    // 🔊 LUFS - AGORA COM SUPORTE A lufs_min/lufs_max
     if (genreData.lufs_target != null && Number.isFinite(technicalData.lufsIntegrated)) {
-        const result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0);
+        // 🎯 PRIORIDADE: Usar min/max explícitos se disponíveis
+        const lufsBounds = getMetricBounds(genreData, 'lufs');
+        let min, max, targetText;
+        
+        if (lufsBounds && lufsBounds.mode === 'minmax') {
+            min = lufsBounds.min;
+            max = lufsBounds.max;
+            targetText = `${min.toFixed(1)} a ${max.toFixed(1)} LUFS`;
+            console.log(`[BUILD_ROWS] ✅ LUFS: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+        } else {
+            // Fallback para target ± tol
+            min = genreData.lufs_target - (genreData.tol_lufs || 1.0);
+            max = genreData.lufs_target + (genreData.tol_lufs || 1.0);
+            targetText = `${genreData.lufs_target.toFixed(1)} LUFS`;
+        }
+        
+        const result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0, 
+            { targetRange: { min, max } });
         rows.push({
             key: 'lufsIntegrated',
             type: 'metric',
             label: '🔊 Loudness (LUFS)',
             value: technicalData.lufsIntegrated,
-            targetText: `${genreData.lufs_target.toFixed(1)} LUFS`,
-            min: genreData.lufs_target - (genreData.tol_lufs || 1.0),
-            max: genreData.lufs_target + (genreData.tol_lufs || 1.0),
+            targetText,
+            min,
+            max,
             target: genreData.lufs_target,
             delta: result.diff,
             severity: result.severity,
@@ -7208,17 +7225,41 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         });
     }
     
-    // 🎚️ True Peak
+    // 🎚️ True Peak - AGORA COM SUPORTE A true_peak_min/true_peak_max
+    // 🚨 REGRA CRÍTICA: true_peak_max NUNCA pode ser > 0 dBTP
     if (genreData.true_peak_target != null && Number.isFinite(technicalData.truePeakDbtp)) {
-        const result = calcSeverity(technicalData.truePeakDbtp, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+        const tpBounds = getMetricBounds(genreData, 'true_peak');
+        let min, max, targetText;
+        
+        if (tpBounds && tpBounds.mode === 'minmax') {
+            min = tpBounds.min;
+            max = Math.min(tpBounds.max, 0.0); // 🚨 NUNCA > 0 dBTP
+            targetText = `${min.toFixed(1)} a ${max.toFixed(1)} dBTP`;
+            console.log(`[BUILD_ROWS] ✅ True Peak: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+        } else {
+            // Fallback para target ± tol
+            min = genreData.true_peak_target - (genreData.tol_true_peak || 0.5);
+            max = Math.min(genreData.true_peak_target + (genreData.tol_true_peak || 0.5), 0.0);
+            targetText = `${genreData.true_peak_target.toFixed(1)} dBTP`;
+        }
+        
+        // Severidade especial para True Peak: acima de 0 = CRÍTICO
+        let result;
+        if (technicalData.truePeakDbtp > 0) {
+            result = { severity: 'CRÍTICA', severityClass: 'critical', action: `🔴 CLIPPING! Reduzir ${technicalData.truePeakDbtp.toFixed(1)} dB`, diff: technicalData.truePeakDbtp };
+        } else {
+            result = calcSeverity(technicalData.truePeakDbtp, genreData.true_peak_target, genreData.tol_true_peak || 0.5,
+                { targetRange: { min, max } });
+        }
+        
         rows.push({
             key: 'truePeak',
             type: 'metric',
             label: '🎚️ True Peak (dBTP)',
             value: technicalData.truePeakDbtp,
-            targetText: `${genreData.true_peak_target.toFixed(1)} dBTP`,
-            min: genreData.true_peak_target - (genreData.tol_true_peak || 0.5),
-            max: genreData.true_peak_target + (genreData.tol_true_peak || 0.5),
+            targetText,
+            min,
+            max,
             target: genreData.true_peak_target,
             delta: result.diff,
             severity: result.severity,
@@ -7228,17 +7269,33 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         });
     }
     
-    // 📊 DR
+    // 📊 DR - AGORA COM SUPORTE A dr_min/dr_max
     if (genreData.dr_target != null && Number.isFinite(technicalData.dynamicRange)) {
-        const result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0);
+        const drBounds = getMetricBounds(genreData, 'dr');
+        let min, max, targetText;
+        
+        if (drBounds && drBounds.mode === 'minmax') {
+            min = drBounds.min;
+            max = drBounds.max;
+            targetText = `${min.toFixed(1)} a ${max.toFixed(1)} DR`;
+            console.log(`[BUILD_ROWS] ✅ DR: usando min/max explícito [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+        } else {
+            // Fallback para target ± tol
+            min = genreData.dr_target - (genreData.tol_dr || 1.0);
+            max = genreData.dr_target + (genreData.tol_dr || 1.0);
+            targetText = `${genreData.dr_target.toFixed(1)} DR`;
+        }
+        
+        const result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0,
+            { targetRange: { min, max } });
         rows.push({
             key: 'dr',
             type: 'metric',
             label: '📊 Dynamic Range (DR)',
             value: technicalData.dynamicRange,
-            targetText: `${genreData.dr_target.toFixed(1)} DR`,
-            min: genreData.dr_target - (genreData.tol_dr || 1.0),
-            max: genreData.dr_target + (genreData.tol_dr || 1.0),
+            targetText,
+            min,
+            max,
             target: genreData.dr_target,
             delta: result.diff,
             severity: result.severity,
@@ -7248,7 +7305,7 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
         });
     }
     
-    // 🎧 Stereo
+    // 🎧 Stereo (mantém sistema legado - sem min/max)
     if (genreData.stereo_target != null && Number.isFinite(technicalData.stereoCorrelation)) {
         const result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
         rows.push({
@@ -21674,7 +21731,221 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 SISTEMA DE BOUNDS MIN/MAX PARA MÉTRICAS (NOVO - SUPORTE A RANGE ASSIMÉTRICO)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🔧 getMetricBounds - Obtém os limites [min, max] de uma métrica
+ * 
+ * PRIORIDADE:
+ * 1. Se existir ${metricKey}_min e ${metricKey}_max (ambos finitos) → usar eles
+ * 2. Senão, usar ${metricKey}_target ± tol_${metricKey} (fallback legado)
+ * 
+ * @param {Object} refData - Dados de referência do gênero
+ * @param {string} metricKey - Chave da métrica (ex: 'lufs', 'true_peak', 'dr')
+ * @returns {Object} { min, max, target, mode: 'minmax' | 'tolerance', warnFrom?: number }
+ */
+function getMetricBounds(refData, metricKey) {
+    if (!refData) {
+        console.warn(`[METRIC-BOUNDS] refData é null/undefined para ${metricKey}`);
+        return null;
+    }
+    
+    // Construir nomes das propriedades
+    const minKey = `${metricKey}_min`;
+    const maxKey = `${metricKey}_max`;
+    const targetKey = `${metricKey}_target`;
+    const tolKey = `tol_${metricKey}`;
+    const warnFromKey = `${metricKey}_warn_from`;
+    
+    const minValue = refData[minKey];
+    const maxValue = refData[maxKey];
+    const targetValue = refData[targetKey];
+    const tolerance = refData[tolKey];
+    const warnFrom = refData[warnFromKey];
+    
+    // PRIORIDADE 1: min/max explícitos
+    if (Number.isFinite(minValue) && Number.isFinite(maxValue)) {
+        const bounds = {
+            min: minValue,
+            max: maxValue,
+            target: Number.isFinite(targetValue) ? targetValue : (minValue + maxValue) / 2,
+            mode: 'minmax'
+        };
+        
+        // Adicionar warn_from se existir (útil para True Peak)
+        if (Number.isFinite(warnFrom)) {
+            bounds.warnFrom = warnFrom;
+        }
+        
+        console.log(`[METRIC-BOUNDS] ${metricKey}: usando min/max explícitos [${bounds.min}, ${bounds.max}]`, bounds);
+        return bounds;
+    }
+    
+    // PRIORIDADE 2: target ± tolerance (fallback legado)
+    if (Number.isFinite(targetValue) && Number.isFinite(tolerance) && tolerance > 0) {
+        const bounds = {
+            min: targetValue - tolerance,
+            max: targetValue + tolerance,
+            target: targetValue,
+            mode: 'tolerance'
+        };
+        
+        console.log(`[METRIC-BOUNDS] ${metricKey}: usando target ± tolerance [${bounds.min}, ${bounds.max}]`, bounds);
+        return bounds;
+    }
+    
+    console.warn(`[METRIC-BOUNDS] ${metricKey}: nenhum bound válido encontrado`, {
+        minKey, minValue,
+        maxKey, maxValue,
+        targetKey, targetValue,
+        tolKey, tolerance
+    });
+    return null;
+}
+
+/**
+ * 🎯 calculateMetricScoreWithBounds - Calcula score usando min/max (range assimétrico)
+ * 
+ * REGRAS:
+ * - Valor dentro de [min, max] → 100 pontos
+ * - Valor fora do range → penalização proporcional à distância
+ * - Para True Peak: valor > max (0 dBTP) → score muito baixo (CRÍTICO)
+ * 
+ * @param {number} actualValue - Valor medido
+ * @param {Object} bounds - { min, max, target, mode, warnFrom? }
+ * @param {Object} options - { isCriticalAboveMax?: boolean, metricKey?: string }
+ * @returns {Object} { score: number, status: 'OK'|'WARNING'|'CRITICAL', delta: number }
+ */
+function calculateMetricScoreWithBounds(actualValue, bounds, options = {}) {
+    if (!Number.isFinite(actualValue) || !bounds) {
+        return { score: null, status: 'UNKNOWN', delta: 0 };
+    }
+    
+    const { min, max, target, warnFrom } = bounds;
+    const { isCriticalAboveMax = false, metricKey = 'unknown' } = options;
+    
+    // Calcular delta em relação ao range
+    let delta = 0;
+    let status = 'OK';
+    let score = 100;
+    
+    // Valor dentro do range → OK (100 pontos)
+    if (actualValue >= min && actualValue <= max) {
+        // Verificar se está na zona de warning (para True Peak)
+        if (Number.isFinite(warnFrom) && actualValue >= warnFrom) {
+            status = 'WARNING';
+            // Pequena penalização para valores na zona de aviso
+            const warnRange = max - warnFrom;
+            const distFromWarn = actualValue - warnFrom;
+            const warnPenalty = Math.min(15, (distFromWarn / warnRange) * 15);
+            score = Math.round(100 - warnPenalty);
+        } else {
+            status = 'OK';
+            score = 100;
+        }
+        
+        console.log(`[SCORE-BOUNDS] ${metricKey}: ${actualValue} está dentro de [${min}, ${max}] → ${score}% (${status})`);
+        return { score, status, delta: 0 };
+    }
+    
+    // Valor ACIMA do máximo
+    if (actualValue > max) {
+        delta = actualValue - max;
+        
+        // True Peak acima de 0 dBTP é CRÍTICO
+        if (isCriticalAboveMax || metricKey === 'true_peak') {
+            status = 'CRITICAL';
+            // Penalização severa para True Peak acima do limite
+            const criticalPenalty = Math.min(80, delta * 40); // -40 pontos por dB acima
+            score = Math.max(0, Math.round(100 - criticalPenalty));
+            console.log(`[SCORE-BOUNDS] ${metricKey}: ${actualValue} ACIMA de max=${max} → CRÍTICO (${score}%)`);
+        } else {
+            // Penalização normal para outras métricas
+            const rangeWidth = max - min;
+            const tolerance = rangeWidth > 0 ? rangeWidth / 2 : 1;
+            const ratio = delta / tolerance;
+            
+            if (ratio <= 1) {
+                status = 'WARNING';
+                score = Math.round(100 - (ratio * 20));
+            } else if (ratio <= 2) {
+                status = 'WARNING';
+                score = Math.round(80 - ((ratio - 1) * 30));
+            } else {
+                status = 'CRITICAL';
+                score = Math.max(20, Math.round(50 - ((ratio - 2) * 15)));
+            }
+            console.log(`[SCORE-BOUNDS] ${metricKey}: ${actualValue} acima de max=${max} (delta=${delta.toFixed(2)}) → ${score}% (${status})`);
+        }
+        
+        return { score, status, delta };
+    }
+    
+    // Valor ABAIXO do mínimo
+    if (actualValue < min) {
+        delta = min - actualValue;
+        const rangeWidth = max - min;
+        const tolerance = rangeWidth > 0 ? rangeWidth / 2 : 1;
+        const ratio = delta / tolerance;
+        
+        if (ratio <= 1) {
+            status = 'WARNING';
+            score = Math.round(100 - (ratio * 20));
+        } else if (ratio <= 2) {
+            status = 'WARNING';
+            score = Math.round(80 - ((ratio - 1) * 30));
+        } else {
+            status = 'CRITICAL';
+            score = Math.max(20, Math.round(50 - ((ratio - 2) * 15)));
+        }
+        
+        console.log(`[SCORE-BOUNDS] ${metricKey}: ${actualValue} abaixo de min=${min} (delta=${delta.toFixed(2)}) → ${score}% (${status})`);
+        return { score, status, delta: -delta };
+    }
+    
+    return { score, status, delta };
+}
+
+/**
+ * 🎯 calculateMetricScoreAuto - Wrapper que escolhe automaticamente entre bounds e tolerance
+ * 
+ * @param {number} actualValue - Valor medido
+ * @param {Object} refData - Dados de referência do gênero
+ * @param {string} metricKey - Chave da métrica (ex: 'lufs', 'true_peak', 'dr')
+ * @param {Object} options - Opções adicionais
+ * @returns {number|null} Score (0-100) ou null se inválido
+ */
+function calculateMetricScoreAuto(actualValue, refData, metricKey, options = {}) {
+    const bounds = getMetricBounds(refData, metricKey);
+    
+    if (bounds) {
+        const result = calculateMetricScoreWithBounds(actualValue, bounds, { 
+            ...options, 
+            metricKey,
+            isCriticalAboveMax: metricKey === 'true_peak'
+        });
+        return result.score;
+    }
+    
+    // Fallback para cálculo antigo se não conseguir extrair bounds
+    console.warn(`[SCORE-AUTO] ${metricKey}: usando fallback calculateMetricScore`);
+    const targetKey = `${metricKey}_target`;
+    const tolKey = `tol_${metricKey}`;
+    return calculateMetricScore(actualValue, refData[targetKey], refData[tolKey]);
+}
+
+// Expor funções globalmente para uso em outros módulos
+if (typeof window !== 'undefined') {
+    window.getMetricBounds = getMetricBounds;
+    window.calculateMetricScoreWithBounds = calculateMetricScoreWithBounds;
+    window.calculateMetricScoreAuto = calculateMetricScoreAuto;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA - LEGADO)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
@@ -21762,6 +22033,7 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
 }
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
+// 🔄 ATUALIZADO: Agora usa getMetricBounds para suportar min/max assimétrico
 function calculateLoudnessScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -21769,27 +22041,68 @@ function calculateLoudnessScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // LUFS Integrado (métrica principal de loudness)
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 LUFS Integrado (métrica principal de loudness) - AGORA COM MIN/MAX
+    // ═══════════════════════════════════════════════════════════════════════
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
-    if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
-        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
-        if (score !== null) {
-            scores.push(score);
-            console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
+    if (Number.isFinite(lufsValue)) {
+        const lufsBounds = getMetricBounds(refData, 'lufs');
+        
+        if (lufsBounds) {
+            // Usar novo sistema de bounds (min/max)
+            const result = calculateMetricScoreWithBounds(lufsValue, lufsBounds, { metricKey: 'lufs' });
+            if (result.score !== null) {
+                scores.push(result.score);
+                console.log(`📊 LUFS: ${lufsValue.toFixed(1)} dB dentro de [${lufsBounds.min.toFixed(1)}, ${lufsBounds.max.toFixed(1)}] = ${result.score}% (${result.status})`);
+            }
+        } else if (Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
+            // Fallback para sistema legado (target ± tol)
+            const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
+            if (score !== null) {
+                scores.push(score);
+                console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}% [LEGADO]`);
+            }
         }
     }
     
-    // True Peak (importante para evitar clipping digital)
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 TRUE PEAK - CRÍTICO: NUNCA > 0 dBTP - AGORA COM MIN/MAX
+    // ═══════════════════════════════════════════════════════════════════════
     const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
-    if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
-        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
-        if (score !== null) {
-            scores.push(score);
-            console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
+    if (Number.isFinite(truePeakValue)) {
+        const tpBounds = getMetricBounds(refData, 'true_peak');
+        
+        if (tpBounds) {
+            // 🚨 REGRA CRÍTICA: True Peak > 0 dBTP = SEMPRE CRÍTICO
+            // Forçar max = 0 mesmo que o JSON tenha outro valor
+            const safeBounds = {
+                ...tpBounds,
+                max: Math.min(tpBounds.max, 0.0) // NUNCA > 0
+            };
+            
+            const result = calculateMetricScoreWithBounds(truePeakValue, safeBounds, { 
+                metricKey: 'true_peak',
+                isCriticalAboveMax: true // True Peak acima do max é sempre crítico
+            });
+            
+            if (result.score !== null) {
+                scores.push(result.score);
+                const statusEmoji = result.status === 'CRITICAL' ? '🚨' : result.status === 'WARNING' ? '⚠️' : '✅';
+                console.log(`📊 True Peak: ${truePeakValue.toFixed(1)} dBTP dentro de [${safeBounds.min.toFixed(1)}, ${safeBounds.max.toFixed(1)}] = ${result.score}% ${statusEmoji} (${result.status})`);
+            }
+        } else if (Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
+            // Fallback para sistema legado
+            const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
+            if (score !== null) {
+                scores.push(score);
+                console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}% [LEGADO]`);
+            }
         }
     }
     
-    // Crest Factor (dinâmica de picos)
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 Crest Factor (dinâmica de picos) - Mantém sistema legado
+    // ═══════════════════════════════════════════════════════════════════════
     const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
@@ -21843,6 +22156,7 @@ function calculateLoudnessScore(analysis, refData) {
 }
 
 // 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
+// 🔄 ATUALIZADO: Agora usa getMetricBounds para suportar min/max assimétrico
 function calculateDynamicsScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -21850,17 +22164,33 @@ function calculateDynamicsScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Dynamic Range (DR) - métrica principal de dinâmica
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 Dynamic Range (DR) - métrica principal de dinâmica - AGORA COM MIN/MAX
+    // ═══════════════════════════════════════════════════════════════════════
     const drValue = metrics.dynamic_range || tech.dynamicRange;
-    if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
-        const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
-        if (score !== null) {
-            scores.push(score);
-            console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}%`);
+    if (Number.isFinite(drValue)) {
+        const drBounds = getMetricBounds(refData, 'dr');
+        
+        if (drBounds) {
+            // Usar novo sistema de bounds (min/max)
+            const result = calculateMetricScoreWithBounds(drValue, drBounds, { metricKey: 'dr' });
+            if (result.score !== null) {
+                scores.push(result.score);
+                console.log(`📊 Dynamic Range: ${drValue.toFixed(1)} dB dentro de [${drBounds.min.toFixed(1)}, ${drBounds.max.toFixed(1)}] = ${result.score}% (${result.status})`);
+            }
+        } else if (Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
+            // Fallback para sistema legado
+            const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
+            if (score !== null) {
+                scores.push(score);
+                console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}% [LEGADO]`);
+            }
         }
     }
     
-    // LRA (Loudness Range) - variação de loudness
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 LRA (Loudness Range) - variação de loudness
+    // ═══════════════════════════════════════════════════════════════════════
     const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);

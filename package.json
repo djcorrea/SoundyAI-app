@@ -15,6 +15,7 @@
     "prebuild": "node scripts/check-utf8.js",
     "build:refs": "node tools/reference-builder.js",
     "validate:refs": "node tools/reference-validator.js",
+    "validate:targets": "node scripts/validate-genre-targets.cjs",
     "calibrate:refs": "node tools/ref-calibrator.js",
     "refs:pipeline": "node tools/refs-pipeline.js",
     "copy:refs": "node tools/copy-refs-to-public.js",
