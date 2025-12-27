@@ -7,6 +7,10 @@ import { computeMixScore } from "../../lib/audio/features/scoring.js";
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 import { normalizeGenreTargets, calculateMetricSeverity, calculateBandSeverity } from '../../lib/audio/utils/normalize-genre-targets.js';
 
+// 🎯 NOVO PIPELINE CENTRAL: resolveTargets + compareWithTargets
+// Este módulo é a FONTE ÚNICA DA VERDADE para tabela, sugestões e score
+import { resolveTargets, compareWithTargets, validateTargets, TRUE_PEAK_HARD_CAP as CORE_TRUE_PEAK_HARD_CAP } from '../../lib/audio/core/index.js';
+
 // 🎯 CONSTANTE FÍSICA - True Peak NUNCA > 0 dBTP
 const TRUE_PEAK_HARD_CAP = 0.0;
 
@@ -1299,7 +1303,67 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
             air: { value: bands.air?.energy_db || null, unit: 'dB' }
           };
         })()
-      }
+      },
+      
+      // ════════════════════════════════════════════════════════════════════════════
+      // 🎯 comparisonResult - RESULTADO DO PIPELINE ÚNICO
+      // 
+      // Este campo contém o resultado de compareWithTargets() que deve ser usado por:
+      //   1) Tabela de comparação (result.rows)
+      //   2) Cards de Sugestões (result.issues)
+      //   3) Score (result.score)
+      // 
+      // GARANTE: mesmos números em todos os lugares, zero divergências
+      // ════════════════════════════════════════════════════════════════════════════
+      comparisonResult: (() => {
+        if (!options.genreTargets) {
+          console.warn('[JSON-OUTPUT] ⚠️ comparisonResult: genreTargets ausente');
+          return null;
+        }
+        
+        try {
+          // 🔥 USAR PIPELINE CENTRAL: resolveTargets + compareWithTargets
+          const resolvedTargets = resolveTargets(finalGenre, 'pista', options.genreTargets);
+          
+          // Validar targets (guardrail)
+          const validation = validateTargets(resolvedTargets);
+          if (!validation.valid) {
+            console.error('[JSON-OUTPUT] ❌ Targets inválidos:', validation.errors);
+            // Continuar mesmo com erros (log apenas)
+          }
+          
+          // Construir objeto de métricas para comparação
+          const metricsForComparison = {
+            lufsIntegrated: technicalData.lufsIntegrated,
+            truePeakDbtp: technicalData.truePeakDbtp,
+            dynamicRange: technicalData.dynamicRange,
+            stereoCorrelation: technicalData.stereoCorrelation,
+            spectralBands: technicalData.spectral_balance
+          };
+          
+          // 🎯 EXECUTAR COMPARAÇÃO CENTRAL
+          const result = compareWithTargets(metricsForComparison, resolvedTargets);
+          
+          console.log('[JSON-OUTPUT] 🎯 comparisonResult gerado:', {
+            rowsCount: result.rows.length,
+            issuesCount: result.issues.length,
+            score: result.score.total,
+            classification: result.score.classification
+          });
+          
+          // Verificar invariante: TP > 0 = CRÍTICA
+          const tpRow = result.rows.find(r => r.key === 'truePeak');
+          if (tpRow && technicalData.truePeakDbtp > 0 && tpRow.severity !== 'CRÍTICA') {
+            console.error('[JSON-OUTPUT] 🚨 INVARIANTE VIOLADO: TP > 0 mas severity != CRÍTICA');
+          }
+          
+          return result;
+          
+        } catch (error) {
+          console.error('[JSON-OUTPUT] ❌ Erro ao gerar comparisonResult:', error.message);
+          return null;
+        }
+      })()
     }
   };
 }

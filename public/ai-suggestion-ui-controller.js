@@ -850,6 +850,39 @@ class AISuggestionUIController {
             // ❌ PROIBIDO: getCorrectTargets() com fallbacks para PROD_AI_REF_DATA
             const metrics = analysis?.data?.metrics || null;
             
+            // ════════════════════════════════════════════════════════════════════════════
+            // 🎯 PRIORIDADE 0: Usar comparisonResult.issues (FONTE ÚNICA DA VERDADE)
+            // Se disponível, usar diretamente para garantir consistência com tabela e score
+            // ════════════════════════════════════════════════════════════════════════════
+            const comparisonResult = analysis?.data?.comparisonResult;
+            if (comparisonResult && Array.isArray(comparisonResult.issues)) {
+                console.log('%c[AI-UI][COMPARISON] 🎯 Usando comparisonResult.issues (FONTE ÚNICA)', 'color:#00FF88;font-weight:bold;');
+                console.log('[AI-UI][COMPARISON] Issues do backend:', comparisonResult.issues.length);
+                console.log('[AI-UI][COMPARISON] Score do backend:', comparisonResult.score?.total);
+                
+                // Verificar invariante: TP > 0 deve ter issue CRÍTICA
+                const tpIssue = comparisonResult.issues.find(i => i.key === 'truePeak');
+                if (tpIssue) {
+                    console.log('[AI-UI][COMPARISON] True Peak issue:', tpIssue.severity, tpIssue.problemText);
+                    if (metrics?.truePeak?.value > 0 && tpIssue.severity !== 'CRÍTICA') {
+                        console.error('[AI-UI][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
+                    }
+                }
+                
+                // Mesclar issues do comparisonResult com aiSuggestions existentes
+                // As issues fornecem dados numéricos consistentes
+                const mergedSuggestions = this.mergeSuggestionsWithComparison(extractedAI, comparisonResult.issues);
+                
+                // Usar issues como genreTargets para renderização
+                this.renderAISuggestions(mergedSuggestions, null, metrics);
+                
+                window.__AI_RENDER_COMPLETED__ = true;
+                console.log('%c[AI-FIX] ✅ Renderização via comparisonResult completa', 'color:#00FF88;font-weight:bold;');
+                return;
+            }
+            
+            console.log('[AI-UI][COMPARISON] ⚠️ comparisonResult não disponível, usando fluxo legado');
+            
             // 🔐 FONTE ÚNICA: Usar targetProfile (preferido) ou referenceTargetsNormalized
             // SEM FALLBACKS para globals (PROD_AI_REF_DATA, __activeRefData, etc)
             let genreTargets = null;
@@ -1140,6 +1173,150 @@ class AISuggestionUIController {
             
             return; // ✅ NÃO RENDERIZAR NADA
         }
+    }
+    
+    /**
+     * 🔗 MERGE: Combina aiSuggestions com comparisonResult.issues
+     * Garante que dados numéricos (valor atual, target, delta) venham da FONTE ÚNICA
+     * @param {Array} aiSuggestions - Sugestões da IA (textos enriquecidos)
+     * @param {Array} issues - Issues do comparisonResult (dados numéricos precisos)
+     * @returns {Array} Sugestões mescladas com dados numéricos corrigidos
+     */
+    mergeSuggestionsWithComparison(aiSuggestions, issues) {
+        console.log('[AI-UI][MERGE] 🔗 Iniciando merge de sugestões com comparisonResult');
+        console.log('[AI-UI][MERGE] aiSuggestions:', aiSuggestions?.length || 0);
+        console.log('[AI-UI][MERGE] issues:', issues?.length || 0);
+        
+        if (!aiSuggestions || aiSuggestions.length === 0) {
+            // Se não há aiSuggestions, converter issues diretamente
+            if (issues && issues.length > 0) {
+                console.log('[AI-UI][MERGE] ⚠️ Sem aiSuggestions, convertendo issues para sugestões');
+                return issues.map(issue => ({
+                    metric: issue.key,
+                    categoria: this._mapSeverityToCategory(issue.severity),
+                    problema: issue.problemText,
+                    causa: `Valor atual: ${issue.currentValue}${issue.unit}`,
+                    solucao: issue.recommendedAction || `Ajustar para ${issue.targetValue}${issue.unit}`,
+                    impacto: this._getSeverityImpact(issue.severity),
+                    severity: issue.severity,
+                    // Dados numéricos da FONTE ÚNICA
+                    currentValue: issue.currentValue,
+                    targetValue: issue.targetValue,
+                    delta: issue.delta,
+                    unit: issue.unit,
+                    status: issue.status,
+                    fromComparisonResult: true,
+                    aiEnhanced: false
+                }));
+            }
+            return [];
+        }
+        
+        // Criar mapa de issues por key normalizada
+        const issueMap = new Map();
+        if (issues && issues.length > 0) {
+            for (const issue of issues) {
+                const normalizedKey = normalizeMetricKey(issue.key);
+                issueMap.set(normalizedKey, issue);
+                console.log(`[AI-UI][MERGE] Issue mapeada: ${issue.key} → ${normalizedKey}`);
+            }
+        }
+        
+        // Mesclar aiSuggestions com dados numéricos das issues
+        const merged = aiSuggestions.map(suggestion => {
+            const metricKey = normalizeMetricKey(suggestion.metric || suggestion.category);
+            const issue = issueMap.get(metricKey);
+            
+            if (issue) {
+                console.log(`[AI-UI][MERGE] ✅ Match encontrado para ${metricKey}:`, {
+                    aiSeverity: suggestion.severity,
+                    issueSeverity: issue.severity,
+                    issueValue: issue.currentValue
+                });
+                
+                // Verificar invariante: TP > 0 DEVE ser CRÍTICA
+                if (metricKey === 'truePeak' && issue.currentValue > 0 && issue.severity !== 'CRÍTICA') {
+                    console.error('[AI-UI][MERGE][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
+                    issue.severity = 'CRÍTICA'; // Corrigir
+                }
+                
+                return {
+                    ...suggestion,
+                    // Dados numéricos da FONTE ÚNICA (sobrescrevem qualquer coisa da IA)
+                    currentValue: issue.currentValue,
+                    targetValue: issue.targetValue,
+                    delta: issue.delta,
+                    unit: issue.unit,
+                    status: issue.status,
+                    // Usar severity do comparisonResult (mais precisa)
+                    severity: issue.severity,
+                    // Flags de rastreamento
+                    numericDataSource: 'comparisonResult',
+                    mergedFromIssue: true
+                };
+            } else {
+                console.log(`[AI-UI][MERGE] ⚠️ Sem issue para ${metricKey}`);
+                return {
+                    ...suggestion,
+                    numericDataSource: 'aiSuggestion',
+                    mergedFromIssue: false
+                };
+            }
+        });
+        
+        // Adicionar issues que não tinham match em aiSuggestions (problemas detectados mas sem texto IA)
+        for (const [key, issue] of issueMap) {
+            const hasMatch = merged.some(s => normalizeMetricKey(s.metric || s.category) === key);
+            if (!hasMatch && issue.severity !== 'OK') {
+                console.log(`[AI-UI][MERGE] ➕ Adicionando issue sem match IA: ${key}`);
+                merged.push({
+                    metric: issue.key,
+                    categoria: this._mapSeverityToCategory(issue.severity),
+                    problema: issue.problemText,
+                    causa: `Valor atual: ${issue.currentValue}${issue.unit}`,
+                    solucao: issue.recommendedAction || `Ajustar para ${issue.targetValue}${issue.unit}`,
+                    impacto: this._getSeverityImpact(issue.severity),
+                    severity: issue.severity,
+                    currentValue: issue.currentValue,
+                    targetValue: issue.targetValue,
+                    delta: issue.delta,
+                    unit: issue.unit,
+                    status: issue.status,
+                    fromComparisonResult: true,
+                    aiEnhanced: false,
+                    numericDataSource: 'comparisonResult'
+                });
+            }
+        }
+        
+        console.log(`[AI-UI][MERGE] ✅ Merge completo: ${merged.length} sugestões`);
+        return merged;
+    }
+    
+    /**
+     * 🗺️ Mapeia severity para categoria de UI
+     */
+    _mapSeverityToCategory(severity) {
+        const map = {
+            'CRÍTICA': 'critical',
+            'ALTA': 'warning',
+            'ATENÇÃO': 'info',
+            'OK': 'success'
+        };
+        return map[severity] || 'info';
+    }
+    
+    /**
+     * 📊 Retorna descrição de impacto baseada na severity
+     */
+    _getSeverityImpact(severity) {
+        const impacts = {
+            'CRÍTICA': 'Alto impacto negativo na qualidade do áudio. Correção obrigatória.',
+            'ALTA': 'Impacto significativo na qualidade. Correção recomendada.',
+            'ATENÇÃO': 'Impacto moderado. Considere ajustar.',
+            'OK': 'Dentro dos parâmetros ideais.'
+        };
+        return impacts[severity] || 'Avaliar necessidade de ajuste.';
     }
     
     /**

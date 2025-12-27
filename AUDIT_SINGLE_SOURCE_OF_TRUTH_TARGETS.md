@@ -208,10 +208,77 @@ truePeak.max NUNCA pode ser > 0.0 (hardCap aplicado em todos os caminhos)
 
 | Local | Fonte | Arquivo | Linha | Status |
 |-------|-------|---------|-------|--------|
-| **TABELA** | `referenceTargetsNormalized` | audio-analyzer-integration.js | ~7105 | ✅ Correto |
-| **SUGESTÕES** | `getCorrectTargets()` → fallbacks | ai-suggestion-ui-controller.js | ~851 | ❌ State leak |
-| **BACKEND** | `normalizeGenreTargets()` | json-output.js | ~1102 | ✅ Correto |
+| **TABELA** | `targetProfile` ou `referenceTargetsNormalized` | audio-analyzer-integration.js | ~7105 | ✅ Corrigido |
+| **SUGESTÕES** | `targetProfile` (sem fallbacks) | ai-suggestion-ui-controller.js | ~855 | ✅ Corrigido |
+| **BACKEND** | `targetProfile` + `normalizeGenreTargets()` | json-output.js | ~1102 | ✅ Novo campo |
 | **PIPELINE** | `consolidatedData.genreTargets` | pipeline-complete.js | ~661 | ✅ Correto |
+
+---
+
+## ✅ CORREÇÕES APLICADAS (27/12/2025)
+
+### 1. Backend: Novo campo `targetProfile` (json-output.js)
+
+```javascript
+targetProfile: {
+    _version: '1.0.0',
+    _source: 'backend',
+    _genre: 'funk_mandela',
+    
+    truePeak: {
+        tp_min: -3.0,
+        tp_warn_from: -0.1,
+        tp_target: -1.0,
+        tp_max: 0.0  // SEMPRE 0.0 (hard cap físico)
+    },
+    
+    lufs: { target: -8.5, min: -10.5, max: -6.5 },
+    dr: { target: 6.0, min: 4.0, max: 9.0 },
+    lra: null,
+    stereo: null,
+    
+    bands: {
+        sub: { min: -27, max: -18, target: -22.5 },
+        bass: { min: -26.5, max: -19, target: -22.75 },
+        // ... outras bandas
+    },
+    
+    preCalculatedSeverities: {
+        truePeak: { severity: 'CRÍTICA', delta: 3.9, action: '🔴 CLIPPING!' },
+        lufs: { severity: 'OK', delta: 0 },
+        // ...
+    }
+}
+```
+
+### 2. Frontend: getNormalizedTargetsFromAnalysis (audio-analyzer-integration.js)
+
+- PRIORIDADE 1: `analysis.data.targetProfile` (novo)
+- PRIORIDADE 2: `analysis.data.referenceTargetsNormalized` (formato anterior)
+- ❌ REMOVIDO: Fallbacks para `PROD_AI_REF_DATA`, `__activeRefData`
+
+### 3. Frontend: ai-suggestion-ui-controller.js
+
+```javascript
+// ANTES (problemático):
+const genreTargets = getCorrectTargets(analysis); // ❌ Fallbacks para globals
+
+// DEPOIS (corrigido):
+let genreTargets = null;
+if (analysis?.data?.targetProfile) {
+    genreTargets = analysis.data.targetProfile; // ✅ Fonte única
+} else if (analysis?.data?.referenceTargetsNormalized) {
+    genreTargets = analysis.data.referenceTargetsNormalized;
+}
+// ❌ REMOVIDO: Fallbacks para PROD_AI_REF_DATA
+```
+
+### 4. Frontend: Nova função evaluateMetricFromTargetProfile
+
+Função centralizada que:
+- Usa severidades pré-calculadas do backend quando disponíveis
+- Calcula localmente com mesma lógica do backend como fallback
+- GARANTE: True Peak > 0 dBTP = SEMPRE CRÍTICA
 
 ---
 
@@ -222,24 +289,56 @@ Para testar a implementação:
 1. **Analisar arquivo com gênero definido**
 2. **Verificar no console:**
    ```
-   [BUILD_ROWS] ✅ Usando referenceTargetsNormalized do backend
-   [BUILD_ROWS] ✅ LUFS: severidade do backend = OK
-   [BUILD_ROWS] ✅ True Peak: severidade do backend = CRÍTICA (se > 0)
+   [NORMALIZED-TARGETS] ✅ Usando targetProfile do backend (FONTE ÚNICA)
+   [AI-UI][TARGETS] ✅ Usando analysis.data.targetProfile (FONTE ÚNICA)
+   [AI-UI][TARGET-PROFILE] 🎯 TARGETS USADOS NAS SUGESTÕES:
    ```
 
 3. **Verificar JSON retornado:**
-   - Campo `data.referenceTargetsNormalized` presente
-   - `truePeak.max` ≤ 0.0 sempre
-   - `preCalculatedSeverities.metrics.truePeak.severity = 'CRÍTICA'` se valor > 0
+   - Campo `data.targetProfile` presente
+   - `targetProfile.truePeak.tp_max` = 0.0 sempre
+   - `targetProfile.preCalculatedSeverities.truePeak.severity = 'CRÍTICA'` se valor > 0
+
+---
+
+## 🧪 TESTE MANUAL OBRIGATÓRIO
+
+### Teste 1: Funk Mandela com True Peak > 0
+
+1. Analisar arquivo de **Funk Mandela** com True Peak > 0 dBTP
+2. Verificar:
+   - **TABELA:** True Peak deve mostrar CRÍTICA (vermelho)
+   - **SUGESTÕES:** Deve haver card de True Peak com severidade CRÍTICA
+   - **Console:** `[AI-UI][INVARIANT] 🚨 TRUE PEAK > 0 dBTP DETECTADO!`
+
+### Teste 2: Progressive Trance após Funk Mandela
+
+1. Analisar arquivo de **Progressive Trance** (sem clipping)
+2. Verificar:
+   - **Console:** `[AI-UI][TARGET-PROFILE] Genre: progressive_trance` (NÃO funk_mandela)
+   - **Targets:** Devem ser de Trance (LUFS -8.5, não -8.5 de Mandela)
+   - **Sem state leak:** Sugestões NÃO devem usar targets do Mandela
+
+### O que verificar no Console:
+
+```
+// ANTES (problemático):
+[TARGETS] 📦 Usando PROD_AI_REF_DATA[genre] como fallback  // ❌ STATE LEAK!
+
+// DEPOIS (correto):
+[NORMALIZED-TARGETS] ✅ Usando targetProfile do backend    // ✅ FONTE ÚNICA
+[AI-UI][TARGET-PROFILE] Genre: progressive_trance          // ✅ Gênero correto
+```
 
 ---
 
 ## 🔐 GARANTIAS
 
 1. **True Peak > 0 dBTP SEMPRE mostra CRÍTICA** (tabela, score, sugestões)
-2. **Fonte única:** `normalize-genre-targets.js` centraliza toda lógica de normalização
-3. **Sem divergências:** Frontend usa severidades pré-calculadas do backend
-4. **Fallback seguro:** Se backend não enviar, frontend calcula localmente com mesma lógica
+2. **Fonte única:** `targetProfile` no backend centraliza toda lógica
+3. **Sem divergências:** Frontend usa APENAS `targetProfile` ou `referenceTargetsNormalized`
+4. **Sem state leak:** Removidos fallbacks para `PROD_AI_REF_DATA`, `__activeRefData`
+5. **Fallback seguro:** Se backend não enviar, frontend calcula localmente com mesma lógica
 
 ---
 

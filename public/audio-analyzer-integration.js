@@ -7088,6 +7088,27 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     console.log('[BUILD_ROWS] Mode:', mode);
     console.log('[BUILD_ROWS] Targets:', targets ? Object.keys(targets) : 'null');
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎯 PRIORIDADE 1: Usar comparisonResult do backend (FONTE ÚNICA DA VERDADE)
+    // Se disponível, retornar diretamente sem cálculo local
+    // ═══════════════════════════════════════════════════════════════════════════
+    const comparisonResult = analysis?.data?.comparisonResult;
+    if (comparisonResult && Array.isArray(comparisonResult.rows) && comparisonResult.rows.length > 0) {
+        console.log('[BUILD_ROWS] 🎯 Usando comparisonResult do backend (FONTE ÚNICA)');
+        console.log('[BUILD_ROWS] Rows do backend:', comparisonResult.rows.length);
+        
+        // Adaptar formato se necessário (actionText vs action)
+        const adaptedRows = comparisonResult.rows.map(row => ({
+            ...row,
+            actionText: row.action || row.actionText || '—'
+        }));
+        
+        console.groupEnd();
+        return adaptedRows;
+    }
+    
+    console.log('[BUILD_ROWS] ⚠️ comparisonResult não disponível, usando cálculo local');
+    
     const rows = [];
     
     // ✅ FLAG DE CONTROLE
@@ -7098,7 +7119,7 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // 🎯 FONTE ÚNICA: Tentar usar targets normalizados do backend
+    // 🔄 FALLBACK: Usar targets normalizados do backend
     // ═══════════════════════════════════════════════════════════════════════════
     const normalizedTargets = getNormalizedTargetsFromAnalysis(analysis);
     const useNormalizedTargets = normalizedTargets !== null;
@@ -27614,15 +27635,37 @@ if (typeof window !== 'undefined') {
         console.log('⚠️ [NORMALIZE] Spectral Uniformity não encontrado - spectralUniformity = null');
     }
     
-    // 🔢 SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
-    normalized.qualityOverall = backendData.score && Number.isFinite(backendData.score) ? backendData.score : null;
-    
-    if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
-        normalized.qualityBreakdown = backendData.qualityBreakdown;
-        console.log('📊 [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🔢 SCORES E QUALIDADE - PRIORIZAÇÃO: comparisonResult.score > backendData.score
+    // 
+    // comparisonResult.score é calculado pelo pipeline único (compareWithTargets)
+    // e garante consistência com tabela e sugestões
+    // ═══════════════════════════════════════════════════════════════════════════
+    const comparisonScore = backendData.comparisonResult?.score;
+    if (comparisonScore && Number.isFinite(comparisonScore.total)) {
+        normalized.qualityOverall = comparisonScore.total;
+        normalized.classification = comparisonScore.classification;
+        normalized.qualityBreakdown = comparisonScore.breakdown || null;
+        console.log('🎯 [NORMALIZE] Score do comparisonResult (FONTE ÚNICA):', {
+            total: comparisonScore.total,
+            classification: comparisonScore.classification,
+            breakdown: comparisonScore.breakdown
+        });
+    } else if (backendData.score && Number.isFinite(backendData.score)) {
+        normalized.qualityOverall = backendData.score;
+        console.log('⚠️ [NORMALIZE] Score legado (backendData.score):', backendData.score);
+        
+        if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
+            normalized.qualityBreakdown = backendData.qualityBreakdown;
+            console.log('📊 [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
+        } else {
+            normalized.qualityBreakdown = null;
+            console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
+        }
     } else {
+        normalized.qualityOverall = null;
         normalized.qualityBreakdown = null;
-        console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
+        console.warn('⚠️ [NORMALIZE] Nenhum score disponível');
     }
     
     // 📊 DADOS AUXILIARES DO NOVO FORMATO
