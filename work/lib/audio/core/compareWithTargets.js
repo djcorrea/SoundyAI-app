@@ -285,6 +285,7 @@ function evaluateTruePeak(value, target) {
   };
   
   // Issue só se não for OK
+  // 🎯 ESTRUTURA UNIFICADA: Campos flat para consumo direto pelo frontend
   const issue = severity !== 'OK' ? {
     key: 'truePeak',
     metric: 'truePeak',
@@ -292,8 +293,16 @@ function evaluateTruePeak(value, target) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : severity === 'ALTA' ? 'warning' : 'caution',
     problemText: `True Peak: ${value.toFixed(1)} ${unit} (limite: ${max.toFixed(1)} ${unit})`,
+    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
+    currentValue: value,
+    targetValue: recommendedFinal,
+    delta: reduceBy,
+    unit,
+    // Dados legacy para compatibilidade
     numbers: { value, target: target.target, min, max, diff: value - target.target },
-    action
+    action,
+    // 🎯 CAMPO recommendedAction: EXATAMENTE igual ao action da row/tabela
+    recommendedAction: action
   } : null;
   
   return { row, issue, score: scoreValue };
@@ -374,6 +383,20 @@ function evaluateRangeMetric(value, target, metricKey) {
     category: METRIC_CATEGORIES[metricKey] || 'OTHER'
   };
   
+  // 🎯 Calcular target recomendado e delta para cards
+  // Para métricas de range, o target depende se está acima ou abaixo
+  let recommendedTarget, delta;
+  if (value < min) {
+    recommendedTarget = min;
+    delta = min - value; // positivo (aumentar)
+  } else if (value > max) {
+    recommendedTarget = max;
+    delta = value - max; // positivo (reduzir)
+  } else {
+    recommendedTarget = targetValue || (min + max) / 2;
+    delta = 0;
+  }
+
   const issue = severity !== 'OK' ? {
     key: metricKey,
     metric: metricKey,
@@ -381,8 +404,16 @@ function evaluateRangeMetric(value, target, metricKey) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : severity === 'ALTA' ? 'warning' : 'caution',
     problemText: `${label}: ${valueFormatted}${unit ? ' ' + unit : ''} (ideal: ${min.toFixed(1)} a ${max.toFixed(1)})`,
+    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
+    currentValue: value,
+    targetValue: recommendedTarget,
+    delta,
+    unit,
+    // Dados legacy para compatibilidade
     numbers: { value, target: targetValue, min, max, diff: value - targetValue },
-    action
+    action,
+    // 🎯 CAMPO recommendedAction: EXATAMENTE igual ao action da row/tabela
+    recommendedAction: action
   } : null;
   
   return { row, issue, score: scoreValue };
@@ -449,6 +480,19 @@ function evaluateBand(value, target, bandKey) {
     category: 'SPECTRAL'
   };
   
+  // 🎯 Calcular target recomendado e delta para cards
+  let recommendedTarget, delta;
+  if (value < min) {
+    recommendedTarget = min;
+    delta = min - value;
+  } else if (value > max) {
+    recommendedTarget = max;
+    delta = value - max;
+  } else {
+    recommendedTarget = targetValue ?? (min + max) / 2;
+    delta = 0;
+  }
+
   const issue = severity !== 'OK' ? {
     key: bandKey,
     metric: bandKey,
@@ -456,8 +500,15 @@ function evaluateBand(value, target, bandKey) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : 'caution',
     problemText: `${label}: ${value.toFixed(1)} ${unit} (ideal: ${min.toFixed(1)} a ${max.toFixed(1)})`,
+    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
+    currentValue: value,
+    targetValue: recommendedTarget,
+    delta,
+    unit,
+    // Dados legacy para compatibilidade
     numbers: { value, target: targetValue, min, max, diff: value - (targetValue ?? (min + max) / 2) },
-    action
+    action,
+    recommendedAction: action
   } : null;
   
   return { row, issue, score: scoreValue };
