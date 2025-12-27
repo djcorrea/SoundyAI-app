@@ -2020,8 +2020,27 @@ function generateComparisonSuggestions(deltas) {
  * @param {String} mode - 'genre' ou 'reference'
  * @param {Object} genreTargets - Targets reais do gênero (formato interno completo)
  * @returns {Array} Sugestões estruturadas prontas para ULTRA-V2
+ * 
+ * ⚠️ FUNÇÃO DESATIVADA - CENTRALIZAÇÃO COMPARISONRESULT
+ * Esta função foi mantida para compatibilidade mas NÃO deve ser chamada.
+ * A única fonte de verdade para sugestões é compareWithTargets() → comparisonResult.issues
  */
 function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 'unknown', mode = 'genre', genreTargets = null) {
+  // 🛡️ FUNÇÃO DESATIVADA - RETORNAR ARRAY VAZIO COM WARNING
+  console.warn('[ADVANCED-SUGGEST] 🛡️ FUNÇÃO DESATIVADA - Usar comparisonResult.issues');
+  console.warn('[ADVANCED-SUGGEST] A única fonte de verdade é compareWithTargets()');
+  console.warn('[ADVANCED-SUGGEST] Esta chamada foi interceptada e retornou array vazio');
+  
+  // Log de debug para rastrear chamadas indevidas
+  console.trace('[ADVANCED-SUGGEST] Stack trace da chamada bloqueada:');
+  
+  return []; // Retornar vazio para não gerar sugestões paralelas
+  
+  // ════════════════════════════════════════════════════════════════════════════════
+  // 🔒 CÓDIGO ORIGINAL ABAIXO (DESATIVADO - NÃO EXECUTARÁ)
+  // ════════════════════════════════════════════════════════════════════════════════
+  
+  /*
   console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`[ADVANCED-SUGGEST] 🎯 Iniciando geração avançada`);
   console.log(`[ADVANCED-SUGGEST] Genre: ${genre}, Mode: ${mode}`);
