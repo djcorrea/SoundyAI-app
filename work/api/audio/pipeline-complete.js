@@ -694,7 +694,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🆕 STREAMING MODE: Passar soundDestination para o analyzer aplicar override
       const soundDestination = options.soundDestination || 'pista';
-      console.log('[DEBUG-SUGGESTIONS] 📡 soundDestination:', soundDestination);
+      
+      // 🎯 UNIFICAÇÃO TABELA-CARDS: Extrair comparisonResult do finalJSON para garantir paridade
+      const comparisonResult = finalJSON?.data?.comparisonResult || null;
       
       const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(
         coreMetrics,
@@ -702,7 +704,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         customTargets,
         { 
           data: consolidatedData,
-          soundDestination: soundDestination  // 🆕 Passar para o analyzer
+          soundDestination: soundDestination,
+          comparisonResult: comparisonResult  // 🎯 Passar comparisonResult para garantir paridade Tabela=Cards
         }
       );
       
@@ -916,9 +919,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🆕 STREAMING MODE: Passar soundDestination para V2 também
       const soundDestinationV2 = options.soundDestination || 'pista';
+      
+      // 🎯 UNIFICAÇÃO TABELA-CARDS V2: Extrair comparisonResult
+      const comparisonResultV2 = finalJSON?.data?.comparisonResult || null;
+      
       const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2, { 
         data: consolidatedDataV2,
-        soundDestination: soundDestinationV2
+        soundDestination: soundDestinationV2,
+        comparisonResult: comparisonResultV2  // 🎯 Passar comparisonResult para garantir paridade
       });
       
       const v2Suggestions = v2.suggestions || [];
