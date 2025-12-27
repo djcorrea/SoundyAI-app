@@ -1248,6 +1248,10 @@ class AISuggestionUIController {
                     delta: issue.delta,
                     unit: issue.unit,
                     status: issue.status,
+                    // 🎯 AÇÃO UNIFICADA: Usar recommendedAction da issue (= action da tabela)
+                    // Isso garante que o card mostre EXATAMENTE a mesma ação da tabela
+                    solucao: issue.recommendedAction || suggestion.solucao,
+                    action: issue.action || suggestion.action,
                     // Usar severity do comparisonResult (mais precisa)
                     severity: issue.severity,
                     // Flags de rastreamento
