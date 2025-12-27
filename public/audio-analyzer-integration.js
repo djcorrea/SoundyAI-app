@@ -14415,6 +14415,22 @@ async function displayModalResults(analysis) {
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
     
+    // 🎯 FIX: Ocultar botão "Pedir ajuda à IA" e texto de ajuda NO MODO REFERÊNCIA
+    const currentModeForUI = analysis?.mode || window.currentAnalysisMode || 'genre';
+    const btnAskAI = document.getElementById('btnAskAI');
+    const aiHelperText = document.getElementById('aiHelperText');
+    
+    if (currentModeForUI === 'reference') {
+        console.log('[REFERENCE-UI] 🔒 Modo referência - ocultando botão "Pedir ajuda à IA" e texto de ajuda');
+        if (btnAskAI) btnAskAI.style.display = 'none';
+        if (aiHelperText) aiHelperText.style.display = 'none';
+    } else {
+        // 🎯 Garantir visibilidade nos outros modos
+        console.log('[GENRE-UI] ✅ Modo gênero - exibindo botão "Pedir ajuda à IA" e texto de ajuda');
+        if (btnAskAI) btnAskAI.style.display = '';
+        if (aiHelperText) aiHelperText.style.display = '';
+    }
+    
     // 🎯 HOOK: Aplicar máscaras de Modo Reduzido se necessário
     if (window.__REDUCED_MODE_ACTIVE__ && window.__REDUCED_MODE_ANALYSIS__) {
         console.log('[REDUCED-MODE] 🔧 Aplicando sistema de mascaramento dinâmico...');
@@ -21770,6 +21786,35 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     const currScore = curr.score || 0;
     const scoreDiff = currScore - refScore;
     
+    // 🎯 FIX: Extrair nomes reais das faixas COM fallback robusto
+    // Helper para remover extensão de arquivo
+    const removeExtension = (filename) => {
+        if (!filename) return null;
+        return filename.replace(/\.[^/.]+$/, '');
+    };
+    
+    // Extrair nome da primeira faixa (BASE/ALVO) - múltiplas fontes
+    const refFileName = removeExtension(
+        ref.metadata?.fileName || 
+        ref.fileName || 
+        window.SoundyAI_Store?.first?.fileName ||
+        window.SoundyAI_Store?.first?.metadata?.fileName ||
+        window.__soundyState?.reference?.userAnalysis?.fileName ||
+        window.__soundyState?.reference?.userAnalysis?.metadata?.fileName
+    ) || 'Faixa 1';
+    
+    // Extrair nome da segunda faixa (ATUAL/COMPARADA) - múltiplas fontes
+    const currFileName = removeExtension(
+        curr.metadata?.fileName || 
+        curr.fileName || 
+        window.SoundyAI_Store?.second?.fileName ||
+        window.SoundyAI_Store?.second?.metadata?.fileName ||
+        window.__soundyState?.reference?.referenceAnalysis?.fileName ||
+        window.__soundyState?.reference?.referenceAnalysis?.metadata?.fileName
+    ) || 'Faixa 2';
+    
+    console.log('🎯 [TRACK-NAMES-FIX] Nomes extraídos:', { refFileName, currFileName });
+    
     // Montar HTML da tabela
     // 🎯 LABELS DINÂMICOS: Primeira faixa = BASE/ALVO, Segunda faixa = ATUAL
     container.innerHTML = `
@@ -21779,8 +21824,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA BASE (1ª - ALVO)</div>
-                        <div style="font-weight: 600; font-size: 14px;">
-                            ${ref.metadata?.fileName || ref.fileName || 'Primeira Faixa'}
+                        <div style="font-weight: 600; font-size: 14px;" title="${refFileName}">
+                            ${refFileName}
                         </div>
                         <div style="font-size: 12px; margin-top: 4px;">
                             Score: <span style="color: #52f7ad;">${nf(refScore, 0)}</span>
@@ -21788,8 +21833,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
                     </div>
                     <div>
                         <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA DE REFERÊNCIA (2ª - ATUAL)</div>
-                        <div style="font-weight: 600; font-size: 14px;">
-                            ${curr.metadata?.fileName || curr.fileName || 'Segunda Faixa'}
+                        <div style="font-weight: 600; font-size: 14px;" title="${currFileName}">
+                            ${currFileName}
                         </div>
                         <div style="font-size: 12px; margin-top: 4px;">
                             Score: <span style="color: ${scoreDiff >= 0 ? '#52f7ad' : '#ff7b7b'};">${nf(currScore, 0)}</span>
@@ -21801,8 +21846,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
             <table class="ref-compare-table">
                 <thead><tr>
                     <th>Métrica</th>
-                    <th>Faixa 2 (Ref/Atual)</th>
-                    <th>Faixa 1 (Base/Alvo)</th>
+                    <th>${currFileName}</th>
+                    <th>${refFileName}</th>
                     <th>Diferença (%)</th>
                     <th>Status</th>
                 </tr></thead>
@@ -24784,6 +24829,268 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     }
 }
 
+// 📄 GERAR RELATÓRIO PDF COMPARATIVO PARA MODO REFERÊNCIA
+async function generateReferenceReportPDF() {
+    console.log('[REF-PDF] 🚀 Iniciando geração de PDF comparativo de referência...');
+    
+    // Verificar dependências
+    if (typeof window.jspdf === 'undefined') {
+        showTemporaryFeedback('⚙️ Carregando bibliotecas...');
+        console.warn('[REF-PDF] ⚠️ Aguardando carregamento de jsPDF...');
+        setTimeout(() => generateReferenceReportPDF(), 1000);
+        return;
+    }
+    
+    try {
+        showTemporaryFeedback('⚙️ Gerando relatório de comparação...');
+        
+        // 🎯 OBTER DADOS DAS DUAS FAIXAS
+        const store = window.SoundyAI_Store || {};
+        const firstAnalysis = store.first || window.__soundyState?.reference?.userAnalysis || FirstAnalysisStore?.getUser();
+        const secondAnalysis = store.second || window.__soundyState?.reference?.referenceAnalysis || FirstAnalysisStore?.getRef();
+        
+        if (!firstAnalysis || !secondAnalysis) {
+            alert('❌ Dados de comparação não encontrados.\n\nAs duas faixas precisam estar analisadas.');
+            console.error('[REF-PDF] Dados insuficientes:', { 
+                hasFirst: !!firstAnalysis, 
+                hasSecond: !!secondAnalysis 
+            });
+            return;
+        }
+        
+        // Helper para remover extensão
+        const removeExtension = (filename) => {
+            if (!filename) return 'Faixa';
+            return filename.replace(/\.[^/.]+$/, '');
+        };
+        
+        // Extrair nomes das faixas
+        const trackAName = removeExtension(
+            firstAnalysis.metadata?.fileName || 
+            firstAnalysis.fileName || 
+            'Faixa 1'
+        );
+        const trackBName = removeExtension(
+            secondAnalysis.metadata?.fileName || 
+            secondAnalysis.fileName || 
+            'Faixa 2'
+        );
+        
+        console.log('[REF-PDF] 📊 Faixas:', { trackAName, trackBName });
+        
+        // Extrair métricas técnicas
+        const techA = firstAnalysis.technicalData || {};
+        const techB = secondAnalysis.technicalData || {};
+        
+        // Função helper para formatar valores
+        const nf = (v, d = 2) => {
+            if (v === null || v === undefined || isNaN(v)) return '—';
+            return Number(v).toFixed(d);
+        };
+        
+        // Calcular diferenças percentuais
+        const calcDiff = (a, b) => {
+            if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return '—';
+            const diff = ((a - b) / Math.abs(b)) * 100;
+            return (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
+        };
+        
+        // Métricas principais
+        const metrics = [
+            { label: 'LUFS Integrado', valueA: techA.lufsIntegrated || techA.lufs_integrated, valueB: techB.lufsIntegrated || techB.lufs_integrated, unit: ' LUFS' },
+            { label: 'True Peak', valueA: techA.truePeakDbtp || techA.true_peak_dbtp, valueB: techB.truePeakDbtp || techB.true_peak_dbtp, unit: ' dBTP' },
+            { label: 'Dynamic Range', valueA: techA.dynamicRange || techA.dynamic_range, valueB: techB.dynamicRange || techB.dynamic_range, unit: ' dB' },
+            { label: 'LRA', valueA: techA.lra, valueB: techB.lra, unit: ' LU' },
+            { label: 'RMS', valueA: techA.avgLoudness || techA.rms, valueB: techB.avgLoudness || techB.rms, unit: ' dB' },
+            { label: 'Stereo Correlation', valueA: techA.stereoCorrelation || techA.stereo_correlation, valueB: techB.stereoCorrelation || techB.stereo_correlation, unit: '' }
+        ];
+        
+        // Bandas espectrais
+        const bandsA = techA.spectral_balance || {};
+        const bandsB = techB.spectral_balance || {};
+        const bandNames = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+        const bandLabels = {
+            sub: 'Sub (20-60Hz)',
+            bass: 'Bass (60-150Hz)',
+            lowMid: 'Low-Mid (150-500Hz)',
+            mid: 'Mid (500-2kHz)',
+            highMid: 'High-Mid (2-5kHz)',
+            presence: 'Presence (5-10kHz)',
+            air: 'Air (10-20kHz)'
+        };
+        
+        // Calcular principais diferenças
+        const mainDifferences = [];
+        metrics.forEach(m => {
+            if (Number.isFinite(m.valueA) && Number.isFinite(m.valueB)) {
+                const diffPercent = Math.abs(((m.valueA - m.valueB) / Math.abs(m.valueB)) * 100);
+                if (diffPercent > 10) {
+                    mainDifferences.push(`${m.label}: ${nf(m.valueA)}${m.unit} vs ${nf(m.valueB)}${m.unit} (${diffPercent > 0 ? 'Δ ' : ''}${nf(diffPercent, 1)}%)`);
+                }
+            }
+        });
+        
+        // Data e hora
+        const date = new Date().toLocaleDateString('pt-BR');
+        const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        
+        // 🎨 GERAR HTML DO RELATÓRIO (reaproveitando tema do gênero)
+        const reportHTML = `
+<div id="ref-report-pdf-container" style="background: #0B0C14; width: 794px; min-height: 1123px; font-family: 'Inter', system-ui, sans-serif; color: #e4e4e7;">
+    <div class="pdf-section-reference" style="padding: 40px; min-height: 1123px; box-sizing: border-box;">
+        <!-- Cabeçalho -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 28px; margin: 0; background: linear-gradient(135deg, #52f7ad, #6FEBEF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700;">
+                SOUNDY<span style="font-weight: 400;">AI</span>
+            </h1>
+            <h2 style="font-size: 18px; margin: 10px 0 5px 0; color: #a1a1aa;">Relatório de Comparação (Referência)</h2>
+            <p style="font-size: 12px; color: #71717a; margin: 0;">${date} às ${time}</p>
+        </div>
+        
+        <!-- Nomes das Faixas -->
+        <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 25px;">
+            <div style="flex: 1; background: rgba(82, 247, 173, 0.1); border: 1px solid rgba(82, 247, 173, 0.3); border-radius: 12px; padding: 15px; text-align: center;">
+                <div style="font-size: 11px; color: #52f7ad; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">FAIXA 1 (BASE)</div>
+                <div style="font-size: 16px; font-weight: 600; color: #fff;">${trackAName}</div>
+            </div>
+            <div style="flex: 1; background: rgba(111, 235, 239, 0.1); border: 1px solid rgba(111, 235, 239, 0.3); border-radius: 12px; padding: 15px; text-align: center;">
+                <div style="font-size: 11px; color: #6FEBEF; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">FAIXA 2 (REFERÊNCIA)</div>
+                <div style="font-size: 16px; font-weight: 600; color: #fff;">${trackBName}</div>
+            </div>
+        </div>
+        
+        <!-- Principais Diferenças -->
+        ${mainDifferences.length > 0 ? `
+        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 15px; margin-bottom: 25px;">
+            <div style="font-size: 13px; font-weight: 600; color: #ffc107; margin-bottom: 10px;">⚡ PRINCIPAIS DIFERENÇAS</div>
+            <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #e4e4e7; line-height: 1.8;">
+                ${mainDifferences.slice(0, 5).map(d => `<li>${d}</li>`).join('')}
+            </ul>
+        </div>
+        ` : ''}
+        
+        <!-- Tabela de Métricas -->
+        <div style="margin-bottom: 25px;">
+            <div style="font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">📊 MÉTRICAS TÉCNICAS</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: rgba(82, 247, 173, 0.1);">
+                        <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #a1a1aa;">Métrica</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #52f7ad;">${trackAName}</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #6FEBEF;">${trackBName}</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffc107;">Diferença</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${metrics.map(m => `
+                    <tr>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e4e4e7;">${m.label}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(m.valueA)}${m.unit}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(m.valueB)}${m.unit}</td>
+                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #ffc107;">${calcDiff(m.valueA, m.valueB)}</td>
+                    </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Bandas Espectrais -->
+        <div style="margin-bottom: 25px;">
+            <div style="font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">🎛️ BALANÇO ESPECTRAL</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: rgba(111, 235, 239, 0.1);">
+                        <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #a1a1aa;">Banda</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #52f7ad;">${trackAName}</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #6FEBEF;">${trackBName}</th>
+                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffc107;">Diferença</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bandNames.map(band => {
+                        const valA = bandsA[band]?.percentage ?? bandsA[band]?.value ?? bandsA[band];
+                        const valB = bandsB[band]?.percentage ?? bandsB[band]?.value ?? bandsB[band];
+                        return `
+                        <tr>
+                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e4e4e7;">${bandLabels[band] || band}</td>
+                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(valA, 1)}%</td>
+                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(valB, 1)}%</td>
+                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #ffc107;">${calcDiff(valA, valB)}</td>
+                        </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Rodapé -->
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; font-size: 10px; color: #71717a; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+            Gerado por SoundyAI • soundy.ai • ${date}
+        </div>
+    </div>
+</div>
+        `;
+        
+        // 🎯 RENDERIZAR E CAPTURAR
+        const container = document.getElementById('pdf-report-template');
+        if (!container) {
+            throw new Error('Container #pdf-report-template não encontrado');
+        }
+        
+        container.innerHTML = reportHTML;
+        const elemento = container.firstElementChild;
+        
+        // Forçar visibilidade temporária
+        container.style.display = 'block';
+        container.style.visibility = 'visible';
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.zIndex = '-1';
+        
+        await new Promise(r => setTimeout(r, 300));
+        
+        // Capturar com html2canvas
+        const canvas = await html2canvas(elemento, {
+            width: 794,
+            height: 1123,
+            windowWidth: 794,
+            windowHeight: 1123,
+            backgroundColor: '#0B0C14',
+            useCORS: true,
+            scale: 2
+        });
+        
+        // Gerar PDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'p' });
+        
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+        
+        // Sanitizar nomes para o arquivo
+        const sanitize = (str) => (str || 'faixa').replace(/[^a-z0-9]/gi, '_').substring(0, 30);
+        const fileName = `SoundyAI-Referencia-${sanitize(trackAName)}_vs_${sanitize(trackBName)}.pdf`;
+        
+        pdf.save(fileName);
+        
+        // Limpar container
+        container.style.display = 'none';
+        container.innerHTML = '';
+        
+        console.log('[REF-PDF] ✅ Relatório gerado:', fileName);
+        showTemporaryFeedback('✅ Relatório de comparação baixado!');
+        
+    } catch (error) {
+        console.error('[REF-PDF] ❌ Erro ao gerar relatório:', error);
+        showTemporaryFeedback('❌ Erro ao gerar PDF');
+        alert(`Erro ao gerar relatório:\n\n${error.message}`);
+    }
+}
+
 // � Mostrar feedback temporário
 // (definição duplicada de showTemporaryFeedback removida — mantida a versão consolidada abaixo)
 
@@ -24844,6 +25151,13 @@ async function downloadModalAnalysis() {
         alert('❌ Nenhuma análise disponível.\n\nFaça uma análise antes de gerar o relatório.');
         console.error('[PDF-ERROR] Análise não encontrada em window.__soundyAI.analysis ou currentModalAnalysis');
         return;
+    }
+    
+    // 🎯 FIX: Detectar modo referência e redirecionar para gerador específico
+    const currentPdfMode = analysis?.mode || window.currentAnalysisMode || 'genre';
+    if (currentPdfMode === 'reference') {
+        console.log('[PDF-ROUTER] 🔀 Modo referência detectado - redirecionando para generateReferenceReportPDF()');
+        return generateReferenceReportPDF();
     }
     
     // 🔍 AUDITORIA: Mapear estrutura completa do objeto analysis
