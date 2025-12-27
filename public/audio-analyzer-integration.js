@@ -21937,24 +21937,215 @@ const TRUE_PEAK_HARD_CAP = 0.0;
 /**
  * 🎯 getNormalizedTargetsFromAnalysis - Extrai targets normalizados do resultado do backend
  * 
- * PRIORIDADE:
- * 1. analysis.data.referenceTargetsNormalized (FONTE ÚNICA - backend normalizou)
- * 2. Fallback: calcular localmente usando getMetricBounds (legado)
+ * PRIORIDADE (FONTE ÚNICA DA VERDADE):
+ * 1. analysis.data.targetProfile (NOVO - estrutura completa com tp_min, tp_max, etc)
+ * 2. analysis.data.referenceTargetsNormalized (formato anterior)
+ * 3. Fallback: retornar null (frontend usará getMetricBounds como último recurso)
+ * 
+ * ❌ PROIBIDO: Fallbacks para PROD_AI_REF_DATA, __activeRefData, etc.
  * 
  * @param {Object} analysis - Objeto de análise retornado pelo backend
  * @returns {Object|null} Targets normalizados { metrics: {...}, bands: {...}, preCalculatedSeverities: {...} }
  */
 function getNormalizedTargetsFromAnalysis(analysis) {
-    // 🎯 PRIORIDADE 1: Usar targets normalizados do backend (FONTE ÚNICA)
+    // 🎯 PRIORIDADE 1: targetProfile (NOVO - estrutura completa)
+    if (analysis?.data?.targetProfile) {
+        console.log('[NORMALIZED-TARGETS] ✅ Usando targetProfile do backend (FONTE ÚNICA)');
+        console.log('[NORMALIZED-TARGETS] Genre:', analysis.data.targetProfile._genre);
+        
+        // Converter targetProfile para formato compatível com código existente
+        const tp = analysis.data.targetProfile;
+        return {
+            metrics: {
+                lufs: tp.lufs ? { ...tp.lufs, target: tp.lufs.target } : null,
+                truePeak: tp.truePeak ? { 
+                    min: tp.truePeak.tp_min,
+                    max: tp.truePeak.tp_max,
+                    target: tp.truePeak.tp_target,
+                    warnFrom: tp.truePeak.tp_warn_from,
+                    hardCap: tp.truePeak.tp_max
+                } : null,
+                dr: tp.dr ? { ...tp.dr, target: tp.dr.target } : null,
+                lra: tp.lra,
+                stereo: tp.stereo
+            },
+            bands: tp.bands,
+            preCalculatedSeverities: tp.preCalculatedSeverities,
+            _source: 'targetProfile',
+            _genre: tp._genre
+        };
+    }
+    
+    // 🎯 PRIORIDADE 2: referenceTargetsNormalized (formato anterior)
     if (analysis?.data?.referenceTargetsNormalized) {
         console.log('[NORMALIZED-TARGETS] ✅ Usando referenceTargetsNormalized do backend');
-        return analysis.data.referenceTargetsNormalized;
+        return {
+            ...analysis.data.referenceTargetsNormalized,
+            _source: 'referenceTargetsNormalized'
+        };
     }
     
     // 🔄 FALLBACK: Se backend não enviou, retornar null (frontend usará getMetricBounds)
-    console.log('[NORMALIZED-TARGETS] ⚠️ Backend não enviou referenceTargetsNormalized');
+    // ❌ REMOVIDO: Fallbacks para PROD_AI_REF_DATA, __activeRefData, etc.
+    console.log('[NORMALIZED-TARGETS] ⚠️ Backend não enviou targetProfile nem referenceTargetsNormalized');
     return null;
 }
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 🎯 evaluateMetricFromTargetProfile - FUNÇÃO CENTRALIZADA DE AVALIAÇÃO
+ * 
+ * Esta função DEVE ser usada por:
+ *   1) Tabela de comparação (status, ação)
+ *   2) Score (pontuação)
+ *   3) Builder de sugestões (severidade, delta)
+ * 
+ * GARANTE: mesma avaliação em todos os lugares, sem divergências.
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * @param {string} metricKey - 'truePeak', 'lufs', 'dr', 'stereo'
+ * @param {number} value - Valor medido
+ * @param {Object} targetProfile - Objeto targetProfile do backend
+ * @returns {Object} { severity, severityClass, action, diff, isCritical, isWithinRange }
+ */
+function evaluateMetricFromTargetProfile(metricKey, value, targetProfile) {
+    if (!Number.isFinite(value)) {
+        return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0, isCritical: false, isWithinRange: false };
+    }
+    
+    if (!targetProfile) {
+        return { severity: 'N/A', severityClass: 'na', action: 'Sem targets', diff: 0, isCritical: false, isWithinRange: false };
+    }
+    
+    // 🎯 PRIORIDADE 1: Usar severidade pré-calculada do backend
+    const preCalc = targetProfile.preCalculatedSeverities?.[metricKey] 
+                 || targetProfile.preCalculatedSeverities?.metrics?.[metricKey];
+    if (preCalc) {
+        return {
+            severity: preCalc.severity,
+            severityClass: preCalc.severity === 'CRÍTICA' ? 'critical' : 
+                          preCalc.severity === 'ALTA' ? 'high' :
+                          preCalc.severity === 'ATENÇÃO' ? 'caution' : 'ok',
+            action: preCalc.action,
+            diff: preCalc.delta || 0,
+            isCritical: preCalc.isCritical || preCalc.severity === 'CRÍTICA',
+            isWithinRange: preCalc.severity === 'OK'
+        };
+    }
+    
+    // 🔄 FALLBACK: Calcular localmente usando targetProfile
+    const metric = targetProfile[metricKey] || targetProfile.metrics?.[metricKey];
+    if (!metric) {
+        return { severity: 'N/A', severityClass: 'na', action: 'Métrica não encontrada', diff: 0, isCritical: false, isWithinRange: false };
+    }
+    
+    // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0 dBTP = SEMPRE CRÍTICA
+    if (metricKey === 'truePeak') {
+        const tpMax = metric.tp_max ?? metric.max ?? TRUE_PEAK_HARD_CAP;
+        if (value > tpMax) {
+            const delta = value - tpMax;
+            return {
+                severity: 'CRÍTICA',
+                severityClass: 'critical',
+                action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dBTP`,
+                diff: delta,
+                isCritical: true,
+                isWithinRange: false
+            };
+        }
+        
+        // Verificar warn_from
+        const warnFrom = metric.tp_warn_from ?? metric.warnFrom;
+        if (warnFrom != null && value > warnFrom) {
+            const delta = value - warnFrom;
+            return {
+                severity: 'ALTA',
+                severityClass: 'high',
+                action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dBTP`,
+                diff: delta,
+                isCritical: false,
+                isWithinRange: false
+            };
+        }
+        
+        // Verificar se está abaixo do mínimo
+        const tpMin = metric.tp_min ?? metric.min ?? -3;
+        if (value < tpMin) {
+            return {
+                severity: 'ATENÇÃO',
+                severityClass: 'caution',
+                action: `ℹ️ Muito baixo. Pode aumentar até ${(tpMin - value).toFixed(1)} dBTP`,
+                diff: value - tpMin,
+                isCritical: false,
+                isWithinRange: false
+            };
+        }
+        
+        // OK: Dentro do range
+        return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0, isCritical: false, isWithinRange: true };
+    }
+    
+    // 🎯 OUTRAS MÉTRICAS: Lógica padrão de range [min, max]
+    const min = metric.min;
+    const max = metric.max;
+    const target = metric.target;
+    
+    if (min == null || max == null) {
+        return { severity: 'N/A', severityClass: 'na', action: 'Range não definido', diff: 0, isCritical: false, isWithinRange: false };
+    }
+    
+    // OK: Dentro do range
+    if (value >= min && value <= max) {
+        return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0, isCritical: false, isWithinRange: true };
+    }
+    
+    // Fora do range: calcular distância
+    const tolerance = (max - min) / 2;
+    let diff, absDelta;
+    
+    if (value < min) {
+        diff = value - min; // negativo
+        absDelta = min - value;
+    } else {
+        diff = value - max; // positivo
+        absDelta = value - max;
+    }
+    
+    const actionVerb = diff > 0 ? 'Reduzir' : 'Aumentar';
+    const unit = metricKey === 'lufs' ? 'LUFS' : metricKey === 'dr' ? 'dB' : '';
+    
+    if (absDelta <= tolerance) {
+        return {
+            severity: 'ATENÇÃO',
+            severityClass: 'caution',
+            action: `⚠️ ${actionVerb} ${absDelta.toFixed(1)} ${unit}`,
+            diff,
+            isCritical: false,
+            isWithinRange: false
+        };
+    } else if (absDelta <= tolerance * 2) {
+        return {
+            severity: 'ALTA',
+            severityClass: 'high',
+            action: `🟡 ${actionVerb} ${absDelta.toFixed(1)} ${unit}`,
+            diff,
+            isCritical: false,
+            isWithinRange: false
+        };
+    } else {
+        return {
+            severity: 'CRÍTICA',
+            severityClass: 'critical',
+            action: `🔴 ${actionVerb} ${absDelta.toFixed(1)} ${unit}`,
+            diff,
+            isCritical: true,
+            isWithinRange: false
+        };
+    }
+}
+
+// Expor globalmente para uso em outros scripts
+window.evaluateMetricFromTargetProfile = evaluateMetricFromTargetProfile;
 
 /**
  * 🎯 getSeverityFromNormalized - Obtém severidade pré-calculada do backend
