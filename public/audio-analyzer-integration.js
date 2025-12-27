@@ -10691,7 +10691,7 @@ function showNextStepMessage(message) {
 
 // �🎯 NOVO: Validação comum de arquivo
 function validateAudioFile(file) {
-    const MAX_UPLOAD_MB = 60;
+    const MAX_UPLOAD_MB = 150;
     const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
     
     // Formatos aceitos: WAV, FLAC, MP3 (simplificado)
