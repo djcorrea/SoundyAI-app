@@ -3,6 +3,12 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🚨 CONSTANTE FÍSICA ABSOLUTA - True Peak NUNCA pode ser > 0 dBTP
+// Esta constante é usada em TODO o sistema para garantir paridade tabela/cards
+// ═══════════════════════════════════════════════════════════════════════════════
+const TRUE_PEAK_HARD_CAP = 0.0; // dBTP - Limite absoluto para True Peak
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -8248,10 +8254,32 @@ function renderGenreComparisonTable(options) {
     }
     
     // 🎚️ True Peak
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+    // Esta regra NÃO pode ser sobrescrita por tolerância ou target do gênero
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const TRUE_PEAK_HARD_CAP = 0.0; // dBTP - Limite máximo ABSOLUTO
+    
     if (genreData.true_peak_target !== null && genreData.true_peak_target !== undefined) {
         const tpValue = truePeakDbtp;
         if (Number.isFinite(tpValue) && Number.isFinite(genreData.true_peak_target)) {
-            const result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+            let result;
+            
+            // 🚨 HARD LIMIT: TP > 0.0 = CRÍTICA (ignora tolerância)
+            if (tpValue > TRUE_PEAK_HARD_CAP) {
+                const delta = tpValue - TRUE_PEAK_HARD_CAP;
+                result = {
+                    severity: 'CRÍTICA',
+                    severityClass: 'critical',
+                    action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
+                    diff: tpValue - genreData.true_peak_target
+                };
+                console.log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue);
+            } else {
+                // Lógica normal para TP <= 0.0
+                result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+            }
+            
             if (result && Number.isFinite(result.diff)) {
                 // 🔐 SECURITY GUARD
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
@@ -22027,10 +22055,8 @@ const GENRE_SCORING_WEIGHTS = {
 // 🎯 FONTE ÚNICA DA VERDADE: Usar targets normalizados do backend
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * 🎯 CONSTANTE FÍSICA - True Peak NUNCA > 0 dBTP
- */
-const TRUE_PEAK_HARD_CAP = 0.0;
+// 🚨 TRUE_PEAK_HARD_CAP já definida no início do arquivo (linha ~10)
+// NÃO redefinir aqui para evitar erro de declaração duplicada
 
 /**
  * 🎯 getNormalizedTargetsFromAnalysis - Extrai targets normalizados do resultado do backend
