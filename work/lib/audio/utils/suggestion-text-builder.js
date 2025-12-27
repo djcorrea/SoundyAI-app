@@ -137,12 +137,13 @@ export function buildMetricSuggestion({
         
       case 'truePeak':
         if (value >= 0) {
-          action += `🔴 ALERTA: True Peak em ${valueStr} dBTP - alto risco de clipping digital!\n`;
-          action += `- Reduza imediatamente o limiter ou o gain master.\n`;
-          action += `- Mantenha sempre abaixo de -1.0 dBTP (idealmente -0.3 dBTP).`;
+          action += `🔴 CRÍTICO: True Peak em ${valueStr} dBTP - CLIPPING DIGITAL!\n`;
+          action += `- O limite máximo absoluto é 0.0 dBTP.\n`;
+          action += `- Reduza imediatamente o limiter ou o gain master em pelo menos ${excessStr} dB.\n`;
+          action += `- O target para este estilo é ${targetStr} dBTP.`;
         } else {
-          action += `⚠️ True Peak ${excessStr} dB acima do máximo ideal.\n`;
-          action += `- Reduza um pouco o limiter para evitar overshooting.`;
+          action += `⚠️ True Peak ${excessStr} dB acima do máximo (${maxStr} dBTP).\n`;
+          action += `- Reduza o limiter para chegar próximo de ${targetStr} dBTP.`;
         }
         break;
         
@@ -177,9 +178,9 @@ export function buildMetricSuggestion({
         break;
         
       case 'truePeak':
-        action += `✅ True Peak muito seguro (${valueStr} dBTP).\n`;
-        action += `- Você tem margem para aumentar o volume sem risco de clipping.\n`;
-        action += `- O ideal é ficar entre ${minStr} e ${maxStr} dBTP.`;
+        action += `ℹ️ True Peak em ${valueStr} dBTP está abaixo do mínimo (${minStr} dBTP).\n`;
+        action += `- Você tem margem de ${deficitStr} dB para aumentar o volume.\n`;
+        action += `- O target para este estilo é ${targetStr} dBTP (faixa: ${minStr} a ${maxStr} dBTP).`;
         break;
         
       case 'dr':
