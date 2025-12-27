@@ -846,11 +846,32 @@ class AISuggestionUIController {
             }
 
             // ✅ EXTRAIR METRICS E TARGETS de analysis.data
-            // Campos reais: analysis.data.metrics e analysis.data.genreTargets
+            // 🎯 FONTE ÚNICA DA VERDADE: targetProfile ou referenceTargetsNormalized
+            // ❌ PROIBIDO: getCorrectTargets() com fallbacks para PROD_AI_REF_DATA
             const metrics = analysis?.data?.metrics || null;
-            const genreTargets = typeof getCorrectTargets === 'function' 
-                ? getCorrectTargets(analysis) 
-                : (analysis?.data?.genreTargets || null);
+            
+            // 🔐 FONTE ÚNICA: Usar targetProfile (preferido) ou referenceTargetsNormalized
+            // SEM FALLBACKS para globals (PROD_AI_REF_DATA, __activeRefData, etc)
+            let genreTargets = null;
+            let targetSource = 'none';
+            
+            if (analysis?.data?.targetProfile) {
+                // 🎯 PRIORIDADE 1: targetProfile (novo formato completo)
+                genreTargets = analysis.data.targetProfile;
+                targetSource = 'targetProfile';
+                console.log('[AI-UI][TARGETS] ✅ Usando analysis.data.targetProfile (FONTE ÚNICA)');
+            } else if (analysis?.data?.referenceTargetsNormalized) {
+                // 🎯 PRIORIDADE 2: referenceTargetsNormalized (formato anterior)
+                genreTargets = analysis.data.referenceTargetsNormalized;
+                targetSource = 'referenceTargetsNormalized';
+                console.log('[AI-UI][TARGETS] ✅ Usando analysis.data.referenceTargetsNormalized');
+            } else if (analysis?.data?.genreTargets) {
+                // 🎯 PRIORIDADE 3: genreTargets direto (fallback mínimo)
+                genreTargets = analysis.data.genreTargets;
+                targetSource = 'genreTargets';
+                console.log('[AI-UI][TARGETS] ⚠️ Usando analysis.data.genreTargets (fallback)');
+            }
+            // ❌ REMOVIDO: Fallbacks para PROD_AI_REF_DATA, __activeRefData, etc.
             
             // 🎯 VALIDAÇÃO CONDICIONAL: genreTargets só é obrigatório em modo genre
             const analysisMode = analysis?.mode || window.currentAnalysisMode || 'genre';
@@ -874,19 +895,30 @@ class AISuggestionUIController {
             
             if (metrics && genreTargets) {
                 console.log('[AI-UI][VALIDATION] ✅ Metrics e Targets encontrados');
-                console.log('[AI-UI][VALIDATION] 📍 Fonte: analysis.data.metrics + analysis.data.genreTargets');
-                console.log('[AI-UI][VALIDATION] Metrics:', {
+                console.log('[AI-UI][VALIDATION] 📍 Fonte:', targetSource);
+                
+                // 🔐 LOG OBRIGATÓRIO: Mostrar targets usados (para debug de divergências)
+                console.log('%c[AI-UI][TARGET-PROFILE] 🎯 TARGETS USADOS NAS SUGESTÕES:', 'color:#00FF88;font-weight:bold;');
+                console.log('[AI-UI][TARGET-PROFILE] Genre:', genreTargets._genre || analysis?.data?.genre || 'unknown');
+                console.log('[AI-UI][TARGET-PROFILE] Metrics:', {
                     loudness: metrics.loudness?.value,
                     truePeak: metrics.truePeak?.value,
                     dr: metrics.dr?.value,
                     stereo: metrics.stereo?.value
                 });
-                console.log('[AI-UI][VALIDATION] Targets:', {
-                    lufs: genreTargets.lufs?.target,
-                    truePeak: genreTargets.truePeak?.target,
-                    dr: genreTargets.dr?.target,
-                    stereo: genreTargets.stereo?.target
+                console.log('[AI-UI][TARGET-PROFILE] Targets:', {
+                    lufs: genreTargets.lufs?.target ?? genreTargets.metrics?.lufs?.target,
+                    truePeak: genreTargets.truePeak?.tp_target ?? genreTargets.truePeak?.target ?? genreTargets.metrics?.truePeak?.target,
+                    dr: genreTargets.dr?.target ?? genreTargets.metrics?.dr?.target,
+                    stereo: genreTargets.stereo?.target ?? genreTargets.metrics?.stereo?.target
                 });
+                
+                // 🔐 INVARIANTE: Se truePeak > 0, DEVE haver severidade CRÍTICA
+                const tpValue = metrics.truePeak?.value;
+                if (tpValue > 0) {
+                    console.log('%c[AI-UI][INVARIANT] 🚨 TRUE PEAK > 0 dBTP DETECTADO!', 'color:#FF4444;font-weight:bold;', tpValue);
+                    console.log('[AI-UI][INVARIANT] Severidade esperada: CRÍTICA');
+                }
             }
 
             // Renderiza com metrics e genreTargets para validação

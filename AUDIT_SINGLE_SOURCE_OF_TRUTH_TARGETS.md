@@ -171,6 +171,50 @@ truePeak.max NUNCA pode ser > 0.0 (hardCap aplicado em todos os caminhos)
 
 ---
 
+## 🔴 AUDITORIA ATUALIZADA (27/12/2025) - PROBLEMA IDENTIFICADO
+
+### MAPA: TABELA vs SUGESTÕES - DIVERGÊNCIA DE FONTES
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    🔴 PONTO DE DIVERGÊNCIA IDENTIFICADO                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────────────────────────┐   ┌─────────────────────────────┐  │
+│  │        📊 TABELA                │   │      💡 SUGESTÕES           │  │
+│  ├─────────────────────────────────┤   ├─────────────────────────────┤  │
+│  │                                 │   │                             │  │
+│  │ FONTE:                          │   │ FONTE:                      │  │
+│  │ • referenceTargetsNormalized    │   │ • getCorrectTargets()       │  │
+│  │   (do backend via json-output)  │   │   com FALLBACKS:            │  │
+│  │                                 │   │   - PROD_AI_REF_DATA[genre] │  │
+│  │ ARQUIVO:                        │   │   - window.__activeRefData  │  │
+│  │ • audio-analyzer-integration.js │   │                             │  │
+│  │   buildMetricRows() linha ~7095 │   │ STATUS: ❌ PROBLEMÁTICO     │  │
+│  │                                 │   │ Fallbacks podem ser de      │  │
+│  │ STATUS: ✅ Correto              │   │ análises ANTERIORES!        │  │
+│  │ Usa targets do backend          │   │                             │  │
+│  └─────────────────────────────────┘   └─────────────────────────────┘  │
+│                                                                         │
+│  ⚠️ CONSEQUÊNCIA:                                                       │
+│  • Tabela mostra targets de Funk Mandela                               │
+│  • Sugestões usam targets de Progressive Trance (análise anterior)     │
+│  • Severidades divergem (CRÍTICA vs OK para mesma métrica)             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### FONTES DE TARGETS (AUDITORIA)
+
+| Local | Fonte | Arquivo | Linha | Status |
+|-------|-------|---------|-------|--------|
+| **TABELA** | `referenceTargetsNormalized` | audio-analyzer-integration.js | ~7105 | ✅ Correto |
+| **SUGESTÕES** | `getCorrectTargets()` → fallbacks | ai-suggestion-ui-controller.js | ~851 | ❌ State leak |
+| **BACKEND** | `normalizeGenreTargets()` | json-output.js | ~1102 | ✅ Correto |
+| **PIPELINE** | `consolidatedData.genreTargets` | pipeline-complete.js | ~661 | ✅ Correto |
+
+---
+
 ## ✅ VALIDAÇÃO
 
 Para testar a implementação:

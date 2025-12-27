@@ -1148,6 +1148,122 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         };
       })(),
       
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 🎯 targetProfile - OBJETO ÚNICO POR ANÁLISE (FONTE ÚNICA DA VERDADE)
+      // 
+      // Este campo contém TODOS os targets do gênero+modo usados na análise.
+      // TABELA, SCORE e SUGESTÕES devem usar APENAS este objeto.
+      // 
+      // REGRAS:
+      // - truePeak.tp_max é SEMPRE 0.0 (hard cap físico)
+      // - Se tp > 0.0 => severidade = CRÍTICA (sem exceção)
+      // - min/max estão na MESMA escala dos valores medidos
+      // ═══════════════════════════════════════════════════════════════════════════
+      targetProfile: (() => {
+        if (!options.genreTargets) return null;
+        
+        const normalized = normalizeGenreTargets(options.genreTargets);
+        if (!normalized) return null;
+        
+        const TRUE_PEAK_HARD_CAP = 0.0;
+        
+        // Extrair targets de True Peak com estrutura específica
+        const tpMetric = normalized.metrics?.truePeak || {};
+        const lufsMetric = normalized.metrics?.lufs || {};
+        const drMetric = normalized.metrics?.dr || {};
+        const lraMetric = normalized.metrics?.lra || {};
+        const stereoMetric = normalized.metrics?.stereo || {};
+        
+        // Construir targetProfile com estrutura padronizada
+        const profile = {
+          _version: '1.0.0',
+          _source: 'backend',
+          _genre: finalGenre,
+          _timestamp: new Date().toISOString(),
+          
+          // TRUE PEAK: Estrutura específica com tp_min, tp_warn_from, tp_target, tp_max
+          truePeak: {
+            tp_min: tpMetric.min ?? -3.0,
+            tp_warn_from: tpMetric.warnFrom ?? -0.1,
+            tp_target: tpMetric.target ?? -1.0,
+            tp_max: TRUE_PEAK_HARD_CAP  // SEMPRE 0.0 (hard cap físico)
+          },
+          
+          // LUFS
+          lufs: {
+            target: lufsMetric.target ?? -8.5,
+            min: lufsMetric.min ?? -10.5,
+            max: lufsMetric.max ?? -6.5
+          },
+          
+          // Dynamic Range
+          dr: {
+            target: drMetric.target ?? 6.0,
+            min: drMetric.min ?? 4.0,
+            max: drMetric.max ?? 9.0
+          },
+          
+          // LRA (se existir)
+          lra: lraMetric.target != null ? {
+            target: lraMetric.target,
+            min: lraMetric.min,
+            max: lraMetric.max
+          } : null,
+          
+          // Stereo (se existir)
+          stereo: stereoMetric.target != null ? {
+            target: stereoMetric.target,
+            min: stereoMetric.min,
+            max: stereoMetric.max
+          } : null,
+          
+          // BANDAS: sub/bass/lowMid/mid/highMid/brilho/presenca com {min, max, target}
+          bands: (() => {
+            const normalizedBands = normalized.bands || {};
+            const bandProfile = {};
+            
+            // Mapeamento de bandas
+            const bandKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'air', 'presence'];
+            const bandAliases = {
+              'air': 'brilho',
+              'presence': 'presenca'
+            };
+            
+            for (const key of bandKeys) {
+              const band = normalizedBands[key];
+              if (band && typeof band.min === 'number' && typeof band.max === 'number') {
+                const displayKey = bandAliases[key] || key;
+                bandProfile[displayKey] = {
+                  min: band.min,
+                  max: band.max,
+                  target: band.target ?? (band.min + band.max) / 2
+                };
+              }
+            }
+            
+            return Object.keys(bandProfile).length > 0 ? bandProfile : null;
+          })(),
+          
+          // Severidades pré-calculadas (para frontend usar diretamente)
+          preCalculatedSeverities: {
+            truePeak: calculateMetricSeverity('truePeak', technicalData.truePeakDbtp, normalized),
+            lufs: calculateMetricSeverity('lufs', technicalData.lufsIntegrated, normalized),
+            dr: calculateMetricSeverity('dr', technicalData.dynamicRange, normalized),
+            stereo: calculateMetricSeverity('stereo', technicalData.stereoCorrelation, normalized)
+          }
+        };
+        
+        console.log('[JSON-OUTPUT] 🎯 targetProfile gerado:', {
+          genre: profile._genre,
+          truePeak: `[${profile.truePeak.tp_min}, ${profile.truePeak.tp_max}] target=${profile.truePeak.tp_target}`,
+          lufs: `[${profile.lufs.min}, ${profile.lufs.max}] target=${profile.lufs.target}`,
+          dr: `[${profile.dr.min}, ${profile.dr.max}] target=${profile.dr.target}`,
+          bandCount: profile.bands ? Object.keys(profile.bands).length : 0
+        });
+        
+        return profile;
+      })(),
+      
       // 🎯 NOVO: Métricas consolidadas para sugestões usarem valores EXATOS
       metrics: {
         loudness: {
