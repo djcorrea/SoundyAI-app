@@ -594,7 +594,71 @@ window.PROD_AI_REF_DATA = {
 
 // 🎯 COMPATIBILIDADE: Manter estrutura esperada pela interface
 window.EMBEDDED_REFS_LOADED = true;
-window.EMBEDDED_REFS_VERSION = "v2025.08.25-arithmetic-corrected";
+window.EMBEDDED_REFS_VERSION = "v2025.12.26-genre-migration";
+
+/**
+ * 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
+ * 
+ * Esta função é o ÚNICO ponto de conversão de gêneros legados no frontend.
+ * Todo o sistema usa os novos IDs após esta normalização.
+ * 
+ * MAPEAMENTO:
+ * - trance → progressive_trance
+ * - phonk → rap_drill
+ * - funk_automotivo → edm
+ * - techno → fullon
+ * 
+ * @param {string} genreId - ID do gênero (pode ser legado ou novo)
+ * @returns {string} - ID oficial normalizado
+ */
+window.normalizeGenreId = function(genreId) {
+  if (!genreId || typeof genreId !== 'string') {
+    return genreId;
+  }
+  
+  // Mapeamento de IDs legados para IDs oficiais
+  const LEGACY_TO_OFFICIAL = {
+    'trance': 'progressive_trance',
+    'phonk': 'rap_drill',
+    'funk_automotivo': 'edm',
+    'techno': 'fullon'
+  };
+  
+  const normalized = genreId.toLowerCase().trim();
+  
+  // Se é um ID legado, converter para oficial
+  if (LEGACY_TO_OFFICIAL[normalized]) {
+    console.log(`[GENRE-NORMALIZE] 🔄 Convertendo legado: "${normalized}" → "${LEGACY_TO_OFFICIAL[normalized]}"`);
+    return LEGACY_TO_OFFICIAL[normalized];
+  }
+  
+  // Já é um ID oficial ou outro gênero válido
+  return normalized;
+};
+
+// 🔄 CRIAR ALIASES PARA COMPATIBILIDADE COM IDs LEGADOS
+// Isso garante que análises antigas continuem funcionando
+(function createLegacyAliases() {
+  const aliases = {
+    'progressive_trance': 'trance',
+    'rap_drill': 'phonk',
+    'edm': 'funk_automotivo',
+    'fullon': 'techno'
+  };
+  
+  Object.entries(aliases).forEach(([newId, legacyId]) => {
+    // Se existe o novo ID, criar alias com o legado
+    if (window.PROD_AI_REF_DATA[newId]) {
+      window.PROD_AI_REF_DATA[legacyId] = window.PROD_AI_REF_DATA[newId];
+      console.log(`[GENRE-ALIAS] Criado alias: "${legacyId}" → "${newId}"`);
+    }
+    // Se existe apenas o legado, criar o novo ID
+    else if (window.PROD_AI_REF_DATA[legacyId]) {
+      window.PROD_AI_REF_DATA[newId] = window.PROD_AI_REF_DATA[legacyId];
+      console.log(`[GENRE-ALIAS] Criado novo ID: "${newId}" a partir de "${legacyId}"`);
+    }
+  });
+})();
 
 console.log('🎵 Referências musicais carregadas:', Object.keys(window.PROD_AI_REF_DATA));
 console.log('📊 Total de gêneros:', Object.keys(window.PROD_AI_REF_DATA).length);

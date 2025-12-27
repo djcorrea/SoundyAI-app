@@ -580,7 +580,7 @@ function normalizeGenreName(genre) {
     return 'default';
   }
   
-  return genre
+  let normalized = genre
     .toLowerCase()
     .trim()
     .replace(/\s+/g, '_')           // Espaços → underscores
@@ -591,6 +591,52 @@ function normalizeGenreName(genre) {
     .replace(/[ùúûü]/g, 'u')
     .replace(/[ç]/g, 'c')
     .replace(/[^a-z0-9_]/g, '');    // Remove caracteres especiais
+  
+  // 🎯 MAPEAMENTO LEGADO → OFICIAL
+  // Converte IDs antigos para os novos IDs oficiais
+  normalized = normalizeGenreId(normalized);
+  
+  return normalized;
+}
+
+/**
+ * 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
+ * 
+ * Esta função é o ÚNICO ponto de conversão de gêneros legados.
+ * Todo o sistema usa os novos IDs após esta normalização.
+ * 
+ * MAPEAMENTO:
+ * - trance → progressive_trance
+ * - phonk → rap_drill
+ * - funk_automotivo → edm
+ * - techno → fullon
+ * 
+ * @param {string} genreId - ID do gênero (pode ser legado ou novo)
+ * @returns {string} - ID oficial normalizado
+ */
+export function normalizeGenreId(genreId) {
+  if (!genreId || typeof genreId !== 'string') {
+    return genreId;
+  }
+  
+  // Mapeamento de IDs legados para IDs oficiais
+  const LEGACY_TO_OFFICIAL = {
+    'trance': 'progressive_trance',
+    'phonk': 'rap_drill',
+    'funk_automotivo': 'edm',
+    'techno': 'fullon'
+  };
+  
+  const normalized = genreId.toLowerCase().trim();
+  
+  // Se é um ID legado, converter para oficial
+  if (LEGACY_TO_OFFICIAL[normalized]) {
+    console.log(`[GENRE-NORMALIZE] 🔄 Convertendo legado: "${normalized}" → "${LEGACY_TO_OFFICIAL[normalized]}"`);
+    return LEGACY_TO_OFFICIAL[normalized];
+  }
+  
+  // Já é um ID oficial ou outro gênero válido
+  return normalized;
 }
 
 /**

@@ -1,8 +1,9 @@
 {
   "genres": [
     {
-      "key": "trance",
-      "label": "Trance"
+      "key": "progressive_trance",
+      "label": "Progressive Trance",
+      "legacy_key": "trance"
     },
     {
       "key": "funk_mandela",
@@ -13,8 +14,9 @@
       "label": "Funk Bruxaria"
     },
     {
-      "key": "funk_automotivo",
-      "label": "Funk Automotivo"
+      "key": "edm",
+      "label": "EDM",
+      "legacy_key": "funk_automotivo"
     },
     {
       "key": "eletronico",

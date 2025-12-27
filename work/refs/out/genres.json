@@ -1,8 +1,9 @@
 {
   "genres": [
     {
-      "key": "trance",
-      "label": "Trance"
+      "key": "progressive_trance",
+      "label": "Progressive Trance",
+      "legacy_key": "trance"
     },
     {
       "key": "funk_mandela",
@@ -13,8 +14,9 @@
       "label": "Funk Bruxaria"
     },
     {
-      "key": "funk_automotivo",
-      "label": "Funk Automotivo"
+      "key": "edm",
+      "label": "EDM",
+      "legacy_key": "funk_automotivo"
     },
     {
       "key": "funk_bh",
@@ -37,8 +39,9 @@
       "label": "Tech House"
     },
     {
-      "key": "techno",
-      "label": "Techno"
+      "key": "fullon",
+      "label": "Fullon",
+      "legacy_key": "techno"
     },
     {
       "key": "house",
@@ -49,8 +52,9 @@
       "label": "Brazilian Phonk"
     },
     {
-      "key": "phonk",
-      "label": "Phonk"
+      "key": "rap_drill",
+      "label": "Rap / Drill",
+      "legacy_key": "phonk"
     }
   ]
 }

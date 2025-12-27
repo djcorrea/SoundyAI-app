@@ -4,6 +4,52 @@
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
+ * 
+ * Esta função é o ÚNICO ponto de conversão de gêneros legados.
+ * Todo o sistema usa os novos IDs após esta normalização.
+ * 
+ * MAPEAMENTO:
+ * - trance → progressive_trance
+ * - phonk → rap_drill
+ * - funk_automotivo → edm
+ * - techno → fullon
+ * 
+ * @param {string} genreId - ID do gênero (pode ser legado ou novo)
+ * @returns {string} - ID oficial normalizado
+ */
+function normalizeGenreId(genreId) {
+  if (!genreId || typeof genreId !== 'string') {
+    return genreId;
+  }
+  
+  // Mapeamento de IDs legados para IDs oficiais
+  const LEGACY_TO_OFFICIAL = {
+    'trance': 'progressive_trance',
+    'phonk': 'rap_drill',
+    'funk_automotivo': 'edm',
+    'techno': 'fullon'
+  };
+  
+  const normalized = genreId.toLowerCase().trim();
+  
+  // Se é um ID legado, converter para oficial
+  if (LEGACY_TO_OFFICIAL[normalized]) {
+    console.log(`[GENRE-NORMALIZE] 🔄 Convertendo legado: "${normalized}" → "${LEGACY_TO_OFFICIAL[normalized]}"`);
+    return LEGACY_TO_OFFICIAL[normalized];
+  }
+  
+  // Já é um ID oficial ou outro gênero válido
+  return normalized;
+}
+
+// Exportar globalmente para uso em outros módulos
+window.normalizeGenreId = normalizeGenreId;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🛡️ SAFE STATE MACHINE ACCESSOR
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function getSafeStateMachine() {
@@ -4688,6 +4734,29 @@ const __INLINE_EMBEDDED_REFS__ = {
         trap:           { lufs_target: -9,  tol_lufs: 1,  true_peak_target: -1, tol_true_peak: 1, dr_target: 8, tol_dr: 2, lra_target: 6, tol_lra: 3, stereo_target: 0.1,  tol_stereo: 0.1, bands: { sub:{target_db:-16,tol_db:5.5}, low_bass:{target_db:-16,tol_db:4.5}, upper_bass:{target_db:-15,tol_db:4.5}, low_mid:{target_db:-14,tol_db:4.5}, mid:{target_db:-13,tol_db:4.5}, high_mid:{target_db:-20,tol_db:4.5}, brilho:{target_db:-25,tol_db:4.5}, presenca:{target_db:-32,tol_db:4.5} } }
     }
 };
+
+// 🔄 CRIAR ALIASES PARA COMPATIBILIDADE COM IDs LEGADOS
+// Isso garante que análises antigas e fallbacks inline continuem funcionando
+(function createInlineLegacyAliases() {
+  const byGenre = __INLINE_EMBEDDED_REFS__.byGenre;
+  const aliases = {
+    'progressive_trance': 'trance',
+    'edm': 'funk_automotivo'
+  };
+  
+  Object.entries(aliases).forEach(([newId, legacyId]) => {
+    // Se existe o legado, criar o novo ID
+    if (byGenre[legacyId] && !byGenre[newId]) {
+      byGenre[newId] = byGenre[legacyId];
+      console.log(`[INLINE-ALIAS] Criado novo ID: "${newId}" a partir de "${legacyId}"`);
+    }
+    // Se existe o novo, criar alias legado
+    else if (byGenre[newId] && !byGenre[legacyId]) {
+      byGenre[legacyId] = byGenre[newId];
+      console.log(`[INLINE-ALIAS] Criado alias: "${legacyId}" → "${newId}"`);
+    }
+  });
+})();
 
 // Construir estatísticas agregadas (média stereo por gênero) a partir de refs carregadas
 function buildAggregatedRefStats() {
