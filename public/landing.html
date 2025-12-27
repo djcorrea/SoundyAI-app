@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundyAI - Produção Musical Inteligente</title>
+    <title>SoundyAI - Diagnóstico Técnico de Áudio com IA</title>
     
     <!-- Bibliotecas para efeitos visuais -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&display=swap');
         
         * {
             margin: 0;
@@ -19,14 +19,14 @@
         }
         
         :root {
-            --neon-cyan: #00ffff;
-            --neon-purple: #ff00ff;
-            --electric-blue: #0099FF;
-            --plasma-pink: #ff0080;
-            --dark-bg: #0a0a0f;
-            --glass-bg: rgba(255, 255, 255, 0.05);
+            --neon-cyan: #00f3ff;
+            --neon-purple: #bc13fe;
+            --deep-blue: #020205;
+            --dark-bg: #000000;
+            --card-bg: rgba(5, 5, 10, 0.8);
             --text-primary: #ffffff;
-            --text-secondary: #a0a0ff;
+            --text-secondary: #a0a0c0;
+            --accent-glow: rgba(188, 19, 254, 0.6);
         }
         
         html {
@@ -39,6 +39,7 @@
             color: var(--text-primary);
             overflow-x: hidden;
             overflow-y: auto;
+            font-size: 18px;
         }
         
         /* Animated Background */
@@ -49,9 +50,7 @@
             width: 100%;
             height: 100%;
             z-index: -10;
-            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
-            overflow: hidden;
-            pointer-events: none;
+            background: radial-gradient(circle at 50% 50%, #020205 0%, #000000 100%);
         }
         
         .vanta-background {
@@ -61,51 +60,34 @@
             width: 100%;
             height: 100%;
             z-index: 0;
-            opacity: 0.9;
+            opacity: 0.15;
+            mix-blend-mode: screen;
         }
-        
-        .fundo-neural {
+
+        /* 8D Sound Wave Effect Background */
+        .sound-wave-bg {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-            opacity: 0.3;
-            background: radial-gradient(ellipse at center, #0a0a1f 0%, #000000 100%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200vw;
+            height: 200vh;
+            background: repeating-radial-gradient(
+                circle at 50% 50%, 
+                transparent 0, 
+                transparent 40px, 
+                rgba(188, 19, 254, 0.03) 41px, 
+                transparent 42px
+            );
+            animation: pulse-wave 10s linear infinite;
+            z-index: -1;
+            pointer-events: none;
         }
-        
-        .particles {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-        }
-        
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: #8a2be2;
-            border-radius: 50%;
-            box-shadow: 0 0 10px #8a2be2;
-            animation: float-up 10s linear infinite;
-        }
-        
-        @keyframes float-up {
-            0% {
-                transform: translateY(100vh) translateX(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100vh) translateX(100px);
-                opacity: 0;
-            }
+
+        @keyframes pulse-wave {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
         }
         
         /* Navigation */
@@ -114,10 +96,11 @@
             top: 0;
             width: 100%;
             padding: 20px 50px;
-            background: linear-gradient(180deg, rgba(10, 10, 15, 0.9) 0%, transparent 100%);
+            background: rgba(2, 2, 5, 0.8);
+            backdrop-filter: blur(20px);
             z-index: 1000;
-            transform: translateY(0);
-            transition: all 0.3s ease;
+            border-bottom: 1px solid rgba(188, 19, 254, 0.2);
+            box-shadow: 0 0 30px rgba(188, 19, 254, 0.1);
         }
         
         .nav-container {
@@ -130,863 +113,818 @@
         
         .logo {
             font-family: 'Orbitron', monospace;
-            font-size: 2.5rem;
+            font-size: 1.8rem;
             font-weight: 900;
-            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
-            animation: logo-pulse 2s ease-in-out infinite;
+            color: var(--text-primary);
+            text-decoration: none;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-purple);
         }
         
-        @keyframes logo-pulse {
-            0%, 100% { filter: brightness(1); }
-            50% { filter: brightness(1.2); }
+        .logo span {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
         }
         
         .nav-links {
             display: flex;
-            gap: 40px;
+            gap: 30px;
             list-style: none;
         }
         
         .nav-link {
-            position: relative;
-            font-size: 1.1rem;
-            font-weight: 500;
-            letter-spacing: 1px;
+            font-size: 1rem;
+            font-weight: 600;
             text-decoration: none;
             color: var(--text-secondary);
             transition: all 0.3s ease;
-            padding: 10px 20px;
-            display: block;
-        }
-        
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
-            transition: width 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
         }
         
         .nav-link:hover {
             color: var(--neon-cyan);
-            text-shadow: 0 0 10px var(--neon-cyan);
-            transform: translateY(-2px);
+            text-shadow: 0 0 8px var(--neon-cyan);
         }
         
-        .nav-link:hover::before {
-            width: 100%;
+        .nav-cta {
+            padding: 8px 25px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 4px;
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
         }
         
-        /* Hero Section */
+        .nav-cta:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.6);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .menu-bar {
+            width: 25px;
+            height: 2px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        /* Typography & Common */
+        h1, h2, h3 {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+        
+        .section {
+            padding: 100px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .section-title {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(188, 19, 254, 0.5);
+            letter-spacing: 2px;
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 80px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        /* 1. HERO SECTION - 8D STYLE */
         .hero {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 150px 20px 50px;
             position: relative;
-            padding: 0 50px;
-            /* Evita mudanças de altura/posição durante scroll */
-            min-height: 100vh;
-            max-height: 100vh;
             overflow: hidden;
-            margin-bottom: 0;
+        }
+
+        .hero-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1400px;
+            width: 100%;
+            gap: 50px;
+            z-index: 2;
         }
         
         .hero-content {
-            text-align: center;
-            z-index: 10;
-            max-width: 1000px;
-            /* Garante posição fixa durante scroll */
-            position: relative;
-            transform: none !important;
+            flex: 1;
+            max-width: 650px;
         }
         
-        /* Scroll Indicator Arrow */
-        .scroll-indicator {
+        .hero h1 {
+            font-size: clamp(2.5rem, 4vw, 4rem);
+            line-height: 1;
+            margin-bottom: 30px;
+            background: linear-gradient(180deg, #fff 0%, #a0a0ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 30px rgba(188, 19, 254, 0.4));
+        }
+
+        .hero h1 span {
+            font-size: 0.7em;
+            display: block;
+            margin-top: 10px;
+            color: var(--neon-cyan);
+            -webkit-text-fill-color: var(--neon-cyan);
+            text-shadow: 0 0 20px var(--neon-cyan);
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            margin-bottom: 50px;
+            line-height: 1.6;
+            border-left: 3px solid var(--neon-purple);
+            padding-left: 20px;
+        }
+        
+        .hero-visual {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            position: relative;
+            transform: translate(100px, -50px) scale(0.95);
+        }
+
+        .hero-robot {
+            max-width: 110%;
+            height: auto;
+            filter: drop-shadow(0 0 60px rgba(0, 243, 255, 0.15));
+            animation: float-robot 7s ease-in-out infinite;
+            mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        }
+
+        @keyframes float-robot {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Sound Wave Animation */
+        .sound-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 60px;
             position: absolute;
-            bottom: 180px;
-            left: 48,6%;
-            transform: translateX(-50%);
-            z-index: 10;
-            opacity: 0.8;
-            animation: fade-in 0.5s ease-out 1s both;
+            bottom: 20%;
+            right: -20px;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .bar {
+            width: 6px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            animation: sound-wave 1s ease-in-out infinite;
+            border-radius: 3px;
+        }
+
+        @keyframes sound-wave {
+            0%, 100% { height: 10px; }
+            50% { height: 100%; }
+        }
+        
+        .hero-ctas {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-cyan));
+            color: #fff;
+            padding: 20px 50px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 40px rgba(188, 19, 254, 0.4);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 0 60px rgba(0, 243, 255, 0.6);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            padding: 20px 50px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            clip-path: polygon(0 0, 90% 0, 100% 30%, 100% 100%, 10% 100%, 0 70%);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        /* 2. O PROBLEMA INVISÍVEL - GLASS CARDS */
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+        }
+        
+        .problem-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 20px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .problem-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+        }
+
+        .problem-card:hover::before {
+            transform: translateX(100%);
+        }
+        
+        .problem-card:hover {
+            border-color: var(--neon-purple);
+            transform: translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+        
+        .problem-icon {
+            font-size: 3rem;
+            margin-bottom: 25px;
+            color: var(--neon-purple);
+            text-shadow: 0 0 20px rgba(188, 19, 254, 0.5);
+        }
+        
+        .problem-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .problem-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        /* 3. COMPARATIVO - TECH TABLE (HUD STYLE) */
+        .comparison-container {
+            background: rgba(5, 5, 10, 0.6);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            padding: 50px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comparison-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            animation: scan-line 4s linear infinite;
+        }
+
+        @keyframes scan-line {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .comparison-container::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 20px;
+            padding: 1px;
+            background: linear-gradient(45deg, transparent, var(--neon-cyan), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 15px;
+            min-width: 700px;
+        }
+        
+        .comparison-table th {
+            text-align: left;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-family: 'Orbitron', sans-serif;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+        }
+        
+        .comparison-table th.soundy-col {
+            color: var(--neon-cyan);
+            font-size: 1.6rem;
+            text-shadow: 0 0 20px var(--neon-cyan);
+            background: linear-gradient(180deg, rgba(0, 243, 255, 0.1) 0%, transparent 100%);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            text-align: center;
+        }
+        
+        .comparison-table td {
+            padding: 25px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 1.1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        
+        .comparison-table tr td:first-child {
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            color: #fff;
+            font-weight: 600;
+            width: 30%;
+        }
+        
+        .comparison-table tr td:last-child {
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+            background: rgba(0, 243, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comparison-table tr td:last-child::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        .check { 
+            color: var(--neon-cyan); 
+            font-weight: bold; 
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-size: 1.2rem;
+            display: block;
+        }
+        
+        .cross { 
+            color: #ff3366; 
+            opacity: 0.5; 
+            font-size: 1.2rem;
+        }
+
+        .feature-desc {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+            font-weight: normal;
+        }
+
+        /* 4. ANTES E DEPOIS - AUDIO PLAYERS (SCI-FI) */
+        .visual-mock {
+            display: flex;
+            gap: 60px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 60px;
+        }
+        
+        .audio-player-card {
+            flex: 1;
+            min-width: 350px;
+            background: rgba(10, 10, 15, 0.8);
+            border-radius: 25px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .audio-player-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.3;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .audio-player-card.before {
+            border-color: rgba(255, 51, 102, 0.3);
+            box-shadow: 0 0 30px rgba(255, 51, 102, 0.05);
+        }
+        
+        .audio-player-card.after {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 40px rgba(0, 243, 255, 0.15);
+            background: rgba(0, 243, 255, 0.03);
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 15px;
+        }
+
+        .player-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .before .player-label { color: #ff3366; }
+        .after .player-label { color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); }
+
+        .upload-placeholder {
+            width: 100%;
+            height: 140px;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
             cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0,0,0,0.4);
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-placeholder:hover {
+            border-color: var(--neon-purple);
+            background: rgba(188, 19, 254, 0.05);
+            color: #fff;
+            box-shadow: inset 0 0 20px rgba(188, 19, 254, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            opacity: 0.8;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+        }
+
+        .waveform-visual {
+            margin-top: 25px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            opacity: 0.7;
+            position: relative;
+            z-index: 1;
+        }
+
+        .wave-bar {
+            flex: 1;
+            background: var(--text-secondary);
+            border-radius: 2px;
+            animation: quiet-wave 2s infinite ease-in-out;
+            opacity: 0.3;
+        }
+
+        .after .wave-bar {
+            background: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            opacity: 1;
+        }
+
+        /* Floating Elements Animation */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .float-item {
+            position: absolute;
+            opacity: 0.1;
+            color: var(--neon-purple);
+            font-family: 'Orbitron', monospace;
+            animation: float-up linear infinite;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.2; }
+            80% { opacity: 0.2; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes quiet-wave {
+            0%, 100% { height: 20%; }
+            50% { height: 60%; }
+        }
+
+        /* 5. COMO FUNCIONA - STEPS */
+        .steps-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 60px;
+        }
+        
+        .step-card {
+            flex: 1;
+            min-width: 240px;
+            text-align: center;
+            position: relative;
+            padding: 30px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: var(--neon-purple);
+        }
+        
+        .step-number {
+            font-size: 5rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.03);
+            font-family: 'Orbitron', sans-serif;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+        
+        .step-icon {
+            font-size: 3rem;
+            margin-bottom: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(188, 19, 254, 0.2) 0%, transparent 70%);
+            border: 1px solid rgba(188, 19, 254, 0.3);
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .step-card h3 {
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .step-card p {
+            position: relative;
+            z-index: 1;
+            color: var(--text-secondary);
+        }
+
+        /* 6. O QUE VOCÊ RECEBE - GRID */
+        .deliverables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+        }
+        
+        .deliverable-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.2));
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            padding: 35px;
+            border-radius: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 25px;
             transition: all 0.3s ease;
         }
         
-        .scroll-indicator:hover {
-            opacity: 1;
-            transform: translateX(-50%) scale(1.1);
+        .deliverable-card:hover {
+            background: rgba(0, 243, 255, 0.05);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
         }
         
-        .scroll-arrow {
-            width: 40px;
-            height: 40px;
+        .del-icon {
+            font-size: 2.2rem;
+            color: var(--neon-purple);
+            filter: drop-shadow(0 0 10px var(--neon-purple));
+        }
+        
+        .del-content h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        
+        .del-content p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* 7. CTA FINAL */
+        .final-cta-section {
+            text-align: center;
+            padding: 180px 20px;
+            background: radial-gradient(circle at center, rgba(188, 19, 254, 0.15) 0%, transparent 70%);
             position: relative;
-            animation: float-arrow 3s ease-in-out infinite;
-            transition: all 0.4s ease;
         }
         
-        .scroll-arrow::before {
+        .final-cta-section h2 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            margin-bottom: 50px;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(188, 19, 254, 0.6);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            background: #020205;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .hero-container { flex-direction: column; text-align: center; }
+            .hero-content { margin-bottom: 50px; }
+            .hero p { border-left: none; padding-left: 0; }
+            .hero-ctas { justify-content: center; }
+            .nav-links { display: none; }
+            .mobile-menu-toggle { display: flex; }
+        }
+        
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 1s ease forwards;
+            opacity: 0;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Frequency Separator */
+        .frequency-separator {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(188, 19, 254, 0.3), transparent);
+            position: relative;
+            margin: 0 auto;
+            max-width: 80%;
+            opacity: 0.7;
+        }
+        
+        .frequency-separator::after {
             content: '';
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M7 13l5 5 5-5M7 6l5 5 5-5' stroke='%2300ffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-            background-size: contain;
-            background-repeat: no-repeat;
-            filter: 
-                drop-shadow(0 0 8px rgba(0, 240, 255, 0.8))
-                drop-shadow(0 0 16px rgba(138, 43, 226, 0.6))
-                drop-shadow(0 0 24px rgba(0, 240, 255, 0.4));
-            animation: neon-pulse 2s ease-in-out infinite;
-        }
-        
-        .scroll-arrow:hover::before {
-            filter: 
-                drop-shadow(0 0 12px rgba(0, 240, 255, 1))
-                drop-shadow(0 0 24px rgba(138, 43, 226, 0.8))
-                drop-shadow(0 0 36px rgba(0, 240, 255, 0.6))
-                drop-shadow(0 0 48px rgba(255, 0, 255, 0.4));
-            transform: translate(-50%, -50%) scale(1.1);
-        }
-        
-        @keyframes float-arrow {
-            0%, 100% { 
-                transform: translateY(0px);
-            }
-            50% { 
-                transform: translateY(-5px);
-            }
-        }
-        
-        @keyframes neon-pulse {
-            0%, 100% { 
-                filter: 
-                    drop-shadow(0 0 8px rgba(0, 240, 255, 0.8))
-                    drop-shadow(0 0 16px rgba(138, 43, 226, 0.6))
-                    drop-shadow(0 0 24px rgba(0, 240, 255, 0.4));
-            }
-            25% {
-                filter: 
-                    drop-shadow(0 0 12px rgba(0, 153, 255, 0.9))
-                    drop-shadow(0 0 20px rgba(75, 0, 130, 0.7))
-                    drop-shadow(0 0 28px rgba(0, 153, 255, 0.5));
-            }
-            50% { 
-                filter: 
-                    drop-shadow(0 0 16px rgba(255, 0, 255, 0.9))
-                    drop-shadow(0 0 24px rgba(138, 43, 226, 0.8))
-                    drop-shadow(0 0 32px rgba(255, 0, 255, 0.6));
-            }
-            75% {
-                filter: 
-                    drop-shadow(0 0 12px rgba(128, 0, 255, 0.9))
-                    drop-shadow(0 0 20px rgba(255, 20, 147, 0.7))
-                    drop-shadow(0 0 28px rgba(128, 0, 255, 0.5));
-            }
-        }
-        
-        .hero-content {
-            text-align: center;
-            z-index: 10;
-            max-width: 1000px;
-        }
-        
-        .hero-title {
-            font-family: 'Orbitron', monospace;
-            font-size: clamp(3rem, 8vw, 6rem);
-            font-weight: 900;
-            line-height: 1.1;
-            margin-bottom: 20px;
-            background: linear-gradient(45deg, var(--neon-cyan), var(--electric-blue), var(--neon-purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: title-glow 3s ease-in-out infinite, fade-in 0.5s ease-out 0s both;
-            filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.5));
-        }
-        
-        @keyframes title-glow {
-            0%, 100% { filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.5)); }
-            50% { filter: drop-shadow(0 0 50px rgba(132, 0, 255, 0.8)); }
-        }
-        
-        .hero-subtitle {
-            font-size: 1.5rem;
-            color: var(--text-secondary);
-            margin-bottom: 50px;
-            letter-spacing: 3px;
-            animation: fade-in 0.5s ease-out 0.2s both;
-        }
-        
-        @keyframes fade-in {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* 3D Button */
-        .cta-button {
-            display: inline-block;
-            padding: 18px 50px;
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-decoration: none;
-            color: var(--text-primary);
-            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.1));
-            border: 2px solid var(--neon-cyan);
-            border-radius: 50px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            transform-style: preserve-3d;
-            animation: fade-in 0.5s ease-out 0.4s both;
-        }
-        
-        .cta-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        .cta-button:hover {
-            transform: translateY(-5px) rotateX(-10deg);
-            box-shadow: 
-                0 10px 30px rgba(0, 255, 255, 0.5),
-                inset 0 0 20px rgba(0, 255, 255, 0.2);
-            border-color: var(--neon-purple);
-            text-shadow: 0 0 10px var(--neon-cyan);
-        }
-        
-        .cta-button:hover::before {
-            left: 100%;
-        }
-        
-        /* About Section - Animações sequenciais */
-        #about-intro .section-title {
-            animation: fade-in 0.5s ease-out 0.6s both;
-        }
-        
-        #about-intro .about-text {
-            animation: fade-in 0.5s ease-out 0.8s both;
-        }
-        
-        /* Holographic Card */
-        .section {
-            padding: 100px 50px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        /* Seção About - espaçamento mais justo */
-        #about-intro {
-            padding-top: 15px !important;
-            margin-top: -12px !important;
-        }
-        
-        .section-title {
-            font-family: 'Orbitron', monospace;
-            font-size: 3rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 60px;
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-        
-        .section-title::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
             width: 100px;
-            height: 3px;
-            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        }
-        
-        .cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 40px;
-            margin-top: 60px;
-        }
-        
-        .glass-card {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 40px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            transform-style: preserve-3d;
-            cursor: pointer;
-        }
-        
-        .glass-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent,
-                rgba(0, 255, 255, 0.1),
-                transparent,
-                rgba(255, 0, 255, 0.1),
-                transparent
-            );
-            transform: rotate(45deg);
-            transition: all 0.5s ease;
-            opacity: 0;
-        }
-        
-        .glass-card:hover {
-            transform: translateY(-10px) rotateX(-5deg) rotateY(5deg);
-            box-shadow: 
-                0 20px 40px rgba(0, 255, 255, 0.3),
-                inset 0 0 30px rgba(255, 0, 255, 0.1);
-            border-color: var(--neon-cyan);
-        }
-        
-        .glass-card:hover::before {
-            opacity: 1;
-            animation: shimmer 2s ease infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
-        }
-        
-        .card-icon {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
-            animation: icon-float 3s ease-in-out infinite;
-        }
-        
-        @keyframes icon-float {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(5deg); }
-        }
-        
-        .card-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 15px;
-            color: var(--neon-cyan);
-        }
-        
-        .card-description {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            color: var(--text-secondary);
-        }
-        
-        /* Neumorphic Elements */
-        .neumo-section {
-            padding: 100px 50px;
-            background: transparent;
-            position: relative;
-        }
-        
-        .neumo-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
-        }
-        
-        .neumo-box {
-            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
-            box-shadow: 
-                20px 20px 60px #0a0a0f,
-                -20px -20px 60px #1f1f3a,
-                inset 0 0 0 1px rgba(0, 255, 255, 0.1);
-            border-radius: 30px;
-            padding: 40px 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .neumo-box::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(0, 255, 255, 0.1) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .neumo-box:hover {
-            transform: translateY(-5px);
-            box-shadow: 
-                25px 25px 70px #0a0a0f,
-                -25px -25px 70px #1f1f3a,
-                inset 0 0 20px rgba(0, 255, 255, 0.2);
-        }
-        
-        .neumo-box:hover::after {
-            opacity: 1;
-        }
-        
-        .neumo-number {
-            font-family: 'Orbitron', monospace;
-            font-size: 3.5rem;
-            font-weight: 900;
-            background: linear-gradient(45deg, var(--electric-blue), var(--plasma-pink));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 10px;
-            filter: drop-shadow(0 0 20px rgba(0, 128, 255, 0.5));
-            letter-spacing: -1px;
-        }
-        
-        .neumo-label {
-            font-size: 1.3rem;
-            color: var(--text-secondary);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        /* Instructions Section */
-        .instructions-section {
-            padding: 100px 50px;
-            background: radial-gradient(ellipse at center, rgba(255, 0, 255, 0.03) 0%, transparent 70%);
-            position: relative;
-        }
-
-        .instructions-container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            border-radius: 25px;
-            padding: 50px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .instructions-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), transparent);
-            animation: border-scan 3s linear infinite;
-        }
-
-        @keyframes border-scan {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .instructions-title {
-            font-family: 'Orbitron', monospace;
-            font-size: 2.5rem;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 40px;
-            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.5));
-        }
-
-        .instructions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 40px;
-        }
-
-        .instruction-item {
-            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(255, 0, 255, 0.05));
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            border-radius: 15px;
-            padding: 25px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .instruction-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
-            transition: left 0.5s ease;
-        }
-
-        .instruction-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
-            border-color: var(--neon-purple);
-        }
-
-        .instruction-item:hover::before {
-            left: 100%;
-        }
-
-        .instruction-number {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(45deg, var(--neon-cyan), var(--electric-blue));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Orbitron', monospace;
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: var(--dark-bg);
-            margin-bottom: 15px;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        }
-
-        .instruction-text {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-        }
-
-        .instruction-highlight {
-            color: var(--neon-cyan);
-            font-weight: 600;
-        }
-        
-        /* Contact Form */
-        .contact-section {
-            padding: 100px 50px;
-            background: radial-gradient(ellipse at center, rgba(0, 255, 255, 0.05) 0%, transparent 70%);
-        }
-        
-        .contact-form {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .form-group {
-            margin-bottom: 30px;
-            position: relative;
-        }
-        
-        .form-input {
-            width: 100%;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 2px solid rgba(0, 255, 255, 0.2);
-            border-radius: 15px;
-            color: var(--text-primary);
-            font-size: 1.1rem;
-            font-family: inherit;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-        
-        .form-input:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: 
-                0 0 20px rgba(0, 255, 255, 0.3),
-                inset 0 0 10px rgba(0, 255, 255, 0.1);
-            transform: translateY(-2px);
-        }
-        
-        .form-label {
-            position: absolute;
-            top: -10px;
-            left: 20px;
-            background: var(--dark-bg);
-            padding: 0 10px;
-            font-size: 0.9rem;
-            color: var(--neon-cyan);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-        
-        .submit-button {
-            width: 100%;
-            padding: 20px;
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-purple));
-            border: none;
-            border-radius: 15px;
-            color: var(--dark-bg);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .submit-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        .submit-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.5);
-        }
-        
-        .submit-button:hover::before {
-            left: 100%;
-        }
-        
-        /* Footer */
-        footer {
-            padding: 50px;
-            text-align: center;
-            background: linear-gradient(180deg, transparent 0%, rgba(10, 10, 15, 0.9) 100%);
-        }
-        
-        .footer-text {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            letter-spacing: 2px;
-        }
-        
-        /* Scroll Effects */
-        .scroll-reveal {
-            opacity: 0;
-            transform: translateY(50px);
-            transition: all 0.8s ease;
-        }
-        
-        .scroll-reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        
-        /* CTA Final Button - removed, using same .cta-button class */
-        
-        /* Mobile Menu */
-        .mobile-menu-toggle {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            cursor: pointer;
-        }
-        
-        .menu-bar {
-            width: 30px;
-            height: 3px;
-            background: var(--neon-cyan);
-            transition: all 0.3s ease;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-            
-            .mobile-menu-toggle {
-                display: flex;
-            }
-            
-            .hero {
-                min-height: 90vh;
-                max-height: 90svh;
-            }
-            
-            .hero-title {
-                font-size: clamp(2rem, 10vw, 4rem);
-            }
-            
-            .scroll-indicator {
-                left: 46% !important;
-                bottom: 180px !important;
-            }
-            
-            .section {
-                padding: 40px 20px;
-            }
-
-            .instructions-section {
-                padding: 40px 20px;
-            }
-
-            .instructions-container {
-                padding: 30px 20px;
-            }
-
-            .instructions-title {
-                font-size: 2rem;
-            }
-
-            .instructions-grid {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            #about-intro {
-                margin-top: 0 !important;
-                padding-top: 30px !important;
-            }
-            
-            .hero-content {
-                padding: 0 1rem;
-            }
-            
-            .section-title {
-                font-size: clamp(1.8rem, 6vw, 2.5rem);
-            }
-            
-            .feature-card {
-                margin-bottom: 2rem;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .hero-title {
-                font-size: clamp(1.5rem, 8vw, 2.5rem);
-                line-height: 1.2;
-            }
-            
-            .hero-subtitle {
-                font-size: clamp(0.9rem, 4vw, 1.2rem);
-                margin: 1rem 0 2rem;
-            }
-            
-            .cta-button {
-                padding: 0.8rem 2rem;
-                font-size: 0.9rem;
-            }
-            
-            .section {
-                padding: 20px 15px;
-            }
-
-            .instructions-section {
-                padding: 20px 15px;
-            }
-
-            .instructions-container {
-                padding: 25px 15px;
-            }
-
-            .instructions-title {
-                font-size: 1.5rem;
-                margin-bottom: 25px;
-            }
-
-            #about-intro {
-                margin-top: 0 !important;
-                padding-top: 20px !important;
-            }
-            
-            .section-title {
-                font-size: clamp(1.4rem, 5vw, 2rem);
-                margin-bottom: 1.5rem;
-            }
-            
-            .nav-container {
-                padding: 0 1rem;
-            }
-            
-            .logo {
-                font-size: 1.5rem;
-            }
-            
-            .feature-card {
-                padding: 1.5rem;
-                margin-bottom: 1.5rem;
-            }
-            
-            .feature-title {
-                font-size: 1.1rem;
-            }
-            
-            .feature-description {
-                font-size: 0.9rem;
-                line-height: 1.5;
-            }
+            height: 30px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 20' fill='none' stroke='%23bc13fe' stroke-width='2'%3E%3Cpath d='M25 0v20M15 5v10M5 8v4M35 5v10M45 8v4'/%3E%3C/svg%3E") no-repeat center;
+            background-size: contain;
+            filter: drop-shadow(0 0 5px var(--neon-purple));
         }
     </style>
 </head>
 <body>
-    <!-- Background Elements -->
+
+    <!-- Background -->
     <div class="background-container">
-        <!-- Container para o fundo animado Vanta.js -->
         <div class="vanta-background" id="vanta-bg"></div>
-        
-        <!-- Plano de fundo neural (fallback) -->
-        <div class="fundo-neural"></div>
-        
-        <div class="particles" id="particles"></div>
+        <div class="grid-overlay"></div>
+        <div class="floating-elements">
+            <!-- Generated by JS or static -->
+            <div class="float-item" style="left: 10%; animation-duration: 15s; font-size: 20px;">♪</div>
+            <div class="float-item" style="left: 20%; animation-duration: 25s; font-size: 15px;">0101</div>
+            <div class="float-item" style="left: 35%; animation-duration: 18s; font-size: 25px;">♫</div>
+            <div class="float-item" style="left: 50%; animation-duration: 22s; font-size: 18px;">AI</div>
+            <div class="float-item" style="left: 65%; animation-duration: 16s; font-size: 22px;">db</div>
+            <div class="float-item" style="left: 80%; animation-duration: 20s; font-size: 16px;">Hz</div>
+            <div class="float-item" style="left: 90%; animation-duration: 28s; font-size: 24px;">♬</div>
+        </div>
     </div>
-    
+
     <!-- Navigation -->
-    <nav id="navbar">
+    <nav>
         <div class="nav-container">
-            <div class="logo">SoundyAI</div>
+            <a href="#" class="logo">Soundy<span>AI</span></a>
             <ul class="nav-links">
-                <li><a href="#home" class="nav-link">HOME</a></li>
-                <li><a href="#about-intro" class="nav-link">SOBRE</a></li>
-                <li><a href="#services" class="nav-link">RECURSOS FUTURISTAS</a></li>
-                <li><a href="#performance" class="nav-link">PERFORMANCE</a></li>
-                <li><a href="#instructions" class="nav-link">INSTRUÇÕES</a></li>
+                <li><a href="#problem" class="nav-link">Problema</a></li>
+                <li><a href="#comparison" class="nav-link">Diferenciais</a></li>
+                <li><a href="#how-it-works" class="nav-link">Como Funciona</a></li>
+                <li><a href="login.html" class="nav-cta">Entrar</a></li>
             </ul>
             <div class="mobile-menu-toggle">
                 <span class="menu-bar"></span>
@@ -995,530 +933,430 @@
             </div>
         </div>
     </nav>
-    
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div class="hero-content">
-            <h1 class="hero-title">ANALISE SUA MIX E MASTER EM 1 MINUTO</h1>
-            <p class="hero-subtitle">SAIBA ONDE ESTÁ ERRANDO E COMO CONCERTAR</p>
-            <a href="login.html" class="cta-button">EXPLORAR AGORA</a>
-        </div>
-        
-        <!-- Scroll Indicator -->
-        <div class="scroll-indicator">
-            <div class="scroll-arrow"></div>
-        </div>
-    </section>
-    
-    <!-- About Section -->
-    <section class="section" id="about-intro" style="padding-top: 15px; padding-bottom: 30px; margin-top: 0;">
-        <h2 class="section-title scroll-reveal">O que é a SoundyAI?</h2>
-        <div class="about-text" style="max-width: 900px; margin: 0 auto; text-align: center;">
-            <p style="font-size: 1.4rem; line-height: 1.9; color: var(--text-secondary); letter-spacing: 1px; text-shadow: 0 2px 10px rgba(0, 255, 255, 0.3);">
-                <strong style="color: var(--neon-cyan);">SoundyAI é uma plataforma inteligente que usa inteligência artificial para impulsionar a produtividade de produtores musicais.</strong> Usando IA, ela te ajuda a resolver problemas técnicos, aprender novas técnicas, tirar dúvidas e encontrar soluções rápidas para tudo o que envolve produzir música.
-            </p>
-        </div>
-    </section>
-    
-    <!-- Services Section -->
-    <section class="section" id="services">
-        <h2 class="section-title scroll-reveal">RECURSOS FUTURISTAS</h2>
-        <div class="cards-container">
-            <div class="glass-card scroll-reveal">
-                <div class="card-icon">🤖</div>
-                <h3 class="card-title">Análise musical com IA</h3>
-                <p class="card-description">Diagnósticos completos do seu áudio, analise sua faixa e receba sugestões reais de melhorias.</p>
+
+    <!-- 1. HERO SECTION -->
+    <section class="hero">
+        <div class="sound-wave-bg"></div>
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1>ANALISE SUA MIX E MASTER EM 1 MINUTO    <br><span>SAIBA O QUE CORRIGIR E COMO</span></h1>
+                <p>O SoundyAI revela os erros invisíveis de LUFS, True Peak e Frequências que seus ouvidos (e seus fones) deixam passar.</p>
+                
+                <div class="hero-ctas">
+                    <a href="login.html" class="btn-primary">Analisar minha música grátis</a>
+                    <a href="#how-it-works" class="btn-secondary">Ver demonstração</a>
+                </div>
+                
+                <div class="trust-badge" style="margin-top: 20px; opacity: 0.7;">
+                    🔒 Sem cartão de crédito • Resultado imediato • 3 análises grátis
+                </div>
             </div>
-            <div class="glass-card scroll-reveal">
-                <div class="card-icon">💬</div>
-                <h3 class="card-title">Chat Bot de IA</h3>
-                <p class="card-description">Seu mentor online 24 horas, tire dúvidas e receba orientações instantâneas com um assistente inteligente treinado 100% para produção musical</p>
-            </div>
-            <div class="glass-card scroll-reveal">
-                <div class="card-icon">🧠</div>
-                <h3 class="card-title">Chat personalizado</h3>
-                <p class="card-description">Respostas inteligentes adaptadas ao seu perfil técnico. A IA vai te conhecer melhor para oferecer soluções mais precisas.</p>
-            </div>
-        </div>
-    </section>
-    
-    <!-- Stats Section -->
-    <section class="neumo-section" id="performance">
-        <h2 class="section-title scroll-reveal">NOSSA PERFORMANCE</h2>
-        <div class="neumo-container">
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">100%</div>
-                <div class="neumo-label">Satisfação</div>
-            </div>
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">2S</div>
-                <div class="neumo-label">Resposta Média</div>
-            </div>
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">24H</div>
-                <div class="neumo-label">Suporte</div>
-            </div>
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">∞</div>
-                <div class="neumo-label">Possibilidades</div>
-            </div>
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">+200M</div>
-                <div class="neumo-label">Linhas de Código Treinadas</div>
-            </div>
-            <div class="neumo-box scroll-reveal">
-                <div class="neumo-number">100%</div>
-                <div class="neumo-label">Focado em Música</div>
+            
+            <div class="hero-visual">
+                <img src="robo.webp" alt="AI Audio Intelligence" class="hero-robot">
+                <div class="sound-bars">
+                    <div class="bar" style="animation-delay: 0.1s"></div>
+                    <div class="bar" style="animation-delay: 0.3s"></div>
+                    <div class="bar" style="animation-delay: 0.5s"></div>
+                    <div class="bar" style="animation-delay: 0.2s"></div>
+                    <div class="bar" style="animation-delay: 0.4s"></div>
+                    <div class="bar" style="animation-delay: 0.6s"></div>
+                    <div class="bar" style="animation-delay: 0.1s"></div>
+                    <div class="bar" style="animation-delay: 0.3s"></div>
+                </div>
             </div>
         </div>
     </section>
 
-    <!-- Instructions Section -->
-    <section class="instructions-section" id="instructions">
-        <div class="instructions-container scroll-reveal">
-            <h2 class="instructions-title">INSTRUÇÕES PARA EXTRAIR O MELHOR DO SoundyAI</h2>
+    <!-- 2. O PROBLEMA INVISÍVEL -->
+    <div class="frequency-separator"></div>
+    <section id="problem" class="section">
+        <h2 class="section-title">O PROBLEMA INVISÍVEL</h2>
+        <p class="section-subtitle">Soar bem no seu quarto não significa estar pronto para o mundo. O Spotify, o carro e o PA vão revelar o que você não ouviu.</p>
+        
+        <div class="problem-grid">
+            <div class="problem-card">
+                <div class="problem-icon">🔊</div>
+                <h3>LUFS Incorreto</h3>
+                <p>Se sua faixa está muito baixa, ninguém ouve. Se está muito alta, o Spotify esmaga sua dinâmica. Você sabe exatamente onde está?</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">⚠️</div>
+                <h3>Clipping Invisível</h3>
+                <p>True Peak acima de -1dBTP pode causar distorção digital na conversão para MP3/AAC. Seus meters normais não mostram isso.</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">📉</div>
+                <h3>Grave Descontrolado</h3>
+                <p>O excesso de sub-grave (abaixo de 40Hz) come seu headroom e faz sua mix soar pequena e fraca, sem você perceber.</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">⚖️</div>
+                <h3>Balanço Tonal</h3>
+                <p>Sua mix tem muito médio? Pouco brilho? Sem uma referência visual objetiva, seus ouvidos viciados te enganam.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. POR QUE SOUNDYAI É DIFERENTE -->
+    <div class="frequency-separator"></div>
+    <section id="comparison" class="section">
+        <h2 class="section-title">POR QUE O SOUNDYAI É DIFERENTE</h2>
+        <p class="section-subtitle">Não somos apenas mais um analisador de espectro. Somos um engenheiro virtual.</p>
+        
+        <div class="comparison-container">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Recurso</th>
+                        <th>Outras Ferramentas</th>
+                        <th class="soundy-col">SoundyAI <span style="display:block; font-size:0.7rem; opacity:0.8; letter-spacing:1px;">ENGINEER CORE v2.0</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Diagnóstico</td>
+                        <td><span class="cross">✖</span> Gráficos Genéricos <span class="feature-desc">Difícil interpretação para iniciantes</span></td>
+                        <td><span class="check">✔</span> Análise Semântica <span class="feature-desc">"O baixo está colidindo com o kick em 50Hz"</span></td>
+                    </tr>
+                    <tr>
+                        <td>Plano de Ação</td>
+                        <td><span class="cross">✖</span> Nenhum <span class="feature-desc">Você precisa adivinhar o que fazer</span></td>
+                        <td><span class="check">✔</span> Passo-a-Passo <span class="feature-desc">Instruções precisas de EQ, Comp e Gain</span></td>
+                    </tr>
+                    <tr>
+                        <td>Contexto de Gênero</td>
+                        <td><span class="cross">✖</span> Padrão Único <span class="feature-desc">Trata Jazz igual a Dubstep</span></td>
+                        <td><span class="check">✔</span> Multi-Genre Target <span class="feature-desc">Comparação com hits do Top 100 do seu estilo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Precisão de Análise</td>
+                        <td><span class="cross">✖</span> Algoritmo Linear <span class="feature-desc">Baseado apenas em matemática simples</span></td>
+                        <td><span class="check">✔</span> Deep Learning <span class="feature-desc">Treinado com +10.000 faixas premiadas</span></td>
+                    </tr>
+                    <tr>
+                        <td>Feedback Visual</td>
+                        <td><span class="cross">✖</span> Estático <span class="feature-desc">Apenas números frios</span></td>
+                        <td><span class="check">✔</span> Imersivo 8D <span class="feature-desc">Visualização intuitiva do campo estéreo</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 4. ANTES E DEPOIS -->
+    <div class="frequency-separator"></div>
+    <section id="before-after" class="section">
+        <h2 class="section-title">OUÇA A DIFERENÇA</h2>
+        <p class="section-subtitle">A tecnologia SoundyAI não apenas mostra os erros, ela guia você para o som perfeito.</p>
+        
+        <div class="visual-mock">
+            <!-- ANTES -->
+            <div class="audio-player-card before">
+                <div class="player-header">
+                    <span class="player-label">SUA MIX ORIGINAL</span>
+                    <span style="color: #ff3366; font-size: 0.9rem;">ANTES DO SOUNDYAI</span>
+                </div>
+                
+                <div class="upload-placeholder">
+                    <div class="upload-icon">🎵</div>
+                    <span>Upload da Mix Atual</span>
+                    <span style="font-size: 0.8rem; opacity: 0.6; margin-top: 5px;">(Problemas de LUFS e EQ)</span>
+                </div>
+
+                <div class="waveform-visual">
+                    <div class="wave-bar" style="height: 30%"></div>
+                    <div class="wave-bar" style="height: 50%"></div>
+                    <div class="wave-bar" style="height: 20%"></div>
+                    <div class="wave-bar" style="height: 60%"></div>
+                    <div class="wave-bar" style="height: 40%"></div>
+                    <div class="wave-bar" style="height: 30%"></div>
+                    <div class="wave-bar" style="height: 70%"></div>
+                    <div class="wave-bar" style="height: 20%"></div>
+                    <div class="wave-bar" style="height: 50%"></div>
+                    <div class="wave-bar" style="height: 30%"></div>
+                </div>
+            </div>
             
-            <div class="instructions-grid">
-                <div class="instruction-item">
-                    <div class="instruction-number">1</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Seja específico nas suas perguntas. </span>
-                        Ao invés de "Como mixar?", pergunte "Como fazer uma mixagem precisa na voz? utilizando compressor e equalizador."
-                    </p>
+            <!-- DEPOIS -->
+            <div class="audio-player-card after">
+                <div class="player-header">
+                    <span class="player-label">PÓS CORREÇÃO NA DAW</span>
+                    <span style="color: var(--neon-cyan); font-size: 0.9rem;">APÓS ANÁLISE</span>
                 </div>
                 
-                <div class="instruction-item">
-                    <div class="instruction-number">2</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Use as métricas como guia.</span>  
-                        As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.
-Porém, música é arte: cada produtor pode querer características diferentes.
-Use estas dicas como um guia de referência, não como uma regra absoluta.
-                    </p>
+                <div class="upload-placeholder" style="border-color: rgba(0, 243, 255, 0.3);">
+                    <div class="upload-icon" style="color: var(--neon-cyan);">✨</div>
+                    <span>Upload da Mix Corrigida</span>
+                    <span style="font-size: 0.8rem; opacity: 0.6; margin-top: 5px;">(Ajustada conforme o Relatório)</span>
                 </div>
-                
-                <div class="instruction-item">
-                    <div class="instruction-number">3</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Descreva o problema em detalhes. </span>
-                        "Meu kick está batendo fraco quando toca junto com o beat, sempre quando o beat entra, o kick fica seco, sem graça..."
-                    </p>
-                </div>
-                
-                <div class="instruction-item">
-                    <div class="instruction-number">4</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Forneça parâmetros exatos</span>
-                       Indique valores de frequência (Hz), compressão (dB), tempo (ms), ou qualquer ajuste preciso. Exemplo: “Quero aplicar um sidechain com threshold em -18 dB e release de 200 ms no kick.”
-                    </p>
-                </div>
-                
-                <div class="instruction-item">
-                    <div class="instruction-number">5</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Peça exemplos práticos</span>. 
-                        "Me dê valores de EQ para vocal" ou "Quais acordes usar em Trap?"
-                    </p>
-                </div>
-                
-                <div class="instruction-item">
-                    <div class="instruction-number">6</div>
-                    <p class="instruction-text">
-                        <span class="instruction-highlight">Faça perguntas de follow-up</span>. 
-                        Continue a conversa para aprofundar o conhecimento sobre o tópico.
-                    </p>
+
+                <div class="waveform-visual">
+                    <div class="wave-bar" style="height: 40%"></div>
+                    <div class="wave-bar" style="height: 80%"></div>
+                    <div class="wave-bar" style="height: 60%"></div>
+                    <div class="wave-bar" style="height: 90%"></div>
+                    <div class="wave-bar" style="height: 70%"></div>
+                    <div class="wave-bar" style="height: 50%"></div>
+                    <div class="wave-bar" style="height: 85%"></div>
+                    <div class="wave-bar" style="height: 60%"></div>
+                    <div class="wave-bar" style="height: 75%"></div>
+                    <div class="wave-bar" style="height: 50%"></div>
                 </div>
             </div>
         </div>
     </section>
-    
-    <!-- CTA Section -->
-    <section style="padding: 80px 50px; text-align: center;">
-        <a href="login.html" class="cta-button">EXPERIMENTAR GRATUITAMENTE</a>
+
+    <!-- 5. COMO FUNCIONA -->
+    <div class="frequency-separator"></div>
+    <section id="how-it-works" class="section">
+        <h2 class="section-title">COMO FUNCIONA</h2>
+        
+        <div class="steps-container">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <div class="step-icon">📤</div>
+                <h3>Envie sua Música</h3>
+                <p>Arraste seu arquivo WAV ou MP3. Processamento seguro e privado.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <div class="step-icon">🤖</div>
+                <h3>A IA Analisa</h3>
+                <p>Nossos algoritmos comparam sua faixa com milhares de hits do mesmo gênero.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <div class="step-icon">📊</div>
+                <h3>Veja os Erros</h3>
+                <p>Receba um relatório visual instantâneo com tudo que precisa ser ajustado.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <div class="step-icon">🎛️</div>
+                <h3>Aplique Correções</h3>
+                <p>Siga as instruções em dB e Hz para polir sua mix em minutos.</p>
+            </div>
+        </div>
     </section>
-    
+
+    <!-- 6. O QUE VOCÊ RECEBE -->
+    <div class="frequency-separator"></div>
+    <section id="deliverables" class="section">
+        <h2 class="section-title">O QUE VOCÊ RECEBE</h2>
+        
+        <div class="deliverables-grid">
+            <div class="deliverable-card">
+                <div class="del-icon">🏆</div>
+                <div class="del-content">
+                    <h3>Score Técnico</h3>
+                    <p>Uma nota de 0 a 100 para saber exatamente o nível da sua produção.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">📝</div>
+                <div class="del-content">
+                    <h3>Diagnóstico Automático</h3>
+                    <p>Lista de problemas detectados ordenados por gravidade.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">🌊</div>
+                <div class="del-content">
+                    <h3>Análise Espectral</h3>
+                    <p>Visualização clara do equilíbrio de frequências da sua faixa.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">💡</div>
+                <div class="del-content">
+                    <h3>Sugestões em dB</h3>
+                    <p>Instruções precisas de quanto aumentar ou cortar.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">🆚</div>
+                <div class="del-content">
+                    <h3>Comparação de Referência</h3>
+                    <p>Veja como sua música fica ao lado dos grandes hits.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">📄</div>
+                <div class="del-content">
+                    <h3>Relatório Técnico</h3>
+                    <p>PDF completo para você guardar ou enviar para clientes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Estilos Específicos para Footer e CTA Final -->
+    <style>
+        .final-cta-wrapper {
+            position: relative;
+            padding: 100px 20px;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        .glass-cta {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 0 100px rgba(188, 19, 254, 0.1);
+        }
+
+        .glass-cta h2 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(180deg, #fff 0%, #a0a0ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-cta p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .glow-btn {
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+        
+        .glow-btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
+            transform: scale(0);
+            transition: transform 0.6s ease-out;
+            opacity: 0.3;
+        }
+        
+        .glow-btn:hover::before {
+            transform: scale(1);
+        }
+
+        .site-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: #020205;
+            padding: 60px 0 20px;
+            margin-top: 50px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            padding: 0 20px;
+        }
+
+        .footer-col h4 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .footer-col ul li {
+            margin-bottom: 10px;
+        }
+
+        .footer-col ul li a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-col ul li a:hover {
+            color: var(--neon-cyan);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+
+    <!-- 7. CTA FINAL -->
+    <div class="frequency-separator"></div>
+    <section id="final-cta" class="final-cta-wrapper">
+        <div class="glass-cta">
+            <h2>Sua música merece ser ouvida.</h2>
+            <p>Junte-se a produtores que já elevaram o nível de suas produções com a inteligência artificial da SoundyAI.</p>
+            <a href="login.html" class="btn-primary glow-btn" style="font-size: 1.3rem; padding: 20px 50px;">COMEÇAR ANÁLISE GRATUITA</a>
+            <p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.7;">* Sem cartão de crédito necessário para teste.</p>
+        </div>
+    </section>
+
     <!-- Footer -->
-    <footer>
-        <p class="footer-text">© 2025 SoundyAI - Todos os direitos reservados.</p>
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-col">
+                <h4>SOUNDY.AI</h4>
+                <p style="color: var(--text-secondary); line-height: 1.6;">
+                    Tecnologia avançada de diagnóstico de áudio para produtores modernos.
+                </p>
+            </div>
+            <div class="footer-col">
+                <h4>PRODUTO</h4>
+                <ul>
+                    <li><a href="#">Como Funciona</a></li>
+                    <li><a href="#">Preços</a></li>
+                    <li><a href="#">Casos de Uso</a></li>
+                    <li><a href="#">API</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>SUPORTE</h4>
+                <ul>
+                    <li><a href="#">Central de Ajuda</a></li>
+                    <li><a href="#">Termos de Uso</a></li>
+                    <li><a href="#">Privacidade</a></li>
+                    <li><a href="#">Contato</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2025 SoundyAI - Todos os direitos reservados.</p>
+        </div>
     </footer>
-    
+
     <script>
-        // Particle Generation
-        const particlesContainer = document.getElementById('particles');
-        const particleCount = 50;
-        
-        for (let i = 0; i < particleCount; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = Math.random() * 10 + 's';
-            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-            particlesContainer.appendChild(particle);
-        }
-        
-        // Smooth Scrolling
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-        
-        // Botão "Explorar Agora" agora redireciona para login.html
-        // Event listener removido para permitir navegação normal
-        
-        // Smooth scroll para a seta indicativa
-        const scrollIndicator = document.querySelector('.scroll-indicator');
-        if (scrollIndicator) {
-            scrollIndicator.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                const aboutSection = document.getElementById('about-intro');
-                if (aboutSection) {
-                    aboutSection.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        }
-        
-        // Ocultar/mostrar seta de scroll baseado na posição
-        if (scrollIndicator) {
-            window.addEventListener('scroll', () => {
-                const scrollTop = window.pageYOffset;
-                const windowHeight = window.innerHeight;
-                
-                // Esconder a seta quando rolar mais que 50% da viewport
-                if (scrollTop > windowHeight * 0.5) {
-                    scrollIndicator.style.opacity = '0';
-                } else {
-                    scrollIndicator.style.opacity = '0.8';
-                }
-            });
-        }
-        
-        // Scroll Reveal Animation
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -100px 0px'
-        };
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                }
-            });
-        }, observerOptions);
-        
-        document.querySelectorAll('.scroll-reveal').forEach(el => {
-            // Exclui o título da seção about do scroll-reveal para usar animação CSS sequencial
-            if (!el.closest('#about-intro')) {
-                observer.observe(el);
-            }
-        });
-        
-        // Dynamic Navigation Bar
-        let lastScroll = 0;
-        const navbar = document.getElementById('navbar');
-        
-        window.addEventListener('scroll', () => {
-            const currentScroll = window.pageYOffset;
-            
-            if (currentScroll > lastScroll && currentScroll > 100) {
-                navbar.style.transform = 'translateY(-100%)';
-            } else {
-                navbar.style.transform = 'translateY(0)';
-            }
-            
-            lastScroll = currentScroll;
-        });
-        
-        // 3D Card Tilt Effect
-        document.querySelectorAll('.glass-card, .neumo-box, .instruction-item').forEach(card => {
-            card.addEventListener('mousemove', (e) => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                
-                const rotateX = (y - centerY) / centerY * -10;
-                const rotateY = (x - centerX) / centerX * 10;
-                
-                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px)`;
-            });
-            
-            card.addEventListener('mouseleave', () => {
-                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
-            });
-        });
-        
-        // Form Submit Animation
-        const contactForm = document.querySelector('.contact-form');
-        if (contactForm) {
-            contactForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const button = e.target.querySelector('.submit-button');
-                if (button) {
-                    button.textContent = 'ENVIANDO...';
-                    
-                    setTimeout(() => {
-                        button.textContent = 'MENSAGEM ENVIADA ✓';
-                        button.style.background = 'linear-gradient(45deg, #00ff00, #00ffaa)';
-                        
-                        setTimeout(() => {
-                            button.textContent = 'ENVIAR MENSAGEM';
-                            button.style.background = '';
-                            e.target.reset();
-                        }, 2000);
-                    }, 1500);
-                }
-            });
-        }
-        
-        // Dynamic cursor glow
-        document.addEventListener('mousemove', (e) => {
-            const glow = document.createElement('div');
-            glow.style.position = 'fixed';
-            glow.style.width = '10px';
-            glow.style.height = '10px';
-            glow.style.background = 'radial-gradient(circle, rgba(0, 255, 255, 0.5), transparent)';
-            glow.style.borderRadius = '50%';
-            glow.style.pointerEvents = 'none';
-            glow.style.left = e.clientX - 5 + 'px';
-            glow.style.top = e.clientY - 5 + 'px';
-            glow.style.zIndex = '9999';
-            document.body.appendChild(glow);
-            
-            setTimeout(() => {
-                glow.style.transition = 'opacity 1s ease';
-                glow.style.opacity = '0';
-                setTimeout(() => glow.remove(), 1000);
-            }, 100);
-        });
-        
-        // Holographic text effect on hover
-        document.querySelectorAll('.card-title, .neumo-label, .instruction-highlight').forEach(text => {
-            text.addEventListener('mouseenter', function() {
-                this.style.animation = 'holographic 2s ease infinite';
-            });
-            
-            text.addEventListener('mouseleave', function() {
-                this.style.animation = 'none';
-            });
-        });
-        
-        // Create holographic animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes holographic {
-                0% { filter: hue-rotate(0deg) brightness(1); }
-                50% { filter: hue-rotate(180deg) brightness(1.2); }
-                100% { filter: hue-rotate(360deg) brightness(1); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Mobile menu functionality
-        const mobileToggle = document.querySelector('.mobile-menu-toggle');
-        const navLinks = document.querySelector('.nav-links');
-        
-        mobileToggle.addEventListener('click', () => {
-            navLinks.classList.toggle('mobile-active');
-            mobileToggle.classList.toggle('active');
-        });
-
-        // Funcionalidade de fechamento do menu ao clicar fora
-        function closeMobileMenu() {
-            if (navLinks.classList.contains('mobile-active')) {
-                navLinks.classList.remove('mobile-active');
-                mobileToggle.classList.remove('active');
-            }
-        }
-
-        // Event listener para detectar cliques fora do menu
-        document.addEventListener('click', (event) => {
-            // Verifica se o menu está aberto
-            if (navLinks.classList.contains('mobile-active')) {
-                // Verifica se o clique não foi no botão de toggle nem dentro do menu
-                const isClickInsideMenu = navLinks.contains(event.target);
-                const isClickOnToggle = mobileToggle.contains(event.target);
-                
-                // Se o clique foi fora do menu e não no botão toggle, fecha o menu
-                if (!isClickInsideMenu && !isClickOnToggle) {
-                    closeMobileMenu();
-                }
-            }
-        });
-
-        // Event listener para fechar o menu ao clicar em um link do menu (comportamento adicional útil)
-        navLinks.addEventListener('click', (event) => {
-            // Verifica se o clique foi em um link de navegação
-            if (event.target.classList.contains('nav-link')) {
-                closeMobileMenu();
-            }
-        });
-        
-        // Add mobile menu styles
-        const mobileStyles = document.createElement('style');
-        mobileStyles.textContent = `
-            @media (max-width: 768px) {
-                .nav-links.mobile-active {
-                    display: flex;
-                    position: absolute;
-                    top: 100%;
-                    left: 0;
-                    right: 0;
-                    flex-direction: column;
-                    background: rgba(10, 10, 15, 0.98);
-                    backdrop-filter: blur(20px);
-                    padding: 20px;
-                    border-top: 1px solid rgba(0, 255, 255, 0.2);
-                    animation: slideDown 0.3s ease;
-                }
-                
-                @keyframes slideDown {
-                    from {
-                        opacity: 0;
-                        transform: translateY(-20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-                
-                .mobile-menu-toggle.active .menu-bar:nth-child(1) {
-                    transform: rotate(45deg) translate(5px, 5px);
-                }
-                
-                .mobile-menu-toggle.active .menu-bar:nth-child(2) {
-                    opacity: 0;
-                }
-                
-                .mobile-menu-toggle.active .menu-bar:nth-child(3) {
-                    transform: rotate(-45deg) translate(7px, -6px);
-                }
-            }
-        `;
-        document.head.appendChild(mobileStyles);
-        
-        // Performance optimization - throttle scroll events
-        let ticking = false;
-        function requestTick(callback) {
-            if (!ticking) {
-                requestAnimationFrame(callback);
-                ticking = true;
-            }
-        }
-        
-        // Efeito parallax removido para evitar espaço vertical indesejado
-        // O hero content agora mantém posição fixa durante scroll
-        
-        // Add glitch effect on logo hover
-        const logo = document.querySelector('.logo');
-        logo.addEventListener('mouseenter', () => {
-            logo.classList.add('glitch');
-            setTimeout(() => logo.classList.remove('glitch'), 1000);
-        });
-        
-        // Add glitch animation styles
-        const glitchStyles = document.createElement('style');
-        glitchStyles.textContent = `
-            .glitch {
-                position: relative;
-                animation: glitch-anim 0.3s linear infinite;
-            }
-            
-            .glitch::before,
-            .glitch::after {
-                content: 'SoundyAI';
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-            }
-            
-            .glitch::before {
-                animation: glitch-anim-1 0.3s linear infinite;
-                clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
-                transform: translate(-2px);
-            }
-            
-            .glitch::after {
-                animation: glitch-anim-2 0.3s linear infinite;
-                clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
-                transform: translate(2px);
-            }
-            
-            @keyframes glitch-anim {
-                0%, 100% { opacity: 1; }
-                33% { opacity: 0.8; }
-                66% { opacity: 0.8; }
-            }
-            
-            @keyframes glitch-anim-1 {
-                0%, 100% { 
-                    clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
-                    transform: translate(-2px);
-                }
-                25% { 
-                    clip-path: polygon(0 15%, 100% 15%, 100% 55%, 0 55%);
-                    transform: translate(-4px);
-                }
-                50% { 
-                    clip-path: polygon(0 40%, 100% 40%, 100% 80%, 0 80%);
-                    transform: translate(2px);
-                }
-                75% { 
-                    clip-path: polygon(0 10%, 100% 10%, 100% 30%, 0 30%);
-                    transform: translate(3px);
-                }
-            }
-            
-            @keyframes glitch-anim-2 {
-                0%, 100% { 
-                    clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
-                    transform: translate(2px);
-                }
-                25% { 
-                    clip-path: polygon(0 45%, 100% 45%, 100% 85%, 0 85%);
-                    transform: translate(4px);
-                }
-                50% { 
-                    clip-path: polygon(0 20%, 100% 20%, 100% 60%, 0 60%);
-                    transform: translate(-2px);
-                }
-                75% { 
-                    clip-path: polygon(0 70%, 100% 70%, 100% 90%, 0 90%);
-                    transform: translate(-3px);
-                }
-            }
-        `;
-        document.head.appendChild(glitchStyles);
-        
-        // Initialize Vanta.js Background
-        function initVantaBackground() {
+        // Vanta.js Initialization
+        document.addEventListener('DOMContentLoaded', () => {
             try {
-                const vantaElement = document.getElementById("vanta-bg");
-                if (!vantaElement) {
-                    return;
-                }
-                
-                if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
-                    const isLowPerformance = navigator.hardwareConcurrency <= 4;
-                    const isDesktop = window.innerWidth > 768;
-                    
+                if (window.VANTA) {
                     VANTA.NET({
                         el: "#vanta-bg",
                         mouseControls: true,
@@ -1528,51 +1366,48 @@ Use estas dicas como um guia de referência, não como uma regra absoluta.
                         minWidth: 200.00,
                         scale: 1.00,
                         scaleMobile: 1.00,
-                        color: 0x8a2be2,
-                        backgroundColor: 0x0a0a1a,
-                        points: isLowPerformance ? 3.50 : (isDesktop ? 6.00 : 3.50),
-                        maxDistance: isLowPerformance ? 13.00 : (isDesktop ? 20.00 : 13.00),
-                        spacing: isLowPerformance ? 30.00 : (isDesktop ? 20.00 : 28.00),
-                        showDots: true
-                    });
-                    console.log('Vanta.js Network background initialized');
-                } else {
-                    console.log('Vanta.js libraries not available');
+                        color: 0xbc13fe,
+                        backgroundColor: 0x000000,
+                        points: 12.00,
+                        maxDistance: 22.00,
+                        spacing: 16.00
+                    })
                 }
-            } catch (error) {
-                console.log('Vanta.js initialization error:', error);
+            } catch (e) {
+                console.log("Vanta init error", e);
             }
+        });
+
+        // Mobile Menu
+        const mobileToggle = document.querySelector('.mobile-menu-toggle');
+        const navLinks = document.querySelector('.nav-links');
+        
+        if(mobileToggle) {
+            mobileToggle.addEventListener('click', () => {
+                const isClosed = navLinks.style.display === 'none' || navLinks.style.display === '';
+                navLinks.style.display = isClosed ? 'flex' : 'none';
+                navLinks.style.flexDirection = 'column';
+                navLinks.style.position = 'absolute';
+                navLinks.style.top = '80px';
+                navLinks.style.left = '0';
+                navLinks.style.width = '100%';
+                navLinks.style.background = 'rgba(5, 8, 20, 0.95)';
+                navLinks.style.padding = '20px';
+            });
         }
         
-        // Initialize Vanta.js when libraries are loaded
-        function checkLibrariesAndInit() {
-            if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
-                initVantaBackground();
-            } else {
-                setTimeout(checkLibrariesAndInit, 100);
-            }
-        }
+        // Scroll Reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        });
         
-        // Start initialization
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', checkLibrariesAndInit);
-        } else {
-            checkLibrariesAndInit();
-        }
-        
-        // Initialize everything when DOM is loaded
-        console.log('Site futurista carregado com sucesso!');
-        
-        // Debug: Teste para verificar se o scroll está funcionando
-        window.addEventListener('wheel', function(e) {
-            console.log('Evento wheel detectado:', e);
-        }, { passive: true });
-        
-        // Debug: Verificar se o scroll está sendo bloqueado
-        document.addEventListener('scroll', function(e) {
-            console.log('Scroll detectado:', window.pageYOffset);
-        }, { passive: true });
+        document.querySelectorAll('.section').forEach((section) => {
+            observer.observe(section);
+        });
     </script>
-    
 </body>
 </html>
