@@ -3992,8 +3992,8 @@ function handleReferenceFileSelection(type) {
         if (file) {
             try {
                 // Validar arquivo
-                if (file.size > 120 * 1024 * 1024) {
-                    alert('❌ Arquivo muito grande. Limite: 120MB');
+                if (file.size > 150 * 1024 * 1024) {
+                    alert('❌ Arquivo muito grande. Limite: 150MB');
                     return;
                 }
 
