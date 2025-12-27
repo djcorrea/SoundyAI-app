@@ -255,7 +255,59 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
 
   /**
-   * 🏗️ CONSTRUTOR: Inicializa analyzer apenas com gênero
+   * � HELPER UNIFICAÇÃO TABELA-CARDS: Obter dados da métrica a partir do comparisonResult
+   * 
+   * Esta função GARANTE que os CARDS usem EXATAMENTE os mesmos valores da TABELA.
+   * Quando comparisonResult está disponível, usar SEMPRE esta fonte.
+   * 
+   * @param {Object} comparisonResult - Resultado de compareWithTargets() do Motor 1
+   * @param {string} metricKey - Chave da métrica: 'lufs', 'truePeak', 'dr', 'stereo'
+   * @returns {Object|null} - { valueRaw, min, max, target, diff, severity, targetText } ou null
+   */
+  getMetricFromComparison(comparisonResult, metricKey) {
+    if (!comparisonResult || !comparisonResult.rows) {
+      return null;
+    }
+    
+    // Normalizar chave para busca
+    const keyMap = {
+      'lufs': 'lufs',
+      'loudness': 'lufs',
+      'truePeak': 'truePeak',
+      'truepeak': 'truePeak',
+      'true_peak': 'truePeak',
+      'dr': 'dr',
+      'dynamicRange': 'dr',
+      'dynamic_range': 'dr',
+      'stereo': 'stereo',
+      'stereoCorrelation': 'stereo',
+      'stereo_correlation': 'stereo'
+    };
+    
+    const normalizedKey = keyMap[metricKey] || metricKey;
+    
+    // Buscar no rows
+    const row = comparisonResult.rows.find(r => r.key === normalizedKey);
+    if (!row) {
+      return null;
+    }
+    
+    return {
+      valueRaw: row.valueRaw,           // Valor medido (número)
+      min: row.min,                     // Min do range (número)
+      max: row.max,                     // Max do range (número)
+      target: row.target,               // Target central (número)
+      diff: row.diff,                   // Diferença calculada
+      severity: row.severity,           // 'OK', 'ATENÇÃO', 'ALTA', 'CRÍTICA'
+      severityClass: row.severityClass, // 'ok', 'caution', 'warning', 'critical'
+      targetText: row.targetText,       // Texto formatado para display (ex: "-8.2 a -6.2 LUFS")
+      action: row.action,               // Ação recomendada
+      label: row.label                  // Label legível (ex: "Loudness (LUFS)")
+    };
+  }
+
+  /**
+   * �🏗️ CONSTRUTOR: Inicializa analyzer apenas com gênero
    * ✅ REGRA ABSOLUTA: NÃO aceita customTargets - usa APENAS consolidatedData.genreTargets em runtime
    * @param {string} genre - Gênero musical (apenas para logging/metadata)
    */
@@ -529,6 +581,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🔊 Análise LUFS com Sugestões Educativas
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
    * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
+   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
    */
   analyzeLUFS(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
@@ -537,77 +590,74 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
 
-    // 🔍 DEBUG: Verificar estrutura de genreTargets recebida
-    console.log('[LUFS][DEBUG] genreTargets recebido:', {
-      exists: !!consolidatedData.genreTargets,
-      hasLufsNested: !!consolidatedData.genreTargets?.lufs,
-      hasLufsTarget: consolidatedData.genreTargets?.lufs?.target,
-      hasLufsFlat: consolidatedData.genreTargets?.lufs_target,
-      keys: consolidatedData.genreTargets ? Object.keys(consolidatedData.genreTargets) : []
-    });
-
-    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics && consolidatedData.metrics.loudness;
-    if (!metric || typeof metric.value !== 'number') {
-      console.error('[LUFS] ❌ consolidatedData.metrics.loudness ausente ou inválido');
-      console.error('[LUFS] ❌ Valor encontrado:', metric);
-      return;
-    }
-
-    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
-    const targetInfo = this.getMetricTarget('lufs', null, consolidatedData);
-    if (!targetInfo) {
-      console.error('[LUFS] ❌ consolidatedData.genreTargets.lufs ausente - pulando sugestão');
-      return;
-    }
-
-    const lufs = metric.value;
-    const lufsTarget = targetInfo.target;
-    const tolerance = targetInfo.tolerance;
-    const critical = targetInfo.critical;
-
-    console.log('[SUGGESTION_DEBUG][LUFS] ✅ Usando targets do genreTargets:', {
-      value: lufs.toFixed(2),
-      target: lufsTarget.toFixed(2),
-      tolerance: tolerance.toFixed(2),
-      min: targetInfo.min,  // 🆕 LOG min
-      max: targetInfo.max,  // 🆕 LOG max
-      source: 'genreTargets'
-    });
-
-    if (!Number.isFinite(lufs)) return;
+    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'lufs');
     
-    // PATCH: Usar getRangeBounds para suportar target_range
-    // 🔧 STREAMING FIX: Incluir min/max do targetInfo
-    const lufsThreshold = { 
-      target: lufsTarget, 
-      tolerance, 
-      critical,
-      min: targetInfo.min,  // ✅ PASSAR min do targetInfo
-      max: targetInfo.max   // ✅ PASSAR max do targetInfo
-    };
-    const bounds = this.getRangeBounds(lufsThreshold);
+    let lufs, bounds, diff, severity;
     
-    let diff;
-    if (lufs < bounds.min) {
-      diff = lufs - bounds.min; // Negativo (precisa subir)
-    } else if (lufs > bounds.max) {
-      diff = lufs - bounds.max; // Positivo (precisa descer)
+    if (comparisonData) {
+      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+      lufs = comparisonData.valueRaw;
+      bounds = { min: comparisonData.min, max: comparisonData.max };
+      diff = comparisonData.diff;
+      
+      // Mapear severity da tabela para nosso sistema
+      const severityMap = {
+        'CRÍTICA': this.severity.CRITICAL,
+        'ALTA': this.severity.WARNING,
+        'ATENÇÃO': this.severity.AJUSTE_LEVE,
+        'OK': this.severity.OK
+      };
+      severity = severityMap[comparisonData.severity] || this.severity.OK;
+      
+      // Se está OK na tabela, não gerar sugestão
+      if (comparisonData.severity === 'OK') {
+        return;
+      }
     } else {
-      diff = 0; // Dentro do range
+      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
+      const metric = consolidatedData.metrics && consolidatedData.metrics.loudness;
+      if (!metric || typeof metric.value !== 'number') {
+        console.error('[LUFS] ❌ consolidatedData.metrics.loudness ausente ou inválido');
+        return;
+      }
+
+      const targetInfo = this.getMetricTarget('lufs', null, consolidatedData);
+      if (!targetInfo) {
+        console.error('[LUFS] ❌ consolidatedData.genreTargets.lufs ausente - pulando sugestão');
+        return;
+      }
+
+      lufs = metric.value;
+      const lufsTarget = targetInfo.target;
+      const tolerance = targetInfo.tolerance;
+      const critical = targetInfo.critical;
+
+      if (!Number.isFinite(lufs)) return;
+      
+      const lufsThreshold = { 
+        target: lufsTarget, 
+        tolerance, 
+        critical,
+        min: targetInfo.min,
+        max: targetInfo.max
+      };
+      bounds = this.getRangeBounds(lufsThreshold);
+      
+      if (lufs < bounds.min) {
+        diff = lufs - bounds.min;
+      } else if (lufs > bounds.max) {
+        diff = lufs - bounds.max;
+      } else {
+        diff = 0;
+      }
+      
+      if (diff === 0) {
+        return;
+      }
+      
+      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     }
-    
-    // 🔥 LOG MANDATÓRIO: Mostrar cálculo do delta ANTES de gerar sugestão
-    console.log('[SUGGESTION_DEBUG][LUFS] 📊 Cálculo do Delta:', {
-      metric: 'LUFS',
-      value: lufs.toFixed(2),
-      target: lufsTarget.toFixed(2),
-      bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-      delta: diff.toFixed(2),
-      formula: diff === 0 ? 'dentro do range' : (lufs > bounds.max ? `${lufs.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${lufs.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
-    });
-    
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
@@ -615,10 +665,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       label: METRIC_LABELS.lufs,
       unit: 'LUFS',
       value: lufs,
-      target: lufsTarget,
-      tolerance: tolerance,
-      min: bounds.min,  // ✅ PASSAR min REAL
-      max: bounds.max,  // ✅ PASSAR max REAL
+      target: bounds.min + (bounds.max - bounds.min) / 2, // target central
+      tolerance: (bounds.max - bounds.min) / 2,
+      min: bounds.min,
+      max: bounds.max,
       decimals: 1
     });
     
@@ -634,17 +684,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
-    console.log('[GENRE-FLOW][S2_BUILDER]', {
-      metric: 'LUFS',
-      genre: this.genre,
-      currentValue: lufs,
-      targetValue: lufsTarget,
-      delta: diff,
-      deltaNum: diff,
-      rawMetricValue: lufs,
-      rawTargetObject: targetInfo
-    });
-    
     const suggestion = {
       metric: 'lufs',
       severity,
@@ -654,46 +693,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: `${lufs.toFixed(1)} LUFS`,
       targetValue: bounds.min !== bounds.max ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LUFS` : `${bounds.max.toFixed(1)} LUFS`,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
-      deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
-      status, // 🎯 FASE 3: Status explícito para validação
+      deltaNum: diff,
+      status,
       priority: severity.priority
     };
-    
-    console.log('[GENRE-FLOW][S2_BUILDER]', {
-      metric: 'LUFS',
-      genre: this.genre,
-      currentValue: lufs,
-      targetValue: lufsTarget,
-      delta: diff,
-      deltaNum: diff,
-      rawMetricValue: lufs,
-      rawTargetObject: targetInfo
-    });
-    
-    // ────────────────────────────────────────
-    // STEP 2 — LOGAR OS VALORES DENTRO DO BUILDER DE SUGESTÕES
-    // ────────────────────────────────────────
-    console.log("[TRACE_S2_BUILDER]", {
-      metric: "LUFS",
-      current: lufs,
-      target: lufsTarget,
-      rawTargetObject: consolidatedData?.genreTargets?.lufs,
-      diff: diff,
-      suggestionPreview: suggestion
-    });
-    
-    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
-    if (diff === 0) {
-      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
-        metric: 'LUFS',
-        value: lufs.toFixed(2),
-        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-        delta: diff,
-        severity: severity.level,
-        reason: 'diff === 0 (dentro do range)'
-      });
-      return;
-    }
     
     suggestions.push(suggestion);
   }
@@ -702,6 +705,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🎯 Análise True Peak com Sugestões Educativas
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
    * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
+   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
    */
   analyzeTruePeak(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
@@ -710,96 +714,96 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
 
-    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics && consolidatedData.metrics.truePeak;
-    if (!metric || typeof metric.value !== 'number') {
-      console.error('[TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente ou inválido');
-      console.error('[TRUE_PEAK] ❌ Valor encontrado:', metric);
-      return;
-    }
-
-    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
-    const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData);
-    if (!targetInfo) {
-      console.error('[TRUE_PEAK] ❌ consolidatedData.genreTargets.truePeak ausente - pulando sugestão');
-      return;
-    }
-
-    const truePeak = metric.value;
-    const tpTarget = targetInfo.target;
-    const tolerance = targetInfo.tolerance;
-    const critical = targetInfo.critical;
-
-    console.log('[SUGGESTION_DEBUG][TRUE_PEAK] ✅ Usando targets do genreTargets:', {
-      value: truePeak.toFixed(2),
-      target: tpTarget.toFixed(2),
-      tolerance: tolerance.toFixed(2),
-      min: targetInfo.min,  // 🆕 LOG min
-      max: targetInfo.max,  // 🆕 LOG max
-      source: 'genreTargets'
-    });
-
-    if (!Number.isFinite(truePeak)) return;
+    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'truePeak');
     
-    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
-    // 🔧 STREAMING FIX: Incluir min/max do targetInfo
-    const tpThreshold = { 
-      target: tpTarget, 
-      tolerance, 
-      critical,
-      min: targetInfo.min,  // ✅ PASSAR min do targetInfo
-      max: targetInfo.max   // ✅ PASSAR max do targetInfo
-    };
-    const bounds = this.getRangeBounds(tpThreshold);
-    
-    let diff;
-    if (truePeak < bounds.min) {
-      diff = truePeak - bounds.min; // Negativo (muito baixo, improvável)
-    } else if (truePeak > bounds.max) {
-      diff = truePeak - bounds.max; // Positivo (acima do limite - CRÍTICO)
-    } else {
-      diff = 0; // Dentro do range seguro
-    }
-    
-    // 🔥 LOG MANDATÓRIO: Mostrar cálculo do delta ANTES de gerar sugestão
-    console.log('[SUGGESTION_DEBUG][TRUE_PEAK] 📊 Cálculo do Delta:', {
-      metric: 'True Peak',
-      value: truePeak.toFixed(2),
-      target: tpTarget.toFixed(2),
-      bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-      delta: diff.toFixed(2),
-      formula: diff === 0 ? 'dentro do range' : (truePeak > bounds.max ? `${truePeak.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${truePeak.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
-    });
-    
-    // ════════════════════════════════════════════════════════════════════════════
-    // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE (TP_ABOVE_ZERO)
-    // Esta regra NUNCA pode ser ignorada, independente de tolerância ou targets
-    // ════════════════════════════════════════════════════════════════════════════
+    let truePeak, bounds, diff, severity;
     const TRUE_PEAK_HARD_CAP = 0.0; // Constante física - jamais passar de 0
-    let severity;
     
-    if (truePeak > TRUE_PEAK_HARD_CAP) {
-      // 🔴 CRÍTICA ABSOLUTA - Clipping digital
-      severity = this.severity.CRITICAL;
-      console.log('[TRUE_PEAK] 🚨 REGRA ABSOLUTA ATIVADA: TP > 0.0 dBTP = CRÍTICA', {
-        value: truePeak.toFixed(2),
-        hardCap: TRUE_PEAK_HARD_CAP,
-        excesso: (truePeak - TRUE_PEAK_HARD_CAP).toFixed(2),
-        reasonCode: 'TP_ABOVE_ZERO'
-      });
+    if (comparisonData) {
+      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+      truePeak = comparisonData.valueRaw;
+      bounds = { min: comparisonData.min, max: comparisonData.max };
+      diff = comparisonData.diff;
+      
+      // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+      if (truePeak > TRUE_PEAK_HARD_CAP) {
+        severity = this.severity.CRITICAL;
+      } else {
+        // Mapear severity da tabela para nosso sistema
+        const severityMap = {
+          'CRÍTICA': this.severity.CRITICAL,
+          'ALTA': this.severity.WARNING,
+          'ATENÇÃO': this.severity.AJUSTE_LEVE,
+          'OK': this.severity.OK
+        };
+        severity = severityMap[comparisonData.severity] || this.severity.OK;
+      }
+      
+      // Se está OK na tabela E não viola hard cap, não gerar sugestão
+      if (comparisonData.severity === 'OK' && truePeak <= TRUE_PEAK_HARD_CAP) {
+        return;
+      }
     } else {
-      // Usar cálculo padrão apenas se TP <= 0
-      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
+      const metric = consolidatedData.metrics && consolidatedData.metrics.truePeak;
+      if (!metric || typeof metric.value !== 'number') {
+        console.error('[TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente ou inválido');
+        return;
+      }
+
+      const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData);
+      if (!targetInfo) {
+        console.error('[TRUE_PEAK] ❌ consolidatedData.genreTargets.truePeak ausente - pulando sugestão');
+        return;
+      }
+
+      truePeak = metric.value;
+      const tpTarget = targetInfo.target;
+      const tolerance = targetInfo.tolerance;
+      const critical = targetInfo.critical;
+
+      if (!Number.isFinite(truePeak)) return;
+      
+      const tpThreshold = { 
+        target: tpTarget, 
+        tolerance, 
+        critical,
+        min: targetInfo.min,
+        max: targetInfo.max
+      };
+      bounds = this.getRangeBounds(tpThreshold);
+      
+      if (truePeak < bounds.min) {
+        diff = truePeak - bounds.min;
+      } else if (truePeak > bounds.max) {
+        diff = truePeak - bounds.max;
+      } else {
+        diff = 0;
+      }
+      
+      // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+      if (truePeak > TRUE_PEAK_HARD_CAP) {
+        severity = this.severity.CRITICAL;
+      } else if (diff === 0) {
+        return;
+      } else {
+        severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+      }
     }
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
+    // Calcular target e tolerance baseado nos bounds
+    const targetForBuilder = bounds.max; // True Peak usa max como limite
+    const toleranceForBuilder = bounds.max - bounds.min;
+    
     const textSuggestion = buildMetricSuggestion({
       key: 'truePeak',
       label: METRIC_LABELS.truePeak,
       unit: 'dBTP',
       value: truePeak,
-      target: tpTarget,
-      tolerance: tolerance,
+      target: targetForBuilder,
+      tolerance: toleranceForBuilder,
       min: bounds.min,  // ✅ PASSAR min REAL
       max: bounds.max,  // ✅ PASSAR max REAL
       decimals: 1
@@ -847,6 +851,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 📈 Análise Dynamic Range com Sugestões Educativas
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
    * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
+   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
    */
   analyzeDynamicRange(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
@@ -855,59 +860,78 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
 
-    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metric = consolidatedData.metrics && consolidatedData.metrics.dr;
-    if (!metric || typeof metric.value !== 'number') {
-      console.error('[DR] ❌ consolidatedData.metrics.dr ausente ou inválido');
-      console.error('[DR] ❌ Valor encontrado:', metric);
-      return;
-    }
-
-    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
-    const targetInfo = this.getMetricTarget('dr', null, consolidatedData);
-    if (!targetInfo) {
-      console.error('[DR] ❌ consolidatedData.genreTargets.dr ausente - pulando sugestão');
-      return;
-    }
-
-    const dr = metric.value;
-    const drTarget = targetInfo.target;
-    const tolerance = targetInfo.tolerance;
-    const critical = targetInfo.critical;
-
-    console.log('[SUGGESTION_DEBUG][DR] ✅ Usando targets do genreTargets:', {
-      value: dr.toFixed(2),
-      target: drTarget.toFixed(2),
-      tolerance: tolerance.toFixed(2),
-      source: 'genreTargets'
-    });
-
-    if (!Number.isFinite(dr)) return;
+    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'dr');
     
-    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
-    const threshold = { target: drTarget, tolerance, critical };
-    const bounds = this.getRangeBounds(threshold);
+    let dr, bounds, diff, severity;
     
-    let diff;
-    if (dr < bounds.min) {
-      diff = dr - bounds.min; // Negativo (precisa aumentar)
-    } else if (dr > bounds.max) {
-      diff = dr - bounds.max; // Positivo (precisa reduzir)
+    if (comparisonData) {
+      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+      dr = comparisonData.valueRaw;
+      bounds = { min: comparisonData.min, max: comparisonData.max };
+      diff = comparisonData.diff;
+      
+      // Mapear severity da tabela para nosso sistema
+      const severityMap = {
+        'CRÍTICA': this.severity.CRITICAL,
+        'ALTA': this.severity.WARNING,
+        'ATENÇÃO': this.severity.AJUSTE_LEVE,
+        'OK': this.severity.OK
+      };
+      severity = severityMap[comparisonData.severity] || this.severity.OK;
+      
+      // Se está OK na tabela, não gerar sugestão
+      if (comparisonData.severity === 'OK') {
+        return;
+      }
     } else {
-      diff = 0; // Dentro do range
+      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
+      const metric = consolidatedData.metrics && consolidatedData.metrics.dr;
+      if (!metric || typeof metric.value !== 'number') {
+        console.error('[DR] ❌ consolidatedData.metrics.dr ausente ou inválido');
+        return;
+      }
+
+      const targetInfo = this.getMetricTarget('dr', null, consolidatedData);
+      if (!targetInfo) {
+        console.error('[DR] ❌ consolidatedData.genreTargets.dr ausente - pulando sugestão');
+        return;
+      }
+
+      dr = metric.value;
+      const drTarget = targetInfo.target;
+      const tolerance = targetInfo.tolerance;
+      const critical = targetInfo.critical;
+
+      if (!Number.isFinite(dr)) return;
+      
+      const threshold = { target: drTarget, tolerance, critical };
+      bounds = this.getRangeBounds(threshold);
+      
+      if (dr < bounds.min) {
+        diff = dr - bounds.min;
+      } else if (dr > bounds.max) {
+        diff = dr - bounds.max;
+      } else {
+        diff = 0;
+      }
+      
+      if (diff === 0) {
+        return;
+      }
+      
+      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
     }
     
-    // 🔥 LOG MANDATÓRIO: Mostrar cálculo do delta ANTES de gerar sugestão
-    console.log('[SUGGESTION_DEBUG][DR] 📊 Cálculo do Delta:', {
-      metric: 'Dynamic Range',
-      value: dr.toFixed(2),
-      target: drTarget.toFixed(2),
-      bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-      delta: diff.toFixed(2),
-      formula: diff === 0 ? 'dentro do range' : (dr < bounds.min ? `${dr.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}` : `${dr.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}`)
-    });
+    // 🔥 VALIDAÇÃO CRÍTICA: DR nunca deve ter targetValue negativo
+    if (bounds.min < 0 || bounds.max < 0) {
+      console.error('[DR] ❌❌❌ BUG CRÍTICO: Range negativo detectado!');
+      return;
+    }
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // Calcular target e tolerance baseado nos bounds
+    const targetForBuilder = bounds.min + (bounds.max - bounds.min) / 2;
+    const toleranceForBuilder = (bounds.max - bounds.min) / 2;
     
     // 🎯 Usar text builder para mensagens consistentes
     const textSuggestion = buildMetricSuggestion({
@@ -915,10 +939,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       label: METRIC_LABELS.dr,
       unit: 'dB DR',
       value: dr,
-      target: drTarget,
-      tolerance: tolerance,
-      min: bounds.min,  // ✅ PASSAR min REAL
-      max: bounds.max,  // ✅ PASSAR max REAL
+      target: targetForBuilder,
+      tolerance: toleranceForBuilder,
+      min: bounds.min,
+      max: bounds.max,
       decimals: 1,
       genre: this.genre
     });
@@ -928,36 +952,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     let action = textSuggestion.action;
     
     let status = 'ok';
-    if (severity.level === 'corrigir' || severity.level === 'ajuste_leve') {
-      if (dr < bounds.min) {
-        status = 'low';
-      } else if (dr > bounds.max) {
-        status = 'high';
-      }
-    }
-    
-    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
-    if (diff === 0) {
-      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
-        metric: 'Dynamic Range',
-        value: dr.toFixed(2),
-        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-        delta: diff,
-        severity: severity.level,
-        reason: 'diff === 0 (dentro do range)'
-      });
-      return;
-    }
-    
-    // 🔥 VALIDAÇÃO CRÍTICA: DR nunca deve ter targetValue negativo
-    if (bounds.min < 0 || bounds.max < 0) {
-      console.error('[DR] ❌❌❌ BUG CRÍTICO: Range negativo detectado!');
-      console.error('[DR] ❌ bounds.min:', bounds.min, 'bounds.max:', bounds.max);
-      console.error('[DR] ❌ drTarget:', drTarget, 'tolerance:', tolerance);
-      console.error('[DR] ❌ Isso indica que o target errado foi usado (provavelmente LUFS ao invés de DR)');
-      console.error('[DR] ❌ genreTargets.dr:', consolidatedData.genreTargets?.dr);
-      // Bloquear sugestão inválida
-      return;
+    if (dr < bounds.min) {
+      status = 'low';
+    } else if (dr > bounds.max) {
+      status = 'high';
     }
     
     suggestions.push({
@@ -969,10 +967,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: `${dr.toFixed(1)} dB DR`,
       targetValue: `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB DR`,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
-      deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
-      status, // 🎯 FASE 3: Status explícito para validação
+      deltaNum: diff,
+      status,
       priority: severity.priority,
-      genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
+      genre: this.genre
     });
   }
   
@@ -980,6 +978,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🎧 Análise Stereo com Sugestões Educativas
    * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
    * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
+   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
    */
   analyzeStereoMetrics(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
@@ -988,57 +987,71 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
 
-    // ✅ REGRA ABSOLUTA: Ler valor APENAS de consolidatedData.metrics
-    const metricStereo = consolidatedData.metrics && consolidatedData.metrics.stereo;
-    if (!metricStereo || typeof metricStereo.value !== 'number') {
-      console.error('[STEREO] ❌ consolidatedData.metrics.stereo ausente ou inválido');
-      console.error('[STEREO] ❌ Valor encontrado:', metricStereo);
-      return;
-    }
-
-    // ✅ REGRA ABSOLUTA: Obter target APENAS de consolidatedData.genreTargets
-    const targetInfo = this.getMetricTarget('stereo', null, consolidatedData);
-    if (!targetInfo) {
-      console.error('[STEREO] ❌ consolidatedData.genreTargets.stereo ausente - pulando sugestão');
-      return;
-    }
-
-    const correlation = metricStereo.value;
-    const stereoTarget = targetInfo.target;
-    const tolerance = targetInfo.tolerance;
-    const critical = targetInfo.critical;
-
-    console.log('[SUGGESTION_DEBUG][STEREO] ✅ Usando targets do genreTargets:', {
-      value: correlation,
-      target: stereoTarget,
-      tolerance,
-      source: 'genreTargets'
-    });
+    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'stereo');
     
-    // PATCH: Usar getRangeBounds para consistência com LUFS e bandas
-    const threshold = { target: stereoTarget, tolerance, critical };
-    const bounds = this.getRangeBounds(threshold);
-    let rawDiff;
-    if (correlation < bounds.min) {
-      rawDiff = correlation - bounds.min; // Negativo (muito estreito)
-    } else if (correlation > bounds.max) {
-      rawDiff = correlation - bounds.max; // Positivo (muito largo)
+    let correlation, bounds, rawDiff, severity;
+    
+    if (comparisonData) {
+      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+      correlation = comparisonData.valueRaw;
+      bounds = { min: comparisonData.min, max: comparisonData.max };
+      rawDiff = comparisonData.diff;
+      
+      // Mapear severity da tabela para nosso sistema
+      const severityMap = {
+        'CRÍTICA': this.severity.CRITICAL,
+        'ALTA': this.severity.WARNING,
+        'ATENÇÃO': this.severity.AJUSTE_LEVE,
+        'OK': this.severity.OK
+      };
+      severity = severityMap[comparisonData.severity] || this.severity.OK;
+      
+      // Se está OK na tabela, não gerar sugestão
+      if (comparisonData.severity === 'OK') {
+        return;
+      }
     } else {
-      rawDiff = 0; // Dentro do range ideal
+      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
+      const metricStereo = consolidatedData.metrics && consolidatedData.metrics.stereo;
+      if (!metricStereo || typeof metricStereo.value !== 'number') {
+        console.error('[STEREO] ❌ consolidatedData.metrics.stereo ausente ou inválido');
+        return;
+      }
+
+      const targetInfo = this.getMetricTarget('stereo', null, consolidatedData);
+      if (!targetInfo) {
+        console.error('[STEREO] ❌ consolidatedData.genreTargets.stereo ausente - pulando sugestão');
+        return;
+      }
+
+      correlation = metricStereo.value;
+      const stereoTarget = targetInfo.target;
+      const tolerance = targetInfo.tolerance;
+      const critical = targetInfo.critical;
+      
+      const threshold = { target: stereoTarget, tolerance, critical };
+      bounds = this.getRangeBounds(threshold);
+      
+      if (correlation < bounds.min) {
+        rawDiff = correlation - bounds.min;
+      } else if (correlation > bounds.max) {
+        rawDiff = correlation - bounds.max;
+      } else {
+        rawDiff = 0;
+      }
+      
+      if (rawDiff === 0) {
+        return;
+      }
+      
+      const diff = Math.abs(rawDiff);
+      severity = this.calculateSeverity(diff, tolerance, critical);
     }
     
-    // 🔥 LOG MANDATÓRIO: Mostrar cálculo do delta ANTES de gerar sugestão
-    console.log('[SUGGESTION_DEBUG][STEREO] 📊 Cálculo do Delta:', {
-      metric: 'Stereo Correlation',
-      value: correlation.toFixed(2),
-      target: stereoTarget.toFixed(2),
-      bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-      delta: rawDiff.toFixed(2),
-      formula: rawDiff === 0 ? 'dentro do range' : (correlation < bounds.min ? `${correlation.toFixed(2)} - ${bounds.min.toFixed(2)} = ${rawDiff.toFixed(2)}` : `${correlation.toFixed(2)} - ${bounds.max.toFixed(2)} = ${rawDiff.toFixed(2)}`)
-    });
-    
-    const diff = Math.abs(rawDiff);
-    const severity = this.calculateSeverity(diff, tolerance, critical);
+    // Calcular target e tolerance baseado nos bounds
+    const targetForBuilder = bounds.min + (bounds.max - bounds.min) / 2;
+    const toleranceForBuilder = (bounds.max - bounds.min) / 2;
     
     // 🎯 Usar text builder para mensagens consistentes
     const textSuggestion = buildMetricSuggestion({
@@ -1046,10 +1059,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       label: METRIC_LABELS.stereo,
       unit: '',
       value: correlation,
-      target: stereoTarget,
-      tolerance: tolerance,
-      min: bounds.min,  // ✅ PASSAR min REAL
-      max: bounds.max,  // ✅ PASSAR max REAL
+      target: targetForBuilder,
+      tolerance: toleranceForBuilder,
+      min: bounds.min,
+      max: bounds.max,
       decimals: 2,
       genre: this.genre
     });
@@ -1059,25 +1072,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     let action = textSuggestion.action;
     
     let status = 'ok';
-    if (severity.level === 'critical' || severity.level === 'warning') {
-      if (correlation < bounds.min) {
-        status = 'low';
-      } else if (correlation > bounds.max) {
-        status = 'high';
-      }
-    }
-    
-    // 🎯 GATE: Bloquear sugestão se métrica está OK (dentro do range)
-    if (rawDiff === 0) {
-      console.log('[SUGGESTION_GATE] ✅ Sugestão OMITIDA (métrica OK):', {
-        metric: 'Stereo Correlation',
-        value: correlation.toFixed(2),
-        bounds: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
-        delta: rawDiff,
-        severity: severity.level,
-        reason: 'rawDiff === 0 (dentro do range)'
-      });
-      return;
+    if (correlation < bounds.min) {
+      status = 'low';
+    } else if (correlation > bounds.max) {
+      status = 'high';
     }
     
     suggestions.push({
@@ -1089,8 +1087,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: correlation.toFixed(2),
       targetValue: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
       delta: rawDiff === 0 ? '0.00 (dentro do range)' : `${rawDiff > 0 ? '+' : ''}${rawDiff.toFixed(2)}`,
-      deltaNum: rawDiff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
-      status, // 🎯 FASE 3: Status explícito para validação
+      deltaNum: rawDiff,
+      status,
       priority: severity.priority
     });
   }
@@ -1757,6 +1755,7 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!(finalJSON && finalJSON.data) + "\n");
+  process.stderr.write("  - comparisonResult disponível?: " + !!(finalJSON?.comparisonResult) + "\n");
   
   // 🔥 VALIDAÇÃO CRÍTICA: Exigir targets válidos
   const hasCustomTargets = customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0;
@@ -1826,7 +1825,9 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   // NÃO usar finalJSON.data.genreTargets diretamente (pode estar no formato errado)
   const consolidatedData = {
     genreTargets: effectiveTargets,  // ✅ Targets normalizados + streaming override
-    metrics: finalJSON?.data?.metrics || null
+    metrics: finalJSON?.data?.metrics || null,
+    // 🎯 UNIFICAÇÃO TABELA-CARDS: Passar comparisonResult para garantir paridade numérica
+    comparisonResult: finalJSON?.comparisonResult || null
   };
   
   process.stderr.write("[ENGINE] ✅ consolidatedData.genreTargets.lufs.target = " + 
