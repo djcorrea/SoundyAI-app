@@ -1005,6 +1005,51 @@ body {
     animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.8s forwards;
 }
 
+.chatbot-action-btn:nth-child(4) {
+    animation: chatbotButtonSlideInOptimized 0.5s ease-out 2.0s forwards;
+}
+
+/* Botão Analisar Música - Destaque Especial */
+.chatbot-action-btn.btn-analyze-highlight {
+    background: linear-gradient(135deg, rgba(188, 19, 254, 0.25) 0%, rgba(0, 150, 255, 0.15) 100%);
+    border: 1px solid rgba(188, 19, 254, 0.6);
+    box-shadow: 
+        0 0 15px rgba(188, 19, 254, 0.3),
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-weight: 500;
+    text-shadow: 0 0 8px rgba(188, 19, 254, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+.chatbot-action-btn.btn-analyze-highlight::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.chatbot-action-btn.btn-analyze-highlight:hover {
+    background: linear-gradient(135deg, rgba(188, 19, 254, 0.4) 0%, rgba(0, 150, 255, 0.25) 100%);
+    border-color: rgba(188, 19, 254, 0.8);
+    box-shadow: 
+        0 0 25px rgba(188, 19, 254, 0.5),
+        0 6px 25px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+}
+
 .chatbot-action-btn:hover {
     transform: scale(1.02);
     background: rgba(0, 150, 255, 0.12);
@@ -1696,3 +1741,268 @@ body {
    ════════════════════════════════════════════════════════════ */
 
 /* ============ FIM DA RESPONSIVIDADE MOBILE ============ */
+
+/* ════════════════════════════════════════════════════════════
+   MENU HAMBÚRGUER E PAINEL LATERAL
+   ════════════════════════════════════════════════════════════ */
+
+/* Botão Hambúrguer */
+.hamburger-menu-btn {
+    position: fixed;
+    top: 2vh;
+    left: 2vw;
+    z-index: 10000;
+    width: 44px;
+    height: 44px;
+    background: rgba(10, 10, 30, 0.85);
+    border: 1px solid rgba(0, 150, 255, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px;
+    backdrop-filter: blur(15px);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(0, 150, 255, 0.1);
+    transition: all 0.3s ease;
+    opacity: 0;
+    animation: hamburgerAppear 0.5s ease-out 1.5s forwards;
+}
+
+@keyframes hamburgerAppear {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.hamburger-menu-btn:hover {
+    background: rgba(0, 150, 255, 0.15);
+    border-color: rgba(0, 150, 255, 0.5);
+    box-shadow: 
+        0 6px 25px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(0, 150, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.hamburger-menu-btn.active {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden;
+    transform: scale(0.8);
+}
+
+.hamburger-bar {
+    width: 22px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 5px rgba(0, 150, 255, 0.3);
+}
+
+.hamburger-menu-btn:hover .hamburger-bar {
+    background: #00f3ff;
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+}
+
+/* Overlay do Painel */
+.side-panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.side-panel-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Painel Lateral */
+.side-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100%;
+    background: linear-gradient(180deg, rgba(10, 10, 30, 0.98) 0%, rgba(5, 5, 20, 0.98) 100%);
+    border-right: 1px solid rgba(0, 150, 255, 0.2);
+    z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.side-panel.active {
+    transform: translateX(0);
+}
+
+/* Header do Painel */
+.side-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid rgba(0, 150, 255, 0.15);
+    background: rgba(0, 150, 255, 0.05);
+}
+
+.side-panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
+}
+
+.side-panel-close {
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    line-height: 1;
+    padding: 0;
+}
+
+.side-panel-close:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Menu do Painel */
+.side-panel-menu {
+    list-style: none;
+    padding: 15px 0;
+    margin: 0;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.side-panel-menu li {
+    padding: 0 12px;
+    margin-bottom: 4px;
+}
+
+.side-panel-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: left;
+}
+
+.side-panel-item svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: all 0.25s ease;
+}
+
+.side-panel-item:hover {
+    background: rgba(0, 150, 255, 0.1);
+    border-color: rgba(0, 150, 255, 0.2);
+    color: #fff;
+}
+
+.side-panel-item:hover svg {
+    opacity: 1;
+    stroke: #00f3ff;
+}
+
+/* Item Destacado - Analisar Áudio */
+.side-panel-item.side-panel-item-highlight {
+    background: linear-gradient(135deg, rgba(188, 19, 254, 0.2) 0%, rgba(0, 150, 255, 0.1) 100%);
+    border: 1px solid rgba(188, 19, 254, 0.4);
+    color: #fff;
+    font-weight: 500;
+    box-shadow: 
+        0 0 15px rgba(188, 19, 254, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.side-panel-item.side-panel-item-highlight svg {
+    opacity: 1;
+    stroke: #bc13fe;
+}
+
+.side-panel-item.side-panel-item-highlight:hover {
+    background: linear-gradient(135deg, rgba(188, 19, 254, 0.3) 0%, rgba(0, 150, 255, 0.15) 100%);
+    border-color: rgba(188, 19, 254, 0.6);
+    box-shadow: 
+        0 0 25px rgba(188, 19, 254, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Item Sair */
+.side-panel-item.side-panel-item-logout:hover {
+    background: rgba(255, 50, 100, 0.1);
+    border-color: rgba(255, 50, 100, 0.3);
+    color: #ff6b8a;
+}
+
+.side-panel-item.side-panel-item-logout:hover svg {
+    stroke: #ff6b8a;
+}
+
+/* Footer do Painel */
+.side-panel-footer {
+    padding: 15px 20px;
+    border-top: 1px solid rgba(0, 150, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.side-panel-version {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 1px;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 768px) {
+    .hamburger-menu-btn {
+        top: 10px;
+        left: 10px;
+        width: 40px;
+        height: 40px;
+    }
+    
+    .side-panel {
+        width: 85%;
+        max-width: 300px;
+    }
+}
