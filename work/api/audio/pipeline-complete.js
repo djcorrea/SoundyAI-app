@@ -2037,10 +2037,9 @@ function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 
   return []; // Retornar vazio para não gerar sugestões paralelas
   
   // ════════════════════════════════════════════════════════════════════════════════
-  // 🔒 CÓDIGO ORIGINAL ABAIXO (DESATIVADO - NÃO EXECUTARÁ)
+  // 🔒 CÓDIGO ORIGINAL ABAIXO (DESATIVADO - NÃO EXECUTARÁ devido ao return acima)
   // ════════════════════════════════════════════════════════════════════════════════
   
-  /*
   console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`[ADVANCED-SUGGEST] 🎯 Iniciando geração avançada`);
   console.log(`[ADVANCED-SUGGEST] Genre: ${genre}, Mode: ${mode}`);
