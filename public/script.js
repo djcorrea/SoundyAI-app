@@ -375,6 +375,13 @@ class ProdAIChatbot {
     
     handleActionButton(action) {
         switch(action) {
+            case 'analyze':
+                if (typeof window.openModeSelectionModal === 'function') {
+                    window.openModeSelectionModal();
+                } else {
+                    console.error('openModeSelectionModal não está disponível');
+                }
+                break;
             case 'upgrade':
                 window.location.href = 'planos.html';
                 break;
