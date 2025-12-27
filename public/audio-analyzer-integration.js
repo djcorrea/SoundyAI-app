@@ -7189,173 +7189,83 @@ window.buildMetricRows = function(analysis, targets, mode = 'genre') {
     const technicalData = analysis.technicalData || {};
     
     // 🔊 LUFS
-    {
-        const bounds = getMetricBounds(genreData, 'lufs');
-        if (bounds && Number.isFinite(technicalData.lufsIntegrated)) {
-            const inRange = technicalData.lufsIntegrated >= bounds.min && technicalData.lufsIntegrated <= bounds.max;
-            const delta = inRange ? 0 : (technicalData.lufsIntegrated < bounds.min ? (technicalData.lufsIntegrated - bounds.min) : (technicalData.lufsIntegrated - bounds.max));
-            const absDelta = Math.abs(delta);
-
-            let result;
-            if (bounds.mode === 'minmax') {
-                if (inRange) {
-                    result = { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
-                } else {
-                    const rangeWidth = Math.abs(bounds.max - bounds.min);
-                    const cautionLimit = Math.max(rangeWidth * 0.25, 0.5);
-                    const action = delta > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} LUFS` : `⚠️ Aumentar ${absDelta.toFixed(1)} LUFS`;
-                    result = absDelta >= cautionLimit
-                        ? { severity: 'CRÍTICA', severityClass: 'critical', action: action.replace('⚠️', '🔴'), diff: delta }
-                        : { severity: 'ATENÇÃO', severityClass: 'caution', action, diff: delta };
-                }
-            } else {
-                result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0);
-            }
-
+    if (genreData.lufs_target != null && Number.isFinite(technicalData.lufsIntegrated)) {
+        const result = calcSeverity(technicalData.lufsIntegrated, genreData.lufs_target, genreData.tol_lufs || 1.0);
         rows.push({
             key: 'lufsIntegrated',
             type: 'metric',
             label: '🔊 Loudness (LUFS)',
             value: technicalData.lufsIntegrated,
-            targetText: bounds.mode === 'minmax'
-                ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LUFS`
-                : `${genreData.lufs_target.toFixed(1)} LUFS`,
-            min: bounds.min,
-            max: bounds.max,
+            targetText: `${genreData.lufs_target.toFixed(1)} LUFS`,
+            min: genreData.lufs_target - (genreData.tol_lufs || 1.0),
+            max: genreData.lufs_target + (genreData.tol_lufs || 1.0),
             target: genreData.lufs_target,
-            delta: result.diff ?? 0,
+            delta: result.diff,
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
             category: 'METRICS'
         });
-        }
     }
     
     // 🎚️ True Peak
-    {
-        const bounds = getMetricBounds(genreData, 'true_peak');
-        if (bounds && Number.isFinite(technicalData.truePeakDbtp)) {
-            const tpValue = technicalData.truePeakDbtp;
-            const warnFrom = Number.isFinite(genreData.true_peak_warn_from) ? genreData.true_peak_warn_from : null;
-
-            let result;
-            if (tpValue > bounds.max) {
-                const absDelta = tpValue - bounds.max;
-                result = { severity: 'CRÍTICA', severityClass: 'critical', action: `🔴 Reduzir ${absDelta.toFixed(1)} dBTP`, diff: tpValue - bounds.max };
-            } else if (warnFrom != null && tpValue >= warnFrom && tpValue <= bounds.max) {
-                result = { severity: 'ATENÇÃO', severityClass: 'caution', action: '⚠️ Muito próximo do limite', diff: tpValue - bounds.max };
-            } else if (tpValue < bounds.min) {
-                const absDelta = bounds.min - tpValue;
-                result = { severity: 'ATENÇÃO', severityClass: 'caution', action: `⚠️ Aumentar ${absDelta.toFixed(1)} dBTP`, diff: tpValue - bounds.min };
-            } else {
-                result = { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
-            }
-
+    if (genreData.true_peak_target != null && Number.isFinite(technicalData.truePeakDbtp)) {
+        const result = calcSeverity(technicalData.truePeakDbtp, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
         rows.push({
             key: 'truePeak',
             type: 'metric',
             label: '🎚️ True Peak (dBTP)',
             value: technicalData.truePeakDbtp,
-            targetText: `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dBTP`,
-            min: bounds.min,
-            max: bounds.max,
+            targetText: `${genreData.true_peak_target.toFixed(1)} dBTP`,
+            min: genreData.true_peak_target - (genreData.tol_true_peak || 0.5),
+            max: genreData.true_peak_target + (genreData.tol_true_peak || 0.5),
             target: genreData.true_peak_target,
-            delta: result.diff ?? 0,
+            delta: result.diff,
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
             category: 'METRICS'
         });
-        }
     }
     
     // 📊 DR
-    {
-        const bounds = getMetricBounds(genreData, 'dr');
-        if (bounds && Number.isFinite(technicalData.dynamicRange)) {
-            const inRange = technicalData.dynamicRange >= bounds.min && technicalData.dynamicRange <= bounds.max;
-            const delta = inRange ? 0 : (technicalData.dynamicRange < bounds.min ? (technicalData.dynamicRange - bounds.min) : (technicalData.dynamicRange - bounds.max));
-            const absDelta = Math.abs(delta);
-
-            let result;
-            if (bounds.mode === 'minmax') {
-                if (inRange) {
-                    result = { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
-                } else {
-                    const rangeWidth = Math.abs(bounds.max - bounds.min);
-                    const cautionLimit = Math.max(rangeWidth * 0.25, 0.5);
-                    const action = delta > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} DR` : `⚠️ Aumentar ${absDelta.toFixed(1)} DR`;
-                    result = absDelta >= cautionLimit
-                        ? { severity: 'CRÍTICA', severityClass: 'critical', action: action.replace('⚠️', '🔴'), diff: delta }
-                        : { severity: 'ATENÇÃO', severityClass: 'caution', action, diff: delta };
-                }
-            } else {
-                result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0);
-            }
-
+    if (genreData.dr_target != null && Number.isFinite(technicalData.dynamicRange)) {
+        const result = calcSeverity(technicalData.dynamicRange, genreData.dr_target, genreData.tol_dr || 1.0);
         rows.push({
             key: 'dr',
             type: 'metric',
             label: '📊 Dynamic Range (DR)',
             value: technicalData.dynamicRange,
-            targetText: bounds.mode === 'minmax'
-                ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} DR`
-                : `${genreData.dr_target.toFixed(1)} DR`,
-            min: bounds.min,
-            max: bounds.max,
+            targetText: `${genreData.dr_target.toFixed(1)} DR`,
+            min: genreData.dr_target - (genreData.tol_dr || 1.0),
+            max: genreData.dr_target + (genreData.tol_dr || 1.0),
             target: genreData.dr_target,
-            delta: result.diff ?? 0,
+            delta: result.diff,
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
             category: 'METRICS'
         });
-        }
     }
     
     // 🎧 Stereo
-    {
-        const bounds = getMetricBounds(genreData, 'stereo');
-        if (bounds && Number.isFinite(technicalData.stereoCorrelation)) {
-            const inRange = technicalData.stereoCorrelation >= bounds.min && technicalData.stereoCorrelation <= bounds.max;
-            const delta = inRange ? 0 : (technicalData.stereoCorrelation < bounds.min ? (technicalData.stereoCorrelation - bounds.min) : (technicalData.stereoCorrelation - bounds.max));
-            const absDelta = Math.abs(delta);
-
-            let result;
-            if (bounds.mode === 'minmax') {
-                if (inRange) {
-                    result = { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff: 0 };
-                } else {
-                    const rangeWidth = Math.abs(bounds.max - bounds.min);
-                    const cautionLimit = Math.max(rangeWidth * 0.25, 0.05);
-                    const action = delta > 0 ? `⚠️ Reduzir ${absDelta.toFixed(3)}` : `⚠️ Aumentar ${absDelta.toFixed(3)}`;
-                    result = absDelta >= cautionLimit
-                        ? { severity: 'CRÍTICA', severityClass: 'critical', action: action.replace('⚠️', '🔴'), diff: delta }
-                        : { severity: 'ATENÇÃO', severityClass: 'caution', action, diff: delta };
-                }
-            } else {
-                result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
-            }
-
+    if (genreData.stereo_target != null && Number.isFinite(technicalData.stereoCorrelation)) {
+        const result = calcSeverity(technicalData.stereoCorrelation, genreData.stereo_target, genreData.tol_stereo || 0.1);
         rows.push({
             key: 'stereo',
             type: 'metric',
             label: '🎧 Stereo Correlation',
             value: technicalData.stereoCorrelation,
-            targetText: bounds.mode === 'minmax'
-                ? `${bounds.min.toFixed(3)} a ${bounds.max.toFixed(3)}`
-                : `${genreData.stereo_target.toFixed(3)}`,
-            min: bounds.min,
-            max: bounds.max,
+            targetText: `${genreData.stereo_target.toFixed(3)}`,
+            min: genreData.stereo_target - (genreData.tol_stereo || 0.1),
+            max: genreData.stereo_target + (genreData.tol_stereo || 0.1),
             target: genreData.stereo_target,
-            delta: result.diff ?? 0,
+            delta: result.diff,
             severity: result.severity,
             severityClass: result.severityClass,
             actionText: result.action,
             category: 'METRICS'
         });
-        }
     }
     
     // ════════════════════════════════════════════════════════════════════
@@ -21764,55 +21674,6 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// ========================================
-// ✅ HELPERS: bounds por *_min/_max (underscore)
-// ========================================
-// Regra:
-// - Se <metric>_min e <metric>_max existirem e forem finitos: usar como faixa OK (ignora tol_*)
-// - Senão: fallback legacy target ± tol
-function getMetricBounds(refData, metricKey) {
-    if (!refData || typeof refData !== 'object') return null;
-    const minKey = `${metricKey}_min`;
-    const maxKey = `${metricKey}_max`;
-    const targetKey = `${metricKey}_target`;
-    const tolKey = `tol_${metricKey}`;
-    const min = refData[minKey];
-    const max = refData[maxKey];
-
-    if (Number.isFinite(min) && Number.isFinite(max)) {
-        return { min, max, mode: 'minmax' };
-    }
-
-    const target = refData[targetKey];
-    const tol = refData[tolKey];
-    if (Number.isFinite(target) && Number.isFinite(tol) && tol > 0) {
-        return { min: target - tol, max: target + tol, mode: 'tol', target, tolerance: tol };
-    }
-
-    return null;
-}
-
-function calculateMetricScoreUsingBounds(actualValue, refData, metricKey) {
-    const bounds = getMetricBounds(refData, metricKey);
-    if (!bounds || !Number.isFinite(actualValue)) return null;
-
-    // 🔄 Fallback legacy: preservar comportamento atual
-    if (bounds.mode === 'tol') {
-        return calculateMetricScore(actualValue, bounds.target, bounds.tolerance);
-    }
-
-    // ✅ Novo: OK se dentro do range
-    if (actualValue >= bounds.min && actualValue <= bounds.max) {
-        return 100;
-    }
-
-    // Penalizar apenas a distância até o limite mais próximo
-    const diff = actualValue < bounds.min ? (bounds.min - actualValue) : (actualValue - bounds.max);
-    const rangeWidth = Math.abs(bounds.max - bounds.min);
-    const effectiveTol = Math.max(rangeWidth / 2, 0.1);
-    return calculateMetricScore(diff, 0, effectiveTol);
-}
-
 // 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
@@ -21910,21 +21771,21 @@ function calculateLoudnessScore(analysis, refData) {
     
     // LUFS Integrado (métrica principal de loudness)
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
-    if (Number.isFinite(lufsValue)) {
-        const score = calculateMetricScoreUsingBounds(lufsValue, refData, 'lufs');
+    if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
+        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
         if (score !== null) {
             scores.push(score);
-            console.log(`📊 LUFS: ${lufsValue} (bounds via getMetricBounds) = ${score}%`);
+            console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
         }
     }
     
     // True Peak (importante para evitar clipping digital)
     const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
-    if (Number.isFinite(truePeakValue)) {
-        const score = calculateMetricScoreUsingBounds(truePeakValue, refData, 'true_peak');
+    if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
+        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
         if (score !== null) {
             scores.push(score);
-            console.log(`📊 True Peak: ${truePeakValue} (bounds via getMetricBounds) = ${score}%`);
+            console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
         }
     }
     
@@ -21991,11 +21852,11 @@ function calculateDynamicsScore(analysis, refData) {
     
     // Dynamic Range (DR) - métrica principal de dinâmica
     const drValue = metrics.dynamic_range || tech.dynamicRange;
-    if (Number.isFinite(drValue)) {
-        const score = calculateMetricScoreUsingBounds(drValue, refData, 'dr');
+    if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
+        const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
             scores.push(score);
-            console.log(`📊 Dynamic Range: ${drValue} (bounds via getMetricBounds) = ${score}%`);
+            console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}%`);
         }
     }
     
@@ -23133,10 +22994,6 @@ function updateReferenceSuggestions(analysis) {
             stereo_target: refMetrics.stereoCorrelation || refMetrics.stereo_correlation,
             spectral_centroid_target: refMetrics.spectralCentroidHz || refMetrics.spectral_centroid,
             bands: refMetrics.spectral_balance || null,
-            // ✅ NOVO (underscore): bounds para suportar faixa assimétrica no frontend
-            // Regra absoluta: TP nunca pode passar de 0.0 dBTP
-            true_peak_min: -3.0,
-            true_peak_max: 0.0,
             tol_lufs: 0.5,
             tol_true_peak: 0.3,
             tol_dr: 1.0,

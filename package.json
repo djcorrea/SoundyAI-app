@@ -28,7 +28,6 @@
     "audit:scoring": "node scripts/manual-audit-scoring.js",
     "audit:audio": "node scripts/manual-audit-lufs.js && node scripts/manual-audit-truepeak.js && node scripts/manual-audit-spectral.js && node scripts/manual-audit-scoring.js",
     "audit:serve": "python -m http.server 3000",
-    "validate:targets": "node scripts/validate-genre-targets.js",
     "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\"fileKey\":\"uploads/test.wav\",\"mode\":\"genre\"}'",
     "postinstall": "npm run copy:refs"
   },
