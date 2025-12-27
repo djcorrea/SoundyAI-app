@@ -601,7 +601,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       formula: diff === 0 ? 'dentro do range' : (lufs > bounds.max ? `${lufs.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${lufs.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
     });
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    let severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // ✅ REGRA ABSOLUTA: True Peak acima do max é sempre CRÍTICO (mesmo com delta pequeno)
+    if (Number.isFinite(bounds?.max) && truePeak > bounds.max) {
+      severity = this.severity.CRITICAL;
+    }
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
@@ -1777,10 +1781,12 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
     effectiveTargets.lufs.critical = 1.5;
     
     // Override True Peak para streaming
+    // ✅ REGRA ABSOLUTA: True Peak nunca pode passar de 0.0 dBTP
+    // ✅ Faixa assimétrica: permite ir até -3.0 sem erro
     if (!effectiveTargets.truePeak) effectiveTargets.truePeak = {};
     effectiveTargets.truePeak.target = -1.0;
-    effectiveTargets.truePeak.min = -1.5;
-    effectiveTargets.truePeak.max = -1.0;
+    effectiveTargets.truePeak.min = -3.0;
+    effectiveTargets.truePeak.max = 0.0;
     effectiveTargets.truePeak.tolerance = 0.5;
     effectiveTargets.truePeak.critical = 0.75;
     

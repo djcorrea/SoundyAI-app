@@ -130,15 +130,15 @@
     },
     "notes": "Manter demais métricas como estão; este gênero aceita clipping controlado e abertura estéreo mais agressiva em médios/agudos. Estéreo: correlação (-1..+1) calculada como 1-2*largura; largura exibível = (1-correlação)/2. Estéreo: correlação (-1..+1) calculada como 1-2*largura; largura exibível = (1-correlação)/2.",
     "legacy_compatibility": {
-      "lufs_target": -18,
+      "lufs_target": -7.2,
       "tol_lufs": 2.5,
       "tol_lufs_min": 1,
       "tol_lufs_max": 1,
-      "true_peak_target": -14.1,
+      "true_peak_target": -0.5,
       "tol_true_peak": 3.4,
       "true_peak_streaming_max": -0.3,
       "true_peak_baile_max": 0,
-      "dr_target": 32.8,
+      "dr_target": 6,
       "tol_dr": 3,
       "lra_target": 7.5,
       "lra_min": 1,
@@ -217,7 +217,14 @@
           "energy_pct": 0.16,
           "severity": "hard"
         }
-      }
+      },
+      "lufs_min": -9.5,
+      "lufs_max": -3.1,
+      "dr_min": 3.6,
+      "dr_max": 11.7,
+      "true_peak_min": -3,
+      "true_peak_max": 0,
+      "true_peak_warn_from": -0.1
     },
     "last_updated": "2025-08-30T21:23:15.067Z",
     "normalization_info": {
@@ -226,6 +233,13 @@
       "algorithm": "static_gain_ebu_r128",
       "processing_date": "2025-08-30T21:23:15.067Z",
       "run_id": "lufs_norm_1756588588279_78cfade0"
-    }
+    },
+    "lufs_min": -9.5,
+    "lufs_max": -3.1,
+    "dr_min": 3.6,
+    "dr_max": 11.7,
+    "true_peak_min": -3,
+    "true_peak_max": 0,
+    "true_peak_warn_from": -0.1
   }
 }
