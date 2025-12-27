@@ -51,6 +51,12 @@
       }
     },
     "last_updated": "2025-08-30T22:40:34.483Z",
-    "cache_bust": 1756593634483
+    "cache_bust": 1756593634483,
+    "lufs_min": -10.71,
+    "lufs_max": -8.29,
+    "dr_min": 6.0600000000000005,
+    "dr_max": 8.24,
+    "true_peak_min": -3,
+    "true_peak_max": 0
   }
 }

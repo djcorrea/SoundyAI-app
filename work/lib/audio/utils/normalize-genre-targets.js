@@ -71,7 +71,12 @@ export function normalizeGenreTargets(rawTargets) {
       critical: tpTol * 1.5,
       // ✅ NOVO: min/max explícitos
       min: typeof rawTargets.true_peak_min === 'number' ? rawTargets.true_peak_min : tpTarget - tpTol,
-      max: typeof rawTargets.true_peak_max === 'number' ? rawTargets.true_peak_max : tpTarget + tpTol
+      // ✅ REGRA ABSOLUTA: True Peak nunca pode passar de 0.0 dBTP
+      // Se o JSON não trouxer true_peak_max, o default deve ser 0.0 (não tpTarget + tol)
+      max: (() => {
+        const jsonMax = typeof rawTargets.true_peak_max === 'number' ? rawTargets.true_peak_max : 0.0;
+        return jsonMax > 0 ? 0.0 : jsonMax;
+      })()
     },
 
     // Dynamic Range

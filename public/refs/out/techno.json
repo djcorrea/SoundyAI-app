@@ -11,7 +11,7 @@
         "dynamic_range": 8.5,
         "rms_db": -13.5,
         "stereo_correlation": 0.915,
-        "lra": 5.0
+        "lra": 5
       },
       "spectral_bands": {
         "sub": {
@@ -80,7 +80,7 @@
             "max": -36
           },
           "target_db": -41,
-          "energy_pct": 1.0,
+          "energy_pct": 1,
           "tol_db": 0,
           "severity": "soft"
         },
@@ -102,10 +102,10 @@
       "true_peak_target": -0.65,
       "dr_target": 8.5,
       "stereo_target": 0.915,
-      "tol_lufs": 1.0,
+      "tol_lufs": 1,
       "tol_true_peak": 0.35,
       "tol_dr": 1.5,
-      "lra_target": 5.0,
+      "lra_target": 5,
       "tol_lra": 2.5,
       "tol_stereo": 0.065,
       "bands": {
@@ -175,7 +175,7 @@
             "max": -36
           },
           "target_db": -41,
-          "energy_pct": 1.0,
+          "energy_pct": 1,
           "tol_db": 0,
           "severity": "soft"
         },
@@ -189,7 +189,13 @@
           "tol_db": 0,
           "severity": "soft"
         }
-      }
+      },
+      "lufs_min": -11.5,
+      "lufs_max": -9.5,
+      "dr_min": 7,
+      "dr_max": 10,
+      "true_peak_min": -3,
+      "true_peak_max": 0
     },
     "last_updated": "2025-10-14T00:00:00.000Z",
     "cache_bust": 1728864000001,

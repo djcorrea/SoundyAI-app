@@ -186,7 +186,13 @@
           "tol_db": 0,
           "severity": "soft"
         }
-      }
+      },
+      "lufs_min": -12,
+      "lufs_max": -9,
+      "dr_min": 9,
+      "dr_max": 12,
+      "true_peak_min": -3,
+      "true_peak_max": 0
     },
     "last_updated": "2025-08-31T14:58:44.923Z",
     "cache_bust": 1756652324923,

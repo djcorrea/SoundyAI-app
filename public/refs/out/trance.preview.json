@@ -70,7 +70,13 @@
           "energy_pct": 0.12,
           "severity": "soft"
         }
-      }
+      },
+      "lufs_min": -19.7,
+      "lufs_max": -16.3,
+      "dr_min": 14.600000000000001,
+      "dr_max": 19,
+      "true_peak_min": -3,
+      "true_peak_max": 0
     },
     "recalculation_info": {
       "method": "arithmetic_mean",

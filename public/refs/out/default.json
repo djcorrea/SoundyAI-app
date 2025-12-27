@@ -13,6 +13,10 @@
     "bands": {},
     "ranges": {},
     "targets": {},
-    "error": "FALLBACK_DEFAULT_LOADED"
+    "error": "FALLBACK_DEFAULT_LOADED",
+    "lufs_min": -15,
+    "lufs_max": -13,
+    "true_peak_min": -3,
+    "true_peak_max": 0
   }
 }
