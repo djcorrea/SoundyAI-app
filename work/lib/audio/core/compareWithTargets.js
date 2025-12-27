@@ -223,32 +223,26 @@ export function compareWithTargets(metrics, targets) {
 function evaluateTruePeak(value, target) {
   const { min, max, warnFrom, hardCap } = target;
   const effectiveHardCap = hardCap ?? TRUE_PEAK_HARD_CAP;
-  const tpTarget = target.target ?? max;
   const unit = METRIC_UNITS.truePeak;
-  
-  // 🎯 CORREÇÃO: A recomendação final deve ser o MENOR entre hard cap e target do gênero
-  const recommendedFinal = Math.min(tpTarget, effectiveHardCap);
-  const reduceBy = Math.max(0, value - recommendedFinal);
-  
-  console.debug('[TP-BACKEND]', { value, tpTarget, hardCap: effectiveHardCap, recommendedFinal, reduceBy });
   
   let severity, action, severityClass, scoreValue;
   
   // 🚨 REGRA CRÍTICA: TP > 0.0 dBTP = CRÍTICA SEMPRE
   if (value > effectiveHardCap) {
+    const delta = value - effectiveHardCap;
     severity = 'CRÍTICA';
     severityClass = 'critical';
-    action = `🔴 CLIPPING! Reduzir ${reduceBy.toFixed(2)} ${unit} (alvo: ${recommendedFinal.toFixed(1)} ${unit})`;
+    action = `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} ${unit}`;
     scoreValue = 0;
     
-    console.log('[COMPARE][TRUE-PEAK] 🚨 CRÍTICA: TP > 0.0 dBTP detectado:', value, '→ Reduzir', reduceBy.toFixed(2), 'dB para', recommendedFinal.toFixed(1), 'dBTP');
+    console.log('[COMPARE][TRUE-PEAK] 🚨 CRÍTICA: TP > 0.0 dBTP detectado:', value);
   }
   // WARNING ZONE: Acima de warnFrom
   else if (warnFrom !== null && value > warnFrom) {
-    const deltaToTarget = Math.max(0, value - recommendedFinal);
+    const delta = value - warnFrom;
     severity = 'ALTA';
     severityClass = 'warning';
-    action = `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} ${unit} (alvo: ${recommendedFinal.toFixed(1)} ${unit})`;
+    action = `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} ${unit}`;
     scoreValue = 0.5;
   }
   // ABAIXO DO MÍNIMO (muito baixo)
@@ -285,7 +279,6 @@ function evaluateTruePeak(value, target) {
   };
   
   // Issue só se não for OK
-  // 🎯 ESTRUTURA UNIFICADA: Campos flat para consumo direto pelo frontend
   const issue = severity !== 'OK' ? {
     key: 'truePeak',
     metric: 'truePeak',
@@ -293,16 +286,8 @@ function evaluateTruePeak(value, target) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : severity === 'ALTA' ? 'warning' : 'caution',
     problemText: `True Peak: ${value.toFixed(1)} ${unit} (limite: ${max.toFixed(1)} ${unit})`,
-    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
-    currentValue: value,
-    targetValue: recommendedFinal,
-    delta: reduceBy,
-    unit,
-    // Dados legacy para compatibilidade
     numbers: { value, target: target.target, min, max, diff: value - target.target },
-    action,
-    // 🎯 CAMPO recommendedAction: EXATAMENTE igual ao action da row/tabela
-    recommendedAction: action
+    action
   } : null;
   
   return { row, issue, score: scoreValue };
@@ -383,20 +368,6 @@ function evaluateRangeMetric(value, target, metricKey) {
     category: METRIC_CATEGORIES[metricKey] || 'OTHER'
   };
   
-  // 🎯 Calcular target recomendado e delta para cards
-  // Para métricas de range, o target depende se está acima ou abaixo
-  let recommendedTarget, delta;
-  if (value < min) {
-    recommendedTarget = min;
-    delta = min - value; // positivo (aumentar)
-  } else if (value > max) {
-    recommendedTarget = max;
-    delta = value - max; // positivo (reduzir)
-  } else {
-    recommendedTarget = targetValue || (min + max) / 2;
-    delta = 0;
-  }
-
   const issue = severity !== 'OK' ? {
     key: metricKey,
     metric: metricKey,
@@ -404,16 +375,8 @@ function evaluateRangeMetric(value, target, metricKey) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : severity === 'ALTA' ? 'warning' : 'caution',
     problemText: `${label}: ${valueFormatted}${unit ? ' ' + unit : ''} (ideal: ${min.toFixed(1)} a ${max.toFixed(1)})`,
-    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
-    currentValue: value,
-    targetValue: recommendedTarget,
-    delta,
-    unit,
-    // Dados legacy para compatibilidade
     numbers: { value, target: targetValue, min, max, diff: value - targetValue },
-    action,
-    // 🎯 CAMPO recommendedAction: EXATAMENTE igual ao action da row/tabela
-    recommendedAction: action
+    action
   } : null;
   
   return { row, issue, score: scoreValue };
@@ -480,19 +443,6 @@ function evaluateBand(value, target, bandKey) {
     category: 'SPECTRAL'
   };
   
-  // 🎯 Calcular target recomendado e delta para cards
-  let recommendedTarget, delta;
-  if (value < min) {
-    recommendedTarget = min;
-    delta = min - value;
-  } else if (value > max) {
-    recommendedTarget = max;
-    delta = value - max;
-  } else {
-    recommendedTarget = targetValue ?? (min + max) / 2;
-    delta = 0;
-  }
-
   const issue = severity !== 'OK' ? {
     key: bandKey,
     metric: bandKey,
@@ -500,15 +450,8 @@ function evaluateBand(value, target, bandKey) {
     severity,
     severityLevel: severity === 'CRÍTICA' ? 'critical' : 'caution',
     problemText: `${label}: ${value.toFixed(1)} ${unit} (ideal: ${min.toFixed(1)} a ${max.toFixed(1)})`,
-    // 🔗 CAMPOS FLAT (usados pelo frontend para merge com cards)
-    currentValue: value,
-    targetValue: recommendedTarget,
-    delta,
-    unit,
-    // Dados legacy para compatibilidade
     numbers: { value, target: targetValue, min, max, diff: value - (targetValue ?? (min + max) / 2) },
-    action,
-    recommendedAction: action
+    action
   } : null;
   
   return { row, issue, score: scoreValue };

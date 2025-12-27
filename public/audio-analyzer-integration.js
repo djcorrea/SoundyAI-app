@@ -8258,29 +8258,23 @@ function renderGenreComparisonTable(options) {
     // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
     // Esta regra NÃO pode ser sobrescrita por tolerância ou target do gênero
     // ═══════════════════════════════════════════════════════════════════════════════
-    const TRUE_PEAK_HARD_CAP_LOCAL = 0.0; // dBTP - Limite máximo ABSOLUTO
+    const TRUE_PEAK_HARD_CAP = 0.0; // dBTP - Limite máximo ABSOLUTO
     
     if (genreData.true_peak_target !== null && genreData.true_peak_target !== undefined) {
         const tpValue = truePeakDbtp;
         if (Number.isFinite(tpValue) && Number.isFinite(genreData.true_peak_target)) {
             let result;
             
-            // 🎯 CORREÇÃO: A recomendação final deve ser o MENOR entre hard cap e target do gênero
-            const tpTarget = genreData.true_peak_target;
-            const recommendedFinal = Math.min(tpTarget, TRUE_PEAK_HARD_CAP_LOCAL);
-            const reduceBy = Math.max(0, tpValue - recommendedFinal);
-            
-            console.debug('[TP-TABLE-ACTION]', { tpValue, tpTarget, hardCap: TRUE_PEAK_HARD_CAP_LOCAL, recommendedFinal, reduceBy });
-            
             // 🚨 HARD LIMIT: TP > 0.0 = CRÍTICA (ignora tolerância)
-            if (tpValue > TRUE_PEAK_HARD_CAP_LOCAL) {
+            if (tpValue > TRUE_PEAK_HARD_CAP) {
+                const delta = tpValue - TRUE_PEAK_HARD_CAP;
                 result = {
                     severity: 'CRÍTICA',
                     severityClass: 'critical',
-                    action: `🔴 CLIPPING! Reduzir ${reduceBy.toFixed(2)} dB (alvo: ${recommendedFinal.toFixed(1)} dBTP)`,
-                    diff: tpValue - tpTarget
+                    action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
+                    diff: tpValue - genreData.true_peak_target
                 };
-                console.log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue, '→ Reduzir', reduceBy.toFixed(2), 'dB para', recommendedFinal.toFixed(1), 'dBTP');
+                console.log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue);
             } else {
                 // Lógica normal para TP <= 0.0
                 result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
@@ -22171,42 +22165,30 @@ function evaluateMetricFromTargetProfile(metricKey, value, targetProfile) {
     
     // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0 dBTP = SEMPRE CRÍTICA
     if (metricKey === 'truePeak') {
-        // Extrair target do gênero
-        const tpTarget = metric.target ?? metric.tp_target ?? -1.0;
         const tpMax = metric.tp_max ?? metric.max ?? TRUE_PEAK_HARD_CAP;
-        
-        // 🎯 CORREÇÃO: A recomendação final deve ser o MENOR entre hard cap e target do gênero
-        const recommendedFinal = Math.min(tpTarget, tpMax, TRUE_PEAK_HARD_CAP);
-        const reduceBy = Math.max(0, value - recommendedFinal);
-        
-        console.debug('[TP-EVALUATE]', { value, tpTarget, tpMax, hardCap: TRUE_PEAK_HARD_CAP, recommendedFinal, reduceBy });
-        
         if (value > tpMax) {
+            const delta = value - tpMax;
             return {
                 severity: 'CRÍTICA',
                 severityClass: 'critical',
-                action: `🔴 CLIPPING! Reduzir ${reduceBy.toFixed(2)} dB (alvo: ${recommendedFinal.toFixed(1)} dBTP)`,
-                diff: value - tpTarget,
+                action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dBTP`,
+                diff: delta,
                 isCritical: true,
-                isWithinRange: false,
-                recommendedFinal,
-                reduceBy
+                isWithinRange: false
             };
         }
         
         // Verificar warn_from
         const warnFrom = metric.tp_warn_from ?? metric.warnFrom;
         if (warnFrom != null && value > warnFrom) {
-            const deltaToTarget = Math.max(0, value - recommendedFinal);
+            const delta = value - warnFrom;
             return {
                 severity: 'ALTA',
                 severityClass: 'high',
-                action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} dB (alvo: ${recommendedFinal.toFixed(1)} dBTP)`,
-                diff: value - tpTarget,
+                action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dBTP`,
+                diff: delta,
                 isCritical: false,
-                isWithinRange: false,
-                recommendedFinal,
-                reduceBy: deltaToTarget
+                isWithinRange: false
             };
         }
         
@@ -22338,38 +22320,15 @@ function calculateTruePeakSeverityLocal(value, targets) {
         return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
     }
     
-    // Extrair target do gênero para calcular recomendação correta
-    let tpTarget;
-    
-    // Tentar extrair do formato normalizado (backend)
-    if (targets?.metrics?.truePeak) {
-        tpTarget = targets.metrics.truePeak.target ?? targets.metrics.truePeak.max ?? -1.0;
-    } 
-    // Fallback: formato legado
-    else if (targets?.truePeak) {
-        tpTarget = targets.truePeak.target ?? targets.truePeak.max ?? -1.0;
-    }
-    // Fallback: campos flat (true_peak_target, etc)
-    else {
-        tpTarget = targets?.true_peak_target ?? -1.0;
-    }
-    
-    // 🎯 CORREÇÃO: A recomendação final deve ser o MENOR entre hard cap e target do gênero
-    const recommendedFinal = Math.min(tpTarget, TRUE_PEAK_HARD_CAP);
-    const reduceBy = Math.max(0, value - recommendedFinal);
-    
-    console.debug('[TP-SEVERITY-LOCAL]', { value, tpTarget, hardCap: TRUE_PEAK_HARD_CAP, recommendedFinal, reduceBy });
-    
     // 🚨 REGRA ABSOLUTA: True Peak > 0 dBTP = CRÍTICA
     if (value > TRUE_PEAK_HARD_CAP) {
+        const delta = value - TRUE_PEAK_HARD_CAP;
         return {
             severity: 'CRÍTICA',
             severityClass: 'critical',
-            action: `🔴 CLIPPING! Reduzir ${reduceBy.toFixed(2)} dB (alvo: ${recommendedFinal.toFixed(1)} dBTP)`,
-            diff: value - tpTarget,
-            isCritical: true,
-            recommendedFinal,
-            reduceBy
+            action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
+            diff: delta,
+            isCritical: true
         };
     }
     
@@ -22391,6 +22350,7 @@ function calculateTruePeakSeverityLocal(value, targets) {
     }
     // Fallback: campos flat (true_peak_min, etc)
     else {
+        const tpTarget = targets?.true_peak_target ?? -1.0;
         const tpTol = targets?.tol_true_peak ?? 0.5;
         min = targets?.true_peak_min ?? (tpTarget - tpTol);
         max = Math.min(targets?.true_peak_max ?? 0, TRUE_PEAK_HARD_CAP);
@@ -22399,14 +22359,12 @@ function calculateTruePeakSeverityLocal(value, targets) {
     
     // ATENÇÃO: Na zona de warning
     if (warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
-        const deltaToTarget = Math.max(0, value - recommendedFinal);
+        const delta = value - warnFrom;
         return {
             severity: 'ATENÇÃO',
             severityClass: 'caution',
-            action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} dB (alvo: ${recommendedFinal.toFixed(1)} dBTP)`,
-            diff: value - tpTarget,
-            recommendedFinal,
-            reduceBy: deltaToTarget
+            action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dB`,
+            diff: delta
         };
     }
     
