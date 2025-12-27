@@ -110,6 +110,76 @@
     <script src="/auto-validator-tonal-safe.js?v=20250829" defer></script>
 </head>
 <body>
+    <!-- Menu Hambúrguer - Canto Superior Esquerdo -->
+    <button class="hamburger-menu-btn" id="hamburgerMenuBtn" aria-label="Abrir menu de atalhos">
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+    </button>
+
+    <!-- Painel Lateral de Atalhos -->
+    <div class="side-panel-overlay" id="sidePanelOverlay"></div>
+    <nav class="side-panel" id="sidePanel" aria-label="Menu de atalhos">
+        <div class="side-panel-header">
+            <span class="side-panel-title">Menu</span>
+            <button class="side-panel-close" id="sidePanelClose" aria-label="Fechar menu">&times;</button>
+        </div>
+        <ul class="side-panel-menu">
+            <li>
+                <button class="side-panel-item side-panel-item-highlight" data-action="analyze">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18V5l12-2v13"/>
+                        <circle cx="6" cy="18" r="3"/>
+                        <circle cx="18" cy="16" r="3"/>
+                    </svg>
+                    <span>Analisar áudio</span>
+                </button>
+            </li>
+            <li>
+                <button class="side-panel-item" data-action="docs">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <span>Documento técnico</span>
+                </button>
+            </li>
+            <li>
+                <button class="side-panel-item" data-action="upgrade">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span>Upgrade de plano</span>
+                </button>
+            </li>
+            <li>
+                <button class="side-panel-item" data-action="manage">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span>Gerenciar conta</span>
+                </button>
+            </li>
+            <li>
+                <button class="side-panel-item side-panel-item-logout" data-action="logout">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span>Sair</span>
+                </button>
+            </li>
+        </ul>
+        <div class="side-panel-footer">
+            <span class="side-panel-version">SoundyAI v1</span>
+        </div>
+    </nav>
+
     <!-- Fundo animado 3D -->
     <div class="cenario">
         <!-- Container para o fundo animado Vanta.js -->
@@ -232,11 +302,11 @@
 
     <!-- Botões de ação do chatbot -->
     <div class="chatbot-action-buttons">
-        <button class="chatbot-action-btn" data-action="analyze">
-            <span>Analisar música</span>
+        <button class="chatbot-action-btn btn-analyze-highlight" data-action="analyze">
+            <span>Análise de áudio</span>
         </button>
         <button class="chatbot-action-btn" data-action="upgrade">
-            <span>Assinar versão Plus</span>
+            <span>Upgrade de plano</span>
         </button>
         <button class="chatbot-action-btn" data-action="manage">
             <span>Gerenciar conta</span>
@@ -802,7 +872,7 @@
                 const audioSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display:block;stroke:#cfcff9;stroke-width:1.8"><path d="M3 12h2m2 0h2m2-6v12m4-9v6m4-3h2"/></svg>`;
 
                 const addPhotos   = mkItem('Adicionar fotos', 'upload',  clipSVG);
-                const analyzeSong = mkItem('Analisar música', 'analyze', audioSVG);
+                const analyzeSong = mkItem('Análise de áudio', 'analyze', audioSVG);
                 pop.append(addPhotos, analyzeSong);
                 container.appendChild(pop);
 
@@ -1170,5 +1240,117 @@
     
     <!-- Template invisível para geração de PDF -->
     <div id="pdf-report-template" style="position: absolute; left: -9999px; top: 0; visibility: hidden;"></div>
+
+    <!-- 🎯 SCRIPT DO MENU HAMBÚRGUER E PAINEL LATERAL -->
+    <script>
+        (function initSidePanel() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const hamburgerBtn = document.getElementById('hamburgerMenuBtn');
+                const sidePanel = document.getElementById('sidePanel');
+                const overlay = document.getElementById('sidePanelOverlay');
+                const closeBtn = document.getElementById('sidePanelClose');
+                const menuItems = document.querySelectorAll('.side-panel-item');
+                
+                if (!hamburgerBtn || !sidePanel || !overlay) {
+                    console.error('❌ [SIDE-PANEL] Elementos não encontrados');
+                    return;
+                }
+                
+                console.log('✅ [SIDE-PANEL] Inicializando menu lateral...');
+                
+                // Função para abrir/fechar painel
+                function togglePanel() {
+                    const isActive = sidePanel.classList.contains('active');
+                    
+                    if (isActive) {
+                        closePanel();
+                    } else {
+                        openPanel();
+                    }
+                }
+                
+                function openPanel() {
+                    sidePanel.classList.add('active');
+                    overlay.classList.add('active');
+                    hamburgerBtn.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                }
+                
+                function closePanel() {
+                    sidePanel.classList.remove('active');
+                    overlay.classList.remove('active');
+                    hamburgerBtn.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+                
+                // Event Listeners
+                hamburgerBtn.addEventListener('click', togglePanel);
+                closeBtn.addEventListener('click', closePanel);
+                overlay.addEventListener('click', closePanel);
+                
+                // Fechar com ESC
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && sidePanel.classList.contains('active')) {
+                        closePanel();
+                    }
+                });
+                
+                // Handler para itens do menu
+                menuItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        const action = this.getAttribute('data-action');
+                        closePanel();
+                        
+                        // Pequeno delay para animação de fechamento
+                        setTimeout(() => {
+                            handleSidePanelAction(action);
+                        }, 150);
+                    });
+                });
+                
+                // Função para executar ações
+                function handleSidePanelAction(action) {
+                    console.log('🎯 [SIDE-PANEL] Ação:', action);
+                    
+                    switch(action) {
+                        case 'analyze':
+                            if (typeof window.openModeSelectionModal === 'function') {
+                                window.openModeSelectionModal();
+                            } else {
+                                console.error('openModeSelectionModal não disponível');
+                            }
+                            break;
+                            
+                        case 'docs':
+                            // Abrir documento técnico
+                            window.open('/docs/documentacao-tecnica.html', '_blank');
+                            break;
+                            
+                        case 'upgrade':
+                            window.location.href = 'planos.html';
+                            break;
+                            
+                        case 'manage':
+                            window.location.href = 'gerenciar.html';
+                            break;
+                            
+                        case 'logout':
+                            if (typeof window.logout === 'function') {
+                                window.logout();
+                            } else {
+                                localStorage.clear();
+                                window.location.href = 'login.html';
+                            }
+                            break;
+                            
+                        default:
+                            console.warn('Ação não reconhecida:', action);
+                    }
+                }
+                
+                console.log('✅ [SIDE-PANEL] Menu lateral inicializado com sucesso');
+            });
+        })();
+    </script>
 </body>
 </html>
