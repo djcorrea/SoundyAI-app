@@ -21265,8 +21265,8 @@ function renderReferenceComparisons(ctx) {
                 <thead>
                     <tr>
                         <th style="text-align: left; padding-left: 12px;">Métrica</th>
-                        <th class="ab-user-header">${userName}</th>
-                        <th class="ab-ref-header">${refName}</th>
+                        <th class="ab-user-header">FAIXA 1</th>
+                        <th class="ab-ref-header">FAIXA 2</th>
                         <th>Δ</th>
                         <th>Status</th>
                     </tr>
@@ -21899,8 +21899,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
             <table class="ref-compare-table">
                 <thead><tr>
                     <th>Métrica</th>
-                    <th>${currFileName}</th>
-                    <th>${refFileName}</th>
+                    <th>FAIXA 1</th>
+                    <th>FAIXA 2</th>
                     <th>Diferença (%)</th>
                     <th>Status</th>
                 </tr></thead>
@@ -25197,20 +25197,21 @@ async function downloadModalAnalysis() {
         return; // ✅ BLOQUEIO: Não executa função real
     }
     
-    // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global
+    // 🎯 FIX CRÍTICO: Verificar modo REFERENCE primeiro (antes de validar analysis)
+    // No modo reference, os dados estão em SoundyAI_Store, não em analysis
+    const currentPdfMode = window.currentAnalysisMode || 'genre';
+    if (currentPdfMode === 'reference') {
+        console.log('[PDF-ROUTER] 🔀 Modo referência detectado - redirecionando para generateReferenceReportPDF()');
+        return generateReferenceReportPDF();
+    }
+    
+    // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global (só para modo gênero)
     const analysis = window.__soundyAI?.analysis || currentModalAnalysis;
     
     if (!analysis) {
         alert('❌ Nenhuma análise disponível.\n\nFaça uma análise antes de gerar o relatório.');
         console.error('[PDF-ERROR] Análise não encontrada em window.__soundyAI.analysis ou currentModalAnalysis');
         return;
-    }
-    
-    // 🎯 FIX: Detectar modo referência e redirecionar para gerador específico
-    const currentPdfMode = analysis?.mode || window.currentAnalysisMode || 'genre';
-    if (currentPdfMode === 'reference') {
-        console.log('[PDF-ROUTER] 🔀 Modo referência detectado - redirecionando para generateReferenceReportPDF()');
-        return generateReferenceReportPDF();
     }
     
     // 🔍 AUDITORIA: Mapear estrutura completa do objeto analysis
