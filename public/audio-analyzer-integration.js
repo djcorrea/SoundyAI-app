@@ -4831,12 +4831,16 @@ async function fetchRefJsonWithFallback(paths) {
             });
             
             if (res.ok) {
-                // 🎯 VALIDAÇÃO CRÍTICA: Verificar Content-Type
+                // 🎯 VALIDAÇÃO: Verificar Content-Type (permissivo para servidores simples)
                 const contentType = res.headers.get('content-type') || '';
-                if (!contentType.includes('application/json')) {
-                    console.warn('[refs] ⚠️ Content-Type incorreto:', contentType, 'em', p);
-                    console.warn('[refs] Esperado: application/json, recebido HTML provavelmente');
-                    throw new Error(`Content-Type inválido: ${contentType} (esperado JSON)`);
+                // Aceita: application/json, text/plain, text/json ou vazio (servidores dev)
+                const isAcceptable = contentType.includes('json') || 
+                                     contentType.includes('text/plain') || 
+                                     contentType === '' ||
+                                     !contentType.includes('text/html');
+                if (!isAcceptable) {
+                    // Não mostrar warning, apenas fazer throw silencioso para tentar próximo path
+                    throw new Error(`Content-Type HTML detectado: ${contentType}`);
                 }
                 
                 if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
@@ -4972,42 +4976,29 @@ function ensureActiveGenreOption(selectEl, genreKey) {
  * }
  */
 function extractGenreTargets(json, genreName) {
-    console.log('[EXTRACT-TARGETS] 🔍 Extraindo targets para:', genreName);
-    console.log('[EXTRACT-TARGETS] 📦 JSON recebido:', json);
-    
     // 1. Identificar o root real do gênero
     let root = null;
     
     // Tentar: json[genreName]
     if (json && typeof json === 'object' && json[genreName]) {
         root = json[genreName];
-        console.log('[EXTRACT-TARGETS] ✅ Root encontrado em json[genreName]');
     }
     // Tentar: json já é o root (quando vem de cache ou embedded)
     else if (json && typeof json === 'object' && json.version) {
         root = json;
-        console.log('[EXTRACT-TARGETS] ✅ JSON já é o root (tem version)');
     }
     // Tentar: primeiro objeto no JSON
     else if (json && typeof json === 'object') {
         const firstKey = Object.keys(json)[0];
         if (firstKey && json[firstKey] && typeof json[firstKey] === 'object') {
             root = json[firstKey];
-            console.log('[EXTRACT-TARGETS] ✅ Root encontrado na primeira chave:', firstKey);
         }
     }
     
     if (!root) {
-        console.error('[EXTRACT-TARGETS] ❌ Root não encontrado no JSON');
+        console.error('[EXTRACT-TARGETS] ❌ Root não encontrado no JSON para:', genreName);
         return null;
     }
-    
-    console.log('[EXTRACT-TARGETS] 📊 Root identificado:', {
-        version: root.version,
-        hasHybridProcessing: !!root.hybrid_processing,
-        hasLegacyCompatibility: !!root.legacy_compatibility,
-        hasBands: !!root.bands
-    });
     
     // 2. Buscar targets na ordem de prioridade
     let targets = null;
@@ -5017,30 +5008,25 @@ function extractGenreTargets(json, genreName) {
     if (root.legacy_compatibility?.bands) {
         targets = root.legacy_compatibility.bands;
         source = 'legacy_compatibility.bands';
-        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em legacy_compatibility.bands (OFICIAL)');
     }
     // 🎯 PRIORIDADE 2: hybrid_processing.spectral_bands (fallback)
     else if (root.hybrid_processing?.spectral_bands) {
         targets = root.hybrid_processing.spectral_bands;
         source = 'hybrid_processing.spectral_bands';
-        console.log('[EXTRACT-TARGETS] ⚠️ Targets encontrados em hybrid_processing.spectral_bands (fallback)');
     }
     // 🎯 PRIORIDADE 3: bands (fallback genérico)
     else if (root.bands) {
         targets = root.bands;
         source = 'bands';
-        console.log('[EXTRACT-TARGETS] ⚠️ Targets encontrados em bands (fallback genérico)');
     }
     // 🎯 PRIORIDADE 4: hybrid_processing.original_metrics (último recurso)
     else if (root.hybrid_processing?.original_metrics) {
         targets = root.hybrid_processing.original_metrics;
         source = 'hybrid_processing.original_metrics';
-        console.log('[EXTRACT-TARGETS] ⚠️ Usando original_metrics como último recurso');
     }
     
     if (!targets) {
-        console.error('[EXTRACT-TARGETS] ❌ Nenhum target encontrado no JSON');
-        console.error('[EXTRACT-TARGETS] 📦 Root completo:', root);
+        console.error('[EXTRACT-TARGETS] ❌ Nenhum target encontrado no JSON para:', genreName);
         return null;
     }
     
@@ -5051,22 +5037,26 @@ function extractGenreTargets(json, genreName) {
         targetSource: source
     };
     
-    console.log('[EXTRACT-TARGETS] ✅ Extração completa:', {
-        genre: genreName,
-        source: source,
-        version: root.version,
-        targetKeys: Object.keys(targets),
-        lufs_target: root.lufs_target,
-        true_peak_target: root.true_peak_target,
-        dr_target: root.dr_target,
-        stereo_target: root.stereo_target
-    });
+    // Log silencioso - apenas em modo debug
+    if (__DEBUG_ANALYZER__) {
+        console.log('[EXTRACT-TARGETS] ✅', genreName, '→', source, '|', Object.keys(targets).length, 'bands');
+    }
     
     return result;
 }
 
 async function loadReferenceData(genre) {
     try {
+        // 🎯 ALIAS DE FETCH: Mapeia novos IDs para JSONs legados existentes
+        // Isso permite buscar trance.json quando o gênero é progressive_trance
+        const FETCH_ALIAS = {
+            'progressive_trance': 'trance',
+            'rap_drill': 'phonk',
+            'edm': 'funk_automotivo',
+            'fullon': 'techno'
+        };
+        const fetchGenre = FETCH_ALIAS[genre] || genre;
+        
         // Se feature flag de invalidar cache por troca de escala/gênero estiver ativa, ignorar cache salvo
         const bypassCache = (typeof window !== 'undefined' && window.REFS_BYPASS_CACHE === true);
         if (!bypassCache && __refDataCache[genre]) {
@@ -5089,18 +5079,18 @@ async function loadReferenceData(genre) {
         }
         updateRefStatus('⏳ carregando...', '#996600');
         
-        console.log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
+        if (__DEBUG_ANALYZER__) console.log('[refs] loadReferenceData:', { genre, fetchGenre, bypassCache });
         
         // PRIORIDADE CORRIGIDA: external > embedded > fallback
         // 1) Tentar carregar JSON externo primeiro (sempre, independente de REFS_ALLOW_NETWORK)
-        console.log('🌐 Tentando carregar JSON externo primeiro...');
+        // Usa fetchGenre para buscar o JSON legado correto
         try {
             const version = Date.now(); // Force cache bust
             const json = await fetchRefJsonWithFallback([
-                `/refs/out/${genre}.json?v=${version}`,
-                `refs/out/${genre}.json?v=${version}`,
-                `./refs/out/${genre}.json?v=${version}`,
-                `../refs/out/${genre}.json?v=${version}`
+                `/refs/out/${fetchGenre}.json?v=${version}`,
+                `refs/out/${fetchGenre}.json?v=${version}`,
+                `./refs/out/${fetchGenre}.json?v=${version}`,
+                `../refs/out/${fetchGenre}.json?v=${version}`
             ]);
             
             // ✅ NOVA LÓGICA: Usar extractGenreTargets para processar JSON
@@ -5114,50 +5104,35 @@ async function loadReferenceData(genre) {
                 window.PROD_AI_REF_DATA = enrichedNet;
                 window.__activeRefData = enrichedNet; // ✅ Garantir disponibilidade global
                 
-                // ✅ Log detalhado mostrando targets reais
-                console.log('🎯 REFS DIAGNOSTIC (EXTERNAL):', {
-                    genre,
-                    source: 'external',
-                    path: `/refs/out/${genre}.json`,
-                    version: extractedData.version,
-                    num_tracks: extractedData.num_tracks,
-                    lufs_target: extractedData.lufs_target,
-                    true_peak_target: extractedData.true_peak_target,
-                    stereo_target: extractedData.stereo_target,
-                    targetSource: extractedData.targetSource,
-                    targetKeys: extractedData.targets ? Object.keys(extractedData.targets) : [],
-                    firstTarget: extractedData.targets ? Object.values(extractedData.targets)[0] : null
-                });
-                
-                console.log('✅ [GENRE_MODAL] Targets de gênero carregados:', {
-                    genre: genre,
-                    hasTargets: !!extractedData.targets,
-                    targetCount: extractedData.targets ? Object.keys(extractedData.targets).length : 0,
-                    targetSample: extractedData.targets ? Object.keys(extractedData.targets).slice(0, 3) : []
-                });
+                // Log silencioso - apenas em modo debug
+                if (__DEBUG_ANALYZER__) {
+                    console.log('[refs] ✅ Carregado (external):', genre, '→', extractedData.version);
+                }
                 
                 updateRefStatus('✔ referências aplicadas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedNet;
             }
         } catch (netError) {
-            console.log('❌ External refs failed:', netError.message);
-            console.log('🔄 Fallback para embedded refs...');
+            // Silencioso: fallback para embedded é comportamento normal em dev
+            if (__DEBUG_ANALYZER__) {
+                console.log('[refs] External fetch não disponível, usando embedded...');
+            }
             
             // 🔥 CORREÇÃO LOOP INFINITO: Forçar refsReady se refs internas já carregaram
             if (!window.refsReady && window.embeddedRefsLoaded) {
                 window.refsReady = true;
-                console.log("⚠️ [refs] refsReady forçado como true após fallback com erro de fetch externo");
             }
         }
         
         // 2) Fallback para referências embutidas (embedded)
-        const embWin = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre && window.__EMBEDDED_REFS__.byGenre[genre]) || null;
-        const embInline = __INLINE_EMBEDDED_REFS__?.byGenre?.[genre] || null;
+        // Usar fetchGenre (alias) para buscar nos dados embedded também
+        const embWin = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre && window.__EMBEDDED_REFS__.byGenre[fetchGenre]) || null;
+        const embInline = __INLINE_EMBEDDED_REFS__?.byGenre?.[fetchGenre] || null;
         const useData = embWin || embInline;
         if (useData && typeof useData === 'object') {
-            // ✅ NOVA LÓGICA: Extrair targets corretamente
-            const extractedData = extractGenreTargets(useData, genre);
+            // ✅ NOVA LÓGICA: Extrair targets corretamente (passa fetchGenre para encontrar a chave)
+            const extractedData = extractGenreTargets(useData, fetchGenre);
             
             if (extractedData) {
                 const enriched = enrichReferenceObject(structuredClone(extractedData), genre);
@@ -5167,27 +5142,10 @@ async function loadReferenceData(genre) {
                 window.PROD_AI_REF_DATA = enriched;
                 window.__activeRefData = enriched; // ✅ Garantir disponibilidade global
                 
-                // ✅ Log detalhado mostrando targets reais
-                console.log('🎯 REFS DIAGNOSTIC (EMBEDDED):', {
-                    genre,
-                    source: 'embedded',
-                    path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
-                    version: extractedData.version || 'embedded',
-                    num_tracks: extractedData.num_tracks || 'unknown',
-                    lufs_target: extractedData.lufs_target,
-                    true_peak_target: extractedData.true_peak_target,
-                    stereo_target: extractedData.stereo_target,
-                    targetSource: extractedData.targetSource,
-                    targetKeys: extractedData.targets ? Object.keys(extractedData.targets) : [],
-                    firstTarget: extractedData.targets ? Object.values(extractedData.targets)[0] : null
-                });
-                
-                console.log('✅ [GENRE_MODAL] Targets de gênero carregados:', {
-                    genre: genre,
-                    hasTargets: !!extractedData.targets,
-                    targetCount: extractedData.targets ? Object.keys(extractedData.targets).length : 0,
-                    targetSample: extractedData.targets ? Object.keys(extractedData.targets).slice(0, 3) : []
-                });
+                // Log silencioso - apenas em modo debug
+                if (__DEBUG_ANALYZER__) {
+                    console.log('[refs] ✅ Carregado (embedded):', genre, '→', extractedData.version || 'inline');
+                }
                 
                 updateRefStatus('✔ referências embutidas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
@@ -5195,10 +5153,8 @@ async function loadReferenceData(genre) {
             }
         }
         
-        // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
-        if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
-            console.log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
-        }
+        // 3) Legacy path REFS_ALLOW_NETWORK removido - não mais necessário
+        // O sistema agora usa fetch externo → embedded → fallback
         
         // 4) Último recurso: trance inline (fallback)
         const fallback = __INLINE_EMBEDDED_REFS__?.byGenre?.trance;
@@ -5209,17 +5165,10 @@ async function loadReferenceData(genre) {
             __activeRefGenre = 'trance';
             window.PROD_AI_REF_DATA = enrichedFb;
             
-            // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
-                genre,
-                source: 'fallback',
-                path: '__INLINE_EMBEDDED_REFS__.trance',
-                version: 'fallback',
-                num_tracks: fallback.num_tracks || 'unknown',
-                lufs_target: fallback.lufs_target,
-                true_peak_target: fallback.true_peak_target,
-                stereo_target: fallback.stereo_target
-            });
+            // Log apenas em debug
+            if (__DEBUG_ANALYZER__) {
+                console.log('[refs] ⚠️ Usando fallback trance para:', genre);
+            }
             
             updateRefStatus('✔ referências embutidas (fallback)', '#0d6efd');
             try { buildAggregatedRefStats(); } catch {}
