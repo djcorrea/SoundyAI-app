@@ -634,228 +634,146 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       console.log('[DEBUG-SUGGESTIONS] ✅ Estruturas vazias definidas para reference mode');
     } else {
-      // ════════════════════════════════════════════════════════════════════════════════
-      // 🎯 CENTRALIZAÇÃO TOTAL: SUGGESTIONS VÊM EXCLUSIVAMENTE DE comparisonResult.issues
-      // ════════════════════════════════════════════════════════════════════════════════
-      // 
-      // REGRA ABSOLUTA: Não usar analyzeProblemsAndSuggestionsV2, generateAdvancedSuggestionsFromScoring
-      // ou qualquer outro motor de sugestões. A ÚNICA FONTE DE VERDADE é:
-      //   finalJSON.data.comparisonResult.issues
-      //
-      // Isso GARANTE que tabela = cards = score = sugestões
-      // ════════════════════════════════════════════════════════════════════════════════
-      console.log('[SUGGESTIONS-CENTRALIZED] ════════════════════════════════════════════════════════════════');
-      console.log('[SUGGESTIONS-CENTRALIZED] 🎯 MODO CENTRALIZADO: Usando APENAS comparisonResult.issues');
-      console.log('[SUGGESTIONS-CENTRALIZED] ════════════════════════════════════════════════════════════════');
+      // 🎯 MODO GENRE: Executar Suggestion Engine normalmente
+      console.log('[DEBUG-SUGGESTIONS] ▶️ Executando Suggestion Engine para mode="genre"');
     
     try {
-      const comparisonResult = finalJSON?.data?.comparisonResult;
+      // 🔥 CONSTRUIR consolidatedData a partir do finalJSON já criado
+      // Isso garante que as sugestões usem valores IDÊNTICOS aos da tabela
+      let consolidatedData = null;
+      if (finalJSON && finalJSON.data) {
+        // 🔧 NORMALIZAR TARGETS: Converter formato JSON real → formato analyzer
+        let normalizedTargets = finalJSON.data.genreTargets || customTargets;
+        
+        console.log('[DEBUG-SUGGESTIONS] 🔍 Formato original dos targets:', {
+          hasLufsTarget: 'lufs_target' in (normalizedTargets || {}),
+          hasLufsObject: normalizedTargets && normalizedTargets.lufs && 'target' in normalizedTargets.lufs
+        });
+        
+        // ✅ Aplicar normalização
+        normalizedTargets = normalizeGenreTargets(normalizedTargets);
+        
+        console.log('[DEBUG-SUGGESTIONS] ✅ Targets normalizados:', {
+          lufsTarget: normalizedTargets && normalizedTargets.lufs && normalizedTargets.lufs.target,
+          lufsTolerance: normalizedTargets && normalizedTargets.lufs && normalizedTargets.lufs.tolerance
+        });
+        
+        consolidatedData = {
+          metrics: finalJSON.data.metrics || null,
+          genreTargets: normalizedTargets
+        };
+        
+        // REGRA 9: Logs de auditoria mostrando consolidatedData
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        console.log('[AUDIT-CORRECTION] 📊 CONSOLIDATED DATA (pipeline-complete.js)');
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        console.log('[AUDIT-CORRECTION] Origem: finalJSON.data.metrics + finalJSON.data.genreTargets');
+        console.log('[AUDIT-CORRECTION] consolidatedData.metrics:', JSON.stringify({
+          loudness: consolidatedData.metrics?.loudness,
+          truePeak: consolidatedData.metrics?.truePeak,
+          dr: consolidatedData.metrics?.dr,
+          stereo: consolidatedData.metrics?.stereo,
+          hasBands: !!consolidatedData.metrics?.bands
+        }, null, 2));
+        console.log('[AUDIT-CORRECTION] consolidatedData.genreTargets:', JSON.stringify({
+          lufs: consolidatedData.genreTargets?.lufs,
+          truePeak: consolidatedData.genreTargets?.truePeak,
+          dr: consolidatedData.genreTargets?.dr,
+          stereo: consolidatedData.genreTargets?.stereo,
+          hasBands: !!consolidatedData.genreTargets?.bands
+        }, null, 2));
+        console.log('[AUDIT-CORRECTION] ════════════════════════════════════════════════════════════════');
+        
+        console.log('[DEBUG-SUGGESTIONS] 🎯 consolidatedData construído a partir de finalJSON.data:', {
+          hasMetrics: !!consolidatedData.metrics,
+          hasGenreTargets: !!consolidatedData.genreTargets,
+          lufsValue: consolidatedData.metrics && consolidatedData.metrics.loudness && consolidatedData.metrics.loudness.value,
+          lufsTarget: consolidatedData.genreTargets && consolidatedData.genreTargets.lufs && consolidatedData.genreTargets.lufs.target
+        });
+      }
       
-      if (comparisonResult && Array.isArray(comparisonResult.issues)) {
-        console.log('[SUGGESTIONS-CENTRALIZED] ✅ comparisonResult.issues encontrado:', comparisonResult.issues.length, 'issues');
-        
-        // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 MAPEAR ISSUES PARA SUGGESTIONS (ZERO RECÁLCULO)
-        // ════════════════════════════════════════════════════════════════════════════════
-        // CAMPOS OBRIGATÓRIOS vindos da issue:
-        //   - key, metric, category, severity, severityLevel
-        //   - currentValue, targetValue, delta, unit
-        //   - action, recommendedAction, problemText
-        // ════════════════════════════════════════════════════════════════════════════════
-        const centralizedSuggestions = comparisonResult.issues.map((issue, index) => ({
-          // Identificação
-          key: issue.key,
-          metric: issue.metric || issue.key,
-          type: issue.category || 'METRIC',
-          category: issue.category || 'MASTERING',
-          
-          // Dados numéricos EXATOS (NUNCA RECALCULAR)
-          currentValue: issue.currentValue,
-          targetValue: issue.targetValue,
-          delta: issue.delta,
-          unit: issue.unit || '',
-          
-          // Severidade EXATA (NUNCA RECALCULAR)
-          severity: issue.severity,
-          severityLevel: issue.severityLevel,
-          
-          // Ação EXATA (NUNCA RECALCULAR)
-          action: issue.recommendedAction || issue.action,
-          recommendedAction: issue.recommendedAction || issue.action,
-          
-          // Texto descritivo
-          message: issue.problemText,
-          problema: issue.problemText,
-          
-          // Metadados
-          priority: index,
-          fromComparisonResult: true, // 🔒 Flag de rastreabilidade
-          numericSource: 'compareWithTargets', // 🔒 Fonte dos números
-          
-          // Dados legacy para compatibilidade
-          numbers: issue.numbers || {
-            value: issue.currentValue,
-            target: issue.targetValue,
-            diff: issue.delta
-          }
-        }));
-        
-        // ════════════════════════════════════════════════════════════════════════════════
-        // 🔒 VALIDAÇÃO DE CONSISTÊNCIA (OBRIGATÓRIA)
-        // ════════════════════════════════════════════════════════════════════════════════
-        const rows = comparisonResult.rows || [];
-        let validationErrors = 0;
-        
-        centralizedSuggestions.forEach(suggestion => {
-          const correspondingRow = rows.find(r => r.key === suggestion.key);
-          if (correspondingRow) {
-            // Validar que delta bate
-            const rowDelta = correspondingRow.diff;
-            const suggestionDelta = suggestion.delta;
-            
-            if (Math.abs(rowDelta - suggestionDelta) > 0.01) {
-              console.error(`[SUGGESTIONS-CENTRALIZED] 🚨 DIVERGÊNCIA DETECTADA em ${suggestion.key}:`, {
-                rowDelta,
-                suggestionDelta,
-                diff: Math.abs(rowDelta - suggestionDelta)
-              });
-              validationErrors++;
-            }
-            
-            // Validar que severity bate
-            if (correspondingRow.severity !== suggestion.severity) {
-              console.error(`[SUGGESTIONS-CENTRALIZED] 🚨 SEVERIDADE DIVERGENTE em ${suggestion.key}:`, {
-                rowSeverity: correspondingRow.severity,
-                suggestionSeverity: suggestion.severity
-              });
-              validationErrors++;
-            }
-          }
-        });
-        
-        if (validationErrors > 0) {
-          console.error(`[SUGGESTIONS-CENTRALIZED] 🚨 ${validationErrors} ERROS DE VALIDAÇÃO DETECTADOS!`);
-        } else {
-          console.log('[SUGGESTIONS-CENTRALIZED] ✅ Validação passou: tabela = suggestions');
+      // 🆕 STREAMING MODE: Passar soundDestination para o analyzer aplicar override
+      const soundDestination = options.soundDestination || 'pista';
+      console.log('[DEBUG-SUGGESTIONS] 📡 soundDestination:', soundDestination);
+      
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(
+        coreMetrics,
+        finalGenreForAnalyzer,
+        customTargets,
+        { 
+          data: consolidatedData,
+          soundDestination: soundDestination  // 🆕 Passar para o analyzer
         }
-        
-        // ════════════════════════════════════════════════════════════════════════════════
-        // 🎯 ATRIBUIR SUGGESTIONS CENTRALIZADAS
-        // ════════════════════════════════════════════════════════════════════════════════
-        finalJSON.suggestions = centralizedSuggestions;
-        finalJSON.aiSuggestions = centralizedSuggestions.map(sug => ({
-          ...sug,
-          aiEnhanced: false, // Será enriquecido depois se necessário
-          enrichmentStatus: 'pending'
-        }));
-        
-        // Estruturas auxiliares
+      );
+      
+      console.log('[DEBUG-SUGGESTIONS] ✅ analyzeProblemsAndSuggestionsV2 retornou com sucesso');
+      console.log('[DEBUG-SUGGESTIONS] problems length:', problemsAndSuggestions?.problems?.length || 0);
+      console.log('[DEBUG-SUGGESTIONS] suggestions length:', problemsAndSuggestions?.suggestions?.length || 0);
+      console.log('[DEBUG-SUGGESTIONS] aiSuggestions length:', problemsAndSuggestions?.aiSuggestions?.length || 0);
+      
+      // Garantir que o resultado seja atribuído corretamente no finalJSON
+      if (problemsAndSuggestions) {
         finalJSON.problemsAnalysis = {
-          problems: centralizedSuggestions.filter(s => s.severity === 'CRÍTICA' || s.severity === 'ALTA'),
-          suggestions: centralizedSuggestions,
-          qualityAssessment: {
-            score: comparisonResult.score?.total,
-            classification: comparisonResult.score?.classification
-          },
-          priorityRecommendations: centralizedSuggestions.slice(0, 3)
+          problems: problemsAndSuggestions.problems || [],
+          suggestions: problemsAndSuggestions.suggestions || [],
+          qualityAssessment: problemsAndSuggestions.qualityAssessment || {},
+          priorityRecommendations: problemsAndSuggestions.priorityRecommendations || []
         };
         
         finalJSON.diagnostics = {
-          problems: centralizedSuggestions.filter(s => s.severity === 'CRÍTICA'),
-          suggestions: centralizedSuggestions,
-          prioritized: centralizedSuggestions
+          problems: problemsAndSuggestions.diagnostics?.problems || [],
+          suggestions: problemsAndSuggestions.diagnostics?.suggestions || [],
+          prioritized: problemsAndSuggestions.diagnostics?.prioritized || []
         };
         
-        // Contadores para metadata
-        const criticalCount = centralizedSuggestions.filter(s => s.severity === 'CRÍTICA').length;
-        const warningCount = centralizedSuggestions.filter(s => s.severity === 'ALTA' || s.severity === 'ATENÇÃO').length;
-        const okCount = centralizedSuggestions.filter(s => s.severity === 'OK').length;
+        finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
+        finalJSON.aiSuggestions = problemsAndSuggestions.aiSuggestions || [];
         
-        finalJSON.summary = {
-          overallRating: comparisonResult.score?.classification || 'Análise concluída',
-          score: comparisonResult.score?.total || 0,
-          genre: finalGenreForAnalyzer
-        };
-        
-        finalJSON.suggestionMetadata = {
-          totalSuggestions: centralizedSuggestions.length,
-          criticalCount,
-          warningCount,
-          okCount,
-          analysisDate: new Date().toISOString(),
-          genre: finalGenreForAnalyzer,
-          version: '3.0.0-centralized',
-          source: 'comparisonResult.issues' // 🔒 Rastreabilidade
-        };
-        
-        console.log('[SUGGESTIONS-CENTRALIZED] ✅ Sugestões centralizadas aplicadas:', {
-          total: centralizedSuggestions.length,
-          criticalCount,
-          warningCount,
-          okCount,
-          source: 'comparisonResult.issues'
-        });
-        
-      } else {
-        // ════════════════════════════════════════════════════════════════════════════════
-        // ⚠️ FALLBACK: comparisonResult não disponível
-        // ════════════════════════════════════════════════════════════════════════════════
-        console.warn('[SUGGESTIONS-CENTRALIZED] ⚠️ comparisonResult.issues não disponível');
-        console.warn('[SUGGESTIONS-CENTRALIZED] Criando estruturas vazias (SEM FALLBACK PARALELO)');
-        
-        // ❌ NÃO usar analyzeProblemsAndSuggestionsV2 ou generateAdvancedSuggestionsFromScoring
-        // Isso causaria divergência. Melhor não ter sugestões do que ter sugestões erradas.
-        
-        finalJSON.suggestions = [];
-        finalJSON.aiSuggestions = [];
-        finalJSON.problemsAnalysis = {
-          problems: [],
-          suggestions: [],
-          qualityAssessment: {},
-          priorityRecommendations: []
-        };
-        finalJSON.diagnostics = {
-          problems: [],
-          suggestions: [],
-          prioritized: []
-        };
-        finalJSON.summary = {
-          overallRating: 'Análise incompleta - targets não disponíveis',
+        finalJSON.summary = problemsAndSuggestions.summary || {
+          overallRating: 'Análise não disponível',
           score: 0,
           genre: finalGenreForAnalyzer
         };
-        finalJSON.suggestionMetadata = {
-          totalSuggestions: 0,
+        
+        finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {
+          totalSuggestions: finalJSON.suggestions.length,
           criticalCount: 0,
           warningCount: 0,
           okCount: 0,
           analysisDate: new Date().toISOString(),
           genre: finalGenreForAnalyzer,
-          version: '3.0.0-centralized',
-          source: 'fallback-empty',
-          warning: 'comparisonResult.issues não disponível'
+          version: '2.0.0'
         };
-      }
-      
-      // 🛡️ BLINDAGEM: Forçar genre correto em summary/metadata
-      if (detectedGenre) {
-        if (finalJSON.summary && typeof finalJSON.summary === 'object') {
-          finalJSON.summary.genre = detectedGenre;
+        
+        // 🛡️ BLINDAGEM IMEDIATA V1: Forçar genre correto em summary/metadata
+        if (detectedGenre) {
+          if (finalJSON.summary && typeof finalJSON.summary === 'object') {
+            finalJSON.summary.genre = detectedGenre;
+          }
+          if (finalJSON.suggestionMetadata && typeof finalJSON.suggestionMetadata === 'object') {
+            finalJSON.suggestionMetadata.genre = detectedGenre;
+          }
+          console.log('[GENRE-BLINDAGEM-V1] Genre forçado em V1:', detectedGenre);
         }
-        if (finalJSON.suggestionMetadata && typeof finalJSON.suggestionMetadata === 'object') {
-          finalJSON.suggestionMetadata.genre = detectedGenre;
-        }
-        console.log('[SUGGESTIONS-CENTRALIZED] Genre forçado:', detectedGenre);
+      } else {
+        console.warn('[DEBUG-SUGGESTIONS] ⚠️ analyzeProblemsAndSuggestionsV2 retornou null/undefined. Mantendo estruturas atuais.');
       }
-      
-      console.log('[SUGGESTIONS-CENTRALIZED] ════════════════════════════════════════════════════════════════');
       
     } catch (suggestionsError) {
-      console.error('[SUGGESTIONS-CENTRALIZED] ❌ ERRO ao processar sugestões centralizadas');
-      console.error('[SUGGESTIONS-CENTRALIZED] Mensagem:', suggestionsError.message);
-      console.error('[SUGGESTIONS-CENTRALIZED] Stack:', suggestionsError.stack);
+      console.error('[SUGGESTIONS_V2] ❌ ERRO CRÍTICO ao gerar sugestões base');
+      console.error('[SUGGESTIONS_V2] Mensagem:', suggestionsError.message);
+      console.error('[SUGGESTIONS_V2] Stack:', suggestionsError.stack);
+      console.error('[SUGGESTIONS_V2] Contexto:', {
+        finalGenreForAnalyzer,
+        hasCustomTargets: !!customTargets,
+        customTargetsKeys: customTargets ? Object.keys(customTargets) : 'null',
+        coreMetricsKeys: coreMetrics ? Object.keys(coreMetrics) : 'null',
+      });
       
-      // ❌ NÃO usar fallback paralelo - isso causaria divergência
+      // ❌ NÃO zerar mais summary/metadata/suggestions aqui.
+      // Queremos que o erro suba para o worker e o job falhe,
+      // para podermos ver a causa raiz nos logs.
+      
       throw suggestionsError;
     }
     } // FIM do else (mode === 'genre')
@@ -907,23 +825,106 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log(`[AI-AUDIT][FLOW-CHECK] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       
-      // ========= 🛡️ MOTOR V2 DESATIVADO - CENTRALIZAÇÃO COMPARISONRESULT =========
-      // ⚠️ AUDITORIA: Motor V2 foi DESATIVADO em favor de comparisonResult.issues
-      // A única fonte de verdade para sugestões é compareWithTargets()
-      // Todas as sugestões já foram mapeadas de comparisonResult.issues acima
+      // ========= NOVO SISTEMA DE SUGESTÕES V2 =========
+      // ⚠️ IMPORTANTE: V1 já gerou suggestions base na fase 5.4.1
+      // V2 aqui serve para complementar V1 no modo gênero
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[V2-SYSTEM] 🛡️ MOTOR V2 DESATIVADO - CENTRALIZAÇÃO ATIVA');
-      console.log('[V2-SYSTEM] Sugestões centralizadas de comparisonResult.issues:', finalJSON.suggestions?.length || 0);
-      console.log('[V2-SYSTEM] Fonte única de verdade: compareWithTargets()');
+      console.log('[V2-SYSTEM] 🎯 Executando Motor V2 para complementar V1');
       console.log('[V2-SYSTEM] mode:', mode, 'isReferenceBase:', isReferenceBase);
-      console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
-      // 🔒 VARIÁVEIS VAZIAS PARA COMPATIBILIDADE (não são usadas)
-      const v2Suggestions = []; // DESATIVADO - usar finalJSON.suggestions
-      const v2Problems = [];    // DESATIVADO - usar finalJSON.problemsAnalysis
-      const v2Summary = {};     // DESATIVADO
-      const v2Metadata = {};    // DESATIVADO
+      // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+      // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (Suggestions V2)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V2-PRE]', {
+        ponto: 'pipeline-complete.js linha ~400 - ANTES resolução V2',
+        'options.genre': options.genre,
+        'options.data?.genre': options.data?.genre,
+        'mode': mode
+      });
+      
+      // 🎯 CORREÇÃO: Resolver genre baseado no modo (reutilizar lógica)
+      const resolvedGenreV2 = options.genre || options.data?.genre || options.genre_detected || null;
+      const detectedGenreV2 = (mode === 'genre')
+        ? (resolvedGenreV2 ? String(resolvedGenreV2).trim() || null : null)
+        : (options.genre || 'default');
+      
+      // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V2)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V2-POST]', {
+        ponto: 'pipeline-complete.js linha ~400 - DEPOIS resolução V2',
+        'resolvedGenreV2': resolvedGenreV2,
+        'detectedGenreV2': detectedGenreV2,
+        'isNull': detectedGenreV2 === null,
+        'isDefault': detectedGenreV2 === 'default'
+      });
+      
+      let customTargetsV2 = null;
+      
+      console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 376):', {
+        'options.genre': options.genre,
+        'detectedGenreV2': detectedGenreV2,
+        'isDefault': detectedGenreV2 === 'default',
+        'mode': mode
+      });
+      
+      if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
+        // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
+        try {
+          customTargetsV2 = await loadGenreTargetsFromWorker(detectedGenreV2);
+          console.log(`[V2-SYSTEM] ✅ Targets oficiais carregados de work/refs/out/${detectedGenreV2}.json`);
+          console.log(`[V2-SYSTEM] 📊 LUFS: ${customTargetsV2.lufs?.target}, TruePeak: ${customTargetsV2.truePeak?.target}`);
+        } catch (error) {
+          const errorMsg = `[V2-SYSTEM-ERROR] Falha ao carregar targets para "${detectedGenreV2}": ${error.message}`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+      } else if (mode === 'reference') {
+        console.log(`[V2-SYSTEM] 🔒 Modo referência - ignorando targets de gênero`);
+      }
+      
+      // 🔧 REINTEGRAÇÃO DO MOTOR V2
+      console.log('[V2-SYSTEM] 🔍 Validando coreMetrics antes de gerar V2...');
+      if (!coreMetrics || typeof coreMetrics !== 'object') {
+        throw new Error('coreMetrics inválido para Motor V2');
+      }
+      
+      // 🛡️ BLINDAGEM PRIMÁRIA V2: Garantir que genre NUNCA seja null
+      const genreForAnalyzerV2 =
+        options.genre ||
+        options.data?.genre ||
+        detectedGenreV2 ||
+        finalJSON?.genre ||
+        'default';
+      
+      console.log('[GENRE-BLINDAGEM-V2] genreForAnalyzerV2:', genreForAnalyzerV2);
+      
+      // 🔥 CONSTRUIR consolidatedData para V2 também
+      let consolidatedDataV2 = null;
+      if (finalJSON?.data) {
+        consolidatedDataV2 = {
+          metrics: finalJSON.data.metrics || null,
+          genreTargets: finalJSON.data.genreTargets || customTargetsV2
+        };
+        
+        console.log('[V2-SYSTEM] 🎯 consolidatedDataV2 construído:', {
+          hasMetrics: !!consolidatedDataV2.metrics,
+          hasGenreTargets: !!consolidatedDataV2.genreTargets,
+          lufsValue: consolidatedDataV2.metrics?.loudness?.value,
+          lufsTarget: consolidatedDataV2.genreTargets?.lufs?.target
+        });
+      }
+      
+      // 🆕 STREAMING MODE: Passar soundDestination para V2 também
+      const soundDestinationV2 = options.soundDestination || 'pista';
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2, { 
+        data: consolidatedDataV2,
+        soundDestination: soundDestinationV2
+      });
+      
+      const v2Suggestions = v2.suggestions || [];
+      const v2Problems = v2.problems || [];
+      const v2Summary = v2.summary || {};
+      const v2Metadata = v2.metadata || {};
       
       // PASSO 5: LOGS PARA VALIDAÇÃO DO MOTOR V2
       console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -942,15 +943,25 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[V2-SYSTEM] Primeira música da referência - mantemos json neutro, mas NÃO apagamos sugestões futuras');
         // Não gera V2 e não gera AI aqui. Apenas deixa como está.
       } else if (mode === 'genre' && isReferenceBase !== true) {
-        // ========= 🛡️ V2 DESATIVADO - CENTRALIZAÇÃO COMPARISONRESULT =========
-        // ⚠️ AUDITORIA: NÃO SOBRESCREVER finalJSON.suggestions
-        // As sugestões já vieram de comparisonResult.issues (fonte única de verdade)
+        // ✅ MODO GÊNERO: Aplicar Motor V2 ao JSON final
+        // 🔧 CORREÇÃO FASE 2: NÃO duplicar V1+V2, usar APENAS V2 (Enhanced Engine)
+        console.log('[SUGGESTIONS_V2] ✔ Aplicando Motor V2 ao JSON final (sem V1)');
+        const v1Count = finalJSON.suggestions?.length || 0;
+        
+        // ✅ USAR APENAS V2: Sistema Enhanced Engine é o único oficial
+        finalJSON.suggestions = v2Suggestions;
+        finalJSON.problemsAnalysis.suggestions = v2Suggestions;
+        finalJSON.diagnostics.suggestions = v2Suggestions;
+        
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[SUGGESTIONS] 🛡️ CENTRALIZAÇÃO ATIVA - V2 DESATIVADO');
-        console.log('[SUGGESTIONS] Sugestões preservadas de comparisonResult.issues');
-        console.log('[SUGGESTIONS] Final count:', finalJSON.suggestions?.length || 0);
-        console.log('[SUGGESTIONS] Fonte única: compareWithTargets()');
+        console.log('[SUGGESTIONS] 🛠️ CORREÇÃO FASE 2: V1 DESABILITADO');
+        console.log('[SUGGESTIONS] V1 original count (ignorado):', v1Count);
+        console.log('[SUGGESTIONS] V2 Enhanced count (USADO):', v2Suggestions.length);
+        console.log('[SUGGESTIONS] Final count:', finalJSON.suggestions.length);
+        console.log('[SUGGESTIONS] ✅ Duplicação eliminada: apenas V2 ativo');
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`[V2-SYSTEM] ✅ V2 integrado: ${v2Suggestions.length} sugestões (V1 desabilitado)`);
+        console.log(`[V2-SYSTEM] 📊 Total suggestions: ${finalJSON.suggestions.length}`);
       } else {
         // Modo reference - ignora V1 e V2 (usa apenas comparação)
         console.log('[V2-SYSTEM] Modo reference - ignorando V1 e V2');
@@ -1192,26 +1203,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               }));
             }
           } else {
-            console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - usando comparisonResult.issues se disponível");
+            console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
+            finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode, customTargets);
             
-            // 🛡️ CENTRALIZAÇÃO: Usar comparisonResult.issues se disponível, senão fallback info
-            if (finalJSON.data?.comparisonResult?.issues?.length > 0) {
-              console.log('[REFERENCE-MODE] ✅ Usando sugestões centralizadas de comparisonResult.issues');
-              // Sugestões já foram mapeadas acima
-            } else {
-              // Fallback neutro - sem recalcular
-              finalJSON.suggestions = [{
-                metric: 'info',
-                severity: 'info',
-                message: 'Referência não encontrada',
-                action: 'Execute nova análise com arquivo de referência válido',
-                priority: 0,
-                fromComparisonResult: false,
-                fallbackReason: 'reference_job_not_found'
-              }];
-            }
-            
-            // 🔍 LOG DE DIAGNÓSTICO: Sugestões base geradas (fallback)
+            // � LOG DE DIAGNÓSTICO: Sugestões base geradas (fallback)
             console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (fallback): ${finalJSON.suggestions.length} itens`);
             
             // �🔮 ENRIQUECIMENTO IA ULTRA V2 (fallback mode)
@@ -1225,27 +1220,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           }
         } catch (refError) {
           console.error("[REFERENCE-MODE] ❌ Erro ao buscar referência:", refError.message);
-          console.warn("[REFERENCE-MODE] 🛡️ CENTRALIZAÇÃO - Usando comparisonResult.issues se disponível");
+          console.warn("[REFERENCE-MODE] Gerando sugestões avançadas como fallback");
+          console.log('[REFERENCE-MODE-ERROR-FALLBACK] 🚀 Usando sistema avançado de sugestões com scoring.penalties');
+          finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode, customTargets);
           
-          // 🛡️ CENTRALIZAÇÃO: NÃO usar generateAdvancedSuggestionsFromScoring
-          // Usar comparisonResult.issues se disponível, senão fallback info
-          if (finalJSON.data?.comparisonResult?.issues?.length > 0) {
-            console.log('[REFERENCE-MODE-ERROR-FALLBACK] ✅ Usando sugestões centralizadas de comparisonResult.issues');
-            // Sugestões já foram mapeadas acima
-          } else {
-            finalJSON.suggestions = [{
-              metric: 'info',
-              severity: 'error',
-              message: 'Erro ao buscar referência',
-              action: refError.message,
-              priority: 0,
-              fromComparisonResult: false,
-              fallbackReason: 'reference_fetch_error'
-            }];
-          }
-          
-          // 🔍 LOG DE DIAGNÓSTICO: Sugestões fallback
-          console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões fallback: ${finalJSON.suggestions.length} itens`);
+          // 🔍 LOG DE DIAGNÓSTICO: Sugestões avançadas geradas (error fallback)
+          console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões avançadas detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
           
           // 🤖 ENRIQUECIMENTO IA ULTRA V2 (error fallback)
           try {
@@ -1655,62 +1635,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
-    // ════════════════════════════════════════════════════════════════════════════════
-    // 🛡️ VALIDAÇÃO FINAL DE CONSISTÊNCIA (ANTES DO RETORNO)
-    // Garantir que: Tabela = Cards = Score = Sugestões = Targets
-    // ════════════════════════════════════════════════════════════════════════════════
-    const comparisonResultFinal = finalJSON.data?.comparisonResult;
-    if (comparisonResultFinal && Array.isArray(comparisonResultFinal.issues)) {
-      console.log('[FINAL-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[FINAL-VALIDATION] 🛡️ VALIDAÇÃO DE CONSISTÊNCIA FINAL');
-      
-      const issues = comparisonResultFinal.issues;
-      const rows = comparisonResultFinal.rows || [];
-      const suggestions = finalJSON.suggestions || [];
-      const score = comparisonResultFinal.score;
-      
-      let consistencyErrors = 0;
-      
-      // Validar que TODAS as sugestões vieram de comparisonResult.issues
-      suggestions.forEach(sug => {
-        if (!sug.fromComparisonResult) {
-          console.error(`[FINAL-VALIDATION] 🚨 Sugestão NÃO veio de comparisonResult: ${sug.metric || sug.key}`);
-          consistencyErrors++;
-        }
-      });
-      
-      // Validar que issues e rows estão consistentes
-      issues.forEach(issue => {
-        const row = rows.find(r => r.key === issue.key);
-        if (row) {
-          // Validar delta
-          if (Math.abs((row.diff || 0) - (issue.delta || 0)) > 0.01) {
-            console.error(`[FINAL-VALIDATION] 🚨 Delta divergente para ${issue.key}: row=${row.diff}, issue=${issue.delta}`);
-            consistencyErrors++;
-          }
-          // Validar severity
-          if (row.severity !== issue.severity) {
-            console.error(`[FINAL-VALIDATION] 🚨 Severity divergente para ${issue.key}: row=${row.severity}, issue=${issue.severity}`);
-            consistencyErrors++;
-          }
-        }
-      });
-      
-      // Resumo final
-      if (consistencyErrors > 0) {
-        console.error(`[FINAL-VALIDATION] 🚨 ${consistencyErrors} ERROS DE CONSISTÊNCIA DETECTADOS!`);
-        console.error('[FINAL-VALIDATION] ⚠️ VIOLAÇÃO: Tabela ≠ Cards ou Score ≠ Sugestões');
-      } else {
-        console.log('[FINAL-VALIDATION] ✅ CONSISTÊNCIA VERIFICADA:');
-        console.log('[FINAL-VALIDATION]    • Tabela (rows): ' + rows.length + ' itens');
-        console.log('[FINAL-VALIDATION]    • Issues: ' + issues.length + ' itens');
-        console.log('[FINAL-VALIDATION]    • Sugestões: ' + suggestions.length + ' itens');
-        console.log('[FINAL-VALIDATION]    • Score: ' + (score?.total || 'N/A'));
-        console.log('[FINAL-VALIDATION]    • Fonte única: compareWithTargets() ✓');
-      }
-      console.log('[FINAL-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    }
-
     return finalJSON;
 
   } catch (error) {
@@ -2020,26 +1944,8 @@ function generateComparisonSuggestions(deltas) {
  * @param {String} mode - 'genre' ou 'reference'
  * @param {Object} genreTargets - Targets reais do gênero (formato interno completo)
  * @returns {Array} Sugestões estruturadas prontas para ULTRA-V2
- * 
- * ⚠️ FUNÇÃO DESATIVADA - CENTRALIZAÇÃO COMPARISONRESULT
- * Esta função foi mantida para compatibilidade mas NÃO deve ser chamada.
- * A única fonte de verdade para sugestões é compareWithTargets() → comparisonResult.issues
  */
 function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 'unknown', mode = 'genre', genreTargets = null) {
-  // 🛡️ FUNÇÃO DESATIVADA - RETORNAR ARRAY VAZIO COM WARNING
-  console.warn('[ADVANCED-SUGGEST] 🛡️ FUNÇÃO DESATIVADA - Usar comparisonResult.issues');
-  console.warn('[ADVANCED-SUGGEST] A única fonte de verdade é compareWithTargets()');
-  console.warn('[ADVANCED-SUGGEST] Esta chamada foi interceptada e retornou array vazio');
-  
-  // Log de debug para rastrear chamadas indevidas
-  console.trace('[ADVANCED-SUGGEST] Stack trace da chamada bloqueada:');
-  
-  return []; // Retornar vazio para não gerar sugestões paralelas
-  
-  // ════════════════════════════════════════════════════════════════════════════════
-  // 🔒 CÓDIGO ORIGINAL ABAIXO (DESATIVADO - NÃO EXECUTARÁ devido ao return acima)
-  // ════════════════════════════════════════════════════════════════════════════════
-  
   console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`[ADVANCED-SUGGEST] 🎯 Iniciando geração avançada`);
   console.log(`[ADVANCED-SUGGEST] Genre: ${genre}, Mode: ${mode}`);
@@ -2619,16 +2525,15 @@ function getNestedValue(obj, path) {
 }
 
 /**
- * �️ FUNÇÃO LEGADA DESATIVADA - CENTRALIZAÇÃO COMPARISONRESULT
- * ⚠️ AUDITORIA: Esta função foi desativada em favor de comparisonResult.issues
- * A única fonte de verdade para sugestões é compareWithTargets()
+ * 🔧 FUNÇÃO LEGADA: Mantida para compatibilidade (agora usa o sistema avançado internamente)
  */
 function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode = 'genre', genreTargets = null) {
-  console.warn(`[LEGACY-SUGGEST] 🛡️ FUNÇÃO DESATIVADA - Usar comparisonResult.issues`);
-  console.warn(`[LEGACY-SUGGEST] A única fonte de verdade é compareWithTargets()`);
+  console.log(`[LEGACY-SUGGEST] ⚠️ Função legada chamada - redirecionando para sistema avançado`);
   
-  // 🛡️ CENTRALIZAÇÃO: Retornar array vazio - sugestões devem vir de comparisonResult.issues
-  return [];
+  // Se houver scoring disponível, usar sistema avançado
+  if (technicalData.scoring && technicalData.scoring.penalties) {
+    return generateAdvancedSuggestionsFromScoring(technicalData, technicalData.scoring, genre, mode, genreTargets);
+  }
   
   // Fallback: Sistema simples (apenas True Peak e LUFS)
   console.log(`[LEGACY-SUGGEST] ⚠️ Scoring não disponível - usando fallback simples`);
