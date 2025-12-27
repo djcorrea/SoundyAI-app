@@ -185,6 +185,74 @@ export function normalizeGenreTargets(rawTargets) {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🎧 STREAMING MODE OVERRIDE
+ * 
+ * Aplica overrides para streaming (Spotify, Apple Music, YouTube):
+ * - LUFS target = -14.0 (padrão streaming)
+ * - True Peak target = -1.0 (mais conservador)
+ * - Mantém bandas/DR do gênero original
+ * 
+ * @param {Object} normalizedTargets - Targets já normalizados
+ * @param {string} destination - 'streaming' | 'pista' | 'carro'
+ * @returns {Object} - Targets com override aplicado
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+export function applyStreamingOverride(normalizedTargets, destination = 'pista') {
+  if (!normalizedTargets || !normalizedTargets._normalized) {
+    console.error('[STREAMING-OVERRIDE] ❌ Targets não normalizados');
+    return normalizedTargets;
+  }
+
+  // Se não for streaming, retornar original
+  if (destination !== 'streaming') {
+    return normalizedTargets;
+  }
+
+  // Clonar para não modificar original
+  const overridden = JSON.parse(JSON.stringify(normalizedTargets));
+  
+  // 🎧 OVERRIDE PARA STREAMING
+  const STREAMING_LUFS = -14.0;
+  const STREAMING_LUFS_TOL = 1.0;
+  const STREAMING_TP = -1.0;
+  const STREAMING_TP_TOL = 0.5;
+
+  overridden.metrics.lufs = {
+    target: STREAMING_LUFS,
+    tolerance: STREAMING_LUFS_TOL,
+    min: STREAMING_LUFS - STREAMING_LUFS_TOL,
+    max: STREAMING_LUFS + STREAMING_LUFS_TOL,
+    unit: 'LUFS',
+    _overrideSource: 'streaming'
+  };
+
+  overridden.metrics.truePeak = {
+    ...overridden.metrics.truePeak,
+    target: STREAMING_TP,
+    tolerance: STREAMING_TP_TOL,
+    min: STREAMING_TP - STREAMING_TP_TOL,
+    warnFrom: -0.5,
+    _overrideSource: 'streaming'
+  };
+
+  // Compatibilidade legada
+  overridden.lufs = { ...overridden.metrics.lufs };
+  overridden.truePeak = { ...overridden.metrics.truePeak };
+
+  overridden._destination = destination;
+  overridden._overrideApplied = true;
+
+  console.log('[STREAMING-OVERRIDE] ✅ Override aplicado:', {
+    destination,
+    lufs: `[${overridden.metrics.lufs.min.toFixed(1)}, ${overridden.metrics.lufs.max.toFixed(1)}]`,
+    truePeak: `[${overridden.metrics.truePeak.min.toFixed(1)}, ${overridden.metrics.truePeak.max.toFixed(1)}]`
+  });
+
+  return overridden;
+}
+
+/**
  * Converte formato intermediário (lufs.target) para novo formato normalizado
  */
 function convertIntermediateFormat(intermediate) {
@@ -277,117 +345,28 @@ export function validateNormalizedTargets(targets) {
 }
 
 /**
- * 🎯 FUNÇÃO DE SEVERIDADE ÚNICA - FONTE DA VERDADE
+ * 🎯 FUNÇÃO DE SEVERIDADE ÚNICA - WRAPPER PARA evaluateMetric
  * 
- * Calcula severidade de uma métrica usando targets normalizados.
- * Esta função deve ser usada por TODAS as partes do sistema (tabela, score, sugestões).
+ * Esta função DELEGA para evaluateMetric (fonte única da verdade).
+ * Mantém assinatura compatível para código existente.
  * 
  * @param {string} metricKey - Chave da métrica ('lufs', 'truePeak', 'dr', 'stereo')
  * @param {number} value - Valor medido
  * @param {Object} normalizedTargets - Targets normalizados (do normalizeGenreTargets)
- * @returns {Object} { severity: 'OK'|'ATENÇÃO'|'ALTA'|'CRÍTICA', delta, action }
+ * @returns {Object} { severity: 'OK'|'ATENÇÃO'|'ALTA'|'CRÍTICA', delta, action, isCritical? }
  */
 export function calculateMetricSeverity(metricKey, value, normalizedTargets) {
-  if (!Number.isFinite(value)) {
-    return { severity: 'N/A', delta: 0, action: 'Sem dados' };
-  }
+  // DELEGA para evaluateMetricByKey (fonte única)
+  // Isso garante que NÃO há lógica duplicada
+  const result = evaluateMetricByKey(metricKey, value, normalizedTargets);
   
-  if (!normalizedTargets) {
-    return { severity: 'N/A', delta: 0, action: 'Sem targets' };
-  }
-  
-  // Extrair targets da estrutura normalizada
-  const metrics = normalizedTargets.metrics || normalizedTargets;
-  const target = metrics[metricKey];
-  
-  if (!target || typeof target.min !== 'number' || typeof target.max !== 'number') {
-    return { severity: 'N/A', delta: 0, action: 'Target inválido' };
-  }
-  
-  const { min, max, warnFrom, hardCap } = target;
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0.0 dBTP = SEMPRE CRÍTICA
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (metricKey === 'truePeak') {
-    // CRÍTICA: Acima do hard cap (0.0 dBTP)
-    if (value > (hardCap ?? TRUE_PEAK_HARD_CAP)) {
-      const delta = value - (hardCap ?? TRUE_PEAK_HARD_CAP);
-      return {
-        severity: 'CRÍTICA',
-        delta,
-        action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
-        isCritical: true
-      };
-    }
-    
-    // ATENÇÃO: Na zona de warning (ex: acima de -0.1)
-    if (warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
-      const delta = value - warnFrom;
-      return {
-        severity: 'ATENÇÃO',
-        delta,
-        action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dB`
-      };
-    }
-    
-    // ATENÇÃO: Abaixo do mínimo
-    if (value < min) {
-      const delta = min - value;
-      return {
-        severity: 'ATENÇÃO',
-        delta: -delta,
-        action: `⚠️ Muito baixo. Pode aumentar até ${delta.toFixed(1)} dB`
-      };
-    }
-    
-    // OK: Dentro do range
-    return { severity: 'OK', delta: 0, action: '✅ Dentro do padrão' };
-  }
-  
-  // ═══════════════════════════════════════════════════════════════════════════
-  // OUTRAS MÉTRICAS: Lógica padrão de range [min, max]
-  // ═══════════════════════════════════════════════════════════════════════════
-  
-  // OK: Dentro do range
-  if (value >= min && value <= max) {
-    return { severity: 'OK', delta: 0, action: '✅ Dentro do padrão' };
-  }
-  
-  // Fora do range: calcular distância
-  const tolerance = target.tolerance || (max - min) / 2;
-  let delta, absDelta;
-  
-  if (value < min) {
-    delta = value - min; // negativo
-    absDelta = min - value;
-  } else {
-    delta = value - max; // positivo
-    absDelta = value - max;
-  }
-  
-  // Determinar severidade baseada na distância
-  const actionVerb = delta > 0 ? 'Reduzir' : 'Aumentar';
-  
-  if (absDelta <= tolerance) {
-    return {
-      severity: 'ATENÇÃO',
-      delta,
-      action: `⚠️ ${actionVerb} ${absDelta.toFixed(1)} ${target.unit || ''}`
-    };
-  } else if (absDelta <= tolerance * 2) {
-    return {
-      severity: 'ALTA',
-      delta,
-      action: `🟡 ${actionVerb} ${absDelta.toFixed(1)} ${target.unit || ''}`
-    };
-  } else {
-    return {
-      severity: 'CRÍTICA',
-      delta,
-      action: `🔴 ${actionVerb} ${absDelta.toFixed(1)} ${target.unit || ''}`
-    };
-  }
+  // Adaptar resultado para assinatura esperada pelo código existente
+  return {
+    severity: result.severity,
+    delta: result.diffToNearestLimit,
+    action: result.action,
+    isCritical: result.isCritical
+  };
 }
 
 /**
@@ -446,4 +425,192 @@ export function calculateBandSeverity(bandKey, value, normalizedTargets) {
   }
 }
 
-console.log('🔧 Normalize Genre Targets v2.0.0 carregado (FONTE ÚNICA DA VERDADE)');
+console.log('🔧 Normalize Genre Targets v2.2.0 carregado (calculateMetricSeverity DELEGA para evaluateMetric)');
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🎯 evaluateMetric - FUNÇÃO ÚNICA DE AVALIAÇÃO
+ * 
+ * Esta função DEVE ser usada por:
+ *   1) Tabela de comparação (status, ação)
+ *   2) Score (pontuação)
+ *   3) Builder de sugestões (severidade, delta)
+ * 
+ * GARANTE: mesma avaliação em todos os lugares, sem divergências.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 
+ * @param {number} value - Valor medido
+ * @param {Object} cfg - Configuração do target
+ * @param {number} cfg.min - Limite mínimo aceitável
+ * @param {number} cfg.max - Limite máximo aceitável  
+ * @param {number} cfg.target - Valor alvo (para cálculo de delta)
+ * @param {number} [cfg.tolerance] - Tolerância (para gradação de severidade)
+ * @param {number} [cfg.warnFrom] - Ponto de warning (para True Peak)
+ * @param {number} [cfg.hardCap] - Hard cap absoluto (para True Peak = 0.0)
+ * @param {string} [cfg.unit] - Unidade (LUFS, dBTP, dB, correlation)
+ * @param {boolean} [cfg.isTruePeak] - Se é True Peak (regra especial: >0 = CRÍTICA)
+ * 
+ * @returns {Object} {
+ *   status: 'OK' | 'LEVE' | 'MÉDIA' | 'ALTA' | 'CRÍTICA',
+ *   severity: 'OK' | 'ATENÇÃO' | 'ALTA' | 'CRÍTICA',
+ *   diffToTarget: number,
+ *   diffToNearestLimit: number,
+ *   action: string,
+ *   isWithinRange: boolean,
+ *   isCritical: boolean
+ * }
+ */
+export function evaluateMetric(value, cfg) {
+  if (!Number.isFinite(value)) {
+    return {
+      status: 'N/A',
+      severity: 'N/A',
+      diffToTarget: 0,
+      diffToNearestLimit: 0,
+      action: 'Sem dados',
+      isWithinRange: false,
+      isCritical: false
+    };
+  }
+
+  if (!cfg || typeof cfg.min !== 'number' || typeof cfg.max !== 'number') {
+    return {
+      status: 'N/A',
+      severity: 'N/A',
+      diffToTarget: 0,
+      diffToNearestLimit: 0,
+      action: 'Configuração inválida',
+      isWithinRange: false,
+      isCritical: false
+    };
+  }
+
+  const { min, max, target, tolerance, warnFrom, hardCap, unit = '', isTruePeak = false } = cfg;
+  const effectiveTarget = typeof target === 'number' ? target : (min + max) / 2;
+  const effectiveTolerance = typeof tolerance === 'number' ? tolerance : (max - min) / 2;
+  const effectiveHardCap = isTruePeak ? (hardCap ?? TRUE_PEAK_HARD_CAP) : null;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0.0 dBTP = SEMPRE CRÍTICA
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (isTruePeak && effectiveHardCap !== null && value > effectiveHardCap) {
+    const delta = value - effectiveHardCap;
+    return {
+      status: 'CRÍTICA',
+      severity: 'CRÍTICA',
+      diffToTarget: value - effectiveTarget,
+      diffToNearestLimit: delta,
+      action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} ${unit}`,
+      isWithinRange: false,
+      isCritical: true
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRUE PEAK: Warning zone (ex: acima de warn_from)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (isTruePeak && warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
+    const delta = value - warnFrom;
+    return {
+      status: 'ALTA',
+      severity: 'ALTA',
+      diffToTarget: value - effectiveTarget,
+      diffToNearestLimit: delta,
+      action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} ${unit}`,
+      isWithinRange: false,
+      isCritical: false
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OK: Dentro do range [min, max]
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (value >= min && value <= max) {
+    return {
+      status: 'OK',
+      severity: 'OK',
+      diffToTarget: value - effectiveTarget,
+      diffToNearestLimit: 0,
+      action: '✅ Dentro do padrão',
+      isWithinRange: true,
+      isCritical: false
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FORA DO RANGE: Calcular severidade baseada na distância
+  // ═══════════════════════════════════════════════════════════════════════════
+  let diffToNearestLimit, actionVerb;
+  
+  if (value < min) {
+    diffToNearestLimit = value - min; // negativo
+    actionVerb = 'Aumentar';
+  } else {
+    diffToNearestLimit = value - max; // positivo
+    actionVerb = 'Reduzir';
+  }
+
+  const absDiff = Math.abs(diffToNearestLimit);
+
+  // Gradação de severidade baseada na tolerância
+  let status, severity;
+  
+  if (absDiff <= effectiveTolerance * 0.5) {
+    status = 'LEVE';
+    severity = 'ATENÇÃO';
+  } else if (absDiff <= effectiveTolerance) {
+    status = 'MÉDIA';
+    severity = 'ATENÇÃO';
+  } else if (absDiff <= effectiveTolerance * 2) {
+    status = 'ALTA';
+    severity = 'ALTA';
+  } else {
+    status = 'CRÍTICA';
+    severity = 'CRÍTICA';
+  }
+
+  // Para True Peak abaixo do mínimo, nunca é CRÍTICA (apenas informativo)
+  if (isTruePeak && value < min) {
+    status = 'LEVE';
+    severity = 'ATENÇÃO';
+  }
+
+  const icon = severity === 'CRÍTICA' ? '🔴' : severity === 'ALTA' ? '🟡' : '⚠️';
+
+  return {
+    status,
+    severity,
+    diffToTarget: value - effectiveTarget,
+    diffToNearestLimit,
+    action: `${icon} ${actionVerb} ${absDiff.toFixed(1)} ${unit}`,
+    isWithinRange: false,
+    isCritical: severity === 'CRÍTICA'
+  };
+}
+
+/**
+ * 🎯 Wrapper de evaluateMetric para métricas por key
+ */
+export function evaluateMetricByKey(metricKey, value, normalizedTargets) {
+  if (!normalizedTargets) {
+    return evaluateMetric(value, {});
+  }
+  
+  const metrics = normalizedTargets.metrics || normalizedTargets;
+  const target = metrics[metricKey];
+  
+  if (!target) {
+    return evaluateMetric(value, {});
+  }
+  
+  return evaluateMetric(value, {
+    min: target.min,
+    max: target.max,
+    target: target.target,
+    tolerance: target.tolerance,
+    warnFrom: target.warnFrom,
+    hardCap: target.hardCap,
+    unit: target.unit,
+    isTruePeak: metricKey === 'truePeak'
+  });
+}
