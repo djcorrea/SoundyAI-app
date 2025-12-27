@@ -88,6 +88,119 @@ export function classifyMetric(diff, tolerance, options = {}) {
 }
 
 /**
+ * ════════════════════════════════════════════════════════════════════════════════
+ * 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+ * ════════════════════════════════════════════════════════════════════════════════
+ * 
+ * Esta regra é FÍSICA e INVIOLÁVEL:
+ * - 0.0 dBTP é o limite absoluto digital
+ * - Valores acima causam clipping em qualquer sistema
+ * - NUNCA deve ser considerado OK ou ATTENTION, independente de tolerância
+ * 
+ * @param {number} truePeakValue - Valor de True Peak em dBTP
+ * @param {Object} target - Target opcional (ignorado se TP > 0)
+ * @param {Object} options - Opções adicionais
+ * @returns {Object} - Classificação
+ */
+const TRUE_PEAK_HARD_CAP = 0.0;
+
+export function classifyTruePeak(truePeakValue, target = {}, options = {}) {
+  // 🛡️ Validação
+  if (!Number.isFinite(truePeakValue)) {
+    console.error('[CLASSIFIER][TRUE_PEAK] ❌ Valor inválido:', truePeakValue);
+    return {
+      classification: CLASSIFICATION_LEVELS.CRITICAL,
+      diff: NaN,
+      reasonCode: 'INVALID_VALUE'
+    };
+  }
+
+  // 🚨 REGRA ABSOLUTA: TP > 0.0 = CRÍTICA SEMPRE
+  if (truePeakValue > TRUE_PEAK_HARD_CAP) {
+    const diff = truePeakValue - TRUE_PEAK_HARD_CAP;
+    console.log('[CLASSIFIER][TRUE_PEAK] 🚨 CRÍTICA ABSOLUTA: TP > 0.0 dBTP', {
+      value: truePeakValue.toFixed(2),
+      hardCap: TRUE_PEAK_HARD_CAP,
+      excesso: diff.toFixed(2),
+      reasonCode: 'TP_ABOVE_ZERO'
+    });
+    
+    return {
+      classification: CLASSIFICATION_LEVELS.CRITICAL,
+      diff,
+      min: target.min ?? -3.0,
+      max: TRUE_PEAK_HARD_CAP,
+      reasonCode: 'TP_ABOVE_ZERO',
+      message: `🔴 CLIPPING DIGITAL! True Peak ${truePeakValue.toFixed(1)} dBTP está ${diff.toFixed(1)} dB acima do limite físico de 0.0 dBTP`
+    };
+  }
+
+  // ✅ Se TP <= 0, usar classificação normal
+  const min = target.min ?? -3.0;
+  const max = target.max ?? TRUE_PEAK_HARD_CAP;
+  const warnFrom = target.warnFrom ?? -0.3;
+  const tolerance = target.tolerance ?? 1.0;
+
+  let diff, reasonCode;
+  
+  // Acima de warnFrom (próximo do limite)
+  if (truePeakValue > warnFrom) {
+    diff = truePeakValue - warnFrom;
+    reasonCode = 'TP_NEAR_CLIP';
+    console.log('[CLASSIFIER][TRUE_PEAK] ⚠️ Próximo do limite:', {
+      value: truePeakValue.toFixed(2),
+      warnFrom,
+      diff: diff.toFixed(2)
+    });
+    return {
+      classification: CLASSIFICATION_LEVELS.ATTENTION,
+      diff,
+      min,
+      max,
+      reasonCode,
+      message: `⚠️ True Peak ${truePeakValue.toFixed(1)} dBTP está próximo do limite seguro`
+    };
+  }
+  
+  // Abaixo do mínimo (muito baixo - improvável mas possível)
+  if (truePeakValue < min) {
+    diff = truePeakValue - min;
+    reasonCode = 'TP_TOO_LOW';
+    console.log('[CLASSIFIER][TRUE_PEAK] ℹ️ Abaixo do mínimo:', {
+      value: truePeakValue.toFixed(2),
+      min,
+      diff: diff.toFixed(2)
+    });
+    // TP baixo é OK (margem de segurança), não penalizar
+    return {
+      classification: CLASSIFICATION_LEVELS.OK,
+      diff,
+      min,
+      max,
+      reasonCode,
+      message: `✅ True Peak ${truePeakValue.toFixed(1)} dBTP com margem extra de segurança`
+    };
+  }
+
+  // Dentro do range [min, warnFrom]
+  diff = 0;
+  reasonCode = 'TP_OK';
+  console.log('[CLASSIFIER][TRUE_PEAK] ✅ OK:', {
+    value: truePeakValue.toFixed(2),
+    range: `${min} a ${warnFrom}`
+  });
+  
+  return {
+    classification: CLASSIFICATION_LEVELS.OK,
+    diff,
+    min,
+    max,
+    reasonCode,
+    message: `✅ True Peak ${truePeakValue.toFixed(1)} dBTP dentro do padrão`
+  };
+}
+
+/**
  * 🎯 Classificar métrica considerando range (min/max)
  * 
  * @param {number} value - Valor atual da métrica

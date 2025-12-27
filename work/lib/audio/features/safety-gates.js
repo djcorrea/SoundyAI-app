@@ -5,13 +5,20 @@
 /**
  * 🚨 CONFIGURAÇÃO DE GATES DE SEGURANÇA
  * PRINCÍPIO: Avisar, nunca bloquear
+ * 
+ * ════════════════════════════════════════════════════════════════════════════
+ * 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+ * - 0.0 dBTP é o limite físico digital absoluto
+ * - Qualquer valor > 0.0 representa clipping digital inevitável
+ * - NÃO HÁ EXCEÇÕES ou tolerâncias para essa regra
+ * ════════════════════════════════════════════════════════════════════════════
  */
 const SAFETY_GATES_CONFIG = {
   // True Peak Gate
   truePeak: {
     enabled: true,
-    warningThreshold: 0.0,     // 0 dBTP
-    criticalThreshold: 1.0,    // +1 dBTP
+    warningThreshold: -0.3,    // ⚠️ Próximo do limite
+    criticalThreshold: 0.0,    // 🚨 REGRA ABSOLUTA: > 0 dBTP = CRÍTICA SEMPRE
     mode: 'warning_only',      // NUNCA hard fail
     logLevel: 'info'
   },

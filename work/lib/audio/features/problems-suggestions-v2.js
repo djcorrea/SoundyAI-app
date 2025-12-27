@@ -12,7 +12,13 @@ import {
   BAND_LABELS,
   FREQUENCY_RANGES
 } from '../utils/suggestion-text-builder.js';
-import { classifyMetric, classifyMetricWithRange, getStatusText, getCssClass } from '../utils/metric-classifier.js';
+import { 
+  classifyMetric, 
+  classifyMetricWithRange, 
+  classifyTruePeak,  // 🚨 REGRA ABSOLUTA TP > 0 = CRÍTICA
+  getStatusText, 
+  getCssClass 
+} from '../utils/metric-classifier.js';
 
 /**
  * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
@@ -765,7 +771,26 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       formula: diff === 0 ? 'dentro do range' : (truePeak > bounds.max ? `${truePeak.toFixed(2)} - ${bounds.max.toFixed(2)} = ${diff.toFixed(2)}` : `${truePeak.toFixed(2)} - ${bounds.min.toFixed(2)} = ${diff.toFixed(2)}`)
     });
     
-    const severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // ════════════════════════════════════════════════════════════════════════════
+    // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE (TP_ABOVE_ZERO)
+    // Esta regra NUNCA pode ser ignorada, independente de tolerância ou targets
+    // ════════════════════════════════════════════════════════════════════════════
+    const TRUE_PEAK_HARD_CAP = 0.0; // Constante física - jamais passar de 0
+    let severity;
+    
+    if (truePeak > TRUE_PEAK_HARD_CAP) {
+      // 🔴 CRÍTICA ABSOLUTA - Clipping digital
+      severity = this.severity.CRITICAL;
+      console.log('[TRUE_PEAK] 🚨 REGRA ABSOLUTA ATIVADA: TP > 0.0 dBTP = CRÍTICA', {
+        value: truePeak.toFixed(2),
+        hardCap: TRUE_PEAK_HARD_CAP,
+        excesso: (truePeak - TRUE_PEAK_HARD_CAP).toFixed(2),
+        reasonCode: 'TP_ABOVE_ZERO'
+      });
+    } else {
+      // Usar cálculo padrão apenas se TP <= 0
+      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    }
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
