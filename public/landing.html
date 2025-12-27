@@ -539,6 +539,110 @@
             box-shadow: 0 0 10px var(--neon-cyan);
         }
         
+        /* ---- CARDS MOBILE PARA COMPARAÇÃO ---- */
+        .comparison-cards-mobile {
+            display: none; /* Oculto no desktop */
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-desktop {
+                display: none !important;
+            }
+            
+            .comparison-cards-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .comparison-card-mobile {
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(0, 243, 255, 0.15);
+                border-radius: 12px;
+                padding: 18px 15px;
+                transition: border-color 0.3s ease;
+            }
+            
+            .comparison-card-mobile:hover {
+                border-color: var(--neon-purple);
+            }
+            
+            .card-feature-name {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 1rem;
+                color: #fff;
+                margin-bottom: 14px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .card-comparison-row {
+                display: flex;
+                gap: 12px;
+            }
+            
+            .card-competitor,
+            .card-soundy {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 12px 8px;
+                border-radius: 8px;
+            }
+            
+            .card-competitor {
+                background: rgba(255, 51, 102, 0.05);
+                border: 1px solid rgba(255, 51, 102, 0.15);
+            }
+            
+            .card-soundy {
+                background: rgba(0, 243, 255, 0.08);
+                border: 1px solid rgba(0, 243, 255, 0.25);
+                box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            }
+            
+            .card-competitor .check,
+            .card-soundy .check {
+                font-size: 1.4rem;
+                margin-bottom: 6px;
+            }
+            
+            .card-competitor .cross,
+            .card-soundy .cross {
+                font-size: 1.4rem;
+                margin-bottom: 6px;
+            }
+            
+            .card-competitor .label,
+            .card-soundy .label {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                opacity: 0.7;
+                margin-bottom: 4px;
+            }
+            
+            .card-soundy .label {
+                color: var(--neon-cyan);
+                opacity: 1;
+            }
+            
+            .card-competitor .desc,
+            .card-soundy .desc {
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                line-height: 1.3;
+            }
+            
+            .card-soundy .desc {
+                color: #fff;
+            }
+        }
+        
         .check { 
             color: var(--neon-cyan); 
             font-weight: bold; 
@@ -863,6 +967,344 @@
             .nav-links { display: none; }
             .mobile-menu-toggle { display: flex; }
         }
+
+        /* =============================================
+           RESPONSIVIDADE MOBILE OTIMIZADA
+           Mobile-first design para experiência premium
+           ============================================= */
+        
+        @media (max-width: 768px) {
+            /* ---- 1. TÍTULOS - Reduzir para mobile ---- */
+            h1 {
+                font-size: 1.75rem !important;
+                line-height: 1.2;
+            }
+            
+            h2, .section-title {
+                font-size: 1.4rem !important;
+                line-height: 1.25;
+                margin-bottom: 12px;
+            }
+            
+            h3 {
+                font-size: 1.1rem !important;
+                line-height: 1.3;
+            }
+            
+            .hero h1 {
+                font-size: 1.65rem !important;
+                margin-bottom: 20px;
+            }
+            
+            .hero h1 span {
+                font-size: 0.8em !important;
+                margin-top: 8px;
+            }
+            
+            .hero p {
+                font-size: 1rem;
+                margin-bottom: 30px;
+                padding-left: 15px;
+                border-left-width: 2px;
+            }
+            
+            .section-subtitle {
+                font-size: 1rem;
+                margin-bottom: 40px;
+                line-height: 1.5;
+            }
+            
+            /* ---- 2. REMOVER ROBÔ NO MOBILE ---- */
+            .hero-visual {
+                display: none !important;
+            }
+            
+            .hero-robot {
+                display: none !important;
+            }
+            
+            .sound-bars {
+                display: none !important;
+            }
+            
+            /* Ajustar hero sem robô */
+            .hero {
+                min-height: auto;
+                padding: 100px 16px 50px;
+            }
+            
+            .hero-container {
+                gap: 0;
+            }
+            
+            .hero-content {
+                max-width: 100%;
+                margin-bottom: 0;
+            }
+            
+            /* ---- 3. TABELA DE COMPARAÇÃO → CARDS ---- */
+            .comparison-container {
+                padding: 20px 15px;
+                border-radius: 12px;
+                overflow-x: visible;
+            }
+            
+            /* Ocultar tabela desktop */
+            .comparison-table {
+                display: none !important;
+            }
+            
+            /* Criar cards mobile para comparação */
+            .comparison-container::before,
+            .comparison-container::after {
+                display: none;
+            }
+            
+            /* ---- 4. ESPAÇAMENTOS - Reduzir padding ---- */
+            .section {
+                padding: 50px 16px;
+            }
+            
+            body {
+                font-size: 16px;
+            }
+            
+            nav {
+                padding: 15px 16px;
+            }
+            
+            .logo {
+                font-size: 1.4rem;
+            }
+            
+            /* Cards de problema mais compactos */
+            .problem-grid {
+                gap: 20px;
+            }
+            
+            .problem-card {
+                padding: 25px 20px;
+                border-radius: 12px;
+            }
+            
+            .problem-icon {
+                font-size: 2.2rem;
+                margin-bottom: 15px;
+            }
+            
+            .problem-card h3 {
+                font-size: 1.15rem;
+                margin-bottom: 10px;
+            }
+            
+            .problem-card p {
+                font-size: 0.95rem;
+            }
+            
+            /* Steps mais compactos */
+            .steps-container {
+                gap: 20px;
+                margin-top: 30px;
+            }
+            
+            .step-card {
+                padding: 25px 15px;
+                min-width: auto;
+            }
+            
+            .step-icon {
+                width: 60px;
+                height: 60px;
+                font-size: 2rem;
+                margin-bottom: 15px;
+            }
+            
+            .step-number {
+                font-size: 3rem;
+            }
+            
+            /* Deliverables mais compactos */
+            .deliverables-grid {
+                gap: 15px;
+            }
+            
+            .deliverable-card {
+                padding: 20px;
+                gap: 15px;
+                border-radius: 10px;
+            }
+            
+            .del-icon {
+                font-size: 1.8rem;
+            }
+            
+            .del-content h3 {
+                font-size: 1.1rem;
+            }
+            
+            .del-content p {
+                font-size: 0.9rem;
+            }
+            
+            /* Audio players mais compactos */
+            .visual-mock {
+                gap: 25px;
+                margin-top: 30px;
+            }
+            
+            .audio-player-card {
+                min-width: auto;
+                padding: 25px 20px;
+                border-radius: 15px;
+            }
+            
+            .player-header {
+                margin-bottom: 20px;
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+            
+            .player-label {
+                font-size: 1rem;
+            }
+            
+            .upload-placeholder {
+                height: 110px;
+            }
+            
+            .upload-icon {
+                font-size: 2rem;
+                margin-bottom: 10px;
+            }
+            
+            /* ---- 5. CTA FINAL - Mobile otimizado ---- */
+            .final-cta-wrapper {
+                padding: 60px 16px;
+            }
+            
+            .glass-cta {
+                padding: 40px 20px;
+                border-radius: 15px;
+            }
+            
+            .glass-cta h2 {
+                font-size: 1.6rem !important;
+                margin-bottom: 15px;
+            }
+            
+            .glass-cta p {
+                font-size: 1rem;
+                margin-bottom: 25px;
+            }
+            
+            .glass-cta .btn-primary,
+            .glass-cta .glow-btn {
+                width: 90% !important;
+                max-width: 320px;
+                font-size: 1rem !important;
+                padding: 18px 25px !important;
+                display: block;
+                margin: 0 auto;
+                text-align: center;
+                box-shadow: 0 0 50px rgba(188, 19, 254, 0.5);
+            }
+            
+            /* Botões do hero */
+            .hero-ctas {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
+            }
+            
+            .btn-primary,
+            .btn-secondary {
+                width: 100%;
+                max-width: 320px;
+                padding: 16px 30px;
+                font-size: 0.95rem;
+                text-align: center;
+            }
+            
+            /* Trust badge */
+            .trust-badge {
+                font-size: 0.85rem;
+                margin-top: 15px;
+            }
+            
+            /* Footer mobile */
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+                text-align: center;
+            }
+            
+            .footer-col h4 {
+                margin-bottom: 15px;
+            }
+            
+            .site-footer {
+                padding: 40px 0 15px;
+            }
+            
+            .footer-bottom {
+                margin-top: 30px;
+            }
+            
+            /* Separadores menores */
+            .frequency-separator {
+                max-width: 60%;
+                margin: 10px auto;
+            }
+            
+            /* Background effects reduzidos para performance */
+            .sound-wave-bg {
+                display: none;
+            }
+            
+            .floating-elements {
+                display: none;
+            }
+        }
+        
+        /* ---- EXTRA SMALL DEVICES (< 480px) ---- */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            h2, .section-title {
+                font-size: 1.25rem !important;
+            }
+            
+            .hero h1 {
+                font-size: 1.4rem !important;
+            }
+            
+            .section {
+                padding: 40px 12px;
+            }
+            
+            .problem-card,
+            .step-card,
+            .deliverable-card {
+                padding: 20px 15px;
+            }
+            
+            .glass-cta {
+                padding: 30px 15px;
+            }
+            
+            .glass-cta h2 {
+                font-size: 1.4rem !important;
+            }
+            
+            .glass-cta .btn-primary,
+            .glass-cta .glow-btn {
+                font-size: 0.9rem !important;
+                padding: 16px 20px !important;
+            }
+        }
         
         /* Animations */
         .fade-in {
@@ -1005,7 +1447,8 @@
         <p class="section-subtitle">Não somos apenas mais um analisador de espectro. Somos um engenheiro virtual.</p>
         
         <div class="comparison-container">
-            <table class="comparison-table">
+            <!-- Tabela Desktop (oculta no mobile) -->
+            <table class="comparison-table comparison-desktop">
                 <thead>
                     <tr>
                         <th>Recurso</th>
@@ -1041,6 +1484,89 @@
                     </tr>
                 </tbody>
             </table>
+            
+            <!-- Cards Mobile (oculta no desktop) -->
+            <div class="comparison-cards-mobile">
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Diagnóstico</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Gráficos genéricos e difíceis</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Análise Semântica clara</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Plano de Ação</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Nenhum plano</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Passo-a-passo em dB e Hz</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Contexto de Gênero</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Padrão único para tudo</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Multi-Genre Target</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Precisão de Análise</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Algoritmo linear básico</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Deep Learning avançado</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Feedback Visual</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Estático e frio</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Visualização imersiva 8D</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
