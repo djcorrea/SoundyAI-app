@@ -6424,6 +6424,9 @@ function openGenreModal() {
         }
     });
     
+    // 🎯 SCROLL FIX: Bloquear scroll do body quando modal aberto
+    document.body.classList.add('modal-open');
+    
     // Adicionar listeners de teclado
     modal.addEventListener('keydown', handleGenreModalKeydown);
     
@@ -6437,6 +6440,9 @@ function closeGenreModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.setAttribute('aria-hidden', 'true');
+        
+        // 🎯 SCROLL FIX: Liberar scroll do body ao fechar modal
+        document.body.classList.remove('modal-open');
         
         // Remover listeners
         modal.removeEventListener('keydown', handleGenreModalKeydown);
@@ -22182,29 +22188,33 @@ function evaluateMetricFromTargetProfile(metricKey, value, targetProfile) {
     }
     
     // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0 dBTP = SEMPRE CRÍTICA
+    // 🔧 FIX: Ação usa deltaToTarget (não hardCap) para consistência com coluna "Diferença"
     if (metricKey === 'truePeak') {
         const tpMax = metric.tp_max ?? metric.max ?? TRUE_PEAK_HARD_CAP;
+        const tpTarget = metric.tp_target ?? metric.target ?? -1.0;  // ✅ SSOT: target do gênero
+        
         if (value > tpMax) {
-            const delta = value - tpMax;
+            const deltaToTarget = value - tpTarget;  // ✅ SSOT: sempre usa target do gênero
             return {
                 severity: 'CRÍTICA',
                 severityClass: 'critical',
-                action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dBTP`,
-                diff: delta,
+                action: `🔴 CLIPPING! Reduzir ${deltaToTarget.toFixed(2)} dBTP`,
+                diff: deltaToTarget,
                 isCritical: true,
                 isWithinRange: false
             };
         }
         
         // Verificar warn_from
+        // 🔧 FIX: Ação usa deltaToTarget (não warnFrom) para consistência com coluna "Diferença"
         const warnFrom = metric.tp_warn_from ?? metric.warnFrom;
         if (warnFrom != null && value > warnFrom) {
-            const delta = value - warnFrom;
+            const deltaToTarget = value - tpTarget;  // ✅ SSOT: sempre usa target do gênero
             return {
                 severity: 'ALTA',
                 severityClass: 'high',
-                action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dBTP`,
-                diff: delta,
+                action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} dBTP`,
+                diff: deltaToTarget,
                 isCritical: false,
                 isWithinRange: false
             };
