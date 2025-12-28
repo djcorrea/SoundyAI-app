@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: Sugestões de Bandas no Modo Reference</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0f1a;
+            color: #e0e6f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ff88;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #60a5fa;
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .pass {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+        }
+        .fail {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }
+        .info {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid #60a5fa;
+            color: #60a5fa;
+        }
+        button {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+        .summary {
+            background: #1a1f2e;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        .summary h3 {
+            color: #fbbf24;
+            margin-top: 0;
+        }
+        pre {
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 2px;
+        }
+        .badge-metric { background: #3b82f6; color: white; }
+        .badge-band { background: #8b5cf6; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste: Sugestões de Bandas no Modo Reference</h1>
+        
+        <div class="test-section">
+            <h2>📋 Objetivo do Teste</h2>
+            <p>Validar que a função <code>buildComparativeAISuggestions</code> gera sugestões de <strong>bandas espectrais</strong> no modo referência, além das métricas já existentes.</p>
+            <ul>
+                <li>✅ Métricas: LUFS, True Peak, LRA, DR, Crest Factor</li>
+                <li>✅ Bandas: Sub, Bass, Low-Mid, Mid, High-Mid, Presence, Air</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🔬 Executar Testes</h2>
+            <button onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+            <button onclick="testBandExtraction()">🎵 Testar Extração de Bandas</button>
+            <button onclick="testSuggestionGeneration()">📊 Testar Geração de Sugestões</button>
+            <button onclick="testPREUpdateData()">🔗 Testar PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA</button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="summary" id="summary" style="display:none;">
+            <h3>📊 Resumo Final</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data para testes
+        const mockUserAnalysis = {
+            jobId: 'user-job-123',
+            metadata: { fileName: 'minha_musica.mp3' },
+            lufsIntegrated: -10.5,
+            truePeakDbtp: -0.8,
+            lra: 6.2,
+            dynamicRange: 7.5,
+            crestFactor: 12.3,
+            technicalData: {
+                lufsIntegrated: -10.5,
+                truePeakDbtp: -0.8,
+                lra: 6.2,
+                dynamicRange: 7.5,
+                crestFactor: 12.3,
+                spectral_balance: {
+                    sub: { energy_db: -18.5, rms_db: -18.5 },
+                    low_bass: { energy_db: -12.3, rms_db: -12.3 },
+                    upper_bass: { energy_db: -8.7, rms_db: -8.7 },
+                    low_mid: { energy_db: -5.2, rms_db: -5.2 },
+                    mid: { energy_db: -3.1, rms_db: -3.1 },
+                    high_mid: { energy_db: -6.8, rms_db: -6.8 },
+                    presence: { energy_db: -12.4, rms_db: -12.4 },
+                    air: { energy_db: -22.1, rms_db: -22.1 }
+                }
+            }
+        };
+
+        const mockRefAnalysis = {
+            jobId: 'ref-job-456',
+            metadata: { fileName: 'referencia_profissional.mp3' },
+            lufsIntegrated: -8.3,
+            truePeakDbtp: -1.0,
+            lra: 8.4,
+            dynamicRange: 10.1,
+            crestFactor: 14.5,
+            technicalData: {
+                lufsIntegrated: -8.3,
+                truePeakDbtp: -1.0,
+                lra: 8.4,
+                dynamicRange: 10.1,
+                crestFactor: 14.5,
+                spectral_balance: {
+                    sub: { energy_db: -15.2, rms_db: -15.2 },
+                    low_bass: { energy_db: -10.1, rms_db: -10.1 },
+                    upper_bass: { energy_db: -7.5, rms_db: -7.5 },
+                    low_mid: { energy_db: -4.3, rms_db: -4.3 },
+                    mid: { energy_db: -2.8, rms_db: -2.8 },
+                    high_mid: { energy_db: -5.9, rms_db: -5.9 },
+                    presence: { energy_db: -10.2, rms_db: -10.2 },
+                    air: { energy_db: -19.5, rms_db: -19.5 }
+                }
+            }
+        };
+
+        // Copiar a função buildComparativeAISuggestions para teste
+        function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
+            console.log('[A/B-SUGGESTIONS] 🔬 Gerando sugestões comparativas...');
+            
+            if (!userAnalysis || !refAnalysis) {
+                console.warn('[A/B-SUGGESTIONS] ⚠️ Análises incompletas - abortando geração');
+                return [];
+            }
+
+            const extractMetric = (analysis, metric) => {
+                const paths = {
+                    lufs: [analysis?.lufsIntegrated, analysis?.avgLoudness, analysis?.loudness?.integrated, analysis?.technicalData?.lufsIntegrated],
+                    lra: [analysis?.lra, analysis?.loudness?.lra, analysis?.technicalData?.lra],
+                    tp: [analysis?.truePeakDbtp, analysis?.truePeak, analysis?.loudness?.truePeak, analysis?.technicalData?.truePeakDbtp],
+                    dr: [analysis?.dynamicRange, analysis?.dynamics?.dynamicRange, analysis?.technicalData?.dynamicRange],
+                    cf: [analysis?.crestFactor, analysis?.dynamics?.crestFactor, analysis?.technicalData?.crestFactor]
+                };
+                const values = paths[metric] || [];
+                for (const val of values) {
+                    if (typeof val === 'number' && !isNaN(val)) return val;
+                }
+                return null;
+            };
+
+            const U = {
+                lufs: extractMetric(userAnalysis, 'lufs'),
+                lra: extractMetric(userAnalysis, 'lra'),
+                tp: extractMetric(userAnalysis, 'tp'),
+                dr: extractMetric(userAnalysis, 'dr'),
+                cf: extractMetric(userAnalysis, 'cf')
+            };
+
+            const R = {
+                lufs: extractMetric(refAnalysis, 'lufs'),
+                lra: extractMetric(refAnalysis, 'lra'),
+                tp: extractMetric(refAnalysis, 'tp'),
+                dr: extractMetric(refAnalysis, 'dr'),
+                cf: extractMetric(refAnalysis, 'cf')
+            };
+
+            const Δ = {
+                lufs: (U.lufs !== null && R.lufs !== null) ? (U.lufs - R.lufs) : null,
+                lra: (U.lra !== null && R.lra !== null) ? (U.lra - R.lra) : null,
+                tp: (U.tp !== null && R.tp !== null) ? (U.tp - R.tp) : null,
+                dr: (U.dr !== null && R.dr !== null) ? (U.dr - R.dr) : null,
+                cf: (U.cf !== null && R.cf !== null) ? (U.cf - R.cf) : null
+            };
+
+            const TH = { lufs: 1.0, lra: 0.5, tp: 0.3, dr: 0.7, cf: 0.7 };
+            const suggestions = [];
+
+            // Métricas
+            if (Δ.lufs !== null && Math.abs(Δ.lufs) >= TH.lufs) {
+                suggestions.push({
+                    categoria: "Loudness (A vs B)",
+                    severidade: Math.abs(Δ.lufs) >= 3 ? "CRÍTICA" : "MODERADA",
+                    problema: `LUFS difere em ${Math.abs(Δ.lufs).toFixed(2)}`,
+                    aiEnhanced: true
+                });
+            }
+            if (Δ.tp !== null && Math.abs(Δ.tp) >= TH.tp) {
+                suggestions.push({
+                    categoria: "True Peak (A vs B)",
+                    severidade: Math.abs(Δ.tp) >= 1.0 ? "CRÍTICA" : "MODERADA",
+                    problema: `True Peak difere em ${Math.abs(Δ.tp).toFixed(2)}`,
+                    aiEnhanced: true
+                });
+            }
+            if (Δ.lra !== null && Math.abs(Δ.lra) >= TH.lra) {
+                suggestions.push({
+                    categoria: "LRA (A vs B)",
+                    severidade: "MODERADA",
+                    problema: `LRA difere em ${Math.abs(Δ.lra).toFixed(2)}`,
+                    aiEnhanced: true
+                });
+            }
+            if (Δ.dr !== null && Math.abs(Δ.dr) >= TH.dr) {
+                suggestions.push({
+                    categoria: "Dynamic Range (A vs B)",
+                    severidade: "MODERADA",
+                    problema: `DR difere em ${Math.abs(Δ.dr).toFixed(2)}`,
+                    aiEnhanced: true
+                });
+            }
+
+            // ========== BANDAS ESPECTRAIS (A vs B) - MODO REFERENCE ==========
+            const extractBandsFromAnalysis = (analysis) => {
+                return analysis?.bands ||
+                       analysis?.technicalData?.spectral_balance ||
+                       analysis?.technicalData?.bands ||
+                       null;
+            };
+
+            const userBands = extractBandsFromAnalysis(userAnalysis);
+            const refBands = extractBandsFromAnalysis(refAnalysis);
+
+            if (userBands && refBands) {
+                const bandNameMap = {
+                    'sub': { name: 'Sub Bass (20-60 Hz)', icon: '🔊' },
+                    'low_bass': { name: 'Low Bass (60-120 Hz)', icon: '🎸' },
+                    'upper_bass': { name: 'Upper Bass (120-250 Hz)', icon: '🎸' },
+                    'low_mid': { name: 'Low Mids (250-500 Hz)', icon: '🎹' },
+                    'mid': { name: 'Mids (500-2000 Hz)', icon: '🎤' },
+                    'high_mid': { name: 'High Mids (2-5 kHz)', icon: '✨' },
+                    'presence': { name: 'Presence (5-10 kHz)', icon: '🔔' },
+                    'air': { name: 'Air/Brilho (10-20 kHz)', icon: '💫' }
+                };
+
+                const BAND_THRESHOLD_DB = 1.5;
+                const allBandKeys = new Set([...Object.keys(userBands), ...Object.keys(refBands)]);
+
+                for (const bandKey of allBandKeys) {
+                    const userBand = userBands[bandKey];
+                    const refBand = refBands[bandKey];
+
+                    if (!userBand || !refBand) continue;
+
+                    const userValue = typeof userBand === 'object' ? (userBand.energy_db ?? userBand.rms_db) : userBand;
+                    const refValue = typeof refBand === 'object' ? (refBand.energy_db ?? refBand.rms_db) : refBand;
+
+                    if (typeof userValue !== 'number' || typeof refValue !== 'number') continue;
+
+                    const delta = userValue - refValue;
+                    const absDelta = Math.abs(delta);
+
+                    if (absDelta < BAND_THRESHOLD_DB) continue;
+
+                    const bandInfo = bandNameMap[bandKey] || { name: bandKey, icon: '🎵' };
+                    const severidade = absDelta >= 4.0 ? "ALTA" : (absDelta >= 2.5 ? "MODERADA" : "LEVE");
+
+                    suggestions.push({
+                        categoria: `${bandInfo.icon} ${bandInfo.name} (A vs B)`,
+                        severidade: severidade,
+                        metric: `band_${bandKey}`,
+                        type: 'band_adjust',
+                        subtype: bandKey,
+                        problema: `Banda ${bandInfo.name} difere em ${absDelta.toFixed(1)} dB`,
+                        parametros: {
+                            banda: bandKey,
+                            valorAtual: userValue,
+                            valorReferencia: refValue,
+                            diferenca: delta
+                        },
+                        aiEnhanced: true,
+                        referenceMode: true
+                    });
+                }
+            }
+
+            return suggestions;
+        }
+
+        // Funções de teste
+        function addResult(container, pass, message, details = null) {
+            const div = document.createElement('div');
+            div.className = `test-result ${pass ? 'pass' : 'fail'}`;
+            div.innerHTML = `${pass ? '✅' : '❌'} ${message}`;
+            if (details) {
+                div.innerHTML += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            container.appendChild(div);
+            return pass;
+        }
+
+        function addInfo(container, message, details = null) {
+            const div = document.createElement('div');
+            div.className = 'test-result info';
+            div.innerHTML = `ℹ️ ${message}`;
+            if (details) {
+                div.innerHTML += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            container.appendChild(div);
+        }
+
+        let testResults = { passed: 0, failed: 0 };
+
+        function testBandExtraction() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>🎵 Teste: Extração de Bandas</h2>';
+
+            const extractBands = (analysis) => {
+                return analysis?.bands ||
+                       analysis?.technicalData?.spectral_balance ||
+                       analysis?.technicalData?.bands ||
+                       null;
+            };
+
+            const userBands = extractBands(mockUserAnalysis);
+            const refBands = extractBands(mockRefAnalysis);
+
+            if (addResult(container, !!userBands, 'Bandas do usuário extraídas', userBands ? Object.keys(userBands) : null)) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, !!refBands, 'Bandas da referência extraídas', refBands ? Object.keys(refBands) : null)) testResults.passed++;
+            else testResults.failed++;
+
+            const expectedBands = ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'];
+            const hasBands = expectedBands.every(b => userBands && userBands[b] && refBands && refBands[b]);
+            
+            if (addResult(container, hasBands, `Todas as ${expectedBands.length} bandas presentes`, expectedBands)) testResults.passed++;
+            else testResults.failed++;
+        }
+
+        function testSuggestionGeneration() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>📊 Teste: Geração de Sugestões</h2>';
+
+            const suggestions = buildComparativeAISuggestions(mockUserAnalysis, mockRefAnalysis);
+
+            addInfo(container, `Total de sugestões geradas: ${suggestions.length}`);
+
+            const metricSuggestions = suggestions.filter(s => !s.referenceMode);
+            const bandSuggestions = suggestions.filter(s => s.referenceMode === true);
+
+            if (addResult(container, metricSuggestions.length > 0, `Métricas geradas: ${metricSuggestions.length}`, metricSuggestions.map(s => s.categoria))) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, bandSuggestions.length > 0, `Bandas geradas: ${bandSuggestions.length}`, bandSuggestions.map(s => s.categoria))) testResults.passed++;
+            else testResults.failed++;
+
+            // Verificar que bandas com diferença significativa foram capturadas
+            // sub: -18.5 vs -15.2 = delta 3.3 (> 1.5 threshold)
+            // air: -22.1 vs -19.5 = delta 2.6 (> 1.5 threshold)
+            const subSuggestion = bandSuggestions.find(s => s.subtype === 'sub');
+            const airSuggestion = bandSuggestions.find(s => s.subtype === 'air');
+
+            if (addResult(container, !!subSuggestion, 'Sugestão para Sub Bass gerada', subSuggestion?.parametros)) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, !!airSuggestion, 'Sugestão para Air gerada', airSuggestion?.parametros)) testResults.passed++;
+            else testResults.failed++;
+
+            // Mostrar distribuição de severidades
+            const severityCount = {};
+            suggestions.forEach(s => {
+                severityCount[s.severidade] = (severityCount[s.severidade] || 0) + 1;
+            });
+            addInfo(container, 'Distribuição de severidades', severityCount);
+
+            // Mostrar badges de categorias
+            const badgesDiv = document.createElement('div');
+            badgesDiv.style.marginTop = '15px';
+            badgesDiv.innerHTML = '<strong>Categorias geradas:</strong><br>';
+            suggestions.forEach(s => {
+                const badge = document.createElement('span');
+                badge.className = `badge ${s.referenceMode ? 'badge-band' : 'badge-metric'}`;
+                badge.textContent = s.categoria;
+                badgesDiv.appendChild(badge);
+            });
+            container.appendChild(badgesDiv);
+        }
+
+        function testPREUpdateData() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>🔗 Teste: PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA</h2>';
+
+            const suggestions = buildComparativeAISuggestions(mockUserAnalysis, mockRefAnalysis);
+            
+            // Simular a população do PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA
+            const referenceComparisonData = suggestions
+                .filter(s => s.referenceMode === true || s.type === 'band_adjust')
+                .map(s => ({
+                    metric: s.subtype || s.metric,
+                    name: s.categoria,
+                    category: 'spectral_bands',
+                    value: s.parametros?.valorAtual,
+                    ideal: s.parametros?.valorReferencia,
+                    delta: s.parametros?.diferenca,
+                    tolerance: 1.5,
+                    severity: s.severidade
+                }));
+
+            if (addResult(container, referenceComparisonData.length > 0, `PRE_UPDATE gerado com ${referenceComparisonData.length} items`, referenceComparisonData.map(r => r.metric))) testResults.passed++;
+            else testResults.failed++;
+
+            // Verificar que cada item tem os campos necessários
+            const hasRequiredFields = referenceComparisonData.every(item => 
+                item.metric && 
+                item.category === 'spectral_bands' &&
+                typeof item.value === 'number' &&
+                typeof item.ideal === 'number'
+            );
+
+            if (addResult(container, hasRequiredFields, 'Todos os items têm campos obrigatórios (metric, category, value, ideal)')) testResults.passed++;
+            else testResults.failed++;
+
+            addInfo(container, 'Estrutura PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA', referenceComparisonData);
+        }
+
+        function runAllTests() {
+            testResults = { passed: 0, failed: 0 };
+            
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>🧪 Executando Todos os Testes...</h2>';
+
+            testBandExtraction();
+            
+            const divider1 = document.createElement('hr');
+            container.appendChild(divider1);
+            
+            testSuggestionGeneration();
+            
+            const divider2 = document.createElement('hr');
+            container.appendChild(divider2);
+            
+            testPREUpdateData();
+
+            // Mostrar resumo
+            const summary = document.getElementById('summary');
+            const summaryContent = document.getElementById('summaryContent');
+            summary.style.display = 'block';
+            
+            const total = testResults.passed + testResults.failed;
+            const passRate = ((testResults.passed / total) * 100).toFixed(1);
+            
+            summaryContent.innerHTML = `
+                <div style="font-size: 24px; margin-bottom: 15px;">
+                    ${passRate >= 100 ? '🎉' : passRate >= 80 ? '✅' : '⚠️'} ${passRate}% de sucesso
+                </div>
+                <div style="display: flex; gap: 20px;">
+                    <div class="test-result pass" style="flex:1; text-align:center;">
+                        <strong>${testResults.passed}</strong> passou
+                    </div>
+                    <div class="test-result fail" style="flex:1; text-align:center;">
+                        <strong>${testResults.failed}</strong> falhou
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #0d1117; border-radius: 8px;">
+                    <strong>Conclusão:</strong><br>
+                    ${passRate >= 100 
+                        ? '✅ Todas as sugestões de bandas estão sendo geradas corretamente no modo reference.' 
+                        : passRate >= 80
+                            ? '⚠️ A maioria dos testes passou, mas alguns ajustes podem ser necessários.'
+                            : '❌ Há problemas significativos que precisam ser corrigidos.'
+                    }
+                </div>
+            `;
+        }
+
+        // Auto-executar ao carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Página de teste carregada');
+            console.log('📌 Use os botões para executar os testes');
+        });
+    </script>
+</body>
+</html>
