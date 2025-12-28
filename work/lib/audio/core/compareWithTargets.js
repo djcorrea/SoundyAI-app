@@ -229,10 +229,11 @@ function evaluateTruePeak(value, target) {
   
   // 🚨 REGRA CRÍTICA: TP > 0.0 dBTP = CRÍTICA SEMPRE
   if (value > effectiveHardCap) {
-    const delta = value - effectiveHardCap;
+    // 🔧 FIX: usar target.target (não hardCap) para consistência com coluna "Diferença"
+    const delta = value - target.target;
     severity = 'CRÍTICA';
     severityClass = 'critical';
-    action = `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} ${unit}`;
+    action = `🔴 CLIPPING! Reduzir ${delta.toFixed(1)} ${unit}`;
     scoreValue = 0;
     
     console.log('[COMPARE][TRUE-PEAK] 🚨 CRÍTICA: TP > 0.0 dBTP detectado:', value);
