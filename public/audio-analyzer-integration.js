@@ -2842,6 +2842,9 @@ let jobPollingInterval = null;
 function openModeSelectionModal() {
     const modal = document.getElementById('analysisModeModal');
     if (modal) {
+        // Bloquear scroll do body
+        document.body.classList.add('modal-open');
+        
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         
@@ -2864,6 +2867,9 @@ function closeModeSelectionModal() {
     if (modal) {
         modal.style.display = 'none';
         modal.setAttribute('aria-hidden', 'true');
+        
+        // Desbloquear scroll do body
+        document.body.classList.remove('modal-open');
         
         // Remover listeners
         document.removeEventListener('keydown', handleModalEscapeKey);
@@ -5559,6 +5565,9 @@ function openWelcomeModal() {
         return;
     }
     
+    // Bloquear scroll do body
+    document.body.classList.add('modal-open');
+    
     // Abrir modal com animação
     modal.style.display = 'flex';
     modal.setAttribute('tabindex', '-1');
@@ -5586,6 +5595,9 @@ function closeWelcomeModal() {
     const modal = document.getElementById('welcomeAnalysisModal');
     if (modal) {
         modal.style.display = 'none';
+        
+        // Desbloquear scroll do body
+        document.body.classList.remove('modal-open');
     }
     
     __dbg('✅ Modal de boas-vindas fechado');
@@ -8288,17 +8300,19 @@ function renderGenreComparisonTable(options) {
         const tpValue = truePeakDbtp;
         if (Number.isFinite(tpValue) && Number.isFinite(genreData.true_peak_target)) {
             let result;
+            const tpTarget = genreData.true_peak_target;  // ✅ SSOT: target do gênero
             
             // 🚨 HARD LIMIT: TP > 0.0 = CRÍTICA (ignora tolerância)
+            // 🔧 FIX: Ação usa deltaToTarget (não hardCap) para consistência com coluna "Diferença"
             if (tpValue > TRUE_PEAK_HARD_CAP) {
-                const delta = tpValue - TRUE_PEAK_HARD_CAP;
+                const deltaToTarget = tpValue - tpTarget;  // ✅ SSOT: sempre usa target do gênero
                 result = {
                     severity: 'CRÍTICA',
                     severityClass: 'critical',
-                    action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
-                    diff: tpValue - genreData.true_peak_target
+                    action: `🔴 CLIPPING! Reduzir ${deltaToTarget.toFixed(2)} dB`,
+                    diff: deltaToTarget
                 };
-                console.log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue);
+                console.log('[GENRE-TABLE] 🚨 TRUE PEAK CRÍTICO: TP > 0.0 dBTP detectado:', tpValue, '| deltaToTarget:', deltaToTarget);
             } else {
                 // Lógica normal para TP <= 0.0
                 result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
@@ -22348,14 +22362,25 @@ function calculateTruePeakSeverityLocal(value, targets) {
         return { severity: 'N/A', severityClass: 'na', action: 'Sem dados', diff: 0 };
     }
     
+    // ✅ SSOT: Extrair target do gênero PRIMEIRO
+    let tpTarget = -1.0; // fallback padrão
+    if (targets?.metrics?.truePeak?.target != null) {
+        tpTarget = targets.metrics.truePeak.target;
+    } else if (targets?.truePeak?.target != null) {
+        tpTarget = targets.truePeak.target;
+    } else if (targets?.true_peak_target != null) {
+        tpTarget = targets.true_peak_target;
+    }
+    
     // 🚨 REGRA ABSOLUTA: True Peak > 0 dBTP = CRÍTICA
+    // 🔧 FIX: Ação usa deltaToTarget (não hardCap) para consistência com coluna "Diferença"
     if (value > TRUE_PEAK_HARD_CAP) {
-        const delta = value - TRUE_PEAK_HARD_CAP;
+        const deltaToTarget = value - tpTarget;  // ✅ SSOT: sempre usa target do gênero
         return {
             severity: 'CRÍTICA',
             severityClass: 'critical',
-            action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} dB`,
-            diff: delta,
+            action: `🔴 CLIPPING! Reduzir ${deltaToTarget.toFixed(2)} dB`,
+            diff: deltaToTarget,
             isCritical: true
         };
     }
@@ -22386,13 +22411,14 @@ function calculateTruePeakSeverityLocal(value, targets) {
     }
     
     // ATENÇÃO: Na zona de warning
+    // 🔧 FIX: Ação usa deltaToTarget (não warnFrom) para consistência com coluna "Diferença"
     if (warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
-        const delta = value - warnFrom;
+        const deltaToTarget = value - tpTarget;  // ✅ SSOT: sempre usa target do gênero
         return {
             severity: 'ATENÇÃO',
             severityClass: 'caution',
-            action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} dB`,
-            diff: delta
+            action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} dB`,
+            diff: deltaToTarget
         };
     }
     

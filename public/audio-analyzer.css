@@ -3546,9 +3546,7 @@ details[open] summary {
     max-height: calc(100vh - 40px) !important;
     height: auto !important;
     width: 90% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important;
+    overflow: hidden !important;
     padding: 40px 32px !important;
     display: flex !important;
     flex-direction: column !important;
@@ -3565,7 +3563,6 @@ details[open] summary {
     border-radius: 16px !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     position: relative !important;
-    overflow: hidden !important;
 }
 
 /* LINHAS NEURAIS VANTA - MODAL DE SELEÇÃO */
@@ -3915,7 +3912,7 @@ details[open] summary {
         margin: 20px auto !important;
         padding: 32px 24px !important;
         min-height: 380px !important;
-    }
+    }overflow: hidden
     
     .mode-selection-modal .audio-modal-header h3 {
         font-size: 2rem !important;
@@ -3964,7 +3961,7 @@ details[open] summary {
     .mode-selection-modal {
         max-width: 90% !important;
         padding: 30px 20px !important;
-        min-height: 360px !important;
+        overflow: hidden !important;
     }
     
     .analysis-modal-title,
@@ -3995,7 +3992,7 @@ details[open] summary {
 @media (max-width: 480px) {
     .mode-selection-modal {
         padding: 28px 20px !important;
-        min-height: 340px !important;
+        overflow: hidden !important;
     }
     
     .analysis-modal-title,
@@ -4582,9 +4579,7 @@ details[open] summary {
     flex-direction: column !important;
     justify-content: flex-start !important;
     align-items: center !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior: contain !important;
+    overflow: hidden !important;
     
     /* BACKGROUND DARK - IGUAL AO MODAL DE SELEÇÃO */
     background: radial-gradient( 
@@ -4918,7 +4913,7 @@ details[open] summary {
         max-width: 95vw !important;
         width: 95% !important;
         padding: 32px 24px 28px 24px !important;
-        min-height: 480px !important;
+        overflow: hidden !important;
     }
     
     .welcome-subtitle {
@@ -4967,7 +4962,7 @@ details[open] summary {
 @media (max-width: 600px) {
     .welcome-modal-content {
         padding: 28px 20px 24px 20px !important;
-        min-height: 450px !important;
+        overflow: hidden !important;
     }
     
     .welcome-modal-body {

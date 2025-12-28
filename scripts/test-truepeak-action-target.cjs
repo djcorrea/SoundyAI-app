@@ -78,6 +78,19 @@ function evaluateTruePeakFixed(value, target) {
 
 const testCases = [
   {
+    name: 'Cenário REAL (imagem): TP=0.60, target=-0.5 (CLIPPING)',
+    value: 0.60,
+    target: {
+      target: -0.5,
+      min: -3.0,
+      max: 0.0,
+      warnFrom: -0.5,
+      hardCap: 0.0
+    },
+    expectedDelta: 1.10,       // 0.60 - (-0.5) = 1.10
+    expectedSeverity: 'CRÍTICA'
+  },
+  {
     name: 'Cenário 1: TP=1.6, target=-0.2 (CLIPPING)',
     value: 1.6,
     target: {
