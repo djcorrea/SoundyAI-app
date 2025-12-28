@@ -95,10 +95,10 @@
 
 /* Container principal - MAIS ESCURO COM LINHAS NEURAIS */
 #audioAnalysisModal .audio-modal-content {
-    max-width: 720px;
+    max-width: 900px;
     width: 90%;
-    max-height: 90vh;
-    min-height: auto;
+    max-height: 92vh;
+    min-height: 600px;
     height: auto;
     /* BACKGROUND MAIS ESCURO */
     background: radial-gradient(
