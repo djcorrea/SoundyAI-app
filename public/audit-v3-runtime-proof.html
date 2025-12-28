@@ -53,6 +53,8 @@
         }
         .btn:hover { background: #4f46e5; }
         .btn:disabled { background: #444; cursor: not-allowed; }
+        .btn.success { background: #22c55e; }
+        .btn.warning { background: #f97316; }
         
         .summary {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -118,25 +120,34 @@
         .critical { color: #ef4444; font-weight: bold; }
         .warning { color: #fbbf24; }
         .success { color: #22c55e; }
+        
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .status-box.ok { background: rgba(34, 197, 94, 0.1); border: 1px solid #22c55e; }
+        .status-box.error { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; }
+        .status-box.warn { background: rgba(251, 191, 36, 0.1); border: 1px solid #fbbf24; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔍 AUDIT: V3 Runtime Proof - True Peak Gate</h1>
+        <h1>🔍 AUDIT: Score Engine V3 - Runtime Proof</h1>
         
         <div class="summary">
-            <h2>📊 Resumo do Teste</h2>
+            <h2>📊 Status do Sistema</h2>
             <div class="summary-item">
-                <span>Engine Version:</span>
-                <span id="summary-engine">--</span>
+                <span>Score Engine V3:</span>
+                <span id="status-v3">Verificando...</span>
+            </div>
+            <div class="summary-item">
+                <span>Engine Ativa:</span>
+                <span id="status-engine">--</span>
             </div>
             <div class="summary-item">
                 <span>Mode Atual:</span>
                 <span id="summary-mode">--</span>
-            </div>
-            <div class="summary-item">
-                <span>True Peak Max (do mode):</span>
-                <span id="summary-tp-max">--</span>
             </div>
             <div class="summary-item">
                 <span>Testes Passaram:</span>
@@ -145,14 +156,20 @@
         </div>
         
         <div class="test-section">
+            <h2>🔧 Controle da Engine</h2>
+            <button class="btn success" onclick="activateV3()">✅ Ativar V3</button>
+            <button class="btn warning" onclick="deactivateV3()">⚠️ Desativar V3</button>
+            <button class="btn" onclick="checkStatus()">🔍 Verificar Status</button>
+            
+            <div id="status-message" class="status-box ok" style="display:none;"></div>
+        </div>
+        
+        <div class="test-section">
             <h2>🎯 Seleção de Modo</h2>
-            <p style="color: #888; margin-bottom: 10px;">
-                Selecione o modo para testar os limites de True Peak correspondentes:
-            </p>
             <div class="mode-selector">
                 <button class="mode-btn streaming active" onclick="setMode('streaming')">
                     🎧 Streaming<br>
-                    <small>TP max: -1.0 dBTP</small>
+                    <small>TP max: -0.5 dBTP</small>
                 </button>
                 <button class="mode-btn pista" onclick="setMode('pista')">
                     🎛️ Pista / DJ<br>
@@ -162,15 +179,16 @@
         </div>
         
         <div class="test-section">
-            <h2>🧪 Testes de Hard Gate</h2>
-            <button class="btn" onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+            <h2>🧪 Testes de Realismo (V3)</h2>
+            <button class="btn" onclick="runAllTests()">▶️ Executar Testes V3</button>
+            <button class="btn" onclick="runSanityTest()">🩺 Teste de Sanidade</button>
             <button class="btn" onclick="clearResults()" style="background: #333;">🗑️ Limpar</button>
             
             <div id="test-results"></div>
         </div>
         
         <div class="test-section">
-            <h2>📝 Debug Output (window.__lastScoreDebug)</h2>
+            <h2>📝 window.__lastScoreDebug</h2>
             <div class="debug-output" id="debug-output">Aguardando execução dos testes...</div>
         </div>
         
@@ -180,36 +198,8 @@
         </div>
     </div>
     
-    <script type="module">
-        // Importar scoring module
-        let scorerMod = null;
-        
-        async function loadScorer() {
-            try {
-                scorerMod = await import('/lib/audio/features/scoring.js');
-                console.log('[AUDIT] ✅ scoring.js carregado com sucesso');
-                return true;
-            } catch (e) {
-                console.error('[AUDIT] ❌ Falha ao carregar scoring.js:', e);
-                return false;
-            }
-        }
-        
-        // Expor para uso global
-        window.loadScorer = loadScorer;
-        window.getScorer = () => scorerMod;
-        
-        // Carregar scorer ao inicializar
-        loadScorer().then(ok => {
-            if (ok) {
-                document.getElementById('summary-engine').textContent = 'v3_gates_sync (loaded)';
-                document.getElementById('summary-engine').classList.add('success');
-            } else {
-                document.getElementById('summary-engine').textContent = 'FALHA AO CARREGAR';
-                document.getElementById('summary-engine').classList.add('critical');
-            }
-        });
-    </script>
+    <!-- Score Engine V3 deve ser carregado primeiro -->
+    <script src="/lib/audio/features/score-engine-v3.js"></script>
     
     <script>
         // Estado global
@@ -217,123 +207,129 @@
         let testResults = [];
         let consoleBuffer = [];
         
-        // Limites por modo
-        const MODE_LIMITS = {
-            streaming: { truePeakMax: -1.0 },
-            pista: { truePeakMax: 0.0 }
-        };
-        
-        // Inicializar modo
-        window.__SOUNDY_ANALYSIS_MODE__ = 'streaming';
-        
-        // Capturar console.log
+        // Capturar console
         const originalLog = console.log;
+        const originalInfo = console.info;
         const originalWarn = console.warn;
-        console.log = function(...args) {
-            originalLog.apply(console, args);
+        const originalError = console.error;
+        
+        function captureLog(type, args) {
             const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
-            if (msg.includes('GATE') || msg.includes('V3') || msg.includes('SCORE') || msg.includes('AUDIT')) {
-                consoleBuffer.push(`[LOG] ${msg}`);
+            if (msg.includes('SCORE') || msg.includes('V3') || msg.includes('GATE') || msg.includes('Engine')) {
+                consoleBuffer.push(`[${type}] ${msg}`);
                 updateConsoleOutput();
             }
-        };
-        console.warn = function(...args) {
-            originalWarn.apply(console, args);
-            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
-            consoleBuffer.push(`[WARN] ${msg}`);
-            updateConsoleOutput();
-        };
+        }
+        
+        console.log = function(...args) { originalLog.apply(console, args); captureLog('LOG', args); };
+        console.info = function(...args) { originalInfo.apply(console, args); captureLog('INFO', args); };
+        console.warn = function(...args) { originalWarn.apply(console, args); captureLog('WARN', args); };
+        console.error = function(...args) { originalError.apply(console, args); captureLog('ERROR', args); };
         
         function updateConsoleOutput() {
             const el = document.getElementById('console-output');
-            el.textContent = consoleBuffer.slice(-50).join('\n');
+            el.textContent = consoleBuffer.slice(-30).join('\n');
             el.scrollTop = el.scrollHeight;
+        }
+        
+        // Verificar status ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(checkStatus, 500);
+        });
+        
+        function checkStatus() {
+            const v3Available = window.ScoreEngineV3 && window.ScoreEngineV3.ready;
+            const engineVersion = window.getScoreEngineVersion ? window.getScoreEngineVersion() : 'N/A';
+            
+            document.getElementById('status-v3').textContent = v3Available ? '✅ Carregado e Pronto' : '❌ Não disponível';
+            document.getElementById('status-v3').className = v3Available ? 'success' : 'critical';
+            
+            document.getElementById('status-engine').textContent = engineVersion.toUpperCase();
+            document.getElementById('status-engine').className = engineVersion === 'v3' ? 'success' : 'warning';
+            
+            const msgBox = document.getElementById('status-message');
+            if (v3Available) {
+                msgBox.className = 'status-box ok';
+                msgBox.innerHTML = `✅ Score Engine V3 disponível!<br>Versão: ${window.ScoreEngineV3.version}<br>Engine ativa: ${engineVersion}`;
+            } else {
+                msgBox.className = 'status-box error';
+                msgBox.innerHTML = '❌ Score Engine V3 NÃO CARREGOU!<br>Verifique o console para erros.';
+            }
+            msgBox.style.display = 'block';
+        }
+        
+        function activateV3() {
+            if (window.enableScoreV3) {
+                window.enableScoreV3();
+                checkStatus();
+            } else {
+                alert('enableScoreV3 não disponível');
+            }
+        }
+        
+        function deactivateV3() {
+            if (window.disableScoreV3) {
+                window.disableScoreV3();
+                checkStatus();
+            }
         }
         
         function setMode(mode) {
             currentMode = mode;
             window.__SOUNDY_ANALYSIS_MODE__ = mode;
             
-            // Atualizar UI
             document.querySelectorAll('.mode-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (btn.classList.contains(mode)) {
-                    btn.classList.add('active');
-                }
+                if (btn.classList.contains(mode)) btn.classList.add('active');
             });
             
             document.getElementById('summary-mode').textContent = mode.toUpperCase();
-            document.getElementById('summary-mode').className = mode === 'streaming' ? 'success' : 'warning';
-            document.getElementById('summary-tp-max').textContent = `${MODE_LIMITS[mode].truePeakMax} dBTP`;
-            
-            console.log(`[AUDIT] 🔄 Modo alterado para: ${mode} (TP max: ${MODE_LIMITS[mode].truePeakMax} dBTP)`);
         }
         
-        function createTestData(truePeakValue) {
-            return {
-                truePeakDbtp: truePeakValue,
-                true_peak_dbtp: truePeakValue,
-                lufsIntegrated: -14.0,
-                lufs_integrated: -14.0,
-                clippingPct: 0,
-                dcOffset: 0,
-                dynamicRange: 8,
-                stereoWidth: 0.8
-            };
-        }
-        
-        async function runTest(testName, truePeakValue, expectedCapped, expectedMaxScore = null) {
-            const scorerMod = window.getScorer();
-            if (!scorerMod) {
-                return { pass: false, reason: 'Scorer não carregado' };
+        async function runSanityTest() {
+            if (!window.ScoreEngineV3 || !window.testScoreEngineV3) {
+                alert('Score Engine V3 não disponível. Execute checkStatus() primeiro.');
+                return;
             }
             
-            const testData = createTestData(truePeakValue);
-            const mode = currentMode;
-            const tpMax = MODE_LIMITS[mode].truePeakMax;
+            const results = await window.testScoreEngineV3();
             
-            console.log(`[AUDIT] 🧪 Executando teste: ${testName}`);
-            console.log(`[AUDIT] 📊 Input: truePeak=${truePeakValue}, mode=${mode}, tpMax=${tpMax}`);
+            document.getElementById('debug-output').textContent = JSON.stringify(results, null, 2);
+            
+            const msgBox = document.getElementById('status-message');
+            if (results.allPass) {
+                msgBox.className = 'status-box ok';
+                msgBox.innerHTML = '✅ Todos os testes de sanidade passaram!';
+            } else {
+                msgBox.className = 'status-box error';
+                msgBox.innerHTML = '❌ Alguns testes falharam. Verifique o console.';
+            }
+            msgBox.style.display = 'block';
+        }
+        
+        async function runTest(testName, technicalData, expectedCheck, description) {
+            if (!window.ScoreEngineV3) {
+                return { pass: false, reason: 'V3 não disponível' };
+            }
             
             try {
-                const result = scorerMod.computeMixScore(testData, null, { mode });
+                const result = await window.ScoreEngineV3.computeScore(technicalData, null, currentMode);
                 
-                console.log(`[AUDIT] 📈 Resultado:`, result);
+                // Atualizar debug
+                document.getElementById('debug-output').textContent = JSON.stringify({
+                    lastScoreDebug: window.__lastScoreDebug,
+                    v3Result: result
+                }, null, 2);
                 
-                // Verificar window.__lastScoreDebug
-                const debug = window.__lastScoreDebug;
+                const checkResult = expectedCheck(result);
                 
-                // Atualizar debug output
-                document.getElementById('debug-output').textContent = JSON.stringify(debug, null, 2);
-                
-                // Verificações
-                const wasCapped = debug?.gatesTriggered?.includes('TRUE_PEAK_CLIPPING');
-                const scoreValue = result.scorePct;
-                
-                let pass = true;
-                let reason = '';
-                
-                if (expectedCapped && !wasCapped) {
-                    pass = false;
-                    reason = `FALHA: Esperava gate TRUE_PEAK_CLIPPING mas não foi acionado`;
-                } else if (!expectedCapped && wasCapped) {
-                    pass = false;
-                    reason = `FALHA: Gate TRUE_PEAK_CLIPPING acionado inesperadamente`;
-                }
-                
-                if (expectedMaxScore !== null && scoreValue > expectedMaxScore) {
-                    pass = false;
-                    reason += ` | Score ${scoreValue} > max esperado ${expectedMaxScore}`;
-                }
-                
-                if (pass) {
-                    reason = `OK: Score=${scoreValue}%, Cap=${debug?.finalScoreCap ?? 'none'}, Gates=${debug?.gatesTriggered?.join(',') || 'none'}`;
-                }
-                
-                return { pass, reason, result, debug };
-                
+                return {
+                    pass: checkResult.pass,
+                    reason: checkResult.reason,
+                    result
+                };
             } catch (e) {
-                return { pass: false, reason: `ERRO: ${e.message}` };
+                return { pass: false, reason: `Erro: ${e.message}` };
             }
         }
         
@@ -341,42 +337,52 @@
             const resultsEl = document.getElementById('test-results');
             resultsEl.innerHTML = '';
             testResults = [];
-            consoleBuffer = [];
             
-            const mode = currentMode;
-            const tpMax = MODE_LIMITS[mode].truePeakMax;
-            
-            // Definir casos de teste
             const tests = [
                 {
-                    name: `TP dentro do limite (${tpMax - 0.5} dBTP)`,
-                    truePeak: tpMax - 0.5,
-                    expectedCapped: false,
-                    expectedMaxScore: null
+                    name: 'TP Positivo (+2.0 dBTP)',
+                    data: { truePeakDbtp: 2.0, lufsIntegrated: -14.0, clippingPct: 0, dr: 8, stereoWidth: 0.6 },
+                    check: (r) => ({
+                        pass: r.scorePct <= 35 && r.gatesApplied.some(g => g.type === 'TRUE_PEAK_CRITICAL'),
+                        reason: `Score: ${r.scorePct}% (esperado: ≤35%), Gates: ${r.gatesApplied.map(g => g.type).join(', ')}`
+                    }),
+                    description: 'True Peak acima de 0 dBTP deve acionar gate crítico'
                 },
                 {
-                    name: `TP no limite exato (${tpMax} dBTP)`,
-                    truePeak: tpMax,
-                    expectedCapped: false, // Igual ao max não deve acionar
-                    expectedMaxScore: null
+                    name: 'TP no Target (-1.0 dBTP)',
+                    data: { truePeakDbtp: -1.0, lufsIntegrated: -14.0, clippingPct: 0, dr: 8, stereoWidth: 0.6, stereoCorrelation: 0.6 },
+                    check: (r) => ({
+                        pass: r.scorePct >= 70,
+                        reason: `Score: ${r.scorePct}% (esperado: ≥70%)`
+                    }),
+                    description: 'Métricas no target devem resultar em score alto'
                 },
                 {
-                    name: `TP levemente acima (+0.1 dBTP → ${(tpMax + 0.1).toFixed(1)} dBTP)`,
-                    truePeak: tpMax + 0.1,
-                    expectedCapped: true,
-                    expectedMaxScore: 30
+                    name: 'LUFS Fora do Range (-6.0 LUFS)',
+                    data: { truePeakDbtp: -1.0, lufsIntegrated: -6.0, clippingPct: 0, dr: 8 },
+                    check: (r) => ({
+                        pass: r.subscores?.loudness?.score <= 10,
+                        reason: `Loudness subscore: ${r.subscores?.loudness?.score || 'N/A'}% (esperado: ≤10%)`
+                    }),
+                    description: 'LUFS fora do range para streaming deve zerar subscore'
                 },
                 {
-                    name: `TP muito acima (+1.0 dBTP → ${(tpMax + 1.0).toFixed(1)} dBTP)`,
-                    truePeak: tpMax + 1.0,
-                    expectedCapped: true,
-                    expectedMaxScore: 30
+                    name: 'Clipping Severo (10%)',
+                    data: { truePeakDbtp: -1.0, lufsIntegrated: -14.0, clippingPct: 10, dr: 8 },
+                    check: (r) => ({
+                        pass: r.scorePct <= 50 && r.gatesApplied.some(g => g.type === 'CLIPPING_SEVERE'),
+                        reason: `Score: ${r.scorePct}% (esperado: ≤50%), Gates: ${r.gatesApplied.map(g => g.type).join(', ')}`
+                    }),
+                    description: 'Clipping > 5% deve acionar gate e limitar score'
                 },
                 {
-                    name: `TP extremo (+3.0 dBTP → ${(tpMax + 3.0).toFixed(1)} dBTP)`,
-                    truePeak: tpMax + 3.0,
-                    expectedCapped: true,
-                    expectedMaxScore: 30
+                    name: 'TP Warning (-0.05 dBTP)',
+                    data: { truePeakDbtp: -0.05, lufsIntegrated: -14.0, clippingPct: 0, dr: 8 },
+                    check: (r) => ({
+                        pass: r.gatesApplied.some(g => g.type === 'TRUE_PEAK_WARNING'),
+                        reason: `Gates: ${r.gatesApplied.map(g => g.type).join(', ') || 'nenhum'}`
+                    }),
+                    description: 'TP muito próximo de 0 deve acionar warning'
                 }
             ];
             
@@ -387,14 +393,13 @@
                 testEl.className = 'test-case running';
                 testEl.innerHTML = `
                     <div class="test-title">🔄 ${test.name}</div>
-                    <div class="test-result">Executando...</div>
+                    <div class="test-result">${test.description}</div>
                 `;
                 resultsEl.appendChild(testEl);
                 
-                // Pequeno delay para UI atualizar
                 await new Promise(r => setTimeout(r, 100));
                 
-                const result = await runTest(test.name, test.truePeak, test.expectedCapped, test.expectedMaxScore);
+                const result = await runTest(test.name, test.data, test.check, test.description);
                 
                 testEl.className = `test-case ${result.pass ? 'pass' : 'fail'}`;
                 testEl.querySelector('.test-title').innerHTML = `${result.pass ? '✅' : '❌'} ${test.name}`;
@@ -405,21 +410,19 @@
                 testResults.push(result);
             }
             
-            // Atualizar resumo
             document.getElementById('summary-tests').textContent = `${passed} / ${tests.length}`;
             document.getElementById('summary-tests').className = passed === tests.length ? 'success' : 'critical';
         }
         
         function clearResults() {
             document.getElementById('test-results').innerHTML = '';
-            document.getElementById('debug-output').textContent = 'Aguardando execução dos testes...';
-            consoleBuffer = [];
+            document.getElementById('debug-output').textContent = 'Aguardando...';
             document.getElementById('console-output').textContent = '';
-            testResults = [];
+            consoleBuffer = [];
             document.getElementById('summary-tests').textContent = '0 / 0';
         }
         
-        // Inicializar UI
+        // Inicializar
         setMode('streaming');
     </script>
 </body>
