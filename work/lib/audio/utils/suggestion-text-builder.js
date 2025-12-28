@@ -61,11 +61,31 @@ export function buildMetricSuggestion({
   max,  // 🎯 SSOT: OBRIGATÓRIO - vem de comparisonResult.rows
   decimals = 1
 }) {
-  // 🎯 SSOT: min/max são OBRIGATÓRIOS - vêm de comparisonResult.rows
-  // ❌ PATH LEGACY REMOVIDO - Se min/max não estiverem definidos, usar valores safe defaults
-  // (isso só acontece para bandas que ainda usam sistema antigo)
-  const rangeMin = (typeof min === 'number') ? min : (target - (tolerance || 2));
-  const rangeMax = (typeof max === 'number') ? max : (target + (tolerance || 2));
+  // 🎯 SSOT v2: Verificação rigorosa para métricas globais
+  // Para métricas globais (lufs, truePeak, dr, lra, stereo), min/max DEVEM ser números válidos
+  const isGlobalMetric = ['lufs', 'truePeak', 'dr', 'lra', 'stereo', 'loudness'].includes(key);
+  
+  let rangeMin, rangeMax;
+  
+  if (typeof min === 'number' && typeof max === 'number') {
+    // ✅ SSOT: Usar min/max diretos (caminho ideal)
+    rangeMin = min;
+    rangeMax = max;
+  } else if (isGlobalMetric) {
+    // 🔴 Para métricas globais, sinalizar que precisa recomputar
+    // Retornar objeto com flag _needsRecompute para o caller tratar
+    return {
+      _needsRecompute: true,
+      message: `⚠️ ${label}: Dados incompletos`,
+      explanation: 'O sistema precisa recomputar os targets para exibir esta sugestão.',
+      action: 'Aguarde ou recarregue a análise.'
+    };
+  } else {
+    // ⚠️ FALLBACK: Apenas para BANDAS que ainda usam sistema antigo
+    rangeMin = target - (tolerance || 2);
+    rangeMax = target + (tolerance || 2);
+  }
+  
   const delta = value - target;
   
   // Ajustar decimais para correlação estéreo
