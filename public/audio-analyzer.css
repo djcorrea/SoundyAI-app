@@ -3911,8 +3911,8 @@ details[open] summary {
         width: 95% !important;
         margin: 20px auto !important;
         padding: 32px 24px !important;
-        min-height: 380px !important;
-    }overflow: hidden
+        overflow: hidden !important;
+    }
     
     .mode-selection-modal .audio-modal-header h3 {
         font-size: 2rem !important;
