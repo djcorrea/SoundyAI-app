@@ -9877,6 +9877,17 @@ async function handleModalFileSelection(file) {
             console.log('⚠️ PONTO CRÍTICO: normalizeBackendAnalysisData() vai modificar analysisResult?');
             console.groupEnd();
             
+            // 🔥 AUDITORIA CRÍTICA: Verificar se backend enviou referenceComparison e sugestões
+            console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[REFERENCE-AUDIT] 🎯 DADOS DO BACKEND (analysisResult):');
+            console.log('[REFERENCE-AUDIT] referenceComparison:', !!analysisResult?.referenceComparison);
+            console.log('[REFERENCE-AUDIT] referenceComparisonKeys:', analysisResult?.referenceComparison ? Object.keys(analysisResult.referenceComparison) : []);
+            console.log('[REFERENCE-AUDIT] suggestions.length:', analysisResult?.suggestions?.length || 0);
+            console.log('[REFERENCE-AUDIT] aiSuggestions.length:', analysisResult?.aiSuggestions?.length || 0);
+            console.log('[REFERENCE-AUDIT] referenceJobId:', analysisResult?.referenceJobId);
+            console.log('[REFERENCE-AUDIT] referenceFileName:', analysisResult?.referenceFileName);
+            console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
             // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
             // ❌ REMOVIDO: normalizeBackendAnalysisData() destrói dados
             const normalizedResult = analysisResult; // ✅ LEITURA DIRETA
@@ -14363,18 +14374,34 @@ async function displayModalResults(analysis) {
         console.log('[AUDIT-FIX] 🤖 Iniciando renderização de sugestões de IA no modo reference');
         
         // ✅ CORREÇÃO: Garantir que analysisForSuggestions inclua suggestions completas
+        // 🔥 CRÍTICO: Priorizar aiSuggestions (enriquecidas) sobre suggestions (base)
+        const suggestionsSource = 
+            (refNormalized || analysis)?.aiSuggestions ||
+            (refNormalized || analysis)?.suggestions || 
+            (refNormalized || analysis)?.userAnalysis?.aiSuggestions ||
+            (refNormalized || analysis)?.userAnalysis?.suggestions || 
+            analysis?.aiSuggestions ||
+            analysis?.suggestions ||
+            [];
+            
         const analysisForSuggestions = {
             ...(refNormalized || analysis),
-            // ✅ Preservar suggestions da análise (pode vir do backend ou frontend)
-            suggestions: 
-                (refNormalized || analysis)?.suggestions || 
-                (refNormalized || analysis)?.userAnalysis?.suggestions || 
-                analysis?.suggestions ||
-                [],
+            // ✅ Preservar suggestions da análise (prioriza aiSuggestions)
+            suggestions: suggestionsSource,
+            aiSuggestions: suggestionsSource, // 🔥 Garantir ambos campos
+            // 🔥 CRÍTICO: Preservar referenceComparison
+            referenceComparison: (refNormalized || analysis)?.referenceComparison || analysis?.referenceComparison || null,
             mode: 'reference'
         };
         
         console.log('[SUG-AUDIT] reference deltas ready:', !!analysis.referenceComparison);
+        console.log('[SUG-AUDIT] 🔥 suggestionsSource length:', suggestionsSource.length);
+        console.log('[SUG-AUDIT] 🔥 Sources checked:', {
+            'refNormalized.aiSuggestions': (refNormalized || analysis)?.aiSuggestions?.length || 0,
+            'refNormalized.suggestions': (refNormalized || analysis)?.suggestions?.length || 0,
+            'analysis.aiSuggestions': analysis?.aiSuggestions?.length || 0,
+            'analysis.suggestions': analysis?.suggestions?.length || 0
+        });
         console.log('[AUDIT-FIX] 📊 analysisForSuggestions preparado:', {
             hasSuggestions: !!analysisForSuggestions.suggestions,
             suggestionsLength: analysisForSuggestions.suggestions?.length || 0,
@@ -27071,6 +27098,19 @@ function normalizeBackendAnalysisData(result) {
         // ✅ PATCH CRÍTICO: Preservar suggestions do backend SEMPRE
         // Não usar || [] pois isso sobrescreve array vazio vindo do backend
         suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+        
+        // 🔥 CRÍTICO: Preservar referenceComparison do backend (modo reference)
+        // Este campo contém os deltas A/B calculados no pipeline-complete.js
+        referenceComparison: data.referenceComparison || result?.referenceComparison || null,
+        
+        // 🔥 CRÍTICO: Preservar aiSuggestions do backend (sugestões enriquecidas por IA)
+        aiSuggestions: Array.isArray(data.aiSuggestions) ? data.aiSuggestions : 
+                       Array.isArray(result?.aiSuggestions) ? result.aiSuggestions : [],
+        
+        // 🔥 CRÍTICO: Preservar referenceJobId e referenceFileName
+        referenceJobId: data.referenceJobId || result?.referenceJobId || null,
+        referenceFileName: data.referenceFileName || result?.referenceFileName || null,
+        
         duration: data.duration || null,
         sampleRate: data.sampleRate || null,
         channels: data.channels || null,
@@ -27084,6 +27124,15 @@ function normalizeBackendAnalysisData(result) {
         isArray: Array.isArray(data.suggestions),
         length: data.suggestions?.length || 0,
         willPreserve: Array.isArray(data.suggestions) && data.suggestions.length > 0
+    });
+    
+    // 🔥 AUDITORIA CRÍTICA: referenceComparison (modo reference)
+    console.log('[SUG-AUDIT][CRITICAL] 🎯 REFERENCE COMPARISON:', {
+        'data.referenceComparison': !!data.referenceComparison,
+        'result.referenceComparison': !!result?.referenceComparison,
+        'normalized.referenceComparison': !!normalized.referenceComparison,
+        'referenceComparisonKeys': normalized.referenceComparison ? Object.keys(normalized.referenceComparison) : [],
+        'aiSuggestionsLength': normalized.aiSuggestions?.length || 0
     });
 
     // ✅ GARANTIR SUGESTÕES BÁSICAS SE BACKEND NÃO ENVIOU

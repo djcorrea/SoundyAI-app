@@ -1091,6 +1091,18 @@ async function processReferenceCompare(job) {
     console.log('[REFERENCE-COMPARE] ✅ Comparação concluída');
     console.log('[REFERENCE-COMPARE] Compare LUFS:', compareTech.lufsIntegrated || 'N/A');
     console.log('[REFERENCE-COMPARE] Delta LUFS:', referenceComparison.deltas.lufsIntegrated.toFixed(2));
+    
+    // 🔥 AUDITORIA CRÍTICA: Verificar dados antes de salvar
+    console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[REFERENCE-AUDIT] 🎯 DADOS QUE SERÃO SALVOS NO BANCO:');
+    console.log('[REFERENCE-AUDIT] referenceComparison:', !!finalJSON.referenceComparison);
+    console.log('[REFERENCE-AUDIT] referenceComparison.deltas:', finalJSON.referenceComparison?.deltas);
+    console.log('[REFERENCE-AUDIT] suggestions.length:', finalJSON.suggestions?.length || 0);
+    console.log('[REFERENCE-AUDIT] aiSuggestions.length:', finalJSON.aiSuggestions?.length || 0);
+    console.log('[REFERENCE-AUDIT] referenceJobId:', finalJSON.referenceJobId);
+    console.log('[REFERENCE-AUDIT] mode:', finalJSON.mode);
+    console.log('[REFERENCE-AUDIT] referenceStage:', finalJSON.referenceStage);
+    console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // ETAPA 7: Salvar como COMPLETED
     await updateJobStatus(jobId, 'completed', finalJSON);
