@@ -3956,8 +3956,20 @@ async function pollJobStatus(jobId) {
  */
 function showUploadProgress(message) {
     const progressText = document.getElementById('audioProgressText');
+    const connectionHint = document.getElementById('audioConnectionHint');
+    
     if (progressText) {
         progressText.innerHTML = `🌐 ${message}`;
+    }
+    
+    // 🎯 Mostrar dica de conexão APENAS durante upload para bucket
+    if (connectionHint) {
+        const isUploadingToBucket = message.toLowerCase().includes('enviando') && 
+                                    (message.toLowerCase().includes('análise') || 
+                                     message.toLowerCase().includes('bucket') ||
+                                     message.toLowerCase().includes('bookit'));
+        
+        connectionHint.style.display = isUploadingToBucket ? 'block' : 'none';
     }
 }
 
@@ -3969,9 +3981,15 @@ function showUploadProgress(message) {
 function updateModalProgress(percentage, message) {
     const progressText = document.getElementById('audioProgressText');
     const progressBar = document.getElementById('audioProgressFill') || document.querySelector('.progress-fill');
+    const connectionHint = document.getElementById('audioConnectionHint');
     
     if (progressText) {
         progressText.innerHTML = `${message}`;
+    }
+    
+    // 🎯 Garantir que a dica de conexão está oculta em outras etapas
+    if (connectionHint) {
+        connectionHint.style.display = 'none';
     }
     
     if (progressBar) {
@@ -28024,10 +28042,16 @@ function showAnalysisLoading() {
     __dbg('🔄 Exibindo loading de análise...');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
+    const connectionHint = document.getElementById('audioConnectionHint');
     
     if (results) {
         results.style.display = 'none';
         __dbg('✅ Results area ocultada');
+    }
+    
+    // 🎯 Garantir que a dica de conexão inicia oculta
+    if (connectionHint) {
+        connectionHint.style.display = 'none';
     }
     
     if (loading) {

@@ -622,6 +622,32 @@
     }
 }
 
+/* 🎯 MENSAGEM DE CONEXÃO - UX IMPROVEMENT */
+#audioAnalysisModal #audioConnectionHint {
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 400;
+    font-size: 13px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    margin: -5px 0 15px 0;
+    padding: 0 20px;
+    text-align: center;
+    max-width: 450px;
+    opacity: 0.85;
+    animation: fadeInHint 0.5s ease-in-out;
+}
+
+@keyframes fadeInHint {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 0.85;
+        transform: translateY(0);
+    }
+}
+
 /* BARRA DE PROGRESSO ÉPICA CENTRALIZADA */
 #audioAnalysisModal .progress-bar {
     width: 100%;
@@ -871,6 +897,12 @@
     #audioAnalysisModal .loading-spinner {
         width: 75px;
         height: 75px;
+    }
+    
+    #audioAnalysisModal #audioConnectionHint {
+        font-size: 12px;
+        padding: 0 15px;
+        max-width: 90%;
     }
     
     #audioAnalysisModal .progress-bar {
