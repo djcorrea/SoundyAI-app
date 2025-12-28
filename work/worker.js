@@ -843,11 +843,6 @@ async function processJob(job) {
       scoring: analysisResult.scoring || {},
       technicalData: analysisResult.technicalData || {},
       
-      // 🔥 CRÍTICO: Campos de modo reference (comparação A/B)
-      referenceComparison: analysisResult.referenceComparison || null,
-      referenceJobId: analysisResult.referenceJobId || null,
-      referenceFileName: analysisResult.referenceFileName || null,
-      
       // Campos técnicos opcionais
       lufs: analysisResult.lufs,
       truePeak: analysisResult.truePeak,
@@ -857,15 +852,6 @@ async function processJob(job) {
       readyForRelease: analysisResult.readyForRelease,
       overallRating: analysisResult.overallRating
     };
-
-    // 🔥 AUDITORIA: referenceComparison DEPOIS do merge
-    console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[REFERENCE-AUDIT] analysisResult.referenceComparison:', !!analysisResult.referenceComparison);
-    console.log('[REFERENCE-AUDIT] result.referenceComparison:', !!result.referenceComparison);
-    console.log('[REFERENCE-AUDIT] result.referenceJobId:', result.referenceJobId);
-    console.log('[REFERENCE-AUDIT] result.suggestions.length:', result.suggestions?.length || 0);
-    console.log('[REFERENCE-AUDIT] result.aiSuggestions.length:', result.aiSuggestions?.length || 0);
-    console.log('[REFERENCE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // 🔥 AUDITORIA: Genre DEPOIS do merge
     console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
