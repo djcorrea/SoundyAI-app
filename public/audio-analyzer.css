@@ -86,6 +86,8 @@
     animation: fadeIn 0.3s ease;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+    /* 🚫 SCROLL FIX: Overlay NÃO deve rolar, apenas o container interno */
+    overflow: hidden;
 }
 
 /* ============================================
@@ -125,9 +127,8 @@
     justify-content: center;
     transform: scale(1);
     transition: transform 0.2s ease;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    /* 🚫 SCROLL FIX: No desktop, modal não rola (scroll interno virá do mobile) */
+    overflow: hidden;
 }
 
 /* LINHAS NEURAIS ANIMADAS NO FUNDO - EFEITO TECH */
@@ -845,6 +846,11 @@
         /* 📜 Scroll suave se conteúdo exceder */
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        /* 🎯 Controle de scroll iOS: evitar scroll fantasma e elástico */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        /* 🚫 Impedir scroll além do conteúdo */
+        overscroll-behavior: contain;
     }
     
     /* Título principal do card - responsivo */
@@ -890,6 +896,10 @@
         height: auto;
         padding: 24px 16px;
         overflow-y: auto;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
     }
 }
 
@@ -905,6 +915,10 @@
         height: auto;
         padding: 24px 16px;
         overflow-y: auto;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
     }
     
     #audioAnalysisModal .upload-content {
@@ -5025,8 +5039,8 @@ details[open] summary {
     opacity: 1;
     transition: opacity 0.3s ease;
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    /* 🚫 SCROLL FIX: Overlay NÃO deve rolar, apenas o container interno */
+    overflow: hidden;
 }
 
 .genre-modal.hidden {
@@ -5045,13 +5059,12 @@ details[open] summary {
     max-height: calc(100dvh - 60px);
     max-height: calc(100vh - 60px);
     height: auto;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    /* 🚫 SCROLL FIX: No desktop não rola, scroll virá do mobile */
+    overflow: hidden;
+    position: relative;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.5),
         0 0 30px rgba(0, 102, 255, 0.3);
-    position: relative;
 }
 
 /* Título do modal */
@@ -5229,7 +5242,9 @@ details[open] summary {
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior: contain;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
         margin: 0 auto;
     }
     
@@ -5290,14 +5305,12 @@ details[open] summary {
         max-height: 94svh;
         max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
         height: auto;
-        max-width: 96%;
-        max-height: calc(100dvh - 30px);
-        max-height: calc(100vh - 30px);
-        min-height: auto;
-        height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch !important;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
         margin: 0 auto;
     }
 

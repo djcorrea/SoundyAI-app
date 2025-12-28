@@ -492,15 +492,16 @@ export function evaluateMetric(value, cfg) {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0.0 dBTP = SEMPRE CRÍTICA
+  // 🔧 FIX: Ação usa deltaToTarget (não hardCap) para consistência com coluna "Diferença"
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTruePeak && effectiveHardCap !== null && value > effectiveHardCap) {
-    const delta = value - effectiveHardCap;
+    const deltaToTarget = value - effectiveTarget;  // ✅ SSOT: sempre usa target do gênero
     return {
       status: 'CRÍTICA',
       severity: 'CRÍTICA',
-      diffToTarget: value - effectiveTarget,
-      diffToNearestLimit: delta,
-      action: `🔴 CLIPPING! Reduzir ${delta.toFixed(2)} ${unit}`,
+      diffToTarget: deltaToTarget,
+      diffToNearestLimit: value - effectiveHardCap,  // Info: distância até hardcap
+      action: `🔴 CLIPPING! Reduzir ${deltaToTarget.toFixed(2)} ${unit}`,
       isWithinRange: false,
       isCritical: true
     };
@@ -508,15 +509,16 @@ export function evaluateMetric(value, cfg) {
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TRUE PEAK: Warning zone (ex: acima de warn_from)
+  // 🔧 FIX: Ação usa deltaToTarget (não warnFrom) para consistência com coluna "Diferença"
   // ═══════════════════════════════════════════════════════════════════════════
   if (isTruePeak && warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
-    const delta = value - warnFrom;
+    const deltaToTarget = value - effectiveTarget;  // ✅ SSOT: sempre usa target do gênero
     return {
       status: 'ALTA',
       severity: 'ALTA',
-      diffToTarget: value - effectiveTarget,
-      diffToNearestLimit: delta,
-      action: `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} ${unit}`,
+      diffToTarget: deltaToTarget,
+      diffToNearestLimit: value - warnFrom,  // Info: distância até warnFrom
+      action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} ${unit}`,
       isWithinRange: false,
       isCritical: false
     };
