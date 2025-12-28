@@ -1818,7 +1818,7 @@ function generateComparisonSuggestions(deltas) {
   };
 
   // Loudness
-  if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta) && Math.abs(deltas.lufs.delta) > 1.5) {
+  if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta) && Math.abs(deltas.lufs.delta) > 0.8) {
     const direction = deltas.lufs.delta > 0 ? "mais alta" : "mais baixa";
     suggestions.push({
       type: "loudness_comparison",
@@ -1837,7 +1837,7 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // True Peak
-  if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta) && Math.abs(deltas.truePeak.delta) > 0.5) {
+  if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta) && Math.abs(deltas.truePeak.delta) > 0.3) {
     suggestions.push({
       type: "truepeak_comparison",
       category: "Mastering",
@@ -1853,7 +1853,7 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // Dynamic Range
-  if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta) && Math.abs(deltas.dynamics.delta) > 1.0) {
+  if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta) && Math.abs(deltas.dynamics.delta) > 0.5) {
     suggestions.push({
       type: "dynamics_comparison",
       category: "Compressão / DR",
@@ -1883,7 +1883,7 @@ function generateComparisonSuggestions(deltas) {
 
   for (const [band, name] of Object.entries(bandNames)) {
     const data = deltas.spectralBands[band];
-    if (data && typeof data.delta === 'number' && isFinite(data.delta) && Math.abs(data.delta) > 1.5) {
+    if (data && typeof data.delta === 'number' && isFinite(data.delta) && Math.abs(data.delta) > 0.8) {
       suggestions.push({
         type: "eq_comparison",
         category: "Equalização",
