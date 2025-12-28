@@ -979,6 +979,7 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       // 🔒 NUMERIC LOCK - Campos numéricos SEMPRE preservados do base
       currentValue: baseSug.currentValue,
       targetRange: baseSug.targetRange,
+      targetValue: baseSug.targetValue,  // ✅ Preservar targetValue
       targetMin: baseSug.targetMin,
       targetMax: baseSug.targetMax,
       deviationRatio: baseSug.deviationRatio,
@@ -987,10 +988,12 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       aiEnhanced: true,
       enrichmentStatus: 'success',
       
-      // Campos do novo formato com fallbacks seguros
+      // 🔒 NUMERIC LOCK v2: "problema" SEMPRE usa base (contém números corretos)
+      // IA só pode enriquecer causaProvavel e solucao
       categoria: aiEnrichment.categoria || mapCategoryFromType(baseSug.type, baseSug.category),
       nivel: aiEnrichment.nivel || mapPriorityToNivel(baseSug.priority),
-      problema: aiEnrichment.problema || baseSug.message,
+      problema: baseSug.message,  // ✅ SEMPRE do base - contém os números corretos
+      problemaSemNumeros: aiEnrichment.problema || null,  // Texto IA sem números (opcional)
       causaProvavel: aiEnrichment.causaProvavel || 'Análise detalhada não fornecida',
       solucao: aiEnrichment.solucao || baseSug.action,
       pluginRecomendado: aiEnrichment.pluginRecomendado || 'Plugin não especificado',

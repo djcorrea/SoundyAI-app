@@ -801,9 +801,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
-    // ✅ USAR NOVO BUILDER DE SUGESTÕES
-    // Calcular target e tolerance baseado nos bounds
-    const targetForBuilder = bounds.max; // True Peak usa max como limite
+    // ✅ SSOT FIX: Usar target REAL do comparisonResult (vem do JSON de gênero)
+    // O target é o "alvo recomendado" (-1.0, -0.5, etc), NÃO o hard cap (0.0)
+    const targetForBuilder = comparisonData.target; // ✅ Valor real do JSON (ex: -1.0, -0.5)
     const toleranceForBuilder = bounds.max - bounds.min;
     
     const textSuggestion = buildMetricSuggestion({
@@ -811,10 +811,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       label: METRIC_LABELS.truePeak,
       unit: 'dBTP',
       value: truePeak,
-      target: targetForBuilder,
+      target: targetForBuilder,  // ✅ Agora usa target real, não hard cap
       tolerance: toleranceForBuilder,
-      min: bounds.min,  // ✅ PASSAR min REAL
-      max: bounds.max,  // ✅ PASSAR max REAL
+      min: bounds.min,  // ✅ Min do range
+      max: bounds.max,  // ✅ Max do range (hard cap 0.0)
       decimals: 1
     });
     
@@ -841,6 +841,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
+    // ✅ SSOT: targetValue mostra faixa real + target real (não apenas hard cap)
+    const targetReal = comparisonData.target; // Valor alvo do JSON (ex: -1.0, -0.5)
+    
     suggestions.push({
       metric: 'truePeak',
       severity,
@@ -848,7 +851,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${truePeak.toFixed(1)} dBTP`,
-      targetValue: `< ${bounds.max.toFixed(1)} dBTP`,
+      targetValue: `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dBTP (alvo: ${targetReal.toFixed(1)} dBTP)`,
+      targetReal: targetReal,  // ✅ Campo numérico para validação
+      targetMin: bounds.min,
+      targetMax: bounds.max,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
