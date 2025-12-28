@@ -832,12 +832,12 @@
 /* RESPONSIVIDADE COPIADA DO MODAL DE GÊNERO */
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 98%;
+        width: 99%;
         max-height: calc(100dvh - 10px);
         max-height: calc(100vh - 10px);
         min-height: auto;
-        height: auto;
-        padding: 32px 20px 24px 20px;
+        height: fit-content;
+        padding: 24px 16px 20px 16px;
     }
     
     /* Título principal do card - responsivo */
@@ -874,19 +874,21 @@
     }
     
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
-        width: 98vw;
-        max-height: 98vh;
-        padding: 25px 20px;
+        width: 99vw;
+        max-height: calc(100dvh - 10px);
+        max-height: calc(100vh - 10px);
+        height: fit-content;
+        padding: 20px 16px;
     }
 }
 
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 98%;
+        width: 99%;
         max-height: calc(100dvh - 8px);
         max-height: calc(100vh - 8px);
         min-height: auto;
-        height: auto;
+        height: fit-content;
     }
     
     #audioAnalysisModal .upload-content {
