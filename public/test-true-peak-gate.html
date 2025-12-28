@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Teste TRUE PEAK GATE - Score Engine V3</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --card: #1a1a2e;
+      --border: #2d2d4a;
+      --text: #f0f0f0;
+      --accent: #6366f1;
+      --red: #ef4444;
+      --yellow: #fbbf24;
+      --green: #22c55e;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.5rem;
+    }
+    
+    .test-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .test-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+    
+    .test-card h2 {
+      font-size: 1rem;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .test-card.critical {
+      border-color: var(--red);
+    }
+    
+    .test-card.warning {
+      border-color: var(--yellow);
+    }
+    
+    .test-card.success {
+      border-color: var(--green);
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .input-group input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+    }
+    
+    .result {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .score-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    
+    .score-value {
+      font-size: 3rem;
+      font-weight: bold;
+    }
+    
+    .score-value.critical { color: var(--red); }
+    .score-value.warning { color: var(--yellow); }
+    .score-value.good { color: var(--green); }
+    
+    .classification {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    
+    .gates-list {
+      margin-top: 0.5rem;
+      padding-left: 1rem;
+    }
+    
+    .gates-list li {
+      margin-bottom: 0.3rem;
+      font-size: 0.8rem;
+    }
+    
+    .status-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    
+    .status-indicator.active { background: var(--green); }
+    .status-indicator.inactive { background: var(--red); }
+    .status-indicator.pending { background: var(--yellow); }
+  </style>
+</head>
+<body>
+  <h1>🧪 Teste TRUE PEAK GATE - Score Engine V3</h1>
+  
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-indicator pending" id="scoringStatus"></span>
+      <span id="scoringStatusText">Carregando módulo...</span>
+    </div>
+    <div class="status-item">
+      <span>Engine: </span>
+      <strong id="engineVersion">--</strong>
+    </div>
+  </div>
+  
+  <div class="test-container">
+    <!-- Teste 1: True Peak Crítico -->
+    <div class="test-card critical">
+      <h2>🚨 Caso Crítico: True Peak > 0 dBTP</h2>
+      <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
+        Quando True Peak está acima de 0 dBTP (clipping digital), o score DEVE ser ≤ 35%
+      </p>
+      <div class="input-group">
+        <input type="number" id="truePeakCritical" value="0.50" step="0.1" placeholder="True Peak (dBTP)">
+        <button onclick="runTest('critical')">Testar</button>
+      </div>
+      <div class="score-display">
+        <span class="score-value critical" id="scoreCritical">--</span>
+        <span class="classification" id="classCritical">--</span>
+      </div>
+      <div class="result" id="resultCritical">Aguardando teste...</div>
+    </div>
+    
+    <!-- Teste 2: True Peak Warning -->
+    <div class="test-card warning">
+      <h2>⚠️ Warning: True Peak próximo de 0</h2>
+      <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
+        True Peak entre -0.1 e 0 dBTP deve limitar score a ≤ 70%
+      </p>
+      <div class="input-group">
+        <input type="number" id="truePeakWarning" value="-0.05" step="0.01" placeholder="True Peak (dBTP)">
+        <button onclick="runTest('warning')">Testar</button>
+      </div>
+      <div class="score-display">
+        <span class="score-value warning" id="scoreWarning">--</span>
+        <span class="classification" id="classWarning">--</span>
+      </div>
+      <div class="result" id="resultWarning">Aguardando teste...</div>
+    </div>
+    
+    <!-- Teste 3: True Peak Normal -->
+    <div class="test-card success">
+      <h2>✅ Normal: True Peak seguro</h2>
+      <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
+        True Peak < -0.1 dBTP não deve limitar score
+      </p>
+      <div class="input-group">
+        <input type="number" id="truePeakNormal" value="-1.0" step="0.1" placeholder="True Peak (dBTP)">
+        <button onclick="runTest('normal')">Testar</button>
+      </div>
+      <div class="score-display">
+        <span class="score-value good" id="scoreNormal">--</span>
+        <span class="classification" id="classNormal">--</span>
+      </div>
+      <div class="result" id="resultNormal">Aguardando teste...</div>
+    </div>
+    
+    <!-- Teste 4: Custom -->
+    <div class="test-card">
+      <h2>🔧 Teste Customizado</h2>
+      <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
+        Configure métricas manualmente para testar
+      </p>
+      <div class="input-group">
+        <input type="number" id="customTruePeak" value="0.00" step="0.1" placeholder="True Peak">
+        <input type="number" id="customClipping" value="0" step="1" placeholder="Clipping %">
+        <input type="number" id="customDCOffset" value="0" step="0.01" placeholder="DC Offset %">
+      </div>
+      <button onclick="runTest('custom')">Testar</button>
+      <div class="score-display">
+        <span class="score-value" id="scoreCustom">--</span>
+        <span class="classification" id="classCustom">--</span>
+      </div>
+      <div class="result" id="resultCustom">Aguardando teste...</div>
+    </div>
+  </div>
+  
+  <script type="module">
+    // Carregar módulo de scoring
+    let scorerMod = null;
+    
+    async function loadScoring() {
+      try {
+        scorerMod = await import('/lib/audio/features/scoring.js');
+        if (scorerMod && typeof scorerMod.computeMixScore === 'function') {
+          document.getElementById('scoringStatus').className = 'status-indicator active';
+          document.getElementById('scoringStatusText').textContent = '✅ Módulo carregado';
+          document.getElementById('engineVersion').textContent = 'V3 Gates Sync';
+          console.log('[TEST] ✅ Módulo de scoring carregado');
+          
+          // Rodar todos os testes automaticamente
+          runTest('critical');
+          runTest('warning');
+          runTest('normal');
+        } else {
+          throw new Error('computeMixScore não encontrado');
+        }
+      } catch (err) {
+        console.error('[TEST] ❌ Erro ao carregar scoring:', err);
+        document.getElementById('scoringStatus').className = 'status-indicator inactive';
+        document.getElementById('scoringStatusText').textContent = '❌ Erro ao carregar: ' + err.message;
+      }
+    }
+    
+    // Dados base para teste (métricas médias)
+    function getBaseMetrics() {
+      return {
+        lufsIntegrated: -14.0,
+        lra: 7.0,
+        stereoWidth: 0.6,
+        spectralCentroid: 2500,
+        spectralRolloff85: 8000,
+        dynamicRange: 8.0,
+        peakDb: -0.5,
+        rmsDb: -12.0
+      };
+    }
+    
+    // Função de teste global
+    window.runTest = function(type) {
+      if (!scorerMod) {
+        alert('Módulo de scoring não carregado!');
+        return;
+      }
+      
+      let truePeak, clipping = 0, dcOffset = 0;
+      
+      switch(type) {
+        case 'critical':
+          truePeak = parseFloat(document.getElementById('truePeakCritical').value);
+          break;
+        case 'warning':
+          truePeak = parseFloat(document.getElementById('truePeakWarning').value);
+          break;
+        case 'normal':
+          truePeak = parseFloat(document.getElementById('truePeakNormal').value);
+          break;
+        case 'custom':
+          truePeak = parseFloat(document.getElementById('customTruePeak').value);
+          clipping = parseFloat(document.getElementById('customClipping').value);
+          dcOffset = parseFloat(document.getElementById('customDCOffset').value) / 100;
+          break;
+      }
+      
+      // Construir dados técnicos
+      const technicalData = {
+        ...getBaseMetrics(),
+        truePeakDbtp: truePeak,
+        clippingPct: clipping,
+        dcOffset: dcOffset
+      };
+      
+      console.log(`[TEST:${type}] Testando com True Peak:`, truePeak, 'dBTP');
+      
+      // Chamar computeMixScore
+      const result = scorerMod.computeMixScore(technicalData, null);
+      
+      console.log(`[TEST:${type}] Resultado:`, result);
+      
+      // Atualizar UI
+      const scoreEl = document.getElementById(`score${type.charAt(0).toUpperCase() + type.slice(1)}`);
+      const classEl = document.getElementById(`class${type.charAt(0).toUpperCase() + type.slice(1)}`);
+      const resultEl = document.getElementById(`result${type.charAt(0).toUpperCase() + type.slice(1)}`);
+      
+      if (scoreEl) {
+        scoreEl.textContent = result.scorePct + '%';
+        
+        // Aplicar cor baseada no score
+        scoreEl.className = 'score-value';
+        if (result.scorePct <= 35) scoreEl.classList.add('critical');
+        else if (result.scorePct <= 70) scoreEl.classList.add('warning');
+        else scoreEl.classList.add('good');
+      }
+      
+      if (classEl) {
+        classEl.textContent = result.classification;
+      }
+      
+      if (resultEl) {
+        const gatesInfo = result.gatesTriggered?.length > 0 
+          ? '\n\nGATES ATIVADOS:\n' + result.gatesTriggered.map(g => `- ${g.type}: ${g.reason}`).join('\n')
+          : '\n\n✅ Nenhum gate ativado';
+        
+        const diagnostico = `
+ENGINE: ${result.engineUsed || 'N/A'}
+SCORE ORIGINAL: ${result.originalScoreBeforeGates || result.scorePct}%
+SCORE FINAL: ${result.scorePct}%
+CLASSIFICAÇÃO: ${result.classification}
+CAP APLICADO: ${result.finalScoreCapApplied ? result.finalScoreCapApplied + '%' : 'Nenhum'}
+${gatesInfo}
+
+INPUT:
+- True Peak: ${truePeak} dBTP
+- Clipping: ${clipping}%
+- DC Offset: ${(dcOffset * 100).toFixed(2)}%
+        `.trim();
+        
+        resultEl.textContent = diagnostico;
+      }
+      
+      // Validar resultado para teste crítico
+      if (type === 'critical' && truePeak > 0) {
+        if (result.scorePct > 35) {
+          console.error(`[TEST:${type}] ❌ FALHOU! Score ${result.scorePct}% deveria ser ≤ 35%`);
+          resultEl.style.background = 'rgba(239, 68, 68, 0.2)';
+        } else {
+          console.log(`[TEST:${type}] ✅ PASSOU! Score ${result.scorePct}% ≤ 35%`);
+          resultEl.style.background = 'rgba(34, 197, 94, 0.2)';
+        }
+      }
+      
+      // Validar resultado para teste warning
+      if (type === 'warning' && truePeak > -0.1 && truePeak <= 0) {
+        if (result.scorePct > 70) {
+          console.error(`[TEST:${type}] ❌ FALHOU! Score ${result.scorePct}% deveria ser ≤ 70%`);
+          resultEl.style.background = 'rgba(239, 68, 68, 0.2)';
+        } else {
+          console.log(`[TEST:${type}] ✅ PASSOU! Score ${result.scorePct}% ≤ 70%`);
+          resultEl.style.background = 'rgba(34, 197, 94, 0.2)';
+        }
+      }
+    };
+    
+    // Inicializar
+    loadScoring();
+  </script>
+</body>
+</html>
