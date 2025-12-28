@@ -738,6 +738,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
+    // ✅ SSOT: Usar targetText direto do comparisonResult para paridade com tabela
+    const targetTextFromTable = comparisonData.targetText;
+    
     const suggestion = {
       metric: 'lufs',
       severity,
@@ -745,11 +748,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${lufs.toFixed(1)} LUFS`,
-      targetValue: bounds.min !== bounds.max ? `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} LUFS` : `${bounds.max.toFixed(1)} LUFS`,
+      targetValue: targetTextFromTable, // ✅ Usar exatamente o texto da tabela
+      targetText: targetTextFromTable,  // ✅ Campo adicional para validação
+      targetMin: bounds.min,
+      targetMax: bounds.max,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
       deltaNum: diff,
       status,
-      priority: severity.priority
+      priority: severity.priority,
+      tableAction: comparisonData.action // ✅ SSOT: Incluir action da tabela
     };
     
     suggestions.push(suggestion);
@@ -841,8 +848,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return;
     }
     
-    // ✅ SSOT: targetValue mostra faixa real + target real (não apenas hard cap)
+    // ✅ SSOT: Usar targetText direto do comparisonResult para paridade 100% com tabela
     const targetReal = comparisonData.target; // Valor alvo do JSON (ex: -1.0, -0.5)
+    const targetTextFromTable = comparisonData.targetText; // Ex: "-3.0 a 0.0 dBTP"
     
     suggestions.push({
       metric: 'truePeak',
@@ -851,14 +859,18 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${truePeak.toFixed(1)} dBTP`,
-      targetValue: `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dBTP (alvo: ${targetReal.toFixed(1)} dBTP)`,
+      // 🎯 SSOT: Usar targetText da tabela + adicionar alvo específico
+      targetValue: `${targetTextFromTable} (alvo: ${targetReal.toFixed(1)} dBTP)`,
+      targetText: targetTextFromTable, // ✅ Mesmo valor da tabela
       targetReal: targetReal,  // ✅ Campo numérico para validação
       targetMin: bounds.min,
       targetMax: bounds.max,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
       deltaNum: diff, // 🎯 FASE 3: Adicionar valor numérico para validação IA
       status, // 🎯 FASE 3: Status explícito para validação
-      priority: severity.priority
+      priority: severity.priority,
+      // 🎯 SSOT: Incluir action da tabela para consistência
+      tableAction: comparisonData.action
     });
   }
   
@@ -935,6 +947,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
+    // ✅ SSOT: Usar targetText direto do comparisonResult
+    const targetTextFromTable = comparisonData.targetText;
+    
     suggestions.push({
       metric: 'dynamicRange',
       severity,
@@ -942,12 +957,16 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${dr.toFixed(1)} dB DR`,
-      targetValue: `${bounds.min.toFixed(1)} a ${bounds.max.toFixed(1)} dB DR`,
+      targetValue: targetTextFromTable, // ✅ Usar exatamente o texto da tabela
+      targetText: targetTextFromTable,  // ✅ Campo adicional para validação
+      targetMin: bounds.min,
+      targetMax: bounds.max,
       delta: diff === 0 ? '0.0 dB (dentro do range)' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`,
       deltaNum: diff,
       status,
       priority: severity.priority,
-      genre: this.genre
+      genre: this.genre,
+      tableAction: comparisonData.action // ✅ SSOT: Incluir action da tabela
     });
   }
   
@@ -1018,6 +1037,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       status = 'high';
     }
     
+    // ✅ SSOT: Usar targetText direto do comparisonResult
+    const targetTextFromTable = comparisonData.targetText;
+    
     suggestions.push({
       metric: 'stereoCorrelation',
       severity,
@@ -1025,11 +1047,15 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: correlation.toFixed(2),
-      targetValue: `${bounds.min.toFixed(2)} a ${bounds.max.toFixed(2)}`,
+      targetValue: targetTextFromTable, // ✅ Usar exatamente o texto da tabela
+      targetText: targetTextFromTable,  // ✅ Campo adicional para validação
+      targetMin: bounds.min,
+      targetMax: bounds.max,
       delta: rawDiff === 0 ? '0.00 (dentro do range)' : `${rawDiff > 0 ? '+' : ''}${rawDiff.toFixed(2)}`,
       deltaNum: rawDiff,
       status,
-      priority: severity.priority
+      priority: severity.priority,
+      tableAction: comparisonData.action // ✅ SSOT: Incluir action da tabela
     });
   }
   

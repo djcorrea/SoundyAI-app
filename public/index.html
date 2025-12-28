@@ -474,10 +474,13 @@
             <div id="audioAnalysisLoading" class="audio-loading" style="display: none;">
                 <div class="loading-spinner"></div>
                 <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
-                <p id="audioConnectionHint" class="connection-hint" style="display: none;">⏳ Esta etapa depende da sua conexão com a internet.<br>Se sua internet estiver lenta, o envio pode demorar um pouco mais.</p>
                 <div class="progress-bar">
                     <div class="progress-fill" id="audioProgressFill"></div>
                 </div>
+                <p id="audioConnectionHint" class="connection-hint" style="display: none;">
+                    <span class="hint-icon">⏳</span>
+                    <span class="hint-text">Esta etapa depende da sua conexão com a internet.<br>Se sua internet estiver lenta, o envio pode demorar um pouco mais.</span>
+                </p>
                 <button class="audio-close-bottom" onclick="closeAudioModal()">Fechar</button>
             </div>
 
