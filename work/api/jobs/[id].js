@@ -370,17 +370,6 @@ router.get("/:id", async (req, res) => {
         
         const hasComparison = !!fullResult?.referenceComparison;
         const hasSuggestions = Array.isArray(fullResult?.suggestions) && fullResult.suggestions.length > 0;
-        const hasAiSuggestions = Array.isArray(fullResult?.aiSuggestions) && fullResult.aiSuggestions.length > 0;
-        
-        // 🔥 AUDITORIA CRÍTICA: O que está chegando do worker?
-        console.error('[REFERENCE-AUDIT][API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.error('[REFERENCE-AUDIT][API] 🔍 DADOS QUE CHEGARAM DO WORKER:');
-        console.error('[REFERENCE-AUDIT][API] referenceComparison:', hasComparison);
-        console.error('[REFERENCE-AUDIT][API] referenceComparison.deltas:', fullResult?.referenceComparison?.deltas);
-        console.error('[REFERENCE-AUDIT][API] suggestions.length:', fullResult?.suggestions?.length || 0);
-        console.error('[REFERENCE-AUDIT][API] aiSuggestions.length:', fullResult?.aiSuggestions?.length || 0);
-        console.error('[REFERENCE-AUDIT][API] referenceJobId:', fullResult?.referenceJobId);
-        console.error('[REFERENCE-AUDIT][API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // Se tiver comparison, considerar completed mesmo sem suggestions
         if (hasComparison && finalStatus === 'processing') {
@@ -388,8 +377,8 @@ router.get("/:id", async (req, res) => {
           finalStatus = 'completed';
         }
         
-        if (!hasSuggestions && !hasAiSuggestions) {
-          console.warn('[REFERENCE][COMPARISON] ⚠️ Suggestions E aiSuggestions ausentes');
+        if (!hasSuggestions) {
+          console.warn('[REFERENCE][COMPARISON] ⚠️ Suggestions ausentes');
           warnings.push('missing_suggestions');
         }
         
@@ -402,9 +391,6 @@ router.get("/:id", async (req, res) => {
           status: finalStatus,
           requiresSecondTrack: false,
           nextAction: finalStatus === 'completed' ? 'show_comparison' : undefined,
-          // 🔥 EXPLÍCITO: Garantir que esses campos estão presentes
-          referenceComparison: fullResult?.referenceComparison || null,
-          referenceJobId: fullResult?.referenceJobId || null,
           suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
           aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : [],
           warnings: warnings.length > 0 ? warnings : undefined,
@@ -413,8 +399,6 @@ router.get("/:id", async (req, res) => {
             effectiveStage,
             file: 'work/api/jobs/[id].js',
             hasComparison,
-            hasSuggestions,
-            hasAiSuggestions,
             finalStatus
           }
         };

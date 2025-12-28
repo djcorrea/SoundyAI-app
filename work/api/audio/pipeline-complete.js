@@ -1137,21 +1137,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             
             // Gerar sugestões comparativas
-            console.log("[REFERENCE-MODE] 🎯 Chamando generateComparisonSuggestions...");
-            console.log("[REFERENCE-MODE] 📊 Deltas que serão processados:", {
-              lufs: referenceComparison.lufs,
-              truePeak: referenceComparison.truePeak,
-              dynamics: referenceComparison.dynamics,
-              spectralBandsKeys: Object.keys(referenceComparison.spectralBands || {})
-            });
-            
             finalJSON.suggestions = generateComparisonSuggestions(referenceComparison);
             
             console.log("[REFERENCE-MODE] ✅ Comparação A/B gerada:", {
               deltasCalculados: Object.keys(referenceComparison).length,
               suggestoesComparativas: finalJSON.suggestions.length,
-              hasIsComparisonFlag: finalJSON.suggestions.some(s => s.isComparison),
-              suggestionsTypes: finalJSON.suggestions.map(s => s.type)
+              hasIsComparisonFlag: finalJSON.suggestions.some(s => s.isComparison)
             });
             
             // � LOG DE DIAGNÓSTICO: Sugestões base geradas
@@ -1820,31 +1811,14 @@ function generateReferenceDeltas(userMetrics, referenceMetrics) {
 function generateComparisonSuggestions(deltas) {
   const suggestions = [];
   
-  // � DIAGNÓSTICO CRÍTICO: Log completo dos deltas recebidos
-  console.log('[COMPARISON-SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[COMPARISON-SUGGESTIONS] 🔍 DIAGNÓSTICO: Deltas recebidos');
-  console.log('[COMPARISON-SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[COMPARISON-SUGGESTIONS] deltas completo:', JSON.stringify(deltas, null, 2));
-  console.log('[COMPARISON-SUGGESTIONS] LUFS delta:', deltas.lufs?.delta, '| Threshold: 0.8');
-  console.log('[COMPARISON-SUGGESTIONS] LUFS passa teste?', Math.abs(deltas.lufs?.delta || 0) > 0.8);
-  console.log('[COMPARISON-SUGGESTIONS] TruePeak delta:', deltas.truePeak?.delta, '| Threshold: 0.3');
-  console.log('[COMPARISON-SUGGESTIONS] TruePeak passa teste?', Math.abs(deltas.truePeak?.delta || 0) > 0.3);
-  console.log('[COMPARISON-SUGGESTIONS] Dynamics delta:', deltas.dynamics?.delta, '| Threshold: 0.5');
-  console.log('[COMPARISON-SUGGESTIONS] Dynamics passa teste?', Math.abs(deltas.dynamics?.delta || 0) > 0.5);
-  console.log('[COMPARISON-SUGGESTIONS] SpectralBands:', Object.keys(deltas.spectralBands || {}));
-  Object.entries(deltas.spectralBands || {}).forEach(([band, data]) => {
-    console.log(`[COMPARISON-SUGGESTIONS]   ${band}: delta=${data.delta} | passa teste? ${Math.abs(data.delta) > 0.8}`);
-  });
-  console.log('[COMPARISON-SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  
-  // �🛡️ FUNÇÃO AUXILIAR: Formatar número de forma segura
+  // 🛡️ FUNÇÃO AUXILIAR: Formatar número de forma segura
   const safeFormat = (value, decimals = 1) => {
     if (typeof value !== 'number' || !isFinite(value)) return '0.0';
     return value.toFixed(decimals);
   };
 
   // Loudness
-  if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta) && Math.abs(deltas.lufs.delta) > 0.8) {
+  if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta) && Math.abs(deltas.lufs.delta) > 1.5) {
     const direction = deltas.lufs.delta > 0 ? "mais alta" : "mais baixa";
     suggestions.push({
       type: "loudness_comparison",
@@ -1863,7 +1837,7 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // True Peak
-  if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta) && Math.abs(deltas.truePeak.delta) > 0.3) {
+  if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta) && Math.abs(deltas.truePeak.delta) > 0.5) {
     suggestions.push({
       type: "truepeak_comparison",
       category: "Mastering",
@@ -1879,7 +1853,7 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // Dynamic Range
-  if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta) && Math.abs(deltas.dynamics.delta) > 0.5) {
+  if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta) && Math.abs(deltas.dynamics.delta) > 1.0) {
     suggestions.push({
       type: "dynamics_comparison",
       category: "Compressão / DR",
@@ -1909,7 +1883,7 @@ function generateComparisonSuggestions(deltas) {
 
   for (const [band, name] of Object.entries(bandNames)) {
     const data = deltas.spectralBands[band];
-    if (data && typeof data.delta === 'number' && isFinite(data.delta) && Math.abs(data.delta) > 0.8) {
+    if (data && typeof data.delta === 'number' && isFinite(data.delta) && Math.abs(data.delta) > 1.5) {
       suggestions.push({
         type: "eq_comparison",
         category: "Equalização",
@@ -1927,23 +1901,11 @@ function generateComparisonSuggestions(deltas) {
     }
   }
 
-  console.log(`[COMPARISON-SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`[COMPARISON-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões comparativas`);
-  console.log(`[COMPARISON-SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  
-  if (suggestions.length > 0) {
-    console.log('[COMPARISON-SUGGESTIONS] 📋 Resumo das sugestões:');
-    suggestions.forEach((s, i) => {
-      console.log(`[COMPARISON-SUGGESTIONS]   ${i+1}. ${s.type} (${s.category}) - delta: ${s.delta}`);
-    });
-  }
+  console.log(`[COMPARISON-SUGGESTIONS] Geradas ${suggestions.length} sugestões comparativas.`);
   
   // 🛡️ FALLBACK: Garantir que sempre retornamos ao menos 1 suggestion
   if (!suggestions || suggestions.length === 0) {
-    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ NENHUMA SUGESTÃO GERADA!');
-    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Isso significa que TODOS os deltas estão abaixo dos thresholds');
-    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ OU que as métricas não foram calculadas corretamente');
-    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Retornando fallback para evitar array vazio');
+    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Nenhuma sugestão gerada - retornando fallback');
     suggestions.push({
       type: 'comparison_incomplete',
       category: 'Diagnóstico',
