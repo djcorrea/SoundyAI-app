@@ -97,7 +97,8 @@
 #audioAnalysisModal .audio-modal-content {
     max-width: 720px;
     width: 90%;
-    max-height: 85vh;
+    max-height: 90vh;
+    min-height: auto;
     height: auto;
     /* BACKGROUND MAIS ESCURO */
     background: radial-gradient(
@@ -786,7 +787,8 @@
         width: 95%;
         max-height: calc(100dvh - 40px);
         max-height: calc(100vh - 40px);
-        height: fit-content;
+        min-height: auto;
+        height: auto;
         padding: 32px 20px 24px 20px;
     }
     
@@ -834,7 +836,8 @@
     #audioAnalysisModal .audio-modal-content {
         max-height: calc(100dvh - 30px);
         max-height: calc(100vh - 30px);
-        height: fit-content;
+        min-height: auto;
+        height: auto;
     }
     
     #audioAnalysisModal .upload-content {
@@ -5133,7 +5136,8 @@ details[open] summary {
         max-width: 95%;
         max-height: calc(100dvh - 40px);
         max-height: calc(100vh - 40px);
-        height: fit-content;
+        min-height: auto;
+        height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch !important;
@@ -5193,7 +5197,8 @@ details[open] summary {
         max-width: 96%;
         max-height: calc(100dvh - 30px);
         max-height: calc(100vh - 30px);
-        height: fit-content;
+        min-height: auto;
+        height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch !important;
