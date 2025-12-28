@@ -1742,7 +1742,9 @@ class AudioAnalyzer {
                   console.log('🔍 [MODE_DEBUG] Skipping genre-specific ref (mode=' + mode + ')');
                 }
                 
-                const scoreRes = scorerMod.computeMixScore(td, genreSpecificRef);
+                // 🎯 CORREÇÃO: Passar mode para garantir que gates V3 usem o limite correto
+                const soundMode = window.__SOUNDY_ANALYSIS_MODE__ || 'streaming';
+                const scoreRes = scorerMod.computeMixScore(td, genreSpecificRef, { mode: soundMode });
                 baseAnalysis.mixScore = scoreRes;
                 baseAnalysis.mixClassification = scoreRes.classification;
                 baseAnalysis.mixScorePct = scoreRes.scorePct;
@@ -2278,7 +2280,9 @@ class AudioAnalyzer {
             } else {
               // Implementação original (fallback)
               console.log('[PIPELINE-CORRECTION] ⚠️ Usando implementação original - correção desabilitada');
-              finalScore = scorerMod.computeMixScore(tdFinal, genreSpecificRef);
+              // 🎯 CORREÇÃO: Passar mode para garantir que gates V3 usem o limite correto
+              const mode = window.__SOUNDY_ANALYSIS_MODE__ || 'streaming';
+              finalScore = scorerMod.computeMixScore(tdFinal, genreSpecificRef, { mode });
             }
             
             if (finalScore) {
