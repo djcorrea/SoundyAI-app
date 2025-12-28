@@ -12,6 +12,26 @@
     overscroll-behavior: contain;
 }
 
+/* Esconder scrollbars no desktop (apenas visual, scroll continua funcionando) */
+@media (min-width: 769px) {
+    .audio-modal-content,
+    .audio-results,
+    .genre-modal-container,
+    .welcome-modal-content,
+    .mode-selection-modal {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    
+    .audio-modal-content::-webkit-scrollbar,
+    .audio-results::-webkit-scrollbar,
+    .genre-modal-container::-webkit-scrollbar,
+    .welcome-modal-content::-webkit-scrollbar,
+    .mode-selection-modal::-webkit-scrollbar {
+        display: none; /* Chrome/Safari/Opera */
+    }
+}
+
 /* Botão de análise de áudio no input */
 .chatbot-audio-analyze-btn {
     width: 32px;
