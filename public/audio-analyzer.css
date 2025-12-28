@@ -830,14 +830,21 @@
 
 /* RESPONSIVIDADE MOBILE - Mantendo estilo do modal de gênero */
 /* RESPONSIVIDADE COPIADA DO MODAL DE GÊNERO */
+/* 📱 MOBILE TABLETS (768px): Modal deve ocupar ~95% da tela para boa legibilidade */
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 99%;
-        max-height: calc(100dvh - 10px);
-        max-height: calc(100vh - 10px);
-        min-height: auto;
-        height: fit-content;
-        padding: 24px 16px 20px 16px;
+        width: 95vw;
+        /* 🔧 Fix iOS viewport: usar svh (small viewport height) como primário */
+        min-height: 85svh;
+        min-height: 85vh; /* Fallback navegadores antigos */
+        max-height: 95svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        /* 📱 Padding reduzido para aproveitar espaço mobile */
+        padding: 28px 18px 24px 18px;
+        /* 📜 Scroll suave se conteúdo exceder */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
     /* Título principal do card - responsivo */
@@ -873,22 +880,31 @@
         font-size: 16px;
     }
     
+    /* 📊 MODAL DE RESULTADOS: Precisa ser ainda maior para exibir gráficos/dados */
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
-        width: 99vw;
-        max-height: calc(100dvh - 10px);
-        max-height: calc(100vh - 10px);
-        height: fit-content;
-        padding: 20px 16px;
+        width: 96vw;
+        min-height: 88svh;
+        min-height: 88vh;
+        max-height: 96svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        padding: 24px 16px;
+        overflow-y: auto;
     }
 }
 
+/* 📱 MOBILE SMARTPHONES (480px): Modal deve ser quase tela cheia */
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 99%;
-        max-height: calc(100dvh - 8px);
-        max-height: calc(100vh - 8px);
-        min-height: auto;
-        height: fit-content;
+        width: 96vw;
+        /* 🔧 Máxima altura para smartphones com svh */
+        min-height: 88svh;
+        min-height: 88vh;
+        max-height: 96svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        padding: 24px 16px;
+        overflow-y: auto;
     }
     
     #audioAnalysisModal .upload-content {
@@ -5193,18 +5209,22 @@ details[open] summary {
    ======================================== */
 
 /* Tablets e telas médias */
+/* 🎵 MODAL DE GÊNERO: Deve ser confortável para navegação por cards */
 @media (max-width: 768px) {
     .genre-modal {
         align-items: flex-start;
-        padding: 20px 0;
+        padding: 15px 0;
     }
     
     .genre-modal-container {
-        padding: 24px 20px 20px 20px;
-        max-width: 95%;
-        max-height: calc(100dvh - 40px);
-        max-height: calc(100vh - 40px);
-        min-height: auto;
+        padding: 26px 18px;
+        width: 95%;
+        max-width: none;
+        /* 🔧 Fix iOS: usar svh para altura */
+        min-height: 80svh;
+        min-height: 80vh;
+        max-height: 92svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
         height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
@@ -5254,14 +5274,22 @@ details[open] summary {
 }
 
 /* Smartphones */
+/* 📱 SMARTPHONES: Modal de gênero quase tela cheia para fácil navegação */
 @media (max-width: 480px) {
     .genre-modal {
         align-items: flex-start;
-        padding: 10px 0;
+        padding: 8px 0;
     }
     
     .genre-modal-container {
-        padding: 20px 16px 16px 16px;
+        padding: 22px 14px;
+        width: 96%;
+        /* 🔧 Máxima altura possível em smartphones */
+        min-height: 85svh;
+        min-height: 85vh;
+        max-height: 94svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
         max-width: 96%;
         max-height: calc(100dvh - 30px);
         max-height: calc(100vh - 30px);
