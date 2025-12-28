@@ -15379,7 +15379,85 @@ async function displayModalResults(analysis) {
         console.log('✅ [SCORES-GUARD] Modo GÊNERO: Frequência ATIVADA (targets de gênero disponíveis)');
       }
 
-      // Hard-cap de True Peak continua valendo (o seu já está aplicado antes)
+      // ═══════════════════════════════════════════════════════════════════════════
+      // 🚨 V3.3: APLICAR HARD GATES (TRUE PEAK, CLIPPING, DC OFFSET) SEMPRE
+      // ═══════════════════════════════════════════════════════════════════════════
+      const techData = analysisObj?.technicalData || analysisObj?.metrics || {};
+      const truePeak = techData.truePeakDbtp ?? techData.true_peak_dbtp ?? null;
+      const clipping = techData.clippingPct ?? techData.clipping_pct ?? 0;
+      const dcOffset = Math.abs(techData.dcOffset ?? techData.dc_offset ?? 0);
+      const lufs = techData.lufsIntegrated ?? techData.lufs_integrated ?? null;
+      
+      // Determinar modo e targets
+      const mode = window.__soundyState?.render?.mode || 'streaming';
+      const MODE_TARGETS = {
+        streaming: { truePeak: { target: -1.0, max: -1.0 }, lufs: { max: -12.0 } },
+        pista: { truePeak: { target: -0.3, max: 0.0 }, lufs: { max: -6.0 } },
+        reference: { truePeak: { target: -1.0, max: 0.0 }, lufs: { max: -8.0 } }
+      };
+      const targets = MODE_TARGETS[mode] || MODE_TARGETS.streaming;
+      const tpMax = targets.truePeak?.max ?? 0;
+      const tpTarget = targets.truePeak?.target ?? tpMax;
+      const lufsMax = targets.lufs?.max ?? -12;
+      
+      let scoreCap = 100;
+      let gatesTriggered = [];
+      
+      // GATE #1: TRUE PEAK CRÍTICO (> 0 dBTP = clipping digital ABSOLUTO)
+      if (truePeak !== null && truePeak > 0) {
+        scoreCap = Math.min(scoreCap, 35);
+        gatesTriggered.push({ type: 'TRUE_PEAK_CRITICAL', value: truePeak, cap: 35 });
+        console.error(`[V3-GATE] 🚨 TRUE PEAK CRÍTICO: ${truePeak.toFixed(2)} dBTP > 0 → cap 35%`);
+      }
+      // GATE #2: TRUE PEAK ACIMA DO MAX DO MODO
+      else if (truePeak !== null && truePeak > tpMax) {
+        scoreCap = Math.min(scoreCap, 30);
+        gatesTriggered.push({ type: 'TRUE_PEAK_CLIPPING', value: truePeak, limit: tpMax, cap: 30 });
+        console.error(`[V3-GATE] 🚨 TRUE PEAK CLIPPING: ${truePeak.toFixed(2)} dBTP > ${tpMax.toFixed(1)} (mode=${mode}) → cap 30%`);
+      }
+      // GATE #3: TRUE PEAK WARNING (zona de risco, acima do target)
+      else if (truePeak !== null) {
+        const warningThreshold = Math.min(tpTarget + 0.3, tpMax);
+        if (truePeak > warningThreshold && truePeak <= tpMax) {
+          scoreCap = Math.min(scoreCap, 70);
+          gatesTriggered.push({ type: 'TRUE_PEAK_WARNING', value: truePeak, threshold: warningThreshold, cap: 70 });
+          console.warn(`[V3-GATE] ⚠️ TRUE PEAK WARNING: ${truePeak.toFixed(2)} dBTP > ${warningThreshold.toFixed(2)} → cap 70%`);
+        }
+      }
+      
+      // GATE #4: CLIPPING SEVERO (> 5%)
+      if (clipping > 5) {
+        scoreCap = Math.min(scoreCap, 40);
+        gatesTriggered.push({ type: 'CLIPPING_SEVERE', value: clipping, cap: 40 });
+        console.warn(`[V3-GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → cap 40%`);
+      }
+      
+      // GATE #5: LUFS EXCESSIVO (loudness war)
+      const lufsMargin = 2;
+      if (lufs !== null && lufs > lufsMax + lufsMargin) {
+        scoreCap = Math.min(scoreCap, 50);
+        gatesTriggered.push({ type: 'LUFS_EXCESSIVE', value: lufs, limit: lufsMax + lufsMargin, cap: 50 });
+        console.warn(`[V3-GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS → cap 50%`);
+      }
+      
+      // APLICAR CAP SE NECESSÁRIO
+      if (scoreCap < 100 && out.final > scoreCap) {
+        console.warn(`[V3-GATE] 📉 Score capado: ${out.final}% → ${scoreCap}%`);
+        out._originalScore = out.final;
+        out.final = scoreCap;
+        out._gatesTriggered = gatesTriggered;
+        out._scoreCapped = true;
+      }
+      
+      // Log de diagnóstico
+      console.log('[V3-GATE] 📊 Diagnóstico:', {
+        truePeak, tpMax, tpTarget,
+        clipping, lufs, lufsMax,
+        mode, scoreCap,
+        gatesTriggered: gatesTriggered.map(g => g.type),
+        finalScore: out.final
+      });
+
       return out;
     }
 
