@@ -579,85 +579,41 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🔊 Análise LUFS com Sugestões Educativas
-   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
-   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
-   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
+   * 🎯 SSOT: Usa APENAS comparisonResult.rows como fonte única de verdade
+   * ❌ PATH LEGACY REMOVIDO - comparisonResult é OBRIGATÓRIO
    */
   analyzeLUFS(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
     if (!consolidatedData) {
-      console.error('[LUFS] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    // 🎯 SSOT: comparisonResult é OBRIGATÓRIO para métricas globais
     const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'lufs');
     
-    let lufs, bounds, diff, severity;
-    
-    if (comparisonData) {
-      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
-      lufs = comparisonData.valueRaw;
-      bounds = { min: comparisonData.min, max: comparisonData.max };
-      diff = comparisonData.diff;
-      
-      // Mapear severity da tabela para nosso sistema
-      const severityMap = {
-        'CRÍTICA': this.severity.CRITICAL,
-        'ALTA': this.severity.WARNING,
-        'ATENÇÃO': this.severity.AJUSTE_LEVE,
-        'OK': this.severity.OK
-      };
-      severity = severityMap[comparisonData.severity] || this.severity.OK;
-      
-      // Se está OK na tabela, não gerar sugestão
-      if (comparisonData.severity === 'OK') {
-        return;
-      }
-    } else {
-      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
-      const metric = consolidatedData.metrics && consolidatedData.metrics.loudness;
-      if (!metric || typeof metric.value !== 'number') {
-        console.error('[LUFS] ❌ consolidatedData.metrics.loudness ausente ou inválido');
-        return;
-      }
-
-      const targetInfo = this.getMetricTarget('lufs', null, consolidatedData);
-      if (!targetInfo) {
-        console.error('[LUFS] ❌ consolidatedData.genreTargets.lufs ausente - pulando sugestão');
-        return;
-      }
-
-      lufs = metric.value;
-      const lufsTarget = targetInfo.target;
-      const tolerance = targetInfo.tolerance;
-      const critical = targetInfo.critical;
-
-      if (!Number.isFinite(lufs)) return;
-      
-      const lufsThreshold = { 
-        target: lufsTarget, 
-        tolerance, 
-        critical,
-        min: targetInfo.min,
-        max: targetInfo.max
-      };
-      bounds = this.getRangeBounds(lufsThreshold);
-      
-      if (lufs < bounds.min) {
-        diff = lufs - bounds.min;
-      } else if (lufs > bounds.max) {
-        diff = lufs - bounds.max;
-      } else {
-        diff = 0;
-      }
-      
-      if (diff === 0) {
-        return;
-      }
-      
-      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // ❌ PATH LEGACY REMOVIDO - Se não tem comparisonResult, não gera sugestão
+    if (!comparisonData) {
+      return;
     }
+    
+    // Se está OK na tabela, não gerar sugestão
+    if (comparisonData.severity === 'OK') {
+      return;
+    }
+    
+    // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+    const lufs = comparisonData.valueRaw;
+    const bounds = { min: comparisonData.min, max: comparisonData.max };
+    const diff = comparisonData.diff;
+    
+    // Mapear severity da tabela para nosso sistema
+    const severityMap = {
+      'CRÍTICA': this.severity.CRITICAL,
+      'ALTA': this.severity.WARNING,
+      'ATENÇÃO': this.severity.AJUSTE_LEVE,
+      'OK': this.severity.OK
+    };
+    const severity = severityMap[comparisonData.severity] || this.severity.OK;
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
     const textSuggestion = buildMetricSuggestion({
@@ -703,93 +659,48 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎯 Análise True Peak com Sugestões Educativas
-   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
-   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
-   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
+   * 🎯 SSOT: Usa APENAS comparisonResult.rows como fonte única de verdade
+   * ❌ PATH LEGACY REMOVIDO - comparisonResult é OBRIGATÓRIO
    */
   analyzeTruePeak(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
     if (!consolidatedData) {
-      console.error('[TRUE_PEAK] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    // 🎯 SSOT: comparisonResult é OBRIGATÓRIO para métricas globais
     const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'truePeak');
     
-    let truePeak, bounds, diff, severity;
+    // ❌ PATH LEGACY REMOVIDO - Se não tem comparisonResult, não gera sugestão
+    if (!comparisonData) {
+      return;
+    }
+    
     const TRUE_PEAK_HARD_CAP = 0.0; // Constante física - jamais passar de 0
     
-    if (comparisonData) {
-      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
-      truePeak = comparisonData.valueRaw;
-      bounds = { min: comparisonData.min, max: comparisonData.max };
-      diff = comparisonData.diff;
-      
-      // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
-      if (truePeak > TRUE_PEAK_HARD_CAP) {
-        severity = this.severity.CRITICAL;
-      } else {
-        // Mapear severity da tabela para nosso sistema
-        const severityMap = {
-          'CRÍTICA': this.severity.CRITICAL,
-          'ALTA': this.severity.WARNING,
-          'ATENÇÃO': this.severity.AJUSTE_LEVE,
-          'OK': this.severity.OK
-        };
-        severity = severityMap[comparisonData.severity] || this.severity.OK;
-      }
-      
-      // Se está OK na tabela E não viola hard cap, não gerar sugestão
-      if (comparisonData.severity === 'OK' && truePeak <= TRUE_PEAK_HARD_CAP) {
-        return;
-      }
+    // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+    const truePeak = comparisonData.valueRaw;
+    const bounds = { min: comparisonData.min, max: comparisonData.max };
+    const diff = comparisonData.diff;
+    
+    // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
+    let severity;
+    if (truePeak > TRUE_PEAK_HARD_CAP) {
+      severity = this.severity.CRITICAL;
     } else {
-      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
-      const metric = consolidatedData.metrics && consolidatedData.metrics.truePeak;
-      if (!metric || typeof metric.value !== 'number') {
-        console.error('[TRUE_PEAK] ❌ consolidatedData.metrics.truePeak ausente ou inválido');
-        return;
-      }
-
-      const targetInfo = this.getMetricTarget('truePeak', null, consolidatedData);
-      if (!targetInfo) {
-        console.error('[TRUE_PEAK] ❌ consolidatedData.genreTargets.truePeak ausente - pulando sugestão');
-        return;
-      }
-
-      truePeak = metric.value;
-      const tpTarget = targetInfo.target;
-      const tolerance = targetInfo.tolerance;
-      const critical = targetInfo.critical;
-
-      if (!Number.isFinite(truePeak)) return;
-      
-      const tpThreshold = { 
-        target: tpTarget, 
-        tolerance, 
-        critical,
-        min: targetInfo.min,
-        max: targetInfo.max
+      // Mapear severity da tabela para nosso sistema
+      const severityMap = {
+        'CRÍTICA': this.severity.CRITICAL,
+        'ALTA': this.severity.WARNING,
+        'ATENÇÃO': this.severity.AJUSTE_LEVE,
+        'OK': this.severity.OK
       };
-      bounds = this.getRangeBounds(tpThreshold);
-      
-      if (truePeak < bounds.min) {
-        diff = truePeak - bounds.min;
-      } else if (truePeak > bounds.max) {
-        diff = truePeak - bounds.max;
-      } else {
-        diff = 0;
-      }
-      
-      // 🚨 REGRA ABSOLUTA: TRUE PEAK > 0.0 dBTP = CRÍTICA SEMPRE
-      if (truePeak > TRUE_PEAK_HARD_CAP) {
-        severity = this.severity.CRITICAL;
-      } else if (diff === 0) {
-        return;
-      } else {
-        severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
-      }
+      severity = severityMap[comparisonData.severity] || this.severity.OK;
+    }
+    
+    // Se está OK na tabela E não viola hard cap, não gerar sugestão
+    if (comparisonData.severity === 'OK' && truePeak <= TRUE_PEAK_HARD_CAP) {
+      return;
     }
     
     // ✅ USAR NOVO BUILDER DE SUGESTÕES
@@ -849,79 +760,41 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 📈 Análise Dynamic Range com Sugestões Educativas
-   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
-   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
-   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
+   * 🎯 SSOT: Usa APENAS comparisonResult.rows como fonte única de verdade
+   * ❌ PATH LEGACY REMOVIDO - comparisonResult é OBRIGATÓRIO
    */
   analyzeDynamicRange(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
     if (!consolidatedData) {
-      console.error('[DR] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    // 🎯 SSOT: comparisonResult é OBRIGATÓRIO para métricas globais
     const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'dr');
     
-    let dr, bounds, diff, severity;
-    
-    if (comparisonData) {
-      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
-      dr = comparisonData.valueRaw;
-      bounds = { min: comparisonData.min, max: comparisonData.max };
-      diff = comparisonData.diff;
-      
-      // Mapear severity da tabela para nosso sistema
-      const severityMap = {
-        'CRÍTICA': this.severity.CRITICAL,
-        'ALTA': this.severity.WARNING,
-        'ATENÇÃO': this.severity.AJUSTE_LEVE,
-        'OK': this.severity.OK
-      };
-      severity = severityMap[comparisonData.severity] || this.severity.OK;
-      
-      // Se está OK na tabela, não gerar sugestão
-      if (comparisonData.severity === 'OK') {
-        return;
-      }
-    } else {
-      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
-      const metric = consolidatedData.metrics && consolidatedData.metrics.dr;
-      if (!metric || typeof metric.value !== 'number') {
-        console.error('[DR] ❌ consolidatedData.metrics.dr ausente ou inválido');
-        return;
-      }
-
-      const targetInfo = this.getMetricTarget('dr', null, consolidatedData);
-      if (!targetInfo) {
-        console.error('[DR] ❌ consolidatedData.genreTargets.dr ausente - pulando sugestão');
-        return;
-      }
-
-      dr = metric.value;
-      const drTarget = targetInfo.target;
-      const tolerance = targetInfo.tolerance;
-      const critical = targetInfo.critical;
-
-      if (!Number.isFinite(dr)) return;
-      
-      const threshold = { target: drTarget, tolerance, critical };
-      bounds = this.getRangeBounds(threshold);
-      
-      if (dr < bounds.min) {
-        diff = dr - bounds.min;
-      } else if (dr > bounds.max) {
-        diff = dr - bounds.max;
-      } else {
-        diff = 0;
-      }
-      
-      if (diff === 0) {
-        return;
-      }
-      
-      severity = this.calculateSeverity(Math.abs(diff), tolerance, critical);
+    // ❌ PATH LEGACY REMOVIDO - Se não tem comparisonResult, não gera sugestão
+    if (!comparisonData) {
+      return;
     }
+    
+    // Se está OK na tabela, não gerar sugestão
+    if (comparisonData.severity === 'OK') {
+      return;
+    }
+    
+    // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+    const dr = comparisonData.valueRaw;
+    const bounds = { min: comparisonData.min, max: comparisonData.max };
+    const diff = comparisonData.diff;
+    
+    // Mapear severity da tabela para nosso sistema
+    const severityMap = {
+      'CRÍTICA': this.severity.CRITICAL,
+      'ALTA': this.severity.WARNING,
+      'ATENÇÃO': this.severity.AJUSTE_LEVE,
+      'OK': this.severity.OK
+    };
+    const severity = severityMap[comparisonData.severity] || this.severity.OK;
     
     // 🔥 VALIDAÇÃO CRÍTICA: DR nunca deve ter targetValue negativo
     if (bounds.min < 0 || bounds.max < 0) {
@@ -976,78 +849,41 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 🎧 Análise Stereo com Sugestões Educativas
-   * ✅ REGRA ABSOLUTA: Usa APENAS consolidatedData.metrics e consolidatedData.genreTargets
-   * ❌ NUNCA usa audioMetrics, this.thresholds, customTargets, ou fallbacks
-   * 🎯 UNIFICAÇÃO: Se comparisonResult disponível, usar valores IDÊNTICOS à tabela
+   * 🎯 SSOT: Usa APENAS comparisonResult.rows como fonte única de verdade
+   * ❌ PATH LEGACY REMOVIDO - comparisonResult é OBRIGATÓRIO
    */
   analyzeStereoMetrics(suggestions, problems, consolidatedData) {
     // ✅ VALIDAÇÃO RIGOROSA: consolidatedData obrigatório
     if (!consolidatedData) {
-      console.error('[STEREO] ❌ consolidatedData ausente - IMPOSSÍVEL gerar sugestão');
       return;
     }
 
-    // 🎯 UNIFICAÇÃO TABELA-CARDS: Tentar usar comparisonResult primeiro
+    // 🎯 SSOT: comparisonResult é OBRIGATÓRIO para métricas globais
     const comparisonData = this.getMetricFromComparison(consolidatedData.comparisonResult, 'stereo');
     
-    let correlation, bounds, rawDiff, severity;
-    
-    if (comparisonData) {
-      // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
-      correlation = comparisonData.valueRaw;
-      bounds = { min: comparisonData.min, max: comparisonData.max };
-      rawDiff = comparisonData.diff;
-      
-      // Mapear severity da tabela para nosso sistema
-      const severityMap = {
-        'CRÍTICA': this.severity.CRITICAL,
-        'ALTA': this.severity.WARNING,
-        'ATENÇÃO': this.severity.AJUSTE_LEVE,
-        'OK': this.severity.OK
-      };
-      severity = severityMap[comparisonData.severity] || this.severity.OK;
-      
-      // Se está OK na tabela, não gerar sugestão
-      if (comparisonData.severity === 'OK') {
-        return;
-      }
-    } else {
-      // 🔄 FALLBACK LEGACY: Usar lógica antiga se comparisonResult não disponível
-      const metricStereo = consolidatedData.metrics && consolidatedData.metrics.stereo;
-      if (!metricStereo || typeof metricStereo.value !== 'number') {
-        console.error('[STEREO] ❌ consolidatedData.metrics.stereo ausente ou inválido');
-        return;
-      }
-
-      const targetInfo = this.getMetricTarget('stereo', null, consolidatedData);
-      if (!targetInfo) {
-        console.error('[STEREO] ❌ consolidatedData.genreTargets.stereo ausente - pulando sugestão');
-        return;
-      }
-
-      correlation = metricStereo.value;
-      const stereoTarget = targetInfo.target;
-      const tolerance = targetInfo.tolerance;
-      const critical = targetInfo.critical;
-      
-      const threshold = { target: stereoTarget, tolerance, critical };
-      bounds = this.getRangeBounds(threshold);
-      
-      if (correlation < bounds.min) {
-        rawDiff = correlation - bounds.min;
-      } else if (correlation > bounds.max) {
-        rawDiff = correlation - bounds.max;
-      } else {
-        rawDiff = 0;
-      }
-      
-      if (rawDiff === 0) {
-        return;
-      }
-      
-      const diff = Math.abs(rawDiff);
-      severity = this.calculateSeverity(diff, tolerance, critical);
+    // ❌ PATH LEGACY REMOVIDO - Se não tem comparisonResult, não gera sugestão
+    if (!comparisonData) {
+      return;
     }
+    
+    // Se está OK na tabela, não gerar sugestão
+    if (comparisonData.severity === 'OK') {
+      return;
+    }
+    
+    // ✅ USAR DADOS DA TABELA (FONTE ÚNICA DE VERDADE)
+    const correlation = comparisonData.valueRaw;
+    const bounds = { min: comparisonData.min, max: comparisonData.max };
+    const rawDiff = comparisonData.diff;
+    
+    // Mapear severity da tabela para nosso sistema
+    const severityMap = {
+      'CRÍTICA': this.severity.CRITICAL,
+      'ALTA': this.severity.WARNING,
+      'ATENÇÃO': this.severity.AJUSTE_LEVE,
+      'OK': this.severity.OK
+    };
+    const severity = severityMap[comparisonData.severity] || this.severity.OK;
     
     // Calcular target e tolerance baseado nos bounds
     const targetForBuilder = bounds.min + (bounds.max - bounds.min) / 2;

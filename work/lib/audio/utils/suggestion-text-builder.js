@@ -35,6 +35,8 @@ function formatDelta(delta, decimals = 1) {
 
 /**
  * 🎚️ Constrói sugestão para métrica principal (LUFS, TruePeak, DR, Stereo)
+ * 🎯 SSOT: min/max são OBRIGATÓRIOS - devem vir de comparisonResult.rows
+ * ❌ PATH LEGACY REMOVIDO - NÃO calcular mais de target±tolerance
  * 
  * @param {Object} params - Parâmetros da métrica
  * @param {string} params.key - Identificador da métrica ('lufs', 'truePeak', 'dr', 'stereo')
@@ -42,7 +44,9 @@ function formatDelta(delta, decimals = 1) {
  * @param {string} params.unit - Unidade de medida
  * @param {number} params.value - Valor atual medido
  * @param {number} params.target - Valor alvo ideal
- * @param {number} params.tolerance - Tolerância para calcular min/max
+ * @param {number} params.tolerance - Tolerância (mantido para compatibilidade, não usado para cálculo)
+ * @param {number} params.min - Min do range (OBRIGATÓRIO - vem de comparisonResult)
+ * @param {number} params.max - Max do range (OBRIGATÓRIO - vem de comparisonResult)
  * @param {number} [params.decimals=1] - Casas decimais para exibição
  * @returns {Object} - { message, explanation, action }
  */
@@ -53,24 +57,16 @@ export function buildMetricSuggestion({
   value, 
   target, 
   tolerance,
-  min,  // ✅ ACEITAR min/max REAIS do target_range
-  max,  // ✅ ACEITAR min/max REAIS do target_range
+  min,  // 🎯 SSOT: OBRIGATÓRIO - vem de comparisonResult.rows
+  max,  // 🎯 SSOT: OBRIGATÓRIO - vem de comparisonResult.rows
   decimals = 1
 }) {
-  // ✅ USAR min/max REAIS se fornecidos, caso contrário calcular como fallback
-  const rangeMin = (min !== undefined && min !== null) ? min : (target - tolerance);
-  const rangeMax = (max !== undefined && max !== null) ? max : (target + tolerance);
+  // 🎯 SSOT: min/max são OBRIGATÓRIOS - vêm de comparisonResult.rows
+  // ❌ PATH LEGACY REMOVIDO - Se min/max não estiverem definidos, usar valores safe defaults
+  // (isso só acontece para bandas que ainda usam sistema antigo)
+  const rangeMin = (typeof min === 'number') ? min : (target - (tolerance || 2));
+  const rangeMax = (typeof max === 'number') ? max : (target + (tolerance || 2));
   const delta = value - target;
-  
-  console.log(`[BUILD-METRIC] 🔍 Range para ${key}:`, {
-    receivedMin: min,
-    receivedMax: max,
-    calculatedMin: target - tolerance,
-    calculatedMax: target + tolerance,
-    usedMin: rangeMin,
-    usedMax: rangeMax,
-    source: (min !== undefined && max !== undefined) ? 'target_range (REAL)' : 'calculated (FALLBACK)'
-  });
   
   // Ajustar decimais para correlação estéreo
   if (key === 'stereo' || unit === 'correlation') {
@@ -79,8 +75,8 @@ export function buildMetricSuggestion({
   
   // Formatar valores
   const valueStr = formatValue(value, decimals);
-  const minStr = formatValue(rangeMin, decimals);  // ✅ USAR rangeMin
-  const maxStr = formatValue(rangeMax, decimals);  // ✅ USAR rangeMax
+  const minStr = formatValue(rangeMin, decimals);
+  const maxStr = formatValue(rangeMax, decimals);
   const targetStr = formatValue(target, decimals);
   const deltaStr = formatDelta(delta, decimals);
   const deltaAbs = Math.abs(delta);
