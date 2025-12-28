@@ -532,13 +532,20 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
         if (typeof window.computeMixScore === 'function') {
             const originalComputeMixScore = window.computeMixScore;
             
-            window.computeMixScore = function(technicalData, reference) {
+            // 🎯 CORREÇÃO: Preservar o terceiro parâmetro (options) para V3 gates
+            window.computeMixScore = function(technicalData, reference, options = {}) {
+                // 🎯 CORREÇÃO: Garantir que mode seja passado mesmo quando não especificado
+                const normalizedOptions = {
+                    ...options,
+                    mode: options.mode || window.__SOUNDY_ANALYSIS_MODE__ || 'streaming'
+                };
+                
                 if (!window.BAND_WEIGHTED_SCORE_V2) {
-                    return originalComputeMixScore.call(this, technicalData, reference);
+                    return originalComputeMixScore.call(this, technicalData, reference, normalizedOptions);
                 }
                 
-                // 📞 Chamar função original
-                const originalResult = originalComputeMixScore.call(this, technicalData, reference);
+                // 📞 Chamar função original com options
+                const originalResult = originalComputeMixScore.call(this, technicalData, reference, normalizedOptions);
                 
                 // 🎯 Aplicar correção se bandas espectrais estão disponíveis
                 const bandScore = corrector.calculateBandWeightedScore(technicalData, reference);

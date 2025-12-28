@@ -5350,7 +5350,10 @@ function applyGenreSelection(genre) {
                 // 🎯 NOVO: Recalcular score com nova referência
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
-                        currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
+                        // 🎯 CORREÇÃO: Passar mode para garantir que gates V3 usem o limite correto
+                        const mode = window.__SOUNDY_ANALYSIS_MODE__ || 'streaming';
+                        const scoreResult = window.computeMixScore(currentModalAnalysis.technicalData, __refData, { mode });
+                        currentModalAnalysis.qualityOverall = scoreResult?.scorePct ?? scoreResult;
                         console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }

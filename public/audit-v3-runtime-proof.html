@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 AUDIT: V3 Runtime Proof - True Peak Gate</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #6366f1; margin-bottom: 20px; }
+        h2 { color: #22c55e; margin: 20px 0 10px; font-size: 1.2em; }
+        
+        .test-section {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-case {
+            background: #252525;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .test-case.pass { border-left: 4px solid #22c55e; }
+        .test-case.fail { border-left: 4px solid #ef4444; }
+        .test-case.running { border-left: 4px solid #fbbf24; }
+        
+        .test-title { font-weight: bold; margin-bottom: 8px; }
+        .test-result { font-family: monospace; font-size: 13px; color: #888; }
+        .test-result.pass { color: #22c55e; }
+        .test-result.fail { color: #ef4444; }
+        
+        .btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px 10px 0;
+        }
+        .btn:hover { background: #4f46e5; }
+        .btn:disabled { background: #444; cursor: not-allowed; }
+        
+        .summary {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid #6366f1;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .debug-output {
+            background: #0d0d0d;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .mode-btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .mode-btn.streaming {
+            background: #3b82f6;
+            border: 2px solid #3b82f6;
+            color: white;
+        }
+        
+        .mode-btn.pista {
+            background: #f97316;
+            border: 2px solid #f97316;
+            color: white;
+        }
+        
+        .mode-btn:not(.active) {
+            background: transparent;
+            opacity: 0.6;
+        }
+        
+        .mode-btn.active {
+            box-shadow: 0 0 15px currentColor;
+        }
+        
+        .critical { color: #ef4444; font-weight: bold; }
+        .warning { color: #fbbf24; }
+        .success { color: #22c55e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 AUDIT: V3 Runtime Proof - True Peak Gate</h1>
+        
+        <div class="summary">
+            <h2>📊 Resumo do Teste</h2>
+            <div class="summary-item">
+                <span>Engine Version:</span>
+                <span id="summary-engine">--</span>
+            </div>
+            <div class="summary-item">
+                <span>Mode Atual:</span>
+                <span id="summary-mode">--</span>
+            </div>
+            <div class="summary-item">
+                <span>True Peak Max (do mode):</span>
+                <span id="summary-tp-max">--</span>
+            </div>
+            <div class="summary-item">
+                <span>Testes Passaram:</span>
+                <span id="summary-tests">0 / 0</span>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Seleção de Modo</h2>
+            <p style="color: #888; margin-bottom: 10px;">
+                Selecione o modo para testar os limites de True Peak correspondentes:
+            </p>
+            <div class="mode-selector">
+                <button class="mode-btn streaming active" onclick="setMode('streaming')">
+                    🎧 Streaming<br>
+                    <small>TP max: -1.0 dBTP</small>
+                </button>
+                <button class="mode-btn pista" onclick="setMode('pista')">
+                    🎛️ Pista / DJ<br>
+                    <small>TP max: 0.0 dBTP</small>
+                </button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Testes de Hard Gate</h2>
+            <button class="btn" onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+            <button class="btn" onclick="clearResults()" style="background: #333;">🗑️ Limpar</button>
+            
+            <div id="test-results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Debug Output (window.__lastScoreDebug)</h2>
+            <div class="debug-output" id="debug-output">Aguardando execução dos testes...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Console Log</h2>
+            <div class="debug-output" id="console-output" style="max-height: 200px;"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        // Importar scoring module
+        let scorerMod = null;
+        
+        async function loadScorer() {
+            try {
+                scorerMod = await import('/lib/audio/features/scoring.js');
+                console.log('[AUDIT] ✅ scoring.js carregado com sucesso');
+                return true;
+            } catch (e) {
+                console.error('[AUDIT] ❌ Falha ao carregar scoring.js:', e);
+                return false;
+            }
+        }
+        
+        // Expor para uso global
+        window.loadScorer = loadScorer;
+        window.getScorer = () => scorerMod;
+        
+        // Carregar scorer ao inicializar
+        loadScorer().then(ok => {
+            if (ok) {
+                document.getElementById('summary-engine').textContent = 'v3_gates_sync (loaded)';
+                document.getElementById('summary-engine').classList.add('success');
+            } else {
+                document.getElementById('summary-engine').textContent = 'FALHA AO CARREGAR';
+                document.getElementById('summary-engine').classList.add('critical');
+            }
+        });
+    </script>
+    
+    <script>
+        // Estado global
+        let currentMode = 'streaming';
+        let testResults = [];
+        let consoleBuffer = [];
+        
+        // Limites por modo
+        const MODE_LIMITS = {
+            streaming: { truePeakMax: -1.0 },
+            pista: { truePeakMax: 0.0 }
+        };
+        
+        // Inicializar modo
+        window.__SOUNDY_ANALYSIS_MODE__ = 'streaming';
+        
+        // Capturar console.log
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            if (msg.includes('GATE') || msg.includes('V3') || msg.includes('SCORE') || msg.includes('AUDIT')) {
+                consoleBuffer.push(`[LOG] ${msg}`);
+                updateConsoleOutput();
+            }
+        };
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            consoleBuffer.push(`[WARN] ${msg}`);
+            updateConsoleOutput();
+        };
+        
+        function updateConsoleOutput() {
+            const el = document.getElementById('console-output');
+            el.textContent = consoleBuffer.slice(-50).join('\n');
+            el.scrollTop = el.scrollHeight;
+        }
+        
+        function setMode(mode) {
+            currentMode = mode;
+            window.__SOUNDY_ANALYSIS_MODE__ = mode;
+            
+            // Atualizar UI
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.classList.contains(mode)) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            document.getElementById('summary-mode').textContent = mode.toUpperCase();
+            document.getElementById('summary-mode').className = mode === 'streaming' ? 'success' : 'warning';
+            document.getElementById('summary-tp-max').textContent = `${MODE_LIMITS[mode].truePeakMax} dBTP`;
+            
+            console.log(`[AUDIT] 🔄 Modo alterado para: ${mode} (TP max: ${MODE_LIMITS[mode].truePeakMax} dBTP)`);
+        }
+        
+        function createTestData(truePeakValue) {
+            return {
+                truePeakDbtp: truePeakValue,
+                true_peak_dbtp: truePeakValue,
+                lufsIntegrated: -14.0,
+                lufs_integrated: -14.0,
+                clippingPct: 0,
+                dcOffset: 0,
+                dynamicRange: 8,
+                stereoWidth: 0.8
+            };
+        }
+        
+        async function runTest(testName, truePeakValue, expectedCapped, expectedMaxScore = null) {
+            const scorerMod = window.getScorer();
+            if (!scorerMod) {
+                return { pass: false, reason: 'Scorer não carregado' };
+            }
+            
+            const testData = createTestData(truePeakValue);
+            const mode = currentMode;
+            const tpMax = MODE_LIMITS[mode].truePeakMax;
+            
+            console.log(`[AUDIT] 🧪 Executando teste: ${testName}`);
+            console.log(`[AUDIT] 📊 Input: truePeak=${truePeakValue}, mode=${mode}, tpMax=${tpMax}`);
+            
+            try {
+                const result = scorerMod.computeMixScore(testData, null, { mode });
+                
+                console.log(`[AUDIT] 📈 Resultado:`, result);
+                
+                // Verificar window.__lastScoreDebug
+                const debug = window.__lastScoreDebug;
+                
+                // Atualizar debug output
+                document.getElementById('debug-output').textContent = JSON.stringify(debug, null, 2);
+                
+                // Verificações
+                const wasCapped = debug?.gatesTriggered?.includes('TRUE_PEAK_CLIPPING');
+                const scoreValue = result.scorePct;
+                
+                let pass = true;
+                let reason = '';
+                
+                if (expectedCapped && !wasCapped) {
+                    pass = false;
+                    reason = `FALHA: Esperava gate TRUE_PEAK_CLIPPING mas não foi acionado`;
+                } else if (!expectedCapped && wasCapped) {
+                    pass = false;
+                    reason = `FALHA: Gate TRUE_PEAK_CLIPPING acionado inesperadamente`;
+                }
+                
+                if (expectedMaxScore !== null && scoreValue > expectedMaxScore) {
+                    pass = false;
+                    reason += ` | Score ${scoreValue} > max esperado ${expectedMaxScore}`;
+                }
+                
+                if (pass) {
+                    reason = `OK: Score=${scoreValue}%, Cap=${debug?.finalScoreCap ?? 'none'}, Gates=${debug?.gatesTriggered?.join(',') || 'none'}`;
+                }
+                
+                return { pass, reason, result, debug };
+                
+            } catch (e) {
+                return { pass: false, reason: `ERRO: ${e.message}` };
+            }
+        }
+        
+        async function runAllTests() {
+            const resultsEl = document.getElementById('test-results');
+            resultsEl.innerHTML = '';
+            testResults = [];
+            consoleBuffer = [];
+            
+            const mode = currentMode;
+            const tpMax = MODE_LIMITS[mode].truePeakMax;
+            
+            // Definir casos de teste
+            const tests = [
+                {
+                    name: `TP dentro do limite (${tpMax - 0.5} dBTP)`,
+                    truePeak: tpMax - 0.5,
+                    expectedCapped: false,
+                    expectedMaxScore: null
+                },
+                {
+                    name: `TP no limite exato (${tpMax} dBTP)`,
+                    truePeak: tpMax,
+                    expectedCapped: false, // Igual ao max não deve acionar
+                    expectedMaxScore: null
+                },
+                {
+                    name: `TP levemente acima (+0.1 dBTP → ${(tpMax + 0.1).toFixed(1)} dBTP)`,
+                    truePeak: tpMax + 0.1,
+                    expectedCapped: true,
+                    expectedMaxScore: 30
+                },
+                {
+                    name: `TP muito acima (+1.0 dBTP → ${(tpMax + 1.0).toFixed(1)} dBTP)`,
+                    truePeak: tpMax + 1.0,
+                    expectedCapped: true,
+                    expectedMaxScore: 30
+                },
+                {
+                    name: `TP extremo (+3.0 dBTP → ${(tpMax + 3.0).toFixed(1)} dBTP)`,
+                    truePeak: tpMax + 3.0,
+                    expectedCapped: true,
+                    expectedMaxScore: 30
+                }
+            ];
+            
+            let passed = 0;
+            
+            for (const test of tests) {
+                const testEl = document.createElement('div');
+                testEl.className = 'test-case running';
+                testEl.innerHTML = `
+                    <div class="test-title">🔄 ${test.name}</div>
+                    <div class="test-result">Executando...</div>
+                `;
+                resultsEl.appendChild(testEl);
+                
+                // Pequeno delay para UI atualizar
+                await new Promise(r => setTimeout(r, 100));
+                
+                const result = await runTest(test.name, test.truePeak, test.expectedCapped, test.expectedMaxScore);
+                
+                testEl.className = `test-case ${result.pass ? 'pass' : 'fail'}`;
+                testEl.querySelector('.test-title').innerHTML = `${result.pass ? '✅' : '❌'} ${test.name}`;
+                testEl.querySelector('.test-result').innerHTML = result.reason;
+                testEl.querySelector('.test-result').className = `test-result ${result.pass ? 'pass' : 'fail'}`;
+                
+                if (result.pass) passed++;
+                testResults.push(result);
+            }
+            
+            // Atualizar resumo
+            document.getElementById('summary-tests').textContent = `${passed} / ${tests.length}`;
+            document.getElementById('summary-tests').className = passed === tests.length ? 'success' : 'critical';
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('debug-output').textContent = 'Aguardando execução dos testes...';
+            consoleBuffer = [];
+            document.getElementById('console-output').textContent = '';
+            testResults = [];
+            document.getElementById('summary-tests').textContent = '0 / 0';
+        }
+        
+        // Inicializar UI
+        setMode('streaming');
+    </script>
+</body>
+</html>

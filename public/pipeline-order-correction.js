@@ -300,7 +300,11 @@ async function executeScoringWithPreconditions(technicalData, activeRef, scorerM
       validation: bandsValidation
     });
 
-    const scoreResult = scorerModule.computeMixScore(technicalData, activeRef);
+    // 🎯 CORREÇÃO: Obter mode do destino do som (pista/streaming)
+    const mode = (typeof window !== 'undefined' && window.__SOUNDY_ANALYSIS_MODE__) || 'streaming';
+    
+    // Passar mode nas options para garantir que os gates V3 usem o limite correto
+    const scoreResult = scorerModule.computeMixScore(technicalData, activeRef, { mode });
     
     logPipelineEvent('scoring_done', runId, {
       scorePct: scoreResult?.scorePct,
