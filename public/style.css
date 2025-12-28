@@ -68,6 +68,14 @@ body {
     min-height: -webkit-fill-available;
 }
 
+/* ============ CONTROLE DE SCROLL QUANDO MODAL ABERTO ============ */
+body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
 /* ============ ANIMAÇÃO FADE-IN INICIAL SUAVE ============ */
 .fade-in-start {
     opacity: 0;
