@@ -23051,10 +23051,47 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🎯 V3.6 UNIFIED SCORING ENGINE - SINGLE SOURCE OF TRUTH
+// 🎯 V3.7 UNIFIED SCORING ENGINE - SINGLE SOURCE OF TRUTH
 // ═══════════════════════════════════════════════════════════════════════════
+
 /**
- * 📊 FUNÇÃO CANÔNICA: evaluateMetric
+ * 🎯 TIPO DE MÉTRICA: Define como avaliar cada métrica
+ * 
+ * CEILING: truePeak, samplePeak, clipping
+ *   - target = valor ideal (ex: -1.0 dBTP)
+ *   - max = hard cap absoluto (ex: 0 dBTP)
+ *   - Qualquer value > target é penalizado
+ *   - value > max é CRÍTICO SEVERO
+ * 
+ * BANDPASS: lufs, dr, lra, crest, correlation, width, bandas
+ *   - target = valor ideal no centro
+ *   - score 100 apenas no target, decai conforme distância
+ *   - range [min, max] define zona aceitável (score >= 85)
+ */
+const METRIC_TYPE = {
+    truePeak: 'CEILING',
+    samplePeak: 'CEILING',
+    clipping: 'CEILING',
+    dcOffset: 'CEILING',
+    lufs: 'BANDPASS',
+    rms: 'BANDPASS',
+    dr: 'BANDPASS',
+    lra: 'BANDPASS',
+    crest: 'BANDPASS',
+    correlation: 'BANDPASS',
+    width: 'BANDPASS',
+    // Bandas são BANDPASS
+    sub: 'BANDPASS',
+    bass: 'BANDPASS',
+    lowMid: 'BANDPASS',
+    mid: 'BANDPASS',
+    highMid: 'BANDPASS',
+    air: 'BANDPASS',
+    presence: 'BANDPASS'
+};
+
+/**
+ * 📊 FUNÇÃO CANÔNICA: evaluateMetric V3.7
  * 
  * Esta é a ÚNICA função que deve ser usada para avaliar métricas em:
  * - Tabela (buildMetricRows)
@@ -23062,15 +23099,15 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
  * - Gates
  * - Sugestões
  * 
- * REGRAS:
- * 1. Se min/max definidos: usa range (dentro = OK, fora = penalizado)
- * 2. Se apenas target: usa target ± tol
- * 3. Severidade baseada no deviationRatio (distância/tolerância)
- * 4. Score 0-100 com curva não-linear
+ * REGRAS V3.7:
+ * 1. CEILING (truePeak, clipping): target é TETO. value > target = penalizado
+ * 2. BANDPASS (lufs, dr, bandas): target é CENTRO. distância do target = penalizado
+ * 3. Para CEILING: max é hard cap (ex: 0 dBTP), mas target (-1 dBTP) é o ideal
+ * 4. Severidade baseada na distância do TARGET (não do range)
  * 
  * @param {string} metricKey - Chave da métrica (lufs, truePeak, sub, etc)
  * @param {number} measuredValue - Valor medido na análise
- * @param {Object} targetSpec - { target, min, max, tol } ou { target_db, min_db, max_db, tol_db }
+ * @param {Object} targetSpec - { target, min, max, tol, type? }
  * @returns {Object} { score, severity, diff, reason, deviationRatio, status }
  */
 window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, targetSpec) {
@@ -23086,11 +23123,14 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         };
     }
     
-    // Normalizar targetSpec (suporta múltiplos formatos)
+    // Normalizar targetSpec
     const target = targetSpec.target ?? targetSpec.target_db ?? null;
     const min = targetSpec.min ?? targetSpec.min_db ?? targetSpec.target_range?.min ?? null;
     const max = targetSpec.max ?? targetSpec.max_db ?? targetSpec.target_range?.max ?? null;
     const tol = targetSpec.tol ?? targetSpec.tol_db ?? targetSpec.tolerance ?? 1.0;
+    
+    // Determinar tipo da métrica
+    const metricType = targetSpec.type || METRIC_TYPE[metricKey] || 'BANDPASS';
     
     let diff = 0;
     let deviationRatio = 0;
@@ -23099,55 +23139,72 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
     let reason = '✅ Dentro do padrão';
     
     // ═══════════════════════════════════════════════════════════════════
-    // 1. CALCULAR DIFERENÇA E RATIO
+    // CEILING METRICS (truePeak, samplePeak, clipping)
     // ═══════════════════════════════════════════════════════════════════
-    const hasRange = min !== null && max !== null;
-    
-    if (hasRange) {
-        // Modo min/max: dentro do range = 100%
-        if (measuredValue >= min && measuredValue <= max) {
-            return { 
-                score: 100, 
-                severity: 'OK', 
-                diff: 0, 
-                reason: '✅ Dentro do padrão',
-                deviationRatio: 0,
-                status: 'OK',
-                metricKey,
-                measuredValue,
-                targetSpec: { min, max, tol }
-            };
-        }
+    if (metricType === 'CEILING') {
+        // Para CEILING: target é o TETO IDEAL, max é HARD CAP
+        const effectiveTarget = target ?? max ?? 0;
+        const hardCap = max ?? 0;
         
-        // Fora do range: calcular distância
-        if (measuredValue < min) {
-            diff = measuredValue - min; // negativo
-            deviationRatio = Math.abs(diff) / (tol || 1.0);
+        // Calcular diferença do TARGET (não do hard cap)
+        diff = measuredValue - effectiveTarget;
+        
+        // 🎯 REGRA CRÍTICA: qualquer valor > target já é problemático
+        if (measuredValue <= effectiveTarget) {
+            // Abaixo ou igual ao target = OK
+            score = 100;
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+            deviationRatio = 0;
+        } else if (measuredValue > hardCap) {
+            // Acima do hard cap = CRÍTICO SEVERO
+            const excessFromCap = measuredValue - hardCap;
+            deviationRatio = (excessFromCap / tol) + 3; // Força ratio > 3
+            score = Math.max(20, 35 - (excessFromCap * 15));
+            severity = 'CRÍTICA';
+            reason = `🔴 Reduzir ${diff.toFixed(2)} (ACIMA DO LIMITE!)`;
         } else {
-            diff = measuredValue - max; // positivo
-            deviationRatio = Math.abs(diff) / (tol || 1.0);
+            // Entre target e hard cap = penalizado proporcionalmente
+            deviationRatio = diff / tol;
+            
+            if (deviationRatio <= 1.0) {
+                score = Math.round(100 - (deviationRatio * 15)); // 100 → 85
+                severity = 'ATENÇÃO';
+                reason = `⚠️ Reduzir ${diff.toFixed(2)}`;
+            } else if (deviationRatio <= 2.0) {
+                score = Math.round(85 - ((deviationRatio - 1) * 20)); // 85 → 65
+                severity = 'ALTA';
+                reason = `🟡 Reduzir ${diff.toFixed(2)}`;
+            } else {
+                score = Math.round(65 - ((deviationRatio - 2) * 30)); // 65 → 35
+                severity = 'CRÍTICA';
+                reason = `🔴 Reduzir ${diff.toFixed(2)}`;
+            }
         }
-    } else if (target !== null) {
-        // Modo target ± tol
-        diff = measuredValue - target;
-        deviationRatio = Math.abs(diff) / (tol || 1.0);
         
-        // Dentro da tolerância = OK
-        if (deviationRatio <= 1.0) {
-            return { 
-                score: 100, 
-                severity: 'OK', 
-                diff, 
-                reason: '✅ Dentro do padrão',
-                deviationRatio,
-                status: 'OK',
-                metricKey,
-                measuredValue,
-                targetSpec: { target, tol }
-            };
-        }
-    } else {
-        // Sem referência válida
+        return {
+            score: Math.round(Math.max(20, Math.min(100, score))),
+            severity,
+            diff,
+            reason,
+            deviationRatio: Math.round(deviationRatio * 100) / 100,
+            status: severity,
+            metricKey,
+            measuredValue,
+            metricType,
+            targetSpec: { target: effectiveTarget, max: hardCap, tol }
+        };
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // BANDPASS METRICS (lufs, dr, lra, bandas, etc)
+    // Score 100 no target, decai conforme distância
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // Determinar target efetivo
+    const effectiveTarget = target ?? (min !== null && max !== null ? (min + max) / 2 : null);
+    
+    if (effectiveTarget === null) {
         return { 
             score: null, 
             severity: 'N/A', 
@@ -23158,39 +23215,55 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         };
     }
     
-    // ═══════════════════════════════════════════════════════════════════
-    // 2. CALCULAR SCORE E SEVERIDADE (curva não-linear)
-    // ═══════════════════════════════════════════════════════════════════
+    // Calcular diferença do target
+    diff = measuredValue - effectiveTarget;
     const absDiff = Math.abs(diff);
     
-    if (deviationRatio <= 1.0) {
+    // Verificar se está dentro do range [min, max]
+    const hasRange = min !== null && max !== null;
+    const inRange = hasRange && measuredValue >= min && measuredValue <= max;
+    
+    // Calcular deviationRatio baseado na tolerância
+    deviationRatio = absDiff / tol;
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CURVA DE PENALIZAÇÃO BANDPASS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    if (deviationRatio <= 0.5) {
+        // Muito próximo do target = OK
         score = 100;
         severity = 'OK';
         reason = '✅ Dentro do padrão';
+    } else if (deviationRatio <= 1.0) {
+        // Dentro da tolerância = OK com pequena ressalva
+        score = Math.round(100 - (deviationRatio - 0.5) * 10); // 100 → 95
+        severity = 'OK';
+        reason = '✅ Dentro do padrão';
     } else if (deviationRatio <= 1.5) {
-        // 1x-1.5x: 85-100% → ATENÇÃO
-        score = Math.round(100 - (deviationRatio - 1) * 30); // 100 → 85
+        // Ligeiramente fora = ATENÇÃO
+        score = Math.round(95 - ((deviationRatio - 1) * 20)); // 95 → 85
         severity = 'ATENÇÃO';
         reason = diff > 0 
             ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
             : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
     } else if (deviationRatio <= 2.0) {
-        // 1.5x-2x: 65-85% → ALTA
-        score = Math.round(85 - (deviationRatio - 1.5) * 40); // 85 → 65
+        // Moderadamente fora = ALTA
+        score = Math.round(85 - ((deviationRatio - 1.5) * 30)); // 85 → 70
         severity = 'ALTA';
         reason = diff > 0 
             ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
             : `🟡 Aumentar ${absDiff.toFixed(1)}`;
     } else if (deviationRatio <= 3.0) {
-        // 2x-3x: 35-65% → CRÍTICA
-        score = Math.round(65 - (deviationRatio - 2) * 30); // 65 → 35
+        // Muito fora = CRÍTICA
+        score = Math.round(70 - ((deviationRatio - 2) * 25)); // 70 → 45
         severity = 'CRÍTICA';
         reason = diff > 0 
             ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
             : `🔴 Aumentar ${absDiff.toFixed(1)}`;
     } else {
-        // >3x: 20-35% → CRÍTICA (mínimo 20)
-        score = Math.max(20, Math.round(35 - (deviationRatio - 3) * 5));
+        // Extremamente fora = CRÍTICA severa
+        score = Math.max(20, Math.round(45 - ((deviationRatio - 3) * 8)));
         severity = 'CRÍTICA';
         reason = diff > 0 
             ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
@@ -23198,7 +23271,7 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
     }
     
     return {
-        score: Math.round(Math.max(0, Math.min(100, score))),
+        score: Math.round(Math.max(20, Math.min(100, score))),
         severity,
         diff,
         reason,
@@ -23206,7 +23279,8 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         status: severity,
         metricKey,
         measuredValue,
-        targetSpec: hasRange ? { min, max, tol } : { target, tol }
+        metricType,
+        targetSpec: { target: effectiveTarget, min, max, tol }
     };
 };
 
@@ -23240,9 +23314,9 @@ window.evaluateMetricForTable = function(metricKey, measuredValue, targetSpec) {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🎯 V3.6 METRIC → SUBSCORE MAPPING
+// 🎯 V3.7 METRIC → SUBSCORE MAPPING
 // ═══════════════════════════════════════════════════════════════════════════
-const METRIC_TO_SUBSCORE = {
+const METRIC_TO_SUBSCORE_V37 = {
     // LOUDNESS
     lufs: 'loudness',
     rms: 'loudness',
@@ -23409,8 +23483,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     const modeTargets = MODE_TARGETS[mode] || MODE_TARGETS.streaming;
     const finalTargets = { ...modeTargets };
     
-    // Sobrescrever com targets passados
+    // Sobrescrever com targets passados (prioridade para dados do gênero/referência)
     if (targets) {
+        // LUFS
         if (targets.lufs_target !== undefined) {
             finalTargets.lufs = {
                 target: targets.lufs_target,
@@ -23419,14 +23494,19 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 tol: targets.tol_lufs || 1.0
             };
         }
+        
+        // True Peak - CEILING metric
         if (targets.true_peak_target !== undefined) {
             finalTargets.truePeak = {
-                target: targets.true_peak_target,
-                min: targets.true_peak_min ?? (targets.true_peak_target - (targets.tol_true_peak || 0.25)),
-                max: Math.min(0.0, targets.true_peak_max ?? 0.0),
-                tol: targets.tol_true_peak || 0.25
+                target: targets.true_peak_target, // ESTE é o valor ideal
+                min: targets.true_peak_min ?? -3.0,
+                max: Math.min(0.0, targets.true_peak_max ?? 0.0), // Hard cap 0 dBTP
+                tol: targets.tol_true_peak || 0.5,
+                type: 'CEILING'
             };
         }
+        
+        // DR
         if (targets.dr_target !== undefined) {
             finalTargets.dr = {
                 target: targets.dr_target,
@@ -23435,9 +23515,48 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 tol: targets.tol_dr || 1.5
             };
         }
+        
+        // LRA - CORRIGIDO: incluir lra_target
+        if (targets.lra_target !== undefined) {
+            finalTargets.lra = {
+                target: targets.lra_target,
+                min: targets.lra_min ?? (targets.lra_target - (targets.tol_lra || 2.0)),
+                max: targets.lra_max ?? (targets.lra_target + (targets.tol_lra || 2.0)),
+                tol: targets.tol_lra || 2.0
+            };
+        }
+        
+        // Stereo Correlation
+        if (targets.stereo_target !== undefined || targets.correlation_target !== undefined) {
+            const stereoTarget = targets.stereo_target ?? targets.correlation_target;
+            finalTargets.correlation = {
+                target: stereoTarget,
+                min: targets.stereo_min ?? 0.5,
+                max: 1.0,
+                tol: targets.tol_stereo || 0.1
+            };
+        }
+        
+        // Bandas
         if (targets.bands) {
             finalTargets.bands = targets.bands;
         }
+    }
+    
+    // 🔍 DEBUG: Log para verificar targets usados vs tabela
+    if (DEBUG) {
+        console.log('📊 finalTargets (usados no score):', {
+            truePeak: finalTargets.truePeak,
+            lufs: finalTargets.lufs,
+            lra: finalTargets.lra,
+            dr: finalTargets.dr
+        });
+        console.log('📊 targets passados:', {
+            true_peak_target: targets?.true_peak_target,
+            lufs_target: targets?.lufs_target,
+            lra_target: targets?.lra_target,
+            dr_target: targets?.dr_target
+        });
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -23518,37 +23637,36 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // 5. APLICAR GATES AOS SUBSCORES (não ao final!)
+    // 5. APLICAR GATES AOS SUBSCORES (baseado na severidade de evaluateMetric)
     // ═══════════════════════════════════════════════════════════════════
     const gatesTriggered = [];
     const subscores = { ...subScoresRaw };
     
-    // Gate #1: True Peak > max → cap Technical subscore
-    if (measured.truePeak !== null && finalTargets.truePeak?.max !== undefined) {
-        if (measured.truePeak > finalTargets.truePeak.max) {
-            const excess = measured.truePeak - finalTargets.truePeak.max;
-            const cap = Math.max(35, 95 - (excess * 20));
-            const severity = excess > 1.0 ? 'CRÍTICA' : excess > 0.5 ? 'ALTA' : 'MODERADA';
-            
-            if (subscores.technical !== null && subscores.technical > cap) {
-                const oldValue = subscores.technical;
-                subscores.technical = Math.round(cap);
-                gatesTriggered.push({
-                    type: 'TRUE_PEAK_GATE',
-                    subscore: 'technical',
-                    value: measured.truePeak,
-                    limit: finalTargets.truePeak.max,
-                    excess,
-                    cap,
-                    oldValue,
-                    newValue: subscores.technical,
-                    severity
-                });
-            }
+    // 🎯 Gate #1: True Peak - Se evaluateMetric retornou CRÍTICA ou ALTA
+    const tpEval = metricEvaluations.truePeak;
+    if (tpEval && (tpEval.severity === 'CRÍTICA' || tpEval.severity === 'ALTA')) {
+        // Cap baseado no score da avaliação
+        const cap = Math.min(tpEval.score + 5, 65); // Cap máximo 65 para True Peak problemático
+        
+        if (subscores.technical !== null && subscores.technical > cap) {
+            const oldValue = subscores.technical;
+            subscores.technical = Math.round(cap);
+            gatesTriggered.push({
+                type: 'TRUE_PEAK_GATE',
+                subscore: 'technical',
+                value: measured.truePeak,
+                target: finalTargets.truePeak.target,
+                evalScore: tpEval.score,
+                evalSeverity: tpEval.severity,
+                cap,
+                oldValue,
+                newValue: subscores.technical,
+                reason: tpEval.reason
+            });
         }
     }
     
-    // Gate #2: Clipping > 0.5% → cap Technical subscore
+    // 🎯 Gate #2: Clipping > 0.5% → cap Technical subscore
     if (measured.clipping > 0.5) {
         const cap = Math.max(30, 80 - (measured.clipping - 0.5) * 10);
         const severity = measured.clipping > 5 ? 'CRÍTICA' : measured.clipping > 2 ? 'ALTA' : 'MODERADA';
@@ -23569,28 +23687,26 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         }
     }
     
-    // Gate #3: LUFS > max → cap Loudness subscore
-    if (measured.lufs !== null && finalTargets.lufs?.max !== undefined) {
-        if (measured.lufs > finalTargets.lufs.max) {
-            const excess = measured.lufs - finalTargets.lufs.max;
-            const cap = Math.max(50, 95 - (excess * 7.5));
-            const severity = excess > 4 ? 'CRÍTICA' : excess > 2 ? 'ALTA' : 'MODERADA';
-            
-            if (subscores.loudness !== null && subscores.loudness > cap) {
-                const oldValue = subscores.loudness;
-                subscores.loudness = Math.round(cap);
-                gatesTriggered.push({
-                    type: 'LUFS_HIGH_GATE',
-                    subscore: 'loudness',
-                    value: measured.lufs,
-                    limit: finalTargets.lufs.max,
-                    excess,
-                    cap,
-                    oldValue,
-                    newValue: subscores.loudness,
-                    severity
-                });
-            }
+    // 🎯 Gate #3: LUFS excessivo - Se evaluateMetric retornou CRÍTICA
+    const lufsEval = metricEvaluations.lufs;
+    if (lufsEval && lufsEval.severity === 'CRÍTICA') {
+        const cap = Math.min(lufsEval.score + 5, 67);
+        
+        if (subscores.loudness !== null && subscores.loudness > cap) {
+            const oldValue = subscores.loudness;
+            subscores.loudness = Math.round(cap);
+            gatesTriggered.push({
+                type: 'LUFS_GATE',
+                subscore: 'loudness',
+                value: measured.lufs,
+                target: finalTargets.lufs.target,
+                evalScore: lufsEval.score,
+                evalSeverity: lufsEval.severity,
+                cap,
+                oldValue,
+                newValue: subscores.loudness,
+                reason: lufsEval.reason
+            });
         }
     }
     
@@ -28667,6 +28783,143 @@ function normalizeBackendAnalysisData(result) {
 }
 
 // =============== FUNÇÕES AUXILIARES ===============
+
+// ================================================================
+// 🧪 TESTE DE PARIDADE V3.7: Validar CEILING vs BANDPASS
+// Garante que evaluateMetric() retorna severidades corretas
+// ================================================================
+function testScoreV37Parity() {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🧪 [V3.7 PARITY TEST] Iniciando testes de paridade CEILING/BANDPASS');
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    const results = [];
+    
+    // ============================================================
+    // CASO A: True Peak DENTRO do target (-1.2 < -1.0) => OK
+    // ============================================================
+    const caseA = {
+        name: 'True Peak OK (abaixo do target)',
+        metricKey: 'truePeak',
+        measuredValue: -1.2,
+        targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+        expectedSeverity: 'OK',
+        expectedScoreMin: 90 // Score deve ser alto
+    };
+    
+    // ============================================================
+    // CASO B: True Peak ACIMA do target (0.5 > -1.0) => CRÍTICA
+    // ESTE É O BUG CRÍTICO QUE ESTAVA ACONTECENDO
+    // ============================================================
+    const caseB = {
+        name: 'True Peak CRÍTICA (acima do target, abaixo de max)',
+        metricKey: 'truePeak',
+        measuredValue: 0.5, // +1.5 dB acima do target
+        targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+        expectedSeverity: 'CRÍTICA',
+        expectedScoreMax: 50 // Score deve ser baixo
+    };
+    
+    // ============================================================
+    // CASO C: True Peak MUITO ACIMA (2.0 > 0.0 max) => CRÍTICA HARD
+    // ============================================================
+    const caseC = {
+        name: 'True Peak CRÍTICA HARD (acima do max)',
+        metricKey: 'truePeak',
+        measuredValue: 2.0, // +2 dB acima do max!
+        targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+        expectedSeverity: 'CRÍTICA',
+        expectedScoreMax: 20 // Score deve ser muito baixo
+    };
+    
+    // ============================================================
+    // CASO D: LUFS BANDPASS no target exato => OK
+    // ============================================================
+    const caseD = {
+        name: 'LUFS OK (no target)',
+        metricKey: 'lufs',
+        measuredValue: -14.0,
+        targetSpec: { target: -14.0, min: -16.0, max: -12.0, tol: 1.0 },
+        expectedSeverity: 'OK',
+        expectedScoreMin: 95
+    };
+    
+    // ============================================================
+    // CASO E: LUFS BANDPASS fora do range => CRÍTICA
+    // ============================================================
+    const caseE = {
+        name: 'LUFS CRÍTICA (fora do range)',
+        metricKey: 'lufs',
+        measuredValue: -8.0, // +6 dB acima do target
+        targetSpec: { target: -14.0, min: -16.0, max: -12.0, tol: 1.0 },
+        expectedSeverity: 'CRÍTICA',
+        expectedScoreMax: 40
+    };
+    
+    // ============================================================
+    // CASO F: LRA BANDPASS moderadamente fora => ATENÇÃO
+    // ============================================================
+    const caseF = {
+        name: 'LRA ATENÇÃO (moderadamente fora)',
+        metricKey: 'lra',
+        measuredValue: 6.5, // +2.5 dB acima do target
+        targetSpec: { target: 4.0, min: 2.0, max: 6.0, tol: 1.0 },
+        expectedSeverity: 'ATENÇÃO',
+        expectedScoreMin: 50,
+        expectedScoreMax: 85
+    };
+    
+    const testCases = [caseA, caseB, caseC, caseD, caseE, caseF];
+    
+    let passed = 0;
+    let failed = 0;
+    
+    for (const tc of testCases) {
+        const result = evaluateMetric(tc.metricKey, tc.measuredValue, tc.targetSpec);
+        
+        const severityOK = result.severity === tc.expectedSeverity;
+        const scoreOK = (tc.expectedScoreMin === undefined || result.score >= tc.expectedScoreMin) &&
+                       (tc.expectedScoreMax === undefined || result.score <= tc.expectedScoreMax);
+        
+        const testPassed = severityOK && scoreOK;
+        
+        if (testPassed) {
+            passed++;
+            console.log(`✅ ${tc.name}`);
+            console.log(`   value=${tc.measuredValue}, target=${tc.targetSpec.target}`);
+            console.log(`   score=${result.score.toFixed(1)}, severity=${result.severity}`);
+        } else {
+            failed++;
+            console.error(`❌ ${tc.name} FALHOU!`);
+            console.error(`   value=${tc.measuredValue}, target=${tc.targetSpec.target}`);
+            console.error(`   score=${result.score.toFixed(1)} (esperado: ${tc.expectedScoreMin ?? '?'}-${tc.expectedScoreMax ?? '?'})`);
+            console.error(`   severity=${result.severity} (esperado: ${tc.expectedSeverity})`);
+        }
+        
+        results.push({
+            ...tc,
+            actualScore: result.score,
+            actualSeverity: result.severity,
+            passed: testPassed
+        });
+    }
+    
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`🧪 RESULTADO: ${passed}/${testCases.length} testes passaram`);
+    if (failed > 0) {
+        console.error(`❌ ${failed} testes FALHARAM - VERIFICAR evaluateMetric V3.7!`);
+    } else {
+        console.log('✅ Todos os testes passaram - CEILING/BANDPASS funcionando!');
+    }
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    return { passed, failed, results };
+}
+
+// Expor para console
+if (typeof window !== 'undefined') {
+    window.testScoreV37Parity = testScoreV37Parity;
+}
 
 // 🧪 TESTE AUTOMÁTICO: Validar normalização com JSON real
 function testNormalizationCompatibility() {

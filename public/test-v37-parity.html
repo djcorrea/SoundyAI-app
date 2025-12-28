@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste V3.7 Paridade CEILING/BANDPASS</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00d4ff;
+            text-align: center;
+        }
+        .test-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #00d4ff;
+        }
+        .test-case {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .test-case.pass {
+            border-left: 4px solid #00ff88;
+        }
+        .test-case.fail {
+            border-left: 4px solid #ff4444;
+        }
+        .label {
+            color: #888;
+            font-size: 0.85em;
+        }
+        .value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .severity-OK { color: #00ff88; }
+        .severity-ATENÇÃO { color: #ffbb00; }
+        .severity-ALTA { color: #ff8800; }
+        .severity-CRÍTICA { color: #ff4444; }
+        .summary {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            font-size: 1.3em;
+        }
+        .summary.pass {
+            background: linear-gradient(135deg, #00ff8822, #00ff8811);
+            border: 2px solid #00ff88;
+        }
+        .summary.fail {
+            background: linear-gradient(135deg, #ff444422, #ff444411);
+            border: 2px solid #ff4444;
+        }
+        button {
+            background: linear-gradient(135deg, #00d4ff, #0077ff);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin: 20px auto;
+            display: block;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste V3.7 - Paridade CEILING/BANDPASS</h1>
+    
+    <div class="test-section">
+        <h2>📋 O que este teste valida:</h2>
+        <ul>
+            <li><strong>CEILING metrics</strong> (truePeak, samplePeak): target é TETO, value > target = penalizado</li>
+            <li><strong>BANDPASS metrics</strong> (lufs, dr, lra): target é CENTRO, distância = penalização</li>
+            <li><strong>BUG CORRIGIDO:</strong> True Peak 0.5 dBTP (target -1.0) deve ser CRÍTICA, não OK</li>
+        </ul>
+    </div>
+
+    <button onclick="runTests()">▶️ Executar Testes</button>
+    
+    <div id="results"></div>
+
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>⏳ Executando testes...</p>';
+            
+            // Verificar se evaluateMetric está disponível
+            if (typeof evaluateMetric !== 'function' && typeof window.evaluateMetric !== 'function') {
+                resultsDiv.innerHTML = '<p style="color: red;">❌ evaluateMetric não está disponível!</p>';
+                return;
+            }
+            
+            const evalFn = window.evaluateMetric || evaluateMetric;
+            
+            const testCases = [
+                // CEILING METRICS
+                {
+                    name: '🎯 True Peak OK (abaixo do target)',
+                    metricKey: 'truePeak',
+                    measuredValue: -1.2,
+                    targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+                    expectedSeverity: 'OK',
+                    expectedScoreMin: 90,
+                    description: '-1.2 dBTP < -1.0 dBTP target → OK'
+                },
+                {
+                    name: '🔴 True Peak CRÍTICA (BUG CORRIGIDO)',
+                    metricKey: 'truePeak',
+                    measuredValue: 0.5,
+                    targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+                    expectedSeverity: 'CRÍTICA',
+                    expectedScoreMax: 50,
+                    description: '0.5 dBTP > -1.0 dBTP target, diff=+1.5 → CRÍTICA'
+                },
+                {
+                    name: '🔴 True Peak CRÍTICA HARD (acima do max)',
+                    metricKey: 'truePeak',
+                    measuredValue: 2.0,
+                    targetSpec: { target: -1.0, min: -3.0, max: 0.0, tol: 0.5 },
+                    expectedSeverity: 'CRÍTICA',
+                    expectedScoreMax: 35,
+                    description: '2.0 dBTP > 0.0 dBTP max → CRÍTICA SEVERA'
+                },
+                // BANDPASS METRICS
+                {
+                    name: '🎯 LUFS OK (no target)',
+                    metricKey: 'lufs',
+                    measuredValue: -14.0,
+                    targetSpec: { target: -14.0, min: -16.0, max: -12.0, tol: 1.0 },
+                    expectedSeverity: 'OK',
+                    expectedScoreMin: 95,
+                    description: '-14.0 LUFS = -14.0 target → OK'
+                },
+                {
+                    name: '🔴 LUFS CRÍTICA (muito alto)',
+                    metricKey: 'lufs',
+                    measuredValue: -8.0,
+                    targetSpec: { target: -14.0, min: -16.0, max: -12.0, tol: 1.0 },
+                    expectedSeverity: 'CRÍTICA',
+                    expectedScoreMax: 45,
+                    description: '-8.0 LUFS vs -14.0 target, diff=+6 → CRÍTICA'
+                },
+                {
+                    name: '⚠️ LRA ATENÇÃO (moderadamente fora)',
+                    metricKey: 'lra',
+                    measuredValue: 6.5,
+                    targetSpec: { target: 4.0, min: 2.0, max: 6.0, tol: 1.0 },
+                    expectedSeverity: ['ATENÇÃO', 'ALTA'], // aceita ambos
+                    expectedScoreMin: 50,
+                    expectedScoreMax: 85,
+                    description: '6.5 LU vs 4.0 target, diff=+2.5 → ATENÇÃO/ALTA'
+                }
+            ];
+            
+            let html = '';
+            let passed = 0;
+            let failed = 0;
+            
+            for (const tc of testCases) {
+                const result = evalFn(tc.metricKey, tc.measuredValue, tc.targetSpec);
+                
+                // Verificar severidade (pode ser array de valores aceitos)
+                const acceptedSeverities = Array.isArray(tc.expectedSeverity) 
+                    ? tc.expectedSeverity 
+                    : [tc.expectedSeverity];
+                const severityOK = acceptedSeverities.includes(result.severity);
+                
+                // Verificar score
+                const scoreOK = (tc.expectedScoreMin === undefined || result.score >= tc.expectedScoreMin) &&
+                               (tc.expectedScoreMax === undefined || result.score <= tc.expectedScoreMax);
+                
+                const testPassed = severityOK && scoreOK;
+                
+                if (testPassed) passed++;
+                else failed++;
+                
+                html += `
+                    <div class="test-case ${testPassed ? 'pass' : 'fail'}">
+                        <div>
+                            <div class="label">Teste:</div>
+                            <div class="value">${testPassed ? '✅' : '❌'} ${tc.name}</div>
+                            <div class="label" style="margin-top:10px">${tc.description}</div>
+                        </div>
+                        <div>
+                            <div class="label">Entrada:</div>
+                            <div class="value">${tc.metricKey} = ${tc.measuredValue}</div>
+                            <div class="label">Target: ${tc.targetSpec.target}</div>
+                        </div>
+                        <div>
+                            <div class="label">Resultado:</div>
+                            <div class="value">
+                                Score: <span style="color:${result.score >= 70 ? '#00ff88' : result.score >= 50 ? '#ffbb00' : '#ff4444'}">${result.score?.toFixed(1) ?? 'N/A'}</span>
+                            </div>
+                            <div class="value">
+                                Severidade: <span class="severity-${result.severity}">${result.severity}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="label">Esperado:</div>
+                            <div class="value">
+                                Score: ${tc.expectedScoreMin ?? '?'} - ${tc.expectedScoreMax ?? '?'}
+                            </div>
+                            <div class="value">
+                                Severidade: ${acceptedSeverities.join(' ou ')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Resumo
+            html += `
+                <div class="summary ${failed === 0 ? 'pass' : 'fail'}">
+                    ${failed === 0 
+                        ? '✅ TODOS OS TESTES PASSARAM!' 
+                        : `❌ ${failed} de ${testCases.length} testes FALHARAM`}
+                    <br>
+                    <span style="font-size:0.8em">
+                        ${passed}/${testCases.length} testes OK
+                    </span>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+            
+            // Log no console
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log(`🧪 RESULTADO V3.7: ${passed}/${testCases.length} testes passaram`);
+            console.log('═══════════════════════════════════════════════════════════');
+        }
+        
+        // Executar automaticamente ao carregar
+        window.onload = function() {
+            setTimeout(runTests, 500);
+        };
+    </script>
+</body>
+</html>
