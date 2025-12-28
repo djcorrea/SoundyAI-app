@@ -1020,99 +1020,101 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
   });
   
   // =========================================================================
-  // HARD GATE #1: TRUE PEAK > max do modo (Clipping Digital)
-  // 🚨 CRÍTICO: TP > 0 dBTP = SEMPRE inaceitável, independente do modo
+  // 🎯 V3.4: FUNÇÕES DE CAP PROPORCIONAL (substituem caps fixos)
+  // =========================================================================
+  
+  // Cap proporcional para True Peak baseado no excesso
+  function calculateTruePeakCap(tp, max) {
+    if (tp === null || tp <= max) return 100;
+    const excess = tp - max;
+    // Escala: +0.1 = 93%, +0.5 = 85%, +1.0 = 75%, +2.0 = 55%, +3.0 = 35%
+    return Math.max(35, Math.round(95 - (excess * 20)));
+  }
+  
+  // Cap proporcional para LUFS baseado no excesso
+  function calculateLufsCap(lufsValue, max) {
+    if (lufsValue === null || lufsValue <= max) return 100;
+    const excess = lufsValue - max;
+    // Escala: +1 LU = 87%, +2 LU = 80%, +4 LU = 65%, +6 LU = 50%
+    return Math.max(50, Math.round(95 - (excess * 7.5)));
+  }
+  
+  // =========================================================================
+  // HARD GATE #1: TRUE PEAK > max do modo (Cap PROPORCIONAL)
   // =========================================================================
   const tpMax = targets.truePeak?.max ?? 0;
-  const tpAbsoluteMax = 0; // Nunca aceitar TP positivo
+  const tpAbsoluteMax = 0; // Limite absoluto para clipping digital
   
-  // Gate absoluto: TP > 0 dBTP = clipping digital SEMPRE
-  if (truePeak !== null && truePeak > tpAbsoluteMax) {
-    const excess = truePeak - tpAbsoluteMax;
-    gates.push({
-      type: 'TRUE_PEAK_CRITICAL',
-      reason: `True Peak ${truePeak.toFixed(2)} dBTP > 0 dBTP (clipping digital absoluto)`,
-      action: 'finalScore ≤ 35, classification = Inaceitável',
-      value: truePeak,
-      limit: tpAbsoluteMax,
-      excess: excess
-    });
-    finalScoreCap = Math.min(finalScoreCap, 35);
-    classificationOverride = 'Inaceitável';
-    criticalErrors.push('TRUE_PEAK_CRITICAL');
-    console.error(`[HARD_GATE] 🚨🚨🚨 TRUE PEAK CRÍTICO: ${truePeak.toFixed(2)} dBTP > 0 dBTP → Score CAPADO em 35%`);
-  }
-  // Gate por modo: TP > max do modo
-  else if (truePeak !== null && truePeak > tpMax) {
+  if (truePeak !== null && truePeak > tpMax) {
     const excess = truePeak - tpMax;
+    const severity = truePeak > 0 ? 'CRITICAL' : (excess > 0.5 ? 'HIGH' : 'MODERATE');
+    const proportionalCap = calculateTruePeakCap(truePeak, tpMax);
+    
     gates.push({
-      type: 'TRUE_PEAK_CLIPPING',
-      reason: `True Peak ${truePeak.toFixed(2)} dBTP > ${tpMax.toFixed(1)} dBTP (max do modo ${mode})`,
-      action: 'finalScore ≤ 30, classification = Inaceitável',
+      type: `TRUE_PEAK_${severity}`,
+      reason: `True Peak ${truePeak.toFixed(2)} dBTP (+${excess.toFixed(2)} dB acima do limite ${tpMax} dBTP)`,
+      action: `finalScore ≤ ${proportionalCap}%`,
       value: truePeak,
       limit: tpMax,
-      excess: excess
+      excess: excess,
+      cap: proportionalCap
     });
-    finalScoreCap = Math.min(finalScoreCap, 30);
-    classificationOverride = 'Inaceitável';
-    criticalErrors.push('TRUE_PEAK_CLIPPING');
-    console.warn(`[HARD_GATE] 🚨 TRUE PEAK CLIPPING: ${truePeak.toFixed(2)} dBTP > ${tpMax.toFixed(1)} dBTP (mode=${mode}) → Score capado em 30%`);
-  }
-  // TRUE PEAK muito próximo do max (dentro de 0.5 dB ACIMA do target)
-  // ⚠️ CORREÇÃO v3.3: WARNING só dispara se TP está ACIMA do target, não igual
-  // Para streaming: target=-1.0, max=-1.0 → WARNING se TP > -1.0 + 0.3 = -0.7 (zona de risco)
-  // Para pista: target=-0.3, max=0.0 → WARNING se TP > -0.3 + 0.3 = 0.0 (nunca, já é CLIPPING)
-  else if (truePeak !== null) {
-    const tpTarget = targets.truePeak?.target ?? tpMax;
-    const warningThreshold = Math.min(tpTarget + 0.3, tpMax); // 0.3 dB acima do target, limitado ao max
     
-    if (truePeak > warningThreshold && truePeak <= tpMax) {
-      gates.push({
-        type: 'TRUE_PEAK_WARNING',
-        reason: `True Peak ${truePeak.toFixed(2)} dBTP acima do target ${tpTarget.toFixed(1)} dBTP (zona de risco)`,
-        action: 'finalScore ≤ 70',
-        value: truePeak,
-        limit: warningThreshold
-      });
-      finalScoreCap = Math.min(finalScoreCap, 70);
-      console.warn(`[HARD_GATE] ⚠️ TRUE PEAK WARNING: ${truePeak.toFixed(2)} dBTP > ${warningThreshold.toFixed(2)} dBTP (target+0.3) → Score capado em 70%`);
+    finalScoreCap = Math.min(finalScoreCap, proportionalCap);
+    
+    if (truePeak > 0) {
+      classificationOverride = 'Inaceitável';
+      criticalErrors.push('TRUE_PEAK_CRITICAL');
+    } else if (excess > 0.5) {
+      if (!classificationOverride) classificationOverride = 'Necessita Correções';
+      criticalErrors.push('TRUE_PEAK_HIGH');
     }
+    
+    console.warn(`[HARD_GATE] ⚠️ TRUE PEAK ${severity}: ${truePeak.toFixed(2)} dBTP (excesso: +${excess.toFixed(2)} dB) → Cap proporcional: ${proportionalCap}%`);
   }
   
   // =========================================================================
-  // HARD GATE #2: CLIPPING SEVERO (> 5% das amostras)
+  // HARD GATE #2: CLIPPING SEVERO (> 5% das amostras) - Cap PROPORCIONAL
   // =========================================================================
   if (clipping > 5) {
+    // Cap proporcional: 5% = 80%, 10% = 60%, 15% = 40%, 20%+ = 30%
+    const clippingCap = Math.max(30, Math.round(80 - (clipping - 5) * 4));
+    
     gates.push({
       type: 'CLIPPING_SEVERE',
       reason: `Clipping ${clipping.toFixed(2)}% > 5% das amostras`,
-      action: 'finalScore ≤ 40',
+      action: `finalScore ≤ ${clippingCap}%`,
       value: clipping,
-      limit: 5
+      limit: 5,
+      cap: clippingCap
     });
-    finalScoreCap = Math.min(finalScoreCap, 40);
+    finalScoreCap = Math.min(finalScoreCap, clippingCap);
     criticalErrors.push('CLIPPING_SEVERE');
     if (!classificationOverride) classificationOverride = 'Necessita Correções';
-    console.warn(`[HARD_GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → Score capado em 40%`);
+    console.warn(`[HARD_GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → Cap proporcional: ${clippingCap}%`);
   }
   
   // =========================================================================
-  // HARD GATE #3: LUFS EXCESSIVO (loudness war)
+  // HARD GATE #3: LUFS EXCESSIVO (loudness war) - Cap PROPORCIONAL
   // =========================================================================
   const lufsMax = targets.lufs?.max ?? -12;
-  const lufsMargin = 2; // 2 LU de tolerância
   
-  if (lufs !== null && lufs > lufsMax + lufsMargin) {
+  if (lufs !== null && lufs > lufsMax) {
+    const lufsExcess = lufs - lufsMax;
+    const lufsCap = calculateLufsCap(lufs, lufsMax);
+    
     gates.push({
       type: 'LUFS_EXCESSIVE',
-      reason: `LUFS ${lufs.toFixed(1)} > ${lufsMax + lufsMargin} (max + margem)`,
-      action: 'finalScore ≤ 50',
+      reason: `LUFS ${lufs.toFixed(1)} > ${lufsMax} LUFS (excesso: +${lufsExcess.toFixed(1)} LU)`,
+      action: `finalScore ≤ ${lufsCap}%`,
       value: lufs,
-      limit: lufsMax + lufsMargin
+      limit: lufsMax,
+      excess: lufsExcess,
+      cap: lufsCap
     });
-    finalScoreCap = Math.min(finalScoreCap, 50);
-    if (!classificationOverride) classificationOverride = 'Necessita Correções';
-    console.warn(`[HARD_GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS → Score capado em 50%`);
+    finalScoreCap = Math.min(finalScoreCap, lufsCap);
+    if (!classificationOverride && lufsExcess >= 4) classificationOverride = 'Necessita Correções';
+    console.warn(`[HARD_GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS (+${lufsExcess.toFixed(1)} LU) → Cap proporcional: ${lufsCap}%`);
   }
   
   // =========================================================================
@@ -1158,26 +1160,30 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
   
   // =========================================================================
   // RETORNAR RESULTADO ENRIQUECIDO
+  // V3.4: Adiciona finalRaw para transparência (score sem gates)
   // =========================================================================
   const enrichedResult = {
     ...result,
     scorePct: finalScore,
+    finalRaw: originalScore,  // V3.4: Score bruto antes dos gates
     classification: classification,
     
     // Metadados obrigatórios (CRITÉRIO DE ACEITE)
-    scoringEngineVersion: 'v3_gates_sync',
+    scoringEngineVersion: 'v3.4_proportional_gates',
     modeUsed: mode,
     genreUsed: options.genre || result.genreUsed || 'default',
     fallbackUsed: normalizedRef.source === 'inline_fallback',
     fallbackReason: normalizedRef.source === 'inline_fallback' ? 'Reference Adapter não disponível' : null,
     
-    // Novos campos de diagnóstico V3
-    engineUsed: gates.length > 0 ? 'v3_gates_applied' : 'current_with_v3_check',
+    // Novos campos de diagnóstico V3.4
+    engineUsed: gates.length > 0 ? 'v3.4_proportional_gates' : 'current_no_gates',
     gatesTriggered: gates,
     criticalErrors: criticalErrors,
     hasCriticalError: criticalErrors.length > 0,
     finalScoreCapApplied: finalScoreCap < 100 ? finalScoreCap : null,
     originalScoreBeforeGates: originalScore !== finalScore ? originalScore : null,
+    wasGatePenalized: finalScore < originalScore,  // V3.4: Flag para UI
+    gatePenaltyAmount: originalScore - finalScore, // V3.4: Quantidade penalizada
     
     // Targets usados (para debug)
     _targetsUsed: {
@@ -1187,7 +1193,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
     },
     
     // Metadados
-    _v3GatesVersion: '3.1.0',
+    _v3GatesVersion: '3.4.0',
     _v3GatesAppliedAt: new Date().toISOString()
   };
   

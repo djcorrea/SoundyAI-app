@@ -253,7 +253,45 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   📱 RESPONSIVIDADE
+   � V3.4: GATE INFO (Score bruto vs penalizado)
+   ═══════════════════════════════════════════════════════════════ */
+.score-gate-info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 12px 0;
+  padding: 10px 16px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  animation: fadeIn 0.8s ease both;
+}
+
+.score-gate-info .score-raw {
+  color: #888;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.score-gate-info .score-penalty {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.score-gate-info .score-gate-reasons {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: #ff9500;
+  opacity: 0.9;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   �📱 RESPONSIVIDADE
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tablets */

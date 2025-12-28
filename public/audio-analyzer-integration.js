@@ -15380,7 +15380,7 @@ async function displayModalResults(analysis) {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // 🚨 V3.3: APLICAR HARD GATES (TRUE PEAK, CLIPPING, DC OFFSET) SEMPRE
+      // 🚨 V3.4: GATES PROPORCIONAIS (substituem caps fixos)
       // ═══════════════════════════════════════════════════════════════════════════
       const techData = analysisObj?.technicalData || analysisObj?.metrics || {};
       const truePeak = techData.truePeakDbtp ?? techData.true_peak_dbtp ?? null;
@@ -15391,71 +15391,125 @@ async function displayModalResults(analysis) {
       // Determinar modo e targets
       const mode = window.__soundyState?.render?.mode || 'streaming';
       const MODE_TARGETS = {
-        streaming: { truePeak: { target: -1.0, max: -1.0 }, lufs: { max: -12.0 } },
-        pista: { truePeak: { target: -0.3, max: 0.0 }, lufs: { max: -6.0 } },
-        reference: { truePeak: { target: -1.0, max: 0.0 }, lufs: { max: -8.0 } }
+        streaming: { truePeak: { target: -1.0, max: -1.0 }, lufs: { target: -14.0, max: -12.0 } },
+        pista: { truePeak: { target: -0.3, max: 0.0 }, lufs: { target: -9.0, max: -6.0 } },
+        reference: { truePeak: { target: -1.0, max: 0.0 }, lufs: { target: -14.0, max: -8.0 } }
       };
       const targets = MODE_TARGETS[mode] || MODE_TARGETS.streaming;
       const tpMax = targets.truePeak?.max ?? 0;
       const tpTarget = targets.truePeak?.target ?? tpMax;
       const lufsMax = targets.lufs?.max ?? -12;
+      const lufsTarget = targets.lufs?.target ?? -14;
       
-      let scoreCap = 100;
+      // 🎯 V3.4: Função de cap PROPORCIONAL para True Peak
+      // Quanto mais passou do limite, menor o cap (mas NUNCA fixo em 35)
+      function calculateTruePeakCap(tp, max, target) {
+        if (tp === null) return 100;
+        
+        const excess = tp - max; // Quanto passou do máximo
+        
+        if (excess <= 0) return 100; // Dentro do limite
+        
+        // Escala proporcional: +0.1 = 90%, +0.5 = 75%, +1.0 = 60%, +2.0 = 45%, +3.0 = 35%
+        // Fórmula: cap = 95 - (excess * 20), com mínimo de 35
+        const cap = Math.max(35, Math.round(95 - (excess * 20)));
+        return cap;
+      }
+      
+      // 🎯 V3.4: Função de cap PROPORCIONAL para LUFS
+      function calculateLufsCap(lufsValue, max, target) {
+        if (lufsValue === null) return 100;
+        
+        const excess = lufsValue - max; // Quanto passou do máximo (valores mais altos = piores)
+        
+        if (excess <= 0) return 100; // Dentro do limite
+        
+        // Escala proporcional: +1 LU = 90%, +2 LU = 80%, +4 LU = 65%, +6 LU = 50%
+        // Fórmula: cap = 95 - (excess * 7.5), com mínimo de 50
+        const cap = Math.max(50, Math.round(95 - (excess * 7.5)));
+        return cap;
+      }
+      
+      // Preservar score bruto SEMPRE
+      const finalRaw = out.final;
+      out.finalRaw = finalRaw;
+      
       let gatesTriggered = [];
+      let caps = [];
       
-      // GATE #1: TRUE PEAK CRÍTICO (> 0 dBTP = clipping digital ABSOLUTO)
-      if (truePeak !== null && truePeak > 0) {
-        scoreCap = Math.min(scoreCap, 35);
-        gatesTriggered.push({ type: 'TRUE_PEAK_CRITICAL', value: truePeak, cap: 35 });
-        console.error(`[V3-GATE] 🚨 TRUE PEAK CRÍTICO: ${truePeak.toFixed(2)} dBTP > 0 → cap 35%`);
+      // GATE #1: TRUE PEAK (proporcional ao excesso)
+      if (truePeak !== null && truePeak > tpMax) {
+        const tpCap = calculateTruePeakCap(truePeak, tpMax, tpTarget);
+        const excess = truePeak - tpMax;
+        const severity = truePeak > 0 ? 'CRITICAL' : (excess > 0.5 ? 'HIGH' : 'MODERATE');
+        
+        caps.push(tpCap);
+        gatesTriggered.push({ 
+          type: `TRUE_PEAK_${severity}`, 
+          value: truePeak, 
+          limit: tpMax,
+          excess: excess.toFixed(2),
+          cap: tpCap,
+          description: `True Peak ${truePeak.toFixed(2)} dBTP (+${excess.toFixed(2)} dB acima do limite)`
+        });
+        console.warn(`[V3-GATE] ⚠️ TRUE PEAK ${severity}: ${truePeak.toFixed(2)} dBTP (excesso: +${excess.toFixed(2)} dB) → cap ${tpCap}%`);
       }
-      // GATE #2: TRUE PEAK ACIMA DO MAX DO MODO
-      else if (truePeak !== null && truePeak > tpMax) {
-        scoreCap = Math.min(scoreCap, 30);
-        gatesTriggered.push({ type: 'TRUE_PEAK_CLIPPING', value: truePeak, limit: tpMax, cap: 30 });
-        console.error(`[V3-GATE] 🚨 TRUE PEAK CLIPPING: ${truePeak.toFixed(2)} dBTP > ${tpMax.toFixed(1)} (mode=${mode}) → cap 30%`);
+      
+      // GATE #2: CLIPPING SEVERO (> 5%) - mantém proporcional
+      if (clipping > 5) {
+        const clipCap = Math.max(30, Math.round(80 - (clipping - 5) * 4));
+        caps.push(clipCap);
+        gatesTriggered.push({ 
+          type: 'CLIPPING_SEVERE', 
+          value: clipping, 
+          cap: clipCap,
+          description: `Clipping ${clipping.toFixed(2)}% (aceitável: < 5%)`
+        });
+        console.warn(`[V3-GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → cap ${clipCap}%`);
       }
-      // GATE #3: TRUE PEAK WARNING (zona de risco, acima do target)
-      else if (truePeak !== null) {
-        const warningThreshold = Math.min(tpTarget + 0.3, tpMax);
-        if (truePeak > warningThreshold && truePeak <= tpMax) {
-          scoreCap = Math.min(scoreCap, 70);
-          gatesTriggered.push({ type: 'TRUE_PEAK_WARNING', value: truePeak, threshold: warningThreshold, cap: 70 });
-          console.warn(`[V3-GATE] ⚠️ TRUE PEAK WARNING: ${truePeak.toFixed(2)} dBTP > ${warningThreshold.toFixed(2)} → cap 70%`);
+      
+      // GATE #3: LUFS EXCESSIVO (proporcional ao excesso)
+      if (lufs !== null && lufs > lufsMax) {
+        const lufsCap = calculateLufsCap(lufs, lufsMax, lufsTarget);
+        const excess = lufs - lufsMax;
+        
+        caps.push(lufsCap);
+        gatesTriggered.push({ 
+          type: 'LUFS_EXCESSIVE', 
+          value: lufs, 
+          limit: lufsMax,
+          excess: excess.toFixed(1),
+          cap: lufsCap,
+          description: `LUFS ${lufs.toFixed(1)} (+${excess.toFixed(1)} LU acima do limite)`
+        });
+        console.warn(`[V3-GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} (excesso: +${excess.toFixed(1)} LU) → cap ${lufsCap}%`);
+      }
+      
+      // APLICAR MENOR CAP (se houver gates)
+      if (caps.length > 0) {
+        const scoreCap = Math.min(...caps);
+        
+        if (out.final > scoreCap) {
+          console.warn(`[V3-GATE] 📉 Score capado: ${out.final}% → ${scoreCap}%`);
+          out.final = scoreCap;
+          out._scoreCapped = true;
         }
       }
       
-      // GATE #4: CLIPPING SEVERO (> 5%)
-      if (clipping > 5) {
-        scoreCap = Math.min(scoreCap, 40);
-        gatesTriggered.push({ type: 'CLIPPING_SEVERE', value: clipping, cap: 40 });
-        console.warn(`[V3-GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → cap 40%`);
-      }
-      
-      // GATE #5: LUFS EXCESSIVO (loudness war)
-      const lufsMargin = 2;
-      if (lufs !== null && lufs > lufsMax + lufsMargin) {
-        scoreCap = Math.min(scoreCap, 50);
-        gatesTriggered.push({ type: 'LUFS_EXCESSIVE', value: lufs, limit: lufsMax + lufsMargin, cap: 50 });
-        console.warn(`[V3-GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS → cap 50%`);
-      }
-      
-      // APLICAR CAP SE NECESSÁRIO
-      if (scoreCap < 100 && out.final > scoreCap) {
-        console.warn(`[V3-GATE] 📉 Score capado: ${out.final}% → ${scoreCap}%`);
-        out._originalScore = out.final;
-        out.final = scoreCap;
-        out._gatesTriggered = gatesTriggered;
-        out._scoreCapped = true;
-      }
+      // Preservar metadados de gates
+      out._gatesTriggered = gatesTriggered;
+      out._capsApplied = caps;
       
       // Log de diagnóstico
-      console.log('[V3-GATE] 📊 Diagnóstico:', {
+      console.log('[V3-GATE] 📊 Diagnóstico V3.4:', {
         truePeak, tpMax, tpTarget,
-        clipping, lufs, lufsMax,
-        mode, scoreCap,
-        gatesTriggered: gatesTriggered.map(g => g.type),
-        finalScore: out.final
+        lufs, lufsMax, lufsTarget,
+        clipping,
+        mode,
+        finalRaw,
+        finalCapped: out.final,
+        gatesTriggered: gatesTriggered.map(g => `${g.type}: cap ${g.cap}%`),
+        scoreCapped: out._scoreCapped || false
       });
 
       return out;
@@ -17795,6 +17849,7 @@ async function displayModalResults(analysis) {
         
         /**
          * Renderiza o score final no container dedicado no topo da análise
+         * V3.4: Agora mostra "bruto vs penalizado" quando gates são aplicados
          * @param {Object} scores - Objeto contendo todos os scores
          */
         function renderFinalScoreAtTop(scores) {
@@ -17817,6 +17872,11 @@ async function displayModalResults(analysis) {
             console.log('[RENDER_FINAL_SCORE] ✅ Container encontrado, renderizando...');
             
             const finalScore = Math.round(scores.final);
+            const finalRaw = scores.finalRaw ? Math.round(scores.finalRaw) : null;
+            const wasGatePenalized = finalRaw && finalRaw > finalScore;
+            const gatePenaltyAmount = wasGatePenalized ? finalRaw - finalScore : 0;
+            const gatesTriggered = scores._gatesTriggered || [];
+            
             const percent = Math.min(Math.max(finalScore, 0), 100);
             
             // Determinar mensagem de status baseada no score
@@ -17840,10 +17900,37 @@ async function displayModalResults(analysis) {
                 statusClass = 'status-poor';
             }
             
+            // V3.4: Gerar HTML para gates se aplicados
+            let gateInfoHtml = '';
+            if (wasGatePenalized) {
+                const gateDescriptions = gatesTriggered.map(g => {
+                    if (g.type?.includes('TRUE_PEAK')) return `🔊 True Peak: ${g.value?.toFixed(2) ?? '?'} dBTP`;
+                    if (g.type?.includes('LUFS')) return `📢 LUFS: ${g.value?.toFixed(1) ?? '?'}`;
+                    if (g.type?.includes('CLIPPING')) return `💥 Clipping: ${g.value?.toFixed(1) ?? '?'}%`;
+                    return g.reason || g.type;
+                }).join(' | ');
+                
+                gateInfoHtml = `
+                    <div class="score-gate-info">
+                        <span class="score-raw">Score bruto: ${finalRaw}%</span>
+                        <span class="score-penalty">-${gatePenaltyAmount} pts (gate)</span>
+                        ${gateDescriptions ? `<div class="score-gate-reasons">${gateDescriptions}</div>` : ''}
+                    </div>
+                `;
+                
+                console.log('[RENDER_FINAL_SCORE] ⚠️ Gate aplicado:', {
+                    bruto: finalRaw,
+                    final: finalScore,
+                    penalidade: gatePenaltyAmount,
+                    gates: gatesTriggered.map(g => g.type)
+                });
+            }
+            
             // Renderizar HTML do score final
             container.innerHTML = `
                 <div class="score-final-label">🏆 SCORE FINAL</div>
                 <div class="score-final-value">0</div>
+                ${gateInfoHtml}
                 <div class="score-final-bar-container">
                     <div class="score-final-bar">
                         <div class="score-final-bar-fill" style="width: 0%"></div>
@@ -23953,15 +24040,9 @@ function calculateTechnicalScore(analysis, refData) {
     let average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     let result = Math.max(20, Math.round(average)); // Nunca zerar completamente
     
-    // 🚨 HARD CAP: True Peak ESTOURADO (> 0.0 dBTP) limita score a 60%
-    if (hasTruePeakData && truePeak > 0.0) {
-        const maxScoreWithClipping = 60;
-        const originalResult = result;
-        result = Math.min(result, maxScoreWithClipping);
-        
-        console.log(`🚨 HARD CAP APLICADO: True Peak estourado (${truePeak.toFixed(2)} dBTP)`);
-        console.log(`🚨 Score limitado de ${originalResult}% para ${result}% (máx: ${maxScoreWithClipping}%)`);
-    }
+    // 🎯 V3.4: REMOVIDO HARD CAP DUPLICADO - O gate proporcional no V3-GATE já cuida disso
+    // Antes havia dupla punição: score técnico baixo + gate final capando novamente
+    // Agora: score técnico reflete a qualidade, gate final aplica cap proporcional se necessário
     
     console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas${hasTruePeakData ? ', True Peak incluído' : ''})`);
     
@@ -23976,8 +24057,7 @@ function calculateTechnicalScore(analysis, refData) {
             condition: 'average of ' + scores.length + ' metrics',
             individualScores: scores,
             average,
-            hasTruePeakData,
-            hardCapApplied: hasTruePeakData && truePeak > 0.0
+            hasTruePeakData
         });
     } catch (err) {
         console.warn('[AUDIT-ERROR]', 'calculateTechnicalScore (final)', err);
@@ -28795,3 +28875,134 @@ window.addEventListener("beforeunload", () => {
     
     document.head.appendChild(script);
 })();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧪 V3.4 TEST BLOCK: TESTES DO SCORE ENGINE COM CAPS PROPORCIONAIS
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Testes para validar o sistema de gates proporcionais V3.4
+ * Execute no console: window.__testV34GatesProportional()
+ */
+window.__testV34GatesProportional = function() {
+    console.log('\n');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🧪 V3.4 TEST BLOCK: GATES PROPORCIONAIS');
+    console.log('═══════════════════════════════════════════════════════════════');
+    
+    // Funções de cap (cópia local para teste)
+    function calculateTruePeakCap(tp, max) {
+        if (tp === null || tp <= max) return 100;
+        const excess = tp - max;
+        return Math.max(35, Math.round(95 - (excess * 20)));
+    }
+    
+    function calculateLufsCap(lufsValue, max) {
+        if (lufsValue === null || lufsValue <= max) return 100;
+        const excess = lufsValue - max;
+        return Math.max(50, Math.round(95 - (excess * 7.5)));
+    }
+    
+    const tests = [
+        // Cenário 1: TP OK (-2.0 dBTP, limite -1.0)
+        {
+            name: 'TP OK',
+            tp: -2.0,
+            tpMax: -1.0,
+            expectedCap: 100,
+            description: 'True Peak abaixo do limite'
+        },
+        // Cenário 2: TP levemente acima (-0.5 dBTP, limite -1.0)
+        {
+            name: 'TP Leve',
+            tp: -0.5,
+            tpMax: -1.0,
+            expectedCapRange: [83, 87], // 95 - 0.5*20 = 85 (±2)
+            description: 'True Peak +0.5 dB acima'
+        },
+        // Cenário 3: TP positivo pequeno (+0.3 dBTP)
+        {
+            name: 'TP Positivo Pequeno',
+            tp: 0.3,
+            tpMax: -1.0,
+            expectedCapRange: [65, 75], // 95 - 1.3*20 = 69 (±5)
+            description: 'True Peak +1.3 dB acima (leve clipping)'
+        },
+        // Cenário 4: TP positivo alto (+2.0 dBTP)
+        {
+            name: 'TP Positivo Alto',
+            tp: 2.0,
+            tpMax: -1.0,
+            expectedCapRange: [35, 45], // 95 - 3*20 = 35 (mínimo)
+            description: 'True Peak +3 dB acima (clipping severo)'
+        },
+        // Cenário 5: LUFS OK (-14 LUFS, limite -12)
+        {
+            name: 'LUFS OK',
+            lufs: -14,
+            lufsMax: -12,
+            expectedCap: 100,
+            description: 'LUFS abaixo do limite'
+        },
+        // Cenário 6: LUFS +2 LU acima
+        {
+            name: 'LUFS +2 LU',
+            lufs: -10,
+            lufsMax: -12,
+            expectedCapRange: [78, 82], // 95 - 2*7.5 = 80 (±2)
+            description: 'LUFS +2 LU acima'
+        },
+        // Cenário 7: LUFS +6 LU acima (loudness war)
+        {
+            name: 'LUFS +6 LU',
+            lufs: -6,
+            lufsMax: -12,
+            expectedCap: 50, // Mínimo
+            description: 'LUFS +6 LU acima (loudness war)'
+        }
+    ];
+    
+    let passed = 0;
+    let failed = 0;
+    
+    tests.forEach((test, i) => {
+        let actualCap;
+        let isPass = false;
+        
+        if (test.tp !== undefined) {
+            actualCap = calculateTruePeakCap(test.tp, test.tpMax);
+        } else if (test.lufs !== undefined) {
+            actualCap = calculateLufsCap(test.lufs, test.lufsMax);
+        }
+        
+        if (test.expectedCap !== undefined) {
+            isPass = actualCap === test.expectedCap;
+        } else if (test.expectedCapRange) {
+            isPass = actualCap >= test.expectedCapRange[0] && actualCap <= test.expectedCapRange[1];
+        }
+        
+        const icon = isPass ? '✅' : '❌';
+        const expected = test.expectedCap ?? `${test.expectedCapRange[0]}-${test.expectedCapRange[1]}`;
+        
+        console.log(`${icon} ${i+1}. ${test.name}: Cap=${actualCap}% (esperado: ${expected}%)`);
+        console.log(`   └─ ${test.description}`);
+        
+        if (isPass) passed++; else failed++;
+    });
+    
+    console.log('───────────────────────────────────────────────────────────────');
+    console.log(`📊 RESULTADO: ${passed}/${tests.length} testes passaram`);
+    
+    if (failed === 0) {
+        console.log('🎉 TODOS OS TESTES PASSARAM! V3.4 funcionando corretamente.');
+    } else {
+        console.error(`⚠️ ${failed} teste(s) falharam. Verifique a implementação.`);
+    }
+    
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('\n');
+    
+    return { passed, failed, total: tests.length };
+};
+
+// Auto-log para confirmar disponibilidade
+console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesProportional()');
