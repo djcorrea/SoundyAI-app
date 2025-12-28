@@ -1,5 +1,28 @@
 // 🧮 MIX SCORING ENGINE
 // Calcula porcentagem de conformidade e classificação qualitativa baseada nas métricas técnicas e referências por gênero
+// 
+// SISTEMA DE SCORING HÍBRIDO (Range-based + Fixed-target):
+// ═══════════════════════════════════════════════════════════════════
+// 
+// 1. RANGE-BASED SCORING (NOVO - Implementado para bandas espectrais):
+//    - Usa objetos target_range: {"min": -34, "max": -22}
+//    - Score MÁXIMO (1.0) para qualquer valor dentro do intervalo [min, max]
+//    - Penalização PROPORCIONAL fora do intervalo baseada na distância
+//    - Ideal para perfis "batida forte sem distorcer" onde há faixa aceitável
+//    - Aplicado via scoreToleranceRange(value, min, max)
+//
+// 2. FIXED-TARGET SCORING (LEGADO - Mantido para compatibilidade):
+//    - Usa valores target_db: -26.5 (número fixo)
+//    - Score baseado na distância até o alvo específico
+//    - Mantido para gêneros que não especificam ranges
+//    - Aplicado via scoreTolerance(value, target, tolerance)
+//
+// 3. RETROCOMPATIBILIDADE:
+//    - addMetric() detecta automaticamente se tem target_range ou target_db
+//    - Prioriza target_range quando disponível
+//    - Fallback para target_db se range não existir
+//    - Gêneros antigos continuam funcionando sem modificação
+//
 // Design principles:
 // - Não falha se métricas ausentes; ignora e ajusta pesos dinamicamente
 // - Usa tolerâncias da referência sempre que disponível; senão aplica fallbacks sensatos
@@ -53,6 +76,79 @@ function scoreTolerance(metricValue, target, tol, invert = false, tolMin = null,
   if (adiff <= sideTol) return 1;
   if (adiff >= 2 * sideTol) return 0;
   return 1 - (adiff - sideTol) / sideTol;
+}
+
+/**
+ * 🎯 FUNÇÃO DE SCORING HÍBRIDA (Range-based + Fixed-target)
+ * ═══════════════════════════════════════════════════════════
+ * 
+ * NOVO SISTEMA: Score baseado em intervalos (ranges) para bandas espectrais
+ * Substitui target fixo por range {min, max} onde qualquer valor dentro = score máximo
+ * 
+ * @param {number} metricValue - Valor medido da métrica (ex: -26.5 dB)
+ * @param {object|number} targetRange - Range {min, max} OU valor fixo para compatibilidade
+ * @param {number} fallbackTarget - Target fixo se range não disponível
+ * @param {number} tol - Tolerância personalizada (opcional)
+ * @returns {number|null} Score de 0.1 a 1.0, ou null se valor inválido
+ * 
+ * COMPORTAMENTO:
+ * 1. Se targetRange = {min: -34, max: -22} → usa sistema de ranges
+ * 2. Se targetRange = número → fallback para sistema antigo  
+ * 3. DENTRO DO RANGE [min, max] = Score 1.0 (verde)
+ * 4. FORA DO RANGE = Penalização suave baseada na distância
+ * 
+ * EXEMPLOS:
+ * - scoreToleranceRange(-26, {min:-34, max:-22}) = 1.0 (dentro do range)
+ * - scoreToleranceRange(-20, {min:-34, max:-22}) = 0.7 (fora, penalizado)
+ * - scoreToleranceRange(-26.5, -26.5, null, 3.0) = 1.0 (target fixo antigo)
+ */
+function scoreToleranceRange(metricValue, targetRange, fallbackTarget = null, tol = null) {
+  if (!Number.isFinite(metricValue)) return null;
+  
+  // 🔧 SUPORTE A RANGE: Se target_range definido, usar sistema de intervalo
+  if (targetRange && typeof targetRange === 'object' && 
+      Number.isFinite(targetRange.min) && Number.isFinite(targetRange.max)) {
+    
+    const { min, max } = targetRange;
+    
+    // ✅ DENTRO DO RANGE: Score máximo (verde)
+    if (metricValue >= min && metricValue <= max) {
+      return 1.0; // Score perfeito
+    }
+    
+    // ❌ FORA DO RANGE: Penalização proporcional baseada na distância
+    let distance;
+    if (metricValue < min) {
+      distance = min - metricValue; // Distância abaixo do mínimo
+    } else {
+      distance = metricValue - max; // Distância acima do máximo
+    }
+    
+    // 📉 CURVA DE PENALIZAÇÃO SUAVE
+    // Tolerância padrão = 1/4 da largura do range, ou usar tol fornecida
+    const rangeWidth = max - min;
+    const defaultTolerance = rangeWidth * 0.25;
+    const tolerance = Number.isFinite(tol) && tol > 0 ? tol : defaultTolerance;
+    
+    if (distance <= tolerance) {
+      // Dentro da tolerância: score 0.5-1.0 (amarelo/verde)
+      return 1.0 - (distance / tolerance) * 0.5;
+    } else if (distance <= tolerance * 2) {
+      // Fora da tolerância mas não crítico: score 0.2-0.5 (amarelo/vermelho)
+      return 0.5 - (distance - tolerance) / tolerance * 0.3;
+    } else {
+      // Muito fora: score mínimo 0.1-0.2 (vermelho)
+      return Math.max(0.1, 0.2 - (distance - tolerance * 2) / (tolerance * 3) * 0.1);
+    }
+  }
+  
+  // 🔄 FALLBACK: Se não tem range, usar sistema antigo com target fixo
+  if (Number.isFinite(fallbackTarget)) {
+    return scoreTolerance(metricValue, fallbackTarget, tol || 1);
+  }
+  
+  // 🚫 SEM DADOS VÁLIDOS
+  return null;
 }
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 
@@ -138,13 +234,6 @@ function _computeEqualWeightV3(analysisData) {
     clippingPct: metrics.clippingPct || metrics.clipping_pct || 0
   };
   
-  // 🎯 DEBUGGING CRÍTICO: Verificar valores das referências
-  console.log('[EQUAL_WEIGHT_V3] 🔍 REFERENCE VALIDATION:');
-  console.log('[EQUAL_WEIGHT_V3] reference.lufs_target:', reference.lufs_target);
-  console.log('[EQUAL_WEIGHT_V3] reference.dr_target:', reference.dr_target);
-  console.log('[EQUAL_WEIGHT_V3] reference.stereo_target:', reference.stereo_target);
-  console.log('[EQUAL_WEIGHT_V3] reference (full object):', JSON.stringify(reference, null, 2));
-  
   // Targets e tolerâncias otimizadas
   const targets = {
     lufsIntegrated: reference.lufs_target || -14,
@@ -161,11 +250,6 @@ function _computeEqualWeightV3(analysisData) {
     dcOffset: 0,
     clippingPct: 0
   };
-  
-  console.log('[EQUAL_WEIGHT_V3] 🎯 TARGETS DEFINIDOS:');
-  console.log('[EQUAL_WEIGHT_V3] targets.lufsIntegrated:', targets.lufsIntegrated);
-  console.log('[EQUAL_WEIGHT_V3] targets.dr:', targets.dr);
-  console.log('[EQUAL_WEIGHT_V3] targets.stereoCorrelation:', targets.stereoCorrelation);
   
   const tolerances = {
     lufsIntegrated: reference.tol_lufs || 3.0,
@@ -197,11 +281,6 @@ function _computeEqualWeightV3(analysisData) {
       const deviation = Math.abs(value - target);
       const deviationRatio = tolerance > 0 ? deviation / tolerance : 0;
       
-      // 🔍 LOG CRÍTICO: Cada cálculo de métrica
-      console.log(`[EQUAL_WEIGHT_V3] 📊 MÉTRICA ${key}:`);
-      console.log(`  valor: ${value}, target: ${target}, tolerance: ${tolerance}`);
-      console.log(`  deviation: ${deviation.toFixed(3)}, ratio: ${deviationRatio.toFixed(3)}`);
-      
       let metricScore = 100;
       
       // Curva de penalização suave
@@ -216,9 +295,6 @@ function _computeEqualWeightV3(analysisData) {
           metricScore = Math.max(30, 55 - (deviationRatio - 3) * 15); // 30-55%
         }
       }
-      
-      // 🎯 LOG DO SCORE CALCULADO
-      console.log(`  score calculado: ${metricScore.toFixed(1)}%`);
       
       totalScore += metricScore;
       metricCount++;
@@ -257,13 +333,6 @@ function _computeEqualWeightV3(analysisData) {
   
   console.log('[EQUAL_WEIGHT_V3] 📊 Score validado:', validScore);
   
-  // 🎯 LOG DETALHADO DO SCORE FINAL
-  console.log('[EQUAL_WEIGHT_V3] 🏁 SCORE FINAL DETALHADO:');
-  console.log(`[EQUAL_WEIGHT_V3]   Score bruto: ${finalScore}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Score decimal: ${scoreDecimal}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Score validado: ${validScore}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Métricas usadas: ${metricCount}`);
-  
   // Classificação otimizada
   let classification = 'Básico';
   if (validScore >= 85) classification = 'Referência Mundial';
@@ -276,8 +345,6 @@ function _computeEqualWeightV3(analysisData) {
     score: validScore,
     classification,
     method: 'equal_weight_v3',
-    engineVersion: analysisData.engineVersion || "3.0.0",
-    unifiedScoring: true,
     details: {
       totalMetrics: metricCount,
       equalWeight: metricCount > 0 ? parseFloat((100 / metricCount).toFixed(2)) : 100,
@@ -310,20 +377,29 @@ function _computeEqualWeightV3(analysisData) {
   return result;
 }
 
-function _computeMixScoreInternal(technicalData = {}, reference = null, force = { AUDIT_MODE:true, SCORING_V2:true, AUTO_V2:true, USE_EQUAL_WEIGHT_V3:true, engineVersion:"3.0.0" }) {
-  console.log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado - SISTEMA UNIFICADO');
-  console.log('[SCORING_INTERNAL] 📊 Engine Version:', force.engineVersion || "3.0.0");
+function _computeMixScoreInternal(technicalData = {}, reference = null, force = { AUDIT_MODE:false, SCORING_V2:false, AUTO_V2:true }) {
+  console.log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado');
+  console.log('[SCORING_INTERNAL] 📊 Flags recebidas:', force);
   
   const __caiarLog = (typeof window !== 'undefined' && window.__caiarLog) ? window.__caiarLog : function(){};
-  __caiarLog('SCORING_START','Iniciando cálculo UNIFICADO Equal Weight V3', { 
-    metrics: Object.keys(technicalData||{}).length, 
-    ref: !!reference, 
-    engineVersion: force.engineVersion || "3.0.0"
-  });
-  
-  // � UNIFICAÇÃO: Sempre usar Equal Weight V3 - remover lógica de promoção
-  const AUDIT_MODE = true; // Sempre ativo para Equal Weight V3
-  let SCORING_V2 = true;   // Sempre ativo para Equal Weight V3
+  __caiarLog('SCORING_START','Iniciando cálculo de mix score', { metrics: Object.keys(technicalData||{}).length, ref: !!reference, modeFlags: force });
+  const AUDIT_MODE = !!force.AUDIT_MODE;
+  let SCORING_V2 = !!force.SCORING_V2 && (AUDIT_MODE || force.overrideAuditBypass);
+  // Auto-upgrade: se não está em V2 mas métricas avançadas existem e auto habilitado
+  if (!SCORING_V2 && force.AUTO_V2 !== false) {
+    if (technicalData && (
+      Number.isFinite(technicalData.tt_dr) ||        // 🏆 TT-DR AUTO-ATIVA SCORING_V2
+      Number.isFinite(technicalData.dr_stat) ||
+      Number.isFinite(technicalData.thdPercent) ||
+      Number.isFinite(technicalData.spectralRolloff50) ||
+      Number.isFinite(technicalData.dcOffsetLeft) ||
+      Number.isFinite(technicalData.dcOffsetRight)
+    )) {
+      SCORING_V2 = true;
+      force._autoPromoted = true;
+      console.log('🏆 AUTO-PROMOÇÃO SCORING_V2: TT-DR detectado!');
+    }
+  }
   const ref = reference;
   const metrics = technicalData || {};
   const perMetric = [];
@@ -332,31 +408,105 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
     if (!Number.isFinite(value) || value === -Infinity) return;
     if (!Number.isFinite(target)) return;
     if (!Number.isFinite(tol) || tol <= 0) tol = DEFAULT_TARGETS[key]?.tol || 1;
-    // Suporte opcional a tolMin / tolMax em opts
-    const tolMin = Number.isFinite(opts.tolMin) && opts.tolMin > 0 ? opts.tolMin : null;
-    const tolMax = Number.isFinite(opts.tolMax) && opts.tolMax > 0 ? opts.tolMax : null;
-    const s = scoreTolerance(value, target, tol, !!opts.invert, tolMin, tolMax);
+    
+    // 🎯 NOVA LÓGICA: Suporte a target_range nas opções
+    // Se opts.target_range existe, usar sistema de intervalos em vez de target fixo
+    let s;
+    if (opts.target_range && typeof opts.target_range === 'object') {
+      // Sistema de intervalos: qualquer valor dentro do range = score máximo
+      s = scoreToleranceRange(value, opts.target_range, target, tol);
+      console.log(`[SCORING_RANGE] ${key}: valor=${value}, range=[${opts.target_range.min}, ${opts.target_range.max}], score=${s?.toFixed(3)}`);
+    } else {
+      // Sistema antigo: target fixo + tolerância
+      const tolMin = Number.isFinite(opts.tolMin) && opts.tolMin > 0 ? opts.tolMin : null;
+      const tolMax = Number.isFinite(opts.tolMax) && opts.tolMax > 0 ? opts.tolMax : null;
+      s = scoreTolerance(value, target, tol, !!opts.invert, tolMin, tolMax);
+    }
+    
     if (s == null) return;
+    
     // Determinar status (OK / BAIXO / ALTO) e severidade
     let status = 'OK';
     let severity = null;
-    const diff = value - target;
-    const effTolMin = tolMin || tol; const effTolMax = tolMax || tol;
-    if (!opts.invert) {
-      if (diff < -effTolMin) status = 'BAIXO'; else if (diff > effTolMax) status = 'ALTO';
+    let n = 0; // ratio de desvio
+    
+    if (opts.target_range) {
+      // 🎯 LÓGICA DE STATUS PARA RANGES
+      const { min, max } = opts.target_range;
+      if (value >= min && value <= max) {
+        status = 'OK';
+        n = 0;
+      } else {
+        const rangeWidth = max - min;
+        const tolerance = Number.isFinite(tol) ? tol : rangeWidth * 0.25;
+        
+        if (value < min) {
+          status = 'BAIXO';
+          n = (min - value) / tolerance;
+        } else {
+          status = 'ALTO';
+          n = (value - max) / tolerance;
+        }
+        
+        // Classificar severidade baseada na distância do range
+        if (n <= 1) severity = 'leve';
+        else if (n <= 2) severity = 'media';
+        else severity = 'alta';
+      }
     } else {
-      // invert: só faz sentido 'ALTO' se acima do target mais tolMax
-      if (diff > effTolMax) status = 'ALTO';
+      // 🔄 LÓGICA ANTIGA PARA TARGET FIXO
+      const diff = value - target;
+      const effTolMin = opts.tolMin || tol; 
+      const effTolMax = opts.tolMax || tol;
+      
+      if (!opts.invert) {
+        if (diff < -effTolMin) status = 'BAIXO'; 
+        else if (diff > effTolMax) status = 'ALTO';
+      } else {
+        if (diff > effTolMax) status = 'ALTO';
+      }
+      
+      if (status !== 'OK') {
+        const sideTol = diff > 0 ? effTolMax : effTolMin;
+        n = Math.abs(diff) / sideTol;
+        severity = n <= 1 ? 'leve' : (n <= 2 ? 'media' : 'alta');
+      }
     }
-    if (status !== 'OK') {
-      const sideTol = diff > 0 ? effTolMax : effTolMin;
-      const n = Math.abs(diff) / sideTol;
-      severity = n <= 1 ? 'leve' : (n <= 2 ? 'media' : 'alta');
-    }
-  const sideTol = diff > 0 ? effTolMax : effTolMin;
-  const n = status === 'OK' ? 0 : (sideTol>0 ? Math.abs(diff)/sideTol : Infinity);
-  perMetric.push({ category, key, value, target, tol, tol_min: effTolMin, tol_max: effTolMax, score: clamp01(s), status, severity, n: Number.isFinite(n)?parseFloat(n.toFixed(3)):null, diff: parseFloat((value-target).toFixed(3)) });
-  try { __caiarLog && __caiarLog('SCORING_METRIC', 'Metric avaliada', { key, value, target, tolMin: effTolMin, tolMax: effTolMax, status, severity, n }); } catch {}
+    
+    const effTolMin = opts.tolMin || tol; 
+    const effTolMax = opts.tolMax || tol;
+    const diff = parseFloat((value-target).toFixed(3));
+    
+    perMetric.push({ 
+      category, 
+      key, 
+      value, 
+      target, 
+      tol, 
+      tol_min: effTolMin, 
+      tol_max: effTolMax, 
+      score: clamp01(s), 
+      status, 
+      severity, 
+      n: Number.isFinite(n) ? parseFloat(n.toFixed(3)) : null, 
+      diff,
+      // 🆕 ADICIONAR INFORMAÇÃO DE RANGE PARA DEBUG
+      target_range: opts.target_range || null,
+      scoring_method: opts.target_range ? 'range' : 'fixed_target'
+    });
+    
+    try { __caiarLog && __caiarLog('SCORING_METRIC', 'Metric avaliada', { 
+      key, 
+      value, 
+      target, 
+      target_range: opts.target_range,
+      tolMin: effTolMin, 
+      tolMax: effTolMax, 
+      status, 
+      severity, 
+      n,
+      scoring_method: opts.target_range ? 'range' : 'fixed_target'
+    }); } catch {}
   }
   const lufsTarget = ref?.lufs_target ?? DEFAULT_TARGETS.lufsIntegrated.target;
   const lufsTol = ref?.tol_lufs ?? DEFAULT_TARGETS.lufsIntegrated.tol;
@@ -396,11 +546,34 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
       if (!mBand) continue;
       const val = Number.isFinite(mBand.rms_db) ? mBand.rms_db : null;
       if (val == null) continue;
-      if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
+      
+      // 🎯 NOVA LÓGICA: Suporte a target_range para bandas espectrais
+      // Prioridade: target_range > target_db (fallback)
+      if (refBand.target_range && typeof refBand.target_range === 'object' && 
+          Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
+        
+        // ✅ Sistema de intervalos: Score verde se dentro do range
+        const target = (refBand.target_range.min + refBand.target_range.max) / 2; // Centro do range para compatibilidade
+        const tol = Number.isFinite(refBand.tol_db) ? refBand.tol_db : Math.abs(refBand.target_range.max - refBand.target_range.min) * 0.25;
+        
+        addMetric('tonal', `band_${band}`, val, target, tol, { 
+          target_range: refBand.target_range,
+          tolMin: null, 
+          tolMax: null 
+        });
+        
+        console.log(`[SCORING_BAND_RANGE] ${band}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
+        
+      } else if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
+        
+        // 🔄 Sistema antigo: target_db fixo + tolerâncias
         const tolMin = Number.isFinite(refBand.tol_min) ? refBand.tol_min : (Number.isFinite(refBand.tol_db) ? refBand.tol_db : null);
         const tolMax = Number.isFinite(refBand.tol_max) ? refBand.tol_max : (Number.isFinite(refBand.tol_db) ? refBand.tol_db : null);
         const tolAvg = ((tolMin||0)+(tolMax||0))/2 || refBand.tol_db || 1;
+        
         addMetric('tonal', `band_${band}`, val, refBand.target_db, tolAvg, { tolMin, tolMax });
+        
+        console.log(`[SCORING_BAND_FIXED] ${band}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
       }
     }
   } else if (metrics.tonalBalance) {
@@ -661,19 +834,13 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   }); } catch {}
   
   } catch (eColor) {
-    console.error('[EQUAL_WEIGHT_V3] ❌ Erro no sistema unificado:', eColor);
-    console.error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', eColor.stack);
-    
-    // 🚨 FALLBACK DE EMERGÊNCIA: Score mínimo funcional (50%)
-    result.scorePct = 50;
-    result.method = 'emergency_equal_weight_v3';
-    result.scoringMethod = 'emergency_equal_weight_v3';
-    result.classification = 'Básico';
-    result._equalWeightError = eColor.message;
-    result.engineVersion = force.engineVersion || "3.0.0";
-    result.unifiedScoring = true;
-    
-    console.log('[EQUAL_WEIGHT_V3] 🚨 Usando fallback de emergência: 50%');
+    result._colorRatioError = eColor?.message || String(eColor);
+    result.scorePct = result.advancedScorePct;
+    result.method = 'advanced_fallback';
+    result.scoringMethod = 'advanced_fallback';
+    result.fallback_used = 'advanced';
+    result.classification = classify(result.scorePct);
+    try { __caiarLog('SCORING_COLOR_ERROR','Falha new equal weight -> fallback advanced', { error: eColor?.message, fallback_used: 'advanced' }); } catch {}
   }
   } else {
     // 🎯 NOVO SISTEMA EQUAL_WEIGHT_V3 ATIVADO!
@@ -724,19 +891,13 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
       }
       
     } catch (error) {
-      console.error('[EQUAL_WEIGHT_V3] ❌ Erro no sistema unificado:', error);
+      console.error('[EQUAL_WEIGHT_V3] ❌ Erro no novo sistema, fallback para advanced:', error);
       console.error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', error.stack);
-      
-      // 🚨 FALLBACK DE EMERGÊNCIA: Score mínimo funcional (50%)
-      result.scorePct = 50;
-      result.method = 'emergency_equal_weight_v3';
-      result.scoringMethod = 'emergency_equal_weight_v3';
-      result.classification = 'Básico';
+      result.scorePct = result.advancedScorePct;
+      result.method = 'advanced_fallback';
+      result.scoringMethod = 'advanced_fallback';
+      result.classification = classify(result.scorePct);
       result._equalWeightError = error.message;
-      result.engineVersion = force.engineVersion || "3.0.0";
-      result.unifiedScoring = true;
-      
-      console.log('[EQUAL_WEIGHT_V3] 🚨 Usando fallback de emergência: 50%');
     }
   }
   try { __caiarLog('SCORING_PENALTY_AGG','Aggregated penalties', { P_sum: result.penaltiesSummary.P_sum, P_crit: result.penaltiesSummary.P_crit, P_final: result.penaltiesSummary.P_final, advancedScore: result.advancedScorePct }); } catch {}
@@ -762,29 +923,249 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   return result;
 }
 
-function computeMixScore(technicalData = {}, reference = null) {
+// ============================================================================
+// SCORE ENGINE V3 INTEGRATION - TRUE PEAK GATE CRÍTICO
+// ============================================================================
+// O V3 traz gates críticos que DEVEM ser aplicados SEMPRE:
+// - TRUE PEAK > 0 dBTP = finalScore ≤ 35, classification = "Inaceitável"
+// - CLIPPING > 5% = finalScore ≤ 50
+// - DC_OFFSET > 5% = penalidade adicional
+// 
+// Como o V3 é async e o sistema atual é sync, aplicamos os GATES 
+// SINCRONAMENTE no resultado do sistema atual.
+// ============================================================================
+
+/**
+ * Aplica os gates críticos do V3 SINCRONAMENTE
+ * Esta função SEMPRE roda, independente de async/await
+ */
+function _applyV3GatesSynchronously(result, technicalData) {
+  if (!result || !technicalData) return result;
+  
+  const gates = [];
+  let finalScoreCap = 100;
+  let classificationOverride = null;
+  
+  // Extrair valores relevantes (suporta múltiplos formatos de campo)
+  const truePeak = technicalData.truePeakDbtp ?? technicalData.true_peak_dbtp ?? null;
+  const clipping = technicalData.clippingPct ?? technicalData.clipping_pct ?? 0;
+  const dcOffset = Math.abs(technicalData.dcOffset ?? technicalData.dc_offset ?? 0);
+  
+  // =========================================================================
+  // GATE CRÍTICO #1: TRUE PEAK > 0 dBTP (Clipping Digital)
+  // =========================================================================
+  if (truePeak !== null && truePeak > 0) {
+    gates.push({
+      type: 'TRUE_PEAK_CRITICAL',
+      reason: `True Peak ${truePeak.toFixed(2)} dBTP > 0 (clipping digital)`,
+      action: 'finalScore ≤ 35, classification = Inaceitável'
+    });
+    finalScoreCap = Math.min(finalScoreCap, 35);
+    classificationOverride = 'Inaceitável';
+    console.warn(`[V3_GATE] 🚨 TRUE PEAK CRÍTICO: ${truePeak.toFixed(2)} dBTP > 0 → Score capado em 35%`);
+  }
+  // TRUE PEAK muito próximo de 0 (-0.1 a 0) = warning
+  else if (truePeak !== null && truePeak > -0.1) {
+    gates.push({
+      type: 'TRUE_PEAK_WARNING',
+      reason: `True Peak ${truePeak.toFixed(2)} dBTP muito próximo de 0`,
+      action: 'finalScore ≤ 70'
+    });
+    finalScoreCap = Math.min(finalScoreCap, 70);
+    console.warn(`[V3_GATE] ⚠️ TRUE PEAK WARNING: ${truePeak.toFixed(2)} dBTP → Score capado em 70%`);
+  }
+  
+  // =========================================================================
+  // GATE #2: CLIPPING SEVERO (> 5%)
+  // =========================================================================
+  if (clipping > 5) {
+    gates.push({
+      type: 'CLIPPING_SEVERE',
+      reason: `Clipping ${clipping.toFixed(2)}% > 5%`,
+      action: 'finalScore ≤ 50'
+    });
+    finalScoreCap = Math.min(finalScoreCap, 50);
+    if (!classificationOverride) classificationOverride = 'Necessita Correções';
+    console.warn(`[V3_GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → Score capado em 50%`);
+  }
+  
+  // =========================================================================
+  // GATE #3: DC OFFSET ALTO (> 5%)
+  // =========================================================================
+  if (dcOffset > 0.05) {
+    gates.push({
+      type: 'DC_OFFSET_HIGH',
+      reason: `DC Offset ${(dcOffset * 100).toFixed(2)}% > 5%`,
+      action: 'penalidade -10 pontos'
+    });
+    // DC Offset aplica penalidade, não cap
+    console.warn(`[V3_GATE] ⚠️ DC OFFSET ALTO: ${(dcOffset * 100).toFixed(2)}% → Penalidade de 10 pontos`);
+  }
+  
+  // =========================================================================
+  // APLICAR GATES AO RESULTADO
+  // =========================================================================
+  const originalScore = result.scorePct;
+  let finalScore = result.scorePct;
+  
+  // Aplicar cap
+  if (finalScore > finalScoreCap) {
+    finalScore = finalScoreCap;
+  }
+  
+  // Aplicar penalidade de DC Offset
+  if (gates.some(g => g.type === 'DC_OFFSET_HIGH')) {
+    finalScore = Math.max(0, finalScore - 10);
+  }
+  
+  // Arredondar
+  finalScore = Math.round(finalScore * 10) / 10;
+  
+  // Determinar classificação
+  let classification = result.classification;
+  if (classificationOverride) {
+    classification = classificationOverride;
+  } else if (finalScore !== originalScore) {
+    // Reclassificar baseado no novo score
+    classification = _classifyWithGates(finalScore);
+  }
+  
+  // =========================================================================
+  // RETORNAR RESULTADO ENRIQUECIDO
+  // =========================================================================
+  return {
+    ...result,
+    scorePct: finalScore,
+    classification: classification,
+    
+    // Novos campos de diagnóstico V3
+    engineUsed: gates.length > 0 ? 'v3_gates_applied' : 'current_with_v3_check',
+    gatesTriggered: gates,
+    finalScoreCapApplied: finalScoreCap < 100 ? finalScoreCap : null,
+    originalScoreBeforeGates: originalScore !== finalScore ? originalScore : null,
+    
+    // Metadados
+    _v3GatesVersion: '3.0.1',
+    _v3GatesAppliedAt: new Date().toISOString()
+  };
+}
+
+/**
+ * Classifica score considerando os gates V3
+ */
+function _classifyWithGates(scorePct) {
+  if (scorePct >= 90) return 'Referência Mundial';
+  if (scorePct >= 75) return 'Pronto para Streaming';
+  if (scorePct >= 60) return 'Bom (ajustes recomendados)';
+  if (scorePct >= 40) return 'Necessita Correções';
+  return 'Inaceitável';
+}
+
+async function _tryComputeScoreV3(technicalData, reference, mode, genreId) {
+  // Verificar se V3 está disponível
+  if (typeof window === 'undefined' || !window.ScoreEngineV3) {
+    console.warn('[SCORE_V3] ScoreEngineV3 não disponível');
+    return null;
+  }
+  
+  try {
+    const v3Result = await window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
+    
+    if (v3Result && v3Result.method === 'v3' && Number.isFinite(v3Result.scorePct)) {
+      console.log('[SCORE_V3] ✅ Cálculo V3 bem-sucedido:', v3Result.scorePct);
+      
+      // Adaptar resultado V3 para formato compatível com sistema atual
+      return {
+        scorePct: v3Result.scorePct,
+        classification: v3Result.classification?.label || classify(v3Result.scorePct),
+        method: 'score_engine_v3',
+        scoreMode: 'v3',
+        engineUsed: 'v3_full',
+        v3Result: v3Result, // Dados completos do V3 para debugging
+        subscores: v3Result.subscores,
+        gatesApplied: v3Result.gatesApplied,
+        gatesTriggered: v3Result.gatesApplied, // Alias para compatibilidade
+        finalScoreCapApplied: v3Result.gatesApplied?.length > 0 ? 
+          Math.min(...v3Result.gatesApplied.map(g => g.actions?.final_cap || 100).filter(Boolean)) : null,
+        perMetric: [], // V3 usa subscores ao invés de perMetric
+        colorCounts: { green: 0, yellow: 0, red: 0, total: 0 }, // Compatibilidade
+        _note: `Score Engine V3 (mode=${v3Result.mode}, genre=${v3Result.genreId})`
+      };
+    }
+    
+    console.warn('[SCORE_V3] ⚠️ Resultado V3 inválido:', v3Result);
+    return null;
+  } catch (error) {
+    console.error('[SCORE_V3] ❌ Erro no cálculo V3:', error);
+    return null;
+  }
+}
+
+function computeMixScore(technicalData = {}, reference = null, options = {}) {
   console.log('[SCORING_ENTRY] 🎯 computeMixScore chamado com:', {
     metricas: Object.keys(technicalData || {}),
     hasReference: !!reference,
-    referenceKeys: reference ? Object.keys(reference) : null,
-    referenceSample: reference,
     timestamp: Date.now(),
-    technicalDataSample: technicalData,
-    engineVersion: "3.0.0"
+    technicalDataSample: technicalData
   });
   
-  // 🎯 VERIFICAÇÃO CRÍTICA DA REFERÊNCIA
-  if (reference) {
-    console.log('[SCORING_ENTRY] 📋 Referência recebida:', {
-      lufs_target: reference.lufs_target,
-      dr_target: reference.dr_target,
-      stereo_target: reference.stereo_target,
-      tol_lufs: reference.tol_lufs
+  // ============================================================================
+  // SCORE ENGINE V3 - ATIVO POR PADRÃO
+  // Para desativar: window.SCORE_ENGINE_VERSION = 'current'
+  // ============================================================================
+  const win = (typeof window !== 'undefined') ? window : {};
+  const scoreEngineVersion = win.SCORE_ENGINE_VERSION || options.engineVersion || 'v3';
+  const mode = options.mode || win.SCORE_MODE || 'streaming';
+  const genreId = options.genreId || reference?.genre_id || null;
+  
+  if (scoreEngineVersion === 'v3') {
+    console.log('[SCORING_ENTRY] 🚀 Score Engine V3 habilitado, tentando cálculo V3...');
+    
+    // V3 é async, então retornamos uma Promise que resolve para o resultado
+    // O sistema atual espera resultado síncrono, então fazemos fallback se V3 falhar
+    const v3Promise = _tryComputeScoreV3(technicalData, reference, mode, genreId);
+    
+    // Se o caller suporta async, retorna a promise
+    if (options.async === true) {
+      return v3Promise.then(v3Result => {
+        if (v3Result) return v3Result;
+        // Fallback para sistema atual COM GATES V3
+        console.log('[SCORING_ENTRY] ⚠️ V3 falhou, usando sistema atual com GATES V3');
+        const syncResult = _computeMixScoreSync(technicalData, reference);
+        return _applyV3GatesSynchronously(syncResult, technicalData);
+      });
+    }
+    
+    // Para compatibilidade síncrona: dispara V3 em background mas aplica GATES imediatamente
+    v3Promise.then(v3Result => {
+      if (v3Result && typeof window !== 'undefined') {
+        window.__LAST_V3_SCORE = v3Result;
+      }
     });
-  } else {
-    console.log('[SCORING_ENTRY] ⚠️ ATENÇÃO: Nenhuma referência fornecida!');
+    
+    console.log('[SCORING_ENTRY] ℹ️ Aplicando GATES V3 sincronamente ao resultado');
   }
   
+  // ============================================================================
+  // SISTEMA ATUAL + GATES V3 OBRIGATÓRIOS
+  // Mesmo que V3 completo seja async, os GATES críticos são aplicados SEMPRE
+  // ============================================================================
+  const syncResult = _computeMixScoreSync(technicalData, reference);
+  
+  // 🚨 CRÍTICO: SEMPRE aplicar gates V3 (TRUE PEAK, CLIPPING, DC OFFSET)
+  const finalResult = _applyV3GatesSynchronously(syncResult, technicalData);
+  
+  console.log('[SCORING_ENTRY] ✅ Resultado final com GATES V3:', {
+    originalScore: syncResult.scorePct,
+    finalScore: finalResult.scorePct,
+    gatesTriggered: finalResult.gatesTriggered?.map(g => g.type) || [],
+    classification: finalResult.classification
+  });
+  
+  return finalResult;
+}
+
+function _computeMixScoreSync(technicalData = {}, reference = null) {
   // 🚨 DIAGNÓSTICO CRÍTICO - Verificar se dados são válidos
   if (!technicalData || typeof technicalData !== 'object') {
     console.error('[SCORING_ENTRY] ❌ technicalData inválido:', technicalData);
@@ -792,38 +1173,38 @@ function computeMixScore(technicalData = {}, reference = null) {
       scorePct: 50,
       classification: 'Básico',
       method: 'emergency_fallback',
-      engineVersion: "3.0.0",
       error: 'invalid_technical_data'
     };
   }
   
-  // 🎯 UNIFICAÇÃO: FORÇAR SEMPRE EQUAL WEIGHT V3
-  // Remover toda a lógica de flags - sempre usar o novo sistema
-  console.log('[SCORING_ENTRY] 🔧 Engine Unificado - Sempre Equal Weight V3:', {
-    engineVersion: "3.0.0",
-    method: "equal_weight_v3_only",
-    timestamp: Date.now()
+  const AUDIT_MODE = (typeof process !== 'undefined' && process.env.AUDIT_MODE === '1') || (typeof window !== 'undefined' && window.AUDIT_MODE === true);
+  const win = (typeof window !== 'undefined') ? window : {};
+  const explicitV2 = ((typeof process !== 'undefined' && process.env.SCORING_V2 === '1') || win.SCORING_V2 === true);
+  const explicitLegacy = ((typeof process !== 'undefined' && process.env.SCORING_V2 === '0') || win.SCORING_V2 === false);
+  const AUTO_V2 = win.AUTO_SCORING_V2 !== false; // default true
+  const overrideAuditBypass = win.FORCE_SCORING_V2 === true; // permite V2 mesmo sem AUDIT_MODE
+  const SCORING_V2 = (!explicitLegacy) && (explicitV2 || (AUDIT_MODE && win.SCORING_V2 !== false) || overrideAuditBypass);
+  
+  console.log('[SCORING_ENTRY] 🔧 Flags calculadas:', {
+    AUDIT_MODE,
+    SCORING_V2,
+    AUTO_V2,
+    overrideAuditBypass,
+    explicitV2,
+    explicitLegacy
   });
   
-  // 🚨 GARANTIA: Sempre usar Equal Weight V3 - Sistema Unificado
+  // 🚨 GARANTIA: Sempre tenta _computeMixScoreInternal
   let result;
   try {
-    // UNIFICADO: Sempre chamar internal com Equal Weight V3 forçado
-    result = _computeMixScoreInternal(technicalData, reference, { 
-      AUDIT_MODE: true, 
-      SCORING_V2: true, 
-      AUTO_V2: true, 
-      USE_EQUAL_WEIGHT_V3: true,
-      engineVersion: "3.0.0"
-    });
-    console.log('[SCORING_ENTRY] ✅ Equal Weight V3 executado:', result);
+    result = _computeMixScoreInternal(technicalData, reference, { AUDIT_MODE, SCORING_V2, AUTO_V2, overrideAuditBypass });
+    console.log('[SCORING_ENTRY] ✅ _computeMixScoreInternal sucesso:', result);
   } catch (error) {
-    console.error('[SCORING_ENTRY] ❌ Erro em Equal Weight V3:', error);
+    console.error('[SCORING_ENTRY] ❌ Erro em _computeMixScoreInternal:', error);
     result = {
       scorePct: 50,
       classification: 'Básico',
       method: 'emergency_fallback',
-      engineVersion: "3.0.0",
       error: error.message
     };
   }
@@ -843,19 +1224,12 @@ function computeMixScore(technicalData = {}, reference = null) {
     result.scorePct = 50;
     result.classification = 'Básico';
     result.method = 'invalid_score_fallback';
-    result.engineVersion = "3.0.0";
   }
   
-  // 🎯 UNIFICAÇÃO: Garantir engineVersion em todos os resultados
-  result.engineVersion = "3.0.0";
-  result.unifiedScoring = true;
-  
-  console.log('[SCORING_ENTRY] 📊 Resultado final UNIFICADO:', {
+  console.log('[SCORING_ENTRY] 📊 Resultado final garantido:', {
     score: result.scorePct,
     method: result.method,
-    classification: result.classification,
-    engineVersion: result.engineVersion,
-    unifiedScoring: result.unifiedScoring
+    classification: result.classification
   });
   
   return result;
@@ -1081,8 +1455,43 @@ try {
 } catch {}
 
 if (typeof window !== 'undefined') { 
-  window.__MIX_SCORING_VERSION__ = '2.0.0-equal-weight-v3-FORCED'; 
-  console.log('🎯 NOVO SISTEMA CARREGADO - Versão:', window.__MIX_SCORING_VERSION__);
+  window.__MIX_SCORING_VERSION__ = '3.0.0-v3-integrated'; 
+  console.log('🎯 SCORE ENGINE CARREGADO - Versão:', window.__MIX_SCORING_VERSION__);
+  
+  // Helpers para ativar/desativar V3
+  window.enableScoreV3 = () => { 
+    window.SCORE_ENGINE_VERSION = 'v3'; 
+    console.log('✅ Score Engine V3 ATIVADO. Próximas análises usarão V3.');
+    console.log('ℹ️ Para desativar: window.disableScoreV3()');
+  };
+  window.disableScoreV3 = () => { 
+    window.SCORE_ENGINE_VERSION = 'current'; 
+    console.log('⚠️ Score Engine V3 DESATIVADO. Usando sistema legado.');
+  };
+  
+  // Helper para computar score V3 diretamente (async)
+  window.computeScoreV3 = async (technicalData, reference, mode, genreId) => {
+    if (!window.ScoreEngineV3) {
+      console.error('❌ ScoreEngineV3 não carregado. Certifique-se de incluir score-engine-v3.js');
+      return null;
+    }
+    return window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
+  };
+  
+  // Helper para comparar V3 vs atual
+  window.compareScoreV3 = async (technicalData, reference, mode, genreId) => {
+    const current = computeMixScore(technicalData, reference);
+    let v3 = null;
+    if (window.ScoreEngineV3) {
+      v3 = await window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
+    }
+    return {
+      current,
+      v3,
+      delta: v3 ? v3.scorePct - current.scorePct : null,
+      v3Available: !!v3
+    };
+  };
 }
 
 // Export das funções principais
