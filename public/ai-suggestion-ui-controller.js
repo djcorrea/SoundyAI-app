@@ -2508,7 +2508,7 @@ class AISuggestionUIController {
         }, 10);
         
         this.isFullModalOpen = true;
-        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
         
         // Atualizar estatísticas
         this.updateFullModalStats();
@@ -2528,7 +2528,7 @@ class AISuggestionUIController {
         }, 300);
         
         this.isFullModalOpen = false;
-        document.body.style.overflow = '';
+        document.body.classList.remove('modal-open');
         
         console.log('❌ [AI-UI] Modal full fechado');
     }
