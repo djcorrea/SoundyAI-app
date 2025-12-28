@@ -12,6 +12,9 @@ import {
   BAND_LABELS,
   FREQUENCY_RANGES
 } from '../utils/suggestion-text-builder.js';
+// 🎯 SSOT IMPORTS: Para recomputar comparisonResult quando ausente
+import { compareWithTargets } from '../core/compareWithTargets.js';
+import { resolveTargets } from '../core/resolveTargets.js';
 import { 
   classifyMetric, 
   classifyMetricWithRange, 
@@ -154,7 +157,59 @@ function computeRecommendedGain(rawDelta, options = {}) {
 }
 
 /**
- * 🎓 Classe Principal - Problems & Suggestions Analyzer V2
+ * � SSOT HELPER: Recomputa comparisonResult quando ausente ou incompleto
+ * 
+ * Esta função garante que o Motor 2 (Sugestões) NUNCA use fallbacks numéricos,
+ * sempre recomputando o resultado do Motor 1 (Tabela) quando necessário.
+ * 
+ * @param {Object} consolidatedData - Dados consolidados (metrics + genreTargets)
+ * @param {string} genre - Gênero para resolução de targets
+ * @param {string} mode - Modo de destino ('streaming' | 'pista')
+ * @returns {Object|null} - comparisonResult válido ou null se impossível
+ */
+function ensureComparisonResult(consolidatedData, genre = 'default', mode = 'pista') {
+  // Se já existe e é válido, retornar direto
+  if (consolidatedData?.comparisonResult?.rows?.length > 0) {
+    return consolidatedData.comparisonResult;
+  }
+  
+  // Verificar se temos os dados mínimos para recomputar
+  const metrics = consolidatedData?.metrics;
+  const genreTargets = consolidatedData?.genreTargets;
+  
+  if (!metrics || !genreTargets) {
+    // Impossível recomputar - dados insuficientes
+    return null;
+  }
+  
+  try {
+    // Resolver targets usando a mesma lógica do json-output.js
+    const resolvedTargets = resolveTargets(genre, mode, genreTargets);
+    
+    // Construir métricas no formato esperado por compareWithTargets
+    const metricsForComparison = {
+      lufsIntegrated: metrics.loudness?.value ?? metrics.lufs?.value ?? null,
+      truePeakDbtp: metrics.truePeak?.value ?? null,
+      dynamicRange: metrics.dr?.value ?? metrics.dynamicRange?.value ?? null,
+      stereoCorrelation: metrics.stereo?.value ?? metrics.stereoCorrelation?.value ?? null,
+      // Bandas (se disponíveis)
+      spectralBands: metrics.bands ? Object.fromEntries(
+        Object.entries(metrics.bands).map(([k, v]) => [k, { energy_db: v?.value ?? v }])
+      ) : null
+    };
+    
+    // Recomputar usando Motor 1
+    const result = compareWithTargets(metricsForComparison, resolvedTargets);
+    
+    return result;
+  } catch (error) {
+    // Falhou ao recomputar - retornar null (fail-safe)
+    return null;
+  }
+}
+
+/**
+ * �🎓 Classe Principal - Problems & Suggestions Analyzer V2
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
   /**
@@ -269,25 +324,55 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return null;
     }
     
-    // Normalizar chave para busca
+    // 🎯 SSOT: Mapa expandido de aliases para garantir key match
     const keyMap = {
+      // LUFS aliases
       'lufs': 'lufs',
       'loudness': 'lufs',
+      'lufsIntegrated': 'lufs',
+      'lufs_integrated': 'lufs',
+      'integrated': 'lufs',
+      
+      // TRUE PEAK aliases
       'truePeak': 'truePeak',
       'truepeak': 'truePeak',
       'true_peak': 'truePeak',
+      'tp': 'truePeak',
+      'truePeakDbtp': 'truePeak',
+      'true_peak_dbtp': 'truePeak',
+      
+      // DYNAMIC RANGE aliases
       'dr': 'dr',
       'dynamicRange': 'dr',
       'dynamic_range': 'dr',
+      'DR': 'dr',
+      
+      // LRA aliases
+      'lra': 'lra',
+      'loudnessRange': 'lra',
+      'loudness_range': 'lra',
+      'luRange': 'lra',
+      'lu_range': 'lra',
+      'LRA': 'lra',
+      
+      // STEREO aliases
       'stereo': 'stereo',
       'stereoCorrelation': 'stereo',
-      'stereo_correlation': 'stereo'
+      'stereo_correlation': 'stereo',
+      'correlation': 'stereo'
     };
     
     const normalizedKey = keyMap[metricKey] || metricKey;
     
-    // Buscar no rows
-    const row = comparisonResult.rows.find(r => r.key === normalizedKey);
+    // Buscar no rows - tentar key normalizada primeiro
+    let row = comparisonResult.rows.find(r => r.key === normalizedKey);
+    
+    // Se não encontrou, tentar busca case-insensitive como fallback
+    if (!row) {
+      const lowerKey = normalizedKey.toLowerCase();
+      row = comparisonResult.rows.find(r => r.key?.toLowerCase() === lowerKey);
+    }
+    
     if (!row) {
       return null;
     }
@@ -480,6 +565,19 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       
       const suggestions = [];
       const problems = [];
+      
+      // 🎯 SSOT: Garantir que comparisonResult exista ANTES de qualquer analyze*()
+      // Se ausente/incompleto, recomputar usando Motor 1 (compareWithTargets)
+      if (consolidatedData && (!consolidatedData.comparisonResult?.rows?.length)) {
+        const recomputed = ensureComparisonResult(
+          consolidatedData,
+          this._originalGenre || this.genre,
+          'pista' // modo default - pode ser passado como parâmetro no futuro
+        );
+        if (recomputed) {
+          consolidatedData.comparisonResult = recomputed;
+        }
+      }
       
       // ✅ REGRA ABSOLUTA: Passar APENAS consolidatedData (sem audioMetrics)
       // 🔊 ANÁLISE LUFS

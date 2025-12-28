@@ -495,7 +495,7 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
     });
     console.log('[ENRICHER-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
-    // ✅ PATCH RANGE-MIGRATION: Usar min/max quando disponíveis, senão calcular
+    // ✅ SSOT v2: Usar APENAS min/max oficiais - NUNCA calcular target±tolerance
     
     // LUFS
     if (targets.lufs) {
@@ -506,10 +506,8 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
         } else {
           prompt += `\n`;
         }
-      } else if (targets.lufs.target !== undefined) {
-        const tol = targets.lufs.tolerance || 1.0;
-        prompt += `- **LUFS**: ${targets.lufs.target.toFixed(1)} dB (range: ${(targets.lufs.target - tol).toFixed(1)} a ${(targets.lufs.target + tol).toFixed(1)} dB) [LEGACY]\n`;
       }
+      // 🔴 LEGACY REMOVIDO: Não enviar range calculado para IA
     }
     
     // TRUE PEAK
@@ -521,10 +519,8 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
         } else {
           prompt += `\n`;
         }
-      } else if (targets.truePeak.target !== undefined) {
-        const tol = targets.truePeak.tolerance || 0.3;
-        prompt += `- **True Peak**: ${targets.truePeak.target.toFixed(1)} dBTP (range: ${(targets.truePeak.target - tol).toFixed(1)} a ${(targets.truePeak.target + tol).toFixed(1)} dBTP) [LEGACY]\n`;
       }
+      // 🔴 LEGACY REMOVIDO: Não enviar range calculado para IA
     }
     
     // DYNAMIC RANGE
@@ -536,10 +532,8 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
         } else {
           prompt += `\n`;
         }
-      } else if (targets.dr.target !== undefined) {
-        const tol = targets.dr.tolerance || 2.0;
-        prompt += `- **Dynamic Range**: ${targets.dr.target.toFixed(1)} dB (range: ${(targets.dr.target - tol).toFixed(1)} a ${(targets.dr.target + tol).toFixed(1)} dB) [LEGACY]\n`;
       }
+      // 🔴 LEGACY REMOVIDO: Não enviar range calculado para IA
     }
     
     if (targets.bands) {
@@ -575,23 +569,8 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
             prompt += `    → Target ideal: ${data.target_db.toFixed(1)} dB\n`;
           }
           prompt += `    → Use o RANGE OFICIAL como referência principal.\n`;
-        } 
-        // FALLBACK LEGADO: Calcular com target ± tolerance
-        else if (data.target_db !== undefined) {
-          const tolerance = data.tolerance || data.tol_db || 2.0;
-          const min = data.target_db - tolerance;
-          const max = data.target_db + tolerance;
-          prompt += `  - **${label}**: Range ${min.toFixed(1)} a ${max.toFixed(1)} dB (calculado: target ± tolerance)\n`;
-          prompt += `    → Target central: ${data.target_db.toFixed(1)} dB\n`;
-          prompt += `    → ⚠️ LEGACY: Range calculado artificialmente, não oficial.\n`;
-        } else if (data.target !== undefined) {
-          const tolerance = data.tolerance || 2.0;
-          const min = data.target - tolerance;
-          const max = data.target + tolerance;
-          prompt += `  - **${label}**: Range ${min.toFixed(1)} a ${max.toFixed(1)} dB (calculado: target ± tolerance)\n`;
-          prompt += `    → Target central: ${data.target.toFixed(1)} dB\n`;
-          prompt += `    → ⚠️ LEGACY: Range calculado artificialmente, não oficial.\n`;
         }
+        // 🔴 LEGACY REMOVIDO: Não enviar ranges calculados (target±tolerance) para IA
       });
     }
     

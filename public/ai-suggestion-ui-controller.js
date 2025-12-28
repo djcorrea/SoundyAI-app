@@ -1796,57 +1796,45 @@ class AISuggestionUIController {
                 
                 // ════════════════════════════════════════════════════════════════
                 // HELPER LOCAL: Verificar se métrica está OK/ideal
+                // 🎯 SSOT v2: Confiar na severity/status do backend, NÃO recalcular
                 // ════════════════════════════════════════════════════════════════
-                const isMetricOK = (metric, genreTargets, analysis) => {
-                    if (!metric || !genreTargets) return false; // Manter se não puder validar
-                    
-                    const key = normalizeMetricKey(metric);
-                    const technicalData = analysis?.technicalData || {};
-                    
-                    // Métricas globais
-                    const globalMetrics = {
-                        'lufs': { value: technicalData.lufsIntegrated, target: genreTargets.lufs_target, tol: genreTargets.tol_lufs || 1.0 },
-                        'truepeak': { value: technicalData.truePeakDbtp, target: genreTargets.true_peak_target, tol: genreTargets.tol_true_peak || 0.5 },
-                        'dr': { value: technicalData.dynamicRange, target: genreTargets.dr_target, tol: genreTargets.tol_dr || 1.0 },
-                        'stereo': { value: technicalData.stereoCorrelation, target: genreTargets.stereo_target, tol: genreTargets.tol_stereo || 0.1 }
-                    };
-                    
-                    if (globalMetrics[key]) {
-                        const m = globalMetrics[key];
-                        if (!Number.isFinite(m.value) || m.target == null) return false;
-                        const diff = Math.abs(m.value - m.target);
-                        return diff <= m.tol;
-                    }
-                    
-                    // Bandas espectrais
-                    const bandTarget = getBandTarget(key, genreTargets);
-                    if (bandTarget) {
-                        const userBands = technicalData.spectral_balance || technicalData.bands || analysis?.bands || {};
-                        const bandData = userBands[key] || userBands[metric];
-                        const energyDb = typeof bandData === 'number' ? bandData : (bandData?.energy_db ?? bandData?.rms_db);
-                        
-                        if (!Number.isFinite(energyDb)) return false;
-                        
-                        const range = bandTarget.target_range || bandTarget.targetRange;
-                        if (range && typeof range.min === 'number' && typeof range.max === 'number') {
-                            return energyDb >= range.min && energyDb <= range.max;
+                const isMetricOK = (metric, genreTargets, analysis, suggestion) => {
+                    // 🎯 SSOT: Prioridade 1 - Usar severity do backend (mais confiável)
+                    if (suggestion) {
+                        const severity = suggestion.severity?.level || suggestion.severity || suggestion.severityLevel;
+                        if (severity === 'ok' || severity === 'OK' || severity === 'ideal') {
+                            return true;
                         }
-                        
-                        if (typeof bandTarget.target_db === 'number') {
-                            const tol = bandTarget.tol_db ?? 2.0;
-                            return Math.abs(energyDb - bandTarget.target_db) <= tol;
+                        // Se tem severity explícita que não é OK, manter a sugestão
+                        if (severity && severity !== 'ok' && severity !== 'OK') {
+                            return false;
                         }
                     }
                     
-                    return false; // Não conseguiu validar = manter sugestão
+                    // 🎯 SSOT: Prioridade 2 - Usar comparisonResult se disponível
+                    const comparisonResult = analysis?.data?.comparisonResult || analysis?.comparisonResult;
+                    if (comparisonResult?.rows) {
+                        const key = normalizeMetricKey(metric);
+                        const row = comparisonResult.rows.find(r => 
+                            normalizeMetricKey(r.key) === key || 
+                            normalizeMetricKey(r.metric) === key
+                        );
+                        if (row) {
+                            return row.severity === 'OK';
+                        }
+                    }
+                    
+                    // Fallback: Não conseguiu validar = manter sugestão por segurança
+                    return false;
                 };
                 
                 // ════════════════════════════════════════════════════════════════
                 // FILTRAR: Remover apenas sugestões que estão OK/ideal
+                // 🎯 SSOT v2: Passar a sugestão para usar severity do backend
                 // ════════════════════════════════════════════════════════════════
                 const filteredSuggestions = originalSuggestions.filter(suggestion => {
                     const metric = suggestion.metric || suggestion.metricKey || suggestion.type || suggestion.key;
-                    const isOK = isMetricOK(metric, genreTargets, analysis);
+                    const isOK = isMetricOK(metric, genreTargets, analysis, suggestion);
                     
                     if (isOK) {
                         console.log(`[MODAL_VS_TABLE] ✅ ${metric}: REMOVIDO (dentro do padrão)`);
