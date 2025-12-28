@@ -152,11 +152,24 @@ export function buildMetricSuggestion({
         break;
         
       case 'truePeak':
-        if (value >= 0) {
+        // 🎯 SSOT: Usar valores do comparisonResult para consistência com tabela
+        const hardCap = 0.0; // Limite físico absoluto
+        const reductionToHardCap = value - hardCap; // Quanto reduzir para eliminar clipping
+        const reductionToTarget = value - target; // Quanto reduzir para atingir o alvo do gênero
+        
+        if (value > hardCap) {
+          // CLIPPING: valor acima de 0.0 dBTP
           action += `🔴 CRÍTICO: True Peak em ${valueStr} dBTP - CLIPPING DIGITAL!\n`;
-          action += `- O limite máximo absoluto é 0.0 dBTP.\n`;
-          action += `- Reduza imediatamente o limiter ou o gain master em pelo menos ${excessStr} dB.\n`;
-          action += `- O target para este estilo é ${targetStr} dBTP.`;
+          action += `- Reduza pelo menos ${reductionToHardCap.toFixed(1)} dB para eliminar o clipping (chegar a 0.0 dBTP).\n`;
+          if (target < hardCap) {
+            action += `- Para atingir o alvo do estilo (${targetStr} dBTP), reduza ${reductionToTarget.toFixed(1)} dB.\n`;
+          }
+          action += `- O limite máximo absoluto é 0.0 dBTP. Qualquer valor acima causa distorção digital.`;
+        } else if (value > rangeMax) {
+          // Acima do range mas sem clipping
+          action += `⚠️ True Peak ${excessStr} dB acima do máximo (${maxStr} dBTP).\n`;
+          action += `- Reduza o limiter em ${excessStr} dB para ficar dentro da faixa ideal.\n`;
+          action += `- O alvo recomendado para este estilo é ${targetStr} dBTP.`;
         } else {
           action += `⚠️ True Peak ${excessStr} dB acima do máximo (${maxStr} dBTP).\n`;
           action += `- Reduza o limiter para chegar próximo de ${targetStr} dBTP.`;
