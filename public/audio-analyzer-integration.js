@@ -25129,20 +25129,20 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     }
 }
 
-// 📄 GERAR RELATÓRIO PDF COMPARATIVO PARA MODO REFERÊNCIA
+// 📄 GERAR RELATÓRIO PDF PREMIUM PARA MODO REFERÊNCIA (2 PÁGINAS FIXAS)
 async function generateReferenceReportPDF() {
-    console.log('[REF-PDF] 🚀 Iniciando geração de PDF comparativo de referência...');
+    console.log('[REF-PDF] 🚀 Iniciando geração de PDF Premium (2 páginas fixas)...');
     
     // Verificar dependências
-    if (typeof window.jspdf === 'undefined') {
+    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
         showTemporaryFeedback('⚙️ Carregando bibliotecas...');
-        console.warn('[REF-PDF] ⚠️ Aguardando carregamento de jsPDF...');
+        console.warn('[REF-PDF] ⚠️ Aguardando carregamento de jsPDF/html2canvas...');
         setTimeout(() => generateReferenceReportPDF(), 1000);
         return;
     }
     
     try {
-        showTemporaryFeedback('⚙️ Gerando relatório de comparação...');
+        showTemporaryFeedback('⚙️ Gerando relatório premium...');
         
         // 🎯 OBTER DADOS DAS DUAS FAIXAS
         const store = window.SoundyAI_Store || {};
@@ -25158,6 +25158,10 @@ async function generateReferenceReportPDF() {
             return;
         }
         
+        // 🎯 OBTER SUGESTÕES DO REFERENCE MODE
+        const abSuggestions = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA || [];
+        console.log('[REF-PDF] 📊 Sugestões carregadas:', abSuggestions.length);
+        
         // Helper para remover extensão
         const removeExtension = (filename) => {
             if (!filename) return 'Faixa';
@@ -25168,12 +25172,12 @@ async function generateReferenceReportPDF() {
         const trackAName = removeExtension(
             firstAnalysis.metadata?.fileName || 
             firstAnalysis.fileName || 
-            'Faixa 1'
+            'Faixa Analisada'
         );
         const trackBName = removeExtension(
             secondAnalysis.metadata?.fileName || 
             secondAnalysis.fileName || 
-            'Faixa 2'
+            'Faixa Referência'
         );
         
         console.log('[REF-PDF] 📊 Faixas:', { trackAName, trackBName });
@@ -25188,192 +25192,368 @@ async function generateReferenceReportPDF() {
             return Number(v).toFixed(d);
         };
         
-        // Calcular diferenças percentuais
-        const calcDiff = (a, b) => {
-            if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return '—';
-            const diff = ((a - b) / Math.abs(b)) * 100;
-            return (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
+        // Calcular diferenças
+        const calcDelta = (a, b) => {
+            if (!Number.isFinite(a) || !Number.isFinite(b)) return { diff: '—', severity: 'OK' };
+            const diff = a - b;
+            const absDiff = Math.abs(diff);
+            let severity = 'OK';
+            if (absDiff >= 3) severity = 'CRÍTICA';
+            else if (absDiff >= 2) severity = 'ALTA';
+            else if (absDiff >= 1) severity = 'ATENÇÃO';
+            return { diff: (diff > 0 ? '+' : '') + diff.toFixed(1), severity };
         };
         
-        // Métricas principais
-        const metrics = [
-            { label: 'LUFS Integrado', valueA: techA.lufsIntegrated || techA.lufs_integrated, valueB: techB.lufsIntegrated || techB.lufs_integrated, unit: ' LUFS' },
-            { label: 'True Peak', valueA: techA.truePeakDbtp || techA.true_peak_dbtp, valueB: techB.truePeakDbtp || techB.true_peak_dbtp, unit: ' dBTP' },
-            { label: 'Dynamic Range', valueA: techA.dynamicRange || techA.dynamic_range, valueB: techB.dynamicRange || techB.dynamic_range, unit: ' dB' },
-            { label: 'LRA', valueA: techA.lra, valueB: techB.lra, unit: ' LU' },
-            { label: 'RMS', valueA: techA.avgLoudness || techA.rms, valueB: techB.avgLoudness || techB.rms, unit: ' dB' },
-            { label: 'Stereo Correlation', valueA: techA.stereoCorrelation || techA.stereo_correlation, valueB: techB.stereoCorrelation || techB.stereo_correlation, unit: '' }
-        ];
+        const getSeverityColor = (sev) => {
+            if (sev === 'CRÍTICA') return '#ff4444';
+            if (sev === 'ALTA') return '#ff9800';
+            if (sev === 'ATENÇÃO') return '#ffc107';
+            return '#52f7ad';
+        };
         
-        // Bandas espectrais
+        // Métricas principais com severidade
+        const metrics = [
+            { 
+                label: 'LUFS Integrado', 
+                valueA: techA.lufsIntegrated || techA.lufs_integrated, 
+                valueB: techB.lufsIntegrated || techB.lufs_integrated, 
+                unit: ' LUFS',
+                action: 'Ajustar loudness'
+            },
+            { 
+                label: 'True Peak', 
+                valueA: techA.truePeakDbtp || techA.true_peak_dbtp, 
+                valueB: techB.truePeakDbtp || techB.true_peak_dbtp, 
+                unit: ' dBTP',
+                action: 'Ajustar limitação'
+            },
+            { 
+                label: 'Dynamic Range', 
+                valueA: techA.dynamicRange || techA.dynamic_range, 
+                valueB: techB.dynamicRange || techB.dynamic_range, 
+                unit: ' dB',
+                action: 'Ajustar compressão'
+            },
+            { 
+                label: 'LRA', 
+                valueA: techA.lra, 
+                valueB: techB.lra, 
+                unit: ' LU',
+                action: 'Controlar dinâmica'
+            },
+            { 
+                label: 'Stereo Correlation', 
+                valueA: techA.stereoCorrelation || techA.stereo_correlation, 
+                valueB: techB.stereoCorrelation || techB.stereo_correlation, 
+                unit: '',
+                action: 'Ajustar imagem estéreo'
+            }
+        ].map(m => {
+            const delta = calcDelta(m.valueA, m.valueB);
+            return { ...m, delta: delta.diff, severity: delta.severity };
+        });
+        
+        // Bandas espectrais com severidade
         const bandsA = techA.spectral_balance || {};
         const bandsB = techB.spectral_balance || {};
-        const bandNames = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-        const bandLabels = {
-            sub: 'Sub (20-60Hz)',
-            bass: 'Bass (60-150Hz)',
-            lowMid: 'Low-Mid (150-500Hz)',
-            mid: 'Mid (500-2kHz)',
-            highMid: 'High-Mid (2-5kHz)',
-            presence: 'Presence (5-10kHz)',
-            air: 'Air (10-20kHz)'
-        };
-        
-        // Calcular principais diferenças
-        const mainDifferences = [];
-        metrics.forEach(m => {
-            if (Number.isFinite(m.valueA) && Number.isFinite(m.valueB)) {
-                const diffPercent = Math.abs(((m.valueA - m.valueB) / Math.abs(m.valueB)) * 100);
-                if (diffPercent > 10) {
-                    mainDifferences.push(`${m.label}: ${nf(m.valueA)}${m.unit} vs ${nf(m.valueB)}${m.unit} (${diffPercent > 0 ? 'Δ ' : ''}${nf(diffPercent, 1)}%)`);
-                }
-            }
+        const bandsList = [
+            { key: 'sub', label: 'Sub Bass', range: '20-60Hz', icon: '🔊' },
+            { key: 'low_bass', label: 'Bass', range: '60-120Hz', icon: '🎸' },
+            { key: 'upper_bass', label: 'Upper Bass', range: '120-250Hz', icon: '🎸' },
+            { key: 'low_mid', label: 'Low-Mid', range: '250-500Hz', icon: '🎹' },
+            { key: 'mid', label: 'Mid', range: '500-2kHz', icon: '🎤' },
+            { key: 'high_mid', label: 'High-Mid', range: '2-5kHz', icon: '✨' },
+            { key: 'presence', label: 'Presence', range: '5-10kHz', icon: '🔔' },
+            { key: 'air', label: 'Air/Brilho', range: '10-20kHz', icon: '💫' }
+        ].map(b => {
+            const valA = bandsA[b.key]?.energy_db ?? bandsA[b.key]?.rms_db ?? bandsA[b.key];
+            const valB = bandsB[b.key]?.energy_db ?? bandsB[b.key]?.rms_db ?? bandsB[b.key];
+            const delta = calcDelta(valA, valB);
+            return { 
+                ...b, 
+                valueA: valA, 
+                valueB: valB, 
+                delta: delta.diff, 
+                severity: delta.severity,
+                action: delta.severity === 'OK' ? 'Dentro do padrão' : `Ajustar ${delta.diff} dB`
+            };
         });
+        
+        // Calcular score geral (simplificado)
+        const allItems = [...metrics, ...bandsList];
+        const okCount = allItems.filter(i => i.severity === 'OK').length;
+        const score = Math.round((okCount / allItems.length) * 100);
+        let scoreLabel = '🔧 Necessita Ajustes';
+        if (score >= 90) scoreLabel = '🏆 Excelente';
+        else if (score >= 75) scoreLabel = '⭐ Ótimo';
+        else if (score >= 60) scoreLabel = '👍 Bom';
+        
+        // Top 3 problemas e top 3 ok
+        const problems = allItems.filter(i => i.severity !== 'OK').sort((a, b) => {
+            const order = { 'CRÍTICA': 0, 'ALTA': 1, 'ATENÇÃO': 2 };
+            return order[a.severity] - order[b.severity];
+        });
+        const topProblems = problems.slice(0, 3);
+        const okItems = allItems.filter(i => i.severity === 'OK').slice(0, 3);
         
         // Data e hora
         const date = new Date().toLocaleDateString('pt-BR');
         const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         
-        // 🎨 GERAR HTML DO RELATÓRIO (reaproveitando tema do gênero)
-        const reportHTML = `
-<div id="ref-report-pdf-container" style="background: #0B0C14; width: 794px; min-height: 1123px; font-family: 'Inter', system-ui, sans-serif; color: #e4e4e7;">
-    <div class="pdf-section-reference" style="padding: 40px; min-height: 1123px; box-sizing: border-box;">
-        <!-- Cabeçalho -->
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 28px; margin: 0; background: linear-gradient(135deg, #52f7ad, #6FEBEF); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700;">
-                SOUNDY<span style="font-weight: 400;">AI</span>
-            </h1>
-            <h2 style="font-size: 18px; margin: 10px 0 5px 0; color: #a1a1aa;">Relatório de Comparação (Referência)</h2>
-            <p style="font-size: 12px; color: #71717a; margin: 0;">${date} às ${time}</p>
+        // 🎨 GERAR HTML PÁGINA 1: RESUMO & COMPARAÇÃO
+        const page1HTML = `
+<div class="pdf-page-1" style="width: 794px; height: 1123px; background: #0a0f1a; color: #e0e6f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 2px solid rgba(139, 92, 246, 0.3);">
+        <div>
+            <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #8B5CF6, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">SoundyAI</h1>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #9ca3af;">Relatório • Modo Referência</p>
         </div>
-        
-        <!-- Nomes das Faixas -->
-        <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 25px;">
-            <div style="flex: 1; background: rgba(82, 247, 173, 0.1); border: 1px solid rgba(82, 247, 173, 0.3); border-radius: 12px; padding: 15px; text-align: center;">
-                <div style="font-size: 11px; color: #52f7ad; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">FAIXA 1 (BASE)</div>
-                <div style="font-size: 16px; font-weight: 600; color: #fff;">${trackAName}</div>
-            </div>
-            <div style="flex: 1; background: rgba(111, 235, 239, 0.1); border: 1px solid rgba(111, 235, 239, 0.3); border-radius: 12px; padding: 15px; text-align: center;">
-                <div style="font-size: 11px; color: #6FEBEF; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;">FAIXA 2 (REFERÊNCIA)</div>
-                <div style="font-size: 16px; font-weight: 600; color: #fff;">${trackBName}</div>
-            </div>
-        </div>
-        
-        <!-- Principais Diferenças -->
-        ${mainDifferences.length > 0 ? `
-        <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px; padding: 15px; margin-bottom: 25px;">
-            <div style="font-size: 13px; font-weight: 600; color: #ffc107; margin-bottom: 10px;">⚡ PRINCIPAIS DIFERENÇAS</div>
-            <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #e4e4e7; line-height: 1.8;">
-                ${mainDifferences.slice(0, 5).map(d => `<li>${d}</li>`).join('')}
-            </ul>
-        </div>
-        ` : ''}
-        
-        <!-- Tabela de Métricas -->
-        <div style="margin-bottom: 25px;">
-            <div style="font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">📊 MÉTRICAS TÉCNICAS</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead>
-                    <tr style="background: rgba(82, 247, 173, 0.1);">
-                        <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #a1a1aa;">Métrica</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #52f7ad;">${trackAName}</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #6FEBEF;">${trackBName}</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffc107;">Diferença</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${metrics.map(m => `
-                    <tr>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e4e4e7;">${m.label}</td>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(m.valueA)}${m.unit}</td>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(m.valueB)}${m.unit}</td>
-                        <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #ffc107;">${calcDiff(m.valueA, m.valueB)}</td>
-                    </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Bandas Espectrais -->
-        <div style="margin-bottom: 25px;">
-            <div style="font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">🎛️ BALANÇO ESPECTRAL</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead>
-                    <tr style="background: rgba(111, 235, 239, 0.1);">
-                        <th style="padding: 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #a1a1aa;">Banda</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #52f7ad;">${trackAName}</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #6FEBEF;">${trackBName}</th>
-                        <th style="padding: 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #ffc107;">Diferença</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${bandNames.map(band => {
-                        const valA = bandsA[band]?.percentage ?? bandsA[band]?.value ?? bandsA[band];
-                        const valB = bandsB[band]?.percentage ?? bandsB[band]?.value ?? bandsB[band];
-                        return `
-                        <tr>
-                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); color: #e4e4e7;">${bandLabels[band] || band}</td>
-                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(valA, 1)}%</td>
-                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #fff;">${nf(valB, 1)}%</td>
-                            <td style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center; color: #ffc107;">${calcDiff(valA, valB)}</td>
-                        </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Rodapé -->
-        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; font-size: 10px; color: #71717a; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
-            Gerado por SoundyAI • soundy.ai • ${date}
+        <div style="text-align: right;">
+            <p style="margin: 0; font-size: 14px; color: #e0e6f0;">${date}</p>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: #9ca3af;">${time}</p>
         </div>
     </div>
+    
+    <!-- Score Hero -->
+    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 style="margin: 0; font-size: 56px; font-weight: 700; color: white;">${score}<span style="font-size: 32px; opacity: 0.8;">/100</span></h2>
+                <p style="margin: 8px 0 0 0; font-size: 18px; color: rgba(255,255,255,0.95);">${scoreLabel}</p>
+            </div>
+            <div style="font-size: 64px;">🎵</div>
+        </div>
+    </div>
+    
+    <!-- Principais Problemas & Pontos OK -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+        <div style="background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 10px; padding: 15px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #ff4444;">⚠️ Principais Problemas</h3>
+            <ul style="margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.6; color: #e0e6f0;">
+                ${topProblems.map(p => `<li>${p.label}: ${p.delta}</li>`).join('') || '<li>Nenhum problema crítico</li>'}
+            </ul>
+        </div>
+        <div style="background: rgba(82, 247, 173, 0.1); border: 1px solid rgba(82, 247, 173, 0.3); border-radius: 10px; padding: 15px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #52f7ad;">✅ Pontos OK</h3>
+            <ul style="margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.6; color: #e0e6f0;">
+                ${okItems.map(i => `<li>${i.label}</li>`).join('') || '<li>—</li>'}
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Comparação -->
+    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #8B5CF6;">🎧 Comparação</h3>
+        <div style="display: flex; gap: 15px; font-size: 12px;">
+            <div style="flex: 1; background: rgba(82, 247, 173, 0.05); border-radius: 8px; padding: 10px;">
+                <p style="margin: 0; font-size: 10px; color: #52f7ad; text-transform: uppercase;">Faixa A (Analisada)</p>
+                <p style="margin: 5px 0 0 0; font-weight: 600; color: #fff;">${trackAName}</p>
+            </div>
+            <div style="flex: 1; background: rgba(111, 235, 239, 0.05); border-radius: 8px; padding: 10px;">
+                <p style="margin: 0; font-size: 10px; color: #6FEBEF; text-transform: uppercase;">Faixa B (Referência)</p>
+                <p style="margin: 5px 0 0 0; font-weight: 600; color: #fff;">${trackBName}</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela Completa: Métricas + Bandas -->
+    <div style="margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #8B5CF6;">📊 Métricas & Bandas</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+            <thead>
+                <tr style="background: rgba(139, 92, 246, 0.1);">
+                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Métrica</th>
+                    <th style="padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Valor</th>
+                    <th style="padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Alvo</th>
+                    <th style="padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Diferença</th>
+                    <th style="padding: 8px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Severidade</th>
+                    <th style="padding: 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); color: #9ca3af;">Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Métricas -->
+                ${metrics.map(m => `
+                <tr>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e6f0;">${m.label}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #fff;">${nf(m.valueA)}${m.unit}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #fff;">${nf(m.valueB)}${m.unit}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #ffc107;">${m.delta}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center;">
+                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; background: ${getSeverityColor(m.severity)}22; color: ${getSeverityColor(m.severity)};">${m.severity}</span>
+                    </td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #9ca3af; font-size: 9px;">${m.action}</td>
+                </tr>
+                `).join('')}
+                <!-- Bandas -->
+                ${bandsList.map(b => `
+                <tr>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #e0e6f0;">${b.icon} ${b.label} <span style="font-size: 8px; color: #6b7280;">${b.range}</span></td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #fff;">${nf(b.valueA, 1)} dB</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #fff;">${nf(b.valueB, 1)} dB</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center; color: #ffc107;">${b.delta}</td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); text-align: center;">
+                        <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 600; background: ${getSeverityColor(b.severity)}22; color: ${getSeverityColor(b.severity)};">${b.severity}</span>
+                    </td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.03); color: #9ca3af; font-size: 9px;">${b.action}</td>
+                </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Rodapé Página 1 -->
+    <div style="position: absolute; bottom: 25px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="margin: 0; font-size: 11px; color: #8B5CF6; font-weight: 600;">SoundyAI</p>
+        <p style="margin: 3px 0 0 0; font-size: 9px; color: #6b7280;">Página 1/2 | Gerado automaticamente em ${date}</p>
+    </div>
+    
 </div>
         `;
         
-        // 🎯 RENDERIZAR E CAPTURAR
+        // 🎨 GERAR HTML PÁGINA 2: PLANO DE CORREÇÃO
+        const criticalItems = allItems.filter(i => i.severity === 'CRÍTICA');
+        const highItems = allItems.filter(i => i.severity === 'ALTA');
+        const warningItems = allItems.filter(i => i.severity === 'ATENÇÃO');
+        const okItemsAll = allItems.filter(i => i.severity === 'OK');
+        
+        const renderSuggestionCard = (item, index) => `
+        <div style="background: rgba(255,255,255,0.03); border-left: 3px solid ${getSeverityColor(item.severity)}; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <h4 style="margin: 0; font-size: 12px; font-weight: 600; color: #fff;">${item.label}${item.range ? ` (${item.range})` : ''}</h4>
+                <span style="padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 600; background: ${getSeverityColor(item.severity)}22; color: ${getSeverityColor(item.severity)};">${item.severity}</span>
+            </div>
+            <p style="margin: 0 0 6px 0; font-size: 10px; color: #9ca3af;"><strong>Problema:</strong> Diferença de ${item.delta} detectada</p>
+            <p style="margin: 0 0 6px 0; font-size: 10px; color: #9ca3af;"><strong>Meta:</strong> ${nf(item.valueB)}${item.unit || ' dB'}</p>
+            <p style="margin: 0 0 6px 0; font-size: 10px; color: #52f7ad;"><strong>Ação:</strong> ${item.action}</p>
+            <p style="margin: 0; font-size: 9px; color: #6b7280;"><strong>Impacto:</strong> ${item.severity === 'CRÍTICA' ? 'Essencial para qualidade profissional' : item.severity === 'ALTA' ? 'Melhora significativa esperada' : 'Refinamento para maior proximidade'}</p>
+        </div>
+        `;
+        
+        const page2HTML = `
+<div class="pdf-page-2" style="width: 794px; height: 1123px; background: #0a0f1a; color: #e0e6f0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid rgba(139, 92, 246, 0.3);">
+        <div>
+            <h1 style="margin: 0; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #8B5CF6, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">SoundyAI</h1>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #9ca3af;">Plano de Correção</p>
+        </div>
+        <div style="text-align: right;">
+            <p style="margin: 0; font-size: 12px; color: #e0e6f0;">${trackAName}</p>
+            <p style="margin: 3px 0 0 0; font-size: 10px; color: #6b7280;">Página 2/2</p>
+        </div>
+    </div>
+    
+    <!-- Título -->
+    <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #8B5CF6;">🛠️ Plano de Correção (Passo a Passo)</h2>
+    
+    <!-- Seção CRÍTICAS -->
+    ${criticalItems.length > 0 ? `
+    <div style="margin-bottom: 15px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #ff4444;">🚨 CRÍTICAS (Corrigir Primeiro)</h3>
+        ${criticalItems.map((item, i) => renderSuggestionCard(item, i)).join('')}
+    </div>
+    ` : ''}
+    
+    <!-- Seção ALTAS -->
+    ${highItems.length > 0 ? `
+    <div style="margin-bottom: 15px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #ff9800;">⚠️ ALTAS</h3>
+        ${highItems.map((item, i) => renderSuggestionCard(item, i)).join('')}
+    </div>
+    ` : ''}
+    
+    <!-- Seção ATENÇÃO -->
+    ${warningItems.length > 0 ? `
+    <div style="margin-bottom: 15px;">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 600; color: #ffc107;">⚡ ATENÇÃO</h3>
+        ${warningItems.map((item, i) => renderSuggestionCard(item, i)).join('')}
+    </div>
+    ` : ''}
+    
+    <!-- Seção OK (resumida) -->
+    ${okItemsAll.length > 0 ? `
+    <div style="background: rgba(82, 247, 173, 0.05); border: 1px solid rgba(82, 247, 173, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #52f7ad;">✅ Itens Dentro do Padrão</h3>
+        <p style="margin: 0; font-size: 10px; color: #9ca3af; line-height: 1.5;">${okItemsAll.map(i => i.label).join(' • ')}</p>
+    </div>
+    ` : ''}
+    
+    <!-- Rodapé Página 2 -->
+    <div style="position: absolute; bottom: 25px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="margin: 0; font-size: 11px; color: #8B5CF6; font-weight: 600;">SoundyAI © 2025</p>
+        <p style="margin: 3px 0 0 0; font-size: 9px; color: #6b7280;">Inteligência Artificial para Produtores Musicais | soundy.ai</p>
+    </div>
+    
+</div>
+        `;
+        
+        // 🎯 RENDERIZAR E CAPTURAR PÁGINAS SEPARADAMENTE
         const container = document.getElementById('pdf-report-template');
         if (!container) {
             throw new Error('Container #pdf-report-template não encontrado');
         }
         
-        container.innerHTML = reportHTML;
-        const elemento = container.firstElementChild;
+        // Função helper para capturar uma página
+        async function capturePage(html, pageName) {
+            container.innerHTML = html;
+            const elemento = container.firstElementChild;
+            
+            // Forçar visibilidade temporária
+            container.style.display = 'block';
+            container.style.visibility = 'visible';
+            container.style.position = 'fixed';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.zIndex = '-1';
+            
+            await new Promise(r => setTimeout(r, 300));
+            
+            console.log(`[REF-PDF] 📸 Capturando ${pageName}...`);
+            
+            // Capturar com html2canvas
+            const canvas = await html2canvas(elemento, {
+                width: 794,
+                height: 1123,
+                windowWidth: 794,
+                windowHeight: 1123,
+                backgroundColor: '#0a0f1a',
+                useCORS: true,
+                scale: 2
+            });
+            
+            console.log(`[REF-PDF] ✅ ${pageName} capturada:`, canvas.width, 'x', canvas.height);
+            
+            return canvas;
+        }
         
-        // Forçar visibilidade temporária
-        container.style.display = 'block';
-        container.style.visibility = 'visible';
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.zIndex = '-1';
+        // Capturar Página 1
+        const canvas1 = await capturePage(page1HTML, 'Página 1');
         
-        await new Promise(r => setTimeout(r, 300));
+        // Capturar Página 2
+        const canvas2 = await capturePage(page2HTML, 'Página 2');
         
-        // Capturar com html2canvas
-        const canvas = await html2canvas(elemento, {
-            width: 794,
-            height: 1123,
-            windowWidth: 794,
-            windowHeight: 1123,
-            backgroundColor: '#0B0C14',
-            useCORS: true,
-            scale: 2
-        });
-        
-        // Gerar PDF
+        // Gerar PDF com 2 páginas
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'p' });
         
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+        // Adicionar Página 1
+        const imgData1 = canvas1.toDataURL('image/png');
+        pdf.addImage(imgData1, 'PNG', 0, 0, pageWidth, pageHeight);
+        
+        // Adicionar Página 2
+        pdf.addPage();
+        const imgData2 = canvas2.toDataURL('image/png');
+        pdf.addImage(imgData2, 'PNG', 0, 0, pageWidth, pageHeight);
         
         // Sanitizar nomes para o arquivo
         const sanitize = (str) => (str || 'faixa').replace(/[^a-z0-9]/gi, '_').substring(0, 30);
-        const fileName = `SoundyAI-Referencia-${sanitize(trackAName)}_vs_${sanitize(trackBName)}.pdf`;
+        const fileName = `SoundyAI_Referencia_${sanitize(trackAName)}_vs_${sanitize(trackBName)}.pdf`;
         
         pdf.save(fileName);
         
@@ -25381,8 +25561,17 @@ async function generateReferenceReportPDF() {
         container.style.display = 'none';
         container.innerHTML = '';
         
-        console.log('[REF-PDF] ✅ Relatório gerado:', fileName);
-        showTemporaryFeedback('✅ Relatório de comparação baixado!');
+        console.log('[REF-PDF] ✅ Relatório Premium gerado (2 páginas):', fileName);
+        console.log('[REF-PDF] 📊 Estatísticas:', {
+            totalItems: allItems.length,
+            criticas: criticalItems.length,
+            altas: highItems.length,
+            atenção: warningItems.length,
+            ok: okItemsAll.length,
+            score: score
+        });
+        
+        showTemporaryFeedback('✅ Relatório Premium (2 páginas) baixado!');
         
     } catch (error) {
         console.error('[REF-PDF] ❌ Erro ao gerar relatório:', error);

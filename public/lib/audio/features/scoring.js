@@ -1264,74 +1264,127 @@ async function _tryComputeScoreV3(technicalData, reference, mode, genreId) {
 }
 
 function computeMixScore(technicalData = {}, reference = null, options = {}) {
-  console.log('[SCORING_ENTRY] 🎯 computeMixScore chamado com:', {
-    metricas: Object.keys(technicalData || {}),
-    hasReference: !!reference,
-    timestamp: Date.now(),
-    technicalDataSample: technicalData
-  });
-  
   // ============================================================================
-  // SCORE ENGINE V3 - ATIVO POR PADRÃO
-  // Para desativar: window.SCORE_ENGINE_VERSION = 'current'
+  // SCORE ENGINE - SELEÇÃO DE VERSÃO
+  // Prioridade: 1) window.SCORE_ENGINE_VERSION, 2) localStorage, 3) default=current
   // ============================================================================
   const win = (typeof window !== 'undefined') ? window : {};
-  const scoreEngineVersion = win.SCORE_ENGINE_VERSION || options.engineVersion || 'v3';
-  const mode = options.mode || win.SCORE_MODE || 'streaming';
+  
+  // Determinar versão da engine
+  let scoreEngineVersion = win.SCORE_ENGINE_VERSION || options.engineVersion;
+  if (!scoreEngineVersion && typeof localStorage !== 'undefined') {
+    scoreEngineVersion = localStorage.getItem('scoreEngineVersion');
+  }
+  scoreEngineVersion = scoreEngineVersion || 'current'; // Default = motor antigo (seguro)
+  
+  const mode = options.mode || win.__SOUNDY_ANALYSIS_MODE__ || win.SCORE_MODE || 'streaming';
   const genreId = options.genreId || reference?.genre_id || null;
   
-  if (scoreEngineVersion === 'v3') {
-    console.log('[SCORING_ENTRY] 🚀 Score Engine V3 habilitado, tentando cálculo V3...');
+  console.info('[SCORE] 🎯 Engine:', scoreEngineVersion, '| Mode:', mode, '| Genre:', genreId);
+  
+  // ============================================================================
+  // V3: Se ativo e disponível, usar EXCLUSIVAMENTE
+  // ============================================================================
+  if (scoreEngineVersion === 'v3' && win.ScoreEngineV3 && win.ScoreEngineV3.ready) {
+    console.info('[SCORE] 🚀 Usando Score Engine V3');
     
-    // V3 é async, então retornamos uma Promise que resolve para o resultado
-    // O sistema atual espera resultado síncrono, então fazemos fallback se V3 falhar
-    const v3Promise = _tryComputeScoreV3(technicalData, reference, mode, genreId);
-    
-    // Se o caller suporta async, retorna a promise
+    // Se caller suporta async, retornar promise
     if (options.async === true) {
-      return v3Promise.then(v3Result => {
-        if (v3Result) return v3Result;
-        // Fallback para sistema atual COM GATES V3
-        console.log('[SCORING_ENTRY] ⚠️ V3 falhou, usando sistema atual com GATES V3');
-        const syncResult = _computeMixScoreSync(technicalData, reference);
-        return _applyV3GatesSynchronously(syncResult, technicalData);
-      });
+      return _tryComputeScoreV3(technicalData, reference, mode, genreId)
+        .then(v3Result => {
+          if (v3Result) {
+            _exposeScoreDebug(v3Result, technicalData, 'v3');
+            return v3Result;
+          }
+          // Fallback em caso de erro
+          console.warn('[SCORE] ⚠️ V3 falhou, usando fallback síncrono');
+          const syncResult = _computeMixScoreSync(technicalData, reference);
+          const finalResult = _applyV3GatesSynchronously(syncResult, technicalData, { mode, reference, genre: genreId });
+          _exposeScoreDebug(finalResult, technicalData, 'current_fallback');
+          return finalResult;
+        });
     }
     
-    // Para compatibilidade síncrona: dispara V3 em background mas aplica GATES imediatamente
-    v3Promise.then(v3Result => {
-      if (v3Result && typeof window !== 'undefined') {
-        window.__LAST_V3_SCORE = v3Result;
-      }
-    });
+    // Para chamada síncrona: tentar V3 em background e expor resultado quando pronto
+    _tryComputeScoreV3(technicalData, reference, mode, genreId)
+      .then(v3Result => {
+        if (v3Result && typeof window !== 'undefined') {
+          window.__LAST_V3_SCORE = v3Result;
+          window.__lastScoreDebug = {
+            timestamp: new Date().toISOString(),
+            engineVersion: 'v3_async_complete',
+            finalScore: v3Result.scorePct,
+            subscores: v3Result.subscores,
+            gatesTriggered: v3Result.gatesApplied?.map(g => g.type) || [],
+            mode: mode
+          };
+          console.info('[SCORE] ✅ V3 async completou:', v3Result.scorePct, '%');
+        }
+      })
+      .catch(err => console.error('[SCORE] V3 async error:', err));
     
-    console.log('[SCORING_ENTRY] ℹ️ Aplicando GATES V3 sincronamente ao resultado');
+    // Enquanto V3 calcula, usar gates síncronos para não bloquear UI
+    console.info('[SCORE] ℹ️ V3 calculando async, aplicando gates síncronos...');
   }
   
   // ============================================================================
-  // SISTEMA ATUAL + GATES V3 OBRIGATÓRIOS
-  // Mesmo que V3 completo seja async, os GATES críticos são aplicados SEMPRE
+  // MOTOR ATUAL + GATES V3 OBRIGATÓRIOS
   // ============================================================================
   const syncResult = _computeMixScoreSync(technicalData, reference);
   
   // 🚨 CRÍTICO: SEMPRE aplicar gates V3 (TRUE PEAK, CLIPPING, DC OFFSET)
-  // Passa mode, reference e genre para aplicar targets corretos
   const finalResult = _applyV3GatesSynchronously(syncResult, technicalData, {
     mode: mode,
     reference: reference,
     genre: genreId
   });
   
-  console.log('[SCORING_ENTRY] ✅ Resultado final com GATES V3:', {
-    originalScore: syncResult.scorePct,
-    finalScore: finalResult.scorePct,
-    modeUsed: finalResult.modeUsed,
-    gatesTriggered: finalResult.gatesTriggered?.map(g => g.type) || [],
-    criticalErrors: finalResult.criticalErrors || [],
-    classification: finalResult.classification
+  // Expor debug
+  _exposeScoreDebug(finalResult, technicalData, scoreEngineVersion);
+  
+  console.info('[SCORE] ✅ Resultado:', {
+    engine: scoreEngineVersion,
+    mode: mode,
+    final: finalResult.scorePct,
+    original: syncResult.scorePct,
+    gates: finalResult.gatesTriggered?.map(g => g.type) || []
   });
   
   return finalResult;
+}
+
+/**
+ * Expõe dados de debug para auditoria
+ */
+function _exposeScoreDebug(result, technicalData, engineVersion) {
+  if (typeof window === 'undefined') return;
+  
+  const tp = technicalData.truePeakDbtp ?? technicalData.true_peak_dbtp;
+  const lufs = technicalData.lufsIntegrated ?? technicalData.lufs_integrated;
+  
+  window.__lastScoreDebug = {
+    timestamp: new Date().toISOString(),
+    engineVersion: engineVersion,
+    inputs: {
+      truePeak: tp,
+      lufs: lufs,
+      clipping: technicalData.clippingPct ?? technicalData.clipping_pct,
+      dcOffset: technicalData.dcOffset ?? technicalData.dc_offset
+    },
+    subscores: result.subscores || result.v3Result?.subscores || null,
+    final: result.scorePct,
+    gatesTriggered: result.gatesTriggered?.map(g => g.type) || [],
+    classification: result.classification
+  };
+  
+  // Log para auditoria
+  console.info('[SCORE] 📊 Debug:', {
+    engine: engineVersion,
+    tp: tp,
+    lufs: lufs,
+    final: result.scorePct,
+    subs: result.subscores ? Object.keys(result.subscores) : 'N/A'
+  });
 }
 
 function _computeMixScoreSync(technicalData = {}, reference = null) {
@@ -1624,24 +1677,60 @@ try {
 } catch {}
 
 if (typeof window !== 'undefined') { 
-  window.__MIX_SCORING_VERSION__ = '3.0.0-v3-integrated'; 
-  console.log('🎯 SCORE ENGINE CARREGADO - Versão:', window.__MIX_SCORING_VERSION__);
+  window.__MIX_SCORING_VERSION__ = '3.1.0-v3-integrated'; 
+  console.info('[SCORING] 🎯 Score Engine carregado - Versão:', window.__MIX_SCORING_VERSION__);
   
-  // Helpers para ativar/desativar V3
-  window.enableScoreV3 = () => { 
+  // ============================================================================
+  // FEATURE FLAG - Controle de versão da engine
+  // Prioridade: 1) window.SCORE_ENGINE_VERSION, 2) localStorage, 3) default=current
+  // ============================================================================
+  
+  // Inicializar do localStorage se não definido
+  if (!window.SCORE_ENGINE_VERSION) {
+    const saved = localStorage.getItem('scoreEngineVersion');
+    if (saved) {
+      window.SCORE_ENGINE_VERSION = saved;
+    }
+  }
+  
+  /**
+   * Ativa Score Engine V3 e persiste no localStorage
+   */
+  window.enableScoreV3 = function() { 
+    localStorage.setItem('scoreEngineVersion', 'v3');
     window.SCORE_ENGINE_VERSION = 'v3'; 
-    console.log('✅ Score Engine V3 ATIVADO. Próximas análises usarão V3.');
-    console.log('ℹ️ Para desativar: window.disableScoreV3()');
+    console.info('[SCORING] ✅ Score Engine V3 ATIVADO. Recarregue para aplicar.');
+    return 'v3';
   };
-  window.disableScoreV3 = () => { 
+  
+  /**
+   * Desativa Score Engine V3 (volta para motor atual)
+   */
+  window.disableScoreV3 = function() { 
+    localStorage.setItem('scoreEngineVersion', 'current');
     window.SCORE_ENGINE_VERSION = 'current'; 
-    console.log('⚠️ Score Engine V3 DESATIVADO. Usando sistema legado.');
+    console.info('[SCORING] ⚠️ Score Engine V3 DESATIVADO. Usando motor atual.');
+    return 'current';
+  };
+  
+  /**
+   * Retorna a versão ativa da engine
+   */
+  window.getScoreEngineVersion = function() {
+    return window.SCORE_ENGINE_VERSION || localStorage.getItem('scoreEngineVersion') || 'current';
+  };
+  
+  /**
+   * Verifica se V3 está disponível e funcionando
+   */
+  window.isScoreV3Available = function() {
+    return !!(window.ScoreEngineV3 && window.ScoreEngineV3.ready);
   };
   
   // Helper para computar score V3 diretamente (async)
   window.computeScoreV3 = async (technicalData, reference, mode, genreId) => {
     if (!window.ScoreEngineV3) {
-      console.error('❌ ScoreEngineV3 não carregado. Certifique-se de incluir score-engine-v3.js');
+      console.error('[SCORING] ❌ ScoreEngineV3 não carregado');
       return null;
     }
     return window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
@@ -1649,11 +1738,16 @@ if (typeof window !== 'undefined') {
   
   // Helper para comparar V3 vs atual
   window.compareScoreV3 = async (technicalData, reference, mode, genreId) => {
-    const current = computeMixScore(technicalData, reference);
+    const current = computeMixScore(technicalData, reference, { mode });
     let v3 = null;
     if (window.ScoreEngineV3) {
       v3 = await window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
     }
+    console.table({
+      'Motor Atual': { score: current.scorePct, method: current.method || 'current' },
+      'V3': v3 ? { score: v3.scorePct, method: v3.method } : { score: 'N/A', method: 'não disponível' },
+      'Delta': v3 ? { score: v3.scorePct - current.scorePct, method: '-' } : { score: 'N/A', method: '-' }
+    });
     return {
       current,
       v3,
@@ -1661,6 +1755,11 @@ if (typeof window !== 'undefined') {
       v3Available: !!v3
     };
   };
+  
+  // Status no console
+  const v3Status = window.ScoreEngineV3?.ready ? '✅ disponível' : '⚠️ não carregado';
+  const engineActive = window.getScoreEngineVersion();
+  console.info(`[SCORING] 📊 V3: ${v3Status} | Engine ativa: ${engineActive}`);
 }
 
 // Export das funções principais
