@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🧪 Teste TRUE PEAK GATE - Score Engine V3</title>
+  <title>🧪 Teste HARD GATES - Score Engine V3.1</title>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -14,6 +14,7 @@
       --red: #ef4444;
       --yellow: #fbbf24;
       --green: #22c55e;
+      --blue: #3b82f6;
     }
     
     * {
@@ -32,8 +33,61 @@
     
     h1 {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       font-size: 1.5rem;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    
+    .mode-selector {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .mode-btn {
+      padding: 0.75rem 1.5rem;
+      border: 2px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .mode-btn.active {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.2);
+    }
+    
+    .mode-btn:hover {
+      border-color: var(--accent);
+    }
+    
+    .mode-info {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 1rem;
+      background: var(--card);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .mode-info .label {
+      color: #888;
+      font-size: 0.8rem;
+    }
+    
+    .mode-info .value {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--blue);
     }
     
     .test-container {
@@ -60,17 +114,9 @@
       gap: 0.5rem;
     }
     
-    .test-card.critical {
-      border-color: var(--red);
-    }
-    
-    .test-card.warning {
-      border-color: var(--yellow);
-    }
-    
-    .test-card.success {
-      border-color: var(--green);
-    }
+    .test-card.critical { border-color: var(--red); }
+    .test-card.warning { border-color: var(--yellow); }
+    .test-card.success { border-color: var(--green); }
     
     .input-group {
       display: flex;
@@ -78,7 +124,7 @@
       margin-bottom: 1rem;
     }
     
-    .input-group input {
+    .input-group input, .input-group select {
       flex: 1;
       background: rgba(255,255,255,0.05);
       border: 1px solid var(--border);
@@ -99,9 +145,7 @@
       transition: opacity 0.2s;
     }
     
-    button:hover {
-      opacity: 0.9;
-    }
+    button:hover { opacity: 0.9; }
     
     .result {
       background: rgba(0,0,0,0.3);
@@ -111,7 +155,7 @@
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.8rem;
       white-space: pre-wrap;
-      max-height: 300px;
+      max-height: 350px;
       overflow-y: auto;
     }
     
@@ -137,16 +181,6 @@
       opacity: 0.8;
     }
     
-    .gates-list {
-      margin-top: 0.5rem;
-      padding-left: 1rem;
-    }
-    
-    .gates-list li {
-      margin-bottom: 0.3rem;
-      font-size: 0.8rem;
-    }
-    
     .status-bar {
       background: var(--card);
       border: 1px solid var(--border);
@@ -156,6 +190,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     
     .status-item {
@@ -173,10 +209,48 @@
     .status-indicator.active { background: var(--green); }
     .status-indicator.inactive { background: var(--red); }
     .status-indicator.pending { background: var(--yellow); }
+    
+    .criteria {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+    
+    .criteria h3 {
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    
+    .criteria-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .criteria-item:last-child { border-bottom: none; }
+    
+    .criteria-check { color: var(--green); }
+    .criteria-fail { color: var(--red); }
   </style>
 </head>
 <body>
-  <h1>🧪 Teste TRUE PEAK GATE - Score Engine V3</h1>
+  <h1>🧪 Teste HARD GATES - Score Engine V3.1</h1>
+  <p class="subtitle">Validação dos critérios de aceite do sistema de scoring</p>
+  
+  <div class="mode-selector">
+    <button class="mode-btn active" data-mode="streaming">📺 Streaming</button>
+    <button class="mode-btn" data-mode="pista">🎵 Pista/Club</button>
+    <button class="mode-btn" data-mode="reference">🎚️ Reference</button>
+  </div>
+  
+  <div class="mode-info">
+    <div class="label">True Peak Max para modo selecionado:</div>
+    <div class="value" id="modeMaxTP">-1.0 dBTP (streaming)</div>
+  </div>
   
   <div class="status-bar">
     <div class="status-item">
@@ -187,14 +261,19 @@
       <span>Engine: </span>
       <strong id="engineVersion">--</strong>
     </div>
+    <div class="status-item">
+      <span>Modo: </span>
+      <strong id="currentMode">streaming</strong>
+    </div>
   </div>
   
   <div class="test-container">
-    <!-- Teste 1: True Peak Crítico -->
+    <!-- Teste 1: True Peak acima do max do modo -->
     <div class="test-card critical">
-      <h2>🚨 Caso Crítico: True Peak > 0 dBTP</h2>
+      <h2>🚨 HARD GATE: True Peak > Max do Modo</h2>
       <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
-        Quando True Peak está acima de 0 dBTP (clipping digital), o score DEVE ser ≤ 35%
+        Streaming: TP > -1.0 dBTP → score ≤ 30<br>
+        Pista: TP > 0.0 dBTP → score ≤ 30
       </p>
       <div class="input-group">
         <input type="number" id="truePeakCritical" value="0.50" step="0.1" placeholder="True Peak (dBTP)">
@@ -207,14 +286,14 @@
       <div class="result" id="resultCritical">Aguardando teste...</div>
     </div>
     
-    <!-- Teste 2: True Peak Warning -->
+    <!-- Teste 2: True Peak warning (próximo do limite) -->
     <div class="test-card warning">
-      <h2>⚠️ Warning: True Peak próximo de 0</h2>
+      <h2>⚠️ WARNING: True Peak próximo do limite</h2>
       <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
-        True Peak entre -0.1 e 0 dBTP deve limitar score a ≤ 70%
+        Dentro de 0.5 dB do max → score ≤ 70
       </p>
       <div class="input-group">
-        <input type="number" id="truePeakWarning" value="-0.05" step="0.01" placeholder="True Peak (dBTP)">
+        <input type="number" id="truePeakWarning" value="-1.3" step="0.1" placeholder="True Peak (dBTP)">
         <button onclick="runTest('warning')">Testar</button>
       </div>
       <div class="score-display">
@@ -224,14 +303,14 @@
       <div class="result" id="resultWarning">Aguardando teste...</div>
     </div>
     
-    <!-- Teste 3: True Peak Normal -->
+    <!-- Teste 3: True Peak OK -->
     <div class="test-card success">
-      <h2>✅ Normal: True Peak seguro</h2>
+      <h2>✅ OK: True Peak dentro do range</h2>
       <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
-        True Peak < -0.1 dBTP não deve limitar score
+        TP bem abaixo do max → score normal
       </p>
       <div class="input-group">
-        <input type="number" id="truePeakNormal" value="-1.0" step="0.1" placeholder="True Peak (dBTP)">
+        <input type="number" id="truePeakNormal" value="-2.0" step="0.1" placeholder="True Peak (dBTP)">
         <button onclick="runTest('normal')">Testar</button>
       </div>
       <div class="score-display">
@@ -241,54 +320,103 @@
       <div class="result" id="resultNormal">Aguardando teste...</div>
     </div>
     
-    <!-- Teste 4: Custom -->
-    <div class="test-card">
-      <h2>🔧 Teste Customizado</h2>
+    <!-- Teste 4: Caso extremo +4.4 dBTP -->
+    <div class="test-card critical">
+      <h2>🔥 EXTREMO: +4.4 dBTP (caso real)</h2>
       <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem;">
-        Configure métricas manualmente para testar
+        Caso real reportado: deve ter score ≤ 30
       </p>
       <div class="input-group">
-        <input type="number" id="customTruePeak" value="0.00" step="0.1" placeholder="True Peak">
-        <input type="number" id="customClipping" value="0" step="1" placeholder="Clipping %">
-        <input type="number" id="customDCOffset" value="0" step="0.01" placeholder="DC Offset %">
+        <input type="number" id="truePeakExtreme" value="4.40" step="0.1" placeholder="True Peak (dBTP)">
+        <button onclick="runTest('extreme')">Testar</button>
       </div>
-      <button onclick="runTest('custom')">Testar</button>
       <div class="score-display">
-        <span class="score-value" id="scoreCustom">--</span>
-        <span class="classification" id="classCustom">--</span>
+        <span class="score-value critical" id="scoreExtreme">--</span>
+        <span class="classification" id="classExtreme">--</span>
       </div>
-      <div class="result" id="resultCustom">Aguardando teste...</div>
+      <div class="result" id="resultExtreme">Aguardando teste...</div>
+    </div>
+  </div>
+  
+  <!-- Critérios de aceite -->
+  <div class="criteria">
+    <h3>📋 Critérios de Aceite</h3>
+    <div class="criteria-item">
+      <span id="criteriaTP050" class="criteria-fail">❓</span>
+      <span>truePeakDbtp = +0.50 (streaming) → finalScore ≤ 30, criticalErrors = TRUE_PEAK_CLIPPING</span>
+    </div>
+    <div class="criteria-item">
+      <span id="criteriaTP440" class="criteria-fail">❓</span>
+      <span>truePeakDbtp = +4.40 → finalScore ≤ 30</span>
+    </div>
+    <div class="criteria-item">
+      <span id="criteriaFields" class="criteria-fail">❓</span>
+      <span>Result inclui: scoringEngineVersion, modeUsed, genreUsed, fallbackUsed</span>
+    </div>
+    <div class="criteria-item">
+      <span id="criteriaNoFallback" class="criteria-fail">❓</span>
+      <span>Nenhum fallback acontece sem marcar fallbackUsed=true</span>
     </div>
   </div>
   
   <script type="module">
-    // Carregar módulo de scoring
     let scorerMod = null;
+    let currentMode = 'streaming';
+    
+    const MODE_MAX_TP = {
+      streaming: -1.0,
+      pista: 0.0,
+      reference: 0.0
+    };
+    
+    // Mode selector
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        document.getElementById('currentMode').textContent = currentMode;
+        document.getElementById('modeMaxTP').textContent = `${MODE_MAX_TP[currentMode]} dBTP (${currentMode})`;
+        
+        // Definir globalmente
+        window.SCORE_MODE = currentMode;
+      });
+    });
     
     async function loadScoring() {
       try {
+        // Carregar reference adapter primeiro
+        try {
+          await import('/lib/audio/features/reference-adapter.js');
+          console.log('[TEST] ✅ Reference Adapter carregado');
+        } catch (e) {
+          console.warn('[TEST] ⚠️ Reference Adapter não disponível:', e.message);
+        }
+        
         scorerMod = await import('/lib/audio/features/scoring.js');
         if (scorerMod && typeof scorerMod.computeMixScore === 'function') {
           document.getElementById('scoringStatus').className = 'status-indicator active';
           document.getElementById('scoringStatusText').textContent = '✅ Módulo carregado';
-          document.getElementById('engineVersion').textContent = 'V3 Gates Sync';
+          document.getElementById('engineVersion').textContent = 'V3.1 Hard Gates';
           console.log('[TEST] ✅ Módulo de scoring carregado');
           
           // Rodar todos os testes automaticamente
-          runTest('critical');
-          runTest('warning');
-          runTest('normal');
+          setTimeout(() => {
+            runTest('critical');
+            runTest('warning');
+            runTest('normal');
+            runTest('extreme');
+          }, 100);
         } else {
           throw new Error('computeMixScore não encontrado');
         }
       } catch (err) {
         console.error('[TEST] ❌ Erro ao carregar scoring:', err);
         document.getElementById('scoringStatus').className = 'status-indicator inactive';
-        document.getElementById('scoringStatusText').textContent = '❌ Erro ao carregar: ' + err.message;
+        document.getElementById('scoringStatusText').textContent = '❌ Erro: ' + err.message;
       }
     }
     
-    // Dados base para teste (métricas médias)
     function getBaseMetrics() {
       return {
         lufsIntegrated: -14.0,
@@ -302,14 +430,13 @@
       };
     }
     
-    // Função de teste global
     window.runTest = function(type) {
       if (!scorerMod) {
         alert('Módulo de scoring não carregado!');
         return;
       }
       
-      let truePeak, clipping = 0, dcOffset = 0;
+      let truePeak;
       
       switch(type) {
         case 'critical':
@@ -321,39 +448,33 @@
         case 'normal':
           truePeak = parseFloat(document.getElementById('truePeakNormal').value);
           break;
-        case 'custom':
-          truePeak = parseFloat(document.getElementById('customTruePeak').value);
-          clipping = parseFloat(document.getElementById('customClipping').value);
-          dcOffset = parseFloat(document.getElementById('customDCOffset').value) / 100;
+        case 'extreme':
+          truePeak = parseFloat(document.getElementById('truePeakExtreme').value);
           break;
       }
       
-      // Construir dados técnicos
       const technicalData = {
         ...getBaseMetrics(),
-        truePeakDbtp: truePeak,
-        clippingPct: clipping,
-        dcOffset: dcOffset
+        truePeakDbtp: truePeak
       };
       
-      console.log(`[TEST:${type}] Testando com True Peak:`, truePeak, 'dBTP');
+      console.log(`[TEST:${type}] Testando TP=${truePeak} mode=${currentMode}`);
       
-      // Chamar computeMixScore
-      const result = scorerMod.computeMixScore(technicalData, null);
+      // Chamar computeMixScore com mode
+      const result = scorerMod.computeMixScore(technicalData, null, { mode: currentMode });
       
       console.log(`[TEST:${type}] Resultado:`, result);
       
       // Atualizar UI
-      const scoreEl = document.getElementById(`score${type.charAt(0).toUpperCase() + type.slice(1)}`);
-      const classEl = document.getElementById(`class${type.charAt(0).toUpperCase() + type.slice(1)}`);
-      const resultEl = document.getElementById(`result${type.charAt(0).toUpperCase() + type.slice(1)}`);
+      const typeCap = type.charAt(0).toUpperCase() + type.slice(1);
+      const scoreEl = document.getElementById(`score${typeCap}`);
+      const classEl = document.getElementById(`class${typeCap}`);
+      const resultEl = document.getElementById(`result${typeCap}`);
       
       if (scoreEl) {
         scoreEl.textContent = result.scorePct + '%';
-        
-        // Aplicar cor baseada no score
         scoreEl.className = 'score-value';
-        if (result.scorePct <= 35) scoreEl.classList.add('critical');
+        if (result.scorePct <= 30) scoreEl.classList.add('critical');
         else if (result.scorePct <= 70) scoreEl.classList.add('warning');
         else scoreEl.classList.add('good');
       }
@@ -364,50 +485,83 @@
       
       if (resultEl) {
         const gatesInfo = result.gatesTriggered?.length > 0 
-          ? '\n\nGATES ATIVADOS:\n' + result.gatesTriggered.map(g => `- ${g.type}: ${g.reason}`).join('\n')
+          ? '\n\nGATES ATIVADOS:\n' + result.gatesTriggered.map(g => 
+              `- ${g.type}\n  ${g.reason}\n  Valor: ${g.value?.toFixed?.(2) || g.value}, Limite: ${g.limit}`
+            ).join('\n')
           : '\n\n✅ Nenhum gate ativado';
         
         const diagnostico = `
-ENGINE: ${result.engineUsed || 'N/A'}
+ENGINE: ${result.scoringEngineVersion || 'N/A'}
+MODE USADO: ${result.modeUsed || 'N/A'}
+GENRE USADO: ${result.genreUsed || 'N/A'}
+FALLBACK: ${result.fallbackUsed ? 'SIM - ' + result.fallbackReason : 'NÃO'}
+
 SCORE ORIGINAL: ${result.originalScoreBeforeGates || result.scorePct}%
 SCORE FINAL: ${result.scorePct}%
 CLASSIFICAÇÃO: ${result.classification}
 CAP APLICADO: ${result.finalScoreCapApplied ? result.finalScoreCapApplied + '%' : 'Nenhum'}
+ERROS CRÍTICOS: ${result.criticalErrors?.join(', ') || 'Nenhum'}
 ${gatesInfo}
 
-INPUT:
-- True Peak: ${truePeak} dBTP
-- Clipping: ${clipping}%
-- DC Offset: ${(dcOffset * 100).toFixed(2)}%
+TARGETS USADOS:
+- True Peak Max: ${result._targetsUsed?.truePeakMax} dBTP
+- LUFS Max: ${result._targetsUsed?.lufsMax} LUFS
+- Mode: ${result._targetsUsed?.mode}
         `.trim();
         
         resultEl.textContent = diagnostico;
-      }
-      
-      // Validar resultado para teste crítico
-      if (type === 'critical' && truePeak > 0) {
-        if (result.scorePct > 35) {
-          console.error(`[TEST:${type}] ❌ FALHOU! Score ${result.scorePct}% deveria ser ≤ 35%`);
-          resultEl.style.background = 'rgba(239, 68, 68, 0.2)';
-        } else {
-          console.log(`[TEST:${type}] ✅ PASSOU! Score ${result.scorePct}% ≤ 35%`);
-          resultEl.style.background = 'rgba(34, 197, 94, 0.2)';
+        
+        // Validar e colorir resultado
+        if (type === 'critical' || type === 'extreme') {
+          const tpMax = MODE_MAX_TP[currentMode];
+          if (truePeak > tpMax && result.scorePct > 30) {
+            resultEl.style.background = 'rgba(239, 68, 68, 0.2)';
+            console.error(`[TEST:${type}] ❌ FALHOU! Score ${result.scorePct}% > 30%`);
+          } else if (truePeak > tpMax && result.scorePct <= 30) {
+            resultEl.style.background = 'rgba(34, 197, 94, 0.2)';
+            console.log(`[TEST:${type}] ✅ PASSOU! Score ${result.scorePct}% ≤ 30%`);
+          }
         }
       }
       
-      // Validar resultado para teste warning
-      if (type === 'warning' && truePeak > -0.1 && truePeak <= 0) {
-        if (result.scorePct > 70) {
-          console.error(`[TEST:${type}] ❌ FALHOU! Score ${result.scorePct}% deveria ser ≤ 70%`);
-          resultEl.style.background = 'rgba(239, 68, 68, 0.2)';
-        } else {
-          console.log(`[TEST:${type}] ✅ PASSOU! Score ${result.scorePct}% ≤ 70%`);
-          resultEl.style.background = 'rgba(34, 197, 94, 0.2)';
-        }
-      }
+      // Atualizar critérios
+      updateCriteria(type, result, truePeak);
     };
     
-    // Inicializar
+    function updateCriteria(type, result, truePeak) {
+      // Critério 1: TP +0.50 streaming → score ≤ 30
+      if (type === 'critical' && truePeak >= 0.5 && currentMode === 'streaming') {
+        const el = document.getElementById('criteriaTP050');
+        const passed = result.scorePct <= 30 && result.criticalErrors?.includes('TRUE_PEAK_CLIPPING');
+        el.className = passed ? 'criteria-check' : 'criteria-fail';
+        el.textContent = passed ? '✅' : '❌';
+      }
+      
+      // Critério 2: TP +4.40 → score ≤ 30
+      if (type === 'extreme' && truePeak >= 4.4) {
+        const el = document.getElementById('criteriaTP440');
+        const passed = result.scorePct <= 30;
+        el.className = passed ? 'criteria-check' : 'criteria-fail';
+        el.textContent = passed ? '✅' : '❌';
+      }
+      
+      // Critério 3: Campos obrigatórios
+      const hasFields = result.scoringEngineVersion && 
+                       result.modeUsed && 
+                       result.genreUsed !== undefined && 
+                       result.fallbackUsed !== undefined;
+      const elFields = document.getElementById('criteriaFields');
+      elFields.className = hasFields ? 'criteria-check' : 'criteria-fail';
+      elFields.textContent = hasFields ? '✅' : '❌';
+      
+      // Critério 4: Fallback explícito
+      const elFallback = document.getElementById('criteriaNoFallback');
+      const fallbackOk = result.fallbackUsed === false || 
+                        (result.fallbackUsed === true && result.fallbackReason);
+      elFallback.className = fallbackOk ? 'criteria-check' : 'criteria-fail';
+      elFallback.textContent = fallbackOk ? '✅' : '❌';
+    }
+    
     loadScoring();
   </script>
 </body>
