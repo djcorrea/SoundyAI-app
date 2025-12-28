@@ -785,8 +785,8 @@
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
         width: 95%;
-        max-height: calc(100dvh - 40px);
-        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 20px);
+        max-height: calc(100vh - 20px);
         min-height: auto;
         height: auto;
         padding: 32px 20px 24px 20px;
@@ -827,15 +827,15 @@
     
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
         width: 96vw;
-        max-height: 94vh;
+        max-height: 96vh;
         padding: 30px 25px;
     }
 }
 
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
-        max-height: calc(100dvh - 30px);
-        max-height: calc(100vh - 30px);
+        max-height: calc(100dvh - 15px);
+        max-height: calc(100vh - 15px);
         min-height: auto;
         height: auto;
     }
