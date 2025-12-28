@@ -1959,11 +1959,202 @@ if (typeof window !== 'undefined') {
     };
   };
   
+  // ============================================================================
+  // 🧪 TESTE DE SANIDADE COMPLETO - Valida todo o sistema de scores
+  // Uso: window.testScoreSanity() no console
+  // ============================================================================
+  window.testScoreSanity = function() {
+    console.group('🔍 TESTE DE SANIDADE: Sistema de Scores V3.3');
+    
+    const results = {
+      truePeakGates: { pass: false, details: {} },
+      frequencyBands: { pass: false, details: {} },
+      scoreConsistency: { pass: false, details: {} },
+      aliasResolution: { pass: false, details: {} }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TESTE 1: True Peak Gates - TP=-1.0 NÃO deve disparar warning
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.group('📋 Teste 1: True Peak Gates');
+    
+    const tp1 = computeMixScore({
+      truePeakDbtp: -1.0,
+      lufsIntegrated: -14.0,
+      clippingPct: 0,
+      dynamicRange: 8
+    }, null, { mode: 'streaming' });
+    
+    const tp2 = computeMixScore({
+      truePeakDbtp: 0.5,
+      lufsIntegrated: -14.0,
+      clippingPct: 0,
+      dynamicRange: 8
+    }, null, { mode: 'streaming' });
+    
+    const noWarningAtTarget = !tp1.gatesTriggered?.some(g => g.type === 'TRUE_PEAK_WARNING');
+    const criticalAboveZero = tp2.gatesTriggered?.some(g => g.type === 'TRUE_PEAK_CRITICAL');
+    
+    results.truePeakGates = {
+      pass: noWarningAtTarget && criticalAboveZero,
+      details: {
+        'TP=-1.0 sem WARNING': noWarningAtTarget ? '✅' : '❌',
+        'TP=+0.5 com CRITICAL': criticalAboveZero ? '✅' : '❌',
+        gatesTP1: tp1.gatesTriggered?.map(g => g.type) || [],
+        gatesTP2: tp2.gatesTriggered?.map(g => g.type) || [],
+        scoreTP1: tp1.scorePct,
+        scoreTP2: tp2.scorePct
+      }
+    };
+    
+    console.log('TP=-1.0 sem WARNING:', noWarningAtTarget ? '✅ PASS' : '❌ FAIL');
+    console.log('TP=+0.5 com CRITICAL:', criticalAboveZero ? '✅ PASS' : '❌ FAIL');
+    console.groupEnd();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TESTE 2: Sistema de Aliases de Bandas
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.group('📋 Teste 2: Sistema de Aliases');
+    
+    const BKA = window.BandKeyAliases;
+    if (BKA) {
+      const aliasTests = [
+        { input: 'lowMid', expected: 'low_mid' },
+        { input: 'low_mid', expected: 'low_mid' },
+        { input: 'presenca', expected: 'presence' },
+        { input: 'brilho', expected: 'brilho' },
+        { input: 'air', expected: 'brilho' },
+        { input: 'sub_bass', expected: 'sub' },
+        { input: 'totalPercentage', expected: null } // Meta key
+      ];
+      
+      let allAliasesPass = true;
+      aliasTests.forEach(t => {
+        const result = BKA.normalizeBandKey(t.input);
+        const pass = result === t.expected;
+        if (!pass) allAliasesPass = false;
+        console.log(`  ${t.input} → ${result} (esperado: ${t.expected}) ${pass ? '✅' : '❌'}`);
+      });
+      
+      results.aliasResolution = {
+        pass: allAliasesPass,
+        details: { tests: aliasTests.length, passed: allAliasesPass }
+      };
+    } else {
+      console.warn('⚠️ BandKeyAliases não carregado!');
+      results.aliasResolution = { pass: false, details: { error: 'Módulo não carregado' } };
+    }
+    console.groupEnd();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TESTE 3: Frequência com múltiplas bandas
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.group('📋 Teste 3: Bandas de Frequência');
+    
+    const mockBands = {
+      sub: { energy_db: -25 },
+      bass: { energy_db: -18 },
+      low_mid: { energy_db: -15 },
+      mid: { energy_db: -12 },
+      high_mid: { energy_db: -14 },
+      presence: { energy_db: -16 },
+      brilho: { energy_db: -20 }
+    };
+    
+    const mockTargets = {
+      sub: { target_range: { min: -28, max: -22 } },
+      bass: { target_range: { min: -20, max: -16 } },
+      low_mid: { target_range: { min: -17, max: -13 } },
+      mid: { target_range: { min: -14, max: -10 } },
+      high_mid: { target_range: { min: -16, max: -12 } },
+      presence: { target_range: { min: -18, max: -14 } },
+      brilho: { target_range: { min: -22, max: -18 } }
+    };
+    
+    // Testar mapeamento
+    if (BKA) {
+      const mapping = BKA.mapBandsWithDiagnostic(mockBands, mockTargets);
+      const bandsMatched = mapping.userBandsUsed.length;
+      
+      results.frequencyBands = {
+        pass: bandsMatched >= 7,
+        details: {
+          bandsMatched,
+          userBandsUsed: mapping.userBandsUsed,
+          missingInUser: mapping.missingInUser,
+          missingInRef: mapping.missingInRef
+        }
+      };
+      
+      console.log(`Bandas mapeadas: ${bandsMatched}/7 ${bandsMatched >= 7 ? '✅' : '❌'}`);
+      console.log('Usadas:', mapping.userBandsUsed);
+    } else {
+      results.frequencyBands = { pass: false, details: { error: 'BKA não disponível' } };
+    }
+    console.groupEnd();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TESTE 4: Consistência de Scores (base vs final)
+    // ═══════════════════════════════════════════════════════════════════════════
+    console.group('📋 Teste 4: Consistência de Scores');
+    
+    const scoreTest = computeMixScore({
+      truePeakDbtp: -1.0,
+      lufsIntegrated: -14.0,
+      clippingPct: 0,
+      dynamicRange: 8,
+      stereoCorrelation: 0.6,
+      lra: 6
+    }, null, { mode: 'streaming' });
+    
+    const hasSubscores = scoreTest.subscores && Object.keys(scoreTest.subscores).length > 0;
+    const hasValidFinal = typeof scoreTest.scorePct === 'number' && scoreTest.scorePct >= 0 && scoreTest.scorePct <= 100;
+    
+    results.scoreConsistency = {
+      pass: hasSubscores && hasValidFinal,
+      details: {
+        hasSubscores,
+        hasValidFinal,
+        finalScore: scoreTest.scorePct,
+        subscores: scoreTest.subscores,
+        gatesApplied: scoreTest.gatesTriggered?.map(g => g.type) || []
+      }
+    };
+    
+    console.log('Tem subscores:', hasSubscores ? '✅' : '❌');
+    console.log('Score final válido:', hasValidFinal ? '✅' : '❌', scoreTest.scorePct);
+    console.groupEnd();
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RESUMO FINAL
+    // ═══════════════════════════════════════════════════════════════════════════
+    const allPassed = Object.values(results).every(r => r.pass);
+    const passCount = Object.values(results).filter(r => r.pass).length;
+    const totalTests = Object.keys(results).length;
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`📊 RESULTADO FINAL: ${passCount}/${totalTests} testes passaram`);
+    console.log(allPassed ? '🎉 SISTEMA DE SCORES OK!' : '❌ PROBLEMAS DETECTADOS');
+    console.table({
+      'True Peak Gates': results.truePeakGates.pass ? '✅' : '❌',
+      'Aliases de Bandas': results.aliasResolution.pass ? '✅' : '❌',
+      'Frequência (7 bandas)': results.frequencyBands.pass ? '✅' : '❌',
+      'Consistência Scores': results.scoreConsistency.pass ? '✅' : '❌'
+    });
+    console.groupEnd();
+    
+    return {
+      allPassed,
+      summary: `${passCount}/${totalTests} passed`,
+      results
+    };
+  };
+  
   // Status no console
   const v3Status = window.ScoreEngineV3?.ready ? '✅ disponível' : '⚠️ não carregado';
   const engineActive = window.getScoreEngineVersion();
   console.info(`[SCORING] 📊 V3: ${v3Status} | Engine ativa: ${engineActive}`);
-  console.info('[SCORING] 🧪 Execute window.testScoringGates() para validar gates V3');
+  console.info('[SCORING] 🧪 Execute window.testScoringGates() ou window.testScoreSanity() para validar');
 }
 
 // Export das funções principais

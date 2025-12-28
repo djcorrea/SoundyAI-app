@@ -23662,103 +23662,136 @@ function calculateFrequencyScore(analysis, refData) {
         return calculateFrequencyScoreReference(userBandsA, refBandsB);
     }
     
-    // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
-    const bandMapping = {
-        'sub': 'sub',
-        'bass': 'low_bass',
-        'lowMid': 'low_mid',
-        'mid': 'mid',
-        'highMid': 'high_mid',
-        'presence': 'presenca',
-        'air': 'brilho'
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎯 V3.3: USO DO SISTEMA DE ALIASES CENTRALIZADO
+    // ═══════════════════════════════════════════════════════════════════════════
+    const BKA = window.BandKeyAliases || {
+        // Fallback inline caso o módulo não carregue
+        CANONICAL_KEYS: ['sub', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'brilho'],
+        META_KEYS: ['totalPercentage', '_status', 'status', 'timestamp'],
+        normalizeBandKey: (key) => {
+            if (!key) return null;
+            const aliases = {
+                'sub': ['sub', 'sub_bass', 'subBass'],
+                'bass': ['bass', 'low_bass', 'lowBass'],
+                'low_mid': ['low_mid', 'lowMid', 'low-mid'],
+                'mid': ['mid', 'mids'],
+                'high_mid': ['high_mid', 'highMid', 'high-mid'],
+                'presence': ['presence', 'presenca'],
+                'brilho': ['brilho', 'air', 'brilliance', 'highs']
+            };
+            const lk = key.toLowerCase();
+            for (const [canon, arr] of Object.entries(aliases)) {
+                if (arr.some(a => a.toLowerCase() === lk)) return canon;
+            }
+            return null;
+        },
+        extractEnergyDb: (val) => {
+            if (typeof val === 'number') return val;
+            if (val?.energy_db !== undefined) return val.energy_db;
+            if (val?.energyDb !== undefined) return val.energyDb;
+            if (val?.db !== undefined) return val.db;
+            if (val?.rms_db !== undefined) return val.rms_db;
+            return null;
+        },
+        isMetaKey: (key) => ['totalPercentage', '_status', 'status', 'timestamp', '_source'].includes(key)
     };
     
-    // Processar cada banda individualmente
-    Object.entries(bandMapping).forEach(([calcBand, refBand]) => {
-        // 🎯 BUSCA EM CASCATA com ALIAS (branch imersao)
-        const bandData = getBandDataWithCascade(calcBand, analysis);
+    // Diagnóstico inicial
+    const userBandsRaw = bandsToUse || {};
+    const refBandsRaw = refData.bands || {};
+    
+    console.group('🎵 [FREQ-SCORE-V3.3] Calculando Score de Frequência');
+    console.log('📊 Bandas do usuário (raw):', Object.keys(userBandsRaw));
+    console.log('📊 Bandas de referência (raw):', Object.keys(refBandsRaw));
+    
+    // Mapear bandas com diagnóstico
+    const bandsUsedForScore = [];
+    const bandsIgnoredNoTarget = [];
+    const bandsIgnoredNoUserValue = [];
+    const targetsFoundPerBand = {};
+    
+    // Processar cada banda canônica
+    BKA.CANONICAL_KEYS.forEach(canonical => {
+        // Tentar encontrar valor do usuário
+        let userValue = null;
+        let userSource = null;
         
-        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes (branch imersao)
-        if (!bandData || !Number.isFinite(bandData.energy_db)) {
-            console.log(`🔇 [SCORE-FREQ] Ignorando banda inexistente: ${calcBand}`);
-            return; // ✅ continue silencioso
+        // Buscar com aliases
+        for (const key of Object.keys(userBandsRaw)) {
+            if (BKA.normalizeBandKey(key) === canonical) {
+                userValue = BKA.extractEnergyDb(userBandsRaw[key]);
+                userSource = key;
+                break;
+            }
         }
         
-        const refBandData = refData.bands[refBand];
+        // Buscar target de referência
+        let targetDb = null;
+        let tolDb = null;
+        let refSource = null;
         
-        if (refBandData) {
-            const energyDb = bandData.energy_db;
-            
-            console.log(`[SCORE-FREQ] ✅ ${calcBand}: ${energyDb.toFixed(2)} dB (${bandData.source})`);
-            
-            // 🎯 CORREÇÃO CRÍTICA: Detectar modo e usar valores apropriados
-            let targetDb = null;
-            let tolDb = null;
-            
-            if (isReferenceMode) {
-                // 👉 MODO REFERENCE: Usar valor DIRETO da faixa de referência (não target_range)
-                if (typeof refBandData === 'object' && Number.isFinite(refBandData.energy_db)) {
-                    targetDb = refBandData.energy_db;
-                } else if (typeof refBandData === 'object' && Number.isFinite(refBandData.rms_db)) {
-                    targetDb = refBandData.rms_db;
-                } else if (Number.isFinite(refBandData)) {
-                    targetDb = refBandData;
-                }
-                // ±3 dB é uma tolerância auditiva/operacional razoável para bandas agregadas.
-                tolDb = 3.0;
+        for (const key of Object.keys(refBandsRaw)) {
+            if (BKA.normalizeBandKey(key) === canonical) {
+                const refVal = refBandsRaw[key];
+                refSource = key;
                 
-                if (targetDb !== null) {
-                    console.log(`🎯 [SCORE-FREQ-REF] ${calcBand}: comparando com faixa de referência → target=${targetDb.toFixed(1)}dB (valor real), tol=0dB`);
+                if (typeof refVal === 'number') {
+                    targetDb = refVal;
+                    tolDb = 3.0;
+                } else if (refVal?.target_range?.min !== undefined && refVal?.target_range?.max !== undefined) {
+                    targetDb = (refVal.target_range.min + refVal.target_range.max) / 2;
+                    tolDb = (refVal.target_range.max - refVal.target_range.min) / 2;
+                } else if (refVal?.target_db !== undefined) {
+                    targetDb = refVal.target_db;
+                    tolDb = refVal.tol_db ?? 3.0;
                 } else {
-                    console.warn(`⚠️ [SCORE-FREQ-REF] ${calcBand}: sem valor na faixa de referência`);
+                    targetDb = BKA.extractEnergyDb(refVal);
+                    tolDb = 3.0;
                 }
-            } else {
-                // 👉 MODO GENRE: Usar target_range dos targets de gênero
-                if (refBandData.target_range && typeof refBandData.target_range === 'object' &&
-                    Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
-                    // Novo sistema: calcular alvo e tolerância a partir do range
-                    targetDb = (refBandData.target_range.min + refBandData.target_range.max) / 2;
-                    tolDb = (refBandData.target_range.max - refBandData.target_range.min) / 2;
-                    console.log(`🎯 [SCORE-FREQ-GENRE] ${calcBand}: usando target_range [${refBandData.target_range.min}, ${refBandData.target_range.max}] → target=${targetDb.toFixed(1)}dB, tol=${tolDb.toFixed(1)}dB`);
-                } else if (Number.isFinite(refBandData.target_db) && Number.isFinite(refBandData.tol_db)) {
-                    // Sistema legado
-                    targetDb = refBandData.target_db;
-                    tolDb = refBandData.tol_db;
-                    console.log(`🎯 [SCORE-FREQ-GENRE] ${calcBand}: usando target_db=${targetDb}dB, tol_db=${tolDb}dB`);
-                }
+                break;
             }
-            
-            // Calcular score individual da banda
-            if (Number.isFinite(targetDb) && Number.isFinite(tolDb)) {
-                const score = calculateMetricScore(energyDb, targetDb, tolDb);
-                if (score !== null) {
-                    scores.push(score);
-                    const delta = Math.abs(energyDb - targetDb);
-                    const status = delta <= tolDb ? '✅' : '❌';
-                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb.toFixed(1)}dB vs ${targetDb.toFixed(1)}dB (±${tolDb.toFixed(1)}dB) = ${score}% ${status}`);
-                }
+        }
+        
+        targetsFoundPerBand[canonical] = {
+            userValue,
+            userSource,
+            targetDb,
+            tolDb,
+            refSource,
+            hasMatch: userValue !== null && targetDb !== null
+        };
+        
+        // Calcular score se temos ambos valores
+        if (userValue !== null && targetDb !== null) {
+            const score = calculateMetricScore(userValue, targetDb, tolDb);
+            if (score !== null) {
+                scores.push(score);
+                bandsUsedForScore.push(canonical);
+                console.log(`✅ ${canonical.toUpperCase()}: ${userValue.toFixed(1)}dB vs ${targetDb.toFixed(1)}dB (±${tolDb.toFixed(1)}) = ${score}%`);
             }
+        } else if (userValue === null) {
+            bandsIgnoredNoUserValue.push(canonical);
+            console.log(`🔇 ${canonical.toUpperCase()}: SEM VALOR DO USUÁRIO (source tentada: ${userSource || 'nenhuma'})`);
+        } else if (targetDb === null) {
+            bandsIgnoredNoTarget.push(canonical);
+            console.log(`⚠️ ${canonical.toUpperCase()}: SEM TARGET DE REFERÊNCIA (userValue=${userValue?.toFixed(1)}dB)`);
         }
     });
     
+    // Log de diagnóstico completo
+    console.log('📋 RESUMO:', {
+        bandsUsedForScore,
+        bandsUsedCount: bandsUsedForScore.length,
+        bandsIgnoredNoTarget,
+        bandsIgnoredNoUserValue,
+        targetsFoundPerBand
+    });
+    console.groupEnd();
+    
     // Se não encontrou scores válidos, retornar null
     if (scores.length === 0) {
-        try {
-            console.log('[AUDIT-SCORE]', {
-                func: 'calculateFrequencyScore',
-                value: 'N/A',
-                target: 'N/A',
-                diff: 'N/A',
-                tolerance: 'N/A',
-                result: null,
-                condition: 'no valid scores',
-                scoresCount: 0,
-                isReferenceMode,
-                bandsAvailable: refData.bands ? Object.keys(refData.bands) : []
-            });
-        } catch (err) {
-            console.warn('[AUDIT-ERROR]', 'calculateFrequencyScore (no scores)', err);
-        }
+        console.warn('[FREQ-SCORE-V3.3] ⚠️ Nenhuma banda válida para calcular score');
         return null;
     }
     
@@ -23768,24 +23801,7 @@ function calculateFrequencyScore(analysis, refData) {
     
     console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
     console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
-    
-    try {
-        console.log('[AUDIT-SCORE]', {
-            func: 'calculateFrequencyScore',
-            value: 'bandas espectrais (ver logs individuais)',
-            target: 'bandas de referência',
-            diff: 'ver logs individuais por banda',
-            tolerance: isReferenceMode ? '0 (modo reference)' : 'target_range',
-            result,
-            condition: 'average of ' + scores.length + ' bands',
-            individualScores: scores,
-            average,
-            isReferenceMode,
-            bandsProcessed: scores.length
-        });
-    } catch (err) {
-        console.warn('[AUDIT-ERROR]', 'calculateFrequencyScore (final)', err);
-    }
+    console.log(`🎵 Bandas usadas: [${bandsUsedForScore.join(', ')}]`);
     
     return result;
 }
