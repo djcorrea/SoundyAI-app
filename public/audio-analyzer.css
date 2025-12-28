@@ -888,11 +888,11 @@
     
     /* 📊 MODAL DE RESULTADOS: Precisa ser ainda maior para exibir gráficos/dados */
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
-        width: 96vw;
-        min-height: 88svh;
-        min-height: 88vh;
-        max-height: 96svh;
-        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        width: 95vw;
+        min-height: 90svh;
+        min-height: 90vh;
+        max-height: 92svh;
+        max-height: 92vh;
         height: auto;
         padding: 24px 16px;
         overflow-y: auto;
@@ -906,12 +906,12 @@
 /* 📱 MOBILE SMARTPHONES (480px): Modal deve ser quase tela cheia */
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 96vw;
-        /* 🔧 Máxima altura para smartphones com svh */
-        min-height: 88svh;
-        min-height: 88vh;
-        max-height: 96svh;
-        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        width: 95vw;
+        /* 🔧 Máxima altura para smartphones: ~92vh */
+        min-height: 90svh;
+        min-height: 90vh;
+        max-height: 92svh;
+        max-height: 92vh;
         height: auto;
         padding: 24px 16px;
         overflow-y: auto;
