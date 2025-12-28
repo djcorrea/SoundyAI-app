@@ -23079,6 +23079,480 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
     return result;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 V3.5 UNIFIED SCORING ENGINE - MESMA FONTE DE VERDADE PARA TABELA E SUBSCORES
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Módulo unificado para cálculo de scores V3.
+ * 
+ * PRINCÍPIOS:
+ * 1. Tabela e subscores usam MESMA fonte de verdade (targets + valores medidos)
+ * 2. Cada métrica gera um metricScore 0-100 (curva não-linear)
+ * 3. Subscores são médias ponderadas dos metricScores do seu grupo
+ * 4. Score bruto = média ponderada dos subscores
+ * 5. Score final = raw - gatePenalty (clamp 0..100)
+ * 
+ * @param {Object} analysis - Objeto de análise completo (technicalData, metrics, etc)
+ * @param {Object} targets - Targets do modo (streaming/pista/reference)
+ * @param {string} mode - 'streaming', 'pista', ou 'reference'
+ * @returns {Object} { raw, final, gatePenalty, gateReasons, subscores, metricScores, debug }
+ */
+window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'streaming') {
+    const DEBUG = true; // Ativar logs durante dev
+    
+    if (DEBUG) {
+        console.group('🎯 [computeScoreV3] INÍCIO');
+        console.log('📊 mode:', mode);
+        console.log('📊 targets keys:', targets ? Object.keys(targets) : 'null');
+        console.log('📊 analysis.technicalData keys:', analysis?.technicalData ? Object.keys(analysis.technicalData) : 'null');
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 1. EXTRAIR VALORES MEDIDOS
+    // ═══════════════════════════════════════════════════════════════════
+    const tech = analysis?.technicalData || analysis?.metrics || {};
+    const measured = {
+        // Loudness
+        lufs: tech.lufsIntegrated ?? tech.lufs_integrated ?? null,
+        rms: tech.rms ?? tech.rms_db ?? null,
+        
+        // Technical
+        truePeak: tech.truePeakDbtp ?? tech.true_peak_dbtp ?? null,
+        samplePeak: tech.samplePeak ?? tech.sample_peak ?? tech.peak_dbfs ?? null,
+        clipping: (tech.clippingPct ?? tech.clipping_pct ?? tech.clipping ?? 0) * 100, // Converter para %
+        dcOffset: Math.abs(tech.dcOffset ?? tech.dc_offset ?? 0) * 100, // Converter para %
+        
+        // Dynamics
+        dr: tech.dynamicRange ?? tech.dynamic_range ?? null,
+        crest: tech.crestFactor ?? tech.crest_factor ?? null,
+        lra: tech.lra ?? null,
+        
+        // Stereo
+        correlation: tech.stereoCorrelation ?? tech.stereo_correlation ?? null,
+        width: tech.stereoWidth ?? tech.stereo_width ?? null,
+        
+        // Frequency bands
+        bands: tech.bands ?? tech.spectral_balance ?? {}
+    };
+    
+    if (DEBUG) {
+        console.log('📊 Valores medidos:', measured);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 2. TARGETS DO MODO (mesma fonte da tabela)
+    // ═══════════════════════════════════════════════════════════════════
+    const MODE_TARGETS = {
+        streaming: {
+            lufs: { target: -14, min: -16, max: -12, tol: 1.0 },
+            truePeak: { target: -1.0, min: -3.0, max: -1.0, tol: 0.25 },
+            dr: { target: 8, min: 6, max: 12, tol: 1.5 },
+            lra: { target: 7, min: 5, max: 10, tol: 2.0 },
+            crest: { target: 12, min: 8, max: 16, tol: 2.0 },
+            correlation: { target: 0.9, min: 0.5, max: 1.0, tol: 0.1 },
+            width: { target: 0.7, min: 0.3, max: 1.0, tol: 0.15 },
+            clipping: { target: 0, min: 0, max: 0.1, tol: 0.05 }, // max 0.1%
+            dcOffset: { target: 0, min: 0, max: 1.0, tol: 0.5 } // max 1%
+        },
+        pista: {
+            lufs: { target: -9, min: -12, max: -6, tol: 1.5 },
+            truePeak: { target: -0.3, min: -1.5, max: 0.0, tol: 0.3 },
+            dr: { target: 6, min: 4, max: 10, tol: 1.5 },
+            lra: { target: 5, min: 3, max: 8, tol: 2.0 },
+            crest: { target: 10, min: 6, max: 14, tol: 2.0 },
+            correlation: { target: 0.85, min: 0.4, max: 1.0, tol: 0.15 },
+            width: { target: 0.8, min: 0.4, max: 1.0, tol: 0.15 },
+            clipping: { target: 0, min: 0, max: 0.5, tol: 0.2 },
+            dcOffset: { target: 0, min: 0, max: 2.0, tol: 1.0 }
+        }
+    };
+    
+    // Mesclar targets do modo com targets passados (prioridade para passados)
+    const modeTargets = MODE_TARGETS[mode] || MODE_TARGETS.streaming;
+    const finalTargets = { ...modeTargets };
+    
+    // Sobrescrever com targets passados se existirem
+    if (targets) {
+        if (targets.lufs_target !== undefined) {
+            finalTargets.lufs = {
+                target: targets.lufs_target,
+                min: targets.lufs_min ?? (targets.lufs_target - (targets.tol_lufs || 1.0)),
+                max: targets.lufs_max ?? (targets.lufs_target + (targets.tol_lufs || 1.0)),
+                tol: targets.tol_lufs || 1.0
+            };
+        }
+        if (targets.true_peak_target !== undefined) {
+            finalTargets.truePeak = {
+                target: targets.true_peak_target,
+                min: targets.true_peak_min ?? (targets.true_peak_target - (targets.tol_true_peak || 0.25)),
+                max: Math.min(0.0, targets.true_peak_max ?? 0.0), // NUNCA > 0
+                tol: targets.tol_true_peak || 0.25
+            };
+        }
+        if (targets.dr_target !== undefined) {
+            finalTargets.dr = {
+                target: targets.dr_target,
+                min: targets.dr_min ?? (targets.dr_target - (targets.tol_dr || 1.5)),
+                max: targets.dr_max ?? (targets.dr_target + (targets.tol_dr || 1.5)),
+                tol: targets.tol_dr || 1.5
+            };
+        }
+        if (targets.bands) {
+            finalTargets.bands = targets.bands;
+        }
+    }
+    
+    if (DEBUG) {
+        console.log('📊 Targets finais:', finalTargets);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 3. FUNÇÃO DE CÁLCULO DE METRIC SCORE (curva não-linear)
+    // ═══════════════════════════════════════════════════════════════════
+    function calcMetricScore(value, targetDef, metricKey = '') {
+        if (!Number.isFinite(value) || !targetDef) {
+            return { score: null, status: 'N/A', diff: 0, deviationRatio: 0 };
+        }
+        
+        const { target, min, max, tol } = targetDef;
+        
+        // Calcular diff e deviationRatio
+        let diff = 0;
+        let deviationRatio = 0;
+        
+        if (min !== undefined && max !== undefined) {
+            // Modo min/max: dentro do range = 100%
+            if (value >= min && value <= max) {
+                return { score: 100, status: 'OK', diff: 0, deviationRatio: 0 };
+            }
+            
+            // Fora do range: calcular distância
+            if (value < min) {
+                diff = min - value;
+                deviationRatio = tol > 0 ? diff / tol : diff;
+            } else {
+                diff = value - max;
+                deviationRatio = tol > 0 ? diff / tol : diff;
+            }
+        } else if (target !== undefined && tol !== undefined) {
+            // Modo target ± tol
+            diff = Math.abs(value - target);
+            deviationRatio = diff / tol;
+            
+            if (diff <= tol) {
+                return { score: 100, status: 'OK', diff, deviationRatio };
+            }
+        }
+        
+        // Curva não-linear de penalização
+        let score;
+        let status;
+        
+        if (deviationRatio <= 1.0) {
+            score = 100;
+            status = 'OK';
+        } else if (deviationRatio <= 2.0) {
+            // 1x-2x: 75-100%
+            score = 100 - (deviationRatio - 1) * 25;
+            status = 'ATENÇÃO';
+        } else if (deviationRatio <= 3.0) {
+            // 2x-3x: 50-75%
+            score = 75 - (deviationRatio - 2) * 25;
+            status = 'ALTA';
+        } else {
+            // >3x: 20-50% (mínimo 20)
+            score = Math.max(20, 50 - (deviationRatio - 3) * 15);
+            status = 'CRÍTICA';
+        }
+        
+        return { score: Math.round(score), status, diff, deviationRatio };
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 4. CALCULAR METRIC SCORES (todos os 8 grupos)
+    // ═══════════════════════════════════════════════════════════════════
+    const metricScores = {
+        // Loudness
+        lufs: calcMetricScore(measured.lufs, finalTargets.lufs, 'lufs'),
+        rms: measured.rms !== null ? calcMetricScore(measured.rms, { target: -18, min: -24, max: -12, tol: 2.0 }, 'rms') : { score: null },
+        
+        // Technical
+        truePeak: calcMetricScore(measured.truePeak, finalTargets.truePeak, 'truePeak'),
+        samplePeak: measured.samplePeak !== null ? calcMetricScore(measured.samplePeak, { target: -1.0, min: -6.0, max: 0.0, tol: 0.5 }, 'samplePeak') : { score: null },
+        clipping: calcMetricScore(measured.clipping, finalTargets.clipping, 'clipping'),
+        dcOffset: calcMetricScore(measured.dcOffset, finalTargets.dcOffset, 'dcOffset'),
+        
+        // Dynamics
+        dr: calcMetricScore(measured.dr, finalTargets.dr, 'dr'),
+        crest: calcMetricScore(measured.crest, finalTargets.crest, 'crest'),
+        lra: calcMetricScore(measured.lra, finalTargets.lra, 'lra'),
+        
+        // Stereo
+        correlation: calcMetricScore(measured.correlation, finalTargets.correlation, 'correlation'),
+        width: calcMetricScore(measured.width, finalTargets.width, 'width'),
+        
+        // Frequency (bandas)
+        bands: {}
+    };
+    
+    // Calcular scores das bandas
+    const BAND_KEYS = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'air', 'presence'];
+    const bandTargets = finalTargets.bands || {};
+    
+    for (const bandKey of BAND_KEYS) {
+        const userValue = measured.bands?.[bandKey]?.energy_db ?? measured.bands?.[bandKey];
+        const targetDef = bandTargets[bandKey];
+        
+        if (Number.isFinite(userValue) && targetDef) {
+            const bandTarget = {
+                target: targetDef.target_db ?? targetDef.target,
+                min: targetDef.target_range?.min ?? targetDef.min_db ?? (targetDef.target_db - (targetDef.tol_db || 2.0)),
+                max: targetDef.target_range?.max ?? targetDef.max_db ?? (targetDef.target_db + (targetDef.tol_db || 2.0)),
+                tol: targetDef.tol_db || 2.0
+            };
+            metricScores.bands[bandKey] = calcMetricScore(userValue, bandTarget, bandKey);
+        }
+    }
+    
+    if (DEBUG) {
+        console.log('📊 MetricScores calculados:', metricScores);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 5. CALCULAR SUBSCORES (médias ponderadas por grupo)
+    // ═══════════════════════════════════════════════════════════════════
+    function avgValidScores(scoreObjs) {
+        const valid = scoreObjs.filter(s => s?.score !== null && s?.score !== undefined);
+        if (valid.length === 0) return null;
+        return Math.round(valid.reduce((sum, s) => sum + s.score, 0) / valid.length);
+    }
+    
+    const subscores = {
+        loudness: avgValidScores([metricScores.lufs, metricScores.rms]),
+        technical: avgValidScores([metricScores.truePeak, metricScores.samplePeak, metricScores.clipping, metricScores.dcOffset]),
+        dynamics: avgValidScores([metricScores.dr, metricScores.crest, metricScores.lra]),
+        stereo: avgValidScores([metricScores.correlation, metricScores.width]),
+        frequency: avgValidScores(Object.values(metricScores.bands))
+    };
+    
+    if (DEBUG) {
+        console.log('📊 Subscores calculados:', subscores);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 6. CALCULAR RAW SCORE (média ponderada dos subscores)
+    // ═══════════════════════════════════════════════════════════════════
+    const WEIGHTS = {
+        loudness: 0.25,
+        technical: 0.25,
+        dynamics: 0.20,
+        stereo: 0.15,
+        frequency: 0.15
+    };
+    
+    let weightedSum = 0;
+    let totalWeight = 0;
+    
+    for (const [key, weight] of Object.entries(WEIGHTS)) {
+        if (subscores[key] !== null) {
+            weightedSum += subscores[key] * weight;
+            totalWeight += weight;
+        }
+    }
+    
+    const raw = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 50;
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 7. APLICAR GATES (penalidades proporcionais)
+    // ═══════════════════════════════════════════════════════════════════
+    let gatePenalty = 0;
+    const gateReasons = [];
+    
+    // Gate #1: True Peak > max (proporcional)
+    if (measured.truePeak !== null && measured.truePeak > finalTargets.truePeak.max) {
+        const excess = measured.truePeak - finalTargets.truePeak.max;
+        const penalty = Math.min(60, Math.round(excess * 20)); // 1 dB acima = -20 pts
+        gatePenalty += penalty;
+        gateReasons.push({
+            type: 'TRUE_PEAK',
+            value: measured.truePeak,
+            limit: finalTargets.truePeak.max,
+            excess,
+            penalty,
+            severity: excess > 1.0 ? 'CRÍTICA' : excess > 0.5 ? 'ALTA' : 'MODERADA'
+        });
+    }
+    
+    // Gate #2: Clipping > 0.5%
+    if (measured.clipping > 0.5) {
+        const penalty = Math.min(40, Math.round((measured.clipping - 0.5) * 10));
+        gatePenalty += penalty;
+        gateReasons.push({
+            type: 'CLIPPING',
+            value: measured.clipping,
+            limit: 0.5,
+            penalty,
+            severity: measured.clipping > 5 ? 'CRÍTICA' : measured.clipping > 2 ? 'ALTA' : 'MODERADA'
+        });
+    }
+    
+    // Gate #3: LUFS > max (proporcional)
+    if (measured.lufs !== null && measured.lufs > finalTargets.lufs.max) {
+        const excess = measured.lufs - finalTargets.lufs.max;
+        const penalty = Math.min(30, Math.round(excess * 5)); // 1 LU acima = -5 pts
+        gatePenalty += penalty;
+        gateReasons.push({
+            type: 'LUFS_HIGH',
+            value: measured.lufs,
+            limit: finalTargets.lufs.max,
+            excess,
+            penalty,
+            severity: excess > 4 ? 'CRÍTICA' : excess > 2 ? 'ALTA' : 'MODERADA'
+        });
+    }
+    
+    // Calcular final
+    const final = Math.max(0, Math.min(100, raw - gatePenalty));
+    
+    if (DEBUG) {
+        console.log('📊 Gate Penalty:', gatePenalty, 'Reasons:', gateReasons);
+        console.log('📊 Score Raw:', raw, 'Final:', final);
+        console.groupEnd();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 8. RETORNAR RESULTADO COMPLETO
+    // ═══════════════════════════════════════════════════════════════════
+    return {
+        raw,
+        final,
+        gatePenalty,
+        gateReasons,
+        subscores,
+        metricScores,
+        debug: {
+            mode,
+            measured,
+            targets: finalTargets,
+            weights: WEIGHTS,
+            totalWeight
+        }
+    };
+};
+
+// Alias para compatibilidade
+window.calculateScoreV3 = window.computeScoreV3;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧪 TEST FUNCTION: Testa cenários A (TP crítico) e B (Sub/Bass críticos)
+// Execute no console: window.__testScoreV3Scenarios()
+// ═══════════════════════════════════════════════════════════════════════════
+window.__testScoreV3Scenarios = function() {
+    console.log('\n');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('🧪 TESTE V3.5: CENÁRIOS A (TP CRÍTICO) E B (SUB/BASS CRÍTICOS)');
+    console.log('═══════════════════════════════════════════════════════════════');
+    
+    // CENÁRIO A: True Peak CRÍTICO (+2.0 dBTP)
+    console.log('\n📋 CENÁRIO A: True Peak CRÍTICO (+2.0 dBTP)');
+    console.log('─────────────────────────────────────────────');
+    const scenarioA = {
+        technicalData: {
+            lufsIntegrated: -14.0,    // OK
+            truePeakDbtp: 2.0,        // CRÍTICO! > 0 dBTP
+            dynamicRange: 8.0,        // OK
+            crestFactor: 12.0,        // OK
+            lra: 7.0,                 // OK
+            stereoCorrelation: 0.9,   // OK
+            stereoWidth: 0.7,         // OK
+            clippingPct: 0.001,       // OK
+            dcOffset: 0.0,            // OK
+            bands: {
+                sub: { energy_db: -28.0 },   // OK
+                bass: { energy_db: -22.0 },  // OK
+                mid: { energy_db: -18.0 },   // OK
+            }
+        }
+    };
+    
+    const resultA = window.computeScoreV3(scenarioA, {
+        lufs_target: -14.0, tol_lufs: 1.0,
+        true_peak_target: -1.0, tol_true_peak: 0.25,
+        dr_target: 8.0, tol_dr: 1.5,
+        bands: {
+            sub: { target_db: -28.0, tol_db: 3.0 },
+            bass: { target_db: -22.0, tol_db: 3.0 },
+            mid: { target_db: -18.0, tol_db: 3.0 }
+        }
+    }, 'streaming');
+    
+    console.log('📊 RESULTADO CENÁRIO A:');
+    console.log('   Raw Score:', resultA.raw);
+    console.log('   Final Score:', resultA.final);
+    console.log('   Gate Penalty:', resultA.gatePenalty);
+    console.log('   Gate Reasons:', resultA.gateReasons);
+    console.log('   Subscores:', resultA.subscores);
+    console.log('   MetricScores.truePeak:', resultA.metricScores.truePeak);
+    
+    const passA = resultA.final <= 50 && resultA.gatePenalty >= 30;
+    console.log(passA ? '✅ CENÁRIO A PASSOU!' : '❌ CENÁRIO A FALHOU!');
+    console.log('   Esperado: final <= 50, gatePenalty >= 30');
+    
+    // CENÁRIO B: Sub/Bass CRÍTICOS (muito alto)
+    console.log('\n📋 CENÁRIO B: Sub/Bass CRÍTICOS (muito fora do range)');
+    console.log('─────────────────────────────────────────────────────');
+    const scenarioB = {
+        technicalData: {
+            lufsIntegrated: -14.0,    // OK
+            truePeakDbtp: -1.0,       // OK
+            dynamicRange: 8.0,        // OK
+            crestFactor: 12.0,        // OK
+            lra: 7.0,                 // OK
+            stereoCorrelation: 0.9,   // OK
+            stereoWidth: 0.7,         // OK
+            clippingPct: 0.001,       // OK
+            dcOffset: 0.0,            // OK
+            bands: {
+                sub: { energy_db: -15.0 },   // CRÍTICO! +13 dB acima do target
+                bass: { energy_db: -10.0 },  // CRÍTICO! +12 dB acima do target
+                mid: { energy_db: -18.0 },   // OK
+            }
+        }
+    };
+    
+    const resultB = window.computeScoreV3(scenarioB, {
+        lufs_target: -14.0, tol_lufs: 1.0,
+        true_peak_target: -1.0, tol_true_peak: 0.25,
+        dr_target: 8.0, tol_dr: 1.5,
+        bands: {
+            sub: { target_db: -28.0, tol_db: 3.0, target_range: { min: -31.0, max: -25.0 } },
+            bass: { target_db: -22.0, tol_db: 3.0, target_range: { min: -25.0, max: -19.0 } },
+            mid: { target_db: -18.0, tol_db: 3.0, target_range: { min: -21.0, max: -15.0 } }
+        }
+    }, 'streaming');
+    
+    console.log('📊 RESULTADO CENÁRIO B:');
+    console.log('   Raw Score:', resultB.raw);
+    console.log('   Final Score:', resultB.final);
+    console.log('   Gate Penalty:', resultB.gatePenalty);
+    console.log('   Gate Reasons:', resultB.gateReasons);
+    console.log('   Subscores:', resultB.subscores);
+    console.log('   Frequency Score:', resultB.subscores.frequency);
+    console.log('   MetricScores.bands:', resultB.metricScores.bands);
+    
+    const passB = resultB.subscores.frequency !== null && resultB.subscores.frequency <= 50;
+    console.log(passB ? '✅ CENÁRIO B PASSOU!' : '❌ CENÁRIO B FALHOU!');
+    console.log('   Esperado: subscores.frequency <= 50 (Sub/Bass críticos devem derrubar frequency)');
+    
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log(passA && passB ? '🎉 TODOS OS TESTES PASSARAM!' : '⚠️ ALGUNS TESTES FALHARAM');
+    console.log('═══════════════════════════════════════════════════════════════');
+    
+    return { scenarioA: { result: resultA, passed: passA }, scenarioB: { result: resultB, passed: passB } };
+};
+
+console.log('🧪 [V3.5] Função de teste disponível: window.__testScoreV3Scenarios()');
+
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
 // 🔄 ATUALIZADO: Agora usa getMetricBounds para suportar min/max assimétrico
 function calculateLoudnessScore(analysis, refData) {
@@ -24099,8 +24573,8 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         const refComp = analysis.referenceComparison;
         
         // Buscar em múltiplos locais possíveis (estrutura varia entre JSONs)
-        const genreKey = genre || analysis.genre || analysis.genreId;
-        const genreData = genreKey ? refComp[genreKey] : null;
+        const genreKeyLookup = genre || analysis.genre || analysis.genreId;
+        const genreData = genreKeyLookup ? refComp[genreKeyLookup] : null;
         
         // 🎯 CORREÇÃO CRÍTICA: Extrair bandas do ROOT primeiro
         if (genreData?.bands) {
@@ -24219,14 +24693,83 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         return null;
     }
     
-    // Calcular sub-scores
+    // Determinar genreKey
+    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : null;
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 V3.5: USAR NOVO SISTEMA UNIFICADO computeScoreV3
+    // ═══════════════════════════════════════════════════════════════════
+    const mode = window.__soundyState?.render?.mode || 'streaming';
+    
+    // Preparar targets no formato esperado pelo computeScoreV3
+    const targetsForV3 = {
+        lufs_target: refData.lufs_target,
+        lufs_min: refData.lufs_min,
+        lufs_max: refData.lufs_max,
+        tol_lufs: refData.tol_lufs,
+        true_peak_target: refData.true_peak_target,
+        true_peak_min: refData.true_peak_min,
+        true_peak_max: refData.true_peak_max,
+        tol_true_peak: refData.tol_true_peak,
+        dr_target: refData.dr_target,
+        dr_min: refData.dr_min,
+        dr_max: refData.dr_max,
+        tol_dr: refData.tol_dr,
+        bands: refData.bands
+    };
+    
+    // Usar novo sistema unificado
+    const v3Result = window.computeScoreV3(analysis, targetsForV3, mode);
+    
+    if (v3Result) {
+        console.log('✅ [V3.5] Score calculado pelo sistema unificado:', v3Result);
+        
+        // Mapear resultado V3 para formato esperado pelo sistema antigo
+        const result = {
+            final: v3Result.final,
+            finalRaw: v3Result.raw,
+            loudness: v3Result.subscores.loudness,
+            dinamica: v3Result.subscores.dynamics,
+            frequencia: v3Result.subscores.frequency,
+            estereo: v3Result.subscores.stereo,
+            tecnico: v3Result.subscores.technical,
+            weights: v3Result.debug.weights,
+            genre: genreKey,
+            _v3Result: v3Result, // Resultado completo para debug
+            _gatesTriggered: v3Result.gateReasons,
+            _gatePenalty: v3Result.gatePenalty,
+            metricScores: v3Result.metricScores
+        };
+        
+        // 🎯 LOG DE AUDITORIA: Verificar subscores após correção
+        console.log('[AUDIT-SCORES-V3.5] Subscores unificados:', {
+            loudness: result.loudness,
+            dinamica: result.dinamica,
+            estereo: result.estereo,
+            frequencia: result.frequencia,
+            tecnico: result.tecnico,
+            raw: v3Result.raw,
+            final: result.final,
+            gatePenalty: v3Result.gatePenalty,
+            gateReasons: v3Result.gateReasons.map(g => g.type)
+        });
+        
+        return result;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // FALLBACK: Sistema antigo se V3 falhar
+    // ═══════════════════════════════════════════════════════════════════
+    console.warn('[V3.5] ⚠️ computeScoreV3 retornou null, usando sistema antigo');
+    
+    // Calcular sub-scores (sistema antigo)
     const loudnessScore = calculateLoudnessScore(analysis, refData);
     const dynamicsScore = calculateDynamicsScore(analysis, refData);
     const stereoScore = calculateStereoScore(analysis, refData);
     const frequencyScore = calculateFrequencyScore(analysis, refData);
     const technicalScore = calculateTechnicalScore(analysis, refData);
     
-    console.log('📊 Sub-scores calculados:', {
+    console.log('📊 Sub-scores calculados (sistema antigo):', {
         loudness: loudnessScore,
         dinamica: dynamicsScore,
         estereo: stereoScore,
@@ -24234,10 +24777,7 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         tecnico: technicalScore
     });
     
-    // Determinar pesos por gênero
-    // 🎯 CORREÇÃO: Não usar 'default' como fallback, usar null
-    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : null;
-    
+    // Determinar pesos por gênero (genreKey já definido anteriormente)
     if (!genreKey) {
         console.warn('[GET-BAND-LABEL] Gênero não fornecido, usando label genérico');
     }
