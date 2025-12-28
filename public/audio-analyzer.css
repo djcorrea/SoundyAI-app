@@ -835,11 +835,10 @@
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
         width: 95vw;
-        /* 🔧 Fix iOS viewport: usar svh (small viewport height) como primário */
-        min-height: 85svh;
-        min-height: 85vh; /* Fallback navegadores antigos */
-        max-height: 95svh;
-        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        /* 🔧 Modal de upload: ~90vh para ocupar quase toda tela */
+        min-height: auto;
+        max-height: 90svh;
+        max-height: 90vh; /* Fallback navegadores antigos */
         height: auto;
         /* 📱 Padding reduzido para aproveitar espaço mobile */
         padding: 28px 18px 24px 18px;
