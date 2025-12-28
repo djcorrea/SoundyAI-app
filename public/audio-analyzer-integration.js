@@ -1362,9 +1362,132 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
     }
 
     // ==========================================
+    // 6️⃣ BANDAS ESPECTRAIS (A vs B) - MODO REFERENCE
+    // 🎯 CORREÇÃO: Adicionar sugestões de bandas no modo referência
+    // ==========================================
+    const extractBandsFromAnalysis = (analysis) => {
+        return analysis?.bands ||
+               analysis?.technicalData?.spectral_balance ||
+               analysis?.technicalData?.bands ||
+               analysis?.metrics?.bands ||
+               analysis?.metrics?.spectral_balance ||
+               null;
+    };
+
+    const userBands = extractBandsFromAnalysis(userAnalysis);
+    const refBands = extractBandsFromAnalysis(refAnalysis);
+
+    console.log('[A/B-SUGGESTIONS] 🎵 Bandas extraídas:', {
+        userHasBands: !!userBands,
+        refHasBands: !!refBands,
+        userBandKeys: userBands ? Object.keys(userBands) : null,
+        refBandKeys: refBands ? Object.keys(refBands) : null
+    });
+
+    if (userBands && refBands) {
+        // Mapeamento de nomes de bandas (snake_case → display name)
+        const bandNameMap = {
+            'sub': { name: 'Sub Bass (20-60 Hz)', icon: '🔊' },
+            'sub_bass': { name: 'Sub Bass (20-60 Hz)', icon: '🔊' },
+            'low_bass': { name: 'Low Bass (60-120 Hz)', icon: '🎸' },
+            'upper_bass': { name: 'Upper Bass (120-250 Hz)', icon: '🎸' },
+            'bass': { name: 'Bass (60-250 Hz)', icon: '🎸' },
+            'low_mid': { name: 'Low Mids (250-500 Hz)', icon: '🎹' },
+            'lowMid': { name: 'Low Mids (250-500 Hz)', icon: '🎹' },
+            'mid': { name: 'Mids (500-2000 Hz)', icon: '🎤' },
+            'mids': { name: 'Mids (500-2000 Hz)', icon: '🎤' },
+            'high_mid': { name: 'High Mids (2-5 kHz)', icon: '✨' },
+            'highMid': { name: 'High Mids (2-5 kHz)', icon: '✨' },
+            'presence': { name: 'Presence (5-10 kHz)', icon: '🔔' },
+            'presenca': { name: 'Presence (5-10 kHz)', icon: '🔔' },
+            'air': { name: 'Air/Brilho (10-20 kHz)', icon: '💫' },
+            'brilho': { name: 'Air/Brilho (10-20 kHz)', icon: '💫' },
+            'brilliance': { name: 'Air/Brilho (10-20 kHz)', icon: '💫' }
+        };
+
+        // Threshold para considerar diferença significativa em bandas (dB)
+        const BAND_THRESHOLD_DB = 1.5; // 1.5 dB de diferença
+
+        // Iterar sobre todas as bandas disponíveis na referência
+        const allBandKeys = new Set([
+            ...Object.keys(userBands),
+            ...Object.keys(refBands)
+        ]);
+
+        let bandSuggestionsGenerated = 0;
+
+        for (const bandKey of allBandKeys) {
+            const userBand = userBands[bandKey];
+            const refBand = refBands[bandKey];
+
+            if (!userBand || !refBand) continue;
+
+            // Extrair valores de energia (dB)
+            const userValue = typeof userBand === 'object' 
+                ? (userBand.energy_db ?? userBand.rms_db ?? userBand.percentage ?? userBand.value)
+                : userBand;
+            
+            const refValue = typeof refBand === 'object'
+                ? (refBand.energy_db ?? refBand.rms_db ?? refBand.percentage ?? refBand.value)
+                : refBand;
+
+            if (typeof userValue !== 'number' || typeof refValue !== 'number') continue;
+            if (isNaN(userValue) || isNaN(refValue)) continue;
+
+            const delta = userValue - refValue;
+            const absDelta = Math.abs(delta);
+
+            // Apenas gerar sugestão se diferença for significativa
+            if (absDelta < BAND_THRESHOLD_DB) continue;
+
+            const bandInfo = bandNameMap[bandKey] || { name: bandKey, icon: '🎵' };
+            const severidade = absDelta >= 4.0 ? "ALTA" : (absDelta >= 2.5 ? "MODERADA" : "LEVE");
+            const direcao = delta > 0 ? "acima" : "abaixo";
+            const acao = delta > 0 ? "Reduza" : "Aumente";
+
+            suggestions.push({
+                categoria: `${bandInfo.icon} ${bandInfo.name} (A vs B)`,
+                severidade: severidade,
+                metric: `band_${bandKey}`,
+                type: 'band_adjust',
+                subtype: bandKey,
+                problema: `Banda ${bandInfo.name} está ${direcao} da referência em ${absDelta.toFixed(1)} dB. Sua faixa: ${userValue.toFixed(1)} dB vs Referência: ${refValue.toFixed(1)} dB.`,
+                causaProvavel: delta > 0
+                    ? `Excesso de energia em ${bandInfo.name} pode causar turbidez ou mascaramento de outras frequências.`
+                    : `Déficit de energia em ${bandInfo.name} pode resultar em mix thin ou falta de corpo nessa região.`,
+                solucao: `${acao} a banda ${bandInfo.name} em aproximadamente ${absDelta.toFixed(1)} dB usando EQ paramétrico ou shelving.`,
+                pluginRecomendado: "FabFilter Pro-Q 3, Waves SSL G-EQ, iZotope Ozone EQ",
+                dicaExtra: `Compare A/B para garantir que o ajuste aproxima sua faixa da referência. Use analisador de espectro para monitorar.`,
+                parametros: {
+                    banda: bandKey,
+                    bandaNome: bandInfo.name,
+                    valorAtual: userValue,
+                    valorReferencia: refValue,
+                    diferenca: delta,
+                    ajusteSugerido: `${acao} ${absDelta.toFixed(1)} dB`
+                },
+                technical: {
+                    delta: delta,
+                    currentValue: userValue,
+                    targetValue: refValue,
+                    tolerance: BAND_THRESHOLD_DB
+                },
+                aiEnhanced: true,
+                referenceMode: true
+            });
+
+            bandSuggestionsGenerated++;
+        }
+
+        console.log(`[A/B-SUGGESTIONS] 🎵 Bandas espectrais: ${bandSuggestionsGenerated} sugestões geradas`);
+    } else {
+        console.warn('[A/B-SUGGESTIONS] ⚠️ Bandas não disponíveis para comparação A/B');
+    }
+
+    // ==========================================
     // 📊 RESULTADO FINAL
     // ==========================================
-    console.log(`[A/B-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões comparativas`);
+    console.log(`[A/B-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões comparativas (métricas + bandas)`);
     
     if (suggestions.length > 0) {
         console.log('[A/B-SUGGESTIONS] 📋 Resumo das sugestões:', 
@@ -1372,11 +1495,27 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
         );
     }
 
-    // Limitar a 5 sugestões mais relevantes (ordenadas por severidade)
+    // 🎯 CORREÇÃO: Aumentar limite para incluir métricas E bandas (até 12 sugestões)
+    // Separar por tipo para garantir representação de ambos
+    const metricSuggestions = suggestions.filter(s => !s.referenceMode);
+    const bandSuggestions = suggestions.filter(s => s.referenceMode === true);
+    
+    console.log(`[A/B-SUGGESTIONS] 📊 Distribuição: ${metricSuggestions.length} métricas + ${bandSuggestions.length} bandas`);
+
+    // Ordenar por severidade
     const severityOrder = { "CRÍTICA": 0, "ALTA": 1, "MODERADA": 2, "IMPORTANTE": 3, "LEVE": 4 };
-    return suggestions
-        .sort((a, b) => (severityOrder[a.severidade] || 5) - (severityOrder[b.severidade] || 5))
-        .slice(0, 5);
+    const sortBySeverity = (a, b) => (severityOrder[a.severidade] || 5) - (severityOrder[b.severidade] || 5);
+
+    // Garantir até 5 métricas + até 7 bandas = 12 total
+    const selectedMetrics = metricSuggestions.sort(sortBySeverity).slice(0, 5);
+    const selectedBands = bandSuggestions.sort(sortBySeverity).slice(0, 7);
+    
+    const finalSuggestions = [...selectedMetrics, ...selectedBands]
+        .sort(sortBySeverity);
+    
+    console.log(`[A/B-SUGGESTIONS] 🎯 Final: ${finalSuggestions.length} sugestões (${selectedMetrics.length} métricas + ${selectedBands.length} bandas)`);
+    
+    return finalSuggestions;
 }
 
 // ========================================
@@ -13592,8 +13731,33 @@ async function displayModalResults(analysis) {
                 userFull.hasEnriched = true;
                 userFull.mode = "compare";
                 
+                // 🎯 CORREÇÃO: Popular PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA para Enhanced Suggestion Engine
+                // Isso permite que o engine também processe bandas espectrais no modo reference
+                const referenceComparisonData = comparativeSuggestions
+                    .filter(s => s.referenceMode === true || s.type === 'band_adjust')
+                    .map(s => ({
+                        metric: s.subtype || s.metric,
+                        name: s.categoria,
+                        category: 'spectral_bands',
+                        value: s.parametros?.valorAtual,
+                        ideal: s.parametros?.valorReferencia,
+                        delta: s.parametros?.diferenca,
+                        tolerance: s.technical?.tolerance || 1.5,
+                        severity: s.severidade
+                    }));
+                
+                if (referenceComparisonData.length > 0) {
+                    window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA = referenceComparisonData;
+                    console.log('[A/B-FLOW] 🎯 PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA populado:', {
+                        total: referenceComparisonData.length,
+                        bands: referenceComparisonData.map(r => r.metric).join(', ')
+                    });
+                }
+                
                 console.log('[A/B-FLOW] ✅ Sugestões comparativas injetadas:', {
                     quantidade: comparativeSuggestions.length,
+                    metricas: comparativeSuggestions.filter(s => !s.referenceMode).length,
+                    bandas: comparativeSuggestions.filter(s => s.referenceMode === true).length,
                     categorias: comparativeSuggestions.map(s => s.categoria).join(', ')
                 });
             } else {
