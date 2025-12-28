@@ -25,6 +25,9 @@
 
 import { resolveTargets, validateTargets, TRUE_PEAK_HARD_CAP } from './resolveTargets.js';
 
+// 🐛 DEBUG FLAG para instrumentação de True Peak
+const DEBUG_TP_ACTION = false;
+
 // 🎯 LABELS PARA DISPLAY
 const METRIC_LABELS = {
   lufs: 'Loudness (LUFS)',
@@ -240,10 +243,11 @@ function evaluateTruePeak(value, target) {
   }
   // WARNING ZONE: Acima de warnFrom
   else if (warnFrom !== null && value > warnFrom) {
-    const delta = value - warnFrom;
+    // 🔧 FIX: usar target.target (não warnFrom) para consistência com coluna "Diferença"
+    const deltaToTarget = value - target.target;
     severity = 'ALTA';
     severityClass = 'warning';
-    action = `⚠️ Próximo do limite. Reduzir ${delta.toFixed(2)} ${unit}`;
+    action = `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} ${unit}`;
     scoreValue = 0.5;
   }
   // ABAIXO DO MÍNIMO (muito baixo)
@@ -278,6 +282,20 @@ function evaluateTruePeak(value, target) {
     action,
     category: METRIC_CATEGORIES.truePeak
   };
+  
+  // 🐛 DEBUG: Instrumentação para validar TP Action
+  if (DEBUG_TP_ACTION) {
+    const deltaToTarget = value - target.target;
+    console.log('[TP_ACTION]', {
+      tp_value: value,
+      tp_target: target.target,
+      tp_hardCap: effectiveHardCap,
+      diff: row.diff,
+      deltaToTarget,
+      action: row.action,
+      match: Math.abs(deltaToTarget - Math.abs(row.diff)) <= 0.1 ? '✅' : '❌'
+    });
+  }
   
   // Issue só se não for OK
   const issue = severity !== 'OK' ? {
