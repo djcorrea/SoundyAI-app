@@ -54,6 +54,46 @@ const METRIC_CATEGORY_MAP = {
     'Balance': 'stereo'
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🛡️ NORMALIZADOR DE SEVERIDADE - ANTI-CRASH
+// Garante que severity seja SEMPRE string, nunca causa erro de .toUpperCase()
+// ═══════════════════════════════════════════════════════════════════════════════
+function normalizeSeverity(severity) {
+    if (!severity) return 'DESCONHECIDO';
+    
+    if (typeof severity === 'string') {
+        return severity.toUpperCase().trim();
+    }
+    
+    if (typeof severity === 'number') {
+        const numMap = { 1: 'FINO', 2: 'ATENÇÃO', 3: 'CRÍTICA' };
+        return numMap[severity] || 'DESCONHECIDO';
+    }
+    
+    if (typeof severity === 'object') {
+        if (severity.label) return String(severity.label).toUpperCase().trim();
+        if (severity.level) {
+            const levelMap = { 1: 'FINO', 2: 'ATENÇÃO', 3: 'CRÍTICA' };
+            return levelMap[severity.level] || 'DESCONHECIDO';
+        }
+        if (severity.name) return String(severity.name).toUpperCase().trim();
+    }
+    
+    return 'DESCONHECIDO';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🛡️ VERIFICADOR DE PROBLEMA - Retorna true se severidade indica problema real
+// ═══════════════════════════════════════════════════════════════════════════════
+function isProblematicSeverity(severity) {
+    const normalized = normalizeSeverity(severity);
+    return normalized.includes('CRÍT') || 
+           normalized.includes('ATEN') || 
+           normalized.includes('WARN') ||
+           normalized.includes('ALTA') ||
+           normalized.includes('MODERADA');
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31499,15 +31539,11 @@ function extractProblemsFromTableDOM() {
             else if (rowClass.includes('ok')) severity = 'OK';
         }
         
-        // Normalizar severidade
-        const normalizedSeverity = severity.toUpperCase();
+        // 🛡️ USAR NORMALIZESEVERITY - NUNCA .toUpperCase() direto
+        const normalizedSeverity = normalizeSeverity(severity);
         
-        // Determinar se é um problema real (CRÍTICA ou ATENÇÃO)
-        const isProblematic = normalizedSeverity.includes('CRÍT') || 
-                              normalizedSeverity.includes('ATEN') || 
-                              normalizedSeverity.includes('WARN') ||
-                              normalizedSeverity.includes('ALTA') ||
-                              normalizedSeverity.includes('MODERADA');
+        // 🛡️ USAR ISPROBLEMATICSEVERITY - Lógica centralizada
+        const isProblematic = isProblematicSeverity(severity);
         
         // Detectar categoria da métrica
         const category = detectMetricCategory(metric);
@@ -31519,7 +31555,7 @@ function extractProblemsFromTableDOM() {
             value: value,
             target: target,
             difference: diff,
-            severity: severity,
+            severity: normalizedSeverity, // Já normalizado
             action: action,
             category: category,
             isProblematic: isProblematic,
@@ -31607,8 +31643,9 @@ function buildProblemsSummary(problems) {
         })),
         
         totalProblems: problems.length,
-        criticalCount: problems.filter(p => p.severity?.toUpperCase().includes('CRÍT')).length,
-        attentionCount: problems.filter(p => p.severity?.toUpperCase().includes('ATEN')).length
+        // 🛡️ USAR NORMALIZESEVERITY - Blindagem contra undefined/objeto
+        criticalCount: problems.filter(p => p && normalizeSeverity(p.severity).includes('CRÍT')).length,
+        attentionCount: problems.filter(p => p && normalizeSeverity(p.severity).includes('ATEN')).length
     };
     
     return summary;
