@@ -17871,25 +17871,10 @@ async function displayModalResults(analysis) {
                 statusClass = 'status-poor';
             }
             
-            // V3.4: Gerar HTML para gates se aplicados
-            let gateInfoHtml = '';
+            // V4.0: UI Limpa - Removidos textos técnicos (gate/cap/penalty)
+            // Informações técnicas agora ficam apenas no console para debug
             if (wasGatePenalized) {
-                const gateDescriptions = gatesTriggered.map(g => {
-                    if (g.type?.includes('TRUE_PEAK')) return `🔊 True Peak: ${g.value?.toFixed(2) ?? '?'} dBTP`;
-                    if (g.type?.includes('LUFS')) return `📢 LUFS: ${g.value?.toFixed(1) ?? '?'}`;
-                    if (g.type?.includes('CLIPPING')) return `💥 Clipping: ${g.value?.toFixed(1) ?? '?'}%`;
-                    return g.reason || g.type;
-                }).join(' | ');
-                
-                gateInfoHtml = `
-                    <div class="score-gate-info">
-                        <span class="score-raw">Score bruto: ${finalRaw}%</span>
-                        <span class="score-penalty">-${gatePenaltyAmount} pts (gate)</span>
-                        ${gateDescriptions ? `<div class="score-gate-reasons">${gateDescriptions}</div>` : ''}
-                    </div>
-                `;
-                
-                console.log('[RENDER_FINAL_SCORE] ⚠️ Gate aplicado:', {
+                console.log('[RENDER_FINAL_SCORE] 🔧 Gate aplicado (info técnica):', {
                     bruto: finalRaw,
                     final: finalScore,
                     penalidade: gatePenaltyAmount,
@@ -17897,17 +17882,17 @@ async function displayModalResults(analysis) {
                 });
             }
             
-            // Renderizar HTML do score final
+            // Renderizar HTML do score final - UI LIMPA
             container.innerHTML = `
                 <div class="score-final-label">🏆 SCORE FINAL</div>
                 <div class="score-final-value">0</div>
-                ${gateInfoHtml}
                 <div class="score-final-bar-container">
                     <div class="score-final-bar">
                         <div class="score-final-bar-fill" style="width: 0%"></div>
                     </div>
                 </div>
                 <div class="score-final-status ${statusClass}">${statusMessage}</div>
+                <div id="diagnostic-container" class="diagnostic-container"></div>
             `;
             
             // Animar contagem do score (impacto visual) - inicia após pequeno delay
@@ -17961,6 +17946,114 @@ async function displayModalResults(analysis) {
             
             requestAnimationFrame(animate);
         }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🧠 DIAGNÓSTICO SONORO INTELIGENTE - RENDERIZAÇÃO UI
+        // ═══════════════════════════════════════════════════════════════
+        
+        /**
+         * Renderiza o diagnóstico semântico abaixo do score final
+         * @param {Object} scoreResult - Resultado de computeScoreV3
+         * @param {Object} analysisMeta - Metadados da análise
+         */
+        function renderDiagnostic(scoreResult, analysisMeta = {}) {
+            console.log('[RENDER_DIAGNOSTIC] 🧠 Iniciando renderização do diagnóstico');
+            
+            const container = document.getElementById('diagnostic-container');
+            if (!container) {
+                console.warn('[RENDER_DIAGNOSTIC] ⚠️ Container #diagnostic-container não encontrado');
+                return;
+            }
+            
+            // Construir contexto semântico
+            const diagnostic = window.buildDiagnosticContext(scoreResult, analysisMeta);
+            
+            if (!diagnostic || !diagnostic.context?.valid) {
+                console.warn('[RENDER_DIAGNOSTIC] ⚠️ Diagnóstico inválido');
+                container.innerHTML = '';
+                return;
+            }
+            
+            const { problems, strengths, context } = diagnostic;
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RENDERIZAR PROBLEMAS PRINCIPAIS (máx 3)
+            // ═══════════════════════════════════════════════════════════════
+            const topProblems = problems.slice(0, 3);
+            const problemsHtml = topProblems.length > 0 
+                ? topProblems.map(p => {
+                    const severityIcon = p.severity === 'CRÍTICA' ? '🚨' 
+                                       : p.severity === 'ALTA' ? '⚠️' 
+                                       : '💡';
+                    const severityClass = p.severity === 'CRÍTICA' ? 'diagnostic-critical'
+                                        : p.severity === 'ALTA' ? 'diagnostic-high'
+                                        : 'diagnostic-attention';
+                    return `
+                        <div class="diagnostic-item ${severityClass}">
+                            <span class="diagnostic-icon">${severityIcon}</span>
+                            <span class="diagnostic-text">${p.text}</span>
+                        </div>
+                    `;
+                }).join('')
+                : '';
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RENDERIZAR PONTOS FORTES (máx 2)
+            // ═══════════════════════════════════════════════════════════════
+            const topStrengths = strengths.slice(0, 2);
+            const strengthsHtml = topStrengths.length > 0
+                ? topStrengths.map(s => `
+                    <div class="diagnostic-item diagnostic-strength">
+                        <span class="diagnostic-icon">✅</span>
+                        <span class="diagnostic-text">${s.text}</span>
+                    </div>
+                `).join('')
+                : '';
+            
+            // ═══════════════════════════════════════════════════════════════
+            // MENSAGEM DE RESUMO BASEADA NO CONTEXTO
+            // ═══════════════════════════════════════════════════════════════
+            let summaryMessage = '';
+            const { stats } = context;
+            
+            if (stats.criticalProblems > 0) {
+                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-critical">
+                    🚨 <strong>${stats.criticalProblems} problema(s) crítico(s)</strong> detectado(s). Corrija antes de finalizar.
+                </div>`;
+            } else if (stats.highProblems > 0) {
+                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-warning">
+                    ⚠️ <strong>${stats.highProblems} ponto(s) de atenção</strong>. Revise para melhor resultado.
+                </div>`;
+            } else if (stats.totalProblems > 0) {
+                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-info">
+                    💡 <strong>${stats.totalProblems} sugestão(ões)</strong> de melhoria identificada(s).
+                </div>`;
+            } else if (stats.totalStrengths > 0) {
+                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-success">
+                    ✨ <strong>Excelente!</strong> Áudio bem equilibrado e pronto para distribuição.
+                </div>`;
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
+            // RENDERIZAR HTML FINAL
+            // ═══════════════════════════════════════════════════════════════
+            container.innerHTML = `
+                <div class="diagnostic-header">
+                    <span class="diagnostic-title">🧠 Diagnóstico Sonoro Inteligente</span>
+                </div>
+                ${summaryMessage}
+                <div class="diagnostic-list">
+                    ${problemsHtml}
+                    ${strengthsHtml}
+                </div>
+                ${problems.length > 3 ? `<div class="diagnostic-more">+ ${problems.length - 3} mais...</div>` : ''}
+            `;
+            
+            console.log('[RENDER_DIAGNOSTIC] ✅ Diagnóstico renderizado com', problems.length, 'problemas e', strengths.length, 'pontos fortes');
+        }
+        
+        // Expor função para uso externo
+        window.renderDiagnostic = renderDiagnostic;
         
         // ═══════════════════════════════════════════════════════════════
         
@@ -18135,6 +18228,26 @@ async function displayModalResults(analysis) {
         renderFinalScoreAtTop(analysis.scores);
         
         console.log('[RENDER_SCORE_TOP] ✅ renderFinalScoreAtTop FINALIZADO');
+        
+        // =========================================================================
+        // 🧠 V4.0: RENDERIZAR DIAGNÓSTICO SONORO INTELIGENTE
+        // =========================================================================
+        // O diagnóstico é renderizado após a animação do score começar
+        setTimeout(() => {
+            if (analysis.scores && window.buildDiagnosticContext) {
+                console.log('[RENDER_DIAGNOSTIC] 🧠 Iniciando construção do diagnóstico');
+                
+                // Construir metadados da análise para contexto
+                const analysisMeta = {
+                    mode: analysis.mode || 'streaming',
+                    genre: analysis.genre || analysis.genreName || null,
+                    reference: analysis.referenceName || analysis.reference?.name || null
+                };
+                
+                // Renderizar diagnóstico
+                renderDiagnostic(analysis.scores, analysisMeta);
+            }
+        }, 500); // Delay para sincronizar com animação do score
 
         console.log('[RENDER_CARDS] ✅ Atribuindo HTML ao technicalData.innerHTML');
         technicalData.innerHTML = `
@@ -23958,6 +24071,333 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
 
 // Alias para compatibilidade
 window.calculateScoreV3 = window.computeScoreV3;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🧠 DIAGNÓSTICO SONORO INTELIGENTE V1.0
+// Função que transforma métricas técnicas em contexto semântico para IA/UI
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Constrói contexto diagnóstico semântico a partir dos resultados de computeScoreV3
+ * @param {Object} scoreResult - Resultado de computeScoreV3 (metricEvaluations, subscores, etc)
+ * @param {Object} analysisMeta - Metadados da análise (modo, gênero, referência, etc)
+ * @returns {Object} { problems: [], strengths: [], context: {} }
+ */
+window.buildDiagnosticContext = function(scoreResult, analysisMeta = {}) {
+    const DEBUG = true;
+    
+    if (DEBUG) {
+        console.group('🧠 [buildDiagnosticContext V1.0] Construindo contexto semântico');
+        console.log('📊 scoreResult keys:', Object.keys(scoreResult || {}));
+        console.log('📊 analysisMeta:', analysisMeta);
+    }
+    
+    if (!scoreResult || !scoreResult.metricEvaluations) {
+        console.warn('⚠️ [buildDiagnosticContext] Dados insuficientes');
+        if (DEBUG) console.groupEnd();
+        return { problems: [], strengths: [], context: { valid: false } };
+    }
+    
+    const evals = scoreResult.metricEvaluations;
+    const subscores = scoreResult.subscores || {};
+    const gatesTriggered = scoreResult.gatesTriggered || [];
+    const freqDetails = scoreResult._frequencyDetails || {};
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // MAPEAMENTO SEMÂNTICO DE MÉTRICAS
+    // ═══════════════════════════════════════════════════════════════════
+    const METRIC_SEMANTICS = {
+        // Loudness
+        lufs: {
+            name: 'Volume Integrado (LUFS)',
+            category: 'loudness',
+            problemTemplates: {
+                high: 'Áudio está muito alto ({value} LUFS vs target {target} LUFS). Pode sofrer limitação em plataformas de streaming.',
+                low: 'Áudio está muito baixo ({value} LUFS vs target {target} LUFS). Pode parecer fraco comparado a outras faixas.',
+                critical: 'Volume está extremamente fora do padrão ({value} LUFS vs target {target} LUFS). Requer ajuste urgente de loudness.'
+            },
+            strengthTemplate: 'Volume integrado adequado ({value} LUFS), otimizado para {mode}.'
+        },
+        rms: {
+            name: 'RMS Médio',
+            category: 'loudness',
+            problemTemplates: {
+                high: 'RMS muito alto ({value} dB), indicando possível over-compression.',
+                low: 'RMS baixo demais ({value} dB), áudio pode parecer muito quieto.',
+                critical: 'RMS drasticamente fora do esperado ({value} dB).'
+            },
+            strengthTemplate: 'Nível RMS balanceado ({value} dB).'
+        },
+        
+        // Technical
+        truePeak: {
+            name: 'True Peak',
+            category: 'technical',
+            highReliability: true,
+            problemTemplates: {
+                high: 'True Peak excede o limite seguro ({value} dBTP). Causará distorção após codec lossy.',
+                critical: 'True Peak CRÍTICO ({value} dBTP). Áudio vai distorcer em qualquer plataforma.'
+            },
+            strengthTemplate: 'True Peak dentro do limite seguro ({value} dBTP).'
+        },
+        clipping: {
+            name: 'Clipping Digital',
+            category: 'technical',
+            highReliability: true,
+            problemTemplates: {
+                high: 'Detectado clipping ({value}%). Pode causar distorção audível.',
+                critical: 'Clipping excessivo ({value}%). Distorção severa no áudio.'
+            },
+            strengthTemplate: 'Sem clipping digital detectado.'
+        },
+        dcOffset: {
+            name: 'DC Offset',
+            category: 'technical',
+            problemTemplates: {
+                high: 'DC Offset detectado ({value}%). Pode reduzir headroom disponível.',
+                critical: 'DC Offset significativo ({value}%). Requer correção.'
+            },
+            strengthTemplate: 'DC Offset negligível.'
+        },
+        
+        // Dynamics
+        dr: {
+            name: 'Dynamic Range',
+            category: 'dynamics',
+            problemTemplates: {
+                high: 'Dynamic Range muito alto ({value} dB). Pode soar inconsistente em volumes diferentes.',
+                low: 'Dynamic Range muito baixo ({value} dB). Áudio pode soar comprimido/sem vida.',
+                critical: 'Dynamic Range extremo ({value} dB vs esperado {target} dB). Verificar compressão/limiting.'
+            },
+            strengthTemplate: 'Dynamic Range adequado para {mode} ({value} dB).'
+        },
+        lra: {
+            name: 'Loudness Range (LRA)',
+            category: 'dynamics',
+            problemTemplates: {
+                high: 'LRA muito amplo ({value} LU). Partes podem parecer muito mais altas/baixas.',
+                low: 'LRA muito estreito ({value} LU). Pode indicar over-limiting.',
+                critical: 'LRA fora dos padrões ({value} LU).'
+            },
+            strengthTemplate: 'Loudness Range equilibrado ({value} LU).'
+        },
+        crest: {
+            name: 'Crest Factor',
+            category: 'dynamics',
+            problemTemplates: {
+                high: 'Crest Factor alto ({value} dB). Transients podem não estar bem controlados.',
+                low: 'Crest Factor baixo ({value} dB). Possível over-compression.',
+                critical: 'Crest Factor extremo ({value} dB).'
+            },
+            strengthTemplate: 'Crest Factor adequado ({value} dB).'
+        },
+        
+        // Stereo
+        correlation: {
+            name: 'Correlação Estéreo',
+            category: 'stereo',
+            highReliability: true,
+            problemTemplates: {
+                low: 'Correlação estéreo baixa ({value}). Pode haver problemas de fase ou cancelamento em mono.',
+                critical: 'Correlação muito baixa ({value}). Possível inversão de fase ou problemas graves de compatibilidade mono.'
+            },
+            strengthTemplate: 'Correlação estéreo saudável ({value}).'
+        },
+        width: {
+            name: 'Largura Estéreo',
+            category: 'stereo',
+            problemTemplates: {
+                high: 'Estéreo muito largo ({value}). Pode parecer "falso" ou ter problemas em mono.',
+                low: 'Estéreo estreito demais ({value}). Mix pode parecer "fechado".',
+                critical: 'Largura estéreo extrema ({value}).'
+            },
+            strengthTemplate: 'Largura estéreo apropriada ({value}).'
+        },
+        
+        // Frequency Bands
+        sub: { name: 'Sub-graves (20-60Hz)', category: 'frequency' },
+        bass: { name: 'Graves (60-250Hz)', category: 'frequency' },
+        lowMid: { name: 'Médio-graves (250-500Hz)', category: 'frequency' },
+        mid: { name: 'Médios (500-2kHz)', category: 'frequency' },
+        highMid: { name: 'Médio-agudos (2-4kHz)', category: 'frequency' },
+        presence: { name: 'Presença (4-8kHz)', category: 'frequency' },
+        air: { name: 'Air (8-20kHz)', category: 'frequency' }
+    };
+    
+    const BAND_PROBLEM_TEMPLATE = {
+        high: '{name} com excesso ({value} dB vs target {target} dB). Pode causar {effect}.',
+        low: '{name} com déficit ({value} dB vs target {target} dB). Pode causar {effect}.',
+        critical: '{name} criticamente fora do range ({value} dB). Requer EQ corretiva urgente.'
+    };
+    
+    const BAND_EFFECTS = {
+        sub: { high: 'peso excessivo ou rumble', low: 'falta de peso/fundação' },
+        bass: { high: 'mixagem "muddy" ou embolada', low: 'mix fina/sem corpo' },
+        lowMid: { high: 'mixagem "boxy" ou abafada', low: 'falta de corpo nos instrumentos' },
+        mid: { high: 'som "nasal" ou fatigante', low: 'falta de presença e clareza' },
+        highMid: { high: 'som agressivo/estridente', low: 'falta de definição/corte' },
+        presence: { high: 'sibilância excessiva', low: 'som apagado/distante' },
+        air: { high: 'ruído/aspereza no high-end', low: 'falta de brilho/abertura' }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CONSTRUIR ARRAYS DE PROBLEMAS E PONTOS FORTES
+    // ═══════════════════════════════════════════════════════════════════
+    const problems = [];
+    const strengths = [];
+    
+    // Processar cada métrica avaliada
+    for (const [metricKey, evaluation] of Object.entries(evals)) {
+        if (!evaluation || evaluation.score === null) continue;
+        
+        const semantic = METRIC_SEMANTICS[metricKey];
+        if (!semantic) continue;
+        
+        const { severity, score, deviation, value, target } = evaluation;
+        const mode = analysisMeta.mode || 'streaming';
+        
+        // Determinar se é PROBLEMA ou PONTO FORTE
+        if (severity === 'CRÍTICA' || severity === 'ALTA' || severity === 'ATENÇÃO') {
+            // É um problema
+            let problemText = '';
+            const direction = deviation > 0 ? 'high' : 'low';
+            
+            // Para bandas de frequência
+            if (semantic.category === 'frequency') {
+                const template = severity === 'CRÍTICA' 
+                    ? BAND_PROBLEM_TEMPLATE.critical 
+                    : BAND_PROBLEM_TEMPLATE[direction];
+                const effect = BAND_EFFECTS[metricKey]?.[direction] || 'problemas de balanço';
+                
+                problemText = template
+                    .replace('{name}', semantic.name)
+                    .replace('{value}', value?.toFixed?.(1) ?? '?')
+                    .replace('{target}', target?.toFixed?.(1) ?? '?')
+                    .replace('{effect}', effect);
+            } else {
+                // Para outras métricas
+                const templates = semantic.problemTemplates || {};
+                const templateKey = severity === 'CRÍTICA' ? 'critical' : direction;
+                const template = templates[templateKey] || templates.high || templates.low || `${semantic.name} fora do ideal ({value}).`;
+                
+                problemText = template
+                    .replace('{value}', typeof value === 'number' ? value.toFixed(1) : String(value))
+                    .replace('{target}', typeof target === 'number' ? target.toFixed(1) : String(target))
+                    .replace('{mode}', mode);
+            }
+            
+            problems.push({
+                metric: metricKey,
+                name: semantic.name,
+                category: semantic.category,
+                severity,
+                score,
+                deviation,
+                text: problemText,
+                value,
+                target,
+                isHighReliability: semantic.highReliability === true
+            });
+        } else if (severity === 'OK' && score >= 90) {
+            // É um ponto forte
+            const template = semantic.strengthTemplate || `${semantic.name} está bom.`;
+            const strengthText = template
+                .replace('{value}', typeof value === 'number' ? value.toFixed(1) : String(value))
+                .replace('{target}', typeof target === 'number' ? target.toFixed(1) : String(target))
+                .replace('{mode}', mode);
+            
+            strengths.push({
+                metric: metricKey,
+                name: semantic.name,
+                category: semantic.category,
+                score,
+                text: strengthText,
+                value,
+                isHighReliability: semantic.highReliability === true
+            });
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // ORDENAR PROBLEMAS POR PRIORIDADE
+    // ═══════════════════════════════════════════════════════════════════
+    const SEVERITY_ORDER = { 'CRÍTICA': 0, 'ALTA': 1, 'ATENÇÃO': 2 };
+    const CATEGORY_ORDER = { 'technical': 0, 'loudness': 1, 'dynamics': 2, 'stereo': 3, 'frequency': 4 };
+    
+    problems.sort((a, b) => {
+        // 1. Priorizar alta confiabilidade
+        if (a.isHighReliability && !b.isHighReliability) return -1;
+        if (!a.isHighReliability && b.isHighReliability) return 1;
+        
+        // 2. Por severidade
+        const sevA = SEVERITY_ORDER[a.severity] ?? 99;
+        const sevB = SEVERITY_ORDER[b.severity] ?? 99;
+        if (sevA !== sevB) return sevA - sevB;
+        
+        // 3. Por categoria
+        const catA = CATEGORY_ORDER[a.category] ?? 99;
+        const catB = CATEGORY_ORDER[b.category] ?? 99;
+        return catA - catB;
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CONSTRUIR CONTEXTO GERAL
+    // ═══════════════════════════════════════════════════════════════════
+    const context = {
+        valid: true,
+        finalScore: scoreResult.final,
+        rawScore: scoreResult.raw,
+        mode: analysisMeta.mode || 'streaming',
+        genre: analysisMeta.genre || null,
+        reference: analysisMeta.reference || null,
+        
+        // Resumos por categoria
+        subscoresSummary: {
+            loudness: { score: subscores.loudness, status: getStatusFromScore(subscores.loudness) },
+            technical: { score: subscores.technical, status: getStatusFromScore(subscores.technical) },
+            dynamics: { score: subscores.dynamics, status: getStatusFromScore(subscores.dynamics) },
+            stereo: { score: subscores.stereo, status: getStatusFromScore(subscores.stereo) },
+            frequency: { score: subscores.frequency, status: getStatusFromScore(subscores.frequency) }
+        },
+        
+        // Estatísticas
+        stats: {
+            totalProblems: problems.length,
+            criticalProblems: problems.filter(p => p.severity === 'CRÍTICA').length,
+            highProblems: problems.filter(p => p.severity === 'ALTA').length,
+            attentionProblems: problems.filter(p => p.severity === 'ATENÇÃO').length,
+            totalStrengths: strengths.length,
+            gatesApplied: gatesTriggered.length
+        },
+        
+        // Gates em linguagem humana
+        gatesSummary: gatesTriggered.map(g => {
+            if (g.type === 'TRUE_PEAK_GATE') return `True Peak excessivo limitou o score técnico`;
+            if (g.type === 'CLIPPING_GATE') return `Clipping detectado limitou o score técnico`;
+            if (g.type === 'LUFS_GATE') return `Volume extremo limitou o score de loudness`;
+            if (g.type === 'FREQUENCY_GATE') return `Bandas críticas limitaram o score de frequência`;
+            return `Gate ${g.type} aplicado`;
+        })
+    };
+    
+    // Função helper para status
+    function getStatusFromScore(score) {
+        if (score === null) return 'indisponível';
+        if (score >= 90) return 'excelente';
+        if (score >= 75) return 'bom';
+        if (score >= 60) return 'regular';
+        if (score >= 40) return 'precisa melhorar';
+        return 'crítico';
+    }
+    
+    if (DEBUG) {
+        console.log('📊 Problems encontrados:', problems.length);
+        console.log('📊 Strengths encontrados:', strengths.length);
+        console.log('📊 Context:', context);
+        console.groupEnd();
+    }
+    
+    return { problems, strengths, context };
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🧪 TEST FUNCTION V3.6: Testa cenários com novo sistema de gates nos subscores
@@ -30469,6 +30909,393 @@ window.__testV34GatesProportional = function() {
 // Auto-log para confirmar disponibilidade
 console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesProportional()');
 
-// 🚀 [CORRECTION-PLAN] Lógica movida para ai-suggestion-ui-controller.js
-// O botão é inserido diretamente após os cards de sugestões via appendCorrectionPlanButton()
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🚀 PLANO DE CORREÇÃO COMPLETO - Função Global de Injeção
+// Posiciona o botão FORA da seção de sugestões, após o aiHelperText
+// ═══════════════════════════════════════════════════════════════════════════════
 
+window.injectCorrectionPlanButtonOutside = function() {
+    // Verificar se já existe para evitar duplicatas
+    if (document.getElementById('correctionPlanCTA')) {
+        console.log('[CORRECTION-PLAN] ⚠️ Botão já existe - skip');
+        return;
+    }
+    
+    // Container alvo: procurar a seção de sugestões IA e inserir depois dela
+    // OU inserir dentro de audioAnalysisResults, após aiSuggestionsExpanded
+    const audioResults = document.getElementById('audioAnalysisResults');
+    const aiSuggestionsExpanded = document.getElementById('aiSuggestionsExpanded');
+    const aiHelperText = document.getElementById('aiHelperText');
+    
+    if (!audioResults) {
+        console.error('[CORRECTION-PLAN] ❌ audioAnalysisResults não encontrado');
+        return;
+    }
+    
+    // Criar elemento do CTA
+    const ctaElement = document.createElement('div');
+    ctaElement.id = 'correctionPlanCTA';
+    ctaElement.className = 'correction-plan-cta-wrapper';
+    ctaElement.innerHTML = `
+        <div class="correction-plan-cta">
+            <div class="cta-icon">🚀</div>
+            <div class="cta-content">
+                <h3 class="cta-title">Plano de Correção Completo</h3>
+                <p class="cta-description">
+                    Receba um guia passo a passo personalizado para corrigir sua música, 
+                    gerado por IA com base na sua DAW, nível e gênero.
+                </p>
+                <button id="btnGenerateCorrectionPlan" class="cta-button">
+                    <span class="btn-icon">📋</span>
+                    <span class="btn-text">Gerar Meu Plano de Correção</span>
+                </button>
+                <p class="cta-hint" id="correctionPlanHint">
+                    ⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Injetar estilos se não existirem
+    injectCorrectionPlanStyles();
+    
+    // Estratégia de posicionamento:
+    // 1. Se aiHelperText existe, inserir ANTES dele (entre sugestões e helper text)
+    // 2. Se não, inserir após aiSuggestionsExpanded (dentro de audioAnalysisResults)
+    // 3. Fallback: inserir no final do audioAnalysisResults
+    
+    if (aiHelperText) {
+        // Inserir ANTES do aiHelperText (que está fora do audioAnalysisResults)
+        aiHelperText.insertAdjacentElement('beforebegin', ctaElement);
+        console.log('[CORRECTION-PLAN] ✅ Botão inserido ANTES de aiHelperText');
+    } else if (aiSuggestionsExpanded) {
+        // Inserir DEPOIS da seção de sugestões
+        aiSuggestionsExpanded.insertAdjacentElement('afterend', ctaElement);
+        console.log('[CORRECTION-PLAN] ✅ Botão inserido DEPOIS de aiSuggestionsExpanded');
+    } else {
+        // Fallback: inserir no final do container
+        audioResults.appendChild(ctaElement);
+        console.log('[CORRECTION-PLAN] ✅ Botão inserido no final de audioAnalysisResults');
+    }
+    
+    // Adicionar event listener ao botão
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    if (btn) {
+        btn.addEventListener('click', handleGenerateCorrectionPlan);
+    }
+};
+
+/**
+ * 🎨 Injeta estilos do CTA de Plano de Correção
+ */
+function injectCorrectionPlanStyles() {
+    if (document.getElementById('correctionPlanStyles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'correctionPlanStyles';
+    style.textContent = `
+        .correction-plan-cta-wrapper {
+            margin: 24px 0;
+        }
+        
+        .correction-plan-cta {
+            padding: 24px;
+            background: linear-gradient(145deg, #0f1623, #1a2538);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 16px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+        }
+        
+        .correction-plan-cta .cta-icon {
+            font-size: 3rem;
+            flex-shrink: 0;
+        }
+        
+        .correction-plan-cta .cta-content {
+            flex: 1;
+        }
+        
+        .correction-plan-cta .cta-title {
+            margin: 0 0 8px 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .correction-plan-cta .cta-description {
+            margin: 0 0 16px 0;
+            color: #9ca3af;
+            font-size: 0.9375rem;
+            line-height: 1.5;
+        }
+        
+        .correction-plan-cta .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        
+        .correction-plan-cta .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+        }
+        
+        .correction-plan-cta .cta-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .correction-plan-cta .cta-button .btn-icon {
+            font-size: 1.25rem;
+        }
+        
+        .correction-plan-cta .cta-hint {
+            margin: 12px 0 0 0;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        
+        .correction-plan-cta .cta-loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .correction-plan-cta .cta-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: ctaSpin 0.8s linear infinite;
+        }
+        
+        @keyframes ctaSpin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .correction-plan-cta .cta-error {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 8px;
+        }
+        
+        @media (max-width: 640px) {
+            .correction-plan-cta {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px;
+            }
+            
+            .correction-plan-cta .cta-button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
+ * 🔥 Handler para gerar o Plano de Correção (função global)
+ */
+async function handleGenerateCorrectionPlan() {
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    const hint = document.getElementById('correctionPlanHint');
+    
+    if (!btn) return;
+    
+    // Obter análise atual
+    const analysis = window.__CURRENT_ANALYSIS__ || 
+                     window.currentModalAnalysis || 
+                     window.__soundyAI?.analysis;
+    
+    if (!analysis) {
+        showCorrectionPlanError('Nenhuma análise encontrada. Analise uma música primeiro.');
+        return;
+    }
+    
+    // Verificar autenticação Firebase (múltiplos caminhos)
+    const firebaseAuth = window.firebase?.auth?.() || window.auth;
+    const user = firebaseAuth?.currentUser;
+    
+    if (!user) {
+        showCorrectionPlanError('Você precisa estar logado para gerar um plano.');
+        return;
+    }
+    
+    // Estado de loading
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="cta-loading">
+            <span class="cta-spinner"></span>
+            <span>Gerando plano...</span>
+        </span>
+    `;
+    if (hint) hint.textContent = '⏳ Isso pode levar alguns segundos...';
+    
+    // Limpar erro anterior
+    const existingError = document.querySelector('.correction-plan-cta .cta-error');
+    if (existingError) existingError.remove();
+    
+    try {
+        // Obter token
+        const token = typeof user.getIdToken === 'function' 
+            ? await user.getIdToken() 
+            : user.accessToken;
+        
+        if (!token) {
+            throw new Error('Não foi possível obter token de autenticação');
+        }
+        
+        // Preparar payload
+        const payload = {
+            analysisId: analysis.jobId || analysis.id,
+            technicalData: analysis.technicalData || {},
+            suggestions: analysis.suggestions || analysis.aiSuggestions || [],
+            problems: analysis.problems || [],
+            metadata: {
+                fileName: analysis.metadata?.fileName || analysis.fileName || 'Sem nome',
+                genre: analysis.genre || analysis.metadata?.genre || 'generic',
+                daw: getUserDAWForPlan(),
+                level: getUserLevelForPlan()
+            },
+            scores: analysis.scores || { final: analysis.score }
+        };
+        
+        console.log('[CORRECTION-PLAN] 📤 Enviando para API:', {
+            analysisId: payload.analysisId,
+            genre: payload.metadata.genre,
+            daw: payload.metadata.daw,
+            level: payload.metadata.level,
+            suggestionsCount: payload.suggestions.length,
+            problemsCount: payload.problems.length
+        });
+        
+        // Chamar API
+        const response = await fetch('/api/correction-plan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || result.message || 'Erro ao gerar plano');
+        }
+        
+        if (!result.success || !result.planId) {
+            throw new Error('Resposta inválida da API');
+        }
+        
+        console.log('[CORRECTION-PLAN] ✅ Plano gerado com sucesso:', {
+            planId: result.planId,
+            stepsCount: result.stepsCount,
+            cached: result.cached
+        });
+        
+        // Redirecionar para página do plano
+        window.location.href = `/plano.html?id=${result.planId}`;
+        
+    } catch (error) {
+        console.error('[CORRECTION-PLAN] ❌ Erro:', error);
+        
+        // Restaurar botão
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        
+        // Mostrar erro apropriado
+        let errorMessage = error.message;
+        
+        if (error.message.includes('rate limit') || error.message.includes('limite')) {
+            errorMessage = 'Você atingiu o limite de requisições. Aguarde alguns minutos.';
+        } else if (error.message.includes('monthly limit') || error.message.includes('mensal')) {
+            errorMessage = 'Limite mensal atingido. Faça upgrade do seu plano para mais planos.';
+        } else if (error.message.includes('401') || error.message.includes('auth')) {
+            errorMessage = 'Sessão expirada. Faça login novamente.';
+        }
+        
+        showCorrectionPlanError(errorMessage);
+        if (hint) hint.textContent = '⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês';
+    }
+}
+
+/**
+ * 🛠️ Obtém a DAW do usuário
+ */
+function getUserDAWForPlan() {
+    const profile = window.__USER_PROFILE__ || 
+                    JSON.parse(localStorage.getItem('soundy_user_profile') || '{}');
+    if (profile.daw) return profile.daw;
+    
+    const interview = JSON.parse(localStorage.getItem('soundy_interview') || '{}');
+    if (interview.daw) return interview.daw;
+    
+    return 'generic';
+}
+
+/**
+ * 🛠️ Obtém o nível do usuário
+ */
+function getUserLevelForPlan() {
+    const profile = window.__USER_PROFILE__ || 
+                    JSON.parse(localStorage.getItem('soundy_user_profile') || '{}');
+    if (profile.level) return profile.level;
+    
+    const interview = JSON.parse(localStorage.getItem('soundy_interview') || '{}');
+    if (interview.level) return interview.level;
+    
+    return 'intermediario';
+}
+
+/**
+ * ❌ Exibe erro no CTA
+ */
+function showCorrectionPlanError(message) {
+    const cta = document.querySelector('.correction-plan-cta');
+    if (!cta) return;
+    
+    const existing = cta.querySelector('.cta-error');
+    if (existing) existing.remove();
+    
+    const errorDiv = document.createElement('p');
+    errorDiv.className = 'cta-error';
+    errorDiv.textContent = `❌ ${message}`;
+    
+    const content = cta.querySelector('.cta-content');
+    if (content) {
+        content.appendChild(errorDiv);
+    }
+}
+
+// Expor funções globalmente para serem chamadas por outros scripts
+window.injectCorrectionPlanStyles = injectCorrectionPlanStyles;
+window.handleGenerateCorrectionPlan = handleGenerateCorrectionPlan;
+window.getUserDAWForPlan = getUserDAWForPlan;
+window.getUserLevelForPlan = getUserLevelForPlan;
+window.showCorrectionPlanError = showCorrectionPlanError;
+
+console.log('🚀 [CORRECTION-PLAN] Sistema de Plano de Correção Completo carregado');
