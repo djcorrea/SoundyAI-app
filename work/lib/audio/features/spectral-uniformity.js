@@ -29,7 +29,10 @@ const UNIFORMITY_CONFIG = {
   // Parâmetros de análise
   MIN_FFT_SIZE: 1024,
   SMOOTHING_FACTOR: 0.8,
-  ENERGY_THRESHOLD: -60  // dB - threshold mínimo para considerar energia significativa
+  // 🔧 CORREÇÃO BUG PRODUÇÃO 2025-12-29: Threshold muito restritivo para magnitudes FFT normalizadas
+  // Magnitudes FFT típicas são 0.0001 a 0.1, que resultam em -80dB a -20dB
+  // Mudando de -60dB para -100dB para garantir que bandas com conteúdo sejam incluídas
+  ENERGY_THRESHOLD: -100  // dB - threshold mínimo para considerar energia significativa
 };
 
 /**
@@ -176,7 +179,18 @@ export class SpectralUniformityAnalyzer {
     const energyValues = Object.values(bandEnergies).map(band => band.energy);
     const validEnergies = energyValues.filter(e => e > this.config.ENERGY_THRESHOLD);
     
+    // 🔧 DEBUG PRODUÇÃO 2025-12-29: Log para identificar problema de bandas insuficientes
     if (validEnergies.length < 3) {
+      console.log('[UNIFORMITY_BANDS] ⚠️ Menos de 3 bandas válidas:', {
+        totalBands: energyValues.length,
+        validBands: validEnergies.length,
+        threshold: this.config.ENERGY_THRESHOLD,
+        energies: Object.entries(bandEnergies).map(([name, band]) => ({
+          name,
+          energyDB: band.energy.toFixed(1),
+          valid: band.energy > this.config.ENERGY_THRESHOLD
+        }))
+      });
       return { coefficient: 0, standardDeviation: 0, variance: 0, range: 0, meanDeviation: 0 };
     }
     

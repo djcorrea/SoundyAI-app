@@ -456,6 +456,9 @@ class CoreMetricsProcessor {
           const uniformityCoefficients = [];
           const maxFramesToProcess = Math.min(fftResults.magnitudeSpectrum.length, 500); // Limitar para performance
           
+          let framesWithInsufficientBands = 0;
+          let framesWithValidCoefficient = 0;
+          
           for (let frameIdx = 0; frameIdx < maxFramesToProcess; frameIdx++) {
             try {
               const spectrum = fftResults.magnitudeSpectrum[frameIdx];
@@ -467,22 +470,43 @@ class CoreMetricsProcessor {
                 CORE_METRICS_CONFIG.SAMPLE_RATE
               );
               
-              // Coletar coeficiente de uniformidade válido
+              // 🔧 CORREÇÃO BUG PRODUÇÃO 2025-12-29:
+              // Antes: coefficient > 0 (excluía frames válidos com coeff=0 por erro de bandas insuficientes)
+              // Agora: Verificar se o resultado tem uniformity com dados válidos (não null)
+              //        E se o resultado veio de análise real (não erro)
               if (frameResult && 
-                  frameResult.uniformity && 
-                  Number.isFinite(frameResult.uniformity.coefficient) && 
-                  frameResult.uniformity.coefficient > 0) {
-                uniformityCoefficients.push(frameResult.uniformity.coefficient);
+                  frameResult.uniformity &&
+                  frameResult.uniformity !== null &&
+                  Number.isFinite(frameResult.uniformity.coefficient)) {
+                
+                // Verificar se o coeficiente veio de análise real ou de erro (insufficient bands)
+                // Se uniformity.standardDeviation === 0 E coefficient === 0, provável erro
+                const isRealAnalysis = frameResult.uniformity.coefficient > 0 || 
+                                       frameResult.uniformity.standardDeviation > 0 ||
+                                       (frameResult.score && frameResult.score > 0);
+                
+                if (isRealAnalysis) {
+                  uniformityCoefficients.push(frameResult.uniformity.coefficient);
+                  framesWithValidCoefficient++;
+                } else {
+                  framesWithInsufficientBands++;
+                }
+              } else {
+                framesWithInsufficientBands++;
               }
             } catch (frameError) {
               // Ignorar frames com erro, continuar processando
+              framesWithInsufficientBands++;
             }
           }
           
-          console.log('[DEBUG_UNIFORMITY] Frames processados:', {
+          console.log('[UNIFORMITY_V2] 📊 Frames processados:', {
             totalFrames: fftResults.magnitudeSpectrum.length,
             processedFrames: maxFramesToProcess,
-            validCoefficients: uniformityCoefficients.length
+            framesWithValidCoefficient,
+            framesWithInsufficientBands,
+            validCoefficients: uniformityCoefficients.length,
+            sampleCoeffs: uniformityCoefficients.slice(0, 5).map(c => c.toFixed(3))
           });
           
           // 🔧 CORREÇÃO: Agregar usando MEDIANA dos coeficientes válidos
@@ -522,14 +546,25 @@ class CoreMetricsProcessor {
               needsBalancing: uniformityPercent < 40
             };
             
-            console.log('[DEBUG_UNIFORMITY] ✅ Resultado agregado:', {
+            // 🎯 LOG FORMATO SOLICITADO: [UNIFORMITY_V2] frames=XXX medianCV=0.34 percent=65.2
+            console.log(`[UNIFORMITY_V2] ✅ frames=${uniformityCoefficients.length} medianCV=${medianCoefficient.toFixed(3)} percent=${uniformityPercent.toFixed(1)}`);
+            console.log('[UNIFORMITY_V2] ✅ Resultado agregado:', {
               medianCoefficient,
               uniformityPercent,
               rating: spectralUniformityMetrics.rating,
-              validFrames: uniformityCoefficients.length
+              validFrames: uniformityCoefficients.length,
+              framesWithInsufficientBands
             });
           } else {
-            console.log('[DEBUG_UNIFORMITY] ⚠️ Nenhum coeficiente válido encontrado');
+            console.log('[UNIFORMITY_V2] ⚠️ ERRO: Nenhum coeficiente válido encontrado!', {
+              totalFrames: fftResults.magnitudeSpectrum.length,
+              processedFrames: maxFramesToProcess,
+              framesWithValidCoefficient,
+              framesWithInsufficientBands,
+              reason: framesWithInsufficientBands > 0 
+                ? 'Maioria dos frames tem menos de 3 bandas com energia > -60dB' 
+                : 'Frames FFT podem estar corrompidos ou zerados'
+            });
             spectralUniformityMetrics = null;
           }
           
