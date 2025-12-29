@@ -31358,6 +31358,87 @@ function injectCorrectionPlanStyles() {
 }
 
 /**
+ * 🆕 Extrai problemas diretamente da tabela de métricas no DOM
+ * Usa a tabela .classic-genre-table que está renderizada na UI
+ */
+function extractProblemsFromTableDOM() {
+    console.log('[CORRECTION-PLAN] 🔍 Tentando extrair problemas da tabela DOM...');
+    
+    const problems = [];
+    
+    // Buscar a tabela de comparação de gênero
+    const table = document.querySelector('.classic-genre-table');
+    
+    if (!table) {
+        console.warn('[CORRECTION-PLAN] ⚠️ Tabela .classic-genre-table não encontrada');
+        return problems;
+    }
+    
+    // Iterar sobre as linhas do tbody
+    const rows = table.querySelectorAll('tbody tr');
+    
+    console.log('[CORRECTION-PLAN] 📋 Linhas encontradas na tabela:', rows.length);
+    
+    rows.forEach((row, index) => {
+        const cells = row.querySelectorAll('td');
+        
+        if (cells.length < 6) {
+            console.warn(`[CORRECTION-PLAN] ⚠️ Linha ${index} tem menos de 6 células`);
+            return;
+        }
+        
+        // Extrair dados das células
+        // Estrutura: Métrica | Valor | Alvo | Diferença | Severidade | Ação
+        const metric = cells[0]?.textContent?.trim() || '';
+        const value = cells[1]?.textContent?.trim() || '';
+        const target = cells[2]?.textContent?.trim() || '';
+        const diff = cells[3]?.textContent?.trim() || '';
+        const severityEl = cells[4];
+        const action = cells[5]?.textContent?.trim() || '';
+        
+        // Extrair severidade (pode estar em span ou texto direto)
+        let severity = severityEl?.textContent?.trim() || '';
+        const severitySpan = severityEl?.querySelector('.metric-severity');
+        if (severitySpan) {
+            severity = severitySpan.textContent?.trim() || severity;
+        }
+        
+        // Verificar se a linha tem classe de status
+        const rowClass = row.className || '';
+        if (rowClass.includes('critical')) severity = severity || 'CRÍTICA';
+        else if (rowClass.includes('warning')) severity = severity || 'ATENÇÃO';
+        else if (rowClass.includes('caution')) severity = severity || 'ATENÇÃO';
+        else if (rowClass.includes('ok')) severity = severity || 'OK';
+        
+        // Só adicionar se não for OK e tiver dados válidos
+        const normalizedSeverity = severity.toUpperCase();
+        const isProblematic = normalizedSeverity.includes('CRÍT') || 
+                              normalizedSeverity.includes('ATEN') || 
+                              normalizedSeverity.includes('WARN') ||
+                              normalizedSeverity.includes('ALTA') ||
+                              normalizedSeverity.includes('MODERADA');
+        
+        if (metric && isProblematic) {
+            problems.push({
+                metric: metric,
+                value: value,
+                target: target,
+                difference: diff,
+                severity: severity,
+                action: action,
+                description: action || `${metric} está fora do padrão: ${value} (alvo: ${target})`
+            });
+            
+            console.log(`[CORRECTION-PLAN] ✅ Problema extraído: ${metric} - ${severity}`);
+        }
+    });
+    
+    console.log('[CORRECTION-PLAN] 📊 Total de problemas extraídos da tabela:', problems.length);
+    
+    return problems;
+}
+
+/**
  * 🔥 Handler para gerar o Plano de Correção (função global)
  */
 async function handleGenerateCorrectionPlan() {
@@ -31428,8 +31509,9 @@ async function handleGenerateCorrectionPlan() {
         }
         
         // Preparar payload
-        // 🔧 FIX: Extrair problemas das sugestões se analysis.problems não existir
+        // 🔧 FIX v3: Extrair problemas de múltiplas fontes
         let problemsToSend = analysis.problems || [];
+        let problemSource = 'analysis.problems';
         
         // Se não tem problems, extrair das sugestões
         if (problemsToSend.length === 0 && (analysis.suggestions || analysis.aiSuggestions)) {
@@ -31441,9 +31523,16 @@ async function handleGenerateCorrectionPlan() {
                 severity: s.severity || s.priority || 'medium',
                 description: s.problem || s.description || s.title || ''
             }));
+            problemSource = 'analysis.suggestions';
         }
         
-        console.log('[CORRECTION-PLAN] 📊 Problemas extraídos:', problemsToSend.length);
+        // 🆕 FIX: Se ainda não tem problems, extrair da tabela DOM renderizada
+        if (problemsToSend.length === 0) {
+            problemsToSend = extractProblemsFromTableDOM();
+            problemSource = 'table-dom';
+        }
+        
+        console.log('[CORRECTION-PLAN] 📊 Problemas extraídos:', problemsToSend.length, 'fonte:', problemSource);
         
         const payload = {
             analysisId: analysis.jobId || analysis.id,
