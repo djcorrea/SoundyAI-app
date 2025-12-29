@@ -291,173 +291,112 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   🧠 V4.0: DIAGNÓSTICO SONORO INTELIGENTE
+   🧠 V5.0: VEREDITO SONORO INTELIGENTE
+   Design premium, minimalista, texto único da IA
    ═══════════════════════════════════════════════════════════════ */
 .diagnostic-container {
   width: 100%;
-  max-width: 600px;
-  margin: 20px auto 0 auto;
-  padding: 16px;
-  background: rgba(20, 20, 35, 0.8);
-  border: 1px solid rgba(100, 100, 140, 0.3);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
-  animation: fadeIn 0.6s ease both;
-  animation-delay: 0.3s;
+  max-width: 620px;
+  margin: 24px auto 0 auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  animation: fadeIn 0.8s ease both;
+  animation-delay: 0.4s;
 }
 
-.diagnostic-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-.diagnostic-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #8888ff;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.diagnostic-summary {
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  margin-bottom: 14px;
+/* Texto único do veredito - design premium */
+.verdict-text {
+  padding: 20px 28px;
+  background: linear-gradient(
+    135deg,
+    rgba(40, 40, 70, 0.6) 0%,
+    rgba(25, 25, 50, 0.4) 50%,
+    rgba(40, 40, 70, 0.6) 100%
+  );
+  border: 1px solid rgba(120, 120, 180, 0.2);
+  border-radius: 16px;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: rgba(220, 220, 245, 0.95);
   text-align: center;
+  letter-spacing: 0.2px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  box-shadow: 
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.diagnostic-summary-critical {
-  background: rgba(255, 51, 102, 0.15);
-  border: 1px solid rgba(255, 51, 102, 0.4);
-  color: #ff6b8a;
+/* Glow sutil no container */
+.verdict-text::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(130, 130, 220, 0.5) 50%,
+    transparent 100%
+  );
 }
 
-.diagnostic-summary-warning {
-  background: rgba(255, 149, 0, 0.15);
-  border: 1px solid rgba(255, 149, 0, 0.4);
-  color: #ffb84d;
-}
-
-.diagnostic-summary-info {
-  background: rgba(0, 200, 255, 0.12);
-  border: 1px solid rgba(0, 200, 255, 0.35);
-  color: #66d9ff;
-}
-
-.diagnostic-summary-success {
-  background: rgba(0, 255, 146, 0.12);
-  border: 1px solid rgba(0, 255, 146, 0.35);
-  color: #66ffb4;
-}
-
-.diagnostic-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.diagnostic-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  animation: slideIn 0.4s ease both;
-}
-
-.diagnostic-item:nth-child(1) { animation-delay: 0.4s; }
-.diagnostic-item:nth-child(2) { animation-delay: 0.5s; }
-.diagnostic-item:nth-child(3) { animation-delay: 0.6s; }
-.diagnostic-item:nth-child(4) { animation-delay: 0.7s; }
-.diagnostic-item:nth-child(5) { animation-delay: 0.8s; }
-
-.diagnostic-icon {
-  flex-shrink: 0;
-  font-size: 1rem;
-}
-
-.diagnostic-text {
-  color: #d0d0e0;
-}
-
-.diagnostic-critical {
-  background: rgba(255, 51, 102, 0.12);
-  border-left: 3px solid #ff3366;
-}
-
-.diagnostic-critical .diagnostic-text {
-  color: #ffb4c4;
-}
-
-.diagnostic-high {
-  background: rgba(255, 149, 0, 0.12);
-  border-left: 3px solid #ff9500;
-}
-
-.diagnostic-high .diagnostic-text {
-  color: #ffd699;
-}
-
-.diagnostic-attention {
-  background: rgba(0, 200, 255, 0.08);
-  border-left: 3px solid #00c8ff;
-}
-
-.diagnostic-attention .diagnostic-text {
-  color: #b3e6ff;
-}
-
-.diagnostic-strength {
-  background: rgba(0, 255, 146, 0.08);
-  border-left: 3px solid #00ff92;
-}
-
-.diagnostic-strength .diagnostic-text {
-  color: #b3ffd9;
-}
-
-.diagnostic-more {
-  text-align: center;
-  font-size: 0.75rem;
-  color: #888;
-  margin-top: 8px;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.diagnostic-more:hover {
-  color: #00c8ff;
+/* Aspas decorativas sutis */
+.verdict-text::after {
+  content: '"';
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  font-size: 2.5rem;
+  font-family: Georgia, serif;
+  color: rgba(130, 130, 200, 0.15);
+  line-height: 1;
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   🧠 V4.0: TEXTO FINAL SEMÂNTICO
+   🎨 CLASSES LEGADAS (mantidas para compatibilidade)
    ═══════════════════════════════════════════════════════════════ */
+.diagnostic-header {
+  display: none;
+}
+
+.diagnostic-title {
+  display: none;
+}
+
+.diagnostic-summary,
+.diagnostic-summary-critical,
+.diagnostic-summary-warning,
+.diagnostic-summary-info,
+.diagnostic-summary-success {
+  display: none;
+}
+
+.diagnostic-list {
+  display: none;
+}
+
+.diagnostic-item,
+.diagnostic-critical,
+.diagnostic-high,
+.diagnostic-attention,
+.diagnostic-strength {
+  display: none;
+}
+
+.diagnostic-icon,
+.diagnostic-text,
+.diagnostic-more {
+  display: none;
+}
+
 .diagnostic-final-text {
-  padding: 14px 16px;
-  margin-bottom: 14px;
-  background: linear-gradient(135deg, rgba(100, 100, 180, 0.15) 0%, rgba(60, 60, 120, 0.1) 100%);
-  border: 1px solid rgba(130, 130, 200, 0.3);
-  border-radius: 10px;
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: #d8d8f0;
-  font-style: italic;
-  animation: fadeIn 0.6s ease both;
-  animation-delay: 0.2s;
-}
-
-.diagnostic-final-text p {
-  margin: 0;
-}
-
-.diagnostic-final-text::before {
-  content: '📋';
-  margin-right: 8px;
+  display: none;
 }
 
 @keyframes slideIn {
@@ -525,6 +464,24 @@
     font-size: 0.75rem;
     margin-top: 12px;
   }
+  
+  /* Veredito Sonoro - Mobile */
+  .diagnostic-container {
+    margin: 16px auto 0 auto;
+  }
+  
+  .verdict-text {
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    border-radius: 12px;
+  }
+  
+  .verdict-text::after {
+    font-size: 2rem;
+    top: 6px;
+    left: 12px;
+  }
 }
 
 /* Mobile Small */
@@ -540,6 +497,12 @@
   
   .score-final-bar {
     height: 10px;
+  }
+  
+  /* Veredito Sonoro - Mobile Small */
+  .verdict-text {
+    padding: 14px 16px;
+    font-size: 0.82rem;
   }
 }
 
@@ -617,5 +580,22 @@
   .score-final-bar-fill {
     background: #7F00FF !important;
     animation: none !important;
+  }
+  
+  /* Veredito Sonoro - Print */
+  .diagnostic-container {
+    margin-top: 16px;
+  }
+  
+  .verdict-text {
+    background: #f8f8fc;
+    border: 1px solid #ddd;
+    color: #333;
+    font-style: italic;
+  }
+  
+  .verdict-text::before,
+  .verdict-text::after {
+    display: none;
   }
 }

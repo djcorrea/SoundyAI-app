@@ -5,6 +5,9 @@ import AWS from "aws-sdk";
 import cors from "cors";
 import fetch from "node-fetch";
 
+// 📋 Importar handler do Correction Plan
+import correctionPlanHandler from "./correction-plan.js";
+
 const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +67,28 @@ const upload = multer({
   storage,
   limits: { fileSize: 150 * 1024 * 1024 }, // 150 MB
   fileFilter,
+});
+
+// ---------- Rota para Plano de Correção ----------
+app.post("/api/correction-plan", async (req, res) => {
+  console.log('[SERVER] Requisição /api/correction-plan recebida');
+  try {
+    await correctionPlanHandler(req, res);
+  } catch (error) {
+    console.error('[SERVER] Erro no correction-plan:', error);
+    // Garantir que SEMPRE retorna JSON
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'INTERNAL_ERROR',
+        message: 'Erro interno no servidor ao processar plano de correção'
+      });
+    }
+  }
+});
+
+app.options("/api/correction-plan", (req, res) => {
+  res.status(200).end();
 });
 
 // ---------- Rota para sugestões com IA ----------
