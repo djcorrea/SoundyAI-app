@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Band Mapping V4.1 - SoundyAI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #00d4ff; text-align: center; }
+        h2 { color: #ff6b35; border-bottom: 2px solid #ff6b35; padding-bottom: 10px; }
+        
+        .test-section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+        }
+        
+        .pass { background: #0f3d0f; border-left: 4px solid #4caf50; }
+        .fail { background: #3d0f0f; border-left: 4px solid #f44336; }
+        .info { background: #0f2d3d; border-left: 4px solid #2196f3; }
+        
+        .band-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .band-card {
+            background: #1e2a4a;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid #888;
+        }
+        
+        .band-card.matched { border-color: #4caf50; }
+        .band-card.missing { border-color: #f44336; }
+        .band-card.canonical { border-color: #2196f3; }
+        
+        .band-name { font-weight: bold; color: #00d4ff; font-size: 14px; }
+        .band-value { color: #aaa; font-size: 12px; margin-top: 5px; }
+        .band-score { 
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: bold;
+        }
+        
+        .score-ok { background: #1b5e20; color: #81c784; }
+        .score-attention { background: #f57f17; color: #fff9c4; }
+        .score-high { background: #e65100; color: #ffe0b2; }
+        .score-critical { background: #b71c1c; color: #ffcdd2; }
+        
+        pre {
+            background: #0d1421;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        
+        button {
+            background: #00d4ff;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        
+        button:hover { background: #00a8cc; }
+        
+        .summary {
+            background: #0d1421;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .summary-score {
+            font-size: 64px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        
+        .summary-label { color: #888; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Mapeamento de Bandas V4.1</h1>
+        <p style="text-align: center; color: #888;">
+            Verifica se computeScoreV3 processa corretamente as bandas do JSON de gênero
+        </p>
+        
+        <div class="test-section">
+            <h2>📋 Objetivo do Teste</h2>
+            <div class="test-result info">
+                <strong>PROBLEMA CORRIGIDO:</strong><br>
+                O JSON de gênero usa: <code>sub, low_bass, upper_bass, low_mid, mid, high_mid, brilho, presenca</code><br>
+                O código anterior buscava: <code>sub, bass, lowMid, mid, highMid, air, presence</code><br>
+                <strong>→ As bandas do JSON não eram encontradas!</strong>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎮 Execução</h2>
+            <button onclick="runTest()">▶️ Executar Teste de Mapeamento</button>
+            <button onclick="runFullScoreTest()">▶️ Testar Score Completo</button>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+    
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        // ════════════════════════════════════════════════════════════════════
+        // DADOS DE TESTE - Simula JSON de gênero real (funk_bruxaria.json)
+        // ════════════════════════════════════════════════════════════════════
+        const MOCK_GENRE_TARGETS = {
+            lufs_target: -6.0,
+            tol_lufs: 1.0,
+            true_peak_target: -0.5,
+            tol_true_peak: 0.5,
+            dr_target: 5.0,
+            tol_dr: 1.5,
+            // BANDAS NO FORMATO DO JSON DE GÊNERO
+            bands: {
+                sub: { target_db: -18.0, tol_db: 2.5, severity: "HIGH" },
+                low_bass: { target_db: -12.0, tol_db: 2.5, severity: "CRITICAL" },
+                upper_bass: { target_db: -10.0, tol_db: 2.5, severity: "CRITICAL" },
+                low_mid: { target_db: -15.0, tol_db: 3.0, severity: "MODERATE" },
+                mid: { target_db: -14.0, tol_db: 3.0, severity: "MODERATE" },
+                high_mid: { target_db: -18.0, tol_db: 2.5, severity: "HIGH" },
+                brilho: { target_db: -22.0, tol_db: 3.0, severity: "MODERATE" },
+                presenca: { target_db: -20.0, tol_db: 3.0, severity: "MODERATE" }
+            }
+        };
+        
+        // Dados medidos do usuário (formato do backend)
+        const MOCK_MEASURED = {
+            lufsIntegrated: -6.5,
+            truePeakDbtp: -0.8,
+            dynamicRange: 5.2,
+            bands: {
+                // Backend pode enviar em formato canônico OU formato do JSON
+                sub: { energy_db: -17.0 },
+                bass: { energy_db: -11.0 },      // Representa low_bass
+                lowMid: { energy_db: -14.0 },
+                mid: { energy_db: -13.5 },
+                highMid: { energy_db: -16.0 },   // 2dB fora do target
+                presence: { energy_db: -19.0 },
+                air: { energy_db: -21.0 }
+            }
+        };
+        
+        function runTest() {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+            
+            html += '<div class="test-section"><h2>🔍 Teste de Mapeamento de Bandas</h2>';
+            
+            // Verificar se as funções existem
+            if (!window.computeScoreV3) {
+                html += '<div class="test-result fail">❌ computeScoreV3 não encontrado!</div>';
+                resultsDiv.innerHTML = html + '</div>';
+                return;
+            }
+            
+            if (!window.evaluateMetric) {
+                html += '<div class="test-result fail">❌ evaluateMetric não encontrado!</div>';
+                resultsDiv.innerHTML = html + '</div>';
+                return;
+            }
+            
+            html += '<div class="test-result pass">✅ Funções computeScoreV3 e evaluateMetric encontradas</div>';
+            
+            // Executar computeScoreV3
+            console.log('🧪 Executando computeScoreV3 com dados de teste...');
+            const result = window.computeScoreV3(
+                { technicalData: MOCK_MEASURED },
+                MOCK_GENRE_TARGETS,
+                'streaming'
+            );
+            
+            html += '<div class="test-result info"><strong>Resultado computeScoreV3:</strong><br>';
+            html += `Final Score: <strong>${result.final}</strong><br>`;
+            html += `Raw Score: ${result.raw}<br>`;
+            html += `Frequency Subscore: ${result.subscores?.frequency ?? 'N/A'}</div>`;
+            
+            // Verificar bandas processadas
+            html += '<h3>🎵 Bandas Processadas em metricEvaluations:</h3>';
+            html += '<div class="band-grid">';
+            
+            const evals = result.metricEvaluations || {};
+            const expectedBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+            const jsonBands = ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca'];
+            
+            let matchedCount = 0;
+            
+            // Verificar bandas canônicas
+            for (const band of expectedBands) {
+                const ev = evals[band];
+                const hasEval = ev && ev.score !== null && ev.score !== undefined;
+                
+                const cardClass = hasEval ? 'matched' : 'missing';
+                const scoreClass = hasEval ? (
+                    ev.severity === 'OK' ? 'score-ok' :
+                    ev.severity === 'ATENÇÃO' ? 'score-attention' :
+                    ev.severity === 'ALTA' ? 'score-high' : 'score-critical'
+                ) : '';
+                
+                if (hasEval) matchedCount++;
+                
+                html += `<div class="band-card ${cardClass}">`;
+                html += `<div class="band-name">${band} (canonical)</div>`;
+                if (hasEval) {
+                    html += `<div class="band-value">Score: ${ev.score} | Severity: ${ev.severity}</div>`;
+                    html += `<div class="band-value">Diff: ${ev.diff?.toFixed(2) ?? 'N/A'} dB</div>`;
+                    html += `<div class="band-score ${scoreClass}">${ev.severity}</div>`;
+                } else {
+                    html += `<div class="band-value">❌ NÃO PROCESSADA</div>`;
+                }
+                html += '</div>';
+            }
+            
+            // Verificar bandas do JSON (_json_* prefix)
+            for (const jsonBand of jsonBands) {
+                const ev = evals[`_json_${jsonBand}`];
+                if (ev) {
+                    const scoreClass = ev.severity === 'OK' ? 'score-ok' :
+                        ev.severity === 'ATENÇÃO' ? 'score-attention' :
+                        ev.severity === 'ALTA' ? 'score-high' : 'score-critical';
+                    
+                    html += `<div class="band-card canonical">`;
+                    html += `<div class="band-name">${jsonBand} (JSON original)</div>`;
+                    html += `<div class="band-value">Score: ${ev.score} | Severity: ${ev.severity}</div>`;
+                    html += `<div class="band-score ${scoreClass}">${ev.severity}</div>`;
+                    html += '</div>';
+                }
+            }
+            
+            html += '</div>';
+            
+            // Resumo
+            const passRate = Math.round((matchedCount / expectedBands.length) * 100);
+            const passClass = passRate === 100 ? 'pass' : passRate >= 70 ? 'info' : 'fail';
+            
+            html += `<div class="test-result ${passClass}">`;
+            html += `<strong>Resultado:</strong> ${matchedCount}/${expectedBands.length} bandas canônicas processadas (${passRate}%)`;
+            html += '</div>';
+            
+            // Verificar detalhes de frequência
+            if (result._frequencyDetails) {
+                const fd = result._frequencyDetails;
+                html += '<h3>📊 Detalhes do Subscore de Frequência:</h3>';
+                html += `<div class="test-result info">`;
+                html += `Weighted Avg: ${fd.weightedAvg}<br>`;
+                html += `Worst Score: ${fd.worstScore} (${fd.worstBand})<br>`;
+                html += `Critical Count: ${fd.criticalCount}<br>`;
+                html += `High Count: ${fd.highCount}<br>`;
+                html += `Cap Applied: ${fd.appliedCap ?? 'None'} - ${fd.capReason ?? ''}`;
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function runFullScoreTest() {
+            const resultsDiv = document.getElementById('results');
+            let html = '<div class="test-section"><h2>📊 Teste de Score Completo</h2>';
+            
+            if (!window.computeScoreV3) {
+                html += '<div class="test-result fail">❌ computeScoreV3 não encontrado!</div></div>';
+                resultsDiv.innerHTML = html;
+                return;
+            }
+            
+            // Cenário 1: Áudio bom (dentro dos targets)
+            const goodAudio = {
+                technicalData: {
+                    lufsIntegrated: -6.2,
+                    truePeakDbtp: -0.6,
+                    dynamicRange: 5.1,
+                    crestFactor: 10.0,
+                    lra: 4.0,
+                    stereoCorrelation: 0.85,
+                    stereoWidth: 0.7,
+                    clippingPct: 0.001,
+                    dcOffset: 0.0,
+                    bands: {
+                        sub: { energy_db: -17.5 },
+                        bass: { energy_db: -11.5 },
+                        lowMid: { energy_db: -14.5 },
+                        mid: { energy_db: -13.8 },
+                        highMid: { energy_db: -17.5 },
+                        presence: { energy_db: -19.5 },
+                        air: { energy_db: -21.5 }
+                    }
+                }
+            };
+            
+            const result1 = window.computeScoreV3(goodAudio, MOCK_GENRE_TARGETS, 'streaming');
+            
+            html += '<h3>✅ Cenário 1: Áudio Dentro dos Targets</h3>';
+            html += '<div class="summary">';
+            html += `<div class="summary-score">${result1.final}</div>`;
+            html += `<div class="summary-label">Score Final (esperado: ~90+)</div>`;
+            html += '</div>';
+            html += `<div class="test-result ${result1.final >= 85 ? 'pass' : 'fail'}">`;
+            html += `Score Final: ${result1.final} | Raw: ${result1.raw} | `;
+            html += `Subscores: L=${result1.subscores?.loudness ?? 'N/A'}, `;
+            html += `T=${result1.subscores?.technical ?? 'N/A'}, `;
+            html += `D=${result1.subscores?.dynamics ?? 'N/A'}, `;
+            html += `S=${result1.subscores?.stereo ?? 'N/A'}, `;
+            html += `F=${result1.subscores?.frequency ?? 'N/A'}`;
+            html += '</div>';
+            
+            // Cenário 2: Áudio com problema em high_mid (fadiga auditiva)
+            const badHighMid = {
+                technicalData: {
+                    lufsIntegrated: -6.0,
+                    truePeakDbtp: -0.5,
+                    dynamicRange: 5.0,
+                    crestFactor: 10.0,
+                    lra: 4.0,
+                    stereoCorrelation: 0.85,
+                    stereoWidth: 0.7,
+                    clippingPct: 0.001,
+                    dcOffset: 0.0,
+                    bands: {
+                        sub: { energy_db: -18.0 },
+                        bass: { energy_db: -12.0 },
+                        lowMid: { energy_db: -15.0 },
+                        mid: { energy_db: -14.0 },
+                        highMid: { energy_db: -10.0 }, // 8dB acima do target! CRÍTICO
+                        presence: { energy_db: -20.0 },
+                        air: { energy_db: -22.0 }
+                    }
+                }
+            };
+            
+            const result2 = window.computeScoreV3(badHighMid, MOCK_GENRE_TARGETS, 'streaming');
+            
+            html += '<h3>⚠️ Cenário 2: High Mid CRÍTICO (+8dB)</h3>';
+            html += '<div class="summary">';
+            html += `<div class="summary-score" style="color: ${result2.final <= 85 ? '#ff6b35' : '#4caf50'}">${result2.final}</div>`;
+            html += `<div class="summary-label">Score Final (esperado: ≤85 devido ao gate)</div>`;
+            html += '</div>';
+            html += `<div class="test-result ${result2.final <= 85 ? 'pass' : 'fail'}">`;
+            html += `Score Final: ${result2.final} | Frequency Subscore: ${result2.subscores?.frequency ?? 'N/A'}<br>`;
+            html += `Gates: ${result2.gatesTriggered?.join(', ') || 'Nenhum'}<br>`;
+            html += `HighMid eval: score=${result2.metricEvaluations?.highMid?.score ?? 'N/A'}, severity=${result2.metricEvaluations?.highMid?.severity ?? 'N/A'}`;
+            html += '</div>';
+            
+            // Cenário 3: True Peak CRÍTICO
+            const badTP = {
+                technicalData: {
+                    lufsIntegrated: -6.0,
+                    truePeakDbtp: 1.5, // CRÍTICO!
+                    dynamicRange: 5.0,
+                    crestFactor: 10.0,
+                    lra: 4.0,
+                    stereoCorrelation: 0.85,
+                    stereoWidth: 0.7,
+                    clippingPct: 0.001,
+                    dcOffset: 0.0,
+                    bands: {
+                        sub: { energy_db: -18.0 },
+                        bass: { energy_db: -12.0 },
+                        lowMid: { energy_db: -15.0 },
+                        mid: { energy_db: -14.0 },
+                        highMid: { energy_db: -18.0 },
+                        presence: { energy_db: -20.0 },
+                        air: { energy_db: -22.0 }
+                    }
+                }
+            };
+            
+            const result3 = window.computeScoreV3(badTP, MOCK_GENRE_TARGETS, 'streaming');
+            
+            html += '<h3>🚨 Cenário 3: True Peak CRÍTICO (+1.5 dBTP)</h3>';
+            html += '<div class="summary">';
+            html += `<div class="summary-score" style="color: #f44336">${result3.final}</div>`;
+            html += `<div class="summary-label">Score Final (esperado: ≤65 devido ao gate crítico)</div>`;
+            html += '</div>';
+            html += `<div class="test-result ${result3.final <= 70 ? 'pass' : 'fail'}">`;
+            html += `Score Final: ${result3.final} | Technical Subscore: ${result3.subscores?.technical ?? 'N/A'}<br>`;
+            html += `Gates: ${result3.gatesTriggered?.join(', ') || 'Nenhum'}<br>`;
+            html += `TruePeak eval: score=${result3.metricEvaluations?.truePeak?.score ?? 'N/A'}, severity=${result3.metricEvaluations?.truePeak?.severity ?? 'N/A'}`;
+            html += '</div>';
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Auto-run on load
+        setTimeout(() => {
+            console.log('🧪 SoundyAI Band Mapping V4.1 Test');
+            console.log('═══════════════════════════════════════════════');
+            console.log('Clique nos botões para executar os testes');
+        }, 500);
+    </script>
+</body>
+</html>

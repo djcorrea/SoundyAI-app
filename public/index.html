@@ -108,6 +108,62 @@
     <!-- 🛡️ TONAL BALANCE SAFE V1 - Sistema seguro para bandas espectrais -->
     <script src="/tonal-balance-safe-v1.js?v=20250829"></script>
     <script src="/auto-validator-tonal-safe.js?v=20250829" defer></script>
+    
+    <!-- 📋 Estilos do Botão Plano de Correção -->
+    <style>
+        .correction-plan-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%) !important;
+            color: white !important;
+            border: none !important;
+            padding: 12px 20px !important;
+            border-radius: 10px !important;
+            font-size: 0.95rem !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3) !important;
+        }
+        .correction-plan-btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4) !important;
+        }
+        .correction-plan-btn:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+        .correction-plan-btn .cta-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: ctaSpin 0.8s linear infinite;
+            display: inline-block;
+        }
+        @keyframes ctaSpin {
+            to { transform: rotate(360deg); }
+        }
+        .correction-plan-error {
+            width: 100%;
+            color: #ef4444;
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 6px;
+        }
+        @media (max-width: 640px) {
+            .correction-plan-btn {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Menu Hambúrguer - Canto Superior Esquerdo -->
@@ -555,6 +611,9 @@
                     </button>
                     <button class="action-btn secondary" onclick="downloadModalAnalysis()">
                         📄 Baixar Relatório
+                    </button>
+                    <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan">
+                        📋 Gerar Plano de Correção
                     </button>
                 </div>
                 
