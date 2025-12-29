@@ -583,7 +583,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // Problema anterior: cálculo usava apenas 1º frame FFT, agora usa agregação de todos frames
   
   // 🔍 DEBUG CRÍTICO: Log do que está chegando de coreMetrics
-  console.log('[UNIFORMITY_V2] 🔍 coreMetrics.spectralUniformity recebido:', {
+  console.log('[UNIFORMITY_PIPELINE] 🔍 coreMetrics.spectralUniformity recebido:', {
     hasSpectralUniformity: !!coreMetrics.spectralUniformity,
     type: typeof coreMetrics.spectralUniformity,
     value: coreMetrics.spectralUniformity,
@@ -603,35 +603,50 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       const uniformityPct = Math.max(0, Math.min(100, (1 - su.uniformity.coefficient) * 100));
       technicalData.spectralUniformity = uniformityPct / 100;
       technicalData.spectralUniformityPercent = uniformityPct;
+    } else {
+      // Nenhum valor válido disponível
+      technicalData.spectralUniformity = null;
+      technicalData.spectralUniformityPercent = null;
     }
     
-    // Metadados de agregação (opcional)
+    // Metadados de agregação - SEMPRE definir
     if (su.aggregation) {
       technicalData.spectralUniformityMeta = {
         method: su.aggregation.method,
         framesProcessed: su.aggregation.framesProcessed,
         validFrames: su.aggregation.validFrames,
-        rating: su.rating
+        rating: su.rating,
+        coefficient: su.uniformity?.coefficient
+      };
+    } else {
+      // Fallback quando aggregation não existe mas spectralUniformity existe
+      technicalData.spectralUniformityMeta = {
+        method: 'legacy',
+        framesProcessed: null,
+        validFrames: null,
+        rating: su.rating || 'unknown',
+        coefficient: su.uniformity?.coefficient
       };
     }
     
-    console.log('✅ [SPECTRAL_UNIFORMITY] Exportado valor corrigido:', {
+    console.log('[UNIFORMITY_PIPELINE] ✅ Exportado valor corrigido:', {
       uniformityPercent: technicalData.spectralUniformityPercent,
       normalized: technicalData.spectralUniformity,
-      rating: su.rating
+      rating: su.rating,
+      meta: technicalData.spectralUniformityMeta
     });
   } else {
-    technicalData.spectralUniformity = 0;
-    technicalData.spectralUniformityPercent = 0;
+    technicalData.spectralUniformity = null;
+    technicalData.spectralUniformityPercent = null;
     // 🔧 CORREÇÃO BUG PRODUÇÃO 2025-12-29: spectralUniformityMeta nunca deve ser undefined/vazio
     technicalData.spectralUniformityMeta = {
       method: 'unavailable',
       framesProcessed: 0,
       validFrames: 0,
       rating: 'unknown',
-      error: 'no_valid_frames_or_insufficient_bands'
+      error: 'coreMetrics.spectralUniformity is null or undefined'
     };
-    console.log('⚠️ [SPECTRAL_UNIFORMITY] Não disponível - retornando 0 com meta de erro');
+    console.log('[UNIFORMITY_PIPELINE] ⚠️ Não disponível - retornando null com meta de erro');
   }
 
   // ===== Problems / Suggestions =====

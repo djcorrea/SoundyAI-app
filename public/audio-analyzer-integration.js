@@ -9,6 +9,51 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 const TRUE_PEAK_HARD_CAP = 0.0; // dBTP - Limite absoluto para True Peak
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🆕 MAPEAMENTO DE MÉTRICAS PARA CATEGORIAS - TOPO DO ARQUIVO
+// Usado para agrupar problemas no plano de correção
+// DEVE estar no topo para evitar ReferenceError antes da inicialização
+// ═══════════════════════════════════════════════════════════════════════════════
+const METRIC_CATEGORY_MAP = {
+    // LOUDNESS
+    'LUFS': 'loudness',
+    'Loudness': 'loudness',
+    'Integrated': 'loudness',
+    'True Peak': 'loudness',
+    'TP': 'loudness',
+    // FREQUÊNCIAS (BANDAS ESPECTRAIS)
+    'Sub': 'frequency',
+    'Subgrave': 'frequency',
+    'Bass': 'frequency',
+    'Grave': 'frequency',
+    'Low Mid': 'frequency',
+    'Low-Mid': 'frequency',
+    'Médio-Grave': 'frequency',
+    'Mid': 'frequency',
+    'Médios': 'frequency',
+    'High Mid': 'frequency',
+    'High-Mid': 'frequency',
+    'Médio-Alto': 'frequency',
+    'Brilho': 'frequency',
+    'Brightness': 'frequency',
+    'Presença': 'frequency',
+    'Presence': 'frequency',
+    'Air': 'frequency',
+    // DINÂMICA
+    'DR': 'dynamics',
+    'Dynamic Range': 'dynamics',
+    'LRA': 'dynamics',
+    'Loudness Range': 'dynamics',
+    'Crest': 'dynamics',
+    'Crest Factor': 'dynamics',
+    // ESTÉREO
+    'Stereo': 'stereo',
+    'Imagem Estéreo': 'stereo',
+    'Correlation': 'stereo',
+    'Width': 'stereo',
+    'Balance': 'stereo'
+};
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31324,65 +31369,16 @@ console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesPro
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 🆕 MAPEAMENTO DE MÉTRICAS PARA CATEGORIAS
- * Usado para agrupar problemas corretamente no plano de correção
- * ⚠️ DEFINIDO EM WINDOW PARA GARANTIR DISPONIBILIDADE GLOBAL
- */
-window.METRIC_CATEGORY_MAP = {
-    // LOUDNESS
-    'LUFS': 'loudness',
-    'Loudness': 'loudness',
-    'Integrated': 'loudness',
-    'True Peak': 'loudness',
-    'TP': 'loudness',
-    
-    // FREQUÊNCIAS (BANDAS ESPECTRAIS)
-    'Sub': 'frequency',
-    'Subgrave': 'frequency',
-    'Bass': 'frequency',
-    'Grave': 'frequency',
-    'Low Mid': 'frequency',
-    'Low-Mid': 'frequency',
-    'Médio-Grave': 'frequency',
-    'Mid': 'frequency',
-    'Médios': 'frequency',
-    'High Mid': 'frequency',
-    'High-Mid': 'frequency',
-    'Médio-Alto': 'frequency',
-    'Brilho': 'frequency',
-    'Brightness': 'frequency',
-    'Presença': 'frequency',
-    'Presence': 'frequency',
-    'Air': 'frequency',
-    
-    // DINÂMICA
-    'DR': 'dynamics',
-    'Dynamic Range': 'dynamics',
-    'LRA': 'dynamics',
-    'Loudness Range': 'dynamics',
-    'Crest': 'dynamics',
-    'Crest Factor': 'dynamics',
-    
-    // ESTÉREO
-    'Stereo': 'stereo',
-    'Imagem Estéreo': 'stereo',
-    'Correlation': 'stereo',
-    'Width': 'stereo',
-    'Balance': 'stereo'
-};
-
-/**
  * 🔧 Detecta a categoria de uma métrica pelo nome
- * Usa window.METRIC_CATEGORY_MAP para garantir acesso global
+ * Usa METRIC_CATEGORY_MAP definido no topo do arquivo
  */
 function detectMetricCategory(metricName) {
     if (!metricName) return 'other';
     
     const normalized = metricName.toLowerCase();
-    const categoryMap = window.METRIC_CATEGORY_MAP || {};
     
     // Tentar match exato primeiro
-    for (const [key, category] of Object.entries(categoryMap)) {
+    for (const [key, category] of Object.entries(METRIC_CATEGORY_MAP)) {
         if (normalized.includes(key.toLowerCase())) {
             return category;
         }

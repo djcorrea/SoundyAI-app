@@ -447,7 +447,7 @@ class CoreMetricsProcessor {
       let spectralUniformityMetrics = null;
       try {
         // 🔍 DEBUG CRÍTICO: Verificar se magnitudeSpectrum existe e tem dados
-        console.log('[UNIFORMITY_V2] 🔍 PRÉ-CHECK magnitudeSpectrum:', {
+        console.log('[UNIFORMITY_PIPELINE] 🔍 PRÉ-CHECK magnitudeSpectrum:', {
           hasFftResults: !!fftResults,
           hasMagnitudeSpectrum: !!fftResults?.magnitudeSpectrum,
           magnitudeSpectrumLength: fftResults?.magnitudeSpectrum?.length || 0,
@@ -455,6 +455,8 @@ class CoreMetricsProcessor {
         });
         
         if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
+          console.log('[UNIFORMITY_PIPELINE] ✅ ENTRANDO no bloco de cálculo de uniformidade');
+          
           const binCount = fftResults.magnitudeSpectrum[0].length;
           const frequencyBins = Array.from({length: binCount}, (_, i) => 
             (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
@@ -503,6 +505,19 @@ class CoreMetricsProcessor {
                 // Se coefficient === 0 e NÃO tem variação, é erro (bandas insuficientes)
                 const isRealAnalysis = frameResult.uniformity.coefficient > 0 || hasRealVariation;
                 
+                // 🔍 DEBUG: Log do primeiro frame para diagnóstico
+                if (frameIdx === 0) {
+                  console.log('[UNIFORMITY_PIPELINE] 🔍 Primeiro frame analisado:', {
+                    coefficient: frameResult.uniformity.coefficient,
+                    standardDeviation: frameResult.uniformity.standardDeviation,
+                    variance: frameResult.uniformity.variance,
+                    range: frameResult.uniformity.range,
+                    hasRealVariation,
+                    isRealAnalysis,
+                    rating: frameResult.rating
+                  });
+                }
+                
                 if (isRealAnalysis) {
                   uniformityCoefficients.push(frameResult.uniformity.coefficient);
                   framesWithValidCoefficient++;
@@ -511,6 +526,14 @@ class CoreMetricsProcessor {
                 }
               } else {
                 framesWithInsufficientBands++;
+                // 🔍 DEBUG: Log do primeiro frame que falhou
+                if (frameIdx === 0) {
+                  console.log('[UNIFORMITY_PIPELINE] ⚠️ Primeiro frame INVÁLIDO:', {
+                    hasFrameResult: !!frameResult,
+                    hasUniformity: !!frameResult?.uniformity,
+                    coefficient: frameResult?.uniformity?.coefficient
+                  });
+                }
               }
             } catch (frameError) {
               // Ignorar frames com erro, continuar processando
@@ -518,7 +541,7 @@ class CoreMetricsProcessor {
             }
           }
           
-          console.log('[UNIFORMITY_V2] 📊 Frames processados:', {
+          console.log('[UNIFORMITY_PIPELINE] 📊 Frames processados:', {
             totalFrames: fftResults.magnitudeSpectrum.length,
             processedFrames: maxFramesToProcess,
             framesWithValidCoefficient,
@@ -564,9 +587,9 @@ class CoreMetricsProcessor {
               needsBalancing: uniformityPercent < 40
             };
             
-            // 🎯 LOG FORMATO SOLICITADO: [UNIFORMITY_V2] frames=XXX medianCV=0.34 percent=65.2
-            console.log(`[UNIFORMITY_V2] ✅ frames=${uniformityCoefficients.length} medianCV=${medianCoefficient.toFixed(3)} percent=${uniformityPercent.toFixed(1)}`);
-            console.log('[UNIFORMITY_V2] ✅ Resultado agregado:', {
+            // 🎯 LOG FORMATO SOLICITADO: [UNIFORMITY_PIPELINE] frames=XXX medianCV=0.34 percent=65.2
+            console.log(`[UNIFORMITY_PIPELINE] ✅ frames=${uniformityCoefficients.length} medianCV=${medianCoefficient.toFixed(3)} percent=${uniformityPercent.toFixed(1)}`);
+            console.log('[UNIFORMITY_PIPELINE] ✅ Resultado agregado:', {
               medianCoefficient,
               uniformityPercent,
               rating: spectralUniformityMetrics.rating,
@@ -574,24 +597,24 @@ class CoreMetricsProcessor {
               framesWithInsufficientBands
             });
           } else {
-            console.log('[UNIFORMITY_V2] ⚠️ ERRO: Nenhum coeficiente válido encontrado!', {
+            console.log('[UNIFORMITY_PIPELINE] ⚠️ ERRO: Nenhum coeficiente válido encontrado!', {
               totalFrames: fftResults.magnitudeSpectrum.length,
               processedFrames: maxFramesToProcess,
               framesWithValidCoefficient,
               framesWithInsufficientBands,
               reason: framesWithInsufficientBands > 0 
-                ? 'Maioria dos frames tem menos de 3 bandas com energia > -60dB' 
+                ? 'Maioria dos frames tem menos de 3 bandas com energia > -100dB (threshold atual)' 
                 : 'Frames FFT podem estar corrompidos ou zerados'
             });
             spectralUniformityMetrics = null;
           }
           
-          console.log('[SUCCESS] Spectral Uniformity calculado via agregação de frames');
+          console.log('[UNIFORMITY_PIPELINE] Spectral Uniformity calculado via agregação de frames');
         } else {
-          console.log('[DEBUG_UNIFORMITY] FFT spectrum não disponível');
+          console.log('[UNIFORMITY_PIPELINE] ❌ FFT spectrum não disponível - magnitudeSpectrum vazio ou null');
         }
       } catch (error) {
-        console.log('[SKIP_METRIC] spectralUniformity: erro na função standalone -', error.message);
+        console.log('[UNIFORMITY_PIPELINE] ❌ ERRO na função standalone:', error.message);
         spectralUniformityMetrics = null;
       }
 
@@ -678,6 +701,15 @@ class CoreMetricsProcessor {
           jobId
         }
       };
+      
+      // 🎯 LOG OBRIGATÓRIO: Confirmar atribuição de spectralUniformity ao objeto coreMetrics
+      console.log('[UNIFORMITY_PIPELINE] 📦 coreMetrics.spectralUniformity ATRIBUÍDO:', {
+        hasSpectralUniformity: !!coreMetrics.spectralUniformity,
+        uniformityPercent: coreMetrics.spectralUniformity?.uniformityPercent,
+        coefficient: coreMetrics.spectralUniformity?.uniformity?.coefficient,
+        rating: coreMetrics.spectralUniformity?.rating,
+        validFrames: coreMetrics.spectralUniformity?.aggregation?.validFrames
+      });
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES V2 =========
       // Sistema educativo com criticidade por cores
