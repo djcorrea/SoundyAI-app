@@ -24991,26 +24991,32 @@ function extractBandsFromAnalysis(analysis) {
 }
 
 function calculateFrequencyScoreReference(bandsA, bandsB) {
-    console.log('[FREQ-SCORE-REF] 🎵 Calculando score de frequência em modo reference (A vs B)');
+    console.log('[FREQ-SCORE-REF] 🎵 Calculando score de frequência em modo reference (A vs B) - VERSÃO CORRIGIDA');
     
     if (!bandsA || !bandsB) {
         console.warn('[FREQ-SCORE-REF] ⚠️ Bandas ausentes:', { hasA: !!bandsA, hasB: !!bandsB });
         return null;
     }
     
-    // 8 bandas principais (mesmo mapeamento usado em buildComparisonRows)
-    const bandKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    // 8 bandas principais + aliases (incluindo low_bass, upper_bass)
+    const bandKeys = ['sub', 'low_bass', 'upper_bass', 'bass', 'low_mid', 'lowMid', 'mid', 'high_mid', 'highMid', 'presence', 'presenca', 'air', 'brilho'];
     const aliases = {
         'low_bass': 'bass',
+        'upper_bass': 'bass',
         'low_mid': 'lowMid',
         'high_mid': 'highMid',
         'brilho': 'air',
         'presenca': 'presence'
     };
     
-    const diffs = [];
+    const bandsData = [];
+    const processedKeys = new Set();
     
     for (const key of bandKeys) {
+        // Pular se já processamos essa banda (evitar duplicatas com aliases)
+        const canonicalKey = aliases[key] || key;
+        if (processedKeys.has(canonicalKey)) continue;
+        
         // Buscar banda em A
         let valueA = null;
         if (bandsA[key] !== undefined) {
@@ -25021,42 +25027,98 @@ function calculateFrequencyScoreReference(bandsA, bandsB) {
         
         // Buscar banda em B (com aliases)
         let valueB = null;
-        const keyB = aliases[key] || key;
-        if (bandsB[keyB] !== undefined) {
-            valueB = typeof bandsB[keyB] === 'object' ? 
-                     (bandsB[keyB].energy_db ?? bandsB[keyB].rms_db ?? bandsB[keyB].value) : 
-                     bandsB[keyB];
-        } else if (bandsB[key] !== undefined) {
+        if (bandsB[key] !== undefined) {
             valueB = typeof bandsB[key] === 'object' ? 
                      (bandsB[key].energy_db ?? bandsB[key].rms_db ?? bandsB[key].value) : 
                      bandsB[key];
         }
         
         if (Number.isFinite(valueA) && Number.isFinite(valueB)) {
-            const diff = Math.abs(valueA - valueB);
-            diffs.push(diff);
-            console.log(`[FREQ-SCORE-REF] ${key}: A=${valueA.toFixed(2)}dB, B=${valueB.toFixed(2)}dB, diff=${diff.toFixed(2)}dB`);
+            const absDelta = Math.abs(valueA - valueB);
+            
+            // 🎯 CALCULAR SEVERIDADE (mesma lógica de buildComparativeAISuggestions)
+            let severity = 'OK';
+            if (absDelta >= 4.0) {
+                severity = 'CRÍTICA';
+            } else if (absDelta >= 2.5) {
+                severity = 'ALTA';
+            } else if (absDelta >= 1.5) {
+                severity = 'ATENÇÃO';
+            }
+            
+            bandsData.push({
+                key: canonicalKey,
+                valueA,
+                valueB,
+                delta: absDelta,
+                severity
+            });
+            
+            processedKeys.add(canonicalKey);
+            
+            console.log(`[FREQ-SCORE-REF] ${key}: A=${valueA.toFixed(2)}dB, B=${valueB.toFixed(2)}dB, Δ=${absDelta.toFixed(2)}dB → ${severity}`);
         }
     }
     
-    if (diffs.length === 0) {
+    if (bandsData.length === 0) {
         console.warn('[FREQ-SCORE-REF] ⚠️ Nenhuma banda válida encontrada');
         return null;
     }
     
-    // Calcular média das diferenças
-    const diffAbsMean = diffs.reduce((sum, d) => sum + d, 0) / diffs.length;
+    // 🎯 NOVO CÁLCULO BASEADO EM SEVERIDADES
+    // Penalidades proporcionais:
+    // CRÍTICA → -20 pontos
+    // ALTA → -10 pontos
+    // ATENÇÃO → -5 pontos
+    // OK → 0 pontos
     
-    // Score: 100 - (diffAbsMean * K)
-    // K = 10: cada 1dB de diferença reduz 10 pontos
-    // diffAbsMean < 1dB → score > 90 (excelente)
-    // diffAbsMean = 5dB → score = 50 (médio)
-    // diffAbsMean > 10dB → score = 0 (ruim)
-    const K = 10;
-    const rawScore = 100 - (diffAbsMean * K);
+    const baseScore = 100;
+    const penaltyMap = {
+        'CRÍTICA': 20,
+        'ALTA': 10,
+        'ATENÇÃO': 5,
+        'OK': 0
+    };
+    
+    const severityCounts = {
+        'CRÍTICA': 0,
+        'ALTA': 0,
+        'ATENÇÃO': 0,
+        'OK': 0
+    };
+    
+    let totalPenalty = 0;
+    
+    for (const band of bandsData) {
+        const penalty = penaltyMap[band.severity] || 0;
+        totalPenalty += penalty;
+        severityCounts[band.severity]++;
+    }
+    
+    // Normalizar penalidade: cada banda pode contribuir no máximo 20 pontos de penalidade
+    // Score = 100 - (totalPenalty * (100 / (bandsCount * 20)))
+    // Isso garante que:
+    // - Todas OK → 100
+    // - Todas CRÍTICA → ~0
+    // - Mix de severidades → intermediário
+    const maxPossiblePenalty = bandsData.length * 20;
+    const normalizedPenalty = (totalPenalty / maxPossiblePenalty) * 100;
+    const rawScore = baseScore - normalizedPenalty;
     const score = Math.max(0, Math.min(100, Math.round(rawScore)));
     
-    console.log(`[FREQ-SCORE-REF] 🎵 Resultado: diffAbsMean=${diffAbsMean.toFixed(2)}dB → score=${score}% (${diffs.length} bandas)`);
+    console.log(`[FREQ-SCORE-REF] 📊 Estatísticas:`, {
+        totalBandas: bandsData.length,
+        criticas: severityCounts['CRÍTICA'],
+        altas: severityCounts['ALTA'],
+        atencoes: severityCounts['ATENÇÃO'],
+        ok: severityCounts['OK'],
+        totalPenalty,
+        maxPossiblePenalty,
+        normalizedPenalty: normalizedPenalty.toFixed(2),
+        scoreFinal: score
+    });
+    
+    console.log(`[FREQ-SCORE-REF] ✅ Score corrigido: ${score}% (anterior seria ~${Math.round(100 - (bandsData.reduce((sum, b) => sum + b.delta, 0) / bandsData.length * 10))}% com cálculo antigo)`);
     
     return score;
 }
