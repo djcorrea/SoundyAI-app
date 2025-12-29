@@ -24620,14 +24620,15 @@ window.buildDiagnosticContext = function(scoreResult, analysisMeta = {}) {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 🧠 V4.0: GERAÇÃO DE TEXTO FINAL SEMÂNTICO
-// Linguagem de engenharia de áudio + ciência perceptiva
+// 🧠 V6.0: VEREDITO NEUROAUDITIVO
+// Linguagem de neurociência auditiva e percepção cerebral
+// Exatamente 3 frases: diagnóstico → impacto neural → consequência perceptiva
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Gera um resumo textual curto e impactante baseado no diagnóstico
+ * Gera veredito neuroauditivo - 3 frases com foco em percepção cerebral
  * @param {Object} diagnostic - Resultado de buildDiagnosticContext
- * @returns {string} Texto de 2-3 frases em linguagem de engenharia de áudio
+ * @returns {string} Texto de 3 frases em linguagem de neurociência auditiva
  */
 window.generateFinalDiagnosticText = function(diagnostic) {
     if (!diagnostic || !diagnostic.context?.valid) {
@@ -24638,9 +24639,9 @@ window.generateFinalDiagnosticText = function(diagnostic) {
     const { finalScore, stats, subscoresSummary } = context;
     
     // ═══════════════════════════════════════════════════════════════════
-    // V5.0: VEREDITO SONORO INTELIGENTE
-    // Texto único, elegante, técnico + perceptivo
-    // Máx 4 frases, sem valores numéricos, sem bullets
+    // V6.0: VEREDITO NEUROAUDITIVO
+    // 3 frases exatas: diagnóstico técnico → impacto cerebral → consequência
+    // Linguagem: fadiga auditiva, desconforto neural, atenção, percepção
     // ═══════════════════════════════════════════════════════════════════
     
     // Identificar problemas principais
@@ -24648,96 +24649,93 @@ window.generateFinalDiagnosticText = function(diagnostic) {
     const highProblems = problems.filter(p => p.severity === 'ALTA');
     const topProblems = [...criticalProblems, ...highProblems].slice(0, 3);
     
-    // Mapear categorias para descrições de impacto perceptivo
-    const CATEGORY_IMPACTS = {
+    // Mapear categorias para impactos neuroauditivos
+    const NEURO_IMPACTS = {
         technical: {
-            problem: 'picos excessivos ou distorção digital',
-            consequence: 'comprometendo a fidelidade e causando artefatos audíveis'
+            diagnosis: 'saturação ou picos acima do limiar seguro',
+            neural: 'o sistema auditivo interpreta como agressão, ativando fadiga precoce',
+            correction: 'controle de limitação'
         },
         loudness: {
-            problem: 'volume fora do padrão de distribuição',
-            consequence: 'prejudicando a consistência em playlists e plataformas'
+            diagnosis: 'intensidade percebida fora do padrão de normalização',
+            neural: 'o cérebro recalibra constantemente o ganho interno, causando desconforto subliminar',
+            correction: 'calibração de loudness'
         },
         dynamics: {
-            problem: 'dinâmica desequilibrada',
-            consequence: 'reduzindo o impacto percebido e a energia da faixa'
+            diagnosis: 'compressão excessiva ou micro-dinâmica suprimida',
+            neural: 'a percepção perde referências de profundidade, reduzindo o engajamento atencional',
+            correction: 'preservação de transientes'
         },
         stereo: {
-            problem: 'problemas na imagem estéreo',
-            consequence: 'afetando a espacialidade e compatibilidade mono'
+            diagnosis: 'correlação estéreo comprometida ou imagem instável',
+            neural: 'o processamento binaural não consegue localizar fontes, gerando confusão espacial',
+            correction: 'coerência estéreo'
         },
         frequency: {
-            problem: 'balanço espectral irregular',
-            consequence: 'comprometendo clareza, peso e tradução entre sistemas'
+            diagnosis: 'desequilíbrio espectral em regiões críticas',
+            neural: 'o córtex auditivo processa informação incompleta, induzindo fadiga e rejeição perceptiva',
+            correction: 'balanço tonal'
         }
     };
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE EXCELENTE (90+) - Veredito positivo
+    // SCORE EXCELENTE (90+) - Conforto neural máximo
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 90 && stats.criticalProblems === 0) {
-        return 'Sua faixa apresenta equilíbrio espectral consistente, dinâmica preservada e níveis técnicos adequados para distribuição. A masterização demonstra maturidade sonora e está pronta para streaming sem ressalvas.';
+        return 'Sua faixa apresenta harmonia espectral e dinâmica que favorecem a escuta prolongada sem fadiga. O cérebro processa o material de forma fluida, mantendo engajamento atencional elevado. A masterização está pronta para distribuição com excelência perceptiva.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE BOM (75-89) - Pequenos ajustes
+    // SCORE BOM (75-89) - Refinamento neural
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 75 && stats.criticalProblems === 0) {
-        // Identificar área que precisa de atenção
         const worstCategory = Object.entries(subscoresSummary)
             .filter(([_, v]) => v.score !== null && v.score < 85)
             .sort((a, b) => a[1].score - b[1].score)[0];
         
         if (worstCategory) {
-            const impact = CATEGORY_IMPACTS[worstCategory[0]];
-            if (impact) {
-                return `Sua faixa está bem encaminhada, com qualidade próxima do profissional. Identificamos ${impact.problem} em alguns pontos, ${impact.consequence}. Pequenos refinamentos trarão mais consistência e impacto ao resultado final.`;
+            const neuro = NEURO_IMPACTS[worstCategory[0]];
+            if (neuro) {
+                return `Sua faixa está próxima do ideal, com ${neuro.diagnosis} em pontos específicos. Em escutas repetidas, ${neuro.neural}. Ajustes finos em ${neuro.correction} elevarão o conforto auditivo ao padrão profissional.`;
             }
         }
-        return 'Sua faixa apresenta boa qualidade geral, com pequenos pontos de refinamento identificados. Ajustes sutis na equalização e dinâmica podem elevar ainda mais o resultado final.';
+        return 'Sua faixa apresenta qualidade sólida, com pequenas irregularidades que podem induzir fadiga sutil em escutas prolongadas. O cérebro processa bem o material, mas refinamentos pontuais maximizarão o conforto perceptivo. Ajustes incrementais trarão fluidez total à experiência.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE MÉDIO (60-74) - Ajustes necessários
+    // SCORE MÉDIO (60-74) - Desconforto neural moderado
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 60) {
-        // Coletar categorias problemáticas
         const problemCategories = [...new Set(topProblems.map(p => p.category))].slice(0, 2);
         
-        if (problemCategories.length >= 2) {
-            const impact1 = CATEGORY_IMPACTS[problemCategories[0]];
-            const impact2 = CATEGORY_IMPACTS[problemCategories[1]];
-            if (impact1 && impact2) {
-                return `Sua faixa apresenta ${impact1.problem} e ${impact2.problem}, o que pode ${impact1.consequence.replace('comprometendo', 'comprometer').replace('prejudicando', 'prejudicar').replace('reduzindo', 'reduzir').replace('afetando', 'afetar')}. Esse comportamento tende a gerar fadiga auditiva e comprometer a tradução em diferentes sistemas. Ajustes nesses pontos trarão mais clareza, potência e consistência.`;
-            }
-        } else if (problemCategories.length === 1) {
-            const impact = CATEGORY_IMPACTS[problemCategories[0]];
-            if (impact) {
-                return `Sua faixa apresenta ${impact.problem}, ${impact.consequence}. Esse desequilíbrio pode gerar fadiga auditiva e dificultar a tradução em sistemas de som variados. Correções nessa área trarão mais impacto e profissionalismo ao resultado.`;
+        if (problemCategories.length >= 1) {
+            const neuro = NEURO_IMPACTS[problemCategories[0]];
+            if (neuro) {
+                return `Sua faixa apresenta ${neuro.diagnosis}, o que compromete a experiência de escuta. Quando ${neuro.neural}, a tendência é o ouvinte abandonar a faixa antes do fim. Correções em ${neuro.correction} são necessárias para evitar rejeição perceptiva.`;
             }
         }
         
-        return 'Sua faixa precisa de ajustes para atingir padrão profissional. Identificamos desequilíbrios que podem afetar a experiência do ouvinte e a tradução entre sistemas. Revisões na dinâmica e balanço espectral são recomendadas.';
+        return 'Sua faixa apresenta desequilíbrios que o sistema auditivo interpreta como desconforto, mesmo que sutil. O cérebro tende a desviar atenção de fontes sonoras que exigem esforço cognitivo excessivo. Ajustes no balanço espectral e dinâmica reduzirão a fadiga e aumentarão o engajamento.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE BAIXO (<60) - Intervenção significativa
+    // SCORE BAIXO (<60) - Rejeição neural
     // ═══════════════════════════════════════════════════════════════════
     const criticalCategories = [...new Set(criticalProblems.map(p => p.category))];
     
     if (criticalCategories.includes('technical')) {
-        return 'Sua faixa apresenta problemas técnicos severos que causarão distorção audível em qualquer plataforma. Esses artefatos comprometem a integridade do áudio e a experiência do ouvinte. Recomenda-se revisão completa do master, priorizando o controle de picos e limitação antes de prosseguir.';
+        return 'Sua faixa apresenta distorção ou saturação que o sistema auditivo identifica como ruído nocivo. O cérebro ativa mecanismos de proteção, causando rejeição instintiva e impossibilitando escuta confortável. Revisão completa do controle de picos é imprescindível antes de qualquer distribuição.';
     }
     
     if (criticalCategories.includes('frequency')) {
-        return 'Sua faixa apresenta desequilíbrio espectral severo, comprometendo clareza, punch e definição. Esse comportamento dificulta a escuta prolongada e prejudica a tradução em sistemas variados. Ajustes significativos na equalização são necessários antes da distribuição.';
+        return 'Sua faixa apresenta desequilíbrio espectral severo que sobrecarrega regiões específicas do córtex auditivo. Essa assimetria gera fadiga neural acelerada e desconforto que leva à interrupção da escuta. Correção profunda no balanço tonal é necessária para viabilizar a experiência.';
     }
     
     if (criticalCategories.includes('loudness')) {
-        return 'Sua faixa apresenta volume drasticamente fora dos padrões de distribuição, o que resultará em normalização agressiva ou diferença perceptível em playlists. Isso compromete o impacto competitivo da faixa. Revisão do gain staging e limitação é essencial.';
+        return 'Sua faixa apresenta intensidade que força o sistema auditivo a operar fora da zona de conforto. O cérebro interpreta o excesso como potencial dano, ativando fadiga defensiva e reduzindo drasticamente o tempo de escuta tolerável. Calibração de loudness é essencial antes da distribuição.';
     }
     
-    return 'Sua faixa requer intervenção significativa antes da distribuição. Múltiplos aspectos técnicos e perceptivos precisam de atenção para garantir qualidade profissional. Recomenda-se revisão completa do processo de mixagem e masterização.';
+    return 'Sua faixa apresenta múltiplos fatores que o sistema nervoso auditivo interpreta como estresse sonoro. O cérebro não consegue processar o material de forma relaxada, induzindo fadiga e desengajamento precoces. Revisão integral de mixagem e masterização é necessária para garantir aceitação perceptiva.';
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31451,8 +31449,14 @@ async function handleGenerateCorrectionPlan() {
             problemsCount: payload.problems.length
         });
         
+        // URL da API
+        const apiUrl = '/api/correction-plan';
+        console.log('[CORRECTION-PLAN] 🎯 URL exata da chamada:', apiUrl);
+        console.log('[CORRECTION-PLAN] 🌐 window.location.origin:', window.location.origin);
+        console.log('[CORRECTION-PLAN] 🔗 URL completa:', new URL(apiUrl, window.location.origin).href);
+        
         // Chamar API
-        const response = await fetch('/api/correction-plan', {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

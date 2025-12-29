@@ -78,6 +78,9 @@ import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
 import presignRoute from "./api/presign.js";
 
+// 🎯 CORRECTION PLAN: Plano de Correção com IA
+import correctionPlanHandler from "./api/correction-plan.js";
+
 // ✅ STRIPE: Rotas de pagamento recorrente
 import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
@@ -101,6 +104,22 @@ app.use('/api/webhook/stripe', stripeWebhookRouter);
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
+
+// 🎯 CORRECTION PLAN: Rota para gerar plano de correção com IA
+app.post("/api/correction-plan", async (req, res) => {
+  console.log('[CORRECTION-PLAN] 📥 POST /api/correction-plan recebido');
+  try {
+    await correctionPlanHandler(req, res);
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] ❌ Erro:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'INTERNAL_ERROR', 
+        message: 'Erro ao processar plano de correção' 
+      });
+    }
+  }
+});
 
 // ---------- ROTA DE CONFIGURAÇÃO DA API KEY (RAILWAY) ----------
 app.get("/api/config", (req, res) => {
