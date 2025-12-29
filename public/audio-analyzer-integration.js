@@ -24620,15 +24620,15 @@ window.buildDiagnosticContext = function(scoreResult, analysisMeta = {}) {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 🧠 V6.0: VEREDITO NEUROAUDITIVO
-// Linguagem de neurociência auditiva e percepção cerebral
-// Exatamente 3 frases: diagnóstico → impacto neural → consequência perceptiva
+// 🧠 V7.0: VEREDITO SONORO INTELIGENTE - ULTRA PREMIUM
+// Engenharia de áudio + Física do som + Psicoacústica + Neurociência
+// Estrutura: 1) Técnico+Físico | 2) Psicoacústico/Neural | 3) Correção+Benefício
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Gera veredito neuroauditivo - 3 frases com foco em percepção cerebral
+ * Gera veredito sonoro inteligente - 3 frases combinando engenharia, física e neurociência
  * @param {Object} diagnostic - Resultado de buildDiagnosticContext
- * @returns {string} Texto de 3 frases em linguagem de neurociência auditiva
+ * @returns {string} Texto de 3 frases em linguagem técnica + perceptiva
  */
 window.generateFinalDiagnosticText = function(diagnostic) {
     if (!diagnostic || !diagnostic.context?.valid) {
@@ -24639,9 +24639,11 @@ window.generateFinalDiagnosticText = function(diagnostic) {
     const { finalScore, stats, subscoresSummary } = context;
     
     // ═══════════════════════════════════════════════════════════════════
-    // V6.0: VEREDITO NEUROAUDITIVO
-    // 3 frases exatas: diagnóstico técnico → impacto cerebral → consequência
-    // Linguagem: fadiga auditiva, desconforto neural, atenção, percepção
+    // V7.0: VEREDITO SONORO INTELIGENTE
+    // Estrutura obrigatória de 3 frases:
+    // 1. Diagnóstico técnico + consequência física no sistema de som
+    // 2. Impacto psicoacústico no ouvido e cérebro humano
+    // 3. Direcionamento de correção + benefício perceptivo
     // ═══════════════════════════════════════════════════════════════════
     
     // Identificar problemas principais
@@ -24649,44 +24651,44 @@ window.generateFinalDiagnosticText = function(diagnostic) {
     const highProblems = problems.filter(p => p.severity === 'ALTA');
     const topProblems = [...criticalProblems, ...highProblems].slice(0, 3);
     
-    // Mapear categorias para impactos neuroauditivos
-    const NEURO_IMPACTS = {
+    // Mapear categorias para impactos físicos + neurais
+    const AUDIO_SCIENCE = {
         technical: {
-            diagnosis: 'saturação ou picos acima do limiar seguro',
-            neural: 'o sistema auditivo interpreta como agressão, ativando fadiga precoce',
-            correction: 'controle de limitação'
+            techPhysical: 'clipping ou saturação que gera harmônicos indesejados, forçando falantes a reproduzir frequências distorcidas',
+            psychoacoustic: 'o ouvido humano percebe aspereza e o cérebro interpreta como agressão sonora, ativando fadiga e desconforto imediatos',
+            correction: 'controle de picos e limitação restaurarão a integridade do sinal e permitirão escuta prolongada sem irritação'
         },
         loudness: {
-            diagnosis: 'intensidade percebida fora do padrão de normalização',
-            neural: 'o cérebro recalibra constantemente o ganho interno, causando desconforto subliminar',
-            correction: 'calibração de loudness'
+            techPhysical: 'intensidade fora do padrão de distribuição que causa excursão irregular nos transdutores e inconsistência em sistemas PA',
+            psychoacoustic: 'o sistema auditivo é forçado a recalibrar ganho constantemente, gerando fadiga subliminar e perda de atenção',
+            correction: 'calibração de loudness garantirá consistência entre plataformas e uma experiência de escuta equilibrada e confortável'
         },
         dynamics: {
-            diagnosis: 'compressão excessiva ou micro-dinâmica suprimida',
-            neural: 'a percepção perde referências de profundidade, reduzindo o engajamento atencional',
-            correction: 'preservação de transientes'
+            techPhysical: 'compressão excessiva que achata transientes e remove a micro-dinâmica essencial para definição em caixas de som',
+            psychoacoustic: 'o cérebro perde referências de profundidade e espacialidade, reduzindo o engajamento emocional com a música',
+            correction: 'preservação de dinâmica devolverá impacto aos transientes e reconectará o ouvinte à energia natural da faixa'
         },
         stereo: {
-            diagnosis: 'correlação estéreo comprometida ou imagem instável',
-            neural: 'o processamento binaural não consegue localizar fontes, gerando confusão espacial',
-            correction: 'coerência estéreo'
+            techPhysical: 'problemas de correlação estéreo que causam cancelamento de fase em sistemas mono e imagem instável em PA',
+            psychoacoustic: 'o processamento binaural do cérebro não consegue posicionar fontes no espaço, gerando confusão e desconforto espacial',
+            correction: 'correção de coerência estéreo restaurará a espacialidade natural e garantirá compatibilidade em qualquer sistema'
         },
         frequency: {
-            diagnosis: 'desequilíbrio espectral em regiões críticas',
-            neural: 'o córtex auditivo processa informação incompleta, induzindo fadiga e rejeição perceptiva',
-            correction: 'balanço tonal'
+            techPhysical: 'desequilíbrio espectral que sobrecarrega regiões específicas dos falantes, causando perda de definição e tradução inconsistente',
+            psychoacoustic: 'o córtex auditivo recebe informação incompleta, induzindo fadiga neural acelerada e tendência à rejeição da música',
+            correction: 'balanço tonal adequado permitirá tradução fiel em qualquer sistema e uma experiência de escuta fluida e agradável'
         }
     };
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE EXCELENTE (90+) - Conforto neural máximo
+    // SCORE EXCELENTE (90+) - Conforto máximo
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 90 && stats.criticalProblems === 0) {
-        return 'Sua faixa apresenta harmonia espectral e dinâmica que favorecem a escuta prolongada sem fadiga. O cérebro processa o material de forma fluida, mantendo engajamento atencional elevado. A masterização está pronta para distribuição com excelência perceptiva.';
+        return 'Sua faixa apresenta balanço espectral e dinâmica que garantem reprodução fiel em qualquer sistema de som, de fones a PA profissional. O ouvido humano processa o material sem esforço, e o cérebro mantém engajamento atencional elevado durante toda a escuta. A masterização está pronta para distribuição com excelência técnica e perceptiva.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE BOM (75-89) - Refinamento neural
+    // SCORE BOM (75-89) - Refinamentos pontuais
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 75 && stats.criticalProblems === 0) {
         const worstCategory = Object.entries(subscoresSummary)
@@ -24694,48 +24696,48 @@ window.generateFinalDiagnosticText = function(diagnostic) {
             .sort((a, b) => a[1].score - b[1].score)[0];
         
         if (worstCategory) {
-            const neuro = NEURO_IMPACTS[worstCategory[0]];
-            if (neuro) {
-                return `Sua faixa está próxima do ideal, com ${neuro.diagnosis} em pontos específicos. Em escutas repetidas, ${neuro.neural}. Ajustes finos em ${neuro.correction} elevarão o conforto auditivo ao padrão profissional.`;
+            const science = AUDIO_SCIENCE[worstCategory[0]];
+            if (science) {
+                return `Sua faixa está próxima do ideal, mas apresenta ${science.techPhysical}. Em escutas prolongadas, ${science.psychoacoustic}. ${science.correction.charAt(0).toUpperCase() + science.correction.slice(1)}.`;
             }
         }
-        return 'Sua faixa apresenta qualidade sólida, com pequenas irregularidades que podem induzir fadiga sutil em escutas prolongadas. O cérebro processa bem o material, mas refinamentos pontuais maximizarão o conforto perceptivo. Ajustes incrementais trarão fluidez total à experiência.';
+        return 'Sua faixa apresenta qualidade sólida com pequenas irregularidades que podem causar leve inconsistência em sistemas de alta fidelidade. O cérebro processa bem o material, mas escutas repetidas podem induzir fadiga sutil. Refinamentos pontuais elevarão o conforto auditivo ao padrão profissional.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE MÉDIO (60-74) - Desconforto neural moderado
+    // SCORE MÉDIO (60-74) - Ajustes necessários
     // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 60) {
         const problemCategories = [...new Set(topProblems.map(p => p.category))].slice(0, 2);
         
         if (problemCategories.length >= 1) {
-            const neuro = NEURO_IMPACTS[problemCategories[0]];
-            if (neuro) {
-                return `Sua faixa apresenta ${neuro.diagnosis}, o que compromete a experiência de escuta. Quando ${neuro.neural}, a tendência é o ouvinte abandonar a faixa antes do fim. Correções em ${neuro.correction} são necessárias para evitar rejeição perceptiva.`;
+            const science = AUDIO_SCIENCE[problemCategories[0]];
+            if (science) {
+                return `Sua faixa apresenta ${science.techPhysical}. Isso faz com que ${science.psychoacoustic}. ${science.correction.charAt(0).toUpperCase() + science.correction.slice(1)}.`;
             }
         }
         
-        return 'Sua faixa apresenta desequilíbrios que o sistema auditivo interpreta como desconforto, mesmo que sutil. O cérebro tende a desviar atenção de fontes sonoras que exigem esforço cognitivo excessivo. Ajustes no balanço espectral e dinâmica reduzirão a fadiga e aumentarão o engajamento.';
+        return 'Sua faixa apresenta desequilíbrios que comprometem a tradução entre sistemas de som e causam fadiga em escutas prolongadas. O cérebro tende a desviar atenção de fontes sonoras que exigem esforço cognitivo excessivo. Ajustes no balanço espectral e dinâmica reduzirão a fadiga e aumentarão o engajamento do ouvinte.';
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SCORE BAIXO (<60) - Rejeição neural
+    // SCORE BAIXO (<60) - Intervenção necessária
     // ═══════════════════════════════════════════════════════════════════
     const criticalCategories = [...new Set(criticalProblems.map(p => p.category))];
     
     if (criticalCategories.includes('technical')) {
-        return 'Sua faixa apresenta distorção ou saturação que o sistema auditivo identifica como ruído nocivo. O cérebro ativa mecanismos de proteção, causando rejeição instintiva e impossibilitando escuta confortável. Revisão completa do controle de picos é imprescindível antes de qualquer distribuição.';
+        return 'Sua faixa apresenta distorção severa que gera harmônicos nocivos, forçando falantes a operar fora de sua linearidade e causando artefatos audíveis em qualquer sistema. O ouvido humano identifica isso como ruído agressivo, e o cérebro ativa mecanismos de proteção que impossibilitam escuta confortável. Revisão completa do controle de picos é imprescindível para viabilizar a distribuição.';
     }
     
     if (criticalCategories.includes('frequency')) {
-        return 'Sua faixa apresenta desequilíbrio espectral severo que sobrecarrega regiões específicas do córtex auditivo. Essa assimetria gera fadiga neural acelerada e desconforto que leva à interrupção da escuta. Correção profunda no balanço tonal é necessária para viabilizar a experiência.';
+        return 'Sua faixa apresenta desequilíbrio espectral severo que sobrecarrega regiões dos falantes, causando perda de definição e tradução inconsistente entre sistemas. O córtex auditivo recebe informação assimétrica, gerando fadiga neural acelerada e tendência instintiva à rejeição da música. Correção profunda no balanço tonal é necessária para viabilizar uma experiência de escuta aceitável.';
     }
     
     if (criticalCategories.includes('loudness')) {
-        return 'Sua faixa apresenta intensidade que força o sistema auditivo a operar fora da zona de conforto. O cérebro interpreta o excesso como potencial dano, ativando fadiga defensiva e reduzindo drasticamente o tempo de escuta tolerável. Calibração de loudness é essencial antes da distribuição.';
+        return 'Sua faixa apresenta intensidade drasticamente fora do padrão, causando excursão excessiva em falantes e normalização agressiva nas plataformas de streaming. O sistema auditivo é forçado a operar em zona de desconforto, ativando fadiga defensiva que reduz drasticamente o tempo de escuta tolerável. Calibração de loudness é essencial antes de qualquer distribuição.';
     }
     
-    return 'Sua faixa apresenta múltiplos fatores que o sistema nervoso auditivo interpreta como estresse sonoro. O cérebro não consegue processar o material de forma relaxada, induzindo fadiga e desengajamento precoces. Revisão integral de mixagem e masterização é necessária para garantir aceitação perceptiva.';
+    return 'Sua faixa apresenta múltiplos problemas técnicos que comprometem a reprodução em sistemas de som e causam fadiga auditiva significativa. O cérebro não consegue processar o material de forma relaxada, induzindo desengajamento e rejeição perceptiva precoces. Revisão integral de mixagem e masterização é necessária para garantir uma experiência de escuta profissional.';
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

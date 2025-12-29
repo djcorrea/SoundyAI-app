@@ -291,73 +291,76 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   🧠 V6.0: VEREDITO NEUROAUDITIVO
-   Design premium azul, minimalista, texto único da IA
-   Foco em neurociência auditiva e percepção cerebral
+   🧠 V7.0: VEREDITO SONORO INTELIGENTE - ULTRA PREMIUM
+   Engenharia de áudio + Física + Psicoacústica + Neurociência
+   Design azul profundo, elegante, minimalista
    ═══════════════════════════════════════════════════════════════ */
 .diagnostic-container {
   width: 100%;
-  max-width: 720px;
-  margin: 24px auto 0 auto;
+  max-width: 740px;
+  margin: 28px auto 0 auto;
   padding: 0;
   background: transparent;
   border: none;
-  animation: fadeIn 0.8s ease both;
-  animation-delay: 0.4s;
+  animation: fadeIn 0.9s ease both;
+  animation-delay: 0.5s;
 }
 
-/* Texto único do veredito - design premium AZUL */
+/* Texto único do veredito - ULTRA PREMIUM AZUL */
 .verdict-text {
-  padding: 22px 32px;
+  padding: 24px 36px;
   background: linear-gradient(
-    135deg,
-    rgba(20, 40, 70, 0.7) 0%,
-    rgba(15, 30, 55, 0.5) 50%,
-    rgba(20, 40, 70, 0.7) 100%
+    145deg,
+    rgba(12, 32, 58, 0.85) 0%,
+    rgba(8, 24, 48, 0.75) 40%,
+    rgba(15, 35, 62, 0.85) 100%
   );
-  border: 1px solid rgba(80, 140, 200, 0.25);
-  border-radius: 16px;
-  font-size: 0.93rem;
-  line-height: 1.55;
-  color: rgba(210, 225, 245, 0.95);
+  border: 1px solid rgba(70, 130, 190, 0.2);
+  border-radius: 14px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(200, 218, 240, 0.94);
   text-align: center;
-  letter-spacing: 0.15px;
+  letter-spacing: 0.12px;
+  font-weight: 400;
   position: relative;
   overflow: hidden;
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
   box-shadow: 
-    0 4px 28px rgba(0, 20, 60, 0.4),
-    0 0 40px rgba(60, 120, 180, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 6px 32px rgba(0, 15, 45, 0.5),
+    0 0 60px rgba(50, 100, 160, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 
-/* Glow sutil azul no topo */
+/* Glow sutil azul no topo - elegante */
 .verdict-text::before {
   content: '';
   position: absolute;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 50%;
+  width: 40%;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(100, 160, 220, 0.5) 50%,
+    rgba(90, 150, 210, 0.45) 50%,
     transparent 100%
   );
 }
 
-/* Aspas decorativas sutis - tom azul */
+/* Aspas decorativas elegantes - tom azul suave */
 .verdict-text::after {
   content: '"';
   position: absolute;
-  top: 8px;
-  left: 18px;
-  font-size: 2.5rem;
-  font-family: Georgia, serif;
-  color: rgba(100, 150, 200, 0.12);
+  top: 10px;
+  left: 20px;
+  font-size: 2.8rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: rgba(90, 140, 190, 0.1);
   line-height: 1;
+  font-style: italic;
 }
 
 /* ═══════════════════════════════════════════════════════════════
