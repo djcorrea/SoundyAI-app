@@ -401,6 +401,7 @@ async function savePlanToFirestore(uid, sanitizedData, planResult) {
 export default async function handler(req, res) {
   console.log('\n[CORRECTION-PLAN] ═══════════════════════════════════════════');
   console.log('[CORRECTION-PLAN] Nova requisição:', req.method);
+  console.log('[CORRECTION-PLAN] 🔑 OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '✅ Configurada' : '❌ NÃO CONFIGURADA');
   
   // CORS
   try {
@@ -520,13 +521,39 @@ export default async function handler(req, res) {
     // 7. GERAR PLANO COM IA
     // ─────────────────────────────────────────────────────────────────────────
     
-    const planResult = await generatePlanWithAI(sanitizedData);
+    // Verificar se API key está configurada
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('[CORRECTION-PLAN] ❌ OPENAI_API_KEY não configurada!');
+      return res.status(503).json({
+        error: 'SERVICE_UNAVAILABLE',
+        message: 'Serviço de IA temporariamente indisponível. Tente novamente mais tarde.'
+      });
+    }
+    
+    let planResult;
+    try {
+      planResult = await generatePlanWithAI(sanitizedData);
+    } catch (aiError) {
+      console.error('[CORRECTION-PLAN] ❌ Erro ao gerar plano com IA:', aiError.message);
+      console.error('[CORRECTION-PLAN] Stack:', aiError.stack);
+      return res.status(500).json({
+        error: 'AI_ERROR',
+        message: 'Erro ao gerar plano de correção. A IA pode estar sobrecarregada.'
+      });
+    }
     
     // ─────────────────────────────────────────────────────────────────────────
     // 8. SALVAR NO FIRESTORE
     // ─────────────────────────────────────────────────────────────────────────
     
-    const planId = await savePlanToFirestore(uid, sanitizedData, planResult);
+    let planId;
+    try {
+      planId = await savePlanToFirestore(uid, sanitizedData, planResult);
+    } catch (saveError) {
+      console.error('[CORRECTION-PLAN] ❌ Erro ao salvar no Firestore:', saveError.message);
+      // Mesmo se falhar salvar, retornar o plano gerado
+      planId = `temp-${Date.now()}`;
+    }
     
     // ─────────────────────────────────────────────────────────────────────────
     // 9. RETORNAR RESPOSTA
