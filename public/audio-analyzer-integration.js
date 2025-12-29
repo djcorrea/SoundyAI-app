@@ -1687,32 +1687,73 @@ function buildGenreBasedAISuggestions(analysis, genreTargets) {
         });
     }
 
-    // 🎵 BANDAS ESPECTRAIS
-    // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectralBands' (legacy)
+    // 🎵 BANDAS ESPECTRAIS V4.1 - CORRIGIDO PARA USAR MESMA FONTE QUE TABELA
+    // O JSON de gênero usa: sub, low_bass, upper_bass, low_mid, mid, high_mid, brilho, presenca
     const targetBands = genreTargets.bands || genreTargets.spectralBands;
     
     if (targetBands && Object.keys(targetBands).length > 0) {
         const userBands = analysis.metrics?.bands || analysis.technicalData?.spectral_balance;
         
         if (userBands) {
-            ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
-                const userValue = userBands[band]?.percentage || userBands[band]?.energy_db;
-                const targetValue = targetBands[band]?.target || targetBands[band]?.percentage;
-                const tolerance = targetBands[band]?.tolerance || 3.0;
+            // V4.1: Iterar sobre TODAS as bandas do JSON de targets
+            const ALL_JSON_BANDS = ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca'];
+            
+            // Mapeamento reverso: JSON key → canonical key (para buscar valores do usuário)
+            const REVERSE_MAP = {
+                'low_bass': 'bass',
+                'upper_bass': 'bass',
+                'low_mid': 'lowMid',
+                'high_mid': 'highMid',
+                'brilho': 'air',
+                'presenca': 'presence'
+            };
+            
+            // Nomes legíveis para cada banda
+            const BAND_NAMES = {
+                'sub': 'Sub Bass (20-60Hz)',
+                'low_bass': 'Low Bass (60-120Hz)',
+                'upper_bass': 'Upper Bass (120-250Hz)',
+                'low_mid': 'Low Mids (250-500Hz)',
+                'mid': 'Mids (500Hz-2kHz)',
+                'high_mid': 'High Mids (2-5kHz)',
+                'brilho': 'Air/Brilho (10-20kHz)',
+                'presenca': 'Presence (5-10kHz)'
+            };
+            
+            ALL_JSON_BANDS.forEach(jsonBand => {
+                const targetDef = targetBands[jsonBand];
+                if (!targetDef) return;
                 
-                if (userValue !== null && targetValue !== null) {
+                // Buscar valor do usuário (tentar chave JSON e chave canônica)
+                const canonicalKey = REVERSE_MAP[jsonBand] || jsonBand;
+                const userValue = userBands[jsonBand]?.energy_db 
+                               ?? userBands[jsonBand]?.percentage 
+                               ?? userBands[canonicalKey]?.energy_db 
+                               ?? userBands[canonicalKey]?.percentage;
+                
+                // Extrair target do JSON
+                const targetValue = targetDef.target_db ?? targetDef.target ?? targetDef.percentage;
+                const tolerance = targetDef.tol_db || targetDef.tolerance || 2.5;
+                const bandName = BAND_NAMES[jsonBand] || jsonBand;
+                
+                if (userValue !== null && userValue !== undefined && targetValue !== null && targetValue !== undefined) {
                     const delta = userValue - targetValue;
                     
+                    // V4.1: Só gerar sugestão se fora da tolerância (COERENTE COM TABELA)
                     if (Math.abs(delta) > tolerance) {
+                        // Determinar severidade baseada na severity do JSON ou no delta
+                        const severity = targetDef.severity || (Math.abs(delta) > tolerance * 2 ? "ALTA" : "MODERADA");
+                        
                         suggestions.push({
-                            categoria: `Banda ${band} (Padrão ${genreName})`,
-                            severidade: Math.abs(delta) > tolerance * 2 ? "ALTA" : "MODERADA",
-                            problema: `Banda ${band} ${delta > 0 ? 'acima' : 'abaixo'} do padrão em ${Math.abs(delta).toFixed(1)}%. Atual: ${userValue.toFixed(1)}% | Alvo: ${targetValue.toFixed(1)}%.`,
+                            categoria: `Banda ${bandName} (Padrão ${genreName})`,
+                            severidade: severity,
+                            problema: `Banda ${bandName} ${delta > 0 ? 'acima' : 'abaixo'} do padrão em ${Math.abs(delta).toFixed(1)} dB. Atual: ${userValue.toFixed(1)} dB | Alvo: ${targetValue.toFixed(1)} dB.`,
                             solucao: delta > 0
-                                ? `Reduza frequências ${band} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`
-                                : `Aumente frequências ${band} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`,
+                                ? `Reduza frequências ${bandName} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`
+                                : `Aumente frequências ${bandName} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`,
                             parametros: {
-                                banda: band,
+                                banda: jsonBand,
+                                bandaNome: bandName,
                                 alvo: targetValue,
                                 diferenca: delta,
                                 tolerancia: tolerance
@@ -23759,31 +23800,112 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     metricEvaluations.correlation = window.evaluateMetric('correlation', measured.correlation, finalTargets.correlation);
     metricEvaluations.width = window.evaluateMetric('width', measured.width, finalTargets.width);
     
-    // Frequency bands
-    const BAND_KEYS = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'air', 'presence'];
+    // ═══════════════════════════════════════════════════════════════════
+    // V4.1: MAPEAMENTO COMPLETO DE BANDAS - CORRIGE BUG CRÍTICO
+    // JSON de gênero usa: sub, low_bass, upper_bass, low_mid, mid, high_mid, brilho, presenca
+    // Backend envia: sub, bass, lowMid, mid, highMid, presence, air
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // Mapeamento: chave canônica → possíveis chaves no JSON
+    const BAND_MAPPING = {
+        sub: ['sub'],
+        bass: ['bass', 'low_bass', 'upper_bass'],
+        lowMid: ['lowMid', 'low_mid'],
+        mid: ['mid'],
+        highMid: ['highMid', 'high_mid'],
+        presence: ['presence', 'presenca'],
+        air: ['air', 'brilho', 'brilliance']
+    };
+    
+    // TODAS as bandas do JSON que precisam ser processadas
+    const ALL_JSON_BANDS = ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca'];
+    
     const bandTargets = finalTargets.bands || {};
     
-    for (const bandKey of BAND_KEYS) {
-        const userValue = measured.bands?.[bandKey]?.energy_db ?? measured.bands?.[bandKey];
-        const targetDef = bandTargets[bandKey];
+    // Processar TODAS as bandas do JSON de targets, não apenas as canonizadas
+    for (const jsonBandKey of ALL_JSON_BANDS) {
+        const targetDef = bandTargets[jsonBandKey];
         
-        if (targetDef) {
-            const normalizedTarget = {
-                target: targetDef.target_db ?? targetDef.target,
-                min: targetDef.target_range?.min ?? targetDef.min_db,
-                max: targetDef.target_range?.max ?? targetDef.max_db,
-                tol: targetDef.tol_db || 2.0
-            };
-            // Se não tem min/max explícito, calcular do target
-            if (normalizedTarget.min === undefined) {
-                normalizedTarget.min = (normalizedTarget.target ?? 0) - normalizedTarget.tol;
+        if (!targetDef) {
+            if (DEBUG) {
+                console.log(`📊 [BANDS] Banda ${jsonBandKey} não encontrada nos targets`);
             }
-            if (normalizedTarget.max === undefined) {
-                normalizedTarget.max = (normalizedTarget.target ?? 0) + normalizedTarget.tol;
+            continue;
+        }
+        
+        // Mapear chave do JSON para chave canônica para buscar valor medido
+        let canonicalKey = jsonBandKey;
+        let userValue = null;
+        
+        // Mapeamento reverso: JSON key → canonical key
+        const REVERSE_MAP = {
+            'low_bass': 'bass',
+            'upper_bass': 'bass', // Combina com bass
+            'low_mid': 'lowMid',
+            'high_mid': 'highMid',
+            'brilho': 'air',
+            'presenca': 'presence'
+        };
+        
+        canonicalKey = REVERSE_MAP[jsonBandKey] || jsonBandKey;
+        
+        // Buscar valor medido
+        userValue = measured.bands?.[jsonBandKey]?.energy_db 
+                 ?? measured.bands?.[jsonBandKey]
+                 ?? measured.bands?.[canonicalKey]?.energy_db 
+                 ?? measured.bands?.[canonicalKey];
+        
+        if (userValue === null || userValue === undefined) {
+            if (DEBUG) {
+                console.log(`📊 [BANDS] Valor não encontrado para ${jsonBandKey} (canonical: ${canonicalKey})`);
             }
-            metricEvaluations[bandKey] = window.evaluateMetric(bandKey, userValue, normalizedTarget);
+            continue;
+        }
+        
+        // Construir target normalizado
+        const normalizedTarget = {
+            target: targetDef.target_db ?? targetDef.target,
+            min: targetDef.target_range?.min ?? targetDef.min_db,
+            max: targetDef.target_range?.max ?? targetDef.max_db,
+            tol: targetDef.tol_db || 2.5 // Usar tolerância do JSON
+        };
+        
+        // Se não tem min/max explícito, calcular do target
+        if (normalizedTarget.min === undefined) {
+            normalizedTarget.min = (normalizedTarget.target ?? 0) - normalizedTarget.tol;
+        }
+        if (normalizedTarget.max === undefined) {
+            normalizedTarget.max = (normalizedTarget.target ?? 0) + normalizedTarget.tol;
+        }
+        
+        // Avaliar a banda
+        const evaluation = window.evaluateMetric(jsonBandKey, userValue, normalizedTarget);
+        
+        // Armazenar com chave canônica para o resto do sistema
+        // Se já existe (ex: low_bass e upper_bass → bass), usar o PIOR score
+        const existingEval = metricEvaluations[canonicalKey];
+        if (existingEval && existingEval.score !== null) {
+            // Manter o pior score entre as bandas combinadas
+            if (evaluation.score !== null && evaluation.score < existingEval.score) {
+                metricEvaluations[canonicalKey] = evaluation;
+                if (DEBUG) {
+                    console.log(`📊 [BANDS] ${canonicalKey} atualizado: ${existingEval.score} → ${evaluation.score} (${jsonBandKey} é pior)`);
+                }
+            }
+        } else {
+            metricEvaluations[canonicalKey] = evaluation;
+        }
+        
+        // Também armazenar com a chave original do JSON para referência
+        metricEvaluations[`_json_${jsonBandKey}`] = evaluation;
+        
+        if (DEBUG) {
+            console.log(`📊 [BANDS] ${jsonBandKey} → ${canonicalKey}: valor=${userValue?.toFixed(1)}, target=${normalizedTarget.target?.toFixed(1)}, score=${evaluation.score}, severity=${evaluation.severity}`);
         }
     }
+    
+    // Garantir que temos as chaves canônicas para o cálculo de frequência
+    const BAND_KEYS = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
     
     if (DEBUG) {
         console.log('📊 Metric Evaluations (evaluateMetric):', metricEvaluations);
@@ -31249,125 +31371,38 @@ console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesPro
 // Posiciona o botão FORA da seção de sugestões, após o aiHelperText
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * 📋 PLANO DE CORREÇÃO - Apenas registra event listener
+ * O botão já existe no HTML do modal (index.html)
+ */
 window.injectCorrectionPlanButtonOutside = function() {
-    // Verificar se já existe para evitar duplicatas
-    if (document.getElementById('btnGenerateCorrectionPlan')) {
-        console.log('[CORRECTION-PLAN] ⚠️ Botão já existe - skip');
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    
+    if (!btn) {
+        console.warn('[CORRECTION-PLAN] ⚠️ Botão #btnGenerateCorrectionPlan não encontrado no DOM');
         return;
     }
     
-    // ÂNCORA CORRETA: Container dos botões de ação do modal (.analysis-actions)
-    // Contém: "Pedir Ajuda à IA" e "Baixar Relatório"
-    const btnAskAI = document.getElementById('btnAskAI');
-    const actionsContainer = btnAskAI?.closest('.analysis-actions') || 
-                             document.querySelector('.analysis-actions');
-    
-    if (!actionsContainer) {
-        console.error('[CORRECTION-PLAN] ❌ Container .analysis-actions não encontrado');
+    // Verificar se já tem listener registrado
+    if (btn.dataset.listenerAttached === 'true') {
+        console.log('[CORRECTION-PLAN] ✅ Listener já registrado - skip');
         return;
     }
     
-    // Injetar estilos se não existirem
-    injectCorrectionPlanStyles();
+    // Registrar event listener
+    btn.addEventListener('click', handleGenerateCorrectionPlan);
+    btn.dataset.listenerAttached = 'true';
     
-    // Criar o botão de Plano de Correção (estilo consistente com os outros botões)
-    const planButton = document.createElement('button');
-    planButton.id = 'btnGenerateCorrectionPlan';
-    planButton.className = 'action-btn correction-plan-btn';
-    planButton.innerHTML = `
-        <span class="btn-icon">📋</span>
-        <span class="btn-text">Gerar Plano de Correção</span>
-    `;
-    
-    // Inserir como ÚLTIMO elemento do container de ações
-    actionsContainer.appendChild(planButton);
-    console.log('[CORRECTION-PLAN] ✅ Botão inserido em .analysis-actions (após Baixar Relatório)');
-    
-    // Adicionar event listener
-    planButton.addEventListener('click', handleGenerateCorrectionPlan);
+    console.log('[CORRECTION-PLAN] ✅ Event listener registrado no botão');
 };
 
 /**
- * 🎨 Injeta estilos do CTA de Plano de Correção
+ * 🎨 Estilos do botão - já definidos no index.html <style>
+ * Mantido apenas para compatibilidade com chamadas externas
  */
 function injectCorrectionPlanStyles() {
-    if (document.getElementById('correctionPlanStyles')) return;
-    
-    const style = document.createElement('style');
-    style.id = 'correctionPlanStyles';
-    style.textContent = `
-        /* Botão de Plano de Correção - estilo consistente com action-btn */
-        .correction-plan-btn {
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 8px !important;
-            background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%) !important;
-            color: white !important;
-            border: none !important;
-            padding: 12px 20px !important;
-            border-radius: 10px !important;
-            font-size: 0.95rem !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3) !important;
-        }
-        
-        .correction-plan-btn:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4) !important;
-        }
-        
-        .correction-plan-btn:disabled {
-            opacity: 0.6 !important;
-            cursor: not-allowed !important;
-            transform: none !important;
-        }
-        
-        .correction-plan-btn .btn-icon {
-            font-size: 1.1rem;
-        }
-        
-        .correction-plan-btn .cta-loading {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .correction-plan-btn .cta-spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: ctaSpin 0.8s linear infinite;
-        }
-        
-        @keyframes ctaSpin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Erro inline no container de ações */
-        .correction-plan-error {
-            width: 100%;
-            color: #ef4444;
-            font-size: 0.8rem;
-            text-align: center;
-            margin-top: 8px;
-            padding: 8px;
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: 6px;
-        }
-        
-        /* Responsivo */
-        @media (max-width: 640px) {
-            .correction-plan-btn {
-                width: 100% !important;
-                justify-content: center !important;
-            }
-        }
-    `;
-    document.head.appendChild(style);
+    // Estilos já estão no index.html - nada a fazer
+    console.log('[CORRECTION-PLAN] ℹ️ Estilos já carregados via HTML');
 }
 
 /**
@@ -31555,5 +31590,41 @@ window.handleGenerateCorrectionPlan = handleGenerateCorrectionPlan;
 window.getUserDAWForPlan = getUserDAWForPlan;
 window.getUserLevelForPlan = getUserLevelForPlan;
 window.showCorrectionPlanError = showCorrectionPlanError;
+
+// 📋 AUTO-REGISTRO: Observer para registrar event listener quando modal fica visível
+(function setupCorrectionPlanAutoAttach() {
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    
+    // Se o botão existir, registrar listener imediatamente
+    if (btn && btn.dataset.listenerAttached !== 'true') {
+        btn.addEventListener('click', handleGenerateCorrectionPlan);
+        btn.dataset.listenerAttached = 'true';
+        console.log('[CORRECTION-PLAN] ✅ Event listener registrado na inicialização');
+    }
+    
+    // Observer para detectar quando o modal de resultados fica visível
+    const audioResults = document.getElementById('audioAnalysisResults');
+    if (audioResults) {
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const isVisible = audioResults.style.display !== 'none';
+                    if (isVisible) {
+                        // Modal ficou visível - registrar listener se necessário
+                        const planBtn = document.getElementById('btnGenerateCorrectionPlan');
+                        if (planBtn && planBtn.dataset.listenerAttached !== 'true') {
+                            planBtn.addEventListener('click', handleGenerateCorrectionPlan);
+                            planBtn.dataset.listenerAttached = 'true';
+                            console.log('[CORRECTION-PLAN] ✅ Event listener registrado via MutationObserver');
+                        }
+                    }
+                }
+            }
+        });
+        
+        observer.observe(audioResults, { attributes: true, attributeFilter: ['style'] });
+        console.log('[CORRECTION-PLAN] 👀 MutationObserver ativo em #audioAnalysisResults');
+    }
+})();
 
 console.log('🚀 [CORRECTION-PLAN] Sistema de Plano de Correção Completo carregado');
