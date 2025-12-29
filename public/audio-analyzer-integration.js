@@ -31324,42 +31324,9 @@ console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesPro
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * 📋 PLANO DE CORREÇÃO - Apenas registra event listener
- * O botão já existe no HTML do modal (index.html)
- */
-window.injectCorrectionPlanButtonOutside = function() {
-    const btn = document.getElementById('btnGenerateCorrectionPlan');
-    
-    if (!btn) {
-        console.warn('[CORRECTION-PLAN] ⚠️ Botão #btnGenerateCorrectionPlan não encontrado no DOM');
-        return;
-    }
-    
-    // Verificar se já tem listener registrado
-    if (btn.dataset.listenerAttached === 'true') {
-        console.log('[CORRECTION-PLAN] ✅ Listener já registrado - skip');
-        return;
-    }
-    
-    // Registrar event listener
-    btn.addEventListener('click', handleGenerateCorrectionPlan);
-    btn.dataset.listenerAttached = 'true';
-    
-    console.log('[CORRECTION-PLAN] ✅ Event listener registrado no botão');
-};
-
-/**
- * 🎨 Estilos do botão - já definidos no index.html <style>
- * Mantido apenas para compatibilidade com chamadas externas
- */
-function injectCorrectionPlanStyles() {
-    // Estilos já estão no index.html - nada a fazer
-    console.log('[CORRECTION-PLAN] ℹ️ Estilos já carregados via HTML');
-}
-
-/**
  * 🆕 MAPEAMENTO DE MÉTRICAS PARA CATEGORIAS
  * Usado para agrupar problemas corretamente no plano de correção
+ * ⚠️ IMPORTANTE: Declarado ANTES das funções que o utilizam para evitar hoisting issues
  */
 const METRIC_CATEGORY_MAP = {
     // LOUDNESS
@@ -31430,6 +31397,40 @@ function detectMetricCategory(metricName) {
     }
     
     return 'other';
+}
+
+/**
+ * 📋 PLANO DE CORREÇÃO - Apenas registra event listener
+ * O botão já existe no HTML do modal (index.html)
+ */
+window.injectCorrectionPlanButtonOutside = function() {
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    
+    if (!btn) {
+        console.warn('[CORRECTION-PLAN] ⚠️ Botão #btnGenerateCorrectionPlan não encontrado no DOM');
+        return;
+    }
+    
+    // Verificar se já tem listener registrado
+    if (btn.dataset.listenerAttached === 'true') {
+        console.log('[CORRECTION-PLAN] ✅ Listener já registrado - skip');
+        return;
+    }
+    
+    // Registrar event listener
+    btn.addEventListener('click', handleGenerateCorrectionPlan);
+    btn.dataset.listenerAttached = 'true';
+    
+    console.log('[CORRECTION-PLAN] ✅ Event listener registrado no botão');
+};
+
+/**
+ * 🎨 Estilos do botão - já definidos no index.html <style>
+ * Mantido apenas para compatibilidade com chamadas externas
+ */
+function injectCorrectionPlanStyles() {
+    // Estilos já estão no index.html - nada a fazer
+    console.log('[CORRECTION-PLAN] ℹ️ Estilos já carregados via HTML');
 }
 
 /**

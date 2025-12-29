@@ -611,9 +611,17 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       rating: su.rating
     });
   } else {
-    technicalData.spectralUniformity = null;
-    technicalData.spectralUniformityPercent = null;
-    console.log('⚠️ [SPECTRAL_UNIFORMITY] Não disponível - spectralUniformity = null');
+    technicalData.spectralUniformity = 0;
+    technicalData.spectralUniformityPercent = 0;
+    // 🔧 CORREÇÃO BUG PRODUÇÃO 2025-12-29: spectralUniformityMeta nunca deve ser undefined/vazio
+    technicalData.spectralUniformityMeta = {
+      method: 'unavailable',
+      framesProcessed: 0,
+      validFrames: 0,
+      rating: 'unknown',
+      error: 'no_valid_frames_or_insufficient_bands'
+    };
+    console.log('⚠️ [SPECTRAL_UNIFORMITY] Não disponível - retornando 0 com meta de erro');
   }
 
   // ===== Problems / Suggestions =====
