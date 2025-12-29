@@ -31428,11 +31428,28 @@ async function handleGenerateCorrectionPlan() {
         }
         
         // Preparar payload
+        // 🔧 FIX: Extrair problemas das sugestões se analysis.problems não existir
+        let problemsToSend = analysis.problems || [];
+        
+        // Se não tem problems, extrair das sugestões
+        if (problemsToSend.length === 0 && (analysis.suggestions || analysis.aiSuggestions)) {
+            const suggestions = analysis.suggestions || analysis.aiSuggestions || [];
+            problemsToSend = suggestions.map(s => ({
+                metric: s.metric || s.metricName || s.name || 'unknown',
+                value: s.currentValue || s.value || s.measured || 'N/A',
+                target: s.targetValue || s.target || s.ideal || 'N/A',
+                severity: s.severity || s.priority || 'medium',
+                description: s.problem || s.description || s.title || ''
+            }));
+        }
+        
+        console.log('[CORRECTION-PLAN] 📊 Problemas extraídos:', problemsToSend.length);
+        
         const payload = {
             analysisId: analysis.jobId || analysis.id,
             technicalData: analysis.technicalData || {},
             suggestions: analysis.suggestions || analysis.aiSuggestions || [],
-            problems: analysis.problems || [],
+            problems: problemsToSend,
             metadata: {
                 fileName: analysis.metadata?.fileName || analysis.fileName || 'Sem nome',
                 genre: analysis.genre || analysis.metadata?.genre || 'generic',
@@ -31501,8 +31518,13 @@ async function handleGenerateCorrectionPlan() {
             cached: result.cached
         });
         
-        // Redirecionar para página do plano
-        window.location.href = `/plano.html?id=${result.planId}`;
+        // 🔧 FIX: Abrir em NOVA ABA para não travar a página atual
+        const planUrl = `/plano.html?id=${result.planId}`;
+        window.open(planUrl, '_blank');
+        
+        // Restaurar botão (página não vai recarregar)
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
         
     } catch (error) {
         console.error('[CORRECTION-PLAN] ❌ Erro:', error);
