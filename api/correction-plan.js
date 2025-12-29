@@ -166,47 +166,74 @@ async function checkMonthlyLimit(uid, plan) {
   const limit = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
   
-  // Contar planos gerados este mês
-  const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
-    .where('userId', '==', uid)
-    .where('billingMonth', '==', currentMonth)
-    .count()
-    .get();
-  
-  const count = snapshot.data().count;
-  
-  if (count >= limit) {
-    console.warn(`[CORRECTION-PLAN] Limite mensal atingido: ${uid} (${count}/${limit})`);
-    return { allowed: false, current: count, limit };
+  try {
+    // Contar planos gerados este mês
+    const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
+      .where('userId', '==', uid)
+      .where('billingMonth', '==', currentMonth)
+      .count()
+      .get();
+    
+    const count = snapshot.data().count;
+    
+    if (count >= limit) {
+      console.warn(`[CORRECTION-PLAN] Limite mensal atingido: ${uid} (${count}/${limit})`);
+      return { allowed: false, current: count, limit };
+    }
+    
+    return { allowed: true, current: count, limit };
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] Erro ao verificar limite mensal:', error.message);
+    // Em caso de erro, permitir (evitar bloquear usuário por erro técnico)
+    return { allowed: true, current: 0, limit };
   }
-  
-  return { allowed: true, current: count, limit };
 }
 
 /**
  * Verifica se existe plano em cache para mesma análise
+ * SIMPLIFICADO: Sem orderBy para evitar necessidade de índice composto
  */
 async function getCachedPlan(analysisId, uid) {
-  const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
-    .where('analysisId', '==', analysisId)
-    .where('userId', '==', uid)
-    .orderBy('generatedAt', 'desc')
-    .limit(1)
-    .get();
-  
-  if (!snapshot.empty) {
-    const doc = snapshot.docs[0];
-    const data = doc.data();
+  try {
+    const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
+      .where('analysisId', '==', analysisId)
+      .where('userId', '==', uid)
+      .limit(5) // Pega até 5 e filtra no código
+      .get();
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    // Encontrar o mais recente manualmente
+    let latestDoc = null;
+    let latestTime = 0;
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      const time = data.generatedAt?.toDate?.()?.getTime() || 0;
+      if (time > latestTime) {
+        latestTime = time;
+        latestDoc = { id: doc.id, ...data };
+      }
+    });
+    
+    if (!latestDoc) {
+      return null;
+    }
     
     // Cache válido por 24 horas
-    const age = Date.now() - data.generatedAt.toDate().getTime();
+    const age = Date.now() - latestTime;
     if (age < 24 * 60 * 60 * 1000) {
       console.log(`[CORRECTION-PLAN] Cache hit para análise: ${analysisId}`);
-      return { id: doc.id, ...data };
+      return latestDoc;
     }
+    
+    return null;
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] Erro ao buscar cache:', error.message);
+    return null; // Falha silenciosa - prosseguir sem cache
   }
-  
-  return null;
 }
 
 /**
