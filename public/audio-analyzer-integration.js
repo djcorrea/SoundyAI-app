@@ -18043,98 +18043,26 @@ async function displayModalResults(analysis) {
                 return;
             }
             
-            const { problems, strengths, context } = diagnostic;
-            
             // ═══════════════════════════════════════════════════════════════
-            // RENDERIZAR PROBLEMAS PRINCIPAIS (máx 3)
+            // V5.0: VEREDITO SONORO - APENAS TEXTO ÚNICO DA IA
+            // Design premium, clean, sem listas ou badges
             // ═══════════════════════════════════════════════════════════════
-            const topProblems = problems.slice(0, 3);
-            const problemsHtml = topProblems.length > 0 
-                ? topProblems.map(p => {
-                    const severityIcon = p.severity === 'CRÍTICA' ? '🚨' 
-                                       : p.severity === 'ALTA' ? '⚠️' 
-                                       : '💡';
-                    const severityClass = p.severity === 'CRÍTICA' ? 'diagnostic-critical'
-                                        : p.severity === 'ALTA' ? 'diagnostic-high'
-                                        : 'diagnostic-attention';
-                    return `
-                        <div class="diagnostic-item ${severityClass}">
-                            <span class="diagnostic-icon">${severityIcon}</span>
-                            <span class="diagnostic-text">${p.text}</span>
-                        </div>
-                    `;
-                }).join('')
-                : '';
-            
-            // ═══════════════════════════════════════════════════════════════
-            // RENDERIZAR PONTOS FORTES (máx 2)
-            // ═══════════════════════════════════════════════════════════════
-            const topStrengths = strengths.slice(0, 2);
-            const strengthsHtml = topStrengths.length > 0
-                ? topStrengths.map(s => `
-                    <div class="diagnostic-item diagnostic-strength">
-                        <span class="diagnostic-icon">✅</span>
-                        <span class="diagnostic-text">${s.text}</span>
-                    </div>
-                `).join('')
-                : '';
-            
-            // ═══════════════════════════════════════════════════════════════
-            // MENSAGEM DE RESUMO BASEADA NO CONTEXTO
-            // ═══════════════════════════════════════════════════════════════
-            let summaryMessage = '';
-            const { stats } = context;
-            
-            if (stats.criticalProblems > 0) {
-                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-critical">
-                    🚨 <strong>${stats.criticalProblems} problema(s) crítico(s)</strong> detectado(s). Corrija antes de finalizar.
-                </div>`;
-            } else if (stats.highProblems > 0) {
-                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-warning">
-                    ⚠️ <strong>${stats.highProblems} ponto(s) de atenção</strong>. Revise para melhor resultado.
-                </div>`;
-            } else if (stats.totalProblems > 0) {
-                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-info">
-                    💡 <strong>${stats.totalProblems} sugestão(ões)</strong> de melhoria identificada(s).
-                </div>`;
-            } else if (stats.totalStrengths > 0) {
-                summaryMessage = `<div class="diagnostic-summary diagnostic-summary-success">
-                    ✨ <strong>Excelente!</strong> Áudio bem equilibrado e pronto para distribuição.
-                </div>`;
-            }
-            
-            // ═══════════════════════════════════════════════════════════════
-            // V4.0: GERAR TEXTO FINAL SEMÂNTICO
-            // ═══════════════════════════════════════════════════════════════
-            let finalTextHtml = '';
+            let finalText = '';
             if (window.generateFinalDiagnosticText) {
-                const finalText = window.generateFinalDiagnosticText(diagnostic);
-                if (finalText) {
-                    finalTextHtml = `
-                        <div class="diagnostic-final-text">
-                            <p>${finalText}</p>
-                        </div>
-                    `;
-                }
+                finalText = window.generateFinalDiagnosticText(diagnostic);
             }
             
-            // ═══════════════════════════════════════════════════════════════
-            // RENDERIZAR HTML FINAL
-            // ═══════════════════════════════════════════════════════════════
+            if (!finalText) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            // Renderizar APENAS o texto único - design minimalista premium
             container.innerHTML = `
-                <div class="diagnostic-header">
-                    <span class="diagnostic-title">🧠 Diagnóstico Sonoro Inteligente</span>
-                </div>
-                ${finalTextHtml}
-                ${summaryMessage}
-                <div class="diagnostic-list">
-                    ${problemsHtml}
-                    ${strengthsHtml}
-                </div>
-                ${problems.length > 3 ? `<div class="diagnostic-more">+ ${problems.length - 3} mais...</div>` : ''}
+                <div class="verdict-text">${finalText}</div>
             `;
             
-            console.log('[RENDER_DIAGNOSTIC] ✅ Diagnóstico renderizado com', problems.length, 'problemas e', strengths.length, 'pontos fortes');
+            console.log('[RENDER_DIAGNOSTIC] ✅ Veredito sonoro renderizado');
         }
         
         // Expor função para uso externo
@@ -24703,136 +24631,113 @@ window.buildDiagnosticContext = function(scoreResult, analysisMeta = {}) {
  */
 window.generateFinalDiagnosticText = function(diagnostic) {
     if (!diagnostic || !diagnostic.context?.valid) {
-        return 'Análise incompleta. Verifique os dados de entrada.';
+        return null;
     }
     
     const { problems, strengths, context } = diagnostic;
     const { finalScore, stats, subscoresSummary } = context;
     
     // ═══════════════════════════════════════════════════════════════════
-    // TEMPLATES DE IMPACTO PERCEPTIVO
+    // V5.0: VEREDITO SONORO INTELIGENTE
+    // Texto único, elegante, técnico + perceptivo
+    // Máx 4 frases, sem valores numéricos, sem bullets
     // ═══════════════════════════════════════════════════════════════════
-    const PERCEPTUAL_IMPACTS = {
-        // True Peak
-        truePeak_critical: 'causará artefatos de clipping e distorção inter-sample após codificação lossy',
-        truePeak_high: 'pode introduzir distorção audível em plataformas de streaming',
-        
-        // Clipping
-        clipping_critical: 'apresenta distorção digital severa, comprometendo a fidelidade do áudio',
-        clipping_high: 'contém pontos de saturação que degradam a qualidade sonora',
-        
-        // LUFS
-        lufs_high: 'será normalizado agressivamente, resultando em perda de dinâmica percebida',
-        lufs_low: 'soará significativamente mais baixo que outras faixas na mesma playlist',
-        
-        // Dynamic Range
-        dr_low: 'sofre de over-compression, resultando em fadiga auditiva e falta de punch',
-        dr_high: 'possui variações de volume excessivas, dificultando a escuta em ambientes ruidosos',
-        
-        // Stereo
-        correlation_low: 'apresenta problemas de fase que causarão cancelamentos em sistemas mono',
-        
-        // Frequency
-        freq_highMid_high: 'apresenta excesso na região 2-4kHz, causando fadiga auditiva e aspereza',
-        freq_highMid_low: 'carece de presença na região de inteligibilidade (2-4kHz)',
-        freq_bass_high: 'possui excesso de graves que mascara definição e clareza',
-        freq_bass_low: 'carece de fundação e corpo nas frequências graves',
-        freq_sub_high: 'apresenta excesso de sub-graves que pode causar problemas em sistemas menores',
-        freq_air_low: 'carece de ar e abertura nas altas frequências'
-    };
     
-    // ═══════════════════════════════════════════════════════════════════
-    // IDENTIFICAR PROBLEMAS MAIS CRÍTICOS PARA O TEXTO
-    // ═══════════════════════════════════════════════════════════════════
+    // Identificar problemas principais
     const criticalProblems = problems.filter(p => p.severity === 'CRÍTICA');
     const highProblems = problems.filter(p => p.severity === 'ALTA');
     const topProblems = [...criticalProblems, ...highProblems].slice(0, 3);
     
-    // ═══════════════════════════════════════════════════════════════════
-    // CONSTRUIR TEXTO BASEADO NO SCORE E PROBLEMAS
-    // ═══════════════════════════════════════════════════════════════════
-    let text = '';
+    // Mapear categorias para descrições de impacto perceptivo
+    const CATEGORY_IMPACTS = {
+        technical: {
+            problem: 'picos excessivos ou distorção digital',
+            consequence: 'comprometendo a fidelidade e causando artefatos audíveis'
+        },
+        loudness: {
+            problem: 'volume fora do padrão de distribuição',
+            consequence: 'prejudicando a consistência em playlists e plataformas'
+        },
+        dynamics: {
+            problem: 'dinâmica desequilibrada',
+            consequence: 'reduzindo o impacto percebido e a energia da faixa'
+        },
+        stereo: {
+            problem: 'problemas na imagem estéreo',
+            consequence: 'afetando a espacialidade e compatibilidade mono'
+        },
+        frequency: {
+            problem: 'balanço espectral irregular',
+            consequence: 'comprometendo clareza, peso e tradução entre sistemas'
+        }
+    };
     
-    // Score excelente (90+)
+    // ═══════════════════════════════════════════════════════════════════
+    // SCORE EXCELENTE (90+) - Veredito positivo
+    // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 90 && stats.criticalProblems === 0) {
-        text = `Masterização de alta qualidade com balanço espectral consistente e dinâmica preservada. `;
-        if (strengths.length > 0) {
-            const topStrength = strengths[0];
-            text += `Destaque para ${topStrength.name.toLowerCase()} bem calibrado. `;
-        }
-        text += `Pronto para distribuição em plataformas de streaming.`;
-        return text;
+        return 'Sua faixa apresenta equilíbrio espectral consistente, dinâmica preservada e níveis técnicos adequados para distribuição. A masterização demonstra maturidade sonora e está pronta para streaming sem ressalvas.';
     }
     
-    // Score bom (75-89)
+    // ═══════════════════════════════════════════════════════════════════
+    // SCORE BOM (75-89) - Pequenos ajustes
+    // ═══════════════════════════════════════════════════════════════════
     if (finalScore >= 75 && stats.criticalProblems === 0) {
-        text = `Mix sólido com poucos ajustes necessários. `;
-        if (topProblems.length > 0) {
-            const mainIssue = topProblems[0];
-            const impactKey = `${mainIssue.metric}_${mainIssue.deviation > 0 ? 'high' : 'low'}`;
-            const impact = PERCEPTUAL_IMPACTS[impactKey] || `apresenta desvio em ${mainIssue.name.toLowerCase()}`;
-            text += `Atenção: ${impact}. `;
-        }
-        text += `Recomenda-se revisão antes da finalização.`;
-        return text;
-    }
-    
-    // Score médio (60-74) ou com problemas críticos
-    if (finalScore >= 60 || stats.criticalProblems <= 1) {
-        const mainIssue = topProblems[0];
-        if (mainIssue) {
-            const impactKey = `${mainIssue.metric}_${mainIssue.severity === 'CRÍTICA' ? 'critical' : mainIssue.deviation > 0 ? 'high' : 'low'}`;
-            const impact = PERCEPTUAL_IMPACTS[impactKey] || `precisa de atenção em ${mainIssue.name.toLowerCase()}`;
-            text = `Áudio ${impact}. `;
-        }
-        
-        if (topProblems.length > 1) {
-            const secondIssue = topProblems[1];
-            text += `Também identificado: ${secondIssue.text.split('.')[0].toLowerCase()}. `;
-        }
-        
-        // Identificar categoria mais problemática
+        // Identificar área que precisa de atenção
         const worstCategory = Object.entries(subscoresSummary)
-            .filter(([_, v]) => v.score !== null)
+            .filter(([_, v]) => v.score !== null && v.score < 85)
             .sort((a, b) => a[1].score - b[1].score)[0];
         
-        if (worstCategory && worstCategory[1].score < 70) {
-            const categoryNames = {
-                loudness: 'volume/loudness',
-                technical: 'qualidade técnica',
-                dynamics: 'dinâmica',
-                stereo: 'imagem estéreo',
-                frequency: 'balanço espectral'
-            };
-            text += `Priorize correções em ${categoryNames[worstCategory[0]] || worstCategory[0]}.`;
+        if (worstCategory) {
+            const impact = CATEGORY_IMPACTS[worstCategory[0]];
+            if (impact) {
+                return `Sua faixa está bem encaminhada, com qualidade próxima do profissional. Identificamos ${impact.problem} em alguns pontos, ${impact.consequence}. Pequenos refinamentos trarão mais consistência e impacto ao resultado final.`;
+            }
+        }
+        return 'Sua faixa apresenta boa qualidade geral, com pequenos pontos de refinamento identificados. Ajustes sutis na equalização e dinâmica podem elevar ainda mais o resultado final.';
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // SCORE MÉDIO (60-74) - Ajustes necessários
+    // ═══════════════════════════════════════════════════════════════════
+    if (finalScore >= 60) {
+        // Coletar categorias problemáticas
+        const problemCategories = [...new Set(topProblems.map(p => p.category))].slice(0, 2);
+        
+        if (problemCategories.length >= 2) {
+            const impact1 = CATEGORY_IMPACTS[problemCategories[0]];
+            const impact2 = CATEGORY_IMPACTS[problemCategories[1]];
+            if (impact1 && impact2) {
+                return `Sua faixa apresenta ${impact1.problem} e ${impact2.problem}, o que pode ${impact1.consequence.replace('comprometendo', 'comprometer').replace('prejudicando', 'prejudicar').replace('reduzindo', 'reduzir').replace('afetando', 'afetar')}. Esse comportamento tende a gerar fadiga auditiva e comprometer a tradução em diferentes sistemas. Ajustes nesses pontos trarão mais clareza, potência e consistência.`;
+            }
+        } else if (problemCategories.length === 1) {
+            const impact = CATEGORY_IMPACTS[problemCategories[0]];
+            if (impact) {
+                return `Sua faixa apresenta ${impact.problem}, ${impact.consequence}. Esse desequilíbrio pode gerar fadiga auditiva e dificultar a tradução em sistemas de som variados. Correções nessa área trarão mais impacto e profissionalismo ao resultado.`;
+            }
         }
         
-        return text;
+        return 'Sua faixa precisa de ajustes para atingir padrão profissional. Identificamos desequilíbrios que podem afetar a experiência do ouvinte e a tradução entre sistemas. Revisões na dinâmica e balanço espectral são recomendadas.';
     }
     
-    // Score baixo (<60) - múltiplos problemas críticos
-    text = `Áudio requer intervenção significativa antes da distribuição. `;
+    // ═══════════════════════════════════════════════════════════════════
+    // SCORE BAIXO (<60) - Intervenção significativa
+    // ═══════════════════════════════════════════════════════════════════
+    const criticalCategories = [...new Set(criticalProblems.map(p => p.category))];
     
-    if (criticalProblems.length > 0) {
-        const criticalCategories = [...new Set(criticalProblems.map(p => p.category))];
-        
-        if (criticalCategories.includes('technical')) {
-            text += `Problemas técnicos críticos detectados (True Peak/Clipping) que causarão distorção audível. `;
-        } else if (criticalCategories.includes('frequency')) {
-            text += `Desequilíbrio espectral severo comprometendo clareza e punch. `;
-        } else if (criticalCategories.includes('loudness')) {
-            text += `Volume extremamente fora dos padrões de distribuição. `;
-        }
+    if (criticalCategories.includes('technical')) {
+        return 'Sua faixa apresenta problemas técnicos severos que causarão distorção audível em qualquer plataforma. Esses artefatos comprometem a integridade do áudio e a experiência do ouvinte. Recomenda-se revisão completa do master, priorizando o controle de picos e limitação antes de prosseguir.';
     }
     
-    // Adicionar recomendação
-    if (stats.criticalProblems >= 3) {
-        text += `Recomenda-se revisão completa do master antes de prosseguir.`;
-    } else {
-        text += `Correções prioritárias necessárias antes da finalização.`;
+    if (criticalCategories.includes('frequency')) {
+        return 'Sua faixa apresenta desequilíbrio espectral severo, comprometendo clareza, punch e definição. Esse comportamento dificulta a escuta prolongada e prejudica a tradução em sistemas variados. Ajustes significativos na equalização são necessários antes da distribuição.';
     }
     
-    return text;
+    if (criticalCategories.includes('loudness')) {
+        return 'Sua faixa apresenta volume drasticamente fora dos padrões de distribuição, o que resultará em normalização agressiva ou diferença perceptível em playlists. Isso compromete o impacto competitivo da faixa. Revisão do gain staging e limitação é essencial.';
+    }
+    
+    return 'Sua faixa requer intervenção significativa antes da distribuição. Múltiplos aspectos técnicos e perceptivos precisam de atenção para garantir qualidade profissional. Recomenda-se revisão completa do processo de mixagem e masterização.';
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -31457,7 +31362,6 @@ function injectCorrectionPlanStyles() {
  */
 async function handleGenerateCorrectionPlan() {
     console.log('[CORRECTION-PLAN] 🚀 handleGenerateCorrectionPlan() INICIADO!');
-    alert('DEBUG: Função handleGenerateCorrectionPlan executada!'); // DEBUG TEMPORÁRIO
     
     const btn = document.getElementById('btnGenerateCorrectionPlan');
     
@@ -31557,7 +31461,27 @@ async function handleGenerateCorrectionPlan() {
             body: JSON.stringify(payload)
         });
         
-        const result = await response.json();
+        // 🔍 DEBUG: Capturar resposta bruta ANTES de parsear
+        const responseText = await response.text();
+        console.log('[CORRECTION-PLAN] 📥 Status:', response.status);
+        console.log('[CORRECTION-PLAN] 📥 Headers:', Object.fromEntries(response.headers.entries()));
+        console.log('[CORRECTION-PLAN] 📥 Resposta bruta (primeiros 500 chars):', responseText.substring(0, 500));
+        
+        // Verificar se é HTML (erro do servidor)
+        if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+            console.error('[CORRECTION-PLAN] ❌ Servidor retornou HTML em vez de JSON!');
+            throw new Error('Servidor retornou página de erro. A rota /api/correction-plan pode não existir.');
+        }
+        
+        // Parsear JSON manualmente
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('[CORRECTION-PLAN] ❌ Erro ao parsear JSON:', parseError);
+            console.error('[CORRECTION-PLAN] Resposta completa:', responseText);
+            throw new Error('Resposta inválida do servidor (não é JSON válido)');
+        }
         
         if (!response.ok) {
             throw new Error(result.error || result.message || 'Erro ao gerar plano');
