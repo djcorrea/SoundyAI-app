@@ -18035,12 +18035,28 @@ async function displayModalResults(analysis) {
             }
             
             // ═══════════════════════════════════════════════════════════════
+            // V4.0: GERAR TEXTO FINAL SEMÂNTICO
+            // ═══════════════════════════════════════════════════════════════
+            let finalTextHtml = '';
+            if (window.generateFinalDiagnosticText) {
+                const finalText = window.generateFinalDiagnosticText(diagnostic);
+                if (finalText) {
+                    finalTextHtml = `
+                        <div class="diagnostic-final-text">
+                            <p>${finalText}</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════════════
             // RENDERIZAR HTML FINAL
             // ═══════════════════════════════════════════════════════════════
             container.innerHTML = `
                 <div class="diagnostic-header">
                     <span class="diagnostic-title">🧠 Diagnóstico Sonoro Inteligente</span>
                 </div>
+                ${finalTextHtml}
                 ${summaryMessage}
                 <div class="diagnostic-list">
                     ${problemsHtml}
@@ -23336,47 +23352,92 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
     const hasRange = min !== null && max !== null;
     const inRange = hasRange && measuredValue >= min && measuredValue <= max;
     
-    // Calcular deviationRatio baseado na tolerância
-    deviationRatio = absDiff / tol;
-    
     // ═══════════════════════════════════════════════════════════════════
-    // CURVA DE PENALIZAÇÃO BANDPASS
+    // V4.0: CURVA DE PENALIZAÇÃO BANDPASS REVISADA
+    // - Score 100 APENAS se valor == target (não mais 50% tolerância)
+    // - Considera range [min, max] como fator de severidade
+    // - Severidade alinhada com tabela visual
     // ═══════════════════════════════════════════════════════════════════
     
-    if (deviationRatio <= 0.5) {
-        // Muito próximo do target = OK
+    // Calcular distância normalizada pelo range (se disponível)
+    let rangeSize = tol * 2; // Default: 2x tolerância = range total
+    if (hasRange) {
+        rangeSize = max - min;
+    }
+    
+    // Distância normalizada: 0 = no target, 1 = na borda do range, >1 = fora do range
+    const normalizedDistance = rangeSize > 0 ? absDiff / (rangeSize / 2) : (absDiff / tol);
+    
+    // Fora do range = SEMPRE CRÍTICA
+    if (hasRange && !inRange) {
+        // Calcular quanto fora do range
+        const distanceFromRange = measuredValue < min ? (min - measuredValue) : (measuredValue - max);
+        const rangeExcess = distanceFromRange / tol;
+        
+        if (rangeExcess >= 1.5) {
+            // Muito fora do range = CRÍTICA severa
+            score = Math.max(20, Math.round(40 - (rangeExcess * 8)));
+            severity = 'CRÍTICA';
+        } else if (rangeExcess >= 0.5) {
+            // Moderadamente fora = CRÍTICA
+            score = Math.round(55 - (rangeExcess * 15));
+            severity = 'CRÍTICA';
+        } else {
+            // Ligeiramente fora = ALTA
+            score = Math.round(70 - (rangeExcess * 20));
+            severity = 'ALTA';
+        }
+        
+        reason = diff > 0 
+            ? `🔴 Reduzir ${absDiff.toFixed(1)} (fora do range)` 
+            : `🔴 Aumentar ${absDiff.toFixed(1)} (fora do range)`;
+            
+        return {
+            score: Math.round(Math.max(20, Math.min(100, score))),
+            severity,
+            diff,
+            reason,
+            deviationRatio: Math.round(normalizedDistance * 100) / 100,
+            status: severity,
+            metricKey,
+            measuredValue,
+            metricType,
+            targetSpec: { target: effectiveTarget, min, max, tol },
+            value: measuredValue,
+            target: effectiveTarget
+        };
+    }
+    
+    // Dentro do range - calcular score baseado na distância do target
+    // V4.0: Curva mais rigorosa que a anterior
+    
+    if (normalizedDistance <= 0.15) {
+        // Muito próximo do target (≤15% do range) = OK perfeito
         score = 100;
         severity = 'OK';
         reason = '✅ Dentro do padrão';
-    } else if (deviationRatio <= 1.0) {
-        // Dentro da tolerância = OK com pequena ressalva
-        score = Math.round(100 - (deviationRatio - 0.5) * 10); // 100 → 95
+    } else if (normalizedDistance <= 0.4) {
+        // Próximo do target (15-40% do range) = OK com pequena ressalva
+        score = Math.round(100 - (normalizedDistance - 0.15) * 20); // 100 → 95
         severity = 'OK';
         reason = '✅ Dentro do padrão';
-    } else if (deviationRatio <= 1.5) {
-        // Ligeiramente fora = ATENÇÃO
-        score = Math.round(95 - ((deviationRatio - 1) * 20)); // 95 → 85
+    } else if (normalizedDistance <= 0.7) {
+        // Moderado (40-70% do range) = ATENÇÃO
+        score = Math.round(95 - ((normalizedDistance - 0.4) * 40)); // 95 → 83
         severity = 'ATENÇÃO';
         reason = diff > 0 
             ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
             : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-    } else if (deviationRatio <= 2.0) {
-        // Moderadamente fora = ALTA
-        score = Math.round(85 - ((deviationRatio - 1.5) * 30)); // 85 → 70
+    } else if (normalizedDistance <= 1.0) {
+        // Perto da borda (70-100% do range) = ALTA
+        score = Math.round(83 - ((normalizedDistance - 0.7) * 43)); // 83 → 70
         severity = 'ALTA';
         reason = diff > 0 
             ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
             : `🟡 Aumentar ${absDiff.toFixed(1)}`;
-    } else if (deviationRatio <= 3.0) {
-        // Muito fora = CRÍTICA
-        score = Math.round(70 - ((deviationRatio - 2) * 25)); // 70 → 45
-        severity = 'CRÍTICA';
-        reason = diff > 0 
-            ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-            : `🔴 Aumentar ${absDiff.toFixed(1)}`;
     } else {
-        // Extremamente fora = CRÍTICA severa
-        score = Math.max(20, Math.round(45 - ((deviationRatio - 3) * 8)));
+        // Na borda ou ligeiramente fora = CRÍTICA (mas ainda "dentro" por arredondamento)
+        score = Math.max(55, Math.round(70 - ((normalizedDistance - 1) * 25)));
         severity = 'CRÍTICA';
         reason = diff > 0 
             ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
@@ -23388,12 +23449,14 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         severity,
         diff,
         reason,
-        deviationRatio: Math.round(deviationRatio * 100) / 100,
+        deviationRatio: Math.round(normalizedDistance * 100) / 100,
         status: severity,
         metricKey,
         measuredValue,
         metricType,
-        targetSpec: { target: effectiveTarget, min, max, tol }
+        targetSpec: { target: effectiveTarget, min, max, tol },
+        value: measuredValue,
+        target: effectiveTarget
     };
 };
 
@@ -23738,22 +23801,26 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // 🎵 V3.7.1: CÁLCULO AVANÇADO DE SUBSCORE DE FREQUÊNCIA
-    // - Score individual por banda baseado em evaluateMetric
-    // - Pesos diferenciados por importância da banda
-    // - Gates de sanidade baseados em severidade
+    // 🎵 V4.0: CÁLCULO DE SUBSCORE DE FREQUÊNCIA - COERENTE COM TABELA
+    // Princípios:
+    // 1. Score individual por banda baseado em evaluateMetric (SINGLE SOURCE)
+    // 2. Pesos PERCEPTIVOS (High Mid/Presença = fadiga auditiva)
+    // 3. NUNCA permitir score alto se qualquer banda está CRÍTICA
+    // 4. Score final = f(pior banda, média ponderada)
     // ═══════════════════════════════════════════════════════════════════════════
     function calculateFrequencySubscore() {
-        // Pesos por banda (total = 1.0)
-        // Sub e Bass são mais importantes para música eletrônica
+        // 🎯 V4.0: PESOS PERCEPTIVOS (baseado em impacto auditivo real)
+        // - High Mid (2-4kHz): onde ouvimos fadiga, estridência = MAIOR PESO
+        // - Presença (4-8kHz): clareza, sibilância = PESO ALTO
+        // - Sub/Bass: importante, mas menos sensível perceptivamente
         const BAND_WEIGHTS = {
-            sub: 0.18,      // 18% - fundamental para eletrônica
-            bass: 0.18,     // 18% - fundamental para eletrônica  
-            lowMid: 0.14,   // 14% - corpo do som
-            mid: 0.16,      // 16% - presença principal
-            highMid: 0.14,  // 14% - clareza
-            presence: 0.10, // 10% - brilho
-            air: 0.10       // 10% - ar/abertura
+            sub: 0.12,      // 12% - fundação, menos sensível
+            bass: 0.14,     // 14% - corpo, moderado  
+            lowMid: 0.12,   // 12% - "muddiness"
+            mid: 0.16,      // 16% - presença vocal/instrumental
+            highMid: 0.20,  // 20% - FADIGA AUDITIVA (maior peso)
+            presence: 0.14, // 14% - clareza/sibilância
+            air: 0.12       // 12% - brilho/ar
         };
         
         // Coletar avaliações válidas
@@ -23766,6 +23833,11 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         let criticalCount = 0;
         let highCount = 0;
         let attentionCount = 0;
+        
+        // 🎯 V4.0: Rastrear pior banda (para gate baseado no mínimo)
+        let worstScore = 100;
+        let worstBand = null;
+        let worstSeverity = 'OK';
         
         // Log detalhado
         const bandDetails = [];
@@ -23785,6 +23857,13 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 else if (eval_.severity === 'ALTA') highCount++;
                 else if (eval_.severity === 'ATENÇÃO') attentionCount++;
                 
+                // Rastrear pior banda
+                if (eval_.score < worstScore) {
+                    worstScore = eval_.score;
+                    worstBand = bandKey;
+                    worstSeverity = eval_.severity;
+                }
+                
                 bandDetails.push({
                     band: bandKey,
                     score: eval_.score,
@@ -23803,43 +23882,87 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         }
         
         // Score base ponderado
-        let rawScore = Math.round(weightedSum / totalWeight);
+        const weightedAvg = Math.round(weightedSum / totalWeight);
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🚨 GATES DE SANIDADE - Caps baseados em severidade
+        // 🚨 V4.0: CÁLCULO DO SCORE FINAL - NUNCA IGNORAR ERROS CRÍTICOS
+        // Fórmula: score = 0.6 * média_ponderada + 0.4 * pior_banda
+        // Isso garante que erros críticos SEMPRE puxem o score para baixo
+        // ═══════════════════════════════════════════════════════════════════
+        let rawScore = Math.round(0.6 * weightedAvg + 0.4 * worstScore);
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🚨 V4.0: GATES DE SANIDADE MAIS AGRESSIVOS
         // ═══════════════════════════════════════════════════════════════════
         let appliedCap = null;
         let capReason = null;
         
-        // Regra 1: 3+ bandas CRÍTICAS → cap 55
+        // Regra 0: QUALQUER banda CRÍTICA → cap no máximo score dessa banda + 10
+        if (criticalCount >= 1 && worstSeverity === 'CRÍTICA') {
+            const criticalCap = Math.min(worstScore + 10, 65);
+            if (appliedCap === null || criticalCap < appliedCap) {
+                appliedCap = criticalCap;
+                capReason = `1+ banda CRÍTICA (${worstBand}: ${worstScore})`;
+            }
+        }
+        
+        // Regra 1: 3+ bandas CRÍTICAS → cap 45 (muito grave)
         if (criticalCount >= 3) {
-            appliedCap = 55;
-            capReason = `${criticalCount} bandas CRÍTICAS`;
+            const cap = 45;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${criticalCount} bandas CRÍTICAS`;
+            }
         }
-        // Regra 2: 2 bandas CRÍTICAS → cap 70
+        // Regra 2: 2 bandas CRÍTICAS → cap 55
         else if (criticalCount >= 2) {
-            appliedCap = 70;
-            capReason = `${criticalCount} bandas CRÍTICAS`;
+            const cap = 55;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${criticalCount} bandas CRÍTICAS`;
+            }
         }
-        // Regra 3: 1 banda CRÍTICA → cap 85
-        else if (criticalCount >= 1) {
-            appliedCap = 85;
-            capReason = `${criticalCount} banda CRÍTICA`;
+        
+        // Regra 3: 3+ bandas ALTA → cap 70
+        if (highCount >= 3) {
+            const cap = 70;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${highCount} bandas ALTA`;
+            }
         }
-        // Regra 4: 3+ bandas ALTA → cap 80
-        else if (highCount >= 3) {
-            appliedCap = 80;
-            capReason = `${highCount} bandas ALTA`;
-        }
-        // Regra 5: 2+ bandas ALTA → cap 88
+        // Regra 4: 2 bandas ALTA → cap 78
         else if (highCount >= 2) {
-            appliedCap = 88;
-            capReason = `${highCount} bandas ALTA`;
+            const cap = 78;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${highCount} bandas ALTA`;
+            }
         }
-        // Regra 6: 3+ bandas ATENÇÃO → cap 92
-        else if (attentionCount >= 3) {
-            appliedCap = 92;
-            capReason = `${attentionCount} bandas ATENÇÃO`;
+        // Regra 5: 1 banda ALTA → cap 85
+        else if (highCount >= 1) {
+            const cap = 85;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${highCount} banda ALTA`;
+            }
+        }
+        
+        // Regra 6: 3+ bandas ATENÇÃO → cap 88
+        if (attentionCount >= 3) {
+            const cap = 88;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${attentionCount} bandas ATENÇÃO`;
+            }
+        }
+        // Regra 7: 2 bandas ATENÇÃO → cap 92
+        else if (attentionCount >= 2) {
+            const cap = 92;
+            if (appliedCap === null || cap < appliedCap) {
+                appliedCap = cap;
+                capReason = `${attentionCount} bandas ATENÇÃO`;
+            }
         }
         
         // Aplicar cap se necessário
@@ -23848,7 +23971,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         // Log detalhado
         if (DEBUG) {
             console.log('═══════════════════════════════════════════════════════════');
-            console.log('📊 [FREQ-SUBSCORE V3.7.1] Cálculo Detalhado');
+            console.log('📊 [FREQ-SUBSCORE V4.0] Cálculo Detalhado');
             console.log('═══════════════════════════════════════════════════════════');
             console.table(bandDetails);
             console.log('📊 Contagem de severidades:', {
@@ -23857,7 +23980,9 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 ATENÇÃO: attentionCount,
                 OK: bandsWithScore - criticalCount - highCount - attentionCount
             });
-            console.log('📊 Score RAW (ponderado):', rawScore);
+            console.log('📊 Pior banda:', worstBand, '→', worstScore, `(${worstSeverity})`);
+            console.log('📊 Média ponderada:', weightedAvg);
+            console.log('📊 Score RAW (0.6*avg + 0.4*worst):', rawScore);
             if (appliedCap !== null) {
                 console.log(`🚨 GATE APLICADO: Cap ${appliedCap} (${capReason})`);
             }
@@ -23868,6 +23993,10 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         return {
             score: finalScore,
             rawScore,
+            weightedAvg,
+            worstScore,
+            worstBand,
+            worstSeverity,
             appliedCap,
             capReason,
             criticalCount,
@@ -24397,6 +24526,150 @@ window.buildDiagnosticContext = function(scoreResult, analysisMeta = {}) {
     }
     
     return { problems, strengths, context };
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🧠 V4.0: GERAÇÃO DE TEXTO FINAL SEMÂNTICO
+// Linguagem de engenharia de áudio + ciência perceptiva
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Gera um resumo textual curto e impactante baseado no diagnóstico
+ * @param {Object} diagnostic - Resultado de buildDiagnosticContext
+ * @returns {string} Texto de 2-3 frases em linguagem de engenharia de áudio
+ */
+window.generateFinalDiagnosticText = function(diagnostic) {
+    if (!diagnostic || !diagnostic.context?.valid) {
+        return 'Análise incompleta. Verifique os dados de entrada.';
+    }
+    
+    const { problems, strengths, context } = diagnostic;
+    const { finalScore, stats, subscoresSummary } = context;
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // TEMPLATES DE IMPACTO PERCEPTIVO
+    // ═══════════════════════════════════════════════════════════════════
+    const PERCEPTUAL_IMPACTS = {
+        // True Peak
+        truePeak_critical: 'causará artefatos de clipping e distorção inter-sample após codificação lossy',
+        truePeak_high: 'pode introduzir distorção audível em plataformas de streaming',
+        
+        // Clipping
+        clipping_critical: 'apresenta distorção digital severa, comprometendo a fidelidade do áudio',
+        clipping_high: 'contém pontos de saturação que degradam a qualidade sonora',
+        
+        // LUFS
+        lufs_high: 'será normalizado agressivamente, resultando em perda de dinâmica percebida',
+        lufs_low: 'soará significativamente mais baixo que outras faixas na mesma playlist',
+        
+        // Dynamic Range
+        dr_low: 'sofre de over-compression, resultando em fadiga auditiva e falta de punch',
+        dr_high: 'possui variações de volume excessivas, dificultando a escuta em ambientes ruidosos',
+        
+        // Stereo
+        correlation_low: 'apresenta problemas de fase que causarão cancelamentos em sistemas mono',
+        
+        // Frequency
+        freq_highMid_high: 'apresenta excesso na região 2-4kHz, causando fadiga auditiva e aspereza',
+        freq_highMid_low: 'carece de presença na região de inteligibilidade (2-4kHz)',
+        freq_bass_high: 'possui excesso de graves que mascara definição e clareza',
+        freq_bass_low: 'carece de fundação e corpo nas frequências graves',
+        freq_sub_high: 'apresenta excesso de sub-graves que pode causar problemas em sistemas menores',
+        freq_air_low: 'carece de ar e abertura nas altas frequências'
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // IDENTIFICAR PROBLEMAS MAIS CRÍTICOS PARA O TEXTO
+    // ═══════════════════════════════════════════════════════════════════
+    const criticalProblems = problems.filter(p => p.severity === 'CRÍTICA');
+    const highProblems = problems.filter(p => p.severity === 'ALTA');
+    const topProblems = [...criticalProblems, ...highProblems].slice(0, 3);
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // CONSTRUIR TEXTO BASEADO NO SCORE E PROBLEMAS
+    // ═══════════════════════════════════════════════════════════════════
+    let text = '';
+    
+    // Score excelente (90+)
+    if (finalScore >= 90 && stats.criticalProblems === 0) {
+        text = `Masterização de alta qualidade com balanço espectral consistente e dinâmica preservada. `;
+        if (strengths.length > 0) {
+            const topStrength = strengths[0];
+            text += `Destaque para ${topStrength.name.toLowerCase()} bem calibrado. `;
+        }
+        text += `Pronto para distribuição em plataformas de streaming.`;
+        return text;
+    }
+    
+    // Score bom (75-89)
+    if (finalScore >= 75 && stats.criticalProblems === 0) {
+        text = `Mix sólido com poucos ajustes necessários. `;
+        if (topProblems.length > 0) {
+            const mainIssue = topProblems[0];
+            const impactKey = `${mainIssue.metric}_${mainIssue.deviation > 0 ? 'high' : 'low'}`;
+            const impact = PERCEPTUAL_IMPACTS[impactKey] || `apresenta desvio em ${mainIssue.name.toLowerCase()}`;
+            text += `Atenção: ${impact}. `;
+        }
+        text += `Recomenda-se revisão antes da finalização.`;
+        return text;
+    }
+    
+    // Score médio (60-74) ou com problemas críticos
+    if (finalScore >= 60 || stats.criticalProblems <= 1) {
+        const mainIssue = topProblems[0];
+        if (mainIssue) {
+            const impactKey = `${mainIssue.metric}_${mainIssue.severity === 'CRÍTICA' ? 'critical' : mainIssue.deviation > 0 ? 'high' : 'low'}`;
+            const impact = PERCEPTUAL_IMPACTS[impactKey] || `precisa de atenção em ${mainIssue.name.toLowerCase()}`;
+            text = `Áudio ${impact}. `;
+        }
+        
+        if (topProblems.length > 1) {
+            const secondIssue = topProblems[1];
+            text += `Também identificado: ${secondIssue.text.split('.')[0].toLowerCase()}. `;
+        }
+        
+        // Identificar categoria mais problemática
+        const worstCategory = Object.entries(subscoresSummary)
+            .filter(([_, v]) => v.score !== null)
+            .sort((a, b) => a[1].score - b[1].score)[0];
+        
+        if (worstCategory && worstCategory[1].score < 70) {
+            const categoryNames = {
+                loudness: 'volume/loudness',
+                technical: 'qualidade técnica',
+                dynamics: 'dinâmica',
+                stereo: 'imagem estéreo',
+                frequency: 'balanço espectral'
+            };
+            text += `Priorize correções em ${categoryNames[worstCategory[0]] || worstCategory[0]}.`;
+        }
+        
+        return text;
+    }
+    
+    // Score baixo (<60) - múltiplos problemas críticos
+    text = `Áudio requer intervenção significativa antes da distribuição. `;
+    
+    if (criticalProblems.length > 0) {
+        const criticalCategories = [...new Set(criticalProblems.map(p => p.category))];
+        
+        if (criticalCategories.includes('technical')) {
+            text += `Problemas técnicos críticos detectados (True Peak/Clipping) que causarão distorção audível. `;
+        } else if (criticalCategories.includes('frequency')) {
+            text += `Desequilíbrio espectral severo comprometendo clareza e punch. `;
+        } else if (criticalCategories.includes('loudness')) {
+            text += `Volume extremamente fora dos padrões de distribuição. `;
+        }
+    }
+    
+    // Adicionar recomendação
+    if (stats.criticalProblems >= 3) {
+        text += `Recomenda-se revisão completa do master antes de prosseguir.`;
+    } else {
+        text += `Correções prioritárias necessárias antes da finalização.`;
+    }
+    
+    return text;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
