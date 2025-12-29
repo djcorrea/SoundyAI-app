@@ -31358,13 +31358,95 @@ function injectCorrectionPlanStyles() {
 }
 
 /**
+ * 🆕 MAPEAMENTO DE MÉTRICAS PARA CATEGORIAS
+ * Usado para agrupar problemas corretamente no plano de correção
+ */
+const METRIC_CATEGORY_MAP = {
+    // LOUDNESS
+    'LUFS': 'loudness',
+    'Loudness': 'loudness',
+    'Integrated': 'loudness',
+    'True Peak': 'loudness',
+    'TP': 'loudness',
+    
+    // FREQUÊNCIAS (BANDAS ESPECTRAIS)
+    'Sub': 'frequency',
+    'Subgrave': 'frequency',
+    'Bass': 'frequency',
+    'Grave': 'frequency',
+    'Low Mid': 'frequency',
+    'Low-Mid': 'frequency',
+    'Médio-Grave': 'frequency',
+    'Mid': 'frequency',
+    'Médios': 'frequency',
+    'High Mid': 'frequency',
+    'High-Mid': 'frequency',
+    'Médio-Alto': 'frequency',
+    'Brilho': 'frequency',
+    'Brightness': 'frequency',
+    'Presença': 'frequency',
+    'Presence': 'frequency',
+    'Air': 'frequency',
+    
+    // DINÂMICA
+    'DR': 'dynamics',
+    'Dynamic Range': 'dynamics',
+    'LRA': 'dynamics',
+    'Loudness Range': 'dynamics',
+    'Crest': 'dynamics',
+    'Crest Factor': 'dynamics',
+    
+    // ESTÉREO
+    'Stereo': 'stereo',
+    'Imagem Estéreo': 'stereo',
+    'Correlation': 'stereo',
+    'Width': 'stereo',
+    'Balance': 'stereo'
+};
+
+/**
+ * 🔧 Detecta a categoria de uma métrica pelo nome
+ */
+function detectMetricCategory(metricName) {
+    if (!metricName) return 'other';
+    
+    const normalized = metricName.toLowerCase();
+    
+    // Tentar match exato primeiro
+    for (const [key, category] of Object.entries(METRIC_CATEGORY_MAP)) {
+        if (normalized.includes(key.toLowerCase())) {
+            return category;
+        }
+    }
+    
+    // Detecção por padrão de frequência (Hz, kHz)
+    if (normalized.includes('hz') || normalized.includes('khz')) {
+        return 'frequency';
+    }
+    
+    // Detecção por padrão de loudness
+    if (normalized.includes('db') || normalized.includes('lufs')) {
+        return 'loudness';
+    }
+    
+    return 'other';
+}
+
+/**
  * 🆕 Extrai problemas diretamente da tabela de métricas no DOM
- * Usa a tabela .classic-genre-table que está renderizada na UI
+ * VERSÃO REFATORADA com categorização e validação robusta
  */
 function extractProblemsFromTableDOM() {
-    console.log('[CORRECTION-PLAN] 🔍 Tentando extrair problemas da tabela DOM...');
+    console.log('[CORRECTION-PLAN] 🔍 Extraindo problemas da tabela DOM...');
     
     const problems = [];
+    const categorizedProblems = {
+        loudness: [],
+        frequency: [],
+        dynamics: [],
+        stereo: [],
+        other: []
+    };
     
     // Buscar a tabela de comparação de gênero
     const table = document.querySelector('.classic-genre-table');
@@ -31383,7 +31465,7 @@ function extractProblemsFromTableDOM() {
         const cells = row.querySelectorAll('td');
         
         if (cells.length < 6) {
-            console.warn(`[CORRECTION-PLAN] ⚠️ Linha ${index} tem menos de 6 células`);
+            console.warn(`[CORRECTION-PLAN] ⚠️ Linha ${index} tem menos de 6 células, ignorando`);
             return;
         }
         
@@ -31396,6 +31478,12 @@ function extractProblemsFromTableDOM() {
         const severityEl = cells[4];
         const action = cells[5]?.textContent?.trim() || '';
         
+        // Validar dados essenciais - NUNCA aceitar undefined
+        if (!metric || metric === 'undefined' || !value || value === 'undefined') {
+            console.warn(`[CORRECTION-PLAN] ⚠️ Linha ${index} tem dados inválidos (metric: ${metric}, value: ${value})`);
+            return;
+        }
+        
         // Extrair severidade (pode estar em span ou texto direto)
         let severity = severityEl?.textContent?.trim() || '';
         const severitySpan = severityEl?.querySelector('.metric-severity');
@@ -31405,37 +31493,126 @@ function extractProblemsFromTableDOM() {
         
         // Verificar se a linha tem classe de status
         const rowClass = row.className || '';
-        if (rowClass.includes('critical')) severity = severity || 'CRÍTICA';
-        else if (rowClass.includes('warning')) severity = severity || 'ATENÇÃO';
-        else if (rowClass.includes('caution')) severity = severity || 'ATENÇÃO';
-        else if (rowClass.includes('ok')) severity = severity || 'OK';
+        if (!severity || severity === '') {
+            if (rowClass.includes('critical')) severity = 'CRÍTICA';
+            else if (rowClass.includes('warning')) severity = 'ATENÇÃO';
+            else if (rowClass.includes('caution')) severity = 'ATENÇÃO';
+            else if (rowClass.includes('ok')) severity = 'OK';
+        }
         
-        // Só adicionar se não for OK e tiver dados válidos
+        // Normalizar severidade
         const normalizedSeverity = severity.toUpperCase();
+        
+        // Determinar se é um problema real (CRÍTICA ou ATENÇÃO)
         const isProblematic = normalizedSeverity.includes('CRÍT') || 
                               normalizedSeverity.includes('ATEN') || 
                               normalizedSeverity.includes('WARN') ||
                               normalizedSeverity.includes('ALTA') ||
                               normalizedSeverity.includes('MODERADA');
         
-        if (metric && isProblematic) {
-            problems.push({
-                metric: metric,
-                value: value,
-                target: target,
-                difference: diff,
-                severity: severity,
-                action: action,
-                description: action || `${metric} está fora do padrão: ${value} (alvo: ${target})`
-            });
-            
-            console.log(`[CORRECTION-PLAN] ✅ Problema extraído: ${metric} - ${severity}`);
+        // Detectar categoria da métrica
+        const category = detectMetricCategory(metric);
+        
+        // Criar objeto de problema
+        const problem = {
+            id: metric.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+            metric: metric,
+            value: value,
+            target: target,
+            difference: diff,
+            severity: severity,
+            action: action,
+            category: category,
+            isProblematic: isProblematic,
+            description: action || `${metric} está fora do padrão: ${value} (alvo: ${target})`
+        };
+        
+        // Adicionar a lista geral (incluindo OKs para debug)
+        problems.push(problem);
+        
+        // Categorizar apenas problemas reais
+        if (isProblematic && categorizedProblems[category]) {
+            categorizedProblems[category].push(problem);
         }
     });
     
-    console.log('[CORRECTION-PLAN] 📊 Total de problemas extraídos da tabela:', problems.length);
+    // Log de diagnóstico detalhado
+    console.log('[CORRECTION-PLAN] 📊 Problemas por categoria:', {
+        loudness: categorizedProblems.loudness.length,
+        frequency: categorizedProblems.frequency.length,
+        dynamics: categorizedProblems.dynamics.length,
+        stereo: categorizedProblems.stereo.length,
+        total: problems.filter(p => p.isProblematic).length
+    });
     
-    return problems;
+    // Retornar apenas problemas reais (CRÍTICA ou ATENÇÃO)
+    const realProblems = problems.filter(p => p.isProblematic);
+    
+    // Salvar categorização para uso posterior
+    window.__CORRECTION_PLAN_CATEGORIES__ = categorizedProblems;
+    
+    console.log('[CORRECTION-PLAN] ✅ Total de problemas reais extraídos:', realProblems.length);
+    
+    return realProblems;
+}
+
+/**
+ * 🆕 Gera um resumo estruturado dos problemas para enviar à API
+ * Agrupa por categoria e formata para o prompt da IA
+ */
+function buildProblemsSummary(problems) {
+    const categories = window.__CORRECTION_PLAN_CATEGORIES__ || {
+        loudness: [],
+        frequency: [],
+        dynamics: [],
+        stereo: [],
+        other: []
+    };
+    
+    const summary = {
+        hasLoudnessProblems: categories.loudness.length > 0,
+        hasFrequencyProblems: categories.frequency.length > 0,
+        hasDynamicsProblems: categories.dynamics.length > 0,
+        hasStereoProblems: categories.stereo.length > 0,
+        
+        loudnessProblems: categories.loudness.map(p => ({
+            metric: p.metric,
+            value: p.value,
+            target: p.target,
+            diff: p.difference,
+            severity: p.severity
+        })),
+        
+        frequencyProblems: categories.frequency.map(p => ({
+            band: p.metric,
+            value: p.value,
+            target: p.target,
+            diff: p.difference,
+            severity: p.severity
+        })),
+        
+        dynamicsProblems: categories.dynamics.map(p => ({
+            metric: p.metric,
+            value: p.value,
+            target: p.target,
+            diff: p.difference,
+            severity: p.severity
+        })),
+        
+        stereoProblems: categories.stereo.map(p => ({
+            metric: p.metric,
+            value: p.value,
+            target: p.target,
+            diff: p.difference,
+            severity: p.severity
+        })),
+        
+        totalProblems: problems.length,
+        criticalCount: problems.filter(p => p.severity?.toUpperCase().includes('CRÍT')).length,
+        attentionCount: problems.filter(p => p.severity?.toUpperCase().includes('ATEN')).length
+    };
+    
+    return summary;
 }
 
 /**
@@ -31509,7 +31686,7 @@ async function handleGenerateCorrectionPlan() {
         }
         
         // Preparar payload
-        // 🔧 FIX v3: Extrair problemas de múltiplas fontes
+        // 🔧 FIX v4: Extrair problemas de múltiplas fontes com categorização
         let problemsToSend = analysis.problems || [];
         let problemSource = 'analysis.problems';
         
@@ -31517,10 +31694,12 @@ async function handleGenerateCorrectionPlan() {
         if (problemsToSend.length === 0 && (analysis.suggestions || analysis.aiSuggestions)) {
             const suggestions = analysis.suggestions || analysis.aiSuggestions || [];
             problemsToSend = suggestions.map(s => ({
+                id: s.metric || s.metricName || s.name || 'unknown',
                 metric: s.metric || s.metricName || s.name || 'unknown',
                 value: s.currentValue || s.value || s.measured || 'N/A',
                 target: s.targetValue || s.target || s.ideal || 'N/A',
                 severity: s.severity || s.priority || 'medium',
+                category: detectMetricCategory(s.metric || s.metricName || s.name || ''),
                 description: s.problem || s.description || s.title || ''
             }));
             problemSource = 'analysis.suggestions';
@@ -31532,13 +31711,23 @@ async function handleGenerateCorrectionPlan() {
             problemSource = 'table-dom';
         }
         
+        // 🆕 Construir resumo categorizado para melhor processamento pela IA
+        const problemsSummary = buildProblemsSummary(problemsToSend);
+        
         console.log('[CORRECTION-PLAN] 📊 Problemas extraídos:', problemsToSend.length, 'fonte:', problemSource);
+        console.log('[CORRECTION-PLAN] 📊 Resumo por categoria:', {
+            loudness: problemsSummary.loudnessProblems.length,
+            frequency: problemsSummary.frequencyProblems.length,
+            dynamics: problemsSummary.dynamicsProblems.length,
+            stereo: problemsSummary.stereoProblems.length
+        });
         
         const payload = {
             analysisId: analysis.jobId || analysis.id,
             technicalData: analysis.technicalData || {},
             suggestions: analysis.suggestions || analysis.aiSuggestions || [],
             problems: problemsToSend,
+            problemsSummary: problemsSummary, // 🆕 Resumo categorizado
             metadata: {
                 fileName: analysis.metadata?.fileName || analysis.fileName || 'Sem nome',
                 genre: analysis.genre || analysis.metadata?.genre || 'generic',

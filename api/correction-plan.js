@@ -238,14 +238,17 @@ async function getCachedPlan(analysisId, uid) {
 
 /**
  * Sanitiza inputs do usuário
+ * 🔧 v2: Adicionado suporte a problemsSummary categorizado
  */
 function sanitizeInput(data) {
   const {
     analysisId,
     problems = [],
+    problemsSummary = {},
     userProfile = {},
     genreTargets = {},
     analysisMetrics = {},
+    metadata = {},
     plan = 'free'
   } = data;
   
@@ -254,22 +257,46 @@ function sanitizeInput(data) {
     throw new Error('INVALID_ANALYSIS_ID');
   }
   
-  // Sanitizar problems
+  // Sanitizar problems - VALIDAR QUE NÃO SÃO UNDEFINED
   const sanitizedProblems = problems
-    .filter(p => p && typeof p === 'object')
+    .filter(p => p && typeof p === 'object' && p.metric && p.metric !== 'undefined')
     .slice(0, 20) // Máximo 20 problemas
     .map(p => ({
-      id: String(p.id || p.type || '').slice(0, 100),
+      id: String(p.id || p.metric || p.type || '').slice(0, 100),
+      metric: String(p.metric || '').slice(0, 100),
       severity: String(p.severity || 'média').slice(0, 20),
       value: p.value ?? p.currentValue ?? null,
-      target: p.target ?? p.targetValue ?? null
+      target: p.target ?? p.targetValue ?? null,
+      difference: p.difference ?? p.diff ?? null,
+      category: String(p.category || 'other').slice(0, 20),
+      action: String(p.action || '').slice(0, 500)
     }));
   
-  // Sanitizar userProfile
+  // 🆕 Sanitizar problemsSummary categorizado
+  const sanitizedSummary = {
+    hasLoudnessProblems: Boolean(problemsSummary.hasLoudnessProblems),
+    hasFrequencyProblems: Boolean(problemsSummary.hasFrequencyProblems),
+    hasDynamicsProblems: Boolean(problemsSummary.hasDynamicsProblems),
+    hasStereoProblems: Boolean(problemsSummary.hasStereoProblems),
+    loudnessProblems: Array.isArray(problemsSummary.loudnessProblems) 
+      ? problemsSummary.loudnessProblems.slice(0, 5) : [],
+    frequencyProblems: Array.isArray(problemsSummary.frequencyProblems) 
+      ? problemsSummary.frequencyProblems.slice(0, 10) : [],
+    dynamicsProblems: Array.isArray(problemsSummary.dynamicsProblems) 
+      ? problemsSummary.dynamicsProblems.slice(0, 5) : [],
+    stereoProblems: Array.isArray(problemsSummary.stereoProblems) 
+      ? problemsSummary.stereoProblems.slice(0, 3) : [],
+    totalProblems: Number(problemsSummary.totalProblems) || sanitizedProblems.length,
+    criticalCount: Number(problemsSummary.criticalCount) || 0,
+    attentionCount: Number(problemsSummary.attentionCount) || 0
+  };
+  
+  // Sanitizar userProfile (combinar com metadata)
   const sanitizedProfile = {
-    daw: String(userProfile.daw || '').slice(0, 50),
-    level: String(userProfile.level || userProfile.nivelTecnico || 'iniciante').slice(0, 30),
-    genre: String(userProfile.genre || userProfile.estilo || '').slice(0, 50),
+    daw: String(userProfile.daw || metadata.daw || '').slice(0, 50),
+    level: String(userProfile.level || userProfile.nivelTecnico || metadata.level || 'iniciante').slice(0, 30),
+    genre: String(userProfile.genre || userProfile.estilo || metadata.genre || '').slice(0, 50),
+    fileName: String(metadata.fileName || userProfile.fileName || '').slice(0, 200),
     dificuldade: String(userProfile.dificuldade || '').slice(0, 200)
   };
   
@@ -298,6 +325,7 @@ function sanitizeInput(data) {
   return {
     analysisId,
     problems: sanitizedProblems,
+    problemsSummary: sanitizedSummary,
     userProfile: sanitizedProfile,
     genreTargets: sanitizedTargets,
     analysisMetrics: sanitizedMetrics,

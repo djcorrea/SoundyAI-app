@@ -443,31 +443,97 @@ class CoreMetricsProcessor {
       }
       
       // Spectral Uniformity - FUNÇÃO STANDALONE
+      // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Agregar TODOS os frames, não apenas o primeiro
       let spectralUniformityMetrics = null;
       try {
         if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
-          const representativeSpectrum = fftResults.magnitudeSpectrum[0];
-          const binCount = representativeSpectrum.length;
+          const binCount = fftResults.magnitudeSpectrum[0].length;
           const frequencyBins = Array.from({length: binCount}, (_, i) => 
             (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
           );
           
-          console.log('[DEBUG_UNIFORMITY] Dados de entrada:', {
-            spectrumLength: representativeSpectrum.length,
-            binsLength: frequencyBins.length,
-            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
-            first5Values: representativeSpectrum.slice(0, 5),
-            first5Bins: frequencyBins.slice(0, 5)
+          // 🔧 CORREÇÃO: Processar TODOS os frames e agregar resultados
+          const uniformityCoefficients = [];
+          const maxFramesToProcess = Math.min(fftResults.magnitudeSpectrum.length, 500); // Limitar para performance
+          
+          for (let frameIdx = 0; frameIdx < maxFramesToProcess; frameIdx++) {
+            try {
+              const spectrum = fftResults.magnitudeSpectrum[frameIdx];
+              if (!spectrum || spectrum.length === 0) continue;
+              
+              const frameResult = calculateSpectralUniformity(
+                spectrum,
+                frequencyBins,
+                CORE_METRICS_CONFIG.SAMPLE_RATE
+              );
+              
+              // Coletar coeficiente de uniformidade válido
+              if (frameResult && 
+                  frameResult.uniformity && 
+                  Number.isFinite(frameResult.uniformity.coefficient) && 
+                  frameResult.uniformity.coefficient > 0) {
+                uniformityCoefficients.push(frameResult.uniformity.coefficient);
+              }
+            } catch (frameError) {
+              // Ignorar frames com erro, continuar processando
+            }
+          }
+          
+          console.log('[DEBUG_UNIFORMITY] Frames processados:', {
+            totalFrames: fftResults.magnitudeSpectrum.length,
+            processedFrames: maxFramesToProcess,
+            validCoefficients: uniformityCoefficients.length
           });
           
-          spectralUniformityMetrics = calculateSpectralUniformity(
-            representativeSpectrum,
-            frequencyBins,
-            CORE_METRICS_CONFIG.SAMPLE_RATE
-          );
+          // 🔧 CORREÇÃO: Agregar usando MEDIANA dos coeficientes válidos
+          if (uniformityCoefficients.length > 0) {
+            uniformityCoefficients.sort((a, b) => a - b);
+            const medianIndex = Math.floor(uniformityCoefficients.length / 2);
+            const medianCoefficient = uniformityCoefficients.length % 2 === 0
+              ? (uniformityCoefficients[medianIndex - 1] + uniformityCoefficients[medianIndex]) / 2
+              : uniformityCoefficients[medianIndex];
+            
+            // CV baixo = uniforme (coeff 0 → 100%), CV alto = desigual (coeff ≥1 → 0%)
+            // Fórmula: uniformityPercent = max(0, (1 - coeff) * 100)
+            const uniformityPercent = Math.max(0, Math.min(100, (1 - medianCoefficient) * 100));
+            
+            // Construir resultado agregado
+            spectralUniformityMetrics = {
+              uniformity: {
+                coefficient: Math.round(medianCoefficient * 1000) / 1000,
+                standardDeviation: 0, // Não disponível na agregação
+                variance: 0,
+                range: 0,
+                meanDeviation: 0
+              },
+              // 🆕 Adicionar campo de porcentagem calculada
+              uniformityPercent: Math.round(uniformityPercent * 10) / 10,
+              // Metadados de agregação
+              aggregation: {
+                method: 'median',
+                framesProcessed: maxFramesToProcess,
+                validFrames: uniformityCoefficients.length,
+                coefficientMin: Math.min(...uniformityCoefficients),
+                coefficientMax: Math.max(...uniformityCoefficients)
+              },
+              score: uniformityPercent > 70 ? 9 : uniformityPercent > 50 ? 7 : uniformityPercent > 30 ? 5 : 3,
+              rating: uniformityPercent > 70 ? 'excellent' : uniformityPercent > 50 ? 'good' : uniformityPercent > 30 ? 'fair' : 'poor',
+              isUniform: uniformityPercent > 50,
+              needsBalancing: uniformityPercent < 40
+            };
+            
+            console.log('[DEBUG_UNIFORMITY] ✅ Resultado agregado:', {
+              medianCoefficient,
+              uniformityPercent,
+              rating: spectralUniformityMetrics.rating,
+              validFrames: uniformityCoefficients.length
+            });
+          } else {
+            console.log('[DEBUG_UNIFORMITY] ⚠️ Nenhum coeficiente válido encontrado');
+            spectralUniformityMetrics = null;
+          }
           
-          console.log('[DEBUG_UNIFORMITY] Resultado da função:', spectralUniformityMetrics);
-          console.log('[SUCCESS] Spectral Uniformity calculado via função standalone');
+          console.log('[SUCCESS] Spectral Uniformity calculado via agregação de frames');
         } else {
           console.log('[DEBUG_UNIFORMITY] FFT spectrum não disponível');
         }
@@ -1596,6 +1662,8 @@ class CoreMetricsProcessor {
         return {
           correlation: null,
           width: null,
+          opening: null,
+          openingPercent: null,
           balance: 0.0, // Compatibilidade com código existente
           valid: false
         };
@@ -1604,16 +1672,22 @@ class CoreMetricsProcessor {
       logAudio('stereo_metrics', 'completed', {
         correlation: result.correlation,
         width: result.width,
+        opening: result.opening,
+        openingPercent: result.openingPercent,
         jobId
       });
       
       return {
         correlation: result.correlation,
         width: result.width,
+        // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C): Abertura Estéreo = 1 - |correlation|
+        opening: result.opening,
+        openingPercent: result.openingPercent,
+        openingCategory: result.openingCategory,
         balance: 0.0, // Compatibilidade - balance não é usado nas novas métricas
         correlationCategory: result.correlationData?.category,
         widthCategory: result.widthData?.category,
-        algorithm: 'Corrected_Stereo_Metrics',
+        algorithm: 'Corrected_Stereo_Metrics_V2',
         valid: true
       };
 
@@ -1622,6 +1696,8 @@ class CoreMetricsProcessor {
       return {
         correlation: null,
         width: null,
+        opening: null,
+        openingPercent: null,
         balance: 0.0,
         valid: false
       };

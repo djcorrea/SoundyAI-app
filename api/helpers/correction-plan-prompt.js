@@ -569,6 +569,66 @@ function determineImpact(problem) {
 }
 
 /**
+ * Constrói a seção de problemas categorizados para o prompt
+ * @param {Object} problemsSummary - Resumo categorizado do frontend
+ * @returns {string} Texto formatado dos problemas por categoria
+ */
+function buildCategorizedProblemsSection(problemsSummary) {
+  if (!problemsSummary || typeof problemsSummary !== 'object') {
+    return '';
+  }
+  
+  const sections = [];
+  
+  // Loudness
+  if (problemsSummary.hasLoudnessProblems && problemsSummary.loudnessProblems?.length > 0) {
+    sections.push(`
+🎚️ LOUDNESS (${problemsSummary.loudnessProblems.length} problema(s)):
+${problemsSummary.loudnessProblems.map(p => `  • ${p.metric}: ${p.value} (Alvo: ${p.target || 'conforme gênero'})`).join('\n')}`);
+  }
+  
+  // Frequências - TODAS as bandas problemáticas
+  if (problemsSummary.hasFrequencyProblems && problemsSummary.frequencyProblems?.length > 0) {
+    sections.push(`
+🎛️ FREQUÊNCIAS (${problemsSummary.frequencyProblems.length} banda(s) problemática(s)):
+${problemsSummary.frequencyProblems.map(p => `  • ${p.metric}: ${p.value}`).join('\n')}
+⚠️ TODAS essas bandas precisam de atenção - criar etapa que enderece TODAS, não apenas uma.`);
+  }
+  
+  // Dinâmica
+  if (problemsSummary.hasDynamicsProblems && problemsSummary.dynamicsProblems?.length > 0) {
+    sections.push(`
+📊 DINÂMICA (${problemsSummary.dynamicsProblems.length} problema(s)):
+${problemsSummary.dynamicsProblems.map(p => `  • ${p.metric}: ${p.value} (Alvo: ${p.target || 'conforme gênero'})`).join('\n')}`);
+  }
+  
+  // Stereo
+  if (problemsSummary.hasStereoProblems && problemsSummary.stereoProblems?.length > 0) {
+    sections.push(`
+🔊 STEREO (${problemsSummary.stereoProblems.length} problema(s)):
+${problemsSummary.stereoProblems.map(p => `  • ${p.metric}: ${p.value}`).join('\n')}`);
+  }
+  
+  if (sections.length === 0) {
+    return '';
+  }
+  
+  return `
+
+═══════════════════════════════════════════════════════════════════════════════
+📋 PROBLEMAS POR CATEGORIA (FONTE: TABELA DE DIAGNÓSTICO)
+═══════════════════════════════════════════════════════════════════════════════
+${sections.join('\n')}
+
+REGRAS ABSOLUTAS:
+1. NUNCA crie etapa para categoria SEM problemas listados acima
+2. Para FREQUÊNCIAS: liste TODAS as bandas problemáticas na mesma etapa
+3. O texto do problema DEVE corresponder ao que está na tabela
+4. Categorias sem problemas = NÃO gerar etapas para elas
+`;
+}
+
+/**
  * Constrói o prompt de usuário com todos os contextos
  * @param {Object} params - Parâmetros da requisição
  * @returns {string} Prompt formatado
@@ -576,6 +636,7 @@ function determineImpact(problem) {
 export function buildCorrectionPlanPrompt(params) {
   const {
     problems = [],
+    problemsSummary = {}, // Nova estrutura categorizada do frontend
     userProfile = {},
     genreTargets = {},
     analysisMetrics = {},
@@ -623,6 +684,9 @@ export function buildCorrectionPlanPrompt(params) {
     return `${i + 1}. [${p.impact}] ${p.id || p.type} — Atual: ${value}, Alvo: ${target}`;
   }).join('\n');
   
+  // Formatar problemas por categoria (do problemsSummary)
+  const categorizedProblemsText = buildCategorizedProblemsSection(problemsSummary);
+  
   // Construir prompt
   return `
 ═══════════════════════════════════════════════════════════════════════════════
@@ -644,7 +708,7 @@ TARGETS DO GÊNERO (${userProfile.genre || userProfile.estilo || 'não informado
 
 PROBLEMAS DETECTADOS (ordenados por impacto):
 ${problemsText}
-
+${categorizedProblemsText}
 ═══════════════════════════════════════════════════════════════════════════════
 👤 PERFIL DO USUÁRIO
 ═══════════════════════════════════════════════════════════════════════════════

@@ -213,6 +213,10 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   if (coreMetrics.stereo) {
     technicalData.stereoCorrelation = safeSanitize(coreMetrics.stereo.correlation);
     technicalData.stereoWidth = safeSanitize(coreMetrics.stereo.width);
+    // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C): Abertura Estéreo = 1 - |correlation|
+    technicalData.stereoOpening = safeSanitize(coreMetrics.stereo.opening);
+    technicalData.stereoOpeningPercent = safeSanitize(coreMetrics.stereo.openingPercent);
+    technicalData.stereoOpeningCategory = safeSanitize(coreMetrics.stereo.openingCategory, 'unknown');
     technicalData.balanceLR = safeSanitize(coreMetrics.stereo.balance);
     technicalData.isMonoCompatible = coreMetrics.stereo.isMonoCompatible || false;
     technicalData.monoCompatibility = technicalData.isMonoCompatible; // alias p/ front
@@ -575,9 +579,42 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   console.log('🎵 [DOMINANT_FREQ] Processamento de export removido - mantendo apenas cálculo interno');
   
   // ===== Spectral Uniformity =====
-  // REMOVED: technicalData.spectralUniformity export  
-  // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - mantendo cálculo interno, removendo export
-  console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - não exportando para PAPERLINE');
+  // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Restaurar export com valor agregado corrigido
+  // Problema anterior: cálculo usava apenas 1º frame FFT, agora usa agregação de todos frames
+  if (coreMetrics.spectralUniformity) {
+    const su = coreMetrics.spectralUniformity;
+    
+    // Exportar valor de porcentagem corrigido (0-100%)
+    if (Number.isFinite(su.uniformityPercent)) {
+      technicalData.spectralUniformity = su.uniformityPercent / 100; // Normalizar para [0-1] 
+      technicalData.spectralUniformityPercent = su.uniformityPercent;
+    } else if (su.uniformity && Number.isFinite(su.uniformity.coefficient)) {
+      // Fallback: calcular a partir do coeficiente
+      const uniformityPct = Math.max(0, Math.min(100, (1 - su.uniformity.coefficient) * 100));
+      technicalData.spectralUniformity = uniformityPct / 100;
+      technicalData.spectralUniformityPercent = uniformityPct;
+    }
+    
+    // Metadados de agregação (opcional)
+    if (su.aggregation) {
+      technicalData.spectralUniformityMeta = {
+        method: su.aggregation.method,
+        framesProcessed: su.aggregation.framesProcessed,
+        validFrames: su.aggregation.validFrames,
+        rating: su.rating
+      };
+    }
+    
+    console.log('✅ [SPECTRAL_UNIFORMITY] Exportado valor corrigido:', {
+      uniformityPercent: technicalData.spectralUniformityPercent,
+      normalized: technicalData.spectralUniformity,
+      rating: su.rating
+    });
+  } else {
+    technicalData.spectralUniformity = null;
+    technicalData.spectralUniformityPercent = null;
+    console.log('⚠️ [SPECTRAL_UNIFORMITY] Não disponível - spectralUniformity = null');
+  }
 
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
@@ -762,6 +799,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     stereo: {
       correlation: technicalData.stereoCorrelation,
       width: technicalData.stereoWidth,
+      // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C): Abertura Estéreo = 1 - |correlation|
+      opening: technicalData.stereoOpening,
+      openingPercent: technicalData.stereoOpeningPercent,
+      openingCategory: technicalData.stereoOpeningCategory,
       balance: technicalData.balanceLR,
       monoCompatibility: technicalData.monoCompatibility,
       hasPhaseIssues: technicalData.hasPhaseIssues
@@ -1000,6 +1041,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       // Stereo
       stereoCorrelation: technicalData.stereoCorrelation,
       stereoWidth: technicalData.stereoWidth,
+      // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C): Abertura Estéreo = 1 - |correlation|
+      stereoOpening: technicalData.stereoOpening,
+      stereoOpeningPercent: technicalData.stereoOpeningPercent,
+      stereoOpeningCategory: technicalData.stereoOpeningCategory,
       balanceLR: technicalData.balanceLR,
       isMonoCompatible: technicalData.isMonoCompatible,
       monoCompatibility: technicalData.monoCompatibility,
@@ -1056,7 +1101,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       
       // Experimentais
       dcOffset: technicalData.dcOffset,
-      // REMOVED: spectralUniformity, dominantFrequencies (mantendo cálculo interno, removendo export)
+      // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Restaurar export spectralUniformity corrigida
+      spectralUniformity: technicalData.spectralUniformity,
+      spectralUniformityPercent: technicalData.spectralUniformityPercent,
+      spectralUniformityMeta: technicalData.spectralUniformityMeta,
       
       // BPM (Beats Per Minute) ✅ CORREÇÃO: incluído na seção technicalData
       bpm: technicalData.bpm, // ✅ CAMPO CORRETO 'bpm' para frontend modal (não 'bmp')
@@ -1069,6 +1117,9 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       correlation: technicalData.stereoCorrelation,
       balance: technicalData.balanceLR,
       width: technicalData.stereoWidth,
+      // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C): Alias de Abertura Estéreo
+      opening: technicalData.stereoOpening,
+      openingPercent: technicalData.stereoOpeningPercent,
       dr: technicalData.dynamicRange
     },
 
