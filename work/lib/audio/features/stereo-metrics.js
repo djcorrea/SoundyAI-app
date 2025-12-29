@@ -248,17 +248,77 @@ export class StereoMetricsCalculator {
   }
   
   /**
+   * 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29 (OPÇÃO C):
+   * Calcular Abertura Estéreo baseada na correlação invertida
+   * Fórmula: abertura = 1 - |correlation|
+   * 
+   * Interpretação:
+   * - correlation = +1 (mono) → abertura = 0% (sem abertura)
+   * - correlation = 0 (descorrelacionado) → abertura = 100% (máxima abertura)
+   * - correlation = -1 (anti-fase) → abertura = 0% (problemático, não abertura real)
+   * 
+   * @param {number} correlation - Valor de correlação [-1, +1]
+   * @returns {object|null} - { abertura, aberturaPercent, category }
+   */
+  calculateStereoOpening(correlation) {
+    if (correlation === null || !Number.isFinite(correlation)) {
+      return null;
+    }
+    
+    // Fórmula Opção C: abertura = 1 - |correlation|
+    const abertura = 1 - Math.abs(correlation);
+    const aberturaPercent = Math.round(abertura * 1000) / 10; // Arredondar para 1 casa decimal
+    
+    // Categorizar abertura
+    let category;
+    if (abertura < 0.15) {
+      category = 'Mono/Muito Centrado';
+    } else if (abertura < 0.35) {
+      category = 'Estreito';
+    } else if (abertura < 0.55) {
+      category = 'Moderado';
+    } else if (abertura < 0.75) {
+      category = 'Largo';
+    } else {
+      category = 'Muito Largo';
+    }
+    
+    logAudio('stereo_opening', 'calculated', {
+      correlation,
+      abertura: abertura.toFixed(3),
+      aberturaPercent,
+      category
+    });
+    
+    return {
+      abertura,
+      aberturaPercent,
+      category,
+      algorithm: 'correlation_inverted_abs',
+      valid: true
+    };
+  }
+  
+  /**
    * 🎭 Análise completa de métricas estéreo
    */
   analyzeStereoMetrics(leftChannel, rightChannel, frameIndex = 0) {
     const correlation = this.calculateStereoCorrelation(leftChannel, rightChannel);
     const width = this.calculateStereoWidth(leftChannel, rightChannel);
     
+    // 🔧 CORREÇÃO: Calcular abertura estéreo baseada na correlação (OPÇÃO C)
+    const opening = correlation ? this.calculateStereoOpening(correlation.correlation) : null;
+    
     const result = {
       correlation: correlation ? correlation.correlation : null,
       width: width ? width.width : null,
+      // 🆕 Abertura Estéreo (Opção C) - derivada da correlação
+      opening: opening ? opening.abertura : null,
+      openingPercent: opening ? opening.aberturaPercent : null,
+      openingCategory: opening ? opening.category : null,
       correlationData: correlation,
       widthData: width,
+      openingData: opening,
       frameIndex,
       valid: correlation !== null && width !== null
     };
@@ -268,8 +328,10 @@ export class StereoMetricsCalculator {
         frame: frameIndex,
         correlation: result.correlation,
         width: result.width,
+        opening: result.opening,
         correlationCategory: correlation.category,
-        widthCategory: width.category
+        widthCategory: width.category,
+        openingCategory: result.openingCategory
       });
     }
     

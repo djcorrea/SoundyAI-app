@@ -1332,3 +1332,297 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--plan-primary);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🆕 LAYOUT COMPACTO v2 - Cards otimizados
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* Summary compacto */
+.steps-summary.compact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--plan-surface-glass);
+  border: 1px solid var(--plan-border);
+  border-radius: var(--radius-lg);
+}
+
+.summary-badges {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.summary-badges .badge {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.summary-badges .badge.critical {
+  background: var(--impact-critical-bg);
+  border: 1px solid var(--impact-critical-border);
+  color: var(--impact-critical);
+}
+
+.summary-badges .badge.high {
+  background: var(--impact-high-bg);
+  border: 1px solid var(--impact-high-border);
+  color: var(--impact-high);
+}
+
+.summary-badges .badge.fine {
+  background: var(--impact-fine-bg);
+  border: 1px solid var(--impact-fine-border);
+  color: var(--impact-fine);
+}
+
+.summary-categories {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--plan-surface-2);
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--plan-text-muted);
+}
+
+/* Step card compacto */
+.step-card.compact {
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-sm);
+}
+
+.step-card.compact .step-header {
+  padding: var(--space-md) var(--space-lg);
+  gap: var(--space-md);
+}
+
+.step-card.compact .step-number {
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+}
+
+.step-card.compact .step-title {
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.step-card.compact .step-meta {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.step-card.compact .step-category {
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.step-card.compact .step-impact {
+  font-size: 0.7rem;
+}
+
+/* Content compacto */
+.step-content.compact {
+  padding: 0 var(--space-lg) var(--space-lg);
+  padding-left: calc(var(--space-lg) + 28px + var(--space-md));
+}
+
+.step-content.compact > div {
+  margin-bottom: var(--space-md);
+}
+
+/* Sections compactas */
+.step-section {
+  background: var(--plan-surface-glass);
+  border: 1px solid var(--plan-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.step-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--plan-primary);
+}
+
+.step-section.why::before { background: var(--plan-primary); }
+.step-section.how::before { background: var(--plan-accent); }
+.step-section.tip::before { background: #a855f7; }
+.step-section.warning::before { background: var(--impact-critical); }
+
+.step-section h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-xs) 0;
+  color: var(--plan-text-muted);
+  font-weight: 700;
+}
+
+.step-section p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--plan-text);
+}
+
+/* How list compacto */
+.how-list.compact {
+  margin: 0;
+  padding: 0;
+}
+
+.how-list.compact li {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-xs);
+  padding-left: var(--space-lg);
+}
+
+.how-list.compact li::before {
+  width: 18px;
+  height: 18px;
+  font-size: 0.65rem;
+}
+
+/* Problem ref compacto */
+.step-problem-ref.compact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  background: var(--plan-surface-2);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.step-problem-ref.compact .problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.step-problem-ref.compact .problem-type {
+  background: linear-gradient(135deg, var(--plan-primary) 0%, var(--plan-accent) 100%);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+}
+
+.step-problem-ref.compact .problem-values {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--plan-text);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.step-problem-ref.compact .problem-details {
+  font-size: 0.75rem;
+  color: var(--plan-text-muted);
+  line-height: 1.4;
+}
+
+/* Footer compacto */
+.step-footer {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--plan-border);
+  margin-top: var(--space-md);
+}
+
+.step-footer > div {
+  flex: 1;
+  min-width: 200px;
+  background: var(--plan-surface-glass);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--plan-text-muted);
+}
+
+.step-footer strong {
+  color: var(--plan-text);
+  font-weight: 600;
+}
+
+/* No steps state */
+.no-steps {
+  text-align: center;
+  padding: var(--space-2xl);
+  background: rgba(16, 224, 128, 0.05);
+  border: 1px dashed rgba(16, 224, 128, 0.3);
+  border-radius: var(--radius-xl);
+}
+
+.no-steps-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-md);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.no-steps-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--impact-fine);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.no-steps-text {
+  font-size: 0.9rem;
+  color: var(--plan-text-muted);
+  margin: 0;
+}
+
+/* Responsive compact */
+@media (max-width: 640px) {
+  .step-card.compact .step-header {
+    padding: var(--space-sm) var(--space-md);
+  }
+  
+  .step-content.compact {
+    padding-left: var(--space-md);
+  }
+  
+  .step-footer {
+    flex-direction: column;
+  }
+  
+  .step-footer > div {
+    min-width: 100%;
+  }
+  
+  .summary-categories {
+    display: none;
+  }
+}

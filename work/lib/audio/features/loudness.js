@@ -626,17 +626,59 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
     
     const lufsResult = await analyzeLUFSv2(intercalatedSamples, sampleRate, { channels: 2 });
     
+    // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Calcular LRA real usando LUFSMeter
+    // Problema anterior: lra retornava 0 fixo, ignorando cálculo EBU R128
+    let lraValue = 0;
+    let lraRemaining = 0;
+    let lraRelThreshold = null;
+    let lraAlgorithm = 'v2_corrected_fallback';
+    
+    try {
+      const meter = new LUFSMeter(sampleRate);
+      
+      // Aplicar K-weighting nos canais
+      const leftFiltered = meter.kWeightingL.processChannel(leftChannel);
+      const rightFiltered = meter.kWeightingR.processChannel(rightChannel);
+      
+      // Calcular block loudness e short-term para LRA
+      const blockLoudness = meter.calculateBlockLoudness(leftFiltered, rightFiltered);
+      const shortTermLoudness = meter.calculateShortTermLoudness(blockLoudness);
+      
+      // Calcular LRA conforme EBU R128 (usando integrated do LUFS V2)
+      if (shortTermLoudness.length >= 10 && Number.isFinite(lufsResult.integrated)) {
+        const lraResult = meter.calculateR128LRA(shortTermLoudness, lufsResult.integrated);
+        
+        if (lraResult && Number.isFinite(lraResult.lra) && lraResult.lra >= 0) {
+          lraValue = lraResult.lra;
+          lraRemaining = lraResult.remaining || 0;
+          lraRelThreshold = lraResult.relativeThreshold;
+          lraAlgorithm = 'EBU_R128_V2';
+          console.log(`[LRA_V2] ✅ LRA calculado: ${lraValue.toFixed(2)} LU (${lraRemaining} blocos)`);
+        }
+      } else {
+        console.log(`[LRA_V2] ⚠️ Short-term insuficiente: ${shortTermLoudness.length} blocos (mínimo 10)`);
+      }
+    } catch (lraError) {
+      console.warn(`[LRA_V2] ⚠️ Erro ao calcular LRA:`, lraError.message);
+      // Continuar com lra = 0 como fallback
+    }
+    
     // Converter para formato compatível
     const result = {
       lufs_integrated: lufsResult.integrated,
       lufs_short_term: lufsResult.shortTerm,
       lufs_momentary: lufsResult.momentary,
-      lra: 0, // Simplificado para compatibilidade
-      lra_legacy: 0,
-      lra_meta: { algorithm: 'v2_corrected_auto' },
+      lra: lraValue, // 🔧 CORREÇÃO: Agora usa valor real calculado
+      lra_legacy: lraValue, // Manter compatibilidade
+      lra_meta: { 
+        algorithm: lraAlgorithm,
+        gated_count: lraRemaining,
+        rel_threshold: lraRelThreshold,
+        valid: lraRemaining >= 10
+      },
       gating_stats: {
         total_blocks: 0,
-        gated_blocks: 0,
+        gated_blocks: lraRemaining,
         gating_efficiency: 0
       },
       processing_time: 0
