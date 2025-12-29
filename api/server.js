@@ -87,6 +87,17 @@ app.post("/api/correction-plan", async (req, res) => {
   }
 });
 
+// Catch-all para subrotas de correction-plan (ex: /api/correction-plan/pre)
+app.all("/api/correction-plan/*", (req, res) => {
+  console.log(`[SERVER] ⚠️ Rota inválida: ${req.method} ${req.path}`);
+  res.status(404).json({
+    success: false,
+    error: 'ROUTE_NOT_FOUND',
+    message: `Rota ${req.path} não existe. Use POST /api/correction-plan`,
+    hint: 'Verifique se não há sufixo extra na URL'
+  });
+});
+
 app.options("/api/correction-plan", (req, res) => {
   res.status(200).end();
 });
