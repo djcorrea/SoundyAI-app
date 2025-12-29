@@ -14,7 +14,8 @@
  * - Fallback em caso de erro
  */
 
-import { getAuth, getFirestore } from '../firebase/admin.js';
+// 🔥 Firebase Admin - usar módulo local que já existe
+import { auth, db } from './firebaseAdmin.js';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import OpenAI from 'openai';
@@ -25,19 +26,18 @@ import {
   validateAndParseResponse
 } from './helpers/correction-plan-prompt.js';
 
-import {
-  getOrCreateUser,
-  getUserPlanInfo
-} from '../work/lib/user/userPlans.js';
-
-const auth = getAuth();
-const db = getFirestore();
+// ⚠️ NOTA: userPlans não está disponível em api/ - implementar fallback inline
+// import {
+//   getOrCreateUser,
+//   getUserPlanInfo
+// } from '../work/lib/user/userPlans.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 🔧 CONFIGURAÇÃO
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const COLLECTION_CORRECTION_PLANS = 'correction_plans';
+const COLLECTION_USERS = 'usuarios';
 
 // Limites por plano (planos/mês)
 const PLAN_LIMITS = {
@@ -45,6 +45,31 @@ const PLAN_LIMITS = {
   plus: 10,
   pro: 50 // Hard cap anti-abuse
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 👤 HELPER: Obter plano do usuário (versão simplificada inline)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function getUserPlanInfo(uid) {
+  try {
+    const userDoc = await db.collection(COLLECTION_USERS).doc(uid).get();
+    
+    if (!userDoc.exists) {
+      console.log(`[CORRECTION-PLAN] Usuário ${uid} não encontrado, usando free`);
+      return { plan: 'free' };
+    }
+    
+    const data = userDoc.data();
+    const plan = data.plan || 'free';
+    
+    console.log(`[CORRECTION-PLAN] Plano do usuário ${uid}: ${plan}`);
+    return { plan };
+    
+  } catch (error) {
+    console.error(`[CORRECTION-PLAN] Erro ao buscar plano: ${error.message}`);
+    return { plan: 'free' }; // Fallback seguro
+  }
+}
 
 // Rate limit (requisições por hora)
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hora
