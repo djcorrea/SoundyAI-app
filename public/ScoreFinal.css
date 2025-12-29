@@ -291,7 +291,162 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   �📱 RESPONSIVIDADE
+   🧠 V4.0: DIAGNÓSTICO SONORO INTELIGENTE
+   ═══════════════════════════════════════════════════════════════ */
+.diagnostic-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 20px auto 0 auto;
+  padding: 16px;
+  background: rgba(20, 20, 35, 0.8);
+  border: 1px solid rgba(100, 100, 140, 0.3);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.6s ease both;
+  animation-delay: 0.3s;
+}
+
+.diagnostic-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.diagnostic-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #8888ff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.diagnostic-summary {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.diagnostic-summary-critical {
+  background: rgba(255, 51, 102, 0.15);
+  border: 1px solid rgba(255, 51, 102, 0.4);
+  color: #ff6b8a;
+}
+
+.diagnostic-summary-warning {
+  background: rgba(255, 149, 0, 0.15);
+  border: 1px solid rgba(255, 149, 0, 0.4);
+  color: #ffb84d;
+}
+
+.diagnostic-summary-info {
+  background: rgba(0, 200, 255, 0.12);
+  border: 1px solid rgba(0, 200, 255, 0.35);
+  color: #66d9ff;
+}
+
+.diagnostic-summary-success {
+  background: rgba(0, 255, 146, 0.12);
+  border: 1px solid rgba(0, 255, 146, 0.35);
+  color: #66ffb4;
+}
+
+.diagnostic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostic-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  animation: slideIn 0.4s ease both;
+}
+
+.diagnostic-item:nth-child(1) { animation-delay: 0.4s; }
+.diagnostic-item:nth-child(2) { animation-delay: 0.5s; }
+.diagnostic-item:nth-child(3) { animation-delay: 0.6s; }
+.diagnostic-item:nth-child(4) { animation-delay: 0.7s; }
+.diagnostic-item:nth-child(5) { animation-delay: 0.8s; }
+
+.diagnostic-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.diagnostic-text {
+  color: #d0d0e0;
+}
+
+.diagnostic-critical {
+  background: rgba(255, 51, 102, 0.12);
+  border-left: 3px solid #ff3366;
+}
+
+.diagnostic-critical .diagnostic-text {
+  color: #ffb4c4;
+}
+
+.diagnostic-high {
+  background: rgba(255, 149, 0, 0.12);
+  border-left: 3px solid #ff9500;
+}
+
+.diagnostic-high .diagnostic-text {
+  color: #ffd699;
+}
+
+.diagnostic-attention {
+  background: rgba(0, 200, 255, 0.08);
+  border-left: 3px solid #00c8ff;
+}
+
+.diagnostic-attention .diagnostic-text {
+  color: #b3e6ff;
+}
+
+.diagnostic-strength {
+  background: rgba(0, 255, 146, 0.08);
+  border-left: 3px solid #00ff92;
+}
+
+.diagnostic-strength .diagnostic-text {
+  color: #b3ffd9;
+}
+
+.diagnostic-more {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 8px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.diagnostic-more:hover {
+  color: #00c8ff;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📱 RESPONSIVIDADE
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tablets */
