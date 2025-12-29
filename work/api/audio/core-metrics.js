@@ -446,6 +446,14 @@ class CoreMetricsProcessor {
       // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Agregar TODOS os frames, não apenas o primeiro
       let spectralUniformityMetrics = null;
       try {
+        // 🔍 DEBUG CRÍTICO: Verificar se magnitudeSpectrum existe e tem dados
+        console.log('[UNIFORMITY_V2] 🔍 PRÉ-CHECK magnitudeSpectrum:', {
+          hasFftResults: !!fftResults,
+          hasMagnitudeSpectrum: !!fftResults?.magnitudeSpectrum,
+          magnitudeSpectrumLength: fftResults?.magnitudeSpectrum?.length || 0,
+          firstFrameLength: fftResults?.magnitudeSpectrum?.[0]?.length || 0
+        });
+        
         if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
           const binCount = fftResults.magnitudeSpectrum[0].length;
           const frequencyBins = Array.from({length: binCount}, (_, i) => 
@@ -479,11 +487,21 @@ class CoreMetricsProcessor {
                   frameResult.uniformity !== null &&
                   Number.isFinite(frameResult.uniformity.coefficient)) {
                 
-                // Verificar se o coeficiente veio de análise real ou de erro (insufficient bands)
-                // Se uniformity.standardDeviation === 0 E coefficient === 0, provável erro
-                const isRealAnalysis = frameResult.uniformity.coefficient > 0 || 
-                                       frameResult.uniformity.standardDeviation > 0 ||
-                                       (frameResult.score && frameResult.score > 0);
+                // 🔧 CORREÇÃO CRÍTICA: Detectar erro de bandas insuficientes
+                // Quando calculateUniformityMetrics retorna todos zeros, significa erro
+                // Um resultado REAL deve ter pelo menos uma destas propriedades > 0:
+                // - standardDeviation > 0 (variação entre bandas)
+                // - variance > 0 (variância)
+                // - range > 0 (diferença max-min)
+                // - coefficient pode ser 0 em mix PERFEITAMENTE uniforme (raro mas possível)
+                const hasRealVariation = frameResult.uniformity.standardDeviation > 0 ||
+                                         frameResult.uniformity.variance > 0 ||
+                                         frameResult.uniformity.range > 0;
+                
+                // Se coefficient > 0, é análise real (não uniforme)
+                // Se coefficient === 0 mas tem variação, é análise real (perfeitamente uniforme)
+                // Se coefficient === 0 e NÃO tem variação, é erro (bandas insuficientes)
+                const isRealAnalysis = frameResult.uniformity.coefficient > 0 || hasRealVariation;
                 
                 if (isRealAnalysis) {
                   uniformityCoefficients.push(frameResult.uniformity.coefficient);
@@ -1288,6 +1306,13 @@ class CoreMetricsProcessor {
       logAudio('core_metrics', 'fft_completed', { 
         processed: fftResults.processedFrames, 
         requested: count 
+      });
+
+      // 🔍 DEBUG CRÍTICO: Confirmar que magnitudeSpectrum foi populado
+      console.log('[UNIFORMITY_V2] 🔍 FFT Results após processamento:', {
+        magnitudeSpectrumLength: fftResults.magnitudeSpectrum?.length || 0,
+        firstMagnitudeLength: fftResults.magnitudeSpectrum?.[0]?.length || 0,
+        processedFrames: fftResults.processedFrames
       });
 
       return fftResults;
