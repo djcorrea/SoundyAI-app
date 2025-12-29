@@ -93,6 +93,8 @@ const userRequestCount = new Map();
 const corsMiddleware = cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
+      'https://www.soundyai.com.br',
+      'https://soundyai.com.br',
       'https://soundyai-app-production.up.railway.app',
       'http://localhost:3000',
       'http://localhost:5500',
@@ -102,7 +104,8 @@ const corsMiddleware = cors({
     
     const allowedPatterns = [
       /^https:\/\/ai-synth[a-z0-9\-]*\.vercel\.app$/,
-      /^https:\/\/prod-ai[a-z0-9\-]*\.vercel\.app$/
+      /^https:\/\/prod-ai[a-z0-9\-]*\.vercel\.app$/,
+      /^https:\/\/.*soundyai.*\.railway\.app$/
     ];
     
     if (!origin || 
