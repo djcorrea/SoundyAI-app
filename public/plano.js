@@ -403,6 +403,14 @@ async function init() {
       // Mostrar conteúdo
       showContent();
       
+      // 🔧 FIX: Scroll para o topo do conteúdo após renderizar
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Garantir que o body não está travado
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+      }, 100);
+      
     } catch (error) {
       console.error('[PLANO] Erro:', error);
       showError(error.message || 'Erro ao carregar plano de correção.');

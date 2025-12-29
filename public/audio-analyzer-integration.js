@@ -31518,13 +31518,40 @@ async function handleGenerateCorrectionPlan() {
             cached: result.cached
         });
         
-        // 🔧 FIX: Abrir em NOVA ABA para não travar a página atual
+        // 🔧 FIX: Abrir em NOVA ABA de forma que não seja bloqueado
         const planUrl = `/plano.html?id=${result.planId}`;
-        window.open(planUrl, '_blank');
         
-        // Restaurar botão (página não vai recarregar)
-        btn.disabled = false;
-        btn.innerHTML = originalContent;
+        // Tentar abrir nova aba
+        const newWindow = window.open(planUrl, '_blank');
+        
+        // Se foi bloqueado, mostrar link clicável
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            console.log('[CORRECTION-PLAN] ⚠️ Popup bloqueado, mostrando link');
+            
+            // Restaurar botão
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+            
+            // Mostrar link clicável
+            const linkContainer = document.createElement('div');
+            linkContainer.className = 'correction-plan-success';
+            linkContainer.innerHTML = `
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 16px 20px; border-radius: 12px; margin-top: 12px; text-align: center;">
+                    <p style="color: white; margin: 0 0 10px 0; font-weight: 600;">✅ Plano gerado com sucesso!</p>
+                    <a href="${planUrl}" target="_blank" style="display: inline-block; background: white; color: #059669; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                        🚀 Abrir Plano de Correção
+                    </a>
+                </div>
+            `;
+            btn.parentElement.appendChild(linkContainer);
+            
+            // Remover após 30 segundos
+            setTimeout(() => linkContainer.remove(), 30000);
+        } else {
+            // Restaurar botão
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
         
     } catch (error) {
         console.error('[CORRECTION-PLAN] ❌ Erro:', error);
