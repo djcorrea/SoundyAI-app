@@ -5,8 +5,8 @@ import AWS from "aws-sdk";
 import cors from "cors";
 import fetch from "node-fetch";
 
-// 📋 Importar handler do Correction Plan
-import correctionPlanHandler from "./correction-plan.js";
+// ⚠️ CORRECTION PLAN movido para server.js da raiz (SoundyAI-app)
+// Não importar aqui - serviço api/ não tem as variáveis de ambiente
 
 const { Pool } = pkg;
 const app = express();
@@ -69,38 +69,8 @@ const upload = multer({
   fileFilter,
 });
 
-// ---------- Rota para Plano de Correção ----------
-app.post("/api/correction-plan", async (req, res) => {
-  console.log('[SERVER] Requisição /api/correction-plan recebida');
-  try {
-    await correctionPlanHandler(req, res);
-  } catch (error) {
-    console.error('[SERVER] Erro no correction-plan:', error);
-    // Garantir que SEMPRE retorna JSON
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: 'INTERNAL_ERROR',
-        message: 'Erro interno no servidor ao processar plano de correção'
-      });
-    }
-  }
-});
-
-// Catch-all para subrotas de correction-plan (ex: /api/correction-plan/pre)
-app.all("/api/correction-plan/*", (req, res) => {
-  console.log(`[SERVER] ⚠️ Rota inválida: ${req.method} ${req.path}`);
-  res.status(404).json({
-    success: false,
-    error: 'ROUTE_NOT_FOUND',
-    message: `Rota ${req.path} não existe. Use POST /api/correction-plan`,
-    hint: 'Verifique se não há sufixo extra na URL'
-  });
-});
-
-app.options("/api/correction-plan", (req, res) => {
-  res.status(200).end();
-});
+// ⚠️ CORRECTION PLAN: Rota está no SoundyAI-app (server.js raiz)
+// O serviço api/ não precisa dessa rota
 
 // ---------- Rota para sugestões com IA ----------
 app.post("/api/suggestions", async (req, res) => {
