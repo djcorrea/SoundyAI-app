@@ -164,6 +164,26 @@
             }
         }
     </style>
+    
+    <!-- 📋 Handler Global para Plano de Correção -->
+    <script>
+        function handleCorrectionPlanClick() {
+            console.log('[CORRECTION-PLAN] 🖱️ handleCorrectionPlanClick() chamada via onclick');
+            
+            // Tentar chamar a função do audio-analyzer-integration.js
+            if (typeof window.handleGenerateCorrectionPlan === 'function') {
+                console.log('[CORRECTION-PLAN] ✅ Delegando para window.handleGenerateCorrectionPlan');
+                window.handleGenerateCorrectionPlan();
+            } else {
+                console.error('[CORRECTION-PLAN] ❌ window.handleGenerateCorrectionPlan não encontrada!');
+                alert('Erro: Sistema de Plano de Correção ainda não carregou. Aguarde alguns segundos e tente novamente.');
+            }
+        }
+        
+        // Expor globalmente
+        window.handleCorrectionPlanClick = handleCorrectionPlanClick;
+        console.log('[CORRECTION-PLAN] 🌐 handleCorrectionPlanClick exposta no window');
+    </script>
 </head>
 <body>
     <!-- Menu Hambúrguer - Canto Superior Esquerdo -->
@@ -612,7 +632,7 @@
                     <button class="action-btn secondary" onclick="downloadModalAnalysis()">
                         📄 Baixar Relatório
                     </button>
-                    <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan">
+                    <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan" onclick="handleCorrectionPlanClick()">
                         📋 Gerar Plano de Correção
                     </button>
                 </div>

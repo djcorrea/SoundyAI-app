@@ -14713,6 +14713,34 @@ async function displayModalResults(analysis) {
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
     
+    // 📋 PLANO DE CORREÇÃO: Registrar event listener APÓS modal ser renderizado
+    (function registerCorrectionPlanListener() {
+        const planBtn = document.getElementById('btnGenerateCorrectionPlan');
+        console.log('[CORRECTION-PLAN] 🔍 Buscando botão #btnGenerateCorrectionPlan:', planBtn);
+        
+        if (planBtn) {
+            // Remover listener anterior se existir (evita duplicatas)
+            planBtn.removeEventListener('click', window.handleGenerateCorrectionPlan);
+            
+            // Registrar novo listener
+            planBtn.addEventListener('click', function(e) {
+                console.log('[CORRECTION-PLAN] 🖱️ CLICK DETECTADO!');
+                e.preventDefault();
+                if (typeof window.handleGenerateCorrectionPlan === 'function') {
+                    window.handleGenerateCorrectionPlan();
+                } else {
+                    console.error('[CORRECTION-PLAN] ❌ handleGenerateCorrectionPlan não está definida!');
+                    alert('Erro: função não encontrada. Recarregue a página.');
+                }
+            });
+            
+            planBtn.dataset.listenerAttached = 'true';
+            console.log('[CORRECTION-PLAN] ✅ Event listener registrado com sucesso!');
+        } else {
+            console.warn('[CORRECTION-PLAN] ⚠️ Botão não encontrado no DOM');
+        }
+    })();
+    
     // 🎯 FIX: Ocultar botão "Pedir ajuda à IA" e texto de ajuda NO MODO REFERÊNCIA
     const currentModeForUI = analysis?.mode || window.currentAnalysisMode || 'genre';
     const btnAskAI = document.getElementById('btnAskAI');
@@ -18294,6 +18322,14 @@ async function displayModalResults(analysis) {
             if (analysis.scores && window.buildDiagnosticContext) {
                 console.log('[RENDER_DIAGNOSTIC] 🧠 Iniciando construção do diagnóstico');
                 
+                // 🔍 LOG TEMPORÁRIO - AUDITORIA TEXTO IA
+                console.group('🔍 [AUDIT-AI-TEXT] Verificação de dados para diagnóstico');
+                console.log('analysis.scores:', analysis.scores);
+                console.log('analysis.scores.metricEvaluations existe?', !!analysis.scores.metricEvaluations);
+                console.log('analysis.scores.subscores:', analysis.scores.subscores);
+                console.log('analysis.scores._frequencyDetails:', analysis.scores._frequencyDetails);
+                console.groupEnd();
+                
                 // Construir metadados da análise para contexto
                 const analysisMeta = {
                     mode: analysis.mode || 'streaming',
@@ -18303,6 +18339,11 @@ async function displayModalResults(analysis) {
                 
                 // Renderizar diagnóstico
                 renderDiagnostic(analysis.scores, analysisMeta);
+            } else {
+                console.warn('[RENDER_DIAGNOSTIC] ⚠️ Não foi possível renderizar diagnóstico:', {
+                    hasScores: !!analysis.scores,
+                    hasBuildDiagnosticContext: !!window.buildDiagnosticContext
+                });
             }
         }, 500); // Delay para sincronizar com animação do score
 
@@ -26206,6 +26247,7 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         console.log('✅ [V3.5] Score calculado pelo sistema unificado:', v3Result);
         
         // Mapear resultado V3 para formato esperado pelo sistema antigo
+        // 🎯 V4.1: INCLUIR metricEvaluations PARA buildDiagnosticContext
         const result = {
             final: v3Result.final,
             finalRaw: v3Result.raw,
@@ -26219,7 +26261,12 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
             _v3Result: v3Result, // Resultado completo para debug
             _gatesTriggered: v3Result.gateReasons,
             _gatePenalty: v3Result.gatePenalty,
-            metricScores: v3Result.metricScores
+            metricScores: v3Result.metricScores,
+            // 🎯 V4.1: Dados necessários para buildDiagnosticContext
+            metricEvaluations: v3Result.metricEvaluations,
+            subscores: v3Result.subscores,
+            gatesTriggered: v3Result.gatesTriggered,
+            _frequencyDetails: v3Result._frequencyDetails
         };
         
         // 🎯 LOG DE AUDITORIA: Verificar subscores após correção
@@ -31409,6 +31456,9 @@ function injectCorrectionPlanStyles() {
  * 🔥 Handler para gerar o Plano de Correção (função global)
  */
 async function handleGenerateCorrectionPlan() {
+    console.log('[CORRECTION-PLAN] 🚀 handleGenerateCorrectionPlan() INICIADO!');
+    alert('DEBUG: Função handleGenerateCorrectionPlan executada!'); // DEBUG TEMPORÁRIO
+    
     const btn = document.getElementById('btnGenerateCorrectionPlan');
     
     if (!btn) {
@@ -31416,10 +31466,18 @@ async function handleGenerateCorrectionPlan() {
         return;
     }
     
+    console.log('[CORRECTION-PLAN] ✅ Botão encontrado:', btn);
+    
     // Obter análise atual
     const analysis = window.__CURRENT_ANALYSIS__ || 
                      window.currentModalAnalysis || 
                      window.__soundyAI?.analysis;
+    
+    console.log('[CORRECTION-PLAN] 📊 Análise encontrada:', !!analysis, {
+        __CURRENT_ANALYSIS__: !!window.__CURRENT_ANALYSIS__,
+        currentModalAnalysis: !!window.currentModalAnalysis,
+        __soundyAI_analysis: !!window.__soundyAI?.analysis
+    });
     
     if (!analysis) {
         showCorrectionPlanError('Nenhuma análise encontrada. Analise uma música primeiro.');
@@ -31429,6 +31487,12 @@ async function handleGenerateCorrectionPlan() {
     // Verificar autenticação Firebase (múltiplos caminhos)
     const firebaseAuth = window.firebase?.auth?.() || window.auth;
     const user = firebaseAuth?.currentUser;
+    
+    console.log('[CORRECTION-PLAN] 🔐 Auth check:', {
+        hasFirebaseAuth: !!firebaseAuth,
+        hasUser: !!user,
+        userEmail: user?.email
+    });
     
     if (!user) {
         showCorrectionPlanError('Você precisa estar logado para gerar um plano.');
