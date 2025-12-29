@@ -581,6 +581,16 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // ===== Spectral Uniformity =====
   // 🔧 CORREÇÃO AUDITORIA DSP 2025-12-29: Restaurar export com valor agregado corrigido
   // Problema anterior: cálculo usava apenas 1º frame FFT, agora usa agregação de todos frames
+  
+  // 🔍 DEBUG CRÍTICO: Log do que está chegando de coreMetrics
+  console.log('[UNIFORMITY_V2] 🔍 coreMetrics.spectralUniformity recebido:', {
+    hasSpectralUniformity: !!coreMetrics.spectralUniformity,
+    type: typeof coreMetrics.spectralUniformity,
+    value: coreMetrics.spectralUniformity,
+    uniformityPercent: coreMetrics.spectralUniformity?.uniformityPercent,
+    aggregation: coreMetrics.spectralUniformity?.aggregation
+  });
+  
   if (coreMetrics.spectralUniformity) {
     const su = coreMetrics.spectralUniformity;
     

@@ -31326,9 +31326,9 @@ console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesPro
 /**
  * 🆕 MAPEAMENTO DE MÉTRICAS PARA CATEGORIAS
  * Usado para agrupar problemas corretamente no plano de correção
- * ⚠️ IMPORTANTE: Declarado ANTES das funções que o utilizam para evitar hoisting issues
+ * ⚠️ DEFINIDO EM WINDOW PARA GARANTIR DISPONIBILIDADE GLOBAL
  */
-const METRIC_CATEGORY_MAP = {
+window.METRIC_CATEGORY_MAP = {
     // LOUDNESS
     'LUFS': 'loudness',
     'Loudness': 'loudness',
@@ -31373,14 +31373,16 @@ const METRIC_CATEGORY_MAP = {
 
 /**
  * 🔧 Detecta a categoria de uma métrica pelo nome
+ * Usa window.METRIC_CATEGORY_MAP para garantir acesso global
  */
 function detectMetricCategory(metricName) {
     if (!metricName) return 'other';
     
     const normalized = metricName.toLowerCase();
+    const categoryMap = window.METRIC_CATEGORY_MAP || {};
     
     // Tentar match exato primeiro
-    for (const [key, category] of Object.entries(METRIC_CATEGORY_MAP)) {
+    for (const [key, category] of Object.entries(categoryMap)) {
         if (normalized.includes(key.toLowerCase())) {
             return category;
         }
