@@ -73,12 +73,16 @@
    🌐 BASE
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-body {
+html, body {
   font-family: var(--font-sans);
   background: var(--plan-bg);
   color: var(--plan-text);
   line-height: 1.6;
   min-height: 100vh;
+  /* 🔧 FIX: Garantir scroll funcional */
+  overflow-x: hidden;
+  overflow-y: auto !important;
+  height: auto !important;
 }
 
 * {
