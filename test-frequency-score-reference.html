@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: Score de Frequência (Modo Reference)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0f1a;
+            color: #e0e6f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ff88;
+            border-bottom: 2px solid #00ff88;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #60a5fa;
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .pass {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+        }
+        .fail {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }
+        .info {
+            background: rgba(96, 165, 250, 0.1);
+            border: 1px solid #60a5fa;
+            color: #60a5fa;
+        }
+        button {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            transform: scale(1.02);
+        }
+        .summary {
+            background: #1a1f2e;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        .summary h3 {
+            color: #fbbf24;
+            margin-top: 0;
+        }
+        pre {
+            background: #0d1117;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 2px;
+        }
+        .badge-critica { background: #ff4444; color: white; }
+        .badge-alta { background: #ff9800; color: white; }
+        .badge-atencao { background: #ffc107; color: black; }
+        .badge-ok { background: #00ff88; color: black; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste: Score de Frequência Corrigido (Modo Reference)</h1>
+        
+        <div class="test-section">
+            <h2>📋 Objetivo do Teste</h2>
+            <p>Validar que o novo cálculo de <code>calculateFrequencyScoreReference</code> penaliza corretamente bandas fora do range, baseado nas <strong>severidades</strong> (CRÍTICA/ALTA/ATENÇÃO/OK).</p>
+            <ul>
+                <li>✅ Todas OK → Score 100</li>
+                <li>✅ 2 CRÍTICAS, 2 ATENÇÃO, 4 OK → Score ~70-75</li>
+                <li>✅ Todas CRÍTICAS → Score ~0-20</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🔬 Executar Testes</h2>
+            <button onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+            <button onclick="testCase1()">✅ Caso 1: Todas OK</button>
+            <button onclick="testCase2()">⚠️ Caso 2: Mix de severidades</button>
+            <button onclick="testCase3()">🚨 Caso 3: Todas CRÍTICAS</button>
+            <button onclick="testCase4()">📊 Caso 4: Gradual</button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="summary" id="summary" style="display:none;">
+            <h3>📊 Resumo Final</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Copiar a função corrigida para teste
+        function calculateFrequencyScoreReference(bandsA, bandsB) {
+            console.log('[FREQ-SCORE-REF] 🎵 Calculando score de frequência em modo reference (A vs B) - VERSÃO CORRIGIDA');
+            
+            if (!bandsA || !bandsB) {
+                console.warn('[FREQ-SCORE-REF] ⚠️ Bandas ausentes:', { hasA: !!bandsA, hasB: !!bandsB });
+                return null;
+            }
+            
+            const bandKeys = ['sub', 'bass', 'low_mid', 'lowMid', 'mid', 'high_mid', 'highMid', 'presence', 'air'];
+            const aliases = {
+                'low_mid': 'lowMid',
+                'high_mid': 'highMid',
+                'brilho': 'air',
+                'presenca': 'presence'
+            };
+            
+            const bandsData = [];
+            const processedKeys = new Set();
+            
+            for (const key of bandKeys) {
+                const canonicalKey = aliases[key] || key;
+                if (processedKeys.has(canonicalKey)) continue;
+                
+                let valueA = null;
+                if (bandsA[key] !== undefined) {
+                    valueA = typeof bandsA[key] === 'object' ? 
+                             (bandsA[key].energy_db ?? bandsA[key].rms_db ?? bandsA[key].value) : 
+                             bandsA[key];
+                }
+                
+                let valueB = null;
+                if (bandsB[key] !== undefined) {
+                    valueB = typeof bandsB[key] === 'object' ? 
+                             (bandsB[key].energy_db ?? bandsB[key].rms_db ?? bandsB[key].value) : 
+                             bandsB[key];
+                }
+                
+                if (Number.isFinite(valueA) && Number.isFinite(valueB)) {
+                    const absDelta = Math.abs(valueA - valueB);
+                    
+                    let severity = 'OK';
+                    if (absDelta >= 4.0) {
+                        severity = 'CRÍTICA';
+                    } else if (absDelta >= 2.5) {
+                        severity = 'ALTA';
+                    } else if (absDelta >= 1.5) {
+                        severity = 'ATENÇÃO';
+                    }
+                    
+                    bandsData.push({
+                        key: canonicalKey,
+                        valueA,
+                        valueB,
+                        delta: absDelta,
+                        severity
+                    });
+                    
+                    processedKeys.add(canonicalKey);
+                }
+            }
+            
+            if (bandsData.length === 0) {
+                return null;
+            }
+            
+            const baseScore = 100;
+            const penaltyMap = {
+                'CRÍTICA': 20,
+                'ALTA': 10,
+                'ATENÇÃO': 5,
+                'OK': 0
+            };
+            
+            const severityCounts = {
+                'CRÍTICA': 0,
+                'ALTA': 0,
+                'ATENÇÃO': 0,
+                'OK': 0
+            };
+            
+            let totalPenalty = 0;
+            
+            for (const band of bandsData) {
+                const penalty = penaltyMap[band.severity] || 0;
+                totalPenalty += penalty;
+                severityCounts[band.severity]++;
+            }
+            
+            const maxPossiblePenalty = bandsData.length * 20;
+            const normalizedPenalty = (totalPenalty / maxPossiblePenalty) * 100;
+            const rawScore = baseScore - normalizedPenalty;
+            const score = Math.max(0, Math.min(100, Math.round(rawScore)));
+            
+            return {
+                score,
+                bandsData,
+                severityCounts,
+                totalPenalty,
+                maxPossiblePenalty,
+                normalizedPenalty
+            };
+        }
+
+        function addResult(container, pass, message, details = null) {
+            const div = document.createElement('div');
+            div.className = `test-result ${pass ? 'pass' : 'fail'}`;
+            div.innerHTML = `${pass ? '✅' : '❌'} ${message}`;
+            if (details) {
+                div.innerHTML += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            container.appendChild(div);
+            return pass;
+        }
+
+        function addInfo(container, message, details = null) {
+            const div = document.createElement('div');
+            div.className = 'test-result info';
+            div.innerHTML = `ℹ️ ${message}`;
+            if (details) {
+                div.innerHTML += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            container.appendChild(div);
+        }
+
+        let testResults = { passed: 0, failed: 0 };
+
+        function testCase1() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>✅ Caso 1: Todas OK (diferenças < 1.5 dB)</h2>';
+
+            const bandsA = {
+                sub: { energy_db: -18.5 },
+                bass: { energy_db: -12.3 },
+                lowMid: { energy_db: -8.7 },
+                mid: { energy_db: -5.2 },
+                highMid: { energy_db: -6.8 },
+                presence: { energy_db: -12.4 },
+                air: { energy_db: -22.1 }
+            };
+
+            const bandsB = {
+                sub: { energy_db: -18.0 },
+                bass: { energy_db: -12.0 },
+                lowMid: { energy_db: -8.5 },
+                mid: { energy_db: -5.0 },
+                highMid: { energy_db: -7.0 },
+                presence: { energy_db: -12.0 },
+                air: { energy_db: -22.0 }
+            };
+
+            const result = calculateFrequencyScoreReference(bandsA, bandsB);
+            
+            addInfo(container, `Score calculado: ${result.score}`, result.severityCounts);
+
+            if (addResult(container, result.score === 100, `Score deve ser 100 (todas OK)`, { scoreReal: result.score })) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, result.severityCounts.OK === 7, `Todas 7 bandas devem ser OK`, result.severityCounts)) testResults.passed++;
+            else testResults.failed++;
+        }
+
+        function testCase2() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>⚠️ Caso 2: Mix de severidades</h2>';
+
+            const bandsA = {
+                sub: { energy_db: -18.5 },    // OK (diff 0.3)
+                bass: { energy_db: -12.3 },   // CRÍTICA (diff 5.3)
+                lowMid: { energy_db: -8.7 },  // CRÍTICA (diff 4.2)
+                mid: { energy_db: -5.2 },     // ATENÇÃO (diff 2.2)
+                highMid: { energy_db: -6.8 }, // ATENÇÃO (diff 2.0)
+                presence: { energy_db: -12.4 },// OK (diff 0.4)
+                air: { energy_db: -22.1 }     // OK (diff 1.1)
+            };
+
+            const bandsB = {
+                sub: { energy_db: -18.2 },
+                bass: { energy_db: -7.0 },
+                lowMid: { energy_db: -4.5 },
+                mid: { energy_db: -3.0 },
+                highMid: { energy_db: -4.8 },
+                presence: { energy_db: -12.0 },
+                air: { energy_db: -21.0 }
+            };
+
+            const result = calculateFrequencyScoreReference(bandsA, bandsB);
+            
+            addInfo(container, `Score calculado: ${result.score}`, {
+                severityCounts: result.severityCounts,
+                totalPenalty: result.totalPenalty,
+                maxPossiblePenalty: result.maxPossiblePenalty
+            });
+
+            const badges = document.createElement('div');
+            badges.innerHTML = '<strong>Severidades detectadas:</strong><br>';
+            for (const band of result.bandsData) {
+                const badge = document.createElement('span');
+                badge.className = `badge badge-${band.severity.toLowerCase()}`;
+                badge.textContent = `${band.key}: ${band.severity} (Δ${band.delta.toFixed(1)}dB)`;
+                badges.appendChild(badge);
+            }
+            container.appendChild(badges);
+
+            // Score esperado: 2 CRÍTICAS (40 pontos) + 2 ATENÇÃO (10 pontos) + 3 OK (0) = 50 de 140 máx = ~64%
+            const expectedMin = 60;
+            const expectedMax = 75;
+            if (addResult(container, result.score >= expectedMin && result.score <= expectedMax, 
+                         `Score deve estar entre ${expectedMin}-${expectedMax}% (mix de severidades)`, 
+                         { scoreReal: result.score })) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, result.severityCounts.CRÍTICA === 2, `Deve ter 2 CRÍTICAS`, result.severityCounts)) testResults.passed++;
+            else testResults.failed++;
+        }
+
+        function testCase3() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>🚨 Caso 3: Todas CRÍTICAS (diferenças >= 4.0 dB)</h2>';
+
+            const bandsA = {
+                sub: { energy_db: -18.5 },
+                bass: { energy_db: -12.3 },
+                lowMid: { energy_db: -8.7 },
+                mid: { energy_db: -5.2 },
+                highMid: { energy_db: -6.8 },
+                presence: { energy_db: -12.4 },
+                air: { energy_db: -22.1 }
+            };
+
+            const bandsB = {
+                sub: { energy_db: -12.0 },    // diff 6.5
+                bass: { energy_db: -6.0 },    // diff 6.3
+                lowMid: { energy_db: -3.0 },  // diff 5.7
+                mid: { energy_db: -1.0 },     // diff 4.2
+                highMid: { energy_db: -2.0 }, // diff 4.8
+                presence: { energy_db: -7.0 },// diff 5.4
+                air: { energy_db: -16.0 }     // diff 6.1
+            };
+
+            const result = calculateFrequencyScoreReference(bandsA, bandsB);
+            
+            addInfo(container, `Score calculado: ${result.score}`, result.severityCounts);
+
+            // Score esperado: 7 CRÍTICAS (140 pontos) de 140 máx = 0%
+            if (addResult(container, result.score <= 10, `Score deve ser próximo de 0% (todas CRÍTICAS)`, { scoreReal: result.score })) testResults.passed++;
+            else testResults.failed++;
+
+            if (addResult(container, result.severityCounts.CRÍTICA === 7, `Todas 7 bandas devem ser CRÍTICAS`, result.severityCounts)) testResults.passed++;
+            else testResults.failed++;
+        }
+
+        function testCase4() {
+            const container = document.getElementById('results');
+            container.innerHTML = '<h2>📊 Caso 4: Distribuição Gradual</h2>';
+
+            const bandsA = {
+                sub: { energy_db: -18.5 },    // CRÍTICA (diff 5.5)
+                bass: { energy_db: -12.3 },   // ALTA (diff 3.3)
+                lowMid: { energy_db: -8.7 },  // ATENÇÃO (diff 2.2)
+                mid: { energy_db: -5.2 },     // ATENÇÃO (diff 1.7)
+                highMid: { energy_db: -6.8 }, // OK (diff 0.8)
+                presence: { energy_db: -12.4 },// OK (diff 0.4)
+                air: { energy_db: -22.1 }     // OK (diff 0.1)
+            };
+
+            const bandsB = {
+                sub: { energy_db: -13.0 },
+                bass: { energy_db: -9.0 },
+                lowMid: { energy_db: -6.5 },
+                mid: { energy_db: -3.5 },
+                highMid: { energy_db: -6.0 },
+                presence: { energy_db: -12.0 },
+                air: { energy_db: -22.0 }
+            };
+
+            const result = calculateFrequencyScoreReference(bandsA, bandsB);
+            
+            addInfo(container, `Score calculado: ${result.score}`, {
+                severityCounts: result.severityCounts,
+                totalPenalty: result.totalPenalty,
+                maxPossiblePenalty: result.maxPossiblePenalty
+            });
+
+            const badges = document.createElement('div');
+            badges.innerHTML = '<strong>Distribuição:</strong><br>';
+            for (const [sev, count] of Object.entries(result.severityCounts)) {
+                if (count > 0) {
+                    const badge = document.createElement('span');
+                    badge.className = `badge badge-${sev.toLowerCase()}`;
+                    badge.textContent = `${sev}: ${count}x`;
+                    badges.appendChild(badge);
+                }
+            }
+            container.appendChild(badges);
+
+            // Score esperado: 1 CRÍTICA (20) + 1 ALTA (10) + 2 ATENÇÃO (10) + 3 OK (0) = 40 de 140 máx = ~71%
+            const expectedMin = 65;
+            const expectedMax = 80;
+            if (addResult(container, result.score >= expectedMin && result.score <= expectedMax, 
+                         `Score deve estar entre ${expectedMin}-${expectedMax}% (distribuição gradual)`, 
+                         { scoreReal: result.score })) testResults.passed++;
+            else testResults.failed++;
+        }
+
+        function runAllTests() {
+            testResults = { passed: 0, failed: 0 };
+            
+            testCase1();
+            const divider1 = document.createElement('hr');
+            document.getElementById('results').appendChild(divider1);
+            
+            testCase2();
+            const divider2 = document.createElement('hr');
+            document.getElementById('results').appendChild(divider2);
+            
+            testCase3();
+            const divider3 = document.createElement('hr');
+            document.getElementById('results').appendChild(divider3);
+            
+            testCase4();
+
+            const summary = document.getElementById('summary');
+            const summaryContent = document.getElementById('summaryContent');
+            summary.style.display = 'block';
+            
+            const total = testResults.passed + testResults.failed;
+            const passRate = ((testResults.passed / total) * 100).toFixed(1);
+            
+            summaryContent.innerHTML = `
+                <div style="font-size: 24px; margin-bottom: 15px;">
+                    ${passRate >= 100 ? '🎉' : passRate >= 80 ? '✅' : '⚠️'} ${passRate}% de sucesso
+                </div>
+                <div style="display: flex; gap: 20px;">
+                    <div class="test-result pass" style="flex:1; text-align:center;">
+                        <strong>${testResults.passed}</strong> passou
+                    </div>
+                    <div class="test-result fail" style="flex:1; text-align:center;">
+                        <strong>${testResults.failed}</strong> falhou
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding: 10px; background: #0d1117; border-radius: 8px;">
+                    <strong>Conclusão:</strong><br>
+                    ${passRate >= 100 
+                        ? '✅ Todos os testes passaram! O cálculo de score está correto.' 
+                        : passRate >= 80
+                            ? '⚠️ A maioria dos testes passou, mas alguns ajustes podem ser necessários.'
+                            : '❌ Há problemas significativos que precisam ser corrigidos.'
+                    }
+                </div>
+            `;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Página de teste carregada');
+        });
+    </script>
+</body>
+</html>
