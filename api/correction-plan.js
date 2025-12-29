@@ -14,9 +14,12 @@
  * - Fallback em caso de erro
  */
 
-// 🔥 Firebase Admin - usar módulo local que já existe
-import { auth, db } from './firebaseAdmin.js';
+// 🔥 Firebase Admin - usar módulo global (funciona via server.js da raiz)
+import { getAuth, getFirestore } from '../firebase/admin.js';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+
+const auth = getAuth();
+const db = getFirestore();
 import cors from 'cors';
 import OpenAI from 'openai';
 
