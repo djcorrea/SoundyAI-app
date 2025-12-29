@@ -1,0 +1,533 @@
+/**
+ * 🎯 CORRECTION PLAN API ENDPOINT
+ * 
+ * Gera planos de correção personalizados usando GPT-4o mini
+ * baseados na análise do SoundyAI.
+ * 
+ * POST /api/correction-plan
+ * 
+ * Features:
+ * - Validação de autenticação Firebase
+ * - Controle de plano (Free/Plus/Pro)
+ * - Rate limiting específico
+ * - Cache de respostas (Firestore)
+ * - Fallback em caso de erro
+ */
+
+import { getAuth, getFirestore } from '../firebase/admin.js';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import cors from 'cors';
+import OpenAI from 'openai';
+
+import {
+  CORRECTION_PLAN_SYSTEM_PROMPT,
+  buildCorrectionPlanPrompt,
+  validateAndParseResponse
+} from './helpers/correction-plan-prompt.js';
+
+import {
+  getOrCreateUser,
+  getUserPlanInfo
+} from '../work/lib/user/userPlans.js';
+
+const auth = getAuth();
+const db = getFirestore();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔧 CONFIGURAÇÃO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const COLLECTION_CORRECTION_PLANS = 'correction_plans';
+
+// Limites por plano (planos/mês)
+const PLAN_LIMITS = {
+  free: 1,
+  plus: 10,
+  pro: 50 // Hard cap anti-abuse
+};
+
+// Rate limit (requisições por hora)
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hora
+const MAX_REQUESTS_PER_HOUR = 5;
+
+// OpenAI config
+const OPENAI_MODEL = 'gpt-4o-mini';
+const MAX_TOKENS = 1500;
+const TEMPERATURE = 0.3;
+
+// Cache de rate limiting em memória
+const userRequestCount = new Map();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔒 CORS MIDDLEWARE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const corsMiddleware = cors({
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://soundyai-app-production.up.railway.app',
+      'http://localhost:3000',
+      'http://localhost:5500',
+      'http://127.0.0.1:5500',
+      'http://127.0.0.1:3000'
+    ];
+    
+    const allowedPatterns = [
+      /^https:\/\/ai-synth[a-z0-9\-]*\.vercel\.app$/,
+      /^https:\/\/prod-ai[a-z0-9\-]*\.vercel\.app$/
+    ];
+    
+    if (!origin || 
+        allowedOrigins.includes(origin) ||
+        allowedPatterns.some(p => p.test(origin)) ||
+        origin.startsWith('file://')) {
+      callback(null, true);
+    } else {
+      console.log('[CORRECTION-PLAN] CORS blocked:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+});
+
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) {
+        return reject(result);
+      }
+      return resolve(result);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🛡️ FUNÇÕES DE SEGURANÇA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Verifica rate limit por usuário
+ */
+function checkRateLimit(uid) {
+  const now = Date.now();
+  const userRequests = userRequestCount.get(uid) || [];
+  
+  // Remover requests antigos
+  const validRequests = userRequests.filter(t => now - t < RATE_LIMIT_WINDOW);
+  
+  if (validRequests.length >= MAX_REQUESTS_PER_HOUR) {
+    console.warn(`[CORRECTION-PLAN] Rate limit excedido: ${uid}`);
+    return false;
+  }
+  
+  validRequests.push(now);
+  userRequestCount.set(uid, validRequests);
+  
+  return true;
+}
+
+/**
+ * Verifica limite mensal de planos gerados
+ */
+async function checkMonthlyLimit(uid, plan) {
+  const limit = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+  
+  // Contar planos gerados este mês
+  const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
+    .where('userId', '==', uid)
+    .where('billingMonth', '==', currentMonth)
+    .count()
+    .get();
+  
+  const count = snapshot.data().count;
+  
+  if (count >= limit) {
+    console.warn(`[CORRECTION-PLAN] Limite mensal atingido: ${uid} (${count}/${limit})`);
+    return { allowed: false, current: count, limit };
+  }
+  
+  return { allowed: true, current: count, limit };
+}
+
+/**
+ * Verifica se existe plano em cache para mesma análise
+ */
+async function getCachedPlan(analysisId, uid) {
+  const snapshot = await db.collection(COLLECTION_CORRECTION_PLANS)
+    .where('analysisId', '==', analysisId)
+    .where('userId', '==', uid)
+    .orderBy('generatedAt', 'desc')
+    .limit(1)
+    .get();
+  
+  if (!snapshot.empty) {
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    
+    // Cache válido por 24 horas
+    const age = Date.now() - data.generatedAt.toDate().getTime();
+    if (age < 24 * 60 * 60 * 1000) {
+      console.log(`[CORRECTION-PLAN] Cache hit para análise: ${analysisId}`);
+      return { id: doc.id, ...data };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Sanitiza inputs do usuário
+ */
+function sanitizeInput(data) {
+  const {
+    analysisId,
+    problems = [],
+    userProfile = {},
+    genreTargets = {},
+    analysisMetrics = {},
+    plan = 'free'
+  } = data;
+  
+  // Validar analysisId
+  if (!analysisId || typeof analysisId !== 'string') {
+    throw new Error('INVALID_ANALYSIS_ID');
+  }
+  
+  // Sanitizar problems
+  const sanitizedProblems = problems
+    .filter(p => p && typeof p === 'object')
+    .slice(0, 20) // Máximo 20 problemas
+    .map(p => ({
+      id: String(p.id || p.type || '').slice(0, 100),
+      severity: String(p.severity || 'média').slice(0, 20),
+      value: p.value ?? p.currentValue ?? null,
+      target: p.target ?? p.targetValue ?? null
+    }));
+  
+  // Sanitizar userProfile
+  const sanitizedProfile = {
+    daw: String(userProfile.daw || '').slice(0, 50),
+    level: String(userProfile.level || userProfile.nivelTecnico || 'iniciante').slice(0, 30),
+    genre: String(userProfile.genre || userProfile.estilo || '').slice(0, 50),
+    dificuldade: String(userProfile.dificuldade || '').slice(0, 200)
+  };
+  
+  // Sanitizar genreTargets
+  const sanitizedTargets = {
+    lufs: genreTargets.lufs ?? null,
+    true_peak: genreTargets.true_peak ?? genreTargets.tp ?? null,
+    dr: genreTargets.dr ?? null,
+    lra: genreTargets.lra ?? null
+  };
+  
+  // Sanitizar analysisMetrics
+  const sanitizedMetrics = {
+    lufsIntegrated: analysisMetrics.lufsIntegrated ?? null,
+    truePeakDbtp: analysisMetrics.truePeakDbtp ?? null,
+    dynamicRange: analysisMetrics.dynamicRange ?? null,
+    lra: analysisMetrics.lra ?? null,
+    crestFactor: analysisMetrics.crestFactor ?? null,
+    stereoCorrelation: analysisMetrics.stereoCorrelation ?? null
+  };
+  
+  // Validar plano
+  const validPlans = ['free', 'plus', 'pro'];
+  const sanitizedPlan = validPlans.includes(plan) ? plan : 'free';
+  
+  return {
+    analysisId,
+    problems: sanitizedProblems,
+    userProfile: sanitizedProfile,
+    genreTargets: sanitizedTargets,
+    analysisMetrics: sanitizedMetrics,
+    plan: sanitizedPlan
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🤖 FUNÇÃO DE GERAÇÃO DO PLANO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Chama GPT-4o mini para gerar o plano
+ */
+async function generatePlanWithAI(sanitizedData) {
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+  
+  const userPrompt = buildCorrectionPlanPrompt(sanitizedData);
+  
+  console.log('[CORRECTION-PLAN] Chamando GPT-4o mini...');
+  console.log('[CORRECTION-PLAN] Problemas:', sanitizedData.problems.length);
+  console.log('[CORRECTION-PLAN] DAW:', sanitizedData.userProfile.daw);
+  console.log('[CORRECTION-PLAN] Nível:', sanitizedData.userProfile.level);
+  
+  const startTime = Date.now();
+  
+  try {
+    const response = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        { role: 'system', content: CORRECTION_PLAN_SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt }
+      ],
+      max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
+      response_format: { type: 'json_object' }
+    });
+    
+    const elapsed = Date.now() - startTime;
+    const content = response.choices[0]?.message?.content;
+    const usage = response.usage;
+    
+    console.log(`[CORRECTION-PLAN] ✅ Resposta recebida em ${elapsed}ms`);
+    console.log(`[CORRECTION-PLAN] Tokens: ${usage?.total_tokens || 'N/A'}`);
+    
+    // Validar e parsear resposta
+    const parsed = validateAndParseResponse(content);
+    
+    if (!parsed.success) {
+      console.error('[CORRECTION-PLAN] Erro ao parsear:', parsed.error);
+      return {
+        success: false,
+        data: parsed.fallback,
+        usage,
+        elapsed,
+        fallbackUsed: true
+      };
+    }
+    
+    return {
+      success: true,
+      data: parsed.data,
+      usage,
+      elapsed,
+      fallbackUsed: false
+    };
+    
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] Erro OpenAI:', error.message);
+    
+    // Retornar fallback
+    const fallback = validateAndParseResponse(null).fallback;
+    return {
+      success: false,
+      data: fallback,
+      error: error.message,
+      elapsed: Date.now() - startTime,
+      fallbackUsed: true
+    };
+  }
+}
+
+/**
+ * Salva o plano no Firestore
+ */
+async function savePlanToFirestore(uid, sanitizedData, planResult) {
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  
+  const docData = {
+    userId: uid,
+    analysisId: sanitizedData.analysisId,
+    plan: sanitizedData.plan,
+    billingMonth: currentMonth,
+    generatedAt: Timestamp.now(),
+    
+    // Dados usados na geração
+    input: {
+      problemsCount: sanitizedData.problems.length,
+      problems: sanitizedData.problems.map(p => p.id),
+      userProfile: sanitizedData.userProfile,
+      genreTargets: sanitizedData.genreTargets
+    },
+    
+    // Resultado
+    response: planResult.data,
+    stepsCount: planResult.data.steps?.length || 0,
+    
+    // Metadata
+    model: OPENAI_MODEL,
+    tokensUsed: planResult.usage?.total_tokens || null,
+    generationTimeMs: planResult.elapsed,
+    fallbackUsed: planResult.fallbackUsed || false
+  };
+  
+  const docRef = await db.collection(COLLECTION_CORRECTION_PLANS).add(docData);
+  
+  console.log(`[CORRECTION-PLAN] Plano salvo: ${docRef.id}`);
+  
+  return docRef.id;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📡 HANDLER PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export default async function handler(req, res) {
+  console.log('\n[CORRECTION-PLAN] ═══════════════════════════════════════════');
+  console.log('[CORRECTION-PLAN] Nova requisição:', req.method);
+  
+  // CORS
+  try {
+    await runMiddleware(req, res, corsMiddleware);
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] CORS error:', error.message);
+    return res.status(403).json({ error: 'CORS_BLOCKED' });
+  }
+  
+  // OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  // Apenas POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
+  }
+  
+  try {
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. AUTENTICAÇÃO
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[CORRECTION-PLAN] Token ausente');
+      return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Token de autenticação ausente' });
+    }
+    
+    const idToken = authHeader.split('Bearer ')[1];
+    
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(idToken);
+    } catch (authError) {
+      console.error('[CORRECTION-PLAN] Token inválido:', authError.message);
+      return res.status(401).json({ error: 'INVALID_TOKEN', message: 'Token de autenticação inválido' });
+    }
+    
+    const uid = decodedToken.uid;
+    console.log(`[CORRECTION-PLAN] Usuário autenticado: ${uid}`);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. BUSCAR PLANO DO USUÁRIO
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const userInfo = await getUserPlanInfo(uid);
+    const userPlan = userInfo.plan || 'free';
+    console.log(`[CORRECTION-PLAN] Plano do usuário: ${userPlan}`);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. RATE LIMITING
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    if (!checkRateLimit(uid)) {
+      return res.status(429).json({
+        error: 'RATE_LIMIT_EXCEEDED',
+        message: 'Muitas requisições. Tente novamente em alguns minutos.',
+        retryAfter: 3600
+      });
+    }
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 4. LIMITE MENSAL
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const monthlyCheck = await checkMonthlyLimit(uid, userPlan);
+    if (!monthlyCheck.allowed) {
+      return res.status(403).json({
+        error: 'MONTHLY_LIMIT_REACHED',
+        message: `Limite de ${monthlyCheck.limit} planos/mês atingido para o plano ${userPlan.toUpperCase()}.`,
+        current: monthlyCheck.current,
+        limit: monthlyCheck.limit,
+        upgrade: userPlan !== 'pro' ? 'Faça upgrade para gerar mais planos.' : null
+      });
+    }
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 5. SANITIZAR INPUT
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    let sanitizedData;
+    try {
+      sanitizedData = sanitizeInput({
+        ...req.body,
+        plan: userPlan // Forçar plano do servidor, não do cliente
+      });
+    } catch (inputError) {
+      console.error('[CORRECTION-PLAN] Input inválido:', inputError.message);
+      return res.status(400).json({
+        error: 'INVALID_INPUT',
+        message: inputError.message
+      });
+    }
+    
+    console.log(`[CORRECTION-PLAN] Análise: ${sanitizedData.analysisId}`);
+    console.log(`[CORRECTION-PLAN] Problemas: ${sanitizedData.problems.length}`);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 6. VERIFICAR CACHE
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const cachedPlan = await getCachedPlan(sanitizedData.analysisId, uid);
+    if (cachedPlan) {
+      console.log('[CORRECTION-PLAN] Retornando plano do cache');
+      return res.status(200).json({
+        success: true,
+        planId: cachedPlan.id,
+        plan: cachedPlan.response,
+        cached: true,
+        stepsCount: cachedPlan.stepsCount
+      });
+    }
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 7. GERAR PLANO COM IA
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const planResult = await generatePlanWithAI(sanitizedData);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 8. SALVAR NO FIRESTORE
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    const planId = await savePlanToFirestore(uid, sanitizedData, planResult);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 9. RETORNAR RESPOSTA
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    console.log('[CORRECTION-PLAN] ✅ Plano gerado com sucesso');
+    
+    return res.status(200).json({
+      success: true,
+      planId,
+      plan: planResult.data,
+      cached: false,
+      stepsCount: planResult.data.steps?.length || 0,
+      fallbackUsed: planResult.fallbackUsed,
+      metadata: {
+        model: OPENAI_MODEL,
+        tokensUsed: planResult.usage?.total_tokens || null,
+        generationTimeMs: planResult.elapsed,
+        monthlyUsage: {
+          current: monthlyCheck.current + 1,
+          limit: monthlyCheck.limit
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('[CORRECTION-PLAN] ❌ Erro não tratado:', error);
+    console.error('[CORRECTION-PLAN] Stack:', error.stack);
+    
+    return res.status(500).json({
+      error: 'INTERNAL_ERROR',
+      message: 'Erro interno ao gerar plano de correção. Tente novamente.'
+    });
+  }
+}

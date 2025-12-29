@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano de Correção - SoundyAI</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/plano.css">
+    
+    <!-- Preconnect para performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading State -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Carregando plano de correção...</p>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="errorState" class="error-state" style="display: none;">
+        <div class="error-content">
+            <div class="error-icon">❌</div>
+            <h2 class="error-title">Erro ao carregar plano</h2>
+            <p class="error-message" id="errorMessage">Ocorreu um erro inesperado.</p>
+            <div class="error-actions">
+                <button class="btn-primary" onclick="window.location.reload()">
+                    🔄 Tentar Novamente
+                </button>
+                <button class="btn-secondary" onclick="window.location.href='/index.html'">
+                    🏠 Voltar ao Início
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="plan-container" style="display: none;">
+        <!-- Header -->
+        <header class="plan-header">
+            <div class="header-top">
+                <a href="/index.html" class="back-link">
+                    ← Voltar para análise
+                </a>
+                <div class="plan-badge" id="planBadge">FREE</div>
+            </div>
+            <h1 class="plan-title">
+                <span class="title-icon">🚀</span>
+                Plano de Correção
+            </h1>
+            <p class="plan-subtitle" id="planSubtitle">Carregando...</p>
+        </header>
+
+        <!-- Intro Section -->
+        <section class="intro-section" id="introSection">
+            <div class="intro-card">
+                <p class="intro-text" id="introText"></p>
+            </div>
+        </section>
+
+        <!-- Reanalysis Reminder (Top) -->
+        <section class="reanalysis-reminder top" id="reanalysisTop">
+            <div class="reminder-icon">⚠️</div>
+            <p class="reminder-text" id="reanalysisReminderTop">
+                Execute cada etapa e reanalize no SoundyAI antes de prosseguir.
+            </p>
+        </section>
+
+        <!-- Steps Section -->
+        <section class="steps-section" id="stepsSection">
+            <div class="steps-header">
+                <h2 class="steps-title">📋 Etapas de Correção</h2>
+                <div class="steps-legend">
+                    <span class="legend-item critical">🔴 CRÍTICO</span>
+                    <span class="legend-item high">🟡 ALTO</span>
+                    <span class="legend-item fine">🟢 FINO</span>
+                </div>
+            </div>
+            <div class="steps-list" id="stepsList">
+                <!-- Steps serão inseridas via JavaScript -->
+            </div>
+        </section>
+
+        <!-- Final Note -->
+        <section class="final-note-section" id="finalNoteSection">
+            <div class="final-note-card">
+                <div class="final-note-icon">🎯</div>
+                <p class="final-note-text" id="finalNoteText"></p>
+            </div>
+        </section>
+
+        <!-- Actions -->
+        <section class="actions-section">
+            <button class="btn-primary btn-large" onclick="window.location.href='/index.html'">
+                🔄 Nova Análise no SoundyAI
+            </button>
+            <button class="btn-secondary" onclick="window.print()">
+                🖨️ Imprimir Plano
+            </button>
+        </section>
+
+        <!-- Footer -->
+        <footer class="plan-footer">
+            <p class="footer-text">
+                Plano gerado por <strong>SoundyAI</strong> • 
+                <span id="generatedAt"></span>
+            </p>
+            <p class="footer-disclaimer">
+                Os ajustes são pontos de partida. Resultados finais dependem de reanálise iterativa.
+            </p>
+        </footer>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/firebase.js"></script>
+    <script src="/plano.js"></script>
+</body>
+</html>
