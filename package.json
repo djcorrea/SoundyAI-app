@@ -51,6 +51,7 @@
     "music-metadata": "^11.8.3",
     "music-tempo": "^1.0.3",
     "node-fetch": "^2.7.0",
+    "openai": "^4.104.0",
     "pg": "^8.16.3",
     "stripe": "^20.0.0"
   },

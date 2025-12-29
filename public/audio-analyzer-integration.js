@@ -31449,11 +31449,9 @@ async function handleGenerateCorrectionPlan() {
             problemsCount: payload.problems.length
         });
         
-        // URL da API
+        // URL da API - mesmo domínio (rota no server.js principal)
         const apiUrl = '/api/correction-plan';
-        console.log('[CORRECTION-PLAN] 🎯 URL exata da chamada:', apiUrl);
-        console.log('[CORRECTION-PLAN] 🌐 window.location.origin:', window.location.origin);
-        console.log('[CORRECTION-PLAN] 🔗 URL completa:', new URL(apiUrl, window.location.origin).href);
+        console.log('[CORRECTION-PLAN] 🎯 URL:', apiUrl);
         
         // Chamar API
         const response = await fetch(apiUrl, {
