@@ -588,6 +588,7 @@ export function getPlanFeatures(plan, analysisMode) {
       canSpectralAdvanced: true,
       canAiHelp: true,
       canPdf: true,
+      canCorrectionPlan: true,  // ✅ Plano de Correção ilimitado
     };
   }
 
@@ -599,6 +600,7 @@ export function getPlanFeatures(plan, analysisMode) {
       canSpectralAdvanced: false,
       canAiHelp: false,
       canPdf: false,
+      canCorrectionPlan: isFull,  // ✅ Plano de Correção em análise full
     };
   }
 
@@ -610,6 +612,7 @@ export function getPlanFeatures(plan, analysisMode) {
       canSpectralAdvanced: false,
       canAiHelp: true,  // ✅ LIBERADO NO TRIAL
       canPdf: true,     // ✅ LIBERADO NO TRIAL
+      canCorrectionPlan: true,  // ✅ Plano de Correção no trial (1/mês)
     };
   } else {
     console.log('🔒 [USER-PLANS] FREE REDUCED - Tudo bloqueado');
@@ -618,6 +621,20 @@ export function getPlanFeatures(plan, analysisMode) {
       canSpectralAdvanced: false,
       canAiHelp: false,
       canPdf: false,
+      canCorrectionPlan: false,  // 🔒 Bloqueado no modo reduced
     };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🎯 LIMITES DE PLANO DE CORREÇÃO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Limites mensais para geração de Planos de Correção
+ */
+export const CORRECTION_PLAN_LIMITS = {
+  free: 1,    // 1 plano/mês (preview)
+  plus: 10,   // 10 planos/mês
+  pro: 50     // 50 planos/mês (hard cap anti-abuse)
+};

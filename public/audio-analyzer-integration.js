@@ -23624,12 +23624,157 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         return Math.round(valid.reduce((sum, s) => sum + s, 0) / valid.length);
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 🎵 V3.7.1: CÁLCULO AVANÇADO DE SUBSCORE DE FREQUÊNCIA
+    // - Score individual por banda baseado em evaluateMetric
+    // - Pesos diferenciados por importância da banda
+    // - Gates de sanidade baseados em severidade
+    // ═══════════════════════════════════════════════════════════════════════════
+    function calculateFrequencySubscore() {
+        // Pesos por banda (total = 1.0)
+        // Sub e Bass são mais importantes para música eletrônica
+        const BAND_WEIGHTS = {
+            sub: 0.18,      // 18% - fundamental para eletrônica
+            bass: 0.18,     // 18% - fundamental para eletrônica  
+            lowMid: 0.14,   // 14% - corpo do som
+            mid: 0.16,      // 16% - presença principal
+            highMid: 0.14,  // 14% - clareza
+            presence: 0.10, // 10% - brilho
+            air: 0.10       // 10% - ar/abertura
+        };
+        
+        // Coletar avaliações válidas
+        const bandEvals = {};
+        let totalWeight = 0;
+        let weightedSum = 0;
+        let bandsWithScore = 0;
+        
+        // Contadores de severidade para gates
+        let criticalCount = 0;
+        let highCount = 0;
+        let attentionCount = 0;
+        
+        // Log detalhado
+        const bandDetails = [];
+        
+        for (const bandKey of BAND_KEYS) {
+            const eval_ = metricEvaluations[bandKey];
+            const weight = BAND_WEIGHTS[bandKey] || (1 / BAND_KEYS.length);
+            
+            if (eval_ && eval_.score !== null && eval_.score !== undefined) {
+                bandEvals[bandKey] = eval_;
+                weightedSum += eval_.score * weight;
+                totalWeight += weight;
+                bandsWithScore++;
+                
+                // Contar severidades
+                if (eval_.severity === 'CRÍTICA') criticalCount++;
+                else if (eval_.severity === 'ALTA') highCount++;
+                else if (eval_.severity === 'ATENÇÃO') attentionCount++;
+                
+                bandDetails.push({
+                    band: bandKey,
+                    score: eval_.score,
+                    severity: eval_.severity,
+                    weight: weight,
+                    contribution: (eval_.score * weight).toFixed(2)
+                });
+            }
+        }
+        
+        if (totalWeight === 0 || bandsWithScore === 0) {
+            if (DEBUG) {
+                console.log('📊 [FREQ-SUBSCORE] Nenhuma banda válida');
+            }
+            return null;
+        }
+        
+        // Score base ponderado
+        let rawScore = Math.round(weightedSum / totalWeight);
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🚨 GATES DE SANIDADE - Caps baseados em severidade
+        // ═══════════════════════════════════════════════════════════════════
+        let appliedCap = null;
+        let capReason = null;
+        
+        // Regra 1: 3+ bandas CRÍTICAS → cap 55
+        if (criticalCount >= 3) {
+            appliedCap = 55;
+            capReason = `${criticalCount} bandas CRÍTICAS`;
+        }
+        // Regra 2: 2 bandas CRÍTICAS → cap 70
+        else if (criticalCount >= 2) {
+            appliedCap = 70;
+            capReason = `${criticalCount} bandas CRÍTICAS`;
+        }
+        // Regra 3: 1 banda CRÍTICA → cap 85
+        else if (criticalCount >= 1) {
+            appliedCap = 85;
+            capReason = `${criticalCount} banda CRÍTICA`;
+        }
+        // Regra 4: 3+ bandas ALTA → cap 80
+        else if (highCount >= 3) {
+            appliedCap = 80;
+            capReason = `${highCount} bandas ALTA`;
+        }
+        // Regra 5: 2+ bandas ALTA → cap 88
+        else if (highCount >= 2) {
+            appliedCap = 88;
+            capReason = `${highCount} bandas ALTA`;
+        }
+        // Regra 6: 3+ bandas ATENÇÃO → cap 92
+        else if (attentionCount >= 3) {
+            appliedCap = 92;
+            capReason = `${attentionCount} bandas ATENÇÃO`;
+        }
+        
+        // Aplicar cap se necessário
+        const finalScore = appliedCap !== null ? Math.min(rawScore, appliedCap) : rawScore;
+        
+        // Log detalhado
+        if (DEBUG) {
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📊 [FREQ-SUBSCORE V3.7.1] Cálculo Detalhado');
+            console.log('═══════════════════════════════════════════════════════════');
+            console.table(bandDetails);
+            console.log('📊 Contagem de severidades:', {
+                CRÍTICA: criticalCount,
+                ALTA: highCount,
+                ATENÇÃO: attentionCount,
+                OK: bandsWithScore - criticalCount - highCount - attentionCount
+            });
+            console.log('📊 Score RAW (ponderado):', rawScore);
+            if (appliedCap !== null) {
+                console.log(`🚨 GATE APLICADO: Cap ${appliedCap} (${capReason})`);
+            }
+            console.log('📊 Score FINAL:', finalScore);
+            console.log('═══════════════════════════════════════════════════════════');
+        }
+        
+        return {
+            score: finalScore,
+            rawScore,
+            appliedCap,
+            capReason,
+            criticalCount,
+            highCount,
+            attentionCount,
+            bandDetails
+        };
+    }
+    
+    // Calcular subscore de frequência com o novo sistema
+    const freqResult = calculateFrequencySubscore();
+    
     const subScoresRaw = {
         loudness: avgValidScores(['lufs', 'rms']),
         technical: avgValidScores(['truePeak', 'samplePeak', 'clipping', 'dcOffset']),
         dynamics: avgValidScores(['dr', 'crest', 'lra']),
         stereo: avgValidScores(['correlation', 'width']),
-        frequency: avgValidScores(BAND_KEYS)
+        frequency: freqResult?.score ?? null,
+        // Metadados extras do frequency para debug
+        _frequencyDetails: freqResult
     };
     
     if (DEBUG) {
@@ -23710,6 +23855,35 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         }
     }
     
+    // 🎯 Gate #4: FREQUENCY - Bandas com severidade alta
+    // Este gate aplica cap adicional se os gates internos do calculateFrequencySubscore não foram suficientes
+    if (freqResult && (freqResult.criticalCount > 0 || freqResult.highCount >= 2)) {
+        const oldValue = subscores.frequency;
+        // Se já aplicamos cap interno, o gate externo só registra
+        // Se não, aplicamos um cap de segurança
+        const internalCap = freqResult.appliedCap;
+        
+        // Gate externo: garantir coerência com subscores.frequency
+        if (internalCap !== null && oldValue !== freqResult.score) {
+            // Houve alguma inconsistência - forçar o valor correto
+            subscores.frequency = freqResult.score;
+        }
+        
+        gatesTriggered.push({
+            type: 'FREQUENCY_GATE',
+            subscore: 'frequency',
+            criticalCount: freqResult.criticalCount,
+            highCount: freqResult.highCount,
+            attentionCount: freqResult.attentionCount,
+            rawScore: freqResult.rawScore,
+            appliedCap: freqResult.appliedCap,
+            capReason: freqResult.capReason,
+            oldValue: freqResult.rawScore,
+            newValue: freqResult.score,
+            bandDetails: freqResult.bandDetails
+        });
+    }
+    
     if (DEBUG) {
         console.log('📊 Gates Triggered:', gatesTriggered);
         console.log('📊 SubScores AFTER GATES:', subscores);
@@ -23766,6 +23940,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         subScoresRaw,        // Sem gates (para debug)
         gatesTriggered,      // Detalhes de cada gate
         metricEvaluations,   // Cada métrica avaliada por evaluateMetric
+        _frequencyDetails: freqResult, // Detalhes do cálculo de frequência V3.7.1
         // Compatibilidade com formato antigo
         gatePenalty: raw - final,
         gateReasons: gatesTriggered,
@@ -23776,7 +23951,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
             targets: finalTargets,
             weights: WEIGHTS,
             totalWeight,
-            version: 'V3.6-SINGLE-SOURCE'
+            version: 'V3.7.1-FREQ-WEIGHTED'
         }
     };
 };
@@ -28921,6 +29096,207 @@ if (typeof window !== 'undefined') {
     window.testScoreV37Parity = testScoreV37Parity;
 }
 
+// ================================================================
+// 🧪 TESTE DE SUBSCORE DE FREQUÊNCIA V3.7.1
+// Valida cálculo ponderado e gates de sanidade
+// ================================================================
+function testFrequencySubscoreV371() {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🧪 [FREQ-TEST V3.7.1] Testando Subscore de Frequência');
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    const testCases = [
+        // CASO A: Todas as bandas OK
+        {
+            name: 'Todas bandas OK',
+            bands: {
+                sub: { energy_db: -22.0 },   // target -22, diff=0
+                bass: { energy_db: -18.0 },  // target -18, diff=0
+                lowMid: { energy_db: -16.0 },
+                mid: { energy_db: -14.0 },
+                highMid: { energy_db: -18.0 },
+                presence: { energy_db: -22.0 },
+                air: { energy_db: -26.0 }
+            },
+            targets: {
+                bands: {
+                    sub: { target_db: -22.0, tol_db: 3.0 },
+                    bass: { target_db: -18.0, tol_db: 3.0 },
+                    lowMid: { target_db: -16.0, tol_db: 3.0 },
+                    mid: { target_db: -14.0, tol_db: 3.0 },
+                    highMid: { target_db: -18.0, tol_db: 3.0 },
+                    presence: { target_db: -22.0, tol_db: 3.0 },
+                    air: { target_db: -26.0, tol_db: 3.0 }
+                }
+            },
+            expectedScoreMin: 95,
+            expectedScoreMax: 100,
+            expectedCap: null
+        },
+        // CASO B: 1 banda CRÍTICA (sub +10dB)
+        {
+            name: '1 banda CRÍTICA (sub)',
+            bands: {
+                sub: { energy_db: -12.0 },   // target -22, diff=+10 → CRÍTICA!
+                bass: { energy_db: -18.0 },
+                lowMid: { energy_db: -16.0 },
+                mid: { energy_db: -14.0 },
+                highMid: { energy_db: -18.0 },
+                presence: { energy_db: -22.0 },
+                air: { energy_db: -26.0 }
+            },
+            targets: {
+                bands: {
+                    sub: { target_db: -22.0, tol_db: 3.0 },
+                    bass: { target_db: -18.0, tol_db: 3.0 },
+                    lowMid: { target_db: -16.0, tol_db: 3.0 },
+                    mid: { target_db: -14.0, tol_db: 3.0 },
+                    highMid: { target_db: -18.0, tol_db: 3.0 },
+                    presence: { target_db: -22.0, tol_db: 3.0 },
+                    air: { target_db: -26.0, tol_db: 3.0 }
+                }
+            },
+            expectedScoreMin: 50,
+            expectedScoreMax: 85, // Cap por 1 CRÍTICA
+            expectedCap: 85
+        },
+        // CASO C: 2 bandas CRÍTICAS (sub e bass)
+        {
+            name: '2 bandas CRÍTICAS (sub + bass)',
+            bands: {
+                sub: { energy_db: -12.0 },   // +10dB → CRÍTICA
+                bass: { energy_db: -8.0 },   // +10dB → CRÍTICA
+                lowMid: { energy_db: -16.0 },
+                mid: { energy_db: -14.0 },
+                highMid: { energy_db: -18.0 },
+                presence: { energy_db: -22.0 },
+                air: { energy_db: -26.0 }
+            },
+            targets: {
+                bands: {
+                    sub: { target_db: -22.0, tol_db: 3.0 },
+                    bass: { target_db: -18.0, tol_db: 3.0 },
+                    lowMid: { target_db: -16.0, tol_db: 3.0 },
+                    mid: { target_db: -14.0, tol_db: 3.0 },
+                    highMid: { target_db: -18.0, tol_db: 3.0 },
+                    presence: { target_db: -22.0, tol_db: 3.0 },
+                    air: { target_db: -26.0, tol_db: 3.0 }
+                }
+            },
+            expectedScoreMin: 40,
+            expectedScoreMax: 70, // Cap por 2 CRÍTICAS
+            expectedCap: 70
+        },
+        // CASO D: 3 bandas CRÍTICAS
+        {
+            name: '3 bandas CRÍTICAS',
+            bands: {
+                sub: { energy_db: -12.0 },   // +10dB → CRÍTICA
+                bass: { energy_db: -8.0 },   // +10dB → CRÍTICA
+                lowMid: { energy_db: -6.0 }, // +10dB → CRÍTICA
+                mid: { energy_db: -14.0 },
+                highMid: { energy_db: -18.0 },
+                presence: { energy_db: -22.0 },
+                air: { energy_db: -26.0 }
+            },
+            targets: {
+                bands: {
+                    sub: { target_db: -22.0, tol_db: 3.0 },
+                    bass: { target_db: -18.0, tol_db: 3.0 },
+                    lowMid: { target_db: -16.0, tol_db: 3.0 },
+                    mid: { target_db: -14.0, tol_db: 3.0 },
+                    highMid: { target_db: -18.0, tol_db: 3.0 },
+                    presence: { target_db: -22.0, tol_db: 3.0 },
+                    air: { target_db: -26.0, tol_db: 3.0 }
+                }
+            },
+            expectedScoreMin: 30,
+            expectedScoreMax: 55, // Cap por 3+ CRÍTICAS
+            expectedCap: 55
+        }
+    ];
+    
+    let passed = 0;
+    let failed = 0;
+    const results = [];
+    
+    for (const tc of testCases) {
+        // Construir análise fake
+        const analysis = {
+            technicalData: {
+                lufsIntegrated: -14.0,
+                truePeakDbtp: -1.0,
+                dynamicRange: 8.0,
+                crestFactor: 12.0,
+                lra: 7.0,
+                stereoCorrelation: 0.9,
+                stereoWidth: 0.7,
+                clippingPct: 0.001,
+                dcOffset: 0.0,
+                bands: tc.bands
+            }
+        };
+        
+        const targets = {
+            lufs_target: -14.0, tol_lufs: 1.0,
+            true_peak_target: -1.0, tol_true_peak: 0.25,
+            dr_target: 8.0, tol_dr: 1.5,
+            ...tc.targets
+        };
+        
+        const result = window.computeScoreV3(analysis, targets, 'streaming');
+        const freqScore = result.subscores?.frequency;
+        const freqDetails = result._frequencyDetails || result.subScoresRaw?._frequencyDetails;
+        
+        // Verificar score
+        const scoreOK = (freqScore !== null) &&
+                       (freqScore >= tc.expectedScoreMin) &&
+                       (freqScore <= tc.expectedScoreMax);
+        
+        // Verificar cap (se esperado)
+        const capOK = tc.expectedCap === null || 
+                     (freqDetails?.appliedCap === tc.expectedCap);
+        
+        const testPassed = scoreOK && capOK;
+        
+        if (testPassed) {
+            passed++;
+            console.log(`✅ ${tc.name}`);
+            console.log(`   Score: ${freqScore} (esperado: ${tc.expectedScoreMin}-${tc.expectedScoreMax})`);
+            if (tc.expectedCap) console.log(`   Cap: ${freqDetails?.appliedCap} (esperado: ${tc.expectedCap})`);
+        } else {
+            failed++;
+            console.error(`❌ ${tc.name} FALHOU!`);
+            console.error(`   Score: ${freqScore} (esperado: ${tc.expectedScoreMin}-${tc.expectedScoreMax})`);
+            console.error(`   Cap: ${freqDetails?.appliedCap} (esperado: ${tc.expectedCap})`);
+            console.error(`   Details:`, freqDetails);
+        }
+        
+        results.push({
+            ...tc,
+            actualScore: freqScore,
+            actualCap: freqDetails?.appliedCap,
+            passed: testPassed
+        });
+    }
+    
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`🧪 RESULTADO FREQ V3.7.1: ${passed}/${testCases.length} testes passaram`);
+    if (failed > 0) {
+        console.error(`❌ ${failed} testes FALHARAM!`);
+    } else {
+        console.log('✅ Todos os testes passaram - Sistema de frequência validado!');
+    }
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    return { passed, failed, results };
+}
+
+// Expor para console
+if (typeof window !== 'undefined') {
+    window.testFrequencySubscoreV371 = testFrequencySubscoreV371;
+}
+
 // 🧪 TESTE AUTOMÁTICO: Validar normalização com JSON real
 function testNormalizationCompatibility() {
     console.log("🧪 [TEST] Iniciando teste automático de compatibilidade...");
@@ -30092,3 +30468,382 @@ window.__testV34GatesProportional = function() {
 
 // Auto-log para confirmar disponibilidade
 console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesProportional()');
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🚀 PLANO DE CORREÇÃO COMPLETO - Sistema de Geração IA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 📋 Injeta o botão "Gerar Plano de Correção" no modal de resultados
+ * Chamado após renderização completa do modal
+ */
+function injectCorrectionPlanButton() {
+    // Verificar se já existe
+    if (document.getElementById('correctionPlanCTA')) {
+        console.log('[CORRECTION-PLAN] ⚠️ Botão já existe - skip');
+        return;
+    }
+    
+    // Encontrar container alvo (após aiHelperText ou no final do modalTechnicalData)
+    const aiHelperText = document.getElementById('aiHelperText');
+    const modalTechnicalData = document.getElementById('modalTechnicalData');
+    const targetContainer = aiHelperText?.parentElement || modalTechnicalData?.parentElement;
+    
+    if (!targetContainer) {
+        console.error('[CORRECTION-PLAN] ❌ Container de destino não encontrado');
+        return;
+    }
+    
+    // Criar CTA section
+    const ctaSection = document.createElement('div');
+    ctaSection.id = 'correctionPlanCTA';
+    ctaSection.innerHTML = `
+        <div class="correction-plan-cta">
+            <div class="cta-icon">🚀</div>
+            <div class="cta-content">
+                <h3 class="cta-title">Plano de Correção Completo</h3>
+                <p class="cta-description">
+                    Receba um guia passo a passo personalizado para corrigir sua música, 
+                    gerado por IA com base na sua DAW, nível e gênero.
+                </p>
+                <button id="btnGenerateCorrectionPlan" class="cta-button" onclick="window.generateCorrectionPlan()">
+                    <span class="btn-icon">📋</span>
+                    <span class="btn-text">Gerar Meu Plano de Correção</span>
+                </button>
+                <p class="cta-hint" id="correctionPlanHint">
+                    ⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Injetar estilos
+    if (!document.getElementById('correctionPlanStyles')) {
+        const style = document.createElement('style');
+        style.id = 'correctionPlanStyles';
+        style.textContent = `
+            .correction-plan-cta {
+                margin: 24px 0;
+                padding: 24px;
+                background: linear-gradient(145deg, #0f1623, #1a2538);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+                border-radius: 16px;
+                display: flex;
+                gap: 20px;
+                align-items: flex-start;
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+            }
+            
+            .correction-plan-cta .cta-icon {
+                font-size: 3rem;
+                flex-shrink: 0;
+            }
+            
+            .correction-plan-cta .cta-content {
+                flex: 1;
+            }
+            
+            .correction-plan-cta .cta-title {
+                margin: 0 0 8px 0;
+                font-size: 1.25rem;
+                font-weight: 700;
+                color: #fff;
+                background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            
+            .correction-plan-cta .cta-description {
+                margin: 0 0 16px 0;
+                color: #9ca3af;
+                font-size: 0.9375rem;
+                line-height: 1.5;
+            }
+            
+            .correction-plan-cta .cta-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 14px 28px;
+                background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            }
+            
+            .correction-plan-cta .cta-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+            }
+            
+            .correction-plan-cta .cta-button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+            }
+            
+            .correction-plan-cta .cta-button .btn-icon {
+                font-size: 1.25rem;
+            }
+            
+            .correction-plan-cta .cta-hint {
+                margin: 12px 0 0 0;
+                font-size: 0.75rem;
+                color: #6b7280;
+            }
+            
+            .correction-plan-cta .cta-loading {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .correction-plan-cta .cta-spinner {
+                width: 18px;
+                height: 18px;
+                border: 2px solid rgba(255,255,255,0.3);
+                border-top-color: white;
+                border-radius: 50%;
+                animation: ctaSpin 0.8s linear infinite;
+            }
+            
+            @keyframes ctaSpin {
+                to { transform: rotate(360deg); }
+            }
+            
+            .correction-plan-cta .cta-error {
+                color: #ef4444;
+                font-size: 0.875rem;
+                margin-top: 8px;
+            }
+            
+            @media (max-width: 640px) {
+                .correction-plan-cta {
+                    flex-direction: column;
+                    text-align: center;
+                    padding: 20px;
+                }
+                
+                .correction-plan-cta .cta-button {
+                    width: 100%;
+                    justify-content: center;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Inserir após aiHelperText ou no final
+    if (aiHelperText && aiHelperText.nextSibling) {
+        targetContainer.insertBefore(ctaSection, aiHelperText.nextSibling);
+    } else if (aiHelperText) {
+        aiHelperText.parentElement.appendChild(ctaSection);
+    } else {
+        targetContainer.appendChild(ctaSection);
+    }
+    
+    console.log('[CORRECTION-PLAN] ✅ Botão CTA injetado com sucesso');
+}
+
+/**
+ * 🚀 Gera o Plano de Correção via API
+ * Coleta dados da análise atual e chama o endpoint
+ */
+window.generateCorrectionPlan = async function() {
+    const btn = document.getElementById('btnGenerateCorrectionPlan');
+    const hint = document.getElementById('correctionPlanHint');
+    
+    if (!btn) return;
+    
+    // Obter análise atual
+    const analysis = window.__CURRENT_ANALYSIS__ || 
+                     window.currentModalAnalysis || 
+                     window.__soundyAI?.analysis;
+    
+    if (!analysis) {
+        showCorrectionPlanError('Nenhuma análise encontrada. Analise uma música primeiro.');
+        return;
+    }
+    
+    // Verificar autenticação
+    if (!firebase?.auth?.()?.currentUser) {
+        showCorrectionPlanError('Você precisa estar logado para gerar um plano.');
+        return;
+    }
+    
+    // Estado de loading
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="cta-loading">
+            <span class="cta-spinner"></span>
+            <span>Gerando plano...</span>
+        </span>
+    `;
+    hint.textContent = '⏳ Isso pode levar alguns segundos...';
+    
+    // Limpar erro anterior
+    const existingError = document.querySelector('.correction-plan-cta .cta-error');
+    if (existingError) existingError.remove();
+    
+    try {
+        // Obter token
+        const token = await firebase.auth().currentUser.getIdToken();
+        
+        // Preparar payload
+        const payload = {
+            analysisId: analysis.jobId || analysis.id,
+            technicalData: analysis.technicalData || {},
+            suggestions: analysis.suggestions || [],
+            problems: analysis.problems || [],
+            metadata: {
+                fileName: analysis.metadata?.fileName || analysis.fileName || 'Sem nome',
+                genre: analysis.genre || analysis.metadata?.genre || 'generic',
+                daw: getUserDAW(),
+                level: getUserLevel()
+            },
+            scores: analysis.scores || { final: analysis.score }
+        };
+        
+        console.log('[CORRECTION-PLAN] 📤 Enviando para API:', {
+            analysisId: payload.analysisId,
+            genre: payload.metadata.genre,
+            daw: payload.metadata.daw,
+            level: payload.metadata.level,
+            suggestionsCount: payload.suggestions.length,
+            problemsCount: payload.problems.length
+        });
+        
+        // Chamar API
+        const response = await fetch('/api/correction-plan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.error || result.message || 'Erro ao gerar plano');
+        }
+        
+        if (!result.success || !result.planId) {
+            throw new Error('Resposta inválida da API');
+        }
+        
+        console.log('[CORRECTION-PLAN] ✅ Plano gerado com sucesso:', {
+            planId: result.planId,
+            stepsCount: result.stepsCount,
+            cached: result.cached
+        });
+        
+        // Redirecionar para página do plano
+        window.location.href = `/plano.html?id=${result.planId}`;
+        
+    } catch (error) {
+        console.error('[CORRECTION-PLAN] ❌ Erro:', error);
+        
+        // Restaurar botão
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        
+        // Mostrar erro apropriado
+        let errorMessage = error.message;
+        
+        if (error.message.includes('rate limit') || error.message.includes('limite')) {
+            errorMessage = 'Você atingiu o limite de requisições. Aguarde alguns minutos.';
+        } else if (error.message.includes('monthly limit') || error.message.includes('mensal')) {
+            errorMessage = 'Limite mensal atingido. Faça upgrade do seu plano para mais planos.';
+        } else if (error.message.includes('401') || error.message.includes('auth')) {
+            errorMessage = 'Sessão expirada. Faça login novamente.';
+        }
+        
+        showCorrectionPlanError(errorMessage);
+        hint.textContent = '⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês';
+    }
+};
+
+/**
+ * 🛠️ Obtém a DAW do usuário do perfil/entrevista
+ */
+function getUserDAW() {
+    // Tentar obter do perfil salvo
+    const profile = window.__USER_PROFILE__ || 
+                    JSON.parse(localStorage.getItem('soundy_user_profile') || '{}');
+    
+    if (profile.daw) return profile.daw;
+    
+    // Tentar obter da entrevista
+    const interview = JSON.parse(localStorage.getItem('soundy_interview') || '{}');
+    if (interview.daw) return interview.daw;
+    
+    return 'generic';
+}
+
+/**
+ * 🛠️ Obtém o nível do usuário do perfil/entrevista
+ */
+function getUserLevel() {
+    const profile = window.__USER_PROFILE__ || 
+                    JSON.parse(localStorage.getItem('soundy_user_profile') || '{}');
+    
+    if (profile.level) return profile.level;
+    
+    const interview = JSON.parse(localStorage.getItem('soundy_interview') || '{}');
+    if (interview.level) return interview.level;
+    
+    return 'intermediario';
+}
+
+/**
+ * ❌ Exibe erro no CTA do plano de correção
+ */
+function showCorrectionPlanError(message) {
+    const cta = document.querySelector('.correction-plan-cta');
+    if (!cta) return;
+    
+    // Remover erro anterior
+    const existing = cta.querySelector('.cta-error');
+    if (existing) existing.remove();
+    
+    // Criar elemento de erro
+    const errorDiv = document.createElement('p');
+    errorDiv.className = 'cta-error';
+    errorDiv.textContent = `❌ ${message}`;
+    
+    const content = cta.querySelector('.cta-content');
+    if (content) {
+        content.appendChild(errorDiv);
+    }
+}
+
+// 🎯 Hook para injetar botão após renderização do modal
+// Será chamado no final de displayModalResults ou via observer
+const originalDisplayModalResults = window.displayModalResults;
+if (typeof originalDisplayModalResults === 'function') {
+    window.displayModalResults = async function(...args) {
+        const result = await originalDisplayModalResults.apply(this, args);
+        
+        // Aguardar DOM renderizar e injetar botão
+        setTimeout(() => {
+            injectCorrectionPlanButton();
+        }, 1000);
+        
+        return result;
+    };
+    console.log('[CORRECTION-PLAN] ✅ Hook instalado em displayModalResults');
+}
+
+// Expor função para uso manual se necessário
+window.injectCorrectionPlanButton = injectCorrectionPlanButton;
+
+console.log('🚀 [CORRECTION-PLAN] Sistema de Plano de Correção Completo carregado');
