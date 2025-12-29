@@ -31251,73 +31251,40 @@ console.log('🧪 [V3.4] Função de teste disponível: window.__testV34GatesPro
 
 window.injectCorrectionPlanButtonOutside = function() {
     // Verificar se já existe para evitar duplicatas
-    if (document.getElementById('correctionPlanCTA')) {
+    if (document.getElementById('btnGenerateCorrectionPlan')) {
         console.log('[CORRECTION-PLAN] ⚠️ Botão já existe - skip');
         return;
     }
     
-    // Container alvo: procurar a seção de sugestões IA e inserir depois dela
-    // OU inserir dentro de audioAnalysisResults, após aiSuggestionsExpanded
-    const audioResults = document.getElementById('audioAnalysisResults');
-    const aiSuggestionsExpanded = document.getElementById('aiSuggestionsExpanded');
-    const aiHelperText = document.getElementById('aiHelperText');
+    // ÂNCORA CORRETA: Container dos botões de ação do modal (.analysis-actions)
+    // Contém: "Pedir Ajuda à IA" e "Baixar Relatório"
+    const btnAskAI = document.getElementById('btnAskAI');
+    const actionsContainer = btnAskAI?.closest('.analysis-actions') || 
+                             document.querySelector('.analysis-actions');
     
-    if (!audioResults) {
-        console.error('[CORRECTION-PLAN] ❌ audioAnalysisResults não encontrado');
+    if (!actionsContainer) {
+        console.error('[CORRECTION-PLAN] ❌ Container .analysis-actions não encontrado');
         return;
     }
-    
-    // Criar elemento do CTA
-    const ctaElement = document.createElement('div');
-    ctaElement.id = 'correctionPlanCTA';
-    ctaElement.className = 'correction-plan-cta-wrapper';
-    ctaElement.innerHTML = `
-        <div class="correction-plan-cta">
-            <div class="cta-icon">🚀</div>
-            <div class="cta-content">
-                <h3 class="cta-title">Plano de Correção Completo</h3>
-                <p class="cta-description">
-                    Receba um guia passo a passo personalizado para corrigir sua música, 
-                    gerado por IA com base na sua DAW, nível e gênero.
-                </p>
-                <button id="btnGenerateCorrectionPlan" class="cta-button">
-                    <span class="btn-icon">📋</span>
-                    <span class="btn-text">Gerar Meu Plano de Correção</span>
-                </button>
-                <p class="cta-hint" id="correctionPlanHint">
-                    ⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês
-                </p>
-            </div>
-        </div>
-    `;
     
     // Injetar estilos se não existirem
     injectCorrectionPlanStyles();
     
-    // Estratégia de posicionamento:
-    // 1. Se aiHelperText existe, inserir ANTES dele (entre sugestões e helper text)
-    // 2. Se não, inserir após aiSuggestionsExpanded (dentro de audioAnalysisResults)
-    // 3. Fallback: inserir no final do audioAnalysisResults
+    // Criar o botão de Plano de Correção (estilo consistente com os outros botões)
+    const planButton = document.createElement('button');
+    planButton.id = 'btnGenerateCorrectionPlan';
+    planButton.className = 'action-btn correction-plan-btn';
+    planButton.innerHTML = `
+        <span class="btn-icon">📋</span>
+        <span class="btn-text">Gerar Plano de Correção</span>
+    `;
     
-    if (aiHelperText) {
-        // Inserir ANTES do aiHelperText (que está fora do audioAnalysisResults)
-        aiHelperText.insertAdjacentElement('beforebegin', ctaElement);
-        console.log('[CORRECTION-PLAN] ✅ Botão inserido ANTES de aiHelperText');
-    } else if (aiSuggestionsExpanded) {
-        // Inserir DEPOIS da seção de sugestões
-        aiSuggestionsExpanded.insertAdjacentElement('afterend', ctaElement);
-        console.log('[CORRECTION-PLAN] ✅ Botão inserido DEPOIS de aiSuggestionsExpanded');
-    } else {
-        // Fallback: inserir no final do container
-        audioResults.appendChild(ctaElement);
-        console.log('[CORRECTION-PLAN] ✅ Botão inserido no final de audioAnalysisResults');
-    }
+    // Inserir como ÚLTIMO elemento do container de ações
+    actionsContainer.appendChild(planButton);
+    console.log('[CORRECTION-PLAN] ✅ Botão inserido em .analysis-actions (após Baixar Relatório)');
     
-    // Adicionar event listener ao botão
-    const btn = document.getElementById('btnGenerateCorrectionPlan');
-    if (btn) {
-        btn.addEventListener('click', handleGenerateCorrectionPlan);
-    }
+    // Adicionar event listener
+    planButton.addEventListener('click', handleGenerateCorrectionPlan);
 };
 
 /**
@@ -31329,94 +31296,47 @@ function injectCorrectionPlanStyles() {
     const style = document.createElement('style');
     style.id = 'correctionPlanStyles';
     style.textContent = `
-        .correction-plan-cta-wrapper {
-            margin: 24px 0;
+        /* Botão de Plano de Correção - estilo consistente com action-btn */
+        .correction-plan-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%) !important;
+            color: white !important;
+            border: none !important;
+            padding: 12px 20px !important;
+            border-radius: 10px !important;
+            font-size: 0.95rem !important;
+            font-weight: 600 !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3) !important;
         }
         
-        .correction-plan-cta {
-            padding: 24px;
-            background: linear-gradient(145deg, #0f1623, #1a2538);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 16px;
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.1);
+        .correction-plan-btn:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4) !important;
         }
         
-        .correction-plan-cta .cta-icon {
-            font-size: 3rem;
-            flex-shrink: 0;
+        .correction-plan-btn:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
         }
         
-        .correction-plan-cta .cta-content {
-            flex: 1;
+        .correction-plan-btn .btn-icon {
+            font-size: 1.1rem;
         }
         
-        .correction-plan-cta .cta-title {
-            margin: 0 0 8px 0;
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #fff;
-            background: linear-gradient(135deg, #8b5cf6, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .correction-plan-cta .cta-description {
-            margin: 0 0 16px 0;
-            color: #9ca3af;
-            font-size: 0.9375rem;
-            line-height: 1.5;
-        }
-        
-        .correction-plan-cta .cta-button {
+        .correction-plan-btn .cta-loading {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 14px 28px;
-            background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+            gap: 8px;
         }
         
-        .correction-plan-cta .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
-        }
-        
-        .correction-plan-cta .cta-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .correction-plan-cta .cta-button .btn-icon {
-            font-size: 1.25rem;
-        }
-        
-        .correction-plan-cta .cta-hint {
-            margin: 12px 0 0 0;
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
-        
-        .correction-plan-cta .cta-loading {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .correction-plan-cta .cta-spinner {
-            width: 18px;
-            height: 18px;
+        .correction-plan-btn .cta-spinner {
+            width: 16px;
+            height: 16px;
             border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
@@ -31427,22 +31347,23 @@ function injectCorrectionPlanStyles() {
             to { transform: rotate(360deg); }
         }
         
-        .correction-plan-cta .cta-error {
+        /* Erro inline no container de ações */
+        .correction-plan-error {
+            width: 100%;
             color: #ef4444;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
+            text-align: center;
             margin-top: 8px;
+            padding: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 6px;
         }
         
+        /* Responsivo */
         @media (max-width: 640px) {
-            .correction-plan-cta {
-                flex-direction: column;
-                text-align: center;
-                padding: 20px;
-            }
-            
-            .correction-plan-cta .cta-button {
-                width: 100%;
-                justify-content: center;
+            .correction-plan-btn {
+                width: 100% !important;
+                justify-content: center !important;
             }
         }
     `;
@@ -31454,9 +31375,11 @@ function injectCorrectionPlanStyles() {
  */
 async function handleGenerateCorrectionPlan() {
     const btn = document.getElementById('btnGenerateCorrectionPlan');
-    const hint = document.getElementById('correctionPlanHint');
     
-    if (!btn) return;
+    if (!btn) {
+        console.error('[CORRECTION-PLAN] ❌ Botão não encontrado');
+        return;
+    }
     
     // Obter análise atual
     const analysis = window.__CURRENT_ANALYSIS__ || 
@@ -31483,13 +31406,12 @@ async function handleGenerateCorrectionPlan() {
     btn.innerHTML = `
         <span class="cta-loading">
             <span class="cta-spinner"></span>
-            <span>Gerando plano...</span>
+            <span>Gerando...</span>
         </span>
     `;
-    if (hint) hint.textContent = '⏳ Isso pode levar alguns segundos...';
     
     // Limpar erro anterior
-    const existingError = document.querySelector('.correction-plan-cta .cta-error');
+    const existingError = document.querySelector('.correction-plan-error');
     if (existingError) existingError.remove();
     
     try {
@@ -31574,7 +31496,6 @@ async function handleGenerateCorrectionPlan() {
         }
         
         showCorrectionPlanError(errorMessage);
-        if (hint) hint.textContent = '⚡ Gratuito: 1 plano/mês | Plus: 10/mês | Pro: 50/mês';
     }
 }
 
@@ -31607,23 +31528,25 @@ function getUserLevelForPlan() {
 }
 
 /**
- * ❌ Exibe erro no CTA
+ * ❌ Exibe erro no container de ações
  */
 function showCorrectionPlanError(message) {
-    const cta = document.querySelector('.correction-plan-cta');
-    if (!cta) return;
+    const actionsContainer = document.querySelector('.analysis-actions');
+    if (!actionsContainer) return;
     
-    const existing = cta.querySelector('.cta-error');
+    // Remover erro anterior se existir
+    const existing = actionsContainer.querySelector('.correction-plan-error');
     if (existing) existing.remove();
     
-    const errorDiv = document.createElement('p');
-    errorDiv.className = 'cta-error';
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'correction-plan-error';
     errorDiv.textContent = `❌ ${message}`;
     
-    const content = cta.querySelector('.cta-content');
-    if (content) {
-        content.appendChild(errorDiv);
-    }
+    // Inserir erro no final do container
+    actionsContainer.appendChild(errorDiv);
+    
+    // Auto-remover após 5 segundos
+    setTimeout(() => errorDiv.remove(), 5000);
 }
 
 // Expor funções globalmente para serem chamadas por outros scripts
