@@ -157,27 +157,34 @@ function getPlanBadgeClass(plan) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Renderiza uma única etapa
+ * Renderiza uma única etapa - VERSÃO PREMIUM TÉCNICA
  */
 function renderStep(step, index) {
   const impactClass = getImpactClass(step.impact);
   const impactEmoji = getImpactEmoji(step.impact);
   
-  // Renderizar lista de "how"
+  // Renderizar lista de "how" com numeração premium
   const howList = Array.isArray(step.how) 
     ? step.how.map(item => `<li>${escapeHtml(item)}</li>`).join('')
     : `<li>${escapeHtml(step.how)}</li>`;
   
+  // Criar badge de impacto com descrição técnica
+  const impactDescription = {
+    'CRÍTICO': 'Bloqueia distribuição',
+    'ALTO': 'Afeta qualidade audível', 
+    'FINO': 'Otimização profissional'
+  };
+  
   return `
     <div class="step-card ${impactClass}" data-step="${step.number}">
-      <div class="step-header" onclick="toggleStep(${step.number})">
+      <div class="step-header" onclick="toggleStep(${step.number})" tabindex="0" role="button" aria-expanded="false">
         <div class="step-number">${step.number}</div>
         <div class="step-title-wrapper">
           <h3 class="step-title">${escapeHtml(step.title)}</h3>
-          <span class="step-impact">${impactEmoji} ${step.impact}</span>
+          <span class="step-impact">${impactEmoji} ${step.impact} <small style="opacity:0.7;font-weight:400">• ${impactDescription[step.impact] || ''}</small></span>
         </div>
         <div class="step-toggle">
-          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg class="toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M19 9l-7 7-7-7"/>
           </svg>
         </div>
@@ -186,46 +193,46 @@ function renderStep(step, index) {
       <div class="step-content" id="stepContent${step.number}">
         ${step.problemRef ? `
           <div class="step-problem-ref">
-            <span class="problem-label">Problema:</span>
+            <span class="problem-label">🎯 Problema Detectado:</span>
             <span class="problem-type">${escapeHtml(step.problemRef.type)}</span>
             <span class="problem-values">
-              Atual: <strong>${step.problemRef.currentValue}</strong> → 
-              Alvo: <strong>${step.problemRef.targetValue}</strong>
+              <strong>Atual:</strong> ${step.problemRef.currentValue} → 
+              <strong>Alvo:</strong> ${step.problemRef.targetValue}
             </span>
           </div>
         ` : ''}
         
         <div class="step-why">
-          <h4>📌 Por que corrigir</h4>
+          <h4>📌 Por que isso importa</h4>
           <p>${escapeHtml(step.why)}</p>
         </div>
         
         <div class="step-how">
-          <h4>🔧 Como fazer</h4>
+          <h4>🔧 Passo a passo técnico</h4>
           <ol class="how-list">${howList}</ol>
         </div>
         
         ${step.dawSpecific ? `
           <div class="step-daw-tip">
-            <h4>💡 Dica para sua DAW</h4>
+            <h4>💡 Dica específica para sua DAW</h4>
             <p>${escapeHtml(step.dawSpecific)}</p>
           </div>
         ` : ''}
         
         ${step.avoidMistake ? `
           <div class="step-avoid">
-            <h4>⚠️ Evite este erro</h4>
+            <h4>⚠️ Erro comum a evitar</h4>
             <p>${escapeHtml(step.avoidMistake)}</p>
           </div>
         ` : ''}
         
         <div class="step-verify">
-          <h4>✅ Como verificar</h4>
+          <h4>✅ Validação técnica</h4>
           <p>${escapeHtml(step.verify)}</p>
         </div>
         
         <div class="step-next">
-          <h4>🔄 Antes de continuar</h4>
+          <h4>🔄 Condição para próxima etapa</h4>
           <p class="next-condition">${escapeHtml(step.nextStepCondition)}</p>
         </div>
       </div>
@@ -234,20 +241,35 @@ function renderStep(step, index) {
 }
 
 /**
- * Renderiza todas as etapas
+ * Renderiza todas as etapas - VERSÃO PREMIUM
  */
 function renderSteps(steps) {
   if (!Array.isArray(steps) || steps.length === 0) {
     elements.stepsList.innerHTML = `
-      <div class="no-steps">
-        <p>Nenhuma etapa de correção disponível.</p>
+      <div class="no-steps" style="text-align:center;padding:3rem;background:rgba(168,85,247,0.05);border-radius:1rem;border:1px dashed rgba(168,85,247,0.3);">
+        <p style="font-size:1.25rem;margin:0;color:#a1a1aa;">🎯 Nenhuma correção necessária detectada.</p>
+        <p style="font-size:0.9rem;margin-top:0.5rem;color:#71717a;">Sua música está dentro dos padrões profissionais!</p>
       </div>
     `;
     return;
   }
   
+  // Contar por severidade
+  const criticalCount = steps.filter(s => s.impact === 'CRÍTICO').length;
+  const highCount = steps.filter(s => s.impact === 'ALTO').length;
+  const fineCount = steps.filter(s => s.impact === 'FINO').length;
+  
+  // Header com contagem
+  const summaryHtml = `
+    <div class="steps-summary" style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+      ${criticalCount > 0 ? `<span style="background:rgba(255,59,92,0.1);border:1px solid rgba(255,59,92,0.3);padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;font-weight:600;color:#ff3b5c;">${criticalCount} Crítico${criticalCount > 1 ? 's' : ''}</span>` : ''}
+      ${highCount > 0 ? `<span style="background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.3);padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;font-weight:600;color:#ffb020;">${highCount} Alto${highCount > 1 ? 's' : ''}</span>` : ''}
+      ${fineCount > 0 ? `<span style="background:rgba(16,224,128,0.1);border:1px solid rgba(16,224,128,0.3);padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;font-weight:600;color:#10e080;">${fineCount} Fino${fineCount > 1 ? 's' : ''}</span>` : ''}
+    </div>
+  `;
+  
   const stepsHtml = steps.map((step, index) => renderStep(step, index)).join('');
-  elements.stepsList.innerHTML = stepsHtml;
+  elements.stepsList.innerHTML = summaryHtml + stepsHtml;
   
   // Abrir primeira etapa por padrão
   if (steps.length > 0) {
@@ -256,7 +278,7 @@ function renderSteps(steps) {
 }
 
 /**
- * Renderiza o plano completo
+ * Renderiza o plano completo - VERSÃO PREMIUM TÉCNICA
  */
 function renderPlan(planData, metadata) {
   // Badge do plano
@@ -264,12 +286,19 @@ function renderPlan(planData, metadata) {
   elements.planBadge.textContent = userPlan.toUpperCase();
   elements.planBadge.className = `plan-badge ${getPlanBadgeClass(userPlan)}`;
   
-  // Subtítulo com nome do arquivo
-  const fileName = metadata.input?.userProfile?.fileName || 'Sua música';
-  elements.planSubtitle.textContent = `Correções específicas para: ${fileName}`;
+  // Subtítulo com nome do arquivo e contexto técnico
+  const fileName = metadata.input?.userProfile?.fileName || metadata.input?.metadata?.fileName || 'Sua música';
+  const genre = metadata.input?.metadata?.genre || metadata.input?.userProfile?.genre || '';
+  const daw = metadata.input?.metadata?.daw || metadata.input?.userProfile?.daw || '';
   
-  // Intro
-  elements.introText.textContent = planData.intro || 'Vamos corrigir os problemas detectados na sua música.';
+  let subtitleParts = [`Correções para: ${fileName}`];
+  if (genre) subtitleParts.push(`Gênero: ${genre}`);
+  if (daw && daw !== 'generic') subtitleParts.push(`DAW: ${daw}`);
+  
+  elements.planSubtitle.textContent = subtitleParts.join(' • ');
+  
+  // Intro com mais contexto
+  elements.introText.textContent = planData.intro || 'Vamos corrigir os problemas detectados na sua música de forma sistemática e profissional.';
   
   // Reminder de reanálise
   if (planData.reanalysisReminder) {
@@ -280,10 +309,11 @@ function renderPlan(planData, metadata) {
   renderSteps(planData.steps);
   
   // Nota final
-  elements.finalNoteText.textContent = planData.finalNote || 'O resultado final depende de iterações no SoundyAI.';
+  elements.finalNoteText.textContent = planData.finalNote || 'O resultado final depende de iterações no SoundyAI. Cada correção aproxima sua música do padrão profissional!';
   
-  // Data de geração
-  elements.generatedAt.textContent = formatDate(metadata.generatedAt);
+  // Data de geração com formato premium
+  const formattedDate = formatDate(metadata.generatedAt);
+  elements.generatedAt.textContent = `Plano gerado em ${formattedDate}`;
 }
 
 /**
