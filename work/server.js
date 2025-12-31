@@ -19,11 +19,13 @@ const PORT = process.env.PORT || 3000;
 // ---------- CORS configurado para domínios permitidos ----------
 app.use(cors({
   origin: [
-    "https://soundyai-app-production.up.railway.app", // domínio principal
+    "https://soundyai.com.br",             // ✅ Domínio de produção
+    "https://www.soundyai.com.br",         // ✅ Domínio de produção com www
+    "https://soundyai-app-production.up.railway.app", // Backend Railway
     "http://localhost:3000", // desenvolvimento local
     "http://localhost:3001", // desenvolvimento alternativo
   ],
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));

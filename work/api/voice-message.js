@@ -7,8 +7,12 @@ import cors from 'cors';
 // Middleware CORS
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const apiProd = 'https://soundyai-app-production.up.railway.app';
-    const frontendProd = 'https://https://soundyai-app-production.up.railway.app';
+    // ✅ Domínios de produção
+    const productionDomains = [
+      'https://soundyai.com.br',
+      'https://www.soundyai.com.br',
+      'https://soundyai-app-production.up.railway.app'
+    ];
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
     const localOrigins = [
@@ -20,20 +24,21 @@ const corsMiddleware = cors({
       'http://127.0.0.1:8080'
     ];
 
+    console.log(`[CORS-AUDIT:VOICE-WORK] origin=${origin || 'null'}`);
+
     if (!origin ||
-        origin === apiProd ||
-        origin === frontendProd ||
+        productionDomains.includes(origin) ||
         apiPreviewRegex.test(origin) ||
         frontendPreviewRegex.test(origin) ||
         localOrigins.includes(origin) ||
         origin.startsWith('file://')) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
+      console.log('[CORS-AUDIT:VOICE-WORK] BLOQUEADO:', origin);
       callback(new Error('Not allowed by CORS: ' + origin));
     }
   },
-  methods: ['POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 });

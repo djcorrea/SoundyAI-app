@@ -355,9 +355,14 @@ function hashMessage(message) {
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const fixedOrigin = 'https://soundyai-app-production.up.railway.app';
-    const prodFrontend = 'https://https://soundyai-app-production.up.railway.app';
-    const newDeployment = 'https://https://soundyai-app-production.up.railway.app';
+    // ✅ Domínios de produção (PRIORIDADE)
+    const productionDomains = [
+      'https://soundyai.com.br',
+      'https://www.soundyai.com.br',
+      'https://soundyai-app-production.up.railway.app'
+    ];
+    
+    // URLs Vercel (preview/deploy)
     const directUrl = 'https://ai-synth-czzxlraox-dj-correas-projects.vercel.app';
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
@@ -373,11 +378,11 @@ const corsMiddleware = cors({
       'http://127.0.0.1:8080'
     ];
 
-    // Permitir origens locais, Vercel e file://
+    // [CORS-AUDIT] Log
+    console.log(`[CORS-AUDIT:WORK] origin=${origin || 'null'}`);
+
     if (!origin ||
-        origin === fixedOrigin ||
-        origin === prodFrontend ||
-        origin === newDeployment ||
+        productionDomains.includes(origin) ||
         origin === directUrl ||
         apiPreviewRegex.test(origin) ||
         frontendPreviewRegex.test(origin) ||
@@ -386,11 +391,11 @@ const corsMiddleware = cors({
         origin.startsWith('file://')) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
+      console.log('[CORS-AUDIT:WORK] BLOQUEADO:', origin);
       callback(new Error('Not allowed by CORS: ' + origin));
     }
   },
-  methods: ['POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 });
