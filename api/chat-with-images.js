@@ -9,8 +9,13 @@ import { canUseChat, registerChat } from '../work/lib/user/userPlans.js';
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const fixedOrigin = 'https://soundyai-app-production.up.railway.app';
-    const prodFrontend = 'https://https://soundyai-app-production.up.railway.app';
+    // ✅ Domínios de produção (PRIORIDADE)
+    const productionDomains = [
+      'https://soundyai.com.br',
+      'https://www.soundyai.com.br',
+      'https://soundyai-app-production.up.railway.app'
+    ];
+    
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
 
@@ -24,21 +29,36 @@ const corsMiddleware = cors({
       'http://127.0.0.1:8080'
     ];
 
-    // Permitir origens locais, Vercel e file://
-    if (!origin ||
-        origin === fixedOrigin ||
-        origin === prodFrontend ||
-        apiPreviewRegex.test(origin) ||
+    // [CORS-AUDIT] Log de diagnóstico
+    console.log(`[CORS-AUDIT:IMAGES] origin=${origin || 'null'} checking...`);
+
+    // Permitir requests sem origin (same-origin, curl, etc)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    // Verificar domínios de produção
+    if (productionDomains.includes(origin)) {
+      console.log(`[CORS-AUDIT:IMAGES] Permitido: ${origin}`);
+      callback(null, true);
+      return;
+    }
+
+    // Verificar Vercel e localhost
+    if (apiPreviewRegex.test(origin) ||
         frontendPreviewRegex.test(origin) ||
         localOrigins.includes(origin) ||
         origin.startsWith('file://')) {
       callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS: ' + origin));
+      return;
     }
+
+    // Bloqueado
+    console.log(`[CORS-AUDIT:IMAGES] BLOQUEADO: origin=${origin}`);
+    callback(new Error('Not allowed by CORS: ' + origin));
   },
-  methods: ['POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 });

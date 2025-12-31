@@ -19,8 +19,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(
   cors({
     origin: [
-      "https://soundyai-app-production.up.railway.app", // domínio principal (sem barra no final)
-      "http://localhost:3000", // útil para testes locais
+      "https://soundyai.com.br",
+      "https://www.soundyai.com.br",
+      "https://soundyai-app-production.up.railway.app",
+      "http://localhost:3000",
     ],
   })
 );

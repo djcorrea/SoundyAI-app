@@ -24,8 +24,12 @@ const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 // Middleware CORS
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const apiProd = 'https://soundyai-app-production.up.railway.app';
-    const frontendProd = 'https://https://soundyai-app-production.up.railway.app';
+    // ✅ Domínios de produção
+    const productionDomains = [
+      'https://soundyai.com.br',
+      'https://www.soundyai.com.br',
+      'https://soundyai-app-production.up.railway.app'
+    ];
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
     const localOrigins = [
@@ -38,18 +42,17 @@ const corsMiddleware = cors({
     ];
 
     if (!origin ||
-        origin === apiProd ||
-        origin === frontendProd ||
+        productionDomains.includes(origin) ||
         apiPreviewRegex.test(origin) ||
         frontendPreviewRegex.test(origin) ||
         localOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn('[CORS] Origem bloqueada:', origin);
+      console.warn('[CORS:UPLOAD-WORK] Origem bloqueada:', origin);
       callback(new Error('CORS policy violation'), false);
     }
   },
-  methods: ['POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 });
