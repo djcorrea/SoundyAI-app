@@ -1111,13 +1111,44 @@ export default async function handler(req, res) {
     }
 
     // Gerenciar limites de usuário com sistema centralizado
-    const chatCheck = await canUseChat(uid, hasImages); // ✅ CORRIGIDO: Passar hasImages
+    let chatCheck;
+    try {
+      chatCheck = await canUseChat(uid, hasImages);
+    } catch (planError) {
+      // 🚨 CRÍTICO: Erro ao buscar plano - NÃO assumir free
+      console.error(`[CHAT-LIMIT-AUDIT] PLAN_LOOKUP_FAILED uid=${uid} error=${planError.message}`);
+      return sendResponse(500, {
+        ok: false,
+        code: 'PLAN_LOOKUP_FAILED',
+        message: 'Erro ao verificar seu plano. Tente novamente.',
+      });
+    }
+    
+    // 📊 [CHAT-LIMIT-AUDIT] Log de diagnóstico
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const planLimits = { free: 20, plus: 80, pro: Infinity };
+    const userPlan = (chatCheck.user.plan || 'free').toLowerCase();
+    const userLimit = planLimits[userPlan] || 20;
+    const usedMessages = chatCheck.user.messagesMonth || 0;
+    
+    console.log(`[CHAT-LIMIT-AUDIT] uid=${uid} plan=${userPlan} period=${currentMonth} usedBefore=${usedMessages} limit=${userLimit} decision=${chatCheck.allowed ? 'ALLOW' : 'BLOCK'} reason=${chatCheck.errorCode || 'OK'} timestamp=${new Date().toISOString()}`);
+    
     if (!chatCheck.allowed) {
-      return sendResponse(429, { 
-        error: 'LIMIT_EXCEEDED',
-        message: 'Você atingiu o limite diário de mensagens do seu plano.',
-        remaining: chatCheck.remaining,
-        plan: chatCheck.user.plan
+      // 🚨 Calcular primeiro dia do próximo mês para resetAt
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const resetAt = nextMonth.toISOString().split('T')[0];
+      
+      return sendResponse(429, {
+        ok: false,
+        code: 'LIMIT_REACHED',
+        scope: 'chat',
+        plan: userPlan,
+        limit: userLimit,
+        used: usedMessages,
+        period: currentMonth,
+        resetAt: resetAt,
+        message: `Você atingiu o limite de ${userLimit} mensagens mensais do plano ${userPlan.toUpperCase()}.`,
       });
     }
     
