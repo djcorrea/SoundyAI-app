@@ -327,33 +327,47 @@ export default async function handler(req, res) {
     const uid = decoded.uid;
     const email = decoded.email;
 
-    // ✅ NOVO SISTEMA: Verificar se usuário pode enviar chat (com ou sem imagem)
+    // ✅ SISTEMA MENSAL: Verificar se usuário pode enviar chat (com ou sem imagem)
     let canChat;
     try {
       canChat = await canUseChat(uid, hasImages);
       console.log(`🔐 [CHAT-CHECK] UID=${uid}, hasImages=${hasImages}, canChat=${canChat.allowed}`);
-    } catch (error) {
-      console.error('❌ Erro ao verificar permissão de chat:', error);
-      throw error;
+    } catch (planError) {
+      // 🚨 CRÍTICO: Erro ao buscar plano - NÃO assumir free
+      console.error(`[CHAT-LIMIT-AUDIT] PLAN_LOOKUP_FAILED uid=${uid} error=${planError.message}`);
+      return res.status(500).json({
+        ok: false,
+        code: 'PLAN_LOOKUP_FAILED',
+        message: 'Erro ao verificar seu plano. Tente novamente.',
+      });
     }
+
+    // 📊 [CHAT-LIMIT-AUDIT] Log de diagnóstico
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const planLimits = { free: 20, plus: 80, pro: Infinity };
+    const userPlan = (canChat.user.plan || 'free').toLowerCase();
+    const userLimit = planLimits[userPlan] || 20;
+    const usedMessages = canChat.user.messagesMonth || 0;
+    
+    console.log(`[CHAT-LIMIT-AUDIT] uid=${uid} plan=${userPlan} period=${currentMonth} usedBefore=${usedMessages} limit=${userLimit} decision=${canChat.allowed ? 'ALLOW' : 'BLOCK'} reason=${canChat.errorCode || 'OK'} timestamp=${new Date().toISOString()}`);
 
     // 🚫 Bloquear se não permitido
     if (!canChat.allowed) {
-      console.warn(`🚫 Bloqueio aplicado: ${canChat.reason}`);
+      // 🚨 Calcular primeiro dia do próximo mês para resetAt
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const resetAt = nextMonth.toISOString().split('T')[0];
       
-      // Se bloqueio por limite de imagens
-      if (hasImages && canChat.reason.includes('imagens')) {
-        return res.status(403).json({
-          error: 'Limite de análises de imagem atingido',
-          message: canChat.reason,
-          plano: canChat.plan || 'desconhecido'
-        });
-      }
-      
-      // Se bloqueio por mensagens
-      return res.status(403).json({ 
-        error: 'Limite atingido',
-        message: canChat.reason
+      return res.status(429).json({
+        ok: false,
+        code: 'LIMIT_REACHED',
+        scope: 'chat',
+        plan: userPlan,
+        limit: userLimit,
+        used: usedMessages,
+        period: currentMonth,
+        resetAt: resetAt,
+        message: `Você atingiu o limite de ${userLimit} mensagens mensais do plano ${userPlan.toUpperCase()}.`,
       });
     }
 

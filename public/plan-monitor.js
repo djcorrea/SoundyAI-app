@@ -88,7 +88,7 @@ async function checkUserPlanStatus() {
             // Se mudou de plus para gratuito (por expiração)
             if (previousPlan === 'plus' && currentUserPlan === 'gratis') {
                 if (typeof addMessageToChat === 'function') {
-                    addMessageToChat('system', '⏰ Seu plano Plus expirou. Você agora tem acesso ao plano gratuito com limite de 10 mensagens diárias. <a href="planos.html" target="_blank">Renovar Plus</a>');
+                    addMessageToChat('system', '⏰ Seu plano Plus expirou. Você agora tem acesso ao plano gratuito com limite de 20 mensagens mensais. <a href="planos.html" target="_blank">Renovar Plus</a>');
                 }
             }
             
