@@ -110,7 +110,7 @@ app.post("/api/suggestions", async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        model: process.env.AI_MODEL || 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
