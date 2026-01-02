@@ -4293,6 +4293,15 @@ function handleReferenceFileSelection(type) {
     input.onchange = async function (e) {
         const file = e.target.files[0];
         if (file) {
+            // 🔓 [ANONYMOUS-MODE] Interceptar análise em modo anônimo
+            if (window.SoundyAnonymous?.isAnonymousMode) {
+                const canProceed = window.SoundyAnonymous.interceptAnalysis();
+                if (!canProceed) {
+                    console.log('🚫 [ANONYMOUS] Análise referência (type) bloqueada - limite atingido');
+                    return;
+                }
+            }
+            
             try {
                 // Validar arquivo
                 if (file.size > 150 * 1024 * 1024) {
@@ -4364,7 +4373,13 @@ function handleReferenceFileSelection(type) {
                 
                 tryShowModal(analysisResult);
                 
-                // 🔥 [DEMO-MODE] Registrar análise concluída
+                // � [ANONYMOUS-MODE] Registrar análise concluída
+                if (window.SoundyAnonymous?.isAnonymousMode) {
+                    window.SoundyAnonymous.registerAnalysis();
+                    console.log('📊 [ANONYMOUS] Análise registrada com sucesso');
+                }
+                
+                // �🔥 [DEMO-MODE] Registrar análise concluída
                 if (window.SoundyDemo?.isActive) {
                     window.SoundyDemo.registerAnalysis();
                     console.log('📊 [DEMO] Análise registrada com sucesso');
@@ -9596,7 +9611,17 @@ function getSafeStateMachine() {
 async function handleModalFileSelection(file) {
     __dbg('📁 Arquivo selecionado no modal:', file.name);
     
-    // � [DEMO-MODE] Interceptar análise em modo demo
+    // 🔓 [ANONYMOUS-MODE] Interceptar análise em modo anônimo - PONTO CRÍTICO DE BLOQUEIO
+    if (window.SoundyAnonymous?.isAnonymousMode) {
+        const canProceed = window.SoundyAnonymous.interceptAnalysis();
+        if (!canProceed) {
+            console.log('🚫 [ANONYMOUS] Análise bloqueada em handleModalFileSelection - limite atingido');
+            return; // Modal de login já foi mostrado
+        }
+        console.log('✅ [ANONYMOUS] Análise permitida em modo anônimo');
+    }
+    
+    // 🎮 [DEMO-MODE] Interceptar análise em modo demo
     if (window.SoundyDemo?.isActive) {
         const canProceed = window.SoundyDemo.interceptAnalysis();
         if (!canProceed) {
@@ -11393,6 +11418,15 @@ function validateAudioFile(file) {
 
 // 🎯 NOVO: Processar arquivo no modo referência
 async function handleReferenceFileSelection(file) {
+    // 🔓 [ANONYMOUS-MODE] Interceptar análise em modo anônimo
+    if (window.SoundyAnonymous?.isAnonymousMode) {
+        const canProceed = window.SoundyAnonymous.interceptAnalysis();
+        if (!canProceed) {
+            console.log('🚫 [ANONYMOUS] Análise referência bloqueada - limite atingido');
+            return;
+        }
+    }
+    
     window.logReferenceEvent('reference_file_selected', { 
         step: referenceStepState.currentStep,
         fileName: file.name,
@@ -11541,7 +11575,16 @@ async function handleReferenceFileSelection(file) {
 
 // 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
-    // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
+    // � [ANONYMOUS-MODE] Interceptar análise em modo anônimo
+    if (window.SoundyAnonymous?.isAnonymousMode) {
+        const canProceed = window.SoundyAnonymous.interceptAnalysis();
+        if (!canProceed) {
+            console.log('🚫 [ANONYMOUS] Análise gênero bloqueada - limite atingido');
+            return;
+        }
+    }
+    
+    // �🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
     console.log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
     console.log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
     
