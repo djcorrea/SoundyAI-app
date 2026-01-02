@@ -300,6 +300,16 @@ function checkAuthState() {
     const timeout = setTimeout(() => {
       console.log('Timeout na verificação de auth');
       const isLoginPage = window.location.pathname.includes("login.html");
+      const isIndexPage = window.location.pathname.includes("index.html") || window.location.pathname === '/' || window.location.pathname === '';
+      
+      // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo ao invés de redirecionar
+      if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+        console.log('🔓 [CHAT] Timeout - Ativando modo anônimo');
+        window.SoundyAnonymous.activate();
+        resolve(null);
+        return;
+      }
+      
       if (!isLoginPage) {
         window.location.href = "login.html";
       }
@@ -309,10 +319,19 @@ function checkAuthState() {
     auth.onAuthStateChanged(async (user) => {
       clearTimeout(timeout);
       const isLoginPage = window.location.pathname.includes("login.html");
+      const isIndexPage = window.location.pathname.includes("index.html") || window.location.pathname === '/' || window.location.pathname === '';
 
       console.log('Auth state changed:', user ? 'logged in' : 'not logged in');
 
       if (!user && !isLoginPage) {
+        // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
+        if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+          console.log('🔓 [CHAT] Usuário não logado no index - Ativando modo anônimo');
+          await window.SoundyAnonymous.activate();
+          resolve(null);
+          return;
+        }
+        
         console.log('Usuário não logado, redirecionando para login');
         window.location.href = "login.html";
       } else if (user && isLoginPage) {
@@ -320,6 +339,12 @@ function checkAuthState() {
         window.location.href = "index.html";
       } else if (user) {
         console.log('Usuário autenticado:', user.email);
+        
+        // 🔓 MODO ANÔNIMO: Desativar se estava ativo
+        if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+          window.SoundyAnonymous.deactivate();
+        }
+        
         try {
           const idToken = await user.getIdToken();
           localStorage.setItem("idToken", idToken);

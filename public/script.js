@@ -1,4 +1,4 @@
-/* ============ PROD.AI CHATBOT SCRIPT - VERSÃO 2025.01.28-17:12 ============ */
+﻿/* ============ PROD.AI CHATBOT SCRIPT - VERSÃO 2025.01.28-17:12 ============ */
 /* 🛑 CACHE BUSTING: Forçar reload do navegador */
 // Área de conversa do novo layout
 const chatbox = document.getElementById('chatbotConversationArea');
@@ -601,6 +601,22 @@ class ProdAIChatbot {
         const message = this.activeInput.value.trim();
         if (!message) return;
         
+        // � MODO ANÔNIMO: Verificar limite de mensagens
+        // ðŸ”¥ MODO DEMO: Verificar limite de mensagens (PRIORIDADE)
+        if (window.SoundyDemo && window.SoundyDemo.isActive) {
+            if (!window.SoundyDemo.interceptMessage()) {
+                console.log('ðŸš« [SCRIPT] Mensagem bloqueada - limite demo atingido');
+                return;
+            }
+        }
+        // ðŸ”“ MODO ANÃ”NIMO: Verificar limite de mensagens
+        else if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+            if (!window.SoundyAnonymous.interceptMessage()) {
+                console.log('🚫 [SCRIPT] Mensagem bloqueada - limite anônimo atingido');
+                return;
+            }
+        }
+        
         // 🖼️ Verificar se há imagens selecionadas
         let images = [];
         if (window.imagePreviewSystem && window.imagePreviewSystem.hasImages()) {
@@ -620,6 +636,16 @@ class ProdAIChatbot {
         // 🖼️ Limpar imagens após adicionar à mensagem
         if (window.imagePreviewSystem && images.length > 0) {
             window.imagePreviewSystem.clearImages();
+        }
+        
+        // 🔓 MODO ANÔNIMO: Registrar mensagem enviada
+        if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+            window.SoundyAnonymous.registerMessage();
+        }
+        
+        // 🔥 MODO DEMO: Registrar mensagem enviada
+        if (window.SoundyDemo && window.SoundyDemo.isActive) {
+            window.SoundyDemo.registerMessage();
         }
         
         // Usar a função processMessage existente, agora com suporte a imagens

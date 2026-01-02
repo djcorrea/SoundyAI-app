@@ -67,19 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
           entrevistaConcluida: true
         }, { merge: true });
         
-        // Verificar se é uma repersonalização
-        const urlParams = new URLSearchParams(window.location.search);
-        const isRepersonalizando = urlParams.get('repersonalizando') === 'true';
-        
-        if (isRepersonalizando) {
-          // Se é repersonalização, redirecionar direto para o chat
-          console.log('🔄 Repersonalização detectada - redirecionando para index.html');
-          window.location.href = 'index.html';
-        } else {
-          // Se é primeira vez, redirecionar para página final
-          console.log('🎉 Primeira entrevista - redirecionando para entrevista-final.html');
-          window.location.href = 'entrevista-final.html';
-        }
+        // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
+        // entrevista-final.html foi removida do fluxo
+        console.log('🎉 Entrevista concluída - redirecionando para index.html');
+        window.location.href = 'index.html';
       } catch (e) {
         console.error(e);
         btn.disabled = false;

@@ -3105,6 +3105,14 @@ let jobPollingInterval = null;
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
 function openModeSelectionModal() {
+    // 🔓 MODO ANÔNIMO: Verificar limite de análises
+    if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+        if (!window.SoundyAnonymous.interceptAnalysis()) {
+            console.log('🚫 [ANALYZER] Análise bloqueada - limite anônimo atingido');
+            return;
+        }
+    }
+    
     const modal = document.getElementById('analysisModeModal');
     if (modal) {
         // Bloquear scroll do body
@@ -4355,6 +4363,12 @@ function handleReferenceFileSelection(type) {
                 };
                 
                 tryShowModal(analysisResult);
+                
+                // 🔥 [DEMO-MODE] Registrar análise concluída
+                if (window.SoundyDemo?.isActive) {
+                    window.SoundyDemo.registerAnalysis();
+                    console.log('📊 [DEMO] Análise registrada com sucesso');
+                }
 
                 // 5. Armazenar resultado
                 uploadedFiles[type] = {
@@ -9574,7 +9588,17 @@ function getSafeStateMachine() {
 async function handleModalFileSelection(file) {
     __dbg('📁 Arquivo selecionado no modal:', file.name);
     
-    // 🔍 [INVARIANTE #1] Verificar estado do mode ANTES de qualquer processamento
+    // � [DEMO-MODE] Interceptar análise em modo demo
+    if (window.SoundyDemo?.isActive) {
+        const canProceed = window.SoundyDemo.interceptAnalysis();
+        if (!canProceed) {
+            console.log('🚫 [DEMO] Análise bloqueada - limite atingido');
+            return; // Modal de conversão já foi mostrado
+        }
+        console.log('✅ [DEMO] Análise permitida em modo demo');
+    }
+    
+    // �🔍 [INVARIANTE #1] Verificar estado do mode ANTES de qualquer processamento
     const stateMachine = getSafeStateMachine();  // ✅ Nunca undefined
     const currentMode = stateMachine.getMode();
     
@@ -11101,6 +11125,12 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 score: normalizedResult.score,
                 hasMetrics: !!(normalizedResult.loudness || normalizedResult.technicalData)
             });
+        }
+        
+        // 🔓 MODO ANÔNIMO: Registrar análise concluída
+        if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+            window.SoundyAnonymous.registerAnalysis();
+            console.log('🔓 [ANALYZER] Análise registrada no modo anônimo');
         }
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);

@@ -450,7 +450,7 @@
     <div class="interview-container">
         <h1 class="main-title">Antes de começar, queremos te conhecer melhor para personalizar suas respostas</h1>
         
-        <form id="interviewForm" action="entrevista-final.html">
+        <form id="interviewForm" action="index.html">
             <div class="form-group">
                 <label class="form-label">Nome Artístico</label>
                 <input type="text" name="nomeArtistico" class="form-input" placeholder="Como você gostaria de ser chamado?" required>
@@ -661,19 +661,10 @@
                         
                         alert('Perfil salvo com sucesso! Redirecionando...');
                         
-                        // Verificar se é uma repersonalização
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const isRepersonalizando = urlParams.get('repersonalizando') === 'true';
-                        
-                        if (isRepersonalizando) {
-                            // Se é repersonalização, redirecionar direto para o chat
-                            console.log('🔄 Repersonalização detectada - redirecionando para index.html');
-                            window.location.href = 'index.html';
-                        } else {
-                            // Se é primeira vez, redirecionar para página final
-                            console.log('🎉 Primeira entrevista - redirecionando para entrevista-final.html');
-                            window.location.href = 'entrevista-final.html';
-                        }
+                        // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
+                        // entrevista-final.html foi removida do fluxo
+                        console.log('🎉 Entrevista concluída - redirecionando para index.html');
+                        window.location.href = 'index.html';
                         
                     } catch (error) {
                         console.error('❌ Erro completo:', error);

@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="plan-mask-styles.css?v=20251211-reduced-mode">
     <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
     <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
+    <link rel="stylesheet" href="login-required-modal.css?v=20260102">
     
     <!-- Fontes otimizadas -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -35,6 +36,12 @@
     <script type="module" src="firebase.js?v=20250810"></script>
     <script src="auth.js?v=20250810" defer></script>
     <script src="friendly-labels.js?v=20250817" defer></script>
+    
+    <!-- 🔓 Sistema de Modo Anônimo -->
+    <script src="anonymous-mode.js?v=20260102" defer></script>
+    
+    <!-- 🔥 Sistema de Demo de Venda (detecta /demo ou ?mode=demo) -->
+    <script src="demo-mode.js?v=20260102" defer></script>
     
     <!-- 🎯 Correção da Ordem do Pipeline -->
     <script src="/pipeline-order-correction.js?v=20250828" defer></script>
@@ -1404,6 +1411,20 @@
                 // Função para executar ações
                 function handleSidePanelAction(action) {
                     console.log('🎯 [SIDE-PANEL] Ação:', action);
+                    
+                    // 🔓 MODO ANÔNIMO: Interceptar ações que requerem login
+                    if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+                        if (action === 'upgrade' || action === 'manage') {
+                            console.log('🔓 [SIDE-PANEL] Ação bloqueada - modo anônimo');
+                            window.SoundyAnonymous.showLoginModal(action);
+                            return;
+                        }
+                        if (action === 'logout') {
+                            // Em modo anônimo, "logout" redireciona para login
+                            window.location.href = 'login.html';
+                            return;
+                        }
+                    }
                     
                     switch(action) {
                         case 'analyze':
