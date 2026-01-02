@@ -643,16 +643,21 @@ class ProdAIChatbot {
             window.SoundyAnonymous.registerMessage();
         }
         
-        // 🔥 MODO DEMO: Registrar mensagem enviada
-        if (window.SoundyDemo && window.SoundyDemo.isActive) {
-            window.SoundyDemo.registerMessage();
-        }
-        
         // Usar a função processMessage existente, agora com suporte a imagens
         setTimeout(() => {
             this.showTyping();
             processMessage(message, images).then(() => {
                 this.hideTyping();
+                
+                // 🔥 MODO DEMO: Registrar mensagem SOMENTE após resposta da IA
+                // CRÍTICO: Registro só acontece após sucesso real da resposta
+                if (window.SoundyDemo && window.SoundyDemo.isActive) {
+                    window.SoundyDemo.registerMessage();
+                    console.log('📊 [DEMO] Mensagem registrada após resposta da IA');
+                }
+            }).catch((err) => {
+                this.hideTyping();
+                console.error('❌ [DEMO] Erro na resposta da IA - mensagem NÃO registrada:', err);
             });
         }, 100);
     }
