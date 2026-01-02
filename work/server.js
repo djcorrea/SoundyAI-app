@@ -7,11 +7,13 @@ import cors from "cors";
 
 // Importar rotas da API
 import analyzeRouter from "./api/audio/analyze.js";
+import analyzeAnonymousRouter from "./api/audio/analyze-anonymous.js"; // 🔓 NOVO: Análise anônima
 import jobsRouter from "./api/jobs/[id].js";
 import healthRouter from "./api/health/redis.js";
 import versionRouter from "./api/health/version.js";
 import stripeCheckoutRouter from "./api/stripe/create-checkout-session.js";
 import stripeWebhookRouter from "./api/webhook/stripe.js";
+import chatAnonymousHandler from "./api/chat-anonymous.js"; // 🔓 NOVO: Chat anônimo
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,10 +71,14 @@ app.use((req, res, next) => {
 });
 
 // ---------- Rotas principais da API ----------
-app.use('/api/audio', analyzeRouter);
+app.use('/api/audio', analyzeRouter); // Inclui /api/audio/analyze e /api/audio/compare
+app.use('/api/audio/analyze-anonymous', analyzeAnonymousRouter); // 🔓 NOVO: Análise anônima
 app.use('/api/jobs', jobsRouter);
 app.use('/health', healthRouter);
 app.use('/api/health/version', versionRouter); // 🔖 Endpoint de versão/rastreabilidade
+
+// 🔓 NOVO: Chat anônimo (handler direto, não router)
+app.post('/api/chat/anonymous', chatAnonymousHandler);
 
 // ✅ STRIPE: Rotas de pagamento
 app.use('/api/stripe', stripeCheckoutRouter);
