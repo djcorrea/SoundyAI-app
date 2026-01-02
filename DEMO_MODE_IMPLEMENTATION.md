@@ -4,7 +4,7 @@
 
 Implementação do **Modo Demo de Venda** para SoundyAI - sistema de demonstração com limite de **1 análise + 1 mensagem**, seguido de pop-up bloqueante que redireciona ao checkout.
 
-**Status:** ✅ IMPLEMENTAÇÃO COMPLETA
+**Status:** ✅ PRONTO PARA PRODUÇÃO (v2.0.0)
 
 ---
 
@@ -14,11 +14,14 @@ Implementação do **Modo Demo de Venda** para SoundyAI - sistema de demonstraç
 
 | Arquivo | Tipo | Descrição |
 |---------|------|-----------|
-| `public/demo-mode.js` | NOVO | Core do sistema demo (877 linhas) |
-| `public/index.html` | MOD | Script tag para demo-mode.js |
+| `public/demo-core.js` | NOVO | Core: fingerprint, storage, estado |
+| `public/demo-guards.js` | NOVO | Guards: limites, interceptadores, registro |
+| `public/demo-ui.js` | NOVO | UI: modal bloqueante, redirect checkout |
+| `public/index.html` | MOD | Script tags para os 3 módulos |
 | `public/audio-analyzer-integration.js` | MOD | Hooks de interceptação e registro |
 | `public/script.js` | MOD | Hooks de interceptação e registro para chat |
 | `api/demo/validate.js` | NOVO | Backend de validação anti-burla |
+| `public/demo-mode.js` | DEPRECADO | Arquivo antigo (manter backup) |
 
 ### Diagrama de Fluxo
 

@@ -41,7 +41,10 @@
     <script src="anonymous-mode.js?v=20260102" defer></script>
     
     <!-- 🔥 Sistema de Demo de Venda (detecta /demo ou ?mode=demo) -->
-    <script src="demo-mode.js?v=20260102" defer></script>
+    <!-- Módulos refatorados: Core → Guards → UI (ordem obrigatória) -->
+    <script src="demo-core.js?v=20260102" defer></script>
+    <script src="demo-guards.js?v=20260102" defer></script>
+    <script src="demo-ui.js?v=20260102" defer></script>
     
     <!-- 🎯 Correção da Ordem do Pipeline -->
     <script src="/pipeline-order-correction.js?v=20250828" defer></script>
