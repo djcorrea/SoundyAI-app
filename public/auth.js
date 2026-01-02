@@ -767,6 +767,18 @@ console.log('🚀 Carregando auth.js...');
       return new Promise((resolve) => {
         const timeout = setTimeout(() => {
           const isLoginPage = window.location.pathname.includes("login.html");
+          const isIndexPage = window.location.pathname.includes("index.html") || 
+                              window.location.pathname === '/' || 
+                              window.location.pathname === '';
+          
+          // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo
+          if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+            console.log('🔓 [AUTH] Timeout - Ativando modo anônimo');
+            window.SoundyAnonymous.activate();
+            resolve(null);
+            return;
+          }
+          
           if (!isLoginPage) window.location.href = "login.html";
           resolve(null);
         }, 5000);
@@ -775,6 +787,9 @@ console.log('🚀 Carregando auth.js...');
           clearTimeout(timeout);
           const isLoginPage = window.location.pathname.includes("login.html");
           const isEntrevistaPage = window.location.pathname.includes("entrevista.html");
+          const isIndexPage = window.location.pathname.includes("index.html") || 
+                              window.location.pathname === '/' || 
+                              window.location.pathname === '';
 
           if (isNewUserRegistering && isEntrevistaPage) {
             isNewUserRegistering = false;
@@ -783,8 +798,21 @@ console.log('🚀 Carregando auth.js...');
           }
 
           if (!user && !isLoginPage) {
+            // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
+            if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+              console.log('🔓 [AUTH] Usuário não logado no index - Ativando modo anônimo');
+              await window.SoundyAnonymous.activate();
+              resolve(null);
+              return;
+            }
+            
             window.location.href = "login.html";
           } else if (user && isLoginPage) {
+            // 🔓 MODO ANÔNIMO: Desativar se estava ativo
+            if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+              window.SoundyAnonymous.deactivate();
+            }
+            
             try {
               const snap = await getDoc(doc(db, 'usuarios', user.uid));
               if (snap.exists() && snap.data().entrevistaConcluida === false) {
@@ -796,6 +824,11 @@ console.log('🚀 Carregando auth.js...');
               }
             } catch (e) {
               window.location.href = "entrevista.html";
+            }
+          } else if (user) {
+            // 🔓 MODO ANÔNIMO: Desativar se usuário autenticou
+            if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+              window.SoundyAnonymous.deactivate();
             }
           }
           resolve(user);

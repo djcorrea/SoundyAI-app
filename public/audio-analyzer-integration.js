@@ -6197,7 +6197,15 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
 
 // 🎯 NOVO: Modal de Seleção de Modo
 function openModeSelectionModal() {
-    __dbg('� Abrindo modal de seleção de modo...');
+    __dbg('🎯 Abrindo modal de seleção de modo...');
+    
+    // 🔓 MODO ANÔNIMO: Verificar limite de análises
+    if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+        if (!window.SoundyAnonymous.interceptAnalysis()) {
+            console.log('🚫 [ANALYZER] Análise bloqueada - limite anônimo atingido');
+            return;
+        }
+    }
     
     const modal = document.getElementById('analysisModeModal');
     if (!modal) {
