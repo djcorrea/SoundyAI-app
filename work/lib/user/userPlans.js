@@ -10,10 +10,11 @@ const USERS = "usuarios"; // Coleção existente no Firestore
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)
+// 🔓 ATUALIZAÇÃO 2026-01-02: FREE agora tem 1 análise (modo anônimo tem 2)
 const PLAN_LIMITS = {
   free: {
     maxMessagesPerMonth: 20,
-    maxFullAnalysesPerMonth: 3,
+    maxFullAnalysesPerMonth: 1,           // ✅ ATUALIZADO: 3 → 1 (modo anônimo: 2)
     hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
     allowReducedAfterLimit: true,
   },
