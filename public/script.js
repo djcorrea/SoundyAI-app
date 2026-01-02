@@ -43,6 +43,16 @@ const API_CONFIG = {
 
   get chatEndpoint() {
     return `${this.baseURL}/chat`;
+  },
+  
+  // 🔓 NOVO: Endpoint de chat anônimo (sem Firebase Auth)
+  get chatAnonymousEndpoint() {
+    return `${this.baseURL}/chat/anonymous`;
+  },
+  
+  // 🔓 NOVO: Endpoint de análise anônima (sem Firebase Auth)
+  get analyzeAnonymousEndpoint() {
+    return `${this.baseURL}/audio/analyze-anonymous`;
   }
 };
 
@@ -1542,7 +1552,6 @@ async function processMessage(message, images = []) {
         payload.idToken = idToken;
       }
       if (isAnonymous) {
-        payload.anonymousMode = true;
         payload.visitorId = window.SoundyAnonymous?.visitorId || 'unknown';
       }
       
@@ -1554,8 +1563,13 @@ async function processMessage(message, images = []) {
       }
     }
 
-    console.log('📤 Enviando para API:', API_CONFIG.chatEndpoint, hasImages ? '(multipart)' : '(json)');
-    const response = await fetch(API_CONFIG.chatEndpoint, {
+    // 🔓 ESCOLHER ENDPOINT: Anônimo vs Autenticado
+    const chatEndpoint = isAnonymous 
+      ? API_CONFIG.chatAnonymousEndpoint 
+      : API_CONFIG.chatEndpoint;
+    
+    console.log('📤 Enviando para API:', chatEndpoint, hasImages ? '(multipart)' : '(json)', isAnonymous ? '[ANÔNIMO]' : '[AUTH]');
+    const response = await fetch(chatEndpoint, {
       method: 'POST',
       headers: requestHeaders,
       body: requestBody

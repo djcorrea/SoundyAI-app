@@ -3640,7 +3640,77 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
-        // ✅ CORREÇÃO CRÍTICA: Obter Firebase ID Token ANTES de fazer o fetch
+        // 🔓 VERIFICAR MODO ANÔNIMO
+        const isAnonymousMode = window.SoundyAnonymous?.isAnonymousMode === true;
+        const visitorId = window.SoundyAnonymous?.visitorId;
+        
+        console.log('🔐 Verificando autenticação...', { isAnonymousMode, hasVisitorId: !!visitorId });
+        
+        // 🔓 MODO ANÔNIMO: Usar rota anônima (apenas mode=genre permitido)
+        if (isAnonymousMode) {
+            console.log('🔓 [ANONYMOUS] Modo anônimo ativo - usando rota anônima');
+            
+            // Anônimos só podem usar modo genre (reference requer conta)
+            if (mode === 'reference') {
+                console.warn('⚠️ [ANONYMOUS] Modo reference não disponível para anônimos');
+                window.SoundyAnonymous.showLoginModal('reference');
+                throw new Error('Modo de referência requer conta. Crie uma conta grátis para continuar.');
+            }
+            
+            if (!visitorId) {
+                console.error('❌ [ANONYMOUS] visitorId não disponível');
+                throw new Error('Identificação de visitante não disponível. Recarregue a página.');
+            }
+            
+            // Construir payload anônimo
+            const anonymousPayload = {
+                fileKey,
+                fileName,
+                genre: window.selectedGenreForAnalysis || window.selectedGenre,
+                genreTargets: window.currentGenreTargets || window.selectedGenreTargets,
+                visitorId,
+                soundDestination: window.selectedSoundDestination || 'pista'
+            };
+            
+            console.log('[ANONYMOUS] Payload para análise anônima:', anonymousPayload);
+            
+            // Usar rota anônima
+            const response = await fetch('/api/audio/analyze-anonymous', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(anonymousPayload)
+            });
+            
+            const data = await response.json();
+            
+            // Tratar limite atingido
+            if (!response.ok) {
+                if (data.requiresLogin || data.error === 'ANON_ANALYSIS_LIMIT_REACHED') {
+                    console.log('🚫 [ANONYMOUS] Limite de análises atingido');
+                    window.SoundyAnonymous.showLoginModal('analysis');
+                    throw new Error(data.message || 'Limite de análises atingido. Crie uma conta grátis para continuar.');
+                }
+                throw new Error(data.message || `Erro ao criar job: ${response.status}`);
+            }
+            
+            console.log('[ANONYMOUS] ✅ Job anônimo criado:', data.jobId);
+            
+            // Atualizar contador local
+            if (data.limits) {
+                console.log(`📊 [ANONYMOUS] Análises: ${data.limits.used}/${data.limits.limit}`);
+            }
+            
+            return {
+                jobId: data.jobId,
+                success: true,
+                anonymous: true
+            };
+        }
+
+        // ✅ MODO AUTENTICADO: Obter Firebase ID Token ANTES de fazer o fetch
         console.log('🔐 Obtendo Firebase ID Token...');
         
         // Aguardar Firebase estar pronto
