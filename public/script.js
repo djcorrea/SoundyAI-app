@@ -638,16 +638,17 @@ class ProdAIChatbot {
             window.imagePreviewSystem.clearImages();
         }
         
-        // 🔓 MODO ANÔNIMO: Registrar mensagem enviada
-        if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
-            window.SoundyAnonymous.registerMessage();
-        }
-        
         // Usar a função processMessage existente, agora com suporte a imagens
         setTimeout(() => {
             this.showTyping();
             processMessage(message, images).then(() => {
                 this.hideTyping();
+                
+                // 🔓 MODO ANÔNIMO: Registrar mensagem SOMENTE após resposta da IA
+                if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+                    window.SoundyAnonymous.registerMessage();
+                    console.log('📊 [ANONYMOUS] Mensagem registrada após resposta da IA');
+                }
                 
                 // 🔥 MODO DEMO: Registrar mensagem SOMENTE após resposta da IA
                 // CRÍTICO: Registro só acontece após sucesso real da resposta
@@ -657,7 +658,7 @@ class ProdAIChatbot {
                 }
             }).catch((err) => {
                 this.hideTyping();
-                console.error('❌ [DEMO] Erro na resposta da IA - mensagem NÃO registrada:', err);
+                console.error('❌ Erro na resposta da IA - mensagem NÃO registrada:', err);
             });
         }, 100);
     }
@@ -1455,9 +1456,12 @@ async function processMessage(message, images = []) {
     await waitForFirebase();
     
     console.log('🔐 Verificando usuário...');
-    const currentUser = window.auth.currentUser;
-    if (!currentUser) {
-      console.error('❌ Usuário não autenticado');
+    const currentUser = window.auth?.currentUser;
+    const isAnonymousMode = window.SoundyAnonymous?.isAnonymousMode;
+    
+    // 🔓 MODO ANÔNIMO: Permitir mensagens sem autenticação (dentro do limite)
+    if (!currentUser && !isAnonymousMode) {
+      console.error('❌ Usuário não autenticado e modo anônimo não ativo');
       appendMessage(`<strong>Assistente:</strong> Você precisa estar logado para usar o chat.`, 'bot');
       hideTypingIndicator();
       if (mainSendBtn && chatStarted) {
@@ -1467,13 +1471,24 @@ async function processMessage(message, images = []) {
       return;
     }
 
-    console.log('✅ Usuário autenticado:', currentUser.uid);
-    console.log('🎫 Obtendo token...');
-    const idToken = await currentUser.getIdToken();
-    console.log('✅ Token obtido');
+    // 🔓 MODO ANÔNIMO: Usar visitor_id como identificador
+    let idToken = null;
+    let userUid = 'anonymous';
+    
+    if (currentUser) {
+      console.log('✅ Usuário autenticado:', currentUser.uid);
+      console.log('🎫 Obtendo token...');
+      idToken = await currentUser.getIdToken();
+      userUid = currentUser.uid;
+      console.log('✅ Token obtido');
+    } else if (isAnonymousMode) {
+      console.log('🔓 Modo anônimo ativo - visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12));
+      userUid = 'anon_' + (window.SoundyAnonymous?.visitorId || 'unknown');
+    }
 
     // 🖼️ Preparar payload: multipart para imagens, JSON para texto
     const hasImages = images && images.length > 0;
+    const isAnonymous = !idToken; // Flag para identificar requisição anônima
     let requestBody;
     let requestHeaders;
 
@@ -1484,7 +1499,14 @@ async function processMessage(message, images = []) {
       const formData = new FormData();
       formData.append('message', message);
       formData.append('conversationHistory', JSON.stringify(conversationHistory));
-      formData.append('idToken', idToken);
+      if (idToken) {
+        formData.append('idToken', idToken);
+      }
+      // 🔓 MODO ANÔNIMO: Enviar visitorId para tracking
+      if (isAnonymous) {
+        formData.append('anonymousMode', 'true');
+        formData.append('visitorId', window.SoundyAnonymous?.visitorId || 'unknown');
+      }
       
       // Converter imagens base64 para blobs
       images.forEach((img, index) => {
@@ -1496,7 +1518,7 @@ async function processMessage(message, images = []) {
           }
           const blob = new Blob([bytes], { type: img.type });
           formData.append('images', blob, img.filename || `image-${index + 1}.jpg`);
-          console.log(`� Imagem ${index + 1} adicionada:`, img.filename, blob.size, 'bytes');
+          console.log(`📷 Imagem ${index + 1} adicionada:`, img.filename, blob.size, 'bytes');
         } catch (error) {
           console.error(`❌ Erro ao processar imagem ${index + 1}:`, error);
           throw new Error(`Erro ao processar imagem: ${img.filename}`);
@@ -1504,25 +1526,32 @@ async function processMessage(message, images = []) {
       });
       
       requestBody = formData;
-      // ✅ CORREÇÃO #2: Headers consistentes para multipart
-      requestHeaders = { 
-        'Authorization': `Bearer ${idToken}`
-        // Não definir Content-Type para FormData (browser define automaticamente)
-      };
+      // ✅ CORREÇÃO #2: Headers - só incluir Authorization se tiver token
+      requestHeaders = idToken ? { 'Authorization': `Bearer ${idToken}` } : {};
     } else {
       // JSON para mensagens só texto
-      console.log('📝 Preparando JSON para mensagem texto');
+      console.log('📝 Preparando JSON para mensagem texto', isAnonymous ? '(anônimo)' : '(autenticado)');
       
-      requestBody = JSON.stringify({ 
+      const payload = { 
         message, 
-        conversationHistory, 
-        idToken 
-      });
-      // ✅ CORREÇÃO #2: Headers consistentes para JSON
-      requestHeaders = { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`
+        conversationHistory
       };
+      
+      // 🔓 MODO ANÔNIMO: Adicionar campos específicos
+      if (idToken) {
+        payload.idToken = idToken;
+      }
+      if (isAnonymous) {
+        payload.anonymousMode = true;
+        payload.visitorId = window.SoundyAnonymous?.visitorId || 'unknown';
+      }
+      
+      requestBody = JSON.stringify(payload);
+      // ✅ Headers - só incluir Authorization se tiver token
+      requestHeaders = { 'Content-Type': 'application/json' };
+      if (idToken) {
+        requestHeaders['Authorization'] = `Bearer ${idToken}`;
+      }
     }
 
     console.log('📤 Enviando para API:', API_CONFIG.chatEndpoint, hasImages ? '(multipart)' : '(json)');

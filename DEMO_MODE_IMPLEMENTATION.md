@@ -84,38 +84,46 @@ Implementação do **Modo Demo de Venda** para SoundyAI - sistema de demonstraç
 
 ## 📁 Detalhes dos Arquivos
 
-### 1. `public/demo-mode.js` (NOVO)
+### 1. Módulos Refatorados (v2.0)
 
-**Funcionalidades:**
-- ✅ Detecção de modo via URL (`/demo` ou `?mode=demo`)
-- ✅ FingerprintJS v3 para identificação
-- ✅ Dual persistence (LocalStorage + IndexedDB)
-- ✅ Verificação de limites (`canAnalyze()`, `canSendMessage()`)
-- ✅ Interceptadores (`interceptAnalysis()`, `interceptMessage()`)
-- ✅ Registro de uso (`registerAnalysis()`, `registerMessage()`)
-- ✅ Modal de conversão bloqueante
-- ✅ Integração com backend (`validateBackend()`)
-- ✅ CSS do modal embutido
+#### `public/demo-core.js`
+- Fingerprint (FingerprintJS v3)
+- Storage (LocalStorage + IndexedDB)
+- Estado (counts, flags)
+- Validação backend
+
+#### `public/demo-guards.js`
+- `canAnalyze()` / `canSendMessage()`
+- `interceptAnalysis()` / `interceptMessage()`
+- `registerAnalysis()` / `registerMessage()`
+- Backend como palavra final
+
+#### `public/demo-ui.js`
+- Modal bloqueante (z-index máximo)
+- Redirect centralizado com reason
+- CSS embutido
 
 **Objeto Global:**
 ```javascript
 window.SoundyDemo = {
     isEnabled: true,
-    isActive: false,        // true quando modo demo ativo
-    visitorId: null,        // fingerprint do visitante
-    config: { ... },        // configurações
-    data: { ... },          // dados do visitante
+    isActive: false,           // true quando modo demo ativo
+    visitorId: null,           // fingerprint do visitante
+    config: { ... },           // configurações
+    data: { ... },             // dados do visitante
+    _backendAuthoritative: false, // true quando backend respondeu
     
     // Métodos públicos
     canAnalyze(),
     canSendMessage(),
-    interceptAnalysis(),
-    interceptMessage(),
-    registerAnalysis(),
-    registerMessage(),
-    showConversionModal(),
-    redirectToCheckout(),
-    validateBackend()
+    interceptAnalysis(),       // async - verifica backend
+    interceptMessage(),        // async - verifica backend
+    registerAnalysis(),        // após sucesso real
+    registerMessage(),         // após resposta IA
+    showConversionModal(reason),
+    redirectToCheckout(reason),
+    validateBackend(action),
+    forceBlock(reason)
 }
 ```
 
@@ -123,10 +131,11 @@ window.SoundyDemo = {
 
 **Alteração:**
 ```html
-<script src="demo-mode.js?v=20260102" defer></script>
+<!-- Módulos refatorados: Core → Guards → UI (ordem obrigatória) -->
+<script src="demo-core.js?v=20260102" defer></script>
+<script src="demo-guards.js?v=20260102" defer></script>
+<script src="demo-ui.js?v=20260102" defer></script>
 ```
-- Adicionado após anonymous-mode.js
-- Carregamento defer para não bloquear
 
 ### 3. `public/audio-analyzer-integration.js` (MODIFICADO)
 
@@ -162,12 +171,18 @@ else if (window.SoundyDemo && window.SoundyDemo.isActive) {
 }
 ```
 
-**Hook de Registro (após mensagem enviada):**
+**Hook de Registro (após resposta da IA - CRÍTICO):**
 ```javascript
-// 🔥 MODO DEMO: Registrar mensagem enviada
-if (window.SoundyDemo && window.SoundyDemo.isActive) {
-    window.SoundyDemo.registerMessage();
-}
+// 🔥 MODO DEMO: Registrar mensagem SOMENTE após resposta da IA
+// CRÍTICO: Registro só acontece após sucesso real da resposta
+processMessage(message, images).then(() => {
+    this.hideTyping();
+    if (window.SoundyDemo && window.SoundyDemo.isActive) {
+        window.SoundyDemo.registerMessage();
+    }
+}).catch((err) => {
+    // Erro = mensagem NÃO registrada
+});
 ```
 
 ### 5. `api/demo/validate.js` (NOVO)
@@ -274,14 +289,15 @@ console.log(window.SoundyDemo.data);      // dados do visitante
 ## 📊 Logs de Console
 
 ```
-✅ [DEMO] FingerprintJS carregado
-✅ [DEMO] Fingerprint gerado: abc123...
-✅ [DEMO] Dados carregados do localStorage
-🔥 [DEMO] Modo Demo ATIVADO para: demo_abc123...
-📊 [DEMO] Análise registrada: 1/1
-🔗 [DEMO] Backend validação (analysis): {...}
-🚫 [DEMO] Análise bloqueada: analysis_limit_reached
-🔥 [DEMO] Modal de conversão exibido
+✅ [DEMO-CORE] FingerprintJS carregado
+✅ [DEMO-CORE] Fingerprint gerado: abc123...
+✅ [DEMO-CORE] Dados carregados do localStorage
+🔥 [DEMO-CORE] Modo demo ATIVADO (sobrepondo outros modos)
+📊 [DEMO-GUARDS] Análise registrada: 1/1
+🔗 [DEMO-CORE] Backend validação (analysis): {...}
+🚫 [DEMO-GUARDS] Análise bloqueada (BACKEND - palavra final)
+🔥 [DEMO-UI] Modal de conversão exibido - BLOQUEANTE
+🛒 [DEMO-UI] Redirecionando para checkout (motivo: analysis_limit)
 ```
 
 ---
@@ -294,17 +310,34 @@ console.log(window.SoundyDemo.data);      // dados do visitante
 - [ ] Testar em modo anônimo
 - [ ] Verificar se modal aparece corretamente
 - [ ] Confirmar redirect para checkout
+- [ ] Remover `public/demo-mode.js` antigo (backup feito)
 
 ---
 
 ## 📝 Notas Técnicas
 
-1. **Prioridade de Modos:** Demo > Anonymous > Logged
-2. **Backend Opcional:** Sistema funciona 100% apenas com frontend
-3. **Encoding Issues:** script.js tinha emoji corrompido, resolvido via PowerShell
-4. **TTL:** 30 dias para bloqueio persistir
+1. **Prioridade de Modos:** Demo > Anonymous > Logged (via `else if`)
+2. **Anonymous-mode PRESERVADO:** Demo apenas SOBREPÕE, não desativa
+3. **Backend é PALAVRA FINAL:** Se responder `allowed: false`, bloqueia
+4. **Registro APÓS SUCESSO:** Análise após resultado, Mensagem após resposta IA
+5. **Modal BLOQUEANTE:** z-index máximo, sem fechar, body overflow hidden
+6. **Redirect CENTRALIZADO:** `redirectToCheckout(reason)` para analytics
+
+---
+
+## ✅ Ajustes v2.0.0 Aplicados
+
+| Ajuste | Status |
+|--------|--------|
+| Refatorar em 3 módulos | ✅ Feito |
+| Anonymous-mode preservado | ✅ Sobrepõe apenas |
+| Registro após sucesso real | ✅ Mensagem após resposta IA |
+| Backend palavra final | ✅ `backendAuthoritative` |
+| Modal bloqueia TUDO | ✅ z-index 2147483647 |
+| Redirect centralizado | ✅ Com reason |
+| Texto final aprovado | ✅ Exato como solicitado |
 
 ---
 
 **Implementado em:** 2026-01-02  
-**Versão:** 1.0.0
+**Versão:** 2.0.0 (Pronto para Produção)
