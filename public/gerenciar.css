@@ -649,6 +649,12 @@ body {
     color: #ff6b6b;
 }
 
+.feedback-message.info {
+    background: rgba(100, 181, 246, 0.1);
+    border: 1px solid rgba(100, 181, 246, 0.3);
+    color: #64b5f6;
+}
+
 @keyframes slideDown {
     from {
         opacity: 0;
