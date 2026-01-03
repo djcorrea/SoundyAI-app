@@ -506,90 +506,122 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       hasReferenceJobId: !!req.body.referenceJobId
     });
     
-    // ✅ ETAPA 1: AUTENTICAÇÃO OBRIGATÓRIA
+    // ═══════════════════════════════════════════════════════════
+    // 🔥 MODO DEMO: Bypass de autenticação para demonstração
+    // ═══════════════════════════════════════════════════════════
+    const isDemoMode = req.headers['x-demo-mode'] === 'true' || req.query.mode === 'demo';
+    const demoVisitorId = req.headers['x-demo-visitor'] || 'unknown';
+    
+    if (isDemoMode) {
+      console.log('🔥 [ANALYZE] MODO DEMO detectado - visitor:', demoVisitorId);
+    }
+    
+    // ✅ ETAPA 1: AUTENTICAÇÃO (bypass para demo)
     console.log('🔐 [ANALYZE] Verificando autenticação...');
     
-    if (!idToken) {
-      console.error('❌ [ANALYZE] Token ausente no body');
-      return res.status(401).json({
-        success: false,
-        error: "AUTH_TOKEN_MISSING",
-        message: "Token de autenticação necessário"
-      });
-    }
-        // 🆕 MOVER PARA ANTES DAS VALIDAÇÕES (previne 'Cannot access before initialization')
-    const referenceJobId = req.body.referenceJobId || null;
-        console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
-    
+    let uid;
     let decoded;
-    try {
-      decoded = await auth.verifyIdToken(idToken);
-      console.log('✅ [ANALYZE] Token verificado com sucesso');
-    } catch (err) {
-      console.error('❌ [ANALYZE] Erro ao verificar token:', err.message);
-      console.error('❌ [ANALYZE] Stack:', err.stack);
-      return res.status(401).json({
-        success: false,
-        error: "AUTH_ERROR",
-        message: "Token inválido ou expirado"
-      });
+    
+    if (isDemoMode) {
+      // 🔥 DEMO MODE: Usar visitorId como UID fictício
+      uid = `demo_${demoVisitorId}`;
+      decoded = { uid, demo: true };
+      console.log('🔥 [ANALYZE] Usando UID demo:', uid);
+    } else {
+      // Fluxo normal de autenticação
+      if (!idToken) {
+        console.error('❌ [ANALYZE] Token ausente no body');
+        return res.status(401).json({
+          success: false,
+          error: "AUTH_TOKEN_MISSING",
+          message: "Token de autenticação necessário"
+        });
+      }
+      
+      // 🆕 MOVER PARA ANTES DAS VALIDAÇÕES (previne 'Cannot access before initialization')
+      const referenceJobId = req.body.referenceJobId || null;
+      console.log('🔑 [ANALYZE] IDTOKEN recebido:', idToken.substring(0, 20) + '...');
+      
+      try {
+        decoded = await auth.verifyIdToken(idToken);
+        console.log('✅ [ANALYZE] Token verificado com sucesso');
+      } catch (err) {
+        console.error('❌ [ANALYZE] Erro ao verificar token:', err.message);
+        console.error('❌ [ANALYZE] Stack:', err.stack);
+        return res.status(401).json({
+          success: false,
+          error: "AUTH_ERROR",
+          message: "Token inválido ou expirado"
+        });
+      }
+      
+      uid = decoded.uid;
+      console.log('🔑 [ANALYZE] UID decodificado:', uid);
+      
+      if (!uid) {
+        console.error('❌ [ANALYZE] UID undefined após decodificação!');
+        return res.status(401).json({
+          success: false,
+          error: "INVALID_UID",
+          message: "UID inválido no token"
+        });
+      }
     }
     
-    const uid = decoded.uid;
-    console.log('🔑 [ANALYZE] UID decodificado:', uid);
-    
-    if (!uid) {
-      console.error('❌ [ANALYZE] UID undefined após decodificação!');
-      return res.status(401).json({
-        success: false,
-        error: "INVALID_UID",
-        message: "UID inválido no token"
-      });
-    }
+    // 🆕 MOVER referenceJobId para fora do bloco else
+    const referenceJobId = req.body.referenceJobId || null;
     
     // ✅ ETAPA 2: VALIDAR LIMITES DE ANÁLISE ANTES DE CRIAR JOB
+    // 🔥 DEMO MODE: Pular verificação de limites (frontend controla)
     console.log('📊 [ANALYZE] Verificando limites de análise para UID:', uid);
     
     let analysisCheck;
-    try {
-      analysisCheck = await canUseAnalysis(uid);
-      console.log('📊 [ANALYZE] Resultado da verificação:', analysisCheck);
-    } catch (err) {
-      console.error('❌ [ANALYZE] Erro ao verificar limites:', err.message);
-      console.error('❌ [ANALYZE] Stack:', err.stack);
-      return res.status(500).json({
-        success: false,
-        error: "LIMIT_CHECK_ERROR",
-        message: "Erro ao verificar limites do plano"
-      });
-    }
     
-    if (!analysisCheck.allowed) {
-      console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
-      console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Mode: ${analysisCheck.mode}`);
-      
-      // ✅ Mensagem UX neutra e elegante para hard cap (PRO)
-      let errorMessage = "Seu plano atual não permite mais análises. Atualize seu plano para continuar.";
-      
-      if (analysisCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
-        errorMessage = "Estamos passando por um pico temporário de uso. Para garantir estabilidade e qualidade, novas análises estão pausadas no momento. O acesso será normalizado automaticamente em breve.";
+    if (isDemoMode) {
+      // Demo: Permitir análise (frontend controla o limite de 1)
+      analysisCheck = { allowed: true, demo: true, mode: 'full', user: { plan: 'demo' }, remainingFull: 1 };
+      console.log('🔥 [ANALYZE] DEMO MODE: Limites controlados pelo frontend');
+    } else {
+      try {
+        analysisCheck = await canUseAnalysis(uid);
+        console.log('📊 [ANALYZE] Resultado da verificação:', analysisCheck);
+      } catch (err) {
+        console.error('❌ [ANALYZE] Erro ao verificar limites:', err.message);
+        console.error('❌ [ANALYZE] Stack:', err.stack);
+        return res.status(500).json({
+          success: false,
+          error: "LIMIT_CHECK_ERROR",
+          message: "Erro ao verificar limites do plano"
+        });
       }
-      
-      return res.status(403).json({
-        success: false,
-        error: analysisCheck.errorCode || "LIMIT_REACHED",
-        message: errorMessage,
-        remainingFull: analysisCheck.remainingFull,
-        plan: analysisCheck.user.plan,
-        mode: analysisCheck.mode
-      });
+    
+      if (!analysisCheck.allowed) {
+        console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
+        console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Mode: ${analysisCheck.mode}`);
+        
+        // ✅ Mensagem UX neutra e elegante para hard cap (PRO)
+        let errorMessage = "Seu plano atual não permite mais análises. Atualize seu plano para continuar.";
+        
+        if (analysisCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
+          errorMessage = "Estamos passando por um pico temporário de uso. Para garantir estabilidade e qualidade, novas análises estão pausadas no momento. O acesso será normalizado automaticamente em breve.";
+        }
+        
+        return res.status(403).json({
+          success: false,
+          error: analysisCheck.errorCode || "LIMIT_REACHED",
+          message: errorMessage,
+          remainingFull: analysisCheck.remainingFull,
+          plan: analysisCheck.user.plan,
+          mode: analysisCheck.mode
+        });
+      }
     }
     
     const analysisMode = analysisCheck.mode; // "full" | "reduced"
-    const features = getPlanFeatures(analysisCheck.user.plan, analysisMode);
+    const features = getPlanFeatures(analysisCheck.user?.plan || 'demo', analysisMode);
     
     console.log(`✅ [ANALYZE] Análise permitida - UID: ${uid}`);
-    console.log(`📊 [ANALYZE] Modo: ${analysisMode}, Plano: ${analysisCheck.user.plan}`);
+    console.log(`📊 [ANALYZE] Modo: ${analysisMode}, Plano: ${analysisCheck.user?.plan}`);
     console.log(`🎯 [ANALYZE] Features:`, features);
     console.log(`📈 [ANALYZE] Análises completas restantes: ${analysisCheck.remainingFull}`);
     
@@ -708,13 +740,18 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     });
 
     // ✅ ETAPA 3: REGISTRAR USO DE ANÁLISE NO SISTEMA DE LIMITES (SÓ SE FOR FULL)
-    console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid, '- Mode:', analysisMode);
-    try {
-      await registerAnalysis(uid, analysisMode);
-      console.log(`✅ [ANALYZE] Análise registrada com sucesso para: ${uid} (mode: ${analysisMode})`);
-    } catch (err) {
-      console.error('⚠️ [ANALYZE] Erro ao registrar análise (job já foi criado):', err.message);
-      // Não bloquear resposta - job já foi criado com sucesso
+    // 🔥 DEMO MODE: Não registrar uso no banco
+    if (!isDemoMode) {
+      console.log('📝 [ANALYZE] Registrando uso de análise para UID:', uid, '- Mode:', analysisMode);
+      try {
+        await registerAnalysis(uid, analysisMode);
+        console.log(`✅ [ANALYZE] Análise registrada com sucesso para: ${uid} (mode: ${analysisMode})`);
+      } catch (err) {
+        console.error('⚠️ [ANALYZE] Erro ao registrar análise (job já foi criado):', err.message);
+        // Não bloquear resposta - job já foi criado com sucesso
+      }
+    } else {
+      console.log('🔥 [ANALYZE] DEMO MODE: Pulando registro de uso no banco');
     }
 
     // ✅ RESPOSTA DE SUCESSO COM JOBID GARANTIDO
@@ -722,6 +759,7 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       ok: true,
       success: true,
       jobId: jobRecord.id,
+      demoMode: isDemoMode || false,
       job: {
         id: jobRecord.id,
         status: jobRecord.status,

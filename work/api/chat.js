@@ -826,21 +826,45 @@ async function handlerWithoutRateLimit(req, res) {
       throw parseError;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // 🔥 MODO DEMO: Detectar antes da validação
+    // ═══════════════════════════════════════════════════════════
+    const isDemoMode = req.headers['x-demo-mode'] === 'true' || req.query.mode === 'demo';
+    const demoVisitorId = req.headers['x-demo-visitor'] || 'unknown';
+    
+    // Para demo, injetar um token dummy para passar validação
+    if (isDemoMode && (!requestData.idToken || requestData.idToken === '')) {
+      requestData.idToken = 'demo_token_' + demoVisitorId;
+      console.log(`🔥 [${requestId}] DEMO MODE: Token dummy injetado`);
+    }
+
     let validatedData;
     try {
       validatedData = validateAndSanitizeInput(requestData);
     } catch (error) {
       console.error('❌ Erro na validação:', error.message);
       if (error.message === 'TOKEN_MISSING') {
-        return res.status(401).json({ error: 'AUTH_TOKEN_MISSING', message: 'Token de autenticação necessário' });
-      }
-      if (error.message === 'MESSAGE_INVALID') {
+        // 🔥 DEMO MODE: Bypass se for demo
+        if (isDemoMode) {
+          console.log(`🔥 [${requestId}] DEMO MODE: Ignorando token ausente`);
+          validatedData = {
+            message: (requestData.message || '').trim().substring(0, 2000),
+            conversationHistory: [],
+            idToken: 'demo_token_' + demoVisitorId,
+            images: [],
+            isVoiceMessage: false,
+            hasImages: false
+          };
+        } else {
+          return res.status(401).json({ error: 'AUTH_TOKEN_MISSING', message: 'Token de autenticação necessário' });
+        }
+      } else if (error.message === 'MESSAGE_INVALID') {
         return res.status(422).json({ error: 'MESSAGE_INVALID', message: 'Mensagem inválida ou vazia' });
-      }
-      if (error.message === 'IMAGES_LIMIT_EXCEEDED') {
+      } else if (error.message === 'IMAGES_LIMIT_EXCEEDED') {
         return res.status(422).json({ error: 'IMAGES_LIMIT_EXCEEDED', message: 'Máximo de 3 imagens por envio' });
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     const { message, conversationHistory, idToken, images } = validatedData;
@@ -853,18 +877,30 @@ async function handlerWithoutRateLimit(req, res) {
       validatedDataHasImages: validatedData.hasImages
     });
 
-    // Verificar autenticação
-    try {
-      decoded = await auth.verifyIdToken(idToken);
-    } catch (err) {
-      console.error(`❌ [${requestId}] Token verification failed:`, err.message);
-      return sendResponse(401, { error: 'AUTH_ERROR', message: 'Token inválido ou expirado' });
+    // 🔥 isDemoMode e demoVisitorId já declarados acima - reutilizar
+    
+    let uid;
+    let email;
+    
+    if (isDemoMode) {
+      console.log(`🔥 [${requestId}] MODO DEMO detectado - visitor: ${demoVisitorId}`);
+      uid = `demo_${demoVisitorId}`;
+      email = 'demo@soundyai.com';
+      decoded = { uid, email, demo: true };
+    } else {
+      // Verificar autenticação normal
+      try {
+        decoded = await auth.verifyIdToken(idToken);
+      } catch (err) {
+        console.error(`❌ [${requestId}] Token verification failed:`, err.message);
+        return sendResponse(401, { error: 'AUTH_ERROR', message: 'Token inválido ou expirado' });
+      }
+      
+      uid = decoded.uid;
+      email = decoded.email;
     }
 
-    const uid = decoded.uid;
-    const email = decoded.email;
-
-    // ✅ SEGURANÇA: Verificar rate limiting
+    // ✅ SEGURANÇA: Verificar rate limiting (aplicar também no demo para prevenir abuse)
     if (!checkRateLimit(uid)) {
       return sendResponse(429, { 
         error: 'RATE_LIMIT_EXCEEDED', 
@@ -877,16 +913,34 @@ async function handlerWithoutRateLimit(req, res) {
     console.log(`📊 [${requestId}] Verificando limites de chat para UID: ${uid}`);
     
     let chatCheck;
-    try {
-      // ✅ NOVO: Passar hasImages para verificar limite de imagens no PRO
-      chatCheck = await canUseChat(uid, hasImages);
-      console.log(`📊 [${requestId}] Resultado da verificação:`, chatCheck);
-    } catch (err) {
-      console.error(`❌ [${requestId}] Erro ao verificar limites de chat:`, err.message);
-      return sendResponse(500, {
-        error: 'LIMIT_CHECK_ERROR',
-        message: 'Erro ao verificar limites do plano'
-      });
+    
+    if (isDemoMode) {
+      // 🔥 DEMO MODE: Permitir chat (frontend controla o limite de 1)
+      // Incluir objeto user para compatibilidade com o restante do código
+      chatCheck = { 
+        allowed: true, 
+        demo: true, 
+        remaining: 1,
+        user: { 
+          uid: uid,
+          email: email,
+          plan: 'demo',
+          entrevistaConcluida: true
+        }
+      };
+      console.log(`🔥 [${requestId}] DEMO MODE: Limites controlados pelo frontend`);
+    } else {
+      try {
+        // ✅ NOVO: Passar hasImages para verificar limite de imagens no PRO
+        chatCheck = await canUseChat(uid, hasImages);
+        console.log(`📊 [${requestId}] Resultado da verificação:`, chatCheck);
+      } catch (err) {
+        console.error(`❌ [${requestId}] Erro ao verificar limites de chat:`, err.message);
+        return sendResponse(500, {
+          error: 'LIMIT_CHECK_ERROR',
+          message: 'Erro ao verificar limites do plano'
+        });
+      }
     }
     
     if (!chatCheck.allowed) {
@@ -1044,25 +1098,31 @@ async function handlerWithoutRateLimit(req, res) {
       hasImages: hasImages,
       responseLength: reply.length,
       tokenEstimate: Math.ceil(reply.length / 4),
-      userPlan: userData.plan
+      userPlan: userData?.plan || 'demo'
     });
 
     // ✅ REGISTRAR USO DE CHAT NO SISTEMA DE PLANOS
-    try {
-      // ✅ NOVO: Passar hasImages para incrementar contador de imagens se aplicável
-      await registerChat(uid, hasImages);
-      console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}${hasImages ? ' (com imagem)' : ''}`);
-    } catch (err) {
-      console.error(`⚠️ [${requestId}] Erro ao registrar chat (resposta será enviada):`, err.message);
-      // Não bloquear resposta - usuário já recebeu o serviço
+    // 🔥 DEMO MODE: Não registrar histórico/uso no banco
+    if (!isDemoMode) {
+      try {
+        // ✅ NOVO: Passar hasImages para incrementar contador de imagens se aplicável
+        await registerChat(uid, hasImages);
+        console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}${hasImages ? ' (com imagem)' : ''}`);
+      } catch (err) {
+        console.error(`⚠️ [${requestId}] Erro ao registrar chat (resposta será enviada):`, err.message);
+        // Não bloquear resposta - usuário já recebeu o serviço
+      }
+    } else {
+      console.log(`🔥 [${requestId}] DEMO MODE: Pulando registro de uso no banco`);
     }
 
     // Preparar resposta final
     const responseData = {
       reply,
-      mensagensRestantes: userData.plan === 'free' ? chatCheck.remaining : (userData.plan === 'plus' ? chatCheck.remaining : null),
+      mensagensRestantes: userData?.plan === 'free' ? chatCheck.remaining : (userData?.plan === 'plus' ? chatCheck.remaining : null),
       model: modelSelection ? modelSelection.model : 'unknown',
-      plan: userData.plan
+      plan: userData?.plan || 'demo',
+      demoMode: isDemoMode || false
     };
 
     // ✅ REMOVIDO: imageAnalysis (sistema antigo com imagemAnalises)
