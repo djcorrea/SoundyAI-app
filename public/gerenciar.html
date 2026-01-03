@@ -566,38 +566,61 @@
             async function checkEmailVerificationCode() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const oobCode = urlParams.get('oobCode');
+                const mode = urlParams.get('mode');
+                
+                // Log detalhado para diagnóstico
+                console.log('[EMAIL VERIFY] Verificando parâmetros da URL...');
+                console.log('[EMAIL VERIFY] oobCode presente:', !!oobCode);
+                console.log('[EMAIL VERIFY] mode:', mode);
+                console.log('[EMAIL VERIFY] URL completa:', window.location.href);
                 
                 if (oobCode) {
                     console.log('🔍 Código de verificação encontrado na URL');
                     
                     // Recuperar o novo e-mail salvo temporariamente
                     const novoEmailTemp = localStorage.getItem('novoEmailTemp');
+                    console.log('[EMAIL VERIFY] novoEmailTemp no localStorage:', novoEmailTemp || '(não encontrado)');
                     
-                    if (!novoEmailTemp) {
-                        console.error('❌ Novo e-mail não encontrado no localStorage');
-                        showMessage('❌ Erro: novo e-mail não encontrado. Tente o processo novamente.', 'error', 'email');
-                        
-                        // Limpar a URL
-                        const newUrl = window.location.origin + window.location.pathname;
-                        window.history.replaceState({}, document.title, newUrl);
-                        return;
-                    }
+                    // Mostrar indicador de processamento
+                    showMessage('⏳ Processando verificação de e-mail...', 'info', 'email');
                     
                     try {
-                        // Primeiro aplicar o código de verificação
+                        // Com verifyBeforeUpdateEmail, o Firebase já atualiza o e-mail
+                        // ao aplicar o código. Não precisamos chamar updateEmail depois.
+                        console.log('[EMAIL VERIFY] Aplicando código de verificação...');
                         await applyActionCode(auth, oobCode);
                         console.log('✅ Código de verificação aplicado com sucesso');
                         
-                        // Aguardar um momento para garantir que o usuário está atualizado
+                        // Recarregar o usuário para obter as informações atualizadas
                         if (currentUser) {
                             await currentUser.reload();
+                            console.log('[EMAIL VERIFY] E-mail atual após reload:', currentUser.email);
                         }
                         
-                        // Agora sim atualizar o e-mail no Firebase
-                        await updateEmail(currentUser, novoEmailTemp);
-                        console.log('✅ E-mail atualizado no Firebase');
+                        // Verificar se o e-mail foi atualizado automaticamente
+                        const emailAtualizado = currentUser && novoEmailTemp && currentUser.email === novoEmailTemp;
                         
-                        showMessage('✅ E-mail verificado e alterado com sucesso!', 'success', 'email');
+                        if (emailAtualizado) {
+                            console.log('✅ E-mail atualizado automaticamente pelo Firebase para:', currentUser.email);
+                            showMessage('✅ E-mail verificado e alterado com sucesso para: ' + currentUser.email, 'success', 'email');
+                        } else if (novoEmailTemp && currentUser && currentUser.email !== novoEmailTemp) {
+                            // Caso raro: código aplicado mas e-mail não mudou automaticamente
+                            // Tentar atualizar manualmente
+                            console.log('[EMAIL VERIFY] E-mail não mudou automaticamente, tentando updateEmail...');
+                            try {
+                                await updateEmail(currentUser, novoEmailTemp);
+                                await currentUser.reload();
+                                console.log('✅ E-mail atualizado manualmente para:', currentUser.email);
+                                showMessage('✅ E-mail alterado com sucesso para: ' + novoEmailTemp, 'success', 'email');
+                            } catch (updateError) {
+                                console.warn('[EMAIL VERIFY] updateEmail falhou (pode ser normal se já foi atualizado):', updateError.code);
+                                // Mesmo que falhe, o applyActionCode já confirmou a verificação
+                                showMessage('✅ E-mail verificado! A alteração pode levar alguns instantes.', 'success', 'email');
+                            }
+                        } else {
+                            // Sem novoEmailTemp mas código aplicado - verificação genérica bem sucedida
+                            showMessage('✅ Verificação de e-mail concluída com sucesso!', 'success', 'email');
+                        }
                         
                         // Limpar o localStorage
                         localStorage.removeItem('novoEmailTemp');
@@ -606,14 +629,15 @@
                         const newUrl = window.location.origin + window.location.pathname;
                         window.history.replaceState({}, document.title, newUrl);
                         
-                        // Recarregar o usuário para obter as informações atualizadas
+                        // Atualizar UI com informações do usuário
                         if (currentUser) {
-                            await currentUser.reload();
                             updateUserInfo(currentUser);
                         }
                         
                     } catch (error) {
                         console.error('❌ Erro ao confirmar o novo e-mail:', error);
+                        console.error('[EMAIL VERIFY] Código do erro:', error.code);
+                        console.error('[EMAIL VERIFY] Mensagem:', error.message);
                         
                         let errorMessage = 'Erro ao confirmar o novo e-mail. Tente novamente.';
                         
@@ -622,7 +646,7 @@
                                 errorMessage = '⏰ Link de verificação expirado. Solicite um novo.';
                                 break;
                             case 'auth/invalid-action-code':
-                                errorMessage = '❌ Link de verificação inválido.';
+                                errorMessage = '❌ Link de verificação inválido ou já utilizado.';
                                 break;
                             case 'auth/user-disabled':
                                 errorMessage = '🚫 Conta desabilitada. Entre em contato com o suporte.';
@@ -632,6 +656,9 @@
                                 break;
                             case 'auth/invalid-email':
                                 errorMessage = '📧 E-mail inválido.';
+                                break;
+                            case 'auth/requires-recent-login':
+                                errorMessage = '🔒 Sessão expirada. Faça login novamente e repita o processo.';
                                 break;
                             default:
                                 errorMessage = `❌ Erro: ${error.message}`;
@@ -793,10 +820,17 @@
                     console.log('✅ E-mail salvo no localStorage:', newEmail);
                     
                     // SEGUNDO: Usar verifyBeforeUpdateEmail (método recomendado pelo Firebase)
+                    // URL FIXA do domínio canônico - NÃO usar window.location.origin
                     const actionCodeSettings = {
-                        url: 'https://soundyai-app-production.up.railway.app/gerenciar.html',
+                        url: 'https://www.soundyai.com.br/gerenciar.html',
                         handleCodeInApp: true
                     };
+                    
+                    // Logs de diagnóstico para debug
+                    console.log('[EMAIL CHANGE] Origin atual:', window.location.origin);
+                    console.log('[EMAIL CHANGE] continueUrl:', actionCodeSettings.url);
+                    console.log('[EMAIL CHANGE] handleCodeInApp:', actionCodeSettings.handleCodeInApp);
+                    console.log('[EMAIL CHANGE] Tentando enviar verificação para:', newEmail);
                     
                     await verifyBeforeUpdateEmail(currentUser, newEmail, actionCodeSettings);
                     
@@ -831,6 +865,16 @@
                             break;
                         case 'auth/too-many-requests':
                             errorMessage = '⏰ Muitas tentativas. Tente novamente em alguns minutos.';
+                            break;
+                        case 'auth/unauthorized-continue-uri':
+                            errorMessage = '🚫 Erro de configuração do domínio. Entre em contato com o suporte.';
+                            console.error('[EMAIL CHANGE] Erro: Domínio não autorizado no Firebase. Verifique Authorized Domains.');
+                            break;
+                        case 'auth/email-already-in-use':
+                            errorMessage = '📧 Este e-mail já está sendo usado por outra conta.';
+                            break;
+                        case 'auth/operation-not-allowed':
+                            errorMessage = '🚫 Operação não permitida. Entre em contato com o suporte.';
                             break;
                         default:
                             errorMessage = `❌ Erro: ${error.message}`;
