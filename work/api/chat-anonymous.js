@@ -16,7 +16,7 @@ import cors from 'cors';
 import {
   canAnonymousChat,
   registerAnonymousChat
-} from '../../lib/anonymousLimiter.js';
+} from '../lib/anonymousLimiter.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO DE LIMITES (espelhando chat.js autenticado)
