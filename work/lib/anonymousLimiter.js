@@ -103,6 +103,24 @@ function getClientIP(req) {
          'unknown';
 }
 
+/**
+ * Criar resposta padronizada de bloqueio
+ */
+function createBlockedResponse(maxAllowed, analysisCount, isDemo, reason) {
+  return {
+    allowed: false,
+    remaining: 0,
+    limit: maxAllowed,
+    used: analysisCount,
+    blocked: true,
+    message: isDemo 
+      ? 'Você já usou sua análise gratuita. Libere o acesso completo!'
+      : 'Você já usou sua análise gratuita. Crie uma conta para continuar!',
+    errorCode: isDemo ? 'DEMO_PERMANENTLY_BLOCKED' : 'ANON_PERMANENTLY_BLOCKED',
+    blockReason: reason
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔒 GUARD PRINCIPAL - BLOQUEIO PERMANENTE
 // ═══════════════════════════════════════════════════════════════════
@@ -113,6 +131,10 @@ function getClientIP(req) {
  * REGRA ABSOLUTA:
  * - analysis_count >= 1 → BLOQUEADO PARA SEMPRE
  * - blocked = true → BLOQUEADO PARA SEMPRE
+ * 
+ * IDENTIFICAÇÃO MÚLTIPLA (anti-burla):
+ * 1. Por visitor_id (fingerprint)
+ * 2. Por IP address (fallback)
  * 
  * @param {string} visitorId - Fingerprint do usuário
  * @param {Object} req - Request Express (para IP)
@@ -151,15 +173,60 @@ export async function canAnonymousAnalyze(visitorId, req, options = {}) {
   }
   
   try {
-    // Buscar registro existente
-    const result = await pool.query(`
-      SELECT analysis_count, blocked, block_reason, created_at
+    // 🔴 VERIFICAÇÃO 1: Por visitor_id (fingerprint)
+    const resultByVisitor = await pool.query(`
+      SELECT analysis_count, blocked, block_reason, created_at, ip_address
       FROM anonymous_usage 
       WHERE visitor_id = $1 AND usage_type = $2
     `, [visitorId, usageType]);
     
-    // Se não existe registro, permitir primeira análise
-    if (result.rows.length === 0) {
+    if (resultByVisitor.rows.length > 0) {
+      const record = resultByVisitor.rows[0];
+      const analysisCount = record.analysis_count || 0;
+      const isBlocked = record.blocked === true;
+      
+      console.log(`📊 [ANON_LIMITER] Registro por visitorId encontrado:`);
+      console.log(`   - Análises feitas: ${analysisCount}`);
+      console.log(`   - Bloqueado: ${isBlocked}`);
+      
+      if (isBlocked || analysisCount >= maxAllowed) {
+        console.log(`🚫 [ANON_LIMITER] BLOQUEADO por visitorId`);
+        return createBlockedResponse(maxAllowed, analysisCount, isDemo, 'visitor_blocked');
+      }
+    }
+    
+    // 🔴 VERIFICAÇÃO 2: Por IP (anti-burla - pega quem limpa cache)
+    if (ip && ip !== 'unknown') {
+      const resultByIP = await pool.query(`
+        SELECT analysis_count, blocked, block_reason, visitor_id
+        FROM anonymous_usage 
+        WHERE ip_address = $1 AND usage_type = $2 AND blocked = true
+      `, [ip, usageType]);
+      
+      if (resultByIP.rows.length > 0) {
+        const ipRecord = resultByIP.rows[0];
+        console.log(`🚫 [ANON_LIMITER] IP ${ip} já foi bloqueado anteriormente`);
+        console.log(`   - Visitor original: ${ipRecord.visitor_id?.substring(0, 16)}...`);
+        console.log(`   - Análises: ${ipRecord.analysis_count}`);
+        return createBlockedResponse(maxAllowed, ipRecord.analysis_count, isDemo, 'ip_blocked');
+      }
+      
+      // Verificar total de análises por IP (mesmo com visitor diferente)
+      const ipAnalysisCount = await pool.query(`
+        SELECT SUM(analysis_count) as total
+        FROM anonymous_usage 
+        WHERE ip_address = $1 AND usage_type = $2
+      `, [ip, usageType]);
+      
+      const totalByIP = parseInt(ipAnalysisCount.rows[0]?.total || '0', 10);
+      if (totalByIP >= maxAllowed) {
+        console.log(`🚫 [ANON_LIMITER] IP ${ip} já atingiu limite (${totalByIP} análises)`);
+        return createBlockedResponse(maxAllowed, totalByIP, isDemo, 'ip_limit_reached');
+      }
+    }
+    
+    // Se não existe registro por visitorId, permitir primeira análise
+    if (resultByVisitor.rows.length === 0) {
       console.log(`✅ [ANON_LIMITER] Novo visitante - permitindo primeira análise`);
       return {
         allowed: true,
@@ -172,7 +239,7 @@ export async function canAnonymousAnalyze(visitorId, req, options = {}) {
       };
     }
     
-    const record = result.rows[0];
+    const record = resultByVisitor.rows[0];
     const analysisCount = record.analysis_count || 0;
     const isBlocked = record.blocked === true;
     

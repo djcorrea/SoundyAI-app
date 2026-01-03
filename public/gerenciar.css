@@ -160,6 +160,11 @@ body {
     color: #00ff88;
 }
 
+.plan-type.pro .plan-name {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
 .plan-type.free .plan-name {
     color: #ff6b6b;
 }
@@ -425,6 +430,22 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(255, 0, 68, 0.4);
     background: linear-gradient(135deg, #ff3366 0%, #ee0044 100%);
+}
+
+.btn-danger.btn-disabled,
+.btn-danger:disabled {
+    background: linear-gradient(135deg, #666 0%, #444 100%);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.btn-danger.btn-disabled:hover,
+.btn-danger:disabled:hover {
+    transform: none;
+    box-shadow: none;
+    background: linear-gradient(135deg, #666 0%, #444 100%);
 }
 
 .btn-upgrade-premium {
