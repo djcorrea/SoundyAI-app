@@ -2,13 +2,16 @@
  * 🔓 SOUNDYAI - SISTEMA DE MODO ANÔNIMO
  * 
  * Permite que visitantes usem o sistema SEM LOGIN com limites:
- * - 2 análises completas
+ * - 1 análise completa (PERMANENTE - sem reset)
  * - 5 mensagens no chat
+ * 
+ * ⚠️ IMPORTANTE: O limite é controlado pelo BACKEND (anonymousLimiter.js)
+ * O frontend apenas mostra informações - NÃO é autoridade de bloqueio
  * 
  * Utiliza FingerprintJS + LocalStorage + IndexedDB para anti-burla.
  * 
- * @version 1.0.0
- * @created 2026-01-02
+ * @version 2.0.0 - BLOQUEIO PERMANENTE
+ * @created 2025-01-03
  */
 
 (function() {
@@ -25,7 +28,7 @@
     // ═══════════════════════════════════════════════════════════
     
     const ANONYMOUS_LIMITS = {
-        maxAnalyses: 2,      // Máximo de análises completas
+        maxAnalyses: 1,      // 1 análise NA VIDA (backend é autoridade)
         maxMessages: 5,      // Máximo de mensagens no chat
         storageKey: 'soundy_visitor_data',
         indexedDBName: 'SoundyAnonymousDB',
@@ -578,7 +581,7 @@
                     <div class="login-required-modal-usage" id="loginModalUsage">
                         <div class="usage-item used">
                             <span class="usage-icon">✅</span>
-                            <span class="usage-text">2 análises completas usadas</span>
+                            <span class="usage-text">1 análise gratuita usada</span>
                         </div>
                         <div class="usage-item used">
                             <span class="usage-icon">✅</span>
@@ -840,7 +843,8 @@
     
     console.log('🔓 [ANONYMOUS] Sistema de Modo Anônimo carregado');
     console.log('   Feature Flag:', ANONYMOUS_MODE_ENABLED ? 'ATIVADO' : 'DESATIVADO');
-    console.log('   Limites: 2 análises, 5 mensagens');
+    console.log('   Limites: 1 análise (PERMANENTE), 5 mensagens');
     console.log('   Anti-burla: FingerprintJS + LocalStorage + IndexedDB');
+    console.log('   ⚠️ Backend é a ÚNICA autoridade para bloqueio');
 
 })();

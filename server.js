@@ -118,7 +118,7 @@ app.post("/api/chat/anonymous", async (req, res) => {
   }
 });
 
-// 🔓 Análise anônima (2 análises/dia)
+// 🔓 Análise anônima (1 análise PERMANENTE - sem reset)
 app.use("/api/audio/analyze-anonymous", analyzeAnonymousRoute);
 
 // 🔓 Endpoint de teste para verificar se as rotas anônimas estão funcionando

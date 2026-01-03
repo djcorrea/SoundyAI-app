@@ -2,7 +2,11 @@
  * 🔓 ANÁLISE ANÔNIMA (VERCEL SERVERLESS) - Endpoint para usuários sem autenticação Firebase
  * 
  * Permite que visitantes não logados façam análises de áudio
- * COM LIMITES: 2 análises por dia
+ * 
+ * ⚠️ REGRA DE NEGÓCIO CRÍTICA:
+ * - 1 análise NA VIDA (PERMANENTE)
+ * - O backend Railway é a ÚNICA autoridade de bloqueio
+ * - Esta rota apenas redireciona para o backend Railway
  * 
  * Este arquivo é específico para deploy no Vercel como serverless function.
  * A versão principal está em work/api/audio/analyze-anonymous.js
@@ -10,8 +14,8 @@
  * IMPORTANTE: Esta rota cria o job e redireciona para o backend Railway
  * que possui o worker BullMQ para processamento real.
  * 
- * @version 1.0.0
- * @date 2026-01-02
+ * @version 2.0.0 - BLOQUEIO PERMANENTE
+ * @date 2025-01-03
  */
 
 import cors from 'cors';
@@ -22,8 +26,8 @@ import Redis from 'ioredis';
 // ═══════════════════════════════════════════════════════════════════
 
 const ANONYMOUS_LIMITS = {
-  maxAnalyses: 2,
-  ttlSeconds: 86400, // 24h
+  maxAnalyses: 1,       // 1 análise NA VIDA (backend Railway é autoridade)
+  ttlSeconds: 86400,    // TTL apenas para cache local, não para bloqueio real
 };
 
 const RAILWAY_BACKEND_URL = process.env.RAILWAY_BACKEND_URL || 'https://soundyai-app-production.up.railway.app';

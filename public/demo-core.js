@@ -36,12 +36,12 @@
         // TTL do bloqueio (30 dias em ms)
         blockTTL: 30 * 24 * 60 * 60 * 1000,
         
-        // Textos do modal (TEXTO FINAL APROVADO)
+        // Textos do modal de UPGRADE (quando demo bloqueada)
         texts: {
-            title: 'Essa foi sua análise gratuita.',
-            subtitle: 'Para continuar usando a SoundyAI e evoluir sua música, libere o acesso completo agora.',
-            ctaButton: '🔓 Liberar acesso completo',
-            securityBadge: '💳 Pagamento seguro • Acesso imediato'
+            title: 'Análise demonstrativa concluída',
+            subtitle: 'Você utilizou sua análise gratuita. Para continuar analisando suas músicas e ter acesso a todos os recursos da SoundyAI, desbloqueie agora.',
+            ctaButton: 'Desbloquear acesso completo',
+            securityBadge: '🔒 Pagamento seguro • Acesso imediato'
         }
     };
 

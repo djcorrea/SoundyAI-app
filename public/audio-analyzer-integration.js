@@ -3714,10 +3714,14 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             const data = await response.json();
             
             if (!response.ok) {
-                if (data.requiresLogin || data.error === 'ANON_ANALYSIS_LIMIT_REACHED') {
-                    console.log('🚫 [DEMO] Limite de análise atingido');
+                // 🔥 Verificar se backend sinaliza para mostrar modal de conversão
+                if (data.showConversionModal || data.checkoutRequired || 
+                    data.requiresLogin || data.error === 'ANON_ANALYSIS_LIMIT_REACHED' ||
+                    data.error === 'DEMO_LIMIT_REACHED') {
+                    console.log('🚫 [DEMO] Limite de análise atingido - mostrando modal de upgrade');
                     window.SoundyDemo.showConversionModal('analysis_limit');
-                    throw new Error(data.message || 'Limite do demo atingido. Libere o acesso completo!');
+                    // NÃO throw error - deixar modal de upgrade ser exibido sem modal de erro
+                    return { blocked: true, showConversion: true };
                 }
                 throw new Error(data.message || `Erro ao criar job: ${response.status}`);
             }
@@ -4537,7 +4541,15 @@ function handleReferenceFileSelection(type) {
                 await uploadToBucket(uploadUrl, file);
                 
                 // 3. Criar job de análise
-                const { jobId } = await createAnalysisJob(fileKey, 'reference', file.name);
+                const jobResult = await createAnalysisJob(fileKey, 'reference', file.name);
+                
+                // 🔥 [DEMO] Se análise foi bloqueada, interromper fluxo
+                if (jobResult.blocked || jobResult.showConversion) {
+                    console.log('🚫 [DEMO] Análise bloqueada no modo reference - fluxo interrompido');
+                    return; // Modal de conversão já está sendo exibido
+                }
+                
+                const { jobId } = jobResult;
                 
                 // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
@@ -9928,7 +9940,16 @@ async function handleModalFileSelection(file) {
         await uploadToBucket(uploadUrl, file);
         
         // 🌐 ETAPA 3: Criar job de análise no backend
-        const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
+        const jobResult = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
+        
+        // 🔥 [DEMO] Se análise foi bloqueada, interromper fluxo (modal de upgrade já foi exibido)
+        if (jobResult.blocked || jobResult.showConversion) {
+            console.log('🚫 [DEMO] Análise bloqueada - fluxo interrompido');
+            window.__MODAL_ANALYSIS_IN_PROGRESS__ = false;
+            return; // Modal de conversão já está sendo exibido
+        }
+        
+        const { jobId } = jobResult;
         
         // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
@@ -12730,6 +12751,23 @@ function updateModalProgress(percentage, message) {
 
 // ❌ Mostrar erro no modal
 function showModalError(message) {
+    // 🔥 [DEMO] Se é erro de limite de demo, mostrar modal de upgrade ao invés de erro
+    const isDemoLimitError = message && (
+        message.includes('Limite') ||
+        message.includes('limite') ||
+        message.includes('demonstrativa') ||
+        message.includes('demo') ||
+        message.includes('DEMO') ||
+        message.includes('acesso completo') ||
+        message.includes('Libere')
+    );
+    
+    if (isDemoLimitError && window.SoundyDemo?.isActive && typeof window.SoundyDemo.showConversionModal === 'function') {
+        console.log('🔥 [DEMO] Erro de limite detectado - mostrando modal de upgrade');
+        window.SoundyDemo.showConversionModal('analysis_limit');
+        return; // NÃO mostra modal de erro genérico
+    }
+    
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
