@@ -752,13 +752,73 @@ console.log('🚀 Carregando auth.js...');
       }
     }
 
-    // Função de logout
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔐 FUNÇÃO DE LOGOUT ROBUSTA - LIMPEZA COMPLETA DE ESTADO
+    // ═══════════════════════════════════════════════════════════════════
     async function logout() {
-      try { 
-        await auth.signOut(); 
-      } catch (e) {}
-      localStorage.removeItem("user");
-      localStorage.removeItem("idToken");
+      console.log('🔓 [LOGOUT] Iniciando processo de logout completo...');
+      
+      try {
+        // 1️⃣ SIGNOUT DO FIREBASE
+        if (auth && typeof auth.signOut === 'function') {
+          await auth.signOut();
+          console.log('✅ [LOGOUT] Firebase signOut executado');
+        }
+      } catch (e) {
+        console.warn('⚠️ [LOGOUT] Erro no Firebase signOut (continuando limpeza):', e.message);
+      }
+      
+      // 2️⃣ LIMPAR TODO O LOCALSTORAGE DE AUTH
+      const keysToRemove = [
+        'user',
+        'idToken',
+        'authToken',
+        'firebase:authUser',
+        'soundy_user_profile',
+        'soundy_auth_state',
+        'currentUserData'
+      ];
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // Limpar também chaves que começam com firebase:
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (key.startsWith('firebase:')) {
+          localStorage.removeItem(key);
+          console.log('🗑️ [LOGOUT] Removido:', key);
+        }
+      });
+      
+      console.log('✅ [LOGOUT] localStorage limpo');
+      
+      // 3️⃣ LIMPAR SESSIONSTORAGE
+      sessionStorage.clear();
+      console.log('✅ [LOGOUT] sessionStorage limpo');
+      
+      // 4️⃣ RESETAR VARIÁVEIS GLOBAIS DE AUTH
+      if (window.auth) {
+        // Firebase auth continua existindo mas sem currentUser
+        console.log('✅ [LOGOUT] window.auth.currentUser:', window.auth.currentUser);
+      }
+      
+      // Limpar qualquer referência global a token/user
+      window.currentUserToken = null;
+      window.currentUserData = null;
+      window.cachedIdToken = null;
+      
+      // 5️⃣ FORÇAR MODO ANÔNIMO (se voltando para index)
+      if (window.SoundyAnonymous) {
+        window.SoundyAnonymous.isAnonymousMode = true;
+        window.SoundyAnonymous.forceCleanState = true;
+        console.log('✅ [LOGOUT] Modo anônimo forçado para próximo acesso');
+      }
+      
+      console.log('🔓 [LOGOUT] Processo de logout COMPLETO');
+      
+      // 6️⃣ REDIRECIONAR
       window.location.href = "login.html";
     }
 

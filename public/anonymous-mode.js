@@ -643,6 +643,7 @@
         console.log('🔐 [ANONYMOUS] Modo anônimo DESATIVADO (usuário autenticado)');
         
         window.SoundyAnonymous.isAnonymousMode = false;
+        window.SoundyAnonymous.forceCleanState = false; // ✅ Resetar flag de logout
         
         // Disparar evento
         window.dispatchEvent(new CustomEvent('soundy:anonymous:deactivated'));

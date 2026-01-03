@@ -3912,7 +3912,18 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         console.log('[PR2] Payload final:', payload);
         
-        // 🔍 PR1: Log antes do request
+        // � VALIDAÇÃO CRÍTICA: Verificar se AuthGate permite chamada autenticada
+        if (window.AuthGate && window.AuthGate.shouldBlockAuthenticatedCall('/api/audio/analyze')) {
+            console.error('🚫 [CREATEJOB] Tentativa de chamada autenticada bloqueada pelo AuthGate');
+            console.error('   Estado:', {
+                isAnonymousMode: window.SoundyAnonymous?.isAnonymousMode,
+                forceCleanState: window.SoundyAnonymous?.forceCleanState,
+                hasCurrentUser: !!window.auth?.currentUser
+            });
+            throw new Error('Sessão inválida. Por favor, faça login novamente ou use o modo anônimo.');
+        }
+        
+        // �🔍 PR1: Log antes do request
         if (window.logStep && window.maskSensitiveData) {
             window.logStep(traceId, 'REQUEST_SENT', {
                 endpoint: '/api/audio/analyze',
