@@ -3699,6 +3699,20 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 throw new Error('Identificação do demo não disponível. Recarregue a página.');
             }
             
+            // 🛡️ Obter fingerprint forte do dispositivo
+            let deviceFingerprint = null;
+            let hardwareSummary = null;
+            if (window.SoundyFingerprint) {
+                try {
+                    const fpData = await window.SoundyFingerprint.get();
+                    deviceFingerprint = fpData.fingerprint_hash;
+                    hardwareSummary = fpData.hardware_summary;
+                    console.log('🔐 [DEMO] Fingerprint forte obtido:', deviceFingerprint?.substring(0, 16) + '...');
+                } catch (e) {
+                    console.warn('⚠️ [DEMO] Erro ao obter fingerprint forte:', e.message);
+                }
+            }
+            
             // Usar mesma lógica do Anonymous, mas com visitorId do Demo
             const genreSelect = document.getElementById('audioRefGenreSelect');
             let demoGenre = window.__CURRENT_SELECTED_GENRE || 
@@ -3725,7 +3739,10 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 visitorId: demoVisitorId,
                 soundDestination: window.selectedSoundDestination || 'pista',
                 analysisMode: 'genre',
-                isDemo: true
+                isDemo: true,
+                // 🛡️ Fingerprint forte para bloqueio definitivo
+                fingerprintHash: deviceFingerprint,
+                hardwareSummary: hardwareSummary
             };
             
             console.log('[DEMO] Payload para análise:', demoPayload);
@@ -3782,6 +3799,20 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 throw new Error('Identificação de visitante não disponível. Recarregue a página.');
             }
             
+            // �️ Obter fingerprint forte do dispositivo
+            let deviceFingerprint = null;
+            let hardwareSummary = null;
+            if (window.SoundyFingerprint) {
+                try {
+                    const fpData = await window.SoundyFingerprint.get();
+                    deviceFingerprint = fpData.fingerprint_hash;
+                    hardwareSummary = fpData.hardware_summary;
+                    console.log('🔐 [ANONYMOUS] Fingerprint forte obtido:', deviceFingerprint?.substring(0, 16) + '...');
+                } catch (e) {
+                    console.warn('⚠️ [ANONYMOUS] Erro ao obter fingerprint forte:', e.message);
+                }
+            }
+            
             // 🔧 FIX BUG 2: Obter gênero corretamente (mesmo padrão do modo autenticado)
             const genreSelect = document.getElementById('audioRefGenreSelect');
             let anonymousGenre = window.__CURRENT_SELECTED_GENRE || 
@@ -3807,7 +3838,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             console.log('[ANONYMOUS] 🎵 Gênero capturado:', anonymousGenre);
             console.log('[ANONYMOUS] 🎯 Targets capturados:', anonymousTargets ? 'SIM' : 'NÃO');
             
-            // Construir payload anônimo
+            // Construir payload anônimo com fingerprint forte
             const anonymousPayload = {
                 fileKey,
                 fileName,
@@ -3817,7 +3848,10 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 soundDestination: window.selectedSoundDestination || 'pista',
                 // Metadados para debug
                 analysisMode: 'genre',
-                isAnonymous: true
+                isAnonymous: true,
+                // 🛡️ Fingerprint forte para bloqueio definitivo
+                fingerprintHash: deviceFingerprint,
+                hardwareSummary: hardwareSummary
             };
             
             console.log('[ANONYMOUS] Payload para análise anônima:', anonymousPayload);

@@ -358,6 +358,224 @@
         }
     });
 
+    // ═══════════════════════════════════════════════════════════
+    // 🔒 BLOQUEIO DE UI NO MODO DEMO
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🔴 DEMO: Bloquear fechamento de modais
+     * - Usuário não pode clicar fora para fechar
+     * - Usuário não pode usar ESC para fechar
+     * - Chatbot fica escondido
+     */
+    function setupDemoUIRestrictions() {
+        if (!DEMO.isActive) return;
+        
+        console.log('🔒 [DEMO-GUARDS] Configurando restrições de UI...');
+        
+        // 1. ESCONDER O CHATBOT
+        hideChatbot();
+        
+        // 2. INTERCEPTAR FECHAMENTO DE MODAIS
+        interceptModalClose();
+        
+        // 3. BLOQUEAR ESC PARA FECHAR MODAIS
+        blockEscapeKey();
+        
+        // 4. BLOQUEAR CLIQUE FORA DO MODAL
+        blockOutsideClick();
+        
+        console.log('✅ [DEMO-GUARDS] Restrições de UI configuradas');
+    }
+    
+    /**
+     * Esconde o chatbot no modo demo
+     */
+    function hideChatbot() {
+        // IDs comuns de chatbots
+        const chatbotSelectors = [
+            '#chatContainer',
+            '#chatWidget',
+            '#chat-container',
+            '#chat-widget',
+            '.chat-container',
+            '.chat-widget',
+            '#soundy-chat',
+            '.soundy-chat',
+            '#ai-chat',
+            '.ai-chat',
+            '#chatbox',
+            '.chatbox',
+            '[data-chat]',
+            '#floating-chat',
+            '.floating-chat'
+        ];
+        
+        // Adicionar CSS para esconder
+        const style = document.createElement('style');
+        style.id = 'demo-hide-chat';
+        style.textContent = `
+            /* 🔒 DEMO: Esconder chatbot */
+            ${chatbotSelectors.join(',\n            ')} {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+            }
+            
+            /* Esconder botão de chat flutuante */
+            .chat-toggle,
+            .chat-button,
+            #chat-toggle,
+            #chat-button,
+            [data-chat-toggle],
+            .floating-action-button {
+                display: none !important;
+            }
+        `;
+        
+        if (!document.getElementById('demo-hide-chat')) {
+            document.head.appendChild(style);
+            console.log('🔒 [DEMO-GUARDS] Chatbot escondido');
+        }
+    }
+    
+    /**
+     * Intercepta e bloqueia funções de fechar modal
+     */
+    function interceptModalClose() {
+        // Salvar funções originais
+        const originalCloseModeSelection = window.closeModeSelectionModal;
+        const originalCloseGenreModal = window.closeGenreModal;
+        const originalCloseSoundDestinationModal = window.closeSoundDestinationModal;
+        
+        // Interceptar closeModeSelectionModal
+        if (typeof originalCloseModeSelection === 'function') {
+            window.closeModeSelectionModal = function() {
+                if (DEMO.isActive && !DEMO.data?.blocked) {
+                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de seleção de modo');
+                    return; // Não fecha
+                }
+                return originalCloseModeSelection.apply(this, arguments);
+            };
+        }
+        
+        // Interceptar closeGenreModal
+        if (typeof originalCloseGenreModal === 'function') {
+            window.closeGenreModal = function() {
+                if (DEMO.isActive && !DEMO.data?.blocked) {
+                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de gênero');
+                    return; // Não fecha
+                }
+                return originalCloseGenreModal.apply(this, arguments);
+            };
+        }
+        
+        // Interceptar closeSoundDestinationModal
+        if (typeof originalCloseSoundDestinationModal === 'function') {
+            window.closeSoundDestinationModal = function() {
+                if (DEMO.isActive && !DEMO.data?.blocked) {
+                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de destino');
+                    return; // Não fecha
+                }
+                return originalCloseSoundDestinationModal.apply(this, arguments);
+            };
+        }
+        
+        console.log('🔒 [DEMO-GUARDS] Interceptadores de fechamento configurados');
+    }
+    
+    /**
+     * Bloqueia tecla ESC para fechar modais
+     */
+    function blockEscapeKey() {
+        document.addEventListener('keydown', function(e) {
+            if (!DEMO.isActive) return;
+            if (DEMO.data?.blocked) return; // Se já bloqueado, permitir ESC
+            
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                console.log('🚫 [DEMO-GUARDS] Tecla ESC bloqueada no modo demo');
+            }
+        }, true); // Capture phase para interceptar antes
+    }
+    
+    /**
+     * Bloqueia clique fora do modal para fechar
+     */
+    function blockOutsideClick() {
+        document.addEventListener('click', function(e) {
+            if (!DEMO.isActive) return;
+            if (DEMO.data?.blocked) return; // Se já bloqueado, permitir cliques
+            
+            // Verificar se clicou no backdrop/overlay de um modal
+            const target = e.target;
+            const isModalBackdrop = 
+                target.classList.contains('modal-overlay') ||
+                target.classList.contains('modal-backdrop') ||
+                target.id === 'analysisModeModal' ||
+                target.id === 'genreModal' ||
+                target.id === 'soundDestinationModal' ||
+                target.classList.contains('modal') ||
+                target.hasAttribute('data-modal-backdrop');
+            
+            // Se clicou no backdrop (não no conteúdo do modal)
+            if (isModalBackdrop) {
+                const modalContent = target.querySelector('.modal-content, .modal-container, .mode-selection-content');
+                if (modalContent && !modalContent.contains(e.target)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    console.log('🚫 [DEMO-GUARDS] Clique fora do modal bloqueado');
+                }
+            }
+        }, true); // Capture phase
+        
+        // CSS para reforçar
+        const style = document.createElement('style');
+        style.id = 'demo-modal-lock';
+        style.textContent = `
+            /* 🔒 DEMO: Impedir interação com backdrop */
+            body.demo-mode-active .modal-overlay,
+            body.demo-mode-active .modal-backdrop,
+            body.demo-mode-active #analysisModeModal,
+            body.demo-mode-active #genreModal,
+            body.demo-mode-active #soundDestinationModal {
+                pointer-events: auto !important;
+            }
+            
+            body.demo-mode-active .modal-content,
+            body.demo-mode-active .modal-container,
+            body.demo-mode-active .mode-selection-content,
+            body.demo-mode-active .genre-modal-content {
+                pointer-events: auto !important;
+            }
+        `;
+        
+        if (!document.getElementById('demo-modal-lock')) {
+            document.head.appendChild(style);
+        }
+        
+        // Adicionar classe ao body
+        document.body.classList.add('demo-mode-active');
+    }
+    
+    // Expor função para uso externo
+    DEMO.setupUIRestrictions = setupDemoUIRestrictions;
+    
+    // Configurar quando demo for ativado
+    window.addEventListener('soundy:demo:activated', function() {
+        console.log('🎯 [DEMO-GUARDS] Evento demo:activated recebido - configurando UI');
+        setTimeout(setupDemoUIRestrictions, 100);
+    });
+    
+    // Se demo já estiver ativo, configurar agora
+    if (DEMO.isActive) {
+        setTimeout(setupDemoUIRestrictions, 500);
+    }
+
     console.log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
 
 })();
