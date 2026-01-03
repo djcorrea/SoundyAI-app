@@ -17,34 +17,30 @@ let chatStarted = false;
 let vantaEffect = null;
 let isDesktop = window.innerWidth > 768;
 
-/* ============ CONFIGURAÇÃO DA API (Sistema Antigo) ============ */
+/* ============ CONFIGURAÇÃO DA API ============ */
 const API_CONFIG = {
   baseURL: (() => {
     const host = window.location.hostname || '';
     
-    // 🔥 PRODUÇÃO: soundyai.com.br -> usar /api local (Vercel serverless)
+    // 🚀 PRODUÇÃO: soundyai.com.br (Railway) -> usar /api relativo
     if (host === 'soundyai.com.br' || host === 'www.soundyai.com.br') {
-      console.log('🌐 [API_CONFIG] Domínio de produção detectado - usando /api local');
+      console.log('🌐 [API_CONFIG] Produção (soundyai.com.br) - usando /api');
       return '/api';
     }
     
-    // Produção/preview no domínio do frontend -> usar mesma origem para evitar CORS
-    const isVercel = host.endsWith('vercel.app');
-    const isAiSynthProject = isVercel && (
-      host.toLowerCase().startsWith('ai-synth') ||
-      host.includes('ai-synth-dj-correas-projects') ||
-      host.includes('ai-synth-czzxlraox-dj-correas-projects')
-    );
-    if (isAiSynthProject || host === 'ai-synth-czzxlraox-dj-correas-projects.vercel.app') {
+    // 🚀 Railway direto
+    if (host === 'soundyai-app-production.up.railway.app') {
+      console.log('🌐 [API_CONFIG] Railway direto - usando /api');
       return '/api';
     }
     
-    // Ambiente local mantém uso do backend dedicado atual
+    // 🔧 Ambiente local -> chamar Railway
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
+      console.log('🌐 [API_CONFIG] Local - usando Railway backend');
       return 'https://soundyai-app-production.up.railway.app/api';
     }
     
-    // Demais casos: manter backend dedicado atual
+    // Fallback: Railway
     return 'https://soundyai-app-production.up.railway.app/api';
   })(),
 
@@ -52,12 +48,12 @@ const API_CONFIG = {
     return `${this.baseURL}/chat`;
   },
   
-  // 🔓 NOVO: Endpoint de chat anônimo (sem Firebase Auth)
+  // 🔓 Endpoint de chat anônimo (sem Firebase Auth)
   get chatAnonymousEndpoint() {
     return `${this.baseURL}/chat/anonymous`;
   },
   
-  // 🔓 NOVO: Endpoint de análise anônima (sem Firebase Auth)
+  // 🔓 Endpoint de análise anônima (sem Firebase Auth)
   get analyzeAnonymousEndpoint() {
     return `${this.baseURL}/audio/analyze-anonymous`;
   }
