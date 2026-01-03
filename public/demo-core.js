@@ -383,6 +383,42 @@
     window.SoundyDemo._registerBackend = registerActionBackend;
 
     // ═══════════════════════════════════════════════════════════
+    // 🌐 INTERCEPTADOR GLOBAL DE FETCH
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🔥 CRÍTICO: Intercepta TODAS as requisições fetch para injetar header x-demo-mode
+     * Isso permite que o backend identifique requisições do modo demo
+     */
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+        // Só interceptar se modo demo estiver ativo
+        if (window.SoundyDemo?.isActive) {
+            options = options || {};
+            options.headers = options.headers || {};
+            
+            // Se headers for um Headers object, converter para objeto simples
+            if (options.headers instanceof Headers) {
+                const headersObj = {};
+                options.headers.forEach((value, key) => {
+                    headersObj[key] = value;
+                });
+                options.headers = headersObj;
+            }
+            
+            // Injetar header de modo demo
+            options.headers['x-demo-mode'] = 'true';
+            options.headers['x-demo-visitor'] = window.SoundyDemo.visitorId || 'unknown';
+            
+            console.log('🔥 [DEMO-CORE] Fetch interceptado, header x-demo-mode injetado:', url);
+        }
+        
+        return originalFetch.call(window, url, options);
+    };
+
+    console.log('🔥 [DEMO-CORE] Interceptador de fetch instalado');
+
+    // ═══════════════════════════════════════════════════════════
     // 🚀 INICIALIZAÇÃO
     // ═══════════════════════════════════════════════════════════
     
@@ -438,6 +474,23 @@
         window.dispatchEvent(new CustomEvent('soundy:demo:activated', {
             detail: { visitorId, data }
         }));
+        
+        // 🎯 AUTO-ABRIR MODAL DE ANÁLISE (aguardar carregamento da página)
+        setTimeout(() => {
+            if (typeof window.openModeSelectionModal === 'function') {
+                console.log('🎯 [DEMO-CORE] Abrindo modal de análise automaticamente...');
+                window.openModeSelectionModal();
+            } else {
+                console.warn('⚠️ [DEMO-CORE] openModeSelectionModal não disponível ainda, aguardando...');
+                // Tentar novamente após mais tempo
+                setTimeout(() => {
+                    if (typeof window.openModeSelectionModal === 'function') {
+                        console.log('🎯 [DEMO-CORE] Abrindo modal de análise (2ª tentativa)...');
+                        window.openModeSelectionModal();
+                    }
+                }, 2000);
+            }
+        }, 1500);
         
         return true;
     };
