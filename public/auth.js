@@ -830,6 +830,15 @@ console.log('🚀 Carregando auth.js...');
           const isIndexPage = window.location.pathname.includes("index.html") || 
                               window.location.pathname === '/' || 
                               window.location.pathname === '';
+          const isDemoPage = window.location.pathname.includes("/demo") || 
+                             window.location.search.includes("mode=demo");
+          
+          // 🔥 MODO DEMO: Permitir acesso sem login (ativado pelo demo-core.js)
+          if (isDemoPage) {
+            console.log('🔥 [AUTH] Timeout - Página demo detectada, permitindo acesso');
+            resolve(null);
+            return;
+          }
           
           // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo
           if (isIndexPage) {
@@ -856,6 +865,8 @@ console.log('🚀 Carregando auth.js...');
           const isIndexPage = window.location.pathname.includes("index.html") || 
                               window.location.pathname === '/' || 
                               window.location.pathname === '';
+          const isDemoPage = window.location.pathname.includes("/demo") || 
+                             window.location.search.includes("mode=demo");
 
           if (isNewUserRegistering && isEntrevistaPage) {
             isNewUserRegistering = false;
@@ -864,6 +875,13 @@ console.log('🚀 Carregando auth.js...');
           }
 
           if (!user && !isLoginPage) {
+            // 🔥 MODO DEMO: Permitir acesso sem login
+            if (isDemoPage) {
+              console.log('🔥 [AUTH] Usuário não logado na página demo - permitindo acesso');
+              resolve(null);
+              return;
+            }
+            
             // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
             // ✅ FIX TIMING: Aguardar SoundyAnonymous carregar se necessário
             if (isIndexPage) {

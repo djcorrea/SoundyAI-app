@@ -136,13 +136,21 @@ function getAnonymousKey(visitorId, ip, type) {
  * 
  * @param {string} visitorId - Fingerprint do FingerprintJS
  * @param {Object} req - Request Express
+ * @param {Object} options - Opções adicionais
+ * @param {number} options.maxLimit - Limite máximo customizado (default: 2)
+ * @param {boolean} options.isDemo - Se é modo demo (usa chave separada)
  * @returns {Promise<Object>} { allowed, remaining, limit, message }
  */
-export async function canAnonymousAnalyze(visitorId, req) {
+export async function canAnonymousAnalyze(visitorId, req, options = {}) {
   const ip = getClientIP(req);
-  const key = getAnonymousKey(visitorId, ip, 'analysis');
+  const isDemo = options.isDemo === true;
+  const maxLimit = options.maxLimit || ANONYMOUS_LIMITS.maxAnalyses;
   
-  console.log(`🔍 [ANON_LIMITER] Verificando análise - key: ${key}`);
+  // 🔥 DEMO: Usar chave separada para não misturar com anônimo
+  const keyType = isDemo ? 'demo_analysis' : 'analysis';
+  const key = getAnonymousKey(visitorId, ip, keyType);
+  
+  console.log(`🔍 [ANON_LIMITER] Verificando análise - key: ${key}, isDemo: ${isDemo}, maxLimit: ${maxLimit}`);
   
   // Fallback se Redis não disponível - BLOQUEAR por segurança
   if (!redisAvailable || !redisClient) {
@@ -150,7 +158,7 @@ export async function canAnonymousAnalyze(visitorId, req) {
     return {
       allowed: false,
       remaining: 0,
-      limit: ANONYMOUS_LIMITS.maxAnalyses,
+      limit: maxLimit,
       message: 'Sistema temporariamente indisponível. Faça login para continuar.',
       errorCode: 'ANON_SYSTEM_UNAVAILABLE'
     };
@@ -160,23 +168,27 @@ export async function canAnonymousAnalyze(visitorId, req) {
     const count = await redisClient.get(key);
     const currentCount = parseInt(count || '0', 10);
     
-    console.log(`📊 [ANON_LIMITER] Análises hoje: ${currentCount}/${ANONYMOUS_LIMITS.maxAnalyses}`);
+    console.log(`📊 [ANON_LIMITER] Análises hoje: ${currentCount}/${maxLimit} (isDemo: ${isDemo})`);
     
-    if (currentCount >= ANONYMOUS_LIMITS.maxAnalyses) {
+    if (currentCount >= maxLimit) {
+      const message = isDemo 
+        ? 'Você já usou sua análise gratuita do demo. Libere o acesso completo!'
+        : 'Você atingiu o limite de análises gratuitas. Crie uma conta para continuar analisando!';
+      
       return {
         allowed: false,
         remaining: 0,
-        limit: ANONYMOUS_LIMITS.maxAnalyses,
+        limit: maxLimit,
         used: currentCount,
-        message: 'Você atingiu o limite de análises gratuitas. Crie uma conta para continuar analisando!',
-        errorCode: 'ANON_ANALYSIS_LIMIT_REACHED'
+        message,
+        errorCode: isDemo ? 'DEMO_ANALYSIS_LIMIT_REACHED' : 'ANON_ANALYSIS_LIMIT_REACHED'
       };
     }
     
     return {
       allowed: true,
-      remaining: ANONYMOUS_LIMITS.maxAnalyses - currentCount,
-      limit: ANONYMOUS_LIMITS.maxAnalyses,
+      remaining: maxLimit - currentCount,
+      limit: maxLimit,
       used: currentCount
     };
     
@@ -186,7 +198,7 @@ export async function canAnonymousAnalyze(visitorId, req) {
     return {
       allowed: false,
       remaining: 0,
-      limit: ANONYMOUS_LIMITS.maxAnalyses,
+      limit: maxLimit,
       message: 'Erro ao verificar limites. Tente novamente.',
       errorCode: 'ANON_CHECK_ERROR'
     };
@@ -195,12 +207,17 @@ export async function canAnonymousAnalyze(visitorId, req) {
 
 /**
  * Registrar uma análise feita por usuário anônimo
+ * @param {Object} options - Opções adicionais
+ * @param {boolean} options.isDemo - Se é modo demo
  */
-export async function registerAnonymousAnalysis(visitorId, req) {
+export async function registerAnonymousAnalysis(visitorId, req, options = {}) {
   const ip = getClientIP(req);
-  const key = getAnonymousKey(visitorId, ip, 'analysis');
+  const isDemo = options.isDemo === true;
+  const keyType = isDemo ? 'demo_analysis' : 'analysis';
+  const key = getAnonymousKey(visitorId, ip, keyType);
+  const maxLimit = isDemo ? 1 : ANONYMOUS_LIMITS.maxAnalyses;
   
-  console.log(`📝 [ANON_LIMITER] Registrando análise - key: ${key}`);
+  console.log(`📝 [ANON_LIMITER] Registrando análise - key: ${key}, isDemo: ${isDemo}`);
   
   if (!redisAvailable || !redisClient) {
     console.warn('⚠️ [ANON_LIMITER] Redis indisponível - não registrou análise');
@@ -215,12 +232,12 @@ export async function registerAnonymousAnalysis(visitorId, req) {
       await redisClient.expire(key, ANONYMOUS_LIMITS.ttlSeconds);
     }
     
-    console.log(`✅ [ANON_LIMITER] Análise registrada: ${newCount}/${ANONYMOUS_LIMITS.maxAnalyses}`);
+    console.log(`✅ [ANON_LIMITER] Análise registrada: ${newCount}/${maxLimit} (isDemo: ${isDemo})`);
     
     return {
       success: true,
       used: newCount,
-      remaining: Math.max(0, ANONYMOUS_LIMITS.maxAnalyses - newCount)
+      remaining: Math.max(0, maxLimit - newCount)
     };
     
   } catch (err) {

@@ -192,12 +192,19 @@ router.post("/", async (req, res) => {
       genre, 
       genreTargets,
       visitorId,
-      soundDestination 
+      soundDestination,
+      isDemo  // 🔥 NOVO: Flag para modo demo (limite 1)
     } = req.body;
+    
+    // 🔥 MODO DEMO: Usar limites mais restritivos
+    const isDemoMode = isDemo === true;
+    const maxAnalysesForMode = isDemoMode ? 1 : 2; // Demo=1, Anonymous=2
 
     console.log('[ANON_ANALYZE] Payload recebido:', {
       hasFileKey: !!fileKey,
       hasFileName: !!fileName,
+      isDemoMode,
+      maxAnalysesForMode,
       genre,
       hasGenreTargets: !!genreTargets,
       hasVisitorId: !!visitorId,
@@ -219,18 +226,23 @@ router.post("/", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ETAPA 3: VERIFICAR LIMITES ANÔNIMOS
+    // ETAPA 3: VERIFICAR LIMITES (DEMO=1, ANONYMOUS=2)
     // ═══════════════════════════════════════════════════════════════
     
-    console.log(`📊 [ANON_ANALYZE:${requestId}] Verificando limites para visitor: ${visitorId.substring(0, 8)}...`);
+    console.log(`📊 [ANON_ANALYZE:${requestId}] Verificando limites para visitor: ${visitorId.substring(0, 8)}... (isDemo: ${isDemoMode})`);
     
-    const limitCheck = await canAnonymousAnalyze(visitorId, req);
+    // 🔥 Passar opções para o limiter com limite customizado
+    const limitCheck = await canAnonymousAnalyze(visitorId, req, { 
+      isDemo: isDemoMode, 
+      maxLimit: maxAnalysesForMode 
+    });
     
     if (!limitCheck.allowed) {
       console.log(`⛔ [ANON_ANALYZE:${requestId}] Limite atingido:`, {
         used: limitCheck.used,
         limit: limitCheck.limit,
-        errorCode: limitCheck.errorCode
+        errorCode: limitCheck.errorCode,
+        isDemo: isDemoMode
       });
       
       return res.status(403).json({
@@ -239,7 +251,8 @@ router.post("/", async (req, res) => {
         message: limitCheck.message,
         remaining: limitCheck.remaining,
         limit: limitCheck.limit,
-        requiresLogin: true
+        requiresLogin: !isDemoMode, // Demo mostra CTA de compra, não login
+        requiresPurchase: isDemoMode
       });
     }
 
@@ -294,11 +307,13 @@ router.post("/", async (req, res) => {
     // ETAPA 6: REGISTRAR USO (APÓS SUCESSO)
     // ═══════════════════════════════════════════════════════════════
     
-    const registerResult = await registerAnonymousAnalysis(visitorId, req);
+    // 🔥 Passar isDemo para usar chave separada no Redis
+    const registerResult = await registerAnonymousAnalysis(visitorId, req, { isDemo: isDemoMode });
     
     console.log(`✅ [ANON_ANALYZE:${requestId}] Análise registrada:`, {
       used: registerResult.used,
-      remaining: registerResult.remaining
+      remaining: registerResult.remaining,
+      isDemo: isDemoMode
     });
 
     // ═══════════════════════════════════════════════════════════════

@@ -120,9 +120,13 @@
             console.warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
         }
         
-        // Log de limite atingido
+        // 🔥 MOSTRAR CTA APÓS ANÁLISE COMPLETAR
         if (data.analyses_used >= CONFIG.limits.maxAnalyses) {
-            console.log('🚫 [DEMO-GUARDS] Limite de análises atingido');
+            console.log('🚫 [DEMO-GUARDS] Limite de análises atingido - mostrando CTA');
+            // Aguardar um pouco para o resultado da análise aparecer, depois mostrar CTA
+            setTimeout(() => {
+                DEMO.showConversionModal('analysis_complete');
+            }, 3000); // 3 segundos após o resultado
         }
         
         return { success: true, backendResult };

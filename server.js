@@ -43,18 +43,18 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
-// � ROTA DEMO: Abre index.html direto com modo demo ativo
-// Link: https://soundyai.com.br/demo
-app.get("/demo", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// �👉 Aliases para o app (index)
+// 👉 Aliases para o app (index)
 app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// 👉 Servir arquivos estáticos SEM index automático
+// � MODO DEMO: Rota especial que serve index.html mas ativa modo demo
+app.get(["/demo", "/demo.html"], (req, res) => {
+  console.log('🔥 [DEMO] Servindo index.html em modo demo');
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// �👉 Servir arquivos estáticos SEM index automático
 // 🔥 FORÇA NO-CACHE para arquivos .js (evitar cache no Railway CDN)
 app.use(
   express.static(path.join(__dirname, "public"), {
