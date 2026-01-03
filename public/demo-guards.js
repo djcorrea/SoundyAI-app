@@ -43,6 +43,12 @@
             return { allowed: false, reason: 'not_initialized' };
         }
         
+        // 🔴 VERIFICAR BLOQUEIO TOTAL PRIMEIRO
+        if (data.blocked) {
+            console.log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
+            return { allowed: false, remaining: 0, reason: data.blockReason || 'blocked' };
+        }
+        
         const remaining = CONFIG.limits.maxAnalyses - data.analyses_used;
         
         if (remaining <= 0) {
@@ -64,6 +70,12 @@
         const data = DEMO.data;
         if (!data) {
             return { allowed: false, reason: 'not_initialized' };
+        }
+        
+        // 🔴 VERIFICAR BLOQUEIO TOTAL PRIMEIRO
+        if (data.blocked) {
+            console.log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
+            return { allowed: false, remaining: 0, reason: data.blockReason || 'blocked' };
         }
         
         const remaining = CONFIG.limits.maxMessages - data.messages_used;
@@ -222,12 +234,69 @@
     };
 
     /**
-     * Força bloqueio imediato (chamado pelo backend se necessário)
+     * Força bloqueio imediato e PERMANENTE
+     * Salva no estado para que o bloqueio persista mesmo após reload
+     * 
+     * @param {Object|string} options - Opções ou string reason
      */
-    DEMO.forceBlock = function(reason = 'forced_block') {
-        console.log('🚫 [DEMO-GUARDS] Bloqueio forçado:', reason);
+    DEMO.forceBlock = async function(options = {}) {
+        // Normalizar parâmetro (aceita string ou objeto)
+        if (typeof options === 'string') {
+            options = { reason: options };
+        }
+        
+        const reason = options.reason || 'forced_block';
+        
+        console.log('🚫 [DEMO-GUARDS] Bloqueio forçado PERMANENTE:', reason);
+        
+        const data = DEMO.data;
+        if (data) {
+            // 🔴 MARCAR COMO BLOQUEADO PERMANENTEMENTE
+            data.blocked = true;
+            data.blockReason = reason;
+            data.blocked_at = new Date().toISOString();
+            
+            // Salvar estado
+            await DEMO._saveDemoData(data);
+            console.log('💾 [DEMO-GUARDS] Estado de bloqueio salvo');
+        }
+        
+        // Mostrar modal de conversão
         DEMO.showConversionModal(reason);
     };
+
+    // ═══════════════════════════════════════════════════════════
+    // 📡 LISTENER PARA ANÁLISE FINALIZADA
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🔴 CRÍTICO: Escuta evento de análise finalizada
+     * Após 1ª análise bem-sucedida → registrar + bloquear + modal
+     */
+    window.addEventListener('audio-analysis-finished', async function(event) {
+        if (!DEMO.isActive) return;
+        
+        const detail = event.detail || {};
+        
+        // Só registrar se foi sucesso
+        if (!detail.success) {
+            console.log('⚠️ [DEMO-GUARDS] Análise não teve sucesso, não registrar');
+            return;
+        }
+        
+        console.log('🎯 [DEMO-GUARDS] Análise finalizada com sucesso - registrando...');
+        
+        // Registrar análise
+        await DEMO.registerAnalysis();
+        
+        // 🔴 BLOQUEAR IMEDIATAMENTE APÓS 1ª ANÁLISE
+        console.log('🚫 [DEMO-GUARDS] Aplicando bloqueio pós-análise...');
+        
+        // Pequeno delay para garantir que UI renderizou resultado
+        setTimeout(() => {
+            DEMO.forceBlock({ reason: 'analysis_completed' });
+        }, 2000); // 2 segundos para usuário ver resultado antes do modal
+    });
 
     console.log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
 
