@@ -174,38 +174,86 @@
     // ═══════════════════════════════════════════════════════════
     
     /**
-     * Intercepta tentativa de análise
-     * 
-     * PRIORIDADE DE MODOS:
-     * 1. Demo (se isActive) → regras do demo
-     * 2. Logged (userPlans) → regras do plano
-     * 3. Anonymous → regras anonymous
+     * 🔴 INTERCEPTAÇÃO SÍNCRONA (compatibilidade)
+     * Verifica localmente - backend é verificado no endpoint
      * 
      * @returns {boolean} true se permitido, false se bloqueado
      */
     DEMO.interceptAnalysis = function() {
         if (!DEMO.isActive) return true;
         
-        // Verificar limite local (síncrono para compatibilidade)
+        // 1. Verificar bloqueio local (síncrono)
         const localCheck = DEMO.canAnalyze();
         
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Análise bloqueada:', localCheck.reason);
+            console.log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
             DEMO.showConversionModal('analysis_limit');
             return false;
         }
         
-        // Backend check assíncrono (fire and forget para sync)
-        // A validação autoritativa acontece no registerAnalysis
-        DEMO.validateBackend('check').then(result => {
-            if (result.backendAuthoritative && 
-                result.permissions?.canAnalyze === false) {
-                console.log('🚫 [DEMO-GUARDS] Backend bloqueou - forçando modal');
-                DEMO.showConversionModal('analysis_limit');
-            }
-        }).catch(() => {});
+        // 2. Disparar verificação backend (fire and forget)
+        // O backend é a FONTE DE VERDADE - bloqueará no endpoint se necessário
+        if (typeof DEMO.checkBackendPermission === 'function') {
+            DEMO.checkBackendPermission().then(result => {
+                if (!result.allowed) {
+                    console.log('🚫 [DEMO-GUARDS] Backend bloqueou async:', result.reason);
+                    // Sincronizar estado local
+                    if (DEMO.data) {
+                        DEMO.data.blocked = true;
+                        DEMO.data.blockReason = result.reason || 'backend_blocked';
+                        DEMO._saveDemoData(DEMO.data);
+                    }
+                }
+            }).catch(() => {});
+        }
         
+        // 3. Permitir tentativa - backend fará o bloqueio autoritativo
         return true;
+    };
+    
+    /**
+     * 🔴 INTERCEPTAÇÃO ASSÍNCRONA (recomendado)
+     * Verifica no backend ANTES de permitir a ação
+     * 
+     * @returns {Promise<boolean>} true se permitido, false se bloqueado
+     */
+    DEMO.interceptAnalysisAsync = async function() {
+        if (!DEMO.isActive) return true;
+        
+        // 1. Verificar bloqueio local primeiro (rápido)
+        const localCheck = DEMO.canAnalyze();
+        if (!localCheck.allowed) {
+            console.log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
+            DEMO.showConversionModal('analysis_limit');
+            return false;
+        }
+        
+        // 2. 🔴 VERIFICAÇÃO BACKEND OBRIGATÓRIA
+        try {
+            const backendCheck = await DEMO.checkBackendPermission();
+            
+            if (!backendCheck.allowed) {
+                console.log('🚫 [DEMO-GUARDS] Análise bloqueada pelo BACKEND:', backendCheck.reason);
+                
+                // Sincronizar estado local
+                if (DEMO.data) {
+                    DEMO.data.blocked = true;
+                    DEMO.data.blockReason = backendCheck.reason || 'backend_blocked';
+                    await DEMO._saveDemoData(DEMO.data);
+                }
+                
+                DEMO.showConversionModal('analysis_limit');
+                return false;
+            }
+            
+            console.log('✅ [DEMO-GUARDS] Análise permitida pelo backend');
+            return true;
+            
+        } catch (error) {
+            console.warn('⚠️ [DEMO-GUARDS] Erro na verificação backend:', error.message);
+            // Fail-open: Se backend falhar, usar verificação local
+            return localCheck.allowed;
+        }
     };
 
     /**
