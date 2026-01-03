@@ -84,7 +84,7 @@
                     <!-- Subtítulo APROVADO -->
                     <p class="demo-modal-subtitle">${CONFIG.texts.subtitle}</p>
                     
-                    <!-- CTA Único APROVADO - SEM CTA SECUNDÁRIO -->
+                    <!-- CTA Principal - Checkout -->
                     <button class="demo-cta-button" id="demoCTAButton" style="pointer-events: auto;">
                         <span>${CONFIG.texts.ctaButton}</span>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -94,6 +94,11 @@
                     
                     <!-- Selo de segurança -->
                     <p class="demo-security-badge">${CONFIG.texts.securityBadge}</p>
+                    
+                    <!-- CTA Secundário - Voltar para página do produto -->
+                    <button class="demo-cta-secondary" id="demoSecondaryButton" style="pointer-events: auto;">
+                        <span>${CONFIG.texts.ctaSecondary}</span>
+                    </button>
                 </div>
             </div>
         `;
@@ -108,15 +113,22 @@
         
         document.body.appendChild(modal);
         
-        // Evento do botão (único interativo)
+        // Evento do botão principal (checkout)
         document.getElementById('demoCTAButton').addEventListener('click', () => {
             DEMO.redirectToCheckout(reason);
         });
         
+        // Evento do botão secundário (voltar para página do produto)
+        document.getElementById('demoSecondaryButton').addEventListener('click', () => {
+            window.location.href = CONFIG.productPageUrl || 'https://soundyai.com.br';
+        });
+        
         // 🔴 IMPORTANTE: Prevenir qualquer interação fora do modal
         modal.addEventListener('click', (e) => {
-            // Só permitir clique no botão CTA
-            if (e.target.id !== 'demoCTAButton' && !e.target.closest('#demoCTAButton')) {
+            // Só permitir clique nos botões CTA
+            const isMainCTA = e.target.id === 'demoCTAButton' || e.target.closest('#demoCTAButton');
+            const isSecondaryCTA = e.target.id === 'demoSecondaryButton' || e.target.closest('#demoSecondaryButton');
+            if (!isMainCTA && !isSecondaryCTA) {
                 e.preventDefault();
                 e.stopPropagation();
             }
@@ -282,11 +294,36 @@
                 font-family: 'Rajdhani', 'Segoe UI', sans-serif;
                 font-size: 0.9rem;
                 color: #7a7a9a;
-                margin: 24px 0 0;
+                margin: 20px 0 16px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 gap: 8px;
+            }
+            
+            /* Botão secundário - Voltar para página do produto */
+            .demo-cta-secondary {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                padding: 14px 24px;
+                font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+                font-size: 0.95rem;
+                font-weight: 600;
+                color: #b0b0d0;
+                background: transparent;
+                border: 1px solid rgba(176, 176, 208, 0.3);
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                margin-top: 8px;
+            }
+            
+            .demo-cta-secondary:hover {
+                color: #ffffff;
+                border-color: rgba(0, 243, 255, 0.5);
+                background: rgba(0, 243, 255, 0.1);
             }
             
             /* Responsivo */

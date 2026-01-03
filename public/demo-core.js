@@ -33,6 +33,9 @@
         // URL do checkout (PARAMETRIZÁVEL)
         checkoutUrl: 'https://pay.hotmart.com/SEU_PRODUTO_AQUI',
         
+        // URL da página do produto (landing page)
+        productPageUrl: 'https://soundyai.com.br',
+        
         // TTL do bloqueio (30 dias em ms)
         blockTTL: 30 * 24 * 60 * 60 * 1000,
         
@@ -41,6 +44,7 @@
             title: 'Análise demonstrativa concluída',
             subtitle: 'Você utilizou sua análise gratuita. Para continuar analisando suas músicas e ter acesso a todos os recursos da SoundyAI, desbloqueie agora.',
             ctaButton: 'Desbloquear acesso completo',
+            ctaSecondary: 'Voltar para página do produto',
             securityBadge: '🔒 Pagamento seguro • Acesso imediato'
         }
     };
