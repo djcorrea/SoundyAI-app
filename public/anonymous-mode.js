@@ -50,6 +50,49 @@
     };
 
     // ═══════════════════════════════════════════════════════════
+    // 🎯 SISTEMA DE DETECÇÃO DE MODO DE ACESSO
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🎯 Retorna o modo de acesso atual do usuário
+     * ORDEM DE PRIORIDADE: demo > logged > anonymous
+     * 
+     * @returns {'demo' | 'logged' | 'anonymous' | 'none'}
+     */
+    window.getAccessMode = function() {
+        // 1️⃣ DEMO: Modo promocional (página de vendas)
+        if (window.SoundyDemo?.isActive === true) {
+            return 'demo';
+        }
+        
+        // 2️⃣ LOGGED: Usuário autenticado no Firebase
+        if (window.auth?.currentUser) {
+            return 'logged';
+        }
+        
+        // 3️⃣ ANONYMOUS: Visitante com limites
+        if (window.SoundyAnonymous?.isAnonymousMode === true) {
+            return 'anonymous';
+        }
+        
+        // 4️⃣ NONE: Nenhum modo ativo (estado transitório)
+        return 'none';
+    };
+
+    /**
+     * 🔍 Debug: Mostra status de todos os modos
+     */
+    window.debugAccessModes = function() {
+        console.group('🎯 [ACCESS-MODE] Status');
+        console.log('Demo ativo:', window.SoundyDemo?.isActive === true);
+        console.log('Logged (Firebase):', !!window.auth?.currentUser);
+        console.log('Anonymous ativo:', window.SoundyAnonymous?.isAnonymousMode === true);
+        console.log('Anonymous visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12) + '...');
+        console.log('→ Modo atual:', window.getAccessMode());
+        console.groupEnd();
+    };
+
+    // ═══════════════════════════════════════════════════════════
     // 🔧 FUNÇÕES AUXILIARES
     // ═══════════════════════════════════════════════════════════
     
