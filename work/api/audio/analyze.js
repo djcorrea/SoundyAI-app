@@ -29,7 +29,7 @@ import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/use
 import { analysisLimiter } from '../../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
 // 🔥 DEMO: Controle de limite 100% backend
-import { canDemoAnalyze, registerDemoUsage, generateDemoId, extractDemoParams } from '../../lib/demo-control.js';
+import { canDemoAnalyze, registerDemoUsage, generateDemoId, extractDemoParams } from '../../../lib/demo-control.js';
 
 
 // Definir service name para auditoria
