@@ -275,18 +275,63 @@ window.confirmSMSCode = async function() {
 
 window.register = window.signUp;
 
-// LOGOUT - CORRIGIDA
+// ═══════════════════════════════════════════════════════════════════
+// 🔐 LOGOUT ROBUSTO - LIMPEZA COMPLETA DE ESTADO DE AUTH
+// ═══════════════════════════════════════════════════════════════════
 window.logout = async function () {
+  console.log('🔓 [LOGOUT-CHAT] Iniciando processo de logout completo...');
+  
   try { 
-    await auth.signOut(); 
-    console.log("Logout realizado com sucesso");
+    if (auth && typeof auth.signOut === 'function') {
+      await auth.signOut(); 
+      console.log("✅ [LOGOUT-CHAT] Firebase signOut executado");
+    }
   } catch (e) {
-    console.error("Erro no logout:", e);
+    console.warn("⚠️ [LOGOUT-CHAT] Erro no signOut (continuando):", e.message);
   }
   
-  // Limpar dados locais
-  localStorage.removeItem("user");
-  localStorage.removeItem("idToken");
+  // 🗑️ LIMPAR TODO O LOCALSTORAGE DE AUTH
+  const keysToRemove = [
+    'user',
+    'idToken',
+    'authToken',
+    'firebase:authUser',
+    'soundy_user_profile',
+    'soundy_auth_state',
+    'currentUserData'
+  ];
+  
+  keysToRemove.forEach(key => {
+    localStorage.removeItem(key);
+  });
+  
+  // Limpar chaves que começam com firebase:
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('firebase:')) {
+      localStorage.removeItem(key);
+      console.log('🗑️ [LOGOUT-CHAT] Removido:', key);
+    }
+  });
+  
+  console.log('✅ [LOGOUT-CHAT] localStorage limpo');
+  
+  // 🗑️ LIMPAR SESSIONSTORAGE
+  sessionStorage.clear();
+  console.log('✅ [LOGOUT-CHAT] sessionStorage limpo');
+  
+  // 🔄 RESETAR VARIÁVEIS GLOBAIS
+  window.currentUserToken = null;
+  window.currentUserData = null;
+  window.cachedIdToken = null;
+  
+  // 🔓 MARCAR PARA MODO ANÔNIMO
+  if (window.SoundyAnonymous) {
+    window.SoundyAnonymous.isAnonymousMode = true;
+    window.SoundyAnonymous.forceCleanState = true;
+    console.log('✅ [LOGOUT-CHAT] Modo anônimo preparado');
+  }
+  
+  console.log('🔓 [LOGOUT-CHAT] Processo de logout COMPLETO - Redirecionando...');
   
   // Redirecionar para login
   setTimeout(() => {

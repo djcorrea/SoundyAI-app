@@ -56,6 +56,131 @@ const API_CONFIG = {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// 🔐 GATE CENTRAL DE AUTENTICAÇÃO - SINGLE SOURCE OF TRUTH
+// ═══════════════════════════════════════════════════════════════════
+window.AuthGate = {
+  /**
+   * Verifica se o usuário está realmente autenticado
+   * @returns {boolean}
+   */
+  isAuthenticated() {
+    // 1. Verificar Firebase currentUser
+    const hasFirebaseUser = !!(window.auth?.currentUser);
+    
+    // 2. Verificar tokens no localStorage
+    const hasIdToken = !!(localStorage.getItem('idToken'));
+    const hasAuthToken = !!(localStorage.getItem('authToken'));
+    
+    // 3. Verificar se modo anônimo está FORÇADO
+    const isAnonymousForced = window.SoundyAnonymous?.isAnonymousMode === true;
+    const forceClean = window.SoundyAnonymous?.forceCleanState === true;
+    
+    // Se modo anônimo foi forçado (pós-logout), BLOQUEAR autenticação
+    if (isAnonymousForced || forceClean) {
+      console.log('🔒 [AuthGate] Modo anônimo forçado - bloqueando autenticação');
+      return false;
+    }
+    
+    // Usuário está autenticado se tem Firebase user E tem token
+    const isAuth = hasFirebaseUser && (hasIdToken || hasAuthToken);
+    
+    console.log('🔐 [AuthGate] isAuthenticated:', isAuth, {
+      hasFirebaseUser,
+      hasIdToken,
+      hasAuthToken,
+      isAnonymousForced
+    });
+    
+    return isAuth;
+  },
+  
+  /**
+   * Obtém o endpoint correto baseado no estado de auth
+   * @param {string} type - 'chat' ou 'analyze'
+   * @returns {string} - URL do endpoint
+   */
+  getEndpoint(type) {
+    const isAuth = this.isAuthenticated();
+    
+    if (type === 'chat') {
+      const endpoint = isAuth ? API_CONFIG.chatEndpoint : API_CONFIG.chatAnonymousEndpoint;
+      console.log(`📍 [AuthGate] Chat endpoint: ${endpoint}`);
+      return endpoint;
+    }
+    
+    if (type === 'analyze') {
+      const endpoint = isAuth ? `${API_CONFIG.baseURL}/audio/analyze` : API_CONFIG.analyzeAnonymousEndpoint;
+      console.log(`📍 [AuthGate] Analyze endpoint: ${endpoint}`);
+      return endpoint;
+    }
+    
+    console.error('❌ [AuthGate] Tipo de endpoint desconhecido:', type);
+    return null;
+  },
+  
+  /**
+   * Obtém headers corretos para a requisição
+   * @returns {Object} - Headers para fetch
+   */
+  async getHeaders() {
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    
+    if (!this.isAuthenticated()) {
+      console.log('🔓 [AuthGate] Headers anônimos (sem Authorization)');
+      return headers;
+    }
+    
+    // Obter token do Firebase
+    try {
+      let idToken = null;
+      
+      if (window.auth?.currentUser) {
+        idToken = await window.auth.currentUser.getIdToken();
+      }
+      
+      if (!idToken) {
+        idToken = localStorage.getItem('idToken') || localStorage.getItem('authToken');
+      }
+      
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+        console.log('🔐 [AuthGate] Headers autenticados (com Authorization)');
+      }
+    } catch (err) {
+      console.warn('⚠️ [AuthGate] Erro ao obter token:', err.message);
+    }
+    
+    return headers;
+  },
+  
+  /**
+   * Bloqueia chamadas autenticadas quando em modo anônimo
+   * @param {string} url - URL sendo chamada
+   * @returns {boolean} - true se deve bloquear
+   */
+  shouldBlockAuthenticatedCall(url) {
+    const isAnonymous = !this.isAuthenticated();
+    const isAuthenticatedEndpoint = (
+      url.includes('/api/chat') && !url.includes('/anonymous') ||
+      url.includes('/api/audio/analyze') && !url.includes('anonymous')
+    );
+    
+    if (isAnonymous && isAuthenticatedEndpoint) {
+      console.error('🚫 [AuthGate] BLOQUEANDO chamada autenticada em modo anônimo:', url);
+      return true;
+    }
+    
+    return false;
+  }
+};
+
+// Expor globalmente
+window.API_CONFIG = API_CONFIG;
+
 /* ============ FUNÇÕES GLOBAIS SIMPLIFICADAS ============ */
 // Versão otimizada - definições diretas sem verificações excessivas
 window.testAPIConnection = window.testAPIConnection || async function() {
@@ -1563,10 +1688,23 @@ async function processMessage(message, images = []) {
       }
     }
 
-    // 🔓 ESCOLHER ENDPOINT: Anônimo vs Autenticado
-    const chatEndpoint = isAnonymous 
-      ? API_CONFIG.chatAnonymousEndpoint 
-      : API_CONFIG.chatEndpoint;
+    // 🔓 ESCOLHER ENDPOINT: Usar AuthGate se disponível, senão fallback para lógica atual
+    let chatEndpoint;
+    if (window.AuthGate) {
+      chatEndpoint = window.AuthGate.getEndpoint('chat');
+      
+      // Validação extra: bloquear chamada autenticada se AuthGate diz que não está autenticado
+      if (!isAnonymous && !window.AuthGate.isAuthenticated()) {
+        console.warn('⚠️ [CHAT] AuthGate indica que não está autenticado - forçando modo anônimo');
+        chatEndpoint = API_CONFIG.chatAnonymousEndpoint;
+        // Remover Authorization header se existir
+        delete requestHeaders['Authorization'];
+      }
+    } else {
+      chatEndpoint = isAnonymous 
+        ? API_CONFIG.chatAnonymousEndpoint 
+        : API_CONFIG.chatEndpoint;
+    }
     
     console.log('📤 Enviando para API:', chatEndpoint, hasImages ? '(multipart)' : '(json)', isAnonymous ? '[ANÔNIMO]' : '[AUTH]');
     const response = await fetch(chatEndpoint, {
