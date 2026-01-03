@@ -65,6 +65,15 @@ function validateFileType(fileKey) {
 // CRIAR JOB ANÔNIMO
 // ═══════════════════════════════════════════════════════════════════
 
+/**
+ * 🔓 Cria job anônimo usando o MESMO padrão do modo logado
+ * 
+ * IMPORTANTE:
+ * - genre NÃO é coluna da tabela jobs (vai no payload do Redis)
+ * - sound_destination NÃO é coluna da tabela jobs (vai no payload do Redis)
+ * - O INSERT deve ser IDÊNTICO ao modo logado
+ * - O worker processa o payload e popula results.genre
+ */
 async function createAnonymousJobInDatabase(fileKey, fileName, genre, genreTargets, visitorId, soundDestination = 'pista') {
   const jobId = randomUUID();
   const externalId = `anon-${Date.now()}-${jobId.substring(0, 8)}`;
@@ -86,7 +95,7 @@ async function createAnonymousJobInDatabase(fileKey, fileName, genre, genreTarge
       await queueInit;
     }
 
-    // Enfileirar no Redis
+    // ✅ ETAPA 1: Enfileirar no Redis (com genre e soundDestination no payload)
     const queue = getAudioQueue();
     
     const payloadParaRedis = {
@@ -95,9 +104,10 @@ async function createAnonymousJobInDatabase(fileKey, fileName, genre, genreTarge
       fileKey,
       fileName,
       mode: 'genre', // Anônimos sempre usam modo genre
-      genre,
-      genreTargets,
-      soundDestination: validSoundDestination,
+      analysisType: 'genre', // Campo explícito (mesmo padrão do logado)
+      genre,                 // 🎯 Genre vai aqui (processado pelo worker)
+      genreTargets,          // 🎯 GenreTargets vai aqui (processado pelo worker)
+      soundDestination: validSoundDestination, // 🎯 Destino vai aqui
       anonymous: true,
       visitorId,
       planContext: {
@@ -112,6 +122,7 @@ async function createAnonymousJobInDatabase(fileKey, fileName, genre, genreTarge
     };
 
     console.log('📩 [ANON_JOB] Enfileirando no Redis...');
+    console.log('📦 [ANON_JOB] Payload Redis:', JSON.stringify(payloadParaRedis, null, 2));
     
     const redisJob = await queue.add('process-audio', payloadParaRedis, {
       jobId: externalId,
@@ -127,24 +138,29 @@ async function createAnonymousJobInDatabase(fileKey, fileName, genre, genreTarge
 
     console.log(`✅ [ANON_JOB] Job enfileirado: ${redisJob.id}`);
 
-    // Gravar no PostgreSQL
-    console.log('📝 [ANON_JOB] Gravando no PostgreSQL...');
+    // ✅ ETAPA 2: Gravar no PostgreSQL (MESMO SCHEMA do modo logado)
+    // NOTA: genre e sound_destination NÃO são colunas da tabela jobs
+    // O worker processa o payload do Redis e popula results.genre
+    console.log('📝 [ANON_JOB] Gravando no PostgreSQL (schema padrão)...');
     
     const result = await pool.query(
-      `INSERT INTO jobs (
-        id, file_key, mode, status, file_name, genre, 
-        sound_destination, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, "genre", "queued", fileName || null, genre, validSoundDestination]
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, "genre", "queued", fileName || null, null]
     );
 
     console.log(`✅ [ANON_JOB] Job gravado no PostgreSQL:`, {
       id: result.rows[0].id,
-      status: result.rows[0].status,
-      genre: result.rows[0].genre
+      file_key: result.rows[0].file_key,
+      mode: result.rows[0].mode,
+      status: result.rows[0].status
     });
 
-    return result.rows[0];
+    // Retornar com jobId para polling
+    return {
+      ...result.rows[0],
+      jobId: result.rows[0].id // Alias para compatibilidade
+    };
     
   } catch (error) {
     console.error(`💥 [ANON_JOB] Erro:`, error.message);
