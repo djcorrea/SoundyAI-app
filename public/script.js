@@ -21,6 +21,13 @@ let isDesktop = window.innerWidth > 768;
 const API_CONFIG = {
   baseURL: (() => {
     const host = window.location.hostname || '';
+    
+    // 🔥 PRODUÇÃO: soundyai.com.br -> usar /api local (Vercel serverless)
+    if (host === 'soundyai.com.br' || host === 'www.soundyai.com.br') {
+      console.log('🌐 [API_CONFIG] Domínio de produção detectado - usando /api local');
+      return '/api';
+    }
+    
     // Produção/preview no domínio do frontend -> usar mesma origem para evitar CORS
     const isVercel = host.endsWith('vercel.app');
     const isAiSynthProject = isVercel && (
@@ -28,15 +35,15 @@ const API_CONFIG = {
       host.includes('ai-synth-dj-correas-projects') ||
       host.includes('ai-synth-czzxlraox-dj-correas-projects')
     );
-    if (isAiSynthProject || host === 'https://soundyai-app-production.up.railway.app' || 
-        host === 'https://soundyai-app-production.up.railway.app' ||
-        host === 'ai-synth-czzxlraox-dj-correas-projects.vercel.app') {
+    if (isAiSynthProject || host === 'ai-synth-czzxlraox-dj-correas-projects.vercel.app') {
       return '/api';
     }
+    
     // Ambiente local mantém uso do backend dedicado atual
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
       return 'https://soundyai-app-production.up.railway.app/api';
     }
+    
     // Demais casos: manter backend dedicado atual
     return 'https://soundyai-app-production.up.railway.app/api';
   })(),
