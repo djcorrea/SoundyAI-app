@@ -2,7 +2,12 @@
  * 🔓 ANÁLISE ANÔNIMA - Endpoint para usuários sem autenticação Firebase
  * 
  * Permite que visitantes não logados façam análises de áudio
- * COM LIMITES: 2 análises por dia
+ * 
+ * ⚠️ REGRA DE NEGÓCIO CRÍTICA:
+ * - 1 análise NA VIDA (PERMANENTE)
+ * - Sem reset, sem TTL, sem expiração
+ * - Backend (anonymousLimiter.js) é a ÚNICA autoridade
+ * - Dados persistidos em PostgreSQL
  * 
  * Identificação por:
  * - fingerprint (FingerprintJS do frontend)
@@ -13,8 +18,8 @@
  * - Análise completa (sem modo reduced)
  * - Sem persistência de histórico (apenas resultado imediato)
  * 
- * @version 1.0.0
- * @date 2026-01-02
+ * @version 2.0.0 - BLOQUEIO PERMANENTE
+ * @date 2025-01-03
  */
 
 import "dotenv/config";
@@ -198,13 +203,14 @@ router.post("/", async (req, res) => {
     
     // 🔥 MODO DEMO: Usar limites mais restritivos
     const isDemoMode = isDemo === true;
-    const maxAnalysesForMode = isDemoMode ? 1 : 2; // Demo=1, Anonymous=2
+    // 🚨 REGRA: 1 análise NA VIDA para anônimos E demo
+    // O limite é controlado pelo backend (anonymousLimiter.js)
+    // Não precisamos mais passar maxLimit - o limiter já sabe
 
     console.log('[ANON_ANALYZE] Payload recebido:', {
       hasFileKey: !!fileKey,
       hasFileName: !!fileName,
       isDemoMode,
-      maxAnalysesForMode,
       genre,
       hasGenreTargets: !!genreTargets,
       hasVisitorId: !!visitorId,
@@ -231,10 +237,9 @@ router.post("/", async (req, res) => {
     
     console.log(`📊 [ANON_ANALYZE:${requestId}] Verificando limites para visitor: ${visitorId.substring(0, 8)}... (isDemo: ${isDemoMode})`);
     
-    // 🔥 Passar opções para o limiter com limite customizado
+    // 🔥 Passar opções para o limiter - limite definido no backend
     const limitCheck = await canAnonymousAnalyze(visitorId, req, { 
-      isDemo: isDemoMode, 
-      maxLimit: maxAnalysesForMode 
+      isDemo: isDemoMode
     });
     
     if (!limitCheck.allowed) {

@@ -10,7 +10,7 @@
  */
 
 import express from 'express';
-import { canDemoAnalyze, DEMO_CONTROL_CONFIG } from '../../lib/demo-control.js';
+import { canDemoAnalyze, DEMO_CONTROL_CONFIG } from '../../../lib/demo-control.js';
 
 const router = express.Router();
 
