@@ -41,6 +41,7 @@
     { "src": "/api/audio/analyze-anonymous", "dest": "/api/audio/analyze-anonymous.js" },
     
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
+    { "src": "/demo", "dest": "/public/index.html" },
     { "src": "/", "dest": "/public/landing.html" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]

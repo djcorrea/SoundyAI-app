@@ -43,7 +43,13 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
-// 👉 Aliases para o app (index)
+// � ROTA DEMO: Abre index.html direto com modo demo ativo
+// Link: https://soundyai.com.br/demo
+app.get("/demo", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// �👉 Aliases para o app (index)
 app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
