@@ -83,6 +83,14 @@ router.post('/create-checkout-session', async (req, res) => {
     // 4️⃣ CRIAR CHECKOUT SESSION NO STRIPE (ASSINATURA RECORRENTE)
     console.log(`🔧 [STRIPE] Criando session - Mode: subscription, Price ID: ${planConfig.priceId}`);
     
+    // Construir URLs de sucesso e cancelamento
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? `https://${req.get('host')}` 
+      : `${req.protocol}://${req.get('host')}`;
+    
+    const successUrl = process.env.STRIPE_SUCCESS_URL || `${baseUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = process.env.STRIPE_CANCEL_URL || `${baseUrl}/planos.html?canceled=true`;
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -92,19 +100,33 @@ router.post('/create-checkout-session', async (req, res) => {
           quantity: 1,
         },
       ],
+      // ✅ Identificação do cliente
       customer_email: decodedToken.email,
+      client_reference_id: uid, // ✅ NOVO: Fallback para identificar uid
+      
+      // ✅ Metadata na subscription para persistir com a assinatura
       subscription_data: {
         metadata: {
           uid: uid,
           plan: plan,
+          email: decodedToken.email || '',
         },
       },
+      
+      // ✅ Metadata na session para checkout.session.completed
       metadata: {
         uid: uid,
         plan: plan,
+        email: decodedToken.email || '',
       },
-      success_url: process.env.STRIPE_SUCCESS_URL || `${req.protocol}://${req.get('host')}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: process.env.STRIPE_CANCEL_URL || `${req.protocol}://${req.get('host')}/cancel`,
+      
+      // ✅ URLs de redirecionamento
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      
+      // ✅ Configurações adicionais
+      allow_promotion_codes: true, // Permitir cupons de desconto
+      billing_address_collection: 'auto',
     });
 
     console.log(`✅ [STRIPE] Checkout Session criada: ${session.id}`);
