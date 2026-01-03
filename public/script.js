@@ -2036,7 +2036,15 @@ function initializeEverything() {
     injetarEstilosRespostaEstilosa();
     
     // Verificar se estamos na página principal antes de inicializar tudo
-    const isMainPage = document.querySelector('.hero') || document.querySelector('#startSendBtn') || window.location.pathname.includes('index.html');
+    // ✅ Inclui /demo para modo de demonstração de vendas
+    const pathname = window.location.pathname;
+    const isMainPage = document.querySelector('.hero') || 
+                       document.querySelector('#startSendBtn') || 
+                       document.querySelector('.chatbot-container') ||
+                       pathname.includes('index.html') ||
+                       pathname === '/demo' ||
+                       pathname === '/index' ||
+                       pathname === '/';
     
     if (isMainPage) {
         console.log('🎯 Inicializando sistema da página principal...');
