@@ -434,6 +434,17 @@
         
         if (window.SoundyDemo.initialized) {
             console.log('✅ [DEMO-CORE] Já inicializado');
+            
+            // 🔴 Se já bloqueado, mostrar modal imediatamente
+            if (window.SoundyDemo.data?.blocked) {
+                console.log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal');
+                setTimeout(() => {
+                    if (typeof window.SoundyDemo.showConversionModal === 'function') {
+                        window.SoundyDemo.showConversionModal(window.SoundyDemo.data.blockReason || 'blocked');
+                    }
+                }, 500);
+            }
+            
             return true;
         }
         
@@ -460,8 +471,20 @@
         console.log('✅ [DEMO-CORE] Modo demo ATIVADO (sobrepondo outros modos):', {
             visitorId: visitorId.substring(0, 16) + '...',
             analysesUsed: data.analyses_used + '/' + DEMO_CONFIG.limits.maxAnalyses,
-            messagesUsed: data.messages_used + '/' + DEMO_CONFIG.limits.maxMessages
+            messagesUsed: data.messages_used + '/' + DEMO_CONFIG.limits.maxMessages,
+            blocked: data.blocked || false
         });
+        
+        // 🔴 VERIFICAR SE JÁ ESTÁ BLOQUEADO (de sessão anterior)
+        if (data.blocked) {
+            console.log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal imediatamente');
+            setTimeout(() => {
+                if (typeof window.SoundyDemo.showConversionModal === 'function') {
+                    window.SoundyDemo.showConversionModal(data.blockReason || 'blocked');
+                }
+            }, 1000);
+            return true; // Não abrir modal de análise se bloqueado
+        }
         
         // Validar com backend na inicialização
         try {
@@ -475,8 +498,11 @@
             detail: { visitorId, data }
         }));
         
-        // 🎯 AUTO-ABRIR MODAL DE ANÁLISE (aguardar carregamento da página)
+        // 🎯 MOSTRAR AVISO DE DEMO + AUTO-ABRIR MODAL DE ANÁLISE
         setTimeout(() => {
+            // Mostrar aviso de demo
+            showDemoWelcomeNotice();
+            
             if (typeof window.openModeSelectionModal === 'function') {
                 console.log('🎯 [DEMO-CORE] Abrindo modal de análise automaticamente...');
                 window.openModeSelectionModal();
@@ -494,6 +520,58 @@
         
         return true;
     };
+    
+    /**
+     * Mostra aviso de boas-vindas do demo
+     */
+    function showDemoWelcomeNotice() {
+        // Evitar duplicação
+        if (document.getElementById('demoWelcomeNotice')) return;
+        
+        const notice = document.createElement('div');
+        notice.id = 'demoWelcomeNotice';
+        notice.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, rgba(188, 19, 254, 0.95) 0%, rgba(0, 243, 255, 0.95) 100%);
+                color: white;
+                padding: 16px 28px;
+                border-radius: 12px;
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 1.1rem;
+                font-weight: 600;
+                z-index: 10000;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                animation: demoNoticeSlide 0.5s ease;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            ">
+                <span style="font-size: 1.5rem;">🎁</span>
+                <span>Você tem direito a <strong>1 análise demonstrativa gratuita</strong></span>
+            </div>
+            <style>
+                @keyframes demoNoticeSlide {
+                    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+            </style>
+        `;
+        
+        document.body.appendChild(notice);
+        
+        // Auto-remover após 6 segundos
+        setTimeout(() => {
+            notice.style.transition = 'opacity 0.5s ease';
+            notice.style.opacity = '0';
+            setTimeout(() => notice.remove(), 500);
+        }, 6000);
+        
+        console.log('📢 [DEMO-CORE] Aviso de boas-vindas exibido');
+    }
 
     /**
      * Obtém status do demo
@@ -504,6 +582,8 @@
             enabled: DEMO_CONFIG.enabled,
             active: window.SoundyDemo.isActive,
             initialized: window.SoundyDemo.initialized,
+            blocked: data.blocked || false,
+            blockReason: data.blockReason || null,
             analysesUsed: data.analyses_used || 0,
             analysesLimit: DEMO_CONFIG.limits.maxAnalyses,
             analysesRemaining: Math.max(0, DEMO_CONFIG.limits.maxAnalyses - (data.analyses_used || 0)),
