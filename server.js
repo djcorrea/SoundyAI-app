@@ -91,6 +91,9 @@ import presignRoute from "./api/presign.js";
 // 🎯 CORRECTION PLAN: Plano de Correção com IA
 import correctionPlanHandler from "./api/correction-plan.js";
 
+// 🔥 DEMO: Controle de limite 100% backend
+import demoRouter from "./work/api/demo/index.js";
+
 // ✅ STRIPE: Rotas de pagamento recorrente
 import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
@@ -134,7 +137,15 @@ console.log('   - POST /api/audio/analyze-anonymous');
 console.log('   - GET /api/anonymous/status');
 
 // ═══════════════════════════════════════════════════════════════════
-// 🔐 ROTAS AUTENTICADAS
+// � ROTAS DEMO - Controle de limite 100% backend
+// ═══════════════════════════════════════════════════════════════════
+app.use("/api/demo", demoRouter);
+console.log('🔥 [DEMO] Rotas demo registradas:');
+console.log('   - POST /api/demo/can-analyze');
+console.log('   - GET /api/demo/status');
+
+// ═══════════════════════════════════════════════════════════════════
+// �🔐 ROTAS AUTENTICADAS
 // ═══════════════════════════════════════════════════════════════════
 
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);

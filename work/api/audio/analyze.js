@@ -28,6 +28,10 @@ import { getAuth } from '../../firebase/admin.js';
 import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/user/userPlans.js';
 import { analysisLimiter } from '../../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
+// 🔥 DEMO: Controle de limite 100% backend
+import { canDemoAnalyze, registerDemoUsage, generateDemoId, extractDemoParams } from '../../lib/demo-control.js';
+
+
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
 
@@ -507,13 +511,43 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     });
     
     // ═══════════════════════════════════════════════════════════
-    // 🔥 MODO DEMO: Bypass de autenticação para demonstração
+    // 🔥 MODO DEMO: Controle 100% BACKEND (anti-burla)
     // ═══════════════════════════════════════════════════════════
     const isDemoMode = req.headers['x-demo-mode'] === 'true' || req.query.mode === 'demo';
     const demoVisitorId = req.headers['x-demo-visitor'] || 'unknown';
+    let demoId = null;
     
     if (isDemoMode) {
       console.log('🔥 [ANALYZE] MODO DEMO detectado - visitor:', demoVisitorId);
+      
+      // 🔴 VERIFICAÇÃO BACKEND: Checar se demo já foi usado
+      try {
+        const demoCheck = await canDemoAnalyze(req);
+        demoId = demoCheck.demoId;
+        
+        if (!demoCheck.allowed) {
+          console.log('🚫 [ANALYZE] DEMO BLOQUEADO pelo backend:', demoCheck.reason);
+          return res.status(403).json({
+            success: false,
+            error: 'DEMO_LIMIT_REACHED',
+            message: 'Você já utilizou sua análise demonstrativa gratuita.',
+            reason: demoCheck.reason,
+            analysesCount: demoCheck.analysesCount,
+            maxAnalyses: demoCheck.maxAnalyses,
+            // Sinalizar para frontend mostrar modal de conversão
+            showConversionModal: true,
+            checkoutRequired: true
+          });
+        }
+        
+        console.log('✅ [ANALYZE] DEMO permitido pelo backend:', {
+          demoId: demoId?.substring(0, 16) + '...',
+          remaining: demoCheck.remaining
+        });
+      } catch (demoErr) {
+        console.error('⚠️ [ANALYZE] Erro ao verificar demo (fail-open):', demoErr.message);
+        // Fail-open: em caso de erro, permitir (não perder venda potencial)
+      }
     }
     
     // ✅ ETAPA 1: AUTENTICAÇÃO (bypass para demo)
@@ -523,9 +557,9 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     let decoded;
     
     if (isDemoMode) {
-      // 🔥 DEMO MODE: Usar visitorId como UID fictício
-      uid = `demo_${demoVisitorId}`;
-      decoded = { uid, demo: true };
+      // 🔥 DEMO MODE: Usar demoId como UID (mais confiável que visitorId)
+      uid = `demo_${demoId || demoVisitorId}`;
+      decoded = { uid, demo: true, demoId };
       console.log('🔥 [ANALYZE] Usando UID demo:', uid);
     } else {
       // Fluxo normal de autenticação
@@ -572,15 +606,22 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     const referenceJobId = req.body.referenceJobId || null;
     
     // ✅ ETAPA 2: VALIDAR LIMITES DE ANÁLISE ANTES DE CRIAR JOB
-    // 🔥 DEMO MODE: Pular verificação de limites (frontend controla)
     console.log('📊 [ANALYZE] Verificando limites de análise para UID:', uid);
     
     let analysisCheck;
     
     if (isDemoMode) {
-      // Demo: Permitir análise (frontend controla o limite de 1)
-      analysisCheck = { allowed: true, demo: true, mode: 'full', user: { plan: 'demo' }, remainingFull: 1 };
-      console.log('🔥 [ANALYZE] DEMO MODE: Limites controlados pelo frontend');
+      // 🔥 DEMO: Limite já foi validado acima pelo backend
+      // Aqui só montamos o objeto para compatibilidade
+      analysisCheck = { 
+        allowed: true, 
+        demo: true, 
+        demoId,
+        mode: 'full', 
+        user: { plan: 'demo' }, 
+        remainingFull: 1 
+      };
+      console.log('🔥 [ANALYZE] DEMO MODE: Limite validado pelo backend');
     } else {
       try {
         analysisCheck = await canUseAnalysis(uid);
@@ -754,12 +795,27 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       console.log('🔥 [ANALYZE] DEMO MODE: Pulando registro de uso no banco');
     }
 
+    // 🔥 DEMO: Registrar uso APÓS job criado com sucesso
+    if (isDemoMode && demoId) {
+      try {
+        const demoResult = await registerDemoUsage(req);
+        console.log('🔥 [ANALYZE] Demo registrado no backend:', {
+          demoId: demoId.substring(0, 16) + '...',
+          success: demoResult.success,
+          blocked: demoResult.blocked
+        });
+      } catch (demoErr) {
+        console.error('⚠️ [ANALYZE] Erro ao registrar demo (não crítico):', demoErr.message);
+      }
+    }
+
     // ✅ RESPOSTA DE SUCESSO COM JOBID GARANTIDO
     res.status(200).json({
       ok: true,
       success: true,
       jobId: jobRecord.id,
       demoMode: isDemoMode || false,
+      demoBlocked: isDemoMode, // Sinaliza que próxima tentativa será bloqueada
       job: {
         id: jobRecord.id,
         status: jobRecord.status,

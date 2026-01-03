@@ -308,62 +308,92 @@
     window.SoundyDemo._loadOrCreateData = loadOrCreateDemoData;
 
     // ═══════════════════════════════════════════════════════════
-    // 🌐 VALIDAÇÃO BACKEND (PALAVRA FINAL)
+    // 🌐 VALIDAÇÃO BACKEND (100% AUTORITATIVO - ANTI-BURLA)
     // ═══════════════════════════════════════════════════════════
 
     /**
-     * Valida estado do demo no backend
-     * IMPORTANTE: Se backend retornar allowed:false, BLOQUEIA mesmo que frontend permita
+     * 🔴 VERIFICAÇÃO BACKEND OBRIGATÓRIA
+     * Consulta /api/demo/can-analyze antes de permitir qualquer análise
      * 
-     * @param {string} action - 'check', 'analysis', ou 'message'
-     * @returns {Promise<{success: boolean, permissions: object, backendAuthoritative: boolean}>}
+     * @returns {Promise<{allowed: boolean, remaining: number, reason?: string}>}
+     */
+    async function checkBackendPermission() {
+        try {
+            const fingerprint = window.SoundyDemo.visitorId || 'unknown';
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+            
+            const response = await fetch('/api/demo/can-analyze', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-demo-visitor': fingerprint,
+                    'x-timezone': timezone
+                },
+                body: JSON.stringify({ 
+                    fingerprint,
+                    timezone 
+                })
+            });
+            
+            const result = await response.json();
+            
+            console.log('🔗 [DEMO-CORE] Backend check:', result);
+            
+            // 🔴 CRÍTICO: Backend é AUTORITATIVO
+            window.SoundyDemo._backendAuthoritative = true;
+            
+            if (!result.allowed) {
+                console.log('🚫 [DEMO-CORE] Backend BLOQUEOU:', result.reason);
+                
+                // Sincronizar bloqueio local
+                if (window.SoundyDemo.data) {
+                    window.SoundyDemo.data.blocked = true;
+                    window.SoundyDemo.data.blockReason = result.reason || 'backend_blocked';
+                    await saveDemoData(window.SoundyDemo.data);
+                }
+                
+                return {
+                    allowed: false,
+                    remaining: 0,
+                    reason: result.reason,
+                    backendBlocked: true
+                };
+            }
+            
+            return {
+                allowed: true,
+                remaining: result.remaining || 1,
+                demoId: result.demoId
+            };
+            
+        } catch (error) {
+            console.warn('⚠️ [DEMO-CORE] Erro na verificação backend:', error.message);
+            // Fail-open: Se backend falhar, usar verificação local (não perder venda)
+            return {
+                allowed: !window.SoundyDemo.data?.blocked,
+                remaining: window.SoundyDemo.data?.blocked ? 0 : 1,
+                fallback: true
+            };
+        }
+    }
+    
+    // Expor para uso externo
+    window.SoundyDemo.checkBackendPermission = checkBackendPermission;
+
+    /**
+     * Valida estado do demo no backend (compatibilidade)
+     * @deprecated Use checkBackendPermission() diretamente
      */
     async function validateWithBackend(action = 'check') {
         try {
-            const fingerprint = window.SoundyDemo.visitorId || 'unknown';
+            // Usar novo endpoint
+            const result = await checkBackendPermission();
             
-            const response = await fetch('/api/demo/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fingerprint, action })
-            });
-            
-            if (!response.ok) {
-                console.warn('⚠️ [DEMO-CORE] Backend indisponível');
-                return { success: true, permissions: null, backendAuthoritative: false };
-            }
-            
-            const result = await response.json();
-            console.log(`🔗 [DEMO-CORE] Backend validação (${action}):`, result);
-            
-            // 🔴 CRÍTICO: Se backend respondeu, ele é AUTORITATIVO
-            window.SoundyDemo._backendAuthoritative = true;
-            
-            // Sincronizar dados com backend (usar valor mais restritivo)
-            if (result.state && window.SoundyDemo.data) {
-                const data = window.SoundyDemo.data;
-                let needsSave = false;
-                
-                if (result.state.analysesUsed > data.analyses_used) {
-                    console.warn('⚠️ [DEMO-CORE] Sincronizando análises do backend');
-                    data.analyses_used = result.state.analysesUsed;
-                    needsSave = true;
-                }
-                
-                if (result.state.messagesUsed > data.messages_used) {
-                    console.warn('⚠️ [DEMO-CORE] Sincronizando mensagens do backend');
-                    data.messages_used = result.state.messagesUsed;
-                    needsSave = true;
-                }
-                
-                if (needsSave) {
-                    await saveDemoData(data);
-                }
-            }
-            
-            // Marcar resultado como autoritativo
-            result.backendAuthoritative = true;
-            return result;
+            return { 
+                success: result.allowed, 
+                permissions: { canAnalyze: result.allowed, canMessage: true },
+                backendAuthoritative: true 
+            };
             
         } catch (error) {
             console.warn('⚠️ [DEMO-CORE] Erro na validação backend:', error.message);
@@ -377,6 +407,7 @@
     async function registerActionBackend(action) {
         return validateWithBackend(action);
     }
+
 
     // Expor para outros módulos
     window.SoundyDemo.validateBackend = validateWithBackend;
