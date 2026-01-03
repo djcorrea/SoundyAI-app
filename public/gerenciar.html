@@ -360,83 +360,126 @@
                     const planTypeElement = document.getElementById('plan-type');
                     const planNameElement = planTypeElement?.querySelector('.plan-name');
                     const planIconElement = planTypeElement?.querySelector('.plan-icon');
+                    const cancelSubscriptionBtn = document.getElementById('cancel-subscription-btn');
                     
                     if (!planTypeElement || !planNameElement || !planIconElement) {
                         console.error('❌ Elementos do plano não encontrados no DOM');
                         return;
                     }
                     
-                    let isPlus = false;
-                    let planStatus = 'free'; // Default para gratuito
+                    let userPlan = 'free';
+                    let isPaidPlan = false;
+                    let isCancellationPending = false;
                     
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
                         
-                        // Verificar se é usuário Plus
-                        // Considera tanto 'plano' quanto 'isPlus' para compatibilidade
-                        isPlus = userData.plano === 'plus' || userData.isPlus === true;
+                        // ✅ NOVA ESTRUTURA STRIPE: Usar campo 'plan' e 'subscription'
+                        // Fallback para campos antigos se necessário
+                        userPlan = userData.plan || userData.plano || 'free';
+                        const subscription = userData.subscription || {};
                         
-                        console.log('� Dados do usuário:', {
-                            plano: userData.plano,
-                            isPlus: userData.isPlus,
-                            planExpiresAt: userData.planExpiresAt,
-                            subscriptionStatus: userData.subscriptionStatus
+                        console.log('📊 Dados do usuário (nova estrutura):', {
+                            plan: userPlan,
+                            subscription: {
+                                id: subscription.id,
+                                status: subscription.status,
+                                priceId: subscription.priceId,
+                                cancel_at_period_end: subscription.cancel_at_period_end,
+                                currentPeriodEnd: subscription.currentPeriodEnd
+                            },
+                            // Campos legados
+                            plano_legado: userData.plano,
+                            isPlus_legado: userData.isPlus,
                         });
                         
-                        // Verificar se o plano Plus ainda está ativo (não expirou)
-                        if (isPlus && userData.planExpiresAt) {
-                            const now = new Date();
-                            const expirationDate = userData.planExpiresAt instanceof Date ? 
-                                userData.planExpiresAt : 
-                                userData.planExpiresAt.toDate ? userData.planExpiresAt.toDate() : new Date(userData.planExpiresAt);
-                            
-                            if (expirationDate <= now) {
-                                console.log('⏰ Plano Plus expirou em:', expirationDate);
-                                isPlus = false; // Plano expirado, considerar como gratuito
-                            } else {
-                                console.log('✅ Plano Plus ativo até:', expirationDate);
+                        // Verificar status da assinatura
+                        const subStatus = subscription.status;
+                        const isActiveStatus = ['active', 'active_until_period_end', 'trialing'].includes(subStatus);
+                        
+                        // Plano pago ativo = plan é plus/pro E (status ativo OU assinatura válida)
+                        if (userPlan === 'plus' || userPlan === 'pro') {
+                            if (isActiveStatus || !subStatus) {
+                                isPaidPlan = true;
                             }
                         }
                         
-                        planStatus = isPlus ? 'plus' : 'free';
+                        // Verificar se cancelamento está pendente
+                        isCancellationPending = subscription.cancel_at_period_end === true || 
+                                                 subStatus === 'active_until_period_end';
+                        
+                        // Se a assinatura está cancelada e expirou, considerar como free
+                        if (subStatus === 'canceled' && subscription.currentPeriodEnd) {
+                            const now = new Date();
+                            const periodEnd = new Date(subscription.currentPeriodEnd);
+                            if (periodEnd <= now) {
+                                isPaidPlan = false;
+                                userPlan = 'free';
+                                console.log('⏰ Plano expirou, considerando como FREE');
+                            }
+                        }
                     } else {
                         console.log('⚠️ Documento do usuário não encontrado, usando plano gratuito como padrão');
                     }
                     
                     // Atualizar a exibição do plano
-                    if (isPlus) {
-                        // Usuário Plus
+                    const upgradeCard = document.getElementById('upgrade-card');
+                    const cancelCards = document.querySelectorAll('.card-perigo');
+                    
+                    if (userPlan === 'pro') {
+                        // Usuário PRO
+                        planTypeElement.className = 'plan-type pro';
+                        planNameElement.textContent = 'PRO';
+                        planIconElement.textContent = '⭐';
+                        console.log('⭐ Exibindo plano PRO');
+                        
+                        if (upgradeCard) upgradeCard.style.display = 'none';
+                        cancelCards.forEach(card => {
+                            if (!card.querySelector('#delete-account-btn')) {
+                                card.style.display = 'block';
+                            }
+                        });
+                        
+                    } else if (userPlan === 'plus' && isPaidPlan) {
+                        // Usuário PLUS
                         planTypeElement.className = 'plan-type plus';
                         planNameElement.textContent = 'PLUS';
                         planIconElement.textContent = '✅';
                         console.log('✅ Exibindo plano PLUS');
                         
-                        // Esconder card de upgrade e mostrar card de cancelamento
-                        const upgradeCard = document.getElementById('upgrade-card');
-                        const cancelCard = document.querySelector('.card-perigo'); // Card de cancelar assinatura
+                        if (upgradeCard) upgradeCard.style.display = 'none';
+                        cancelCards.forEach(card => {
+                            if (!card.querySelector('#delete-account-btn')) {
+                                card.style.display = 'block';
+                            }
+                        });
                         
-                        if (upgradeCard) {
-                            upgradeCard.style.display = 'none';
-                        }
-                        if (cancelCard) {
-                            cancelCard.style.display = 'block';
-                        }
                     } else {
-                        // Usuário Gratuito
+                        // Usuário GRATUITO
                         planTypeElement.className = 'plan-type free';
                         planNameElement.textContent = 'GRÁTIS';
                         planIconElement.textContent = '❌';
                         console.log('📱 Exibindo plano GRATUITO');
                         
-                        // Mostrar card de upgrade e esconder card de cancelamento
-                        const upgradeCard = document.getElementById('upgrade-card');
-                        const cancelCard = document.querySelector('.card-perigo'); // Card de cancelar assinatura
-                        
-                        if (upgradeCard) {
-                            upgradeCard.style.display = 'block';
-                        }
-                        if (cancelCard) {
-                            cancelCard.style.display = 'none';
+                        if (upgradeCard) upgradeCard.style.display = 'block';
+                        cancelCards.forEach(card => {
+                            if (!card.querySelector('#delete-account-btn')) {
+                                card.style.display = 'none';
+                            }
+                        });
+                    }
+                    
+                    // Atualizar estado do botão de cancelamento
+                    if (cancelSubscriptionBtn) {
+                        if (isCancellationPending) {
+                            cancelSubscriptionBtn.disabled = true;
+                            cancelSubscriptionBtn.innerHTML = '<span class="btn-icon">📅</span>Cancelamento agendado';
+                            cancelSubscriptionBtn.classList.add('btn-disabled');
+                            console.log('📅 Cancelamento já agendado');
+                        } else if (isPaidPlan) {
+                            cancelSubscriptionBtn.disabled = false;
+                            cancelSubscriptionBtn.innerHTML = '<span class="btn-icon">❌</span>Cancelar assinatura';
+                            cancelSubscriptionBtn.classList.remove('btn-disabled');
                         }
                     }
                     
@@ -1204,13 +1247,13 @@
                 }
                 
                 try {
-                    console.log('🔄 Iniciando cancelamento de assinatura...');
+                    console.log('🔄 Iniciando cancelamento de assinatura via Stripe...');
                     
                     // Obter token do usuário
                     const idToken = await currentUser.getIdToken();
                     
-                    // Fazer requisição para cancelar assinatura
-                    const response = await fetch('/api/cancel-subscription', {
+                    // Fazer requisição para cancelar assinatura no STRIPE
+                    const response = await fetch('/api/stripe/cancel-subscription', {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${idToken}`,
@@ -1238,32 +1281,32 @@
                         // Esconder modal de confirmação
                         hideCancelConfirmationModal();
                         
-                        // Buscar dados do usuário para obter planExpiresAt
-                        try {
-                            // Importar Firestore necessário
-                            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-                            const { db } = await import('./firebase.js');
-                            
-                            // Buscar documento do usuário
-                            const userDocRef = doc(db, 'usuarios', currentUser.uid);
-                            const userDoc = await getDoc(userDocRef);
-                            
-                            let planExpiresAt = null;
-                            
-                            if (userDoc.exists()) {
-                                const userData = userDoc.data();
-                                planExpiresAt = userData.planExpiresAt;
-                                console.log('📅 Data de expiração do plano:', planExpiresAt);
+                        // Usar data de cancelamento retornada pela API Stripe
+                        let cancelAtDate = null;
+                        if (result.cancelAt) {
+                            cancelAtDate = result.cancelAt;
+                            console.log('📅 Data de fim do acesso (da API):', result.cancelAtFormatted || cancelAtDate);
+                        } else {
+                            // Fallback: buscar do Firestore
+                            try {
+                                const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                                const { db } = await import('./firebase.js');
+                                
+                                const userDocRef = doc(db, 'usuarios', currentUser.uid);
+                                const userDoc = await getDoc(userDocRef);
+                                
+                                if (userDoc.exists()) {
+                                    const userData = userDoc.data();
+                                    cancelAtDate = userData.subscription?.currentPeriodEnd || userData.planExpiresAt;
+                                    console.log('📅 Data de fim do acesso (Firestore):', cancelAtDate);
+                                }
+                            } catch (firestoreError) {
+                                console.error('❌ Erro ao buscar dados do usuário:', firestoreError);
                             }
-                            
-                            // Mostrar modal de confirmação após cancelamento
-                            await showSuccessModal(planExpiresAt);
-                            
-                        } catch (firestoreError) {
-                            console.error('❌ Erro ao buscar dados do usuário:', firestoreError);
-                            // Se não conseguir buscar dados, mostrar modal sem data específica
-                            await showSuccessModal(null);
                         }
+                        
+                        // Mostrar modal de confirmação após cancelamento
+                        await showSuccessModal(cancelAtDate);
                         
                         // Atualizar exibição do plano para refletir cancelamento
                         await refreshUserPlan();

@@ -96,6 +96,7 @@ import demoRouter from "./work/api/demo/index.js";
 
 // ✅ STRIPE: Rotas de pagamento recorrente
 import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
+import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -162,6 +163,7 @@ app.use("/api", presignRoute);
 
 // ✅ STRIPE: Registrar rotas de pagamento (DEPOIS das rotas gerais)
 app.use('/api/stripe', stripeCheckoutRouter);
+app.use('/api/stripe/cancel-subscription', stripeCancelRouter);
 app.use('/api/webhook/stripe', stripeWebhookRouter);
 
 // Rotas de análise

@@ -106,7 +106,8 @@
     }
 
     /**
-     * Gera ID de fallback (quando FingerprintJS falha)
+     * Gera ID de fallback CONSISTENTE (quando FingerprintJS falha)
+     * IMPORTANTE: NÃO usar Date.now() - deve ser DETERMINÍSTICO
      */
     function generateFallbackId() {
         const nav = window.navigator;
@@ -119,7 +120,11 @@
             screen.colorDepth,
             new Date().getTimezoneOffset(),
             nav.hardwareConcurrency || 'unknown',
-            nav.platform
+            nav.platform,
+            // Adicionar mais fatores estáveis
+            nav.maxTouchPoints || 0,
+            nav.cookieEnabled ? 'cookies' : 'no-cookies',
+            screen.pixelDepth || screen.colorDepth
         ];
         
         let hash = 0;
@@ -130,27 +135,47 @@
             hash = hash & hash;
         }
         
-        return 'demo_fb_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+        // ID determinístico - SEMPRE igual para o mesmo navegador
+        return 'demo_fb_' + Math.abs(hash).toString(36);
     }
 
     /**
-     * Obtém fingerprint do visitante
+     * Obtém fingerprint do visitante (com persistência)
+     * GARANTE que o mesmo ID seja retornado entre reloads
      */
     async function getVisitorFingerprint() {
+        // 1. Verificar se já temos um fingerprint persistido
+        const FINGERPRINT_KEY = 'soundy_demo_fingerprint';
+        const storedFingerprint = localStorage.getItem(FINGERPRINT_KEY);
+        
+        if (storedFingerprint && storedFingerprint.length > 10) {
+            console.log('✅ [DEMO-CORE] Fingerprint recuperado do storage:', storedFingerprint.substring(0, 16) + '...');
+            return storedFingerprint;
+        }
+        
+        // 2. Tentar gerar via FingerprintJS
         try {
             const FP = await loadFingerprintJS();
             
             if (FP) {
                 const fp = await FP.load();
                 const result = await fp.get();
-                console.log('✅ [DEMO-CORE] Fingerprint gerado:', result.visitorId.substring(0, 8) + '...');
-                return 'demo_' + result.visitorId;
+                const fingerprint = 'demo_' + result.visitorId;
+                
+                // Persistir para uso futuro
+                localStorage.setItem(FINGERPRINT_KEY, fingerprint);
+                console.log('✅ [DEMO-CORE] Fingerprint gerado e persistido:', fingerprint.substring(0, 16) + '...');
+                return fingerprint;
             }
         } catch (error) {
             console.warn('⚠️ [DEMO-CORE] Erro no FingerprintJS:', error.message);
         }
         
-        return generateFallbackId();
+        // 3. Fallback determinístico
+        const fallbackId = generateFallbackId();
+        localStorage.setItem(FINGERPRINT_KEY, fallbackId);
+        console.log('⚠️ [DEMO-CORE] Usando fallback ID persistido:', fallbackId.substring(0, 16) + '...');
+        return fallbackId;
     }
 
     // Expor para outros módulos
