@@ -442,47 +442,81 @@
     
     /**
      * Intercepta e bloqueia funções de fechar modal
+     * IMPORTANTE: Só bloqueia fechamento "manual" (ESC, clique fora)
+     *             Permite fechamento após seleção válida
      */
     function interceptModalClose() {
+        // Flag para indicar que fechamento é resultado de seleção válida
+        window.__demoAllowModalClose__ = false;
+        
         // Salvar funções originais
         const originalCloseModeSelection = window.closeModeSelectionModal;
         const originalCloseGenreModal = window.closeGenreModal;
         const originalCloseSoundDestinationModal = window.closeSoundDestinationModal;
+        const originalSelectSoundDestination = window.selectSoundDestination;
+        const originalApplyGenreSelection = window.applyGenreSelection;
+        
+        // 🔥 Interceptar selectSoundDestination para permitir fechamento após seleção
+        if (typeof originalSelectSoundDestination === 'function') {
+            window.selectSoundDestination = function(mode) {
+                console.log('✅ [DEMO-GUARDS] Seleção de destino permitida:', mode);
+                window.__demoAllowModalClose__ = true;
+                const result = originalSelectSoundDestination.apply(this, arguments);
+                // Reset flag após pequeno delay
+                setTimeout(() => { window.__demoAllowModalClose__ = false; }, 500);
+                return result;
+            };
+        }
+        
+        // 🔥 Interceptar applyGenreSelection para permitir fechamento após seleção
+        if (typeof originalApplyGenreSelection === 'function') {
+            window.applyGenreSelection = function() {
+                console.log('✅ [DEMO-GUARDS] Seleção de gênero permitida');
+                window.__demoAllowModalClose__ = true;
+                const result = originalApplyGenreSelection.apply(this, arguments);
+                // Reset flag após pequeno delay
+                setTimeout(() => { window.__demoAllowModalClose__ = false; }, 500);
+                return result;
+            };
+        }
         
         // Interceptar closeModeSelectionModal
         if (typeof originalCloseModeSelection === 'function') {
             window.closeModeSelectionModal = function() {
-                if (DEMO.isActive && !DEMO.data?.blocked) {
-                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de seleção de modo');
-                    return; // Não fecha
+                // Permitir se flag está ativa OU se já está bloqueado
+                if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
+                    return originalCloseModeSelection.apply(this, arguments);
                 }
-                return originalCloseModeSelection.apply(this, arguments);
+                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de seleção de modo');
+                return; // Não fecha
             };
         }
         
         // Interceptar closeGenreModal
         if (typeof originalCloseGenreModal === 'function') {
             window.closeGenreModal = function() {
-                if (DEMO.isActive && !DEMO.data?.blocked) {
-                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de gênero');
-                    return; // Não fecha
+                // Permitir se flag está ativa OU se já está bloqueado
+                if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
+                    return originalCloseGenreModal.apply(this, arguments);
                 }
-                return originalCloseGenreModal.apply(this, arguments);
+                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de gênero');
+                return; // Não fecha
             };
         }
         
         // Interceptar closeSoundDestinationModal
         if (typeof originalCloseSoundDestinationModal === 'function') {
             window.closeSoundDestinationModal = function() {
-                if (DEMO.isActive && !DEMO.data?.blocked) {
-                    console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de destino');
-                    return; // Não fecha
+                // Permitir se flag está ativa OU se já está bloqueado
+                if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
+                    return originalCloseSoundDestinationModal.apply(this, arguments);
                 }
-                return originalCloseSoundDestinationModal.apply(this, arguments);
+                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de destino');
+                return; // Não fecha
             };
         }
         
-        console.log('🔒 [DEMO-GUARDS] Interceptadores de fechamento configurados');
+        console.log('🔒 [DEMO-GUARDS] Interceptadores de fechamento configurados (com permissão para seleções)');
     }
     
     /**
@@ -504,32 +538,54 @@
     
     /**
      * Bloqueia clique fora do modal para fechar
+     * IMPORTANTE: Não bloqueia cliques em botões/cards dentro do modal
      */
     function blockOutsideClick() {
         document.addEventListener('click', function(e) {
             if (!DEMO.isActive) return;
             if (DEMO.data?.blocked) return; // Se já bloqueado, permitir cliques
             
-            // Verificar se clicou no backdrop/overlay de um modal
             const target = e.target;
+            
+            // 🔥 NÃO bloquear cliques em elementos interativos dentro do modal
+            const isInteractiveElement = 
+                target.tagName === 'BUTTON' ||
+                target.closest('button') ||
+                target.classList.contains('destination-card') ||
+                target.closest('.destination-card') ||
+                target.classList.contains('genre-card') ||
+                target.closest('.genre-card') ||
+                target.classList.contains('mode-card') ||
+                target.closest('.mode-card') ||
+                target.tagName === 'INPUT' ||
+                target.tagName === 'SELECT' ||
+                target.closest('.modal-content') ||
+                target.closest('.modal-container') ||
+                target.closest('.destination-modal-container') ||
+                target.closest('.genre-modal-content') ||
+                target.closest('.mode-selection-content');
+            
+            if (isInteractiveElement) {
+                // Permitir clique em elementos interativos
+                return;
+            }
+            
+            // Verificar se clicou no backdrop/overlay de um modal
             const isModalBackdrop = 
                 target.classList.contains('modal-overlay') ||
                 target.classList.contains('modal-backdrop') ||
                 target.id === 'analysisModeModal' ||
                 target.id === 'genreModal' ||
                 target.id === 'soundDestinationModal' ||
-                target.classList.contains('modal') ||
-                target.hasAttribute('data-modal-backdrop');
+                target.id === 'newGenreModal' ||
+                (target.classList.contains('modal') && !target.closest('.modal-content'));
             
             // Se clicou no backdrop (não no conteúdo do modal)
             if (isModalBackdrop) {
-                const modalContent = target.querySelector('.modal-content, .modal-container, .mode-selection-content');
-                if (modalContent && !modalContent.contains(e.target)) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    console.log('🚫 [DEMO-GUARDS] Clique fora do modal bloqueado');
-                }
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                console.log('🚫 [DEMO-GUARDS] Clique fora do modal bloqueado');
             }
         }, true); // Capture phase
         
@@ -537,19 +593,16 @@
         const style = document.createElement('style');
         style.id = 'demo-modal-lock';
         style.textContent = `
-            /* 🔒 DEMO: Impedir interação com backdrop */
-            body.demo-mode-active .modal-overlay,
-            body.demo-mode-active .modal-backdrop,
-            body.demo-mode-active #analysisModeModal,
-            body.demo-mode-active #genreModal,
-            body.demo-mode-active #soundDestinationModal {
-                pointer-events: auto !important;
-            }
-            
+            /* 🔒 DEMO: Garantir que conteúdo do modal seja clicável */
             body.demo-mode-active .modal-content,
             body.demo-mode-active .modal-container,
             body.demo-mode-active .mode-selection-content,
-            body.demo-mode-active .genre-modal-content {
+            body.demo-mode-active .genre-modal-content,
+            body.demo-mode-active .destination-modal-container,
+            body.demo-mode-active .destination-card,
+            body.demo-mode-active .genre-card,
+            body.demo-mode-active .mode-card,
+            body.demo-mode-active button {
                 pointer-events: auto !important;
             }
         `;

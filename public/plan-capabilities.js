@@ -42,6 +42,130 @@
     // 🔍 DETECÇÃO DE CONTEXTO ATUAL
     // ========================================
     
+    // 🔐 Cache do plano do usuário (atualizado via fetchUserPlan)
+    let _cachedUserPlan = null;
+    
+    /**
+     * 🔐 FUNÇÃO CRÍTICA: Detecta o plano do usuário de múltiplas fontes
+     * Ordem de prioridade:
+     * 1. Análise atual (window.currentModalAnalysis?.plan)
+     * 2. Cache local (_cachedUserPlan - atualizado via Firestore)
+     * 3. window.userPlan (se definido por outro módulo)
+     * 4. Fallback: 'free' (APENAS se nenhuma fonte disponível)
+     */
+    function detectUserPlan() {
+        // 1. Análise atual (mais recente - vem do backend)
+        const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
+        if (analysis?.plan && ['free', 'plus', 'pro'].includes(analysis.plan)) {
+            console.log(`[CAPABILITIES] 🔍 Plano detectado via análise: ${analysis.plan}`);
+            return analysis.plan;
+        }
+        
+        // 2. Cache local (atualizado via fetchUserPlan do Firestore)
+        if (_cachedUserPlan && ['free', 'plus', 'pro'].includes(_cachedUserPlan)) {
+            console.log(`[CAPABILITIES] 🔍 Plano detectado via cache: ${_cachedUserPlan}`);
+            return _cachedUserPlan;
+        }
+        
+        // 3. window.userPlan (pode ser setado por outros módulos)
+        if (window.userPlan && ['free', 'plus', 'pro'].includes(window.userPlan)) {
+            console.log(`[CAPABILITIES] 🔍 Plano detectado via window.userPlan: ${window.userPlan}`);
+            return window.userPlan;
+        }
+        
+        // 4. Fallback - mas avisa que não encontrou plano autenticado
+        console.warn(`[CAPABILITIES] ⚠️ Plano não detectado, usando fallback 'free'. Cache: ${_cachedUserPlan}, window.userPlan: ${window.userPlan}`);
+        return 'free';
+    }
+    
+    /**
+     * 🔐 FUNÇÃO ASSÍNCRONA: Busca plano do usuário diretamente do Firestore
+     * Deve ser chamada quando o usuário autentica ou quando precisa garantir plano atualizado
+     */
+    async function fetchUserPlan() {
+        try {
+            // Verificar se Firebase está pronto
+            if (!window.auth || !window.db || !window.firebaseReady) {
+                console.log('[CAPABILITIES] ⏳ Firebase não está pronto ainda');
+                return null;
+            }
+            
+            const user = window.auth.currentUser;
+            if (!user) {
+                console.log('[CAPABILITIES] ⚠️ Usuário não autenticado');
+                _cachedUserPlan = 'free';
+                return 'free';
+            }
+            
+            // Importar funções do Firestore
+            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+            
+            const userDoc = await getDoc(doc(window.db, 'usuarios', user.uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                // 🔐 CRÍTICO: Usar 'plan' (novo) ou 'plano' (legado) com fallback 'free'
+                const plan = userData.plan || userData.plano || 'free';
+                
+                // Normalizar valores legados
+                const normalizedPlan = plan === 'gratis' ? 'free' : plan;
+                
+                console.log(`[CAPABILITIES] ✅ Plano carregado do Firestore: ${normalizedPlan} (uid: ${user.uid})`);
+                
+                // Atualizar cache
+                _cachedUserPlan = normalizedPlan;
+                window.userPlan = normalizedPlan; // Sincronizar com window.userPlan
+                
+                return normalizedPlan;
+            } else {
+                console.warn('[CAPABILITIES] ⚠️ Documento do usuário não encontrado');
+                _cachedUserPlan = 'free';
+                return 'free';
+            }
+        } catch (error) {
+            console.error('[CAPABILITIES] ❌ Erro ao buscar plano do Firestore:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * 🔐 INICIALIZAÇÃO AUTOMÁTICA: Busca plano quando Firebase está pronto
+     */
+    function initializePlanDetection() {
+        // Tentar buscar plano imediatamente se Firebase já estiver pronto
+        if (window.auth && window.db && window.firebaseReady) {
+            fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Init fetch falhou:', err));
+        }
+        
+        // Também escutar mudanças de autenticação
+        if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
+            window.auth.onAuthStateChanged((user) => {
+                if (user) {
+                    console.log('[CAPABILITIES] 🔐 Auth state changed - buscando plano...');
+                    fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Auth fetch falhou:', err));
+                } else {
+                    _cachedUserPlan = null;
+                    window.userPlan = 'free';
+                }
+            });
+        }
+        
+        // Fallback: tentar novamente após 2 segundos caso Firebase demore
+        setTimeout(() => {
+            if (!_cachedUserPlan && window.auth?.currentUser) {
+                console.log('[CAPABILITIES] 🔄 Retry fetch do plano...');
+                fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Retry falhou:', err));
+            }
+        }, 2000);
+    }
+    
+    // 🚀 Iniciar detecção de plano quando o script carregar
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePlanDetection);
+    } else {
+        // DOM já carregado, aguardar um pouco para Firebase inicializar
+        setTimeout(initializePlanDetection, 500);
+    }
+    
     /**
      * Obtém contexto atual do usuário e análise
      * @returns {Object} { plan, isReduced, analysisMode }
@@ -50,8 +174,8 @@
         // Buscar análise atual
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         
-        // Determinar plano
-        const plan = analysis?.plan || window.userPlan || 'free';
+        // 🔐 CORREÇÃO CRÍTICA: Usar detectUserPlan() que busca de múltiplas fontes
+        const plan = detectUserPlan();
         
         // Determinar se está em modo reduced
         const isReduced = analysis?.isReduced === true || 
