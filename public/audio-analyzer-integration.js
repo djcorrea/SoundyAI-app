@@ -3188,6 +3188,35 @@ function trapFocus(modal) {
 
 // 🎯 Função Principal de Seleção de Modo
 function selectAnalysisMode(mode) {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔐 ENTITLEMENT GATE: Bloquear MODO REFERÊNCIA para FREE/PLUS IMEDIATAMENTE
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (mode === 'reference') {
+        // Verificar se tem permissão via PlanCapabilities
+        const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+        
+        if (shouldBlock) {
+            console.log('🔐 [ENTITLEMENT] Modo Referência BLOQUEADO - plano não permite');
+            
+            // Obter plano atual para o modal
+            const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+            
+            // Mostrar modal de upgrade IMEDIATAMENTE (sem abrir file picker)
+            if (window.EntitlementsHandler?.showUpgradeModal) {
+                window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+            } else {
+                // Fallback se handler não estiver carregado
+                alert('O Modo Referência está disponível apenas no plano PRO. Faça upgrade para usar esta funcionalidade!');
+            }
+            
+            // PARAR AQUI - não mudar modo, não abrir modal, não fazer nada mais
+            return;
+        }
+        
+        console.log('🔐 [ENTITLEMENT] Modo Referência PERMITIDO - plano PRO detectado');
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
     // 🔍 PR1: Instrumentação - Seleção de modo
     const traceId = window.createTraceId ? window.createTraceId() : 'NO-TRACE';
     const previousMode = window.currentAnalysisMode;
@@ -4506,6 +4535,20 @@ function updateModalProgress(percentage, message) {
  * @param {string} type - Tipo do arquivo ('original' ou 'reference')
  */
 function handleReferenceFileSelection(type) {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔐 FAIL-SAFE: Bloqueio de entitlement no upload de referência
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    if (shouldBlock) {
+        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO');
+        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        if (window.EntitlementsHandler?.showUpgradeModal) {
+            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+        }
+        return;
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.wav,.flac,.mp3,.m4a';
@@ -6229,6 +6272,20 @@ function openAudioModal() {
 
 // 🎯 NOVO: Abrir modal secundário para upload da música de referência
 function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔐 FAIL-SAFE: Bloqueio de entitlement no modal de referência
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    if (shouldBlock) {
+        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Modal de referência BLOQUEADO');
+        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        if (window.EntitlementsHandler?.showUpgradeModal) {
+            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+        }
+        return;
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
     __dbg('🎯 Abrindo modal secundário para música de referência', { referenceJobId });
     
     // 🔍 PR1: Log tentativa de abrir modal
@@ -6489,6 +6546,26 @@ function closeModeSelectionModal() {
 // 🎯 NOVO: Selecionar modo de análise
 function selectAnalysisMode(mode) {
     window.logReferenceEvent('analysis_mode_selected', { mode });
+    
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔐 ENTITLEMENT GATE: Bloquear MODO REFERÊNCIA para FREE/PLUS IMEDIATAMENTE
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (mode === 'reference') {
+        const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+        
+        if (shouldBlock) {
+            console.log('🔐 [ENTITLEMENT] Modo Referência BLOQUEADO - plano não permite');
+            const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+            
+            if (window.EntitlementsHandler?.showUpgradeModal) {
+                window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+            } else {
+                alert('O Modo Referência está disponível apenas no plano PRO. Faça upgrade!');
+            }
+            return; // PARAR - não continuar
+        }
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
     
     if (mode === 'reference' && !window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED) {
         alert('Modo de análise por referência não está disponível no momento.');
@@ -11665,6 +11742,20 @@ function validateAudioFile(file) {
 
 // 🎯 NOVO: Processar arquivo no modo referência
 async function handleReferenceFileSelection(file) {
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🔐 FAIL-SAFE: Bloqueio de entitlement no upload de referência
+    // ═══════════════════════════════════════════════════════════════════════════════
+    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    if (shouldBlock) {
+        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO');
+        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        if (window.EntitlementsHandler?.showUpgradeModal) {
+            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+        }
+        return;
+    }
+    // ═══════════════════════════════════════════════════════════════════════════════
+    
     // 🔓 [ANONYMOUS-MODE] Interceptar análise em modo anônimo
     if (window.SoundyAnonymous?.isAnonymousMode) {
         const canProceed = window.SoundyAnonymous.interceptAnalysis();
