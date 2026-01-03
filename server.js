@@ -73,6 +73,10 @@ import createPreferenceRoute from "./api/create-preference.js";
 import deleteAccountRoute from "./api/delete-account.js";
 import mercadopagoRoute from "./api/mercadopago.js";
 import uploadAudioRoute from "./api/upload-audio.js";
+
+// 🔓 ROTAS ANÔNIMAS - Para usuários sem autenticação Firebase
+import chatAnonymousHandler from "./work/api/chat-anonymous.js";
+import analyzeAnonymousRoute from "./work/api/audio/analyze-anonymous.js";
 import uploadImageRoute from "./api/upload-image.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
@@ -84,6 +88,48 @@ import correctionPlanHandler from "./api/correction-plan.js";
 // ✅ STRIPE: Rotas de pagamento recorrente
 import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
+// ═══════════════════════════════════════════════════════════════════
+
+// 🔓 Chat anônimo (5 mensagens/dia)
+app.post("/api/chat/anonymous", async (req, res) => {
+  console.log('[ANONYMOUS-CHAT] 📥 POST /api/chat/anonymous recebido');
+  try {
+    await chatAnonymousHandler(req, res);
+  } catch (error) {
+    console.error('[ANONYMOUS-CHAT] ❌ Erro:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: 'INTERNAL_ERROR', 
+        message: 'Erro ao processar chat anônimo' 
+      });
+    }
+  }
+});
+
+// 🔓 Análise anônima (2 análises/dia)
+app.use("/api/audio/analyze-anonymous", analyzeAnonymousRoute);
+
+// 🔓 Endpoint de teste para verificar se as rotas anônimas estão funcionando
+app.get("/api/anonymous/status", (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Rotas anônimas registradas no server.js da raiz',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/chat/anonymous', '/api/audio/analyze-anonymous']
+  });
+});
+
+console.log('🔓 [ANONYMOUS] Rotas anônimas registradas:');
+console.log('   - POST /api/chat/anonymous');
+console.log('   - POST /api/audio/analyze-anonymous');
+console.log('   - GET /api/anonymous/status');
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔐 ROTAS AUTENTICADAS
+// ═══════════════════════════════════════════════════════════════════
 
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
 app.use("/api/chat-with-images", chatWithImagesRoute);
