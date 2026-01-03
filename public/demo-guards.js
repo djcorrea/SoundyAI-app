@@ -373,16 +373,22 @@
         
         console.log('🔒 [DEMO-GUARDS] Configurando restrições de UI...');
         
+        // 0. ADICIONAR CLASSE AO BODY PRIMEIRO
+        document.body.classList.add('demo-mode-active');
+        
         // 1. ESCONDER O CHATBOT
         hideChatbot();
         
-        // 2. INTERCEPTAR FECHAMENTO DE MODAIS
+        // 2. 🔴 ESCONDER TODOS OS BOTÕES X DE FECHAR
+        hideAllCloseButtons();
+        
+        // 3. INTERCEPTAR FECHAMENTO DE MODAIS
         interceptModalClose();
         
-        // 3. BLOQUEAR ESC PARA FECHAR MODAIS
+        // 4. BLOQUEAR ESC PARA FECHAR MODAIS
         blockEscapeKey();
         
-        // 4. BLOQUEAR CLIQUE FORA DO MODAL
+        // 5. BLOQUEAR CLIQUE FORA DO MODAL
         blockOutsideClick();
         
         console.log('✅ [DEMO-GUARDS] Restrições de UI configuradas');
@@ -441,6 +447,42 @@
     }
     
     /**
+     * 🔴 DEMO: Esconder TODOS os botões X (fechar) dos modais
+     * Usuário NÃO PODE fechar modais de jeito nenhum
+     */
+    function hideAllCloseButtons() {
+        const style = document.createElement('style');
+        style.id = 'demo-hide-close-buttons';
+        style.textContent = `
+            /* 🔴 DEMO: Esconder TODOS os botões X de fechar modal */
+            body.demo-mode-active .audio-modal-close,
+            body.demo-mode-active .modal-close,
+            body.demo-mode-active .genre-modal-close,
+            body.demo-mode-active .ai-modal-close,
+            body.demo-mode-active .upgrade-modal-close,
+            body.demo-mode-active [data-close],
+            body.demo-mode-active .close-btn,
+            body.demo-mode-active .btn-close,
+            body.demo-mode-active button[aria-label*="Fechar"],
+            body.demo-mode-active button[aria-label*="fechar"],
+            body.demo-mode-active button[aria-label*="Close"],
+            body.demo-mode-active button[aria-label*="close"] {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+        `;
+        
+        if (!document.getElementById('demo-hide-close-buttons')) {
+            document.head.appendChild(style);
+            console.log('🔒 [DEMO-GUARDS] Botões X de fechar escondidos');
+        }
+        
+        // Adicionar classe ao body
+        document.body.classList.add('demo-mode-active');
+    }
+    
+    /**
      * Intercepta e bloqueia funções de fechar modal
      * IMPORTANTE: Só bloqueia fechamento "manual" (ESC, clique fora)
      *             Permite fechamento após seleção válida
@@ -455,6 +497,32 @@
         const originalCloseSoundDestinationModal = window.closeSoundDestinationModal;
         const originalSelectSoundDestination = window.selectSoundDestination;
         const originalApplyGenreSelection = window.applyGenreSelection;
+        const originalCloseWelcomeModal = window.closeWelcomeModal;
+        const originalProceedToAnalysis = window.proceedToAnalysis;
+        
+        // 🔥 Interceptar closeWelcomeModal - NUNCA deixar fechar direto
+        if (typeof originalCloseWelcomeModal === 'function') {
+            window.closeWelcomeModal = function() {
+                // Permitir SOMENTE se foi pelo proceedToAnalysis (flag ativa)
+                if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
+                    return originalCloseWelcomeModal.apply(this, arguments);
+                }
+                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de boas-vindas');
+                return; // Não fecha
+            };
+        }
+        
+        // 🔥 Interceptar proceedToAnalysis para permitir fechamento
+        if (typeof originalProceedToAnalysis === 'function') {
+            window.proceedToAnalysis = function() {
+                console.log('✅ [DEMO-GUARDS] Prosseguindo para análise - permitindo fechar welcome');
+                window.__demoAllowModalClose__ = true;
+                const result = originalProceedToAnalysis.apply(this, arguments);
+                // Reset flag após pequeno delay
+                setTimeout(() => { window.__demoAllowModalClose__ = false; }, 500);
+                return result;
+            };
+        }
         
         // 🔥 Interceptar selectSoundDestination para permitir fechamento após seleção
         if (typeof originalSelectSoundDestination === 'function') {
@@ -574,10 +642,13 @@
             const isModalBackdrop = 
                 target.classList.contains('modal-overlay') ||
                 target.classList.contains('modal-backdrop') ||
+                target.classList.contains('audio-modal') ||
                 target.id === 'analysisModeModal' ||
                 target.id === 'genreModal' ||
                 target.id === 'soundDestinationModal' ||
                 target.id === 'newGenreModal' ||
+                target.id === 'welcomeAnalysisModal' ||
+                target.id === 'audioAnalysisModal' ||
                 (target.classList.contains('modal') && !target.closest('.modal-content'));
             
             // Se clicou no backdrop (não no conteúdo do modal)
