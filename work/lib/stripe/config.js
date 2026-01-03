@@ -8,12 +8,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16', // Versão estável
 });
 
+// ✅ PRICE IDs OFICIAIS DO STRIPE (PRODUÇÃO)
+// IMPORTANTE: Estes são os Price IDs REAIS do Stripe Dashboard
+// Se existirem env vars, usar; caso contrário, usar hardcoded como fallback
+const PRICE_ID_PLUS = process.env.STRIPE_PRICE_ID_PLUS || 'price_1SlHm6COXidjqeFinckOK8J9';
+const PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || 'price_1SlIKMCOXidjqeFiTiPExXEb';
+
 console.log('✅ [STRIPE CONFIG] SDK inicializado');
+console.log(`💳 [STRIPE CONFIG] Price ID Plus: ${PRICE_ID_PLUS.substring(0, 20)}...`);
+console.log(`💳 [STRIPE CONFIG] Price ID Pro: ${PRICE_ID_PRO.substring(0, 20)}...`);
 
 // ✅ Mapeamento de planos → Price IDs
 export const STRIPE_PLANS = {
   plus: {
-    priceId: process.env.STRIPE_PRICE_ID_PLUS,
+    priceId: PRICE_ID_PLUS,
     durationDays: 30,
     displayName: 'SoundyAI Plus',
     features: [
@@ -23,7 +31,7 @@ export const STRIPE_PLANS = {
     ],
   },
   pro: {
-    priceId: process.env.STRIPE_PRICE_ID_PRO,
+    priceId: PRICE_ID_PRO,
     durationDays: 30,
     displayName: 'SoundyAI Pro',
     features: [
@@ -34,6 +42,23 @@ export const STRIPE_PLANS = {
     ],
   },
 };
+
+// ✅ Exportar Price IDs para validação em outros módulos
+export const STRIPE_PRICE_IDS = {
+  plus: PRICE_ID_PLUS,
+  pro: PRICE_ID_PRO,
+};
+
+/**
+ * Obter plano a partir do Price ID
+ * @param {string} priceId - Price ID do Stripe
+ * @returns {string|null} Nome do plano (plus/pro) ou null
+ */
+export function getPlanFromPriceId(priceId) {
+  if (priceId === PRICE_ID_PLUS) return 'plus';
+  if (priceId === PRICE_ID_PRO) return 'pro';
+  return null;
+}
 
 /**
  * Obter configuração de um plano

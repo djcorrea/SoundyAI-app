@@ -258,10 +258,10 @@ export async function applyPlan(uid, { plan, durationDays }) {
 /**
  * Aplicar assinatura Stripe (modo recorrente)
  * @param {string} uid - UID do Firebase Auth
- * @param {Object} options - { plan, subscriptionId, status, currentPeriodEnd, priceId }
+ * @param {Object} options - { plan, subscriptionId, customerId, status, currentPeriodEnd, priceId }
  * @returns {Promise<Object>} Perfil atualizado
  */
-export async function applySubscription(uid, { plan, subscriptionId, status, currentPeriodEnd, priceId }) {
+export async function applySubscription(uid, { plan, subscriptionId, customerId, status, currentPeriodEnd, priceId }) {
   console.log(`💳 [USER-PLANS] Aplicando assinatura Stripe ${plan} para ${uid}`);
   
   const ref = getDb().collection(USERS).doc(uid);
@@ -271,10 +271,14 @@ export async function applySubscription(uid, { plan, subscriptionId, status, cur
     plan,
     subscription: {
       id: subscriptionId,
+      customerId: customerId || null,
       status,
-      currentPeriodEnd: currentPeriodEnd.toISOString(),
+      currentPeriodEnd: currentPeriodEnd instanceof Date ? currentPeriodEnd.toISOString() : currentPeriodEnd,
       priceId,
+      updatedAt: new Date().toISOString(),
     },
+    // ✅ Salvar customerId no nível do documento para fácil acesso
+    stripeCustomerId: customerId || null,
     updatedAt: new Date().toISOString(),
   };
 
@@ -292,7 +296,7 @@ export async function applySubscription(uid, { plan, subscriptionId, status, cur
   await ref.update(update);
   
   const updatedUser = (await ref.get()).data();
-  console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId})`);
+  console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId}, Status: ${status})`);
   
   return updatedUser;
 }
@@ -313,16 +317,59 @@ export async function cancelSubscription(uid, { subscriptionId, currentPeriodEnd
     throw new Error(`Usuário ${uid} não encontrado`);
   }
 
+  const periodEnd = currentPeriodEnd instanceof Date ? currentPeriodEnd.toISOString() : currentPeriodEnd;
+
   const update = {
     'subscription.status': 'canceled',
-    'subscription.currentPeriodEnd': currentPeriodEnd.toISOString(),
+    'subscription.currentPeriodEnd': periodEnd,
+    'subscription.canceledAt': new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   await ref.update(update);
   
   const updatedUser = (await ref.get()).data();
-  console.log(`✅ [USER-PLANS] Assinatura cancelada (ativa até ${currentPeriodEnd.toISOString()})`);
+  console.log(`✅ [USER-PLANS] Assinatura cancelada (ativa até ${periodEnd})`);
+  
+  return updatedUser;
+}
+
+/**
+ * Rebaixar usuário para plano FREE (após inadimplência ou expiração)
+ * @param {string} uid - UID do Firebase Auth
+ * @param {Object} options - { subscriptionId, reason }
+ * @returns {Promise<Object>} Perfil atualizado
+ */
+export async function downgradeToFree(uid, { subscriptionId, reason }) {
+  console.log(`🔻 [USER-PLANS] Rebaixando para FREE: ${uid} (motivo: ${reason})`);
+  
+  const ref = getDb().collection(USERS).doc(uid);
+  const userDoc = await ref.get();
+  
+  if (!userDoc.exists) {
+    throw new Error(`Usuário ${uid} não encontrado`);
+  }
+
+  const now = new Date().toISOString();
+
+  const update = {
+    plan: 'free',
+    subscription: {
+      id: subscriptionId || null,
+      status: 'expired',
+      expiredAt: now,
+      expiredReason: reason,
+    },
+    // Manter customerId para histórico
+    plusExpiresAt: null,
+    proExpiresAt: null,
+    updatedAt: now,
+  };
+
+  await ref.update(update);
+  
+  const updatedUser = (await ref.get()).data();
+  console.log(`✅ [USER-PLANS] Usuário rebaixado para FREE: ${uid}`);
   
   return updatedUser;
 }
