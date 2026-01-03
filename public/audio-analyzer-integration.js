@@ -3662,14 +3662,42 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 throw new Error('Identificação de visitante não disponível. Recarregue a página.');
             }
             
+            // 🔧 FIX BUG 2: Obter gênero corretamente (mesmo padrão do modo autenticado)
+            const genreSelect = document.getElementById('audioRefGenreSelect');
+            let anonymousGenre = window.__CURRENT_SELECTED_GENRE || 
+                                 window.PROD_AI_REF_GENRE || 
+                                 genreSelect?.value;
+            
+            // Validação obrigatória de gênero
+            if (!anonymousGenre || typeof anonymousGenre !== 'string' || anonymousGenre.trim() === '') {
+                console.error('❌ [ANONYMOUS] Gênero não selecionado!');
+                console.error('   window.__CURRENT_SELECTED_GENRE:', window.__CURRENT_SELECTED_GENRE);
+                console.error('   window.PROD_AI_REF_GENRE:', window.PROD_AI_REF_GENRE);
+                console.error('   genreSelect?.value:', genreSelect?.value);
+                throw new Error('Por favor, selecione um gênero antes de analisar.');
+            }
+            
+            anonymousGenre = anonymousGenre.trim();
+            
+            // Obter targets do gênero
+            let anonymousTargets = window.__CURRENT_GENRE_TARGETS || 
+                                   window.currentGenreTargets || 
+                                   window.__activeRefData?.targets;
+            
+            console.log('[ANONYMOUS] 🎵 Gênero capturado:', anonymousGenre);
+            console.log('[ANONYMOUS] 🎯 Targets capturados:', anonymousTargets ? 'SIM' : 'NÃO');
+            
             // Construir payload anônimo
             const anonymousPayload = {
                 fileKey,
                 fileName,
-                genre: window.selectedGenreForAnalysis || window.selectedGenre,
-                genreTargets: window.currentGenreTargets || window.selectedGenreTargets,
+                genre: anonymousGenre,
+                genreTargets: anonymousTargets,
                 visitorId,
-                soundDestination: window.selectedSoundDestination || 'pista'
+                soundDestination: window.selectedSoundDestination || 'pista',
+                // Metadados para debug
+                analysisMode: 'genre',
+                isAnonymous: true
             };
             
             console.log('[ANONYMOUS] Payload para análise anônima:', anonymousPayload);
@@ -10643,15 +10671,24 @@ async function handleModalFileSelection(file) {
     } catch (error) {
         console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
         console.error('🔴 [ERRO-CRÍTICO] Erro capturado no handleModalFileSelection!');
-        console.error('🔴 [ERRO-CRÍTICO] Este erro está RESETANDO currentAnalysisMode para "genre"!');
         console.error('🔴 [ERRO-CRÍTICO] Error message:', error.message);
         console.error('🔴 [ERRO-CRÍTICO] Error stack:', error.stack);
         console.error('🔴 [ERRO-CRÍTICO] currentAnalysisMode ANTES:', currentAnalysisMode);
-        console.error('🔴 [ERRO-CRÍTICO] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-        console.error('🔴 [ERRO-CRÍTICO] isSecondTrack:', window.__REFERENCE_JOB_ID__ !== null);
-        console.error('🔴 [ERRO-CRÍTICO] FEATURE_FLAGS?.FALLBACK_TO_GENRE:', window.FEATURE_FLAGS?.FALLBACK_TO_GENRE);
         console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
         console.error('❌ Erro na análise do modal:', error);
+        
+        // 🔓 FIX BUG 3: Em modo anônimo, NUNCA resetar genre/mode após erro
+        // Apenas permitir retry mantendo o estado atual
+        const isAnonymousMode = window.SoundyAnonymous?.isAnonymousMode === true;
+        if (isAnonymousMode) {
+            console.log('🔓 [ANONYMOUS] Erro em modo anônimo - mantendo estado para retry');
+            console.log('   🎵 Genre preservado:', window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE);
+            console.log('   🎯 Mode preservado:', currentAnalysisMode);
+            
+            // Mostrar erro específico mas NÃO resetar estado
+            showModalError(error.message || 'Erro na análise. Tente novamente.');
+            return; // EARLY RETURN - NÃO executa reset
+        }
         
         // ✅ STEP 4/6: Bloquear fallback para genre em caso de self-compare ou circular structure
         const msg = String(error?.message || '');

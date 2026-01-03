@@ -234,6 +234,7 @@
     
     /**
      * Cria estrutura de dados inicial do visitante
+     * BLOQUEIO GRANULAR: chat e análise são bloqueados separadamente
      */
     function createVisitorData(visitorId) {
         return {
@@ -242,6 +243,10 @@
             message_count: 0,
             first_visit: new Date().toISOString(),
             last_activity: new Date().toISOString(),
+            // 🔓 BLOQUEIO GRANULAR (não mais global)
+            analysis_blocked: false,  // Só bloqueia análises
+            message_blocked: false,   // Só bloqueia mensagens
+            // Manter para compatibilidade (mas não usar para lógica)
             blocked: false,
             block_reason: null
         };
@@ -258,6 +263,8 @@
         if (data && data.visitor_id === visitorId) {
             console.log('✅ [ANONYMOUS] Dados carregados do localStorage');
             data.last_activity = new Date().toISOString();
+            // 🔓 MIGRAR dados antigos para bloqueio granular
+            data = migrateToGranularBlocking(data);
             return data;
         }
         
@@ -266,8 +273,10 @@
         if (idbData) {
             console.log('✅ [ANONYMOUS] Dados recuperados do IndexedDB (anti-burla)');
             idbData.last_activity = new Date().toISOString();
-            saveToLocalStorage(idbData); // Re-sincronizar
-            return idbData;
+            // 🔓 MIGRAR dados antigos para bloqueio granular
+            const migrated = migrateToGranularBlocking(idbData);
+            saveToLocalStorage(migrated); // Re-sincronizar
+            return migrated;
         }
         
         // 4. Se existe dados de outro visitor_id no localStorage, 
@@ -279,8 +288,11 @@
             const newData = createVisitorData(visitorId);
             newData.analysis_count = Math.max(data.analysis_count || 0, 0);
             newData.message_count = Math.max(data.message_count || 0, 0);
-            newData.blocked = data.blocked || false;
-            newData.block_reason = data.block_reason;
+            // 🔓 GRANULAR: Herdar bloqueios individuais
+            newData.analysis_blocked = newData.analysis_count >= ANONYMOUS_LIMITS.maxAnalyses;
+            newData.message_blocked = newData.message_count >= ANONYMOUS_LIMITS.maxMessages;
+            newData.blocked = newData.analysis_blocked && newData.message_blocked;
+            newData.block_reason = newData.blocked ? 'all_limits_reached' : null;
             
             return newData;
         }
@@ -288,6 +300,34 @@
         // 5. Criar dados novos
         console.log('🆕 [ANONYMOUS] Criando novo registro de visitante');
         return createVisitorData(visitorId);
+    }
+
+    /**
+     * 🔓 MIGRA dados antigos para sistema de bloqueio granular
+     */
+    function migrateToGranularBlocking(data) {
+        // Se já tem campos granulares, não migrar
+        if (data.analysis_blocked !== undefined && data.message_blocked !== undefined) {
+            return data;
+        }
+        
+        console.log('🔄 [ANONYMOUS] Migrando dados para bloqueio granular...');
+        
+        // Calcular bloqueios baseado nos contadores
+        data.analysis_blocked = data.analysis_count >= ANONYMOUS_LIMITS.maxAnalyses;
+        data.message_blocked = data.message_count >= ANONYMOUS_LIMITS.maxMessages;
+        
+        // Bloqueio total só quando AMBOS estão bloqueados
+        data.blocked = data.analysis_blocked && data.message_blocked;
+        data.block_reason = data.blocked ? 'all_limits_reached' : null;
+        
+        console.log('✅ [ANONYMOUS] Migração concluída:', {
+            analysis_blocked: data.analysis_blocked,
+            message_blocked: data.message_blocked,
+            fully_blocked: data.blocked
+        });
+        
+        return data;
     }
 
     /**
@@ -306,7 +346,9 @@
         console.log('💾 [ANONYMOUS] Dados salvos:', {
             analyses: data.analysis_count + '/' + ANONYMOUS_LIMITS.maxAnalyses,
             messages: data.message_count + '/' + ANONYMOUS_LIMITS.maxMessages,
-            blocked: data.blocked
+            analysisBlocked: data.analysis_blocked,
+            messageBlocked: data.message_blocked,
+            fullyBlocked: data.blocked
         });
     }
 
@@ -316,6 +358,7 @@
     
     /**
      * Verifica se pode fazer análise
+     * 🔓 BLOQUEIO GRANULAR: Só verifica limite de análises, não de mensagens
      * @returns {Object} { allowed: boolean, remaining: number, reason?: string }
      */
     window.SoundyAnonymous.canAnalyze = function() {
@@ -328,8 +371,9 @@
             return { allowed: false, remaining: 0, reason: 'not_initialized' };
         }
         
-        if (data.blocked) {
-            return { allowed: false, remaining: 0, reason: data.block_reason || 'blocked' };
+        // 🔓 GRANULAR: Só verifica bloqueio de ANÁLISE (não global)
+        if (data.analysis_blocked) {
+            return { allowed: false, remaining: 0, reason: 'analysis_limit_reached' };
         }
         
         const remaining = ANONYMOUS_LIMITS.maxAnalyses - data.analysis_count;
@@ -343,6 +387,7 @@
 
     /**
      * Verifica se pode enviar mensagem
+     * 🔓 BLOQUEIO GRANULAR: Só verifica limite de mensagens, não de análises
      * @returns {Object} { allowed: boolean, remaining: number, reason?: string }
      */
     window.SoundyAnonymous.canSendMessage = function() {
@@ -355,8 +400,9 @@
             return { allowed: false, remaining: 0, reason: 'not_initialized' };
         }
         
-        if (data.blocked) {
-            return { allowed: false, remaining: 0, reason: data.block_reason || 'blocked' };
+        // 🔓 GRANULAR: Só verifica bloqueio de MENSAGEM (não global)
+        if (data.message_blocked) {
+            return { allowed: false, remaining: 0, reason: 'message_limit_reached' };
         }
         
         const remaining = ANONYMOUS_LIMITS.maxMessages - data.message_count;
@@ -369,7 +415,17 @@
     };
 
     /**
-     * Verifica se usuário está bloqueado (para ações premium)
+     * Verifica se usuário está bloqueado para TUDO (ambos limites atingidos)
+     * O modal de login obrigatório só aparece quando AMBOS excedem
+     */
+    window.SoundyAnonymous.isFullyBlocked = function() {
+        const data = window.SoundyAnonymous.data;
+        if (!data) return false;
+        return data.analysis_blocked && data.message_blocked;
+    };
+
+    /**
+     * Verifica se usuário está em modo anônimo (para ações premium)
      */
     window.SoundyAnonymous.isBlocked = function() {
         return window.SoundyAnonymous.isAnonymousMode;
@@ -381,6 +437,7 @@
     
     /**
      * Registra uma análise realizada
+     * 🔓 BLOQUEIO GRANULAR: Só bloqueia análises, não mensagens
      */
     window.SoundyAnonymous.registerAnalysis = async function() {
         if (!window.SoundyAnonymous.isAnonymousMode) return;
@@ -391,15 +448,19 @@
         data.analysis_count++;
         console.log(`📊 [ANONYMOUS] Análise registrada: ${data.analysis_count}/${ANONYMOUS_LIMITS.maxAnalyses}`);
         
-        // Verificar se atingiu limite
+        // 🔓 GRANULAR: Só bloqueia ANÁLISE (chat continua liberado)
         if (data.analysis_count >= ANONYMOUS_LIMITS.maxAnalyses) {
-            data.blocked = true;
-            data.block_reason = 'analysis_limit_reached';
-            console.log('🚫 [ANONYMOUS] Limite de análises atingido');
+            data.analysis_blocked = true;
+            console.log('🚫 [ANONYMOUS] Limite de ANÁLISES atingido (chat ainda disponível)');
             
-            // Disparar callback
-            if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
-                window.SoundyAnonymous.onLimitReached('analysis');
+            // Verificar se AMBOS estão bloqueados para mostrar modal obrigatório
+            if (data.message_blocked) {
+                data.blocked = true;
+                data.block_reason = 'all_limits_reached';
+                console.log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
+                if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
+                    window.SoundyAnonymous.onLimitReached('all');
+                }
             }
         }
         
@@ -408,6 +469,7 @@
 
     /**
      * Registra uma mensagem enviada
+     * 🔓 BLOQUEIO GRANULAR: Só bloqueia mensagens, não análises
      */
     window.SoundyAnonymous.registerMessage = async function() {
         if (!window.SoundyAnonymous.isAnonymousMode) return;
@@ -418,15 +480,19 @@
         data.message_count++;
         console.log(`💬 [ANONYMOUS] Mensagem registrada: ${data.message_count}/${ANONYMOUS_LIMITS.maxMessages}`);
         
-        // Verificar se atingiu limite
+        // 🔓 GRANULAR: Só bloqueia MENSAGEM (análise continua liberada)
         if (data.message_count >= ANONYMOUS_LIMITS.maxMessages) {
-            data.blocked = true;
-            data.block_reason = 'message_limit_reached';
-            console.log('🚫 [ANONYMOUS] Limite de mensagens atingido');
+            data.message_blocked = true;
+            console.log('🚫 [ANONYMOUS] Limite de MENSAGENS atingido (análise ainda disponível)');
             
-            // Disparar callback
-            if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
-                window.SoundyAnonymous.onLimitReached('message');
+            // Verificar se AMBOS estão bloqueados para mostrar modal obrigatório
+            if (data.analysis_blocked) {
+                data.blocked = true;
+                data.block_reason = 'all_limits_reached';
+                console.log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
+                if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
+                    window.SoundyAnonymous.onLimitReached('all');
+                }
             }
         }
         
@@ -651,6 +717,7 @@
 
     /**
      * Obtém status atual do modo anônimo
+     * 🔓 BLOQUEIO GRANULAR: Reporta bloqueios separados
      */
     window.SoundyAnonymous.getStatus = function() {
         const data = window.SoundyAnonymous.data || {};
@@ -659,10 +726,17 @@
             active: window.SoundyAnonymous.isAnonymousMode,
             initialized: window.SoundyAnonymous.initialized,
             visitorId: window.SoundyAnonymous.visitorId,
+            // Contadores
             analysesUsed: data.analysis_count || 0,
             analysesRemaining: Math.max(0, ANONYMOUS_LIMITS.maxAnalyses - (data.analysis_count || 0)),
             messagesUsed: data.message_count || 0,
             messagesRemaining: Math.max(0, ANONYMOUS_LIMITS.maxMessages - (data.message_count || 0)),
+            // 🔓 BLOQUEIOS GRANULARES
+            analysisBlocked: data.analysis_blocked || false,
+            messageBlocked: data.message_blocked || false,
+            // Bloqueio total (AMBOS atingidos)
+            fullyBlocked: (data.analysis_blocked && data.message_blocked) || false,
+            // Compatibilidade
             blocked: data.blocked || false,
             blockReason: data.block_reason
         };
