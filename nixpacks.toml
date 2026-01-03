@@ -1,7 +1,7 @@
 [phases.build]
 
 [phases.start]
-cmd = "node work/worker-redis.js"
+cmd = "node work/server.js"
 
 [variables]
 NODE_ENV = "production"
