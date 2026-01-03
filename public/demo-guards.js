@@ -266,36 +266,44 @@
     };
 
     // ═══════════════════════════════════════════════════════════
-    // 📡 LISTENER PARA ANÁLISE FINALIZADA
+    // 📡 LISTENER PARA ANÁLISE FINALIZADA (FALLBACK)
     // ═══════════════════════════════════════════════════════════
     
     /**
-     * 🔴 CRÍTICO: Escuta evento de análise finalizada
-     * Após 1ª análise bem-sucedida → registrar + bloquear + modal
+     * 🔴 FALLBACK: Escuta evento de análise finalizada
+     * O bloqueio HARD principal é feito em displayModalResults()
+     * Este listener serve como backup caso o bloqueio principal falhe
      */
     window.addEventListener('audio-analysis-finished', async function(event) {
         if (!DEMO.isActive) return;
         
         const detail = event.detail || {};
         
-        // Só registrar se foi sucesso
+        // Só processar se foi sucesso
         if (!detail.success) {
-            console.log('⚠️ [DEMO-GUARDS] Análise não teve sucesso, não registrar');
+            console.log('⚠️ [DEMO-GUARDS] Análise não teve sucesso, ignorando');
             return;
         }
         
-        console.log('🎯 [DEMO-GUARDS] Análise finalizada com sucesso - registrando...');
+        console.log('🎯 [DEMO-GUARDS] audio-analysis-finished recebido');
         
-        // Registrar análise
+        // Verificar se bloqueio já foi aplicado (pelo displayModalResults)
+        if (DEMO.data?.blocked) {
+            console.log('✅ [DEMO-GUARDS] Bloqueio já aplicado pelo displayModalResults');
+            return;
+        }
+        
+        // FALLBACK: Se bloqueio não foi aplicado, aplicar agora
+        console.log('⚠️ [DEMO-GUARDS] FALLBACK: Aplicando bloqueio tardio...');
         await DEMO.registerAnalysis();
         
-        // 🔴 BLOQUEAR IMEDIATAMENTE APÓS 1ª ANÁLISE
-        console.log('🚫 [DEMO-GUARDS] Aplicando bloqueio pós-análise...');
-        
-        // Pequeno delay para garantir que UI renderizou resultado
-        setTimeout(() => {
-            DEMO.forceBlock({ reason: 'analysis_completed' });
-        }, 2000); // 2 segundos para usuário ver resultado antes do modal
+        if (DEMO.data) {
+            DEMO.data.blocked = true;
+            DEMO.data.blockReason = 'analysis_completed_fallback';
+            DEMO.data.blocked_at = new Date().toISOString();
+            await DEMO._saveDemoData(DEMO.data);
+            console.log('💾 [DEMO-GUARDS] Bloqueio FALLBACK aplicado');
+        }
     });
 
     console.log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
