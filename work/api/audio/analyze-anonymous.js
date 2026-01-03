@@ -32,6 +32,11 @@ import {
   canAnonymousAnalyze,
   registerAnonymousAnalysis
 } from '../../lib/anonymousLimiter.js';
+// 🛡️ GUARD DE BLOQUEIO DEFINITIVO
+import {
+  enforceAnonymousSingleAnalysis,
+  registerAndBlockAnonymous
+} from '../../lib/anonymousBlockGuard.js';
 
 const router = express.Router();
 
@@ -198,14 +203,14 @@ router.post("/", async (req, res) => {
       genreTargets,
       visitorId,
       soundDestination,
-      isDemo  // 🔥 NOVO: Flag para modo demo (limite 1)
+      isDemo,
+      // 🛡️ NOVO: Fingerprint forte do dispositivo
+      fingerprintHash,
+      hardwareSummary
     } = req.body;
     
     // 🔥 MODO DEMO: Usar limites mais restritivos
     const isDemoMode = isDemo === true;
-    // 🚨 REGRA: 1 análise NA VIDA para anônimos E demo
-    // O limite é controlado pelo backend (anonymousLimiter.js)
-    // Não precisamos mais passar maxLimit - o limiter já sabe
 
     console.log('[ANON_ANALYZE] Payload recebido:', {
       hasFileKey: !!fileKey,
@@ -215,6 +220,8 @@ router.post("/", async (req, res) => {
       hasGenreTargets: !!genreTargets,
       hasVisitorId: !!visitorId,
       visitorIdLength: visitorId?.length,
+      hasFingerprintHash: !!fingerprintHash,
+      fingerprintHashLength: fingerprintHash?.length,
       soundDestination
     });
 
@@ -232,36 +239,46 @@ router.post("/", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ETAPA 3: VERIFICAR LIMITES (DEMO=1, ANONYMOUS=2)
+    // ETAPA 3: 🛡️ GUARD DE BLOQUEIO DEFINITIVO (MULTI-CAMADA)
     // ═══════════════════════════════════════════════════════════════
     
-    console.log(`📊 [ANON_ANALYZE:${requestId}] Verificando limites para visitor: ${visitorId.substring(0, 8)}... (isDemo: ${isDemoMode})`);
+    console.log(`🛡️ [ANON_ANALYZE:${requestId}] Executando GUARD de bloqueio definitivo...`);
+    console.log(`   visitorId: ${visitorId.substring(0, 12)}...`);
+    console.log(`   fingerprintHash: ${fingerprintHash?.substring(0, 12) || 'N/A'}...`);
     
-    // 🔥 Passar opções para o limiter - limite definido no backend
-    const limitCheck = await canAnonymousAnalyze(visitorId, req, { 
-      isDemo: isDemoMode
-    });
+    // 🚨 GUARD PRINCIPAL - Verifica TODAS as camadas de identificação
+    const blockGuard = await enforceAnonymousSingleAnalysis(
+      visitorId, 
+      fingerprintHash, 
+      req, 
+      { 
+        isDemo: isDemoMode,
+        hardwareSummary: hardwareSummary || null
+      }
+    );
     
-    if (!limitCheck.allowed) {
-      console.log(`⛔ [ANON_ANALYZE:${requestId}] Limite atingido:`, {
-        used: limitCheck.used,
-        limit: limitCheck.limit,
-        errorCode: limitCheck.errorCode,
+    if (!blockGuard.allowed) {
+      console.log(`🚫 [ANON_ANALYZE:${requestId}] BLOQUEADO pelo guard:`, {
+        reason: blockGuard.reason,
+        errorCode: blockGuard.errorCode,
         isDemo: isDemoMode
       });
       
       return res.status(403).json({
         success: false,
-        error: limitCheck.errorCode || 'ANONYMOUS_LIMIT_REACHED',
-        message: limitCheck.message,
-        remaining: limitCheck.remaining,
-        limit: limitCheck.limit,
-        requiresLogin: !isDemoMode, // Demo mostra CTA de compra, não login
-        requiresPurchase: isDemoMode
+        error: blockGuard.errorCode || 'ANONYMOUS_BLOCKED',
+        message: blockGuard.message,
+        reason: blockGuard.reason,
+        requiresLogin: true,
+        requiresPurchase: isDemoMode,
+        blocked: true
       });
     }
 
-    console.log(`✅ [ANON_ANALYZE:${requestId}] Limite OK: ${limitCheck.remaining} análises restantes`);
+    console.log(`✅ [ANON_ANALYZE:${requestId}] Guard OK - primeira análise permitida`);
+    
+    // Guardar dados para registro após análise
+    const registrationData = blockGuard.registrationData;
 
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 4: VALIDAÇÕES BÁSICAS
@@ -309,16 +326,26 @@ router.post("/", async (req, res) => {
     );
 
     // ═══════════════════════════════════════════════════════════════
-    // ETAPA 6: REGISTRAR USO (APÓS SUCESSO)
+    // ETAPA 6: 🚫 REGISTRAR BLOQUEIO PERMANENTE (APÓS SUCESSO)
     // ═══════════════════════════════════════════════════════════════
     
-    // 🔥 Passar isDemo para usar chave separada no Redis
+    // 🛡️ Registrar na blocklist DEFINITIVA (tabela anonymous_blocklist)
+    if (registrationData) {
+      const blockResult = await registerAndBlockAnonymous(registrationData);
+      console.log(`🚫 [ANON_ANALYZE:${requestId}] Bloqueio permanente registrado:`, {
+        success: blockResult.success,
+        blocked: blockResult.blocked
+      });
+    }
+    
+    // 📝 Também registrar no sistema antigo para compatibilidade
     const registerResult = await registerAnonymousAnalysis(visitorId, req, { isDemo: isDemoMode });
     
     console.log(`✅ [ANON_ANALYZE:${requestId}] Análise registrada:`, {
       used: registerResult.used,
       remaining: registerResult.remaining,
-      isDemo: isDemoMode
+      isDemo: isDemoMode,
+      permanentlyBlocked: true
     });
 
     // ═══════════════════════════════════════════════════════════════
@@ -328,7 +355,7 @@ router.post("/", async (req, res) => {
     console.log(`${'='.repeat(60)}`);
     console.log(`✅ [ANON_ANALYZE:${requestId}] Job criado com sucesso!`);
     console.log(`   🔑 Job ID: ${job.id}`);
-    console.log(`   📊 Análises usadas: ${registerResult.used}/${limitCheck.limit}`);
+    console.log(`   🚫 Usuário BLOQUEADO PERMANENTEMENTE após esta análise`);
     console.log(`${'='.repeat(60)}\n`);
     
     return res.status(201).json({
@@ -337,9 +364,10 @@ router.post("/", async (req, res) => {
       status: job.status,
       anonymous: true,
       limits: {
-        used: registerResult.used || (limitCheck.used + 1),
-        remaining: registerResult.remaining ?? (limitCheck.remaining - 1),
-        limit: limitCheck.limit
+        used: 1,
+        remaining: 0,
+        limit: 1,
+        permanentlyBlocked: true
       },
       message: 'Análise iniciada com sucesso!'
     });
