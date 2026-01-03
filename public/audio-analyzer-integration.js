@@ -3646,16 +3646,89 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             ? window.getAccessMode() 
             : (window.SoundyAnonymous?.isAnonymousMode ? 'anonymous' : 'logged');
         
-        const visitorId = window.SoundyAnonymous?.visitorId;
+        // Obter visitorId do modo ativo (Demo ou Anonymous)
+        const visitorId = window.SoundyDemo?.visitorId || window.SoundyAnonymous?.visitorId;
         
         console.log('🎯 [ACCESS-MODE] Modo detectado:', accessMode, { hasVisitorId: !!visitorId });
         
         // ═══════════════════════════════════════════════════════════
-        // 🔥 MODO DEMO: NUNCA chama backend de análise
+        // 🔥 MODO DEMO: Usa rota anônima (1 análise permitida)
         // ═══════════════════════════════════════════════════════════
         if (accessMode === 'demo') {
-            console.error('🚫 [DEMO] Tentativa de criar job em modo demo - BLOQUEADO');
-            throw new Error('Modo demo não permite análise real. Este é apenas um preview.');
+            console.log('🔥 [DEMO] Modo demo ativo - usando rota anônima para 1 análise');
+            
+            // Demo só permite modo genre (reference requer conta)
+            if (mode === 'reference') {
+                console.warn('⚠️ [DEMO] Modo reference não disponível no demo');
+                window.SoundyDemo.showConversionModal('reference');
+                throw new Error('Modo de referência requer conta. Crie uma conta para continuar.');
+            }
+            
+            const demoVisitorId = window.SoundyDemo?.visitorId;
+            if (!demoVisitorId) {
+                console.error('❌ [DEMO] visitorId não disponível');
+                throw new Error('Identificação do demo não disponível. Recarregue a página.');
+            }
+            
+            // Usar mesma lógica do Anonymous, mas com visitorId do Demo
+            const genreSelect = document.getElementById('audioRefGenreSelect');
+            let demoGenre = window.__CURRENT_SELECTED_GENRE || 
+                            window.PROD_AI_REF_GENRE || 
+                            genreSelect?.value;
+            
+            if (!demoGenre || typeof demoGenre !== 'string' || demoGenre.trim() === '') {
+                throw new Error('Por favor, selecione um gênero antes de analisar.');
+            }
+            
+            demoGenre = demoGenre.trim();
+            
+            const demoTargets = window.__CURRENT_GENRE_TARGETS || 
+                                window.currentGenreTargets || 
+                                window.__activeRefData?.targets;
+            
+            console.log('[DEMO] 🎵 Gênero capturado:', demoGenre);
+            
+            const demoPayload = {
+                fileKey,
+                fileName,
+                genre: demoGenre,
+                genreTargets: demoTargets,
+                visitorId: demoVisitorId,
+                soundDestination: window.selectedSoundDestination || 'pista',
+                analysisMode: 'genre',
+                isDemo: true
+            };
+            
+            console.log('[DEMO] Payload para análise:', demoPayload);
+            
+            // Usar mesma rota anônima
+            const response = await fetch('/api/audio/analyze-anonymous', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(demoPayload)
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                if (data.requiresLogin || data.error === 'ANON_ANALYSIS_LIMIT_REACHED') {
+                    console.log('🚫 [DEMO] Limite de análise atingido');
+                    window.SoundyDemo.showConversionModal('analysis_limit');
+                    throw new Error(data.message || 'Limite do demo atingido. Libere o acesso completo!');
+                }
+                throw new Error(data.message || `Erro ao criar job: ${response.status}`);
+            }
+            
+            console.log('[DEMO] ✅ Job demo criado:', data.jobId);
+            
+            return {
+                jobId: data.jobId,
+                success: true,
+                demo: true
+            };
         }
         
         // ═══════════════════════════════════════════════════════════
