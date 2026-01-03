@@ -319,13 +319,24 @@
         shouldBlockPremiumFeatures,
         getCurrentContext,
         
+        // 🔐 Funções de plano (novas)
+        detectUserPlan,
+        fetchUserPlan,
+        
         // Debug e diagnóstico
         _matrix: CAPABILITIES_MATRIX,
         
+        // 🔐 Getter para cache interno (debug)
+        get _cachedPlan() { return _cachedUserPlan; },
+        
         _debug: function() {
             const ctx = getCurrentContext();
+            const detectedPlan = detectUserPlan();
             const matrix = {
-                'Plano': ctx.plan,
+                'Plano Detectado': detectedPlan,
+                'Cache Interno': _cachedUserPlan || '(não definido)',
+                'window.userPlan': window.userPlan || '(não definido)',
+                'Análise Atual': (window.currentModalAnalysis?.plan) || '(nenhuma)',
                 'Modo': ctx.analysisMode,
                 'Reduced': ctx.isReduced ? '❌' : '✅',
                 'AI Help': canUseFeature('aiHelp') ? '✅ PERMITIDO' : '❌ BLOQUEADO',
@@ -340,6 +351,14 @@
             console.log('\n');
             
             return matrix;
+        },
+        
+        // 🔐 Forçar refresh do plano do Firestore
+        _refreshPlan: async function() {
+            console.log('[CAPABILITIES] 🔄 Forçando refresh do plano...');
+            const plan = await fetchUserPlan();
+            console.log(`[CAPABILITIES] ✅ Plano atualizado: ${plan}`);
+            return plan;
         },
         
         _testAllPlans: function() {
@@ -367,6 +386,7 @@
                 console.log('   AI Help:', canUseFeature('aiHelp') ? '✅' : '❌');
                 console.log('   PDF:', canUseFeature('pdf') ? '✅' : '❌');
                 console.log('   Sugestões:', canUseFeature('fullSuggestions') ? '✅' : '❌');
+                console.log('   Modo Referência:', canUseFeature('reference') ? '✅' : '❌');
             });
             
             console.log('\n✅ Teste completo finalizado\n');
@@ -375,6 +395,7 @@
     
     console.log('✅ [CAPABILITIES] Sistema de capabilities carregado com sucesso');
     console.log('💡 [CAPABILITIES] Use window.PlanCapabilities._debug() para diagnóstico');
+    console.log('🔄 [CAPABILITIES] Use window.PlanCapabilities._refreshPlan() para forçar atualização');
     console.log('🧪 [CAPABILITIES] Use window.PlanCapabilities._testAllPlans() para testar todos os cenários\n');
     
 })();
