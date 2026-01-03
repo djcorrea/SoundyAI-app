@@ -3105,8 +3105,15 @@ let jobPollingInterval = null;
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
 function openModeSelectionModal() {
-    // 🔓 MODO ANÔNIMO: Verificar limite de análises
-    if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+    // � MODO DEMO: Verificar limite de análises (prioridade sobre anônimo)
+    if (window.SoundyDemo && window.SoundyDemo.isActive) {
+        if (!window.SoundyDemo.interceptAnalysis()) {
+            console.log('🚫 [ANALYZER] Análise bloqueada - limite demo atingido');
+            return;
+        }
+    }
+    // 🔓 MODO ANÔNIMO: Verificar limite de análises (se não for demo)
+    else if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
         if (!window.SoundyAnonymous.interceptAnalysis()) {
             console.log('🚫 [ANALYZER] Análise bloqueada - limite anônimo atingido');
             return;
@@ -6323,8 +6330,15 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
 function openModeSelectionModal() {
     __dbg('🎯 Abrindo modal de seleção de modo...');
     
-    // 🔓 MODO ANÔNIMO: Verificar limite de análises
-    if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
+    // � MODO DEMO: Verificar limite de análises (prioridade sobre anônimo)
+    if (window.SoundyDemo && window.SoundyDemo.isActive) {
+        if (!window.SoundyDemo.interceptAnalysis()) {
+            console.log('🚫 [ANALYZER] Análise bloqueada - limite demo atingido');
+            return;
+        }
+    }
+    // 🔓 MODO ANÔNIMO: Verificar limite de análises (se não for demo)
+    else if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
         if (!window.SoundyAnonymous.interceptAnalysis()) {
             console.log('🚫 [ANALYZER] Análise bloqueada - limite anônimo atingido');
             return;
