@@ -259,6 +259,13 @@
     function openUpgradeModal(feature) {
         console.log('[UPGRADE MODAL] opened');
         
+        // 🔐 NOVO: Usar EntitlementsHandler se disponível (para features PRO-only)
+        if (window.EntitlementsHandler && ['reference', 'correctionPlan', 'pdf', 'askAI'].includes(feature)) {
+            console.log('[UPGRADE MODAL] Delegando para EntitlementsHandler');
+            window.EntitlementsHandler.showUpgradeModal(feature, 'plus'); // Assumir plus se está no reduced
+            return;
+        }
+        
         const modal = document.getElementById('premiumUpgradeModal');
         const textEl = document.getElementById('premiumUpgradeText');
         
@@ -270,7 +277,10 @@
         // Personalizar mensagem
         const messages = {
             'ai': 'A funcionalidade "Pedir Ajuda à IA" está disponível apenas para usuários premium. Faça upgrade para receber assistência personalizada.',
-            'pdf': 'A funcionalidade "Baixar Relatório" está disponível apenas para usuários premium. Faça upgrade para exportar suas análises.'
+            'askAI': 'A funcionalidade "Pedir Ajuda à IA" está disponível apenas para usuários premium. Faça upgrade para receber assistência personalizada.',
+            'pdf': 'A funcionalidade "Baixar Relatório" está disponível apenas para usuários premium. Faça upgrade para exportar suas análises.',
+            'reference': 'O Modo Referência está disponível apenas para usuários PRO. Faça upgrade para comparar seu áudio com referências profissionais.',
+            'correctionPlan': 'O Plano de Correção está disponível apenas para usuários PRO. Faça upgrade para receber um guia passo a passo personalizado.'
         };
         
         if (textEl && messages[feature]) {

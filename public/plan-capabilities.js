@@ -15,17 +15,26 @@
         free: {
             aiHelp: true,               // ✅ TEM IA quando em modo FULL (1-3 análises)
             pdf: true,                  // ✅ TEM PDF quando em modo FULL (1-3 análises)
-            fullSuggestions: true       // ✅ TEM sugestões quando em modo FULL
+            fullSuggestions: true,      // ✅ TEM sugestões quando em modo FULL
+            reference: false,           // ❌ NUNCA tem Modo Referência (PRO only)
+            correctionPlan: false,      // ❌ NUNCA tem Plano de Correção (PRO only)
+            askAI: true                 // ✅ TEM "Pedir Ajuda à IA" quando em modo FULL
         },
         plus: {
             aiHelp: false,              // ❌ NUNCA tem IA (mesmo em modo full)
             pdf: false,                 // ❌ NUNCA tem PDF (mesmo em modo full)
-            fullSuggestions: true       // ✅ TEM sugestões, mas só enquanto em modo full
+            fullSuggestions: true,      // ✅ TEM sugestões, mas só enquanto em modo full
+            reference: false,           // ❌ NUNCA tem Modo Referência (PRO only)
+            correctionPlan: false,      // ❌ NUNCA tem Plano de Correção (PRO only)
+            askAI: false                // ❌ NUNCA tem "Pedir Ajuda à IA" (PRO only)
         },
         pro: {
             aiHelp: true,               // ✅ Tem "Pedir Ajuda à IA" sempre
             pdf: true,                  // ✅ Tem relatório PDF sempre
-            fullSuggestions: true       // ✅ Tem sugestões sempre
+            fullSuggestions: true,      // ✅ Tem sugestões sempre
+            reference: true,            // ✅ Tem Modo Referência sempre
+            correctionPlan: true,       // ✅ Tem Plano de Correção sempre
+            askAI: true                 // ✅ Tem "Pedir Ajuda à IA" sempre
         }
     };
 
@@ -126,6 +135,26 @@
     }
     
     /**
+     * Verifica se deve bloquear "Modo Referência" (PRO only)
+     * @returns {boolean} true se deve bloquear
+     */
+    function shouldBlockReference() {
+        const result = !canUseFeature('reference');
+        console.log(`[CAPABILITIES] shouldBlockReference() → ${result}`);
+        return result;
+    }
+    
+    /**
+     * Verifica se deve bloquear "Plano de Correção" (PRO only)
+     * @returns {boolean} true se deve bloquear
+     */
+    function shouldBlockCorrectionPlan() {
+        const result = !canUseFeature('correctionPlan');
+        console.log(`[CAPABILITIES] shouldBlockCorrectionPlan() → ${result}`);
+        return result;
+    }
+    
+    /**
      * Verifica se deve rodar análise FULL
      * @returns {boolean} true se full, false se reduced
      */
@@ -160,6 +189,8 @@
         canUseFeature,
         shouldBlockAiHelp,
         shouldBlockPdf,
+        shouldBlockReference,
+        shouldBlockCorrectionPlan,
         shouldRunFullAnalysis,
         shouldBlockPremiumFeatures,
         getCurrentContext,
@@ -175,7 +206,9 @@
                 'Reduced': ctx.isReduced ? '❌' : '✅',
                 'AI Help': canUseFeature('aiHelp') ? '✅ PERMITIDO' : '❌ BLOQUEADO',
                 'PDF': canUseFeature('pdf') ? '✅ PERMITIDO' : '❌ BLOQUEADO',
-                'Sugestões Full': canUseFeature('fullSuggestions') ? '✅ PERMITIDO' : '❌ BLOQUEADO'
+                'Sugestões Full': canUseFeature('fullSuggestions') ? '✅ PERMITIDO' : '❌ BLOQUEADO',
+                'Modo Referência': canUseFeature('reference') ? '✅ PERMITIDO' : '❌ BLOQUEADO',
+                'Plano Correção': canUseFeature('correctionPlan') ? '✅ PERMITIDO' : '❌ BLOQUEADO'
             };
             
             console.log('\n📊 [CAPABILITIES] DIAGNÓSTICO COMPLETO:');

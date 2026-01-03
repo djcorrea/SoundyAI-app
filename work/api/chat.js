@@ -4,6 +4,9 @@ import { getAuth, getFirestore } from '../../firebase/admin.js';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js'; // ✅ NOVO: Sistema de planos
 import { chatLimiter } from '../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
+// 🔐 ENTITLEMENTS: Sistema de controle de acesso por plano
+import { getUserPlan, hasEntitlement, buildPlanRequiredResponse } from '../lib/entitlements.js';
+
 const auth = getAuth();
 const db = getFirestore();
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -968,6 +971,41 @@ async function handlerWithoutRateLimit(req, res) {
     console.log(`✅ [${requestId}] Chat permitido - UID: ${uid} (${chatCheck.remaining} mensagens restantes)`);
     
     const userData = chatCheck.user;
+
+    // ═══════════════════════════════════════════════════════════
+    // 🔐 ENTITLEMENTS: Verificar permissão para "Pedir Ajuda à IA" (PRO only)
+    // Detecta quando a mensagem é do recurso askAI (análise de áudio)
+    // ═══════════════════════════════════════════════════════════
+    const isAskAIFeature = 
+      // Detectar via header X-Feature
+      req.headers['x-feature'] === 'askAI' ||
+      // Detectar via campo feature no body
+      requestData.feature === 'askAI' ||
+      // Detectar via padrão do prompt de análise de áudio
+      (message && (
+        message.includes('🎵 Analisei meu áudio') ||
+        message.includes('Aqui estão os dados técnicos:') ||
+        message.includes('LUFS Integrado:') ||
+        message.includes('True Peak:')
+      ));
+    
+    if (isAskAIFeature && !isDemoMode) {
+      console.log(`🔐 [${requestId}] ENTITLEMENTS: Detectado uso de "Pedir Ajuda à IA"`);
+      
+      // Buscar plano do usuário
+      const userDoc = await db.collection('usuarios').doc(uid).get();
+      const userDocData = userDoc.exists ? userDoc.data() : null;
+      const userPlan = getUserPlan(userDocData);
+      
+      console.log(`🔐 [${requestId}] ENTITLEMENTS: Plano do usuário: ${userPlan}`);
+      
+      if (!hasEntitlement(userPlan, 'askAI')) {
+        console.log(`🔐 [${requestId}] ENTITLEMENTS: ❌ BLOQUEADO: Pedir Ajuda à IA requer PRO, usuário tem ${userPlan}`);
+        return sendResponse(403, buildPlanRequiredResponse('askAI', userPlan));
+      }
+      
+      console.log(`🔐 [${requestId}] ENTITLEMENTS: ✅ Pedir Ajuda à IA permitido para plano ${userPlan}`);
+    }
 
     // ✅ REMOVIDO: consumeImageAnalysisQuota (sistema antigo)
     // O contador de imagens agora é gerenciado por canUseChat/registerChat
