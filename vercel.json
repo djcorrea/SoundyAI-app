@@ -35,7 +35,12 @@
     { "src": "/refs/out/(.*)", "dest": "/public/refs/out/$1" },
     { "src": "/refs/(.*)", "dest": "/public/refs/$1" },
     { "src": "/lib/(.*)", "dest": "/lib/$1" },
-    { "src": "/api/(.*)", "dest": "api/$1.js" },
+    
+    { "src": "/api/chat/anonymous", "dest": "/api/chat/anonymous.js" },
+    { "src": "/api/chat/test", "dest": "/api/chat/test.js" },
+    { "src": "/api/audio/analyze-anonymous", "dest": "/api/audio/analyze-anonymous.js" },
+    
+    { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "src": "/", "dest": "/public/landing.html" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
