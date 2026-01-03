@@ -167,34 +167,27 @@
      * 
      * @returns {boolean} true se permitido, false se bloqueado
      */
-    DEMO.interceptAnalysis = async function() {
+    DEMO.interceptAnalysis = function() {
         if (!DEMO.isActive) return true;
         
-        // 1. Verificar limite local primeiro
+        // Verificar limite local (síncrono para compatibilidade)
         const localCheck = DEMO.canAnalyze();
         
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Análise bloqueada (local):', localCheck.reason);
+            console.log('🚫 [DEMO-GUARDS] Análise bloqueada:', localCheck.reason);
             DEMO.showConversionModal('analysis_limit');
             return false;
         }
         
-        // 2. 🔴 CRÍTICO: Verificar com backend (palavra final)
-        try {
-            const backendResult = await DEMO.validateBackend('check');
-            
-            // Se backend respondeu e disse não pode, BLOQUEIA
-            if (backendResult.backendAuthoritative && 
-                backendResult.permissions && 
-                backendResult.permissions.canAnalyze === false) {
-                
-                console.log('🚫 [DEMO-GUARDS] Análise bloqueada (BACKEND - palavra final)');
+        // Backend check assíncrono (fire and forget para sync)
+        // A validação autoritativa acontece no registerAnalysis
+        DEMO.validateBackend('check').then(result => {
+            if (result.backendAuthoritative && 
+                result.permissions?.canAnalyze === false) {
+                console.log('🚫 [DEMO-GUARDS] Backend bloqueou - forçando modal');
                 DEMO.showConversionModal('analysis_limit');
-                return false;
             }
-        } catch (e) {
-            console.warn('⚠️ [DEMO-GUARDS] Backend check falhou, usando local');
-        }
+        }).catch(() => {});
         
         return true;
     };
@@ -204,34 +197,26 @@
      * 
      * @returns {boolean} true se permitido, false se bloqueado
      */
-    DEMO.interceptMessage = async function() {
+    DEMO.interceptMessage = function() {
         if (!DEMO.isActive) return true;
         
-        // 1. Verificar limite local primeiro
+        // Verificar limite local (síncrono para compatibilidade)
         const localCheck = DEMO.canSendMessage();
         
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Mensagem bloqueada (local):', localCheck.reason);
+            console.log('🚫 [DEMO-GUARDS] Mensagem bloqueada:', localCheck.reason);
             DEMO.showConversionModal('chat_limit');
             return false;
         }
         
-        // 2. 🔴 CRÍTICO: Verificar com backend (palavra final)
-        try {
-            const backendResult = await DEMO.validateBackend('check');
-            
-            // Se backend respondeu e disse não pode, BLOQUEIA
-            if (backendResult.backendAuthoritative && 
-                backendResult.permissions && 
-                backendResult.permissions.canMessage === false) {
-                
-                console.log('🚫 [DEMO-GUARDS] Mensagem bloqueada (BACKEND - palavra final)');
+        // Backend check assíncrono (fire and forget para sync)
+        DEMO.validateBackend('check').then(result => {
+            if (result.backendAuthoritative && 
+                result.permissions?.canMessage === false) {
+                console.log('🚫 [DEMO-GUARDS] Backend bloqueou - forçando modal');
                 DEMO.showConversionModal('chat_limit');
-                return false;
             }
-        } catch (e) {
-            console.warn('⚠️ [DEMO-GUARDS] Backend check falhou, usando local');
-        }
+        }).catch(() => {});
         
         return true;
     };
