@@ -71,14 +71,16 @@ app.use((req, res, next) => {
 });
 
 // ---------- Rotas principais da API ----------
+
+// 🔓 ROTAS ANÔNIMAS PRIMEIRO (mais específicas)
+app.use('/api/audio/analyze-anonymous', analyzeAnonymousRouter);
+app.post('/api/chat/anonymous', chatAnonymousHandler);
+
+// ✅ Rotas autenticadas depois (mais genéricas)
 app.use('/api/audio', analyzeRouter); // Inclui /api/audio/analyze e /api/audio/compare
-app.use('/api/audio/analyze-anonymous', analyzeAnonymousRouter); // 🔓 NOVO: Análise anônima
 app.use('/api/jobs', jobsRouter);
 app.use('/health', healthRouter);
 app.use('/api/health/version', versionRouter); // 🔖 Endpoint de versão/rastreabilidade
-
-// 🔓 NOVO: Chat anônimo (handler direto, não router)
-app.post('/api/chat/anonymous', chatAnonymousHandler);
 
 // ✅ STRIPE: Rotas de pagamento
 app.use('/api/stripe', stripeCheckoutRouter);
