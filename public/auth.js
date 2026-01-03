@@ -825,18 +825,24 @@ console.log('🚀 Carregando auth.js...');
     // Verificar estado de autenticação
     function checkAuthState() {
       return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
+        const timeout = setTimeout(async () => {
           const isLoginPage = window.location.pathname.includes("login.html");
           const isIndexPage = window.location.pathname.includes("index.html") || 
                               window.location.pathname === '/' || 
                               window.location.pathname === '';
           
           // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo
-          if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
-            console.log('🔓 [AUTH] Timeout - Ativando modo anônimo');
-            window.SoundyAnonymous.activate();
-            resolve(null);
-            return;
+          if (isIndexPage) {
+            // Após 5s de timeout, SoundyAnonymous deve estar disponível
+            if (window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+              console.log('🔓 [AUTH] Timeout - Ativando modo anônimo');
+              await window.SoundyAnonymous.activate();
+              resolve(null);
+              return;
+            } else {
+              console.error('❌ [AUTH] Timeout - SoundyAnonymous não disponível após 5s');
+              console.log('   window.SoundyAnonymous:', window.SoundyAnonymous);
+            }
           }
           
           if (!isLoginPage) window.location.href = "login.html";
@@ -847,36 +853,52 @@ console.log('🚀 Carregando auth.js...');
           clearTimeout(timeout);
           const isLoginPage = window.location.pathname.includes("login.html");
           const isEntrevistaPage = window.location.pathname.includes("entrevista.html");
-          
-          // 🔥 Detectar modo demo via pathname OU query string
-          const isDemoPageOrMode = window.SoundyDemo?.isDemoMode?.() || 
-                                   window.location.pathname.includes("/demo") ||
-                                   new URLSearchParams(window.location.search).get('mode') === 'demo';
-          
-          const isIndexPage = window.location.pathname.includes("index.html") ||
-                              window.location.pathname === '/' ||
-                              window.location.pathname === '' ||
-                              isDemoPageOrMode;
+          const isIndexPage = window.location.pathname.includes("index.html") || 
+                              window.location.pathname === '/' || 
+                              window.location.pathname === '';
+
+          if (isNewUserRegistering && isEntrevistaPage) {
             isNewUserRegistering = false;
             resolve(user);
             return;
           }
 
           if (!user && !isLoginPage) {
-            // 🔥 MODO DEMO: Se está no /demo ou ?mode=demo, ativar modo demo (PRIORIDADE)
-            if (isDemoPageOrMode && window.SoundyDemo && window.SoundyDemo.isEnabled) {
-              console.log('🔥 [AUTH] Usuário não logado em modo demo - Ativando modo demo');
-              await window.SoundyDemo.activate();
-              resolve(null);
-              return;
-            }
-            
             // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
-            if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
-              console.log('🔓 [AUTH] Usuário não logado no index - Ativando modo anônimo');
-              await window.SoundyAnonymous.activate();
-              resolve(null);
-              return;
+            // ✅ FIX TIMING: Aguardar SoundyAnonymous carregar se necessário
+            if (isIndexPage) {
+              // Função auxiliar para aguardar SoundyAnonymous
+              const waitForAnonymousMode = () => new Promise((resolveWait) => {
+                // Se já existe, usar imediatamente
+                if (window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+                  resolveWait(true);
+                  return;
+                }
+                
+                // Aguardar até 2 segundos para o script carregar
+                let attempts = 0;
+                const maxAttempts = 40; // 40 x 50ms = 2000ms
+                const checkInterval = setInterval(() => {
+                  attempts++;
+                  if (window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+                    clearInterval(checkInterval);
+                    resolveWait(true);
+                  } else if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    console.warn('⚠️ [AUTH] Timeout aguardando SoundyAnonymous');
+                    resolveWait(false);
+                  }
+                }, 50);
+              });
+              
+              const anonymousAvailable = await waitForAnonymousMode();
+              
+              if (anonymousAvailable) {
+                console.log('🔓 [AUTH] Usuário não logado no index - Ativando modo anônimo');
+                await window.SoundyAnonymous.activate();
+                resolve(null);
+                return;
+              }
             }
             
             window.location.href = "login.html";
