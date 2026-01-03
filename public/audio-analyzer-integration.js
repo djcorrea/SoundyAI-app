@@ -341,6 +341,104 @@ function saveReferenceJobId(jobId) {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔥 DEMO MODE: Banner no topo do modal de resultado
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * Insere banner demo no topo do modal de resultados
+ * @param {HTMLElement} resultsContainer - Container #audioAnalysisResults
+ */
+function insertDemoBannerInResults(resultsContainer) {
+    // Evitar duplicação
+    if (document.getElementById('demoBannerResults')) {
+        console.log('[DEMO] Banner já existe, ignorando duplicação');
+        return;
+    }
+    
+    const checkoutUrl = window.SoundyDemo?.config?.checkoutUrl || 'https://pay.hotmart.com/SEU_PRODUTO_AQUI';
+    
+    const banner = document.createElement('div');
+    banner.id = 'demoBannerResults';
+    banner.innerHTML = `
+        <div style="
+            background: linear-gradient(135deg, rgba(188, 19, 254, 0.15) 0%, rgba(0, 243, 255, 0.15) 100%);
+            border: 2px solid rgba(188, 19, 254, 0.6);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            text-align: center;
+        ">
+            <!-- Tag FREE -->
+            <div style="
+                display: inline-block;
+                background: linear-gradient(135deg, #bc13fe 0%, #00f3ff 100%);
+                color: white;
+                padding: 6px 16px;
+                border-radius: 20px;
+                font-family: 'Orbitron', sans-serif;
+                font-size: 0.85rem;
+                font-weight: 700;
+                letter-spacing: 1px;
+                margin-bottom: 16px;
+            ">🎁 ANÁLISE DEMONSTRATIVA (FREE)</div>
+            
+            <!-- Texto -->
+            <p style="
+                font-family: 'Rajdhani', sans-serif;
+                font-size: 1.1rem;
+                color: #d0d0ff;
+                margin: 0 0 20px;
+                line-height: 1.5;
+            ">
+                Esta foi sua <strong style="color: #00f3ff;">única análise gratuita</strong>.<br>
+                Para análises ilimitadas e recursos completos, desbloqueie o acesso.
+            </p>
+            
+            <!-- CTA -->
+            <button id="demoBannerCTA" style="
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #bc13fe 0%, #00f3ff 100%);
+                color: white;
+                border: none;
+                border-radius: 12px;
+                padding: 16px 32px;
+                font-family: 'Orbitron', sans-serif;
+                font-size: 1rem;
+                font-weight: 700;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                box-shadow: 0 6px 20px rgba(188, 19, 254, 0.4);
+            " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 30px rgba(188, 19, 254, 0.5)';"
+               onmouseout="this.style.transform='';this.style.boxShadow='0 6px 20px rgba(188, 19, 254, 0.4)';">
+                <span>🔓 Desbloquear Acesso Completo</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    // Inserir no TOPO do container
+    resultsContainer.insertBefore(banner, resultsContainer.firstChild);
+    
+    // Event listener do CTA
+    document.getElementById('demoBannerCTA').addEventListener('click', () => {
+        console.log('[DEMO] CTA clicado - redirecionando para checkout');
+        if (typeof window.SoundyDemo?.redirectToCheckout === 'function') {
+            window.SoundyDemo.redirectToCheckout('banner_cta');
+        } else {
+            window.location.href = checkoutUrl;
+        }
+    });
+    
+    console.log('[DEMO] ✅ Banner de resultado inserido com sucesso');
+}
+
 /**
  * 🎯 [AUDIT-FIX] Helper: Garante que container de referência A/B existe NO LOCAL CORRETO
  * Posição: ABAIXO dos cards, ACIMA das sugestões
@@ -15089,7 +15187,26 @@ async function displayModalResults(analysis) {
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
     
-    // 📋 PLANO DE CORREÇÃO: Registrar event listener APÓS modal ser renderizado
+    // � DEMO MODE: Inserir banner no topo do modal de resultado
+    if (window.SoundyDemo?.isActive) {
+        console.log('[DEMO] 🎁 Modo demo ativo - inserindo banner no resultado');
+        insertDemoBannerInResults(results);
+        
+        // 🔴 BLOQUEIO HARD IMEDIATO após resultado renderizado
+        console.log('[DEMO] 🔒 Aplicando bloqueio HARD após análise');
+        window.SoundyDemo.registerAnalysis();
+        if (window.SoundyDemo.data) {
+            window.SoundyDemo.data.blocked = true;
+            window.SoundyDemo.data.blockReason = 'analysis_completed';
+            window.SoundyDemo.data.blocked_at = new Date().toISOString();
+            if (typeof window.SoundyDemo._saveDemoData === 'function') {
+                window.SoundyDemo._saveDemoData(window.SoundyDemo.data);
+            }
+            console.log('[DEMO] ✅ Bloqueio HARD aplicado - análises futuras bloqueadas');
+        }
+    }
+    
+    // �📋 PLANO DE CORREÇÃO: Registrar event listener APÓS modal ser renderizado
     (function registerCorrectionPlanListener() {
         const planBtn = document.getElementById('btnGenerateCorrectionPlan');
         console.log('[CORRECTION-PLAN] 🔍 Buscando botão #btnGenerateCorrectionPlan:', planBtn);
