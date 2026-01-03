@@ -95,6 +95,63 @@ function isProblematicSeverity(severity) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔐 VERIFICADOR CENTRALIZADO DE ENTITLEMENT - MODO REFERÊNCIA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/**
+ * 🔐 Verifica se o usuário pode usar o modo de referência
+ * REGRA: Apenas plano PRO tem acesso ao modo referência
+ * 
+ * @returns {Promise<{allowed: boolean, plan: string}>}
+ */
+async function checkReferenceEntitlement() {
+    try {
+        // 1. Tentar detectar plano via PlanCapabilities (cache local)
+        let currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
+        
+        // 2. Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
+        if (currentPlan === 'free' && window.auth?.currentUser) {
+            console.log('🔐 [ENTITLEMENT] Plano cache é free, verificando Firestore...');
+            try {
+                const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
+                if (freshPlan) {
+                    currentPlan = freshPlan;
+                    console.log(`🔐 [ENTITLEMENT] Plano atualizado: ${currentPlan}`);
+                }
+            } catch (err) {
+                console.warn('🔐 [ENTITLEMENT] Erro ao buscar plano:', err);
+            }
+        }
+        
+        // 3. REGRA: PRO = permitido, qualquer outro = bloqueado
+        const allowed = currentPlan === 'pro';
+        
+        console.log(`🔐 [ENTITLEMENT] checkReferenceEntitlement: plan=${currentPlan}, allowed=${allowed}`);
+        
+        return { allowed, plan: currentPlan };
+    } catch (err) {
+        console.error('🔐 [ENTITLEMENT] Erro crítico:', err);
+        return { allowed: false, plan: 'free' };
+    }
+}
+
+/**
+ * 🔐 Versão síncrona para fail-safes (usa cache, menos precisa)
+ * @returns {{shouldBlock: boolean, plan: string}}
+ */
+function checkReferenceEntitlementSync() {
+    const plan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
+    const shouldBlock = plan !== 'pro';
+    
+    console.log(`🔐 [ENTITLEMENT-SYNC] plan=${plan}, shouldBlock=${shouldBlock}`);
+    
+    return { shouldBlock, plan };
+}
+
+// Exportar globalmente
+window.checkReferenceEntitlement = checkReferenceEntitlement;
+window.checkReferenceEntitlementSync = checkReferenceEntitlementSync;
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🎯 MAPEAMENTO CENTRALIZADO: IDs LEGADOS → IDs OFICIAIS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 /**
@@ -3187,19 +3244,35 @@ function trapFocus(modal) {
 }
 
 // 🎯 Função Principal de Seleção de Modo
-function selectAnalysisMode(mode) {
+async function selectAnalysisMode(mode) {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🔐 ENTITLEMENT GATE: Bloquear MODO REFERÊNCIA para FREE/PLUS IMEDIATAMENTE
     // ═══════════════════════════════════════════════════════════════════════════════
     if (mode === 'reference') {
-        // Verificar se tem permissão via PlanCapabilities
-        const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+        // 🔐 CORREÇÃO CRÍTICA: Se cache não estiver preenchido, buscar do Firestore primeiro
+        let currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
+        
+        // Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
+        if (currentPlan === 'free' && window.auth?.currentUser) {
+            console.log('🔐 [ENTITLEMENT] Plano cache é free, mas usuário autenticado. Verificando Firestore...');
+            try {
+                const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
+                if (freshPlan) {
+                    currentPlan = freshPlan;
+                    console.log(`🔐 [ENTITLEMENT] Plano atualizado do Firestore: ${currentPlan}`);
+                }
+            } catch (err) {
+                console.warn('🔐 [ENTITLEMENT] Erro ao buscar plano do Firestore:', err);
+            }
+        }
+        
+        // 🔐 REGRA CRÍTICA: PRO NUNCA é bloqueado no modo referência
+        const shouldBlock = currentPlan !== 'pro';
+        
+        console.log(`🔐 [ENTITLEMENT] Verificação de Modo Referência: plan=${currentPlan}, shouldBlock=${shouldBlock}`);
         
         if (shouldBlock) {
             console.log('🔐 [ENTITLEMENT] Modo Referência BLOQUEADO - plano não permite');
-            
-            // Obter plano atual para o modal
-            const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
             
             // Mostrar modal de upgrade IMEDIATAMENTE (sem abrir file picker)
             if (window.EntitlementsHandler?.showUpgradeModal) {
@@ -3213,7 +3286,7 @@ function selectAnalysisMode(mode) {
             return;
         }
         
-        console.log('🔐 [ENTITLEMENT] Modo Referência PERMITIDO - plano PRO detectado');
+        console.log('🔐 [ENTITLEMENT] Modo Referência PERMITIDO - plano PRO confirmado');
     }
     // ═══════════════════════════════════════════════════════════════════════════════
     
@@ -4572,12 +4645,11 @@ function handleReferenceFileSelection(type) {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🔐 FAIL-SAFE: Bloqueio de entitlement no upload de referência
     // ═══════════════════════════════════════════════════════════════════════════════
-    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    const { shouldBlock, plan } = checkReferenceEntitlementSync();
     if (shouldBlock) {
-        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO');
-        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        console.log(`🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO (plan=${plan})`);
         if (window.EntitlementsHandler?.showUpgradeModal) {
-            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+            window.EntitlementsHandler.showUpgradeModal('reference', plan);
         }
         return;
     }
@@ -6309,12 +6381,11 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🔐 FAIL-SAFE: Bloqueio de entitlement no modal de referência
     // ═══════════════════════════════════════════════════════════════════════════════
-    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    const { shouldBlock, plan } = checkReferenceEntitlementSync();
     if (shouldBlock) {
-        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Modal de referência BLOQUEADO');
-        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        console.log(`🔐 [ENTITLEMENT FAIL-SAFE] Modal de referência BLOQUEADO (plan=${plan})`);
         if (window.EntitlementsHandler?.showUpgradeModal) {
-            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+            window.EntitlementsHandler.showUpgradeModal('reference', plan);
         }
         return;
     }
@@ -6585,19 +6656,20 @@ function selectAnalysisMode(mode) {
     // 🔐 ENTITLEMENT GATE: Bloquear MODO REFERÊNCIA para FREE/PLUS IMEDIATAMENTE
     // ═══════════════════════════════════════════════════════════════════════════════
     if (mode === 'reference') {
-        const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+        const { shouldBlock, plan } = checkReferenceEntitlementSync();
         
         if (shouldBlock) {
-            console.log('🔐 [ENTITLEMENT] Modo Referência BLOQUEADO - plano não permite');
-            const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+            console.log(`🔐 [ENTITLEMENT] Modo Referência BLOQUEADO (plan=${plan})`);
             
             if (window.EntitlementsHandler?.showUpgradeModal) {
-                window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+                window.EntitlementsHandler.showUpgradeModal('reference', plan);
             } else {
                 alert('O Modo Referência está disponível apenas no plano PRO. Faça upgrade!');
             }
             return; // PARAR - não continuar
         }
+        
+        console.log('🔐 [ENTITLEMENT] Modo Referência PERMITIDO - plano PRO confirmado');
     }
     // ═══════════════════════════════════════════════════════════════════════════════
     
@@ -11779,12 +11851,11 @@ async function handleReferenceFileSelection(file) {
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🔐 FAIL-SAFE: Bloqueio de entitlement no upload de referência
     // ═══════════════════════════════════════════════════════════════════════════════
-    const shouldBlock = window.PlanCapabilities?.shouldBlockReference?.() ?? false;
+    const { shouldBlock, plan } = checkReferenceEntitlementSync();
     if (shouldBlock) {
-        console.log('🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO');
-        const currentPlan = window.PlanCapabilities?.getCurrentContext?.()?.plan || 'free';
+        console.log(`🔐 [ENTITLEMENT FAIL-SAFE] Upload de referência BLOQUEADO (plan=${plan})`);
         if (window.EntitlementsHandler?.showUpgradeModal) {
-            window.EntitlementsHandler.showUpgradeModal('reference', currentPlan);
+            window.EntitlementsHandler.showUpgradeModal('reference', plan);
         }
         return;
     }
