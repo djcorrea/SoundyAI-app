@@ -29,6 +29,9 @@ import {
   validateAndParseResponse
 } from './helpers/correction-plan-prompt.js';
 
+// 🔐 ENTITLEMENTS: Sistema de controle de acesso por plano
+import { getUserPlan, hasEntitlement, buildPlanRequiredResponse } from '../work/lib/entitlements.js';
+
 // ⚠️ NOTA: userPlans não está disponível em api/ - implementar fallback inline
 // import {
 //   getOrCreateUser,
@@ -507,6 +510,17 @@ export default async function handler(req, res) {
     const userInfo = await getUserPlanInfo(uid);
     const userPlan = userInfo.plan || 'free';
     console.log(`[CORRECTION-PLAN] Plano do usuário: ${userPlan}`);
+    
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2.5 ENTITLEMENTS: Verificar permissão para Plano de Correção (PRO only)
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    if (!hasEntitlement(userPlan, 'correctionPlan')) {
+      console.log(`[CORRECTION-PLAN] ❌ BLOQUEADO: Plano de Correção requer PRO, usuário tem ${userPlan}`);
+      return res.status(403).json(buildPlanRequiredResponse('correctionPlan', userPlan));
+    }
+    
+    console.log(`[CORRECTION-PLAN] ✅ Plano de Correção permitido para plano ${userPlan}`);
     
     // ─────────────────────────────────────────────────────────────────────────
     // 3. RATE LIMITING

@@ -24,9 +24,12 @@ import express from "express";
 import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
-import { getAuth } from '../../firebase/admin.js';
+import { getAuth, getFirestore } from '../../firebase/admin.js';
 import { canUseAnalysis, registerAnalysis, getPlanFeatures } from '../../lib/user/userPlans.js';
 import { analysisLimiter } from '../../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
+
+// 🔐 ENTITLEMENTS: Sistema de controle de acesso por plano
+import { getUserPlan, hasEntitlement, buildPlanRequiredResponse } from '../../lib/entitlements.js';
 
 // 🔥 DEMO: Controle de limite 100% backend
 import { canDemoAnalyze, registerDemoUsage, generateDemoId, extractDemoParams } from '../../../lib/demo-control.js';
@@ -604,6 +607,28 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     
     // 🆕 MOVER referenceJobId para fora do bloco else
     const referenceJobId = req.body.referenceJobId || null;
+    
+    // ═══════════════════════════════════════════════════════════
+    // 🔐 ENTITLEMENTS: Verificar permissão para modo referência (PRO only)
+    // ═══════════════════════════════════════════════════════════
+    if (!isDemoMode && (finalAnalysisType === 'reference' || mode === 'reference')) {
+      console.log('🔐 [ENTITLEMENTS] Modo referência detectado - verificando permissão...');
+      
+      // Buscar documento do usuário no Firestore para determinar plano
+      const db = getFirestore();
+      const userDoc = await db.collection('usuarios').doc(uid).get();
+      const userData = userDoc.exists ? userDoc.data() : null;
+      const userPlan = getUserPlan(userData);
+      
+      console.log(`🔐 [ENTITLEMENTS] Plano do usuário: ${userPlan}`);
+      
+      if (!hasEntitlement(userPlan, 'reference')) {
+        console.log(`🔐 [ENTITLEMENTS] ❌ BLOQUEADO: Modo Referência requer PRO, usuário tem ${userPlan}`);
+        return res.status(403).json(buildPlanRequiredResponse('reference', userPlan));
+      }
+      
+      console.log(`🔐 [ENTITLEMENTS] ✅ Modo Referência permitido para plano ${userPlan}`);
+    }
     
     // ✅ ETAPA 2: VALIDAR LIMITES DE ANÁLISE ANTES DE CRIAR JOB
     console.log('📊 [ANALYZE] Verificando limites de análise para UID:', uid);
