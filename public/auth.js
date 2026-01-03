@@ -847,9 +847,11 @@ console.log('🚀 Carregando auth.js...');
           clearTimeout(timeout);
           const isLoginPage = window.location.pathname.includes("login.html");
           const isEntrevistaPage = window.location.pathname.includes("entrevista.html");
+          const isDemoPage = window.location.pathname.includes("/demo");
           const isIndexPage = window.location.pathname.includes("index.html") || 
                               window.location.pathname === '/' || 
-                              window.location.pathname === '';
+                              window.location.pathname === '' ||
+                              isDemoPage;
 
           if (isNewUserRegistering && isEntrevistaPage) {
             isNewUserRegistering = false;
@@ -858,7 +860,16 @@ console.log('🚀 Carregando auth.js...');
           }
 
           if (!user && !isLoginPage) {
-            // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
+            // � MODO DEMO: Se está no /demo, ativar modo demo (PRIORIDADE)
+            const isDemoPage = window.location.pathname.includes('/demo');
+            if (isDemoPage && window.SoundyDemo && window.SoundyDemo.isEnabled) {
+              console.log('🔥 [AUTH] Usuário não logado no /demo - Ativando modo demo');
+              await window.SoundyDemo.activate();
+              resolve(null);
+              return;
+            }
+            
+            // �🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
             if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
               console.log('🔓 [AUTH] Usuário não logado no index - Ativando modo anônimo');
               await window.SoundyAnonymous.activate();
