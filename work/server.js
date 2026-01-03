@@ -76,6 +76,16 @@ app.use((req, res, next) => {
 app.use('/api/audio/analyze-anonymous', analyzeAnonymousRouter);
 app.post('/api/chat/anonymous', chatAnonymousHandler);
 
+// 🧪 TESTE: Endpoint para verificar se rotas anônimas estão ativas
+app.get('/api/anonymous/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Rotas anônimas estão funcionando!',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/chat/anonymous', '/api/audio/analyze-anonymous']
+  });
+});
+
 // ✅ Rotas autenticadas depois (mais genéricas)
 app.use('/api/audio', analyzeRouter); // Inclui /api/audio/analyze e /api/audio/compare
 app.use('/api/jobs', jobsRouter);
