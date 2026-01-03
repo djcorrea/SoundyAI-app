@@ -84,20 +84,20 @@
                     <!-- Subtítulo APROVADO -->
                     <p class="demo-modal-subtitle">${CONFIG.texts.subtitle}</p>
                     
-                    <!-- CTA Principal - Checkout -->
-                    <button class="demo-cta-button" id="demoCTAButton" style="pointer-events: auto;">
-                        <span>${CONFIG.texts.ctaButton}</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
+                    <!-- CTA Secundário - Voltar para página do produto (EM CIMA) -->
+                    <button class="demo-cta-secondary" id="demoSecondaryButton" style="pointer-events: auto;">
+                        <span>${CONFIG.texts.ctaSecondary}</span>
                     </button>
                     
                     <!-- Selo de segurança -->
                     <p class="demo-security-badge">${CONFIG.texts.securityBadge}</p>
                     
-                    <!-- CTA Secundário - Voltar para página do produto -->
-                    <button class="demo-cta-secondary" id="demoSecondaryButton" style="pointer-events: auto;">
-                        <span>${CONFIG.texts.ctaSecondary}</span>
+                    <!-- CTA Principal - Checkout (EM BAIXO) -->
+                    <button class="demo-cta-button" id="demoCTAButton" style="pointer-events: auto;">
+                        <span>${CONFIG.texts.ctaButton}</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
                     </button>
                 </div>
             </div>
