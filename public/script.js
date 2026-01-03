@@ -68,6 +68,12 @@ window.AuthGate = {
    * @returns {boolean}
    */
   isAuthenticated() {
+    // 🔥 MODO DEMO: Tratar como "autenticado virtual"
+    if (window.SoundyDemo?.isActive) {
+      console.log('🔥 [AuthGate] Modo demo ativo - retornando autenticado virtual');
+      return true; // Demo é tratado como autenticado para permitir chamadas
+    }
+    
     // 1. Verificar Firebase currentUser
     const hasFirebaseUser = !!(window.auth?.currentUser);
     
@@ -166,6 +172,12 @@ window.AuthGate = {
    * @returns {boolean} - true se deve bloquear
    */
   shouldBlockAuthenticatedCall(url) {
+    // 🔥 MODO DEMO: NUNCA bloquear
+    if (window.SoundyDemo?.isActive) {
+      console.log('🔥 [AuthGate] Modo demo ativo - permitindo chamada:', url);
+      return false;
+    }
+    
     const isAnonymous = !this.isAuthenticated();
     const isAuthenticatedEndpoint = (
       url.includes('/api/chat') && !url.includes('/anonymous') ||

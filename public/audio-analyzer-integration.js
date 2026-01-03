@@ -3647,7 +3647,85 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
-        // 🔓 VERIFICAR MODO ANÔNIMO
+        // � VERIFICAR MODO DEMO (PRIORIDADE MÁXIMA)
+        const isDemoMode = window.SoundyDemo?.isActive === true;
+        const demoVisitorId = window.SoundyDemo?.visitorId;
+        
+        if (isDemoMode) {
+            console.log('🔥 [DEMO] Modo demo ativo - usando fluxo demo');
+            
+            // Demo só permite modo genre (sem reference por simplicidade)
+            if (mode === 'reference') {
+                console.warn('⚠️ [DEMO] Modo reference não disponível no demo');
+                window.SoundyDemo.showConversionModal('reference_not_available');
+                throw new Error('Modo de referência disponível apenas na versão completa.');
+            }
+            
+            // Obter gênero selecionado
+            const genreSelect = document.getElementById('audioRefGenreSelect');
+            let demoGenre = window.__CURRENT_SELECTED_GENRE || 
+                            window.PROD_AI_REF_GENRE || 
+                            genreSelect?.value;
+            
+            if (!demoGenre || typeof demoGenre !== 'string' || demoGenre.trim() === '') {
+                throw new Error('Por favor, selecione um gênero antes de analisar.');
+            }
+            
+            demoGenre = demoGenre.trim();
+            
+            // Obter targets do gênero
+            const demoTargets = window.__CURRENT_GENRE_TARGETS || 
+                               window.currentGenreTargets || 
+                               window.__activeRefData?.targets;
+            
+            console.log('[DEMO] 🎵 Gênero:', demoGenre);
+            console.log('[DEMO] 🎯 Targets:', demoTargets ? 'SIM' : 'NÃO');
+            
+            // Construir payload demo (usar token dummy)
+            const demoPayload = {
+                fileKey,
+                fileName,
+                mode: 'genre',
+                genre: demoGenre,
+                genreTargets: demoTargets,
+                soundDestination: window.selectedSoundDestination || 'pista',
+                idToken: 'demo_token_' + demoVisitorId, // Token dummy para demo
+                // Metadados para debug
+                analysisMode: 'genre',
+                isDemo: true
+            };
+            
+            console.log('[DEMO] Payload para análise:', demoPayload);
+            
+            // Usar rota normal (o backend detecta x-demo-mode via header)
+            // O header é injetado automaticamente pelo interceptador no demo-core.js
+            const response = await fetch('/api/audio/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                    // x-demo-mode é injetado automaticamente pelo interceptador
+                },
+                body: JSON.stringify(demoPayload)
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                console.error('[DEMO] ❌ Erro na resposta:', data);
+                throw new Error(data.message || `Erro ao criar job: ${response.status}`);
+            }
+            
+            console.log('[DEMO] ✅ Job demo criado:', data.jobId);
+            
+            return {
+                jobId: data.jobId,
+                success: true,
+                demo: true
+            };
+        }
+
+        // �🔓 VERIFICAR MODO ANÔNIMO
         const isAnonymousMode = window.SoundyAnonymous?.isAnonymousMode === true;
         const visitorId = window.SoundyAnonymous?.visitorId;
         
