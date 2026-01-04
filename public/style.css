@@ -5,6 +5,28 @@
     box-sizing: border-box;
 }
 
+/* ============ 🚀 PERFORMANCE: Respeitar preferência de movimento reduzido ============ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    /* Manter visual mas sem animações */
+    .robo, .notebook, .teclado, .caixas, .mesa, .particles-overlay {
+        animation: none !important;
+    }
+}
+
+/* ============ 🚀 PERFORMANCE: Otimizações globais de renderização ============ */
+img {
+    content-visibility: auto; /* Lazy rendering */
+}
+
 /* ============ SISTEMA DE FONT-SIZE PROPORCIONAL ============ */
 html {
     /* Font-size base proporcional para 1920x1080 */
@@ -304,8 +326,10 @@ body.modal-open {
     z-index: 4;
     pointer-events: none;
     background: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.08) 0%, transparent 70%);
-    animation: fadeInPush 0.6s ease-out forwards, particleFloatOptimized 10s ease-in-out infinite 0.6s;
-    will-change: transform;
+    animation: fadeInPush 0.6s ease-out forwards, particleFloatOptimized 15s ease-in-out infinite 0.6s;
+    will-change: transform, opacity;
+    /* 🚀 PERFORMANCE: Promover para camada própria */
+    transform: translateZ(0);
 }
 
 /* ============ EFEITOS HOVER DO CENÁRIO ============ */
@@ -363,19 +387,19 @@ body.modal-open {
     }
 }
 
-/* OTIMIZADO: Apenas transform e opacity */
+/* 🚀 PERFORMANCE: Apenas transform e opacity (GPU-accelerated) */
 @keyframes robotBreathingOptimized {
     0%, 100% {
-        transform: scale(1);
+        transform: scale(1) translateZ(0);
         opacity: 1;
     }
     50% {
-        transform: scale(1.01);
-        opacity: 0.95;
+        transform: scale(1.008) translateZ(0);
+        opacity: 0.97;
     }
 }
 
-/* OTIMIZADO: Apenas transform */
+/* 🚀 PERFORMANCE: Animação mais sutil = menos processamento */
 @keyframes subtleGlowOptimized {
     0%, 100% {
         transform: scale(1);

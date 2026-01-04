@@ -259,9 +259,22 @@ window.initParticleEffects = function initParticleEffects() {
     }
 };
 
+/* ============ 🚀 PERFORMANCE: Detecção de dispositivo e preferências ============ */
+const performanceConfig = {
+    isLowPerformance: navigator.hardwareConcurrency <= 4 || (navigator.deviceMemory && navigator.deviceMemory <= 4),
+    prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    isVisible: true
+};
+
 /* ============ INICIALIZAÇÃO DO VANTA BACKGROUND (Visual Novo) ============ */
 function initVantaBackground() {
     try {
+        // 🚀 PERFORMANCE: Não inicializar se prefere movimento reduzido
+        if (performanceConfig.prefersReducedMotion) {
+            console.log('🎨 Vanta.js desabilitado (prefers-reduced-motion)');
+            return;
+        }
+        
         // Verificar se estamos na página principal e se o elemento existe
         const vantaElement = document.getElementById("vanta-bg");
         if (!vantaElement) {
@@ -269,33 +282,54 @@ function initVantaBackground() {
         }
         
         if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
-            // Balanceado: Visual preservado + performance otimizada
-            const isLowPerformance = navigator.hardwareConcurrency <= 4;
+            // 🚀 PERFORMANCE: Configuração adaptativa baseada no dispositivo
+            const isLowPerformance = performanceConfig.isLowPerformance;
+            
             vantaEffect = VANTA.NET({
                 el: "#vanta-bg",
-                mouseControls: true,
-                touchControls: true,
+                mouseControls: !isLowPerformance, // Desabilitar em dispositivos fracos
+                touchControls: !isLowPerformance,
                 gyroControls: false,
                 minHeight: 200.00,
                 minWidth: 200.00,
                 scale: 1.00,
-                scaleMobile: 1.00,
+                scaleMobile: 0.80, // Escala menor no mobile
                 color: 0x8a2be2,
                 backgroundColor: 0x0a0a1a,
-                // Balanceado: Redução moderada - visual mantido
-                points: isLowPerformance ? 3.00 : (isDesktop ? 6.00 : 3.00),
-                maxDistance: isLowPerformance ? 12.00 : (isDesktop ? 20.00 : 12.00),
-                spacing: isLowPerformance ? 30.00 : (isDesktop ? 20.00 : 28.00),
-                showDots: true // Manter pontos visíveis para visual
+                // 🚀 PERFORMANCE: Valores otimizados por dispositivo
+                points: isLowPerformance ? 2.50 : (isDesktop ? 5.00 : 3.00),
+                maxDistance: isLowPerformance ? 10.00 : (isDesktop ? 18.00 : 12.00),
+                spacing: isLowPerformance ? 35.00 : (isDesktop ? 22.00 : 28.00),
+                showDots: true
             });
-            // Vanta.js loaded successfully
-        } else {
-            // Vanta.js not available on this page
+            console.log('✨ Vanta.js inicializado (performance:', isLowPerformance ? 'LOW' : 'NORMAL', ')');
         }
     } catch (error) {
-        // Silent Vanta.js error handling
+        console.warn('⚠️ Vanta.js não carregou:', error.message);
     }
 }
+
+/* ============ 🚀 PERFORMANCE: Pausar Vanta quando aba não está visível ============ */
+document.addEventListener('visibilitychange', () => {
+    performanceConfig.isVisible = document.visibilityState === 'visible';
+    
+    if (document.visibilityState === 'hidden') {
+        // Pausar Vanta para economizar CPU/GPU
+        if (vantaEffect) {
+            try {
+                vantaEffect.destroy();
+                vantaEffect = null;
+                console.log('⏸️ Vanta.js pausado (aba oculta)');
+            } catch (e) {}
+        }
+    } else if (document.visibilityState === 'visible') {
+        // Reativar Vanta quando voltar
+        if (!vantaEffect && !performanceConfig.prefersReducedMotion) {
+            setTimeout(initVantaBackground, 100); // Pequeno delay para suavizar
+            console.log('▶️ Vanta.js reativado (aba visível)');
+        }
+    }
+});
 
 /* ============ EFEITOS DE HOVER (Visual Novo) ============ */
 function initHoverEffects() {
