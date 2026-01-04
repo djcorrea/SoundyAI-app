@@ -1,36 +1,24 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🎛️ EFFECTS CONTROLLER V3 - SoundyAI
+ * 🎛️ EFFECTS CONTROLLER V3.1 - SoundyAI
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * VERSÃO: 3.0.0 - Degradação Progressiva + Modo Digitação
+ * VERSÃO: 3.1.0 - Vanta Sempre Ativo com Performance Otimizada
  * DATA: 2026-01-05
  * 
- * MELHORIAS V3:
- * ✅ Destroy idempotente - verificação de canvas.parentNode.contains()
- * ✅ Debounce no destroy - evita chamadas múltiplas rápidas
- * ✅ Lock de destroy - previne race conditions
- * ✅ Degradação progressiva suavizada:
- *    - FPS < 50 por 2s → high → medium
- *    - FPS < 45 por 4s → medium → low + cap pixelRatio
- *    - FPS < 40 por 12s → KILL (último recurso)
- * ✅ Recovery automático - FPS > 55 por 5s → tenta upgrade
- * ✅ Modo digitação - reduz efeitos durante input no chat
- * ✅ LongTask threshold mais tolerante (200ms, 8 ocorrências em 15s)
+ * MELHORIAS V3.1:
+ * ✅ Vanta permanece ativo em TODOS os tiers (high, medium, low)
+ * ✅ Configuração VANTA_LOW ultra-leve (2 pontos, spacing 30)
+ * ✅ Thresholds muito menos agressivos:
+ *    - FPS < 40 por 5s → high → medium
+ *    - FPS < 30 por 8s → medium → low (ainda com Vanta!)
+ *    - FPS < 20 por 15s → KILL (último recurso)
+ * ✅ Dispositivos mobile/low-end começam em tier MEDIUM (não low)
+ * ✅ LongTask threshold muito tolerante (300ms, 12 ocorrências em 20s)
+ * ✅ Configuração HIGH mais leve por padrão (sem dots, menos pontos)
  * 
- * PROBLEMAS RESOLVIDOS:
- * ❌ Erro "removeChild... not a child" → ✅ Verificação contains() antes de remover
- * ❌ Vanta destruído muito rápido → ✅ Thresholds mais tolerantes (40 FPS por 12s)
- * ❌ Jank durante digitação → ✅ Modo digitação com pixelRatio reduzido
- * ❌ Destroy duplicado → ✅ Lock + debounce de 500ms
- * 
- * ARQUITETURA:
- * 1. SINGLETON Pattern - Apenas UMA instância de Vanta permitida
- * 2. Tiers: high → medium → low (SEM VANTA) → killed
- * 3. Cooldown entre mudanças de tier (evita thrashing)
- * 4. Kill switch baseado em FPS e LongTasks
- * 5. Limpeza completa: destroy + remove canvas + cancel RAF
- * 6. Modo digitação: reduce pixelRatio durante input
+ * OBJETIVO: Manter animação interativa sempre rodando, apenas reduzindo
+ * intensidade gradualmente conforme necessário para performance.
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -64,18 +52,25 @@
         // Vanta configs por tier
         // NOTA: 'low' não tem config pois Vanta é DESTRUÍDO em low tier
         VANTA_HIGH: {
-            points: 5.0,
-            maxDistance: 18.0,
-            spacing: 22.0,
-            showDots: true,
+            points: 4.0,        // Reduzido para performance
+            maxDistance: 16.0,  // Reduzido para performance
+            spacing: 24.0,      // Aumentado para performance
+            showDots: false,    // Desabilitado para performance
             mouseControls: true
         },
         VANTA_MEDIUM: {
             points: 3.0,
             maxDistance: 14.0,
-            spacing: 28.0,
-            showDots: false,  // Sem dots para performance
-            mouseControls: false  // Sem mouse tracking
+            spacing: 26.0,      // Menos denso
+            showDots: false,
+            mouseControls: false
+        },
+        VANTA_LOW: {            // Nova configuração ultra-leve
+            points: 2.0,
+            maxDistance: 12.0,
+            spacing: 30.0,
+            showDots: false,
+            mouseControls: false
         },
         
         // ═══════════════════════════════════════════════════════════════
@@ -98,27 +93,27 @@
         DESTROY_DEBOUNCE: 500,       // 500ms de debounce no destroy
         
         // ═══════════════════════════════════════════════════════════════
-        // DEGRADAÇÃO PROGRESSIVA (menos agressiva)
+        // DEGRADAÇÃO PROGRESSIVA (menos agressiva - manter Vanta rodando)
         // ═══════════════════════════════════════════════════════════════
         
-        // Tier 1: FPS < 50 por 2s → high → medium
-        DEGRADE_FPS_TIER1: 50,
-        DEGRADE_DURATION_TIER1: 2000,
+        // Tier 1: FPS < 40 por 5s → high → medium
+        DEGRADE_FPS_TIER1: 40,
+        DEGRADE_DURATION_TIER1: 5000,
         
-        // Tier 2: FPS < 45 por 4s → medium → low + cap pixelRatio
-        DEGRADE_FPS_TIER2: 45,
-        DEGRADE_DURATION_TIER2: 4000,
+        // Tier 2: FPS < 30 por 8s → medium → low (ainda com Vanta leve)
+        DEGRADE_FPS_TIER2: 30,
+        DEGRADE_DURATION_TIER2: 8000,
         
-        // Tier 3: FPS < 40 por 12s → KILL (último recurso)
-        KILL_FPS_THRESHOLD: 40,
-        KILL_FPS_DURATION: 12000,
+        // Tier 3: FPS < 20 por 15s → KILL (extremamente crítico)
+        KILL_FPS_THRESHOLD: 20,
+        KILL_FPS_DURATION: 15000,
         
         // ═══════════════════════════════════════════════════════════════
-        // LONGTASK THRESHOLDS (mais tolerante)
+        // LONGTASK THRESHOLDS (muito mais tolerante)
         // ═══════════════════════════════════════════════════════════════
-        KILL_LONGTASK_THRESHOLD: 200,  // LongTasks > 200ms
-        KILL_LONGTASK_COUNT: 8,        // 8 ocorrências = degrade
-        KILL_LONGTASK_WINDOW: 15000,   // Dentro de 15 segundos
+        KILL_LONGTASK_THRESHOLD: 300,  // LongTasks > 300ms (era 200ms)
+        KILL_LONGTASK_COUNT: 12,       // 12 ocorrências = degrade (era 8)
+        KILL_LONGTASK_WINDOW: 20000,   // Dentro de 20 segundos (era 15s)
         
         // ═══════════════════════════════════════════════════════════════
         // RECOVERY (upgrade de tier quando FPS está bom)
@@ -370,11 +365,22 @@
                 showDots: config.showDots
             });
             
-            // Aplicar pixel ratio cap
+            // Aplicar pixel ratio cap baseado no tier
             if (instance?.renderer) {
-                const ratio = state.currentTier === 'high' 
-                    ? CONFIG.PIXEL_RATIO_HIGH 
-                    : CONFIG.PIXEL_RATIO_MEDIUM;
+                let ratio;
+                switch (state.currentTier) {
+                    case 'high':
+                        ratio = CONFIG.PIXEL_RATIO_HIGH;
+                        break;
+                    case 'medium':
+                        ratio = CONFIG.PIXEL_RATIO_MEDIUM;
+                        break;
+                    case 'low':
+                        ratio = CONFIG.PIXEL_RATIO_LOW;  // Ultra-leve
+                        break;
+                    default:
+                        ratio = CONFIG.PIXEL_RATIO_MEDIUM;
+                }
                 instance.renderer.setPixelRatio(ratio);
             }
             
@@ -393,7 +399,7 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // DETECÇÃO DE DISPOSITIVO
+    // DETECÇÃO DE DISPOSITIVO (menos restritiva)
     // ═══════════════════════════════════════════════════════════════════
     function detectDevice() {
         const cores = navigator.hardwareConcurrency || 4;
@@ -403,21 +409,20 @@
         state.isMobile = width <= CONFIG.MOBILE_WIDTH;
         state.prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         
-        // Detecção mais agressiva de low-end
+        // Detecção menos agressiva de low-end - permitir mais dispositivos
         state.isLowEnd = (
-            cores <= CONFIG.LOW_END_CORES ||
-            memory <= CONFIG.LOW_END_MEMORY ||
-            state.isMobile ||
+            cores <= 2 ||  // Apenas dispositivos muito antigos (era <= 4)
+            memory <= 2 ||  // Apenas com muito pouca RAM (era <= 4)
             state.prefersReducedMotion
         );
 
-        // Determinar tier BASE (máximo permitido para este dispositivo)
+        // Determinar tier BASE menos restritivo
         if (state.prefersReducedMotion) {
             state.baseTier = 'killed';  // Usuário não quer animações
-        } else if (state.isLowEnd || state.isMobile) {
-            state.baseTier = 'low';     // Low-end = sem Vanta por padrão
+        } else if (state.isLowEnd) {
+            state.baseTier = 'medium';  // Low-end começa em medium (era low)
         } else {
-            state.baseTier = 'high';
+            state.baseTier = 'high';    // Normal/high-end = high
         }
         
         // Tier atual começa no base
@@ -438,7 +443,7 @@
     
     /**
      * Verifica se Vanta deve estar rodando no tier atual
-     * Tiers 'low' e 'killed' = SEM VANTA
+     * Agora permite Vanta em tier 'low' com configuração ultra-leve
      */
     function shouldVantaRun() {
         return (
@@ -446,21 +451,21 @@
             state.isWindowFocused &&
             !state.isModalOpen &&
             !state.isKilled &&
-            state.currentTier !== 'low' &&
-            state.currentTier !== 'killed' &&
+            state.currentTier !== 'killed' &&  // Só bloqueia se 'killed'
             !state.prefersReducedMotion
         );
     }
     
     /**
      * Obtém config do Vanta para o tier atual
-     * Retorna null para tiers sem Vanta
+     * Agora retorna config para todos os tiers (incluindo low)
      */
     function getVantaConfigForTier(tier) {
         switch (tier) {
             case 'high': return CONFIG.VANTA_HIGH;
             case 'medium': return CONFIG.VANTA_MEDIUM;
-            default: return null;  // low, killed = sem Vanta
+            case 'low': return CONFIG.VANTA_LOW;     // Agora tem config!
+            default: return null;  // Apenas 'killed' = sem Vanta
         }
     }
     
@@ -568,10 +573,10 @@
     }
     
     /**
-     * Processa evento de FPS baixo com DEGRADAÇÃO PROGRESSIVA
-     * Tier 1: FPS < 50 por 2s → high → medium
-     * Tier 2: FPS < 45 por 4s → medium → low
-     * Tier 3: FPS < 40 por 12s → KILL
+     * Processa evento de FPS baixo com DEGRADAÇÃO PROGRESSIVA SUAVE
+     * Tier 1: FPS < 40 por 5s → high → medium
+     * Tier 2: FPS < 30 por 8s → medium → low (ainda com Vanta!)
+     * Tier 3: FPS < 20 por 15s → KILL (extremamente crítico)
      */
     function processLowFps(fps) {
         state.lastFps = fps;
@@ -586,44 +591,40 @@
         
         const now = Date.now();
         
-        // Tier 1: FPS < 50 por 2s → degradar de high para medium
+        // Tier 1: FPS < 40 por 5s → degradar de high para medium
         if (fps < CONFIG.DEGRADE_FPS_TIER1 && state.currentTier === 'high') {
             if (!state.lowFpsStart) {
                 state.lowFpsStart = now;
             } else if (now - state.lowFpsStart > CONFIG.DEGRADE_DURATION_TIER1) {
-                degradeTier('FPS < 50 por 2s');
-                state.lowFpsStart = now; // Reset timer
+                degradeTier('FPS < 40 por 5s');
+                state.lowFpsStart = now;
                 return;
             }
         }
         
-        // Tier 2: FPS < 45 por 4s → degradar de medium para low + cap pixelRatio
+        // Tier 2: FPS < 30 por 8s → degradar de medium para low (mantém Vanta leve)
         if (fps < CONFIG.DEGRADE_FPS_TIER2 && state.currentTier === 'medium') {
             if (!state.lowFpsStart) {
                 state.lowFpsStart = now;
             } else if (now - state.lowFpsStart > CONFIG.DEGRADE_DURATION_TIER2) {
-                // Cap pixel ratio antes de degradar
-                const instance = getVantaInstance();
-                if (instance?.renderer) {
-                    instance.renderer.setPixelRatio(CONFIG.PIXEL_RATIO_LOW);
-                }
-                degradeTier('FPS < 45 por 4s');
+                // Degradar para low (ainda com Vanta ultra-leve)
+                degradeTier('FPS < 30 por 8s');
                 state.lowFpsStart = now;
                 return;
             }
         }
         
-        // Tier 3: FPS < 40 por 12s em tier low = KILL
+        // Tier 3: FPS < 20 por 15s em tier low = KILL (último recurso)
         if (fps < CONFIG.KILL_FPS_THRESHOLD) {
             if (!state.lowFpsStart) {
                 state.lowFpsStart = now;
             } else if (now - state.lowFpsStart > CONFIG.KILL_FPS_DURATION) {
-                if (state.currentTier === 'low' || state.currentTier === 'killed') {
-                    // Já está no tier mais baixo e ainda ruim = kill
-                    activateKillSwitch(`FPS ${fps} por ${CONFIG.KILL_FPS_DURATION / 1000}s`);
+                if (state.currentTier === 'low') {
+                    // Extremamente crítico - kill
+                    activateKillSwitch(`FPS crítico ${fps} por ${CONFIG.KILL_FPS_DURATION / 1000}s`);
                 } else {
-                    // Ainda tem margem, apenas degradar
-                    degradeTier('FPS crítico prolongado');
+                    // Ainda tem margem, degradar
+                    degradeTier('FPS extremamente baixo');
                     state.lowFpsStart = now;
                 }
             }
