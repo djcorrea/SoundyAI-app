@@ -399,30 +399,24 @@ function optimizeForMobile() {
 }
 
 /* ============ REDIMENSIONAMENTO OTIMIZADO (Visual Novo) ============ */
+/* 🚀 PERFORMANCE V2: Resize de Vanta agora é gerenciado pelo EffectsController */
 let resizeTimeout;
 function handleResize() {
-    // Throttle para evitar execução excessiva
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         const newIsDesktop = window.innerWidth > 768;
         
         if (newIsDesktop !== isDesktop) {
             isDesktop = newIsDesktop;
-            
-            if (vantaEffect) {
-                vantaEffect.destroy();
-                setTimeout(initVantaBackground, 50);
-            }
-            
             optimizeForMobile();
+            // Vanta resize é gerenciado pelo EffectsController
         }
         
-        // Combinar com a funcionalidade do indicator
         const indicator = document.getElementById('messages-remaining-indicator');
         if (indicator) {
             indicator.style.display = window.innerWidth <= 767 ? 'none' : 'block';
         }
-    }, 150); // Throttle de 150ms
+    }, 150);
 }
 
 /* ============ FUNÇÕES DO SISTEMA ANTIGO ============ */
@@ -2058,8 +2052,8 @@ function initializeEverything() {
     if (isMainPage) {
         console.log('🎯 Inicializando sistema da página principal...');
         
-        // Inicializar efeitos visuais (agora as funções já estão declaradas)
-        initVantaBackground();
+        // Vanta é gerenciado pelo EffectsController (carregado antes)
+        // Apenas inicializar partículas se disponível
         if (window.initParticleEffects && typeof window.initParticleEffects === 'function') {
             window.initParticleEffects();
         } else {
@@ -2161,11 +2155,12 @@ window.NodeAnalysisUI = {
 
 
 /* ============ INICIALIZAÇÃO DO VISUAL NOVO ============ */
+/* 🚀 PERFORMANCE V2: Vanta é gerenciado pelo EffectsController */
 function initVisualEffects() {
     console.log('🚀 Inicializando cenário futurista...');
     
     optimizeForMobile();
-    initVantaBackground();
+    // Vanta gerenciado pelo EffectsController
     initEntranceAnimations();
     initParallaxEffect();
     initHoverEffects();
@@ -2174,15 +2169,15 @@ function initVisualEffects() {
 }
 
 /* ============ INICIALIZAÇÃO PRINCIPAL ============ */
+/* 🚀 PERFORMANCE V2: Vanta é gerenciado pelo EffectsController */
 function initializeApp() {
   console.log('🚀 Inicializando aplicação...');
   
-  // Inicializar visual novo
+  // Inicializar visual novo (Vanta gerenciado pelo EffectsController)
   initVisualEffects();
   
-  // Inicializar efeitos visuais
+  // Inicializar otimizações mobile
   optimizeForMobile();
-  initVantaBackground();
   
   // Inicializar sistema antigo com delay para garantir que tudo carregou
   setTimeout(() => {
@@ -2220,9 +2215,11 @@ function initializeApp() {
 }
 
 /* ============ LIMPEZA ============ */
+/* 🚀 PERFORMANCE V2: Limpeza de Vanta gerenciada pelo EffectsController */
 window.addEventListener('beforeunload', () => {
-    if (vantaEffect) {
-        vantaEffect.destroy();
+    // Vanta é destruído pelo EffectsController
+    if (window.EffectsController) {
+        window.EffectsController.pause();
     }
 });
 
@@ -2253,13 +2250,8 @@ function initParallaxEffect() {
                 });
             }
             
-            // Controle do Vanta
-            if (vantaEffect) {
-                vantaEffect.setOptions({
-                    mouseControls: true,
-                    gyroControls: false
-                });
-            }
+            // Controle do Vanta gerenciado pelo EffectsController
+            // mouseControls já definido por tier no effects-controller.js
             
             // Movimento dos outros elementos
             gsap.to('.notebook', {
