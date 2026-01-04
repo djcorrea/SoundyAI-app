@@ -6968,14 +6968,6 @@ function injectDestinationModalStyles() {
         }
 
         @media (max-width: 768px) {
-            .destination-modal-container {
-                max-width: 95vw !important;
-                width: 95% !important;
-                margin: 20px auto !important;
-                padding: 32px 24px !important;
-                max-height: 85vh !important;
-                overflow: hidden !important;
-            }
             .destination-grid {
                 flex-direction: column;
                 align-items: center;
@@ -6984,23 +6976,13 @@ function injectDestinationModalStyles() {
                 width: 100%;
                 max-width: 100%;
             }
+            .destination-modal-container {
+                padding: 32px 20px;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
             .destination-modal-title {
                 font-size: 1.6rem;
-            }
-        }
-        
-        @media (max-width: 600px) {
-            .destination-modal-container {
-                max-width: 90% !important;
-                padding: 30px 20px !important;
-                overflow: hidden !important;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .destination-modal-container {
-                padding: 28px 20px !important;
-                overflow: hidden !important;
             }
         }
     `;

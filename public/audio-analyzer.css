@@ -834,17 +834,22 @@
 /* 📱 MOBILE TABLETS (768px): Modal deve ocupar ~95% da tela para boa legibilidade */
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
-        max-width: 95vw !important;
-        width: 95% !important;
-        margin: 20px auto !important;
-        /* 🔧 AJUSTE: Altura controlada para igualar modal de referência */
+        width: 95vw;
+        /* 🔧 Modal de upload: ~90vh para ocupar quase toda tela */
         min-height: auto;
-        max-height: 85vh !important;
+        max-height: 90svh;
+        max-height: 90vh; /* Fallback navegadores antigos */
         height: auto;
-        /* 📱 Padding igual ao modal de referência */
-        padding: 32px 24px !important;
-        /* 🚫 Remover scroll para igualar modal de referência */
-        overflow: hidden !important;
+        /* 📱 Padding reduzido para aproveitar espaço mobile */
+        padding: 28px 18px 24px 18px;
+        /* 📜 Scroll suave se conteúdo exceder */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        /* 🎯 Controle de scroll iOS: evitar scroll fantasma e elástico */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        /* 🚫 Impedir scroll além do conteúdo */
+        overscroll-behavior: contain;
     }
     
     /* Título principal do card - responsivo */
@@ -897,19 +902,22 @@
     }
 }
 
-@media (max-width: 600px) {
-    #audioAnalysisModal .audio-modal-content {
-        max-width: 90% !important;
-        padding: 30px 20px !important;
-        overflow: hidden !important;
-    }
-}
-
 /* 📱 MOBILE SMARTPHONES (480px): Modal deve ser quase tela cheia */
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
-        padding: 28px 20px !important;
-        overflow: hidden !important;
+        width: 95vw;
+        /* 🔧 Máxima altura para smartphones: ~92vh */
+        min-height: 90svh;
+        min-height: 90vh;
+        max-height: 92svh;
+        max-height: 92vh;
+        height: auto;
+        padding: 24px 16px;
+        overflow-y: auto;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
     }
     
     #audioAnalysisModal .upload-content {
@@ -4903,9 +4911,7 @@ details[open] summary {
     .welcome-modal-content {
         max-width: 95vw !important;
         width: 95% !important;
-        margin: 20px auto !important;
-        padding: 32px 24px !important;
-        max-height: 85vh !important;
+        padding: 32px 24px 28px 24px !important;
         overflow: hidden !important;
     }
     
@@ -4954,8 +4960,7 @@ details[open] summary {
 
 @media (max-width: 600px) {
     .welcome-modal-content {
-        max-width: 90% !important;
-        padding: 30px 20px !important;
+        padding: 28px 20px 24px 20px !important;
         overflow: hidden !important;
     }
     
@@ -4982,8 +4987,7 @@ details[open] summary {
 
 @media (max-width: 480px) {
     .welcome-modal-content {
-        padding: 28px 20px !important;
-        overflow: hidden !important;
+        padding: 24px 18px 22px 18px !important;
     }
     
     .welcome-btn {
@@ -5220,16 +5224,22 @@ details[open] summary {
     }
     
     .genre-modal-container {
-        padding: 32px 24px !important;
-        max-width: 95vw !important;
-        width: 95% !important;
-        margin: 20px auto !important;
-        /* 🔧 AJUSTE: Igualar altura ao modal de referência */
-        min-height: auto;
-        max-height: 85vh !important;
+        padding: 26px 18px;
+        width: 95%;
+        max-width: none;
+        /* 🔧 Fix iOS: usar svh para altura */
+        min-height: 80svh;
+        min-height: 80vh;
+        max-height: 92svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
         height: auto;
-        /* 🚫 Igualar overflow ao modal de referência */
-        overflow: hidden !important;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch !important;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        margin: 0 auto;
     }
     
     /* Mostrar scrollbar no mobile para feedback visual */
@@ -5272,14 +5282,6 @@ details[open] summary {
     }
 }
 
-@media (max-width: 600px) {
-    .genre-modal-container {
-        padding: 30px 20px !important;
-        max-width: 90% !important;
-        overflow: hidden !important;
-    }
-}
-
 /* Smartphones */
 /* 📱 SMARTPHONES: Modal de gênero quase tela cheia para fácil navegação */
 @media (max-width: 480px) {
@@ -5289,8 +5291,21 @@ details[open] summary {
     }
     
     .genre-modal-container {
-        padding: 28px 20px !important;
-        overflow: hidden !important;
+        padding: 22px 14px;
+        width: 96%;
+        /* 🔧 Máxima altura possível em smartphones */
+        min-height: 85svh;
+        min-height: 85vh;
+        max-height: 94svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch !important;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        margin: 0 auto;
     }
 
     .genre-modal-title {
