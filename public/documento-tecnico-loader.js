@@ -1,25 +1,29 @@
 // 📘 DOCUMENTO TÉCNICO - LOADER MARKDOWN
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('📘 Carregando documento técnico...');
+    console.log('📘 [DOCLOADER] Iniciando carregamento do documento técnico...');
     
     const docContent = document.getElementById('docContent');
     
     if (!docContent) {
-        console.error('❌ Container do documento não encontrado');
+        console.error('❌ [DOCLOADER] Container #docContent não encontrado no DOM');
         return;
     }
 
     try {
+        // 🔧 Path absoluto para funcionar em produção (Railway) e localhost
+        const docPath = '/DOCUMENTO_TECNICO_USO_PLATAFORMA.md';
+        console.log(`📂 [DOCLOADER] Buscando arquivo: ${docPath}`);
+        
         // Carregar o arquivo Markdown
-        const response = await fetch('../DOCUMENTO_TECNICO_USO_PLATAFORMA.md');
+        const response = await fetch(docPath);
         
         if (!response.ok) {
-            throw new Error(`Erro ao carregar documento: ${response.status}`);
+            throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`);
         }
         
         const markdown = await response.text();
-        console.log('✅ Documento carregado com sucesso');
+        console.log(`✅ [DOCLOADER] Documento carregado (${markdown.length} caracteres)`);
         
         // Converter Markdown para HTML
         const html = convertMarkdownToHTML(markdown);
@@ -28,15 +32,39 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Highlight de seção ativa
         setupScrollSpy();
         
-        console.log('✅ Documento renderizado');
+        console.log('✅ [DOCLOADER] Documento renderizado com sucesso');
         
     } catch (error) {
-        console.error('❌ Erro ao carregar documento:', error);
+        console.error('❌ [DOCLOADER] Erro fatal ao carregar documento:', error);
+        console.error('   Stack:', error.stack);
+        
         docContent.innerHTML = `
-            <div style="text-align: center; padding: 60px; color: #ff6b6b;">
-                <h2>Erro ao carregar documento</h2>
-                <p>Por favor, recarregue a página ou entre em contato com o suporte.</p>
-                <p style="font-size: 0.9rem; color: #a0aec0; margin-top: 20px;">${error.message}</p>
+            <div style="text-align: center; padding: 60px 20px; color: #ff6b6b; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #ff6b6b; margin-bottom: 20px;">⚠️ Erro ao Carregar Documento</h2>
+                <p style="font-size: 1.1rem; color: #e0e6ed; margin-bottom: 30px;">
+                    Não foi possível carregar o conteúdo técnico no momento.
+                </p>
+                <div style="background: rgba(255, 107, 107, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+                    <p style="font-size: 0.9rem; color: #a0aec0; margin: 0;">
+                        <strong>Detalhes técnicos:</strong><br/>
+                        ${error.message}
+                    </p>
+                </div>
+                <button onclick="location.reload()" style="
+                    background: linear-gradient(135deg, #5d1586 0%, #7b2cbf 100%);
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 1rem;
+                    font-weight: 600;
+                ">
+                    🔄 Recarregar Página
+                </button>
+                <p style="font-size: 0.85rem; color: #718096; margin-top: 30px;">
+                    Se o problema persistir, entre em contato com o suporte.
+                </p>
             </div>
         `;
     }

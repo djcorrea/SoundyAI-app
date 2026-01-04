@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Rápido - Documento Técnico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0a0e1a;
+            color: #e0e6ed;
+        }
+        .test-section {
+            background: rgba(26, 31, 53, 0.6);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border-left: 4px solid #5d1586;
+        }
+        .success { color: #4ade80; }
+        .error { color: #ff6b6b; }
+        .warning { color: #fbbf24; }
+        button {
+            background: linear-gradient(135deg, #5d1586 0%, #7b2cbf 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 10px 5px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        pre {
+            background: #1a1f35;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Rápido - Documento Técnico</h1>
+    <p>Este teste valida que as correções funcionam localmente antes do deploy.</p>
+
+    <div class="test-section">
+        <h2>📂 Teste 1: Fetch do Markdown</h2>
+        <button onclick="testFetch()">▶️ Executar Teste</button>
+        <div id="fetchResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎨 Teste 2: CSS de Proteção</h2>
+        <button onclick="testCSSProtection()">▶️ Executar Teste</button>
+        <div id="cssResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🛡️ Teste 3: Guard JavaScript</h2>
+        <button onclick="testJSGuard()">▶️ Executar Teste</button>
+        <div id="jsResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔗 Teste 4: Abrir Documento</h2>
+        <button onclick="window.open('/documento-tecnico.html', '_blank')">🚀 Abrir /documento-tecnico.html</button>
+        <p style="color: #a0aec0; font-size: 0.9rem;">
+            Verificar visualmente:<br/>
+            ✅ Conteúdo do documento aparece<br/>
+            ✅ Não há botões da index<br/>
+            ✅ Console não mostra erros de fetch
+        </p>
+    </div>
+
+    <script>
+        async function testFetch() {
+            const resultDiv = document.getElementById('fetchResult');
+            resultDiv.innerHTML = '<p>⏳ Testando fetch...</p>';
+
+            try {
+                const response = await fetch('/DOCUMENTO_TECNICO_USO_PLATAFORMA.md');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                const contentType = response.headers.get('content-type');
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ SUCESSO!</p>
+                    <pre>Status: ${response.status} ${response.statusText}
+Content-Type: ${contentType}
+Tamanho: ${text.length} caracteres
+Primeiras 100 chars: "${text.substring(0, 100)}..."</pre>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p class="error">❌ ERRO!</p>
+                    <pre>${error.message}</pre>
+                    <p class="warning">⚠️ Verifique se o servidor está rodando e se o arquivo existe em public/</p>
+                `;
+            }
+        }
+
+        function testCSSProtection() {
+            const resultDiv = document.getElementById('cssResult');
+            
+            // Criar elementos de teste que deveriam ser escondidos
+            const testElements = [
+                { class: 'cenario', name: 'Cenário' },
+                { class: 'chat-container', name: 'Chat Container' },
+                { class: 'notebook-container', name: 'Notebook' },
+                { class: 'audio-modal', name: 'Audio Modal' },
+                { id: 'menuButton', name: 'Menu Button' }
+            ];
+
+            // Temporariamente adicionar classe page-doc ao body
+            const wasPageDoc = document.body.classList.contains('page-doc');
+            document.body.classList.add('page-doc');
+
+            let html = '<p class="success">✅ Testando proteção CSS...</p><pre>';
+            
+            testElements.forEach(elem => {
+                const testEl = document.createElement('div');
+                if (elem.class) testEl.className = elem.class;
+                if (elem.id) testEl.id = elem.id;
+                testEl.textContent = 'TESTE';
+                testEl.style.cssText = 'position: absolute; left: -9999px;';
+                document.body.appendChild(testEl);
+
+                const style = getComputedStyle(testEl);
+                const isHidden = style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
+                
+                html += `${elem.name}: ${isHidden ? '✅ Escondido' : '❌ Visível'}\n`;
+                
+                document.body.removeChild(testEl);
+            });
+
+            html += '</pre>';
+            
+            if (!wasPageDoc) {
+                document.body.classList.remove('page-doc');
+                html += '<p class="warning">⚠️ Nota: classe page-doc foi removida do body após teste</p>';
+            }
+
+            resultDiv.innerHTML = html;
+        }
+
+        function testJSGuard() {
+            const resultDiv = document.getElementById('jsResult');
+            
+            // Simular verificação que scripts fariam
+            const isDocPage = window.IS_DOCUMENTATION_PAGE === true;
+            
+            resultDiv.innerHTML = `
+                <p class="${isDocPage ? 'success' : 'warning'}">
+                    window.IS_DOCUMENTATION_PAGE = ${window.IS_DOCUMENTATION_PAGE}
+                </p>
+                <pre>Exemplo de guard em scripts da index:
+
+if (window.IS_DOCUMENTATION_PAGE) {
+    console.log('📄 Página de documentação - abortando inicialização');
+    return;
+}
+
+// ... resto do código da index ...</pre>
+                <p class="warning">
+                    ⚠️ Esta variável só existe no documento-tecnico.html, não nesta página de teste.
+                </p>
+            `;
+        }
+    </script>
+</body>
+</html>
