@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
+    
+    <!-- 🚀 PERFORMANCE: Preload de recursos críticos -->
+    <link rel="preload" href="robo.webp?v=20250810" as="image" fetchpriority="high">
+    <link rel="preload" href="style.css?v=20250810" as="style">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <!-- 🚀 PERFORMANCE: DNS Prefetch para CDNs -->
+    <link rel="dns-prefetch" href="https://soundyai-app-production.up.railway.app">
+    
     <link rel="stylesheet" href="style.css?v=20250810">
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
@@ -19,16 +30,16 @@
     <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
     <link rel="stylesheet" href="login-required-modal.css?v=20260102">
     
-    <!-- Fontes otimizadas -->
+    <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
     <!-- Bibliotecas para efeitos visuais -->
-    <!-- Otimizado: Adicionado defer para não bloquear parsing -->
+    <!-- 🚀 PERFORMANCE: defer para não bloquear parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     
-    <!-- Dependências para geração de PDF profissional -->
+    <!-- Dependências para geração de PDF - carregamento tardio pois não são críticas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 
@@ -274,22 +285,18 @@
         <!-- Container para o fundo animado Vanta.js -->
         <div class="vanta-background" id="vanta-bg"></div>
         
-        <!-- Plano de fundo com rede neural (mantido como fallback) -->
-        <img src="fundo.webp?v=20250810" alt="Fundo futurista" class="fundo" />
+        <!-- 🚀 PERFORMANCE: Fundo com lazy loading (baixa prioridade) -->
+        <img src="fundo.webp?v=20250810" alt="Fundo futurista" class="fundo" loading="lazy" decoding="async" />
 
-        <!-- Elementos do cenário -->
-        <!-- 🚨 POSSÍVEL OTIMIZAÇÃO: 
-             Verificar se todas essas imagens são realmente necessárias
-             Múltiplas imagens grandes podem causar overhead de memória -->
-    <img src="robo.webp?v=20250810" alt="Robô futurista" class="robo fade-in-start" />
-    <img src="mesa.webp?v=20250810" alt="Mesa" class="mesa fade-in-start" />
-    <img src="caixas.webp?v=20250810" alt="Caixas de som principais" class="caixas fade-in-start" />
-    <img src="notebook.webp?v=20250810" alt="Notebook" class="notebook fade-in-start" />
-    <img src="teclado.webp?v=20250810" alt="teclado" class="teclado fade-in-start" />
+        <!-- 🚀 PERFORMANCE: Imagens otimizadas com decoding async -->
+        <!-- Robô é LCP element - carregamento eager + fetchpriority high via preload -->
+    <img src="robo.webp?v=20250810" alt="Robô futurista" class="robo fade-in-start" loading="eager" decoding="async" fetchpriority="high" />
+    <img src="mesa.webp?v=20250810" alt="Mesa" class="mesa fade-in-start" loading="lazy" decoding="async" />
+    <img src="caixas.webp?v=20250810" alt="Caixas de som principais" class="caixas fade-in-start" loading="lazy" decoding="async" />
+    <img src="notebook.webp?v=20250810" alt="Notebook" class="notebook fade-in-start" loading="lazy" decoding="async" />
+    <img src="teclado.webp?v=20250810" alt="teclado" class="teclado fade-in-start" loading="lazy" decoding="async" />
         
-        <!-- Overlay de partículas extras -->
-        <!-- 🚨 GARGALO: Div vazia que pode estar sendo usada para gerar partículas CSS
-             Pode estar causando renderizações extras -->
+        <!-- Overlay de partículas - renderização otimizada via CSS -->
         <div class="particles-overlay fade-in-start"></div>
     </div>
 
