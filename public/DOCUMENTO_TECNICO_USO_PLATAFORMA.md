@@ -375,13 +375,13 @@ Uma faixa de Progressive Trance com drop extremo pode ter LUFS mais alto no drop
 
 ---
 
-## 7A. ANÁLISE DE REFERÊNCIA - A FERRAMENTA MAIS PODEROSA ⭐
+## 8. ANÁLISE DE REFERÊNCIA - A FERRAMENTA MAIS PODEROSA ⭐
 
 ### O que é e por que é crucial
 
 A análise de referência é **a funcionalidade mais importante da SoundyAI** para produtores que buscam evoluir tecnicamente.
 
-Em vez de comparar seu áudio com médias genéricas de gênero, você compara **diretamente** com uma faixa profissional específica que você escolhe.
+Além da análise por gênero (que compara com padrões profissionais do estilo), você pode comparar **diretamente** com uma faixa específica que você escolhe.
 
 ### Diferença entre os modos
 
@@ -628,7 +628,7 @@ IA: *Analisa seu contexto específico e sugere causas (falta de sub,
 
 ---
 
-## 7B. CHATBOT DE IA - SEU ENGENHEIRO DE ÁUDIO VIRTUAL 🤖
+## 9. CHATBOT DE IA - SEU ENGENHEIRO DE ÁUDIO VIRTUAL 🤖
 
 ### O que é
 
@@ -914,7 +914,7 @@ IA: "Esperado. Para compensar..."
 
 ---
 
-## 7C. PEDIR AJUDA À IA (FEATURE INTEGRADA)
+## 10. PEDIR AJUDA À IA (FEATURE INTEGRADA)
 
 ### O que é
 
@@ -998,7 +998,7 @@ IA: "Comparando com sua referência escolhida, seu grave está
 
 ---
 
-## 8. SUGESTÕES INTELIGENTES E PLANO DE CORREÇÃO
+## 11. SUGESTÕES INTELIGENTES E PLANO DE CORREÇÃO
 
 ### Como as sugestões são geradas
 
@@ -1060,7 +1060,7 @@ Após aplicar correções:
 
 ---
 
-## 9. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
+## 12. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
 
 ### O que é
 
@@ -1090,7 +1090,7 @@ Cada item inclui:
 
 ---
 
-## 10. RELATÓRIO EM PDF
+## 13. RELATÓRIO EM PDF
 
 ### O que ele contém
 
@@ -1121,7 +1121,7 @@ Estático, portátil, ideal para compartilhamento e arquivamento.
 
 ---
 
-## 11. BOAS PRÁTICAS
+## 14. BOAS PRÁTICAS
 
 ### Analisar versões finais
 
@@ -1149,7 +1149,7 @@ Uma faixa ambient com LUFS -25 (muito baixo) pode ser exatamente o que você que
 
 ---
 
-## 12. LIMITAÇÕES DA FERRAMENTA
+## 15. LIMITAÇÕES DA FERRAMENTA
 
 ### Não analisa intenção artística
 
@@ -1176,7 +1176,7 @@ Um "score baixo" em Funk pode ser "score alto" em Ambient. Sempre considere o g�
 
 ---
 
-## 13. COMO FORNECER FEEDBACK
+## 16. COMO FORNECER FEEDBACK
 
 A SoundyAI evolui com feedback de usuários reais.
 
