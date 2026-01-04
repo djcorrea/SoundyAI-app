@@ -384,83 +384,115 @@ async function processWebhookAsync(data) {
 /**
  * POST /webhook/hotmart - Receber notificações da Hotmart
  * 
- * ⚡ RESPOSTA IMEDIATA: Retorna 200 OK antes do processamento pesado
- * 🔄 PROCESSAMENTO ASYNC: Firebase, Firestore, e-mail executam em background
+ * ⚡ BLINDAGEM TOTAL: Handler NÃO-async + resposta imediata + IIFE isolado
+ * 🛡️ GARANTIA: Nenhum erro interno pode fechar a conexão
+ * 🔄 PROCESSAMENTO: Firebase, Firestore, e-mail executam em IIFE async isolado
+ * 
+ * PADRÃO APLICADO (obrigatório para webhooks de pagamento):
+ * - Handler síncrono (não async)
+ * - res.status(200) ANTES de qualquer await
+ * - Todo processamento pesado em IIFE async com try/catch
  */
-router.post('/', async (req, res) => {
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('🔔 [HOTMART] Webhook recebido');
-  console.log('📋 [HOTMART] Headers:', JSON.stringify({
-    'x-hotmart-hottok': req.headers['x-hotmart-hottok'] ? '***' : 'ausente',
-    'content-type': req.headers['content-type']
-  }, null, 2));
-
+router.post('/', (req, res) => {
   // ═══════════════════════════════════════════════════════════════
-  // VALIDAÇÕES SÍNCRONAS (rápidas) - antes de responder 200
+  // 🛡️ TRY/CATCH GLOBAL - Nenhum erro pode escapar para o Express
   // ═══════════════════════════════════════════════════════════════
+  try {
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔔 [HOTMART] Webhook recebido');
+    console.log('📋 [HOTMART] Headers:', JSON.stringify({
+      'x-hotmart-hottok': req.headers['x-hotmart-hottok'] ? '***' : 'ausente',
+      'content-type': req.headers['content-type']
+    }, null, 2));
 
-  // 1. Validar assinatura
-  if (!validateHotmartSignature(req)) {
-    console.error('❌ [HOTMART] Assinatura inválida - rejeitando');
-    return res.status(401).json({ 
-      error: 'INVALID_SIGNATURE',
-      message: 'Assinatura do webhook inválida'
-    });
-  }
+    // ═══════════════════════════════════════════════════════════════
+    // VALIDAÇÕES SÍNCRONAS (rápidas) - antes de responder 200
+    // ═══════════════════════════════════════════════════════════════
 
-  // 2. Extrair dados do payload
-  const data = extractHotmartData(req.body);
-  
-  if (!data) {
-    console.error('❌ [HOTMART] Payload inválido');
-    return res.status(400).json({ 
-      error: 'INVALID_PAYLOAD',
-      message: 'Não foi possível extrair dados do webhook'
-    });
-  }
+    // 1. Validar assinatura
+    if (!validateHotmartSignature(req)) {
+      console.error('❌ [HOTMART] Assinatura inválida - rejeitando');
+      return res.status(401).json({ 
+        error: 'INVALID_SIGNATURE',
+        message: 'Assinatura do webhook inválida'
+      });
+    }
 
-  // 3. Verificar se é venda aprovada
-  if (!isApprovedSale(data)) {
-    console.log(`⚠️ [HOTMART] Evento ignorado: ${data.event || data.status}`);
-    return res.status(200).json({ 
+    // 2. Extrair dados do payload
+    const data = extractHotmartData(req.body);
+    
+    if (!data) {
+      console.error('❌ [HOTMART] Payload inválido');
+      return res.status(400).json({ 
+        error: 'INVALID_PAYLOAD',
+        message: 'Não foi possível extrair dados do webhook'
+      });
+    }
+
+    // 3. Verificar se é venda aprovada
+    if (!isApprovedSale(data)) {
+      console.log(`⚠️ [HOTMART] Evento ignorado: ${data.event || data.status}`);
+      return res.status(200).json({ 
+        success: true,
+        message: 'Evento ignorado (não é venda aprovada)',
+        event: data.event || data.status
+      });
+    }
+
+    // 4. Validar e-mail do comprador
+    if (!data.buyerEmail || !data.buyerEmail.includes('@')) {
+      console.error('❌ [HOTMART] E-mail inválido');
+      return res.status(400).json({ 
+        error: 'INVALID_EMAIL',
+        message: 'E-mail do comprador é obrigatório'
+      });
+    }
+
+    // Normalizar e-mail
+    data.buyerEmail = data.buyerEmail.toLowerCase().trim();
+
+    // ═══════════════════════════════════════════════════════════════
+    // ⚡ RESPONDER 200 OK IMEDIATAMENTE (ANTES de qualquer await)
+    // ═══════════════════════════════════════════════════════════════
+    console.log(`✅ [HOTMART] Webhook aceito - transactionId: ${data.transactionId}`);
+    
+    res.status(200).json({
       success: true,
-      message: 'Evento ignorado (não é venda aprovada)',
-      event: data.event || data.status
+      message: 'Webhook recebido e será processado',
+      transactionId: data.transactionId
     });
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🔄 PROCESSAMENTO EM IIFE ASYNC ISOLADO (padrão obrigatório)
+    // ═══════════════════════════════════════════════════════════════
+    // IIFE async garante isolamento total - nenhum erro propaga ao Express
+    (async () => {
+      try {
+        await processWebhookAsync(data);
+      } catch (err) {
+        console.error('💥 [HOTMART] Erro no processamento async:', err);
+        console.error('💥 [HOTMART] Stack:', err.stack);
+        // Erro logado mas NÃO propagado - conexão já foi encerrada com 200 OK
+      }
+    })();
+
+  } catch (syncError) {
+    // ═══════════════════════════════════════════════════════════════
+    // 🛡️ FALLBACK: Se QUALQUER erro ocorrer antes do res.status(200)
+    // ═══════════════════════════════════════════════════════════════
+    console.error('💥 [HOTMART] Erro síncrono no handler:', syncError);
+    console.error('💥 [HOTMART] Stack:', syncError.stack);
+    
+    // Ainda assim retornar 200 para não confundir a Hotmart
+    // (melhor aceitar e logar do que rejeitar e perder a transação)
+    if (!res.headersSent) {
+      res.status(200).json({
+        success: true,
+        message: 'Webhook recebido (erro interno logado)',
+        error: 'INTERNAL_ERROR_LOGGED'
+      });
+    }
   }
-
-  // 4. Validar e-mail do comprador
-  if (!data.buyerEmail || !data.buyerEmail.includes('@')) {
-    console.error('❌ [HOTMART] E-mail inválido');
-    return res.status(400).json({ 
-      error: 'INVALID_EMAIL',
-      message: 'E-mail do comprador é obrigatório'
-    });
-  }
-
-  // Normalizar e-mail
-  data.buyerEmail = data.buyerEmail.toLowerCase().trim();
-
-  // ═══════════════════════════════════════════════════════════════
-  // ⚡ RESPONDER 200 OK IMEDIATAMENTE
-  // ═══════════════════════════════════════════════════════════════
-  console.log(`✅ [HOTMART] Webhook aceito - iniciando processamento async: ${data.transactionId}`);
-  
-  res.status(200).json({
-    success: true,
-    message: 'Webhook recebido e será processado',
-    transactionId: data.transactionId
-  });
-
-  // ═══════════════════════════════════════════════════════════════
-  // 🔄 PROCESSAMENTO ASSÍNCRONO (após resposta)
-  // ═══════════════════════════════════════════════════════════════
-  // setImmediate garante que a resposta seja enviada antes
-  setImmediate(() => {
-    processWebhookAsync(data).catch(err => {
-      console.error('💥 [HOTMART] Erro não capturado no processamento async:', err);
-    });
-  });
 });
 
 /**
