@@ -52,20 +52,20 @@
         // Vanta configs por tier
         // NOTA: Aumentado densidade e alcance para melhor visualização
         VANTA_HIGH: {
-            points: 8.0,        // Aumentado para mais partículas
-            maxDistance: 24.0,  // Aumentado para alcançar os lados
-            spacing: 16.0,      // Reduzido para mais densidade
+            points: 6.0,        // Reduzido um pouco
+            maxDistance: 20.0,  // Reduzido para efeito mais sutil
+            spacing: 18.0,      // Mais espaçado
             showDots: false,    // Desativado para linhas mais finas
             mouseControls: true,
-            lineWidth: 0.5      // Linhas mais finas
+            lineWidth: 0.2      // Linhas bem finas
         },
         VANTA_MEDIUM: {
-            points: 6.0,        // Aumentado
-            maxDistance: 20.0,  // Aumentado alcance
-            spacing: 18.0,      // Mais denso
+            points: 4.0,        // Reduzido
+            maxDistance: 16.0,  // Reduzido
+            spacing: 20.0,      // Mais espaçado
             showDots: false,    // Desativado para linhas mais finas
             mouseControls: true,
-            lineWidth: 0.4      // Linhas mais finas
+            lineWidth: 0.15     // Linhas ultra finas
         },
         VANTA_LOW: {            // Configuração leve mas visível
             points: 4.0,        // Aumentado
@@ -357,8 +357,8 @@
                 gyroControls: false,
                 minHeight: 200,
                 minWidth: 200,
-                scale: 1.5,        // Aumentado para cobrir mais área
-                scaleMobile: 1.2,  // Aumentado no mobile também
+                scale: 1.2,        // Reduzido para efeito mais sutil
+                scaleMobile: 1.0,  // Reduzido no mobile também
                 color: 0x8a2be2,
                 backgroundColor: 0x0a0a1a,
                 points: config.points,
