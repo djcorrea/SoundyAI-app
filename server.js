@@ -164,17 +164,31 @@ app.use("/api/mercadopago", mercadopagoRoute);
 app.use("/api/upload-audio", uploadAudioRoute);
 app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
+
+// ═══════════════════════════════════════════════════════════════════
+// ⚠️ WEBHOOKS ESPECÍFICOS - DEVEM SER REGISTRADOS ANTES DO GENÉRICO
+// ═══════════════════════════════════════════════════════════════════
+// CRÍTICO: Express processa rotas na ordem de registro.
+// Rotas mais específicas (/api/webhook/hotmart) DEVEM vir ANTES
+// de rotas genéricas (/api/webhook) para evitar interceptação.
+
+// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+app.use('/api/webhook/hotmart', hotmartWebhookRouter);
+console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
+
+// ✅ STRIPE: Webhook de pagamento recorrente
+app.use('/api/webhook/stripe', stripeWebhookRouter);
+console.log('✅ [STRIPE] Webhook registrado: POST /api/webhook/stripe');
+
+// 📦 MERCADOPAGO: Webhook genérico (DEVE ser o último /api/webhook/*)
 app.use("/api/webhook", webhookRoute);
+console.log('📦 [MERCADOPAGO] Webhook genérico registrado: POST /api/webhook');
+
 app.use("/api", presignRoute);
 
 // ✅ STRIPE: Registrar rotas de pagamento (DEPOIS das rotas gerais)
 app.use('/api/stripe', stripeCheckoutRouter);
 app.use('/api/stripe/cancel-subscription', stripeCancelRouter);
-app.use('/api/webhook/stripe', stripeWebhookRouter);
-
-// 🎓 HOTMART: Registrar webhook para combo Curso + PRO
-app.use('/api/webhook/hotmart', hotmartWebhookRouter);
-console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
 
 // 🔍 VERIFY PURCHASE: Endpoint de verificação manual de compra
 app.use('/api/verify-purchase', verifyPurchaseRouter);
