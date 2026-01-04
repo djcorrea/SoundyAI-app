@@ -1,83 +1,42 @@
 // 📘 DOCUMENTO TÉCNICO - LOADER MARKDOWN
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('📘 [DOC-TECNICO] Iniciando carregamento...');
-    console.log('📍 [DOC-TECNICO] URL atual:', window.location.href);
+    console.log('📘 Carregando documento técnico...');
     
     const docContent = document.getElementById('docContent');
     
     if (!docContent) {
-        console.error('❌ [DOC-TECNICO] Container #docContent não encontrado');
+        console.error('❌ Container do documento não encontrado');
         return;
     }
 
-    console.log('✅ [DOC-TECNICO] Container encontrado');
-
-    // Mostrar loading
-    docContent.innerHTML = `
-        <div style="text-align: center; padding: 60px; color: #a0aec0;">
-            <h2 style="color: #ffffff; margin-bottom: 20px;">Carregando documento...</h2>
-            <div style="display: inline-block; width: 50px; height: 50px; border: 4px solid rgba(93, 21, 134, 0.3); border-top-color: #5d1586; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        </div>
-        <style>
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-        </style>
-    `;
-
     try {
-        // Tentar múltiplos caminhos
-        const paths = [
-            '../DOCUMENTO_TECNICO_USO_PLATAFORMA.md',
-            './DOCUMENTO_TECNICO_USO_PLATAFORMA.md',
-            '/DOCUMENTO_TECNICO_USO_PLATAFORMA.md'
-        ];
-
-        let markdown = null;
-        let successPath = null;
-
-        for (const path of paths) {
-            try {
-                console.log(`🔍 [DOC-TECNICO] Tentando carregar: ${path}`);
-                const response = await fetch(path);
-                
-                if (response.ok) {
-                    markdown = await response.text();
-                    successPath = path;
-                    console.log(`✅ [DOC-TECNICO] Documento carregado de: ${path}`);
-                    console.log(`📄 [DOC-TECNICO] Tamanho: ${markdown.length} caracteres`);
-                    break;
-                }
-            } catch (err) {
-                console.log(`❌ [DOC-TECNICO] Falhou: ${path} - ${err.message}`);
-            }
+        // Carregar o arquivo Markdown
+        const response = await fetch('../DOCUMENTO_TECNICO_USO_PLATAFORMA.md');
+        
+        if (!response.ok) {
+            throw new Error(`Erro ao carregar documento: ${response.status}`);
         }
-
-        if (!markdown) {
-            throw new Error('Não foi possível carregar o documento de nenhum caminho');
-        }
+        
+        const markdown = await response.text();
+        console.log('✅ Documento carregado com sucesso');
         
         // Converter Markdown para HTML
-        console.log('🔄 [DOC-TECNICO] Convertendo Markdown para HTML...');
         const html = convertMarkdownToHTML(markdown);
-        console.log(`✅ [DOC-TECNICO] HTML gerado: ${html.length} caracteres`);
-        
         docContent.innerHTML = html;
         
         // Highlight de seção ativa
         setupScrollSpy();
         
-        console.log('✅ [DOC-TECNICO] Documento renderizado com sucesso');
+        console.log('✅ Documento renderizado');
         
     } catch (error) {
-        console.error('❌ [DOC-TECNICO] Erro crítico:', error);
+        console.error('❌ Erro ao carregar documento:', error);
         docContent.innerHTML = `
             <div style="text-align: center; padding: 60px; color: #ff6b6b;">
-                <h2 style="color: #ff6b6b; margin-bottom: 20px;">❌ Erro ao carregar documento</h2>
-                <p style="color: #a0aec0; margin-bottom: 10px;">Por favor, recarregue a página ou entre em contato com o suporte.</p>
-                <p style="font-size: 0.9rem; color: #718096; background: rgba(255, 107, 107, 0.1); padding: 15px; border-radius: 8px; margin-top: 20px; font-family: monospace;">${error.message}</p>
-                <button onclick="location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #5d1586; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">🔄 Recarregar Página</button>
+                <h2>Erro ao carregar documento</h2>
+                <p>Por favor, recarregue a página ou entre em contato com o suporte.</p>
+                <p style="font-size: 0.9rem; color: #a0aec0; margin-top: 20px;">${error.message}</p>
             </div>
         `;
     }
