@@ -198,7 +198,22 @@ Uma música com LUFS -21.5 (quando o alvo é -8.3) terá score reduzido, mas iss
 - **40-59:** Desvios significativos, correções prioritárias
 - **0-39:** Múltiplos problemas técnicos, revisão completa necessária
 
-**Importante:** Score alto não garante sucesso artístico. Score baixo não significa música ruim. Use como guia técnico, não como julgamento final.
+### Resumo Científico da Música
+
+Logo abaixo do score final, a plataforma exibe automaticamente um **resumo científico personalizado** da sua música. Este texto é gerado com base na análise técnica e descreve de forma clara e objetiva:
+
+- O estado geral da mixagem/masterização
+- Os pontos fortes identificados
+- Os problemas técnicos detectados
+- O impacto esperado em sistemas de reprodução
+
+**Exemplo de resumo:**
+
+"Sua música apresenta loudness adequado para o gênero (-8.5 LUFS), porém o True Peak está acima do recomendado (+0.3 dBTP), o que pode causar distorção em alguns sistemas. A distribuição de frequências mostra excesso de energia no sub-grave (20-60 Hz), típico de mixagens que não foram checadas em monitores full-range."
+
+Este resumo serve como ponto de partida para entender rapidamente o que precisa de atenção, sem necessidade de interpretar cada métrica individualmente.
+
+**Importante:** O resumo é descritivo e técnico, não é um julgamento artístico. Ele contextualiza os números para facilitar a compreensão.
 
 ---
 
@@ -375,7 +390,79 @@ Uma faixa de Progressive Trance com drop extremo pode ter LUFS mais alto no drop
 
 ---
 
-## 8. SUGESTÕES INTELIGENTES E PLANO DE CORREÇÃO
+## 7.1 ANÁLISE POR MÚSICA DE REFERÊNCIA (FUNCIONALIDADE AVANÇADA)
+
+### O que é
+
+A Análise por Referência é uma funcionalidade poderosa que permite comparar sua música diretamente com qualquer faixa de referência que você escolher, seja de um artista consagrado, uma track de sucesso do seu gênero, ou até mesmo uma versão anterior da sua própria produção.
+
+Diferente da análise por gênero (que compara com médias estatísticas), a análise por referência compara sua música **lado a lado** com uma faixa específica que você considera ideal.
+
+### Por que usar
+
+**Casos de uso ideais:**
+
+- Você quer que sua música soe como uma referência específica (ex: "quero soar como aquela track do Alok")
+- Você está fazendo remix/bootleg e quer manter consistência com o original
+- Você quer comparar versões diferentes da mesma produção
+- Você quer entender tecnicamente por que uma música de referência soa melhor
+
+**Vantagens sobre análise por gênero:**
+
+- Comparação direta e específica (não genérica)
+- Você define o padrão de qualidade
+- Útil para nichos/subgêneros não mapeados
+- Feedback mais preciso para seu objetivo específico
+
+### Como funciona
+
+**Passo 1:** Ao iniciar uma análise, escolha o modo "Por Música de Referência"
+
+**Passo 2:** Faça upload da sua música (a que você quer analisar)
+
+**Passo 3:** Faça upload da música de referência (a que você quer usar como alvo)
+
+**Passo 4:** O sistema analisa ambas as faixas e gera uma comparação direta
+
+### O que você recebe
+
+A análise por referência gera:
+
+**Tabela comparativa lado a lado:**
+- Sua música vs. Referência
+- Todas as métricas principais (LUFS, True Peak, DR, Stereo, Frequências)
+- Diferença percentual para cada métrica
+- Status de severidade (OK, Atenção, Crítico)
+
+**Sugestões específicas:**
+- Baseadas na diferença entre sua música e a referência
+- Ex: "Sua música está 3.2 dB mais baixa em loudness que a referência"
+- Ex: "O sub-grave da sua música tem 25% mais energia que a referência"
+
+**Score comparativo:**
+- Indica o quão próximo você está da referência
+- 100% = praticamente idêntico tecnicamente
+- Abaixo de 70% = diferenças significativas
+
+### Dicas para usar bem
+
+**Escolha uma referência adequada:**
+- Mesma duração aproximada (ou trecho similar)
+- Mesmo estilo/subgênero
+- Qualidade de áudio similar (WAV/FLAC, não MP3 baixa qualidade)
+- Versão masterizada (não demo ou pré-master)
+
+**Interprete com contexto:**
+- Diferenças podem ser intencionais
+- Nem tudo precisa ser igual à referência
+- Use como guia, não como cópia exata
+
+**Limitações:**
+- Não analisa arranjo, melodia ou harmonia
+- Compara apenas características técnicas mensuráveis
+- Referências muito diferentes (ex: rock vs funk) darão resultados confusos
+
+---
 
 ### Como as sugestões são geradas
 
@@ -495,6 +582,95 @@ Interativa, permite explorar detalhes, atualiza em tempo real.
 
 **Relatório PDF:**  
 Estático, portátil, ideal para compartilhamento e arquivamento.
+
+---
+
+## 10.1 CHATBOT SOUNDYAI - SEU ASSISTENTE VIRTUAL
+
+### O que é
+
+O Chatbot SoundyAI é um assistente virtual integrado à plataforma, disponível na tela principal. Ele funciona como um "engenheiro de áudio virtual" que pode responder dúvidas, dar orientações e ajudar você a entender melhor os conceitos técnicos de áudio.
+
+### Como acessar
+
+O chatbot está sempre visível na tela principal da plataforma. Você pode interagir de duas formas:
+
+**Estado inicial:** Campo de texto com a mensagem "Digite aqui..." para iniciar uma conversa.
+
+**Estado ativo:** Após enviar a primeira mensagem, o chat expande e você pode continuar a conversa normalmente.
+
+### O que você pode perguntar
+
+O chatbot pode ajudar com:
+
+- Dúvidas sobre métricas (ex: "O que é LUFS?")
+- Orientações de mixagem (ex: "Como reduzir o grave excessivo?")
+- Explicações sobre a análise (ex: "Por que meu True Peak está alto?")
+- Dicas de ferramentas (ex: "Qual plugin usar para limitar True Peak?")
+- Conceitos de engenharia de áudio (ex: "O que é headroom?")
+- Orientações sobre a plataforma (ex: "Como baixar o relatório PDF?")
+
+### Limitações do chatbot
+
+- Não substitui um curso completo de produção/mixagem
+- Respostas são baseadas em conhecimento técnico geral
+- Não analisa áudio diretamente (use a função de análise para isso)
+- Pode não conhecer plugins ou DAWs muito específicos
+
+### Dicas de uso
+
+**Seja específico:** "Como reduzir 3 dB no sub-grave usando EQ" é melhor que "como mexer no grave"
+
+**Contextualize:** Mencione o gênero, a métrica problemática, ou o que você já tentou
+
+**Use para aprender:** O chatbot é excelente para entender conceitos que aparecem na análise
+
+---
+
+## 10.2 PEDIR AJUDA À IA (FUNCIONALIDADE PRO)
+
+### O que é
+
+A função "Pedir Ajuda à IA" é um recurso exclusivo do plano PRO que gera uma análise aprofundada e personalizada da sua música, indo além das sugestões automáticas padrão.
+
+### Quando usar
+
+Use esta função quando:
+
+- As sugestões automáticas não forem suficientes
+- Você quiser uma explicação mais detalhada de um problema específico
+- Precisar de orientações mais avançadas sobre como corrigir algo
+- Quiser entender o "porquê" por trás de uma métrica fora do padrão
+
+### Como funciona
+
+1. Após receber a análise da sua música, localize o botão "Pedir Ajuda à IA"
+2. A IA processa os dados da sua análise
+3. Você recebe um texto personalizado com:
+   - Diagnóstico detalhado dos problemas
+   - Explicações técnicas contextualizadas
+   - Sugestões práticas de correção
+   - Ordem recomendada de ajustes
+
+### Diferença entre sugestões automáticas e ajuda IA
+
+**Sugestões automáticas:**
+- Geradas instantaneamente
+- Formato padronizado
+- Baseadas em regras fixas
+- Disponíveis para todos os planos
+
+**Pedir Ajuda à IA:**
+- Processamento mais profundo
+- Texto personalizado e contextualizado
+- Considera múltiplas métricas em conjunto
+- Exclusivo do plano PRO
+
+### Exemplo de resposta da IA
+
+"Sua música apresenta três problemas interconectados: o loudness está 5 dB abaixo do alvo do gênero, mas ao mesmo tempo o True Peak já está em -0.5 dBTP. Isso indica que você está usando compressão/limitação insuficiente, mas com um ceiling muito alto. Recomendo: primeiro, baixe o ceiling do seu limiter para -1.5 dBTP. Depois, aumente o input gain até atingir o LUFS desejado. Monitore o medidor de gain reduction para não ultrapassar 3-4 dB de redução constante."
+
+Este nível de detalhe e conexão entre métricas só é possível com a função "Pedir Ajuda à IA".
 
 ---
 
