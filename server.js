@@ -102,6 +102,9 @@ import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 // 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
 
+// 🔍 VERIFY PURCHASE: Verificação manual de compra e ativação de plano
+import verifyPurchaseRouter from "./api/verify-purchase.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
 // ═══════════════════════════════════════════════════════════════════
@@ -172,6 +175,12 @@ app.use('/api/webhook/stripe', stripeWebhookRouter);
 // 🎓 HOTMART: Registrar webhook para combo Curso + PRO
 app.use('/api/webhook/hotmart', hotmartWebhookRouter);
 console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
+
+// 🔍 VERIFY PURCHASE: Endpoint de verificação manual de compra
+app.use('/api/verify-purchase', verifyPurchaseRouter);
+console.log('🔍 [VERIFY-PURCHASE] Endpoints registrados:');
+console.log('   - POST /api/verify-purchase (ativar plano se compra encontrada)');
+console.log('   - GET /api/verify-purchase/status (apenas consultar status)');
 
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
