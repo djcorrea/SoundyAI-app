@@ -632,6 +632,7 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
     let lraRemaining = 0;
     let lraRelThreshold = null;
     let lraAlgorithm = 'v2_corrected_fallback';
+    let shortTermLoudness = []; // 🔧 Declarado fora do try para uso posterior no Short-Term
     
     try {
       const meter = new LUFSMeter(sampleRate);
@@ -642,7 +643,7 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
       
       // Calcular block loudness e short-term para LRA
       const blockLoudness = meter.calculateBlockLoudness(leftFiltered, rightFiltered);
-      const shortTermLoudness = meter.calculateShortTermLoudness(blockLoudness);
+      shortTermLoudness = meter.calculateShortTermLoudness(blockLoudness); // 🔧 Atribui à variável externa
       
       // Calcular LRA conforme EBU R128 (usando integrated do LUFS V2)
       if (shortTermLoudness.length >= 10 && Number.isFinite(lufsResult.integrated)) {
@@ -663,10 +664,47 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
       // Continuar com lra = 0 como fallback
     }
     
+    // 🔧 CORREÇÃO AUDITORIA 2026-01-04: Short-Term representativo
+    // Problema: analyzeLUFSv2 retornava último bloco (pode ser fade-out silencioso)
+    // Solução: Usar mediana das janelas ativas (mesmo algoritmo de LUFSMeter.calculateLUFS)
+    let representativeShortTerm = lufsResult.shortTerm; // fallback
+    
+    try {
+      // Já temos shortTermLoudness calculado acima para o LRA
+      // Se existir, calcular mediana das janelas ativas
+      if (shortTermLoudness && shortTermLoudness.length > 0) {
+        const ABS_TH = LUFS_CONSTANTS.ABSOLUTE_THRESHOLD; // -70 LUFS
+        const REL_TH = lufsResult.integrated + LUFS_CONSTANTS.RELATIVE_THRESHOLD; // integrated - 10 LU
+        
+        // Filtrar janelas ativas (acima de ambos os thresholds)
+        const activeShortTerm = shortTermLoudness.filter(v => 
+          Number.isFinite(v) && v > ABS_TH && v >= REL_TH
+        );
+        
+        // Função mediana
+        const median = (arr) => {
+          if (!arr.length) return null;
+          const s = arr.slice().sort((a, b) => a - b);
+          const m = Math.floor(s.length / 2);
+          return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        };
+        
+        // Usar mediana se houver janelas ativas, senão fallback para integrated
+        representativeShortTerm = activeShortTerm.length > 0 
+          ? median(activeShortTerm) 
+          : lufsResult.integrated;
+        
+        console.log(`[LUFS_V2] ✅ Short-Term corrigido: ${representativeShortTerm?.toFixed(1)} LUFS (${activeShortTerm.length} janelas ativas de ${shortTermLoudness.length})`);
+      }
+    } catch (stError) {
+      console.warn(`[LUFS_V2] ⚠️ Erro ao calcular Short-Term representativo:`, stError.message);
+      // Mantém fallback para lufsResult.shortTerm
+    }
+    
     // Converter para formato compatível
     const result = {
       lufs_integrated: lufsResult.integrated,
-      lufs_short_term: lufsResult.shortTerm,
+      lufs_short_term: representativeShortTerm, // 🔧 CORRIGIDO: Agora usa mediana representativa
       lufs_momentary: lufsResult.momentary,
       lra: lraValue, // 🔧 CORREÇÃO: Agora usa valor real calculado
       lra_legacy: lraValue, // Manter compatibilidade
