@@ -1,42 +1,55 @@
 // 📘 DOCUMENTO TÉCNICO - LOADER MARKDOWN
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('📘 Carregando documento técnico...');
+    console.log('📘 [DOC-LOADER] Iniciando carregamento...');
     
     const docContent = document.getElementById('docContent');
     
     if (!docContent) {
-        console.error('❌ Container do documento não encontrado');
+        console.error('❌ [DOC-LOADER] Container #docContent não encontrado no DOM!');
         return;
     }
 
+    // Mostrar loading
+    docContent.innerHTML = '<div style="text-align: center; padding: 60px; color: #a0aec0;"><p>⏳ Carregando documento técnico...</p></div>';
+
     try {
         // Carregar o arquivo Markdown
+        console.log('📡 [DOC-LOADER] Fazendo fetch do arquivo markdown...');
         const response = await fetch('../DOCUMENTO_TECNICO_USO_PLATAFORMA.md');
         
         if (!response.ok) {
-            throw new Error(`Erro ao carregar documento: ${response.status}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const markdown = await response.text();
-        console.log('✅ Documento carregado com sucesso');
+        console.log(`✅ [DOC-LOADER] Documento carregado (${markdown.length} caracteres)`);
+        
+        if (!markdown || markdown.trim().length === 0) {
+            throw new Error('Arquivo markdown vazio');
+        }
         
         // Converter Markdown para HTML
+        console.log('🔄 [DOC-LOADER] Convertendo markdown para HTML...');
         const html = convertMarkdownToHTML(markdown);
+        console.log(`✅ [DOC-LOADER] HTML gerado (${html.length} caracteres)`);
+        
         docContent.innerHTML = html;
+        console.log('✅ [DOC-LOADER] HTML inserido no DOM');
         
         // Highlight de seção ativa
         setupScrollSpy();
         
-        console.log('✅ Documento renderizado');
+        console.log('✅ [DOC-LOADER] Documento renderizado com sucesso!');
         
     } catch (error) {
-        console.error('❌ Erro ao carregar documento:', error);
+        console.error('❌ [DOC-LOADER] ERRO CRÍTICO:', error);
         docContent.innerHTML = `
             <div style="text-align: center; padding: 60px; color: #ff6b6b;">
-                <h2>Erro ao carregar documento</h2>
-                <p>Por favor, recarregue a página ou entre em contato com o suporte.</p>
-                <p style="font-size: 0.9rem; color: #a0aec0; margin-top: 20px;">${error.message}</p>
+                <h2>❌ Erro ao carregar documento</h2>
+                <p>Por favor, pressione <strong>Ctrl + F5</strong> para recarregar a página.</p>
+                <p style="font-size: 0.9rem; color: #a0aec0; margin-top: 20px;"><strong>Erro:</strong> ${error.message}</p>
+                <p style="font-size: 0.85rem; color: #718096; margin-top: 10px;">Se o problema persistir, abra o Console (F12) e envie a mensagem de erro.</p>
             </div>
         `;
     }
