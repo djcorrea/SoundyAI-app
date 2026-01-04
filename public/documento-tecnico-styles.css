@@ -115,6 +115,10 @@ body {
 /* 📄 CONTEÚDO PRINCIPAL */
 .doc-content {
     padding: 60px;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 500px;
 }
 
 .doc-content h2 {
