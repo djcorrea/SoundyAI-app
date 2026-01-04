@@ -6978,7 +6978,10 @@ function injectDestinationModalStyles() {
             }
             .destination-modal-container {
                 padding: 32px 20px;
-                max-height: 90vh;
+                /* 🔧 Altura igual ao modal de referência (mode-selection-modal) */
+                max-height: calc(100dvh - 40px);
+                max-height: calc(100vh - 40px);
+                margin: 20px auto;
                 overflow-y: auto;
             }
             .destination-modal-title {

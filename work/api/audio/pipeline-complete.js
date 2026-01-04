@@ -977,6 +977,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🤖 ENRIQUECIMENTO IA OBRIGATÓRIO - MODO GENRE
       // ✅ REGRA: SEMPRE enriquecer sugestões, NUNCA pular esta etapa
+      // 🚀 OTIMIZAÇÃO PERFORMANCE: Iniciar chamada IA em paralelo
       console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
       console.log('[AI-AUDIT][ULTRA_DIAG] Sugestões base count:', finalJSON.suggestions?.length || 0);
       
@@ -992,30 +993,39 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         }];
       }
       
+      // 🚀 OTIMIZAÇÃO: Preparar contexto e iniciar promise IMEDIATAMENTE
+      const aiContext = {
+        genre: finalGenreForAnalyzer,
+        mode: mode || 'genre',
+        userMetrics: coreMetrics,
+        referenceMetrics: null,
+        referenceComparison: null,
+        fileName: fileName || metadata?.fileName || 'unknown',
+        referenceFileName: null,
+        deltas: null,
+        customTargets: customTargets, // ✅ Passar targets para IA validar
+        genreTargets: customTargets    // ✅ FASE 2: Enviar também como genreTargets (dupla referência)
+      };
+      
+      // 🚀 PERFORMANCE: Iniciar chamada IA agora (não-bloqueante)
+      // A promise roda em paralelo enquanto fazemos outras operações de logging
+      const aiPromiseStartTime = Date.now();
+      const aiEnrichmentPromise = enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+      
+      console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[PIPELINE][AI-CONTEXT] 🚀 IA iniciada em paralelo (não-bloqueante)');
+      console.log('[PIPELINE][AI-CONTEXT] aiContext enviado ao enrichment:', {
+        hasCustomTargets: !!aiContext.customTargets,
+        hasGenreTargets: !!aiContext.genreTargets,
+        customTargetsKeys: aiContext.customTargets ? Object.keys(aiContext.customTargets) : [],
+        hasBands: !!aiContext.customTargets?.bands
+      });
+      console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
       try {
-        const aiContext = {
-          genre: finalGenreForAnalyzer,
-          mode: mode || 'genre',
-          userMetrics: coreMetrics,
-          referenceMetrics: null,
-          referenceComparison: null,
-          fileName: fileName || metadata?.fileName || 'unknown',
-          referenceFileName: null,
-          deltas: null,
-          customTargets: customTargets, // ✅ Passar targets para IA validar
-          genreTargets: customTargets    // ✅ FASE 2: Enviar também como genreTargets (dupla referência)
-        };
-        
-        console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[PIPELINE][AI-CONTEXT] aiContext enviado ao enrichment:', {
-          hasCustomTargets: !!aiContext.customTargets,
-          hasGenreTargets: !!aiContext.genreTargets,
-          customTargetsKeys: aiContext.customTargets ? Object.keys(aiContext.customTargets) : [],
-          hasBands: !!aiContext.customTargets?.bands
-        });
-        console.log('[PIPELINE][AI-CONTEXT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+        // 🚀 AWAIT apenas quando necessário - IA pode ter terminado enquanto logávamos
+        finalJSON.aiSuggestions = await aiEnrichmentPromise;
+        console.log(`[PIPELINE][AI-PERF] ✅ IA completou em ${Date.now() - aiPromiseStartTime}ms`);
         
         // ❌ VALIDAÇÃO CRÍTICA: IA DEVE retornar sugestões
         if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
