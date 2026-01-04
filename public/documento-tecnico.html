@@ -6,6 +6,21 @@
     <title>Documento Técnico - SoundyAI</title>
     <link rel="stylesheet" href="documento-tecnico-styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reset total para garantir isolamento */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-x: hidden;
+        }
+        
+        /* Garantir que nada de fora interfira */
+        body > *:not(.doc-container) {
+            display: none !important;
+        }
+    </style>
 </head>
 <body>
     <div class="doc-container">
@@ -52,6 +67,25 @@
         </footer>
     </div>
 
+    <script>
+        // Proteção contra scripts externos
+        (function() {
+            'use strict';
+            
+            // Remover qualquer elemento que não seja .doc-container
+            document.addEventListener('DOMContentLoaded', function() {
+                const container = document.querySelector('.doc-container');
+                if (container) {
+                    const allElements = Array.from(document.body.children);
+                    allElements.forEach(el => {
+                        if (el !== container && !el.tagName.match(/SCRIPT|STYLE/i)) {
+                            el.remove();
+                        }
+                    });
+                }
+            });
+        })();
+    </script>
     <script src="documento-tecnico-loader.js"></script>
 </body>
 </html>
