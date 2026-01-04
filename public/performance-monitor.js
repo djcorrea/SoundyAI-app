@@ -1,18 +1,23 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🚀 PERFORMANCE MONITOR - SoundyAI
+ * 🚀 PERFORMANCE MONITOR V2 - SoundyAI
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * MUDANÇAS IMPLEMENTADAS:
- * 1. PerformanceObserver para longtask com duração, timestamp e attribution
- * 2. Medidor de FPS via requestAnimationFrame com alerta quando < 50 por > 2s
- * 3. Buffer circular de 30 eventos + window.__perfDump() para debug
- * 4. Integração com EffectsController para degradação automática
+ * VERSÃO: 2.0.0 - Instrumentação aprimorada
+ * DATA: 2026-01-05
+ * 
+ * MELHORIAS V2:
+ * ✅ Top 20 piores LongTasks com attribution detalhada
+ * ✅ __perfDump() melhorado com sugestões de culpado
+ * ✅ Tracking de containerSrc e containerName
+ * ✅ Estatísticas agregadas com P90/P95
+ * ✅ Modo silencioso por padrão (DEBUG = false)
  * 
  * USO NO CONSOLE:
- * - window.__perfDump()     → Ver últimos 30 eventos
+ * - window.__perfDump()     → Ver últimos 30 eventos + diagnóstico
  * - window.__perfStats()    → Ver estatísticas resumidas
  * - window.__perfReset()    → Limpar buffer
+ * - window.__perfWorst()    → Ver top 20 piores longtasks
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -25,11 +30,12 @@
     // ═══════════════════════════════════════════════════════════════════
     const CONFIG = {
         BUFFER_SIZE: 30,
-        FPS_SAMPLE_INTERVAL: 500, // ms entre amostras
-        LOW_FPS_THRESHOLD: 45,    // Threshold mais agressivo (era 50)
-        LOW_FPS_DURATION_ALERT: 2000, // 2 segundos
-        LONGTASK_THRESHOLD: 50, // ms (padrão W3C)
-        DEBUG_MODE: false // Mudar para true para logs detalhados
+        WORST_LONGTASKS_SIZE: 20,  // Top 20 piores
+        FPS_SAMPLE_INTERVAL: 500,
+        LOW_FPS_THRESHOLD: 45,
+        LOW_FPS_DURATION_ALERT: 2000,
+        LONGTASK_THRESHOLD: 50,
+        DEBUG_MODE: false  // SILENCIOSO por padrão
     };
 
     // ═══════════════════════════════════════════════════════════════════
@@ -61,6 +67,11 @@
             const longtasks = this.events.filter(e => e.type === 'longtask');
             const fpsDips = this.events.filter(e => e.type === 'fps-low');
             
+            // Calcular percentis
+            const durations = longtasks.map(e => e.duration).sort((a, b) => a - b);
+            const p90 = durations[Math.floor(durations.length * 0.9)] || 0;
+            const p95 = durations[Math.floor(durations.length * 0.95)] || 0;
+            
             return {
                 totalEvents: this.events.length,
                 longtasks: {
@@ -70,7 +81,9 @@
                         : 0,
                     maxDuration: longtasks.length 
                         ? Math.max(...longtasks.map(e => e.duration)).toFixed(2) 
-                        : 0
+                        : 0,
+                    p90: p90.toFixed(2),
+                    p95: p95.toFixed(2)
                 },
                 fpsDips: {
                     count: fpsDips.length,
@@ -79,6 +92,59 @@
                         : 60
                 }
             };
+        }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // TOP 20 PIORES LONGTASKS (sempre mantidos, ordenados por duração)
+    // ═══════════════════════════════════════════════════════════════════
+    const worstLongtasks = {
+        tasks: [],
+        maxSize: CONFIG.WORST_LONGTASKS_SIZE,
+        
+        add(task) {
+            this.tasks.push(task);
+            // Ordenar por duração (maior primeiro)
+            this.tasks.sort((a, b) => b.duration - a.duration);
+            // Manter apenas top N
+            if (this.tasks.length > this.maxSize) {
+                this.tasks = this.tasks.slice(0, this.maxSize);
+            }
+        },
+        
+        getAll() {
+            return [...this.tasks];
+        },
+        
+        clear() {
+            this.tasks = [];
+        },
+        
+        getSuspects() {
+            // Agregar por source para identificar culpados
+            const suspects = {};
+            
+            this.tasks.forEach(task => {
+                if (task.attribution && task.attribution.length > 0) {
+                    task.attribution.forEach(attr => {
+                        const key = attr.containerSrc || attr.containerName || attr.name || 'unknown';
+                        if (!suspects[key]) {
+                            suspects[key] = {
+                                source: key,
+                                count: 0,
+                                totalDuration: 0,
+                                maxDuration: 0
+                            };
+                        }
+                        suspects[key].count++;
+                        suspects[key].totalDuration += task.duration;
+                        suspects[key].maxDuration = Math.max(suspects[key].maxDuration, task.duration);
+                    });
+                }
+            });
+            
+            // Ordenar por totalDuration
+            return Object.values(suspects).sort((a, b) => b.totalDuration - a.totalDuration);
         }
     };
 
@@ -111,7 +177,11 @@
                         })) || []
                     };
                     
+                    // Adicionar ao buffer circular
                     perfBuffer.add(event);
+                    
+                    // Adicionar ao ranking de piores (sempre)
+                    worstLongtasks.add(event);
                     
                     if (CONFIG.DEBUG_MODE) {
                         console.warn(`🐌 [LongTask] ${entry.duration.toFixed(1)}ms`, event.attribution);
@@ -217,25 +287,59 @@
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // API PÚBLICA
+    // API PÚBLICA V2
     // ═══════════════════════════════════════════════════════════════════
+    
     window.__perfDump = function() {
         const events = perfBuffer.getAll();
+        const stats = perfBuffer.getStats();
+        const suspects = worstLongtasks.getSuspects();
+        
         console.group('📊 Performance Dump (' + events.length + ' eventos)');
         
+        // Estatísticas resumidas
+        console.log('━━━ Estatísticas ━━━');
+        console.log(`LongTasks: ${stats.longtasks.count} | Avg: ${stats.longtasks.avgDuration}ms | Max: ${stats.longtasks.maxDuration}ms | P90: ${stats.longtasks.p90}ms | P95: ${stats.longtasks.p95}ms`);
+        console.log(`FPS Dips: ${stats.fpsDips.count} | Avg FPS: ${stats.fpsDips.avgFps}`);
+        console.log(`FPS Atual: ${fpsMonitor.getCurrentFps()}`);
+        
+        // Suspeitos (se houver)
+        if (suspects.length > 0) {
+            console.log('━━━ 🔍 Suspeitos (por tempo total) ━━━');
+            suspects.slice(0, 5).forEach((s, i) => {
+                console.log(`${i + 1}. ${s.source}: ${s.count} ocorrências, ${s.totalDuration.toFixed(1)}ms total, max ${s.maxDuration.toFixed(1)}ms`);
+            });
+        }
+        
+        // Eventos recentes
+        console.log('━━━ Eventos Recentes ━━━');
         events.forEach((e, i) => {
             const time = new Date(e.timestamp).toLocaleTimeString();
             if (e.type === 'longtask') {
-                console.log(`${i + 1}. [${time}] 🐌 LongTask: ${e.duration.toFixed(1)}ms`, e.attribution);
+                const sources = e.attribution.map(a => a.containerSrc || a.containerName || a.name).join(', ');
+                console.log(`${i + 1}. [${time}] 🐌 LongTask: ${e.duration.toFixed(1)}ms ${sources ? '(' + sources + ')' : ''}`);
             } else if (e.type === 'fps-low') {
                 console.log(`${i + 1}. [${time}] 📉 Low FPS: ${e.fps}`);
-            } else {
-                console.log(`${i + 1}. [${time}] ${e.type}:`, e);
             }
         });
         
+        // Diagnóstico automático
+        console.log('━━━ 💡 Diagnóstico ━━━');
+        if (stats.longtasks.count > 10) {
+            console.log('⚠️ Muitos LongTasks detectados. Possíveis causas:');
+            if (suspects[0]) {
+                console.log(`   → Principal suspeito: ${suspects[0].source}`);
+            }
+        }
+        if (parseFloat(stats.fpsDips.avgFps) < 45) {
+            console.log('⚠️ FPS médio baixo. Considere reduzir efeitos visuais.');
+        }
+        if (stats.longtasks.count === 0 && stats.fpsDips.count === 0) {
+            console.log('✅ Performance OK - nenhum problema detectado.');
+        }
+        
         console.groupEnd();
-        return events;
+        return { events, stats, suspects };
     };
 
     window.__perfStats = function() {
@@ -248,15 +352,48 @@
         console.groupEnd();
         return stats;
     };
+    
+    window.__perfWorst = function() {
+        const tasks = worstLongtasks.getAll();
+        const suspects = worstLongtasks.getSuspects();
+        
+        console.group('🏆 Top 20 Piores LongTasks');
+        
+        tasks.forEach((t, i) => {
+            const time = new Date(t.timestamp).toLocaleTimeString();
+            const sources = t.attribution.map(a => a.containerSrc || a.containerName || a.name).filter(Boolean);
+            console.log(`${i + 1}. ${t.duration.toFixed(1)}ms [${time}] ${sources.length ? sources.join(', ') : 'unknown'}`);
+        });
+        
+        if (suspects.length > 0) {
+            console.log('━━━ Principais Culpados ━━━');
+            suspects.forEach((s, i) => {
+                console.log(`${i + 1}. ${s.source}: ${s.count}x, ${s.totalDuration.toFixed(0)}ms total`);
+            });
+        }
+        
+        console.groupEnd();
+        return { tasks, suspects };
+    };
 
     window.__perfReset = function() {
         perfBuffer.clear();
-        console.log('🧹 [PerfMon] Buffer limpo');
+        worstLongtasks.clear();
+        console.log('🧹 [PerfMon] Buffers limpos');
     };
 
     // Expor FPS atual para outros módulos
     window.__getCurrentFps = function() {
         return fpsMonitor.getCurrentFps();
+    };
+    
+    // Expor objeto perf para acesso direto
+    window.__perf = {
+        get buffer() { return perfBuffer.getAll(); },
+        get stats() { return perfBuffer.getStats(); },
+        get worstLongtasks() { return worstLongtasks.getAll(); },
+        get suspects() { return worstLongtasks.getSuspects(); },
+        get fps() { return fpsMonitor.getCurrentFps(); }
     };
 
     // ═══════════════════════════════════════════════════════════════════
@@ -275,7 +412,10 @@
             }
         });
         
-        console.log('✅ [PerfMon] Inicializado. Use __perfDump() para ver eventos.');
+        // Log silencioso - só mostra no DEBUG_MODE
+        if (CONFIG.DEBUG_MODE) {
+            console.log('✅ [PerfMon] V2 Inicializado. Use __perfDump() para ver eventos.');
+        }
     }
 
     // Iniciar quando DOM pronto

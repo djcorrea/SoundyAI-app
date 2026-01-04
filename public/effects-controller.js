@@ -1,17 +1,28 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * 🎛️ EFFECTS CONTROLLER V2 - SoundyAI
+ * 🎛️ EFFECTS CONTROLLER V3 - SoundyAI
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * VERSÃO: 2.0.0 - Refatoração completa para performance extrema
- * DATA: 2026-01-04
+ * VERSÃO: 3.0.0 - Degradação Progressiva + Modo Digitação
+ * DATA: 2026-01-05
+ * 
+ * MELHORIAS V3:
+ * ✅ Destroy idempotente - verificação de canvas.parentNode.contains()
+ * ✅ Debounce no destroy - evita chamadas múltiplas rápidas
+ * ✅ Lock de destroy - previne race conditions
+ * ✅ Degradação progressiva suavizada:
+ *    - FPS < 50 por 2s → high → medium
+ *    - FPS < 45 por 4s → medium → low + cap pixelRatio
+ *    - FPS < 40 por 12s → KILL (último recurso)
+ * ✅ Recovery automático - FPS > 55 por 5s → tenta upgrade
+ * ✅ Modo digitação - reduz efeitos durante input no chat
+ * ✅ LongTask threshold mais tolerante (200ms, 8 ocorrências em 15s)
  * 
  * PROBLEMAS RESOLVIDOS:
- * ❌ Vanta sendo iniciado múltiplas vezes → ✅ SINGLETON com window.__VANTA_INSTANCE__
- * ❌ Degradação apenas pausa, não destrói → ✅ destroy() real com cleanup completo
- * ❌ FPS médio ~38 mesmo em low → ✅ Low tier = SEM VANTA (destroy total)
- * ❌ Long tasks > 1000ms → ✅ Kill switch automático
- * ❌ Efeitos ativos sem foco → ✅ Visibility + Focus = destroy imediato
+ * ❌ Erro "removeChild... not a child" → ✅ Verificação contains() antes de remover
+ * ❌ Vanta destruído muito rápido → ✅ Thresholds mais tolerantes (40 FPS por 12s)
+ * ❌ Jank durante digitação → ✅ Modo digitação com pixelRatio reduzido
+ * ❌ Destroy duplicado → ✅ Lock + debounce de 500ms
  * 
  * ARQUITETURA:
  * 1. SINGLETON Pattern - Apenas UMA instância de Vanta permitida
@@ -19,6 +30,7 @@
  * 3. Cooldown entre mudanças de tier (evita thrashing)
  * 4. Kill switch baseado em FPS e LongTasks
  * 5. Limpeza completa: destroy + remove canvas + cancel RAF
+ * 6. Modo digitação: reduce pixelRatio durante input
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -36,7 +48,7 @@
     window.__EFFECTS_CONTROLLER_LOADED__ = true;
 
     // ═══════════════════════════════════════════════════════════════════
-    // CONFIGURAÇÃO
+    // CONFIGURAÇÃO V3 - Degradação Progressiva Suavizada
     // ═══════════════════════════════════════════════════════════════════
     const CONFIG = {
         // Thresholds de detecção de dispositivo
@@ -47,6 +59,7 @@
         // Pixel ratio caps por tier
         PIXEL_RATIO_HIGH: Math.min(window.devicePixelRatio || 1, 1.5),
         PIXEL_RATIO_MEDIUM: Math.min(window.devicePixelRatio || 1, 1.25),
+        PIXEL_RATIO_LOW: Math.min(window.devicePixelRatio || 1, 0.75), // Cap agressivo
         
         // Vanta configs por tier
         // NOTA: 'low' não tem config pois Vanta é DESTRUÍDO em low tier
@@ -81,22 +94,48 @@
         // Delay antes de pausar no blur (evita flicker em alt-tab rápido)
         BLUR_PAUSE_DELAY: 300,
         
+        // Debounce para destroy (evita múltiplas chamadas)
+        DESTROY_DEBOUNCE: 500,       // 500ms de debounce no destroy
+        
         // ═══════════════════════════════════════════════════════════════
-        // KILL SWITCH - Thresholds para desativar Vanta completamente
+        // DEGRADAÇÃO PROGRESSIVA (menos agressiva)
         // ═══════════════════════════════════════════════════════════════
         
-        // FPS kill switch
-        KILL_FPS_THRESHOLD: 45,      // FPS abaixo disso = problema
-        KILL_FPS_DURATION: 3000,     // Por 3 segundos = kill
+        // Tier 1: FPS < 50 por 2s → high → medium
+        DEGRADE_FPS_TIER1: 50,
+        DEGRADE_DURATION_TIER1: 2000,
         
-        // LongTask kill switch
-        KILL_LONGTASK_THRESHOLD: 300,  // LongTasks > 300ms
-        KILL_LONGTASK_COUNT: 3,        // 3 ocorrências = kill
-        KILL_LONGTASK_WINDOW: 10000    // Dentro de 10 segundos
+        // Tier 2: FPS < 45 por 4s → medium → low + cap pixelRatio
+        DEGRADE_FPS_TIER2: 45,
+        DEGRADE_DURATION_TIER2: 4000,
+        
+        // Tier 3: FPS < 40 por 12s → KILL (último recurso)
+        KILL_FPS_THRESHOLD: 40,
+        KILL_FPS_DURATION: 12000,
+        
+        // ═══════════════════════════════════════════════════════════════
+        // LONGTASK THRESHOLDS (mais tolerante)
+        // ═══════════════════════════════════════════════════════════════
+        KILL_LONGTASK_THRESHOLD: 200,  // LongTasks > 200ms
+        KILL_LONGTASK_COUNT: 8,        // 8 ocorrências = degrade
+        KILL_LONGTASK_WINDOW: 15000,   // Dentro de 15 segundos
+        
+        // ═══════════════════════════════════════════════════════════════
+        // RECOVERY (upgrade de tier quando FPS está bom)
+        // ═══════════════════════════════════════════════════════════════
+        RECOVERY_FPS_THRESHOLD: 55,   // FPS bom para recovery
+        RECOVERY_DURATION: 5000,      // Por 5 segundos
+        RECOVERY_COOLDOWN: 10000,     // Cooldown entre upgrades
+        
+        // ═══════════════════════════════════════════════════════════════
+        // MODO DIGITAÇÃO
+        // ═══════════════════════════════════════════════════════════════
+        TYPING_DEBOUNCE: 1000,        // Pausa efeitos por 1s após keystroke
+        TYPING_REDUCE_TIER: true      // Reduzir tier durante digitação
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // ESTADO DO CONTROLADOR
+    // ESTADO DO CONTROLADOR V3
     // ═══════════════════════════════════════════════════════════════════
     const state = {
         // ═══════ Device Detection ═══════
@@ -123,11 +162,25 @@
         recoveryTimer: null,
         blurTimer: null,
         modalCheckTimer: null,
+        destroyDebounceTimer: null,  // Timer para debounce do destroy
         
         // ═══════ Kill Switch Tracking ═══════
         lowFpsStart: null,           // Quando FPS começou a ficar baixo
         longTaskTimestamps: [],      // Array de timestamps de longtasks pesados
         isKilled: false,             // Se true, Vanta está permanentemente desabilitado
+        
+        // ═══════ Destroy Lock ═══════
+        isDestroying: false,         // Lock para evitar destroy duplicado
+        isDestroyed: false,          // Flag de estado destruído
+        
+        // ═══════ Modo Digitação ═══════
+        isTyping: false,             // Se usuário está digitando
+        typingTimeout: null,         // Timer para reset do modo digitação
+        tierBeforeTyping: null,      // Tier salvo antes de entrar em typing mode
+        
+        // ═══════ FPS Recovery Tracking ═══════
+        goodFpsStart: null,          // Quando FPS começou a ficar bom
+        lastRecoveryAttempt: 0,      // Timestamp da última tentativa de recovery
         
         // ═══════ Performance Metrics ═══════
         consecutiveLowFps: 0,
@@ -154,14 +207,28 @@
     }
     
     /**
-     * DESTROY COMPLETO do Vanta
+     * DESTROY COMPLETO do Vanta (IDEMPOTENTE)
+     * - Verifica locks para evitar chamadas duplicadas
      * - Chama destroy() na instância
-     * - Remove canvas WebGL do DOM
+     * - Remove canvas WebGL do DOM de forma segura
      * - Limpa referência global
      * - Força garbage collection
      */
     function destroyVantaCompletely() {
+        // GUARD: Verificar lock de destroy
+        if (state.isDestroying) {
+            console.log('⏳ [Effects] Destroy já em andamento, ignorando');
+            return;
+        }
+        
+        // GUARD: Verificar se já está destruído
         const instance = window.__VANTA_INSTANCE__;
+        if (!instance && state.isDestroyed) {
+            return; // Silenciosamente ignora se já destruído
+        }
+        
+        // Ativar lock
+        state.isDestroying = true;
         
         if (instance) {
             try {
@@ -175,10 +242,18 @@
                     instance.renderer.dispose();
                     instance.renderer.forceContextLoss();
                     
-                    // 3. Remover canvas do DOM
+                    // 3. Remover canvas do DOM de forma SEGURA
                     const canvas = instance.renderer.domElement;
                     if (canvas && canvas.parentNode) {
-                        canvas.parentNode.removeChild(canvas);
+                        // CRÍTICO: Verificar se canvas é realmente filho do parent
+                        try {
+                            if (canvas.parentNode.contains(canvas)) {
+                                canvas.parentNode.removeChild(canvas);
+                            }
+                        } catch (removeErr) {
+                            // Silenciosamente ignora erro de removeChild
+                            console.log('⚠️ [Effects] Canvas já removido do DOM');
+                        }
                     }
                 }
                 
@@ -197,16 +272,20 @@
                 }
                 
                 // 5. Chamar destroy() oficial do Vanta
-                instance.destroy();
+                if (typeof instance.destroy === 'function') {
+                    instance.destroy();
+                }
                 
                 console.log('🗑️ [Effects] Vanta destruído completamente');
             } catch (e) {
-                console.warn('⚠️ [Effects] Erro no destroy:', e.message);
+                // Não logar como warning para evitar spam - destroy pode falhar se já destruído
+                console.log('⚠️ [Effects] Destroy parcial:', e.message);
             }
         }
         
         // 6. Limpar referência global (SEMPRE, mesmo se instance era null)
         window.__VANTA_INSTANCE__ = null;
+        state.isDestroyed = true;
         
         // 7. Limpar qualquer canvas órfão no elemento vanta-bg
         const vantaBg = document.getElementById('vanta-bg');
@@ -218,10 +297,28 @@
                     if (gl) {
                         gl.getExtension('WEBGL_lose_context')?.loseContext();
                     }
-                    canvas.remove();
+                    if (canvas.parentNode && canvas.parentNode.contains(canvas)) {
+                        canvas.remove();
+                    }
                 } catch (e) {}
             });
         }
+        
+        // 8. Liberar lock após pequeno delay (evita race conditions)
+        setTimeout(() => {
+            state.isDestroying = false;
+        }, 100);
+    }
+    
+    /**
+     * Wrapper com debounce para destroy
+     * Evita múltiplas chamadas em sequência rápida
+     */
+    function destroyVantaDebounced() {
+        clearTimeout(state.destroyDebounceTimer);
+        state.destroyDebounceTimer = setTimeout(() => {
+            destroyVantaCompletely();
+        }, CONFIG.DESTROY_DEBOUNCE);
     }
     
     /**
@@ -231,8 +328,14 @@
     function createVantaInstance(config) {
         // GUARD: Não criar se já existe
         if (hasVantaInstance()) {
-            console.warn('⚠️ [Effects] Tentativa de criar Vanta duplicado bloqueada');
+            console.log('⚠️ [Effects] Tentativa de criar Vanta duplicado bloqueada');
             return getVantaInstance();
+        }
+        
+        // GUARD: Não criar se destroy em andamento
+        if (state.isDestroying) {
+            console.log('⏳ [Effects] Destroy em andamento, não criando Vanta');
+            return null;
         }
         
         // GUARD: Verificar dependências
@@ -278,6 +381,7 @@
             // Armazenar como SINGLETON
             window.__VANTA_INSTANCE__ = instance;
             state.vantaElement = element;
+            state.isDestroyed = false;  // Reset flag de destruído
             
             console.log(`✨ [Effects] Vanta criado (tier: ${state.currentTier})`);
             return instance;
@@ -464,31 +568,93 @@
     }
     
     /**
-     * Processa evento de FPS baixo
-     * Se FPS < threshold por X segundos, ativa kill switch
+     * Processa evento de FPS baixo com DEGRADAÇÃO PROGRESSIVA
+     * Tier 1: FPS < 50 por 2s → high → medium
+     * Tier 2: FPS < 45 por 4s → medium → low
+     * Tier 3: FPS < 40 por 12s → KILL
      */
     function processLowFps(fps) {
         state.lastFps = fps;
         
+        // Se FPS está bom, tentar recovery
+        if (fps >= CONFIG.RECOVERY_FPS_THRESHOLD) {
+            processGoodFps(fps);
+            state.lowFpsStart = null;
+            state.consecutiveLowFps = 0;
+            return;
+        }
+        
+        const now = Date.now();
+        
+        // Tier 1: FPS < 50 por 2s → degradar de high para medium
+        if (fps < CONFIG.DEGRADE_FPS_TIER1 && state.currentTier === 'high') {
+            if (!state.lowFpsStart) {
+                state.lowFpsStart = now;
+            } else if (now - state.lowFpsStart > CONFIG.DEGRADE_DURATION_TIER1) {
+                degradeTier('FPS < 50 por 2s');
+                state.lowFpsStart = now; // Reset timer
+                return;
+            }
+        }
+        
+        // Tier 2: FPS < 45 por 4s → degradar de medium para low + cap pixelRatio
+        if (fps < CONFIG.DEGRADE_FPS_TIER2 && state.currentTier === 'medium') {
+            if (!state.lowFpsStart) {
+                state.lowFpsStart = now;
+            } else if (now - state.lowFpsStart > CONFIG.DEGRADE_DURATION_TIER2) {
+                // Cap pixel ratio antes de degradar
+                const instance = getVantaInstance();
+                if (instance?.renderer) {
+                    instance.renderer.setPixelRatio(CONFIG.PIXEL_RATIO_LOW);
+                }
+                degradeTier('FPS < 45 por 4s');
+                state.lowFpsStart = now;
+                return;
+            }
+        }
+        
+        // Tier 3: FPS < 40 por 12s em tier low = KILL
         if (fps < CONFIG.KILL_FPS_THRESHOLD) {
             if (!state.lowFpsStart) {
-                state.lowFpsStart = Date.now();
-            } else if (Date.now() - state.lowFpsStart > CONFIG.KILL_FPS_DURATION) {
-                // FPS baixo por muito tempo - degradar primeiro
-                if (state.currentTier === 'high') {
-                    degradeTier('FPS baixo prolongado');
-                    state.lowFpsStart = Date.now(); // Reset timer
-                } else if (state.currentTier === 'medium') {
-                    degradeTier('FPS baixo em medium tier');
-                    state.lowFpsStart = Date.now();
+                state.lowFpsStart = now;
+            } else if (now - state.lowFpsStart > CONFIG.KILL_FPS_DURATION) {
+                if (state.currentTier === 'low' || state.currentTier === 'killed') {
+                    // Já está no tier mais baixo e ainda ruim = kill
+                    activateKillSwitch(`FPS ${fps} por ${CONFIG.KILL_FPS_DURATION / 1000}s`);
                 } else {
-                    // Já está em low e ainda assim FPS baixo = kill
-                    activateKillSwitch(`FPS ${fps} por ${CONFIG.KILL_FPS_DURATION}ms`);
+                    // Ainda tem margem, apenas degradar
+                    degradeTier('FPS crítico prolongado');
+                    state.lowFpsStart = now;
                 }
             }
-        } else {
-            state.lowFpsStart = null;  // Reset se FPS voltou ao normal
-            state.consecutiveLowFps = 0;
+        }
+    }
+    
+    /**
+     * Processa FPS bom para tentar recovery (upgrade de tier)
+     */
+    function processGoodFps(fps) {
+        const now = Date.now();
+        
+        // Não fazer recovery se killed ou no tier máximo
+        if (state.isKilled || state.currentTier === state.baseTier) {
+            return;
+        }
+        
+        // Verificar cooldown de recovery
+        if (now - state.lastRecoveryAttempt < CONFIG.RECOVERY_COOLDOWN) {
+            return;
+        }
+        
+        // Iniciar tracking de FPS bom
+        if (!state.goodFpsStart) {
+            state.goodFpsStart = now;
+        } else if (now - state.goodFpsStart > CONFIG.RECOVERY_DURATION) {
+            // FPS bom por tempo suficiente - tentar upgrade
+            if (upgradeTier('recovery - FPS estável')) {
+                state.lastRecoveryAttempt = now;
+            }
+            state.goodFpsStart = null;
         }
     }
     
@@ -575,6 +741,112 @@
                 }
             }, 100);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODO DIGITAÇÃO - Prioriza UI do chat durante input
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Ativa modo digitação - reduz efeitos para priorizar input
+     */
+    function enterTypingMode() {
+        if (state.isTyping) return;
+        
+        state.isTyping = true;
+        
+        // Salvar tier atual se vamos reduzir
+        if (CONFIG.TYPING_REDUCE_TIER && state.currentTier === 'high') {
+            state.tierBeforeTyping = state.currentTier;
+            
+            // Reduzir temporariamente para medium durante digitação
+            const instance = getVantaInstance();
+            if (instance?.renderer) {
+                instance.renderer.setPixelRatio(CONFIG.PIXEL_RATIO_MEDIUM);
+            }
+        }
+    }
+    
+    /**
+     * Sai do modo digitação - restaura efeitos
+     */
+    function exitTypingMode() {
+        if (!state.isTyping) return;
+        
+        state.isTyping = false;
+        
+        // Restaurar tier se foi reduzido
+        if (state.tierBeforeTyping) {
+            const instance = getVantaInstance();
+            if (instance?.renderer && state.currentTier === 'high') {
+                instance.renderer.setPixelRatio(CONFIG.PIXEL_RATIO_HIGH);
+            }
+            state.tierBeforeTyping = null;
+        }
+    }
+    
+    /**
+     * Handler de keystroke - ativa modo digitação com debounce
+     */
+    function onTypingActivity() {
+        enterTypingMode();
+        
+        // Resetar timer de saída do modo digitação
+        clearTimeout(state.typingTimeout);
+        state.typingTimeout = setTimeout(() => {
+            exitTypingMode();
+        }, CONFIG.TYPING_DEBOUNCE);
+    }
+    
+    /**
+     * Inicializa listeners de digitação para elementos de input
+     */
+    function initTypingListeners() {
+        // Seletores de elementos de input do chat
+        const inputSelectors = [
+            '#chatInput',
+            '#chat-input',
+            '.chat-input',
+            'input[type="text"]',
+            'textarea'
+        ];
+        
+        const attachListeners = (element) => {
+            if (!element || element.dataset.typingListenerAttached) return;
+            
+            element.addEventListener('input', onTypingActivity, { passive: true });
+            element.addEventListener('keydown', onTypingActivity, { passive: true });
+            element.addEventListener('focus', () => enterTypingMode(), { passive: true });
+            element.addEventListener('blur', () => {
+                clearTimeout(state.typingTimeout);
+                state.typingTimeout = setTimeout(exitTypingMode, 100);
+            }, { passive: true });
+            
+            element.dataset.typingListenerAttached = 'true';
+        };
+        
+        // Attach para elementos existentes
+        inputSelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(attachListeners);
+        });
+        
+        // Observer para elementos adicionados dinamicamente
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType !== Node.ELEMENT_NODE) return;
+                    
+                    inputSelectors.forEach(selector => {
+                        if (node.matches?.(selector)) {
+                            attachListeners(node);
+                        }
+                        node.querySelectorAll?.(selector).forEach(attachListeners);
+                    });
+                });
+            });
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -757,7 +1029,11 @@
                 if (shouldVantaRun()) {
                     applyCurrentTier();
                 }
-                console.log('✅ [Effects] Controller V2 inicializado');
+                
+                // Inicializar typing listeners após libs carregadas
+                initTypingListeners();
+                
+                console.log('✅ [Effects] Controller V3 inicializado');
             } else {
                 setTimeout(waitForLibs, 100);
             }
