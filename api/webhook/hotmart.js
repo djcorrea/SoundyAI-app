@@ -37,8 +37,46 @@ const COLLECTION_TRANSACTIONS = 'hotmart_transactions';
 const PRO_DURATION_DAYS = 120; // 4 meses
 
 // ═══════════════════════════════════════════════════════════════════
-// 🔐 FUNÇÕES DE SEGURANÇA
+// 🔐 FUNÇÕES DE SEGURANÇA E PARSING
 // ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Parse seguro do body da Hotmart (tolerante a Buffer ou Object)
+ * @param {Object} req - Express request
+ * @returns {Object} Body parseado
+ * @throws {Error} Se formato for desconhecido ou JSON inválido
+ */
+function safeParseHotmartBody(req) {
+  try {
+    // Caso 1: Body é Buffer (express.raw capturou corretamente)
+    if (Buffer.isBuffer(req.body)) {
+      console.log('📦 [HOTMART] Body recebido como Buffer - parseando...');
+      const rawBody = req.body.toString('utf8');
+      return JSON.parse(rawBody);
+    }
+    
+    // Caso 2: Body já é Object (express.json já processou)
+    if (typeof req.body === 'object' && req.body !== null) {
+      console.log('📦 [HOTMART] Body recebido como Object - usando diretamente');
+      return req.body;
+    }
+    
+    // Caso 3: Body é string (raramente acontece)
+    if (typeof req.body === 'string') {
+      console.log('📦 [HOTMART] Body recebido como String - parseando...');
+      return JSON.parse(req.body);
+    }
+    
+    // Caso 4: Formato desconhecido
+    throw new Error(`Formato de body desconhecido: ${typeof req.body}`);
+    
+  } catch (error) {
+    console.error('❌ [HOTMART] Erro no parse seguro do body:', error.message);
+    console.error('❌ [HOTMART] Tipo recebido:', typeof req.body);
+    console.error('❌ [HOTMART] Body raw:', req.body);
+    throw error;
+  }
+}
 
 /**
  * Valida assinatura HMAC do webhook Hotmart
@@ -422,19 +460,21 @@ router.post('/', (req, res) => {
         'x-hotmart-hottok': req.headers['x-hotmart-hottok'] ? '***' : 'ausente',
         'content-type': req.headers['content-type']
       }, null, 2));
+      console.log('📋 [HOTMART] Body type:', typeof req.body);
+      console.log('📋 [HOTMART] Body é Buffer?:', Buffer.isBuffer(req.body));
 
       // ═══════════════════════════════════════════════════════════
-      // 🔧 PARSE MANUAL DO BODY (req.body é Buffer do express.raw)
+      // 🔧 PARSE SEGURO DO BODY (tolerante a Buffer OU Object)
       // ═══════════════════════════════════════════════════════════
       let parsedBody;
       
       try {
-        // Converter Buffer para string e fazer parse JSON
-        const rawBody = req.body.toString('utf8');
-        parsedBody = JSON.parse(rawBody);
+        parsedBody = safeParseHotmartBody(req);
         console.log('✅ [HOTMART] Body parseado com sucesso');
+        console.log('📋 [HOTMART] Evento:', parsedBody.event || parsedBody.status);
       } catch (parseError) {
         console.error('❌ [HOTMART] Erro ao parsear body:', parseError.message);
+        console.error('❌ [HOTMART] Body não será processado');
         // Resposta já foi enviada - apenas logar erro
         return;
       }
