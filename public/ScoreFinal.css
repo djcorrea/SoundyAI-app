@@ -13,9 +13,9 @@
   width: 100%;
   text-align: center;
   padding: 28px 20px;
-  background: rgba(10, 10, 20, 0.6); /* ⚡ ULTRA-OTIMIZADO: Background mais opaco = menos blur necessário */
-  backdrop-filter: blur(6px) saturate(150%); /* ⚡ ULTRA-OTIMIZADO: Blur ainda mais leve */
-  -webkit-backdrop-filter: blur(6px) saturate(150%);
+  background: rgba(10, 10, 20, 0.4);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
   border-bottom: 1px solid rgba(127, 0, 255, 0.3);
   box-shadow: 0 2px 18px rgba(127, 0, 255, 0.2);
   position: relative;
@@ -25,10 +25,6 @@
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-  will-change: transform, opacity; /* ⚡ Hint para GPU */
-  /* ⚡ CSS CONTAINMENT */
-  contain: layout style paint;
-  content-visibility: auto;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -42,38 +38,33 @@
   width: 100%;
   height: 100%;
   background: 
-    radial-gradient(circle at 20% 50%, rgba(127, 0, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.08) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, rgba(127, 0, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 50% 20%, rgba(127, 0, 255, 0.08) 0%, transparent 40%);
   background-size: 200% 200%;
-  animation: particleFlow 8s ease-out 1; /* ⚡ ULTRA-OTIMIZADO: Mais rápido e suave */
-  animation-fill-mode: forwards;
+  animation: particleFlow 12s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5; /* ⚡ Mais transparente */
-  will-change: opacity; /* ⚡ Apenas opacity, não background-position */
+  opacity: 0.6;
 }
 
-/* ⚡ ULTRA-PERFORMANCE: Desabilitar em mobile */
-@media (max-width: 768px) {
-  #final-score-display::before {
-    display: none !important;
-  }
-  
-  #final-score-display {
-    backdrop-filter: blur(3px); /* Blur mínimo */
-    -webkit-backdrop-filter: blur(3px);
-  }
-}
-
-/* Animação suave de movimento orgânico - ⚡ OTIMIZADO: Reduzido de 4 para 2 keyframes */
+/* Animação suave de movimento orgânico */
 @keyframes particleFlow {
-  0% { 
+  0%, 100% { 
     background-position: 0% 50%, 100% 50%, 50% 0%;
     opacity: 0.6;
   }
-  100% { 
+  25% {
+    background-position: 50% 30%, 70% 70%, 30% 50%;
+    opacity: 0.8;
+  }
+  50% { 
     background-position: 100% 50%, 0% 50%, 50% 100%;
-    opacity: 0.5; /* Levemente mais transparente no final */
+    opacity: 0.5;
+  }
+  75% {
+    background-position: 30% 70%, 50% 30%, 70% 30%;
+    opacity: 0.7;
   }
 }
 
@@ -89,11 +80,10 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.3)); /* ⚡ OTIMIZADO: Reduzido de 2 para 1 shadow */
-  filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.3)); /* ⚡ OTIMIZADO: Reduzido de 2 para 1 shadow */
+  filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.4)) 
+          drop-shadow(0 0 10px rgba(127, 0, 255, 0.3));
   margin-bottom: 18px;
-  animation: fadeInScale 0.8s ease, gradientShift 4s linear 1; /* ⚡ OTIMIZADO: gradientShift executa apenas 1x */
-  animation-fill-mode: forwards;
+  animation: fadeInScale 0.8s ease, gradientShift 4s linear infinite;
   position: relative;
   z-index: 1;
   font-family: 'Rajdhani', 'Arial Narrow', 'Arial', sans-serif;
@@ -105,7 +95,6 @@
   -ms-user-select: none;
   cursor: default;
   pointer-events: none;
-  will-change: transform, opacity; /* ⚡ Hint para GPU */
 }
 
 /* Animação de entrada suave */
@@ -174,13 +163,11 @@
   height: 100%;
   background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
   background-size: 200% 100%;
-  animation: barGlow 4s linear 1; /* ⚡ OTIMIZADO: Executa apenas 1x */
-  animation-fill-mode: forwards;
+  animation: barGlow 4s linear infinite;
   border-radius: 10px;
   position: relative;
   overflow: hidden;
   width: 0%; /* Inicia em 0% para animação JavaScript */
-  will-change: width; /* ⚡ Hint para GPU na animação de largura */
 }
 
 /* Brilho interno da barra */
@@ -245,20 +232,6 @@
   to { 
     opacity: 0.85; 
     transform: translateY(0); 
-  }
-}
-
-/* ⚡ PERFORMANCE: Respeitar preferência de animações reduzidas do usuário */
-@media (prefers-reduced-motion: reduce) {
-  #final-score-display::before,
-  .score-final-value,
-  .score-final-bar-fill,
-  .score-final-bar-fill::after {
-    animation: none !important;
-  }
-  
-  #final-score-display::before {
-    background-position: 50% 50%, 50% 50%, 50% 50%;
   }
 }
 
