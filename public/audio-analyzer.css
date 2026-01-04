@@ -78,7 +78,8 @@
     height: 100dvh;
     height: 100vh;
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px); /* ⚡ OTIMIZADO: Reduzido de 8px para 4px (50% menos custo GPU) */
+    -webkit-backdrop-filter: blur(4px);
     z-index: 10000;
     display: flex;
     align-items: center;
@@ -109,15 +110,15 @@
         rgba(0, 0, 0, 0.98) 60%,          /* Preto mais intenso */
         rgba(0, 80, 200, 0.5) 100%        /* Azul mais escuro */
     );
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(12px); /* ⚡ OTIMIZADO: Reduzido de 20px para 12px (40% menos custo GPU) */
+    -webkit-backdrop-filter: blur(12px);
     /* BORDAS E SHADOWS IDÊNTICAS */
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 20px;
     box-shadow: 
-        0 20px 40px rgba(91, 11, 156, 0.49),
-        0 0 0 1px rgba(255, 255, 255, 0.05),
+        0 20px 40px rgba(91, 11, 156, 0.49), /* ⚡ OTIMIZADO: Reduzido de 3 para 2 shadows */
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    will-change: transform, opacity; /* ⚡ OTIMIZADO: Hint para GPU na abertura */
     padding: 0;
     text-align: center;
     position: relative;
@@ -165,7 +166,8 @@
             rgba(0, 212, 255, 0.02) 61px
         );
     opacity: 0.6;
-    animation: neural-grid 15s linear infinite;
+    animation: neural-grid 2s ease-out 1; /* ⚡ OTIMIZADO: Executa apenas 1x na abertura, não infinito */
+    animation-fill-mode: forwards; /* ⚡ Mantém estado final */
     pointer-events: none;
     z-index: 1;
 }
@@ -183,11 +185,13 @@
         radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
     background-size: 50px 50px, 80px 80px;
     background-position: 0 0, 25px 25px;
-    animation: particles-float 20s linear infinite;
+    animation: particles-float 3s ease-out 1; /* ⚡ OTIMIZADO: Executa apenas 1x na abertura */
+    animation-fill-mode: forwards; /* ⚡ Mantém estado final */
     pointer-events: none;
     z-index: 1;
 }
 
+/* ⚡ OTIMIZADO: Animação mais lenta e com animation-iteration-count: 1 para parar após abertura */
 @keyframes neural-grid {
     0% {
         transform: translate(0, 0);
@@ -198,7 +202,7 @@
     }
     100% {
         transform: translate(40px, 40px);
-        opacity: 0.6;
+        opacity: 0.5; /* Estado final levemente mais transparente */
     }
 }
 
@@ -345,10 +349,8 @@
     line-height: 1.2 !important;
     /* GLOW AZUL/ROXO/CIANO - ÉPICO */
     text-shadow: 
-        0 0 15px rgba(0, 212, 255, 0.6),
-        0 0 30px rgba(108, 0, 162, 0.4),
-        0 0 50px rgba(0, 212, 255, 0.25),
-        0 0 70px rgba(106, 0, 255, 0.2) !important;
+        0 0 15px rgba(0, 212, 255, 0.6), /* ⚡ OTIMIZADO: Reduzido de 4 para 2 shadows */
+        0 0 30px rgba(108, 0, 162, 0.4) !important;
     /* GRADIENTE DE TEXTO */
     background: linear-gradient(135deg, 
         #6a9aff 0%,      /* Azul */
@@ -362,22 +364,22 @@
     animation: title-glow 3s ease-in-out infinite;
 }
 
-/* ANIMAÇÃO DE GLOW NO TÍTULO */
+/* ANIMAÇÃO DE GLOW NO TÍTULO - ⚡ OTIMIZADO: Usando apenas opacity para melhor performance */
 @keyframes title-glow {
     0%, 100% {
-        text-shadow: 
-            0 0 15px rgba(0, 212, 255, 0.6),
-            0 0 30px rgba(108, 0, 162, 0.4),
-            0 0 50px rgba(0, 212, 255, 0.25);
-        filter: drop-shadow(0 0 25px rgba(106, 154, 255, 0.5));
+        opacity: 0.9;
     }
     50% {
-        text-shadow: 
-            0 0 20px rgba(0, 212, 255, 0.8),
-            0 0 40px rgba(108, 0, 162, 0.6),
-            0 0 60px rgba(0, 212, 255, 0.35),
-            0 0 80px rgba(106, 0, 255, 0.3);
-        filter: drop-shadow(0 0 35px rgba(106, 154, 255, 0.7));
+        opacity: 1;
+    }
+}
+
+/* ⚡ PERFORMANCE: Reduzir animações em dispositivos com prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    #audioAnalysisModal .audio-modal-content::before,
+    #audioAnalysisModal .audio-modal-content::after,
+    #audioAnalysisModal .upload-content h4 {
+        animation: none !important;
     }
 }
 

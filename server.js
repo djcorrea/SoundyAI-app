@@ -99,6 +99,9 @@ import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
+// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+import hotmartWebhookRouter from "./api/webhook/hotmart.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
 // ═══════════════════════════════════════════════════════════════════
@@ -165,6 +168,10 @@ app.use("/api", presignRoute);
 app.use('/api/stripe', stripeCheckoutRouter);
 app.use('/api/stripe/cancel-subscription', stripeCancelRouter);
 app.use('/api/webhook/stripe', stripeWebhookRouter);
+
+// 🎓 HOTMART: Registrar webhook para combo Curso + PRO
+app.use('/api/webhook/hotmart', hotmartWebhookRouter);
+console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
 
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
