@@ -299,9 +299,9 @@ function initVantaBackground() {
                 scaleMobile: 0.80,
                 color: 0x8a2be2,
                 backgroundColor: 0x0a0a1a,
-                points: isLowPerformance ? 2.50 : (isDesktop ? 5.00 : 3.00),
-                maxDistance: isLowPerformance ? 10.00 : (isDesktop ? 18.00 : 12.00),
-                spacing: isLowPerformance ? 35.00 : (isDesktop ? 22.00 : 28.00),
+                points: isLowPerformance ? 1.50 : (isDesktop ? 2.50 : 2.00),
+                maxDistance: isLowPerformance ? 8.00 : (isDesktop ? 12.00 : 10.00),
+                spacing: isLowPerformance ? 40.00 : (isDesktop ? 30.00 : 35.00),
                 showDots: true
             });
             console.log('✨ Vanta.js inicializado (fallback mode)');
@@ -362,17 +362,17 @@ function optimizeForMobile() {
         style.textContent = `
             /* OTIMIZADO: Apenas reduzir frequência de animações, não remover */
             .robo, .notebook, .teclado, .caixas, .mesa {
-                animation-duration: 8s !important; /* Mais lento = menos processamento */
+                animation-duration: 12s !important; /* Mais lento = menos processamento */
             }
             .chatbot-main-robot {
-                animation-duration: 4s !important; /* Reduzir frequência */
+                animation-duration: 6s !important; /* Reduzir frequência */
             }
             .floating-particle {
-                animation-duration: 20s !important; /* Muito mais lento */
+                animation-duration: 30s !important; /* Muito mais lento */
             }
             /* Manter visual mas reduzir processamento */
             .particles-overlay {
-                opacity: 0.3 !important; /* Reduzir mas não esconder */
+                opacity: 0.15 !important; /* Muito sutil em dispositivos fracos */
             }
         `;
         document.head.appendChild(style);
@@ -386,10 +386,10 @@ function optimizeForMobile() {
         style.textContent = `
             /* Manter animações mas reduzir frequência no mobile */
             .robo, .notebook, .teclado, .caixas, .mesa {
-                animation-duration: 6s !important; /* Mais lento no mobile */
+                animation-duration: 10s !important; /* Mais lento no mobile */
             }
             .particles-overlay {
-                opacity: 0.5 !important; /* Reduzir mas manter visível */
+                opacity: 0.2 !important; /* Reduzir mas manter visível */
             }
         `;
         document.head.appendChild(style);
