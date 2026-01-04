@@ -55,15 +55,17 @@
             points: 8.0,        // Aumentado para mais partículas
             maxDistance: 24.0,  // Aumentado para alcançar os lados
             spacing: 16.0,      // Reduzido para mais densidade
-            showDots: true,     // Ativado para melhor visualização
-            mouseControls: true
+            showDots: false,    // Desativado para linhas mais finas
+            mouseControls: true,
+            lineWidth: 0.5      // Linhas mais finas
         },
         VANTA_MEDIUM: {
             points: 6.0,        // Aumentado
             maxDistance: 20.0,  // Aumentado alcance
             spacing: 18.0,      // Mais denso
-            showDots: true,
-            mouseControls: true
+            showDots: false,    // Desativado para linhas mais finas
+            mouseControls: true,
+            lineWidth: 0.4      // Linhas mais finas
         },
         VANTA_LOW: {            // Configuração leve mas visível
             points: 4.0,        // Aumentado
@@ -362,7 +364,8 @@
                 points: config.points,
                 maxDistance: config.maxDistance,
                 spacing: config.spacing,
-                showDots: config.showDots
+                showDots: config.showDots,
+                lineWidth: config.lineWidth || 1.0  // Espessura das linhas
             });
             
             // Aplicar pixel ratio cap baseado no tier
@@ -384,12 +387,18 @@
                 instance.renderer.setPixelRatio(ratio);
             }
             
+            // Ajustar espessura das linhas via scene (se disponível)
+            if (instance?.linesMesh?.material) {
+                instance.linesMesh.material.linewidth = config.lineWidth || 1.0;
+                instance.linesMesh.material.needsUpdate = true;
+            }
+            
             // Armazenar como SINGLETON
             window.__VANTA_INSTANCE__ = instance;
             state.vantaElement = element;
             state.isDestroyed = false;  // Reset flag de destruído
             
-            console.log(`✨ [Effects] Vanta criado (tier: ${state.currentTier})`);
+            console.log(`✨ [Effects] Vanta criado (tier: ${state.currentTier}, lineWidth: ${config.lineWidth || 1.0})`);
             return instance;
             
         } catch (e) {
