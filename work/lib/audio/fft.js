@@ -1,13 +1,19 @@
 // 🌊 FFT ENGINE - Transformada rápida de Fourier via WASM
 // Motor FFT otimizado com windowing e análise espectral
 
+// 🚀 OTIMIZAÇÃO PERFORMANCE: Cache GLOBAL de twiddle factors
+// Reutilizado entre todas as instâncias FFT (evita recálculo)
+// Twiddle factors são valores matemáticos determinísticos
+const GLOBAL_TWIDDLE_CACHE = new Map();
+
 /**
  * 🧮 Implementação FFT JavaScript otimizada
  * Baseada no algoritmo Cooley-Tukey radix-2 DIT
  */
 class FastFFT {
   constructor() {
-    this.cache = new Map();
+    // 🚀 Usar cache global ao invés de instância local
+    this.cache = GLOBAL_TWIDDLE_CACHE;
   }
 
   /**
