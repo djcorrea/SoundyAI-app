@@ -50,25 +50,25 @@
         PIXEL_RATIO_LOW: Math.min(window.devicePixelRatio || 1, 0.75), // Cap agressivo
         
         // Vanta configs por tier
-        // NOTA: 'low' não tem config pois Vanta é DESTRUÍDO em low tier
+        // NOTA: Aumentado densidade e alcance para melhor visualização
         VANTA_HIGH: {
-            points: 4.0,        // Reduzido para performance
-            maxDistance: 16.0,  // Reduzido para performance
-            spacing: 24.0,      // Aumentado para performance
-            showDots: false,    // Desabilitado para performance
+            points: 8.0,        // Aumentado para mais partículas
+            maxDistance: 24.0,  // Aumentado para alcançar os lados
+            spacing: 16.0,      // Reduzido para mais densidade
+            showDots: true,     // Ativado para melhor visualização
             mouseControls: true
         },
         VANTA_MEDIUM: {
-            points: 3.0,
-            maxDistance: 14.0,
-            spacing: 26.0,      // Menos denso
-            showDots: false,
-            mouseControls: false
+            points: 6.0,        // Aumentado
+            maxDistance: 20.0,  // Aumentado alcance
+            spacing: 18.0,      // Mais denso
+            showDots: true,
+            mouseControls: true
         },
-        VANTA_LOW: {            // Nova configuração ultra-leve
-            points: 2.0,
-            maxDistance: 12.0,
-            spacing: 30.0,
+        VANTA_LOW: {            // Configuração leve mas visível
+            points: 4.0,        // Aumentado
+            maxDistance: 16.0,  // Maior alcance
+            spacing: 22.0,      // Mais denso
             showDots: false,
             mouseControls: false
         },
@@ -355,8 +355,8 @@
                 gyroControls: false,
                 minHeight: 200,
                 minWidth: 200,
-                scale: 1.0,
-                scaleMobile: 0.8,
+                scale: 1.5,        // Aumentado para cobrir mais área
+                scaleMobile: 1.2,  // Aumentado no mobile também
                 color: 0x8a2be2,
                 backgroundColor: 0x0a0a1a,
                 points: config.points,
