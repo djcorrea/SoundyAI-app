@@ -16450,7 +16450,7 @@ async function displayModalResults(analysis) {
             'Fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
             'Centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
             'Rolloff espectral 85% (hz)': 'Frequência onde acumula 85% da energia espectral. Valores baixos (<8kHz) indicam mix escuro.',
-            'Uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
+            // 'Uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.', // REMOVIDO: métrica não mais exibida
             'Largura espectral (hz)': 'Dispersão das frequências ao redor do centro espectral. Valores altos indicam som rico/cheio.',
             'Kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
             'Assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
@@ -16751,6 +16751,15 @@ async function displayModalResults(analysis) {
                 return row('Loudness (LUFS Integrado)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
             })(),
             
+            // LUFS Curto Prazo (Short-Term) - Métrica complementar de loudness
+            (() => {
+                const lufsShortTermValue = getMetric('lufsShortTerm', 'lufs_short_term');
+                if (Number.isFinite(lufsShortTermValue)) {
+                    return row('LUFS Curto Prazo (Short-Term)', `${safeFixed(lufsShortTermValue, 1)} LUFS`, 'lufsShortTerm', 'lufsShortTerm', 'secondary');
+                }
+                return null;
+            })(),
+            
             row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
             row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra', 'primary'),
             // Imagem Estéreo (movido de col2)
@@ -16841,8 +16850,8 @@ async function displayModalResults(analysis) {
             console.groupEnd();
         }
 
-        // Juntar HTML
-        const col1Html = col1.join('');
+        // Juntar HTML - Filtrar valores null e strings vazias antes do join
+        const col1Html = col1.filter(item => item && item.trim && item.trim() !== '').join('');
 
         // 🔍 [DEBUG_MAIN_METRICS] Log do HTML gerado
         if (DEBUG_MAIN_METRICS) {
@@ -17182,10 +17191,10 @@ async function displayModalResults(analysis) {
                     rows.push(row('Rolloff Espectral 85% (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'spectralRolloff', 'advanced'));
                 }
                 
-                // Spectral Flatness (Uniformidade espectral)
-                if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
-                }
+                // Spectral Flatness (Uniformidade espectral) - REMOVIDO: métrica instável
+                // if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
+                //     rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
+                // }
                 
                 // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
@@ -17224,10 +17233,12 @@ async function displayModalResults(analysis) {
                 }
                 
                 // === UNIFORMIDADE ESPECTRAL ===
-                if (Number.isFinite(analysis.technicalData?.spectralUniformity)) {
-                    rows.push(row('uniformidade espectral', `${safeFixed(analysis.technicalData.spectralUniformity, 3)}`, 'spectralUniformity'));
-                    console.log('🎛️ [DEBUG] Uniformidade espectral exibida:', analysis.technicalData.spectralUniformity);
-                }
+                // REMOVIDO: Métrica instável que sempre retorna 0 - ocultado do frontend apenas
+                // O cálculo permanece no backend para possível uso futuro
+                // if (Number.isFinite(analysis.technicalData?.spectralUniformity)) {
+                //     rows.push(row('uniformidade espectral', `${safeFixed(analysis.technicalData.spectralUniformity, 3)}`, 'spectralUniformity'));
+                //     console.log('🎛️ [DEBUG] Uniformidade espectral exibida:', analysis.technicalData.spectralUniformity);
+                // }
                 
                 // === ZEROS CROSSING RATE ===
                 if (Number.isFinite(analysis.technicalData?.zcr)) {
