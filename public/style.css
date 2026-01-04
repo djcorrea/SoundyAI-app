@@ -163,7 +163,8 @@ body.modal-open {
     width: 100%;
     height: 100%;
     z-index: 0;
-    opacity: 1.0;  /* Aumentado para 100% de visibilidade */
+    opacity: 0;  /* Começa invisível para animação */
+    animation: fadeInPush 0.8s ease-out forwards 0.2s;  /* Sincronizado e mais lento */
 }
 
 .fundo {
