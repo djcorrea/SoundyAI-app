@@ -78,9 +78,13 @@ Seguir o fluxo correto evita retrabalho e garante que você interprete os result
 
 **Por que essa ordem:** Começar com o formato correto garante que a análise seja precisa desde o início.
 
-### Passo 2: Seleção do estilo musical
+### Passo 2: Escolha do modo de análise
 
-Antes do upload, você deve escolher o gênero de referência no dropdown "Gênero de Referência".
+A SoundyAI oferece **duas formas** de analisar sua música:
+
+#### MODO 1: Análise por Gênero Musical (Recomendado)
+
+Antes do upload, você escolhe o gênero de referência no dropdown "Gênero de Referência".
 
 Opções disponíveis:
 - Progressive Trance
@@ -90,7 +94,45 @@ Opções disponíveis:
 - EDM
 - Eletrônico
 
-**Por que essa ordem:** O gênero define os alvos (targets) de comparação. Escolher o gênero errado resultará em sugestões inadequadas.
+**Como funciona:** Sua música será comparada com padrões profissionais reais do gênero selecionado, baseados em análises de faixas de mercado.
+
+**Quando usar:** Para validar se sua produção está dentro dos padrões técnicos do estilo que você produz.
+
+#### MODO 2: Análise por Música de Referência (PRO)
+
+**Esta é uma das features mais poderosas da SoundyAI.**
+
+Ao invés de comparar com um gênero genérico, você pode **comparar sua música diretamente com qualquer faixa que você escolher**.
+
+**Como funciona:**
+1. Faça upload da **sua música**
+2. Aguarde a análise
+3. Faça upload de uma **música de referência** (pode ser de qualquer artista)
+4. O sistema compara **diretamente** as duas faixas
+
+**O que você vê:**
+- Tabela comparativa lado a lado (Sua Música vs Referência)
+- Resumo Científico**  
+Logo abaixo do score, aparece um **texto científico automatizado** que resume a qualidade técnica da sua música em linguagem clara. Exemplo: *"Áudio com loudness adequado para streaming (-14.2 LUFS), true peak controlado, dinâmica moderada (8 dB DR). Balanceamento de frequências dentro do esperado para o gênero Progressive Trance."*
+
+Este resumo é gerado automaticamente pela IA com base nas métricas reais da análise.
+
+**Métricas Principais**  
+Valores técnicos individuais: Loudness, True Peak, Dinâmica, Estéreo.
+
+**Análise de Frequências**  
+Distribuição de energia em 6 bandas espectrais.
+
+**Tabela Comparativa**  
+Comparação direta entre seu áudio e a referência (gênero ou faixa específica), mostrando diferença percentual e severidade (OK, Atenção, Crítico).
+
+**Sugestões Inteligentes**  
+Lista de ajustes recomendados com prioridade e explicação técnica.
+
+**Botão "Pedir Ajuda à IA"**  
+Botão especial que abre interação direta com a IA para tirar dúvidas sobre a análise (detalhado na seção 10)Adagio For Strings" do Tiësto. Faça upload da sua música e depois da faixa do Tiësto. O sistema mostrará exatamente quais ajustes fazer para aproximar o som.
+
+**Por que essa ordem:** O modo escolhido define todo o tipo de análise e sugestões que você receberá. Modo Gênero = comparação com padrão geral. Modo Referência = comparação com faixa específica.
 
 ### Passo 3: Aguardar análise
 
@@ -175,6 +217,28 @@ Sugestões → Aplicar Correções → Reanálise
 ### O que o score representa
 
 O score final (0-100) é uma métrica agregada que combina:
+
+### Resumo científico automático
+
+Logo abaixo do score, você verá um **resumo científico gerado automaticamente** que explica em linguagem clara a qualidade técnica do seu áudio.
+
+**Exemplo de resumo:**
+> *"Áudio com loudness integrado de -14.2 LUFS (adequado para streaming), true peak controlado em -1.5 dBTP, dinâmica moderada com 8 dB de dynamic range. Balanceamento de frequências dentro do esperado para o gênero Progressive Trance, com leve excesso de energia em graves (60-250 Hz). Estéreo bem distribuído com correlação de 0.45."*
+
+Este resumo:
+- É gerado pela IA com base nas suas métricas reais
+- Usa linguagem técnica mas compreensível
+- Destaca pontos positivos e áreas de atenção
+- Contextualiza os valores ao gênero escolhido
+
+**Para que serve:**
+- Obter uma visão geral rápida antes de mergulhar nos detalhes
+- Entender o "quadro geral" da sua música
+- Compartilhar com colaboradores que não entendem métricas técnicas
+
+### Componentes do score
+
+O score final combina:
 
 - Loudness (peso: 20%)
 - True Peak (peso: 25%)
@@ -395,37 +459,126 @@ Cada sugestão está vinculada a uma métrica específica:
 🔴 Loudness muito baixo
 Sua música: -21.5 LUFS
 Alvo: -8.3 LUFS
-Diferença: -158.8%
+DifereASSISTENTE VIRTUAL (CHATBOT)
 
-Ação: Aumentar loudness final em aproximadamente 13.2 dB usando 
-limitador/maximizer no master. Atenção: subir LUFS pode gerar 
-clipping se não houver headroom suficiente.
-```
+### O que é
 
-### Como aplicar na prática
+A SoundyAI possui um **chatbot inteligente integrado** que aparece na tela principal, representado por um robô virtual.
 
-**1. Leia todas as sugestões antes de agir**  
-Algumas correções dependem de outras.
+### Estados do chatbot
 
-**2. Siga a ordem de prioridade**  
-Sugestões críticas (vermelho) vêm primeiro.
+**Estado Inicial (Welcome):**
+- Robô visível no centro da tela
+- Campo de mensagem para interação
+- Branding "SoundyAI - Seu engenheiro de áudio virtual"
 
-**3. Aplique uma correção por vez**  
-Ajustes simultâneos podem mascarar o efeito real.
+**Estado Ativo (Conversação):**
+- Header compacto com nome "SoundyAI"
+- Área de conversação com histórico de mensagens
+- Campo de input para novas perguntas
 
-**4. Use as ferramentas corretas**
-- Loudness → Limitador/Maximizer no master
-- True Peak → Limiter com True Peak Detection
-- Frequências → EQ paramétrico
-- Dinâmica → Compressor/Expander
-- Estéreo → Imager/Width plugins
+### O que o chatbot faz
 
-**5. Valide auditivamente**  
-Antes de exportar, escute em diferentes sistemas (fone, monitor, celular).
+**Respostas sobre a plataforma:**
+- Tira dúvidas sobre como usar o sistema
+- Explica o significado das métricas
+- Orienta sobre o fluxo de uso
 
-### Importância da reanálise
+**Assistência técnica:**
+- Responde perguntas sobre engenharia de áudio
+- Explica conceitos (LUFS, True Peak, etc.)
+- Sugere ferramentas e plugins
 
-Após aplicar correções:
+**Interação natural:**
+- Linguagem clara e acessível
+- Adaptado para DJs e produtores
+- Respostas contextualizadas ao projeto SoundyAI
+
+### Quando usar o chatbot
+
+- **Antes da análise:** Para entender como usar a plataforma
+- **Durante a interpretação:** Para esclarecer dúvidas sobre métricas
+- **Após as sugestões:** Para pedir mais detalhes sobre como aplicar correções
+
+**Importante:** O chatbot é um assistente geral. Para dúvidas específicas sobre **sua análise**, use o botão "Pedir Ajuda à IA" (detalhado abaixo).
+
+---
+
+## 10. BOTÃO "PEDIR AJUDA À IA" (FUNCIONALIDADE PRO)
+
+### O que é
+
+Botão especial que aparece na tela de resultados da análise, exclusivo para usuários PRO.
+
+### Diferença entre Chatbot e "Pedir Ajuda à IA"
+
+**Chatbot (assistente geral):**
+- Responde sobre a plataforma
+- Explica conceitos gerais
+- Não tem contexto da sua análise específica
+
+**Pedir Ajuda à IA (assistente especializado):**
+- Tem acesso completo aos dados da **sua análise**
+- Conhece suas métricas, score, sugestões
+- Responde perguntas específicas sobre **seu áudio**
+- Pode gerar insights personalizados
+
+### Como funciona
+
+1. Após a análise, clique no botão "Pedir Ajuda à IA"
+2. Descreva sua dúvida ou problema específico
+3. A IA analisa seus dados técnicos e responde de forma contextualizada
+
+### Exemplos de uso
+
+**Pergunta:** "Por que meu score está baixo se minha música soa bem?"  
+**Resposta IA:** *"Seu score está em 65% principalmente devido ao loudness (-21.5 LUFS vs alvo -8.3 LUFS). Isso significa que sua música está tecnicamente mais baixa que o padrão do gênero, mas não necessariamente 'mal produzida'. Se você busca um som mais dinâmico e menos comprimido, esse loudness baixo pode ser intencional..."*
+
+**Pergunta:** "Como aplicar a sugestão de aumentar o grave?"  
+**Resposta IA:** *"Sua banda de grave (60-250 Hz) está -18% abaixo do alvo. Para corrigir, use um EQ paramétrico no master: boost de +2 a +3 dB em 80-100 Hz (kick fundamental) e shelf baixo a partir de 150 Hz. Evite boost excessivo para não gerar distorção..."*
+
+### Quando usar
+
+- **Interpretação de score:** Entender por que o score está alto ou baixo
+- **Dúvidas sobre sugestões:** Como aplicar uma correção específica
+- **Conflitos técnicos:** "Devo aumentar loudness ou manter dinâmica?"
+- **Ferramentas:** Qual plugin/ferramenta usar para cada correção
+
+**Vantagem:** A IA conhece **exatamente** suas métricas e pode dar respostas precisas baseadas nos seus dados reais.
+
+---
+
+## 11. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
+
+### O que é
+
+Recurso exclusivo do plano PRO que organiza automaticamente todas as sugestões em um plano passo a passo estruturado, com priorização técnica e instruções detalhadas.
+
+### 3uando usar
+
+- Quando houver múltiplas sugestões (> 5)
+- Para seguir uma ordem técnica validada
+- Para compartilhar com engenheiro de mix/master
+- Para documentar o processo de correção
+
+### Como ele complementa a análise técnica
+
+O plano de correção agrupa sugestões por categoria:
+
+1. **Problemas críticos:** True Peak, clipping, fase
+2. **Loudness e dinâmica:** LUFS, DR, compressão
+3. **Frequências:** Bandas espectrais, EQ
+4. **Refinamentos:** Estéreo, crest factor
+
+Cada item inclui:
+- Diagnóstico técnico
+- Ação recomendada
+- Ferramentas sugeridas
+- Valores target
+
+---
+
+## 12aplicar correções:
 
 1. Exporte nova versão (WAV/FLAC)
 2. Faça upload na SoundyAI
@@ -437,7 +590,7 @@ Após aplicar correções:
 
 ---
 
-## 9. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
+## 94 PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
 
 ### O que é
 
@@ -553,7 +706,7 @@ Um "score baixo" em Funk pode ser "score alto" em Ambient. Sempre considere o g�
 
 ---
 
-## 13. COMO FORNECER FEEDBACK
+## 15. COMO FORNECER FEEDBACK
 
 A SoundyAI evolui com feedback de usuários reais.
 

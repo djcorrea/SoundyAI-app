@@ -122,8 +122,8 @@ async function checkReferenceEntitlement() {
             }
         }
         
-        // 3. REGRA: PRO = permitido, qualquer outro = bloqueado
-        const allowed = currentPlan === 'pro';
+        // 3. REGRA: PRO ou DJ = permitido, qualquer outro = bloqueado
+        const allowed = currentPlan === 'pro' || currentPlan === 'dj';
         
         console.log(`🔐 [ENTITLEMENT] checkReferenceEntitlement: plan=${currentPlan}, allowed=${allowed}`);
         
@@ -140,7 +140,7 @@ async function checkReferenceEntitlement() {
  */
 function checkReferenceEntitlementSync() {
     const plan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
-    const shouldBlock = plan !== 'pro';
+    const shouldBlock = plan !== 'pro' && plan !== 'dj';
     
     console.log(`🔐 [ENTITLEMENT-SYNC] plan=${plan}, shouldBlock=${shouldBlock}`);
     
@@ -3266,8 +3266,8 @@ async function selectAnalysisMode(mode) {
             }
         }
         
-        // 🔐 REGRA CRÍTICA: PRO NUNCA é bloqueado no modo referência
-        const shouldBlock = currentPlan !== 'pro';
+        // 🔐 REGRA CRÍTICA: PRO e DJ nunca são bloqueados no modo referência
+        const shouldBlock = currentPlan !== 'pro' && currentPlan !== 'dj';
         
         console.log(`🔐 [ENTITLEMENT] Verificação de Modo Referência: plan=${currentPlan}, shouldBlock=${shouldBlock}`);
         
@@ -16751,6 +16751,20 @@ async function displayModalResults(analysis) {
                 return row('Loudness (LUFS Integrado)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'lufsIntegrated', 'primary');
             })(),
             
+            // 🎯 LUFS Curto Prazo (Short-Term) - exibido logo após LUFS Integrado
+            (() => {
+                const lufsShortTermValue = analysis.technicalData?.lufsShortTerm ?? analysis.loudness?.shortTerm ?? null;
+                if (!advancedReady) {
+                    return '';
+                }
+                if (lufsShortTermValue === null || lufsShortTermValue === undefined || !Number.isFinite(lufsShortTermValue)) {
+                    console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Curto Prazo não disponível ou inválido');
+                    return '';
+                }
+                console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Curto Prazo RENDERIZADO:', lufsShortTermValue, 'LUFS');
+                return row('LUFS Curto Prazo (Short-Term)', `${safeFixed(lufsShortTermValue, 1)} LUFS`, 'lufsShortTerm', 'lufsShortTerm', 'secondary');
+            })(),
+            
             row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
             row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra', 'primary'),
             // Imagem Estéreo (movido de col2)
@@ -17182,10 +17196,11 @@ async function displayModalResults(analysis) {
                     rows.push(row('Rolloff Espectral 85% (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'spectralRolloff', 'advanced'));
                 }
                 
-                // Spectral Flatness (Uniformidade espectral)
-                if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
-                }
+                // Spectral Flatness (Uniformidade espectral) - OCULTADO DA UI (sempre retorna 0, métrica instável)
+                // O cálculo permanece no backend, apenas não é exibido na interface
+                // if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
+                //     rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'spectralFlatness', 'advanced'));
+                // }
                 
                 // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
@@ -17223,11 +17238,12 @@ async function displayModalResults(analysis) {
                     console.log('🎛️ [DEBUG] Frequências dominantes exibidas:', freqList);
                 }
                 
-                // === UNIFORMIDADE ESPECTRAL ===
-                if (Number.isFinite(analysis.technicalData?.spectralUniformity)) {
-                    rows.push(row('uniformidade espectral', `${safeFixed(analysis.technicalData.spectralUniformity, 3)}`, 'spectralUniformity'));
-                    console.log('🎛️ [DEBUG] Uniformidade espectral exibida:', analysis.technicalData.spectralUniformity);
-                }
+                // === UNIFORMIDADE ESPECTRAL === (OCULTADO DA UI - métrica instável, sempre retorna 0)
+                // O cálculo permanece no backend, apenas não é exibido na interface
+                // if (Number.isFinite(analysis.technicalData?.spectralUniformity)) {
+                //     rows.push(row('uniformidade espectral', `${safeFixed(analysis.technicalData.spectralUniformity, 3)}`, 'spectralUniformity'));
+                //     console.log('🎛️ [DEBUG] Uniformidade espectral exibida:', analysis.technicalData.spectralUniformity);
+                // }
                 
                 // === ZEROS CROSSING RATE ===
                 if (Number.isFinite(analysis.technicalData?.zcr)) {

@@ -16,7 +16,7 @@
             title: 'Modo Referência',
             emoji: '🎯',
             description: 'Compare seu áudio com faixas de referência profissionais para alcançar o som que você deseja.',
-            message: 'O Modo Referência é exclusivo do plano PRO. Faça upgrade para comparar suas músicas com referências profissionais!'
+            message: 'O Modo Referência é exclusivo dos planos PRO e DJ Beta. Faça upgrade para comparar suas músicas com referências profissionais!'
         },
         correctionPlan: {
             title: 'Plano de Correção',
