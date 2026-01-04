@@ -28,7 +28,7 @@ A SoundyAI responde essas perguntas com dados técnicos mensuráveis e comparaç
 ### Diferenciais
 
 - Análise específica por gênero musical (Funk, EDM, Trance, etc.)
-- Comparação com padrões reais de mercado, não valores genéricos
+- Comparação com padrões profissionais de mercado por gênero
 - Métricas técnicas profissionais (LUFS ITU-R BS.1770-4, True Peak com oversampling 4x, Dynamic Range)
 - Sugestões contextualizadas ao gênero escolhido
 - Plano de correção passo a passo com priorização
@@ -363,7 +363,7 @@ Exemplo: LUFS -16.5 vs alvo -8.3 = -98.8% (muito mais baixo)
 
 **Contexto importa:**
 
-- Referências são médias estatísticas, não leis físicas
+- Referências são baseadas em padrões de mercado
 - Subgêneros dentro do mesmo estilo podem ter características diferentes
 - Escolhas artísticas intencionais são válidas
 - Sistemas de reprodução variam (headphone, PA, streaming)
@@ -385,21 +385,23 @@ Em vez de comparar seu áudio com médias genéricas de gênero, você compara *
 
 ### Diferença entre os modos
 
-**Modo Genérico (padrão):**
+**Modo Gênero (análise por estilo):**
 ```
-Seu áudio vs Média estatística do gênero
-Exemplo: "Seu grave está em -12 dB. O alvo genérico de Funk é -9 dB."
+Seu áudio vs Padrões profissionais do gênero
+Exemplo: "Seu grave está em -12 dB. O padrão de Funk é -9 dB."
+Baseado em análises de múltiplas faixas comerciais de sucesso.
 ```
 
-**Modo Referência (comparativo):**
+**Modo Referência (comparação direta):**
 ```
 Seu áudio vs Faixa específica escolhida por você
 Exemplo: "Seu grave está em -12 dB. A faixa 'Hit XYZ' está em -9.2 dB. Delta: -2.8 dB"
+Comparação 1:1 com qualquer faixa que você escolher.
 ```
 
-### Por que o modo referência é superior
+### Vantagens adicionais do modo referência
 
-1. **Precisão cirúrgica:** Deltas exatos, não estimativas
+1. **Precisão cirúrgica:** Deltas exatos baseados em faixa específica
 2. **Aprendizado direcionado:** Aprenda com faixas que você admira
 3. **Benchmarking competitivo:** Compare-se com hits do momento
 4. **Validação de evolução:** Use versões anteriores como referência
@@ -453,7 +455,7 @@ Você verá 3 colunas:
    - True Peak: -0.3 a -1.0 dBTP
 4. Use esses valores como **seus alvos pessoais**
 
-**Por que funciona:** Média de múltiplas referências > média genérica
+**Por que funciona:** Cria targets customizados baseados nas suas referências favoritas
 
 #### 2. Análise competitiva
 
@@ -516,15 +518,16 @@ Referência "Som Pesado":
 
 | Situação | Modo Recomendado |
 |----------|------------------|
-| Primeira análise de um áudio | Genérico |
-| Diagnóstico rápido de problemas | Genérico |
+| Primeira análise de um áudio | Gênero |
+| Entender padrões do estilo | Gênero |
+| Diagnóstico baseado em mercado | Gênero |
 | Comparar com hit específico | Referência |
 | Aprender com produção admirada | Referência |
 | Validar correções (V1 vs V2) | Referência |
 | A/B test de masters | Referência |
 | Análise competitiva | Referência |
 
-**Regra geral:** Use Genérico para diagnóstico inicial, Referência para otimização avançada.
+**Regra geral:** Use Gênero para análise baseada em padrões de mercado, Referência para comparação específica.
 
 ### Armadilhas comuns (e como evitar)
 
@@ -552,7 +555,7 @@ Referência "Som Pesado":
 
 **Cenário:** Produzindo faixa de Funk Mandela, buscando som comercial
 
-**Passo 1: Análise inicial (Modo Genérico)**
+**Passo 1: Análise inicial (Modo Gênero)**
 ```
 Resultado: Score 68, grave fraco (-12 dB vs alvo -9 dB)
 ```
@@ -589,20 +592,22 @@ Score: 86 (vs 68 inicial)
 
 **Resultado:** Som tecnicamente comparável ao hit comercial.
 
-### Por que a análise de referência é game-changer
+### Por que combinar os dois modos é poderoso
 
-**Antes (modo genérico):**
-- "Meu grave está 30% abaixo do alvo genérico... mas e daí?"
-- Dúvida constante: "Isso é realmente um problema?"
+**Modo Gênero (análise de mercado):**
+- "Meu grave está 30% abaixo do padrão de Funk profissional"
+- Diagnóstico: "Estou fora dos padrões comerciais do estilo"
+- Baseado em dezenas de faixas de sucesso analisadas
 
-**Depois (modo referência):**
-- "Meu grave está 2.8 dB abaixo do hit X que vende muito"
-- Clareza: "Se eu corrigir isso, meu som ficará mais comercial"
+**Modo Referência (comparação específica):**
+- "Meu grave está 2.8 dB abaixo do hit X especificamente"
+- Precisão: "Sei exatamente o que ajustar para esse som"
+- Baseado na faixa exata que você escolheu
 
-**A diferença é transformadora:**
-- De diagnóstico vago → para ação precisa
-- De médias abstratas → para comparações reais
-- De "acho que melhorei" → para "provei que melhorei"
+**Use os dois de forma complementar:**
+- Análise de Gênero → visão geral do mercado
+- Análise de Referência → precisão cirúrgica
+- Juntos → máximo poder analítico
 
 ### Integração com outras features
 

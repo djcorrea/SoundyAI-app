@@ -16,7 +16,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { getFirestore, getAuth } from '../../firebase/admin.js';
 import { applyPlan, getOrCreateUser } from '../../work/lib/user/userPlans.js';
-import { sendWelcomeProEmail } from '../../lib/email/hotmart-welcome.js';
+import { sendOnboardingEmail } from '../../lib/email/onboarding-email.js';
 
 const router = express.Router();
 
@@ -281,19 +281,6 @@ async function markTransactionProcessed(transactionId, data) {
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Gera senha provisória segura
- * @returns {string} Senha de 12 caracteres
- */
-function generateTempPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-}
-
-/**
  * Busca usuário existente por e-mail
  * @param {string} email - E-mail do comprador
  * @returns {Promise<Object|null>} Dados do usuário ou null
@@ -302,7 +289,7 @@ async function findUserByEmail(email) {
   try {
     const auth = getAuth();
     const userRecord = await auth.getUserByEmail(email);
-    console.log(`👤 [HOTMART] Usuário encontrado por email: ${userRecord.uid}`);
+    console.log(`👤 [HOTMART] Usuário encontrado: ${userRecord.uid}`);
     return {
       uid: userRecord.uid,
       email: userRecord.email,
@@ -319,31 +306,29 @@ async function findUserByEmail(email) {
 }
 
 /**
- * Cria novo usuário no Firebase Auth
+ * Cria novo usuário no Firebase Auth (sem senha - onboarding via link)
  * @param {string} email - E-mail do comprador
  * @param {string} name - Nome do comprador
  * @returns {Promise<Object>} Dados do usuário criado
  */
 async function createNewUser(email, name) {
   const auth = getAuth();
-  const tempPassword = generateTempPassword();
   
-  console.log(`🆕 [HOTMART] Criando novo usuário: ${email}`);
+  console.log(`🆕 [HOTMART] Criando usuário: ${email}`);
   
+  // Criar usuário SEM senha (define via link de reset)
   const userRecord = await auth.createUser({
     email: email,
-    password: tempPassword,
     displayName: name || 'Usuário Hotmart',
-    emailVerified: false
+    emailVerified: false // Será verificado ao definir senha
   });
 
-  console.log(`✅ [HOTMART] Usuário criado: ${userRecord.uid}`);
+  console.log(`✅ [HOTMART] Usuário criado: ${userRecord.uid} (senha via link)`);
 
   return {
     uid: userRecord.uid,
     email: userRecord.email,
     displayName: userRecord.displayName,
-    tempPassword, // Importante: só disponível para usuários novos
     isNew: true
   };
 }
@@ -417,26 +402,25 @@ async function processWebhookAsync(data) {
     });
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 6: Enviar e-mail de boas-vindas
+    // PASSO 6: Enviar e-mail de onboarding clean premium
     // ⚠️ CRÍTICO: E-mail é secundário - NUNCA pode quebrar o webhook
     // ═══════════════════════════════════════════════════════════════
-    const emailResult = await sendWelcomeProEmail({
+    const emailResult = await sendOnboardingEmail({
       email: data.buyerEmail,
       name: data.buyerName,
-      tempPassword: user.tempPassword,
       isNewUser: user.isNew,
       expiresAt: updatedUser.proExpiresAt,
       transactionId: data.transactionId
     });
 
     if (emailResult.success) {
-      console.log(`✅ [HOTMART-ASYNC] E-mail enviado com sucesso`, {
+      console.log(`✅ [HOTMART-ASYNC] E-mail de onboarding enviado`, {
         emailId: emailResult.emailId,
         to: data.buyerEmail,
         transaction: data.transactionId
       });
     } else {
-      console.error(`⚠️ [HOTMART-ASYNC] Falha ao enviar e-mail (não crítico - webhook continua)`, {
+      console.error(`⚠️ [HOTMART-ASYNC] Falha ao enviar e-mail (não crítico)`, {
         error: emailResult.error,
         to: data.buyerEmail,
         transaction: data.transactionId

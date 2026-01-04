@@ -563,6 +563,14 @@
     
     // Configurar botão de reset SMS
     document.addEventListener('DOMContentLoaded', function() {
+      // ✅ Detectar reset de senha bem-sucedido
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'success') {
+        showStatusMessage('✅ Senha definida com sucesso! Faça login com sua nova senha.', 'success', 6000);
+        // Limpar URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      
       const resetBtn = document.getElementById('resetSMSBtn');
       if (resetBtn) {
         resetBtn.addEventListener('click', function() {
