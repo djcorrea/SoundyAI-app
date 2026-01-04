@@ -9596,6 +9596,12 @@ function closeAudioModal() {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (modal) {
+        // ⚡ OTIMIZADO: Limpar will-change ao fechar modal para liberar recursos GPU
+        const modalContent = modal.querySelector('.audio-modal-content');
+        const scoreDisplay = document.getElementById('final-score-display');
+        if (modalContent) modalContent.style.willChange = 'auto';
+        if (scoreDisplay) scoreDisplay.style.willChange = 'auto';
+        
         modal.style.display = 'none';
         currentModalAnalysis = null;
         
@@ -18600,6 +18606,7 @@ async function displayModalResults(analysis) {
         
         /**
          * Anima a contagem do score final de 0 até o valor final
+         * ⚡ OTIMIZADO: Duração reduzida, will-change cleanup, cancelamento em prefers-reduced-motion
          * @param {number} targetScore - Score final a ser exibido
          */
         function animateFinalScore(targetScore) {
@@ -18607,9 +18614,27 @@ async function displayModalResults(analysis) {
             const barFill = document.querySelector('.score-final-bar-fill');
             if (!el) return;
             
+            // ⚡ OTIMIZADO: Verificar preferência de motion reduzido
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            if (prefersReducedMotion) {
+                // Exibir valor final imediatamente se usuário prefere menos animações
+                el.textContent = targetScore;
+                if (barFill) {
+                    const finalPercent = Math.min(Math.max(targetScore, 0), 100);
+                    barFill.style.width = `${finalPercent}%`;
+                }
+                return;
+            }
+            
+            // ⚡ OTIMIZADO: Adicionar will-change antes da animação
+            el.style.willChange = 'contents';
+            if (barFill) barFill.style.willChange = 'width';
+            
             let currentScore = 0;
-            const duration = 2500; // 2.5 segundos (mais lento e dramático)
+            const duration = 1500; // ⚡ OTIMIZADO: Reduzido de 2500ms para 1500ms (40% mais rápido)
             const startTime = performance.now();
+            let rafId = null;
             
             function animate(currentTime) {
                 const elapsed = currentTime - startTime;
@@ -18629,17 +18654,23 @@ async function displayModalResults(analysis) {
                 }
                 
                 if (progress < 1) {
-                    requestAnimationFrame(animate);
+                    rafId = requestAnimationFrame(animate);
                 } else {
                     el.textContent = targetScore; // Garantir valor final exato
                     if (barFill) {
                         const finalPercent = Math.min(Math.max(targetScore, 0), 100);
                         barFill.style.width = `${finalPercent}%`;
                     }
+                    
+                    // ⚡ OTIMIZADO: Remover will-change após animação completa
+                    setTimeout(() => {
+                        el.style.willChange = 'auto';
+                        if (barFill) barFill.style.willChange = 'auto';
+                    }, 100);
                 }
             }
             
-            requestAnimationFrame(animate);
+            rafId = requestAnimationFrame(animate);
         }
         
         // ═══════════════════════════════════════════════════════════════

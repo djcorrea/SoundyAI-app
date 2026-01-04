@@ -8,16 +8,17 @@
         rgba(15, 23, 42, 0.95) 0%, 
         rgba(30, 41, 59, 0.98) 50%, 
         rgba(15, 23, 42, 0.95) 100%);
-    backdrop-filter: blur(30px);
+    backdrop-filter: blur(15px); /* ⚡ OTIMIZADO: Reduzido de 30px para 15px (50% menos custo GPU) */
+    -webkit-backdrop-filter: blur(15px);
     border: 1px solid rgba(59, 130, 246, 0.2);
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 
-        0 20px 40px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        0 0 0 1px rgba(59, 130, 246, 0.1);
+        0 20px 40px rgba(0, 0, 0, 0.3), /* ⚡ OTIMIZADO: Reduzido de 3 para 2 shadows */
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     position: relative;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity; /* ⚡ Hint para GPU */
 }
 
 .ai-suggestions-expanded::before {
@@ -33,7 +34,8 @@
         rgba(168, 85, 247, 0.8) 50%, 
         rgba(236, 72, 153, 0.8) 80%, 
         transparent 100%);
-    animation: aiGradientFlow 3s ease-in-out infinite;
+    animation: aiGradientFlow 3s ease-in-out 1; /* ⚡ OTIMIZADO: Executa apenas 1x */
+    animation-fill-mode: forwards;
 }
 
 @keyframes aiGradientFlow {
@@ -60,7 +62,8 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 200% 200%;
-    animation: aiTextShimmer 3s ease-in-out infinite;
+    animation: aiTextShimmer 3s ease-in-out 1; /* ⚡ OTIMIZADO: Executa apenas 1x */
+    animation-fill-mode: forwards;
 }
 
 @keyframes aiTextShimmer {
@@ -264,21 +267,20 @@
     background: linear-gradient(135deg, 
         rgba(30, 41, 59, 0.6) 0%, 
         rgba(51, 65, 85, 0.8) 100%);
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(12px); /* ⚡ OTIMIZADO: Reduzido de 20px para 12px */
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     padding: 20px;
     position: relative;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform; /* ⚡ Hint para GPU no hover */
 }
 
 .ai-suggestion-card:hover {
     transform: translateY(-2px);
-    box-shadow: 
-        0 16px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    border-color: rgba(59, 130, 246, 0.4);
+    border-color: rgba(59, 130, 246, 0.4); /* ⚡ OTIMIZADO: Removido box-shadow pesado do hover */
 }
 
 .ai-suggestion-card::before {
@@ -498,6 +500,30 @@
     .ai-expanded-header,
     .ai-expanded-content {
         padding: 16px 20px;
+    }
+    
+    .ai-suggestions-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ⚡ PERFORMANCE: Respeitar preferência de animações reduzidas do usuário */
+@media (prefers-reduced-motion: reduce) {
+    .ai-suggestions-expanded::before,
+    .ai-header-left h3,
+    .ai-status-dot,
+    .ai-suggestion-card,
+    .ai-suggestions-grid,
+    .ai-suggestions-expanded.expanding,
+    .ai-suggestions-expanded.collapsing {
+        animation: none !important;
+        transition: none !important;
+    }
+    
+    .ai-suggestions-expanded::before {
+        opacity: 0.8;
+    }
+}
     }
     
     .ai-expanded-footer {
