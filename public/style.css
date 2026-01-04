@@ -22,6 +22,31 @@
     }
 }
 
+/* ============ 🚀 PERFORMANCE: Classes de controle dinâmico ============ */
+/* Quando blur está desabilitado, usar fallback visual mais leve */
+body.perf-blur-disabled .glass-effect,
+body.perf-blur-disabled .modal-overlay,
+body.perf-blur-disabled .sidebar,
+body.perf-blur-disabled .chat-container,
+body.perf-blur-disabled .welcome-modal-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    /* Fallback: fundo mais opaco para compensar */
+    background-color: rgba(10, 10, 26, 0.95) !important;
+}
+
+/* Pausar animações CSS pesadas durante interação */
+body.perf-animations-paused .robo,
+body.perf-animations-paused .notebook,
+body.perf-animations-paused .teclado,
+body.perf-animations-paused .caixas,
+body.perf-animations-paused .mesa,
+body.perf-animations-paused .particles-overlay,
+body.perf-animations-paused .glow-effect,
+body.perf-animations-paused .pulse-animation {
+    animation-play-state: paused !important;
+}
+
 /* ============ 🚀 PERFORMANCE: Otimizações globais de renderização ============ */
 img {
     content-visibility: auto; /* Lazy rendering */
