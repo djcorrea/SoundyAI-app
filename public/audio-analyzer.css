@@ -835,11 +835,12 @@
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
         width: 95vw;
-        /* 🔧 Modal de upload: ~90vh para ocupar quase toda tela */
+        /* 🔧 Modal de upload: altura igual ao modal de referência */
         min-height: auto;
-        max-height: 90svh;
-        max-height: 90vh; /* Fallback navegadores antigos */
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px); /* Fallback navegadores antigos */
         height: auto;
+        margin: 20px auto;
         /* 📱 Padding reduzido para aproveitar espaço mobile */
         padding: 28px 18px 24px 18px;
         /* 📜 Scroll suave se conteúdo exceder */
@@ -885,14 +886,14 @@
         font-size: 16px;
     }
     
-    /* 📊 MODAL DE RESULTADOS: Precisa ser ainda maior para exibir gráficos/dados */
+    /* 📊 MODAL DE RESULTADOS: mesma altura do modal de referência */
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
         width: 95vw;
-        min-height: 90svh;
-        min-height: 90vh;
-        max-height: 92svh;
-        max-height: 92vh;
+        min-height: auto;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
         height: auto;
+        margin: 20px auto;
         padding: 24px 16px;
         overflow-y: auto;
         /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
@@ -906,12 +907,12 @@
 @media (max-width: 480px) {
     #audioAnalysisModal .audio-modal-content {
         width: 95vw;
-        /* 🔧 Máxima altura para smartphones: ~92vh */
-        min-height: 90svh;
-        min-height: 90vh;
-        max-height: 92svh;
-        max-height: 92vh;
+        /* 🔧 Altura igual ao modal de referência */
+        min-height: auto;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
         height: auto;
+        margin: 20px auto;
         padding: 24px 16px;
         overflow-y: auto;
         /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
@@ -5227,11 +5228,10 @@ details[open] summary {
         padding: 26px 18px;
         width: 95%;
         max-width: none;
-        /* 🔧 Fix iOS: usar svh para altura */
-        min-height: 80svh;
-        min-height: 80vh;
-        max-height: 92svh;
-        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        /* 🔧 Altura igual ao modal de referência */
+        min-height: auto;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
         height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
@@ -5239,7 +5239,7 @@ details[open] summary {
         /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
         overscroll-behavior-y: contain;
         touch-action: pan-y;
-        margin: 0 auto;
+        margin: 20px auto;
     }
     
     /* Mostrar scrollbar no mobile para feedback visual */
@@ -5283,7 +5283,7 @@ details[open] summary {
 }
 
 /* Smartphones */
-/* 📱 SMARTPHONES: Modal de gênero quase tela cheia para fácil navegação */
+/* 📱 SMARTPHONES: Modal de gênero - altura igual ao modal de referência */
 @media (max-width: 480px) {
     .genre-modal {
         align-items: flex-start;
@@ -5293,11 +5293,10 @@ details[open] summary {
     .genre-modal-container {
         padding: 22px 14px;
         width: 96%;
-        /* 🔧 Máxima altura possível em smartphones */
-        min-height: 85svh;
-        min-height: 85vh;
-        max-height: 94svh;
-        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        /* 🔧 Altura igual ao modal de referência */
+        min-height: auto;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
         height: auto;
         overflow-y: auto !important;
         overflow-x: hidden;
@@ -5305,7 +5304,7 @@ details[open] summary {
         /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
         overscroll-behavior-y: contain;
         touch-action: pan-y;
-        margin: 0 auto;
+        margin: 20px auto;
     }
 
     .genre-modal-title {
