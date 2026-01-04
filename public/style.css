@@ -81,13 +81,30 @@ html {
     --max-notebook-width: min(20.83vw, 400px);    /* Notebook proporcional com limite */
 }
 
+/* ============ RESET DE OVERFLOW GLOBAL ============ */
+html {
+    overflow-y: visible;
+}
+
 body {
-    overflow: hidden;
     font-family: Arial, sans-serif;
     background: #0a0a1a;
     /* Fix para iOS Safari viewport height */
     min-height: 100vh;
     min-height: -webkit-fill-available;
+}
+
+/* ============ ESCOPO DE OVERFLOW POR PÁGINA ============ */
+/* Index.html: layout travado tipo app */
+body.page-index {
+    overflow: hidden;
+    height: 100vh;
+}
+
+/* Páginas de documentação: scroll normal */
+body.page-doc {
+    overflow-y: auto;
+    height: auto;
 }
 
 /* ============ CONTROLE DE SCROLL QUANDO MODAL ABERTO ============ */
