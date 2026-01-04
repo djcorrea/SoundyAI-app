@@ -122,8 +122,8 @@ async function checkReferenceEntitlement() {
             }
         }
         
-        // 3. REGRA: PRO = permitido, qualquer outro = bloqueado
-        const allowed = currentPlan === 'pro';
+        // 3. REGRA: PRO ou DJ Beta = permitido, qualquer outro = bloqueado
+        const allowed = currentPlan === 'pro' || currentPlan === 'dj';
         
         console.log(`🔐 [ENTITLEMENT] checkReferenceEntitlement: plan=${currentPlan}, allowed=${allowed}`);
         
@@ -140,7 +140,7 @@ async function checkReferenceEntitlement() {
  */
 function checkReferenceEntitlementSync() {
     const plan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
-    const shouldBlock = plan !== 'pro';
+    const shouldBlock = plan !== 'pro' && plan !== 'dj';
     
     console.log(`🔐 [ENTITLEMENT-SYNC] plan=${plan}, shouldBlock=${shouldBlock}`);
     
@@ -3266,8 +3266,8 @@ async function selectAnalysisMode(mode) {
             }
         }
         
-        // 🔐 REGRA CRÍTICA: PRO NUNCA é bloqueado no modo referência
-        const shouldBlock = currentPlan !== 'pro';
+        // 🔐 REGRA CRÍTICA: PRO e DJ Beta NUNCA são bloqueados no modo referência
+        const shouldBlock = currentPlan !== 'pro' && currentPlan !== 'dj';
         
         console.log(`🔐 [ENTITLEMENT] Verificação de Modo Referência: plan=${currentPlan}, shouldBlock=${shouldBlock}`);
         

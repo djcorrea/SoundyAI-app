@@ -297,8 +297,8 @@
     function shouldBlockPremiumFeatures() {
         const context = getCurrentContext();
         
-        // Se é PRO, nunca bloqueia
-        if (context.plan === 'pro') return false;
+        // Se é PRO ou DJ Beta, nunca bloqueia
+        if (context.plan === 'pro' || context.plan === 'dj') return false;
         
         // Se é FREE/PLUS, bloqueia IA e PDF sempre
         return true;
