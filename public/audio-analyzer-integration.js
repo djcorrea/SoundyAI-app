@@ -6320,6 +6320,32 @@ window.closeWelcomeModal = closeWelcomeModal;
 window.openTechnicalGuide = openTechnicalGuide;
 window.proceedToAnalysis = proceedToAnalysis;
 
+// 🎧 BETA DJS: Funções para controlar modal de encerramento
+function openBetaExpiredModal() {
+    const modal = document.getElementById('betaDjExpiredModal');
+    if (!modal) {
+        console.error('❌ Modal betaDjExpiredModal não encontrado');
+        return;
+    }
+    
+    console.log('🎧 [BETA-DJ] Abrindo modal de encerramento do beta');
+    modal.style.display = 'flex';
+    
+    // Salvar preferência no localStorage para não exibir novamente na mesma sessão
+    sessionStorage.setItem('betaDjModalShown', 'true');
+}
+
+function closeBetaExpiredModal() {
+    const modal = document.getElementById('betaDjExpiredModal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('🎧 [BETA-DJ] Modal de encerramento fechado');
+    }
+}
+
+window.openBetaExpiredModal = openBetaExpiredModal;
+window.closeBetaExpiredModal = closeBetaExpiredModal;
+
 /**
  * ⌨️ Configurar acessibilidade do modal de boas-vindas
  */

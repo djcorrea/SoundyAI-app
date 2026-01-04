@@ -44,6 +44,16 @@ export const PLAN_ENTITLEMENTS = {
     genreAnalysis: true,    // ✅ Análise por gênero ilimitada
     suggestions: true,      // ✅ Sugestões de IA
   },
+  // 🎧 DJ BETA: Espelho exato do PRO (duração limitada a 15 dias)
+  dj: {
+    reference: true,        // ✅ Modo Referência (temporário)
+    correctionPlan: true,   // ✅ Gerar Plano de Correção (temporário)
+    pdf: true,              // ✅ Baixar PDF (temporário)
+    askAI: true,            // ✅ Pedir Ajuda à IA (temporário)
+    // Features do Beta DJs
+    genreAnalysis: true,    // ✅ Análise por gênero ilimitada
+    suggestions: true,      // ✅ Sugestões de IA
+  },
 };
 
 /**
@@ -82,7 +92,7 @@ export function getUserPlan(userDoc) {
   }
 
   // Prioridade 1: Campo plan explícito
-  if (userDoc.plan && ['free', 'plus', 'pro'].includes(userDoc.plan)) {
+  if (userDoc.plan && ['free', 'plus', 'pro', 'dj'].includes(userDoc.plan)) {
     return userDoc.plan;
   }
 

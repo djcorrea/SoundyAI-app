@@ -32,6 +32,15 @@ const PLAN_LIMITS = {
     hardCapAnalysesPerMonth: 500,         // ✅ ATUALIZADO: 200 → 500 análises/mês (hard cap técnico)
     allowReducedAfterLimit: false,        // Sem reduced, só erro
   },
+  // 🎧 DJ BETA: Limites idênticos ao PRO (acesso temporário 15 dias)
+  dj: {
+    maxMessagesPerMonth: Infinity,
+    maxFullAnalysesPerMonth: Infinity,
+    maxImagesPerMonth: 70,
+    hardCapMessagesPerMonth: 300,
+    hardCapAnalysesPerMonth: 500,
+    allowReducedAfterLimit: false,
+  },
 };
 
 /**
@@ -114,6 +123,14 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
 
+  // 🎧 BETA DJS: Verificar expiração do plano dj (15 dias)
+  if (user.djExpiresAt && Date.now() > new Date(user.djExpiresAt).getTime() && user.plan === "dj") {
+    console.log(`🎧 [USER-PLANS] Plano DJ Beta expirado para: ${uid}`);
+    user.plan = "free";
+    user.djExpired = true;  // ✅ Flag para exibir modal de encerramento
+    changed = true;
+  }
+
   // ✅ STRIPE: Verificar expiração de assinatura recorrente
   if (user.subscription && user.subscription.status === 'canceled') {
     const currentPeriodEnd = new Date(user.subscription.currentPeriodEnd).getTime();
@@ -138,6 +155,8 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
+      djExpiresAt: user.djExpiresAt ?? null,        // 🎧 NOVO: Expiração Beta DJs
+      djExpired: user.djExpired ?? false,           // 🎧 NOVO: Flag de beta expirado
       updatedAt: nowISO,
     };
 
@@ -183,6 +202,8 @@ export async function getOrCreateUser(uid, extra = {}) {
         plan: "free",
         plusExpiresAt: null,
         proExpiresAt: null,
+        djExpiresAt: null,         // 🎧 NOVO: Controle Beta DJs
+        djExpired: false,          // 🎧 NOVO: Flag de beta expirado
         
         // ✅ NOVOS CAMPOS MENSAIS
         messagesMonth: 0,
@@ -240,11 +261,21 @@ export async function applyPlan(uid, { plan, durationDays }) {
   if (plan === "plus") {
     update.plusExpiresAt = expires;
     update.proExpiresAt = null;  // Limpar PRO ao ativar PLUS
+    update.djExpiresAt = null;   // Limpar DJ ao ativar PLUS
   }
   
   if (plan === "pro") {
     update.proExpiresAt = expires;
     update.plusExpiresAt = null;  // Limpar PLUS ao ativar PRO
+    update.djExpiresAt = null;    // Limpar DJ ao ativar PRO
+  }
+
+  // 🎧 DJ BETA: Ativar plano DJ (15 dias fixos)
+  if (plan === "dj") {
+    update.djExpiresAt = expires;
+    update.plusExpiresAt = null;  // Limpar PLUS ao ativar DJ
+    update.proExpiresAt = null;   // Limpar PRO ao ativar DJ
+    update.djExpired = false;     // Resetar flag de expiração
   }
 
   await ref.update(update);
