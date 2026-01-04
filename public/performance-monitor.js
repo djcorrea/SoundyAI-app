@@ -26,7 +26,7 @@
     const CONFIG = {
         BUFFER_SIZE: 30,
         FPS_SAMPLE_INTERVAL: 500, // ms entre amostras
-        LOW_FPS_THRESHOLD: 50,
+        LOW_FPS_THRESHOLD: 45,    // Threshold mais agressivo (era 50)
         LOW_FPS_DURATION_ALERT: 2000, // 2 segundos
         LONGTASK_THRESHOLD: 50, // ms (padrão W3C)
         DEBUG_MODE: false // Mudar para true para logs detalhados

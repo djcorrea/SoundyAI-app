@@ -6977,12 +6977,16 @@ function injectDestinationModalStyles() {
                 max-width: 100%;
             }
             .destination-modal-container {
-                padding: 32px 20px;
-                /* 🔧 Altura igual ao modal de referência (mode-selection-modal) */
-                max-height: calc(100dvh - 40px);
-                max-height: calc(100vh - 40px);
-                margin: 20px auto;
-                overflow-y: auto;
+                /* 🎯 IGUAL AO MODAL DE REFERÊNCIA */
+                max-width: 95vw !important;
+                width: 95% !important;
+                max-height: calc(100dvh - 40px) !important;
+                max-height: calc(100vh - 40px) !important;
+                height: auto !important;
+                margin: 20px auto !important;
+                padding: 32px 20px !important;
+                /* Container fixo, sem scroll excessivo */
+                overflow: hidden !important;
             }
             .destination-modal-title {
                 font-size: 1.6rem;
