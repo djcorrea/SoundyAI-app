@@ -28,10 +28,13 @@ A SoundyAI responde essas perguntas com dados técnicos mensuráveis e comparaç
 ### Diferenciais
 
 - Análise específica por gênero musical (Funk, EDM, Trance, etc.)
+- **Análise por Referência:** Compare sua música diretamente com a faixa de qualquer artista
 - Comparação com padrões reais de mercado, não valores genéricos
 - Métricas técnicas profissionais (LUFS ITU-R BS.1770-4, True Peak com oversampling 4x, Dynamic Range)
 - Sugestões contextualizadas ao gênero escolhido
 - Plano de correção passo a passo com priorização
+- Chatbot inteligente com assistente virtual de áudio
+- Sistema de IA para dúvidas técnicas específicas
 
 ### IMPORTANTE
 
@@ -170,6 +173,106 @@ Sugestões → Aplicar Correções → Reanálise
 
 ---
 
+## 3.1. ANÁLISE POR REFERÊNCIA - COMPARAÇÃO DIRETA COM ARTISTAS
+
+### O que é
+
+A Análise por Referência é uma funcionalidade **exclusiva PRO** que permite comparar sua música diretamente com a faixa de **qualquer artista profissional** que você escolher.
+
+Ao invés de comparar com padrões genéricos de gênero, você compara A/B (lado a lado) com uma música específica que serve de inspiração ou meta técnica.
+
+### Como funciona
+
+**Processo:**
+
+1. Ao abrir o modal de análise, escolha o modo "Por Música de Referência"
+2. Faça upload da **sua música** (primeira faixa)
+3. Faça upload da **música de referência** do artista (segunda faixa)
+4. O sistema analisa ambas as faixas tecnicamente
+5. Gera uma tabela comparativa lado a lado
+6. Exibe diferenças percentuais entre as duas músicas
+7. Cria sugestões específicas para aproximar sua música da referência
+
+**Exemplo prático:**
+
+Você produziu um Progressive Trance e quer que soe como "Adagio for Strings" do Tiësto. Ao invés de comparar com padrões genéricos de Trance, você:
+
+1. Upload da sua track
+2. Upload de "Adagio for Strings"
+3. Sistema compara tecnicamente:
+   - LUFS: Você -10.5, Referência -8.2 → Diferença -27.9%
+   - Grave: Você -15 dB, Referência -11 dB → Diferença -36.4%
+   - Agudos: Você -20 dB, Referência -18 dB → Diferença -11.1%
+
+### Vantagens da Análise por Referência
+
+**Precisão técnica:**  
+Você não compara com "média de mercado", mas sim com uma música real e específica.
+
+**Direcionamento artístico:**  
+Se você quer soar como um artista específico, essa é a forma mais direta.
+
+**Aprendizado avançado:**  
+Entenda exatamente o que diferencia sua produção de uma referência profissional.
+
+**Versatilidade:**  
+Funciona com qualquer estilo, qualquer artista, qualquer época.
+
+### Quando usar Análise por Referência
+
+**Use quando:**
+- Você tem uma música específica como meta técnica
+- Quer entender as diferenças técnicas entre sua produção e uma referência
+- Está buscando um som específico de um artista
+- Precisa validar se sua mixagem está no mesmo nível técnico
+
+**NÃO use quando:**
+- Você só quer validar se está dentro dos padrões gerais do gênero (use modo Gênero)
+- A referência escolhida não é masterizada profissionalmente
+- Você quer comparar com múltiplas referências simultaneamente
+
+### Diferença entre Modo Gênero e Modo Referência
+
+**Modo Gênero (padrão):**
+- Compara com **média estatística** de centenas de faixas profissionais
+- Alvo: Padrão de mercado do estilo
+- Ideal para: Validação técnica geral
+
+**Modo Referência (PRO):**
+- Compara com **uma música específica** escolhida por você
+- Alvo: Faixa exata que você quer imitar tecnicamente
+- Ideal para: Aprendizado direcionado e metas específicas
+
+### Interpretação dos resultados
+
+A tabela comparativa mostra:
+
+**Coluna 1:** Sua música  
+**Coluna 2:** Música de referência  
+**Coluna 3:** Diferença percentual  
+**Coluna 4:** Status (OK/Atenção/Crítico)
+
+**Exemplo:**
+```
+┌──────────────────┬──────────┬────────────┬────────────┬──────────┐
+│ Métrica          │ Sua      │ Referência │ Diferença  │ Status   │
+├──────────────────┼──────────┼────────────┼────────────┼──────────┤
+│ Loudness (LUFS)  │ -12.5    │ -8.3       │ -50.6%     │ Crítico  │
+│ True Peak (dBTP) │ -0.8     │ -1.2       │ +50.0%     │ Atenção  │
+│ Sub (dB)         │ -18.0    │ -10.0      │ -80.0%     │ Crítico  │
+└──────────────────┴──────────┴────────────┴────────────┴──────────┘
+```
+
+**Leitura:** Seu sub está 80% mais fraco que a referência. Ação: aumentar graves.
+
+### Limitações importantes
+
+1. **Qualidade da referência:** Se a faixa de referência for mal masterizada, a comparação será inválida
+2. **Contexto artístico:** Diferenças podem ser escolhas artísticas intencionais da referência
+3. **Subjetividade:** Copiar tecnicamente não garante impacto artístico igual
+
+---
+
 ## 4. ENTENDENDO O SCORE FINAL
 
 ### O que o score representa
@@ -199,6 +302,20 @@ Uma música com LUFS -21.5 (quando o alvo é -8.3) terá score reduzido, mas iss
 - **0-39:** Múltiplos problemas técnicos, revisão completa necessária
 
 **Importante:** Score alto não garante sucesso artístico. Score baixo não significa música ruim. Use como guia técnico, não como julgamento final.
+
+### Mensagem científica abaixo do score
+
+Logo abaixo do score final, você verá uma mensagem informativa:
+
+> "As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero. Porém, música é arte: cada produtor pode querer características diferentes. Use estas dicas como um guia de referência, não como uma regra absoluta."
+
+Essa mensagem existe para lembrar que:
+
+1. **Os dados são científicos:** Baseados em ITU-R BS.1770-4, oversampling 4x, análise espectral real
+2. **Mas música é subjetiva:** Você pode intencionalmente desviar dos padrões
+3. **Use como guia:** Não como limitação criativa
+
+Essa mensagem é especialmente importante para evitar que produtores sigam cegamente as métricas sem considerar sua visão artística.
 
 ---
 
@@ -437,7 +554,233 @@ Após aplicar correções:
 
 ---
 
-## 9. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
+## 9. CHATBOT INTELIGENTE - SEU ASSISTENTE VIRTUAL DE ÁUDIO
+
+### O que é
+
+O Chatbot da SoundyAI é um **assistente virtual especializado** em engenharia de áudio, mixagem e masterização. Ele fica sempre disponível na tela principal e pode responder dúvidas técnicas, explicar conceitos e orientar sobre uso da plataforma.
+
+### Como funciona
+
+**Localização:**  
+O chatbot fica posicionado no centro da tela, integrado ao design futurista da plataforma.
+
+**Estados:**
+
+1. **Welcome State (Estado Inicial):**
+   - Título: "SoundyAI"
+   - Subtítulo: "Seu engenheiro de áudio virtual"
+   - Campo de input para primeira mensagem
+   - Ícone do robô animado
+
+2. **Active State (Durante conversa):**
+   - Header com nome "SoundyAI"
+   - Área de conversação com histórico de mensagens
+   - Input de resposta na parte inferior
+   - Indicador de digitação quando a IA está processando
+
+### Funcionalidades do Chatbot
+
+**1. Responder dúvidas técnicas:**
+```
+Você: "O que é LUFS?"
+Bot: "LUFS (Loudness Units relative to Full Scale) é uma medida..."
+```
+
+**2. Explicar conceitos de áudio:**
+```
+Você: "Por que meu grave está muito alto?"
+Bot: "Grave excessivo pode mascarar outras frequências..."
+```
+
+**3. Orientar sobre uso da plataforma:**
+```
+Você: "Como faço para comparar com uma referência?"
+Bot: "Para usar o Modo Referência, clique em..."
+```
+
+**4. Interpretar resultados:**
+```
+Você: "Meu score está 65, é bom?"
+Bot: "Score 65 indica qualidade aceitável, mas há ajustes..."
+```
+
+### Quando usar o Chatbot
+
+**Use para:**
+- Tirar dúvidas sobre métricas técnicas
+- Entender o significado de termos técnicos
+- Pedir orientação sobre como usar funcionalidades
+- Obter explicações sobre resultados da análise
+- Aprender conceitos de engenharia de áudio
+
+**NÃO use para:**
+- Análise técnica profunda (use "Pedir Ajuda à IA" na tela de resultados)
+- Feedback específico sobre sua música (use análise + sugestões)
+- Suporte técnico de bugs (use canal oficial de suporte)
+
+### Diferença entre Chatbot e "Pedir Ajuda à IA"
+
+**Chatbot (disponível para todos):**
+- Assistente genérico de dúvidas
+- Responde perguntas conceituais
+- Não tem contexto da sua análise
+- Educacional e informativo
+
+**Pedir Ajuda à IA (PRO, na tela de resultados):**
+- Analisa **especificamente sua música**
+- Tem acesso a todas as métricas da sua análise
+- Gera orientações personalizadas
+- Foco em correção prática
+
+### Exemplos de uso
+
+**Exemplo 1 - Conceito técnico:**
+```
+Você: "O que é True Peak e por que importa?"
+
+Bot: "True Peak é o pico absoluto do sinal de áudio após 
+oversampling 4x. Ele detecta picos inter-sample que podem 
+causar distorção digital durante conversão D/A. Manter True 
+Peak abaixo de -1.0 dBTP previne clipping em sistemas de 
+reprodução e compressores de streaming."
+```
+
+**Exemplo 2 - Como usar funcionalidade:**
+```
+Você: "Posso comparar minha música com a de outro artista?"
+
+Bot: "Sim! Use o Modo Referência (exclusivo PRO). Ao abrir o 
+modal de análise, selecione 'Por Música de Referência', depois 
+faça upload da sua música e da música do artista. O sistema 
+compara lado a lado e mostra as diferenças técnicas."
+```
+
+**Exemplo 3 - Interpretação de resultado:**
+```
+Você: "Meu LUFS está -21.5, é muito baixo?"
+
+Bot: "Sim, -21.5 LUFS é significativamente baixo para música de 
+pista. O padrão de Funk/EDM é cerca de -8.3 LUFS. Sua música 
+terá volume percebido muito menor que referências profissionais. 
+Recomendo aumentar loudness usando limitador no master."
+```
+
+### Limitações
+
+1. **Sem contexto da análise:** O chatbot não sabe o resultado da sua análise (use "Pedir Ajuda à IA" para isso)
+2. **Respostas genéricas:** Não adapta ao seu gênero específico sem você informar
+3. **Educacional, não corretivo:** Ensina conceitos, mas não dá passo a passo personalizado
+
+---
+
+## 10. PEDIR AJUDA À IA - ANÁLISE PERSONALIZADA (PRO)
+
+### O que é
+
+Funcionalidade **exclusiva PRO** disponível na tela de resultados que gera uma análise personalizada e detalhada da sua música, com orientações específicas baseadas em todas as métricas técnicas detectadas.
+
+### Diferença para o Chatbot
+
+**Chatbot:**
+- Disponível na tela principal
+- Responde dúvidas gerais
+- Não tem acesso às suas métricas
+- Educacional
+
+**Pedir Ajuda à IA:**
+- Disponível apenas na tela de resultados
+- Exclusivo para usuários PRO
+- Tem acesso completo a todas as métricas da sua análise
+- Gera feedback personalizado
+
+### Como funciona
+
+1. Após a análise ser concluída, aparece o botão **"Pedir Ajuda à IA"**
+2. Ao clicar, a IA processa:
+   - Todas as métricas técnicas (LUFS, True Peak, DR, bandas espectrais)
+   - Score final e subscores
+   - Gênero selecionado
+   - Desvios em relação aos alvos
+   - Severidade dos problemas detectados
+
+3. Gera um relatório detalhado com:
+   - **Diagnóstico geral:** Visão panorâmica da qualidade técnica
+   - **Problemas prioritários:** Lista ordenada do mais crítico ao menos crítico
+   - **Orientações específicas:** Como corrigir cada problema
+   - **Ferramentas recomendadas:** Plugins/técnicas para cada correção
+   - **Ordem de aplicação:** Sequência ideal de ajustes
+
+### Exemplo de resposta
+
+**Input:** Música analisada com LUFS -21.5, True Peak 0.5 dBTP, Grave -18 dB
+
+**Output da IA:**
+
+```
+🔍 DIAGNÓSTICO GERAL
+Sua música apresenta 3 problemas técnicos prioritários que 
+estão impactando negativamente o score final (Score: 58/100).
+
+🚨 PROBLEMAS CRÍTICOS (ordem de prioridade)
+
+1️⃣ TRUE PEAK ESTOURADO (0.5 dBTP)
+Problema: Clipping digital detectado. Picos acima de 0 dBTP 
+causam distorção audível.
+Ação: Aplicar limiter com True Peak Detection. Target: -1.0 dBTP.
+Ferramentas: FabFilter Pro-L2, Waves L2, Ozone Maximizer.
+
+2️⃣ LOUDNESS MUITO BAIXO (-21.5 LUFS)
+Problema: Volume percebido 13 dB abaixo do padrão Funk (-8.3 LUFS).
+Ação: Aumentar loudness após corrigir True Peak. Usar limitador 
+com ganho de +13 dB aproximadamente.
+Atenção: Corrigir True Peak ANTES, senão vai gerar mais clipping.
+
+3️⃣ GRAVE MUITO FRACO (-18 dB)
+Problema: Sub/Grave 80% mais fraco que referência (-10 dB).
+Ação: Boost de +8 dB em 60-250 Hz com EQ paramétrico. 
+Filtro shelf ou bell. Validar em subwoofer.
+
+📋 ORDEM DE APLICAÇÃO
+1. Corrigir True Peak (limiter com detection)
+2. Ajustar Loudness (maximizer no master)
+3. Reforçar Grave (EQ antes do limiter)
+4. Reanalisar para validar
+
+⏱️ Tempo estimado: 15-30 minutos
+```
+
+### Quando usar
+
+**Use "Pedir Ajuda à IA" quando:**
+- Você não sabe por onde começar as correções
+- Há múltiplos problemas e você quer priorização
+- Precisa de orientação técnica específica para sua música
+- Quer entender a relação entre os problemas detectados
+
+**NÃO use quando:**
+- Você só quer tirar dúvidas conceituais (use Chatbot)
+- Não tem plano PRO (funcionalidade bloqueada)
+- Já sabe exatamente o que fazer
+
+### Vantagens
+
+1. **Contextualizado:** A IA sabe exatamente as métricas da sua música
+2. **Priorizado:** Ordena problemas do mais crítico ao menos importante
+3. **Didático:** Explica o "por quê" de cada problema
+4. **Prático:** Indica ferramentas e técnicas concretas
+5. **Sequencial:** Define ordem correta de aplicação
+
+### Limitações
+
+1. **Exclusivo PRO:** Planos Free/Plus não têm acesso
+2. **Baseado em métricas:** Não avalia aspectos artísticos/criativos
+3. **Sugestões genéricas:** Não considera setup específico da sua DAW
+4. **Uma análise por vez:** Cada clique gera uma nova análise (pode variar ligeiramente)
+
+---
+
+## 11. PLANO DE CORREÇÃO (FUNCIONALIDADE PRO)
 
 ### O que é
 
@@ -467,7 +810,7 @@ Cada item inclui:
 
 ---
 
-## 10. RELATÓRIO EM PDF
+## 12. RELATÓRIO EM PDF
 
 ### O que ele contém
 
@@ -498,7 +841,7 @@ Estático, portátil, ideal para compartilhamento e arquivamento.
 
 ---
 
-## 11. BOAS PRÁTICAS
+## 13. BOAS PRÁTICAS
 
 ### Analisar versões finais
 
@@ -526,7 +869,7 @@ Uma faixa ambient com LUFS -25 (muito baixo) pode ser exatamente o que você que
 
 ---
 
-## 12. LIMITAÇÕES DA FERRAMENTA
+## 14. LIMITAÇÕES DA FERRAMENTA
 
 ### Não analisa intenção artística
 
@@ -553,7 +896,7 @@ Um "score baixo" em Funk pode ser "score alto" em Ambient. Sempre considere o g�
 
 ---
 
-## 13. COMO FORNECER FEEDBACK
+## 15. COMO FORNECER FEEDBACK
 
 A SoundyAI evolui com feedback de usuários reais.
 

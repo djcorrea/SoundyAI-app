@@ -47,16 +47,20 @@
 1. Introdução
 2. Para quem foi criada
 3. Fluxo correto de uso
+  3.1. Análise por Referência ⭐ NOVO
 4. Score Final
+  - Mensagem científica abaixo do score ⭐ NOVO
 5. Métricas Principais
 6. Análise de Frequências
-7. Comparação com Referência
-8. Sugestões e Plano de Correção
-9. Plano de Correção (PRO)
-10. Relatório PDF
-11. Boas Práticas
-12. Limitações
-13. Como fornecer feedback
+7. Comparação com Referência de Gênero
+8. Sugestões Inteligentes
+9. Chatbot Inteligente ⭐ NOVO
+10. Pedir Ajuda à IA ⭐ EXPANDIDO
+11. Plano de Correção (PRO)
+12. Relatório PDF
+13. Boas Práticas
+14. Limitações
+15. Como fornecer feedback
 Glossário Técnico
 ```
 
