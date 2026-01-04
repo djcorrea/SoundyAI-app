@@ -22,19 +22,6 @@
     }
 }
 
-/* ============ 🚀 PERFORMANCE: Classes de controle dinâmico ============ */
-/* Pausar animações CSS pesadas quando modal de análise está aberto */
-body.perf-animations-paused .robo,
-body.perf-animations-paused .notebook,
-body.perf-animations-paused .teclado,
-body.perf-animations-paused .caixas,
-body.perf-animations-paused .mesa,
-body.perf-animations-paused .particles-overlay,
-body.perf-animations-paused .glow-effect,
-body.perf-animations-paused .pulse-animation {
-    animation-play-state: paused !important;
-}
-
 /* ============ 🚀 PERFORMANCE: Otimizações globais de renderização ============ */
 img {
     content-visibility: auto; /* Lazy rendering */
@@ -115,7 +102,7 @@ body.modal-open {
 .fade-in-start {
     opacity: 0;
     transform: translateY(1.85vh); /* 20px → 1.85vh */
-    animation: fadeInPush 0.3s ease-out forwards;
+    animation: fadeInPush 0.6s ease-out forwards;
 }
 
 @keyframes fadeInPush {
@@ -201,7 +188,7 @@ body.modal-open {
     /* Otimizado: Blur balanceado - visual preservado + performance */
     filter: drop-shadow(0 0 0.625vw rgba(138, 43, 226, 0.3)); /* 12px → 0.625vw */
     /* Otimizado: Aumentamos duração para reduzir frequência de repaint */
-    animation: fadeInPush 0.3s ease-out forwards, robotBreathingOptimized 4s ease-in-out infinite 0.3s;
+    animation: fadeInPush 0.6s ease-out forwards, robotBreathingOptimized 4s ease-in-out infinite 0.6s;
     /* Fade MUITO mais pronunciado - inicia mais cedo e é mais intenso */
     mask-image: linear-gradient(
         to bottom, 
@@ -264,7 +251,7 @@ body.modal-open {
 
     z-index: 1;
     filter: drop-shadow(0 0 0.625vw rgba(0, 150, 255, 0.2));
-    animation: fadeInPush 0.3s ease-out forwards;
+    animation: fadeInPush 0.6s ease-out forwards;
     transition: width 0.2s ease-out, transform 0.2s ease-out;
 }
 
@@ -282,7 +269,7 @@ body.modal-open {
 
     z-index: 2;
     filter: drop-shadow(0 0 0.521vw rgba(0, 150, 255, 0.3));
-    animation: fadeInPush 0.3s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.3s;
+    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.6s;
     transition: width 0.2s ease-out, transform 0.2s ease-out;
 }
 
@@ -299,7 +286,7 @@ body.modal-open {
 
     z-index: 2;
     filter: drop-shadow(0 0 0.417vw rgba(0, 150, 255, 0.25));
-    animation: fadeInPush 0.3s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.3s;
+    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.6s;
 
     transform-origin: center;
     transition: transform 0.2s ease-out, width 0.2s ease-out;
@@ -326,7 +313,7 @@ body.modal-open {
     max-height: clamp(80vh, 115vh, 140vh);
     z-index: 2;
     filter: drop-shadow(0 0 0.781vw rgba(138, 43, 226, 0.4)); /* 15px → 0.781vw */
-    animation: fadeInPush 0.3s ease-out forwards, subtleGlowOptimized 3.5s ease-in-out infinite 0.3s;
+    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 3.5s ease-in-out infinite 0.6s;
 }
 
 /* ============ OVERLAY DE PARTÍCULAS ============ */
@@ -338,9 +325,9 @@ body.modal-open {
     height: 100%;
     z-index: 4;
     pointer-events: none;
-    background: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.03) 0%, transparent 70%);
-    animation: fadeInPush 0.3s ease-out forwards, particleFloatOptimized 25s ease-in-out infinite 0.3s;
-    will-change: auto;
+    background: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.08) 0%, transparent 70%);
+    animation: fadeInPush 0.6s ease-out forwards, particleFloatOptimized 15s ease-in-out infinite 0.6s;
+    will-change: transform, opacity;
     /* 🚀 PERFORMANCE: Promover para camada própria */
     transform: translateZ(0);
 }
@@ -426,12 +413,12 @@ body.modal-open {
 
 @keyframes particleFloatOptimized {
     0%, 100% {
-        opacity: 0.15;
+        opacity: 0.3;
         transform: translateY(0);
     }
     50% {
-        opacity: 0.35;
-        transform: translateY(-0.6vh);
+        opacity: 0.6;
+        transform: translateY(-0.926vh); /* -10px → -0.926vh */
     }
 }
 
@@ -448,7 +435,7 @@ body.modal-open {
 
 /* ============ ANIMAÇÕES DE CARREGAMENTO ============ */
 .fallback-animation .cenario img {
-    animation: fadeInUp 0.3s ease-out forwards;
+    animation: fadeInUp 0.6s ease-out forwards;
     will-change: transform, opacity;
 }
 
