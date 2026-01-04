@@ -418,20 +418,31 @@ async function processWebhookAsync(data) {
 
     // ═══════════════════════════════════════════════════════════════
     // PASSO 6: Enviar e-mail de boas-vindas
+    // ⚠️ CRÍTICO: E-mail é secundário - NUNCA pode quebrar o webhook
     // ═══════════════════════════════════════════════════════════════
-    try {
-      await sendWelcomeProEmail({
-        email: data.buyerEmail,
-        name: data.buyerName,
-        tempPassword: user.tempPassword,
-        isNewUser: user.isNew,
-        expiresAt: updatedUser.proExpiresAt,
-        transactionId: data.transactionId
+    const emailResult = await sendWelcomeProEmail({
+      email: data.buyerEmail,
+      name: data.buyerName,
+      tempPassword: user.tempPassword,
+      isNewUser: user.isNew,
+      expiresAt: updatedUser.proExpiresAt,
+      transactionId: data.transactionId
+    });
+
+    if (emailResult.success) {
+      console.log(`✅ [HOTMART-ASYNC] E-mail enviado com sucesso`, {
+        emailId: emailResult.emailId,
+        to: data.buyerEmail,
+        transaction: data.transactionId
       });
-      console.log(`📧 [HOTMART-ASYNC] E-mail enviado para: ${data.buyerEmail}`);
-    } catch (emailError) {
-      console.error('⚠️ [HOTMART-ASYNC] Erro ao enviar e-mail (não crítico):', emailError.message);
+    } else {
+      console.error(`⚠️ [HOTMART-ASYNC] Falha ao enviar e-mail (não crítico - webhook continua)`, {
+        error: emailResult.error,
+        to: data.buyerEmail,
+        transaction: data.transactionId
+      });
     }
+
 
     const elapsed = Date.now() - startTime;
     console.log(`✅ [HOTMART-ASYNC] Processamento concluído em ${elapsed}ms`);
