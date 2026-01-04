@@ -56,7 +56,6 @@
         },
         
         // Timing
-        INPUT_IDLE_THRESHOLD: 3000, // 3s sem digitar para reativar
         FPS_RECOVERY_DELAY: 2000,   // Esperar 2s de FPS bom para reativar
         DEBOUNCE_RESIZE: 250
     };
@@ -76,14 +75,13 @@
         // Visibility states
         isDocumentVisible: true,
         isWindowFocused: true,
-        isUserTyping: false,
+        isModalOpen: false, // Modal de análise aberto (cobre o fundo)
         
         // Vanta reference
         vantaEffect: null,
         vantaElement: null,
         
         // Timers
-        typingTimer: null,
         recoveryTimer: null,
         
         // FPS tracking
@@ -215,7 +213,7 @@
         return (
             state.isDocumentVisible &&
             state.isWindowFocused &&
-            !state.isUserTyping &&
+            !state.isModalOpen &&
             state.currentTier !== 'paused' &&
             !state.prefersReducedMotion
         );
@@ -319,43 +317,67 @@
         }
     }
 
-    function onInputFocus(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            state.isUserTyping = true;
-            clearTimeout(state.typingTimer);
+    // ═══════════════════════════════════════════════════════════════════
+    // MODAL HANDLERS - Pausar durante análise de áudio (fundo não visível)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // IDs dos modais que cobrem o fundo completamente
+    const HEAVY_MODALS = [
+        'audioAnalysisModal',    // Modal principal de análise
+        'analysisModeModal',     // Seleção de modo
+        'welcomeAnalysisModal'   // Welcome modal
+    ];
+
+    function checkModalState() {
+        // Verificar se algum modal pesado está visível
+        const isAnyModalOpen = HEAVY_MODALS.some(id => {
+            const modal = document.getElementById(id);
+            if (!modal) return false;
+            const style = window.getComputedStyle(modal);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+
+        if (isAnyModalOpen !== state.isModalOpen) {
+            state.isModalOpen = isAnyModalOpen;
             
-            // Pausar efeitos pesados durante digitação
-            pauseVanta('usuário digitando');
-            setBackdropState(false);
+            if (isAnyModalOpen) {
+                pauseVanta('modal de análise aberto');
+                pauseAnimations();
+            } else {
+                if (shouldVantaRun()) {
+                    setTimeout(() => resumeVanta('modal fechado'), 100);
+                }
+                resumeAnimations();
+            }
         }
     }
 
-    function onInputBlur(e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            // Delay antes de reativar
-            clearTimeout(state.typingTimer);
-            state.typingTimer = setTimeout(() => {
-                state.isUserTyping = false;
-                if (shouldVantaRun()) {
-                    resumeVanta('fim da digitação');
-                }
-                setBackdropState(true);
-            }, 500);
-        }
-    }
+    // Observer para detectar mudanças nos modais
+    function initModalObserver() {
+        const observer = new MutationObserver((mutations) => {
+            // Debounce para evitar chamadas excessivas
+            clearTimeout(state.modalCheckTimer);
+            state.modalCheckTimer = setTimeout(checkModalState, 50);
+        });
 
-    function onKeyDown(e) {
-        // Reset do timer de typing a cada tecla
-        if (state.isUserTyping) {
-            clearTimeout(state.typingTimer);
-            state.typingTimer = setTimeout(() => {
-                state.isUserTyping = false;
-                if (shouldVantaRun()) {
-                    resumeVanta('idle após digitação');
-                }
-                setBackdropState(true);
-            }, CONFIG.INPUT_IDLE_THRESHOLD);
-        }
+        // Observar mudanças de style/display nos modais
+        HEAVY_MODALS.forEach(id => {
+            const modal = document.getElementById(id);
+            if (modal) {
+                observer.observe(modal, { 
+                    attributes: true, 
+                    attributeFilter: ['style', 'class'] 
+                });
+            }
+        });
+
+        // Também observar o body para modais adicionados dinamicamente
+        observer.observe(document.body, { 
+            childList: true, 
+            subtree: false 
+        });
+
+        return observer;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -436,9 +458,11 @@
         document.addEventListener('visibilitychange', onVisibilityChange);
         window.addEventListener('blur', onWindowBlur);
         window.addEventListener('focus', onWindowFocus);
-        document.addEventListener('focusin', onInputFocus);
-        document.addEventListener('focusout', onInputBlur);
-        document.addEventListener('keydown', onKeyDown);
+        
+        // Iniciar observer de modais
+        initModalObserver();
+        // Checar estado inicial dos modais
+        checkModalState();
 
         // Resize handler com debounce
         let resizeTimer;
