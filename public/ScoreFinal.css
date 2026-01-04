@@ -13,9 +13,9 @@
   width: 100%;
   text-align: center;
   padding: 28px 20px;
-  background: rgba(10, 10, 20, 0.4);
-  backdrop-filter: blur(10px) saturate(180%); /* ⚡ OTIMIZADO: Reduzido de 15px para 10px */
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  background: rgba(10, 10, 20, 0.6); /* ⚡ ULTRA-OTIMIZADO: Background mais opaco = menos blur necessário */
+  backdrop-filter: blur(6px) saturate(150%); /* ⚡ ULTRA-OTIMIZADO: Blur ainda mais leve */
+  -webkit-backdrop-filter: blur(6px) saturate(150%);
   border-bottom: 1px solid rgba(127, 0, 255, 0.3);
   box-shadow: 0 2px 18px rgba(127, 0, 255, 0.2);
   position: relative;
@@ -26,6 +26,9 @@
   -moz-user-select: none;
   -ms-user-select: none;
   will-change: transform, opacity; /* ⚡ Hint para GPU */
+  /* ⚡ CSS CONTAINMENT */
+  contain: layout style paint;
+  content-visibility: auto;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -39,15 +42,27 @@
   width: 100%;
   height: 100%;
   background: 
-    radial-gradient(circle at 20% 50%, rgba(127, 0, 255, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 50% 20%, rgba(127, 0, 255, 0.08) 0%, transparent 40%);
+    radial-gradient(circle at 20% 50%, rgba(127, 0, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.08) 0%, transparent 50%);
   background-size: 200% 200%;
-  animation: particleFlow 12s ease-in-out 1; /* ⚡ OTIMIZADO: Executa apenas 1x */
-  animation-fill-mode: forwards; /* ⚡ Mantém estado final */
+  animation: particleFlow 8s ease-out 1; /* ⚡ ULTRA-OTIMIZADO: Mais rápido e suave */
+  animation-fill-mode: forwards;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.6;
+  opacity: 0.5; /* ⚡ Mais transparente */
+  will-change: opacity; /* ⚡ Apenas opacity, não background-position */
+}
+
+/* ⚡ ULTRA-PERFORMANCE: Desabilitar em mobile */
+@media (max-width: 768px) {
+  #final-score-display::before {
+    display: none !important;
+  }
+  
+  #final-score-display {
+    backdrop-filter: blur(3px); /* Blur mínimo */
+    -webkit-backdrop-filter: blur(3px);
+  }
 }
 
 /* Animação suave de movimento orgânico - ⚡ OTIMIZADO: Reduzido de 4 para 2 keyframes */
