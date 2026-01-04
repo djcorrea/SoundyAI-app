@@ -9602,6 +9602,11 @@ function closeAudioModal() {
         if (modalContent) modalContent.style.willChange = 'auto';
         if (scoreDisplay) scoreDisplay.style.willChange = 'auto';
         
+        // ⚡ PERFORMANCE: Executar cleanup do otimizador
+        if (typeof window.cleanupModalPerformance === 'function') {
+            window.cleanupModalPerformance();
+        }
+        
         modal.style.display = 'none';
         currentModalAnalysis = null;
         
@@ -19156,6 +19161,14 @@ async function displayModalResults(analysis) {
         }
         
         __dbg('📊 Resultados exibidos no modal');
+        
+        // ⚡ PERFORMANCE: Aplicar otimizações após renderização
+        requestAnimationFrame(() => {
+            if (typeof window.optimizeModalPerformance === 'function') {
+                window.optimizeModalPerformance();
+                console.log('[DISPLAY_MODAL_RESULTS] ⚡ Otimizações de performance aplicadas');
+            }
+        });
         
         // ✅ LOG FINAL DE CONFIRMAÇÃO
         console.log('[DISPLAY_MODAL_RESULTS] ✅✅✅ FUNÇÃO FINALIZADA COM SUCESSO ✅✅✅');

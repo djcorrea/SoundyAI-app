@@ -21,7 +21,15 @@ import { sendWelcomeProEmail } from '../../lib/email/hotmart-welcome.js';
 const router = express.Router();
 
 // ═══════════════════════════════════════════════════════════════════
-// 📊 CONFIGURAÇÃO
+// � MIDDLEWARE CRÍTICO - RAW BODY (antes do express.json() global)
+// ═══════════════════════════════════════════════════════════════════
+// A Hotmart exige validação de assinatura com o body RAW (Buffer)
+// O express.json() global consome o stream e causa erro -1 silencioso
+// SOLUÇÃO: express.raw() captura o Buffer antes do parsing JSON
+router.use(express.raw({ type: 'application/json' }));
+
+// ═══════════════════════════════════════════════════════════════════
+// �📊 CONFIGURAÇÃO
 // ═══════════════════════════════════════════════════════════════════
 
 const HOTMART_WEBHOOK_SECRET = process.env.HOTMART_WEBHOOK_SECRET;
@@ -406,6 +414,24 @@ router.post('/', (req, res) => {
     }, null, 2));
 
     // ═══════════════════════════════════════════════════════════════
+    // 🔧 PARSE MANUAL DO BODY (req.body é Buffer do express.raw)
+    // ═══════════════════════════════════════════════════════════════
+    let parsedBody;
+    
+    try {
+      // Converter Buffer para string e fazer parse JSON
+      const rawBody = req.body.toString('utf8');
+      parsedBody = JSON.parse(rawBody);
+      console.log('✅ [HOTMART] Body parseado com sucesso');
+    } catch (parseError) {
+      console.error('❌ [HOTMART] Erro ao parsear body:', parseError.message);
+      return res.status(400).json({ 
+        error: 'INVALID_JSON',
+        message: 'Payload não é um JSON válido'
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // VALIDAÇÕES SÍNCRONAS (rápidas) - antes de responder 200
     // ═══════════════════════════════════════════════════════════════
 
@@ -418,8 +444,8 @@ router.post('/', (req, res) => {
       });
     }
 
-    // 2. Extrair dados do payload
-    const data = extractHotmartData(req.body);
+    // 2. Extrair dados do payload (agora usando parsedBody)
+    const data = extractHotmartData(parsedBody);
     
     if (!data) {
       console.error('❌ [HOTMART] Payload inválido');
