@@ -508,7 +508,52 @@
         </div>
     </div>
 
-    <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
+    <!-- 🎧 MODAL DE ENCERRAMENTO DO BETA DJS -->
+    <div id="betaDjExpiredModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content welcome-modal-content" style="max-width: 650px;">
+            <div class="audio-modal-header">
+                <h2 class="analysis-modal-title" style="text-align: center; line-height: 1.4;">
+                    <span style="font-size: 2rem;">🎧</span><br>
+                    <span>OBRIGADO POR FAZER PARTE</span><br>
+                    <span>DO BETA DA SOUNDYAI</span>
+                </h2>
+                <button class="audio-modal-close" onclick="closeBetaExpiredModal()">&times;</button>
+            </div>
+            
+            <div class="welcome-modal-body" style="padding: 24px;">
+                <p style="font-size: 1rem; line-height: 1.7; margin-bottom: 20px; text-align: center;">
+                    Seu período de acesso antecipado chegou ao fim, e o seu feedback foi — e continua sendo — 
+                    <strong>extremamente importante</strong> pra evolução da plataforma.
+                </p>
+                
+                <div class="welcome-description" style="text-align: center;">
+                    <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;">
+                        A SoundyAI está sendo construída junto com <strong>DJs e produtores</strong> que 
+                        realmente vivem a música, e sua participação fez parte disso.
+                    </p>
+                    <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;">
+                        Em breve, entraremos em contato para conversar sobre feedbacks, próximos passos 
+                        e <strong>possíveis parcerias</strong>.
+                    </p>
+                </div>
+                
+                <div class="welcome-tip" style="background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 16px; margin: 24px 0;">
+                    <span class="tip-icon" style="font-size: 1.5rem;">🙏</span>
+                    <p style="font-size: 0.9rem; line-height: 1.6; margin: 8px 0 0 0;">
+                        <strong>Obrigado por fortalecer a SoundyAI desde o começo.</strong><br>
+                        Sua contribuição foi essencial para chegarmos até aqui.
+                    </p>
+                </div>
+                
+                <div class="welcome-actions" style="display: flex; gap: 12px; justify-content: center; margin-top: 28px;">
+                    <button class="welcome-btn secondary" onclick="closeBetaExpiredModal()" style="min-width: 140px;">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content">
             <div class="audio-modal-header" style="display: none;">

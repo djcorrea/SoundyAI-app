@@ -943,6 +943,30 @@ console.log('🚀 Carregando auth.js...');
             if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
               window.SoundyAnonymous.deactivate();
             }
+            
+            // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
+            try {
+              const userSnap = await getDoc(doc(db, 'usuarios', user.uid));
+              if (userSnap.exists()) {
+                const userData = userSnap.data();
+                
+                // Se djExpired === true e modal ainda não foi exibido nesta sessão
+                if (userData.djExpired === true && !sessionStorage.getItem('betaDjModalShown')) {
+                  console.log('🎧 [BETA-DJ] Usuário com beta expirado detectado - exibindo modal');
+                  
+                  // Aguardar 1 segundo para garantir que a página carregou
+                  setTimeout(() => {
+                    if (typeof window.openBetaExpiredModal === 'function') {
+                      window.openBetaExpiredModal();
+                    } else {
+                      console.warn('⚠️ [BETA-DJ] Função openBetaExpiredModal não disponível ainda');
+                    }
+                  }, 1000);
+                }
+              }
+            } catch (error) {
+              console.error('❌ [BETA-DJ] Erro ao verificar status do beta:', error);
+            }
           }
           resolve(user);
         });
