@@ -464,6 +464,8 @@ A análise por referência gera:
 
 ---
 
+## 8. SUGESTÕES INTELIGENTES E PLANO DE CORREÇÃO
+
 ### Como as sugestões são geradas
 
 O sistema analisa automaticamente:
