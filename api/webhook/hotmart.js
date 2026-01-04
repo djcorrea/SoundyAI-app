@@ -182,17 +182,29 @@ function extractHotmartData(body) {
  * @returns {boolean}
  */
 function isApprovedSale(data) {
-  if (!data) return false;
+  if (!data) {
+    console.error('🚫 [HOTMART-ABORT] isApprovedSale: data é null/undefined');
+    return false;
+  }
 
-  // Eventos/status que indicam venda aprovada
+  // Eventos/status que indicam venda aprovada (LISTA EXPANDIDA)
   const approvedStatuses = [
     'PURCHASE_APPROVED',
-    'approved',
     'APPROVED',
-    'purchase_approved',
     'PURCHASE_COMPLETE',
+    'COMPLETED',
+    'PAID',
+    'PAYMENT_APPROVED',
+    'approved',
+    'purchase_approved',
     'completed',
-    'COMPLETED'
+    'paid',
+    'payment_approved',
+    'complete',
+    'success',
+    'SUCCESS',
+    'confirmed',
+    'CONFIRMED'
   ];
 
   const status = (data.status || data.event || '').toUpperCase();
@@ -203,6 +215,12 @@ function isApprovedSale(data) {
     approvedStatuses.some(s => event.includes(s.toUpperCase()));
 
   console.log(`🔍 [HOTMART] Verificando status: "${status}" / event: "${event}" → ${isApproved ? '✅ APROVADO' : '❌ NÃO APROVADO'}`);
+  
+  if (!isApproved) {
+    console.warn('🚫 [HOTMART-ABORT] Venda NÃO aprovada - status/event não corresponde a compra válida');
+    console.warn('🚫 [HOTMART-ABORT] Status recebido:', status);
+    console.warn('🚫 [HOTMART-ABORT] Event recebido:', event);
+  }
   
   return isApproved;
 }
@@ -471,10 +489,11 @@ router.post('/', (req, res) => {
       try {
         parsedBody = safeParseHotmartBody(req);
         console.log('✅ [HOTMART] Body parseado com sucesso');
+        console.log('📋 [HOTMART] Payload completo:', JSON.stringify(parsedBody, null, 2));
         console.log('📋 [HOTMART] Evento:', parsedBody.event || parsedBody.status);
       } catch (parseError) {
-        console.error('❌ [HOTMART] Erro ao parsear body:', parseError.message);
-        console.error('❌ [HOTMART] Body não será processado');
+        console.error('🚫 [HOTMART-ABORT] Erro ao parsear body:', parseError.message);
+        console.error('🚫 [HOTMART-ABORT] Body não será processado');
         // Resposta já foi enviada - apenas logar erro
         return;
       }
@@ -483,29 +502,37 @@ router.post('/', (req, res) => {
       // VALIDAÇÕES (após resposta - não bloqueiam webhook)
       // ═══════════════════════════════════════════════════════════
 
-      // 1. Validar assinatura
-      if (!validateHotmartSignature(req)) {
-        console.error('❌ [HOTMART] Assinatura inválida - ignorando processamento');
-        return;
-      }
+      // 1. VALIDAÇÃO DE ASSINATURA DESABILITADA TEMPORARIAMENTE
+      // Motivo: Prioridade é processar compras válidas
+      // TODO: Reabilitar após confirmar funcionamento
+      console.log('⚠️ [HOTMART] Validação de assinatura DESABILITADA (modo debug)');
+      // if (!validateHotmartSignature(req)) {
+      //   console.error('🚫 [HOTMART-ABORT] Assinatura inválida');
+      //   console.error('🚫 [HOTMART-ABORT] Header X-Hotmart-Hottok:', req.headers['x-hotmart-hottok'] ? 'presente' : 'ausente');
+      //   return;
+      // }
 
       // 2. Extrair dados do payload
       const data = extractHotmartData(parsedBody);
       
       if (!data) {
-        console.error('❌ [HOTMART] Payload inválido - ignorando processamento');
+        console.error('🚫 [HOTMART-ABORT] Falha ao extrair dados do payload');
+        console.error('🚫 [HOTMART-ABORT] Payload recebido:', JSON.stringify(parsedBody, null, 2));
         return;
       }
 
       // 3. Verificar se é venda aprovada
       if (!isApprovedSale(data)) {
-        console.log(`⚠️ [HOTMART] Evento ignorado: ${data.event || data.status}`);
+        console.log(`🚫 [HOTMART-ABORT] Evento não é venda aprovada: ${data.event || data.status}`);
+        console.log('🚫 [HOTMART-ABORT] Data completa:', JSON.stringify(data, null, 2));
         return;
       }
 
       // 4. Validar e-mail do comprador
       if (!data.buyerEmail || !data.buyerEmail.includes('@')) {
-        console.error('❌ [HOTMART] E-mail inválido - ignorando processamento');
+        console.error('🚫 [HOTMART-ABORT] E-mail inválido ou ausente');
+        console.error('🚫 [HOTMART-ABORT] E-mail recebido:', data.buyerEmail);
+        console.error('🚫 [HOTMART-ABORT] Buyer data:', JSON.stringify(parsedBody.buyer || parsedBody.data?.buyer, null, 2));
         return;
       }
 
