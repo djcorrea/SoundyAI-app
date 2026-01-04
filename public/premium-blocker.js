@@ -1,17 +1,18 @@
-// 🛡️ BLOQUEIO INQUEBRÁVEL - MODO REDUCED
+// 🛡️ BLOQUEIO INQUEBRÁVEL - MODO REDUCED V2
 // Sistema de defesa em profundidade para bloquear funcionalidades premium
 // NÃO ALTERA LÓGICA EXISTENTE - Apenas adiciona guards e interceptadores
 
 (function() {
     'use strict';
     
-    console.log('🛡️ [BLOCKER] Inicializando sistema de bloqueio inquebrável...');
-    
     // ========================================
     // 🎯 CONFIGURAÇÃO
     // ========================================
     
     const CONFIG = {
+        // 🔇 DEBUG: false = silencioso, true = logs detalhados
+        DEBUG: false,
+        
         // ✅ Seletores ESPECÍFICOS dos 2 botões premium (IA e PDF)
         buttonSelectors: [
             'button[onclick*="sendModalAnalysisToChat"]',
@@ -45,6 +46,17 @@
         ]
     };
     
+    // Cache do último estado para só logar em mudança
+    let lastBlockState = null;
+    let lastPlan = null;
+    
+    // Log condicional
+    function debugLog(...args) {
+        if (CONFIG.DEBUG) {
+            console.log(...args);
+        }
+    }
+    
     // ========================================
     // 🔍 DETECÇÃO DE MODO (COM EARLY-RETURN)
     // ========================================
@@ -62,48 +74,73 @@
                         window.__LAST_ANALYSIS_RESULT__;
         
         if (!analysis || typeof analysis !== 'object') {
-            console.log('⚠️ [BLOCKER] Nenhuma análise carregada - permitindo acesso');
+            // Só loga se estado mudou
+            if (lastBlockState !== 'no-analysis') {
+                lastBlockState = 'no-analysis';
+                debugLog('⚠️ [BLOCKER] Nenhuma análise carregada - permitindo acesso');
+            }
             return false; // ✅ SEM BLOQUEIO quando não há análise
         }
         
-        console.log('🔍 [BLOCKER] Análise encontrada:', {
-            plan: analysis.plan,
-            analysisMode: analysis.analysisMode,
-            isReduced: analysis.isReduced,
-            features: analysis.planFeatures
-        });
+        // Só loga detalhes se plano mudou
+        if (lastPlan !== analysis.plan) {
+            lastPlan = analysis.plan;
+            debugLog('🔍 [BLOCKER] Análise encontrada:', {
+                plan: analysis.plan,
+                analysisMode: analysis.analysisMode,
+                isReduced: analysis.isReduced
+            });
+        }
         
         // ✅ PRIORIDADE 1: Verificar flags explícitos da análise
         if (analysis.isReduced === true) {
-            console.log('🔒 [BLOCKER] Modo REDUCED detectado (isReduced: true)');
+            if (lastBlockState !== 'reduced-flag') {
+                lastBlockState = 'reduced-flag';
+                debugLog('🔒 [BLOCKER] Modo REDUCED detectado (isReduced: true)');
+            }
             return true;
         }
         
         if (analysis.analysisMode === 'reduced') {
-            console.log('🔒 [BLOCKER] Modo REDUCED detectado (analysisMode: reduced)');
+            if (lastBlockState !== 'reduced-mode') {
+                lastBlockState = 'reduced-mode';
+                debugLog('🔒 [BLOCKER] Modo REDUCED detectado (analysisMode: reduced)');
+            }
             return true;
         }
         
         // ✅ PRIORIDADE 2: Plus sempre bloqueia IA/PDF (mesmo em modo full)
         if (analysis.plan === 'plus') {
-            console.log('🔒 [BLOCKER] Plano PLUS detectado - IA/PDF bloqueados');
+            if (lastBlockState !== 'plus-blocked') {
+                lastBlockState = 'plus-blocked';
+                debugLog('🔒 [BLOCKER] Plano PLUS detectado - IA/PDF bloqueados');
+            }
             return true; // Plus nunca tem IA/PDF
         }
         
         // ✅ PRIORIDADE 3: Free em modo FULL não bloqueia (trial)
         if (analysis.plan === 'free' && analysis.analysisMode === 'full') {
-            console.log('🎁 [BLOCKER] FREE TRIAL (modo FULL) - permitindo acesso');
+            if (lastBlockState !== 'free-trial') {
+                lastBlockState = 'free-trial';
+                debugLog('🎁 [BLOCKER] FREE TRIAL (modo FULL) - permitindo acesso');
+            }
             return false; // Free trial tem tudo
         }
         
         // ✅ FALLBACK: Pro sempre liberado
         if (analysis.plan === 'pro') {
-            console.log('✅ [BLOCKER] Plano PRO - acesso total');
+            if (lastBlockState !== 'pro-allowed') {
+                lastBlockState = 'pro-allowed';
+                debugLog('✅ [BLOCKER] Plano PRO - acesso total');
+            }
             return false;
         }
         
         // ⚠️ Se chegou aqui e não identificou, não bloqueia por segurança
-        console.log('⚠️ [BLOCKER] Estado indefinido - permitindo acesso por segurança');
+        if (lastBlockState !== 'undefined-allowed') {
+            lastBlockState = 'undefined-allowed';
+            debugLog('⚠️ [BLOCKER] Estado indefinido - permitindo acesso por segurança');
+        }
         return false;
     }
     
@@ -125,7 +162,7 @@
             }
             
             this.setupEventHandlers();
-            console.log('✅ [BLOCKER] Modal de upgrade inicializado');
+            debugLog('✅ [BLOCKER] Modal de upgrade inicializado');
         },
         
         createModal() {
@@ -266,7 +303,7 @@
             const ctaBtn = this.element.querySelector('.premium-block-cta');
             if (ctaBtn) {
                 ctaBtn.addEventListener('click', () => {
-                    console.log('🔗 [BLOCKER] Redirecionando para planos.html');
+                    debugLog('🔗 [BLOCKER] Redirecionando para planos.html');
                     window.location.href = 'planos.html';
                 });
             }
@@ -319,7 +356,7 @@
         hide() {
             if (this.element) {
                 this.element.classList.remove('visible');
-                console.log('🔓 [BLOCKER] Modal fechado');
+                debugLog('🔓 [BLOCKER] Modal fechado');
             }
         },
         
@@ -336,7 +373,7 @@
         originalFunctions: new Map(),
         
         install() {
-            console.log('🛡️ [BLOCKER] Verificando guards nos entrypoints...');
+            debugLog('🛡️ [BLOCKER] Verificando guards nos entrypoints...');
             
             let guardsInstalled = 0;
             let guardsSkipped = 0;
@@ -350,7 +387,7 @@
                                          fnSource.includes('GUARD: Bloquear');
                     
                     if (hasNativeGuard) {
-                        console.log(`   ✅ Guard nativo detectado: ${fnName} (não sobrescrever)`);
+                        debugLog(`   ✅ Guard nativo detectado: ${fnName} (não sobrescrever)`);
                         guardsSkipped++;
                         return; // NÃO SOBRESCREVER - guard já existe nativamente
                     }
@@ -367,15 +404,15 @@
                                         window.__LAST_ANALYSIS_RESULT__;
                         
                         if (!analysis || typeof analysis !== 'object') {
-                            console.log(`⚠️ [BLOCKER] ${fnName}: Nenhuma análise carregada - executando normalmente`);
+                            debugLog(`⚠️ [BLOCKER] ${fnName}: Nenhuma análise carregada - executando normalmente`);
                             const original = FunctionGuards.originalFunctions.get(fnName);
                             return original.apply(this, args);
                         }
                         
                         // GUARD: Verificar modo
                         if (isReducedMode()) {
-                            console.warn(`🔒 [BLOCKER] Função bloqueada: ${fnName}`);
-                            console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
+                            debugLog(`🔒 [BLOCKER] Função bloqueada: ${fnName}`);
+                            debugLog(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
                             
                             // Determinar tipo de recurso
                             const feature = fnName.includes('PDF') || fnName.includes('download') || fnName.includes('report') 
@@ -389,23 +426,23 @@
                         }
                         
                         // Modo full: executar normalmente
-                        console.log(`✅ [BLOCKER] ${fnName}: Executando normalmente (modo FULL)`);
+                        debugLog(`✅ [BLOCKER] ${fnName}: Executando normalmente (modo FULL)`);
                         const original = FunctionGuards.originalFunctions.get(fnName);
                         return original.apply(this, args);
                     };
                     
                     guardsInstalled++;
-                    console.log(`   ✅ Guard wrapper instalado: ${fnName}`);
+                    debugLog(`   ✅ Guard wrapper instalado: ${fnName}`);
                 } else {
-                    console.log(`   ⚠️ Função não encontrada: ${fnName}`);
+                    debugLog(`   ⚠️ Função não encontrada: ${fnName}`);
                 }
             });
             
-            console.log(`✅ [BLOCKER] ${guardsInstalled} guards instalados, ${guardsSkipped} nativos preservados\n`);
+            debugLog(`✅ [BLOCKER] ${guardsInstalled} guards instalados, ${guardsSkipped} nativos preservados\n`);
         },
         
         uninstall() {
-            console.log('🔄 [BLOCKER] Removendo guards...');
+            debugLog('🔄 [BLOCKER] Removendo guards...');
             
             this.originalFunctions.forEach((original, fnName) => {
                 if (window[fnName]) {
@@ -414,7 +451,7 @@
             });
             
             this.originalFunctions.clear();
-            console.log('✅ [BLOCKER] Guards removidos');
+            debugLog('✅ [BLOCKER] Guards removidos');
         }
     };
     
@@ -426,7 +463,7 @@
         handlers: [],
         
         install() {
-            console.log('🛡️ [BLOCKER] Instalando bloqueador global de eventos...');
+            debugLog('🛡️ [BLOCKER] Instalando bloqueador global de eventos...');
             
             CONFIG.eventsToBlock.forEach(eventType => {
                 const handler = (e) => {
@@ -480,8 +517,8 @@
                     const shouldBlock = isReducedMode();
                     
                     if (!shouldBlock) {
-                        console.log(`✅ [BLOCKER] Permitido: ${text}`);
-                        console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
+                        debugLog(`✅ [BLOCKER] Permitido: ${text}`);
+                        debugLog(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
                         return; // ✅ Modo FULL ou Pro - permitir
                     }
                     
@@ -491,11 +528,11 @@
                     e.stopImmediatePropagation();
                     
                     console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType}`);
-                    console.log(`   Target: ${text}`);
-                    console.log(`   Plan: ${analysis.plan}`);
-                    console.log(`   Mode: ${analysis.analysisMode}`);
-                    console.log(`   isReduced: ${analysis.isReduced}`);
-                    console.log(`   Features:`, analysis.planFeatures);
+                    debugLog(`   Target: ${text}`);
+                    debugLog(`   Plan: ${analysis.plan}`);
+                    debugLog(`   Mode: ${analysis.analysisMode}`);
+                    debugLog(`   isReduced: ${analysis.isReduced}`);
+                    debugLog(`   Features:`, analysis.planFeatures);
                     
                     // Determinar tipo de recurso
                     const feature = isPDFButton ? 'pdf' : isAIButton ? 'ai' : 'premium';
@@ -512,18 +549,18 @@
                 this.handlers.push({ eventType, handler });
             });
             
-            console.log(`✅ [BLOCKER] ${CONFIG.eventsToBlock.length} tipos de eventos bloqueados\n`);
+            debugLog(`✅ [BLOCKER] ${CONFIG.eventsToBlock.length} tipos de eventos bloqueados\n`);
         },
         
         uninstall() {
-            console.log('🔄 [BLOCKER] Removendo bloqueador de eventos...');
+            debugLog('🔄 [BLOCKER] Removendo bloqueador de eventos...');
             
             this.handlers.forEach(({ eventType, handler }) => {
                 document.removeEventListener(eventType, handler, true);
             });
             
             this.handlers = [];
-            console.log('✅ [BLOCKER] Bloqueador removido');
+            debugLog('✅ [BLOCKER] Bloqueador removido');
         }
     };
     
@@ -542,17 +579,17 @@
                             window.__LAST_ANALYSIS_RESULT__;
             
             if (!analysis || typeof analysis !== 'object') {
-                console.log('⚠️ [BLOCKER] Nenhuma análise carregada - botões mantidos intactos');
+                debugLog('⚠️ [BLOCKER] Nenhuma análise carregada - botões mantidos intactos');
                 return;
             }
             
             if (!isReducedMode()) {
-                console.log('✅ [BLOCKER] Modo FULL - botões mantidos intactos');
+                debugLog('✅ [BLOCKER] Modo FULL - botões mantidos intactos');
                 return;
             }
             
-            console.log('🛡️ [BLOCKER] Neutralizando botões em modo reduced...');
-            console.log(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
+            debugLog('🛡️ [BLOCKER] Neutralizando botões em modo reduced...');
+            debugLog(`   Plan: ${analysis.plan}, Mode: ${analysis.analysisMode}, isReduced: ${analysis.isReduced}`);
             
             let neutralized = 0;
             
@@ -604,11 +641,11 @@
                 }
             });
             
-            console.log(`✅ [BLOCKER] ${neutralized} botão(ões) neutralizado(s)\n`);
+            debugLog(`✅ [BLOCKER] ${neutralized} botão(ões) neutralizado(s)\n`);
         },
         
         restore() {
-            console.log('🔄 [BLOCKER] Restaurando botões...');
+            debugLog('🔄 [BLOCKER] Restaurando botões...');
             // Recarregar página para garantir estado limpo
             window.location.reload();
         }
@@ -619,7 +656,8 @@
     // ========================================
     
     function initialize() {
-        console.log('🚀 [BLOCKER] Inicializando sistema de bloqueio...\n');
+        // Log silencioso - só no DEBUG
+        debugLog('🚀 [BLOCKER] Inicializando sistema de bloqueio...\n');
         
         // 1. Inicializar modal
         UpgradeModal.init();
@@ -645,6 +683,7 @@
             hideModal: () => UpgradeModal.hide(),
             checkMode: () => {
                 const mode = isReducedMode() ? 'REDUCED' : 'FULL';
+                // checkMode sempre loga (chamado manualmente)
                 console.log('🔍 Modo atual:', mode);
                 console.log('🏷️ APP_MODE:', window.APP_MODE);
                 console.log('📊 Análise:', window.currentModalAnalysis);
@@ -664,9 +703,9 @@
             }
         };
         
-        console.log('✅ [BLOCKER] Sistema de bloqueio ATIVO');
-        console.log('🎯 Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
-        console.log('💡 Debug: window.__BLOCKER_DEBUG__\n');
+        debugLog('✅ [BLOCKER] Sistema de bloqueio ATIVO');
+        debugLog('🎯 Modo atual:', isReducedMode() ? 'REDUCED' : 'FULL');
+        debugLog('💡 Debug: window.__BLOCKER_DEBUG__\n');
     }
     
     function watchModeChanges() {
@@ -676,6 +715,7 @@
             const currentMode = isReducedMode();
             
             if (currentMode !== lastMode) {
+                // Log apenas em mudança real de modo (importante)
                 console.log('🔄 [BLOCKER] Modo mudou:', 
                     lastMode ? 'REDUCED' : 'FULL', '→', 
                     currentMode ? 'REDUCED' : 'FULL'
