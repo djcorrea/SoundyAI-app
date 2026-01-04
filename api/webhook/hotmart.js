@@ -289,96 +289,38 @@ async function createNewUser(email, name) {
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * POST /webhook/hotmart - Receber notificações da Hotmart
+ * Processa o webhook de forma assíncrona (após responder 200 OK)
+ * @param {Object} data - Dados extraídos do webhook
  */
-router.post('/', async (req, res) => {
+async function processWebhookAsync(data) {
   const startTime = Date.now();
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('🔔 [HOTMART] Webhook recebido');
-  console.log('📋 [HOTMART] Headers:', JSON.stringify({
-    'x-hotmart-hottok': req.headers['x-hotmart-hottok'] ? '***' : 'ausente',
-    'content-type': req.headers['content-type']
-  }, null, 2));
-
+  
   try {
-    // ═══════════════════════════════════════════════════════════════
-    // PASSO 1: Validar assinatura
-    // ═══════════════════════════════════════════════════════════════
-    if (!validateHotmartSignature(req)) {
-      console.error('❌ [HOTMART] Assinatura inválida - rejeitando');
-      return res.status(401).json({ 
-        error: 'INVALID_SIGNATURE',
-        message: 'Assinatura do webhook inválida'
-      });
-    }
+    console.log(`🔄 [HOTMART-ASYNC] Iniciando processamento: ${data.transactionId}`);
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 2: Extrair dados do payload
-    // ═══════════════════════════════════════════════════════════════
-    const data = extractHotmartData(req.body);
-    
-    if (!data) {
-      console.error('❌ [HOTMART] Payload inválido');
-      return res.status(400).json({ 
-        error: 'INVALID_PAYLOAD',
-        message: 'Não foi possível extrair dados do webhook'
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PASSO 3: Verificar se é venda aprovada
-    // ═══════════════════════════════════════════════════════════════
-    if (!isApprovedSale(data)) {
-      console.log(`⚠️ [HOTMART] Evento ignorado (não é venda aprovada): ${data.event || data.status}`);
-      return res.status(200).json({ 
-        success: true,
-        message: 'Evento ignorado (não é venda aprovada)',
-        event: data.event || data.status
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PASSO 4: Validar e-mail do comprador
-    // ═══════════════════════════════════════════════════════════════
-    if (!data.buyerEmail || !data.buyerEmail.includes('@')) {
-      console.error('❌ [HOTMART] E-mail do comprador ausente ou inválido');
-      return res.status(400).json({ 
-        error: 'INVALID_EMAIL',
-        message: 'E-mail do comprador é obrigatório'
-      });
-    }
-
-    // Normalizar e-mail
-    data.buyerEmail = data.buyerEmail.toLowerCase().trim();
-
-    // ═══════════════════════════════════════════════════════════════
-    // PASSO 5: Verificar idempotência
+    // PASSO 1: Verificar idempotência (novamente, por segurança)
     // ═══════════════════════════════════════════════════════════════
     const alreadyProcessed = await isTransactionProcessed(data.transactionId);
     
     if (alreadyProcessed) {
-      console.log(`⚠️ [HOTMART] Transação já processada anteriormente: ${data.transactionId}`);
-      return res.status(200).json({ 
-        success: true,
-        message: 'Transação já processada anteriormente (idempotência)',
-        transactionId: data.transactionId
-      });
+      console.log(`⚠️ [HOTMART-ASYNC] Transação já processada: ${data.transactionId}`);
+      return;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 6: Buscar ou criar usuário
+    // PASSO 2: Buscar ou criar usuário
     // ═══════════════════════════════════════════════════════════════
-    console.log(`👤 [HOTMART] Processando usuário: ${data.buyerEmail}`);
+    console.log(`👤 [HOTMART-ASYNC] Processando usuário: ${data.buyerEmail}`);
     
     let user = await findUserByEmail(data.buyerEmail);
     
     if (!user) {
-      // Criar novo usuário
       user = await createNewUser(data.buyerEmail, data.buyerName);
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 7: Garantir documento no Firestore
+    // PASSO 3: Garantir documento no Firestore
     // ═══════════════════════════════════════════════════════════════
     await getOrCreateUser(user.uid, {
       email: data.buyerEmail,
@@ -388,19 +330,19 @@ router.post('/', async (req, res) => {
     });
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 8: Ativar plano PRO por 120 dias
+    // PASSO 4: Ativar plano PRO por 120 dias
     // ═══════════════════════════════════════════════════════════════
-    console.log(`💳 [HOTMART] Ativando PRO para ${user.uid} (${PRO_DURATION_DAYS} dias)`);
+    console.log(`💳 [HOTMART-ASYNC] Ativando PRO para ${user.uid} (${PRO_DURATION_DAYS} dias)`);
     
     const updatedUser = await applyPlan(user.uid, {
       plan: 'pro',
       durationDays: PRO_DURATION_DAYS
     });
 
-    console.log(`✅ [HOTMART] Plano PRO ativado: ${user.uid} até ${updatedUser.proExpiresAt}`);
+    console.log(`✅ [HOTMART-ASYNC] Plano PRO ativado: ${user.uid} até ${updatedUser.proExpiresAt}`);
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 9: Marcar transação como processada
+    // PASSO 5: Marcar transação como processada
     // ═══════════════════════════════════════════════════════════════
     await markTransactionProcessed(data.transactionId, {
       ...data,
@@ -411,57 +353,114 @@ router.post('/', async (req, res) => {
     });
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 10: Enviar e-mail de boas-vindas
+    // PASSO 6: Enviar e-mail de boas-vindas
     // ═══════════════════════════════════════════════════════════════
     try {
       await sendWelcomeProEmail({
         email: data.buyerEmail,
         name: data.buyerName,
-        tempPassword: user.tempPassword, // Só existe se for usuário novo
+        tempPassword: user.tempPassword,
         isNewUser: user.isNew,
         expiresAt: updatedUser.proExpiresAt,
         transactionId: data.transactionId
       });
-      console.log(`📧 [HOTMART] E-mail de boas-vindas enviado para: ${data.buyerEmail}`);
+      console.log(`📧 [HOTMART-ASYNC] E-mail enviado para: ${data.buyerEmail}`);
     } catch (emailError) {
-      // Log mas não falha - plano já foi ativado
-      console.error('⚠️ [HOTMART] Erro ao enviar e-mail (não crítico):', emailError.message);
+      console.error('⚠️ [HOTMART-ASYNC] Erro ao enviar e-mail (não crítico):', emailError.message);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // RESPOSTA FINAL DE SUCESSO
-    // ═══════════════════════════════════════════════════════════════
     const elapsed = Date.now() - startTime;
-    console.log(`✅ [HOTMART] Processamento concluído em ${elapsed}ms`);
+    console.log(`✅ [HOTMART-ASYNC] Processamento concluído em ${elapsed}ms`);
     console.log('═══════════════════════════════════════════════════════════');
-
-    return res.status(200).json({
-      success: true,
-      message: 'Webhook processado com sucesso',
-      data: {
-        transactionId: data.transactionId,
-        uid: user.uid,
-        email: data.buyerEmail,
-        isNewUser: user.isNew,
-        plan: 'pro',
-        durationDays: PRO_DURATION_DAYS,
-        expiresAt: updatedUser.proExpiresAt
-      }
-    });
 
   } catch (error) {
-    console.error('💥 [HOTMART] Erro crítico no webhook:', error);
-    console.error('💥 [HOTMART] Stack:', error.stack);
+    console.error('💥 [HOTMART-ASYNC] Erro no processamento:', error);
+    console.error('💥 [HOTMART-ASYNC] Stack:', error.stack);
     console.log('═══════════════════════════════════════════════════════════');
+    // Erro é logado mas não propagado - webhook já foi aceito
+  }
+}
 
-    // SEMPRE retornar 200 para evitar reenvios infinitos da Hotmart
-    // Logamos o erro mas não deixamos a Hotmart reenviar
-    return res.status(200).json({
-      success: false,
-      message: 'Erro interno no processamento',
-      error: error.message
+/**
+ * POST /webhook/hotmart - Receber notificações da Hotmart
+ * 
+ * ⚡ RESPOSTA IMEDIATA: Retorna 200 OK antes do processamento pesado
+ * 🔄 PROCESSAMENTO ASYNC: Firebase, Firestore, e-mail executam em background
+ */
+router.post('/', async (req, res) => {
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🔔 [HOTMART] Webhook recebido');
+  console.log('📋 [HOTMART] Headers:', JSON.stringify({
+    'x-hotmart-hottok': req.headers['x-hotmart-hottok'] ? '***' : 'ausente',
+    'content-type': req.headers['content-type']
+  }, null, 2));
+
+  // ═══════════════════════════════════════════════════════════════
+  // VALIDAÇÕES SÍNCRONAS (rápidas) - antes de responder 200
+  // ═══════════════════════════════════════════════════════════════
+
+  // 1. Validar assinatura
+  if (!validateHotmartSignature(req)) {
+    console.error('❌ [HOTMART] Assinatura inválida - rejeitando');
+    return res.status(401).json({ 
+      error: 'INVALID_SIGNATURE',
+      message: 'Assinatura do webhook inválida'
     });
   }
+
+  // 2. Extrair dados do payload
+  const data = extractHotmartData(req.body);
+  
+  if (!data) {
+    console.error('❌ [HOTMART] Payload inválido');
+    return res.status(400).json({ 
+      error: 'INVALID_PAYLOAD',
+      message: 'Não foi possível extrair dados do webhook'
+    });
+  }
+
+  // 3. Verificar se é venda aprovada
+  if (!isApprovedSale(data)) {
+    console.log(`⚠️ [HOTMART] Evento ignorado: ${data.event || data.status}`);
+    return res.status(200).json({ 
+      success: true,
+      message: 'Evento ignorado (não é venda aprovada)',
+      event: data.event || data.status
+    });
+  }
+
+  // 4. Validar e-mail do comprador
+  if (!data.buyerEmail || !data.buyerEmail.includes('@')) {
+    console.error('❌ [HOTMART] E-mail inválido');
+    return res.status(400).json({ 
+      error: 'INVALID_EMAIL',
+      message: 'E-mail do comprador é obrigatório'
+    });
+  }
+
+  // Normalizar e-mail
+  data.buyerEmail = data.buyerEmail.toLowerCase().trim();
+
+  // ═══════════════════════════════════════════════════════════════
+  // ⚡ RESPONDER 200 OK IMEDIATAMENTE
+  // ═══════════════════════════════════════════════════════════════
+  console.log(`✅ [HOTMART] Webhook aceito - iniciando processamento async: ${data.transactionId}`);
+  
+  res.status(200).json({
+    success: true,
+    message: 'Webhook recebido e será processado',
+    transactionId: data.transactionId
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔄 PROCESSAMENTO ASSÍNCRONO (após resposta)
+  // ═══════════════════════════════════════════════════════════════
+  // setImmediate garante que a resposta seja enviada antes
+  setImmediate(() => {
+    processWebhookAsync(data).catch(err => {
+      console.error('💥 [HOTMART] Erro não capturado no processamento async:', err);
+    });
+  });
 });
 
 /**
