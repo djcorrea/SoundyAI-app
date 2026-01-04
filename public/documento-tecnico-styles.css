@@ -1,5 +1,19 @@
 /* 📘 DOCUMENTO TÉCNICO - ESTILOS PROFISSIONAIS */
 
+/* 🛡️ PROTEÇÃO: Esconder elementos que não pertencem ao documento */
+body.page-doc .cenario,
+body.page-doc .chat-container,
+body.page-doc .notebook-container,
+body.page-doc .audio-modal,
+body.page-doc .upgrade-modal,
+body.page-doc #menuButton,
+body.page-doc .vanta-canvas {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
 * {
     margin: 0;
     padding: 0;
