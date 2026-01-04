@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Effects Controller</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0a0a1a;
+            color: white;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        #vanta-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .debug-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #00bfff;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+        }
+        
+        button {
+            background: #00bfff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0099cc;
+        }
+        
+        #info {
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Elemento para o Vanta -->
+    <div id="vanta-bg"></div>
+    
+    <!-- Debug Panel -->
+    <div class="debug-panel">
+        <h3>🔧 Debug Effects Controller</h3>
+        <button onclick="testEffectsController()">Testar Controller</button>
+        <button onclick="forceVanta()">Forçar Vanta</button>
+        <button onclick="debugInfo()">Info Completa</button>
+        <button onclick="reinitialize()">Reinicializar</button>
+        <div id="info"></div>
+    </div>
+    
+    <!-- Libs necessárias -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js"></script>
+    
+    <!-- Effects Controller -->
+    <script src="effects-controller.js"></script>
+    
+    <script>
+        let infoEl = document.getElementById('info');
+        
+        function updateInfo(text) {
+            infoEl.textContent = text;
+            console.log('DEBUG:', text);
+        }
+        
+        function testEffectsController() {
+            updateInfo('Testando Effects Controller...\n');
+            
+            setTimeout(() => {
+                if (window.EffectsController) {
+                    updateInfo('✅ Effects Controller carregado');
+                    window.EffectsController.debug();
+                } else {
+                    updateInfo('❌ Effects Controller não encontrado');
+                }
+            }, 1000);
+        }
+        
+        function forceVanta() {
+            updateInfo('Forçando criação do Vanta...');
+            
+            if (typeof VANTA === 'undefined') {
+                updateInfo('❌ VANTA lib não carregada');
+                return;
+            }
+            
+            try {
+                if (window.vantaInstance) {
+                    window.vantaInstance.destroy();
+                }
+                
+                window.vantaInstance = VANTA.NET({
+                    el: "#vanta-bg",
+                    THREE: THREE,
+                    mouseControls: true,
+                    touchControls: true,
+                    gyroControls: false,
+                    minHeight: 200,
+                    minWidth: 200,
+                    scale: 1.0,
+                    color: 0x8a2be2,
+                    backgroundColor: 0x0a0a1a,
+                    points: 4.0,
+                    maxDistance: 16.0,
+                    spacing: 24.0,
+                    showDots: false
+                });
+                
+                updateInfo('✅ Vanta criado manualmente');
+            } catch (error) {
+                updateInfo('❌ Erro criando Vanta: ' + error.message);
+            }
+        }
+        
+        function debugInfo() {
+            let info = '';
+            info += 'VANTA loaded: ' + (typeof VANTA !== 'undefined') + '\n';
+            info += 'THREE loaded: ' + (typeof THREE !== 'undefined') + '\n';
+            info += 'Effects Controller: ' + (!!window.EffectsController) + '\n';
+            info += 'Vanta instance: ' + (!!window.vantaInstance) + '\n';
+            info += 'Hardware cores: ' + (navigator.hardwareConcurrency || 'unknown') + '\n';
+            info += 'Device memory: ' + (navigator.deviceMemory || 'unknown') + 'GB\n';
+            info += 'Screen width: ' + window.innerWidth + 'px\n';
+            info += 'Reduced motion: ' + window.matchMedia('(prefers-reduced-motion: reduce)').matches + '\n';
+            
+            updateInfo(info);
+        }
+        
+        function reinitialize() {
+            updateInfo('Reinicializando Effects Controller...');
+            
+            if (window.EffectsController && window.EffectsController.reinit) {
+                window.EffectsController.reinit();
+                updateInfo('✅ Effects Controller reinicializado');
+            } else {
+                updateInfo('❌ Método reinit não disponível');
+            }
+        }
+        
+        // Auto-test ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(testEffectsController, 2000);
+        });
+        
+        // Debug movimento do mouse
+        document.addEventListener('mousemove', (e) => {
+            // Apenas log a cada 1 segundo para não spam
+            if (!window.lastMouseLog || Date.now() - window.lastMouseLog > 1000) {
+                console.log('Mouse move:', e.clientX, e.clientY);
+                window.lastMouseLog = Date.now();
+            }
+        });
+    </script>
+</body>
+</html>

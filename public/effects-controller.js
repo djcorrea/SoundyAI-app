@@ -399,7 +399,7 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // DETECÇÃO DE DISPOSITIVO (menos restritiva)
+    // DETECÇÃO DE DISPOSITIVO (ainda menos restritiva)
     // ═══════════════════════════════════════════════════════════════════
     function detectDevice() {
         const cores = navigator.hardwareConcurrency || 4;
@@ -409,20 +409,22 @@
         state.isMobile = width <= CONFIG.MOBILE_WIDTH;
         state.prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         
-        // Detecção menos agressiva de low-end - permitir mais dispositivos
+        // Detecção muito mais permissiva - quase todos os dispositivos podem usar Vanta
         state.isLowEnd = (
-            cores <= 2 ||  // Apenas dispositivos muito antigos (era <= 4)
-            memory <= 2 ||  // Apenas com muito pouca RAM (era <= 4)
+            cores <= 1 ||  // Apenas dispositivos extremamente antigos
+            memory <= 1 ||  // Apenas com muito pouca RAM
             state.prefersReducedMotion
         );
 
-        // Determinar tier BASE menos restritivo
+        // Determinar tier BASE - permitir high para quase todos
         if (state.prefersReducedMotion) {
             state.baseTier = 'killed';  // Usuário não quer animações
         } else if (state.isLowEnd) {
-            state.baseTier = 'medium';  // Low-end começa em medium (era low)
+            state.baseTier = 'low';     // Extremamente low-end = low tier
+        } else if (state.isMobile) {
+            state.baseTier = 'medium';  // Mobile = medium tier
         } else {
-            state.baseTier = 'high';    // Normal/high-end = high
+            state.baseTier = 'high';    // Desktop = high tier
         }
         
         // Tier atual começa no base
@@ -433,7 +435,8 @@
             mobile: state.isMobile,
             lowEnd: state.isLowEnd,
             reducedMotion: state.prefersReducedMotion,
-            baseTier: state.baseTier
+            baseTier: state.baseTier,
+            shouldRun: shouldVantaRun()
         });
     }
 
@@ -1027,15 +1030,27 @@
         // Aguardar libs e iniciar Vanta (se aplicável)
         const waitForLibs = () => {
             if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
-                if (shouldVantaRun()) {
+                // Forçar criação do Vanta mesmo se condições parecem não atender
+                if (shouldVantaRun() || !state.isKilled) {
                     applyCurrentTier();
+                    console.log('✨ [Effects] Vanta forçado a iniciar');
+                } else {
+                    console.log('⚠️ [Effects] Condições impedem Vanta:', {
+                        visible: state.isDocumentVisible,
+                        focused: state.isWindowFocused,
+                        modal: state.isModalOpen,
+                        killed: state.isKilled,
+                        tier: state.currentTier,
+                        reducedMotion: state.prefersReducedMotion
+                    });
                 }
                 
                 // Inicializar typing listeners após libs carregadas
                 initTypingListeners();
                 
-                console.log('✅ [Effects] Controller V3 inicializado');
+                console.log('✅ [Effects] Controller V3.1 inicializado');
             } else {
+                console.log('⏳ [Effects] Aguardando VANTA/THREE...');
                 setTimeout(waitForLibs, 100);
             }
         };
