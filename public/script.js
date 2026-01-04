@@ -68,12 +68,6 @@ window.AuthGate = {
    * @returns {boolean}
    */
   isAuthenticated() {
-    // 🔥 MODO DEMO: Tratar como "autenticado virtual"
-    if (window.SoundyDemo?.isActive) {
-      console.log('🔥 [AuthGate] Modo demo ativo - retornando autenticado virtual');
-      return true; // Demo é tratado como autenticado para permitir chamadas
-    }
-    
     // 1. Verificar Firebase currentUser
     const hasFirebaseUser = !!(window.auth?.currentUser);
     
@@ -172,12 +166,6 @@ window.AuthGate = {
    * @returns {boolean} - true se deve bloquear
    */
   shouldBlockAuthenticatedCall(url) {
-    // 🔥 MODO DEMO: NUNCA bloquear
-    if (window.SoundyDemo?.isActive) {
-      console.log('🔥 [AuthGate] Modo demo ativo - permitindo chamada:', url);
-      return false;
-    }
-    
     const isAnonymous = !this.isAuthenticated();
     const isAuthenticatedEndpoint = (
       url.includes('/api/chat') && !url.includes('/anonymous') ||
@@ -2048,15 +2036,7 @@ function initializeEverything() {
     injetarEstilosRespostaEstilosa();
     
     // Verificar se estamos na página principal antes de inicializar tudo
-    // ✅ Inclui /demo para modo de demonstração de vendas
-    const pathname = window.location.pathname;
-    const isMainPage = document.querySelector('.hero') || 
-                       document.querySelector('#startSendBtn') || 
-                       document.querySelector('.chatbot-container') ||
-                       pathname.includes('index.html') ||
-                       pathname === '/demo' ||
-                       pathname === '/index' ||
-                       pathname === '/';
+    const isMainPage = document.querySelector('.hero') || document.querySelector('#startSendBtn') || window.location.pathname.includes('index.html');
     
     if (isMainPage) {
         console.log('🎯 Inicializando sistema da página principal...');

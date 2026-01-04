@@ -591,32 +591,83 @@
         const notice = document.createElement('div');
         notice.id = 'demoWelcomeNotice';
         notice.innerHTML = `
-            <div style="
-                position: fixed;
-                top: 80px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: linear-gradient(135deg, rgba(188, 19, 254, 0.95) 0%, rgba(0, 243, 255, 0.95) 100%);
-                color: white;
-                padding: 16px 28px;
-                border-radius: 12px;
-                font-family: 'Rajdhani', sans-serif;
-                font-size: 1.1rem;
-                font-weight: 600;
-                z-index: 10000;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-                animation: demoNoticeSlide 0.5s ease;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-            ">
-                <span style="font-size: 1.5rem;">🎁</span>
-                <span>Você tem direito a <strong>1 análise demonstrativa gratuita</strong></span>
+            <div class="demo-welcome-banner">
+                <span class="demo-welcome-icon">🎁</span>
+                <span class="demo-welcome-text">Você tem direito a <strong>1 análise demonstrativa gratuita</strong></span>
             </div>
             <style>
+                /* 🖥️ DESKTOP: Estilo original */
+                .demo-welcome-banner {
+                    position: fixed;
+                    top: 80px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, rgba(188, 19, 254, 0.95) 0%, rgba(0, 243, 255, 0.95) 100%);
+                    color: white;
+                    padding: 16px 28px;
+                    border-radius: 12px;
+                    font-family: 'Rajdhani', sans-serif;
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    z-index: 10000;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                    animation: demoNoticeSlide 0.5s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    pointer-events: none;
+                }
+                
+                .demo-welcome-icon {
+                    font-size: 1.5rem;
+                }
+                
+                .demo-welcome-text {
+                    white-space: nowrap;
+                }
+                
                 @keyframes demoNoticeSlide {
                     from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
                     to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+                
+                /* 📱 MOBILE: Banner elegante e compacto */
+                @media (max-width: 768px) {
+                    .demo-welcome-banner {
+                        top: env(safe-area-inset-top, 12px);
+                        margin-top: 12px;
+                        padding: 10px 16px;
+                        max-width: 320px;
+                        width: calc(100% - 32px);
+                        border-radius: 10px;
+                        font-size: 0.9rem;
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+                        gap: 8px;
+                    }
+                    
+                    .demo-welcome-icon {
+                        font-size: 1.2rem;
+                    }
+                    
+                    .demo-welcome-text {
+                        white-space: normal;
+                        text-align: center;
+                        line-height: 1.3;
+                    }
+                }
+                
+                /* 📱 MOBILE pequeno: ainda mais compacto */
+                @media (max-width: 380px) {
+                    .demo-welcome-banner {
+                        padding: 8px 12px;
+                        max-width: 280px;
+                        font-size: 0.85rem;
+                        gap: 6px;
+                    }
+                    
+                    .demo-welcome-icon {
+                        font-size: 1rem;
+                    }
                 }
             </style>
         `;
