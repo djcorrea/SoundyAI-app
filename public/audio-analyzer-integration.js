@@ -5236,10 +5236,64 @@ async function startReferenceAnalysis() {
 
         const result = await response.json();
         
-        // ❌ REMOVIDO: Tentativa de salvar aqui (result não tem dados completos)
-        // O salvamento deve ocorrer após receber o resultado completo via polling
+        console.log('🔍 [REF-ANALYSIS] Resposta do POST /analyze:', result);
         
-        displayReferenceComparison(result);
+        // ✅ CORREÇÃO CRÍTICA: result só tem jobId, precisa fazer POLLING
+        if (!result.success || !result.jobId) {
+            throw new Error('Falha ao criar job de análise');
+        }
+        
+        console.log('⏳ [REF-ANALYSIS] Iniciando polling do job:', result.jobId);
+        
+        // Fazer polling até análise completar
+        const pollInterval = 2000; // 2 segundos
+        const maxAttempts = 60; // 2 minutos máximo
+        let attempts = 0;
+        let analysisComplete = false;
+        let completeResult = null;
+        
+        while (!analysisComplete && attempts < maxAttempts) {
+            attempts++;
+            
+            try {
+                const pollResponse = await fetch(`/api/jobs/${result.jobId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!pollResponse.ok) {
+                    throw new Error(`Erro ao consultar job: ${pollResponse.status}`);
+                }
+                
+                const jobStatus = await pollResponse.json();
+                
+                console.log(`🔄 [REF-POLLING] Tentativa ${attempts}/${maxAttempts} - Status: ${jobStatus.status}`);
+                
+                if (jobStatus.status === 'completed' && jobStatus.results) {
+                    analysisComplete = true;
+                    completeResult = jobStatus.results;
+                    console.log('✅ [REF-POLLING] Análise completa!');
+                    break;
+                } else if (jobStatus.status === 'failed') {
+                    throw new Error('Análise falhou no backend');
+                }
+                
+                // Aguardar antes da próxima tentativa
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+                
+            } catch (pollError) {
+                console.error('❌ [REF-POLLING] Erro no polling:', pollError);
+                throw pollError;
+            }
+        }
+        
+        if (!completeResult) {
+            throw new Error('Timeout: Análise não completou em 2 minutos');
+        }
+        
+        // Agora sim, chamar com resultado COMPLETO
+        displayReferenceComparison(completeResult);
 
     } catch (error) {
         console.error('❌ Erro na análise:', error);
