@@ -1050,8 +1050,9 @@ body {
     }
 }
 
-/* ============ CARD EXCLUSIVO PLUS ============ */
-.plus-only-card {
+/* ============ CARD EXCLUSIVO PREMIUM (Plus/Pro/DJ) ============ */
+.plus-only-card,
+.premium-only-card {
     background: linear-gradient(135deg, 
         rgba(123, 44, 191, 0.15) 0%, 
         rgba(64, 123, 255, 0.15) 100%);
@@ -1069,12 +1070,14 @@ body {
     margin-right: auto;
 }
 
-.plus-only-card.show {
+.plus-only-card.show,
+.premium-only-card.show {
     opacity: 1;
     transform: translateY(0) scale(1);
 }
 
-.plus-only-card::before {
+.plus-only-card::before,
+.premium-only-card::before {
     content: '';
     position: absolute;
     top: 0;

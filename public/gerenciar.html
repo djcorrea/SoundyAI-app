@@ -120,7 +120,7 @@
                                 <span class="btn-icon">♻️</span>
                                 Personalizar novamente
                             </button>
-                            <p class="info-text">Essa funcionalidade é exclusiva para usuários Plus.</p>
+                            <p class="info-text">Disponível para usuários Plus, Pro e DJ.</p>
                         </div>
                     </div>
                 </section>
@@ -1141,7 +1141,7 @@
                 }
             }
             
-            // Função para personalizar novamente (exclusiva para usuários Plus)
+            // Função para personalizar novamente (disponível para Plus, Pro e DJ)
             async function redoInterview() {
                 if (!currentUser) {
                     showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'personalizar');
@@ -1168,18 +1168,28 @@
                     }
                     
                     const userData = userDoc.data();
-                    const isPlus = userData.plano === 'plus' || userData.isPlus === true;
+                    const userPlan = (userData.plano || '').toLowerCase();
                     
-                    console.log('📊 Plano do usuário:', userData.plano, 'isPlus:', userData.isPlus);
+                    // Verificar se é plano premium (Plus, Pro, DJ)
+                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userData.isPlus === true;
+                    const isFreeOrReduced = userPlan === 'free' || userPlan === 'gratis' || userPlan === 'reduced';
                     
-                    if (!isPlus) {
-                        // Usuário não é Plus - mostrar card de bloqueio
-                        showPlusOnlyMessage();
+                    console.log('📊 Plano do usuário:', userPlan, '| Premium:', isPremium, '| Free/Reduced:', isFreeOrReduced);
+                    
+                    if (isFreeOrReduced) {
+                        // Usuário Free/Reduced - bloquear funcionalidade
+                        showPremiumOnlyMessage();
                         return;
                     }
                     
-                    // Usuário é Plus - prosseguir com redirecionamento e limpeza
-                    console.log('✅ Usuário Plus confirmado - prosseguindo...');
+                    if (!isPremium) {
+                        // Plano desconhecido - bloquear por segurança
+                        showPremiumOnlyMessage();
+                        return;
+                    }
+                    
+                    // Usuário Premium (Plus/Pro/DJ) - prosseguir com redirecionamento e limpeza
+                    console.log(`✅ Usuário ${userPlan.toUpperCase()} confirmado - prosseguindo...`);
                     
                     // Desabilitar botão durante o processo
                     redoInterviewBtn.disabled = true;
@@ -1229,30 +1239,30 @@
                 }
             }
             
-            // Função para mostrar mensagem exclusiva para Plus
-            function showPlusOnlyMessage() {
+            // Função para mostrar mensagem exclusiva para usuários Premium
+            function showPremiumOnlyMessage() {
                 // Remover mensagem anterior se existir
-                const existingCard = document.querySelector('.plus-only-card');
+                const existingCard = document.querySelector('.premium-only-card');
                 if (existingCard) {
                     existingCard.remove();
                 }
                 
                 // Criar card de bloqueio
-                const plusCard = document.createElement('div');
-                plusCard.className = 'plus-only-card';
-                plusCard.innerHTML = `
+                const premiumCard = document.createElement('div');
+                premiumCard.className = 'premium-only-card';
+                premiumCard.innerHTML = `
                     <div class="plus-card-content">
                         <div class="plus-card-icon">🔒</div>
-                        <h3 class="plus-card-title">Personalização disponível somente para usuários Plus</h3>
+                        <h3 class="plus-card-title">Personalização disponível para usuários Premium</h3>
                         <p class="plus-card-description">
-                            Assine a versão Plus para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
+                            Assine um plano Plus, Pro ou DJ para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
                         </p>
                         <div class="plus-card-buttons">
                             <a href="planos.html" class="btn-plus-upgrade">
                                 <span class="btn-icon">⭐</span>
-                                Assinar Plus
+                                Ver Planos Premium
                             </a>
-                            <button class="btn-plus-close" onclick="this.closest('.plus-only-card').remove()">
+                            <button class="btn-plus-close" onclick="this.closest('.premium-only-card').remove()">
                                 Fechar
                             </button>
                         </div>
@@ -1261,20 +1271,20 @@
                 
                 // Adicionar após o card de personalizar
                 const personalizeCard = redoInterviewBtn.closest('.function-card');
-                personalizeCard.insertAdjacentElement('afterend', plusCard);
+                personalizeCard.insertAdjacentElement('afterend', premiumCard);
                 
                 // Animar entrada
                 setTimeout(() => {
-                    plusCard.classList.add('show');
+                    premiumCard.classList.add('show');
                 }, 10);
                 
                 // Auto-remover após 15 segundos
                 setTimeout(() => {
-                    if (plusCard.parentNode) {
-                        plusCard.classList.remove('show');
+                    if (premiumCard.parentNode) {
+                        premiumCard.classList.remove('show');
                         setTimeout(() => {
-                            if (plusCard.parentNode) {
-                                plusCard.remove();
+                            if (premiumCard.parentNode) {
+                                premiumCard.remove();
                             }
                         }, 300);
                     }
