@@ -25,7 +25,8 @@ service cloud.firestore {
     // ========================================
     
     match /waitlist/{documentId} {
-      // Permitir apenas CRIAÇÃO (create)
+      // Permitir apenas CRIAÇÃO (create) com validações essenciais
+      // Validações reduzidas para permitir a estrutura enriquecida
       allow create: if request.auth == null 
                     && request.resource.data.keys().hasAll(['name', 'email', 'createdAt', 'source', 'status'])
                     && request.resource.data.name is string
@@ -147,22 +148,126 @@ Auth: Unauthenticated
 
 ---
 
-## 📊 ESTRUTURA DOS DOCUMENTOS SALVOS:
+## 📊 ESTRUTURA COMPLETA DOS DOCUMENTOS SALVOS (v2.0):
 
 ```javascript
 {
-  name: "João Silva",              // string (2-100 chars)
-  email: "joao@example.com",       // string (formato email válido)
-  createdAt: Timestamp,            // serverTimestamp()
-  source: "landing_pre_launch",    // string (fixo)
-  status: "waiting",               // string (fixo)
-  metadata: {                      // object (opcional)
-    userAgent: "...",
-    referrer: "...",
-    language: "pt-BR"
-  }
+  // === DADOS BASE (obrigatórios) ===
+  name: "João Silva",              
+  email: "joao@example.com",       
+  createdAt: Timestamp,            
+  source: "landing_pre_launch",    
+  status: "waiting",
+
+  // === DEVICE & BROWSER ===
+  device: {
+    deviceType: "desktop",         // mobile | desktop | tablet
+    operatingSystem: "Windows",    // Windows | macOS | Linux | Android | iOS
+    browser: "Chrome",             // Chrome | Safari | Edge | Firefox | Opera
+    screenWidth: 1920,
+    screenHeight: 1080,
+    viewportWidth: 1200,
+    viewportHeight: 800,
+    pixelRatio: 1.5,
+    touchSupport: false
+  },
+
+  // === LOCALE & TIMEZONE ===
+  locale: {
+    language: "pt-BR",
+    languages: ["pt-BR", "en"],
+    timezone: "America/Sao_Paulo",
+    utcOffset: -3,
+    inferredCountry: "Brazil",
+    inferredRegion: "South America"
+  },
+
+  // === MARKETING & UTM ===
+  marketing: {
+    referrer: "https://google.com",
+    referrerDomain: "google.com",
+    landingPage: "/prelaunch.html",
+    utm_source: "instagram",       // ou null
+    utm_medium: "social",          // ou null
+    utm_campaign: "launch_2026",   // ou null
+    utm_content: null,
+    utm_term: null,
+    gclid: null,                   // Google Ads
+    fbclid: null                   // Facebook Ads
+  },
+
+  // === TEMPORAL CONTEXT ===
+  temporal: {
+    hourOfDay: 14,                 // 0-23
+    dayOfWeek: 1,                  // 0-6 (0=domingo)
+    isWeekend: false,
+    timeOfDay: "afternoon",        // night | morning | afternoon | evening
+    localDate: "2026-01-05",
+    localTime: "14:30:22"
+  },
+
+  // === ENGAGEMENT METRICS ===
+  engagement: {
+    timeOnPageSeconds: 47,
+    scrollDepthPercent: 85,
+    mouseMovementDetected: true,
+    interactionCount: 12,
+    hoverOnCTA: true,
+    formInteractionStarted: true
+  },
+
+  // === ENVIRONMENT ===
+  environment: {
+    connectionType: "4g",          // slow-2g | 2g | 3g | 4g
+    connectionDownlink: 10.0,
+    deviceMemory: 8,               // GB
+    hardwareConcurrency: 8,        // CPU cores
+    cookiesEnabled: true,
+    doNotTrack: false,
+    online: true
+  },
+
+  // === INFERRED PROFILE ===
+  inferredProfile: {
+    musicProducer: true,           // Sempre true (landing específica)
+    aiInterested: true,            // Sempre true (landing de AI)
+    earlyAdopter: true,            // Navegador moderno + device decente
+    professionalIntent: true,      // Desktop + horário comercial/bom engajamento
+    highIntent: true,              // Scroll >50% + tempo >45s + interações >3
+    isInternational: false,        // Fora do Brasil
+    mobileFirst: false,            // Usa principalmente mobile
+    engagementScore: 78            // Score de 0-100
+  },
+
+  // === METADATA ===
+  _schemaVersion: "2.0",
+  _enrichmentVersion: "v1"
 }
 ```
+
+---
+
+## 📈 COMO USAR ESSES DADOS PARA MARKETING:
+
+### Segmentação por Engagement Score:
+- **Score 80-100**: High Intent - Prioridade no lançamento
+- **Score 50-79**: Medium Intent - Segunda onda
+- **Score 0-49**: Low Intent - Re-engagement necessário
+
+### Segmentação por Perfil:
+- **professionalIntent: true** → E-mails sobre features profissionais
+- **mobileFirst: true** → Destacar app mobile
+- **isInternational: true** → E-mails em inglês
+
+### Segmentação por Marketing:
+- **utm_source**: Ver qual canal converte mais
+- **referrer**: Identificar parcerias efetivas
+- **gclid/fbclid**: ROI de anúncios pagos
+
+### Análise de Comportamento:
+- **timeOnPageSeconds**: Medir interesse
+- **scrollDepthPercent**: Conteúdo visto
+- **hourOfDay/dayOfWeek**: Melhor momento para e-mails
 
 ---
 
