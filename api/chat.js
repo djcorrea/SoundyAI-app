@@ -1321,7 +1321,19 @@ export default async function handler(req, res) {
 
     // 🎯 PASSO 2: Preparar contexto do usuário e determinar nível de personalização
     // ✅ LÓGICA DE 3 NÍVEIS: Anônimo (demo) | Free/Reduced (genérico) | Plus/Pro/DJ (personalizado)
-    const userPlanForPersonalization = (userData.plano || 'gratis').toLowerCase();
+    
+    // 🔍 DEBUG CRÍTICO: Verificar dados recebidos de canUseChat
+    console.log('🔍 [DEBUG-PERFIL] userData completo:', {
+      uid: userData.uid,
+      plano: userData.plano,
+      plan: userData.plan,
+      temPerfil: !!userData.perfil,
+      perfilKeys: userData.perfil ? Object.keys(userData.perfil) : [],
+      nomeArtistico: userData.perfil?.nomeArtistico,
+      nivelTecnico: userData.perfil?.nivelTecnico
+    });
+    
+    const userPlanForPersonalization = (userData.plano || userData.plan || 'gratis').toLowerCase();
     const isAnonymous = isDemoMode || !uid || uid.startsWith('demo_');
     const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlanForPersonalization);
     const isFreeOrReduced = ['free', 'gratis', 'reduced'].includes(userPlanForPersonalization);
