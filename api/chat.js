@@ -1320,13 +1320,42 @@ export default async function handler(req, res) {
     }
 
     // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
-    const userContext = {
-      daw: userData.perfil?.daw || null,
-      genre: userData.perfil?.generoPreferido || null,
-      level: userData.perfil?.nivelExperiencia || null
-    };
+    // ✅ CORREÇÃO CRÍTICA: Usar nomes corretos dos campos do Firestore
+    // 🔒 REGRA DE NEGÓCIO: Personalização APENAS para Plus/Pro/DJ
+    const userPlan = (userData.plano || 'gratis').toLowerCase();
+    const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlan);
     
-    console.log('📋 Contexto do usuário:', userContext);
+    let userContext = {};
+    
+    if (isPremiumUser && userData.perfil) {
+      // ✅ Usuários Plus/Pro/DJ: usar entrevista completa
+      userContext = {
+        nomeArtistico: userData.perfil?.nomeArtistico || null,
+        nivelTecnico: userData.perfil?.nivelTecnico || null,
+        daw: userData.perfil?.daw || null,
+        estilo: userData.perfil?.estilo || null,
+        dificuldade: userData.perfil?.dificuldade || null,
+        sobre: userData.perfil?.sobre || null,
+        // Aliases para compatibilidade com código legado
+        level: userData.perfil?.nivelTecnico || null,
+        genre: userData.perfil?.estilo || null
+      };
+      
+      console.log(`✅ [${userPlan.toUpperCase()}] Contexto PERSONALIZADO carregado:`, {
+        nomeArtistico: userContext.nomeArtistico || '(não informado)',
+        nivelTecnico: userContext.nivelTecnico || '(não informado)',
+        daw: userContext.daw || '(não informado)',
+        estilo: userContext.estilo || '(não informado)',
+        temDificuldade: !!userContext.dificuldade,
+        temSobre: !!userContext.sobre
+      });
+    } else {
+      // ❌ Usuários Free: contexto vazio (respostas genéricas)
+      console.log(`❌ [${userPlan.toUpperCase()}] Sem personalização - plano FREE`);
+      userContext = {}; // Garante que nenhum dado será injetado
+    }
+    
+    console.log('📋 Contexto do usuário final:', userContext);
 
     // 🎯 PASSO 3: Selecionar system prompt baseado no intent
     let baseSystemPrompt;

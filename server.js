@@ -105,6 +105,9 @@ import hotmartWebhookRouter from "./api/webhook/hotmart.js";
 // 🔍 VERIFY PURCHASE: Verificação manual de compra e ativação de plano
 import verifyPurchaseRouter from "./api/verify-purchase.js";
 
+// 🕐 HISTÓRICO DE ANÁLISES: Apenas para usuários PRO
+import historyRouter from "./api/history/index.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
 // ═══════════════════════════════════════════════════════════════════
@@ -199,6 +202,13 @@ console.log('   - GET /api/verify-purchase/status (apenas consultar status)');
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
+
+// 🕐 HISTÓRICO DE ANÁLISES: Apenas para usuários PRO
+app.use("/api/history", historyRouter);
+console.log('🕐 [HISTORY] Rotas de histórico registradas:');
+console.log('   - GET /api/history (listar histórico do usuário PRO)');
+console.log('   - GET /api/history/:id (buscar análise específica)');
+console.log('   - DELETE /api/history/:id (remover análise do histórico)');
 
 // 🎯 CORRECTION PLAN: Rota para gerar plano de correção com IA
 app.post("/api/correction-plan", async (req, res) => {

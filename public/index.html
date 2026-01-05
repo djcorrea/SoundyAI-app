@@ -30,6 +30,7 @@
     <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
     <link rel="stylesheet" href="login-required-modal.css?v=20260102">
     <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104">
+    <link rel="stylesheet" href="analysis-history.css?v=20260104">
     
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -246,6 +247,17 @@
                         <polyline points="10 9 9 9 8 9"/>
                     </svg>
                     <span>Documento técnico</span>
+                </button>
+            </li>
+            <!-- 🕐 HISTÓRICO DE ANÁLISES - APENAS PRO -->
+            <li id="historyMenuItem" class="history-menu-item" style="display: none;">
+                <button class="side-panel-item" data-action="history">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>Histórico</span>
+                    <span class="pro-badge" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: auto; font-weight: 600;">PRO</span>
                 </button>
             </li>
             <li>
@@ -1502,6 +1514,15 @@
                             window.open('documento-tecnico.html', '_blank');
                             break;
                             
+                        case 'history':
+                            // 🕐 Abrir histórico de análises (PRO only)
+                            if (window.SoundyHistory && window.SoundyHistory.open) {
+                                window.SoundyHistory.open();
+                            } else {
+                                console.warn('SoundyHistory não disponível');
+                            }
+                            break;
+                            
                         case 'upgrade':
                             window.location.href = 'planos.html';
                             break;
@@ -1528,6 +1549,9 @@
             });
         })();
     </script>
+    
+    <!-- 🕐 Sistema de Histórico de Análises (PRO only) -->
+    <script src="analysis-history.js?v=20260104" defer></script>
     
     <!-- Scoring Debug Visual (apenas em dev/debug) -->
     <script src="js/scoring-debug-visual.js" defer></script>
