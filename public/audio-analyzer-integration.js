@@ -5271,6 +5271,20 @@ function showAnalysisProgress() {
 }
 
 function displayReferenceComparison(data) {
+    // 🔍 DEBUG CRÍTICO: Ver exatamente o que chega aqui
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 [DEBUG] displayReferenceComparison CHAMADA');
+    console.log('🔍 [DEBUG] Type of data:', typeof data);
+    console.log('🔍 [DEBUG] Data keys:', data ? Object.keys(data) : 'null');
+    console.log('🔍 [DEBUG] Data completo:', JSON.stringify(data, null, 2).substring(0, 500));
+    console.log('🔍 [DEBUG] Validações:');
+    console.log('  - data existe?', !!data);
+    console.log('  - data.technicalData?', !!data?.technicalData);
+    console.log('  - data._fromHistory?', data?._fromHistory);
+    console.log('  - data.success?', data?.success);
+    console.log('  - data.jobId?', data?.jobId);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     const modal = document.getElementById('audioAnalysisModal');
     const progressOverlay = document.getElementById('analysisProgressOverlay');
     
