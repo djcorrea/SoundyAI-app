@@ -248,8 +248,8 @@
     <div class="logo">SoundyAI</div>
     <div class="subtitle">Masterização Inteligente</div>
     
-    <h1>Criar senha</h1>
-    <p class="description">Primeiro acesso ao SoundyAI. Defina sua senha para entrar.</p>
+    <h1 id="pageTitle">Criar senha</h1>
+    <p id="pageDescription" class="description">Primeiro acesso ao SoundyAI. Defina sua senha para entrar.</p>
     
     <div id="userEmailDisplay" class="user-email" style="display: none;">
       <strong>Conta:</strong> <span id="emailText"></span>
@@ -257,6 +257,7 @@
     
     <div id="messageBox" class="message"></div>
     
+    <!-- Formulário de criar senha -->
     <form id="passwordForm">
       <div class="input-group">
         <label for="newPassword">Nova senha</label>
@@ -286,6 +287,23 @@
       </button>
     </form>
     
+    <!-- Formulário de reenviar link (oculto por padrão) -->
+    <form id="resendForm" style="display: none;">
+      <div class="input-group">
+        <label for="resendEmail">Digite seu e-mail</label>
+        <input 
+          type="email" 
+          id="resendEmail" 
+          placeholder="seu@email.com"
+          required
+        >
+      </div>
+      
+      <button type="submit" id="resendBtn" class="button">
+        Reenviar link de acesso
+      </button>
+    </form>
+    
     <div class="divider"></div>
     
     <div class="secondary-link">
@@ -304,7 +322,8 @@
       getAuth, 
       signOut,
       verifyPasswordResetCode, 
-      confirmPasswordReset 
+      confirmPasswordReset,
+      sendPasswordResetEmail
     } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 
     // Configuração Firebase (mesma do firebase.js)
@@ -334,37 +353,78 @@
 
     // Elementos
     const form = document.getElementById('passwordForm');
+    const resendForm = document.getElementById('resendForm');
     const messageBox = document.getElementById('messageBox');
     const submitBtn = document.getElementById('submitBtn');
+    const resendBtn = document.getElementById('resendBtn');
     const newPasswordInput = document.getElementById('newPassword');
     const confirmPasswordInput = document.getElementById('confirmPassword');
+    const resendEmailInput = document.getElementById('resendEmail');
     const userEmailDisplay = document.getElementById('userEmailDisplay');
     const emailText = document.getElementById('emailText');
+    const pageTitle = document.getElementById('pageTitle');
+    const pageDescription = document.getElementById('pageDescription');
 
-    // Extrair oobCode da URL
+    // Extrair parâmetros da URL
     const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
     const oobCode = urlParams.get('oobCode');
 
-    // Validar presença do oobCode
+    // 🔍 LOGS DE DIAGNÓSTICO
+    console.log('🔍 [FIRST_ACCESS] Página carregada');
+    console.log('🔍 [FIRST_ACCESS] mode =', mode || '(ausente)');
+    console.log('🔍 [FIRST_ACCESS] hasOobCode =', !!oobCode);
+    console.log('🔍 [FIRST_ACCESS] fullUrl =', window.location.href);
+
+    // 🚨 VALIDAÇÃO CRÍTICA: Link DEVE ter oobCode
     if (!oobCode) {
-      showMessage('error', 'Link inválido ou expirado. Solicite um novo link de acesso.');
-      submitBtn.disabled = true;
+      console.error('❌ [FIRST_ACCESS] oobCode ausente na URL!');
+      
+      // Mostrar UI de erro com opção de reenviar
+      pageTitle.textContent = 'Link inválido ou incompleto';
+      pageDescription.textContent = 'Este link não contém o código de redefinição necessário (oobCode).';
+      
+      showMessage('error', 
+        'Link inválido ou incompleto. Digite seu e-mail abaixo para receber um novo link de acesso.');
+      
+      // Esconder formulário de senha, mostrar formulário de reenvio
+      form.style.display = 'none';
+      resendForm.style.display = 'block';
+      
+      // NÃO redirecionar para login - ficar aqui
+      return;
     } else {
+      console.log('✅ [FIRST_ACCESS] oobCode presente, validando...');
+      
       // Verificar código e mostrar e-mail
       verifyPasswordResetCode(auth, oobCode)
         .then((email) => {
-          console.log('✅ Código válido para:', email);
+          console.log('✅ [FIRST_ACCESS] Código válido para:', email);
           emailText.textContent = email;
           userEmailDisplay.style.display = 'block';
         })
         .catch((error) => {
-          console.error('❌ Erro ao verificar código:', error);
-          showMessage('error', 'Link inválido ou expirado. Solicite um novo link.');
-          submitBtn.disabled = true;
+          console.error('❌ [FIRST_ACCESS] Erro ao verificar código:', error);
+          console.error('❌ [FIRST_ACCESS] Error code:', error.code);
+          
+          let errorMessage = 'Link inválido ou expirado.';
+          if (error.code === 'auth/expired-action-code') {
+            errorMessage = 'Link expirado (válido por 1 hora).';
+          } else if (error.code === 'auth/invalid-action-code') {
+            errorMessage = 'Link inválido ou já utilizado.';
+          }
+          
+          showMessage('error', errorMessage + ' Digite seu e-mail para receber um novo link.');
+          
+          // Esconder formulário de senha, mostrar formulário de reenvio
+          form.style.display = 'none';
+          resendForm.style.display = 'block';
+          pageTitle.textContent = 'Link inválido';
+          pageDescription.textContent = errorMessage;
         });
     }
 
-    // Handler do formulário
+    // Handler do formulário de criar senha
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -419,6 +479,59 @@
         // Re-habilitar botão
         submitBtn.disabled = false;
         submitBtn.classList.remove('loading');
+      }
+    });
+
+    // Handler do formulário de reenviar link
+    resendForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const email = resendEmailInput.value.trim();
+      
+      if (!email || !email.includes('@')) {
+        showMessage('error', 'Digite um e-mail válido.');
+        return;
+      }
+      
+      // Loading state
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Enviando...';
+      
+      try {
+        console.log('📧 [FIRST_ACCESS] Reenviando link para:', email);
+        
+        // Enviar email de reset com Firebase
+        await sendPasswordResetEmail(auth, email, {
+          url: 'https://soundyai.com.br/primeiro-acesso.html',
+          handleCodeInApp: true
+        });
+        
+        console.log('✅ [FIRST_ACCESS] Link reenviado com sucesso');
+        showMessage('success', 
+          `Link de acesso enviado para ${email}. Verifique sua caixa de entrada (e spam).`);
+        
+        // Limpar input
+        resendEmailInput.value = '';
+        
+      } catch (error) {
+        console.error('❌ [FIRST_ACCESS] Erro ao reenviar link:', error);
+        
+        let errorMessage = 'Erro ao enviar link. Tente novamente.';
+        
+        if (error.code === 'auth/user-not-found') {
+          errorMessage = 'E-mail não encontrado. Verifique se digitou corretamente.';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'E-mail inválido.';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+        }
+        
+        showMessage('error', errorMessage);
+        
+      } finally {
+        // Re-habilitar botão
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Reenviar link de acesso';
       }
     });
 
