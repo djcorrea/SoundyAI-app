@@ -14,6 +14,34 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
+    <!-- Firebase SDK v11 (Modular) -->
+    <script type="module">
+        // Importar Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+        
+        // Configuração Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
+            authDomain: "prodai-58436.firebaseapp.com",
+            projectId: "prodai-58436",
+            storageBucket: "prodai-58436.appspot.com",
+            messagingSenderId: "801631191322",
+            appId: "1:801631322:web:80e3d29cf7468331652ca3",
+            measurementId: "G-MBDHDYN6Z0"
+        };
+        
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Expor globalmente para uso no formulário
+        window.firebaseDB = db;
+        window.firestoreModules = { collection, addDoc, serverTimestamp, query, where, getDocs };
+        
+        console.log('🔥 Firebase Firestore inicializado para Waitlist');
+    </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
         
@@ -1197,32 +1225,77 @@
                 submitBtn.classList.add('loading');
                 submitBtn.disabled = true;
                 
-                const formData = {
-                    name: name,
-                    email: email,
-                    timestamp: new Date().toISOString(),
-                    source: 'prelaunch_landing',
-                    referrer: document.referrer || 'direct'
-                };
-                
+                // ========================================
+                // 🔥 FIREBASE FIRESTORE INTEGRATION
+                // ========================================
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 1200));
-                    console.log('[WAITLIST] Lead capturado:', formData);
-                    
-                    try {
-                        const existingLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
-                        existingLeads.push(formData);
-                        localStorage.setItem('soundy_waitlist', JSON.stringify(existingLeads));
-                    } catch (storageErr) {
-                        console.warn('LocalStorage indisponível:', storageErr);
+                    // Verificar se Firebase está disponível
+                    if (!window.firebaseDB || !window.firestoreModules) {
+                        throw new Error('Firebase não inicializado');
                     }
                     
+                    const db = window.firebaseDB;
+                    const { collection, addDoc, serverTimestamp, query, where, getDocs } = window.firestoreModules;
+                    
+                    // Verificar duplicidade de e-mail
+                    const waitlistRef = collection(db, 'waitlist');
+                    const emailQuery = query(waitlistRef, where('email', '==', email.toLowerCase()));
+                    const querySnapshot = await getDocs(emailQuery);
+                    
+                    if (!querySnapshot.empty) {
+                        // E-mail já cadastrado
+                        alert('Este e-mail já está na lista de espera! 😊');
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                    
+                    // Preparar dados do lead
+                    const leadData = {
+                        name: name,
+                        email: email.toLowerCase(),
+                        createdAt: serverTimestamp(),
+                        source: 'landing_pre_launch',
+                        status: 'waiting',
+                        metadata: {
+                            userAgent: navigator.userAgent || 'unknown',
+                            referrer: document.referrer || 'direct',
+                            language: navigator.language || 'unknown'
+                        }
+                    };
+                    
+                    // Salvar no Firestore
+                    const docRef = await addDoc(waitlistRef, leadData);
+                    
+                    // Backup local (fallback)
+                    try {
+                        const localLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
+                        localLeads.push({ ...leadData, firestoreId: docRef.id, savedAt: new Date().toISOString() });
+                        localStorage.setItem('soundy_waitlist', JSON.stringify(localLeads));
+                    } catch (storageErr) {
+                        // LocalStorage não crítico
+                    }
+                    
+                    // Sucesso!
+                    console.log('✅ Lead salvo com sucesso no Firestore:', docRef.id);
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     
                 } catch (error) {
-                    console.error('[WAITLIST] Erro:', error);
-                    alert('Ocorreu um erro. Por favor, tente novamente.');
+                    console.error('❌ Erro ao salvar lead:', error);
+                    
+                    // Mensagem amigável baseada no tipo de erro
+                    let errorMessage = 'Ocorreu um erro ao processar seu cadastro.';
+                    
+                    if (error.code === 'permission-denied') {
+                        errorMessage = 'Erro de permissão. Entre em contato com o suporte.';
+                    } else if (error.message.includes('network')) {
+                        errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+                    } else if (error.message.includes('Firebase não inicializado')) {
+                        errorMessage = 'Sistema temporariamente indisponível. Tente novamente em alguns segundos.';
+                    }
+                    
+                    alert(errorMessage);
                     submitBtn.classList.remove('loading');
                     submitBtn.disabled = false;
                 }
