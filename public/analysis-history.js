@@ -418,26 +418,31 @@
             // ✅ REUTILIZAR A MESMA FUNÇÃO DO SISTEMA
             if (typeof window.displayModalResults === 'function') {
                 console.log('🕐 [HISTORY-FE] Chamando displayModalResults()...');
-                await window.displayModalResults(analysisData);
                 
-                // Abrir modal de resultados se necessário
-                const modal = document.getElementById('audioUploadModal') || 
-                             document.getElementById('audioResultModal');
+                // 🔥 CRÍTICO: Abrir o modal ANTES de chamar displayModalResults
+                // (no fluxo normal, o modal já está aberto)
+                const modal = document.getElementById('audioAnalysisModal');
                 if (modal) {
                     modal.style.display = 'flex';
-                    
-                    // Mostrar seção de resultados
-                    const resultsSection = document.getElementById('audioAnalysisResults');
-                    if (resultsSection) {
-                        resultsSection.style.display = 'block';
-                    }
-                    
-                    // Esconder outras seções
-                    const uploadSection = document.getElementById('audioAnalysisUpload');
-                    const loadingSection = document.getElementById('audioAnalysisLoading');
-                    if (uploadSection) uploadSection.style.display = 'none';
-                    if (loadingSection) loadingSection.style.display = 'none';
+                    console.log('🕐 [HISTORY-FE] ✅ Modal audioAnalysisModal aberto');
+                } else {
+                    console.error('🕐 [HISTORY-FE] ❌ Modal audioAnalysisModal não encontrado!');
                 }
+                
+                // Chamar displayModalResults para renderizar os dados
+                await window.displayModalResults(analysisData);
+                
+                // Garantir que seção de resultados esteja visível
+                const resultsSection = document.getElementById('audioAnalysisResults');
+                if (resultsSection) {
+                    resultsSection.style.display = 'block';
+                }
+                
+                // Esconder outras seções
+                const uploadSection = document.getElementById('audioUploadArea');
+                const loadingSection = document.getElementById('audioAnalysisLoading');
+                if (uploadSection) uploadSection.style.display = 'none';
+                if (loadingSection) loadingSection.style.display = 'none';
                 
                 console.log('🕐 [HISTORY-FE] ✅ Análise do histórico exibida com sucesso!');
             } else {
