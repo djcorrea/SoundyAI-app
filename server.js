@@ -111,6 +111,9 @@ import historyRouter from "./api/history/index.js";
 // 📧 WAITLIST: Cadastro na lista de espera + envio de e-mail
 import waitlistRouter from "./api/waitlist.js";
 
+// 🚀 LAUNCH: Sistema de disparo de e-mails de lançamento
+import launchRouter from "./api/launch.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
 // ═══════════════════════════════════════════════════════════════════
@@ -219,6 +222,14 @@ app.use("/api/waitlist", waitlistRouter);
 console.log('📧 [WAITLIST] Rotas registradas:');
 console.log('   - POST /api/waitlist (cadastrar lead + enviar e-mail)');
 console.log('   - GET /api/waitlist/count (contar leads)');
+
+// 🚀 LAUNCH: Sistema de disparo de e-mails de lançamento (protegido por chave)
+app.use("/api/launch", launchRouter);
+console.log('🚀 [LAUNCH] Rotas registradas:');
+console.log('   - POST /api/launch/blast (disparo em massa - requer chave)');
+console.log('   - POST /api/launch/test (envio de teste - requer chave)');
+console.log('   - GET /api/launch/status (verificar status - requer chave)');
+console.log('   - POST /api/launch/schedule-check (verificação agendada - requer chave)');
 
 // 🎯 CORRECTION PLAN: Rota para gerar plano de correção com IA
 app.post("/api/correction-plan", async (req, res) => {
