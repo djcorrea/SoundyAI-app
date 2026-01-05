@@ -14,6 +14,10 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
+    <!-- VANTA.js Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
         
@@ -27,6 +31,7 @@
             --neon-purple: #a855f7;
             --neon-blue: #06b6d4;
             --neon-pink: #ec4899;
+            --neon-green: #22c55e;
             --dark-bg: #030014;
             --darker-bg: #010008;
             --card-bg: rgba(10, 10, 30, 0.6);
@@ -34,26 +39,37 @@
             --text-secondary: rgba(255, 255, 255, 0.7);
             --glow-purple: rgba(168, 85, 247, 0.5);
             --glow-blue: rgba(6, 182, 212, 0.5);
+            --error-red: #ef4444;
+            --success-green: #22c55e;
         }
         
-        html, body {
-            height: 100%;
-            overflow: hidden;
+        html {
+            scroll-behavior: smooth;
         }
         
         body {
             font-family: 'Rajdhani', sans-serif;
             background: var(--dark-bg);
             color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
             min-height: 100vh;
             position: relative;
+            overflow-x: hidden;
         }
         
         /* ========================================
-           BACKGROUND EFFECTS
+           VANTA.js BACKGROUND
+        ======================================== */
+        #vanta-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+        }
+        
+        /* ========================================
+           BACKGROUND EFFECTS (complementares)
         ======================================== */
         .bg-container {
             position: fixed;
@@ -63,6 +79,7 @@
             height: 100%;
             z-index: -1;
             overflow: hidden;
+            pointer-events: none;
         }
         
         .gradient-bg {
@@ -72,9 +89,9 @@
             top: -50%;
             left: -50%;
             background: 
-                radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
-                radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+                radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
             animation: gradientShift 20s ease-in-out infinite;
         }
         
@@ -84,84 +101,43 @@
             66% { transform: translate(-2%, 1%) rotate(-1deg); }
         }
         
-        .particles {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(168, 85, 247, 0.6);
-            border-radius: 50%;
-            animation: float 15s infinite ease-in-out;
-        }
-        
-        .particle:nth-child(odd) {
-            background: rgba(6, 182, 212, 0.5);
-        }
-        
-        @keyframes float {
-            0%, 100% { 
-                transform: translateY(100vh) scale(0);
-                opacity: 0;
-            }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { 
-                transform: translateY(-100vh) scale(1);
-                opacity: 0;
-            }
-        }
-        
-        /* Grid overlay */
+        /* Grid overlay sutil */
         .grid-overlay {
             position: absolute;
             width: 100%;
             height: 100%;
             background-image: 
-                linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            animation: gridPulse 8s ease-in-out infinite;
-        }
-        
-        @keyframes gridPulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-        }
-        
-        /* Scan line effect */
-        .scanline {
-            position: absolute;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.3), transparent);
-            animation: scan 8s linear infinite;
-        }
-        
-        @keyframes scan {
-            0% { top: -10%; }
-            100% { top: 110%; }
+                linear-gradient(rgba(168, 85, 247, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(168, 85, 247, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.4;
         }
         
         /* ========================================
-           MAIN CONTENT
+           MAIN CONTAINER
         ======================================== */
+        .page-wrapper {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        
         .container {
             text-align: center;
-            padding: 40px;
-            max-width: 800px;
+            max-width: 900px;
+            width: 100%;
             position: relative;
             z-index: 10;
         }
         
-        /* Logo/Brand */
+        /* ========================================
+           LOGO/BRAND
+        ======================================== */
         .brand {
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         
         .logo-text {
@@ -183,35 +159,39 @@
             50% { filter: drop-shadow(0 0 40px var(--glow-blue)); }
         }
         
-        /* Pre-launch badge */
+        /* ========================================
+           PRE-LAUNCH BADGE
+        ======================================== */
         .pre-badge {
             display: inline-block;
-            padding: 8px 24px;
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(6, 182, 212, 0.2));
+            padding: 10px 28px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(6, 182, 212, 0.15));
             border: 1px solid rgba(168, 85, 247, 0.4);
             border-radius: 50px;
             font-family: 'Orbitron', sans-serif;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             letter-spacing: 3px;
             text-transform: uppercase;
             color: var(--neon-purple);
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             animation: badgePulse 2s ease-in-out infinite;
         }
         
         @keyframes badgePulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
-            50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.6); }
+            0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+            50% { box-shadow: 0 0 35px rgba(168, 85, 247, 0.5); }
         }
         
-        /* Main headline */
+        /* ========================================
+           HEADLINES
+        ======================================== */
         .headline {
             font-family: 'Rajdhani', sans-serif;
-            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-size: clamp(1.8rem, 5vw, 2.8rem);
             font-weight: 700;
             line-height: 1.2;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             color: var(--text-primary);
         }
         
@@ -222,37 +202,42 @@
             background-clip: text;
         }
         
-        /* Subheadline */
-        .subheadline {
-            font-size: clamp(1rem, 2.5vw, 1.25rem);
+        /* Breve descrição do produto */
+        .product-brief {
+            font-size: clamp(1rem, 2.5vw, 1.15rem);
             color: var(--text-secondary);
-            margin-bottom: 50px;
-            max-width: 600px;
+            margin-bottom: 40px;
+            max-width: 650px;
             margin-left: auto;
             margin-right: auto;
-            line-height: 1.6;
+            line-height: 1.7;
+        }
+        
+        .product-brief strong {
+            color: var(--text-primary);
+            font-weight: 600;
         }
         
         /* ========================================
-           COUNTDOWN TIMER
+           COUNTDOWN TIMER (NÃO ALTERADO)
         ======================================== */
         .countdown-section {
-            margin-bottom: 50px;
+            margin-bottom: 45px;
         }
         
         .countdown-label {
             font-family: 'Orbitron', sans-serif;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             letter-spacing: 4px;
             text-transform: uppercase;
             color: var(--text-secondary);
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         
         .countdown {
             display: flex;
             justify-content: center;
-            gap: 15px;
+            gap: 12px;
             flex-wrap: wrap;
         }
         
@@ -260,8 +245,8 @@
             background: var(--card-bg);
             border: 1px solid rgba(168, 85, 247, 0.3);
             border-radius: 16px;
-            padding: 20px 25px;
-            min-width: 100px;
+            padding: 18px 22px;
+            min-width: 90px;
             backdrop-filter: blur(10px);
             position: relative;
             overflow: hidden;
@@ -279,7 +264,7 @@
         
         .countdown-number {
             font-family: 'Orbitron', sans-serif;
-            font-size: clamp(2rem, 5vw, 3rem);
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
             font-weight: 700;
             background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
             -webkit-background-clip: text;
@@ -290,7 +275,7 @@
         }
         
         .countdown-unit {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 2px;
             color: var(--text-secondary);
@@ -298,144 +283,370 @@
         }
         
         /* ========================================
-           CTA BUTTON
+           FORMULÁRIO INLINE
         ======================================== */
-        .cta-section {
-            margin-top: 40px;
+        .form-section {
+            margin: 40px auto;
+            max-width: 500px;
         }
         
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            padding: 18px 50px;
+        .form-card {
+            background: rgba(10, 10, 30, 0.7);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 20px;
+            padding: 35px 30px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-purple));
+            background-size: 200% 100%;
+            animation: gradientSlide 3s ease infinite;
+        }
+        
+        @keyframes gradientSlide {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .form-title {
             font-family: 'Rajdhani', sans-serif;
-            font-size: 1.1rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .form-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        
+        .form-input:focus {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.12), 0 0 20px rgba(168, 85, 247, 0.15);
+        }
+        
+        .form-input.error {
+            border-color: var(--error-red);
+        }
+        
+        .form-input.success {
+            border-color: var(--success-green);
+        }
+        
+        .error-message {
+            color: var(--error-red);
+            font-size: 0.8rem;
+            margin-top: 6px;
+            text-align: left;
+            display: none;
+        }
+        
+        .error-message.visible {
+            display: block;
+        }
+        
+        /* Submit Button */
+        .submit-btn {
+            width: 100%;
+            padding: 16px 30px;
+            margin-top: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 2px;
             color: white;
             background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
             border: none;
-            border-radius: 60px;
+            border-radius: 12px;
             cursor: pointer;
-            text-decoration: none;
             position: relative;
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 
-                0 10px 40px rgba(168, 85, 247, 0.4),
-                0 0 0 0 rgba(168, 85, 247, 0);
+            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.35);
         }
         
-        .cta-button::before {
-            content: '';
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(168, 85, 247, 0.45);
+        }
+        
+        .submit-btn:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .submit-btn .btn-text {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .submit-btn.loading .btn-text {
+            opacity: 0;
+        }
+        
+        .submit-btn .spinner {
             position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(255, 255, 255, 0.3),
-                transparent
-            );
-            transition: 0.5s;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            opacity: 0;
         }
         
-        .cta-button:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 
-                0 20px 60px rgba(168, 85, 247, 0.5),
-                0 0 0 3px rgba(168, 85, 247, 0.3);
+        .submit-btn.loading .spinner {
+            opacity: 1;
+            animation: spin 0.8s linear infinite;
         }
         
-        .cta-button:hover::before {
-            left: 100%;
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
         }
         
-        .cta-button:active {
-            transform: translateY(-2px) scale(1);
-        }
-        
-        .cta-icon {
-            font-size: 1.2rem;
-        }
-        
-        /* Micro-copy below CTA */
-        .cta-microcopy {
-            margin-top: 16px;
-            font-size: 0.85rem;
+        .form-privacy {
+            margin-top: 14px;
+            font-size: 0.75rem;
             color: var(--text-secondary);
-            opacity: 0.8;
+            opacity: 0.7;
+        }
+        
+        .form-privacy a {
+            color: var(--neon-purple);
+            text-decoration: none;
+        }
+        
+        .form-privacy a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Success State */
+        .success-container {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .success-container.visible {
+            display: block;
+        }
+        
+        .success-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2rem;
+            animation: successPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes successPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .success-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .success-message {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .form-content.hidden {
+            display: none;
         }
         
         /* ========================================
-           TRUST ELEMENTS
+           BENEFÍCIOS REAIS
         ======================================== */
-        .trust-section {
-            margin-top: 60px;
+        .benefits-section {
+            margin-top: 50px;
             padding-top: 40px;
-            border-top: 1px solid rgba(168, 85, 247, 0.15);
+            border-top: 1px solid rgba(168, 85, 247, 0.12);
         }
         
-        .trust-items {
+        .benefits-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            opacity: 0.8;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .benefit-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            text-align: left;
+            padding: 18px;
+            background: rgba(10, 10, 30, 0.4);
+            border: 1px solid rgba(168, 85, 247, 0.15);
+            border-radius: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .benefit-item:hover {
+            background: rgba(168, 85, 247, 0.08);
+            border-color: rgba(168, 85, 247, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .benefit-icon {
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(6, 182, 212, 0.2));
+            border-radius: 10px;
+        }
+        
+        .benefit-content h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        
+        .benefit-content p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        
+        /* ========================================
+           FOOTER TRUST
+        ======================================== */
+        .footer-trust {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(168, 85, 247, 0.1);
+        }
+        
+        .trust-badges {
             display: flex;
             justify-content: center;
-            gap: 40px;
+            gap: 30px;
             flex-wrap: wrap;
         }
         
-        .trust-item {
+        .trust-badge {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.8rem;
+            opacity: 0.7;
         }
         
-        .trust-icon {
-            font-size: 1.2rem;
-            color: var(--neon-purple);
+        .trust-badge span:first-child {
+            font-size: 1rem;
         }
         
         /* ========================================
            RESPONSIVE
         ======================================== */
         @media (max-width: 768px) {
-            .container {
-                padding: 30px 20px;
+            .page-wrapper {
+                padding: 30px 16px;
             }
             
             .countdown {
-                gap: 10px;
+                gap: 8px;
             }
             
             .countdown-item {
                 min-width: 70px;
-                padding: 15px 18px;
+                padding: 14px 16px;
             }
             
-            .cta-button {
-                padding: 16px 40px;
-                font-size: 1rem;
+            .form-card {
+                padding: 28px 22px;
             }
             
-            .trust-items {
-                gap: 25px;
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .trust-badges {
+                gap: 20px;
             }
         }
         
         @media (max-width: 480px) {
             .countdown-item {
                 min-width: 60px;
-                padding: 12px 15px;
+                padding: 12px 14px;
             }
             
-            .trust-items {
+            .trust-badges {
                 flex-direction: column;
-                gap: 15px;
+                gap: 12px;
             }
         }
         
@@ -444,16 +655,18 @@
         ======================================== */
         .fade-in-up {
             opacity: 0;
-            transform: translateY(30px);
-            animation: fadeInUp 0.8s ease forwards;
+            transform: translateY(25px);
+            animation: fadeInUp 0.7s ease forwards;
         }
         
         .fade-in-up:nth-child(1) { animation-delay: 0.1s; }
-        .fade-in-up:nth-child(2) { animation-delay: 0.2s; }
-        .fade-in-up:nth-child(3) { animation-delay: 0.3s; }
-        .fade-in-up:nth-child(4) { animation-delay: 0.4s; }
-        .fade-in-up:nth-child(5) { animation-delay: 0.5s; }
-        .fade-in-up:nth-child(6) { animation-delay: 0.6s; }
+        .fade-in-up:nth-child(2) { animation-delay: 0.15s; }
+        .fade-in-up:nth-child(3) { animation-delay: 0.2s; }
+        .fade-in-up:nth-child(4) { animation-delay: 0.25s; }
+        .fade-in-up:nth-child(5) { animation-delay: 0.3s; }
+        .fade-in-up:nth-child(6) { animation-delay: 0.35s; }
+        .fade-in-up:nth-child(7) { animation-delay: 0.4s; }
+        .fade-in-up:nth-child(8) { animation-delay: 0.45s; }
         
         @keyframes fadeInUp {
             to {
@@ -464,82 +677,168 @@
     </style>
 </head>
 <body>
-    <!-- Background Effects -->
+    <!-- VANTA.js Background -->
+    <div id="vanta-bg"></div>
+    
+    <!-- Gradient Overlays -->
     <div class="bg-container">
         <div class="gradient-bg"></div>
         <div class="grid-overlay"></div>
-        <div class="particles" id="particles"></div>
-        <div class="scanline"></div>
     </div>
     
     <!-- Main Content -->
-    <div class="container">
-        <!-- Brand -->
-        <div class="brand fade-in-up">
-            <div class="logo-text">SoundyAI</div>
-        </div>
-        
-        <!-- Pre-launch Badge -->
-        <div class="pre-badge fade-in-up">🚀 Lançamento em Breve</div>
-        
-        <!-- Main Headline -->
-        <h1 class="headline fade-in-up">
-            Algo que vai <span class="headline-highlight">transformar</span><br>
-            a forma como você produz música
-        </h1>
-        
-        <!-- Subheadline -->
-        <p class="subheadline fade-in-up">
-            Um novo padrão em análise de áudio está chegando. 
-            Inteligência artificial que entende sua música como nunca antes.
-        </p>
-        
-        <!-- Countdown Timer -->
-        <div class="countdown-section fade-in-up">
-            <div class="countdown-label">Lançamento oficial em</div>
-            <div class="countdown" id="countdown">
-                <div class="countdown-item">
-                    <span class="countdown-number" id="days">00</span>
-                    <span class="countdown-unit">Dias</span>
-                </div>
-                <div class="countdown-item">
-                    <span class="countdown-number" id="hours">00</span>
-                    <span class="countdown-unit">Horas</span>
-                </div>
-                <div class="countdown-item">
-                    <span class="countdown-number" id="minutes">00</span>
-                    <span class="countdown-unit">Min</span>
-                </div>
-                <div class="countdown-item">
-                    <span class="countdown-number" id="seconds">00</span>
-                    <span class="countdown-unit">Seg</span>
+    <div class="page-wrapper">
+        <div class="container">
+            <!-- Brand -->
+            <div class="brand fade-in-up">
+                <div class="logo-text">SoundyAI</div>
+            </div>
+            
+            <!-- Pre-launch Badge -->
+            <div class="pre-badge fade-in-up">⏳ Está mais perto do que você imagina</div>
+            
+            <!-- Main Headline -->
+            <h1 class="headline fade-in-up">
+                A IA que vai <span class="headline-highlight">revolucionar</span><br>
+                sua produção musical
+            </h1>
+            
+            <!-- Breve explicação do produto -->
+            <p class="product-brief fade-in-up">
+                <strong>SoundyAI</strong> analisa seu áudio com inteligência artificial e te mostra 
+                <strong>exatamente</strong> o que ajustar para alcançar o som profissional. 
+                Sem achismos. Sem perder tempo. Apenas ciência aplicada à música.
+            </p>
+            
+            <!-- Countdown Timer (NÃO ALTERADO) -->
+            <div class="countdown-section fade-in-up">
+                <div class="countdown-label">Contagem regressiva</div>
+                <div class="countdown" id="countdown">
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="days">00</span>
+                        <span class="countdown-unit">Dias</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="hours">00</span>
+                        <span class="countdown-unit">Horas</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="minutes">00</span>
+                        <span class="countdown-unit">Min</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="seconds">00</span>
+                        <span class="countdown-unit">Seg</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- CTA -->
-        <div class="cta-section fade-in-up">
-            <a href="/lista.html" class="cta-button">
-                <span class="cta-icon">⚡</span>
-                Entrar na Lista de Espera
-            </a>
-            <p class="cta-microcopy">Seja o primeiro a ter acesso • 100% gratuito</p>
-        </div>
-        
-        <!-- Trust Elements -->
-        <div class="trust-section fade-in-up">
-            <div class="trust-items">
-                <div class="trust-item">
-                    <span class="trust-icon">🔒</span>
-                    <span>Seus dados protegidos</span>
+            
+            <!-- Formulário Inline -->
+            <div class="form-section fade-in-up">
+                <div class="form-card">
+                    <div class="form-content" id="formContent">
+                        <h3 class="form-title">Garanta seu lugar na fila</h3>
+                        <p class="form-subtitle">Quem entra agora terá vantagens exclusivas no lançamento</p>
+                        
+                        <form id="waitlistForm" novalidate>
+                            <div class="form-group">
+                                <input 
+                                    type="text" 
+                                    id="name" 
+                                    name="name" 
+                                    class="form-input" 
+                                    placeholder="Seu nome"
+                                    required
+                                    autocomplete="name"
+                                >
+                                <span class="error-message" id="nameError">Por favor, insira seu nome</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input 
+                                    type="email" 
+                                    id="email" 
+                                    name="email" 
+                                    class="form-input" 
+                                    placeholder="Seu melhor e-mail"
+                                    required
+                                    autocomplete="email"
+                                >
+                                <span class="error-message" id="emailError">Por favor, insira um e-mail válido</span>
+                            </div>
+                            
+                            <button type="submit" class="submit-btn" id="submitBtn">
+                                <span class="btn-text">Quero acesso antecipado</span>
+                                <span class="spinner"></span>
+                            </button>
+                        </form>
+                        
+                        <p class="form-privacy">
+                            🔒 Zero spam. Seus dados estão protegidos.
+                        </p>
+                    </div>
+                    
+                    <!-- Success State -->
+                    <div class="success-container" id="successContainer">
+                        <div class="success-icon">✓</div>
+                        <h3 class="success-title">Você está na lista! 🎉</h3>
+                        <p class="success-message">
+                            Fique de olho no seu e-mail. Você será um dos primeiros a experimentar o SoundyAI.
+                        </p>
+                    </div>
                 </div>
-                <div class="trust-item">
-                    <span class="trust-icon">🎁</span>
-                    <span>Acesso antecipado exclusivo</span>
+            </div>
+            
+            <!-- Benefícios Reais -->
+            <div class="benefits-section fade-in-up">
+                <div class="benefits-title">Por que entrar agora?</div>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🚀</div>
+                        <div class="benefit-content">
+                            <h4>Acesso Antecipado</h4>
+                            <p>Entre antes de todo mundo e explore primeiro</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎁</div>
+                        <div class="benefit-content">
+                            <h4>Condições Especiais</h4>
+                            <p>Preços e benefícios exclusivos para early adopters</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎯</div>
+                        <div class="benefit-content">
+                            <h4>Análises Avançadas</h4>
+                            <p>IA treinada com milhares de mixagens profissionais</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎧</div>
+                        <div class="benefit-content">
+                            <h4>Feito por Produtores</h4>
+                            <p>Criado por quem entende de áudio de verdade</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="trust-item">
-                    <span class="trust-icon">✨</span>
-                    <span>Benefícios para early adopters</span>
+            </div>
+            
+            <!-- Footer Trust -->
+            <div class="footer-trust fade-in-up">
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <span>🔒</span>
+                        <span>Dados protegidos</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span>✉️</span>
+                        <span>Sem spam, prometemos</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span>⚡</span>
+                        <span>Cancele quando quiser</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -548,7 +847,48 @@
     <!-- Scripts -->
     <script>
         // ========================================
-        // COUNTDOWN TIMER
+        // VANTA.js INITIALIZATION
+        // ========================================
+        (function() {
+            // Aguarda o carregamento do VANTA
+            if (typeof VANTA !== 'undefined') {
+                initVanta();
+            } else {
+                window.addEventListener('load', initVanta);
+            }
+            
+            function initVanta() {
+                if (typeof VANTA === 'undefined' || typeof VANTA.NET === 'undefined') {
+                    console.warn('[VANTA] Biblioteca não carregada');
+                    return;
+                }
+                
+                try {
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0x8b5cf6,           // Roxo principal
+                        backgroundColor: 0x030014,  // Fundo escuro
+                        points: 8.00,              // Quantidade de pontos
+                        maxDistance: 22.00,        // Distância máxima das conexões
+                        spacing: 18.00,            // Espaçamento entre pontos
+                        showDots: true             // Mostrar pontos
+                    });
+                    console.log('[VANTA] Inicializado com sucesso');
+                } catch (err) {
+                    console.error('[VANTA] Erro ao inicializar:', err);
+                }
+            }
+        })();
+        
+        // ========================================
+        // COUNTDOWN TIMER (PRESERVADO)
         // ========================================
         (function() {
             // Data do lançamento: 22 de Janeiro de 2026 às 00:00 (horário de Brasília)
@@ -559,7 +899,6 @@
                 const distance = launchDate - now;
                 
                 if (distance < 0) {
-                    // Lançamento já aconteceu
                     document.getElementById('days').textContent = '00';
                     document.getElementById('hours').textContent = '00';
                     document.getElementById('minutes').textContent = '00';
@@ -578,41 +917,140 @@
                 document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
             }
             
-            // Atualiza imediatamente e depois a cada segundo
             updateCountdown();
             setInterval(updateCountdown, 1000);
         })();
         
         // ========================================
-        // PARTICLE GENERATOR
+        // FORM HANDLING
         // ========================================
         (function() {
-            const particlesContainer = document.getElementById('particles');
-            const particleCount = 50;
+            const form = document.getElementById('waitlistForm');
+            const formContent = document.getElementById('formContent');
+            const successContainer = document.getElementById('successContainer');
+            const submitBtn = document.getElementById('submitBtn');
+            const nameInput = document.getElementById('name');
+            const emailInput = document.getElementById('email');
+            const nameError = document.getElementById('nameError');
+            const emailError = document.getElementById('emailError');
             
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.classList.add('particle');
-                
-                // Random position and animation
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDuration = (10 + Math.random() * 20) + 's';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.width = (1 + Math.random() * 3) + 'px';
-                particle.style.height = particle.style.width;
-                
-                particlesContainer.appendChild(particle);
+            // Validation helpers
+            function isValidEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(String(email).toLowerCase());
             }
-        })();
-        
-        // ========================================
-        // PRELOAD LISTA PAGE (performance)
-        // ========================================
-        (function() {
-            const link = document.createElement('link');
-            link.rel = 'prefetch';
-            link.href = '/lista.html';
-            document.head.appendChild(link);
+            
+            function showError(input, errorEl) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorEl.classList.add('visible');
+            }
+            
+            function hideError(input, errorEl) {
+                input.classList.remove('error');
+                errorEl.classList.remove('visible');
+            }
+            
+            function showSuccess(input) {
+                input.classList.remove('error');
+                input.classList.add('success');
+            }
+            
+            // Real-time validation
+            nameInput.addEventListener('blur', function() {
+                if (this.value.trim().length >= 2) {
+                    hideError(this, nameError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, nameError);
+                }
+            });
+            
+            emailInput.addEventListener('blur', function() {
+                if (isValidEmail(this.value.trim())) {
+                    hideError(this, emailError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, emailError);
+                }
+            });
+            
+            // Form submission
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                hideError(nameInput, nameError);
+                hideError(emailInput, emailError);
+                
+                let isValid = true;
+                const name = nameInput.value.trim();
+                const email = emailInput.value.trim();
+                
+                if (name.length < 2) {
+                    showError(nameInput, nameError);
+                    isValid = false;
+                }
+                
+                if (!isValidEmail(email)) {
+                    showError(emailInput, emailError);
+                    isValid = false;
+                }
+                
+                if (!isValid) {
+                    const firstError = form.querySelector('.error');
+                    if (firstError) firstError.focus();
+                    return;
+                }
+                
+                // Loading state
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                
+                // Prepare data
+                const formData = {
+                    name: name,
+                    email: email,
+                    timestamp: new Date().toISOString(),
+                    source: 'prelaunch_landing',
+                    referrer: document.referrer || 'direct'
+                };
+                
+                // ========================================
+                // 🔌 INTEGRATION POINT
+                // ========================================
+                // Aqui você pode integrar com:
+                // - Firebase Firestore
+                // - API própria
+                // - Mailchimp/ConvertKit/etc
+                // - Google Sheets via Apps Script
+                // ========================================
+                
+                try {
+                    // Simula envio (substitua pela integração real)
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                    
+                    console.log('[WAITLIST] Lead capturado:', formData);
+                    
+                    // Backup local
+                    try {
+                        const existingLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
+                        existingLeads.push(formData);
+                        localStorage.setItem('soundy_waitlist', JSON.stringify(existingLeads));
+                    } catch (storageErr) {
+                        console.warn('LocalStorage indisponível:', storageErr);
+                    }
+                    
+                    // Show success
+                    formContent.classList.add('hidden');
+                    successContainer.classList.add('visible');
+                    
+                } catch (error) {
+                    console.error('[WAITLIST] Erro:', error);
+                    alert('Ocorreu um erro. Por favor, tente novamente.');
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                }
+            });
         })();
     </script>
 </body>

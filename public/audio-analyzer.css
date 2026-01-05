@@ -5743,3 +5743,51 @@ details[open] summary {
     }
 }
 
+/* Container wrapper para controle de display */
+.music-identification-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* ============================================
+   🎯 POSICIONAMENTO HIERÁRQUICO
+   Bloco entre texto explicativo e cards
+   ============================================ */
+
+/* Garantir espaçamento correto entre elementos */
+.analysis-info-text {
+    margin-bottom: 16px;
+}
+
+/* Bloco de identificação com margem superior e inferior */
+.music-identification-container + .analysis-info-text {
+    margin-top: 0;
+}
+
+.analysis-info-text + .music-identification-container {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* Score display abaixo do bloco de identificação */
+#final-score-display {
+    margin-top: 20px;
+}
+
+/* Cards abaixo do bloco de identificação */
+#modalTechnicalData {
+    margin-top: 20px;
+}
+
+/* Responsividade do container */
+@media (max-width: 768px) {
+    .music-identification-container {
+        padding: 0;
+    }
+    
+    .analysis-info-text + .music-identification-container {
+        margin-bottom: 16px;
+    }
+}
+

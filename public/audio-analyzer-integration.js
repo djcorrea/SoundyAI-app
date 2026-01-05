@@ -5292,10 +5292,10 @@ function displayReferenceComparison(data) {
 }
 
 function generateComparisonHTML(data) {
-    // 🕐 HISTÓRICO PRO: Salvar análise de referência automaticamente
-    // ✅ Salvar AQUI onde temos o dado completo (não no POST que só retorna jobId)
+    // HISTÓRICO PRO: Salvar análise de referência automaticamente
+    // Salvar AQUI onde temos o dado completo (não no POST que só retorna jobId)
     if (data && !data._fromHistory && data.technicalData) {
-        console.log('🕐 [HISTORY-REF] Salvando análise de referência no histórico...');
+        console.log('[HISTORY-REF] Salvando análise de referência no histórico...');
         
         const referenceAnalysisData = {
             ...data,
