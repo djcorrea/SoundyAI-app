@@ -108,6 +108,9 @@ import verifyPurchaseRouter from "./api/verify-purchase.js";
 // 🕐 HISTÓRICO DE ANÁLISES: Apenas para usuários PRO
 import historyRouter from "./api/history/index.js";
 
+// 📧 WAITLIST: Cadastro na lista de espera + envio de e-mail
+import waitlistRouter from "./api/waitlist.js";
+
 // ═══════════════════════════════════════════════════════════════════
 // 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
 // ═══════════════════════════════════════════════════════════════════
@@ -210,6 +213,12 @@ console.log('   - POST /api/history (salvar nova análise)');
 console.log('   - GET /api/history (listar histórico do usuário PRO)');
 console.log('   - GET /api/history/:id (buscar análise específica)');
 console.log('   - DELETE /api/history/:id (remover análise do histórico)');
+
+// 📧 WAITLIST: Cadastro na lista de espera com envio de e-mail
+app.use("/api/waitlist", waitlistRouter);
+console.log('📧 [WAITLIST] Rotas registradas:');
+console.log('   - POST /api/waitlist (cadastrar lead + enviar e-mail)');
+console.log('   - GET /api/waitlist/count (contar leads)');
 
 // 🎯 CORRECTION PLAN: Rota para gerar plano de correção com IA
 app.post("/api/correction-plan", async (req, res) => {
