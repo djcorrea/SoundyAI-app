@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundyAI - Algo Grande Está Chegando</title>
+    <meta name="description" content="A revolução na produção musical está chegando. Entre na lista de espera e seja o primeiro a experimentar.">
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="SoundyAI - Algo Grande Está Chegando">
+    <meta property="og:description" content="A revolução na produção musical está chegando. Entre na lista de espera.">
+    <meta property="og:type" content="website">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-purple: #a855f7;
+            --neon-blue: #06b6d4;
+            --neon-pink: #ec4899;
+            --dark-bg: #030014;
+            --darker-bg: #010008;
+            --card-bg: rgba(10, 10, 30, 0.6);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --glow-purple: rgba(168, 85, 247, 0.5);
+            --glow-blue: rgba(6, 182, 212, 0.5);
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* ========================================
+           BACKGROUND EFFECTS
+        ======================================== */
+        .bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .gradient-bg {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+            animation: gradientShift 20s ease-in-out infinite;
+        }
+        
+        @keyframes gradientShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(2%, 2%) rotate(2deg); }
+            66% { transform: translate(-2%, 1%) rotate(-1deg); }
+        }
+        
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(168, 85, 247, 0.6);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+        }
+        
+        .particle:nth-child(odd) {
+            background: rgba(6, 182, 212, 0.5);
+        }
+        
+        @keyframes float {
+            0%, 100% { 
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { 
+                transform: translateY(-100vh) scale(1);
+                opacity: 0;
+            }
+        }
+        
+        /* Grid overlay */
+        .grid-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(168, 85, 247, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(168, 85, 247, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridPulse 8s ease-in-out infinite;
+        }
+        
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* Scan line effect */
+        .scanline {
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.3), transparent);
+            animation: scan 8s linear infinite;
+        }
+        
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+        
+        /* ========================================
+           MAIN CONTENT
+        ======================================== */
+        .container {
+            text-align: center;
+            padding: 40px;
+            max-width: 800px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Logo/Brand */
+        .brand {
+            margin-bottom: 20px;
+        }
+        
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 50%, var(--neon-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            filter: drop-shadow(0 0 30px var(--glow-purple));
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes logoGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px var(--glow-purple)); }
+            50% { filter: drop-shadow(0 0 40px var(--glow-blue)); }
+        }
+        
+        /* Pre-launch badge */
+        .pre-badge {
+            display: inline-block;
+            padding: 8px 24px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(6, 182, 212, 0.2));
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            border-radius: 50px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--neon-purple);
+            margin-bottom: 40px;
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes badgePulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.6); }
+        }
+        
+        /* Main headline */
+        .headline {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        
+        .headline-highlight {
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Subheadline */
+        .subheadline {
+            font-size: clamp(1rem, 2.5vw, 1.25rem);
+            color: var(--text-secondary);
+            margin-bottom: 50px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+        
+        /* ========================================
+           COUNTDOWN TIMER
+        ======================================== */
+        .countdown-section {
+            margin-bottom: 50px;
+        }
+        
+        .countdown-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        
+        .countdown {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .countdown-item {
+            background: var(--card-bg);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 16px;
+            padding: 20px 25px;
+            min-width: 100px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .countdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue));
+        }
+        
+        .countdown-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
+            line-height: 1;
+        }
+        
+        .countdown-unit {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        /* ========================================
+           CTA BUTTON
+        ======================================== */
+        .cta-section {
+            margin-top: 40px;
+        }
+        
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 50px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: white;
+            background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
+            border: none;
+            border-radius: 60px;
+            cursor: pointer;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 
+                0 10px 40px rgba(168, 85, 247, 0.4),
+                0 0 0 0 rgba(168, 85, 247, 0);
+        }
+        
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.3),
+                transparent
+            );
+            transition: 0.5s;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 
+                0 20px 60px rgba(168, 85, 247, 0.5),
+                0 0 0 3px rgba(168, 85, 247, 0.3);
+        }
+        
+        .cta-button:hover::before {
+            left: 100%;
+        }
+        
+        .cta-button:active {
+            transform: translateY(-2px) scale(1);
+        }
+        
+        .cta-icon {
+            font-size: 1.2rem;
+        }
+        
+        /* Micro-copy below CTA */
+        .cta-microcopy {
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+        
+        /* ========================================
+           TRUST ELEMENTS
+        ======================================== */
+        .trust-section {
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(168, 85, 247, 0.15);
+        }
+        
+        .trust-items {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .trust-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .trust-icon {
+            font-size: 1.2rem;
+            color: var(--neon-purple);
+        }
+        
+        /* ========================================
+           RESPONSIVE
+        ======================================== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            .countdown {
+                gap: 10px;
+            }
+            
+            .countdown-item {
+                min-width: 70px;
+                padding: 15px 18px;
+            }
+            
+            .cta-button {
+                padding: 16px 40px;
+                font-size: 1rem;
+            }
+            
+            .trust-items {
+                gap: 25px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .countdown-item {
+                min-width: 60px;
+                padding: 12px 15px;
+            }
+            
+            .trust-items {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+        
+        /* ========================================
+           ANIMATIONS ON LOAD
+        ======================================== */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.8s ease forwards;
+        }
+        
+        .fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in-up:nth-child(2) { animation-delay: 0.2s; }
+        .fade-in-up:nth-child(3) { animation-delay: 0.3s; }
+        .fade-in-up:nth-child(4) { animation-delay: 0.4s; }
+        .fade-in-up:nth-child(5) { animation-delay: 0.5s; }
+        .fade-in-up:nth-child(6) { animation-delay: 0.6s; }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-container">
+        <div class="gradient-bg"></div>
+        <div class="grid-overlay"></div>
+        <div class="particles" id="particles"></div>
+        <div class="scanline"></div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Brand -->
+        <div class="brand fade-in-up">
+            <div class="logo-text">SoundyAI</div>
+        </div>
+        
+        <!-- Pre-launch Badge -->
+        <div class="pre-badge fade-in-up">🚀 Lançamento em Breve</div>
+        
+        <!-- Main Headline -->
+        <h1 class="headline fade-in-up">
+            Algo que vai <span class="headline-highlight">transformar</span><br>
+            a forma como você produz música
+        </h1>
+        
+        <!-- Subheadline -->
+        <p class="subheadline fade-in-up">
+            Um novo padrão em análise de áudio está chegando. 
+            Inteligência artificial que entende sua música como nunca antes.
+        </p>
+        
+        <!-- Countdown Timer -->
+        <div class="countdown-section fade-in-up">
+            <div class="countdown-label">Lançamento oficial em</div>
+            <div class="countdown" id="countdown">
+                <div class="countdown-item">
+                    <span class="countdown-number" id="days">00</span>
+                    <span class="countdown-unit">Dias</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="hours">00</span>
+                    <span class="countdown-unit">Horas</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="minutes">00</span>
+                    <span class="countdown-unit">Min</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="seconds">00</span>
+                    <span class="countdown-unit">Seg</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CTA -->
+        <div class="cta-section fade-in-up">
+            <a href="/lista.html" class="cta-button">
+                <span class="cta-icon">⚡</span>
+                Entrar na Lista de Espera
+            </a>
+            <p class="cta-microcopy">Seja o primeiro a ter acesso • 100% gratuito</p>
+        </div>
+        
+        <!-- Trust Elements -->
+        <div class="trust-section fade-in-up">
+            <div class="trust-items">
+                <div class="trust-item">
+                    <span class="trust-icon">🔒</span>
+                    <span>Seus dados protegidos</span>
+                </div>
+                <div class="trust-item">
+                    <span class="trust-icon">🎁</span>
+                    <span>Acesso antecipado exclusivo</span>
+                </div>
+                <div class="trust-item">
+                    <span class="trust-icon">✨</span>
+                    <span>Benefícios para early adopters</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script>
+        // ========================================
+        // COUNTDOWN TIMER
+        // ========================================
+        (function() {
+            // Data do lançamento: 22 de Janeiro de 2026 às 00:00 (horário de Brasília)
+            const launchDate = new Date('2026-01-22T00:00:00-03:00').getTime();
+            
+            function updateCountdown() {
+                const now = new Date().getTime();
+                const distance = launchDate - now;
+                
+                if (distance < 0) {
+                    // Lançamento já aconteceu
+                    document.getElementById('days').textContent = '00';
+                    document.getElementById('hours').textContent = '00';
+                    document.getElementById('minutes').textContent = '00';
+                    document.getElementById('seconds').textContent = '00';
+                    return;
+                }
+                
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                document.getElementById('days').textContent = String(days).padStart(2, '0');
+                document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+                document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+                document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+            }
+            
+            // Atualiza imediatamente e depois a cada segundo
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+        })();
+        
+        // ========================================
+        // PARTICLE GENERATOR
+        // ========================================
+        (function() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                
+                // Random position and animation
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDuration = (10 + Math.random() * 20) + 's';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.width = (1 + Math.random() * 3) + 'px';
+                particle.style.height = particle.style.width;
+                
+                particlesContainer.appendChild(particle);
+            }
+        })();
+        
+        // ========================================
+        // PRELOAD LISTA PAGE (performance)
+        // ========================================
+        (function() {
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = '/lista.html';
+            document.head.appendChild(link);
+        })();
+    </script>
+</body>
+</html>

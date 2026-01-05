@@ -5,6 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
     
+    <!-- 🚀 PRE-LAUNCH GATE: Sistema de pré-lançamento -->
+    <!-- ⚠️ IMPORTANTE: Altere PRE_LAUNCH para false no dia do lançamento (22/01/2026) -->
+    <script>
+        (function() {
+            // ========================================
+            // 🎯 FLAG DE PRÉ-LANÇAMENTO
+            // ========================================
+            // Mude para FALSE no dia do lançamento
+            var PRE_LAUNCH = true;
+            
+            // Data oficial do lançamento
+            var LAUNCH_DATE = '2026-01-22T00:00:00';
+            
+            // Páginas que NÃO devem ser redirecionadas (evita loop)
+            var SAFE_PAGES = [
+                '/prelaunch.html',
+                '/lista.html',
+                '/lista',
+                '/prelaunch',
+                '/login.html',
+                '/termos.html',
+                '/privacidade.html',
+                '/reembolso.html',
+                '/suporte.html'
+            ];
+            
+            // Verifica se está em página segura
+            var currentPath = window.location.pathname.toLowerCase();
+            var isSafePage = SAFE_PAGES.some(function(page) {
+                return currentPath === page || currentPath.endsWith(page);
+            });
+            
+            // Executa redirecionamento se PRE_LAUNCH ativo e não está em página segura
+            if (PRE_LAUNCH && !isSafePage) {
+                // Redireciona imediatamente para landing de pré-lançamento
+                window.location.replace('/prelaunch.html');
+            }
+            
+            // Expõe flag globalmente para debug
+            window.SOUNDY_PRE_LAUNCH = PRE_LAUNCH;
+            window.SOUNDY_LAUNCH_DATE = LAUNCH_DATE;
+        })();
+    </script>
+    <!-- 🚀 FIM PRE-LAUNCH GATE -->
+    
     <!-- 🚀 PERFORMANCE: Preload de recursos críticos -->
     <link rel="preload" href="robo.webp?v=20250810" as="image" fetchpriority="high">
     <link rel="preload" href="style.css?v=20250810" as="style">
@@ -642,6 +687,11 @@
             <div id="audioAnalysisResults" class="audio-results" style="display: none;">
                 <div class="results-header">
                     <h4>Análise Completa</h4>
+                </div>
+                
+                <!-- 🎵 BLOCO DE IDENTIFICAÇÃO DA MÚSICA -->
+                <div id="musicIdentificationBlock" class="music-identification-container">
+                    <!-- Será preenchido dinamicamente via JavaScript -->
                 </div>
                 
                 <div class="analysis-info-text">
