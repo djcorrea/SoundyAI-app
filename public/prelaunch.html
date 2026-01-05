@@ -1145,6 +1145,365 @@
         })();
         
         // ========================================
+        // 📊 LEAD ENRICHMENT SYSTEM
+        // Sistema automático de enriquecimento de dados
+        // Coleta máxima de informações sem adicionar fricção
+        // ========================================
+        const LeadEnrichment = (function() {
+            // ========================================
+            // TRACKING STATE - Inicia imediatamente
+            // ========================================
+            const pageLoadTime = Date.now();
+            let maxScrollDepth = 0;
+            let mouseMovementDetected = false;
+            let interactionCount = 0;
+            let hoverOnCTA = false;
+            let formInteractionStarted = false;
+            
+            // ========================================
+            // 1️⃣ DEVICE & BROWSER DETECTION
+            // ========================================
+            function getDeviceInfo() {
+                const ua = navigator.userAgent || '';
+                
+                // Detectar tipo de dispositivo
+                let deviceType = 'desktop';
+                if (/tablet|ipad|playbook|silk/i.test(ua)) {
+                    deviceType = 'tablet';
+                } else if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) {
+                    deviceType = 'mobile';
+                }
+                
+                // Detectar sistema operacional
+                let operatingSystem = 'unknown';
+                if (/windows/i.test(ua)) operatingSystem = 'Windows';
+                else if (/macintosh|mac os x/i.test(ua)) operatingSystem = 'macOS';
+                else if (/linux/i.test(ua)) operatingSystem = 'Linux';
+                else if (/android/i.test(ua)) operatingSystem = 'Android';
+                else if (/iphone|ipad|ipod/i.test(ua)) operatingSystem = 'iOS';
+                
+                // Detectar navegador
+                let browser = 'unknown';
+                if (/edg/i.test(ua)) browser = 'Edge';
+                else if (/chrome/i.test(ua)) browser = 'Chrome';
+                else if (/safari/i.test(ua)) browser = 'Safari';
+                else if (/firefox/i.test(ua)) browser = 'Firefox';
+                else if (/opera|opr/i.test(ua)) browser = 'Opera';
+                
+                return {
+                    deviceType,
+                    operatingSystem,
+                    browser,
+                    screenWidth: window.screen.width || 0,
+                    screenHeight: window.screen.height || 0,
+                    viewportWidth: window.innerWidth || 0,
+                    viewportHeight: window.innerHeight || 0,
+                    pixelRatio: window.devicePixelRatio || 1,
+                    touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+                };
+            }
+            
+            // ========================================
+            // 2️⃣ LOCALE & TIMEZONE
+            // ========================================
+            function getLocaleInfo() {
+                let timezone = 'unknown';
+                let utcOffset = 0;
+                
+                try {
+                    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    utcOffset = -(new Date().getTimezoneOffset() / 60);
+                } catch (e) {
+                    // Fallback silencioso
+                }
+                
+                // Inferir país pelo timezone (heurística)
+                let inferredCountry = 'unknown';
+                let inferredRegion = 'unknown';
+                
+                const tzCountryMap = {
+                    'America/Sao_Paulo': { country: 'Brazil', region: 'South America' },
+                    'America/Fortaleza': { country: 'Brazil', region: 'South America' },
+                    'America/Recife': { country: 'Brazil', region: 'South America' },
+                    'America/Bahia': { country: 'Brazil', region: 'South America' },
+                    'America/Belem': { country: 'Brazil', region: 'South America' },
+                    'America/Manaus': { country: 'Brazil', region: 'South America' },
+                    'America/Cuiaba': { country: 'Brazil', region: 'South America' },
+                    'America/Campo_Grande': { country: 'Brazil', region: 'South America' },
+                    'America/Porto_Velho': { country: 'Brazil', region: 'South America' },
+                    'America/Boa_Vista': { country: 'Brazil', region: 'South America' },
+                    'America/Rio_Branco': { country: 'Brazil', region: 'South America' },
+                    'America/Argentina/Buenos_Aires': { country: 'Argentina', region: 'South America' },
+                    'America/New_York': { country: 'USA', region: 'North America' },
+                    'America/Los_Angeles': { country: 'USA', region: 'North America' },
+                    'America/Chicago': { country: 'USA', region: 'North America' },
+                    'Europe/London': { country: 'UK', region: 'Europe' },
+                    'Europe/Paris': { country: 'France', region: 'Europe' },
+                    'Europe/Berlin': { country: 'Germany', region: 'Europe' },
+                    'Europe/Madrid': { country: 'Spain', region: 'Europe' },
+                    'Europe/Lisbon': { country: 'Portugal', region: 'Europe' },
+                    'Asia/Tokyo': { country: 'Japan', region: 'Asia' },
+                    'Asia/Shanghai': { country: 'China', region: 'Asia' },
+                    'Australia/Sydney': { country: 'Australia', region: 'Oceania' }
+                };
+                
+                if (tzCountryMap[timezone]) {
+                    inferredCountry = tzCountryMap[timezone].country;
+                    inferredRegion = tzCountryMap[timezone].region;
+                }
+                
+                return {
+                    language: navigator.language || 'unknown',
+                    languages: navigator.languages ? [...navigator.languages] : [],
+                    timezone,
+                    utcOffset,
+                    inferredCountry,
+                    inferredRegion
+                };
+            }
+            
+            // ========================================
+            // 3️⃣ MARKETING & UTM PARAMS
+            // ========================================
+            function getMarketingInfo() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                return {
+                    referrer: document.referrer || 'direct',
+                    referrerDomain: document.referrer ? new URL(document.referrer).hostname : 'direct',
+                    landingPage: window.location.pathname,
+                    utm_source: urlParams.get('utm_source') || null,
+                    utm_medium: urlParams.get('utm_medium') || null,
+                    utm_campaign: urlParams.get('utm_campaign') || null,
+                    utm_content: urlParams.get('utm_content') || null,
+                    utm_term: urlParams.get('utm_term') || null,
+                    gclid: urlParams.get('gclid') || null, // Google Ads
+                    fbclid: urlParams.get('fbclid') || null // Facebook Ads
+                };
+            }
+            
+            // ========================================
+            // 4️⃣ TEMPORAL CONTEXT
+            // ========================================
+            function getTemporalInfo() {
+                const now = new Date();
+                const hour = now.getHours();
+                const dayOfWeek = now.getDay();
+                
+                return {
+                    hourOfDay: hour,
+                    dayOfWeek,
+                    isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+                    timeOfDay: hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening',
+                    localDate: now.toISOString().split('T')[0],
+                    localTime: now.toTimeString().split(' ')[0]
+                };
+            }
+            
+            // ========================================
+            // 5️⃣ ENGAGEMENT METRICS (coletadas em tempo real)
+            // ========================================
+            function getEngagementInfo() {
+                const timeOnPage = Math.round((Date.now() - pageLoadTime) / 1000);
+                
+                return {
+                    timeOnPageSeconds: timeOnPage,
+                    scrollDepthPercent: Math.round(maxScrollDepth),
+                    mouseMovementDetected,
+                    interactionCount,
+                    hoverOnCTA,
+                    formInteractionStarted
+                };
+            }
+            
+            // ========================================
+            // 6️⃣ ENVIRONMENT & PERFORMANCE
+            // ========================================
+            function getEnvironmentInfo() {
+                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                
+                return {
+                    connectionType: connection ? connection.effectiveType : 'unknown',
+                    connectionDownlink: connection ? connection.downlink : null,
+                    deviceMemory: navigator.deviceMemory || null,
+                    hardwareConcurrency: navigator.hardwareConcurrency || null,
+                    cookiesEnabled: navigator.cookieEnabled,
+                    doNotTrack: navigator.doNotTrack === '1',
+                    online: navigator.onLine
+                };
+            }
+            
+            // ========================================
+            // 7️⃣ INFERRED PROFILE (heurístico)
+            // ========================================
+            function getInferredProfile() {
+                const device = getDeviceInfo();
+                const locale = getLocaleInfo();
+                const engagement = getEngagementInfo();
+                const temporal = getTemporalInfo();
+                const env = getEnvironmentInfo();
+                
+                // Heurísticas para inferir perfil
+                
+                // 🎵 Music Producer: alta probabilidade se chegou nesta landing
+                // (a landing é específica para produtores)
+                const musicProducer = true;
+                
+                // 🤖 AI Interested: está em uma landing de IA para música
+                const aiInterested = true;
+                
+                // 🚀 Early Adopter: entrou na waitlist antes do lançamento
+                // + navegador moderno + dispositivo decente
+                const hasModernBrowser = ['Chrome', 'Edge', 'Firefox'].includes(device.browser);
+                const hasDecentDevice = (env.hardwareConcurrency || 2) >= 4;
+                const earlyAdopter = hasModernBrowser && hasDecentDevice;
+                
+                // 💼 Professional Intent: análise combinada
+                // - Usando desktop (mais comum em trabalho)
+                // - Horário comercial
+                // - Tempo de permanência bom (>30s = interesse real)
+                const isWorkHour = temporal.hourOfDay >= 9 && temporal.hourOfDay <= 18;
+                const goodEngagement = engagement.timeOnPageSeconds > 30;
+                const professionalIntent = device.deviceType === 'desktop' && (isWorkHour || goodEngagement);
+                
+                // 🔥 High Intent: muito engajado
+                const highIntent = engagement.scrollDepthPercent > 50 && 
+                                   engagement.timeOnPageSeconds > 45 &&
+                                   engagement.interactionCount > 3;
+                
+                // 🌎 International: fora do Brasil
+                const isInternational = locale.inferredCountry !== 'Brazil' && locale.inferredCountry !== 'unknown';
+                
+                // 📱 Mobile-first: usa principalmente mobile
+                const mobileFirst = device.deviceType === 'mobile';
+                
+                return {
+                    musicProducer,
+                    aiInterested,
+                    earlyAdopter,
+                    professionalIntent,
+                    highIntent,
+                    isInternational,
+                    mobileFirst,
+                    engagementScore: calculateEngagementScore(engagement)
+                };
+            }
+            
+            // ========================================
+            // ENGAGEMENT SCORE (0-100)
+            // ========================================
+            function calculateEngagementScore(engagement) {
+                let score = 0;
+                
+                // Tempo na página (max 30 pts)
+                score += Math.min(30, engagement.timeOnPageSeconds / 2);
+                
+                // Scroll depth (max 25 pts)
+                score += engagement.scrollDepthPercent * 0.25;
+                
+                // Mouse movement (10 pts)
+                if (engagement.mouseMovementDetected) score += 10;
+                
+                // Interações (max 20 pts)
+                score += Math.min(20, engagement.interactionCount * 4);
+                
+                // Hover no CTA (10 pts)
+                if (engagement.hoverOnCTA) score += 10;
+                
+                // Form interaction started (5 pts)
+                if (engagement.formInteractionStarted) score += 5;
+                
+                return Math.round(Math.min(100, score));
+            }
+            
+            // ========================================
+            // TRACKING EVENT LISTENERS
+            // ========================================
+            
+            // Scroll tracking
+            window.addEventListener('scroll', function() {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+                maxScrollDepth = Math.max(maxScrollDepth, scrollPercent);
+                interactionCount++;
+            }, { passive: true });
+            
+            // Mouse movement tracking
+            let mouseMoveTimeout;
+            document.addEventListener('mousemove', function() {
+                if (!mouseMovementDetected) {
+                    mouseMovementDetected = true;
+                }
+                interactionCount++;
+            }, { passive: true, once: false });
+            
+            // Throttle mouse movement counting
+            document.addEventListener('mousemove', (function() {
+                let lastCount = 0;
+                return function() {
+                    if (Date.now() - lastCount > 1000) {
+                        lastCount = Date.now();
+                    }
+                };
+            })(), { passive: true });
+            
+            // Click tracking
+            document.addEventListener('click', function() {
+                interactionCount++;
+            }, { passive: true });
+            
+            // CTA hover tracking
+            setTimeout(function() {
+                const ctaButton = document.getElementById('submitBtn');
+                if (ctaButton) {
+                    ctaButton.addEventListener('mouseenter', function() {
+                        hoverOnCTA = true;
+                    }, { passive: true });
+                }
+                
+                // Form interaction tracking
+                const formInputs = document.querySelectorAll('#waitlistForm input');
+                formInputs.forEach(function(input) {
+                    input.addEventListener('focus', function() {
+                        formInteractionStarted = true;
+                        interactionCount++;
+                    }, { passive: true, once: true });
+                });
+            }, 100);
+            
+            // ========================================
+            // PUBLIC API - Função principal de enrichment
+            // ========================================
+            return {
+                // Retorna todos os dados enriquecidos
+                collect: function() {
+                    return {
+                        device: getDeviceInfo(),
+                        locale: getLocaleInfo(),
+                        marketing: getMarketingInfo(),
+                        temporal: getTemporalInfo(),
+                        engagement: getEngagementInfo(),
+                        environment: getEnvironmentInfo(),
+                        inferredProfile: getInferredProfile()
+                    };
+                },
+                
+                // Getters individuais (para debug)
+                getDevice: getDeviceInfo,
+                getLocale: getLocaleInfo,
+                getMarketing: getMarketingInfo,
+                getTemporal: getTemporalInfo,
+                getEngagement: getEngagementInfo,
+                getEnvironment: getEnvironmentInfo,
+                getInferredProfile: getInferredProfile
+            };
+        })();
+        
+        // Expor globalmente
+        window.LeadEnrichment = LeadEnrichment;
+        
+        // ========================================
         // FORM HANDLING
         // ========================================
         (function() {
@@ -1226,7 +1585,7 @@
                 submitBtn.disabled = true;
                 
                 // ========================================
-                // 🔥 FIREBASE FIRESTORE INTEGRATION
+                // 🔥 FIREBASE FIRESTORE + LEAD ENRICHMENT
                 // ========================================
                 try {
                     // Verificar se Firebase está disponível
@@ -1250,34 +1609,140 @@
                         return;
                     }
                     
-                    // Preparar dados do lead
+                    // ========================================
+                    // 📊 COLETAR DADOS ENRIQUECIDOS
+                    // ========================================
+                    let enrichedData = {};
+                    try {
+                        if (window.LeadEnrichment) {
+                            enrichedData = window.LeadEnrichment.collect();
+                        }
+                    } catch (enrichError) {
+                        // Enrichment falhou, mas não impede o salvamento
+                        console.warn('⚠️ Enrichment parcial:', enrichError.message);
+                    }
+                    
+                    // ========================================
+                    // 📦 PAYLOAD FINAL ESTRUTURADO
+                    // ========================================
                     const leadData = {
+                        // === DADOS BASE (obrigatórios) ===
                         name: name,
                         email: email.toLowerCase(),
                         createdAt: serverTimestamp(),
                         source: 'landing_pre_launch',
                         status: 'waiting',
-                        metadata: {
-                            userAgent: navigator.userAgent || 'unknown',
+                        
+                        // === DEVICE & BROWSER ===
+                        device: enrichedData.device || {
+                            deviceType: 'unknown',
+                            operatingSystem: 'unknown',
+                            browser: 'unknown',
+                            screenWidth: 0,
+                            screenHeight: 0,
+                            viewportWidth: 0,
+                            viewportHeight: 0,
+                            pixelRatio: 1,
+                            touchSupport: false
+                        },
+                        
+                        // === LOCALE & TIMEZONE ===
+                        locale: enrichedData.locale || {
+                            language: navigator.language || 'unknown',
+                            languages: [],
+                            timezone: 'unknown',
+                            utcOffset: 0,
+                            inferredCountry: 'unknown',
+                            inferredRegion: 'unknown'
+                        },
+                        
+                        // === MARKETING & UTM ===
+                        marketing: enrichedData.marketing || {
                             referrer: document.referrer || 'direct',
-                            language: navigator.language || 'unknown'
-                        }
+                            referrerDomain: 'direct',
+                            landingPage: window.location.pathname,
+                            utm_source: null,
+                            utm_medium: null,
+                            utm_campaign: null,
+                            utm_content: null,
+                            utm_term: null,
+                            gclid: null,
+                            fbclid: null
+                        },
+                        
+                        // === TEMPORAL CONTEXT ===
+                        temporal: enrichedData.temporal || {
+                            hourOfDay: new Date().getHours(),
+                            dayOfWeek: new Date().getDay(),
+                            isWeekend: [0, 6].includes(new Date().getDay()),
+                            timeOfDay: 'unknown',
+                            localDate: new Date().toISOString().split('T')[0],
+                            localTime: new Date().toTimeString().split(' ')[0]
+                        },
+                        
+                        // === ENGAGEMENT METRICS ===
+                        engagement: enrichedData.engagement || {
+                            timeOnPageSeconds: 0,
+                            scrollDepthPercent: 0,
+                            mouseMovementDetected: false,
+                            interactionCount: 0,
+                            hoverOnCTA: false,
+                            formInteractionStarted: true
+                        },
+                        
+                        // === ENVIRONMENT ===
+                        environment: enrichedData.environment || {
+                            connectionType: 'unknown',
+                            connectionDownlink: null,
+                            deviceMemory: null,
+                            hardwareConcurrency: null,
+                            cookiesEnabled: navigator.cookieEnabled,
+                            doNotTrack: false,
+                            online: navigator.onLine
+                        },
+                        
+                        // === INFERRED PROFILE ===
+                        inferredProfile: enrichedData.inferredProfile || {
+                            musicProducer: true,
+                            aiInterested: true,
+                            earlyAdopter: true,
+                            professionalIntent: false,
+                            highIntent: false,
+                            isInternational: false,
+                            mobileFirst: false,
+                            engagementScore: 0
+                        },
+                        
+                        // === VERSÃO DO SCHEMA ===
+                        _schemaVersion: '2.0',
+                        _enrichmentVersion: 'v1'
                     };
                     
-                    // Salvar no Firestore
+                    // ========================================
+                    // 💾 SALVAR NO FIRESTORE
+                    // ========================================
                     const docRef = await addDoc(waitlistRef, leadData);
                     
-                    // Backup local (fallback)
+                    // Backup local (fallback) - apenas dados básicos
                     try {
                         const localLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
-                        localLeads.push({ ...leadData, firestoreId: docRef.id, savedAt: new Date().toISOString() });
+                        localLeads.push({ 
+                            name: leadData.name,
+                            email: leadData.email,
+                            firestoreId: docRef.id, 
+                            savedAt: new Date().toISOString(),
+                            engagementScore: leadData.inferredProfile.engagementScore
+                        });
                         localStorage.setItem('soundy_waitlist', JSON.stringify(localLeads));
                     } catch (storageErr) {
                         // LocalStorage não crítico
                     }
                     
-                    // Sucesso!
+                    // ========================================
+                    // ✅ SUCESSO!
+                    // ========================================
                     console.log('✅ Lead salvo com sucesso no Firestore:', docRef.id);
+                    console.log('📊 Engagement Score:', leadData.inferredProfile.engagementScore);
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     
