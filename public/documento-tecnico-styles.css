@@ -27,16 +27,25 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     padding: 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: relative;
+    zoom: 1;
+    transform: none;
 }
 
 .doc-container {
     max-width: 1200px;
+    width: 100%;
     margin: 0 auto;
     background: rgba(15, 20, 35, 0.9);
     backdrop-filter: blur(10px);
     border-radius: 20px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    position: relative;
+    transform: none;
+    zoom: 1;
 }
 
 /* 📍 HEADER */
@@ -124,6 +133,8 @@ body {
     margin: 60px 0 20px 0;
     padding-bottom: 15px;
     border-bottom: 2px solid rgba(93, 21, 134, 0.5);
+    transform: none;
+    zoom: 1;
 }
 
 .doc-content h2:first-child {
@@ -149,6 +160,8 @@ body {
     margin: 15px 0;
     font-size: 1rem;
     color: #a0aec0;
+    transform: none;
+    zoom: 1;
 }
 
 .doc-content strong {
@@ -323,7 +336,9 @@ body {
 }
 
 .doc-content section {
-    animation: fadeIn 0.6s ease-out;
+    animation: none;
+    transform: none;
+    zoom: 1;
 }
 
 /* 🔗 SCROLL SUAVE */
