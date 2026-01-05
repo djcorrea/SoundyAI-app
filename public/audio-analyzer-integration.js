@@ -607,8 +607,10 @@ function renderMusicIdentificationBlock(analysis) {
     const html = `
         <div class="music-identification-block">
             <div class="music-id-content">
-                <!-- Título: Nome do arquivo -->
-                <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
+                <!-- Título: Nome do arquivo com container -->
+                <div class="music-id-title-container">
+                    <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
+                </div>
                 
                 <!-- Linha separadora -->
                 <div class="music-id-divider"></div>
@@ -29231,7 +29233,61 @@ function validateAnalysisDataAgainstUI(analysis) {
         const drValue = analysis.dynamicRange || analysis.dynamics?.range || analysis.technicalData?.dynamicRange;
         if (drValue) assertEqual('Dynamic Range', drValue, '[data-metric="dynamic-range"]', 0.5);
         
-        if (analysis.score) assertEqual('Score', analysis.score, '.score-final-value', 1);
+        // 🎯 VALIDAÇÃO CRÍTICA DE SCORE: Comparar TODAS as fontes
+        console.log('🎯 [PDF-VALIDATE-SCORE] ============ VALIDAÇÃO CRÍTICA DE SCORE ============');
+        console.log('🎯 [PDF-VALIDATE-SCORE] Fontes disponíveis no objeto analysis:', {
+            'analysis.score': analysis.score,
+            'analysis.scores.final': analysis.scores?.final,
+            'analysis.scoring.final': analysis.scoring?.final,
+            'analysis.user.score': analysis.user?.score
+        });
+        
+        // Extrair score da UI
+        const uiScoreElement = document.querySelector('.score-final-value');
+        let scoreUI = null;
+        if (uiScoreElement) {
+            const rawValue = uiScoreElement.dataset?.value || uiScoreElement.textContent || '';
+            scoreUI = parseFloat(rawValue.replace(/[^0-9.-]/g, ''));
+            if (isNaN(scoreUI)) scoreUI = null;
+        }
+        
+        console.log('🎯 [PDF-VALIDATE-SCORE] Score na UI:', scoreUI);
+        
+        // Validar se todas as fontes estão alinhadas
+        const scoreSources = [
+            { name: 'analysis.score', value: analysis.score },
+            { name: 'analysis.scores.final', value: analysis.scores?.final },
+            { name: 'analysis.scoring.final', value: analysis.scoring?.final },
+            { name: 'UI (.score-final-value)', value: scoreUI }
+        ];
+        
+        const validScores = scoreSources.filter(s => Number.isFinite(s.value) && s.value >= 0 && s.value <= 100);
+        
+        if (validScores.length === 0) {
+            console.error('❌ [PDF-VALIDATE-SCORE] NENHUM score válido encontrado!');
+        } else if (validScores.length === 1) {
+            console.log('✅ [PDF-VALIDATE-SCORE] Apenas 1 fonte de score disponível:', validScores[0].name, '=', validScores[0].value);
+        } else {
+            // Verificar divergências entre fontes
+            const scoreValues = validScores.map(s => Math.round(s.value));
+            const uniqueScores = [...new Set(scoreValues)];
+            
+            if (uniqueScores.length === 1) {
+                console.log('✅ [PDF-VALIDATE-SCORE] TODAS as fontes estão SINCRONIZADAS:', uniqueScores[0]);
+                validScores.forEach(s => {
+                    console.log(`  ✅ ${s.name}: ${s.value}`);
+                });
+            } else {
+                console.error('🚨 [PDF-VALIDATE-SCORE] DIVERGÊNCIA DETECTADA ENTRE FONTES:');
+                validScores.forEach(s => {
+                    console.error(`  ⚠️ ${s.name}: ${s.value}`);
+                });
+                console.error('🚨 [PDF-VALIDATE-SCORE] Scores únicos encontrados:', uniqueScores);
+                console.error('🚨 [PDF-VALIDATE-SCORE] ATENÇÃO: Esta divergência pode causar relatórios incorretos!');
+            }
+        }
+        
+        console.log('🎯 [PDF-VALIDATE-SCORE] ============ FIM DA VALIDAÇÃO ============');
         
         console.log('✅ [PDF-VALIDATE] Validação concluída');
     } catch (error) {
@@ -29636,11 +29692,24 @@ function normalizeAnalysisData(analysis) {
 
 // 🏆 Classificação baseada em score
 function getClassificationFromScore(score) {
-    if (score >= 90) return '🏆 Profissional';
-    if (score >= 75) return '⭐ Avançado';
-    if (score >= 60) return '👍 Intermediário';
-    if (score >= 40) return '📚 Básico';
-    return '🔧 Necessita Melhorias';
+    // 🎯 CLASSIFICAÇÃO TÉCNICA E HONESTA
+    // Baseada nos requisitos da auditoria:
+    // - >= 85: Excelente, padrão competitivo internacional
+    // - 70-84: Bom nível, pequenos ajustes elevam para padrão profissional
+    // - 50-69: Médio, precisa de ajustes técnicos importantes
+    // - < 50: Abaixo do padrão comercial, ajustes estruturais necessários
+    
+    if (score >= 85) {
+        return '🏆 Excelente - Padrão Competitivo Internacional';
+    }
+    if (score >= 70) {
+        return '⭐ Bom Nível - Pequenos Ajustes Para Padrão Profissional';
+    }
+    if (score >= 50) {
+        return '⚠️ Nível Médio - Ajustes Técnicos Importantes Necessários';
+    }
+    // Score < 50
+    return '🔧 Abaixo do Padrão Comercial - Ajustes Estruturais Necessários';
 }
 
 // 🎨 Gerar HTML profissional do relatório para PDF
