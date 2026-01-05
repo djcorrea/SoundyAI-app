@@ -120,7 +120,7 @@
                                 <span class="btn-icon">♻️</span>
                                 Personalizar novamente
                             </button>
-                            <p class="info-text">Disponível para usuários Plus, Pro e DJ.</p>
+                            <p class="info-text">Disponível para usuários Plus e Pro.</p>
                         </div>
                     </div>
                 </section>
@@ -1170,23 +1170,21 @@
                     const userData = userDoc.data();
                     const userPlan = (userData.plano || '').toLowerCase();
                     
-                    // Verificar se é plano premium (Plus, Pro, DJ)
-                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userData.isPlus === true;
+                    // Verificar se é plano Free/Reduced (bloquear apenas esses)
                     const isFreeOrReduced = userPlan === 'free' || userPlan === 'gratis' || userPlan === 'reduced';
+                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userData.isPlus === true;
                     
                     console.log('📊 Plano do usuário:', userPlan, '| Premium:', isPremium, '| Free/Reduced:', isFreeOrReduced);
                     
+                    // Bloquear APENAS Free/Reduced
                     if (isFreeOrReduced) {
-                        // Usuário Free/Reduced - bloquear funcionalidade
+                        console.log('🔒 Plano Free/Reduced - bloqueando personalização');
                         showPremiumOnlyMessage();
                         return;
                     }
                     
-                    if (!isPremium) {
-                        // Plano desconhecido - bloquear por segurança
-                        showPremiumOnlyMessage();
-                        return;
-                    }
+                    // Se chegou aqui, é Premium (Plus/Pro/DJ) ou plano válido - permitir
+                    console.log('✅ Plano Premium confirmado - permitindo personalização');
                     
                     // Usuário Premium (Plus/Pro/DJ) - prosseguir com redirecionamento e limpeza
                     console.log(`✅ Usuário ${userPlan.toUpperCase()} confirmado - prosseguindo...`);
@@ -1255,7 +1253,7 @@
                         <div class="plus-card-icon">🔒</div>
                         <h3 class="plus-card-title">Personalização disponível para usuários Premium</h3>
                         <p class="plus-card-description">
-                            Assine um plano Plus, Pro ou DJ para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
+                            Assine um plano Plus ou Pro para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
                         </p>
                         <div class="plus-card-buttons">
                             <a href="planos.html" class="btn-plus-upgrade">
