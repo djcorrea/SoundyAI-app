@@ -1322,8 +1322,8 @@ export default async function handler(req, res) {
     // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
     // ✅ CORREÇÃO CRÍTICA: Usar nomes corretos dos campos do Firestore
     // 🔒 REGRA DE NEGÓCIO: Personalização APENAS para Plus/Pro/DJ
-    const userPlan = (userData.plano || 'gratis').toLowerCase();
-    const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlan);
+    const userPlanForPersonalization = (userData.plano || 'gratis').toLowerCase();
+    const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlanForPersonalization);
     
     let userContext = {};
     
@@ -1341,7 +1341,7 @@ export default async function handler(req, res) {
         genre: userData.perfil?.estilo || null
       };
       
-      console.log(`✅ [${userPlan.toUpperCase()}] Contexto PERSONALIZADO carregado:`, {
+      console.log(`✅ [${userPlanForPersonalization.toUpperCase()}] Contexto PERSONALIZADO carregado:`, {
         nomeArtistico: userContext.nomeArtistico || '(não informado)',
         nivelTecnico: userContext.nivelTecnico || '(não informado)',
         daw: userContext.daw || '(não informado)',
@@ -1351,7 +1351,7 @@ export default async function handler(req, res) {
       });
     } else {
       // ❌ Usuários Free: contexto vazio (respostas genéricas)
-      console.log(`❌ [${userPlan.toUpperCase()}] Sem personalização - plano FREE`);
+      console.log(`❌ [${userPlanForPersonalization.toUpperCase()}] Sem personalização - plano FREE`);
       userContext = {}; // Garante que nenhum dado será injetado
     }
     
