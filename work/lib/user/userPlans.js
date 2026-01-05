@@ -165,10 +165,25 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       updateData.subscription = user.subscription;
     }
     
+    // ✅ CRÍTICO: Preservar campo perfil (entrevista do usuário) se existir
+    // Não deve ser alterado pela normalização de planos
+    if (user.perfil !== undefined) {
+      // Não incluir no updateData para não sobrescrever
+      // Apenas preservar no objeto retornado
+      console.log(`✅ [USER-PLANS] Perfil do usuário preservado (entrevista concluída)`);
+    }
+    
     await ref.update(updateData);
     
     user.updatedAt = nowISO;
     console.log(`💾 [USER-PLANS] Usuário normalizado e salvo: ${uid} (plan: ${user.plan}, billingMonth: ${user.billingMonth})`);
+  }
+  
+  // ✅ DEBUG FINAL: Confirmar que perfil está no objeto retornado
+  if (user.perfil) {
+    console.log(`✅ [USER-PLANS] RETORNANDO perfil completo para ${uid}`);
+  } else {
+    console.log(`⚠️ [USER-PLANS] ATENÇÃO: perfil NÃO está no objeto retornado para ${uid}`);
   }
   
   return user;
@@ -225,7 +240,21 @@ export async function getOrCreateUser(uid, extra = {}) {
     }
 
     console.log(`♻️ [USER-PLANS] Usuário já existe, normalizando...`);
-    return normalizeUserDoc(snap.data(), uid);
+    const fullUserData = snap.data();
+    
+    // ✅ DEBUG: Verificar se perfil está presente
+    if (fullUserData.perfil) {
+      console.log(`✅ [USER-PLANS] Perfil de entrevista encontrado para ${uid}:`, {
+        nomeArtistico: fullUserData.perfil.nomeArtistico || '(não informado)',
+        nivelTecnico: fullUserData.perfil.nivelTecnico || '(não informado)',
+        daw: fullUserData.perfil.daw || '(não informado)',
+        estilo: fullUserData.perfil.estilo || '(não informado)'
+      });
+    } else {
+      console.log(`⚠️ [USER-PLANS] Perfil de entrevista NÃO encontrado para ${uid}`);
+    }
+    
+    return normalizeUserDoc(fullUserData, uid);
     
   } catch (error) {
     console.error(`❌ [USER-PLANS] ERRO CRÍTICO em getOrCreateUser:`);

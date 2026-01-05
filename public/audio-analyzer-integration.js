@@ -94,6 +94,76 @@ function isProblematicSeverity(severity) {
            normalized.includes('MODERADA');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🕐 HISTÓRICO DE ANÁLISES - Salvamento automático para usuários PRO
+// ═══════════════════════════════════════════════════════════════════════════════
+/**
+ * 🕐 Salva análise no histórico (APENAS para usuários PRO)
+ * Processo assíncrono que NÃO bloqueia a exibição do modal
+ * 
+ * @param {Object} analysisResult - JSON completo da análise
+ * @returns {Promise<void>}
+ */
+async function saveAnalysisToHistory(analysisResult) {
+    try {
+        // 1. Verificar se usuário está autenticado
+        const userId = window.auth?.currentUser?.uid;
+        if (!userId) {
+            console.log('🕐 [HISTORY-SAVE] Usuário não autenticado - pulando');
+            return;
+        }
+        
+        // 2. Detectar plano do usuário
+        const userPlan = window.PlanCapabilities?.detectUserPlan?.() || 
+                        window.userPlan || 
+                        analysisResult?.plan || 
+                        'free';
+        
+        // 3. Verificar se é PRO
+        if (userPlan !== 'pro' && userPlan !== 'dj') {
+            console.log(`🕐 [HISTORY-SAVE] Plano "${userPlan}" não tem histórico - pulando`);
+            return;
+        }
+        
+        // 4. Verificar se análise tem dados válidos
+        if (!analysisResult || !analysisResult.technicalData) {
+            console.warn('🕐 [HISTORY-SAVE] Análise incompleta - pulando');
+            return;
+        }
+        
+        console.log('🕐 [HISTORY-SAVE] 💾 Salvando análise no histórico...', {
+            userId: userId.slice(0, 8) + '...',
+            plan: userPlan,
+            trackName: analysisResult.metadata?.fileName || analysisResult.fileName
+        });
+        
+        // 5. Enviar para API (não bloqueia)
+        const response = await fetch('/api/history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-user-id': userId,
+                'x-user-plan': userPlan
+            },
+            body: JSON.stringify({
+                analysisResult: analysisResult
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('🕐 [HISTORY-SAVE] ✅ Análise salva no histórico:', data.historyId);
+        } else {
+            console.warn('🕐 [HISTORY-SAVE] ⚠️ Não foi possível salvar:', data.error || data.message);
+        }
+        
+    } catch (error) {
+        // Erro não-crítico - apenas loga, não interrompe fluxo
+        console.warn('🕐 [HISTORY-SAVE] ⚠️ Erro ao salvar histórico:', error.message);
+    }
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 🔐 VERIFICADOR CENTRALIZADO DE ENTITLEMENT - MODO REFERÊNCIA
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -11620,6 +11690,16 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
             window.SoundyAnonymous.registerAnalysis();
             console.log('🔓 [ANALYZER] Análise registrada no modo anônimo');
+        }
+        
+        // 🕐 HISTÓRICO PRO: Salvar análise automaticamente (não bloqueia)
+        // ✅ Só salva se NÃO veio do histórico (evita duplicação)
+        if (!normalizedResult._fromHistory) {
+            saveAnalysisToHistory(normalizedResult).catch(err => {
+                console.warn('🕐 [HISTORY] Erro ao salvar no histórico (não crítico):', err);
+            });
+        } else {
+            console.log('🕐 [HISTORY] Análise veio do histórico - não re-salvar');
         }
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
