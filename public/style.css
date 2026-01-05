@@ -173,33 +173,28 @@ body.modal-open {
 }
 
 /* ============ FUNDOS E BACKGROUNDS ============ */
-/* ❌ REMOVIDO: .vanta-background - Substituído por neural-canvas WebGL */
-
-/* 🌌 NEURAL CANVAS - Background tech otimizado */
-#neural-canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    pointer-events: none;
-    background: linear-gradient(180deg, #0a0a0f 0%, #050508 100%);
-}
-
-/* Background overlay para adicionar profundidade */
-body::before {
-    content: '';
-    position: fixed;
+.vanta-background {
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     z-index: 0;
-    pointer-events: none;
-    background: 
-        radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    opacity: 0;  /* Começa invisível */
+    transform: scale(0.95);  /* Começa levemente menor */
+    animation: vantaFadeIn 2s ease-out forwards 0.5s;  /* Entrada bem suave e lenta */
+}
+
+/* Animação suave específica para o Vanta */
+@keyframes vantaFadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .fundo {
