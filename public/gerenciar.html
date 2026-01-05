@@ -574,6 +574,14 @@
                 console.log('[EMAIL VERIFY] mode:', mode);
                 console.log('[EMAIL VERIFY] URL completa:', window.location.href);
                 
+                // 🚨 GUARDRAIL: resetPassword NÃO deve ser processado aqui!
+                // Links de resetPassword devem abrir /primeiro-acesso.html
+                if (mode === 'resetPassword') {
+                    console.log('🔀 [GUARDRAIL] resetPassword detectado - redirecionando para /primeiro-acesso.html');
+                    window.location.href = '/primeiro-acesso.html' + window.location.search;
+                    return; // Parar execução
+                }
+                
                 if (oobCode) {
                     console.log('🔍 Código de verificação encontrado na URL');
                     

@@ -302,6 +302,7 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
     import { 
       getAuth, 
+      signOut,
       verifyPasswordResetCode, 
       confirmPasswordReset 
     } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
@@ -318,6 +319,18 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+
+    // ⚠️ IMPORTANTE: Se usuário já está logado, fazer signOut para evitar confusão
+    if (auth.currentUser) {
+      console.log('⚠️ [PRIMEIRO ACESSO] Usuário já logado detectado:', auth.currentUser.email);
+      console.log('🔓 [PRIMEIRO ACESSO] Fazendo signOut automático para criar senha da conta correta...');
+      try {
+        await signOut(auth);
+        console.log('✅ [PRIMEIRO ACESSO] SignOut realizado com sucesso');
+      } catch (error) {
+        console.error('❌ [PRIMEIRO ACESSO] Erro ao fazer signOut:', error);
+      }
+    }
 
     // Elementos
     const form = document.getElementById('passwordForm');
