@@ -740,32 +740,172 @@ export function getPromptConfigForIntent(intent, hasImages = false) {
 }
 
 /**
- * Injeta contexto do usuário no system prompt com PERSONALIZAÇÃO COMPLETA
- * ✅ CORREÇÃO CRÍTICA: Usar TODOS os dados da entrevista para personalização máxima
+ * Injeta contexto do usuário no system prompt com 3 NÍVEIS DE PERSONALIZAÇÃO
+ * ✅ DEMO: Experiência premium sem dados reais (anônimo)
+ * ❌ GENERIC: Sem personalização (Free/Reduced)
+ * ✅ PERSONALIZED: Personalização completa (Plus/Pro/DJ com entrevista)
+ * 
  * @param {string} basePrompt - Prompt base
- * @param {Object} userContext - Contexto do usuário completo da entrevista
- * @returns {string} Prompt com contexto personalizado injetado
+ * @param {Object} userContext - Contexto do usuário
+ * @param {string} personalizationLevel - 'demo' | 'generic' | 'personalized'
+ * @returns {string} Prompt com contexto injetado
  */
-export function injectUserContext(basePrompt, userContext = {}) {
-  const { 
-    nomeArtistico, 
-    nivelTecnico, 
-    daw, 
-    estilo, 
-    dificuldade, 
-    sobre,
-    // Aliases para compatibilidade
-    level = nivelTecnico,
-    genre = estilo
-  } = userContext;
+export function injectUserContext(basePrompt, userContext = {}, personalizationLevel = 'generic') {
   
-  // Se não há NENHUM contexto, retornar prompt base
-  if (!nomeArtistico && !nivelTecnico && !daw && !estilo && !dificuldade && !sobre) {
+  // ❌ NÍVEL GENERIC: Sem personalização (Free/Reduced)
+  if (personalizationLevel === 'generic') {
+    console.log('📋 [PROMPT] Usando prompt GENÉRICO (sem personalização)');
     return basePrompt;
   }
   
-  // 🎯 CONSTRUIR BLOCO DE PERSONALIZAÇÃO COMPLETO E DETALHADO
-  const contextLines = [];
+  // 🔥 NÍVEL DEMO: Experiência premium sem dados reais (anônimo)
+  if (personalizationLevel === 'demo') {
+    console.log('🔥 [PROMPT] Usando prompt DEMO PREMIUM (experiência anônima)');
+    
+    const demoBlock = `
+
+═══════════════════════════════════════════════════════════
+🔥 MODO DEMONSTRAÇÃO PREMIUM
+═══════════════════════════════════════════════════════════
+
+Você está no modo PREMIUM DEMO do SoundyAI.
+
+🎯 INSTRUÇÕES DE RESPOSTA:
+
+✅ Mantenha respostas LONGAS, TÉCNICAS e PROFISSIONAIS
+✅ Use exemplos práticos e detalhados
+✅ Forneça parâmetros técnicos exatos (Hz, dB, ms, ratios)
+✅ Estruture respostas de forma didática e organizada
+✅ Demonstre a qualidade PREMIUM do serviço
+✅ Seja um mentor expert em produção musical
+
+❌ NÃO mencione planos, upgrades ou limitações
+❌ NÃO solicite informações pessoais
+❌ Mantenha foco 100% técnico e educacional
+
+📊 QUALIDADE DE RESPOSTA: MÁXIMA (demonstrar valor premium)
+`.trim();
+    
+    return basePrompt + '\n\n' + demoBlock;
+  }
+  
+  // ✅ NÍVEL PERSONALIZED: Personalização completa (Plus/Pro/DJ)
+  if (personalizationLevel === 'personalized') {
+    const { 
+      nomeArtistico, 
+      nivelTecnico, 
+      daw, 
+      estilo, 
+      dificuldade, 
+      sobre,
+      level = nivelTecnico,
+      genre = estilo
+    } = userContext;
+    
+    // Se não há dados suficientes, retornar prompt base
+    if (!nomeArtistico && !nivelTecnico && !daw && !estilo && !dificuldade && !sobre) {
+      console.log('⚠️ [PROMPT] Personalização solicitada mas sem dados - usando base');
+      return basePrompt;
+    }
+    
+    console.log('✅ [PROMPT] Usando prompt PERSONALIZADO COMPLETO');
+    
+    // 🎯 CONSTRUIR BLOCO DE PERSONALIZAÇÃO COMPLETO
+    const contextLines = [];
+    
+    contextLines.push('═══════════════════════════════════════════════════════════');
+    contextLines.push('📋 PERFIL DO USUÁRIO - PERSONALIZAÇÃO OBRIGATÓRIA');
+    contextLines.push('═══════════════════════════════════════════════════════════');
+    contextLines.push('');
+    
+    if (nomeArtistico) {
+      contextLines.push(`🎤 **Nome Artístico:** ${nomeArtistico}`);
+      contextLines.push(`   → Chame o usuário por "${nomeArtistico}" naturalmente nas respostas`);
+      contextLines.push('');
+    }
+    
+    if (nivelTecnico) {
+      contextLines.push(`📊 **Nível Técnico:** ${nivelTecnico}`);
+      
+      if (nivelTecnico.toLowerCase() === 'iniciante') {
+        contextLines.push('   → Use linguagem SIMPLES e DIDÁTICA');
+        contextLines.push('   → Explique termos técnicos básicos');
+        contextLines.push('   → Passo a passo DETALHADO com screenshots mentais');
+        contextLines.push('   → Evite jargões sem explicação');
+        contextLines.push('   → Exemplos práticos e visuais');
+      } else if (nivelTecnico.toLowerCase() === 'intermediário') {
+        contextLines.push('   → Equilibre explicações técnicas com prática');
+        contextLines.push('   → Pode usar termos técnicos, mas explique conceitos avançados');
+        contextLines.push('   → Foque em técnicas intermediárias e workflow');
+        contextLines.push('   → Dê dicas de otimização e melhores práticas');
+      } else if (nivelTecnico.toLowerCase() === 'avançado' || nivelTecnico.toLowerCase() === 'profissional') {
+        contextLines.push('   → Use linguagem TÉCNICA e DIRETA');
+        contextLines.push('   → Vá direto aos PARÂMETROS EXATOS (Hz, dB, ms, ratios)');
+        contextLines.push('   → Assuma conhecimento de conceitos básicos');
+        contextLines.push('   → Foque em técnicas AVANÇADAS e otimizações finas');
+        contextLines.push('   → Mencione workflows profissionais e padrões da indústria');
+      }
+      contextLines.push('');
+    }
+    
+    if (daw) {
+      contextLines.push(`🎹 **DAW Utilizada:** ${daw}`);
+      contextLines.push(`   → SEMPRE mencione plugins NATIVOS do ${daw} como primeira opção`);
+      contextLines.push(`   → Use ATALHOS específicos do ${daw} quando relevante`);
+      contextLines.push(`   → Explique o caminho exato de menus/botões no ${daw}`);
+      contextLines.push(`   → Adapte workflows ao layout do ${daw}`);
+      contextLines.push('');
+    }
+    
+    if (estilo) {
+      contextLines.push(`🎵 **Estilo Musical:** ${estilo}`);
+      contextLines.push(`   → Adapte TODOS os exemplos ao contexto de ${estilo}`);
+      contextLines.push(`   → Mencione referências e artistas relevantes de ${estilo}`);
+      contextLines.push(`   → Use técnicas específicas do gênero ${estilo}`);
+      contextLines.push(`   → Targets de LUFS, DR, frequências típicas de ${estilo}`);
+      contextLines.push('');
+    }
+    
+    if (dificuldade) {
+      contextLines.push(`⚠️ **MAIOR DIFICULDADE:** ${dificuldade}`);
+      contextLines.push('   → 🎯 PRIORIDADE MÁXIMA: Foque DIRETAMENTE nesta dificuldade');
+      contextLines.push('   → Toda resposta deve ATACAR este problema específico');
+      contextLines.push('   → Dê exemplos práticos relacionados a esta dificuldade');
+      contextLines.push('   → Ofereça exercícios/técnicas para superar especificamente isso');
+      contextLines.push('');
+    }
+    
+    if (sobre) {
+      contextLines.push(`💬 **Informações Complementares:**`);
+      contextLines.push(`   ${sobre}`);
+      contextLines.push('');
+    }
+    
+    contextLines.push('═══════════════════════════════════════════════════════════');
+    contextLines.push('⚡ REGRAS DE PERSONALIZAÇÃO OBRIGATÓRIAS');
+    contextLines.push('═══════════════════════════════════════════════════════════');
+    contextLines.push('');
+    contextLines.push('✅ SEMPRE use o nome artístico quando se dirigir ao usuário');
+    contextLines.push('✅ SEMPRE adapte a linguagem ao nível técnico informado');
+    contextLines.push('✅ SEMPRE mencione a DAW específica e seus plugins nativos');
+    contextLines.push('✅ SEMPRE contextualize ao estilo musical do usuário');
+    contextLines.push('✅ SEMPRE foque na maior dificuldade informada');
+    contextLines.push('✅ As respostas devem ser LONGAS, COMPLETAS, TÉCNICAS e PERSONALIZADAS');
+    contextLines.push('');
+    contextLines.push('❌ NUNCA dê respostas genéricas ignorando o perfil');
+    contextLines.push('❌ NUNCA mencione DAWs diferentes da informada');
+    contextLines.push('❌ NUNCA use exemplos de gêneros diferentes');
+    contextLines.push('❌ NUNCA ignore a maior dificuldade relatada');
+    contextLines.push('');
+    
+    const contextBlock = contextLines.join('\n');
+    return basePrompt + '\n\n' + contextBlock;
+  }
+  
+  // 🔒 FALLBACK: Retornar prompt base
+  console.log('🔒 [PROMPT] Fallback - usando prompt base');
+  return basePrompt;
+}
   
   contextLines.push('═══════════════════════════════════════════════════════════');
   contextLines.push('📋 PERFIL DO USUÁRIO - PERSONALIZAÇÃO OBRIGATÓRIA');

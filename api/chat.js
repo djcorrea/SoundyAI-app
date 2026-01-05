@@ -1319,16 +1319,42 @@ export default async function handler(req, res) {
       intentInfo = { intent: 'default', confidence: 0.5, reasoning: 'Erro no classifier' };
     }
 
-    // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
-    // ✅ CORREÇÃO CRÍTICA: Usar nomes corretos dos campos do Firestore
-    // 🎯 NOVA REGRA: Personalização para TODOS os planos (Free/Plus/Pro/DJ)
+    // 🎯 PASSO 2: Preparar contexto do usuário e determinar nível de personalização
+    // ✅ LÓGICA DE 3 NÍVEIS: Anônimo (demo) | Free/Reduced (genérico) | Plus/Pro/DJ (personalizado)
     const userPlanForPersonalization = (userData.plano || 'gratis').toLowerCase();
+    const isAnonymous = isDemoMode || !uid || uid.startsWith('demo_');
+    const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlanForPersonalization);
+    const isFreeOrReduced = ['free', 'gratis', 'reduced'].includes(userPlanForPersonalization);
     
     let userContext = {};
+    let personalizationLevel = 'generic'; // 'demo' | 'generic' | 'personalized'
     
-    // ✅ PERSONALIZAÇÃO UNIVERSAL: Se existe perfil, usar para TODOS os planos
-    if (userData.perfil) {
+    // 🎯 LÓGICA DE PERSONALIZAÇÃO POR TIPO DE USUÁRIO
+    if (isAnonymous) {
+      // 🔥 USUÁRIO ANÔNIMO: Demo premium (sem dados reais, mas com experiência premium)
+      personalizationLevel = 'demo';
       userContext = {
+        isDemo: true,
+        nomeArtistico: null,
+        nivelTecnico: null,
+        daw: null,
+        estilo: null,
+        dificuldade: null,
+        sobre: null
+      };
+      console.log(`🔥 [DEMO] Personalização DEMO PREMIUM ativada (experiência anônima)`);
+      
+    } else if (isFreeOrReduced) {
+      // ❌ USUÁRIO FREE/REDUCED: Sem personalização (prompt genérico)
+      personalizationLevel = 'generic';
+      userContext = {};
+      console.log(`❌ [${userPlanForPersonalization.toUpperCase()}] Prompt GENÉRICO (sem personalização)`);
+      
+    } else if (isPremiumUser && userData.perfil) {
+      // ✅ USUÁRIO PLUS/PRO/DJ: Personalização completa baseada na entrevista
+      personalizationLevel = 'personalized';
+      userContext = {
+        isDemo: false,
         nomeArtistico: userData.perfil?.nomeArtistico || null,
         nivelTecnico: userData.perfil?.nivelTecnico || null,
         daw: userData.perfil?.daw || null,
@@ -1340,7 +1366,7 @@ export default async function handler(req, res) {
         genre: userData.perfil?.estilo || null
       };
       
-      console.log(`✅ [${userPlanForPersonalization.toUpperCase()}] Contexto PERSONALIZADO carregado:`, {
+      console.log(`✅ [${userPlanForPersonalization.toUpperCase()}] Personalização COMPLETA ativada:`, {
         nomeArtistico: userContext.nomeArtistico || '(não informado)',
         nivelTecnico: userContext.nivelTecnico || '(não informado)',
         daw: userContext.daw || '(não informado)',
@@ -1348,12 +1374,21 @@ export default async function handler(req, res) {
         temDificuldade: !!userContext.dificuldade,
         temSobre: !!userContext.sobre
       });
-    } else {
-      // ⚠️ Sem perfil: contexto vazio (entrevista não preenchida ainda)
-      console.log(`⚠️ [${userPlanForPersonalization.toUpperCase()}] Entrevista não preenchida - sem personalização`);
+      
+    } else if (isPremiumUser && !userData.perfil) {
+      // ⚠️ PLUS/PRO/DJ sem entrevista: Prompt genérico (entrevista não preenchida)
+      personalizationLevel = 'generic';
       userContext = {};
+      console.log(`⚠️ [${userPlanForPersonalization.toUpperCase()}] Entrevista não preenchida - usando prompt genérico`);
+      
+    } else {
+      // 🔒 FALLBACK: Prompt genérico
+      personalizationLevel = 'generic';
+      userContext = {};
+      console.log(`🔒 [${userPlanForPersonalization.toUpperCase()}] Fallback - prompt genérico`);
     }
     
+    console.log('📋 Nível de personalização:', personalizationLevel);
     console.log('📋 Contexto do usuário final:', userContext);
 
     // 🎯 PASSO 3: Selecionar system prompt baseado no intent
@@ -1364,8 +1399,8 @@ export default async function handler(req, res) {
       baseSystemPrompt = getSystemPromptForIntent(detectedIntent, hasImages);
       promptConfig = getPromptConfigForIntent(detectedIntent, hasImages);
       
-      // Injetar contexto do usuário no system prompt
-      const systemPromptWithContext = injectUserContext(baseSystemPrompt, userContext);
+      // Injetar contexto do usuário no system prompt (com nível de personalização)
+      const systemPromptWithContext = injectUserContext(baseSystemPrompt, userContext, personalizationLevel);
       
       console.log(`🎯 System prompt selecionado para intent: ${detectedIntent}`, {
         temperature: promptConfig.temperature,

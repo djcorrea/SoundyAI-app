@@ -36,11 +36,21 @@ function requirePro(req, res, next) {
  * Body: { analysisResult: Object }
  */
 router.post('/', requirePro, async (req, res) => {
+    console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🕐 [HISTORY-API] POST / iniciado');
+    
     try {
         const userId = req.headers['x-user-id'];
+        const userPlan = req.headers['x-user-plan'];
         const { analysisResult } = req.body;
         
+        console.log('🕐 [HISTORY-API] Headers recebidos:', {
+            userId: userId ? userId.slice(0, 8) + '...' : 'MISSING',
+            userPlan: userPlan || 'MISSING'
+        });
+        
         if (!userId) {
+            console.log('🕐 [HISTORY-API] ❌ userId ausente');
             return res.status(400).json({
                 success: false,
                 error: 'MISSING_USER_ID',
@@ -49,6 +59,7 @@ router.post('/', requirePro, async (req, res) => {
         }
         
         if (!analysisResult) {
+            console.log('🕐 [HISTORY-API] ❌ analysisResult ausente');
             return res.status(400).json({
                 success: false,
                 error: 'MISSING_DATA',
@@ -56,7 +67,7 @@ router.post('/', requirePro, async (req, res) => {
             });
         }
         
-        console.log(`🕐 [HISTORY-API] POST / - userId: ${userId.slice(0, 8)}...`);
+        console.log('🕐 [HISTORY-API] ✅ Dados válidos, iniciando salvamento...');
         
         const db = getFirestore();
         const historyRef = db.collection(HISTORY_COLLECTION);
@@ -75,25 +86,38 @@ router.post('/', requirePro, async (req, res) => {
         
         const analysisVersion = analysisResult.version || '1.0';
         
-        // Verificar limite (50 análises)
-        const userHistoryQuery = await historyRef
-            .where('userId', '==', userId)
-            .orderBy('createdAt', 'asc')
-            .get();
+        console.log('🕐 [HISTORY-API] Metadados extraídos:', {
+            trackName,
+            analysisType,
+            genreOrReferenceName,
+            analysisVersion
+        });
         
-        const existingCount = userHistoryQuery.size;
-        console.log(`🕐 [HISTORY-API] Análises existentes: ${existingCount}/${MAX_HISTORY_PER_USER}`);
-        
-        // Se ultrapassou limite, remover as mais antigas
-        if (existingCount >= MAX_HISTORY_PER_USER) {
-            const toDelete = existingCount - MAX_HISTORY_PER_USER + 1;
-            const docsToDelete = userHistoryQuery.docs.slice(0, toDelete);
+        // 🔧 VERIFICAR LIMITE (com try/catch separado para não bloquear save)
+        try {
+            const userHistoryQuery = await historyRef
+                .where('userId', '==', userId)
+                .orderBy('createdAt', 'asc')
+                .get();
             
-            console.log(`🕐 [HISTORY-API] 🗑️ Removendo ${toDelete} análise(s) antiga(s)...`);
+            const existingCount = userHistoryQuery.size;
+            console.log(`🕐 [HISTORY-API] Análises existentes: ${existingCount}/${MAX_HISTORY_PER_USER}`);
             
-            for (const doc of docsToDelete) {
-                await doc.ref.delete();
+            // Se ultrapassou limite, remover as mais antigas
+            if (existingCount >= MAX_HISTORY_PER_USER) {
+                const toDelete = existingCount - MAX_HISTORY_PER_USER + 1;
+                const docsToDelete = userHistoryQuery.docs.slice(0, toDelete);
+                
+                console.log(`🕐 [HISTORY-API] 🗑️ Removendo ${toDelete} análise(s) antiga(s)...`);
+                
+                for (const doc of docsToDelete) {
+                    await doc.ref.delete();
+                }
             }
+        } catch (limitError) {
+            // Se falhar a query de limite (ex: índice não existe), continua salvando
+            console.warn('🕐 [HISTORY-API] ⚠️ Erro ao verificar limite (não crítico):', limitError.message);
+            console.warn('🕐 [HISTORY-API] ⚠️ Pode ser necessário criar índice composto no Firestore');
         }
         
         // Salvar nova análise
@@ -107,9 +131,12 @@ router.post('/', requirePro, async (req, res) => {
             result: analysisResult
         };
         
+        console.log('🕐 [HISTORY-API] 💾 Salvando documento no Firestore...');
+        
         const newDoc = await historyRef.add(historyDoc);
         
-        console.log(`🕐 [HISTORY-API] ✅ Análise salva: ${newDoc.id}`);
+        console.log(`🕐 [HISTORY-API] ✅ Análise salva com sucesso: ${newDoc.id}`);
+        console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         res.json({
             success: true,
@@ -119,7 +146,9 @@ router.post('/', requirePro, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('🕐 [HISTORY-API] ❌ Erro POST /:', error);
+        console.error('🕐 [HISTORY-API] ❌ ERRO FATAL:', error.message);
+        console.error('🕐 [HISTORY-API] Stack:', error.stack);
+        console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         res.status(500).json({
             success: false,
             error: 'INTERNAL_ERROR',
@@ -134,11 +163,22 @@ router.post('/', requirePro, async (req, res) => {
  * Headers: x-user-id, x-user-plan
  */
 router.get('/', requirePro, async (req, res) => {
+    console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🕐 [HISTORY-API] GET / iniciado');
+    
     try {
         const userId = req.headers['x-user-id'];
+        const userPlan = req.headers['x-user-plan'];
         const limit = Math.min(parseInt(req.query.limit) || 50, MAX_HISTORY_PER_USER);
         
+        console.log('🕐 [HISTORY-API] Headers:', {
+            userId: userId ? userId.slice(0, 8) + '...' : 'MISSING',
+            userPlan: userPlan || 'MISSING',
+            limit
+        });
+        
         if (!userId) {
+            console.log('🕐 [HISTORY-API] ❌ userId ausente');
             return res.status(400).json({
                 success: false,
                 error: 'MISSING_USER_ID',
@@ -146,16 +186,32 @@ router.get('/', requirePro, async (req, res) => {
             });
         }
         
-        console.log(`🕐 [HISTORY-API] GET / - userId: ${userId.slice(0, 8)}...`);
-        
         const db = getFirestore();
         const historyRef = db.collection(HISTORY_COLLECTION);
         
-        const querySnapshot = await historyRef
-            .where('userId', '==', userId)
-            .orderBy('createdAt', 'desc')
-            .limit(limit)
-            .get();
+        let querySnapshot;
+        
+        // Tentar query com orderBy (requer índice composto)
+        try {
+            querySnapshot = await historyRef
+                .where('userId', '==', userId)
+                .orderBy('createdAt', 'desc')
+                .limit(limit)
+                .get();
+                
+            console.log('🕐 [HISTORY-API] ✅ Query com orderBy executada');
+        } catch (indexError) {
+            // Fallback: query simples sem orderBy (se índice não existir)
+            console.warn('🕐 [HISTORY-API] ⚠️ Query com orderBy falhou (índice?):', indexError.message);
+            console.log('🕐 [HISTORY-API] 🔄 Tentando query simples...');
+            
+            querySnapshot = await historyRef
+                .where('userId', '==', userId)
+                .limit(limit)
+                .get();
+                
+            console.log('🕐 [HISTORY-API] ✅ Query simples executada');
+        }
         
         const history = querySnapshot.docs.map(doc => {
             const data = doc.data();
@@ -169,7 +225,15 @@ router.get('/', requirePro, async (req, res) => {
             };
         });
         
+        // Ordenar manualmente se necessário (fallback)
+        history.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA; // Mais recente primeiro
+        });
+        
         console.log(`🕐 [HISTORY-API] ✅ ${history.length} análises encontradas`);
+        console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         res.json({
             success: true,
@@ -178,7 +242,9 @@ router.get('/', requirePro, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('🕐 [HISTORY-API] ❌ Erro GET /:', error);
+        console.error('🕐 [HISTORY-API] ❌ ERRO GET /:', error.message);
+        console.error('🕐 [HISTORY-API] Stack:', error.stack);
+        console.log('🕐 [HISTORY-API] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         res.status(500).json({
             success: false,
             error: 'INTERNAL_ERROR',

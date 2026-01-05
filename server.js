@@ -206,6 +206,7 @@ app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
 // 🕐 HISTÓRICO DE ANÁLISES: Apenas para usuários PRO
 app.use("/api/history", historyRouter);
 console.log('🕐 [HISTORY] Rotas de histórico registradas:');
+console.log('   - POST /api/history (salvar nova análise)');
 console.log('   - GET /api/history (listar histórico do usuário PRO)');
 console.log('   - GET /api/history/:id (buscar análise específica)');
 console.log('   - DELETE /api/history/:id (remover análise do histórico)');
