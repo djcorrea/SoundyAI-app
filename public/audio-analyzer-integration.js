@@ -5234,23 +5234,8 @@ async function startReferenceAnalysis() {
 
         const result = await response.json();
         
-        // 🕐 HISTÓRICO PRO: Salvar análise de referência automaticamente
-        // ✅ Mesmo formato do histórico de gênero
-        if (result && !result._fromHistory) {
-            const referenceAnalysisData = {
-                ...result,
-                mode: 'reference',
-                analysisMode: 'reference',
-                metadata: result.metadata || {
-                    fileName: uploadedFiles.original?.split('/').pop() || 'Música Original',
-                    referenceName: uploadedFiles.reference?.split('/').pop() || 'Música de Referência'
-                }
-            };
-            
-            saveAnalysisToHistory(referenceAnalysisData).catch(err => {
-                console.warn('🕐 [HISTORY] Erro ao salvar análise de referência (não crítico):', err);
-            });
-        }
+        // ❌ REMOVIDO: Tentativa de salvar aqui (result não tem dados completos)
+        // O salvamento deve ocorrer após receber o resultado completo via polling
         
         displayReferenceComparison(result);
 
@@ -5307,7 +5292,27 @@ function displayReferenceComparison(data) {
 }
 
 function generateComparisonHTML(data) {
-    const { original, reference, comparison } = data;
+    // 🕐 HISTÓRICO PRO: Salvar análise de referência automaticamente
+    // ✅ Salvar AQUI onde temos o dado completo (não no POST que só retorna jobId)
+    if (data && !data._fromHistory && data.technicalData) {
+        console.log('🕐 [HISTORY-REF] Salvando análise de referência no histórico...');
+        
+        const referenceAnalysisData = {
+            ...data,
+            mode: 'reference',
+            analysisMode: 'reference',
+            metadata: data.metadata || {
+                fileName: data.original?.metadata?.fileName || data.current?.fileName || 'Música Original',
+                referenceName: data.base?.fileName || data.reference?.metadata?.fileName || 'Referência'
+            }
+        };
+        
+        saveAnalysisToHistory(referenceAnalysisData).catch(err => {
+            console.warn('🕐 [HISTORY-REF] Erro ao salvar (não crítico):', err);
+        });
+    }
+    
+    // st { original, reference, comparison } = data;
     
     return `
         <div class="comparison-header">
@@ -11948,15 +11953,9 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             console.log('🔓 [ANALYZER] Análise registrada no modo anônimo');
         }
         
-        // 🕐 HISTÓRICO PRO: Salvar análise automaticamente (não bloqueia)
-        // ✅ Só salva se NÃO veio do histórico (evita duplicação)
-        if (!normalizedResult._fromHistory) {
-            saveAnalysisToHistory(normalizedResult).catch(err => {
-                console.warn('🕐 [HISTORY] Erro ao salvar no histórico (não crítico):', err);
-            });
-        } else {
-            console.log('🕐 [HISTORY] Análise veio do histórico - não re-salvar');
-        }
+        // ❌ REMOVIDO: Salvamento duplicado aqui
+        // ✅ NOVO: Salvamento unificado acontece dentro de displayModalResults()
+        // para garantir um único ponto de salvamento
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
         
@@ -14177,6 +14176,21 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
+    // 🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
+    // (Análises de referência usam displayReferenceComparison)
+    if (analysis && !analysis._fromHistory && analysis.technicalData) {
+        const analysisMode = analysis.mode || analysis.analysisMode || 'genre';
+        
+        if (analysisMode === 'genre') {
+            console.log('🕐 [HISTORY-SAVE] displayModalResults detectou análise de gênero');
+            
+            // Salvar assíncrono (não bloqueia UI)
+            saveAnalysisToHistory(analysis).catch(err => {
+                console.warn('🕐 [HISTORY-SAVE] Erro ao salvar (não crítico):', err);
+            });
+        }
+    }
+    
     // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
     const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
     
@@ -15701,13 +15715,24 @@ async function displayModalResults(analysis) {
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
     
-    // 🎵 RENDERIZAR BLOCO DE IDENTIFICAÇÃO DA MÚSICA
+    // 🎵 RENDERIZAR BLOCO DE IDENTIFICAÇÃO DA MÚSICA (APENAS MODO GÊNERO)
     try {
         const musicIdContainer = document.getElementById('musicIdentificationBlock');
+        const currentMode = analysis?.mode || window.currentAnalysisMode || 'genre';
+        
+        // ✅ CONDICIONAL: Renderizar APENAS em modo gênero
         if (musicIdContainer) {
-            const musicIdHTML = renderMusicIdentificationBlock(analysis);
-            musicIdContainer.innerHTML = musicIdHTML;
-            console.log('[MUSIC-ID] ✅ Bloco de identificação da música renderizado');
+            if (currentMode === 'genre') {
+                const musicIdHTML = renderMusicIdentificationBlock(analysis);
+                musicIdContainer.innerHTML = musicIdHTML;
+                musicIdContainer.style.display = 'block';
+                console.log('[MUSIC-ID] ✅ Bloco de identificação renderizado (modo gênero)');
+            } else {
+                // 🚫 Modo referência: OCULTAR bloco (nomes já aparecem no header A/B)
+                musicIdContainer.innerHTML = '';
+                musicIdContainer.style.display = 'none';
+                console.log('[MUSIC-ID] ⏭️ Bloco ocultado (modo referência - nomes já no header A/B)');
+            }
         } else {
             console.warn('[MUSIC-ID] ⚠️ Container #musicIdentificationBlock não encontrado no DOM');
         }
