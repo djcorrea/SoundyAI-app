@@ -1321,14 +1321,13 @@ export default async function handler(req, res) {
 
     // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
     // ✅ CORREÇÃO CRÍTICA: Usar nomes corretos dos campos do Firestore
-    // 🔒 REGRA DE NEGÓCIO: Personalização APENAS para Plus/Pro/DJ
+    // 🎯 NOVA REGRA: Personalização para TODOS os planos (Free/Plus/Pro/DJ)
     const userPlanForPersonalization = (userData.plano || 'gratis').toLowerCase();
-    const isPremiumUser = ['plus', 'pro', 'dj'].includes(userPlanForPersonalization);
     
     let userContext = {};
     
-    if (isPremiumUser && userData.perfil) {
-      // ✅ Usuários Plus/Pro/DJ: usar entrevista completa
+    // ✅ PERSONALIZAÇÃO UNIVERSAL: Se existe perfil, usar para TODOS os planos
+    if (userData.perfil) {
       userContext = {
         nomeArtistico: userData.perfil?.nomeArtistico || null,
         nivelTecnico: userData.perfil?.nivelTecnico || null,
@@ -1350,9 +1349,9 @@ export default async function handler(req, res) {
         temSobre: !!userContext.sobre
       });
     } else {
-      // ❌ Usuários Free: contexto vazio (respostas genéricas)
-      console.log(`❌ [${userPlanForPersonalization.toUpperCase()}] Sem personalização - plano FREE`);
-      userContext = {}; // Garante que nenhum dado será injetado
+      // ⚠️ Sem perfil: contexto vazio (entrevista não preenchida ainda)
+      console.log(`⚠️ [${userPlanForPersonalization.toUpperCase()}] Entrevista não preenchida - sem personalização`);
+      userContext = {};
     }
     
     console.log('📋 Contexto do usuário final:', userContext);
