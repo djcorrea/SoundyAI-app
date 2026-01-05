@@ -5277,6 +5277,41 @@ function displayReferenceComparison(data) {
         progressOverlay.remove();
     }
     
+    // 🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de REFERÊNCIA
+    // ✅ Salvar AQUI onde temos o dado completo
+    if (data && !data._fromHistory && data.technicalData) {
+        console.log('🕐 [HISTORY-SAVE] displayReferenceComparison detectou análise de referência');
+        console.log('🕐 [HISTORY-SAVE] Estrutura do data:', {
+            hasOriginal: !!data.original,
+            hasReference: !!data.reference,
+            hasComparison: !!data.comparison,
+            hasTechnicalData: !!data.technicalData,
+            hasMetadata: !!data.metadata,
+            keys: Object.keys(data)
+        });
+        
+        const referenceAnalysisData = {
+            ...data,
+            mode: 'reference',
+            analysisMode: 'reference',
+            metadata: data.metadata || {
+                fileName: data.original?.metadata?.fileName || data.current?.fileName || 'Música Original',
+                referenceName: data.base?.fileName || data.reference?.metadata?.fileName || 'Referência'
+            }
+        };
+        
+        // Salvar assíncrono (não bloqueia UI)
+        saveAnalysisToHistory(referenceAnalysisData).catch(err => {
+            console.warn('🕐 [HISTORY-SAVE] Erro ao salvar (não crítico):', err);
+        });
+    } else {
+        console.warn('🕐 [HISTORY-SAVE] ❌ Análise de referência NÃO será salva:', {
+            hasData: !!data,
+            isFromHistory: data?._fromHistory,
+            hasTechnicalData: !!data?.technicalData
+        });
+    }
+    
     // Criar seção de resultados
     const resultsSection = document.createElement('div');
     resultsSection.id = 'referenceResults';
@@ -5292,27 +5327,7 @@ function displayReferenceComparison(data) {
 }
 
 function generateComparisonHTML(data) {
-    // HISTÓRICO PRO: Salvar análise de referência automaticamente
-    // Salvar AQUI onde temos o dado completo (não no POST que só retorna jobId)
-    if (data && !data._fromHistory && data.technicalData) {
-        console.log('[HISTORY-REF] Salvando análise de referência no histórico...');
-        
-        const referenceAnalysisData = {
-            ...data,
-            mode: 'reference',
-            analysisMode: 'reference',
-            metadata: data.metadata || {
-                fileName: data.original?.metadata?.fileName || data.current?.fileName || 'Música Original',
-                referenceName: data.base?.fileName || data.reference?.metadata?.fileName || 'Referência'
-            }
-        };
-        
-        saveAnalysisToHistory(referenceAnalysisData).catch(err => {
-            console.warn('🕐 [HISTORY-REF] Erro ao salvar (não crítico):', err);
-        });
-    }
-    
-    // st { original, reference, comparison } = data;
+    const { original, reference, comparison } = data;
     
     return `
         <div class="comparison-header">
