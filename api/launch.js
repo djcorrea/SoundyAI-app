@@ -304,4 +304,59 @@ router.post('/schedule-check', authorizeLaunch, async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// ROTA: POST /api/launch/test-email
+// Envia e-mail de teste para o e-mail definido em TEST_EMAIL
+// ⚠️ NÃO aceita email via body - usa APENAS variável de ambiente
+// ═══════════════════════════════════════════════════════════════════
+
+router.post('/test-email', authorizeLaunch, async (req, res) => {
+  const TEST_EMAIL = process.env.TEST_EMAIL;
+  
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🧪 [LAUNCH-API] TESTE MANUAL DE E-MAIL DE LANÇAMENTO');
+  console.log('═══════════════════════════════════════════════════════════');
+  
+  // Validar se TEST_EMAIL está configurado
+  if (!TEST_EMAIL) {
+    console.error('❌ [LAUNCH-API] TEST_EMAIL não configurado no ambiente');
+    return res.status(400).json({
+      success: false,
+      error: 'TEST_EMAIL não está definido no ambiente'
+    });
+  }
+  
+  console.log(`📧 [LAUNCH-API] Destinatário: ${TEST_EMAIL}`);
+  
+  try {
+    const result = await sendLaunchEmail({
+      email: TEST_EMAIL,
+      name: 'Teste Manual'
+    });
+    
+    if (result.success) {
+      console.log(`✅ [LAUNCH-API] E-mail enviado com sucesso`);
+      console.log(`   Email ID: ${result.emailId}`);
+      console.log(`   Destino: ${TEST_EMAIL}`);
+      
+      return res.status(200).json({
+        success: true
+      });
+    } else {
+      console.error(`❌ [LAUNCH-API] Erro ao enviar e-mail: ${result.error}`);
+      return res.status(500).json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error(`❌ [LAUNCH-API] Exceção ao enviar e-mail: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 export default router;
