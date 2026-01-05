@@ -105,39 +105,89 @@ function isProblematicSeverity(severity) {
  * @returns {Promise<void>}
  */
 async function saveAnalysisToHistory(analysisResult) {
+    console.log('🕐 [HISTORY-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🕐 [HISTORY-SAVE] Iniciando verificação para salvar...');
+    
     try {
         // 1. Verificar se usuário está autenticado
         const userId = window.auth?.currentUser?.uid;
+        console.log('🕐 [HISTORY-SAVE] userId:', userId ? userId.slice(0, 8) + '...' : 'NÃO AUTENTICADO');
+        
         if (!userId) {
-            console.log('🕐 [HISTORY-SAVE] Usuário não autenticado - pulando');
+            console.log('🕐 [HISTORY-SAVE] ❌ Usuário não autenticado - pulando');
             return;
         }
         
-        // 2. Detectar plano do usuário
-        const userPlan = window.PlanCapabilities?.detectUserPlan?.() || 
-                        window.userPlan || 
-                        analysisResult?.plan || 
-                        'free';
+        // 2. Detectar plano do usuário de MÚLTIPLAS FONTES
+        let userPlan = 'free';
+        const planSources = {
+            planCapabilities: window.PlanCapabilities?.detectUserPlan?.(),
+            windowUserPlan: window.userPlan,
+            analysisResultPlan: analysisResult?.plan,
+            currentModalPlan: window.currentModalAnalysis?.plan,
+            cachedPlan: window.__soundyUserPlan
+        };
         
-        // 3. Verificar se é PRO
-        if (userPlan !== 'pro' && userPlan !== 'dj') {
-            console.log(`🕐 [HISTORY-SAVE] Plano "${userPlan}" não tem histórico - pulando`);
+        console.log('🕐 [HISTORY-SAVE] 🔍 Fontes de plano:', planSources);
+        
+        // Prioridade: PlanCapabilities > window.userPlan > analysisResult.plan > currentModal > cache
+        userPlan = planSources.planCapabilities || 
+                   planSources.windowUserPlan || 
+                   planSources.analysisResultPlan ||
+                   planSources.currentModalPlan ||
+                   planSources.cachedPlan ||
+                   'free';
+        
+        console.log('🕐 [HISTORY-SAVE] Plano detectado:', userPlan);
+        
+        // 3. Verificar se é PRO/DJ
+        const isPro = userPlan === 'pro' || userPlan === 'dj';
+        if (!isPro) {
+            console.log(`🕐 [HISTORY-SAVE] ⏭️ Plano "${userPlan}" não tem histórico - pulando`);
             return;
         }
         
-        // 4. Verificar se análise tem dados válidos
-        if (!analysisResult || !analysisResult.technicalData) {
-            console.warn('🕐 [HISTORY-SAVE] Análise incompleta - pulando');
-            return;
-        }
+        // 4. Verificar se análise tem dados válidos (MAIS TOLERANTE)
+        const hasValidData = (
+            analysisResult && 
+            (
+                analysisResult.technicalData ||
+                analysisResult.loudness ||
+                analysisResult.lufs ||
+                analysisResult.score !== undefined ||
+                analysisResult.data?.technicalData
+            )
+        );
         
-        console.log('🕐 [HISTORY-SAVE] 💾 Salvando análise no histórico...', {
-            userId: userId.slice(0, 8) + '...',
-            plan: userPlan,
-            trackName: analysisResult.metadata?.fileName || analysisResult.fileName
+        console.log('🕐 [HISTORY-SAVE] Validação de dados:', {
+            hasAnalysisResult: !!analysisResult,
+            hasTechnicalData: !!analysisResult?.technicalData,
+            hasLoudness: !!analysisResult?.loudness,
+            hasLufs: !!analysisResult?.lufs,
+            hasScore: analysisResult?.score !== undefined,
+            hasDataTechnical: !!analysisResult?.data?.technicalData,
+            RESULTADO: hasValidData ? '✅ VÁLIDO' : '❌ INVÁLIDO'
         });
         
-        // 5. Enviar para API (não bloqueia)
+        if (!hasValidData) {
+            console.warn('🕐 [HISTORY-SAVE] ❌ Análise sem dados válidos - pulando');
+            return;
+        }
+        
+        // 5. Extrair nome do arquivo
+        const trackName = analysisResult.metadata?.fileName || 
+                         analysisResult.fileName || 
+                         analysisResult.trackName ||
+                         'Análise sem nome';
+        
+        console.log('🕐 [HISTORY-SAVE] 💾 Preparando para salvar:', {
+            userId: userId.slice(0, 8) + '...',
+            plan: userPlan,
+            trackName: trackName,
+            mode: analysisResult.mode || 'genre'
+        });
+        
+        // 6. Enviar para API
         const response = await fetch('/api/history', {
             method: 'POST',
             headers: {
@@ -150,18 +200,23 @@ async function saveAnalysisToHistory(analysisResult) {
             })
         });
         
+        console.log('🕐 [HISTORY-SAVE] Response status:', response.status);
+        
         const data = await response.json();
         
         if (data.success) {
             console.log('🕐 [HISTORY-SAVE] ✅ Análise salva no histórico:', data.historyId);
         } else {
-            console.warn('🕐 [HISTORY-SAVE] ⚠️ Não foi possível salvar:', data.error || data.message);
+            console.warn('🕐 [HISTORY-SAVE] ⚠️ Falha ao salvar:', data.error || data.message);
         }
         
     } catch (error) {
         // Erro não-crítico - apenas loga, não interrompe fluxo
-        console.warn('🕐 [HISTORY-SAVE] ⚠️ Erro ao salvar histórico:', error.message);
+        console.error('🕐 [HISTORY-SAVE] ❌ ERRO:', error.message);
+        console.error('🕐 [HISTORY-SAVE] Stack:', error.stack);
     }
+    
+    console.log('🕐 [HISTORY-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
