@@ -72,14 +72,27 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 /**
  * Converter Markdown para HTML
+ * 
+ * FIX 2026-01-05: Corrigido bug onde <ol> era fechado com </ul>
+ * Causa: variável inList era boolean, não rastreava tipo da lista
+ * Resultado do bug: HTML inválido causava nesting errado e deslocamento progressivo
  */
 function convertMarkdownToHTML(markdown) {
     // Separar por linhas
     const lines = markdown.split('\n');
     const result = [];
-    let inList = false;
+    // FIX: Agora armazena o TIPO da lista ('ul', 'ol') ou false se não estiver em lista
+    let listType = false;
     let inCodeBlock = false;
     let codeBlockContent = [];
+    
+    // Helper para fechar lista corretamente
+    function closeList() {
+        if (listType) {
+            result.push(`</${listType}>`);
+            listType = false;
+        }
+    }
     
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
@@ -105,13 +118,13 @@ function convertMarkdownToHTML(markdown) {
         
         // Headers
         if (line.startsWith('# ')) {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             result.push(`<h1>${line.substring(2)}</h1>`);
             continue;
         }
         
         if (line.startsWith('## ')) {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             const text = line.substring(3);
             const id = createSlug(text);
             result.push(`<h2 id="${id}">${text}</h2>`);
@@ -119,61 +132,67 @@ function convertMarkdownToHTML(markdown) {
         }
         
         if (line.startsWith('### ')) {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             result.push(`<h3>${line.substring(4)}</h3>`);
             continue;
         }
         
         if (line.startsWith('#### ')) {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             result.push(`<h4>${line.substring(5)}</h4>`);
             continue;
         }
         
-        // Listas
+        // Listas não ordenadas (- ou *)
         if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-            if (!inList) {
+            // Se estava em outro tipo de lista, fechar primeiro
+            if (listType && listType !== 'ul') {
+                closeList();
+            }
+            if (!listType) {
                 result.push('<ul>');
-                inList = true;
+                listType = 'ul';
             }
             result.push(`<li>${processInlineMarkdown(line.trim().substring(2))}</li>`);
             continue;
         }
         
+        // Listas ordenadas (1. 2. 3. etc)
         if (line.match(/^\d+\.\s/)) {
-            if (!inList) {
+            // Se estava em outro tipo de lista, fechar primeiro
+            if (listType && listType !== 'ol') {
+                closeList();
+            }
+            if (!listType) {
                 result.push('<ol>');
-                inList = true;
+                listType = 'ol';
             }
             result.push(`<li>${processInlineMarkdown(line.replace(/^\d+\.\s/, ''))}</li>`);
             continue;
         }
         
-        // Fechar lista se necessário
-        if (inList && line.trim() === '') {
-            result.push('</ul>');
-            inList = false;
+        // Fechar lista se linha em branco
+        if (listType && line.trim() === '') {
+            closeList();
             continue;
         }
         
         // Linha horizontal
         if (line.trim() === '---') {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             result.push('<hr>');
             continue;
         }
         
         // Parágrafos
         if (line.trim() !== '') {
-            if (inList) { result.push('</ul>'); inList = false; }
+            closeList();
             result.push(`<p>${processInlineMarkdown(line)}</p>`);
         }
     }
     
     // Fechar lista se ainda aberta
-    if (inList) {
-        result.push('</ul>');
-    }
+    closeList();
     
     return result.join('\n');
 }
