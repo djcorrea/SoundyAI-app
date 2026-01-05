@@ -5586,6 +5586,37 @@ details[open] summary {
     gap: 14px;
 }
 
+/* Container badge em volta do título */
+.music-id-title-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, 
+        rgba(106, 154, 255, 0.08) 0%,
+        rgba(106, 0, 255, 0.05) 100%
+    );
+    border: 1px solid rgba(106, 154, 255, 0.25);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 
+        0 2px 8px rgba(106, 154, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.music-id-title-container:hover {
+    background: linear-gradient(135deg, 
+        rgba(106, 154, 255, 0.12) 0%,
+        rgba(106, 0, 255, 0.08) 100%
+    );
+    border-color: rgba(106, 154, 255, 0.35);
+    box-shadow: 
+        0 4px 12px rgba(106, 154, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 /* Título: Nome da música */
 .music-id-title {
     font-size: 20px;
@@ -5677,6 +5708,10 @@ details[open] summary {
         margin: 20px 0;
     }
     
+    .music-id-title-container {
+        padding: 10px 18px;
+    }
+    
     .music-id-title {
         font-size: 18px;
     }
@@ -5704,6 +5739,10 @@ details[open] summary {
 @media (max-width: 480px) {
     .music-identification-block {
         padding: 16px 10px;
+    }
+    
+    .music-id-title-container {
+        padding: 8px 14px;
     }
     
     .music-id-title {
