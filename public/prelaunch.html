@@ -1585,37 +1585,18 @@
                 submitBtn.disabled = true;
                 
                 // ========================================
-                // 🔥 FIREBASE FIRESTORE + LEAD ENRICHMENT
+                // � ENVIAR PARA API BACKEND
+                // Backend salva no Firestore + dispara e-mail
                 // ========================================
                 try {
-                    // Verificar se Firebase está disponível
-                    if (!window.firebaseDB || !window.firestoreModules) {
-                        throw new Error('Firebase não inicializado');
-                    }
-                    
-                    const db = window.firebaseDB;
-                    const { collection, addDoc, serverTimestamp, query, where, getDocs } = window.firestoreModules;
-                    
-                    // Verificar duplicidade de e-mail
-                    const waitlistRef = collection(db, 'waitlist');
-                    const emailQuery = query(waitlistRef, where('email', '==', email.toLowerCase()));
-                    const querySnapshot = await getDocs(emailQuery);
-                    
-                    if (!querySnapshot.empty) {
-                        // E-mail já cadastrado
-                        alert('Este e-mail já está na lista de espera! 😊');
-                        submitBtn.classList.remove('loading');
-                        submitBtn.disabled = false;
-                        return;
-                    }
-                    
                     // ========================================
                     // 📊 COLETAR DADOS ENRIQUECIDOS
                     // ========================================
-                    let enrichedData = {};
+                    let enrichedData = null;
                     try {
                         if (window.LeadEnrichment) {
                             enrichedData = window.LeadEnrichment.collect();
+                            console.log('📊 Enrichment coletado:', enrichedData.inferredProfile?.engagementScore);
                         }
                     } catch (enrichError) {
                         // Enrichment falhou, mas não impede o salvamento
@@ -1623,115 +1604,61 @@
                     }
                     
                     // ========================================
-                    // 📦 PAYLOAD FINAL ESTRUTURADO
+                    // 📤 ENVIAR PARA API
                     // ========================================
-                    const leadData = {
-                        // === DADOS BASE (obrigatórios) ===
-                        name: name,
-                        email: email.toLowerCase(),
-                        createdAt: serverTimestamp(),
-                        source: 'landing_pre_launch',
-                        status: 'waiting',
-                        
-                        // === DEVICE & BROWSER ===
-                        device: enrichedData.device || {
-                            deviceType: 'unknown',
-                            operatingSystem: 'unknown',
-                            browser: 'unknown',
-                            screenWidth: 0,
-                            screenHeight: 0,
-                            viewportWidth: 0,
-                            viewportHeight: 0,
-                            pixelRatio: 1,
-                            touchSupport: false
+                    const response = await fetch('/api/waitlist', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
                         },
-                        
-                        // === LOCALE & TIMEZONE ===
-                        locale: enrichedData.locale || {
-                            language: navigator.language || 'unknown',
-                            languages: [],
-                            timezone: 'unknown',
-                            utcOffset: 0,
-                            inferredCountry: 'unknown',
-                            inferredRegion: 'unknown'
-                        },
-                        
-                        // === MARKETING & UTM ===
-                        marketing: enrichedData.marketing || {
-                            referrer: document.referrer || 'direct',
-                            referrerDomain: 'direct',
-                            landingPage: window.location.pathname,
-                            utm_source: null,
-                            utm_medium: null,
-                            utm_campaign: null,
-                            utm_content: null,
-                            utm_term: null,
-                            gclid: null,
-                            fbclid: null
-                        },
-                        
-                        // === TEMPORAL CONTEXT ===
-                        temporal: enrichedData.temporal || {
-                            hourOfDay: new Date().getHours(),
-                            dayOfWeek: new Date().getDay(),
-                            isWeekend: [0, 6].includes(new Date().getDay()),
-                            timeOfDay: 'unknown',
-                            localDate: new Date().toISOString().split('T')[0],
-                            localTime: new Date().toTimeString().split(' ')[0]
-                        },
-                        
-                        // === ENGAGEMENT METRICS ===
-                        engagement: enrichedData.engagement || {
-                            timeOnPageSeconds: 0,
-                            scrollDepthPercent: 0,
-                            mouseMovementDetected: false,
-                            interactionCount: 0,
-                            hoverOnCTA: false,
-                            formInteractionStarted: true
-                        },
-                        
-                        // === ENVIRONMENT ===
-                        environment: enrichedData.environment || {
-                            connectionType: 'unknown',
-                            connectionDownlink: null,
-                            deviceMemory: null,
-                            hardwareConcurrency: null,
-                            cookiesEnabled: navigator.cookieEnabled,
-                            doNotTrack: false,
-                            online: navigator.onLine
-                        },
-                        
-                        // === INFERRED PROFILE ===
-                        inferredProfile: enrichedData.inferredProfile || {
-                            musicProducer: true,
-                            aiInterested: true,
-                            earlyAdopter: true,
-                            professionalIntent: false,
-                            highIntent: false,
-                            isInternational: false,
-                            mobileFirst: false,
-                            engagementScore: 0
-                        },
-                        
-                        // === VERSÃO DO SCHEMA ===
-                        _schemaVersion: '2.0',
-                        _enrichmentVersion: 'v1'
-                    };
+                        body: JSON.stringify({
+                            name: name,
+                            email: email.toLowerCase(),
+                            enrichment: enrichedData
+                        })
+                    });
+                    
+                    const result = await response.json();
                     
                     // ========================================
-                    // 💾 SALVAR NO FIRESTORE
+                    // 🔍 VERIFICAR RESPOSTA
                     // ========================================
-                    const docRef = await addDoc(waitlistRef, leadData);
+                    if (!response.ok) {
+                        // Tratar erros específicos
+                        if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
+                            alert('Este e-mail já está na lista de espera! 😊');
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        if (response.status === 400 && result.field) {
+                            // Erro de validação
+                            if (result.field === 'name') {
+                                showError(nameInput, nameError);
+                            } else if (result.field === 'email') {
+                                showError(emailInput, emailError);
+                            }
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        throw new Error(result.message || 'Erro ao processar cadastro');
+                    }
                     
-                    // Backup local (fallback) - apenas dados básicos
+                    // ========================================
+                    // 💾 BACKUP LOCAL
+                    // ========================================
                     try {
                         const localLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
                         localLeads.push({ 
-                            name: leadData.name,
-                            email: leadData.email,
-                            firestoreId: docRef.id, 
+                            name: name,
+                            email: email.toLowerCase(),
+                            id: result.data?.id, 
                             savedAt: new Date().toISOString(),
-                            engagementScore: leadData.inferredProfile.engagementScore
+                            emailSent: result.data?.emailSent,
+                            engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
                         });
                         localStorage.setItem('soundy_waitlist', JSON.stringify(localLeads));
                     } catch (storageErr) {
@@ -1741,23 +1668,19 @@
                     // ========================================
                     // ✅ SUCESSO!
                     // ========================================
-                    console.log('✅ Lead salvo com sucesso no Firestore:', docRef.id);
-                    console.log('📊 Engagement Score:', leadData.inferredProfile.engagementScore);
+                    console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
+                    console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     
                 } catch (error) {
-                    console.error('❌ Erro ao salvar lead:', error);
+                    console.error('❌ Erro ao cadastrar:', error);
                     
-                    // Mensagem amigável baseada no tipo de erro
-                    let errorMessage = 'Ocorreu um erro ao processar seu cadastro.';
+                    // Mensagem amigável
+                    let errorMessage = 'Ocorreu um erro ao processar seu cadastro. Tente novamente.';
                     
-                    if (error.code === 'permission-denied') {
-                        errorMessage = 'Erro de permissão. Entre em contato com o suporte.';
-                    } else if (error.message.includes('network')) {
+                    if (error.message.includes('network') || error.message.includes('fetch')) {
                         errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
-                    } else if (error.message.includes('Firebase não inicializado')) {
-                        errorMessage = 'Sistema temporariamente indisponível. Tente novamente em alguns segundos.';
                     }
                     
                     alert(errorMessage);
