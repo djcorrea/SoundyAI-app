@@ -1,0 +1,103 @@
+# ⏰ GITHUB ACTIONS CRON - Disparo Automático de E-mails de Lançamento
+#
+# Este workflow executa automaticamente no dia 22/01/2026 às 12:00 (UTC-3)
+# para disparar os e-mails de lançamento do SoundyAI.
+#
+# CONFIGURAÇÃO NECESSÁRIA:
+# - Adicione LAUNCH_SECRET_KEY nos secrets do repositório
+# - Adicione API_BASE_URL se diferente do padrão
+#
+# TESTES MANUAIS:
+# - Vá em Actions > Launch Cron > Run workflow
+
+name: 🚀 Launch Email Cron
+
+on:
+  # Cron agendado para dia 22/01/2026
+  # Executa a cada 5 minutos entre 11:30 e 15:00 UTC (08:30 - 12:00 BRT)
+  # Formato: minuto hora dia mês dia-da-semana
+  schedule:
+    # A cada 5 minutos, das 14:00 às 16:00 UTC (11:00 - 13:00 BRT) no dia 22 de janeiro
+    - cron: '*/5 14-16 22 1 *'
+    # Backup: 12:00 BRT exato (15:00 UTC)
+    - cron: '0 15 22 1 *'
+  
+  # Permite execução manual para testes
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forçar disparo (ignorar data/hora)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+env:
+  API_BASE_URL: ${{ secrets.API_BASE_URL || 'https://soundyai-app-production.up.railway.app' }}
+  LAUNCH_SECRET_KEY: ${{ secrets.LAUNCH_SECRET_KEY }}
+
+jobs:
+  check-and-dispatch:
+    name: 📧 Verificar e Disparar E-mails
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🕐 Verificar horário atual
+        run: |
+          echo "═══════════════════════════════════════════════════════════"
+          echo "⏰ VERIFICAÇÃO DE LANÇAMENTO"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "UTC: $(date -u)"
+          echo "BRT: $(TZ='America/Sao_Paulo' date)"
+          echo "═══════════════════════════════════════════════════════════"
+      
+      - name: 🚀 Chamar endpoint de disparo
+        id: dispatch
+        run: |
+          echo "📡 Chamando API de lançamento..."
+          
+          FORCE_PARAM=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            FORCE_PARAM="?force=true"
+            echo "⚠️ MODO FORCE ATIVADO"
+          fi
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X POST "${API_BASE_URL}/api/launch/schedule-check${FORCE_PARAM}" \
+            -H "Content-Type: application/json" \
+            -H "X-Launch-Key: ${LAUNCH_SECRET_KEY}")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Requisição bem-sucedida"
+            echo "dispatched=$(echo $BODY | jq -r '.dispatched // false')" >> $GITHUB_OUTPUT
+            echo "sent=$(echo $BODY | jq -r '.stats.sent // 0')" >> $GITHUB_OUTPUT
+            echo "failed=$(echo $BODY | jq -r '.stats.failed // 0')" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Erro na requisição"
+            exit 1
+          fi
+      
+      - name: 📊 Relatório Final
+        if: always()
+        run: |
+          echo "═══════════════════════════════════════════════════════════"
+          echo "📊 RELATÓRIO DO CRON JOB"
+          echo "═══════════════════════════════════════════════════════════"
+          echo "Disparado: ${{ steps.dispatch.outputs.dispatched }}"
+          echo "Enviados: ${{ steps.dispatch.outputs.sent }}"
+          echo "Falhas: ${{ steps.dispatch.outputs.failed }}"
+          echo "═══════════════════════════════════════════════════════════"
+      
+      - name: 🔔 Notificar sucesso (se disparou)
+        if: steps.dispatch.outputs.dispatched == 'true'
+        run: |
+          echo "🎉 E-MAILS DE LANÇAMENTO DISPARADOS COM SUCESSO!"
+          echo "Total enviados: ${{ steps.dispatch.outputs.sent }}"
