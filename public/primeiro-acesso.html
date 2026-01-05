@@ -370,11 +370,15 @@
     const mode = urlParams.get('mode');
     const oobCode = urlParams.get('oobCode');
 
-    // 🔍 LOGS DE DIAGNÓSTICO
+    // 🔍 LOGS DE DIAGNÓSTICO - SEMPRE EXECUTAM
     console.log('🔍 [FIRST_ACCESS] Página carregada');
+    console.log('🔍 [FIRST_ACCESS] href =', window.location.href);
     console.log('🔍 [FIRST_ACCESS] mode =', mode || '(ausente)');
     console.log('🔍 [FIRST_ACCESS] hasOobCode =', !!oobCode);
-    console.log('🔍 [FIRST_ACCESS] fullUrl =', window.location.href);
+    console.log('🔍 [FIRST_ACCESS] search =', window.location.search);
+    
+    // 🔍 Log do user agent para debug de mobile
+    console.log('🔍 [FIRST_ACCESS] userAgent =', navigator.userAgent);
 
     // 🚨 VALIDAÇÃO CRÍTICA: Link DEVE ter oobCode
     if (!oobCode) {

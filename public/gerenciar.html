@@ -294,6 +294,33 @@
 
     <!-- Firebase e Script de Gerenciamento -->
     <script type="module">
+        // 🚨 GUARDRAIL CRÍTICO: Executar ANTES de qualquer lógica de auth
+        // Se for resetPassword, redirecionar IMEDIATAMENTE para /primeiro-acesso.html
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode');
+            const oobCode = urlParams.get('oobCode');
+            
+            console.log('[GERENCIAR] Página carregada');
+            console.log('[GERENCIAR] mode =', mode || '(ausente)');
+            console.log('[GERENCIAR] hasOobCode =', !!oobCode);
+            console.log('[GERENCIAR] fullUrl =', window.location.href);
+            
+            // 🚨 SE FOR RESETPASSWORD: REDIRECIONAR IMEDIATAMENTE
+            if (mode === 'resetPassword') {
+                console.log('🔀 [GERENCIAR] resetPassword detectado - redirecionando AGORA');
+                console.log('🔀 [GERENCIAR] Redirecionando para: /primeiro-acesso.html' + window.location.search);
+                
+                // location.replace para não adicionar no histórico (evita "piscar")
+                window.location.replace('/primeiro-acesso.html' + window.location.search);
+                
+                // Parar execução do script
+                throw new Error('Redirecting resetPassword to primeiro-acesso.html');
+            }
+            
+            console.log('✅ [GERENCIAR] Não é resetPassword, continuando fluxo normal');
+        })();
+        
         // Aguardar um pouco para garantir que o Firebase carregue
         setTimeout(async () => {
             const { auth } = await import('./firebase.js');
@@ -574,12 +601,12 @@
                 console.log('[EMAIL VERIFY] mode:', mode);
                 console.log('[EMAIL VERIFY] URL completa:', window.location.href);
                 
-                // 🚨 GUARDRAIL: resetPassword NÃO deve ser processado aqui!
-                // Links de resetPassword devem abrir /primeiro-acesso.html
+                // NOTA: resetPassword já foi tratado pelo guardrail no início do script
+                // Se chegou aqui com resetPassword, algo está errado (não deveria acontecer)
                 if (mode === 'resetPassword') {
-                    console.log('🔀 [GUARDRAIL] resetPassword detectado - redirecionando para /primeiro-acesso.html');
-                    window.location.href = '/primeiro-acesso.html' + window.location.search;
-                    return; // Parar execução
+                    console.error('❌ [EMAIL VERIFY] resetPassword detectado aqui - guardrail falhou!');
+                    window.location.replace('/primeiro-acesso.html' + window.location.search);
+                    return;
                 }
                 
                 if (oobCode) {
