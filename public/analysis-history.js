@@ -88,10 +88,8 @@
             return [];
         }
         
-        if (!hasHistoryAccess()) {
-            console.log('🕐 [HISTORY-FE] Plano não tem acesso ao histórico:', userPlan);
-            return [];
-        }
+        // ✅ NOVO: Permitir busca para todos os planos (bloqueio no clique)
+        console.log(`🕐 [HISTORY-FE] Buscando histórico (plano: ${userPlan})...`);
         
         try {
             const response = await fetch(API_BASE, {
@@ -128,7 +126,8 @@
         const userId = getCurrentUserId();
         const userPlan = detectUserPlan();
         
-        if (!userId || !hasHistoryAccess()) {
+        // ✅ Permitir busca para todos os planos autenticados
+        if (!userId) {
             return null;
         }
         
@@ -246,15 +245,11 @@
     }
     
     /**
-     * Abre o painel de histórico
+     * Abre painel lateral do histórico
+     * ✅ NOVO: Todos os planos podem VER a lista, mas clique é bloqueado
      */
     async function openHistoryPanel() {
-        if (!hasHistoryAccess()) {
-            console.log('🕐 [HISTORY-FE] ⛔ Usuário não tem acesso ao histórico');
-            showUpgradePrompt();
-            return;
-        }
-        
+        // ✅ Criar painel independente do plano
         createHistoryPanel();
         
         const panel = document.getElementById(HISTORY_PANEL_ID);
@@ -360,15 +355,91 @@
     /**
      * Mostra prompt de upgrade para não-PRO
      */
+    /**
+     * Exibe prompt para upgrade (DEPRECIADO - usar showHistoryUpgradeModal)
+     */
     function showUpgradePrompt() {
+        showHistoryUpgradeModal(detectUserPlan());
+    }
+    
+    /**
+     * ✅ NOVO: Modal de upgrade específico para histórico
+     * Mostra ao tentar abrir uma análise sem permissão
+     */
+    function showHistoryUpgradeModal(currentPlan) {
         // Usar modal de upgrade existente se disponível
         if (window.showEntitlementUpgradeModal) {
-            window.showEntitlementUpgradeModal('history', detectUserPlan());
+            window.showEntitlementUpgradeModal('history', currentPlan);
             return;
         }
         
-        // Fallback: alert simples
-        alert('📊 O Histórico de Análises está disponível apenas para usuários PRO.\n\nFaça upgrade do seu plano para acessar todas as suas análises anteriores!');
+        // Fallback: Modal customizado
+        const existingModal = document.getElementById('historyUpgradeModal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'historyUpgradeModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+        
+        modal.innerHTML = `
+            <div style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                padding: 40px;
+                border-radius: 20px;
+                max-width: 500px;
+                text-align: center;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+            ">
+                <div style="font-size: 60px; margin-bottom: 20px;">🔒</div>
+                <h2 style="color: #fff; margin-bottom: 15px; font-size: 24px;">Histórico Completo</h2>
+                <p style="color: #a0a0c0; margin-bottom: 25px; line-height: 1.6;">
+                    O acesso completo ao histórico de análises é uma funcionalidade exclusiva do <strong style="color: #8b5cf6;">Plano PRO</strong>.
+                </p>
+                <p style="color: #a0a0c0; margin-bottom: 30px; line-height: 1.6;">
+                    Faça upgrade para acessar todas as suas análises anteriores, comparar resultados e acompanhar sua evolução!
+                </p>
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button onclick="this.closest('#historyUpgradeModal').remove()" style="
+                        padding: 12px 24px;
+                        background: #2a2a3e;
+                        color: #fff;
+                        border: 1px solid #3a3a4e;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s;
+                    ">Fechar</button>
+                    <button onclick="window.location.href='/planos.html'" style="
+                        padding: 12px 24px;
+                        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+                        color: #fff;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 600;
+                        transition: all 0.2s;
+                    ">Ver Planos PRO</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
     }
     
     // ═══════════════════════════════════════════════════════════════════
@@ -377,11 +448,31 @@
     
     /**
      * Abre uma análise do histórico no modal de resultados
+     * ✅ BLOQUEIO: PRO/DJ podem abrir, Free/Plus veem modal de upgrade
      * ✅ CRÍTICO: Reutiliza displayModalResults() existente
      * @param {string} historyId 
      */
     async function openFromHistory(historyId) {
         console.log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
+        
+        // ✅ BLOQUEIO POR PLANO: Apenas PRO/DJ podem abrir análises
+        if (!hasHistoryAccess()) {
+            const currentPlan = detectUserPlan();
+            console.log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
+            closeHistoryPanel();
+            showHistoryUpgradeModal(currentPlan);
+            return;
+        }
+        console.log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
+        
+        // ✅ BLOQUEIO POR PLANO
+        if (!hasHistoryAccess()) {
+            const currentPlan = detectUserPlan();
+            console.log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
+            closeHistoryPanel();
+            showHistoryUpgradeModal(currentPlan);
+            return;
+        }
         
         // Fechar painel do histórico
         closeHistoryPanel();

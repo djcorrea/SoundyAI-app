@@ -174,17 +174,38 @@ async function saveAnalysisToHistory(analysisResult) {
             return;
         }
         
-        // 5. Extrair nome do arquivo
-        const trackName = analysisResult.metadata?.fileName || 
-                         analysisResult.fileName || 
-                         analysisResult.trackName ||
-                         'Análise sem nome';
+        // 5. Extrair nome do arquivo e tipo de análise
+        const analysisMode = analysisResult.mode || analysisResult.analysisMode || 'genre';
+        
+        let trackName = 'Análise sem nome';
+        let genreOrReferenceName = 'N/A';
+        
+        if (analysisMode === 'reference') {
+            // Análise de referência
+            trackName = analysisResult.metadata?.fileName || 
+                       analysisResult.fileName || 
+                       'Música Original';
+            genreOrReferenceName = analysisResult.metadata?.referenceName || 
+                                  analysisResult.referenceName || 
+                                  'Referência';
+        } else {
+            // Análise de gênero
+            trackName = analysisResult.metadata?.fileName || 
+                       analysisResult.fileName || 
+                       analysisResult.trackName ||
+                       'Análise sem nome';
+            genreOrReferenceName = analysisResult.data?.genre || 
+                                  analysisResult.genre || 
+                                  window.__CURRENT_SELECTED_GENRE || 
+                                  'Unknown';
+        }
         
         console.log('🕐 [HISTORY-SAVE] 💾 Preparando para salvar:', {
             userId: userId.slice(0, 8) + '...',
             plan: userPlan,
             trackName: trackName,
-            mode: analysisResult.mode || 'genre'
+            analysisType: analysisMode,
+            genreOrReferenceName: genreOrReferenceName
         });
         
         // 6. Enviar para API
@@ -524,7 +545,168 @@ function saveReferenceJobId(jobId) {
 }
 
 /**
- * 🎯 [AUDIT-FIX] Helper: Garante que container de referência A/B existe NO LOCAL CORRETO
+ * � RENDERIZAR BLOCO DE IDENTIFICAÇÃO DA MÚSICA
+ * Exibe nome do arquivo, duração, sample rate, bit depth, canais, gênero e timestamp
+ * @param {Object} analysis - Objeto de análise completo
+ * @returns {string} HTML do bloco de identificação
+ */
+function renderMusicIdentificationBlock(analysis) {
+    // Validação de entrada
+    if (!analysis || typeof analysis !== 'object') {
+        console.warn('[MUSIC-ID] ⚠️ analysis inválido ou ausente');
+        return '';
+    }
+    
+    // Extrair metadados
+    const metadata = analysis.metadata || {};
+    const fileName = metadata.fileName || analysis.fileName || 'Arquivo de áudio';
+    
+    // Duração (converter segundos para mm:ss)
+    const durationSeconds = metadata.duration || 0;
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = Math.floor(durationSeconds % 60);
+    const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Sample Rate (converter Hz para kHz)
+    const sampleRate = metadata.sampleRate || 48000;
+    const sampleRateKHz = (sampleRate / 1000).toFixed(0);
+    
+    // Bit Depth
+    const bitDepth = metadata.bitDepth || 32;
+    
+    // Canais (1=Mono, 2=Estéreo, >2=Multicanal)
+    const channels = metadata.channels || 2;
+    const channelLabel = channels === 1 ? 'Mono' : channels === 2 ? 'Estéreo' : `${channels} canais`;
+    
+    // Gênero (se modo gênero)
+    const mode = analysis.mode || 'genre';
+    const genre = analysis.genre || analysis.genreName || null;
+    
+    // Timestamp da análise
+    const timestamp = analysis.timestamp || Date.now();
+    const now = new Date();
+    const analysisDate = new Date(timestamp);
+    const isToday = now.toDateString() === analysisDate.toDateString();
+    const timestampLabel = isToday 
+        ? `Analisado agora` 
+        : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
+    
+    // Logs de debug
+    console.log('[MUSIC-ID] 🎵 Renderizando bloco de identificação:', {
+        fileName,
+        duration: durationFormatted,
+        sampleRate: `${sampleRateKHz} kHz`,
+        bitDepth: `${bitDepth}-bit`,
+        channels: channelLabel,
+        genre,
+        mode,
+        timestamp: timestampLabel
+    });
+    
+    // Construir HTML
+    const html = `
+        <div class="music-identification-block">
+            <div class="music-id-content">
+                <!-- Título: Nome do arquivo -->
+                <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
+                
+                <!-- Linha separadora -->
+                <div class="music-id-divider"></div>
+                
+                <!-- Especificações técnicas -->
+                <div class="music-id-specs">
+                    ${durationSeconds > 0 ? `
+                        <div class="music-id-spec-item">
+                            <span class="music-id-spec-icon">⏱️</span>
+                            <span class="music-id-spec-value">${durationFormatted}</span>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">📊</span>
+                        <span class="music-id-spec-value">${sampleRateKHz} kHz</span>
+                    </div>
+                    
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">🎚️</span>
+                        <span class="music-id-spec-value">${bitDepth}-bit</span>
+                    </div>
+                    
+                    <div class="music-id-spec-item">
+                        <span class="music-id-spec-icon">🔊</span>
+                        <span class="music-id-spec-value">${channelLabel}</span>
+                    </div>
+                </div>
+                
+                <!-- Contexto: Gênero + Timestamp -->
+                <div class="music-id-context">
+                    ${mode === 'genre' && genre ? `
+                        <span class="music-id-genre-badge">
+                            <span>🎵</span>
+                            <span>${formatGenreName(genre)}</span>
+                        </span>
+                    ` : ''}
+                    
+                    <span class="music-id-timestamp">${timestampLabel}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * 🛡️ Helper: Escapa HTML para prevenir XSS
+ * @param {string} text - Texto a ser escapado
+ * @returns {string} Texto escapado
+ */
+function escapeHtml(text) {
+    if (!text || typeof text !== 'string') return '';
+    
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+/**
+ * 🎨 Helper: Formata nome de gênero para exibição
+ * @param {string} genre - Nome do gênero (snake_case)
+ * @returns {string} Nome formatado (Title Case)
+ */
+function formatGenreName(genre) {
+    if (!genre || typeof genre !== 'string') return '';
+    
+    // Mapa de nomes customizados
+    const customNames = {
+        'progressive_trance': 'Progressive Trance',
+        'funk_mandela': 'Funk Mandela',
+        'funk_bruxaria': 'Funk Bruxaria',
+        'funk_bh': 'Funk BH',
+        'edm': 'EDM',
+        'eletronico': 'Eletrônico'
+    };
+    
+    // Se tiver nome customizado, usar
+    if (customNames[genre]) {
+        return customNames[genre];
+    }
+    
+    // Caso contrário, converter snake_case para Title Case
+    return genre
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+/**
+ * �🎯 [AUDIT-FIX] Helper: Garante que container de referência A/B existe NO LOCAL CORRETO
  * Posição: ABAIXO dos cards, ACIMA das sugestões
  * @returns {HTMLElement|null} Container ou null se falhar
  */
@@ -5051,6 +5233,25 @@ async function startReferenceAnalysis() {
         }
 
         const result = await response.json();
+        
+        // 🕐 HISTÓRICO PRO: Salvar análise de referência automaticamente
+        // ✅ Mesmo formato do histórico de gênero
+        if (result && !result._fromHistory) {
+            const referenceAnalysisData = {
+                ...result,
+                mode: 'reference',
+                analysisMode: 'reference',
+                metadata: result.metadata || {
+                    fileName: uploadedFiles.original?.split('/').pop() || 'Música Original',
+                    referenceName: uploadedFiles.reference?.split('/').pop() || 'Música de Referência'
+                }
+            };
+            
+            saveAnalysisToHistory(referenceAnalysisData).catch(err => {
+                console.warn('🕐 [HISTORY] Erro ao salvar análise de referência (não crítico):', err);
+            });
+        }
+        
         displayReferenceComparison(result);
 
     } catch (error) {
@@ -15499,6 +15700,20 @@ async function displayModalResults(analysis) {
     if (loading) loading.style.display = 'none';
     results.style.display = 'block';
     console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
+    
+    // 🎵 RENDERIZAR BLOCO DE IDENTIFICAÇÃO DA MÚSICA
+    try {
+        const musicIdContainer = document.getElementById('musicIdentificationBlock');
+        if (musicIdContainer) {
+            const musicIdHTML = renderMusicIdentificationBlock(analysis);
+            musicIdContainer.innerHTML = musicIdHTML;
+            console.log('[MUSIC-ID] ✅ Bloco de identificação da música renderizado');
+        } else {
+            console.warn('[MUSIC-ID] ⚠️ Container #musicIdentificationBlock não encontrado no DOM');
+        }
+    } catch (error) {
+        console.error('[MUSIC-ID] ❌ Erro ao renderizar bloco de identificação:', error);
+    }
     
     // 📋 PLANO DE CORREÇÃO: Registrar event listener APÓS modal ser renderizado
     (function registerCorrectionPlanListener() {
