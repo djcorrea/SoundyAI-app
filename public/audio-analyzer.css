@@ -1195,12 +1195,26 @@
 
 /* Container do label com ícone de info */
 .metric-label-container {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    gap: 4px;
     position: relative;
-    width: 100%;
+}
+
+/* Ajuste para métricas em linhas com layout space-between */
+.data-row .label .metric-label-container {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 4px;
+    width: auto;
+}
+
+/* Subscores: ícone colado ao nome */
+.metric-with-progress .metric-label-container {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 4px;
+    width: auto;
 }
 
 /* Ícone de informação */
@@ -1217,6 +1231,7 @@
     flex-shrink: 0;
     position: relative;
     z-index: 10;
+    margin-left: 2px !important; /* Garante ícone colado ao nome */
 }
 
 .metric-info-icon:hover {
