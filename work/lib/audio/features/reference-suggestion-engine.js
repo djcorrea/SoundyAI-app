@@ -32,18 +32,52 @@ export function referenceSuggestionEngine(baseMetrics, compareMetrics) {
   const suggestions = [];
 
   // ══════════════════════════════════════════════════════════
-  // VALIDAÇÃO: Verificar se métricas estão presentes
+  // VALIDAÇÃO: Verificar se métricas estão presentes + FALLBACK
   // ══════════════════════════════════════════════════════════
   if (!baseMetrics || !compareMetrics) {
     console.error('[REFERENCE-ENGINE] ❌ Métricas ausentes!');
     console.error('[REFERENCE-ENGINE] Base presente:', !!baseMetrics);
     console.error('[REFERENCE-ENGINE] Compare presente:', !!compareMetrics);
-    return [];
+    
+    // 🛡️ FALLBACK: Retornar sugestão de erro em vez de array vazio
+    return [{
+      categoria: 'SystemError',
+      nivel: 'alto',
+      problema: 'Não foi possível comparar as músicas - dados incompletos',
+      solucao: !baseMetrics 
+        ? 'Reenvie a música de referência e tente novamente' 
+        : 'Reenvie sua música e tente novamente',
+      detalhes: {
+        basePresent: !!baseMetrics,
+        comparePresent: !!compareMetrics,
+        error: 'METRICS_MISSING'
+      },
+      aiEnhanced: false,
+      enrichmentStatus: 'error-fallback'
+    }];
   }
 
   if (!baseMetrics.technicalData || !compareMetrics.technicalData) {
     console.error('[REFERENCE-ENGINE] ❌ TechnicalData ausente!');
-    return [];
+    console.error('[REFERENCE-ENGINE] Base.technicalData:', !!baseMetrics.technicalData);
+    console.error('[REFERENCE-ENGINE] Compare.technicalData:', !!compareMetrics.technicalData);
+    
+    // 🛡️ FALLBACK: Retornar sugestão de erro em vez de array vazio
+    return [{
+      categoria: 'SystemError',
+      nivel: 'alto',
+      problema: 'Dados técnicos incompletos - análise não pôde ser concluída',
+      solucao: !baseMetrics.technicalData 
+        ? 'A música de referência não foi processada corretamente. Reenvie-a.' 
+        : 'Sua música não foi processada corretamente. Reenvie-a.',
+      detalhes: {
+        baseTechnicalData: !!baseMetrics.technicalData,
+        compareTechnicalData: !!compareMetrics.technicalData,
+        error: 'TECHNICAL_DATA_MISSING'
+      },
+      aiEnhanced: false,
+      enrichmentStatus: 'error-fallback'
+    }];
   }
 
   // ══════════════════════════════════════════════════════════
@@ -256,12 +290,54 @@ export function referenceSuggestionEngine(baseMetrics, compareMetrics) {
   }
 
   // ══════════════════════════════════════════════════════════
-  // RESULTADO FINAL
+  // RESULTADO FINAL + FALLBACK OBRIGATÓRIO
   // ══════════════════════════════════════════════════════════
   console.log('[REFERENCE-ENGINE] ✅ Geradas', suggestions.length, 'sugestões comparativas');
   
+  // 🛡️ FALLBACK OBRIGATÓRIO: Se nenhuma sugestão foi gerada, criar sugestão de ajuste fino
   if (suggestions.length === 0) {
-    console.log('[REFERENCE-ENGINE] ✅ Músicas muito similares - nenhuma sugestão necessária');
+    console.log('[REFERENCE-ENGINE] ⚠️ Músicas muito similares - gerando fallback de ajuste fino');
+    
+    // Calcular diferenças absolutas para contexto
+    const diffLUFS = Math.abs((compareLUFS || 0) - (baseLUFS || 0));
+    const diffTP = Math.abs((compareTP || 0) - (baseTP || 0));
+    const diffDR = Math.abs((compareDR || 0) - (baseDR || 0));
+    
+    // 🎯 FALLBACK 1: Sugestão genérica informativa
+    suggestions.push({
+      categoria: 'ReferenceMatch',
+      nivel: 'info',
+      problema: 'Sua música está muito próxima da referência selecionada',
+      solucao: 'Continue refinando detalhes sutis se necessário. As métricas principais estão alinhadas.',
+      detalhes: {
+        status: 'match',
+        diferencas: {
+          lufs: `${diffLUFS.toFixed(2)} LUFS (tolerância: 1.0)`,
+          truePeak: `${diffTP.toFixed(2)} dBTP (tolerância: 0.3)`,
+          dynamicRange: `${diffDR.toFixed(2)} dB (tolerância: 1.5)`
+        },
+        interpretacao: 'Diferenças dentro dos limites profissionais'
+      },
+      aiEnhanced: false,
+      enrichmentStatus: 'fallback-match-generated'
+    });
+    
+    // 🎯 FALLBACK 2: Sugestão de verificação final
+    suggestions.push({
+      categoria: 'QualityCheck',
+      nivel: 'baixo',
+      problema: 'Verificação final recomendada',
+      solucao: 'Faça uma escuta A/B comparativa para validar o resultado. Ajustes sutis de EQ podem melhorar ainda mais.',
+      detalhes: {
+        baseFile: baseMetrics?.metadata?.fileName || 'Referência',
+        compareFile: compareMetrics?.metadata?.fileName || 'Sua música',
+        recomendacao: 'Escuta comparativa em monitores diferentes'
+      },
+      aiEnhanced: false,
+      enrichmentStatus: 'fallback-check-generated'
+    });
+    
+    console.log('[REFERENCE-ENGINE] ✅ Fallback gerado:', suggestions.length, 'sugestões mínimas');
   }
 
   return suggestions;

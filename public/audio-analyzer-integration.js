@@ -15858,15 +15858,28 @@ async function displayModalResults(analysis) {
     const btnAskAI = document.getElementById('btnAskAI');
     const aiHelperText = document.getElementById('aiHelperText');
     
+    // 🎯 NOVO: Controle do botão "Gerar Plano de Correção" baseado no modo de análise
+    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+    
     if (currentModeForUI === 'reference') {
-        console.log('[REFERENCE-UI] 🔒 Modo referência - ocultando botão "Pedir ajuda à IA" e texto de ajuda');
+        console.log('[REFERENCE-UI] 🔒 Modo referência - ocultando botão "Pedir ajuda à IA", texto de ajuda e botão "Gerar Plano de Correção"');
         if (btnAskAI) btnAskAI.style.display = 'none';
         if (aiHelperText) aiHelperText.style.display = 'none';
+        // ✅ CORREÇÃO: Ocultar botão "Gerar Plano de Correção" no modo referência
+        if (btnCorrectionPlan) {
+            btnCorrectionPlan.style.display = 'none';
+            console.log('[CORRECTION-PLAN] ❌ Botão ocultado - não disponível em modo referência');
+        }
     } else {
         // 🎯 Garantir visibilidade nos outros modos
-        console.log('[GENRE-UI] ✅ Modo gênero - exibindo botão "Pedir ajuda à IA" e texto de ajuda');
+        console.log('[GENRE-UI] ✅ Modo gênero - exibindo botão "Pedir ajuda à IA", texto de ajuda e botão "Gerar Plano de Correção"');
         if (btnAskAI) btnAskAI.style.display = '';
         if (aiHelperText) aiHelperText.style.display = '';
+        // ✅ CORREÇÃO: Exibir botão "Gerar Plano de Correção" no modo gênero
+        if (btnCorrectionPlan) {
+            btnCorrectionPlan.style.display = '';
+            console.log('[CORRECTION-PLAN] ✅ Botão visível - disponível em modo gênero');
+        }
     }
     
     // 🎯 HOOK: Aplicar máscaras de Modo Reduzido se necessário
