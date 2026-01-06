@@ -541,7 +541,12 @@ class ProdAIChatbot {
                 if (typeof window.logout === "function") {
                     window.logout();
                 } else {
+                    // Preserva o bypass de admin antes de limpar
+                    var adminBypass = localStorage.getItem('soundy_admin_bypass');
                     localStorage.clear();
+                    if (adminBypass) {
+                        localStorage.setItem('soundy_admin_bypass', adminBypass);
+                    }
                     window.location.href = "login.html";
                 }
                 break;
