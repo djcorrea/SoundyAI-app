@@ -234,6 +234,14 @@
                 justify-content: center !important;
             }
         }
+        
+        /* 🚫 Ocultar botão no modo referência */
+        body[data-analysis-mode="reference"] #btnGenerateCorrectionPlan,
+        .reference-mode-active #btnGenerateCorrectionPlan {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
     </style>
     
     <!-- 📋 Handler Global para Plano de Correção -->
@@ -1608,5 +1616,63 @@
     
     <!-- Scoring Debug Visual (apenas em dev/debug) -->
     <script src="js/scoring-debug-visual.js" defer></script>
+    
+    <!-- 🚫 Script para ocultar botão "Plano de Correção" no modo referência -->
+    <script>
+        (function() {
+            // Função para controlar visibilidade do botão baseado no modo
+            function updateCorrectionPlanButtonVisibility() {
+                const currentMode = window.currentAnalysisMode || 
+                                  window.__soundyState?.currentAnalysisMode || 
+                                  (window.AnalysisStateMachine?.getMode && window.AnalysisStateMachine.getMode()) || 
+                                  'genre';
+                
+                const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+                const body = document.body;
+                
+                // Definir atributo data no body para CSS
+                if (body) {
+                    body.setAttribute('data-analysis-mode', currentMode);
+                }
+                
+                if (btnCorrectionPlan) {
+                    if (currentMode === 'reference') {
+                        btnCorrectionPlan.style.display = 'none';
+                        btnCorrectionPlan.style.visibility = 'hidden';
+                        btnCorrectionPlan.style.pointerEvents = 'none';
+                        console.log('[BUTTON-CONTROL] 🔒 Botão "Plano de Correção" ocultado (modo referência)');
+                    } else {
+                        btnCorrectionPlan.style.display = '';
+                        btnCorrectionPlan.style.visibility = '';
+                        btnCorrectionPlan.style.pointerEvents = '';
+                        console.log('[BUTTON-CONTROL] ✅ Botão "Plano de Correção" visível (modo:', currentMode, ')');
+                    }
+                }
+            }
+            
+            // Executar imediatamente
+            updateCorrectionPlanButtonVisibility();
+            
+            // Executar quando DOM estiver pronto
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateCorrectionPlanButtonVisibility);
+            }
+            
+            // Monitorar mudanças no modo
+            setInterval(updateCorrectionPlanButtonVisibility, 500);
+            
+            // Observar mudanças no currentAnalysisMode
+            let lastMode = null;
+            setInterval(() => {
+                const currentMode = window.currentAnalysisMode;
+                if (currentMode !== lastMode) {
+                    lastMode = currentMode;
+                    updateCorrectionPlanButtonVisibility();
+                }
+            }, 100);
+            
+            console.log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
+        })();
+    </script>
 </body>
 </html>
