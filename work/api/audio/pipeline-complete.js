@@ -592,40 +592,32 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log('[DEBUG-SUGGESTIONS] =================================================');
     
     // 🎯 CORREÇÃO CRÍTICA: Suggestion Engine SOMENTE para mode === 'genre'
-    // Para mode === 'reference', preparar estruturas iniciais (serão preenchidas depois no bloco de comparação)
+    // Para mode === 'reference', definir aiSuggestions = [] e pular validação de targets
     if (mode !== 'genre') {
-      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", preparando estruturas para reference mode');
+      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", pulando Suggestion Engine');
       console.log('[DEBUG-SUGGESTIONS] mode atual:', mode);
-      console.log('[DEBUG-SUGGESTIONS] ⚠️ IMPORTANTE: Sugestões serão geradas pelo bloco de comparação A/B');
       
-      // 🛡️ CONTRATO OBRIGATÓRIO: Inicializar com estruturas que indicam "pendente"
-      // Estas estruturas serão SOBRESCRITAS pelo bloco de comparação A/B
-      // Se não forem sobrescritas, o fallback final garante sugestões
+      // Definir estruturas vazias para reference mode
       finalJSON.problemsAnalysis = {
         problems: [],
         suggestions: [],
         qualityAssessment: {},
-        priorityRecommendations: [],
-        _pendingReferenceComparison: true  // Flag para debug
+        priorityRecommendations: []
       };
       
       finalJSON.diagnostics = {
         problems: [],
         suggestions: [],
-        prioritized: [],
-        _pendingReferenceComparison: true
+        prioritized: []
       };
       
-      // 🛡️ MUDANÇA CRÍTICA: NÃO definir como array vazio aqui
-      // Definir como null para que o validador saiba que ainda precisa ser preenchido
-      finalJSON.suggestions = null;  // Será preenchido pelo bloco de comparação
-      finalJSON.aiSuggestions = null;  // Será preenchido pelo bloco de comparação
+      finalJSON.suggestions = [];
+      finalJSON.aiSuggestions = [];
       
       finalJSON.summary = {
-        overallRating: 'Reference Mode - Aguardando comparação A/B',
+        overallRating: 'Reference Mode - Sem análise de problemas',
         score: null,
-        genre: null,
-        _pendingReferenceComparison: true
+        genre: null
       };
       
       finalJSON.suggestionMetadata = {
@@ -1402,147 +1394,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     finalJSON.suggestions = orderSuggestionsForUser(finalJSON.suggestions || []);
     finalJSON.aiSuggestions = orderSuggestionsForUser(finalJSON.aiSuggestions || []);
     
-    // ═══════════════════════════════════════════════════════════════════════════════
-    // 🛡️ CONTRATO OBRIGATÓRIO: FALLBACK ESPECÍFICO PARA MODO REFERENCE
-    // Análise de referência SEM sugestões é estado INVÁLIDO - NUNCA deve acontecer
-    // ═══════════════════════════════════════════════════════════════════════════════
-    if (mode === 'reference') {
-      console.log('[REFERENCE-FALLBACK] ✅ Verificando contrato obrigatório para modo reference...');
-      
-      // Verificar se suggestions está null/undefined/vazio (indica que bloco de comparação não executou)
-      const suggestionsEmpty = !Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0;
-      const aiSuggestionsEmpty = !Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0;
-      
-      if (suggestionsEmpty || aiSuggestionsEmpty) {
-        console.error('[REFERENCE-FALLBACK] ❌ VIOLAÇÃO DE CONTRATO: Modo reference sem sugestões!');
-        console.error('[REFERENCE-FALLBACK] suggestions vazio:', suggestionsEmpty);
-        console.error('[REFERENCE-FALLBACK] aiSuggestions vazio:', aiSuggestionsEmpty);
-        console.error('[REFERENCE-FALLBACK] referenceJobId:', options.referenceJobId);
-        console.error('[REFERENCE-FALLBACK] referenceComparison existe:', !!finalJSON.referenceComparison);
-        
-        // 🎯 GERAR SUGESTÕES DE FALLBACK BASEADAS NAS MÉTRICAS DISPONÍVEIS
-        const fallbackSuggestions = [];
-        
-        // Se temos referenceComparison, gerar sugestões das diferenças
-        if (finalJSON.referenceComparison) {
-          const rc = finalJSON.referenceComparison;
-          
-          // LUFS
-          if (rc.lufs?.delta != null && isFinite(rc.lufs.delta)) {
-            const absLufs = Math.abs(rc.lufs.delta);
-            fallbackSuggestions.push({
-              categoria: 'Loudness',
-              nivel: absLufs > 2 ? 'alto' : absLufs > 1 ? 'médio' : 'info',
-              problema: `Loudness: Diferença de ${rc.lufs.delta.toFixed(1)} LUFS em relação à referência`,
-              solucao: absLufs > 1 
-                ? `Ajuste o nível de saída ${rc.lufs.delta > 0 ? 'para baixo' : 'para cima'} em aproximadamente ${absLufs.toFixed(1)} dB`
-                : 'Diferença dentro da tolerância profissional (±1 LUFS)',
-              detalhes: { user: rc.lufs.user, reference: rc.lufs.reference, delta: rc.lufs.delta },
-              aiEnhanced: false,
-              enrichmentStatus: 'reference-fallback-generated'
-            });
-          }
-          
-          // True Peak
-          if (rc.truePeak?.delta != null && isFinite(rc.truePeak.delta)) {
-            const absTp = Math.abs(rc.truePeak.delta);
-            fallbackSuggestions.push({
-              categoria: 'TruePeak',
-              nivel: absTp > 0.5 ? 'alto' : absTp > 0.3 ? 'médio' : 'info',
-              problema: `True Peak: Diferença de ${rc.truePeak.delta.toFixed(2)} dBTP em relação à referência`,
-              solucao: absTp > 0.3
-                ? `Ajuste o ceiling do limiter ${rc.truePeak.delta > 0 ? 'para baixo' : 'para cima'}`
-                : 'Diferença dentro da tolerância profissional (±0.3 dBTP)',
-              detalhes: { user: rc.truePeak.user, reference: rc.truePeak.reference, delta: rc.truePeak.delta },
-              aiEnhanced: false,
-              enrichmentStatus: 'reference-fallback-generated'
-            });
-          }
-          
-          // Dynamic Range
-          if (rc.dynamics?.delta != null && isFinite(rc.dynamics.delta)) {
-            const absDr = Math.abs(rc.dynamics.delta);
-            fallbackSuggestions.push({
-              categoria: 'DynamicRange',
-              nivel: absDr > 2 ? 'alto' : absDr > 1.5 ? 'médio' : 'info',
-              problema: `Dynamic Range: Diferença de ${rc.dynamics.delta.toFixed(1)} dB em relação à referência`,
-              solucao: absDr > 1.5
-                ? `Ajuste a compressão ${rc.dynamics.delta > 0 ? 'aumentando (menos compressão)' : 'reduzindo (mais compressão)'}`
-                : 'Diferença dentro da tolerância profissional (±1.5 dB)',
-              detalhes: { user: rc.dynamics.user, reference: rc.dynamics.reference, delta: rc.dynamics.delta },
-              aiEnhanced: false,
-              enrichmentStatus: 'reference-fallback-generated'
-            });
-          }
-          
-          // Bandas espectrais
-          if (rc.spectralBands && typeof rc.spectralBands === 'object') {
-            Object.entries(rc.spectralBands).forEach(([band, data]) => {
-              if (data?.delta != null && isFinite(data.delta) && Math.abs(data.delta) > 1.5) {
-                const absBand = Math.abs(data.delta);
-                fallbackSuggestions.push({
-                  categoria: 'SpectralBalance',
-                  nivel: absBand > 3 ? 'alto' : 'médio',
-                  problema: `${band}: Diferença de ${data.delta.toFixed(1)} dB em relação à referência`,
-                  solucao: `Ajuste EQ na faixa ${band} ${data.delta > 0 ? 'atenuando' : 'reforçando'} em ${absBand.toFixed(1)} dB`,
-                  detalhes: { band, user: data.user, reference: data.reference, delta: data.delta },
-                  aiEnhanced: false,
-                  enrichmentStatus: 'reference-fallback-generated'
-                });
-              }
-            });
-          }
-        }
-        
-        // Se ainda não temos sugestões, criar uma genérica
-        if (fallbackSuggestions.length === 0) {
-          fallbackSuggestions.push({
-            categoria: 'Resumo',
-            nivel: 'info',
-            problema: 'Comparação A/B concluída',
-            solucao: 'Sua música foi analisada e comparada com a referência. Consulte a tabela de comparação para detalhes das diferenças.',
-            detalhes: {
-              note: 'Sugestão gerada pelo sistema de fallback obrigatório',
-              referenceJobId: options.referenceJobId,
-              timestamp: new Date().toISOString()
-            },
-            aiEnhanced: false,
-            enrichmentStatus: 'reference-emergency-fallback'
-          });
-        }
-        
-        // Aplicar fallback
-        if (suggestionsEmpty) {
-          finalJSON.suggestions = fallbackSuggestions;
-          console.log('[REFERENCE-FALLBACK] ✅ suggestions preenchido com', fallbackSuggestions.length, 'sugestões');
-        }
-        
-        if (aiSuggestionsEmpty) {
-          finalJSON.aiSuggestions = fallbackSuggestions.map(sug => ({
-            ...sug,
-            problema: sug.problema,
-            causaProvavel: 'Diferença detectada na comparação A/B',
-            solucao: sug.solucao,
-            pluginRecomendado: sug.categoria === 'SpectralBalance' ? 'FabFilter Pro-Q 3' : 'FabFilter Pro-L 2',
-            aiEnhanced: false
-          }));
-          console.log('[REFERENCE-FALLBACK] ✅ aiSuggestions preenchido com', finalJSON.aiSuggestions.length, 'sugestões');
-        }
-        
-        // Atualizar metadata
-        finalJSON.suggestionMetadata = {
-          ...finalJSON.suggestionMetadata,
-          totalSuggestions: finalJSON.suggestions.length,
-          fallbackApplied: true,
-          fallbackReason: 'reference-mode-empty-suggestions'
-        };
-      } else {
-        console.log('[REFERENCE-FALLBACK] ✅ Contrato respeitado: suggestions=', finalJSON.suggestions.length, ', aiSuggestions=', finalJSON.aiSuggestions.length);
-      }
-    }
-    // ═══════════════════════════════════════════════════════════════════════════════
-    
-    // ✅ FALLBACK OBRIGATÓRIO (GENRE MODE): Sempre exibir pelo menos uma sugestão
+    // ✅ FALLBACK OBRIGATÓRIO: Sempre exibir pelo menos uma sugestão
     if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
       console.warn('[FALLBACK] ⚠️ Nenhuma sugestão gerada - criando mensagem padrão');
       finalJSON.suggestions = [{
@@ -1561,9 +1413,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.warn('[FALLBACK] ⚠️ Nenhuma sugestão AI - usando sugestões base');
       finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
         ...sug,
-        problema: sug.message || sug.problema || 'Análise concluída',
+        problema: sug.message || 'Análise concluída',
         causaProvavel: 'Métricas estão dentro dos padrões estabelecidos',
-        solucao: sug.action || sug.solucao || 'Continue seu trabalho normalmente',
+        solucao: sug.action || 'Continue seu trabalho normalmente',
         pluginRecomendado: 'Nenhum ajuste necessário',
         aiEnhanced: false,
         enrichmentStatus: 'fallback'
@@ -2061,131 +1913,18 @@ function generateComparisonSuggestions(deltas) {
 
   console.log(`[COMPARISON-SUGGESTIONS] Geradas ${suggestions.length} sugestões comparativas.`);
   
-  // 🛡️ CONTRATO OBRIGATÓRIO: Análise de referência SEMPRE retorna sugestões
-  // Se nenhuma diferença excedeu tolerância, gerar sugestões informativas das maiores diferenças
+  // 🛡️ FALLBACK: Garantir que sempre retornamos ao menos 1 suggestion
   if (!suggestions || suggestions.length === 0) {
-    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Nenhuma diferença acima da tolerância - gerando sugestões informativas');
-    
-    // Coletar TODAS as diferenças disponíveis
-    const allDiffs = [];
-    
-    if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta)) {
-      allDiffs.push({
-        type: 'loudness_comparison',
-        category: 'Loudness',
-        delta: deltas.lufs.delta,
-        abs: Math.abs(deltas.lufs.delta),
-        tolerancia: 1.5,
-        unit: 'dB',
-        reference: deltas.lufs.reference,
-        user: deltas.lufs.user
-      });
-    }
-    
-    if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta)) {
-      allDiffs.push({
-        type: 'truepeak_comparison',
-        category: 'Mastering',
-        delta: deltas.truePeak.delta,
-        abs: Math.abs(deltas.truePeak.delta),
-        tolerancia: 0.5,
-        unit: 'dBTP',
-        reference: deltas.truePeak.reference,
-        user: deltas.truePeak.user
-      });
-    }
-    
-    if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta)) {
-      allDiffs.push({
-        type: 'dynamics_comparison',
-        category: 'Dinâmica',
-        delta: deltas.dynamics.delta,
-        abs: Math.abs(deltas.dynamics.delta),
-        tolerancia: 1.0,
-        unit: 'dB',
-        reference: deltas.dynamics.reference,
-        user: deltas.dynamics.user
-      });
-    }
-    
-    // Bandas espectrais
-    for (const [band, name] of Object.entries(bandNames)) {
-      const data = deltas.spectralBands[band];
-      if (data?.delta != null && isFinite(data.delta)) {
-        allDiffs.push({
-          type: 'eq_comparison',
-          category: 'Equalização',
-          delta: data.delta,
-          abs: Math.abs(data.delta),
-          tolerancia: 1.5,
-          unit: 'dB',
-          reference: data.reference,
-          user: data.user,
-          band: band,
-          bandName: name
-        });
-      }
-    }
-    
-    // Ordenar por relevância (maior proporção delta/tolerância)
-    allDiffs.sort((a, b) => (b.abs / b.tolerancia) - (a.abs / a.tolerancia));
-    
-    // Gerar sugestões das TOP 3 diferenças (mesmo abaixo da tolerância)
-    const topDiffs = allDiffs.slice(0, 3);
-    
-    // Adicionar sugestão resumo primeiro
+    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Nenhuma sugestão gerada - retornando fallback');
     suggestions.push({
-      type: 'comparison_summary',
-      category: 'Resumo',
-      message: 'Sua música está bem alinhada com a referência',
-      action: 'As diferenças detectadas estão dentro das tolerâncias profissionais. Veja abaixo os pontos de maior atenção.',
-      priority: 'info',
+      type: 'comparison_incomplete',
+      category: 'Diagnóstico',
+      message: 'Análise incompleta',
+      action: 'Alguns parâmetros da faixa de referência não puderam ser comparados. Verifique se ambas as faixas possuem métricas completas.',
+      priority: 'baixa',
       band: 'full_spectrum',
       isComparison: true,
-      isSummary: true,
-      totalDiffs: allDiffs.length
-    });
-    
-    // Gerar sugestões informativas
-    topDiffs.forEach((diff, index) => {
-      const isWithinTolerance = diff.abs <= diff.tolerancia;
-      const direction = diff.delta > 0 ? 'acima' : 'abaixo';
-      const pct = ((diff.abs / diff.tolerancia) * 100).toFixed(0);
-      
-      suggestions.push({
-        type: diff.type,
-        category: diff.category,
-        message: `${diff.bandName || diff.category}: ${safeFormat(diff.abs)} ${diff.unit} ${direction} da referência (${pct}% da tolerância)`,
-        action: isWithinTolerance
-          ? `Diferença aceitável. ${diff.category} está dentro da tolerância de ±${diff.tolerancia} ${diff.unit}.`
-          : `Considere ajustar ${diff.category.toLowerCase()} para aproximar da referência.`,
-        referenceValue: diff.reference,
-        userValue: diff.user,
-        delta: safeFormat(diff.delta, 2),
-        priority: isWithinTolerance ? 'info' : 'baixa',
-        band: diff.band || 'full_spectrum',
-        isComparison: true,
-        isInformative: true,
-        withinTolerance: isWithinTolerance,
-        tolerancePercent: pct
-      });
-    });
-    
-    console.log(`[COMPARISON-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões informativas (fallback)`);
-  }
-  
-  // 🛡️ VALIDAÇÃO FINAL: NUNCA retornar array vazio
-  if (!suggestions || suggestions.length === 0) {
-    console.error('[COMPARISON-SUGGESTIONS] ❌ ERRO CRÍTICO: Ainda sem sugestões após fallback!');
-    suggestions.push({
-      type: 'comparison_emergency',
-      category: 'Sistema',
-      message: 'Comparação A/B concluída',
-      action: 'Sua música foi analisada. Consulte a tabela de comparação para detalhes técnicos.',
-      priority: 'info',
-      band: 'full_spectrum',
-      isComparison: true,
-      isEmergencyFallback: true
+      isFallback: true
     });
   }
   

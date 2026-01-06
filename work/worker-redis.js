@@ -1047,73 +1047,9 @@ async function processReferenceCompare(job) {
 
     const comparativeSuggestions = referenceSuggestionEngine(baseMetrics, finalJSON);
     
-    // 🛡️ CONTRATO OBRIGATÓRIO: Análise de referência SEMPRE retorna sugestões
-    // O reference-suggestion-engine.js já tem fallback interno, mas vamos garantir aqui também
-    let finalSuggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : [];
-    
-    if (finalSuggestions.length === 0) {
-      console.error('[REFERENCE-COMPARE] ❌ VIOLAÇÃO DE CONTRATO: referenceSuggestionEngine retornou array vazio!');
-      console.error('[REFERENCE-COMPARE] Aplicando fallback de emergência...');
-      
-      // Gerar sugestões de emergência baseadas nos deltas calculados
-      finalSuggestions = [];
-      
-      const deltas = referenceComparison.deltas;
-      
-      if (Math.abs(deltas.lufsIntegrated) > 0.1) {
-        finalSuggestions.push({
-          categoria: 'Loudness',
-          nivel: Math.abs(deltas.lufsIntegrated) > 2 ? 'alto' : 'info',
-          problema: `Loudness: Diferença de ${deltas.lufsIntegrated.toFixed(1)} LUFS`,
-          solucao: `Ajuste o nível para aproximar de ${baseTech.lufsIntegrated.toFixed(1)} LUFS da referência`,
-          detalhes: { delta: deltas.lufsIntegrated.toFixed(2), tolerancia: '±1.0 LUFS' },
-          aiEnhanced: false,
-          enrichmentStatus: 'worker-emergency-fallback'
-        });
-      }
-      
-      if (Math.abs(deltas.truePeakDbtp) > 0.1) {
-        finalSuggestions.push({
-          categoria: 'TruePeak',
-          nivel: Math.abs(deltas.truePeakDbtp) > 0.5 ? 'alto' : 'info',
-          problema: `True Peak: Diferença de ${deltas.truePeakDbtp.toFixed(2)} dBTP`,
-          solucao: `Ajuste o limiter para aproximar de ${baseTech.truePeakDbtp.toFixed(1)} dBTP da referência`,
-          detalhes: { delta: deltas.truePeakDbtp.toFixed(2), tolerancia: '±0.3 dBTP' },
-          aiEnhanced: false,
-          enrichmentStatus: 'worker-emergency-fallback'
-        });
-      }
-      
-      if (Math.abs(deltas.dynamicRange) > 0.1) {
-        finalSuggestions.push({
-          categoria: 'DynamicRange',
-          nivel: Math.abs(deltas.dynamicRange) > 2 ? 'alto' : 'info',
-          problema: `Dynamic Range: Diferença de ${deltas.dynamicRange.toFixed(1)} dB`,
-          solucao: `Ajuste a compressão para aproximar de ${baseTech.dynamicRange.toFixed(1)} dB da referência`,
-          detalhes: { delta: deltas.dynamicRange.toFixed(2), tolerancia: '±1.5 dB' },
-          aiEnhanced: false,
-          enrichmentStatus: 'worker-emergency-fallback'
-        });
-      }
-      
-      // Se ainda vazio, criar sugestão informativa
-      if (finalSuggestions.length === 0) {
-        finalSuggestions.push({
-          categoria: 'Resumo',
-          nivel: 'info',
-          problema: 'Comparação A/B concluída - músicas muito similares',
-          solucao: 'Sua música está bem alinhada com a referência. Consulte a tabela de comparação para detalhes.',
-          detalhes: { note: 'Nenhuma diferença significativa detectada' },
-          aiEnhanced: false,
-          enrichmentStatus: 'worker-emergency-fallback'
-        });
-      }
-      
-      console.log('[REFERENCE-COMPARE] ✅ Fallback aplicado:', finalSuggestions.length, 'sugestões geradas');
-    }
-    
-    finalJSON.aiSuggestions = finalSuggestions;
-    finalJSON.suggestions = finalSuggestions; // Compatibilidade
+    // ✅ GARANTIA: Sempre retornar arrays (mesmo que vazios)
+    finalJSON.aiSuggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : [];
+    finalJSON.suggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : []; // Compatibilidade
 
     console.log('[REFERENCE-COMPARE] ✅ Geradas', finalJSON.aiSuggestions.length, 'sugestões');
 
