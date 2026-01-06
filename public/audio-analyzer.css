@@ -5584,6 +5584,7 @@ details[open] summary {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    align-items: center;
 }
 
 /* Container badge em volta do título */
@@ -5591,7 +5592,6 @@ details[open] summary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto;
     padding: 12px 24px;
     background: linear-gradient(135deg, 
         rgba(106, 154, 255, 0.08) 0%,
@@ -5619,14 +5619,14 @@ details[open] summary {
 
 /* Título: Nome da música */
 .music-id-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: #ffffff;
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
     text-align: center;
-    margin: 0 0 12px 0;
+    margin: 0;
     padding: 0;
-    line-height: 1.4;
-    letter-spacing: -0.01em;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
     word-break: break-word;
 }
 
