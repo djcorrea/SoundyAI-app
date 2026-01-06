@@ -5392,6 +5392,13 @@ function displayReferenceComparison(data) {
     const content = modal.querySelector('.modal-content');
     content.appendChild(resultsSection);
     
+    // 🚫 OCULTAR BOTÃO "PLANO DE CORREÇÃO" NO MODO REFERÊNCIA
+    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+    if (btnCorrectionPlan) {
+        btnCorrectionPlan.style.display = 'none';
+        console.log('[REFERENCE-UI] 🔒 Botão "Plano de Correção" ocultado no modo referência');
+    }
+    
     // Scroll para resultados
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
@@ -10361,6 +10368,13 @@ function resetModalState() {
         }
     } catch (e) {
         console.warn("[SAFE-RESET] Falha ao restaurar gênero:", e);
+    }
+    
+    // 🔓 RESTAURAR BOTÃO "PLANO DE CORREÇÃO" (visível em outros modos)
+    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+    if (btnCorrectionPlan && currentMode !== 'reference') {
+        btnCorrectionPlan.style.display = '';
+        console.log('[RESET-UI] ✅ Botão "Plano de Correção" restaurado');
     }
     
     __dbg('✅ Estado do modal resetado completamente');
@@ -23919,6 +23933,13 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     // ✅ Libera lock após renderização
     window.comparisonLock = false;
     console.log("[LOCK] comparisonLock liberado");
+    
+    // 🚫 OCULTAR BOTÃO "PLANO DE CORREÇÃO" NO MODO REFERÊNCIA
+    const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+    if (btnCorrectionPlan) {
+        btnCorrectionPlan.style.display = 'none';
+        console.log('[REFERENCE-UI] 🔒 Botão "Plano de Correção" ocultado no modo referência');
+    }
     
     console.groupEnd();
 }
