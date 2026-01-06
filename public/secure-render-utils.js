@@ -228,17 +228,17 @@
         const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
         const sourceAttr = keyForSource ? ` data-src="${keyForSource}"` : '';
         
-        // 🎯 PADRONIZAÇÃO: TODAS as métricas recebem ícone "i" com tooltip
-        // Se não houver tooltip específico, usar fallback universal
-        const TOOLTIP_FALLBACK = 'Indicador técnico do áudio. Valores fora do alvo podem afetar a qualidade final.';
-        const finalTooltip = tooltip || TOOLTIP_FALLBACK;
-        
-        // ✅ TODAS as métricas agora têm ícone "i" + tooltip (sem exceções)
-        const labelHtml = `<div class="metric-label-container">
-             <span style="flex: 1;">${label}</span>
-             <span class="metric-info-icon" 
-                   data-tooltip-body="${finalTooltip.replace(/"/g, '&quot;')}">ℹ️</span>
-           </div>`;
+        // 🎯 NOVO SISTEMA: Renderizar ícone "i" APENAS se tooltip fornecido
+        // Se tooltip = null, NÃO renderizar ícone (comportamento 100% específico)
+        const labelHtml = tooltip 
+            ? `<div class="metric-label-container">
+                 <span style="flex: 1;">${label}</span>
+                 <span class="metric-info-icon" 
+                       data-tooltip-title="${tooltip.title?.replace(/"/g, '&quot;') || label}"
+                       data-tooltip-body="${tooltip.body?.replace(/"/g, '&quot;') || tooltip.replace(/"/g, '&quot;')}"
+                       ${tooltip.variant && tooltip.variant !== 'default' ? `data-tooltip-variant="${tooltip.variant}"` : ''}>ℹ️</span>
+               </div>`
+            : `<span style="flex: 1;">${label}</span>`; // SEM ícone "i" se tooltip = null
         
         return `
             <div class="data-row"${sourceAttr}${metricKeyAttr}>
