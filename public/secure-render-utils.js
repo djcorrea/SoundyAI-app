@@ -228,14 +228,12 @@
         const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
         const sourceAttr = keyForSource ? ` data-src="${keyForSource}"` : '';
         
-        // Gerar HTML do label com tooltip (se existir)
+        // Gerar HTML do label com tooltip (se existir) - TooltipManager global
         const labelHtml = tooltip 
             ? `<div class="metric-label-container">
                  <span style="flex: 1;">${label}</span>
                  <span class="metric-info-icon" 
-                       data-tooltip="${tooltip.replace(/"/g, '&quot;')}"
-                       onmouseenter="showMetricTooltip(this, event)"
-                       onmouseleave="hideMetricTooltip()">ℹ️</span>
+                       data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
                </div>`
             : label;
         
