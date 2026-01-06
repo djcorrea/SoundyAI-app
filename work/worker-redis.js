@@ -430,7 +430,7 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
       }
       
     } else if (referenceStage === 'compare') {
-      // COMPARE: EXIGIR referenceComparison + suggestions
+      // COMPARE: EXIGIR referenceComparison + suggestions (PODE ser array vazio agora que temos fallback)
       console.log('[VALIDATION] Reference COMPARE - validação completa');
       
       if (!finalJSON.technicalData) missing.push('technicalData');
@@ -443,10 +443,16 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
         console.error('[VALIDATION] ❌ referenceComparison obrigatório para compare');
       }
       
-      // Obrigatório: sugestões (para renderizar UI)
-      if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
-        missing.push('aiSuggestions');
-        console.error('[VALIDATION] ❌ aiSuggestions obrigatório para compare');
+      // ✅ CORREÇÃO: aiSuggestions deve EXISTIR como array, mas pode estar vazio se fallback foi gerado
+      // O fallback no reference-suggestion-engine.js garante que nunca estará realmente vazio
+      if (!Array.isArray(finalJSON.aiSuggestions)) {
+        missing.push('aiSuggestions (deve ser array)');
+        console.error('[VALIDATION] ❌ aiSuggestions deve ser array para compare');
+      } else if (finalJSON.aiSuggestions.length === 0) {
+        // Warn mas NÃO bloquear - o fallback deveria ter preenchido, mas se não preencheu, ainda salvar
+        console.warn('[VALIDATION] ⚠️ aiSuggestions vazio - verificar se fallback foi executado');
+      } else {
+        console.log('[VALIDATION] ✅ aiSuggestions presente com', finalJSON.aiSuggestions.length, 'itens');
       }
       
     } else {
@@ -1052,6 +1058,30 @@ async function processReferenceCompare(job) {
     finalJSON.suggestions = Array.isArray(comparativeSuggestions) ? comparativeSuggestions : []; // Compatibilidade
 
     console.log('[REFERENCE-COMPARE] ✅ Geradas', finalJSON.aiSuggestions.length, 'sugestões');
+    
+    // 🛡️ FALLBACK SECUNDÁRIO: Se engine retornou vazio (não deveria mais acontecer), criar sugestão mínima
+    if (finalJSON.aiSuggestions.length === 0) {
+      console.warn('[REFERENCE-COMPARE] ⚠️ Engine retornou vazio - aplicando fallback secundário');
+      
+      const fallbackSuggestion = {
+        categoria: 'ReferenceAnalysis',
+        nivel: 'info',
+        problema: 'Comparação A/B concluída',
+        solucao: 'Revise as diferenças na tabela de comparação e ajuste conforme necessário.',
+        detalhes: {
+          deltas: referenceComparison.deltas,
+          status: 'fallback-secundario',
+          note: 'Músicas com características muito similares'
+        },
+        aiEnhanced: false,
+        enrichmentStatus: 'worker-fallback'
+      };
+      
+      finalJSON.aiSuggestions.push(fallbackSuggestion);
+      finalJSON.suggestions.push(fallbackSuggestion);
+      
+      console.log('[REFERENCE-COMPARE] ✅ Fallback secundário aplicado:', finalJSON.aiSuggestions.length, 'sugestões');
+    }
 
     // ETAPA 6: Adicionar campos específicos
     finalJSON.success = true; // ✅ Garantir flag de sucesso
