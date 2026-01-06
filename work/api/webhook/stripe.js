@@ -191,7 +191,7 @@ async function handleCheckoutCompleted(event, eventId, timestamp) {
     return { status: 'error', error: 'uid_not_found' };
   }
 
-  if (!plan || (plan !== 'plus' && plan !== 'pro')) {
+  if (!plan || (plan !== 'plus' && plan !== 'pro' && plan !== 'studio')) {
     console.error(`❌ [STRIPE CHECKOUT] Plano inválido: ${plan}`);
     await markEventAsProcessed(eventId, {
       eventType: 'checkout.session.completed',

@@ -10,36 +10,47 @@ const USERS = "usuarios"; // Coleção existente no Firestore
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)
-// 🔓 ATUALIZAÇÃO 2026-01-02: FREE agora tem 1 análise (modo anônimo tem 2)
+// 🔓 ATUALIZAÇÃO 2026-01-06: Ajuste de limites PLUS (20), PRO (60) e criação STUDIO (400)
 const PLAN_LIMITS = {
   free: {
     maxMessagesPerMonth: 20,
-    maxFullAnalysesPerMonth: 1,           // ✅ ATUALIZADO: 3 → 1 (modo anônimo: 2)
+    maxFullAnalysesPerMonth: 1,           // ✅ 1 análise/mês (modo anônimo: 2)
     hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
     allowReducedAfterLimit: true,
   },
   plus: {
-    maxMessagesPerMonth: 80,              // ✅ ATUALIZADO: 60 → 80
-    maxFullAnalysesPerMonth: 25,          // ✅ ATUALIZADO: 20 → 25
+    maxMessagesPerMonth: 80,              // ✅ Mantido: 80 mensagens/mês
+    maxFullAnalysesPerMonth: 20,          // ✅ ATUALIZADO 2026-01-06: 25 → 20 análises/mês
     hardCapAnalysesPerMonth: null,        // Sem hard cap, vira reduced
     allowReducedAfterLimit: true,
   },
   pro: {
-    maxMessagesPerMonth: Infinity,
-    maxFullAnalysesPerMonth: Infinity,
-    maxImagesPerMonth: 70,                // ✅ NOVO: Limite de mensagens com imagens
-    hardCapMessagesPerMonth: 300,         // ✅ NOVO: Hard cap invisível para mensagens
-    hardCapAnalysesPerMonth: 500,         // ✅ ATUALIZADO: 200 → 500 análises/mês (hard cap técnico)
-    allowReducedAfterLimit: false,        // Sem reduced, só erro
+    maxMessagesPerMonth: Infinity,        // Ilimitado visualmente
+    maxFullAnalysesPerMonth: 60,          // ✅ ATUALIZADO 2026-01-06: Infinity → 60 análises/mês
+    maxImagesPerMonth: 70,                // Limite de mensagens com imagens
+    hardCapMessagesPerMonth: 300,         // Hard cap invisível para mensagens
+    hardCapAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Hard cap = limite visível
+    allowReducedAfterLimit: true,         // ✅ ATUALIZADO: Permite reduced após limite
   },
   // 🎧 DJ BETA: Limites idênticos ao PRO (acesso temporário 15 dias)
   dj: {
     maxMessagesPerMonth: Infinity,
-    maxFullAnalysesPerMonth: Infinity,
+    maxFullAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Segue PRO
     maxImagesPerMonth: 70,
     hardCapMessagesPerMonth: 300,
-    hardCapAnalysesPerMonth: 500,
-    allowReducedAfterLimit: false,
+    hardCapAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Segue PRO
+    allowReducedAfterLimit: true,
+  },
+  // 🎬 STUDIO (R$99,90/mês) - Plano premium para produtores profissionais e estúdios
+  // Análises e chat "ilimitados" com hard cap técnico de 400 (proteção de custo)
+  studio: {
+    maxMessagesPerMonth: Infinity,        // Ilimitado visualmente
+    maxFullAnalysesPerMonth: Infinity,    // Ilimitado visualmente
+    maxImagesPerMonth: 150,               // ✅ Mais imagens que PRO
+    hardCapMessagesPerMonth: 400,         // ✅ HARD CAP: 400 mensagens/mês
+    hardCapAnalysesPerMonth: 400,         // ✅ HARD CAP: 400 análises/mês
+    allowReducedAfterLimit: false,        // Bloqueia após hard cap
+    priorityQueue: true,                  // ✅ Prioridade de processamento
   },
 };
 
@@ -346,11 +357,20 @@ export async function applySubscription(uid, { plan, subscriptionId, customerId,
   if (plan === "plus") {
     update.plusExpiresAt = null;
     update.proExpiresAt = null;
+    update.studioExpiresAt = null;   // ✅ NOVO: Limpar STUDIO
   }
   
   if (plan === "pro") {
     update.proExpiresAt = null;
     update.plusExpiresAt = null;
+    update.studioExpiresAt = null;   // ✅ NOVO: Limpar STUDIO
+  }
+
+  // ✅ NOVO 2026-01-06: Suporte ao plano STUDIO
+  if (plan === "studio") {
+    update.studioExpiresAt = null;
+    update.plusExpiresAt = null;
+    update.proExpiresAt = null;
   }
 
   await ref.update(update);
@@ -672,13 +692,17 @@ export async function getUserPlanInfo(uid) {
     
     // Billing
     billingMonth: user.billingMonth,
-    expiresAt: user.plan === 'plus' ? user.plusExpiresAt : (user.plan === 'pro' ? user.proExpiresAt : null),
+    // ✅ ATUALIZADO 2026-01-06: Inclui 'studio'
+    expiresAt: user.plan === 'plus' ? user.plusExpiresAt 
+             : user.plan === 'pro' ? user.proExpiresAt 
+             : user.plan === 'studio' ? user.studioExpiresAt 
+             : null,
   };
 }
 
 /**
  * Obter features disponíveis baseado no plano e modo de análise
- * @param {string} plan - Plano do usuário: "free" | "plus" | "pro"
+ * @param {string} plan - Plano do usuário: "free" | "plus" | "pro" | "studio"
  * @param {string} analysisMode - Modo da análise: "full" | "reduced" | "blocked"
  * @returns {Object} Features disponíveis
  */
@@ -687,6 +711,20 @@ export function getPlanFeatures(plan, analysisMode) {
   const isFull = analysisMode === 'full';
 
   console.log(`📊 [USER-PLANS] getPlanFeatures - plan: ${p}, mode: ${analysisMode}, isFull: ${isFull}`);
+
+  // ✅ STUDIO: Todas as features + extras premium (NOVO 2026-01-06)
+  if (p === 'studio') {
+    console.log('✅ [USER-PLANS] STUDIO - Todas as features + prioridade');
+    return {
+      canSuggestions: true,
+      canSpectralAdvanced: true,
+      canAiHelp: true,
+      canPdf: true,
+      canCorrectionPlan: true,
+      priorityProcessing: true,   // ✅ Prioridade de processamento
+      studioBadge: true,          // ✅ Badge STUDIO
+    };
+  }
 
   // PRO: Todas as features (sempre)
   if (p === 'pro') {
