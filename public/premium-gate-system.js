@@ -275,12 +275,13 @@
         }
         
         // Personalizar mensagem
+        // ✅ ATUALIZADO 2026-01-06: correctionPlan agora é STUDIO only
         const messages = {
             'ai': 'A funcionalidade "Pedir Ajuda à IA" está disponível apenas para usuários premium. Faça upgrade para receber assistência personalizada.',
             'askAI': 'A funcionalidade "Pedir Ajuda à IA" está disponível apenas para usuários premium. Faça upgrade para receber assistência personalizada.',
             'pdf': 'A funcionalidade "Baixar Relatório" está disponível apenas para usuários premium. Faça upgrade para exportar suas análises.',
-            'reference': 'O Modo Referência está disponível apenas para usuários PRO. Faça upgrade para comparar seu áudio com referências profissionais.',
-            'correctionPlan': 'O Plano de Correção está disponível apenas para usuários PRO. Faça upgrade para receber um guia passo a passo personalizado.'
+            'reference': 'O Modo Referência está disponível apenas para usuários PRO ou superior. Faça upgrade para comparar seu áudio com referências profissionais.',
+            'correctionPlan': 'O Plano de Correção está disponível apenas para usuários STUDIO. Faça upgrade para o STUDIO e receba um guia passo a passo personalizado.'
         };
         
         if (textEl && messages[feature]) {

@@ -14,37 +14,39 @@ console.log('🔐 [ENTITLEMENTS] Módulo carregado');
  * Entitlements por plano
  * Define quais features cada plano pode acessar
  * 
- * REGRA: reference, correctionPlan, pdf, askAI são EXCLUSIVAS do PRO
+ * REGRA ATUALIZADA 2026-01-06:
+ * - reference, pdf, askAI são EXCLUSIVOS do PRO+
+ * - correctionPlan agora é EXCLUSIVO de DJ e STUDIO (PRO não tem mais)
  */
 export const PLAN_ENTITLEMENTS = {
   free: {
-    reference: false,       // ❌ Modo Referência (PRO only)
-    correctionPlan: false,  // ❌ Gerar Plano de Correção (PRO only)
-    pdf: false,             // ❌ Baixar PDF (PRO only)
-    askAI: false,           // ❌ Pedir Ajuda à IA (PRO only)
+    reference: false,       // ❌ Modo Referência (PRO+ only)
+    correctionPlan: false,  // ❌ Gerar Plano de Correção (DJ/STUDIO only)
+    pdf: false,             // ❌ Baixar PDF (PRO+ only)
+    askAI: false,           // ❌ Pedir Ajuda à IA (PRO+ only)
     // Features permitidas no FREE
     genreAnalysis: true,    // ✅ Análise por gênero (com limite mensal)
     suggestions: true,      // ✅ Sugestões de IA (em análise full)
   },
   plus: {
-    reference: false,       // ❌ Modo Referência (PRO only)
-    correctionPlan: false,  // ❌ Gerar Plano de Correção (PRO only)
-    pdf: false,             // ❌ Baixar PDF (PRO only)
-    askAI: false,           // ❌ Pedir Ajuda à IA (PRO only)
+    reference: false,       // ❌ Modo Referência (PRO+ only)
+    correctionPlan: false,  // ❌ Gerar Plano de Correção (DJ/STUDIO only)
+    pdf: false,             // ❌ Baixar PDF (PRO+ only)
+    askAI: false,           // ❌ Pedir Ajuda à IA (PRO+ only)
     // Features permitidas no PLUS
     genreAnalysis: true,    // ✅ Análise por gênero (com limite mensal maior)
     suggestions: true,      // ✅ Sugestões de IA (em análise full)
   },
   pro: {
     reference: true,        // ✅ Modo Referência
-    correctionPlan: true,   // ✅ Gerar Plano de Correção
+    correctionPlan: false,  // ❌ REMOVIDO 2026-01-06: Plano de Correção agora é DJ/STUDIO only
     pdf: true,              // ✅ Baixar PDF
     askAI: true,            // ✅ Pedir Ajuda à IA
     // Features permitidas no PRO
     genreAnalysis: true,    // ✅ Análise por gênero ilimitada
     suggestions: true,      // ✅ Sugestões de IA
   },
-  // 🎧 DJ BETA: Espelho exato do PRO (duração limitada a 15 dias)
+  // 🎧 DJ BETA: Mantém Plano de Correção (duração limitada a 15 dias)
   dj: {
     reference: true,        // ✅ Modo Referência (temporário)
     correctionPlan: true,   // ✅ Gerar Plano de Correção (temporário)
@@ -54,16 +56,29 @@ export const PLAN_ENTITLEMENTS = {
     genreAnalysis: true,    // ✅ Análise por gênero ilimitada
     suggestions: true,      // ✅ Sugestões de IA
   },
+  // ✅ NOVO 2026-01-06: Plano STUDIO (R$99,90/mês)
+  studio: {
+    reference: true,        // ✅ Modo Referência
+    correctionPlan: true,   // ✅ Gerar Plano de Correção (EXCLUSIVO DJ/STUDIO)
+    pdf: true,              // ✅ Baixar PDF
+    askAI: true,            // ✅ Pedir Ajuda à IA
+    // Features premium do STUDIO
+    genreAnalysis: true,    // ✅ Análise por gênero ilimitada
+    suggestions: true,      // ✅ Sugestões de IA
+    priorityProcessing: true, // ✅ Prioridade de processamento
+    studioBadge: true,      // ✅ Badge exclusivo
+  },
 };
 
 /**
  * Mensagens de erro por feature (para o frontend)
+ * ATUALIZADO 2026-01-06: correctionPlan agora é DJ/STUDIO
  */
 export const FEATURE_MESSAGES = {
-  reference: 'O Modo Referência é exclusivo do plano PRO.',
-  correctionPlan: 'O Plano de Correção é exclusivo do plano PRO.',
-  pdf: 'O Relatório PDF é exclusivo do plano PRO.',
-  askAI: 'Pedir Ajuda à IA é exclusivo do plano PRO.',
+  reference: 'O Modo Referência é exclusivo do plano PRO ou superior.',
+  correctionPlan: 'O Plano de Correção é exclusivo do plano STUDIO.',
+  pdf: 'O Relatório PDF é exclusivo do plano PRO ou superior.',
+  askAI: 'Pedir Ajuda à IA é exclusivo do plano PRO ou superior.',
 };
 
 /**
@@ -83,7 +98,7 @@ export const FEATURE_DISPLAY_NAMES = {
 /**
  * Extrai o plano do usuário a partir do documento do Firestore
  * @param {Object} userDoc - Documento do usuário no Firestore
- * @returns {string} "free" | "plus" | "pro"
+ * @returns {string} "free" | "plus" | "pro" | "studio" | "dj"
  */
 export function getUserPlan(userDoc) {
   if (!userDoc) {
@@ -91,8 +106,8 @@ export function getUserPlan(userDoc) {
     return 'free';
   }
 
-  // Prioridade 1: Campo plan explícito
-  if (userDoc.plan && ['free', 'plus', 'pro', 'dj'].includes(userDoc.plan)) {
+  // Prioridade 1: Campo plan explícito (inclui 'studio' agora)
+  if (userDoc.plan && ['free', 'plus', 'pro', 'studio', 'dj'].includes(userDoc.plan)) {
     return userDoc.plan;
   }
 
@@ -133,7 +148,7 @@ export function hasEntitlement(plan, feature) {
 
 /**
  * Verifica permissão e retorna resultado estruturado
- * @param {string} plan - "free" | "plus" | "pro"
+ * @param {string} plan - "free" | "plus" | "pro" | "studio" | "dj"
  * @param {string} feature - "reference" | "correctionPlan" | "pdf" | "askAI"
  * @returns {{ allowed: boolean, plan: string, feature: string, message?: string }}
  */
@@ -148,8 +163,9 @@ export function checkEntitlement(plan, feature) {
   };
 
   if (!allowed) {
-    result.message = FEATURE_MESSAGES[feature] || `Esta feature requer o plano PRO.`;
-    result.requiredPlan = 'pro';
+    result.message = FEATURE_MESSAGES[feature] || `Esta feature requer o plano PRO ou superior.`;
+    // ✅ ATUALIZADO 2026-01-06: correctionPlan agora requer STUDIO
+    result.requiredPlan = feature === 'correctionPlan' ? 'studio' : 'pro';
   }
 
   console.log(`[ENTITLEMENTS] checkEntitlement: plan=${normalizedPlan}, feature=${feature}, allowed=${allowed}`);

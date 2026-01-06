@@ -9,6 +9,7 @@
     
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🎯 MENSAGENS POR FEATURE (sincronizado com backend)
+    // ✅ ATUALIZADO 2026-01-06: correctionPlan agora é STUDIO only
     // ═══════════════════════════════════════════════════════════════════════════════
     
     const FEATURE_MESSAGES = {
@@ -16,25 +17,25 @@
             title: 'Modo Referência',
             emoji: '🎯',
             description: 'Compare seu áudio com faixas de referência profissionais para alcançar o som que você deseja.',
-            message: 'O Modo Referência é exclusivo dos planos PRO e DJ Beta. Faça upgrade para comparar suas músicas com referências profissionais!'
+            message: 'O Modo Referência é exclusivo dos planos PRO, STUDIO e DJ Beta. Faça upgrade para comparar suas músicas com referências profissionais!'
         },
         correctionPlan: {
             title: 'Plano de Correção',
             emoji: '📋',
             description: 'Receba um guia passo a passo personalizado para corrigir os problemas da sua mixagem.',
-            message: 'O Plano de Correção é exclusivo do plano PRO. Faça upgrade para receber instruções detalhadas de como melhorar seu áudio!'
+            message: 'O Plano de Correção é exclusivo do plano STUDIO. Faça upgrade para receber instruções detalhadas de como melhorar seu áudio!'
         },
         pdf: {
             title: 'Relatório PDF',
             emoji: '📄',
             description: 'Exporte um relatório profissional completo da sua análise para consulta futura.',
-            message: 'O Relatório PDF é exclusivo do plano PRO. Faça upgrade para baixar relatórios profissionais das suas análises!'
+            message: 'O Relatório PDF é exclusivo dos planos PRO e STUDIO. Faça upgrade para baixar relatórios profissionais das suas análises!'
         },
         askAI: {
             title: 'Pedir Ajuda à IA',
             emoji: '🤖',
             description: 'Converse com nossa IA especializada para receber dicas personalizadas sobre sua mixagem.',
-            message: 'A funcionalidade "Pedir Ajuda à IA" é exclusiva do plano PRO. Faça upgrade para receber assistência personalizada!'
+            message: 'A funcionalidade "Pedir Ajuda à IA" é exclusiva dos planos PRO e STUDIO. Faça upgrade para receber assistência personalizada!'
         }
     };
     

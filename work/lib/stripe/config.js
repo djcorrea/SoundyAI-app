@@ -13,9 +13,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Se existirem env vars, usar; caso contrário, usar hardcoded como fallback
 const PRICE_ID_PLUS = process.env.STRIPE_PRICE_ID_PLUS || 'price_1SlHm6COXidjqeFinckOK8J9';
 const PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || 'price_1SlIKMCOXidjqeFiTiPExXEb';
-// ✅ NOVO 2026-01-06: Price ID do plano STUDIO
-// ⚠️ ATENÇÃO: Inserir aqui o priceId real após criar o produto no Stripe Dashboard
-const PRICE_ID_STUDIO = process.env.STRIPE_PRICE_ID_STUDIO || 'INSERIR_PRICE_ID_STUDIO_AQUI';
+// ✅ ATUALIZADO 2026-01-06: Price ID REAL do plano STUDIO (R$99,90/mês)
+const PRICE_ID_STUDIO = process.env.STRIPE_PRICE_ID_STUDIO || 'price_1SmjUuCOXidjqeFiNZNuXFHB';
 
 console.log('✅ [STRIPE CONFIG] SDK inicializado');
 console.log(`💳 [STRIPE CONFIG] Price ID Plus: ${PRICE_ID_PLUS.substring(0, 20)}...`);
