@@ -19595,34 +19595,13 @@ async function displayModalResults(analysis) {
             // ❌ NÃO INCLUIR O SCORE FINAL AQUI - ele tem seu próprio container no topo
             
             // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
-            // 🔧 USANDO normalizedScores ao invés de scores bruto
-            // 🎯 ADICIONANDO TOOLTIPS NOS SUBSCORES (via data-tooltip)
-            const wrapWithTooltip = (html, tooltipKey) => {
-                if (!tooltipKey || !subscoreTooltips[tooltipKey]) return html;
-                
-                const tt = subscoreTooltips[tooltipKey];
-                const tooltipTitle = tt.title;
-                
-                // Lógica especial para Loudness: verificar se True Peak está crítico
-                let tooltipBody = tt.body || tt.normal;
-                let tooltipVariant = 'default';
-                
-                if (tooltipKey === 'loudness' && isTruePeakCritical()) {
-                    tooltipBody = tt.critical;
-                    tooltipVariant = 'warning';
-                }
-                
-                // Adicionar wrapper com data-tooltip
-                return html.replace('<div class="data-row metric-with-progress">', 
-                    `<div class="data-row metric-with-progress" data-tooltip-title="${tooltipTitle}" data-tooltip-body="${tooltipBody}" data-tooltip-variant="${tooltipVariant}">`);
-            };
-            
+            // 🎯 USANDO renderScoreWithProgress que já tem suporte a tooltips via getTooltip()
             const subScoresHtml = `
-                ${wrapWithTooltip(renderScoreProgressBar('Loudness', normalizedScores.loudness, '#ff3366', '🔊'), 'loudness')}
-                ${wrapWithTooltip(renderScoreProgressBar('Frequência', normalizedScores.frequencia, '#00ffff', '🎵'), 'frequency')}
-                ${wrapWithTooltip(renderScoreProgressBar('Estéreo', normalizedScores.estereo, '#ff6b6b', '🎧'), 'stereo')}
-                ${wrapWithTooltip(renderScoreProgressBar('Dinâmica', normalizedScores.dinamica, '#ffd700', '📊'), 'dynamics')}
-                ${wrapWithTooltip(renderScoreProgressBar('Técnico', normalizedScores.tecnico, '#00ff92', '🔧'), 'technical')}
+                ${renderScoreWithProgress('Loudness', normalizedScores.loudness, '#ff3366', 'loudness')}
+                ${renderScoreWithProgress('Frequência', normalizedScores.frequencia, '#00ffff', 'frequency')}
+                ${renderScoreWithProgress('Estéreo', normalizedScores.estereo, '#ff6b6b', 'stereo')}
+                ${renderScoreWithProgress('Dinâmica', normalizedScores.dinamica, '#ffd700', 'dynamic')}
+                ${renderScoreWithProgress('Técnico', normalizedScores.tecnico, '#00ff92', 'technical')}
             `;
             
             return subScoresHtml;
