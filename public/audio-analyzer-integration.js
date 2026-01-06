@@ -17001,14 +17001,12 @@ async function displayModalResults(analysis) {
                 }
             }
             
-            // Gerar HTML do label com ícone de info e tooltip
+            // Gerar HTML do label com ícone de info e tooltip (TooltipManager global)
             const labelHtml = tooltip 
                 ? `<div class="metric-label-container">
                      <span style="flex: 1;">${capitalizedLabel}</span>
                      <span class="metric-info-icon" 
-                           data-tooltip="${tooltip.replace(/"/g, '&quot;')}"
-                           onmouseenter="showMetricTooltip(this, event)"
-                           onmouseleave="hideMetricTooltip()">ℹ️</span>
+                           data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
                    </div>`
                 : capitalizedLabel;
             
