@@ -1724,13 +1724,33 @@ class AISuggestionUIController {
      * � Filtrar sugestões para Reduced Mode
      * Apenas "Estéreo" e "Dinâmica" são renderizadas
      * @param {Array} suggestions - Array de sugestões
+     * @param {Object} analysisContext - Análise passada como contexto (evita race condition)
      * @returns {Array} Sugestões filtradas
      */
-    filterReducedModeSuggestions(suggestions) {
-        // Verificar se analysis está em modo reduced
-        const analysis = window.currentModalAnalysis;
+    filterReducedModeSuggestions(suggestions, analysisContext = null) {
+        // 🛡️ CORREÇÃO: Priorizar analysisContext passado (evita race condition)
+        // Se não passado, usar window.currentModalAnalysis como fallback
+        const analysis = analysisContext || window.currentModalAnalysis;
+        
+        // 🛡️ GUARDRAIL: Se analysis é null/undefined, assumir modo FULL (não bloquear)
+        // Isso previne false positives onde o modal de limitação aparece incorretamente
+        if (!analysis) {
+            console.warn('[REDUCED-FILTER] ⚠️ Analysis não disponível - assumindo modo FULL por segurança');
+            return suggestions;
+        }
+        
         // ✅ CORRIGIDO: Verificar APENAS analysisMode/isReduced, não plan
         const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
+        
+        // 🔍 LOG DIAGNÓSTICO: Identificar fonte do modo reduced
+        console.log('[REDUCED-FILTER] 📊 Verificando modo:', {
+            isReducedMode,
+            analysisMode: analysis?.analysisMode,
+            isReduced: analysis?.isReduced,
+            plan: analysis?.plan,
+            usedContext: analysisContext ? 'analysisContext (parâmetro)' : 'window.currentModalAnalysis (fallback)',
+            jobId: analysis?.jobId || analysis?.id || 'N/A'
+        });
         
         if (!isReducedMode) {
             console.log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
@@ -1774,6 +1794,26 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
         console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
+        // 🛡️ CORREÇÃO RACE CONDITION: Definir analysis no início da função
+        // para que esteja disponível em filterReducedModeSuggestions
+        const analysis = window.currentModalAnalysis || 
+                        window.__CURRENT_ANALYSIS__ || 
+                        window.lastAnalysisResult ||
+                        window.currentAnalysisData ||
+                        window.lastAudioAnalysis;
+        
+        console.log('[AI-UI][RENDER] 🔍 Analysis context:', {
+            source: window.currentModalAnalysis ? 'currentModalAnalysis' :
+                    window.__CURRENT_ANALYSIS__ ? '__CURRENT_ANALYSIS__' :
+                    window.lastAnalysisResult ? 'lastAnalysisResult' :
+                    window.currentAnalysisData ? 'currentAnalysisData' :
+                    window.lastAudioAnalysis ? 'lastAudioAnalysis' : 'none',
+            analysisMode: analysis?.analysisMode,
+            isReduced: analysis?.isReduced,
+            plan: analysis?.plan,
+            jobId: analysis?.jobId || analysis?.id
+        });
+        
         // ════════════════════════════════════════════════════════════════════════════════
         // 🎯 MODAL_VS_TABLE v3: SUGGESTION-DRIVEN (aiSuggestions como fonte ÚNICA)
         // ════════════════════════════════════════════════════════════════════════════════
@@ -1785,11 +1825,7 @@ class AISuggestionUIController {
         // ════════════════════════════════════════════════════════════════════════════════
         
         if (window.USE_TABLE_ROWS_FOR_MODAL && genreTargets) {
-            let analysis = window.currentModalAnalysis || 
-                          window.__CURRENT_ANALYSIS__ || 
-                          window.lastAnalysisResult ||
-                          window.currentAnalysisData ||
-                          window.lastAudioAnalysis;
+            // Removido: let analysis = ... (agora está no escopo da função)
             
             console.log('[MODAL_VS_TABLE] 🔄 v3 ATIVADO: Suggestion-driven (filtragem apenas)');
             
@@ -1930,8 +1966,9 @@ class AISuggestionUIController {
             console.groupEnd();
         }
         
-        // �🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
-        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions);
+        // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
+        // 🛡️ CORRIGIDO: Passar analysis explicitamente para evitar race condition
+        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions, analysis);
         
         if (filteredSuggestions.length === 0) {
             console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
