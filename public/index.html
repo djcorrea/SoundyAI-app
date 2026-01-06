@@ -26,12 +26,21 @@
             var ADMIN_BYPASS_KEY = 'soundyai-dev-2026';
             var ADMIN_STORAGE_KEY = 'soundy_admin_bypass';
             
-            // Verifica parâmetro na URL
+            // Verifica parâmetro na URL PRIMEIRO
             var urlParams = new URLSearchParams(window.location.search);
             var adminParam = urlParams.get('admin');
             
-            // Se o parâmetro correto foi passado, salva o bypass
+            // Verifica se o admin já está autenticado no localStorage
+            var isAdminBypass = false;
+            try {
+                isAdminBypass = localStorage.getItem(ADMIN_STORAGE_KEY) === 'true';
+            } catch (e) {
+                // localStorage indisponível
+            }
+            
+            // Se o parâmetro correto foi passado, ativa o bypass
             if (adminParam === ADMIN_BYPASS_KEY) {
+                isAdminBypass = true; // Ativa imediatamente
                 try {
                     localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
                     // Remove o parâmetro da URL (fica limpa)
@@ -42,17 +51,10 @@
                     }
                     newUrl += window.location.hash;
                     window.history.replaceState({}, '', newUrl);
+                    console.log('%c[ADMIN] Bypass salvo com sucesso!', 'color: #22c55e; font-weight: bold;');
                 } catch (e) {
                     console.warn('[PRE-LAUNCH] Não foi possível salvar bypass no localStorage');
                 }
-            }
-            
-            // Verifica se o admin já está autenticado
-            var isAdminBypass = false;
-            try {
-                isAdminBypass = localStorage.getItem(ADMIN_STORAGE_KEY) === 'true';
-            } catch (e) {
-                // localStorage indisponível
             }
             
             // Se admin, pula todo o resto do gate
