@@ -17225,21 +17225,29 @@ async function displayModalResults(analysis) {
             const cleanLabel = enhancedLabel.trim();
             const capitalizedLabel = cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1);
             
-            // 🎯 NOVO SISTEMA: Buscar tooltip no TOOLTIP_REGISTRY usando metricKey
+            // 🎯 BUSCAR TOOLTIP NO REGISTRY - SEMPRE com fallback TODO
             const tooltipData = metricKey ? getTooltip(metricKey) : null;
             
-            // Se não houver tooltip:
-            // - DEV: Já logou warning no getTooltip, NÃO renderizar ícone "i"
-            // - PROD: Simplesmente NÃO renderizar ícone "i" (silencioso)
-            const labelHtml = tooltipData 
-                ? `<div class="metric-label-container">
-                     <span style="flex: 1;">${capitalizedLabel}</span>
-                     <span class="metric-info-icon" 
-                           data-tooltip-title="${tooltipData.title.replace(/"/g, '&quot;')}"
-                           data-tooltip-body="${tooltipData.body.replace(/"/g, '&quot;')}"
-                           ${tooltipData.variant !== 'default' ? `data-tooltip-variant="${tooltipData.variant}"` : ''}>ℹ️</span>
-                   </div>`
-                : `<span style="flex: 1;">${capitalizedLabel}</span>`; // SEM ícone "i" se não houver tooltip
+            // 🎯 SEMPRE renderizar ícone "i" - mesmo sem tooltip (usa fallback TODO)
+            let tooltipTitle, tooltipBody, tooltipVariant;
+            if (tooltipData) {
+                tooltipTitle = tooltipData.title.replace(/"/g, '&quot;');
+                tooltipBody = tooltipData.body.replace(/"/g, '&quot;');
+                tooltipVariant = tooltipData.variant || 'default';
+            } else {
+                // Fallback: tooltip TODO para métricas sem entrada no registry
+                tooltipTitle = capitalizedLabel;
+                tooltipBody = 'TODO: preencher tooltip desta métrica';
+                tooltipVariant = 'default';
+            }
+            
+            const labelHtml = `<div class="metric-label-container">
+                 <span style="flex: 1;">${capitalizedLabel}</span>
+                 <span class="metric-info-icon" 
+                       data-tooltip-title="${tooltipTitle}"
+                       data-tooltip-body="${tooltipBody}"
+                       ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}>ℹ️</span>
+               </div>`;
             
             // 🎯 Adicionar data-metric-key para rastreamento + data-original-label para auditoria
             const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
@@ -19225,10 +19233,9 @@ async function displayModalResults(analysis) {
             // Ou verificar se TP > 0 dBTP
             return hasCriticalGate || (Number.isFinite(tp) && tp > 0);
         };
-        // Função para renderizar score com barra de progresso + TOOLTIP
-        const renderScoreWithProgress = (label, value, color = '#00ffff', tooltipKey = null) => {
+        // Função para renderizar score com barra de progresso + TOOLTIP + CORES DINÂMICAS
+        const renderScoreWithProgress = (label, value, defaultColor = '#00ffff', tooltipKey = null) => {
             const numValue = parseFloat(value) || 0;
-            const displayValue = value != null ? value : '—';
             
             // Indicar se o valor foi capeado (comparar com breakdown original)
             const labelKey = label.toLowerCase().replace('faixa dinâmica', 'dynamics').replace('técnico', 'technical').replace('loudness', 'loudness').replace('frequência', 'frequency').replace('stereo', 'stereo').replace('dinâmica', 'dynamics').replace('estéreo', 'stereo');
@@ -19236,7 +19243,16 @@ async function displayModalResults(analysis) {
                              breakdown[labelKey] !== value;
             const cappedIndicator = wasCapped ? ' 🔴' : '';
             
-            // 🎯 NOVO SISTEMA: Buscar tooltip no TOOLTIP_REGISTRY usando tooltipKey
+            // 🎯 COR DINÂMICA BASEADA NO VALOR (restaurando comportamento antigo)
+            let scoreColor = defaultColor;
+            if (Number.isFinite(numValue)) {
+                if (numValue >= 80) scoreColor = '#00ff92'; // Verde para scores altos
+                else if (numValue >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
+                else if (numValue >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
+                else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
+            }
+            
+            // 🎯 TOOLTIP: Buscar no TOOLTIP_REGISTRY usando tooltipKey
             let tooltipAttrs = '';
             const tooltipData = tooltipKey ? getTooltip(tooltipKey) : null;
             
@@ -19247,42 +19263,49 @@ async function displayModalResults(analysis) {
                 
                 if (tooltipKey === 'loudness' && isTruePeakCritical()) {
                     finalTooltipVariant = 'warning';
-                    // Adicionar mensagem especial no corpo do tooltip
                     finalTooltipBody = tooltipData.body + ' ⚠️ ATENÇÃO: True Peak crítico detectado (> 0 dBTP ou gates ativos). Isso limita o score mesmo com LUFS correto.';
                 }
                 
                 tooltipAttrs = `data-tooltip-title="${tooltipData.title}" data-tooltip-body="${finalTooltipBody}" data-tooltip-variant="${finalTooltipVariant}"`;
+            } else {
+                // Fallback: tooltip TODO para métricas sem entrada no registry
+                const fallbackTitle = label;
+                const fallbackBody = 'TODO: preencher tooltip desta métrica';
+                tooltipAttrs = `data-tooltip-title="${fallbackTitle}" data-tooltip-body="${fallbackBody}" data-tooltip-variant="default"`;
             }
             
-            if (value == null) {
-                // Se não houver valor, renderizar sem progress bar
-                const labelHtml = tooltipAttrs 
-                    ? `<div class="metric-label-container">
-                         <span style="flex: 1;">${label}:</span>
-                         <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
-                       </div>`
-                    : `<span>${label}:</span>`;
-                
-                return `<div class="data-row">
-                    <span class="label">${labelHtml}</span>
-                    <span class="value">—</span>
+            // 🎯 VALOR NÃO DISPONÍVEL
+            if (value == null || !Number.isFinite(numValue)) {
+                return `<div class="data-row metric-with-progress">
+                    <span class="label">
+                        <div class="metric-label-container">
+                            <span style="flex: 1;">${label}:</span>
+                            <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                        </div>
+                    </span>
+                    <div class="metric-value-progress">
+                        <span class="value" style="color: #666; font-weight: normal;">—</span>
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill-mini" style="width: 0%; background: transparent;"></div>
+                        </div>
+                    </div>
                 </div>`;
             }
             
-            // Renderizar com progress bar e tooltip (se disponível)
-            const labelHtml = tooltipAttrs 
-                ? `<div class="metric-label-container">
-                     <span style="flex: 1;">${label}${cappedIndicator}:</span>
-                     <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
-                   </div>`
-                : `<span>${label}${cappedIndicator}:</span>`;
+            // 🎯 VALOR DISPONÍVEL: Renderizar com cor dinâmica + tooltip + barra
+            const displayValue = Math.round(numValue);
             
             return `<div class="data-row metric-with-progress">
-                <span class="label">${labelHtml}</span>
+                <span class="label">
+                    <div class="metric-label-container">
+                        <span style="flex: 1;">${label}${cappedIndicator}:</span>
+                        <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                    </div>
+                </span>
                 <div class="metric-value-progress">
-                    <span class="value">${displayValue}/100</span>
+                    <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}/100</span>
                     <div class="progress-bar-mini">
-                        <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${color}; color: ${color};"></div>
+                        <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${scoreColor};"></div>
                     </div>
                 </div>
             </div>`;
@@ -19556,46 +19579,11 @@ async function displayModalResults(analysis) {
             });
             console.groupEnd();
             
-            const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
-                // Se null/undefined, renderizar "—" e barra vazia SEM cores "ok"
-                if (!Number.isFinite(value)) {
-                    return `<div class="data-row metric-with-progress">
-                        <span class="label">${emoji} ${label}:</span>
-                        <div class="metric-value-progress">
-                            <span class="value" style="color: #666; font-weight: normal;">—</span>
-                            <div class="progress-bar-mini">
-                                <div class="progress-fill-mini" style="width: 0%; background: transparent;"></div>
-                            </div>
-                        </div>
-                    </div>`;
-                }
-                
-                const numValue = value;
-                const displayValue = Math.round(value);
-                
-                // Cor baseada no score
-                let scoreColor = color;
-                if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
-                else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
-                else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
-                else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
-                
-                return `<div class="data-row metric-with-progress">
-                    <span class="label">${emoji} ${label}:</span>
-                    <div class="metric-value-progress">
-                        <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}</span>
-                        <div class="progress-bar-mini">
-                            <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${scoreColor};"></div>
-                        </div>
-                    </div>
-                </div>`;
-            };
-            
             // 🎯 Score final REMOVIDO daqui - será renderizado no topo
             // ❌ NÃO INCLUIR O SCORE FINAL AQUI - ele tem seu próprio container no topo
             
             // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
-            // 🎯 USANDO renderScoreWithProgress que já tem suporte a tooltips via getTooltip()
+            // 🎯 USANDO renderScoreWithProgress que já tem suporte a tooltips + CORES DINÂMICAS
             const subScoresHtml = `
                 ${renderScoreWithProgress('Loudness', normalizedScores.loudness, '#ff3366', 'loudness')}
                 ${renderScoreWithProgress('Frequência', normalizedScores.frequencia, '#00ffff', 'frequency')}

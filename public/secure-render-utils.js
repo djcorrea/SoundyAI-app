@@ -228,17 +228,31 @@
         const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
         const sourceAttr = keyForSource ? ` data-src="${keyForSource}"` : '';
         
-        // 🎯 NOVO SISTEMA: Renderizar ícone "i" APENAS se tooltip fornecido
-        // Se tooltip = null, NÃO renderizar ícone (comportamento 100% específico)
-        const labelHtml = tooltip 
-            ? `<div class="metric-label-container">
-                 <span style="flex: 1;">${label}</span>
-                 <span class="metric-info-icon" 
-                       data-tooltip-title="${tooltip.title?.replace(/"/g, '&quot;') || label}"
-                       data-tooltip-body="${tooltip.body?.replace(/"/g, '&quot;') || tooltip.replace(/"/g, '&quot;')}"
-                       ${tooltip.variant && tooltip.variant !== 'default' ? `data-tooltip-variant="${tooltip.variant}"` : ''}>ℹ️</span>
-               </div>`
-            : `<span style="flex: 1;">${label}</span>`; // SEM ícone "i" se tooltip = null
+        // 🎯 SEMPRE renderizar ícone "i" - com tooltip real ou fallback TODO
+        let tooltipTitle, tooltipBody, tooltipVariant;
+        
+        if (tooltip && typeof tooltip === 'object' && tooltip.body) {
+            tooltipTitle = (tooltip.title || label).replace(/"/g, '&quot;');
+            tooltipBody = tooltip.body.replace(/"/g, '&quot;');
+            tooltipVariant = tooltip.variant || 'default';
+        } else if (typeof tooltip === 'string') {
+            tooltipTitle = label;
+            tooltipBody = tooltip.replace(/"/g, '&quot;');
+            tooltipVariant = 'default';
+        } else {
+            // Fallback: tooltip TODO para métricas sem entrada
+            tooltipTitle = label;
+            tooltipBody = 'TODO: preencher tooltip desta métrica';
+            tooltipVariant = 'default';
+        }
+        
+        const labelHtml = `<div class="metric-label-container">
+             <span style="flex: 1;">${label}</span>
+             <span class="metric-info-icon" 
+                   data-tooltip-title="${tooltipTitle}"
+                   data-tooltip-body="${tooltipBody}"
+                   ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}>ℹ️</span>
+           </div>`;
         
         return `
             <div class="data-row"${sourceAttr}${metricKeyAttr}>
