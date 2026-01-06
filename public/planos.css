@@ -809,6 +809,7 @@ body.planos-page {
    =================================== */
 @media (prefers-reduced-motion: reduce) {
     .pricing-card.pro-highlight::after,
+    .pricing-card.studio-highlight::after,
     .btn-premium::before {
         animation: none;
     }
@@ -819,5 +820,130 @@ body.planos-page {
     
     .orb {
         animation: none;
+    }
+}
+
+/* ===================================
+   CARD STUDIO (DESTAQUE PREMIUM - NOVO 2026-01-06)
+   Dourado/Âmbar com glow especial
+   =================================== */
+.pricing-card.studio-highlight {
+    border-color: rgba(251, 191, 36, 0.35);
+    background: linear-gradient(180deg, 
+        rgba(17, 12, 8, 0.85), 
+        rgba(25, 18, 10, 0.75)
+    );
+    box-shadow: 
+        0 24px 80px rgba(251, 191, 36, 0.15),
+        0 18px 60px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    position: relative;
+    overflow: hidden;
+}
+
+.pricing-card.studio-highlight::before {
+    opacity: 0.8;
+    background: linear-gradient(135deg, 
+        rgba(251, 191, 36, 0.65), 
+        rgba(245, 158, 11, 0.55),
+        rgba(217, 119, 6, 0.45)
+    );
+}
+
+/* Shimmer effect dourado para STUDIO */
+.pricing-card.studio-highlight::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(251, 191, 36, 0.15),
+        transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.pricing-card.studio-highlight:hover {
+    border-color: rgba(251, 191, 36, 0.55);
+    box-shadow: 
+        0 28px 90px rgba(251, 191, 36, 0.25),
+        0 20px 70px rgba(0, 0, 0, 0.7),
+        0 0 60px rgba(251, 191, 36, 0.30),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.pricing-card.studio-highlight:hover::before {
+    opacity: 1;
+}
+
+/* Glow dourado utilitário */
+.glow-gold {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.25);
+}
+
+/* Badge STUDIO */
+.badge-studio {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706);
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+}
+
+/* Ícone STUDIO */
+.card-icon.studio-icon {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+}
+
+/* Botão STUDIO especial */
+.btn-studio-special {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b, #d97706) !important;
+    color: #1a1a1a !important;
+    font-weight: 700;
+    border: none;
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+}
+
+.btn-studio-special:hover {
+    background: linear-gradient(135deg, #fcd34d, #fbbf24, #f59e0b) !important;
+    box-shadow: 0 6px 30px rgba(251, 191, 36, 0.5);
+    transform: translateY(-2px);
+}
+
+/* Feature destacada no STUDIO */
+.feature-text.highlight-feature {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
+/* ===================================
+   GRID 4 COLUNAS PARA INCLUIR STUDIO
+   =================================== */
+@media (min-width: 1200px) {
+    .pricing-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--spacing-md);
+    }
+    
+    .pricing-card {
+        min-height: 560px;
+    }
+}
+
+/* Ajuste para tablets - 2x2 */
+@media (min-width: 769px) and (max-width: 1199px) {
+    .pricing-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
     }
 }

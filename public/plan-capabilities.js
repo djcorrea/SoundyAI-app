@@ -36,7 +36,18 @@
             correctionPlan: true,       // ✅ Tem Plano de Correção sempre
             askAI: true                 // ✅ Tem "Pedir Ajuda à IA" sempre
         },
-        // 🎧 DJ BETA: Cópia exata do PRO (acesso temporário 15 dias)
+        // � STUDIO: Tudo do PRO + extras premium (NOVO 2026-01-06)
+        studio: {
+            aiHelp: true,               // ✅ Tem "Pedir Ajuda à IA" sempre
+            pdf: true,                  // ✅ Tem relatório PDF sempre
+            fullSuggestions: true,      // ✅ Tem sugestões sempre
+            reference: true,            // ✅ Tem Modo Referência sempre
+            correctionPlan: true,       // ✅ Tem Plano de Correção sempre
+            askAI: true,                // ✅ Tem "Pedir Ajuda à IA" sempre
+            priorityProcessing: true,   // ✅ NOVO: Prioridade de processamento
+            studioBadge: true           // ✅ NOVO: Badge STUDIO exclusivo
+        },
+        // �🎧 DJ BETA: Cópia exata do PRO (acesso temporário 15 dias)
         dj: {
             aiHelp: true,               // ✅ Tem "Pedir Ajuda à IA" sempre
             pdf: true,                  // ✅ Tem relatório PDF sempre
@@ -63,21 +74,24 @@
      * 4. Fallback: 'free' (APENAS se nenhuma fonte disponível)
      */
     function detectUserPlan() {
+        // ✅ Lista de planos válidos (ATUALIZADO 2026-01-06: inclui 'studio')
+        const VALID_PLANS = ['free', 'plus', 'pro', 'studio', 'dj'];
+        
         // 1. Análise atual (mais recente - vem do backend)
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
-        if (analysis?.plan && ['free', 'plus', 'pro', 'dj'].includes(analysis.plan)) {
+        if (analysis?.plan && VALID_PLANS.includes(analysis.plan)) {
             console.log(`[CAPABILITIES] 🔍 Plano detectado via análise: ${analysis.plan}`);
             return analysis.plan;
         }
         
         // 2. Cache local (atualizado via fetchUserPlan do Firestore)
-        if (_cachedUserPlan && ['free', 'plus', 'pro', 'dj'].includes(_cachedUserPlan)) {
+        if (_cachedUserPlan && VALID_PLANS.includes(_cachedUserPlan)) {
             console.log(`[CAPABILITIES] 🔍 Plano detectado via cache: ${_cachedUserPlan}`);
             return _cachedUserPlan;
         }
         
         // 3. window.userPlan (pode ser setado por outros módulos)
-        if (window.userPlan && ['free', 'plus', 'pro', 'dj'].includes(window.userPlan)) {
+        if (window.userPlan && VALID_PLANS.includes(window.userPlan)) {
             console.log(`[CAPABILITIES] 🔍 Plano detectado via window.userPlan: ${window.userPlan}`);
             return window.userPlan;
         }

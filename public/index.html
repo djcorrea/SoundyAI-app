@@ -13,10 +13,59 @@
             // 🎯 FLAG DE PRÉ-LANÇAMENTO
             // ========================================
             // Mude para FALSE no dia do lançamento
-            var PRE_LAUNCH = false;
+            var PRE_LAUNCH = true;
             
             // Data oficial do lançamento
             var LAUNCH_DATE = '2026-01-22T00:00:00';
+            
+            // ========================================
+            // 🔐 BYPASS DE ADMIN (DESENVOLVIMENTO)
+            // ========================================
+            // Chave secreta para bypass do pré-lançamento
+            // ⚠️ REMOVER ESTE BLOCO INTEIRO NO DIA DO LANÇAMENTO
+            var ADMIN_BYPASS_KEY = 'soundyai-dev-2026';
+            var ADMIN_STORAGE_KEY = 'soundy_admin_bypass';
+            
+            // Verifica parâmetro na URL
+            var urlParams = new URLSearchParams(window.location.search);
+            var adminParam = urlParams.get('admin');
+            
+            // Se o parâmetro correto foi passado, salva o bypass
+            if (adminParam === ADMIN_BYPASS_KEY) {
+                try {
+                    localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
+                    // Remove o parâmetro da URL (fica limpa)
+                    urlParams.delete('admin');
+                    var newUrl = window.location.pathname;
+                    if (urlParams.toString()) {
+                        newUrl += '?' + urlParams.toString();
+                    }
+                    newUrl += window.location.hash;
+                    window.history.replaceState({}, '', newUrl);
+                } catch (e) {
+                    console.warn('[PRE-LAUNCH] Não foi possível salvar bypass no localStorage');
+                }
+            }
+            
+            // Verifica se o admin já está autenticado
+            var isAdminBypass = false;
+            try {
+                isAdminBypass = localStorage.getItem(ADMIN_STORAGE_KEY) === 'true';
+            } catch (e) {
+                // localStorage indisponível
+            }
+            
+            // Se admin, pula todo o resto do gate
+            if (isAdminBypass) {
+                window.SOUNDY_PRE_LAUNCH = false; // Admin vê como se não fosse pré-lançamento
+                window.SOUNDY_LAUNCH_DATE = LAUNCH_DATE;
+                window.SOUNDY_ADMIN_MODE = true;
+                console.log('%c[ADMIN] Bypass ativo - modo desenvolvimento', 'color: #8b5cf6; font-weight: bold;');
+                return; // Sai do IIFE, não redireciona
+            }
+            // ========================================
+            // 🔐 FIM BYPASS DE ADMIN
+            // ========================================
             
             // Páginas que NÃO devem ser redirecionadas (evita loop)
             var SAFE_PAGES = [

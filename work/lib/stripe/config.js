@@ -13,10 +13,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 // Se existirem env vars, usar; caso contrário, usar hardcoded como fallback
 const PRICE_ID_PLUS = process.env.STRIPE_PRICE_ID_PLUS || 'price_1SlHm6COXidjqeFinckOK8J9';
 const PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO || 'price_1SlIKMCOXidjqeFiTiPExXEb';
+// ✅ NOVO 2026-01-06: Price ID do plano STUDIO
+// ⚠️ ATENÇÃO: Inserir aqui o priceId real após criar o produto no Stripe Dashboard
+const PRICE_ID_STUDIO = process.env.STRIPE_PRICE_ID_STUDIO || 'INSERIR_PRICE_ID_STUDIO_AQUI';
 
 console.log('✅ [STRIPE CONFIG] SDK inicializado');
 console.log(`💳 [STRIPE CONFIG] Price ID Plus: ${PRICE_ID_PLUS.substring(0, 20)}...`);
 console.log(`💳 [STRIPE CONFIG] Price ID Pro: ${PRICE_ID_PRO.substring(0, 20)}...`);
+console.log(`💳 [STRIPE CONFIG] Price ID Studio: ${PRICE_ID_STUDIO.substring(0, 20)}...`);
 
 // ✅ Mapeamento de planos → Price IDs
 export const STRIPE_PLANS = {
@@ -26,7 +30,7 @@ export const STRIPE_PLANS = {
     displayName: 'SoundyAI Plus',
     features: [
       '80 mensagens mensais',
-      '25 análises completas',
+      '20 análises completas',      // ✅ ATUALIZADO 2026-01-06: 25 → 20
       'Modo reduced ilimitado',
     ],
   },
@@ -35,10 +39,23 @@ export const STRIPE_PLANS = {
     durationDays: 30,
     displayName: 'SoundyAI Pro',
     features: [
-      '300 mensagens mensais',
-      '500 análises completas',
+      'Chat ilimitado',
+      '60 análises completas',      // ✅ ATUALIZADO 2026-01-06: ilimitado → 60
       '70 mensagens com imagens',
       'Suporte prioritário',
+    ],
+  },
+  // ✅ NOVO 2026-01-06: Plano STUDIO
+  studio: {
+    priceId: PRICE_ID_STUDIO,
+    durationDays: 30,
+    displayName: 'SoundyAI Studio',
+    features: [
+      'Análises ilimitadas (uso justo)',   // Hard cap: 400/mês
+      'Chat ilimitado (uso justo)',         // Hard cap: 400/mês
+      'Prioridade de processamento',
+      'Badge STUDIO exclusivo',
+      'Tudo do PRO incluso',
     ],
   },
 };
@@ -47,22 +64,24 @@ export const STRIPE_PLANS = {
 export const STRIPE_PRICE_IDS = {
   plus: PRICE_ID_PLUS,
   pro: PRICE_ID_PRO,
+  studio: PRICE_ID_STUDIO,          // ✅ NOVO
 };
 
 /**
  * Obter plano a partir do Price ID
  * @param {string} priceId - Price ID do Stripe
- * @returns {string|null} Nome do plano (plus/pro) ou null
+ * @returns {string|null} Nome do plano (plus/pro/studio) ou null
  */
 export function getPlanFromPriceId(priceId) {
   if (priceId === PRICE_ID_PLUS) return 'plus';
   if (priceId === PRICE_ID_PRO) return 'pro';
+  if (priceId === PRICE_ID_STUDIO) return 'studio';   // ✅ NOVO
   return null;
 }
 
 /**
  * Obter configuração de um plano
- * @param {string} plan - "plus" ou "pro"
+ * @param {string} plan - "plus", "pro" ou "studio"
  * @returns {Object} Configuração do plano
  * @throws {Error} Se plano inválido ou Price ID não configurado
  */
@@ -71,6 +90,12 @@ export function getPlanConfig(plan) {
   
   if (!config) {
     throw new Error(`Plano inválido: ${plan}`);
+  }
+  
+  // ⚠️ Validação especial para STUDIO: alertar se priceId não foi configurado
+  if (plan === 'studio' && config.priceId === 'INSERIR_PRICE_ID_STUDIO_AQUI') {
+    console.warn('⚠️ [STRIPE CONFIG] Price ID do STUDIO ainda não configurado!');
+    console.warn('   Configure a env var STRIPE_PRICE_ID_STUDIO ou atualize o valor hardcoded.');
   }
   
   if (!config.priceId) {
@@ -86,7 +111,7 @@ export function getPlanConfig(plan) {
  * @returns {boolean}
  */
 export function isValidPlan(plan) {
-  return plan === 'plus' || plan === 'pro';
+  return plan === 'plus' || plan === 'pro' || plan === 'studio';   // ✅ ATUALIZADO
 }
 
 export default stripe;
