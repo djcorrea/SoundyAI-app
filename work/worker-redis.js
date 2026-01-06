@@ -835,6 +835,13 @@ async function processReferenceBase(job) {
     finalJSON.referenceJobId = jobId; // Este job é a base para próxima comparação
     finalJSON.jobId = jobId; // ✅ jobId explícito para referência
     
+    // 🛡️ CORREÇÃO CRÍTICA: Garantir analysisMode/isReduced para evitar race condition no frontend
+    // Análise de referência é sempre "full" - não tem conceito de reduced mode
+    finalJSON.analysisMode = finalJSON.analysisMode || 'full';
+    finalJSON.isReduced = finalJSON.isReduced ?? false;
+    
+    console.log('[REFERENCE-BASE] 📊 analysisMode:', finalJSON.analysisMode, '| isReduced:', finalJSON.isReduced);
+    
     // ✅ GARANTIR campos obrigatórios para compatibilidade com polling/render
     finalJSON.aiSuggestions = [];
     finalJSON.suggestions = [];
@@ -1091,6 +1098,13 @@ async function processReferenceCompare(job) {
     finalJSON.referenceJobId = referenceJobId;
     finalJSON.jobId = jobId; // ✅ jobId explícito
     finalJSON.requiresSecondTrack = false; // Fluxo completo
+    
+    // 🛡️ CORREÇÃO CRÍTICA: Garantir analysisMode/isReduced para evitar race condition no frontend
+    // Análise de referência é sempre "full" - não tem conceito de reduced mode
+    finalJSON.analysisMode = finalJSON.analysisMode || 'full';
+    finalJSON.isReduced = finalJSON.isReduced ?? false;
+    
+    console.log('[REFERENCE-COMPARE] 📊 analysisMode:', finalJSON.analysisMode, '| isReduced:', finalJSON.isReduced);
     
     // ✅ ADICIONAR baseMetrics explicitamente (facilita frontend)
     finalJSON.baseMetrics = {
