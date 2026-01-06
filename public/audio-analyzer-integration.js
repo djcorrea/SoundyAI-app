@@ -17130,9 +17130,24 @@ async function displayModalResults(analysis) {
             }
         };
         
-        // 🔒 FUNÇÃO DE LOOKUP SEGURA (retorna null se não encontrar, NÃO usa fallback)
+        // � LOG DE DIAGNÓSTICO: Confirmar que TOOLTIP_REGISTRY foi carregado
+        if (isDev) {
+            const registryKeys = Object.keys(TOOLTIP_REGISTRY);
+            console.log(`✅ [TOOLTIP-INIT] TOOLTIP_REGISTRY carregado com ${registryKeys.length} tooltips`);
+        }
+        
+        // �🔒 FUNÇÃO DE LOOKUP SEGURA (retorna null se não encontrar, NÃO usa fallback)
+        // 🛡️ PROTEÇÃO: Verifica se TOOLTIP_REGISTRY existe antes de acessar
         const getTooltip = (metricKey) => {
             if (!metricKey) return null;
+            
+            // 🛡️ SAFETY: Se TOOLTIP_REGISTRY não existir, retornar null sem quebrar
+            if (typeof TOOLTIP_REGISTRY === 'undefined') {
+                if (isDev) {
+                    console.error('[TOOLTIP-ERROR] TOOLTIP_REGISTRY não está definido! Sistema de tooltips não foi inicializado.');
+                }
+                return null;
+            }
             
             const tooltip = TOOLTIP_REGISTRY[metricKey];
             
@@ -17160,15 +17175,8 @@ async function displayModalResults(analysis) {
                     // Extrair unidade (o que vem depois do número)
                     const unit = valHtml.replace(match[0], '').trim();
                     
-                    // Buscar tooltip se existir
-                    const labelLowerCase = label.toLowerCase();
-                    let tooltip = null;
-                    for (const [key, value] of Object.entries(metricsTooltips)) {
-                        if (key.toLowerCase() === labelLowerCase) {
-                            tooltip = value;
-                            break;
-                        }
-                    }
+                    // 🎯 Buscar tooltip usando novo sistema (getTooltip + TOOLTIP_REGISTRY)
+                    const tooltipData = metricKey ? getTooltip(metricKey) : null;
                     
                     // Usar renderização segura
                     return window.SecureRenderUtils.renderSecureRow(
@@ -17178,7 +17186,7 @@ async function displayModalResults(analysis) {
                         metricKey,
                         section,
                         analysis,
-                        { keyForSource, tooltip }
+                        { keyForSource, tooltip: tooltipData }
                     );
                 }
             }
