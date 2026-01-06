@@ -228,30 +228,30 @@
         const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
         const sourceAttr = keyForSource ? ` data-src="${keyForSource}"` : '';
         
-        // 🎯 SEMPRE renderizar ícone "i" - com tooltip real ou fallback TODO
-        let tooltipTitle, tooltipBody, tooltipVariant;
+        // 🎯 Se não houver tooltip válido, ESCONDER o ícone (não usar fallback TODO visível)
+        let tooltipIconHtml = '';
         
         if (tooltip && typeof tooltip === 'object' && tooltip.body) {
-            tooltipTitle = (tooltip.title || label).replace(/"/g, '&quot;');
-            tooltipBody = tooltip.body.replace(/"/g, '&quot;');
-            tooltipVariant = tooltip.variant || 'default';
-        } else if (typeof tooltip === 'string') {
-            tooltipTitle = label;
-            tooltipBody = tooltip.replace(/"/g, '&quot;');
-            tooltipVariant = 'default';
-        } else {
-            // Fallback: tooltip TODO para métricas sem entrada
-            tooltipTitle = label;
-            tooltipBody = 'TODO: preencher tooltip desta métrica';
-            tooltipVariant = 'default';
-        }
-        
-        const labelHtml = `<div class="metric-label-container">
-             <span style="flex: 1;">${label}</span>
-             <span class="metric-info-icon" 
+            const tooltipTitle = (tooltip.title || label).replace(/"/g, '&quot;');
+            const tooltipBody = tooltip.body.replace(/"/g, '&quot;');
+            const tooltipVariant = tooltip.variant || 'default';
+            tooltipIconHtml = `<span class="metric-info-icon" 
                    data-tooltip-title="${tooltipTitle}"
                    data-tooltip-body="${tooltipBody}"
-                   ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}>ℹ️</span>
+                   ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}
+                   style="margin-left: 4px; cursor: pointer;">ℹ️</span>`;
+        } else if (typeof tooltip === 'string' && tooltip.trim()) {
+            const tooltipTitle = label;
+            const tooltipBody = tooltip.replace(/"/g, '&quot;');
+            tooltipIconHtml = `<span class="metric-info-icon" 
+                   data-tooltip-title="${tooltipTitle}"
+                   data-tooltip-body="${tooltipBody}"
+                   style="margin-left: 4px; cursor: pointer;">ℹ️</span>`;
+        }
+        // Se não houver tooltip válido, tooltipIconHtml fica vazio = ícone não aparece
+        
+        const labelHtml = `<div class="metric-label-container" style="display: inline-flex; align-items: center; gap: 2px;">
+             <span>${label}</span>${tooltipIconHtml}
            </div>`;
         
         return `

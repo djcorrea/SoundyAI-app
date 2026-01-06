@@ -17225,28 +17225,29 @@ async function displayModalResults(analysis) {
             const cleanLabel = enhancedLabel.trim();
             const capitalizedLabel = cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1);
             
-            // 🎯 BUSCAR TOOLTIP NO REGISTRY - SEMPRE com fallback TODO
+            // 🎯 BUSCAR TOOLTIP NO REGISTRY
             const tooltipData = metricKey ? getTooltip(metricKey) : null;
             
-            // 🎯 SEMPRE renderizar ícone "i" - mesmo sem tooltip (usa fallback TODO)
-            let tooltipTitle, tooltipBody, tooltipVariant;
-            if (tooltipData) {
-                tooltipTitle = tooltipData.title.replace(/"/g, '&quot;');
-                tooltipBody = tooltipData.body.replace(/"/g, '&quot;');
-                tooltipVariant = tooltipData.variant || 'default';
-            } else {
-                // Fallback: tooltip TODO para métricas sem entrada no registry
-                tooltipTitle = capitalizedLabel;
-                tooltipBody = 'TODO: preencher tooltip desta métrica';
-                tooltipVariant = 'default';
-            }
-            
-            const labelHtml = `<div class="metric-label-container">
-                 <span style="flex: 1;">${capitalizedLabel}</span>
-                 <span class="metric-info-icon" 
+            // 🎯 Se não houver tooltip válido, ESCONDER o ícone (não usar fallback TODO visível)
+            let tooltipIconHtml = '';
+            if (tooltipData && tooltipData.body) {
+                const tooltipTitle = tooltipData.title.replace(/"/g, '&quot;');
+                const tooltipBody = tooltipData.body.replace(/"/g, '&quot;');
+                const tooltipVariant = tooltipData.variant || 'default';
+                tooltipIconHtml = `<span class="metric-info-icon" 
                        data-tooltip-title="${tooltipTitle}"
                        data-tooltip-body="${tooltipBody}"
-                       ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}>ℹ️</span>
+                       ${tooltipVariant !== 'default' ? `data-tooltip-variant="${tooltipVariant}"` : ''}
+                       style="margin-left: 4px; cursor: pointer;">ℹ️</span>`;
+                
+                // Log em DEV para métricas COM tooltip
+                if (isDev && !tooltipData) {
+                    console.warn(`[TOOLTIP-MISSING] metricKey="${metricKey}" label="${capitalizedLabel}"`);
+                }
+            }
+            
+            const labelHtml = `<div class="metric-label-container" style="display: inline-flex; align-items: center; gap: 2px;">
+                 <span>${capitalizedLabel}</span>${tooltipIconHtml}
                </div>`;
             
             // 🎯 Adicionar data-metric-key para rastreamento + data-original-label para auditoria
@@ -19253,10 +19254,11 @@ async function displayModalResults(analysis) {
             }
             
             // 🎯 TOOLTIP: Buscar no TOOLTIP_REGISTRY usando tooltipKey
-            let tooltipAttrs = '';
             const tooltipData = tooltipKey ? getTooltip(tooltipKey) : null;
             
-            if (tooltipData) {
+            // 🎯 Se não houver tooltip válido, ESCONDER o ícone (não usar fallback TODO visível)
+            let tooltipIconHtml = '';
+            if (tooltipData && tooltipData.body) {
                 // Lógica especial para Loudness: verificar se True Peak está crítico
                 let finalTooltipBody = tooltipData.body;
                 let finalTooltipVariant = tooltipData.variant || 'default';
@@ -19266,21 +19268,19 @@ async function displayModalResults(analysis) {
                     finalTooltipBody = tooltipData.body + ' ⚠️ ATENÇÃO: True Peak crítico detectado (> 0 dBTP ou gates ativos). Isso limita o score mesmo com LUFS correto.';
                 }
                 
-                tooltipAttrs = `data-tooltip-title="${tooltipData.title}" data-tooltip-body="${finalTooltipBody}" data-tooltip-variant="${finalTooltipVariant}"`;
-            } else {
-                // Fallback: tooltip TODO para métricas sem entrada no registry
-                const fallbackTitle = label;
-                const fallbackBody = 'TODO: preencher tooltip desta métrica';
-                tooltipAttrs = `data-tooltip-title="${fallbackTitle}" data-tooltip-body="${fallbackBody}" data-tooltip-variant="default"`;
+                tooltipIconHtml = `<span class="metric-info-icon" 
+                    data-tooltip-title="${tooltipData.title}" 
+                    data-tooltip-body="${finalTooltipBody}" 
+                    data-tooltip-variant="${finalTooltipVariant}"
+                    style="margin-left: 4px; cursor: pointer;">ℹ️</span>`;
             }
             
             // 🎯 VALOR NÃO DISPONÍVEL
             if (value == null || !Number.isFinite(numValue)) {
                 return `<div class="data-row metric-with-progress">
                     <span class="label">
-                        <div class="metric-label-container">
-                            <span style="flex: 1;">${label}:</span>
-                            <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                        <div class="metric-label-container" style="display: inline-flex; align-items: center; gap: 2px;">
+                            <span>${label}:</span>${tooltipIconHtml}
                         </div>
                     </span>
                     <div class="metric-value-progress">
@@ -19292,18 +19292,17 @@ async function displayModalResults(analysis) {
                 </div>`;
             }
             
-            // 🎯 VALOR DISPONÍVEL: Renderizar com cor dinâmica + tooltip + barra
+            // 🎯 VALOR DISPONÍVEL: Renderizar com cor dinâmica + tooltip + barra (SEM /100)
             const displayValue = Math.round(numValue);
             
             return `<div class="data-row metric-with-progress">
                 <span class="label">
-                    <div class="metric-label-container">
-                        <span style="flex: 1;">${label}${cappedIndicator}:</span>
-                        <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                    <div class="metric-label-container" style="display: inline-flex; align-items: center; gap: 2px;">
+                        <span>${label}${cappedIndicator}:</span>${tooltipIconHtml}
                     </div>
                 </span>
                 <div class="metric-value-progress">
-                    <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}/100</span>
+                    <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}</span>
                     <div class="progress-bar-mini">
                         <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${scoreColor};"></div>
                     </div>
