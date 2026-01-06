@@ -29760,24 +29760,21 @@ function normalizeAnalysisData(analysis) {
 
 // 🏆 Classificação baseada em score
 function getClassificationFromScore(score) {
-    // 🎯 CLASSIFICAÇÃO TÉCNICA E HONESTA
-    // Baseada nos requisitos da auditoria:
-    // - >= 85: Excelente, padrão competitivo internacional
-    // - 70-84: Bom nível, pequenos ajustes elevam para padrão profissional
-    // - 50-69: Médio, precisa de ajustes técnicos importantes
-    // - < 50: Abaixo do padrão comercial, ajustes estruturais necessários
-    
-    if (score >= 85) {
-        return '🏆 Excelente - Padrão Competitivo Internacional';
+    // 🎯 USAR EXATAMENTE OS MESMOS TEXTOS DO MODAL DA PÁGINA PRINCIPAL
+    // (renderFinalScoreAtTop - linha 19055)
+    if (score >= 90) {
+        return '✨ Excelente! Pronto para lançamento';
     }
-    if (score >= 70) {
-        return '⭐ Bom Nível - Pequenos Ajustes Para Padrão Profissional';
+    if (score >= 75) {
+        return '✅ Ótimo! Qualidade profissional';
     }
-    if (score >= 50) {
-        return '⚠️ Nível Médio - Ajustes Técnicos Importantes Necessários';
+    if (score >= 60) {
+        return '⚠️ Bom, mas pode melhorar';
     }
-    // Score < 50
-    return '🔧 Abaixo do Padrão Comercial - Ajustes Estruturais Necessários';
+    if (score >= 40) {
+        return '🔧 Precisa de ajustes';
+    }
+    return '🚨 Necessita correções importantes';
 }
 
 // 🎨 Gerar HTML profissional do relatório para PDF
