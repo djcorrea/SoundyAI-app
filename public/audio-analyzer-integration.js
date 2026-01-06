@@ -16885,62 +16885,263 @@ async function displayModalResults(analysis) {
         // 🎯 Removido title="" para evitar tooltip nativo do browser conflitando com TooltipManager
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}"` : '';
         
-        // 🎯 TOOLTIP REGISTRY - Fonte da Verdade para TODAS as métricas
-        // Fallback universal garante que TODA métrica tenha tooltip
-        const TOOLTIP_FALLBACK = 'Indicador técnico do áudio. Valores fora do alvo podem afetar a qualidade final.';
+        // 🔥 DETECÇÃO DE AMBIENTE DEV/PROD
+        const isDev = typeof window !== 'undefined' && (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname.includes('dev') ||
+            window.location.port === '3000'
+        );
         
-        const metricsTooltips = {
-            // Métricas Principais
-            'volume médio (rms)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
-            'loudness (lufs)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
-            'pico máximo (dbfs)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
-            'pico real (dbtp)': 'Pico real detectado após conversão digital. Deve ficar abaixo de –1 dBTP pra evitar clipagem.',
-            'dinâmica (dr)': 'Diferença entre os sons mais baixos e mais altos. Mais DR = mais respiro e punch.',
-            'consistência de volume (lu)': 'Mede o quanto o volume se mantém constante. 0 LU é estabilidade perfeita.',
-            'imagem estéreo': 'Representa a largura e equilíbrio do estéreo. 1 = mono, 0.9 = estéreo amplo.',
-            'abertura estéreo (%)': 'O quanto a faixa "abre" nos lados. Sons amplos soam mais envolventes.',
-            'lufs integrado': 'Média de volume integrada no tempo. Padrão usado por plataformas de streaming.',
-            'true peak': 'Pico real que ocorre entre amostras digitais. Evita clipping em conversões.',
-            'lra': 'Loudness Range - variação de volume ao longo da faixa. Mais LRA = mais dinâmica.',
-            'dr': 'Dynamic Range - diferença entre partes altas e baixas. Maior = mais impacto e punch.',
-            'headroom': 'Espaço restante até o limite de clipping. Valores baixos indicam risco de distorção.',
-            'correlação estéreo': 'Mede a relação entre canais L/R. 1 = mono, 0 = estéreo amplo, -1 = fase invertida.',
-            'largura estéreo': 'Amplitude do campo estéreo. Valores altos = som mais amplo e envolvente.',
-            'balanço l/r': 'Equilíbrio de energia entre os canais esquerdo e direito.',
+        // 🎯 TOOLTIP REGISTRY COMPLETO - 100% ESPECÍFICO (SEM FALLBACKS GENÉRICOS)
+        // Estrutura: 'metricKey': { title, body, variant }
+        // REGRA: Se não houver entry aqui, NÃO mostrar ícone "i" (prod) ou LOGAR WARNING (dev)
+        const TOOLTIP_REGISTRY = {
+            // === CARD 1: MÉTRICAS PRINCIPAIS ===
+            'rmsPeak300msDbfs': {
+                title: 'Pico RMS (300ms)',
+                body: 'Mede o volume máximo em janelas de 300ms. Representa o "pico percebido" - o momento mais alto da faixa sem considerar clipping instantâneo. Usado para avaliar headroom dinâmico.',
+                variant: 'default'
+            },
+            'samplePeak': {
+                title: 'Sample Peak (dBFS)',
+                body: 'Maior amplitude instantânea registrada entre os canais L/R. Deve ficar abaixo de 0 dBFS para evitar clipping digital. Valores acima de -0.1 dBFS são considerados críticos.',
+                variant: 'default'
+            },
+            'truePeakDbtp': {
+                title: 'Pico Real (dBTP)',
+                body: 'Pico real que ocorre ENTRE as amostras digitais, detectado via oversampling 4x. Crucial para evitar clipping em conversões D/A. Ideal: ≤ -1.0 dBTP. Crítico se > 0 dBTP.',
+                variant: 'warning'
+            },
+            'avgLoudness': {
+                title: 'Volume Médio (RMS)',
+                body: 'Nível RMS médio ao longo da faixa. Representa o volume "sustentado" - quanto de energia contínua o áudio tem. Diferente de picos, indica a "força geral" do mix.',
+                variant: 'default'
+            },
+            'lufsIntegrated': {
+                title: 'Loudness (LUFS Integrado)',
+                body: 'Loudness integrada no tempo pelo padrão ITU-R BS.1770-4. Usado por Spotify, Apple Music e YouTube. Meta: -14 LUFS (streaming) ou -16 LUFS (broadcast).',
+                variant: 'primary'
+            },
+            'lufsShortTerm': {
+                title: 'LUFS Curto Prazo (Short-Term)',
+                body: 'Loudness em janelas de 3 segundos. Mostra variações rápidas de volume, útil para detectar partes muito altas/baixas. Complementa o LUFS integrado.',
+                variant: 'secondary'
+            },
+            'dynamicRange': {
+                title: 'Dinâmica (DR)',
+                body: 'Dynamic Range - diferença entre as partes mais altas e mais baixas da faixa. Valores altos (>10 dB) = mix com "respiro" e punch. Valores baixos (<6 dB) = loudness war / brick-wall limiting.',
+                variant: 'primary'
+            },
+            'lra': {
+                title: 'Consistência de Volume (LRA)',
+                body: 'Loudness Range - mede a variação de volume ao longo do tempo. 0 LU = volume perfeitamente estável (suspeito). 5-15 LU = dinâmica natural. >20 LU = variações extremas.',
+                variant: 'primary'
+            },
+            'stereoCorrelation': {
+                title: 'Imagem Estéreo',
+                body: 'Correlação entre canais L/R. +1 = mono perfeito, 0 = estéreo amplo, -1 = fase invertida (problema grave). Ideal: 0.5 a 0.9. Valores negativos causam cancelamento em mono.',
+                variant: 'primary'
+            },
+            'stereoWidth': {
+                title: 'Abertura Estéreo (%)',
+                body: 'Percentual de abertura do campo estéreo. 0% = mono, 100% = estéreo máximo. Valores altos (>80%) criam sensação de amplitude e espacialidade. Cuidado com phase issues.',
+                variant: 'primary'
+            },
             
-            // Análise de Frequências
-            'subgrave (20–60 hz)': 'Região das batidas mais profundas, sentida mais do que ouvida.',
-            'graves (60–150 hz)': 'Corpo do kick e do baixo. Cuidado pra não embolar.',
-            'médios-graves (150–500 hz)': 'Base harmônica. Excesso aqui soa abafado.',
-            'médios (500 hz–2 khz)': 'Clareza e presença de vocais e instrumentos.',
-            'médios-agudos (2–5 khz)': 'Ataque e definição. Muito = som agressivo.',
-            'presença (5–10 khz)': 'Brilho, clareza e detalhe.',
-            'ar (10–20 khz)': 'Sensação de espaço e abertura.',
-            'frequência central (hz)': 'Mostra onde está o "centro tonal" da faixa.',
-            'sub': 'Subgraves ultra-profundos (20-60 Hz). Base física da batida.',
-            'low bass': 'Graves baixos fundamentais do kick e baixo.',
-            'upper bass': 'Graves superiores - corpo e calor do mix.',
-            'low mid': 'Médios-graves - presença e fundamento.',
-            'mid': 'Médios centrais - corpo de vocais e instrumentos.',
-            'high mid': 'Médios-altos - clareza e articulação.',
-            'brilho': 'Agudos - brilho e detalhe do mix.',
-            'presença': 'Alta presença - ar e abertura espacial.',
+            // === CARD 2: ANÁLISE DE FREQUÊNCIAS ===
+            'band_sub': {
+                title: 'Subgrave (20–60 Hz)',
+                body: 'Frequências ultra-graves, sentidas fisicamente mais que ouvidas. Região do sub-bass e kick fundamental. Excesso causa "lama" no mix, falta causa som "magro".',
+                variant: 'frequency'
+            },
+            'band_bass': {
+                title: 'Graves (60–150 Hz)',
+                body: 'Corpo principal do kick e baixo. Define a "fundação" do mix. Muito = som abafado, pouco = falta de corpo. Crítico para gêneros como hip-hop, EDM e rock.',
+                variant: 'frequency'
+            },
+            'band_lowMid': {
+                title: 'Médios-Graves (150–500 Hz)',
+                body: 'Base harmônica de instrumentos graves e vocais masculinos. Excesso causa "boxiness" (som encaixotado). Fundamental para clareza sem perder corpo.',
+                variant: 'frequency'
+            },
+            'band_mid': {
+                title: 'Médios (500 Hz–2 kHz)',
+                body: 'Região de máxima sensibilidade auditiva. Vocais, guitarras, snares vivem aqui. Muito = som nasal, pouco = falta de presença. A "alma" do mix.',
+                variant: 'frequency'
+            },
+            'band_highMid': {
+                title: 'Médios-Agudos (2–5 kHz)',
+                body: 'Ataque, clareza e definição de instrumentos. Região da "mordida" de guitarras e "corte" de vocais. Excesso = fadiga auditiva, falta = som apagado.',
+                variant: 'frequency'
+            },
+            'band_presence': {
+                title: 'Presença (5–10 kHz)',
+                body: 'Brilho, clareza e "ar" do mix. Pratos, harmonics de vocais, sibilância. Muito = som duro/agressivo, pouco = som abafado/distante. Define o "polish" final.',
+                variant: 'frequency'
+            },
+            'band_air': {
+                title: 'Ar (10–20 kHz)',
+                body: 'Frequências super-agudas, sensação de "espaço" e "abertura". Harmonics sutis e reverbs vivem aqui. Muito = sibilância, falta = som fechado. Define a "respiração" do mix.',
+                variant: 'frequency'
+            },
+            'spectralCentroidHz': {
+                title: 'Frequência Central (Hz)',
+                body: 'Centro de massa espectral - mostra onde está concentrada a maior parte da energia. Valores baixos (<2 kHz) = som escuro/grave, valores altos (>4 kHz) = som brilhante/agudo.',
+                variant: 'frequency'
+            },
             
-            // Métricas Avançadas
-            'fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
-            'centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
-            'rolloff espectral 85% (hz)': 'Frequência onde acumula 85% da energia espectral. Valores baixos (<8kHz) indicam mix escuro.',
-            'uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
-            'largura espectral (hz)': 'Dispersão das frequências ao redor do centro espectral. Valores altos indicam som rico/cheio.',
-            'kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
-            'assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.',
-            'centroid': 'Centro de massa espectral - indica o balanço tonal geral.',
-            'flatness': 'Planicidade espectral - mede ruído vs tonalidade.',
-            'rolloff': 'Frequência de corte - onde a energia espectral cai drasticamente.',
-            'crest factor': 'Relação pico/RMS - indica headroom e punch disponível.',
-            'dc offset': 'Deslocamento DC do sinal. Deve estar próximo de zero.',
-            'offset dc': 'Componente DC indesejada. Valores altos podem causar problemas.',
-            'zero crossings': 'Taxa de cruzamento por zero - relacionada ao conteúdo de alta frequência.'
+            // === CARD 3: MÉTRICAS AVANÇADAS ===
+            'samplePeakLeftDb': {
+                title: 'Sample Peak L (dBFS)',
+                body: 'Pico máximo do canal esquerdo. Valores próximos de 0 dBFS indicam risco de clipping. Compare com o canal R para detectar desbalanceamento.',
+                variant: 'advanced'
+            },
+            'samplePeakRightDb': {
+                title: 'Sample Peak R (dBFS)',
+                body: 'Pico máximo do canal direito. Deve estar balanceado com o canal L (diferença < 1 dB). Desbalanços grandes (>3 dB) indicam problemas de mixagem.',
+                variant: 'advanced'
+            },
+            'thd': {
+                title: 'THD (Total Harmonic Distortion)',
+                body: 'Distorção harmônica total - mede harmonics indesejados gerados pelo sistema. < 0.5% = limpo, 0.5-1% = leve warmth, > 1% = distorção audível. Pode ser intencional (tape saturation).',
+                variant: 'advanced'
+            },
+            'headroomDb': {
+                title: 'Headroom (dB)',
+                body: 'Espaço disponível até 0 dBFS. Indica margem de segurança para picos. < 1 dB = risco alto de clipping, 1-3 dB = aceitável, > 3 dB = conservador. Crucial para mastering.',
+                variant: 'advanced'
+            },
+            'crestFactor': {
+                title: 'Fator de Crista (Crest Factor)',
+                body: 'Diferença entre pico e RMS médio. Indica "punch" e headroom dinâmico. Valores baixos (< 6 dB) = muito comprimido (loudness war), valores altos (> 12 dB) = dinâmica natural.',
+                variant: 'advanced'
+            },
+            'spectralCentroid': {
+                title: 'Centro Espectral (Hz)',
+                body: 'Ponto de equilíbrio espectral - frequência onde 50% da energia está abaixo e 50% acima. Indica o "brilho" geral do mix. Valores típicos: 1-4 kHz.',
+                variant: 'advanced'
+            },
+            'spectralRolloff': {
+                title: 'Rolloff Espectral 85% (Hz)',
+                body: 'Frequência onde 85% da energia espectral está concentrada. Indica extensão de agudos. < 8 kHz = som escuro, > 12 kHz = som brilhante. Útil para detectar filtros passa-baixa.',
+                variant: 'advanced'
+            },
+            'spectralBandwidthHz': {
+                title: 'Largura Espectral (Hz)',
+                body: 'Dispersão das frequências ao redor do centróide. Valores altos = espectro "espalhado" (som rico/complexo), valores baixos = espectro concentrado (som simples/monotonal).',
+                variant: 'advanced'
+            },
+            'spectralKurtosis': {
+                title: 'Kurtosis Espectral',
+                body: 'Mede "picosdade" do espectro. Valores altos (> 3) indicam harmonics fortes ou distorção. Valores baixos (< 3) indicam espectro uniforme. Útil para detectar harshness.',
+                variant: 'advanced'
+            },
+            'spectralSkewness': {
+                title: 'Assimetria Espectral',
+                body: 'Mede se o espectro "pende" mais para graves ou agudos. Positivo = mais energia em agudos, negativo = mais energia em graves. Próximo de 0 = balanceado.',
+                variant: 'advanced'
+            },
+            'dominantFrequencies': {
+                title: 'Frequências Dominantes',
+                body: 'As 5 frequências com maior energia espectral. Útil para identificar resonâncias, fundamentais de instrumentos e problemas de acúmulo de energia.',
+                variant: 'advanced'
+            },
+            'zeroCrossings': {
+                title: 'Zero Crossings Rate',
+                body: 'Taxa de cruzamento por zero - relacionada ao conteúdo de alta frequência. Valores altos = muitos agudos/ruído, valores baixos = predominância de graves. Útil para classificação de timbre.',
+                variant: 'advanced'
+            },
+            'mfcc1': {
+                title: 'MFCC 1',
+                body: 'Primeiro coeficiente Mel-Frequency Cepstral. Representa características timbrísticas gerais. Usado em algoritmos de reconhecimento de áudio e ML.',
+                variant: 'advanced'
+            },
+            'mfcc2': {
+                title: 'MFCC 2',
+                body: 'Segundo coeficiente MFCC - captura nuances espectrais de médio termo. Complementa o MFCC 1 para análise de timbre.',
+                variant: 'advanced'
+            },
+            'mfcc3': {
+                title: 'MFCC 3',
+                body: 'Terceiro coeficiente MFCC - captura detalhes espectrais finos. Usado em fingerprinting e análise avançada de timbre.',
+                variant: 'advanced'
+            },
+            'suggestions': {
+                title: 'Sugestões Disponíveis',
+                body: 'Número de sugestões técnicas geradas pela IA com base na análise. Cada sugestão aponta problemas específicos e soluções práticas para melhorar o áudio.',
+                variant: 'success'
+            },
+            
+            // === CARD 4: PROBLEMAS TÉCNICOS ===
+            'clippingSamples': {
+                title: 'Clipping Samples',
+                body: 'Número de amostras em 0 dBFS. Indica distorção digital grave. 0 samples = limpo, > 100 samples = problema audível. Use limiters com lookahead para evitar.',
+                variant: 'error'
+            },
+            'dcOffset': {
+                title: 'DC Offset',
+                body: 'Componente DC (corrente contínua) no sinal de áudio. Deve estar próximo de zero. Valores > 0.01 podem causar clipping assimétrico e problemas em processamento. Corrija com filtro HP.',
+                variant: 'warning'
+            },
+            'thdPercent': {
+                title: 'THD %',
+                body: 'Percentual de distorção harmônica total. < 0.5% = transparente, 0.5-1% = coloração sutil, > 1% = distorção evidente. Pode ser desejável em alguns contextos (warmth, saturation).',
+                variant: 'warning'
+            },
+            
+            // === SUBSCORES ===
+            'loudness': {
+                title: 'Subscore: Loudness',
+                body: 'Avalia LUFS integrado, picos e headroom. Boa loudness = volume competitivo sem clipagem. Meta: -14 LUFS com True Peak < -1 dBTP.',
+                variant: 'default'
+            },
+            'dynamic': {
+                title: 'Subscore: Dinâmica',
+                body: 'Avalia Dynamic Range (DR) e Loudness Range (LRA). Boa dinâmica = mix com punch, respiração e contraste. Evita "loudness war".',
+                variant: 'default'
+            },
+            'frequency': {
+                title: 'Subscore: Frequência',
+                body: 'Avalia balanço espectral entre graves, médios e agudos. Bom balanço = mix claro e cheio, sem acúmulos ou buracos. Todas as bandas devem estar presentes.',
+                variant: 'default'
+            },
+            'stereo': {
+                title: 'Subscore: Estéreo',
+                body: 'Avalia correlação e abertura estéreo. Bom estéreo = imagem ampla sem phase issues. Deve soar bem tanto em estéreo quanto em mono.',
+                variant: 'default'
+            },
+            'technical': {
+                title: 'Subscore: Técnico',
+                body: 'Avalia problemas técnicos: clipping, DC offset, THD, phase. Score 100% = áudio tecnicamente limpo, sem artefatos digitais ou distorções indesejadas.',
+                variant: 'default'
+            },
+            
+            // === SCORE FINAL E DIAGNÓSTICO ===
+            'scoreFinal': {
+                title: 'Score Final',
+                body: 'Média ponderada de todos os subscores. Reflete a qualidade técnica geral do áudio. 90-100% = excelente, 70-89% = bom, 50-69% = aceitável, <50% = problemas graves.',
+                variant: 'primary'
+            },
+            'diagnostico': {
+                title: 'Diagnóstico Geral',
+                body: 'Classificação qualitativa baseada no score final: EXCELENTE (90-100%), MUITO BOM (80-89%), BOM (70-79%), REGULAR (60-69%), NECESSITA AJUSTES (50-59%), CRÍTICO (<50%).',
+                variant: 'primary'
+            }
+        };
+        
+        // 🔒 FUNÇÃO DE LOOKUP SEGURA (retorna null se não encontrar, NÃO usa fallback)
+        const getTooltip = (metricKey) => {
+            if (!metricKey) return null;
+            
+            const tooltip = TOOLTIP_REGISTRY[metricKey];
+            
+            // Se não encontrar E estiver em DEV, logar warning
+            if (!tooltip && isDev) {
+                console.warn(`[TOOLTIP-MISSING] Métrica sem tooltip: "${metricKey}". Adicione entry no TOOLTIP_REGISTRY.`);
+            }
+            
+            return tooltip || null;
         };
         
         const row = (label, valHtml, keyForSource=null, metricKey=null, section='primary') => {
@@ -17016,29 +17217,21 @@ async function displayModalResults(analysis) {
             const cleanLabel = enhancedLabel.trim();
             const capitalizedLabel = cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1);
             
-            // 🎯 PADRONIZAÇÃO: TODA métrica recebe ícone "i" com tooltip
-            const labelLowerCase = capitalizedLabel.toLowerCase();
+            // 🎯 NOVO SISTEMA: Buscar tooltip no TOOLTIP_REGISTRY usando metricKey
+            const tooltipData = metricKey ? getTooltip(metricKey) : null;
             
-            // Buscar tooltip específico (case-insensitive)
-            let tooltip = null;
-            for (const [key, value] of Object.entries(metricsTooltips)) {
-                if (key.toLowerCase() === labelLowerCase) {
-                    tooltip = value;
-                    break;
-                }
-            }
-            
-            // Se não encontrar, usar fallback universal
-            if (!tooltip) {
-                tooltip = TOOLTIP_FALLBACK;
-            }
-            
-            // ✅ TODAS as métricas agora têm ícone "i" + tooltip (sem exceções)
-            const labelHtml = `<div class="metric-label-container">
-                 <span style="flex: 1;">${capitalizedLabel}</span>
-                 <span class="metric-info-icon" 
-                       data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
-               </div>`;
+            // Se não houver tooltip:
+            // - DEV: Já logou warning no getTooltip, NÃO renderizar ícone "i"
+            // - PROD: Simplesmente NÃO renderizar ícone "i" (silencioso)
+            const labelHtml = tooltipData 
+                ? `<div class="metric-label-container">
+                     <span style="flex: 1;">${capitalizedLabel}</span>
+                     <span class="metric-info-icon" 
+                           data-tooltip-title="${tooltipData.title.replace(/"/g, '&quot;')}"
+                           data-tooltip-body="${tooltipData.body.replace(/"/g, '&quot;')}"
+                           ${tooltipData.variant !== 'default' ? `data-tooltip-variant="${tooltipData.variant}"` : ''}>ℹ️</span>
+                   </div>`
+                : `<span style="flex: 1;">${capitalizedLabel}</span>`; // SEM ícone "i" se não houver tooltip
             
             // 🎯 Adicionar data-metric-key para rastreamento + data-original-label para auditoria
             const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
@@ -19024,32 +19217,6 @@ async function displayModalResults(analysis) {
             // Ou verificar se TP > 0 dBTP
             return hasCriticalGate || (Number.isFinite(tp) && tp > 0);
         };
-        
-        // 🎯 TEXTOS DE TOOLTIP PARA SUBSCORES
-        const subscoreTooltips = {
-            loudness: {
-                title: 'Loudness',
-                normal: 'Mede o quão perto sua faixa está do alvo de volume do gênero. Quanto mais perto do alvo (sem distorcer), maior a nota.',
-                critical: '⚠️ Nota limitada por True Peak (clipping). Mesmo com LUFS perto do alvo, picos acima do limite derrubam esta nota. Reduza o True Peak para recuperar a pontuação.'
-            },
-            dynamics: {
-                title: 'Dinâmica',
-                body: 'Avalia a variação entre partes altas e baixas (impacto e respiração). Compressão/limiter em excesso tende a reduzir a nota.'
-            },
-            frequency: {
-                title: 'Frequência',
-                body: 'Avalia o equilíbrio tonal (graves, médios, agudos) versus o alvo do gênero. Excesso/falta em bandas específicas reduz a nota.'
-            },
-            stereo: {
-                title: 'Estéreo',
-                body: 'Avalia largura e estabilidade estéreo. Estéreo exagerado ou mono fraco pode reduzir a nota.'
-            },
-            technical: {
-                title: 'Técnico',
-                body: 'Avalia problemas técnicos como clipping, distorção e artefatos. Esses problemas podem limitar notas de outras áreas.'
-            }
-        };
-        
         // Função para renderizar score com barra de progresso + TOOLTIP
         const renderScoreWithProgress = (label, value, color = '#00ffff', tooltipKey = null) => {
             const numValue = parseFloat(value) || 0;
@@ -19061,33 +19228,49 @@ async function displayModalResults(analysis) {
                              breakdown[labelKey] !== value;
             const cappedIndicator = wasCapped ? ' 🔴' : '';
             
-            // 🎯 TOOLTIP ATTRIBUTES
+            // 🎯 NOVO SISTEMA: Buscar tooltip no TOOLTIP_REGISTRY usando tooltipKey
             let tooltipAttrs = '';
-            if (tooltipKey && subscoreTooltips[tooltipKey]) {
-                const tt = subscoreTooltips[tooltipKey];
-                const tooltipTitle = tt.title || label;
-                
+            const tooltipData = tooltipKey ? getTooltip(tooltipKey) : null;
+            
+            if (tooltipData) {
                 // Lógica especial para Loudness: verificar se True Peak está crítico
-                let tooltipBody = tt.body || tt.normal;
-                let tooltipVariant = 'default';
+                let finalTooltipBody = tooltipData.body;
+                let finalTooltipVariant = tooltipData.variant || 'default';
                 
                 if (tooltipKey === 'loudness' && isTruePeakCritical()) {
-                    tooltipBody = tt.critical;
-                    tooltipVariant = 'warning';
+                    finalTooltipVariant = 'warning';
+                    // Adicionar mensagem especial no corpo do tooltip
+                    finalTooltipBody = tooltipData.body + ' ⚠️ ATENÇÃO: True Peak crítico detectado (> 0 dBTP ou gates ativos). Isso limita o score mesmo com LUFS correto.';
                 }
                 
-                tooltipAttrs = `data-tooltip-title="${tooltipTitle}" data-tooltip-body="${tooltipBody}" data-tooltip-variant="${tooltipVariant}"`;
+                tooltipAttrs = `data-tooltip-title="${tooltipData.title}" data-tooltip-body="${finalTooltipBody}" data-tooltip-variant="${finalTooltipVariant}"`;
             }
             
             if (value == null) {
-                return `<div class="data-row" ${tooltipAttrs}>
-                    <span class="label">${label}:</span>
+                // Se não houver valor, renderizar sem progress bar
+                const labelHtml = tooltipAttrs 
+                    ? `<div class="metric-label-container">
+                         <span style="flex: 1;">${label}:</span>
+                         <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                       </div>`
+                    : `<span>${label}:</span>`;
+                
+                return `<div class="data-row">
+                    <span class="label">${labelHtml}</span>
                     <span class="value">—</span>
                 </div>`;
             }
             
-            return `<div class="data-row metric-with-progress" ${tooltipAttrs}>
-                <span class="label">${label}${cappedIndicator}:</span>
+            // Renderizar com progress bar e tooltip (se disponível)
+            const labelHtml = tooltipAttrs 
+                ? `<div class="metric-label-container">
+                     <span style="flex: 1;">${label}${cappedIndicator}:</span>
+                     <span class="metric-info-icon" ${tooltipAttrs}>ℹ️</span>
+                   </div>`
+                : `<span>${label}${cappedIndicator}:</span>`;
+            
+            return `<div class="data-row metric-with-progress">
+                <span class="label">${labelHtml}</span>
                 <div class="metric-value-progress">
                     <span class="value">${displayValue}/100</span>
                     <div class="progress-bar-mini">
@@ -19165,9 +19348,10 @@ async function displayModalResults(analysis) {
                 });
             }
             
-            // 🎯 TOOLTIP PARA SCORE FINAL
-            const scoreTooltipTitle = 'Score Final';
-            const scoreTooltipBody = 'Resumo da qualidade geral com base nos subscores e penalidades técnicas. Problemas críticos (ex.: clipping) podem limitar o score final.';
+            // 🎯 BUSCAR TOOLTIP DO REGISTRY
+            const scoreTooltipData = getTooltip('scoreFinal');
+            const scoreTooltipTitle = scoreTooltipData?.title || 'Score Final';
+            const scoreTooltipBody = scoreTooltipData?.body || 'Média ponderada de todos os subscores. Reflete a qualidade técnica geral do áudio.';
             
             // Renderizar HTML do score final - UI LIMPA + TOOLTIP
             container.innerHTML = `
@@ -19281,9 +19465,10 @@ async function displayModalResults(analysis) {
                 return;
             }
             
-            // 🎯 TOOLTIP PARA DIAGNÓSTICO
-            const diagnosticTooltipTitle = 'Diagnóstico';
-            const diagnosticTooltipBody = 'Explicação do principal gargalo detectado. Baseado nos problemas mais severos e no impacto em reprodução/streaming.';
+            // 🎯 BUSCAR TOOLTIP DO REGISTRY
+            const diagnosticTooltipData = getTooltip('diagnostico');
+            const diagnosticTooltipTitle = diagnosticTooltipData?.title || 'Diagnóstico';
+            const diagnosticTooltipBody = diagnosticTooltipData?.body || 'Classificação qualitativa baseada no score final.';
             
             // Renderizar APENAS o texto único - design minimalista premium + TOOLTIP
             container.innerHTML = `
@@ -19555,15 +19740,42 @@ async function displayModalResults(analysis) {
                     ${techProblems()}
                 </div>
                 -->
-                <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
-                <!-- 
-                <div class="card card-span-2">
-                    <div class="card-title">🩺 Diagnóstico & Sugestões</div>
-                    ${diagCard()}
-                </div>
-                -->
-            </div>
-        `;
+            </div>`;
+        
+        // 🔍 VALIDAÇÃO PÓS-RENDER: Detectar métricas sem tooltip (DEV apenas)
+        if (isDev) {
+            setTimeout(() => {
+                const allRows = technicalData.querySelectorAll('.data-row[data-metric-key]');
+                const missingTooltips = [];
+                
+                allRows.forEach(row => {
+                    const metricKey = row.getAttribute('data-metric-key');
+                    const hasIcon = row.querySelector('.metric-info-icon[data-tooltip-body]');
+                    
+                    if (!hasIcon && metricKey) {
+                        const label = row.querySelector('.label')?.textContent.trim() || 'Unknown';
+                        missingTooltips.push({
+                            metricKey,
+                            label,
+                            element: row
+                        });
+                    }
+                });
+                
+                if (missingTooltips.length > 0) {
+                    console.group('⚠️ [TOOLTIP-VALIDATION] Métricas sem tooltip detectadas');
+                    console.warn(`${missingTooltips.length} métrica(s) renderizadas sem tooltip:`);
+                    console.table(missingTooltips.map(m => ({
+                        metricKey: m.metricKey,
+                        label: m.label
+                    })));
+                    console.log('📝 Adicione essas keys no TOOLTIP_REGISTRY para 100% de cobertura.');
+                    console.groupEnd();
+                } else {
+                    console.log('✅ [TOOLTIP-VALIDATION] 100% de cobertura - todas as métricas têm tooltips!');
+                }
+            }, 100);
+        }
         
         // =========================================================================
         // 🚨 AUDITORIA: CONFIRMAR RENDERIZAÇÃO NO DOM
