@@ -592,32 +592,40 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log('[DEBUG-SUGGESTIONS] =================================================');
     
     // 🎯 CORREÇÃO CRÍTICA: Suggestion Engine SOMENTE para mode === 'genre'
-    // Para mode === 'reference', definir aiSuggestions = [] e pular validação de targets
+    // Para mode === 'reference', preparar estruturas iniciais (serão preenchidas depois no bloco de comparação)
     if (mode !== 'genre') {
-      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", pulando Suggestion Engine');
+      console.log('[DEBUG-SUGGESTIONS] ⏭️ SKIP: Modo não é "genre", preparando estruturas para reference mode');
       console.log('[DEBUG-SUGGESTIONS] mode atual:', mode);
+      console.log('[DEBUG-SUGGESTIONS] ⚠️ IMPORTANTE: Sugestões serão geradas pelo bloco de comparação A/B');
       
-      // Definir estruturas vazias para reference mode
+      // 🛡️ CONTRATO OBRIGATÓRIO: Inicializar com estruturas que indicam "pendente"
+      // Estas estruturas serão SOBRESCRITAS pelo bloco de comparação A/B
+      // Se não forem sobrescritas, o fallback final garante sugestões
       finalJSON.problemsAnalysis = {
         problems: [],
         suggestions: [],
         qualityAssessment: {},
-        priorityRecommendations: []
+        priorityRecommendations: [],
+        _pendingReferenceComparison: true  // Flag para debug
       };
       
       finalJSON.diagnostics = {
         problems: [],
         suggestions: [],
-        prioritized: []
+        prioritized: [],
+        _pendingReferenceComparison: true
       };
       
-      finalJSON.suggestions = [];
-      finalJSON.aiSuggestions = [];
+      // 🛡️ MUDANÇA CRÍTICA: NÃO definir como array vazio aqui
+      // Definir como null para que o validador saiba que ainda precisa ser preenchido
+      finalJSON.suggestions = null;  // Será preenchido pelo bloco de comparação
+      finalJSON.aiSuggestions = null;  // Será preenchido pelo bloco de comparação
       
       finalJSON.summary = {
-        overallRating: 'Reference Mode - Sem análise de problemas',
+        overallRating: 'Reference Mode - Aguardando comparação A/B',
         score: null,
-        genre: null
+        genre: null,
+        _pendingReferenceComparison: true
       };
       
       finalJSON.suggestionMetadata = {

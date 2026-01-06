@@ -16882,38 +16882,65 @@ async function displayModalResults(analysis) {
         const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score', 'scoreFinal') : '';
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
-        const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
+        // 🎯 Removido title="" para evitar tooltip nativo do browser conflitando com TooltipManager
+        const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}"` : '';
         
-        // 🎯 MAPEAMENTO DE MÉTRICAS COM TOOLTIPS
+        // 🎯 TOOLTIP REGISTRY - Fonte da Verdade para TODAS as métricas
+        // Fallback universal garante que TODA métrica tenha tooltip
+        const TOOLTIP_FALLBACK = 'Indicador técnico do áudio. Valores fora do alvo podem afetar a qualidade final.';
+        
         const metricsTooltips = {
             // Métricas Principais
-            'Volume médio (rms)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
-            'Loudness (lufs)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
-            'Pico máximo (dbfs)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
-            'Pico real (dbtp)': 'Pico real detectado após conversão digital. Deve ficar abaixo de –1 dBTP pra evitar clipagem.',
-            'Dinâmica (dr)': 'Diferença entre os sons mais baixos e mais altos. Mais DR = mais respiro e punch.',
-            'Consistência de volume (lu)': 'Mede o quanto o volume se mantém constante. 0 LU é estabilidade perfeita.',
-            'Imagem estéreo': 'Representa a largura e equilíbrio do estéreo. 1 = mono, 0.9 = estéreo amplo.',
-            'Abertura estéreo (%)': 'O quanto a faixa "abre" nos lados. Sons amplos soam mais envolventes.',
+            'volume médio (rms)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
+            'loudness (lufs)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
+            'pico máximo (dbfs)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
+            'pico real (dbtp)': 'Pico real detectado após conversão digital. Deve ficar abaixo de –1 dBTP pra evitar clipagem.',
+            'dinâmica (dr)': 'Diferença entre os sons mais baixos e mais altos. Mais DR = mais respiro e punch.',
+            'consistência de volume (lu)': 'Mede o quanto o volume se mantém constante. 0 LU é estabilidade perfeita.',
+            'imagem estéreo': 'Representa a largura e equilíbrio do estéreo. 1 = mono, 0.9 = estéreo amplo.',
+            'abertura estéreo (%)': 'O quanto a faixa "abre" nos lados. Sons amplos soam mais envolventes.',
+            'lufs integrado': 'Média de volume integrada no tempo. Padrão usado por plataformas de streaming.',
+            'true peak': 'Pico real que ocorre entre amostras digitais. Evita clipping em conversões.',
+            'lra': 'Loudness Range - variação de volume ao longo da faixa. Mais LRA = mais dinâmica.',
+            'dr': 'Dynamic Range - diferença entre partes altas e baixas. Maior = mais impacto e punch.',
+            'headroom': 'Espaço restante até o limite de clipping. Valores baixos indicam risco de distorção.',
+            'correlação estéreo': 'Mede a relação entre canais L/R. 1 = mono, 0 = estéreo amplo, -1 = fase invertida.',
+            'largura estéreo': 'Amplitude do campo estéreo. Valores altos = som mais amplo e envolvente.',
+            'balanço l/r': 'Equilíbrio de energia entre os canais esquerdo e direito.',
             
             // Análise de Frequências
-            'Subgrave (20–60 hz)': 'Região das batidas mais profundas, sentida mais do que ouvida.',
-            'Graves (60–150 hz)': 'Corpo do kick e do baixo. Cuidado pra não embolar.',
-            'Médios-graves (150–500 hz)': 'Base harmônica. Excesso aqui soa abafado.',
-            'Médios (500 hz–2 khz)': 'Clareza e presença de vocais e instrumentos.',
-            'Médios-agudos (2–5 khz)': 'Ataque e definição. Muito = som agressivo.',
-            'Presença (5–10 khz)': 'Brilho, clareza e detalhe.',
-            'Ar (10–20 khz)': 'Sensação de espaço e abertura.',
-            'Frequência central (hz)': 'Mostra onde está o "centro tonal" da faixa.',
+            'subgrave (20–60 hz)': 'Região das batidas mais profundas, sentida mais do que ouvida.',
+            'graves (60–150 hz)': 'Corpo do kick e do baixo. Cuidado pra não embolar.',
+            'médios-graves (150–500 hz)': 'Base harmônica. Excesso aqui soa abafado.',
+            'médios (500 hz–2 khz)': 'Clareza e presença de vocais e instrumentos.',
+            'médios-agudos (2–5 khz)': 'Ataque e definição. Muito = som agressivo.',
+            'presença (5–10 khz)': 'Brilho, clareza e detalhe.',
+            'ar (10–20 khz)': 'Sensação de espaço e abertura.',
+            'frequência central (hz)': 'Mostra onde está o "centro tonal" da faixa.',
+            'sub': 'Subgraves ultra-profundos (20-60 Hz). Base física da batida.',
+            'low bass': 'Graves baixos fundamentais do kick e baixo.',
+            'upper bass': 'Graves superiores - corpo e calor do mix.',
+            'low mid': 'Médios-graves - presença e fundamento.',
+            'mid': 'Médios centrais - corpo de vocais e instrumentos.',
+            'high mid': 'Médios-altos - clareza e articulação.',
+            'brilho': 'Agudos - brilho e detalhe do mix.',
+            'presença': 'Alta presença - ar e abertura espacial.',
             
             // Métricas Avançadas
-            'Fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
-            'Centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
-            'Rolloff espectral 85% (hz)': 'Frequência onde acumula 85% da energia espectral. Valores baixos (<8kHz) indicam mix escuro.',
-            'Uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
-            'Largura espectral (hz)': 'Dispersão das frequências ao redor do centro espectral. Valores altos indicam som rico/cheio.',
-            'Kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
-            'Assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
+            'fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
+            'centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
+            'rolloff espectral 85% (hz)': 'Frequência onde acumula 85% da energia espectral. Valores baixos (<8kHz) indicam mix escuro.',
+            'uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
+            'largura espectral (hz)': 'Dispersão das frequências ao redor do centro espectral. Valores altos indicam som rico/cheio.',
+            'kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
+            'assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.',
+            'centroid': 'Centro de massa espectral - indica o balanço tonal geral.',
+            'flatness': 'Planicidade espectral - mede ruído vs tonalidade.',
+            'rolloff': 'Frequência de corte - onde a energia espectral cai drasticamente.',
+            'crest factor': 'Relação pico/RMS - indica headroom e punch disponível.',
+            'dc offset': 'Deslocamento DC do sinal. Deve estar próximo de zero.',
+            'offset dc': 'Componente DC indesejada. Valores altos podem causar problemas.',
+            'zero crossings': 'Taxa de cruzamento por zero - relacionada ao conteúdo de alta frequência.'
         };
         
         const row = (label, valHtml, keyForSource=null, metricKey=null, section='primary') => {
@@ -16989,11 +17016,11 @@ async function displayModalResults(analysis) {
             const cleanLabel = enhancedLabel.trim();
             const capitalizedLabel = cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1);
             
-            // Verificar se existe tooltip para essa métrica (case-insensitive)
+            // 🎯 PADRONIZAÇÃO: TODA métrica recebe ícone "i" com tooltip
             const labelLowerCase = capitalizedLabel.toLowerCase();
-            let tooltip = null;
             
-            // Buscar tooltip comparando case-insensitive
+            // Buscar tooltip específico (case-insensitive)
+            let tooltip = null;
             for (const [key, value] of Object.entries(metricsTooltips)) {
                 if (key.toLowerCase() === labelLowerCase) {
                     tooltip = value;
@@ -17001,14 +17028,17 @@ async function displayModalResults(analysis) {
                 }
             }
             
-            // Gerar HTML do label com ícone de info e tooltip (TooltipManager global)
-            const labelHtml = tooltip 
-                ? `<div class="metric-label-container">
-                     <span style="flex: 1;">${capitalizedLabel}</span>
-                     <span class="metric-info-icon" 
-                           data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
-                   </div>`
-                : capitalizedLabel;
+            // Se não encontrar, usar fallback universal
+            if (!tooltip) {
+                tooltip = TOOLTIP_FALLBACK;
+            }
+            
+            // ✅ TODAS as métricas agora têm ícone "i" + tooltip (sem exceções)
+            const labelHtml = `<div class="metric-label-container">
+                 <span style="flex: 1;">${capitalizedLabel}</span>
+                 <span class="metric-info-icon" 
+                       data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
+               </div>`;
             
             // 🎯 Adicionar data-metric-key para rastreamento + data-original-label para auditoria
             const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
@@ -32866,30 +32896,130 @@ async function handleGenerateCorrectionPlan() {
         }
         
         // Preparar payload
-        // 🔧 FIX v4: Extrair problemas de múltiplas fontes com categorização
-        let problemsToSend = analysis.problems || [];
-        let problemSource = 'analysis.problems';
+        // 🔧 FIX v5: PARIDADE TOTAL - Usar EXATAMENTE os mesmos problemas da análise
+        // NUNCA extrair do DOM - isso pode descartar problemas
+        let problemsToSend = [];
+        let problemSource = '';
         
-        // Se não tem problems, extrair das sugestões
-        if (problemsToSend.length === 0 && (analysis.suggestions || analysis.aiSuggestions)) {
-            const suggestions = analysis.suggestions || analysis.aiSuggestions || [];
-            problemsToSend = suggestions.map(s => ({
-                id: s.metric || s.metricName || s.name || 'unknown',
-                metric: s.metric || s.metricName || s.name || 'unknown',
-                value: s.currentValue || s.value || s.measured || 'N/A',
-                target: s.targetValue || s.target || s.ideal || 'N/A',
-                severity: s.severity || s.priority || 'medium',
-                category: detectMetricCategory(s.metric || s.metricName || s.name || ''),
-                description: s.problem || s.description || s.title || ''
-            }));
-            problemSource = 'analysis.suggestions';
+        // 🎯 FONTE 1: analysis.problems (fonte primária)
+        if (analysis.problems && analysis.problems.length > 0) {
+            problemsToSend = analysis.problems;
+            problemSource = 'analysis.problems';
+            console.log('[CORRECTION-PLAN] ✅ Usando analysis.problems:', problemsToSend.length);
         }
-        
-        // 🆕 FIX: Se ainda não tem problems, extrair da tabela DOM renderizada
-        if (problemsToSend.length === 0) {
+        // 🎯 FONTE 2: analysis.suggestions (fallback)
+        else if (analysis.suggestions && analysis.suggestions.length > 0) {
+            const suggestions = analysis.suggestions;
+            problemsToSend = suggestions
+                .filter(s => s.severity !== 'ok' && s.severity !== 'info') // Apenas problemas reais
+                .map(s => ({
+                    id: s.metric || s.metricName || s.name || 'unknown',
+                    metric: s.metric || s.metricName || s.name || 'unknown',
+                    value: s.currentValue || s.value || s.measured || 'N/A',
+                    target: s.targetValue || s.target || s.ideal || 'N/A',
+                    severity: s.severity || s.priority || 'medium',
+                    category: detectMetricCategory(s.metric || s.metricName || s.name || ''),
+                    description: s.problem || s.description || s.title || '',
+                    action: s.action || s.recommendation || ''
+                }));
+            problemSource = 'analysis.suggestions (filtrado)';
+            console.log('[CORRECTION-PLAN] ✅ Usando analysis.suggestions filtrado:', problemsToSend.length);
+        }
+        // 🎯 FONTE 3: Extrair da tabela DOM (último recurso)
+        else {
             problemsToSend = extractProblemsFromTableDOM();
-            problemSource = 'table-dom';
+            problemSource = 'table-dom (fallback)';
+            console.log('[CORRECTION-PLAN] ⚠️ Usando table-dom como fallback:', problemsToSend.length);
         }
+        
+        // 🛡️ VALIDAÇÃO CRÍTICA: Verificar se True Peak está presente quando deveria
+        const hasTruePeakIssue = analysis.technicalData?.truePeakDbtp != null && 
+                                 analysis.technicalData.truePeakDbtp > -1.0; // Threshold de problema
+        
+        const hasTruePeakInProblems = problemsToSend.some(p => 
+            p.metric && (
+                p.metric.toLowerCase().includes('true peak') ||
+                p.metric.toLowerCase().includes('truepeak') ||
+                p.metric.toLowerCase().includes('pico real') ||
+                p.id?.toLowerCase().includes('truepeak')
+            )
+        );
+        
+        if (hasTruePeakIssue && !hasTruePeakInProblems) {
+            console.warn('[CORRECTION-PLAN] ⚠️ TRUE PEAK DETECTADO MAS AUSENTE! Injetando manualmente...');
+            
+            // Injetar True Peak manualmente
+            const truePeakProblem = {
+                id: 'truepeak_missing',
+                metric: 'True Peak',
+                value: `${analysis.technicalData.truePeakDbtp.toFixed(2)} dBTP`,
+                target: '-1.0 dBTP',
+                severity: analysis.technicalData.truePeakDbtp > 0 ? 'CRÍTICA' : 'ATENÇÃO',
+                category: 'dynamics',
+                description: analysis.technicalData.truePeakDbtp > 0 
+                    ? 'Pico real acima de 0 dBTP - risco de clipping digital'
+                    : 'Pico real acima do ideal - pode causar distorção em conversões',
+                action: 'Aplicar limiting com True Peak Detection ativado'
+            };
+            
+            problemsToSend.push(truePeakProblem);
+            console.log('[CORRECTION-PLAN] ✅ True Peak injetado:', truePeakProblem);
+        }
+        
+        // 🛡️ VALIDAÇÃO ADICIONAL: Garantir outros problemas técnicos críticos
+        const tech = analysis.technicalData || {};
+        
+        // Verificar LUFS Integrado
+        const hasLufsIssue = tech.lufsIntegrated != null && 
+                            (tech.lufsIntegrated < -20 || tech.lufsIntegrated > -8);
+        const hasLufsInProblems = problemsToSend.some(p => 
+            p.metric?.toLowerCase().includes('lufs') || p.id?.toLowerCase().includes('lufs')
+        );
+        
+        if (hasLufsIssue && !hasLufsInProblems) {
+            console.warn('[CORRECTION-PLAN] ⚠️ LUFS fora do padrão mas ausente! Injetando...');
+            problemsToSend.push({
+                id: 'lufs_missing',
+                metric: 'LUFS Integrado',
+                value: `${tech.lufsIntegrated.toFixed(2)} LUFS`,
+                target: '-14 LUFS (streaming)',
+                severity: tech.lufsIntegrated < -20 ? 'CRÍTICA' : 'ATENÇÃO',
+                category: 'loudness',
+                description: tech.lufsIntegrated < -20 
+                    ? 'Loudness muito baixo - áudio será rejeitado em plataformas'
+                    : 'Loudness acima do ideal - causará normalização',
+                action: 'Ajustar gain para atingir -14 LUFS integrado'
+            });
+        }
+        
+        // Verificar Dynamic Range
+        const hasDRIssue = tech.dynamicRange != null && 
+                          (tech.dynamicRange < 4 || tech.dynamicRange > 20);
+        const hasDRInProblems = problemsToSend.some(p => 
+            p.metric?.toLowerCase().includes('dynamic range') || 
+            p.metric?.toLowerCase().includes('dr ') ||
+            p.id?.toLowerCase().includes('dynamicrange')
+        );
+        
+        if (hasDRIssue && !hasDRInProblems) {
+            console.warn('[CORRECTION-PLAN] ⚠️ Dynamic Range problemático mas ausente! Injetando...');
+            problemsToSend.push({
+                id: 'dr_missing',
+                metric: 'Dynamic Range',
+                value: `${tech.dynamicRange.toFixed(1)} dB`,
+                target: '8-12 dB (ideal)',
+                severity: tech.dynamicRange < 4 ? 'CRÍTICA' : 'ATENÇÃO',
+                category: 'dynamics',
+                description: tech.dynamicRange < 4
+                    ? 'Dinâmica muito comprimida - som "achatado"'
+                    : 'Dinâmica excessiva - pode soar inconsistente',
+                action: tech.dynamicRange < 4
+                    ? 'Reduzir compressão/limiting excessivo'
+                    : 'Aplicar compressão para controlar dinâmica'
+            });
+        }
+        
+        console.log('[CORRECTION-PLAN] 📊 Total após validações:', problemsToSend.length, 'problemas');
         
         // 🆕 Construir resumo categorizado para melhor processamento pela IA
         const problemsSummary = buildProblemsSummary(problemsToSend);
@@ -32901,6 +33031,31 @@ async function handleGenerateCorrectionPlan() {
             dynamics: problemsSummary.dynamicsProblems.length,
             stereo: problemsSummary.stereoProblems.length
         });
+        
+        // 🔍 LOG DETALHADO: Listar TODOS os problemas encontrados
+        console.group('[CORRECTION-PLAN] 📋 LISTA COMPLETA DE PROBLEMAS');
+        problemsToSend.forEach((p, i) => {
+            console.log(`${i + 1}. ${p.metric || p.id}`, {
+                value: p.value,
+                target: p.target,
+                severity: p.severity,
+                category: p.category
+            });
+        });
+        console.groupEnd();
+        
+        // 🎯 ASSERT FINAL: Confirmar que temos problemas suficientes
+        if (problemsToSend.length === 0) {
+            console.error('[CORRECTION-PLAN] ❌ ERRO CRÍTICO: Nenhum problema encontrado!');
+            console.error('[CORRECTION-PLAN] analysis.problems:', analysis.problems?.length || 0);
+            console.error('[CORRECTION-PLAN] analysis.suggestions:', analysis.suggestions?.length || 0);
+            console.error('[CORRECTION-PLAN] technicalData:', !!analysis.technicalData);
+            
+            showCorrectionPlanError('Nenhum problema detectado na análise. Analise novamente.');
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+            return;
+        }
         
         const payload = {
             analysisId: analysis.jobId || analysis.id,
