@@ -33,7 +33,7 @@
             pdf: true,                  // ✅ Tem relatório PDF sempre
             fullSuggestions: true,      // ✅ Tem sugestões sempre
             reference: true,            // ✅ Tem Modo Referência sempre
-            correctionPlan: true,       // ✅ Tem Plano de Correção sempre
+            correctionPlan: false,      // ❌ REMOVIDO 2026-01-06: Agora é DJ/STUDIO only
             askAI: true                 // ✅ Tem "Pedir Ajuda à IA" sempre
         },
         // � STUDIO: Tudo do PRO + extras premium (NOVO 2026-01-06)

@@ -46,10 +46,13 @@ const COLLECTION_CORRECTION_PLANS = 'correction_plans';
 const COLLECTION_USERS = 'usuarios';
 
 // Limites por plano (planos/mês)
+// ✅ ATUALIZADO 2026-01-06: PRO não tem mais acesso, agora é DJ/STUDIO only
 const PLAN_LIMITS = {
-  free: 1,
-  plus: 10,
-  pro: 50 // Hard cap anti-abuse
+  free: 1,     // 1 plano/mês (preview/trial)
+  plus: 0,     // ❌ Não tem acesso
+  pro: 0,      // ❌ REMOVIDO 2026-01-06: PRO não tem mais Plano de Correção
+  dj: 50,      // 50 planos/mês (beta temporário)
+  studio: 100  // 100 planos/mês (hard cap anti-abuse)
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -321,8 +324,8 @@ function sanitizeInput(data) {
     stereoCorrelation: analysisMetrics.stereoCorrelation ?? null
   };
   
-  // Validar plano
-  const validPlans = ['free', 'plus', 'pro'];
+  // Validar plano (✅ ATUALIZADO 2026-01-06: inclui dj e studio)
+  const validPlans = ['free', 'plus', 'pro', 'dj', 'studio'];
   const sanitizedPlan = validPlans.includes(plan) ? plan : 'free';
   
   return {

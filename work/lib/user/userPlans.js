@@ -726,15 +726,15 @@ export function getPlanFeatures(plan, analysisMode) {
     };
   }
 
-  // PRO: Todas as features (sempre)
+  // PRO: Todas as features EXCETO Plano de Correção (agora é DJ/STUDIO only)
   if (p === 'pro') {
-    console.log('✅ [USER-PLANS] PRO - Todas as features liberadas');
+    console.log('✅ [USER-PLANS] PRO - Features liberadas (sem correctionPlan)');
     return {
       canSuggestions: true,
       canSpectralAdvanced: true,
       canAiHelp: true,
       canPdf: true,
-      canCorrectionPlan: true,  // ✅ Plano de Correção ilimitado
+      canCorrectionPlan: false,  // ❌ REMOVIDO 2026-01-06: Agora é DJ/STUDIO only
     };
   }
 
@@ -778,9 +778,13 @@ export function getPlanFeatures(plan, analysisMode) {
 
 /**
  * Limites mensais para geração de Planos de Correção
+ * ✅ ATUALIZADO 2026-01-06: PRO não tem mais acesso ao Plano de Correção
+ * Agora é exclusivo de DJ (beta) e STUDIO
  */
 export const CORRECTION_PLAN_LIMITS = {
-  free: 1,    // 1 plano/mês (preview)
-  plus: 10,   // 10 planos/mês
-  pro: 50     // 50 planos/mês (hard cap anti-abuse)
+  free: 1,     // 1 plano/mês (preview/trial)
+  plus: 0,     // ❌ Não tem acesso
+  pro: 0,      // ❌ REMOVIDO 2026-01-06: PRO não tem mais Plano de Correção
+  dj: 50,      // 50 planos/mês (beta temporário)
+  studio: 100  // 100 planos/mês (hard cap anti-abuse)
 };

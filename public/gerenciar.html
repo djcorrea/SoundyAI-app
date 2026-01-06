@@ -453,7 +453,22 @@
                     const upgradeCard = document.getElementById('upgrade-card');
                     const cancelCards = document.querySelectorAll('.card-perigo');
                     
-                    if (userPlan === 'pro') {
+                    // ✅ ATUALIZADO 2026-01-06: Suporte ao plano STUDIO
+                    if (userPlan === 'studio') {
+                        // Usuário STUDIO (R$99,90/mês)
+                        planTypeElement.className = 'plan-type studio';
+                        planNameElement.textContent = 'STUDIO';
+                        planIconElement.textContent = '🎧';
+                        console.log('🎧 Exibindo plano STUDIO');
+                        
+                        if (upgradeCard) upgradeCard.style.display = 'none';
+                        cancelCards.forEach(card => {
+                            if (!card.querySelector('#delete-account-btn')) {
+                                card.style.display = 'block';
+                            }
+                        });
+                        
+                    } else if (userPlan === 'pro') {
                         // Usuário PRO
                         planTypeElement.className = 'plan-type pro';
                         planNameElement.textContent = 'PRO';
