@@ -116,8 +116,27 @@ router.post('/', requirePro, async (req, res) => {
             }
         } catch (limitError) {
             // Se falhar a query de limite (ex: índice não existe), continua salvando
-            console.warn('🕐 [HISTORY-API] ⚠️ Erro ao verificar limite (não crítico):', limitError.message);
-            console.warn('🕐 [HISTORY-API] ⚠️ Pode ser necessário criar índice composto no Firestore');
+            const isMissingIndex = limitError.code === 'failed-precondition' || 
+                                   limitError.code === 9 || 
+                                   limitError.message?.includes('index');
+            
+            if (isMissingIndex) {
+                console.error('🕐 [HISTORY-API] 🔴 DIAGNÓSTICO - FALTA ÍNDICE COMPOSTO');
+                console.error('🕐 [HISTORY-API] 📊 Query: checkDailyLimitQuery');
+                console.error('🕐 [HISTORY-API] 📋 Detalhes:', {
+                    userId: userId.slice(0, 8) + '***',
+                    userPlan: req.userPlan,
+                    analysisType: analysisType,
+                    query: 'WHERE userId == X ORDER BY createdAt ASC',
+                    collection: HISTORY_COLLECTION,
+                    requiredIndex: 'userId + createdAt (asc)',
+                    errorCode: limitError.code,
+                    errorMessage: limitError.message
+                });
+                console.error('🕐 [HISTORY-API] 📖 Ver docs/firestore-indexes.md para solução');
+            } else {
+                console.warn('🕐 [HISTORY-API] ⚠️ Erro ao verificar limite (não crítico):', limitError.message);
+            }
         }
         
         // Salvar nova análise
@@ -202,7 +221,27 @@ router.get('/', requirePro, async (req, res) => {
             console.log('🕐 [HISTORY-API] ✅ Query com orderBy executada');
         } catch (indexError) {
             // Fallback: query simples sem orderBy (se índice não existir)
-            console.warn('🕐 [HISTORY-API] ⚠️ Query com orderBy falhou (índice?):', indexError.message);
+            const isMissingIndex = indexError.code === 'failed-precondition' || 
+                                   indexError.code === 9 || 
+                                   indexError.message?.includes('index');
+            
+            if (isMissingIndex) {
+                console.error('🕐 [HISTORY-API] 🔴 DIAGNÓSTICO - FALTA ÍNDICE COMPOSTO');
+                console.error('🕐 [HISTORY-API] 📊 Query: listHistoryQuery');
+                console.error('🕐 [HISTORY-API] 📋 Detalhes:', {
+                    userId: userId.slice(0, 8) + '***',
+                    userPlan: userPlan,
+                    query: 'WHERE userId == X ORDER BY createdAt DESC LIMIT N',
+                    collection: HISTORY_COLLECTION,
+                    requiredIndex: 'userId + createdAt (desc)',
+                    errorCode: indexError.code,
+                    errorMessage: indexError.message
+                });
+                console.error('🕐 [HISTORY-API] 📖 Ver docs/firestore-indexes.md para solução');
+            } else {
+                console.warn('🕐 [HISTORY-API] ⚠️ Query com orderBy falhou (índice?):', indexError.message);
+            }
+            
             console.log('🕐 [HISTORY-API] 🔄 Tentando query simples...');
             
             querySnapshot = await historyRef
