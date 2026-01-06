@@ -228,14 +228,17 @@
         const metricKeyAttr = metricKey ? ` data-metric-key="${metricKey}"` : '';
         const sourceAttr = keyForSource ? ` data-src="${keyForSource}"` : '';
         
-        // Gerar HTML do label com tooltip (se existir) - TooltipManager global
-        const labelHtml = tooltip 
-            ? `<div class="metric-label-container">
-                 <span style="flex: 1;">${label}</span>
-                 <span class="metric-info-icon" 
-                       data-tooltip-body="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>
-               </div>`
-            : label;
+        // 🎯 PADRONIZAÇÃO: TODAS as métricas recebem ícone "i" com tooltip
+        // Se não houver tooltip específico, usar fallback universal
+        const TOOLTIP_FALLBACK = 'Indicador técnico do áudio. Valores fora do alvo podem afetar a qualidade final.';
+        const finalTooltip = tooltip || TOOLTIP_FALLBACK;
+        
+        // ✅ TODAS as métricas agora têm ícone "i" + tooltip (sem exceções)
+        const labelHtml = `<div class="metric-label-container">
+             <span style="flex: 1;">${label}</span>
+             <span class="metric-info-icon" 
+                   data-tooltip-body="${finalTooltip.replace(/"/g, '&quot;')}">ℹ️</span>
+           </div>`;
         
         return `
             <div class="data-row"${sourceAttr}${metricKeyAttr}>
