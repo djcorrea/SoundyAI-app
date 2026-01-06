@@ -417,6 +417,14 @@ class AISuggestionUIController {
      */
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
+            // 🛡️ GUARD CLAUSE: Ignorar quando usuário está digitando
+            const el = document.activeElement;
+            const isTyping = el && (
+                el.tagName === 'INPUT' || 
+                el.tagName === 'TEXTAREA' || 
+                el.isContentEditable
+            );
+            
             // ESC para fechar modal
             if (e.key === 'Escape' && this.isFullModalOpen) {
                 this.closeFullModal();
@@ -428,11 +436,9 @@ class AISuggestionUIController {
                 this.toggleAILayer();
             }
             
-            // F para fullscreen das sugestões (quando seção visível)
-            if (e.key === 'f' && this.elements.aiSection?.style.display !== 'none') {
-                e.preventDefault();
-                this.openFullModal();
-            }
+            // ❌ REMOVIDO: Atalho "F" simples causava bug ao digitar no chat
+            // O modal só abre via clique no botão "Expandir" ou programaticamente
+            // (Anteriormente: e.key === 'f' abria modal e bloqueava digitação)
         });
     }
     
