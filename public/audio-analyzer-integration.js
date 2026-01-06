@@ -17090,6 +17090,23 @@ async function displayModalResults(analysis) {
                 variant: 'warning'
             },
             
+            // === VALIDAÇÕES / CONSISTÊNCIAS ===
+            'drConsistency': {
+                title: 'DR Consistência',
+                body: 'Verifica se o Dynamic Range medido é consistente com outras métricas. Δ pequeno = bom. Δ grande = possível problema de medição ou áudio muito processado.',
+                variant: 'default'
+            },
+            'crestConsistency': {
+                title: 'Crest Factor Consistência',
+                body: 'Verifica se o Crest Factor está dentro do esperado para o tipo de áudio. Inconsistências indicam processamento excessivo ou problemas de dinâmica.',
+                variant: 'default'
+            },
+            'lraPlausibility': {
+                title: 'LRA Plausibilidade',
+                body: 'Verifica se o Loudness Range é plausível para o conteúdo. Valores muito baixos ou muito altos podem indicar problemas de medição ou áudio atípico.',
+                variant: 'default'
+            },
+            
             // === SUBSCORES ===
             'loudness': {
                 title: 'Subscore: Loudness',
@@ -17149,11 +17166,30 @@ async function displayModalResults(analysis) {
                 return null;
             }
             
-            const tooltip = TOOLTIP_REGISTRY[metricKey];
+            // Tentar busca direta primeiro
+            let tooltip = TOOLTIP_REGISTRY[metricKey];
+            
+            // Se não encontrou, tentar variações da chave
+            if (!tooltip) {
+                // Tentar sem prefixo band_
+                if (metricKey.startsWith('band_')) {
+                    tooltip = TOOLTIP_REGISTRY[metricKey];
+                }
+                // Tentar com lowercase
+                if (!tooltip) {
+                    const lowerKey = metricKey.toLowerCase();
+                    tooltip = TOOLTIP_REGISTRY[lowerKey];
+                }
+            }
             
             // Se não encontrar E estiver em DEV, logar warning
             if (!tooltip && isDev) {
-                console.warn(`[TOOLTIP-MISSING] Métrica sem tooltip: "${metricKey}". Adicione entry no TOOLTIP_REGISTRY.`);
+                // Usar conjunto global para evitar logs duplicados
+                if (!window._missingTooltipKeys) window._missingTooltipKeys = new Set();
+                if (!window._missingTooltipKeys.has(metricKey)) {
+                    window._missingTooltipKeys.add(metricKey);
+                    console.warn(`[TOOLTIP-MISSING] Métrica sem tooltip: "${metricKey}". Adicione entry no TOOLTIP_REGISTRY.`);
+                }
             }
             
             return tooltip || null;
@@ -17365,7 +17401,7 @@ async function displayModalResults(analysis) {
                     return '';
                 }
                 console.log('✅ [RENDER] Pico RMS (300ms) =', rmsPeakValue, 'dB');
-                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs');
+                return row('Pico RMS (300ms)', `${safeFixed(rmsPeakValue)} dB`, 'rmsPeak300msDbfs', 'rmsPeak300msDbfs', 'primary');
             })(),
             
             // 🎯 2. Sample Peak (dBFS): max(samplePeakLeftDb, samplePeakRightDb)
@@ -17379,7 +17415,7 @@ async function displayModalResults(analysis) {
                 
                 const spStatus = getTruePeakStatus(samplePeakDbfs);
                 console.log('✅ [RENDER] Sample Peak (dBFS) =', samplePeakDbfs, 'dBFS');
-                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak');
+                return row('Sample Peak (dBFS)', `${safeFixed(samplePeakDbfs, 1)} dBFS <span class="${spStatus.class}">${spStatus.status}</span>`, 'samplePeak', 'samplePeak', 'primary');
             })(),
             
             // 🎯 3. True Peak (dBTP): technicalData.truePeakDbtp
@@ -17401,7 +17437,7 @@ async function displayModalResults(analysis) {
                 
                 const tpStatus = getTruePeakStatus(tpValue);
                 console.log('✅ [RENDER] Pico Real (dBTP) =', tpValue, 'dBTP');
-                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
+                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp', 'truePeakDbtp', 'primary');
             })(),
             
             // 🎯 4. Volume Médio (RMS): technicalData.avgLoudness
@@ -17411,15 +17447,15 @@ async function displayModalResults(analysis) {
                 // Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
                     console.warn('⚠️ [RENDER] Volume Médio (RMS) NÃO ENCONTRADO');
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `—`, 'avgLoudness', 'avgLoudness', 'primary');
                 }
                 if (!Number.isFinite(rmsValue)) {
                     console.warn('⚠️ [RENDER] Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `—`, 'avgLoudness');
+                    return row('Volume Médio (RMS)', `—`, 'avgLoudness', 'avgLoudness', 'primary');
                 }
                 
                 console.log('✅ [RENDER] Volume Médio (RMS) =', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness', 'avgLoudness', 'primary');
             })(),
             
             // 🎯 Loudness (LUFS) - loudness perceptiva em LUFS
@@ -17463,7 +17499,7 @@ async function displayModalResults(analysis) {
                 return row('LUFS Curto Prazo (Short-Term)', `${safeFixed(lufsShortTermValue, 1)} LUFS`, 'lufsShortTerm', 'lufsShortTerm', 'secondary');
             })(),
             
-            row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dr', 'primary'),
+            row('Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'dynamicRange', 'primary'),
             row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'lra', 'primary'),
             // Imagem Estéreo (movido de col2)
             row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'stereoCorrelation', 'primary'),
@@ -17798,7 +17834,7 @@ async function displayModalResults(analysis) {
             }
             
             // Frequência Central (mantém aqui)
-            rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz', 'spectralCentroid', 'frequency'));
+            rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz', 'spectralCentroidHz', 'frequency'));
             
             return rows.join('');
             // REMOVED: Correlação Estéreo - movido para col1
@@ -17843,10 +17879,10 @@ async function displayModalResults(analysis) {
                 
                 // Picos por canal separados (Sample Peak)
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
-                    rows.push(row('Sample Peak L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'peakLeft', 'advanced'));
+                    rows.push(row('Sample Peak L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb', 'samplePeakLeftDb', 'advanced'));
                 }
                 if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
-                    rows.push(row('Sample Peak R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'peakRight', 'advanced'));
+                    rows.push(row('Sample Peak R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb', 'samplePeakRightDb', 'advanced'));
                 }
                 
                 // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
@@ -17864,7 +17900,7 @@ async function displayModalResults(analysis) {
                 
                 // === HEADROOM ===
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
-                    rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb', 'headroom', 'advanced'));
+                    rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb', 'headroomDb', 'advanced'));
                 }
                 
                 // === FATOR DE CRISTA (movido de MÉTRICAS PRINCIPAIS) ===
@@ -17902,7 +17938,7 @@ async function displayModalResults(analysis) {
                 
                 // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
-                    rows.push(row('Largura Espectral (Hz)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz', 'spectralBandwidth', 'advanced'));
+                    rows.push(row('Largura Espectral (Hz)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz', 'spectralBandwidthHz', 'advanced'));
                 }
                 
                 // Spectral Kurtosis
@@ -17932,7 +17968,7 @@ async function displayModalResults(analysis) {
                         .slice(0, 5)
                         .map(f => `${Math.round(f)}Hz`)
                         .join(', ');
-                    rows.push(row('frequências dominantes', freqList, 'dominantFrequencies'));
+                    rows.push(row('Frequências Dominantes', freqList, 'dominantFrequencies', 'dominantFrequencies', 'advanced'));
                     console.log('🎛️ [DEBUG] Frequências dominantes exibidas:', freqList);
                 }
                 
@@ -17945,14 +17981,15 @@ async function displayModalResults(analysis) {
                 
                 // === ZEROS CROSSING RATE ===
                 if (Number.isFinite(analysis.technicalData?.zcr)) {
-                    rows.push(row('zero crossings', `${Math.round(analysis.technicalData.zcr)}`, 'zeroCrossings'));
+                    rows.push(row('Zero Crossings Rate', `${Math.round(analysis.technicalData.zcr)}`, 'zeroCrossings', 'zeroCrossings', 'advanced'));
                 }
                 
                 // === MFCC (primeiros coeficientes) ===
                 if (Array.isArray(analysis.technicalData?.mfcc) && analysis.technicalData.mfcc.length > 0) {
                     analysis.technicalData.mfcc.slice(0, 3).forEach((coeff, idx) => {
                         if (Number.isFinite(coeff)) {
-                            rows.push(row(`mfcc ${idx + 1}`, `${safeFixed(coeff, 3)}`, `mfcc${idx + 1}`));
+                            const mfccKey = `mfcc${idx + 1}`;
+                            rows.push(row(`MFCC ${idx + 1}`, `${safeFixed(coeff, 3)}`, mfccKey, mfccKey, 'advanced'));
                         }
                     });
                 }
@@ -17962,7 +17999,7 @@ async function displayModalResults(analysis) {
                 console.log('[AUDITORIA-SUGESTOES] Sugestões detectadas:', suggestionsCount);
                 
                 if (suggestionsCount > 0) {
-                    rows.push(row('Sugestões', `<span class="tag tag-success">${suggestionsCount} DISPONÍVEL${suggestionsCount > 1 ? 'S' : ''}</span>`, 'suggestions'));
+                    rows.push(row('Sugestões', `<span class="tag tag-success">${suggestionsCount} DISPONÍVEL${suggestionsCount > 1 ? 'S' : ''}</span>`, 'suggestions', 'suggestions', 'advanced'));
                 }
                 
                 return rows.join('') || row('Status', 'Sem métricas avançadas disponíveis');
@@ -18049,7 +18086,7 @@ async function displayModalResults(analysis) {
                         clipClass = '';
                     }
                 }
-                rows.push(row('Clipping', `<span class="${clipClass}">${clipText}</span>`, 'clippingSamples'));
+                rows.push(row('Clipping', `<span class="${clipClass}">${clipText}</span>`, 'clippingSamples', 'clippingSamples', 'advanced'));
                 
                 // 2. DC Offset - SEMPRE mostrar (usando nova estrutura)
                 let dcVal, hasDcProblem, dcClass;
@@ -18060,14 +18097,14 @@ async function displayModalResults(analysis) {
                     dcClass = hasDcProblem ? (analysis.dcOffset.isCritical ? 'error' : 'warn') : '';
                     if (hasDcProblem) hasActualProblems = true;
                     const dcDetails = `Max: ${safeFixed(dcVal, 4)} | L: ${safeFixed(analysis.dcOffset.leftDC, 4)} | R: ${safeFixed(analysis.dcOffset.rightDC, 4)} | ${analysis.dcOffset.severity}`;
-                    rows.push(row('DC Offset (Detalhado)', `<span class="${dcClass}">${dcDetails}</span>`, 'dcOffset'));
+                    rows.push(row('DC Offset (Detalhado)', `<span class="${dcClass}">${dcDetails}</span>`, 'dcOffset', 'dcOffset', 'advanced'));
                 } else {
                     // Fallback para estrutura legada
                     dcVal = Number.isFinite(analysis.technicalData?.dcOffset) ? analysis.technicalData.dcOffset : 0;
                     hasDcProblem = Math.abs(dcVal) > 0.01;
                     if (hasDcProblem) hasActualProblems = true;
                     dcClass = hasDcProblem ? 'warn' : '';
-                    rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset'));
+                    rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset', 'dcOffset', 'advanced'));
                 }
                 
                 // 3. THD - SEMPRE mostrar
@@ -18075,7 +18112,7 @@ async function displayModalResults(analysis) {
                 const hasThdProblem = thdVal > 1.0;
                 if (hasThdProblem) hasActualProblems = true;
                 const thdClass = hasThdProblem ? 'warn' : '';
-                rows.push(row('THD', `<span class="${thdClass}">${safeFixed(thdVal, 2)}%</span>`, 'thdPercent'));
+                rows.push(row('THD', `<span class="${thdClass}">${safeFixed(thdVal, 2)}%</span>`, 'thdPercent', 'thdPercent', 'advanced'));
                 
                 // 4. Stereo Correlation - SEMPRE mostrar
                 const stereoCorr = Number.isFinite(analysis.technicalData?.stereoCorrelation) ? analysis.technicalData.stereoCorrelation : 0;
@@ -18087,14 +18124,14 @@ async function displayModalResults(analysis) {
                     const status = stereoCorr < -0.3 ? 'Fora de fase' : 'Mono demais';
                     stereoText += ` (${status})`;
                 }
-                rows.push(row('Stereo Corr.', `<span class="${stereoClass}">${stereoText}</span>`, 'stereoCorrelation'));
+                rows.push(row('Stereo Corr.', `<span class="${stereoClass}">${stereoText}</span>`, 'stereoCorrelation', 'stereoCorrelation', 'advanced'));
                 
                 // 5. Fator de Crista - SEMPRE mostrar  
                 const crestVal = Number.isFinite(analysis.technicalData?.crestFactor) ? analysis.technicalData.crestFactor : 0;
                 const hasCrestProblem = crestVal < 6 || crestVal > 20; // Valores normais: 6-20dB
                 if (hasCrestProblem) hasActualProblems = true;
                 const crestClass = hasCrestProblem ? 'warn' : '';
-                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB</span>`, 'crestFactor'));
+                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB</span>`, 'crestFactor', 'crestFactor', 'advanced'));
                 
                 // Consistência (se disponível) - mas sempre tentar mostrar
                 if (analysis.metricsValidation && Object.keys(analysis.metricsValidation).length) {
@@ -18102,31 +18139,31 @@ async function displayModalResults(analysis) {
                     const badge = (k,v) => `<span style="padding:2px 6px;border-radius:4px;font-size:11px;background:${v==='ok'?'#143f2b':(v==='warn'?'#4d3808':'#4a1d1d')};color:${v==='ok'?'#29c182':(v==='warn'?'#ffce4d':'#ff7d7d')};margin-left:6px;">${v}</span>`;
                     
                     if (mv.dynamicRangeConsistency) {
-                        rows.push(row('DR Consistência', `Δ=${mv.dynamicRangeDelta || '0'} ${badge('dr', mv.dynamicRangeConsistency)}`));
+                        rows.push(row('DR Consistência', `Δ=${mv.dynamicRangeDelta || '0'} ${badge('dr', mv.dynamicRangeConsistency)}`, 'drConsistency', 'drConsistency', 'advanced'));
                         if (mv.dynamicRangeConsistency !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('dr', 'ok')}</span>`));
+                        rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('dr', 'ok')}</span>`, 'drConsistency', 'drConsistency', 'advanced'));
                     }
                     
                     if (mv.crestFactorConsistency) {
-                        rows.push(row('Crest Consist.', `Δ=${mv.crestVsExpectedDelta || '0'} ${badge('cf', mv.crestFactorConsistency)}`));
+                        rows.push(row('Crest Consist.', `Δ=${mv.crestVsExpectedDelta || '0'} ${badge('cf', mv.crestFactorConsistency)}`, 'crestConsistency', 'crestConsistency', 'advanced'));
                         if (mv.crestFactorConsistency !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('cf', 'ok')}</span>`));
+                        rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('cf', 'ok')}</span>`, 'crestConsistency', 'crestConsistency', 'advanced'));
                     }
                     
                     if (mv.lraPlausibility) {
-                        rows.push(row('LRA Plausível', badge('lra', mv.lraPlausibility)));
+                        rows.push(row('LRA Plausível', badge('lra', mv.lraPlausibility), 'lraPlausibility', 'lraPlausibility', 'advanced'));
                         if (mv.lraPlausibility !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('lra', 'ok')}</span>`));
+                        rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('lra', 'ok')}</span>`, 'lraPlausibility', 'lraPlausibility', 'advanced'));
                     }
                 } else {
                     // Mostrar como não disponível/OK
                     const badge = (v) => `<span style="padding:2px 6px;border-radius:4px;font-size:11px;background:#143f2b;color:#29c182;margin-left:6px;">${v}</span>`;
-                    rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`));
-                    rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`));
-                    rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('ok')}</span>`));
+                    rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`, 'drConsistency', 'drConsistency', 'advanced'));
+                    rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`, 'crestConsistency', 'crestConsistency', 'advanced'));
+                    rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('ok')}</span>`, 'lraPlausibility', 'lraPlausibility', 'advanced'));
                 }
                 
                 return rows.join('');
