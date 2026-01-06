@@ -19420,17 +19420,11 @@ async function displayModalResults(analysis) {
             const scoreTooltipTitle = scoreTooltipData?.title || 'Score Final';
             const scoreTooltipBody = scoreTooltipData?.body || 'Média ponderada de todos os subscores. Reflete a qualidade técnica geral do áudio.';
             
-            // Renderizar HTML do score final - UI LIMPA + TOOLTIP
+            // Renderizar HTML do score final - UI LIMPA (SEM TOOLTIP)
             container.innerHTML = `
-                <div class="score-final-label" 
-                     data-tooltip-title="${scoreTooltipTitle}" 
-                     data-tooltip-body="${scoreTooltipBody}">🏆 SCORE FINAL</div>
-                <div class="score-final-value"
-                     data-tooltip-title="${scoreTooltipTitle}" 
-                     data-tooltip-body="${scoreTooltipBody}">0</div>
-                <div class="score-final-bar-container"
-                     data-tooltip-title="${scoreTooltipTitle}" 
-                     data-tooltip-body="${scoreTooltipBody}">
+                <div class="score-final-label">🏆 SCORE FINAL</div>
+                <div class="score-final-value">0</div>
+                <div class="score-final-bar-container">
                     <div class="score-final-bar">
                         <div class="score-final-bar-fill" style="width: 0%"></div>
                     </div>
@@ -19537,11 +19531,9 @@ async function displayModalResults(analysis) {
             const diagnosticTooltipTitle = diagnosticTooltipData?.title || 'Diagnóstico';
             const diagnosticTooltipBody = diagnosticTooltipData?.body || 'Classificação qualitativa baseada no score final.';
             
-            // Renderizar APENAS o texto único - design minimalista premium + TOOLTIP
+            // Renderizar APENAS o texto único - design minimalista premium (SEM TOOLTIP)
             container.innerHTML = `
-                <div class="verdict-text" 
-                     data-tooltip-title="${diagnosticTooltipTitle}" 
-                     data-tooltip-body="${diagnosticTooltipBody}">${finalText}</div>
+                <div class="verdict-text">${finalText}</div>
             `;
             
             console.log('[RENDER_DIAGNOSTIC] ✅ Veredito sonoro renderizado');
