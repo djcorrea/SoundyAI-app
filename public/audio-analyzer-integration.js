@@ -18982,25 +18982,83 @@ async function displayModalResults(analysis) {
         
         const finalBreakdown = applyClippingCaps(breakdown);
         
-        // Função para renderizar score com barra de progresso
-        const renderScoreWithProgress = (label, value, color = '#00ffff') => {
+        // 🎯 HELPER: Detecta se True Peak está crítico (para tooltip de Loudness)
+        const isTruePeakCritical = () => {
+            const tp = analysis?.technicalData?.truePeakDbtp;
+            const gates = analysis?.scores?._gatesTriggered || [];
+            
+            // Verificar se há gate crítico de True Peak
+            const hasCriticalGate = gates.some(g => 
+                g.type === 'TRUE_PEAK_CRITICAL' || 
+                g.type === 'CLIPPING_SEVERE'
+            );
+            
+            // Ou verificar se TP > 0 dBTP
+            return hasCriticalGate || (Number.isFinite(tp) && tp > 0);
+        };
+        
+        // 🎯 TEXTOS DE TOOLTIP PARA SUBSCORES
+        const subscoreTooltips = {
+            loudness: {
+                title: 'Loudness',
+                normal: 'Mede o quão perto sua faixa está do alvo de volume do gênero. Quanto mais perto do alvo (sem distorcer), maior a nota.',
+                critical: '⚠️ Nota limitada por True Peak (clipping). Mesmo com LUFS perto do alvo, picos acima do limite derrubam esta nota. Reduza o True Peak para recuperar a pontuação.'
+            },
+            dynamics: {
+                title: 'Dinâmica',
+                body: 'Avalia a variação entre partes altas e baixas (impacto e respiração). Compressão/limiter em excesso tende a reduzir a nota.'
+            },
+            frequency: {
+                title: 'Frequência',
+                body: 'Avalia o equilíbrio tonal (graves, médios, agudos) versus o alvo do gênero. Excesso/falta em bandas específicas reduz a nota.'
+            },
+            stereo: {
+                title: 'Estéreo',
+                body: 'Avalia largura e estabilidade estéreo. Estéreo exagerado ou mono fraco pode reduzir a nota.'
+            },
+            technical: {
+                title: 'Técnico',
+                body: 'Avalia problemas técnicos como clipping, distorção e artefatos. Esses problemas podem limitar notas de outras áreas.'
+            }
+        };
+        
+        // Função para renderizar score com barra de progresso + TOOLTIP
+        const renderScoreWithProgress = (label, value, color = '#00ffff', tooltipKey = null) => {
             const numValue = parseFloat(value) || 0;
             const displayValue = value != null ? value : '—';
             
             // Indicar se o valor foi capeado (comparar com breakdown original)
-            const labelKey = label.toLowerCase().replace('faixa dinâmica', 'dynamics').replace('técnico', 'technical').replace('loudness', 'loudness').replace('frequência', 'frequency').replace('stereo', 'stereo');
+            const labelKey = label.toLowerCase().replace('faixa dinâmica', 'dynamics').replace('técnico', 'technical').replace('loudness', 'loudness').replace('frequência', 'frequency').replace('stereo', 'stereo').replace('dinâmica', 'dynamics').replace('estéreo', 'stereo');
             const wasCapped = isClippedState && breakdown[labelKey] && Number.isFinite(breakdown[labelKey]) && 
                              breakdown[labelKey] !== value;
             const cappedIndicator = wasCapped ? ' 🔴' : '';
             
+            // 🎯 TOOLTIP ATTRIBUTES
+            let tooltipAttrs = '';
+            if (tooltipKey && subscoreTooltips[tooltipKey]) {
+                const tt = subscoreTooltips[tooltipKey];
+                const tooltipTitle = tt.title || label;
+                
+                // Lógica especial para Loudness: verificar se True Peak está crítico
+                let tooltipBody = tt.body || tt.normal;
+                let tooltipVariant = 'default';
+                
+                if (tooltipKey === 'loudness' && isTruePeakCritical()) {
+                    tooltipBody = tt.critical;
+                    tooltipVariant = 'warning';
+                }
+                
+                tooltipAttrs = `data-tooltip-title="${tooltipTitle}" data-tooltip-body="${tooltipBody}" data-tooltip-variant="${tooltipVariant}"`;
+            }
+            
             if (value == null) {
-                return `<div class="data-row">
+                return `<div class="data-row" ${tooltipAttrs}>
                     <span class="label">${label}:</span>
                     <span class="value">—</span>
                 </div>`;
             }
             
-            return `<div class="data-row metric-with-progress">
+            return `<div class="data-row metric-with-progress" ${tooltipAttrs}>
                 <span class="label">${label}${cappedIndicator}:</span>
                 <div class="metric-value-progress">
                     <span class="value">${displayValue}/100</span>
@@ -19079,11 +19137,21 @@ async function displayModalResults(analysis) {
                 });
             }
             
-            // Renderizar HTML do score final - UI LIMPA
+            // 🎯 TOOLTIP PARA SCORE FINAL
+            const scoreTooltipTitle = 'Score Final';
+            const scoreTooltipBody = 'Resumo da qualidade geral com base nos subscores e penalidades técnicas. Problemas críticos (ex.: clipping) podem limitar o score final.';
+            
+            // Renderizar HTML do score final - UI LIMPA + TOOLTIP
             container.innerHTML = `
-                <div class="score-final-label">🏆 SCORE FINAL</div>
-                <div class="score-final-value">0</div>
-                <div class="score-final-bar-container">
+                <div class="score-final-label" 
+                     data-tooltip-title="${scoreTooltipTitle}" 
+                     data-tooltip-body="${scoreTooltipBody}">🏆 SCORE FINAL</div>
+                <div class="score-final-value"
+                     data-tooltip-title="${scoreTooltipTitle}" 
+                     data-tooltip-body="${scoreTooltipBody}">0</div>
+                <div class="score-final-bar-container"
+                     data-tooltip-title="${scoreTooltipTitle}" 
+                     data-tooltip-body="${scoreTooltipBody}">
                     <div class="score-final-bar">
                         <div class="score-final-bar-fill" style="width: 0%"></div>
                     </div>
@@ -19185,9 +19253,15 @@ async function displayModalResults(analysis) {
                 return;
             }
             
-            // Renderizar APENAS o texto único - design minimalista premium
+            // 🎯 TOOLTIP PARA DIAGNÓSTICO
+            const diagnosticTooltipTitle = 'Diagnóstico';
+            const diagnosticTooltipBody = 'Explicação do principal gargalo detectado. Baseado nos problemas mais severos e no impacto em reprodução/streaming.';
+            
+            // Renderizar APENAS o texto único - design minimalista premium + TOOLTIP
             container.innerHTML = `
-                <div class="verdict-text">${finalText}</div>
+                <div class="verdict-text" 
+                     data-tooltip-title="${diagnosticTooltipTitle}" 
+                     data-tooltip-body="${diagnosticTooltipBody}">${finalText}</div>
             `;
             
             console.log('[RENDER_DIAGNOSTIC] ✅ Veredito sonoro renderizado');
@@ -19301,12 +19375,33 @@ async function displayModalResults(analysis) {
             
             // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
             // 🔧 USANDO normalizedScores ao invés de scores bruto
+            // 🎯 ADICIONANDO TOOLTIPS NOS SUBSCORES (via data-tooltip)
+            const wrapWithTooltip = (html, tooltipKey) => {
+                if (!tooltipKey || !subscoreTooltips[tooltipKey]) return html;
+                
+                const tt = subscoreTooltips[tooltipKey];
+                const tooltipTitle = tt.title;
+                
+                // Lógica especial para Loudness: verificar se True Peak está crítico
+                let tooltipBody = tt.body || tt.normal;
+                let tooltipVariant = 'default';
+                
+                if (tooltipKey === 'loudness' && isTruePeakCritical()) {
+                    tooltipBody = tt.critical;
+                    tooltipVariant = 'warning';
+                }
+                
+                // Adicionar wrapper com data-tooltip
+                return html.replace('<div class="data-row metric-with-progress">', 
+                    `<div class="data-row metric-with-progress" data-tooltip-title="${tooltipTitle}" data-tooltip-body="${tooltipBody}" data-tooltip-variant="${tooltipVariant}">`);
+            };
+            
             const subScoresHtml = `
-                ${renderScoreProgressBar('Loudness', normalizedScores.loudness, '#ff3366', '🔊')}
-                ${renderScoreProgressBar('Frequência', normalizedScores.frequencia, '#00ffff', '🎵')}
-                ${renderScoreProgressBar('Estéreo', normalizedScores.estereo, '#ff6b6b', '🎧')}
-                ${renderScoreProgressBar('Dinâmica', normalizedScores.dinamica, '#ffd700', '📊')}
-                ${renderScoreProgressBar('Técnico', normalizedScores.tecnico, '#00ff92', '🔧')}
+                ${wrapWithTooltip(renderScoreProgressBar('Loudness', normalizedScores.loudness, '#ff3366', '🔊'), 'loudness')}
+                ${wrapWithTooltip(renderScoreProgressBar('Frequência', normalizedScores.frequencia, '#00ffff', '🎵'), 'frequency')}
+                ${wrapWithTooltip(renderScoreProgressBar('Estéreo', normalizedScores.estereo, '#ff6b6b', '🎧'), 'stereo')}
+                ${wrapWithTooltip(renderScoreProgressBar('Dinâmica', normalizedScores.dinamica, '#ffd700', '📊'), 'dynamics')}
+                ${wrapWithTooltip(renderScoreProgressBar('Técnico', normalizedScores.tecnico, '#00ff92', '🔧'), 'technical')}
             `;
             
             return subScoresHtml;
@@ -29873,7 +29968,7 @@ function generateReportHTML(data) {
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
                 <h1 style="margin: 0; font-size: 48px; font-weight: 700;">${data.score}<span style="font-size: 32px; opacity: 0.8;">/100</span></h1>
-                <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95; font-weight: 500;">${data.classification}</p>
+                <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95; font-weight: 500;">SCORE FINAL</p>
             </div>
             <div style="font-size: 64px; opacity: 0.9;">🎵</div>
         </div>
@@ -32234,65 +32329,9 @@ if (document.readyState === 'loading') {
     injectTruePeakStatusStyles();
 }
 
-// 🎯 SISTEMA DE TOOLTIPS PARA MÉTRICAS
-let currentTooltip = null;
-
-window.showMetricTooltip = function(iconElement, event) {
-    // Remover tooltip anterior se existir
-    hideMetricTooltip();
-    
-    const tooltipText = iconElement.getAttribute('data-tooltip');
-    if (!tooltipText) return;
-    
-    // Criar tooltip
-    const tooltip = document.createElement('div');
-    tooltip.className = 'metric-tooltip active';
-    tooltip.textContent = tooltipText;
-    document.body.appendChild(tooltip);
-    
-    currentTooltip = tooltip;
-    
-    // Posicionar tooltip
-    const rect = iconElement.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    
-    // Posicionar abaixo do ícone, centralizado
-    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-    let top = rect.bottom + 10;
-    
-    // Ajustar se sair da tela
-    const padding = 10;
-    if (left < padding) left = padding;
-    if (left + tooltipRect.width > window.innerWidth - padding) {
-        left = window.innerWidth - tooltipRect.width - padding;
-    }
-    if (top + tooltipRect.height > window.innerHeight - padding) {
-        // Mostrar acima do ícone se não couber embaixo
-        top = rect.top - tooltipRect.height - 10;
-    }
-    
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-    
-    // Ativar animação
-    setTimeout(() => tooltip.classList.add('active'), 10);
-};
-
-window.hideMetricTooltip = function() {
-    if (currentTooltip) {
-        currentTooltip.classList.remove('active');
-        setTimeout(() => {
-            if (currentTooltip && currentTooltip.parentNode) {
-                currentTooltip.parentNode.removeChild(currentTooltip);
-            }
-            currentTooltip = null;
-        }, 300);
-    }
-};
-
-// Fechar tooltip ao rolar a página
-window.addEventListener('scroll', hideMetricTooltip);
-window.addEventListener('resize', hideMetricTooltip);
+// 🎯 SISTEMA DE TOOLTIPS REMOVIDO - Agora usa tooltip-manager.js global
+// O sistema antigo com showMetricTooltip/hideMetricTooltip foi substituído por event delegation
+// Tooltips agora funcionam via data-tooltip-title e data-tooltip-body em qualquer elemento
 
 // 🧩 CORREÇÃO #7: Logs de debug automáticos para validação
 console.log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/reference", "color:#7f00ff;font-weight:bold;");
