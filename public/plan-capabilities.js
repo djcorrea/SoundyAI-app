@@ -315,13 +315,14 @@
     /**
      * Verifica se deve bloquear qualquer feature premium
      * (usado pelo premium-blocker para detecção genérica)
+     * ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
      * @returns {boolean} true se deve bloquear features premium
      */
     function shouldBlockPremiumFeatures() {
         const context = getCurrentContext();
         
-        // Se é PRO ou DJ Beta, nunca bloqueia
-        if (context.plan === 'pro' || context.plan === 'dj') return false;
+        // Se é PRO, DJ Beta ou STUDIO, nunca bloqueia
+        if (context.plan === 'pro' || context.plan === 'dj' || context.plan === 'studio') return false;
         
         // Se é FREE/PLUS, bloqueia IA e PDF sempre
         return true;

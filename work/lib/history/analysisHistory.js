@@ -11,13 +11,14 @@ const MAX_HISTORY_PER_USER = 50; // Limite máximo de análises salvas por usuá
 console.log(`🕐 [ANALYSIS-HISTORY] Módulo carregado - Collection: ${HISTORY_COLLECTION}`);
 
 /**
- * 🔐 Verifica se usuário é PRO ou DJ (únicos planos com acesso ao histórico)
+ * 🔐 Verifica se usuário é PRO, DJ ou STUDIO (planos com acesso ao histórico)
+ * ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
  * @param {string} plan - Plano do usuário
  * @returns {boolean} Se tem acesso ao histórico
  */
 function hasHistoryAccess(plan) {
     const normalizedPlan = (plan || 'free').toLowerCase().trim();
-    return normalizedPlan === 'pro' || normalizedPlan === 'dj';
+    return normalizedPlan === 'pro' || normalizedPlan === 'dj' || normalizedPlan === 'studio';
 }
 
 /**

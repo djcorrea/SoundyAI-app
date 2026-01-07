@@ -127,11 +127,12 @@
             return false; // Free trial tem tudo
         }
         
-        // ✅ FALLBACK: Pro ou DJ Beta sempre liberado
-        if (analysis.plan === 'pro' || analysis.plan === 'dj') {
+        // ✅ FALLBACK: Pro, DJ Beta ou STUDIO sempre liberado
+        // ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
+        if (analysis.plan === 'pro' || analysis.plan === 'dj' || analysis.plan === 'studio') {
             if (lastBlockState !== 'premium-allowed') {
                 lastBlockState = 'premium-allowed';
-                debugLog('✅ [BLOCKER] Plano PRO/DJ - acesso total');
+                debugLog('✅ [BLOCKER] Plano PRO/DJ/STUDIO - acesso total');
             }
             return false;
         }
