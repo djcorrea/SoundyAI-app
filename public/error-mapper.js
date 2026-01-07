@@ -1,53 +1,95 @@
-// 🎯 ERROR MAPPER V2 - Sistema Centralizado de Mensagens de Erro por SCOPE
-// Corrige inversão chat vs análise usando campo `scope` do backend
-// REGRA DE OURO: Se scope="chat", NUNCA mostrar copy de análise e vice-versa
+// 🎯 ERROR MAPPER V3 - Sistema Centralizado de Mensagens de Erro por SCOPE
+// REGRA STUDIO: NUNCA mostrar "limite atingido" → Sempre disfarçar como "alta demanda"
+// REGRA FREE/PLUS/PRO: Mostrar limite com números e CTA upgrade
 
 (function() {
     'use strict';
 
-    console.log('🎯 [ERROR-MAPPER-V2] Inicializando sistema com suporte a SCOPE...');
+    console.log('🎯 [ERROR-MAPPER-V3] Inicializando sistema com PLAN POLICY...');
 
     // ═══════════════════════════════════════════════════════════════════
-    // 📋 CONFIGURAÇÃO DE LIMITES POR PLANO
+    // 🎯 POLÍTICA CENTRAL POR PLANO (CRÍTICO!)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    const PLAN_POLICY = {
+        free: { 
+            exposeLimits: true,       // Pode mostrar números e "limite atingido"
+            overflowAnalysis: 'downgrade_to_reduced', // Ao bater limite, entra em reduced
+            overflowChat: 'limit_modal',              // Ao bater limite, mostra modal
+            showUpgradeCta: true      // Mostra botão "Ver Planos"
+        },
+        plus: { 
+            exposeLimits: true,       
+            overflowAnalysis: 'downgrade_to_reduced', 
+            overflowChat: 'limit_modal',
+            showUpgradeCta: true
+        },
+        pro: { 
+            exposeLimits: true,       
+            overflowAnalysis: 'downgrade_to_reduced', 
+            overflowChat: 'limit_modal',
+            showUpgradeCta: true      // Pode sugerir Studio
+        },
+        studio: { 
+            exposeLimits: false,      // ⚠️ NUNCA mostrar números nem "limite atingido"
+            overflowAnalysis: 'system_peak_modal',   // Hardcap → modal de alta demanda
+            overflowChat: 'system_peak_modal',       // Hardcap → modal de alta demanda  
+            showUpgradeCta: false     // Não tem upgrade disponível
+        },
+        // Fallbacks
+        dj: { exposeLimits: true, overflowAnalysis: 'downgrade_to_reduced', overflowChat: 'limit_modal', showUpgradeCta: true },
+        demo: { exposeLimits: true, overflowAnalysis: 'downgrade_to_reduced', overflowChat: 'limit_modal', showUpgradeCta: true }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 📋 CONFIGURAÇÃO DE LIMITES POR PLANO (para UI quando exposeLimits=true)
     // ═══════════════════════════════════════════════════════════════════
     
     const PLAN_CONFIG = {
         free: { displayName: 'Gratuito', chatLimit: 20, analysisLimit: 1 },
         plus: { displayName: 'Plus', chatLimit: 80, analysisLimit: 20 },
         pro: { displayName: 'Pro', chatLimit: 300, analysisLimit: 60 },
-        studio: { displayName: 'Studio', chatLimit: 400, analysisLimit: 400 }
+        studio: { displayName: 'Studio', chatLimit: 400, analysisLimit: 400 } // Ocultos
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // 💬 TEMPLATES PARA CHAT (scope="chat")
+    // ⏳ TEMPLATE UNIVERSAL DE ALTA DEMANDA (usado para Studio)
+    // ═══════════════════════════════════════════════════════════════════
+    
+    const SYSTEM_PEAK_TEMPLATE = {
+        icon: '⏳',
+        title: 'Plataforma em alta demanda',
+        getMessage: (scope) => scope === 'chat' 
+            ? 'Estamos com muitos usuários no momento. Por favor, aguarde alguns minutos e tente novamente.'
+            : 'Nossos servidores estão processando muitas análises. Aguarde alguns minutos e tente novamente.',
+        primaryCta: { label: '🔄 Tentar Novamente', action: 'retry' },
+        secondaryCta: null,
+        severity: 'warning'
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 💬 TEMPLATES PARA CHAT (scope="chat") - USADOS APENAS SE exposeLimits=true
     // ═══════════════════════════════════════════════════════════════════
     
     const CHAT_TEMPLATES = {
         LIMIT_REACHED: {
             icon: '💬',
             title: 'Limite de mensagens atingido',
-            getMessage: (plan, meta) => {
+            getMessage: (plan, meta, policy) => {
                 const config = PLAN_CONFIG[plan] || PLAN_CONFIG.free;
                 const cap = meta?.cap || config.chatLimit;
                 const resetDate = formatResetDate(meta?.resetDate);
                 const msgs = {
-                    free: `Você utilizou suas ${cap} mensagens gratuitas do mês. Faça upgrade para o Plus!`,
-                    plus: `Você utilizou todas as ${cap} mensagens do Plus. Renova em ${resetDate}.`,
-                    pro: `Limite de ${cap} mensagens atingido. Renova em ${resetDate}. Conheça o Studio!`,
-                    studio: `Limite mensal de ${cap} mensagens atingido. Renova em ${resetDate}.`
+                    free: `Você utilizou suas ${cap} mensagens gratuitas do mês. Faça upgrade para o Plus e tenha 80 mensagens!`,
+                    plus: `Você utilizou todas as ${cap} mensagens do Plus. Renova em ${resetDate}. Conheça o Pro!`,
+                    pro: `Limite de ${cap} mensagens atingido. Renova em ${resetDate}. Conheça o Studio!`
                 };
                 return msgs[plan] || msgs.free;
             },
             primaryCta: { label: '✨ Ver Planos', action: 'upgrade' },
             severity: 'limit'
         },
-        SYSTEM_PEAK_USAGE: {
-            icon: '⏳',
-            title: 'Sistema em alta demanda',
-            getMessage: () => 'Muitos usuários no momento. Aguarde alguns minutos e tente novamente.',
-            primaryCta: { label: '🔄 Tentar Novamente', action: 'retry' },
-            severity: 'warning'
-        },
+        SYSTEM_PEAK_USAGE: SYSTEM_PEAK_TEMPLATE,
         IMAGE_PEAK_USAGE: {
             icon: '📸',
             title: 'Limite de imagens atingido',
@@ -72,22 +114,21 @@
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // 📊 TEMPLATES PARA ANÁLISE (scope="analysis")
+    // 📊 TEMPLATES PARA ANÁLISE (scope="analysis") - USADOS APENAS SE exposeLimits=true
     // ═══════════════════════════════════════════════════════════════════
     
     const ANALYSIS_TEMPLATES = {
         LIMIT_REACHED: {
             icon: '📊',
             title: 'Limite de análises atingido',
-            getMessage: (plan, meta) => {
+            getMessage: (plan, meta, policy) => {
                 const config = PLAN_CONFIG[plan] || PLAN_CONFIG.free;
                 const cap = meta?.cap || config.analysisLimit;
                 const resetDate = formatResetDate(meta?.resetDate);
                 const msgs = {
-                    free: `Você utilizou sua análise gratuita do mês. Faça upgrade para o Plus!`,
-                    plus: `Você utilizou todas as ${cap} análises do Plus. Renova em ${resetDate}.`,
-                    pro: `Limite de ${cap} análises atingido. Renova em ${resetDate}. Conheça o Studio!`,
-                    studio: `Limite mensal de ${cap} análises atingido. Renova em ${resetDate}.`
+                    free: `Você utilizou sua análise gratuita do mês. Faça upgrade para o Plus e tenha 20 análises!`,
+                    plus: `Você utilizou todas as ${cap} análises do Plus. Renova em ${resetDate}. Conheça o Pro!`,
+                    pro: `Limite de ${cap} análises atingido. Renova em ${resetDate}. Conheça o Studio!`
                 };
                 return msgs[plan] || msgs.free;
             },
@@ -95,11 +136,8 @@
             severity: 'limit'
         },
         SYSTEM_PEAK_USAGE: {
-            icon: '⏳',
-            title: 'Plataforma em alta demanda',
-            getMessage: () => 'Muitos usuários no momento. Aguarde alguns minutos e tente analisar novamente.',
-            primaryCta: { label: '🔄 Tentar Novamente', action: 'retry' },
-            severity: 'warning'
+            ...SYSTEM_PEAK_TEMPLATE,
+            getMessage: () => 'Nossos servidores estão processando muitas análises. Aguarde alguns minutos e tente novamente.'
         },
         FEATURE_LOCKED: {
             icon: '🔒',
@@ -217,9 +255,13 @@
             window.PlanCapabilities?.detectUserPlan?.()
         ];
         for (const plan of sources) {
-            if (plan && ['free', 'plus', 'pro', 'studio'].includes(plan)) return plan;
+            if (plan && ['free', 'plus', 'pro', 'studio', 'dj'].includes(plan)) return plan;
         }
         return 'free';
+    }
+
+    function getPlanPolicy(plan) {
+        return PLAN_POLICY[plan] || PLAN_POLICY.free;
     }
 
     /**
@@ -246,14 +288,14 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // 🎯 FUNÇÃO PRINCIPAL: mapBlockUi
+    // 🎯 FUNÇÃO PRINCIPAL: mapBlockUi (V3 COM POLICY)
     // ═══════════════════════════════════════════════════════════════════
     
     function mapBlockUi({ scope, code, feature, plan, meta = {}, _endpoint }) {
-        console.log('[ERROR-MAPPER-V2] mapBlockUi:', { scope, code, feature, plan, meta });
+        console.log('[ERROR-MAPPER-V3] mapBlockUi:', { scope, code, feature, plan, meta });
         
         const normalizedCode = (code || '').toUpperCase().replace(/-/g, '_');
-        const templateKey = CODE_MAPPING[normalizedCode] || 'SERVICE_ERROR';
+        let templateKey = CODE_MAPPING[normalizedCode] || 'SERVICE_ERROR';
         
         // Determinar scope final
         let finalScope = scope;
@@ -261,8 +303,20 @@
             finalScope = inferScope(_endpoint, normalizedCode, feature);
         }
         
-        // Selecionar templates baseado no scope
-        let templates = finalScope === 'chat' ? CHAT_TEMPLATES : ANALYSIS_TEMPLATES;
+        // 🎯 OBTER POLÍTICA DO PLANO
+        const normalizedPlan = plan || meta?.plan || detectCurrentPlan();
+        const policy = getPlanPolicy(normalizedPlan);
+        
+        console.log('[ERROR-MAPPER-V3] Policy para', normalizedPlan, ':', policy);
+        
+        // ═══════════════════════════════════════════════════════════════
+        // 🎯 REGRA CRÍTICA: STUDIO NUNCA MOSTRA "LIMITE ATINGIDO"
+        // Se exposeLimits=false E código é LIMIT_REACHED → disfarçar como SYSTEM_PEAK
+        // ═══════════════════════════════════════════════════════════════
+        if (!policy.exposeLimits && templateKey === 'LIMIT_REACHED') {
+            console.log('[ERROR-MAPPER-V3] ⚠️ DISFARÇANDO LIMIT_REACHED como SYSTEM_PEAK para', normalizedPlan);
+            templateKey = 'SYSTEM_PEAK_USAGE';
+        }
         
         // AUTH é especial - usar template comum
         if (templateKey === 'AUTH_REQUIRED') {
@@ -274,22 +328,43 @@
                 primaryCta: authTemplate.primaryCta,
                 secondaryCta: authTemplate.secondaryCta,
                 severity: authTemplate.severity,
-                _debug: { scope: finalScope, code: normalizedCode, templateKey }
+                _policy: policy,
+                _debug: { scope: finalScope, code: normalizedCode, templateKey, plan: normalizedPlan, disguised: false }
             };
         }
         
+        // Selecionar templates baseado no scope
+        let templates = finalScope === 'chat' ? CHAT_TEMPLATES : ANALYSIS_TEMPLATES;
         const template = templates[templateKey] || templates.SERVICE_ERROR || ANALYSIS_TEMPLATES.SERVICE_ERROR;
-        const normalizedPlan = plan || meta?.plan || detectCurrentPlan();
         const enrichedMeta = { ...meta, feature: feature || meta?.feature };
+        
+        // Gerar mensagem
+        const message = typeof template.getMessage === 'function' 
+            ? template.getMessage(normalizedPlan, enrichedMeta, policy)
+            : template.getMessage;
+        
+        // 🎯 AJUSTAR CTA BASEADO NA POLÍTICA
+        let primaryCta = template.primaryCta;
+        if (primaryCta?.action === 'upgrade' && !policy.showUpgradeCta) {
+            // Studio não tem upgrade, trocar por retry
+            primaryCta = { label: '🔄 Tentar Novamente', action: 'retry' };
+        }
         
         return {
             icon: template.icon,
             title: template.title,
-            message: template.getMessage(normalizedPlan, enrichedMeta),
-            primaryCta: template.primaryCta,
+            message: message,
+            primaryCta: primaryCta,
             secondaryCta: template.secondaryCta,
             severity: template.severity,
-            _debug: { scope: finalScope, code: normalizedCode, templateKey, plan: normalizedPlan }
+            _policy: policy,
+            _debug: { 
+                scope: finalScope, 
+                code: normalizedCode, 
+                templateKey, 
+                plan: normalizedPlan,
+                disguised: !policy.exposeLimits && CODE_MAPPING[normalizedCode] === 'LIMIT_REACHED'
+            }
         };
     }
 
@@ -372,6 +447,7 @@
         mapBlockUi,
         mapErrorToUi, // Compatibilidade
         inferScope,
+        getPlanPolicy,
         renderErrorModal,
         renderChatError,
         setRetryCallback,
@@ -382,12 +458,13 @@
         dismissModal,
         formatResetDate,
         detectCurrentPlan,
+        _PLAN_POLICY: PLAN_POLICY,
         _PLAN_CONFIG: PLAN_CONFIG,
         _CHAT_TEMPLATES: CHAT_TEMPLATES,
         _ANALYSIS_TEMPLATES: ANALYSIS_TEMPLATES,
-        _version: '2.0.0'
+        _version: '3.0.0'
     };
 
-    console.log('✅ [ERROR-MAPPER-V2] Sistema inicializado. Use mapBlockUi({ scope, code, plan, meta })');
+    console.log('✅ [ERROR-MAPPER-V3] Sistema inicializado com PLAN_POLICY. Studio nunca mostra "limite".');
 
 })();
