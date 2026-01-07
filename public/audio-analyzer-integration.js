@@ -5034,6 +5034,33 @@ function handleReferenceFileSelection(type) {
                 // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
                 
+                // 🎯 REDUCED MODE AUTO-ACTIVATION: Detectar se backend retornou modo reduced
+                // Isso acontece quando free/plus/pro atingem seu limite de análises completas
+                if (analysisResult.analysisMode === 'reduced' || analysisResult.mode === 'reduced') {
+                    console.log('%c[REDUCED-MODE-REF] ⚠️ Backend sinalizou modo REDUCED', 'color:orange;font-weight:bold;font-size:14px;');
+                    console.log('[REDUCED-MODE-REF] Ativando modo reduced automaticamente...');
+                    
+                    // Forçar window.analysisMode para 'reduced'
+                    window.analysisMode = 'reduced';
+                    
+                    // Mostrar toast informativo (não bloqueante)
+                    if (window.showToast || window.Toastify) {
+                        const message = 'Você atingiu o limite de análises completas. Continuando em modo reduzido (métricas básicas).';
+                        if (window.showToast) {
+                            window.showToast(message, 'warning');
+                        } else if (window.Toastify) {
+                            window.Toastify({
+                                text: message,
+                                duration: 7000,
+                                gravity: "top",
+                                position: "center",
+                                backgroundColor: "#ff9800",
+                                stopOnFocus: true
+                            }).showToast();
+                        }
+                    }
+                }
+                
                 // 🎯 FIX CRÍTICO: Injetar file.name no resultado ANTES de salvar no store
                 if (file && file.name) {
                     if (!analysisResult.fileName) {
@@ -10616,7 +10643,40 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
-        // � FIX CRÍTICO: Injetar file.name no resultado ANTES de salvar no store
+        // 🎯 REDUCED MODE AUTO-ACTIVATION: Detectar se backend retornou modo reduced
+        // Isso acontece quando free/plus/pro atingem seu limite de análises completas
+        if (analysisResult.analysisMode === 'reduced' || analysisResult.mode === 'reduced') {
+            console.log('%c[REDUCED-MODE] ⚠️ Backend sinalizou modo REDUCED', 'color:orange;font-weight:bold;font-size:14px;');
+            console.log('[REDUCED-MODE] Ativando modo reduced automaticamente...');
+            console.log('[REDUCED-MODE] Usuário pode continuar analisando com métricas limitadas');
+            
+            // Forçar window.analysisMode para 'reduced'
+            window.analysisMode = 'reduced';
+            
+            // Mostrar toast informativo (não bloqueante)
+            if (window.showToast || window.Toastify) {
+                const message = 'Você atingiu o limite de análises completas. Continuando em modo reduzido (métricas básicas).';
+                if (window.showToast) {
+                    window.showToast(message, 'warning');
+                } else if (window.Toastify) {
+                    window.Toastify({
+                        text: message,
+                        duration: 7000,
+                        gravity: "top",
+                        position: "center",
+                        backgroundColor: "#ff9800",
+                        stopOnFocus: true
+                    }).showToast();
+                }
+            } else {
+                // Fallback: log no console
+                console.log('%c[REDUCED-MODE] ⚠️ MODO REDUZIDO ATIVADO', 'color:orange;font-weight:bold;font-size:16px;');
+                console.log('[REDUCED-MODE] Métricas disponíveis: Score, LUFS, True Peak, Dynamic Range');
+                console.log('[REDUCED-MODE] Métricas bloqueadas: Frequências, Estéreo, Detalhes avançados');
+            }
+        }
+        
+        // 📝 FIX CRÍTICO: Injetar file.name no resultado ANTES de salvar no store
         // O backend retorna technicalData mas não inclui fileName no resultado
         // Garantimos que fileName esteja disponível em ambos os caminhos (root e metadata)
         if (file && file.name) {
