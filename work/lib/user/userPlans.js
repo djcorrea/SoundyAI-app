@@ -142,6 +142,13 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
 
+  // 🎬 STUDIO: Verificar expiração do plano Studio (120 dias via Hotmart)
+  if (user.studioExpiresAt && Date.now() > new Date(user.studioExpiresAt).getTime() && user.plan === "studio") {
+    console.log(`🎬 [USER-PLANS] Plano Studio expirado para: ${uid}`);
+    user.plan = "free";
+    changed = true;
+  }
+
   // ✅ STRIPE: Verificar expiração de assinatura recorrente
   if (user.subscription && user.subscription.status === 'canceled') {
     const currentPeriodEnd = new Date(user.subscription.currentPeriodEnd).getTime();
@@ -168,6 +175,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       proExpiresAt: user.proExpiresAt ?? null,
       djExpiresAt: user.djExpiresAt ?? null,        // 🎧 NOVO: Expiração Beta DJs
       djExpired: user.djExpired ?? false,           // 🎧 NOVO: Flag de beta expirado
+      studioExpiresAt: user.studioExpiresAt ?? null, // 🎬 NOVO: Expiração STUDIO (Hotmart)
       updatedAt: nowISO,
     };
 
@@ -278,9 +286,9 @@ export async function getOrCreateUser(uid, extra = {}) {
 }
 
 /**
- * Aplicar plano (usado pelo webhook Mercado Pago)
+ * Aplicar plano (usado pelos webhooks Mercado Pago e Hotmart)
  * @param {string} uid - UID do Firebase Auth
- * @param {Object} options - { plan: 'plus'|'pro', durationDays: number }
+ * @param {Object} options - { plan: 'plus'|'pro'|'studio'|'dj', durationDays: number }
  * @returns {Promise<Object>} Perfil atualizado
  */
 export async function applyPlan(uid, { plan, durationDays }) {
@@ -302,12 +310,14 @@ export async function applyPlan(uid, { plan, durationDays }) {
     update.plusExpiresAt = expires;
     update.proExpiresAt = null;  // Limpar PRO ao ativar PLUS
     update.djExpiresAt = null;   // Limpar DJ ao ativar PLUS
+    update.studioExpiresAt = null; // Limpar STUDIO ao ativar PLUS
   }
   
   if (plan === "pro") {
     update.proExpiresAt = expires;
     update.plusExpiresAt = null;  // Limpar PLUS ao ativar PRO
     update.djExpiresAt = null;    // Limpar DJ ao ativar PRO
+    update.studioExpiresAt = null; // Limpar STUDIO ao ativar PRO
   }
 
   // 🎧 DJ BETA: Ativar plano DJ (15 dias fixos)
@@ -315,7 +325,16 @@ export async function applyPlan(uid, { plan, durationDays }) {
     update.djExpiresAt = expires;
     update.plusExpiresAt = null;  // Limpar PLUS ao ativar DJ
     update.proExpiresAt = null;   // Limpar PRO ao ativar DJ
+    update.studioExpiresAt = null; // Limpar STUDIO ao ativar DJ
     update.djExpired = false;     // Resetar flag de expiração
+  }
+
+  // 🎬 STUDIO: Ativar plano STUDIO (120 dias via Hotmart)
+  if (plan === "studio") {
+    update.studioExpiresAt = expires;
+    update.plusExpiresAt = null;  // Limpar PLUS ao ativar STUDIO
+    update.proExpiresAt = null;   // Limpar PRO ao ativar STUDIO
+    update.djExpiresAt = null;    // Limpar DJ ao ativar STUDIO
   }
 
   await ref.update(update);

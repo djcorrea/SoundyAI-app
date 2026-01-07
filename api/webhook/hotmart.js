@@ -1,14 +1,15 @@
 /**
- * 🎓 WEBHOOK HOTMART - Integração Combo Curso + PRO 4 meses
+ * 🎓 WEBHOOK HOTMART - Integração Combo Curso + STUDIO 4 meses
  * 
  * ✅ Recebe notificações de vendas aprovadas
  * ✅ Valida assinatura HMAC (Hotmart Token)
  * ✅ Cria usuário automaticamente se não existir
- * ✅ Ativa plano PRO por 120 dias
+ * ✅ Ativa plano STUDIO por 120 dias
  * ✅ Envia e-mail de boas-vindas
  * ✅ Idempotente: transação processada apenas UMA vez
  * 
- * @version 1.0.0
+ * @version 1.1.0
+ * @updated 2026-01-06 - Alterado de PRO para STUDIO
  * @created 2026-01-04
  */
 
@@ -34,7 +35,7 @@ router.use(express.raw({ type: 'application/json' }));
 
 const HOTMART_WEBHOOK_SECRET = process.env.HOTMART_WEBHOOK_SECRET;
 const COLLECTION_TRANSACTIONS = 'hotmart_transactions';
-const PRO_DURATION_DAYS = 120; // 4 meses
+const STUDIO_DURATION_DAYS = 120; // 4 meses
 
 // ═══════════════════════════════════════════════════════════════════
 // 🔐 FUNÇÕES DE SEGURANÇA E PARSING
@@ -151,7 +152,7 @@ function extractHotmartData(body) {
       product.name ||
       purchase.product?.name ||
       body.prod_name ||
-      'Combo Curso + PRO';
+      'Combo Curso + STUDIO';
 
     console.log('📋 [HOTMART] Dados extraídos:', {
       event,
@@ -379,16 +380,16 @@ async function processWebhookAsync(data) {
     });
 
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 4: Ativar plano PRO por 120 dias
+    // PASSO 4: Ativar plano STUDIO por 120 dias
     // ═══════════════════════════════════════════════════════════════
-    console.log(`💳 [HOTMART-ASYNC] Ativando PRO para ${user.uid} (${PRO_DURATION_DAYS} dias)`);
+    console.log(`💳 [HOTMART-ASYNC] Ativando STUDIO para ${user.uid} (${STUDIO_DURATION_DAYS} dias)`);
     
     const updatedUser = await applyPlan(user.uid, {
-      plan: 'pro',
-      durationDays: PRO_DURATION_DAYS
+      plan: 'studio',
+      durationDays: STUDIO_DURATION_DAYS
     });
 
-    console.log(`✅ [HOTMART-ASYNC] Plano PRO ativado: ${user.uid} até ${updatedUser.proExpiresAt}`);
+    console.log(`✅ [HOTMART-ASYNC] Plano STUDIO ativado: ${user.uid} até ${updatedUser.studioExpiresAt}`);
 
     // ═══════════════════════════════════════════════════════════════
     // PASSO 5: Marcar transação como processada
@@ -396,9 +397,9 @@ async function processWebhookAsync(data) {
     await markTransactionProcessed(data.transactionId, {
       ...data,
       uid: user.uid,
-      planApplied: 'pro',
-      durationDays: PRO_DURATION_DAYS,
-      expiresAt: updatedUser.proExpiresAt
+      planApplied: 'studio',
+      durationDays: STUDIO_DURATION_DAYS,
+      expiresAt: updatedUser.studioExpiresAt
     });
 
     // ═══════════════════════════════════════════════════════════════
@@ -409,7 +410,7 @@ async function processWebhookAsync(data) {
       email: data.buyerEmail,
       name: data.buyerName,
       isNewUser: user.isNew,
-      expiresAt: updatedUser.proExpiresAt,
+      expiresAt: updatedUser.studioExpiresAt,
       transactionId: data.transactionId
     });
 
