@@ -1795,55 +1795,72 @@ async function processMessage(message, images = []) {
 
     hideTypingIndicator();
 
-    // ✅ CORREÇÃO #5: Tratamento específico de erros com códigos categorizados
+    // ✅ CORREÇÃO #5: Tratamento específico de erros com ErrorMapper centralizado
     if (data.error || data.code) {
       const errorCode = data.code || data.error;
       let userMessage = '';
       
-      // 📊 [CHAT-LIMIT-AUDIT:FRONT] Log de diagnóstico
+      // 📊 [CHAT-LIMIT-AUDIT:FRONT] Log de diagnóstico (apenas console)
       console.log(`[CHAT-LIMIT-AUDIT:FRONT] code=${errorCode} plan=${data.plan || 'unknown'} used=${data.used || 'N/A'} limit=${data.limit || 'N/A'} period=${data.period || 'N/A'}`);
       
-      if (errorCode === 'AUTH_TOKEN_MISSING' || errorCode === 'AUTH_ERROR' || (typeof errorCode === 'string' && errorCode.includes('Token'))) {
-        userMessage = '🔒 Sessão expirada. <a href="index.html">Faça login novamente</a>.';
-      } else if (errorCode === 'FILE_UPLOAD_ERROR' || errorCode === 'REQUEST_FORMAT_ERROR') {
-        userMessage = '📁 Erro no upload de imagens. Verifique se os arquivos são válidos e tente novamente.';
-      } else if (errorCode === 'IMAGES_LIMIT_EXCEEDED') {
-        userMessage = '📸 Máximo de 3 imagens por vez. Remova algumas imagens e tente novamente.';
-      } else if (errorCode === 'PAYLOAD_TOO_LARGE') {
-        userMessage = '📦 Imagens muito grandes. Comprima as imagens ou use formatos mais leves.';
-      } else if (errorCode === 'VALIDATION_ERROR' || errorCode === 'MESSAGE_INVALID') {
-        userMessage = `📝 ${data.message || 'Dados enviados são inválidos'}`;
-      } else if (errorCode === 'RATE_LIMIT_EXCEEDED') {
-        userMessage = '⏰ Muitas tentativas simultâneas. Aguarde um momento e tente novamente.';
-      } else if (errorCode === 'GATEWAY_TIMEOUT' || errorCode === 'AI_SERVICE_ERROR') {
-        userMessage = '⏱️ Processamento demorou muito. Tente uma mensagem mais simples ou aguarde alguns minutos.';
-      } else if (errorCode === 'SERVICE_UNAVAILABLE' || errorCode === 'SERVER_ERROR') {
-        userMessage = '🔧 Serviço temporariamente indisponível. Nossa equipe foi notificada. Tente novamente em alguns minutos.';
-      } else if (errorCode === 'PLAN_LOOKUP_FAILED') {
-        // 🚨 Erro ao buscar plano - NÃO mostrar banner de limite
-        userMessage = '⚠️ Erro ao verificar seu plano. Tente novamente em alguns instantes.';
-      } else if (errorCode === 'SYSTEM_PEAK_USAGE') {
-        // 🚨 Hard cap PRO atingido - mensagem neutra
-        userMessage = '⚠️ Sistema em alta demanda no momento. Por favor, aguarde alguns minutos e tente novamente.';
-      } else if (errorCode === 'IMAGE_PEAK_USAGE') {
-        // 🚨 Limite de imagens PRO atingido
-        userMessage = '📸 Você atingiu o limite mensal de análises com imagens. O limite será renovado no próximo mês.';
-      } else if (errorCode === 'LIMIT_REACHED') {
-        // ✅ CORREÇÃO: Usar dados mensais do backend
-        const planName = (data.plan || 'free').toUpperCase();
-        const limitValue = data.limit || 20;
-        const usedValue = data.used || limitValue;
-        const resetDate = data.resetAt ? new Date(data.resetAt).toLocaleDateString('pt-BR') : 'próximo mês';
+      // 🎯 USAR ERROR MAPPER SE DISPONÍVEL
+      if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
+        const errorUi = window.ErrorMapper.mapErrorToUi({
+          code: errorCode,
+          plan: data.plan,
+          feature: 'chat',
+          meta: {
+            cap: data.limit,
+            used: data.used,
+            resetDate: data.resetAt,
+            plan: data.plan,
+            period: data.period
+          }
+        });
         
-        console.log(`[CHAT-LIMIT-AUDIT:FRONT] BANNER EXIBIDO plan=${planName} limit=${limitValue} used=${usedValue} resetAt=${resetDate}`);
+        // Renderizar mensagem amigável
+        userMessage = window.ErrorMapper.renderChatError(errorUi);
+        console.log(`[CHAT] ✅ Erro mapeado: ${errorUi.title}`);
         
-        userMessage = `🚫 Você atingiu o limite de <strong>${limitValue} mensagens mensais</strong> do plano ${planName}.<br><br>` +
-                      `📅 Seu limite será renovado em: <strong>${resetDate}</strong><br><br>` +
-                      `🔓 <a href="planos.html" class="btn-plus" target="_blank">Fazer upgrade de plano</a>`;
-      } else if (typeof errorCode === 'string' && errorCode.includes('API não encontrada')) {
-        userMessage = '⚙️ Sistema em configuração. Tente novamente em alguns minutos.';
       } else {
-        userMessage = `❌ ${data.message || 'Erro inesperado. Nossa equipe foi notificada.'}`;
+        // 🔴 FALLBACK: mensagens antigas se ErrorMapper não disponível
+        console.warn('[CHAT] ErrorMapper não disponível, usando fallback');
+        
+        if (errorCode === 'AUTH_TOKEN_MISSING' || errorCode === 'AUTH_ERROR' || (typeof errorCode === 'string' && errorCode.includes('Token'))) {
+          userMessage = '🔒 Sessão expirada. <a href="index.html">Faça login novamente</a>.';
+        } else if (errorCode === 'FILE_UPLOAD_ERROR' || errorCode === 'REQUEST_FORMAT_ERROR') {
+          userMessage = '📁 Erro no upload de imagens. Verifique se os arquivos são válidos e tente novamente.';
+        } else if (errorCode === 'IMAGES_LIMIT_EXCEEDED') {
+          userMessage = '📸 Máximo de 3 imagens por vez. Remova algumas imagens e tente novamente.';
+        } else if (errorCode === 'PAYLOAD_TOO_LARGE') {
+          userMessage = '📦 Imagens muito grandes. Comprima as imagens ou use formatos mais leves.';
+        } else if (errorCode === 'VALIDATION_ERROR' || errorCode === 'MESSAGE_INVALID') {
+          userMessage = `📝 ${data.message || 'Dados enviados são inválidos'}`;
+        } else if (errorCode === 'RATE_LIMIT_EXCEEDED') {
+          userMessage = '⏰ Muitas tentativas simultâneas. Aguarde um momento e tente novamente.';
+        } else if (errorCode === 'GATEWAY_TIMEOUT' || errorCode === 'AI_SERVICE_ERROR') {
+          userMessage = '⏱️ Processamento demorou muito. Tente uma mensagem mais simples ou aguarde alguns minutos.';
+        } else if (errorCode === 'SERVICE_UNAVAILABLE' || errorCode === 'SERVER_ERROR') {
+          userMessage = '🔧 Serviço temporariamente indisponível. Nossa equipe foi notificada. Tente novamente em alguns minutos.';
+        } else if (errorCode === 'PLAN_LOOKUP_FAILED') {
+          userMessage = '⚠️ Erro ao verificar seu plano. Tente novamente em alguns instantes.';
+        } else if (errorCode === 'SYSTEM_PEAK_USAGE') {
+          userMessage = '⚠️ Sistema em alta demanda no momento. Por favor, aguarde alguns minutos e tente novamente.';
+        } else if (errorCode === 'IMAGE_PEAK_USAGE') {
+          userMessage = '📸 Você atingiu o limite mensal de análises com imagens. O limite será renovado no próximo mês.';
+        } else if (errorCode === 'LIMIT_REACHED') {
+          const planName = (data.plan || 'free').toUpperCase();
+          const limitValue = data.limit || 20;
+          const resetDate = data.resetAt ? new Date(data.resetAt).toLocaleDateString('pt-BR') : 'próximo mês';
+          
+          userMessage = `🚫 Você atingiu o limite de <strong>${limitValue} mensagens mensais</strong> do plano ${planName}.<br><br>` +
+                        `📅 Seu limite será renovado em: <strong>${resetDate}</strong><br><br>` +
+                        `🔓 <a href="planos.html" class="btn-plus" target="_blank">Fazer upgrade de plano</a>`;
+        } else if (typeof errorCode === 'string' && errorCode.includes('API não encontrada')) {
+          userMessage = '⚙️ Sistema em configuração. Tente novamente em alguns minutos.';
+        } else {
+          userMessage = `❌ ${data.message || 'Erro inesperado. Nossa equipe foi notificada.'}`;
+        }
       }
       
       appendMessage(`<strong>Assistente:</strong> ${userMessage}`, 'bot');
