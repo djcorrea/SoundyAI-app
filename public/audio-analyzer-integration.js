@@ -140,8 +140,9 @@ async function saveAnalysisToHistory(analysisResult) {
         
         console.log('🕐 [HISTORY-SAVE] Plano detectado:', userPlan);
         
-        // 3. Verificar se é PRO/DJ
-        const isPro = userPlan === 'pro' || userPlan === 'dj';
+        // 3. Verificar se é PRO/DJ/STUDIO
+        // ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
+        const isPro = userPlan === 'pro' || userPlan === 'dj' || userPlan === 'studio';
         if (!isPro) {
             console.log(`🕐 [HISTORY-SAVE] ⏭️ Plano "${userPlan}" não tem histórico - pulando`);
             return;
@@ -268,8 +269,9 @@ async function checkReferenceEntitlement() {
             }
         }
         
-        // 3. REGRA: PRO ou DJ = permitido, qualquer outro = bloqueado
-        const allowed = currentPlan === 'pro' || currentPlan === 'dj';
+        // 3. REGRA: PRO, DJ ou STUDIO = permitido, qualquer outro = bloqueado
+        // ✅ ATUALIZADO 2026-01-06: STUDIO agora tem acesso ao Modo Referência
+        const allowed = currentPlan === 'pro' || currentPlan === 'dj' || currentPlan === 'studio';
         
         console.log(`🔐 [ENTITLEMENT] checkReferenceEntitlement: plan=${currentPlan}, allowed=${allowed}`);
         
@@ -286,7 +288,8 @@ async function checkReferenceEntitlement() {
  */
 function checkReferenceEntitlementSync() {
     const plan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
-    const shouldBlock = plan !== 'pro' && plan !== 'dj';
+    // ✅ ATUALIZADO 2026-01-06: STUDIO agora tem acesso ao Modo Referência
+    const shouldBlock = plan !== 'pro' && plan !== 'dj' && plan !== 'studio';
     
     console.log(`🔐 [ENTITLEMENT-SYNC] plan=${plan}, shouldBlock=${shouldBlock}`);
     

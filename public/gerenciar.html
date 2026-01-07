@@ -1187,7 +1187,8 @@
                     
                     // Verificar se é plano Free/Reduced (bloquear apenas esses)
                     const isFreeOrReduced = userPlan === 'free' || userPlan === 'gratis' || userPlan === 'reduced';
-                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userData.isPlus === true;
+                    // ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
+                    const isPremium = userPlan === 'plus' || userPlan === 'pro' || userPlan === 'dj' || userPlan === 'studio' || userData.isPlus === true;
                     
                     console.log('📊 Plano do usuário:', userPlan, '| Premium:', isPremium, '| Free/Reduced:', isFreeOrReduced);
                     
@@ -1198,7 +1199,7 @@
                         return;
                     }
                     
-                    // Se chegou aqui, é Premium (Plus/Pro/DJ) ou plano válido - permitir
+                    // Se chegou aqui, é Premium (Plus/Pro/DJ/STUDIO) ou plano válido - permitir
                     console.log('✅ Plano Premium confirmado - permitindo personalização');
                     
                     // Usuário Premium (Plus/Pro/DJ) - prosseguir com redirecionamento e limpeza
