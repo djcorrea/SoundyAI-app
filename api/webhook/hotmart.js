@@ -411,7 +411,8 @@ async function processWebhookAsync(data) {
       name: data.buyerName,
       isNewUser: user.isNew,
       expiresAt: updatedUser.studioExpiresAt,
-      transactionId: data.transactionId
+      transactionId: data.transactionId,
+      planName: 'STUDIO'
     });
 
     if (emailResult.success) {
