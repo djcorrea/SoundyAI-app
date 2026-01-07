@@ -26,19 +26,19 @@ const PLAN_LIMITS = {
   },
   pro: {
     maxMessagesPerMonth: Infinity,        // Ilimitado visualmente
-    maxFullAnalysesPerMonth: 60,          // ✅ ATUALIZADO 2026-01-06: Infinity → 60 análises/mês
+    maxFullAnalysesPerMonth: 60,          // ✅ 60 análises completas/mês
     maxImagesPerMonth: 70,                // Limite de mensagens com imagens
     hardCapMessagesPerMonth: 300,         // Hard cap invisível para mensagens
-    hardCapAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Hard cap = limite visível
-    allowReducedAfterLimit: true,         // ✅ ATUALIZADO: Permite reduced após limite
+    hardCapAnalysesPerMonth: null,        // ✅ SEM HARD CAP: permite reduced após 60 análises
+    allowReducedAfterLimit: true,         // ✅ Permite reduced após limite
   },
   // 🎧 DJ BETA: Limites idênticos ao PRO (acesso temporário 15 dias)
   dj: {
     maxMessagesPerMonth: Infinity,
-    maxFullAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Segue PRO
+    maxFullAnalysesPerMonth: 60,          // ✅ Segue PRO
     maxImagesPerMonth: 70,
     hardCapMessagesPerMonth: 300,
-    hardCapAnalysesPerMonth: 60,          // ✅ ATUALIZADO: Segue PRO
+    hardCapAnalysesPerMonth: null,        // ✅ SEM HARD CAP: permite reduced (segue PRO)
     allowReducedAfterLimit: true,
   },
   // 🎬 STUDIO (R$99,90/mês) - Plano premium para produtores profissionais e estúdios
