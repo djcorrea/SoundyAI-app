@@ -1795,16 +1795,38 @@ async function processMessage(message, images = []) {
 
     hideTypingIndicator();
 
-    // ✅ CORREÇÃO #5: Tratamento específico de erros com ErrorMapper centralizado
+    // ✅ CORREÇÃO #5: Tratamento específico de erros com ErrorMapper V2 (scope-aware)
     if (data.error || data.code) {
       const errorCode = data.code || data.error;
       let userMessage = '';
       
       // 📊 [CHAT-LIMIT-AUDIT:FRONT] Log de diagnóstico (apenas console)
-      console.log(`[CHAT-LIMIT-AUDIT:FRONT] code=${errorCode} plan=${data.plan || 'unknown'} used=${data.used || 'N/A'} limit=${data.limit || 'N/A'} period=${data.period || 'N/A'}`);
+      console.log(`[CHAT-LIMIT-AUDIT:FRONT] scope=${data.scope || 'inferred:chat'} code=${errorCode} plan=${data.plan || 'unknown'} used=${data.used || 'N/A'} limit=${data.limit || 'N/A'} period=${data.period || 'N/A'}`);
       
-      // 🎯 USAR ERROR MAPPER SE DISPONÍVEL
-      if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
+      // 🎯 V2: USAR ERROR MAPPER COM SCOPE
+      if (window.ErrorMapper && typeof window.ErrorMapper.mapBlockUi === 'function') {
+        const errorUi = window.ErrorMapper.mapBlockUi({
+          scope: data.scope || 'chat', // Backend V2 envia scope, fallback para 'chat'
+          code: errorCode,
+          feature: data.feature || 'chat',
+          plan: data.plan,
+          meta: {
+            ...(data.meta || {}),
+            cap: data.meta?.cap || data.limit,
+            used: data.meta?.used || data.used,
+            resetDate: data.meta?.resetDate || data.resetAt,
+            plan: data.plan,
+            period: data.period
+          }
+        });
+        
+        // Renderizar mensagem amigável
+        userMessage = window.ErrorMapper.renderChatError(errorUi);
+        console.log(`[CHAT] ✅ Erro mapeado V2: ${errorUi.title} (scope: ${errorUi._debug?.scope})`);
+        
+      } else if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
+        // 🔄 FALLBACK V1: mapErrorToUi
+        console.warn('[CHAT] Usando mapErrorToUi (V1 fallback)');
         const errorUi = window.ErrorMapper.mapErrorToUi({
           code: errorCode,
           plan: data.plan,
@@ -1814,14 +1836,10 @@ async function processMessage(message, images = []) {
             used: data.used,
             resetDate: data.resetAt,
             plan: data.plan,
-            period: data.period
+            scope: 'chat' // Informar scope via meta
           }
         });
-        
-        // Renderizar mensagem amigável
         userMessage = window.ErrorMapper.renderChatError(errorUi);
-        console.log(`[CHAT] ✅ Erro mapeado: ${errorUi.title}`);
-        
       } else {
         // 🔴 FALLBACK: mensagens antigas se ErrorMapper não disponível
         console.warn('[CHAT] ErrorMapper não disponível, usando fallback');

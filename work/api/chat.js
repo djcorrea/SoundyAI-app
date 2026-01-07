@@ -950,21 +950,37 @@ async function handlerWithoutRateLimit(req, res) {
       console.log(`⛔ [${requestId}] Limite de chat atingido para UID: ${uid}`);
       console.log(`⛔ [${requestId}] Plano: ${chatCheck.user.plan}, Restantes: ${chatCheck.remaining}`);
       
-      // ✅ Mensagens UX neutras e elegantes para limites técnicos (PRO)
-      let errorMessage = 'Você atingiu o limite de mensagens do seu plano. Atualize para continuar usando o chat.';
+      // ✅ Calcular data de reset (primeiro dia do próximo mês)
+      const now = new Date();
+      const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
       
-      if (chatCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
-        errorMessage = 'O sistema está passando por um pico de uso neste período. Para manter a experiência estável, novas mensagens estão temporariamente pausadas.';
-      } else if (chatCheck.errorCode === 'IMAGE_PEAK_USAGE') {
-        errorMessage = 'O processamento de imagens atingiu um pico neste período. O envio de imagens será retomado automaticamente em breve.';
-      }
+      // ✅ Obter limites do plano para meta
+      const planLimits = {
+        free: { cap: 20 },
+        plus: { cap: 80 },
+        pro: { cap: 300 },
+        studio: { cap: 400 }
+      };
+      const limits = planLimits[chatCheck.user.plan] || planLimits.free;
+      const used = chatCheck.user.messagesMonth || 0;
       
       return sendResponse(403, {
-        error: chatCheck.errorCode || 'LIMIT_REACHED',
-        message: errorMessage,
-        remaining: chatCheck.remaining,
+        // 🎯 NOVO CONTRATO: scope + code + feature + plan + meta
+        code: chatCheck.errorCode || 'LIMIT_REACHED',
+        scope: 'chat',
+        feature: hasImages ? 'images' : 'chat',
         plan: chatCheck.user.plan,
-        limit: chatCheck.user.plan === 'free' ? 20 : (chatCheck.user.plan === 'plus' ? 80 : 'ilimitado')
+        meta: {
+          cap: limits.cap,
+          used: used,
+          remaining: chatCheck.remaining,
+          resetDate: resetDate
+        },
+        // ✅ LEGADO: Manter campos antigos para retrocompatibilidade
+        error: chatCheck.errorCode || 'LIMIT_REACHED',
+        message: 'Limite de mensagens atingido', // Mensagem genérica, frontend usa mapper
+        remaining: chatCheck.remaining,
+        limit: limits.cap
       });
     }
     

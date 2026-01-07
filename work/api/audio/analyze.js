@@ -657,6 +657,7 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
         return res.status(500).json({
           success: false,
           error: "LIMIT_CHECK_ERROR",
+          scope: 'analysis',
           message: "Erro ao verificar limites do plano"
         });
       }
@@ -665,19 +666,40 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
         console.log(`⛔ [ANALYZE] Limite de análises atingido para UID: ${uid}`);
         console.log(`⛔ [ANALYZE] Plano: ${analysisCheck.user.plan}, Mode: ${analysisCheck.mode}`);
         
-        // ✅ Mensagem UX neutra e elegante para hard cap (PRO)
-        let errorMessage = "Seu plano atual não permite mais análises. Atualize seu plano para continuar.";
+        // ✅ Calcular data de reset (primeiro dia do próximo mês)
+        const now = new Date();
+        const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
         
-        if (analysisCheck.errorCode === 'SYSTEM_PEAK_USAGE') {
-          errorMessage = "Estamos passando por um pico temporário de uso. Para garantir estabilidade e qualidade, novas análises estão pausadas no momento. O acesso será normalizado automaticamente em breve.";
-        }
+        // ✅ Obter limites do plano para meta
+        const planLimits = {
+          free: { cap: 1 },
+          plus: { cap: 20 },
+          pro: { cap: 60 },
+          studio: { cap: 400 }
+        };
+        const limits = planLimits[analysisCheck.user.plan] || planLimits.free;
+        const used = analysisCheck.user.analysesMonth || 0;
+        
+        // ✅ Determinar feature baseado no modo de análise
+        const analysisFeature = mode === 'reference' ? 'analysis_reference' : 'analysis_genre';
         
         return res.status(403).json({
           success: false,
-          error: analysisCheck.errorCode || "LIMIT_REACHED",
-          message: errorMessage,
-          remainingFull: analysisCheck.remainingFull,
+          // 🎯 NOVO CONTRATO: scope + code + feature + plan + meta
+          code: analysisCheck.errorCode || "LIMIT_REACHED",
+          scope: 'analysis',
+          feature: analysisFeature,
           plan: analysisCheck.user.plan,
+          meta: {
+            cap: limits.cap,
+            used: used,
+            remaining: analysisCheck.remainingFull,
+            resetDate: resetDate
+          },
+          // ✅ LEGADO: Manter campos antigos para retrocompatibilidade
+          error: analysisCheck.errorCode || "LIMIT_REACHED",
+          message: 'Limite de análises atingido', // Mensagem genérica, frontend usa mapper
+          remainingFull: analysisCheck.remainingFull,
           mode: analysisCheck.mode
         });
       }
