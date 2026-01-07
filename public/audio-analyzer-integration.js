@@ -13408,9 +13408,12 @@ function updateModalProgress(percentage, message) {
     __dbg(`📈 Progresso: ${percentage}% - ${message}`);
 }
 
-// ❌ Mostrar erro no modal
-function showModalError(message) {
+// ❌ Mostrar erro no modal (usa ErrorMapper para mensagens amigáveis)
+function showModalError(messageOrError, errorCode, meta = {}) {
+    console.log('[showModalError] Recebido:', { messageOrError, errorCode, meta });
+    
     // 🔥 [DEMO] Se é erro de limite de demo, mostrar modal de upgrade ao invés de erro
+    const message = typeof messageOrError === 'string' ? messageOrError : (messageOrError?.message || '');
     const isDemoLimitError = message && (
         message.includes('Limite') ||
         message.includes('limite') ||
@@ -13440,27 +13443,92 @@ function showModalError(message) {
         const refContainer = document.getElementById('referenceComparisons');
         const refHTML = refContainer ? refContainer.outerHTML : '';
         
-        results.innerHTML = `
-            <div style="color: #ff4444; text-align: center; padding: 30px;">
-                <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
-                <h3 style="margin: 0 0 15px 0; color: #ff4444;">Erro na Análise</h3>
-                <p style="margin: 0 0 25px 0; color: #666; line-height: 1.4;">${message}</p>
-                <button onclick="resetModalState()" style="
-                    background: #ff4444; 
-                    color: white; 
-                    border: none; 
-                    padding: 12px 25px; 
-                    border-radius: 6px; 
-                    cursor: pointer;
-                    font-size: 14px;
-                    font-weight: 500;
-                    transition: background 0.3s;
-                " onmouseover="this.style.background='#ff3333'" 
-                   onmouseout="this.style.background='#ff4444'">
-                    Tentar Novamente
-                </button>
-            </div>
-        `;
+        // 🎯 USAR ERROR MAPPER SE DISPONÍVEL
+        if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
+            // Detectar código de erro de várias fontes
+            let detectedCode = errorCode || 
+                              meta?.errorCode || 
+                              meta?.error ||
+                              (typeof messageOrError === 'object' ? (messageOrError.errorCode || messageOrError.error) : null);
+            
+            // Tentar extrair código do texto da mensagem
+            if (!detectedCode && message) {
+                const codePatterns = [
+                    /SYSTEM_PEAK_USAGE/i,
+                    /LIMIT_REACHED/i,
+                    /ANALYSIS_LIMIT/i,
+                    /CHAT_LIMIT/i,
+                    /HARD_CAP/i,
+                    /DEMO_LIMIT/i,
+                    /PLAN_REQUIRED/i,
+                    /FEATURE_NOT_AVAILABLE/i,
+                    /AUTH_REQUIRED/i,
+                    /TIMEOUT/i,
+                    /RATE_LIMIT/i
+                ];
+                for (const pattern of codePatterns) {
+                    const match = message.match(pattern);
+                    if (match) {
+                        detectedCode = match[0].toUpperCase().replace(/-/g, '_');
+                        break;
+                    }
+                }
+            }
+            
+            // Se ainda não tem código mas tem mensagem de limite, deduzir
+            if (!detectedCode && message) {
+                if (message.includes('limite') || message.includes('Limite')) {
+                    detectedCode = 'ANALYSIS_LIMIT_REACHED';
+                } else if (message.includes('alta demanda') || message.includes('ocupados')) {
+                    detectedCode = 'SYSTEM_PEAK_USAGE';
+                }
+            }
+            
+            const plan = meta?.plan || window.ErrorMapper.detectCurrentPlan();
+            
+            const errorUi = window.ErrorMapper.mapErrorToUi({
+                code: detectedCode || 'UNKNOWN',
+                plan: plan,
+                feature: meta?.feature || 'analysis',
+                meta: {
+                    ...meta,
+                    cap: meta?.cap || meta?.limit,
+                    used: meta?.used || meta?.current,
+                    resetDate: meta?.resetDate || meta?.nextReset
+                }
+            });
+            
+            // Configurar callback de retry
+            window.ErrorMapper.setRetryCallback(resetModalState);
+            
+            // Renderizar usando ErrorMapper
+            window.ErrorMapper.renderErrorModal(errorUi, results);
+            console.log('[showModalError] ✅ Erro renderizado com ErrorMapper:', errorUi.title);
+        } else {
+            // 🔴 FALLBACK: renderização antiga se ErrorMapper não disponível
+            console.warn('[showModalError] ErrorMapper não disponível, usando fallback');
+            results.innerHTML = `
+                <div style="color: #ff4444; text-align: center; padding: 30px;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
+                    <h3 style="margin: 0 0 15px 0; color: #ff4444;">Erro na Análise</h3>
+                    <p style="margin: 0 0 25px 0; color: #666; line-height: 1.4;">${message}</p>
+                    <button onclick="resetModalState()" style="
+                        background: #ff4444; 
+                        color: white; 
+                        border: none; 
+                        padding: 12px 25px; 
+                        border-radius: 6px; 
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: background 0.3s;
+                    " onmouseover="this.style.background='#ff3333'" 
+                       onmouseout="this.style.background='#ff4444'">
+                        Tentar Novamente
+                    </button>
+                </div>
+            `;
+        }
         
         // 🛡️ RESTAURAR #referenceComparisons após limpar
         if (refHTML) {
