@@ -203,16 +203,32 @@ export function assertEntitled(plan, feature) {
  * Gera resposta HTTP 403 padronizada para feature bloqueada
  * @param {string} feature - "reference" | "correctionPlan" | "pdf" | "askAI"
  * @param {string} currentPlan - Plano atual do usuário
+ * @param {string} scope - "chat" | "analysis" (opcional, para novo contrato)
  * @returns {Object} Payload JSON para resposta 403
  */
-export function buildPlanRequiredResponse(feature, currentPlan = 'free') {
+export function buildPlanRequiredResponse(feature, currentPlan = 'free', scope = 'analysis') {
+  // ✅ Calcular data de reset (primeiro dia do próximo mês)
+  const now = new Date();
+  const resetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+  
+  // ✅ Determinar plano requerido baseado na feature
+  const requiredPlan = feature === 'correctionPlan' ? 'studio' : 'pro';
+  
   return {
+    // 🎯 NOVO CONTRATO: scope + code + feature + plan + meta
+    code: 'FEATURE_LOCKED',
+    scope: scope,
+    feature: feature,
+    plan: currentPlan,
+    meta: {
+      requiredPlan: requiredPlan,
+      resetDate: resetDate
+    },
+    // ✅ LEGADO: Manter campos antigos para retrocompatibilidade
     error: 'PLAN_REQUIRED',
-    code: 'PLAN_REQUIRED',
-    requiredPlan: 'pro',
+    requiredPlan: requiredPlan,
     currentPlan,
-    feature,
-    message: FEATURE_MESSAGES[feature] || `Esta feature requer o plano PRO.`,
+    message: FEATURE_MESSAGES[feature] || `Esta feature requer o plano ${requiredPlan.toUpperCase()}.`,
     featureDisplayName: FEATURE_DISPLAY_NAMES[feature] || feature,
   };
 }

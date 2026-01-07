@@ -4531,6 +4531,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            
+            // 🎯 V2: Preservar JSON estruturado para ErrorMapper com SCOPE
+            let structuredError = null;
+            try {
+                structuredError = JSON.parse(errorText);
+                console.log('[ANALYZE] Erro estruturado do backend:', structuredError);
+            } catch (e) {
+                // Não é JSON válido, usar texto
+                console.warn('[ANALYZE] Erro não é JSON:', errorText);
+            }
+            
+            // Se temos erro estruturado, criar Error com dados preservados
+            if (structuredError && (structuredError.code || structuredError.error)) {
+                const err = new Error(structuredError.message || `Erro ${response.status}`);
+                err.structuredData = structuredError; // 🔑 Preservar dados para showModalError
+                err.httpStatus = response.status;
+                throw err;
+            }
+            
             throw new Error(`Erro ao criar job: ${response.status} - ${errorText}`);
         }
 
@@ -13408,9 +13427,15 @@ function updateModalProgress(percentage, message) {
     __dbg(`📈 Progresso: ${percentage}% - ${message}`);
 }
 
-// ❌ Mostrar erro no modal (usa ErrorMapper para mensagens amigáveis)
+// ❌ Mostrar erro no modal (usa ErrorMapper V2 com SCOPE)
 function showModalError(messageOrError, errorCode, meta = {}) {
     console.log('[showModalError] Recebido:', { messageOrError, errorCode, meta });
+    
+    // 🎯 V2: Extrair dados estruturados se disponíveis
+    let structuredData = null;
+    if (typeof messageOrError === 'object' && messageOrError !== null) {
+        structuredData = messageOrError.structuredData || messageOrError;
+    }
     
     // 🔥 [DEMO] Se é erro de limite de demo, mostrar modal de upgrade ao invés de erro
     const message = typeof messageOrError === 'string' ? messageOrError : (messageOrError?.message || '');
@@ -13443,15 +13468,17 @@ function showModalError(messageOrError, errorCode, meta = {}) {
         const refContainer = document.getElementById('referenceComparisons');
         const refHTML = refContainer ? refContainer.outerHTML : '';
         
-        // 🎯 USAR ERROR MAPPER SE DISPONÍVEL
-        if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
-            // Detectar código de erro de várias fontes
-            let detectedCode = errorCode || 
-                              meta?.errorCode || 
-                              meta?.error ||
-                              (typeof messageOrError === 'object' ? (messageOrError.errorCode || messageOrError.error) : null);
+        // 🎯 V2: USAR ERROR MAPPER COM SCOPE
+        if (window.ErrorMapper && typeof window.ErrorMapper.mapBlockUi === 'function') {
+            // Priorizar dados estruturados do backend
+            const scope = structuredData?.scope || meta?.scope || 'analysis'; // Default: analysis para este arquivo
+            const code = structuredData?.code || structuredData?.error || errorCode || meta?.errorCode;
+            const feature = structuredData?.feature || meta?.feature;
+            const plan = structuredData?.plan || meta?.plan || window.ErrorMapper.detectCurrentPlan();
+            const backendMeta = structuredData?.meta || {};
             
-            // Tentar extrair código do texto da mensagem
+            // Se não tem código explícito, tentar extrair do texto
+            let detectedCode = code;
             if (!detectedCode && message) {
                 const codePatterns = [
                     /SYSTEM_PEAK_USAGE/i,
@@ -13462,6 +13489,7 @@ function showModalError(messageOrError, errorCode, meta = {}) {
                     /DEMO_LIMIT/i,
                     /PLAN_REQUIRED/i,
                     /FEATURE_NOT_AVAILABLE/i,
+                    /FEATURE_LOCKED/i,
                     /AUTH_REQUIRED/i,
                     /TIMEOUT/i,
                     /RATE_LIMIT/i
@@ -13478,23 +13506,25 @@ function showModalError(messageOrError, errorCode, meta = {}) {
             // Se ainda não tem código mas tem mensagem de limite, deduzir
             if (!detectedCode && message) {
                 if (message.includes('limite') || message.includes('Limite')) {
-                    detectedCode = 'ANALYSIS_LIMIT_REACHED';
+                    detectedCode = 'LIMIT_REACHED';
                 } else if (message.includes('alta demanda') || message.includes('ocupados')) {
                     detectedCode = 'SYSTEM_PEAK_USAGE';
                 }
             }
             
-            const plan = meta?.plan || window.ErrorMapper.detectCurrentPlan();
+            console.log('[showModalError] Chamando mapBlockUi com scope:', scope, 'code:', detectedCode);
             
-            const errorUi = window.ErrorMapper.mapErrorToUi({
-                code: detectedCode || 'UNKNOWN',
+            const errorUi = window.ErrorMapper.mapBlockUi({
+                scope: scope,
+                code: detectedCode || 'SERVICE_ERROR',
+                feature: feature,
                 plan: plan,
-                feature: meta?.feature || 'analysis',
                 meta: {
                     ...meta,
-                    cap: meta?.cap || meta?.limit,
-                    used: meta?.used || meta?.current,
-                    resetDate: meta?.resetDate || meta?.nextReset
+                    ...backendMeta,
+                    cap: backendMeta.cap || meta?.cap || meta?.limit,
+                    used: backendMeta.used || meta?.used || meta?.current,
+                    resetDate: backendMeta.resetDate || meta?.resetDate || meta?.nextReset
                 }
             });
             
@@ -13503,7 +13533,18 @@ function showModalError(messageOrError, errorCode, meta = {}) {
             
             // Renderizar usando ErrorMapper
             window.ErrorMapper.renderErrorModal(errorUi, results);
-            console.log('[showModalError] ✅ Erro renderizado com ErrorMapper:', errorUi.title);
+            console.log('[showModalError] ✅ Erro renderizado com ErrorMapper V2:', errorUi.title, errorUi._debug);
+        } else if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
+            // 🔄 FALLBACK V1: mapErrorToUi (compatibilidade)
+            console.warn('[showModalError] Usando mapErrorToUi (V1 fallback)');
+            const errorUi = window.ErrorMapper.mapErrorToUi({
+                code: errorCode || 'UNKNOWN',
+                plan: meta?.plan || window.ErrorMapper.detectCurrentPlan(),
+                feature: meta?.feature || 'analysis',
+                meta: meta
+            });
+            window.ErrorMapper.setRetryCallback(resetModalState);
+            window.ErrorMapper.renderErrorModal(errorUi, results);
         } else {
             // 🔴 FALLBACK: renderização antiga se ErrorMapper não disponível
             console.warn('[showModalError] ErrorMapper não disponível, usando fallback');
