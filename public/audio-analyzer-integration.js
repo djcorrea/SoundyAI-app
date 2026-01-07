@@ -13427,11 +13427,11 @@ function updateModalProgress(percentage, message) {
     __dbg(`📈 Progresso: ${percentage}% - ${message}`);
 }
 
-// ❌ Mostrar erro no modal (usa ErrorMapper V2 com SCOPE)
+// ❌ Mostrar erro no modal (usa ErrorMapper V3 com SCOPE e PLAN POLICY)
 function showModalError(messageOrError, errorCode, meta = {}) {
     console.log('[showModalError] Recebido:', { messageOrError, errorCode, meta });
     
-    // 🎯 V2: Extrair dados estruturados se disponíveis
+    // 🎯 V3: Extrair dados estruturados se disponíveis
     let structuredData = null;
     if (typeof messageOrError === 'object' && messageOrError !== null) {
         structuredData = messageOrError.structuredData || messageOrError;
@@ -13468,7 +13468,7 @@ function showModalError(messageOrError, errorCode, meta = {}) {
         const refContainer = document.getElementById('referenceComparisons');
         const refHTML = refContainer ? refContainer.outerHTML : '';
         
-        // 🎯 V2: USAR ERROR MAPPER COM SCOPE
+        // 🎯 V3: USAR ERROR MAPPER COM SCOPE E PLAN POLICY
         if (window.ErrorMapper && typeof window.ErrorMapper.mapBlockUi === 'function') {
             // Priorizar dados estruturados do backend
             const scope = structuredData?.scope || meta?.scope || 'analysis'; // Default: analysis para este arquivo
@@ -13512,7 +13512,7 @@ function showModalError(messageOrError, errorCode, meta = {}) {
                 }
             }
             
-            console.log('[showModalError] Chamando mapBlockUi com scope:', scope, 'code:', detectedCode);
+            console.log('[showModalError] Chamando mapBlockUi com scope:', scope, 'code:', detectedCode, 'plan:', plan);
             
             const errorUi = window.ErrorMapper.mapBlockUi({
                 scope: scope,
@@ -13528,12 +13528,43 @@ function showModalError(messageOrError, errorCode, meta = {}) {
                 }
             });
             
-            // Configurar callback de retry
-            window.ErrorMapper.setRetryCallback(resetModalState);
+            // 🎯 V3: VERIFICAR POLÍTICA DE DOWNGRADE PARA ANÁLISE
+            const policy = errorUi._policy || window.ErrorMapper.getPlanPolicy(plan);
+            const isLimitError = ['LIMIT_REACHED', 'HARD_CAP_REACHED', 'ANALYSIS_LIMIT_REACHED'].includes(detectedCode?.toUpperCase());
+            
+            if (scope === 'analysis' && isLimitError) {
+                console.log('[showModalError] 🎯 Verificando política de overflow para análise:', policy);
+                
+                if (policy.overflowAnalysis === 'downgrade_to_reduced') {
+                    // FREE/PLUS/PRO: Mostrar modal mas permitir continuar em reduced
+                    console.log('[showModalError] 📉 Policy: downgrade_to_reduced - Permitindo modo reduced após modal');
+                    
+                    // Configurar callback especial que abre upload em modo reduced
+                    window.ErrorMapper.setRetryCallback(() => {
+                        console.log('[showModalError] 🔄 Retry callback: Entrando em modo reduced');
+                        window.__forceReducedMode = true; // Flag para o próximo upload
+                        resetModalState();
+                    });
+                    
+                    // Adicionar info de reduced no modal
+                    if (policy.exposeLimits) {
+                        const originalMessage = errorUi.message;
+                        errorUi.message = originalMessage + '\n\nVocê ainda pode fazer análises no modo básico (Score, LUFS, True Peak).';
+                        errorUi.secondaryCta = { label: '📊 Continuar Modo Básico', action: 'retry' };
+                    }
+                } else if (policy.overflowAnalysis === 'system_peak_modal') {
+                    // STUDIO: Apenas modal de alta demanda, sem downgrade
+                    console.log('[showModalError] ⏳ Policy: system_peak_modal - Apenas retry, sem downgrade');
+                    window.ErrorMapper.setRetryCallback(resetModalState);
+                }
+            } else {
+                // Callback padrão
+                window.ErrorMapper.setRetryCallback(resetModalState);
+            }
             
             // Renderizar usando ErrorMapper
             window.ErrorMapper.renderErrorModal(errorUi, results);
-            console.log('[showModalError] ✅ Erro renderizado com ErrorMapper V2:', errorUi.title, errorUi._debug);
+            console.log('[showModalError] ✅ Erro renderizado com ErrorMapper V3:', errorUi.title, errorUi._debug);
         } else if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
             // 🔄 FALLBACK V1: mapErrorToUi (compatibilidade)
             console.warn('[showModalError] Usando mapErrorToUi (V1 fallback)');
