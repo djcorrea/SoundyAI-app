@@ -674,6 +674,8 @@
     margin: 0 0 15px 0;
     letter-spacing: 1px;
     animation: text-pulse 2s ease-in-out infinite;
+    text-align: center;
+    width: 100%;
 }
 
 @keyframes text-pulse {
@@ -687,7 +689,7 @@
     }
 }
 
-/* 🎯 MENSAGEM DE CONEXÃO - UX IMPROVEMENT */
+/* ⏳ MENSAGEM DE CONEXÃO - UX IMPROVEMENT */
 #audioAnalysisModal #audioConnectionHint {
     display: flex;
     align-items: center;

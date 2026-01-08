@@ -4924,6 +4924,7 @@ async function pollJobStatus(jobId) {
 function showUploadProgress(message) {
     const progressText = document.getElementById('audioProgressText');
     const connectionHint = document.getElementById('audioConnectionHint');
+    const analysisWarning = document.querySelector('.audio-analysis-warning');
     
     if (progressText) {
         progressText.innerHTML = `🌐 ${message}`;
@@ -4936,7 +4937,12 @@ function showUploadProgress(message) {
                                      message.toLowerCase().includes('bucket') ||
                                      message.toLowerCase().includes('bookit'));
         
-        connectionHint.style.display = isUploadingToBucket ? 'block' : 'none';
+        connectionHint.style.display = isUploadingToBucket ? 'flex' : 'none';
+    }
+    
+    // 🎯 Ocultar aviso de análise durante upload
+    if (analysisWarning) {
+        analysisWarning.style.display = 'none';
     }
 }
 
@@ -4949,14 +4955,22 @@ function updateModalProgress(percentage, message) {
     const progressText = document.getElementById('audioProgressText');
     const progressBar = document.getElementById('audioProgressFill') || document.querySelector('.progress-fill');
     const connectionHint = document.getElementById('audioConnectionHint');
+    const analysisWarning = document.querySelector('.audio-analysis-warning');
     
     if (progressText) {
         progressText.innerHTML = `${message}`;
     }
     
-    // 🎯 Garantir que a dica de conexão está oculta em outras etapas
+    // 🎯 Ocultar dica de conexão quando não estiver mais em upload
     if (connectionHint) {
         connectionHint.style.display = 'none';
+    }
+    
+    // 🎯 Mostrar aviso de análise quando upload terminar (progresso >= 50%)
+    if (analysisWarning && percentage >= 50) {
+        analysisWarning.style.display = 'flex';
+    } else if (analysisWarning) {
+        analysisWarning.style.display = 'none';
     }
     
     if (progressBar) {
