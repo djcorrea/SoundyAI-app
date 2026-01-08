@@ -4931,18 +4931,18 @@ function showUploadProgress(message) {
     }
     
     // 🎯 Mostrar dica de conexão APENAS durante upload para bucket
+    const isUploadingToBucket = message.toLowerCase().includes('enviando') && 
+                                (message.toLowerCase().includes('análise') || 
+                                 message.toLowerCase().includes('bucket') ||
+                                 message.toLowerCase().includes('bookit'));
+    
     if (connectionHint) {
-        const isUploadingToBucket = message.toLowerCase().includes('enviando') && 
-                                    (message.toLowerCase().includes('análise') || 
-                                     message.toLowerCase().includes('bucket') ||
-                                     message.toLowerCase().includes('bookit'));
-        
         connectionHint.style.display = isUploadingToBucket ? 'flex' : 'none';
     }
     
-    // 🎯 Ocultar aviso de análise durante upload
+    // 🎯 Ocultar aviso de análise durante upload, mostrar depois
     if (analysisWarning) {
-        analysisWarning.style.display = 'none';
+        analysisWarning.style.display = isUploadingToBucket ? 'none' : 'flex';
     }
 }
 
@@ -4961,16 +4961,13 @@ function updateModalProgress(percentage, message) {
         progressText.innerHTML = `${message}`;
     }
     
-    // 🎯 Ocultar dica de conexão quando não estiver mais em upload
+    // 🎯 Ocultar dica de conexão e mostrar aviso de análise quando não estiver mais em upload
     if (connectionHint) {
         connectionHint.style.display = 'none';
     }
     
-    // 🎯 Mostrar aviso de análise quando upload terminar (progresso >= 50%)
-    if (analysisWarning && percentage >= 50) {
+    if (analysisWarning) {
         analysisWarning.style.display = 'flex';
-    } else if (analysisWarning) {
-        analysisWarning.style.display = 'none';
     }
     
     if (progressBar) {
