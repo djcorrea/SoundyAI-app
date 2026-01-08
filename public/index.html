@@ -736,8 +736,14 @@
                     <div class="progress-fill" id="audioProgressFill"></div>
                 </div>
                 
-                <!-- Aviso importante durante análise -->
-                <div class="audio-analysis-warning">
+                <!-- Aviso de conexão (aparece primeiro durante upload) -->
+                <p id="audioConnectionHint" class="connection-hint" style="display: none;">
+                    <span class="hint-icon">⏳</span>
+                    <span class="hint-text">Esta etapa depende da sua conexão com a internet.<br>Se sua internet estiver lenta, o envio pode demorar um pouco mais.</span>
+                </p>
+                
+                <!-- Aviso importante durante análise (aparece depois, quando upload termina) -->
+                <div class="audio-analysis-warning" style="display: none;">
                     <div class="warning-icon">⚙️</div>
                     <div class="warning-content">
                         <p class="warning-title">Análise em andamento</p>
@@ -746,10 +752,6 @@
                     </div>
                 </div>
                 
-                <p id="audioConnectionHint" class="connection-hint" style="display: none;">
-                    <span class="hint-icon">⏳</span>
-                    <span class="hint-text">Esta etapa depende da sua conexão com a internet.<br>Se sua internet estiver lenta, o envio pode demorar um pouco mais.</span>
-                </p>
                 <button class="audio-close-bottom" onclick="closeAudioModal()">Fechar</button>
             </div>
 
