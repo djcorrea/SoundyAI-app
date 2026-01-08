@@ -9,9 +9,10 @@
  * - Aparece IMEDIATAMENTE após limite
  * - position: fixed, z-index máximo
  * - overflow: hidden no body
- * - Único CTA → Checkout
+ * - Único CTA → Voltar para página do produto
  * 
- * @version 2.0.0
+ * @version 2.1.0
+ * @updated 2026-01-07 - Removido botão de checkout
  * @created 2026-01-02
  */
 
@@ -39,7 +40,7 @@
      * CARACTERÍSTICAS:
      * - Sem botão de fechar (NÃO EXISTE)
      * - Não fecha clicando fora
-     * - Único CTA → Checkout
+     * - Único CTA → Voltar para página do produto
      * - Aparece IMEDIATAMENTE
      * - Bloqueia scroll e interação com UI
      */
@@ -84,20 +85,9 @@
                     <!-- Subtítulo APROVADO -->
                     <p class="demo-modal-subtitle">${CONFIG.texts.subtitle}</p>
                     
-                    <!-- CTA Secundário - Voltar para página do produto (EM CIMA) -->
+                    <!-- Botão "Voltar" - único CTA disponível -->
                     <button class="demo-cta-secondary" id="demoSecondaryButton" style="pointer-events: auto;">
                         <span>${CONFIG.texts.ctaSecondary}</span>
-                    </button>
-                    
-                    <!-- Selo de segurança -->
-                    <p class="demo-security-badge">${CONFIG.texts.securityBadge}</p>
-                    
-                    <!-- CTA Principal - Checkout (EM BAIXO) -->
-                    <button class="demo-cta-button" id="demoCTAButton" style="pointer-events: auto;">
-                        <span>${CONFIG.texts.ctaButton}</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
                     </button>
                 </div>
             </div>
@@ -113,22 +103,16 @@
         
         document.body.appendChild(modal);
         
-        // Evento do botão principal (checkout)
-        document.getElementById('demoCTAButton').addEventListener('click', () => {
-            DEMO.redirectToCheckout(reason);
-        });
-        
-        // Evento do botão secundário (voltar para página do produto)
+        // Evento do botão "Voltar" (único CTA disponível)
         document.getElementById('demoSecondaryButton').addEventListener('click', () => {
             window.location.href = CONFIG.productPageUrl || 'https://soundyai.com.br';
         });
         
         // 🔴 IMPORTANTE: Prevenir qualquer interação fora do modal
         modal.addEventListener('click', (e) => {
-            // Só permitir clique nos botões CTA
-            const isMainCTA = e.target.id === 'demoCTAButton' || e.target.closest('#demoCTAButton');
+            // Só permitir clique no botão "Voltar"
             const isSecondaryCTA = e.target.id === 'demoSecondaryButton' || e.target.closest('#demoSecondaryButton');
-            if (!isMainCTA && !isSecondaryCTA) {
+            if (!isSecondaryCTA) {
                 e.preventDefault();
                 e.stopPropagation();
             }
@@ -248,60 +232,7 @@
                 line-height: 1.6;
             }
             
-            .demo-cta-button {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 12px;
-                width: 100%;
-                padding: 20px 36px;
-                font-family: 'Orbitron', 'Segoe UI', sans-serif;
-                font-size: 1.15rem;
-                font-weight: 700;
-                color: #ffffff;
-                background: linear-gradient(135deg, #bc13fe 0%, #00f3ff 100%);
-                border: none;
-                border-radius: 14px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-transform: uppercase;
-                letter-spacing: 1.5px;
-                box-shadow: 0 8px 25px rgba(188, 19, 254, 0.4);
-            }
-            
-            .demo-cta-button:hover {
-                transform: translateY(-3px);
-                box-shadow: 
-                    0 15px 40px rgba(188, 19, 254, 0.5),
-                    0 0 30px rgba(0, 243, 255, 0.4);
-            }
-            
-            .demo-cta-button:active {
-                transform: translateY(-1px);
-            }
-            
-            .demo-cta-button svg {
-                flex-shrink: 0;
-                animation: demoArrow 1.5s infinite;
-            }
-            
-            @keyframes demoArrow {
-                0%, 100% { transform: translateX(0); }
-                50% { transform: translateX(5px); }
-            }
-            
-            .demo-security-badge {
-                font-family: 'Rajdhani', 'Segoe UI', sans-serif;
-                font-size: 0.9rem;
-                color: #7a7a9a;
-                margin: 20px 0 16px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-            }
-            
-            /* Botão secundário - Voltar para página do produto */
+            /* Botão "Voltar" - único CTA disponível */
             .demo-cta-secondary {
                 display: inline-flex;
                 align-items: center;
@@ -350,11 +281,6 @@
                 
                 .demo-modal-subtitle {
                     font-size: 1.05rem;
-                }
-                
-                .demo-cta-button {
-                    padding: 18px 28px;
-                    font-size: 1rem;
                 }
             }
         `;
