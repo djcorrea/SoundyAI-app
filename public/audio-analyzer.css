@@ -601,13 +601,13 @@
     display: flex;
     align-items: flex-start;
     gap: 16px;
-    margin-top: 32px;
+    margin: 32px auto 0 auto;
     padding: 20px 24px;
     background: rgba(106, 154, 255, 0.08);
     border: 1px solid rgba(106, 154, 255, 0.2);
     border-radius: 12px;
     max-width: 480px;
-    width: 100%;
+    width: 90%;
     box-sizing: border-box;
     animation: fadeInWarning 0.6s ease-out;
 }
