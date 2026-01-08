@@ -596,6 +596,70 @@
     to { transform: rotate(360deg); }
 }
 
+/* ⚙️ Aviso de análise em andamento */
+.audio-analysis-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-top: 32px;
+    padding: 20px 24px;
+    background: rgba(106, 154, 255, 0.08);
+    border: 1px solid rgba(106, 154, 255, 0.2);
+    border-radius: 12px;
+    max-width: 480px;
+    width: 100%;
+    box-sizing: border-box;
+    animation: fadeInWarning 0.6s ease-out;
+}
+
+.audio-analysis-warning .warning-icon {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.audio-analysis-warning .warning-content {
+    flex: 1;
+    text-align: left;
+}
+
+.audio-analysis-warning .warning-title {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.4;
+}
+
+.audio-analysis-warning .warning-text {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+}
+
+.audio-analysis-warning .warning-subtext {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+@keyframes fadeInWarning {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 #audioAnalysisModal #audioProgressText {
     color: #ffffff;
     font-weight: 700;
@@ -885,6 +949,30 @@
         font-size: 16px;
     }
     
+    /* Aviso de análise - responsivo tablet */
+    #audioAnalysisModal .audio-analysis-warning {
+        padding: 16px 18px;
+        gap: 12px;
+        margin-top: 24px;
+        max-width: 100%;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-icon {
+        font-size: 24px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-title {
+        font-size: 14px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-text {
+        font-size: 12px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-subtext {
+        font-size: 11px;
+    }
+    
     /* 📊 MODAL DE RESULTADOS: Precisa ser ainda maior para exibir gráficos/dados */
     #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
         width: 95vw;
@@ -932,6 +1020,32 @@
     
     #audioAnalysisModal .upload-content p {
         font-size: 0.85rem !important;
+    }
+    
+    /* Aviso de análise - responsivo mobile */
+    #audioAnalysisModal .audio-analysis-warning {
+        padding: 14px 16px;
+        gap: 10px;
+        margin-top: 20px;
+        border-radius: 10px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-icon {
+        font-size: 22px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-title {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-text {
+        font-size: 11.5px;
+        margin-bottom: 6px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-subtext {
+        font-size: 10.5px;
     }
     
     #audioAnalysisModal .supported-formats {
