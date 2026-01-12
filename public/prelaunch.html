@@ -445,6 +445,41 @@
             opacity: 0.7;
         }
         
+        /* Campo opcional (WhatsApp) */
+        .form-label-optional {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .form-label-optional .label-text {
+            font-weight: 600;
+        }
+        
+        .form-label-optional .optional-badge {
+            font-size: 0.7rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .phone-hint {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            margin-top: 6px;
+            text-align: left;
+        }
+        
+        .phone-hint::before {
+            content: '📱 ';
+        }
+        
         /* Success State */
         .success-container {
             display: none;
@@ -760,6 +795,24 @@
                                 <span class="error-message" id="emailError">Por favor, insira um e-mail válido</span>
                             </div>
                             
+                            <!-- WhatsApp (Opcional) -->
+                            <div class="form-group">
+                                <label class="form-label-optional" for="phone">
+                                    <span class="label-text">WhatsApp</span>
+                                    <span class="optional-badge">Opcional</span>
+                                </label>
+                                <input 
+                                    type="tel" 
+                                    id="phone" 
+                                    name="phone" 
+                                    class="form-input" 
+                                    placeholder="+55 11 99999-9999"
+                                    autocomplete="tel"
+                                >
+                                <span class="error-message" id="phoneError">Número de WhatsApp inválido</span>
+                                <p class="phone-hint">Receba novidades também no WhatsApp</p>
+                            </div>
+                            
                             <button type="submit" class="submit-btn" id="submitBtn">
                                 <span class="btn-text">Quero acesso antecipado</span>
                                 <span class="spinner"></span>
@@ -797,7 +850,7 @@
                         <div class="benefit-icon">🎁</div>
                         <div class="benefit-content">
                             <h4>Presentes de Boas-vindas 🎁</h4>
-                            <p>Quem entra na lista recebe conteúdos e materiais exclusivos antes do lançamento.</p>
+                            <p>Quem entra na lista recebe conteúdos e materiais exclusivos no lançamento.</p>
                         </div>
                     </div>
                     <div class="benefit-item">
@@ -1513,12 +1566,74 @@
             const submitBtn = document.getElementById('submitBtn');
             const nameInput = document.getElementById('name');
             const emailInput = document.getElementById('email');
+            const phoneInput = document.getElementById('phone');
             const nameError = document.getElementById('nameError');
             const emailError = document.getElementById('emailError');
+            const phoneError = document.getElementById('phoneError');
             
             function isValidEmail(email) {
                 const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 return re.test(String(email).toLowerCase());
+            }
+            
+            /**
+             * Valida e normaliza número de WhatsApp para formato E.164
+             * @param {string} phone - Número digitado pelo usuário
+             * @returns {{ valid: boolean, normalized: string|null, error?: string }}
+             */
+            function validateAndNormalizePhone(phone) {
+                // Campo opcional: se vazio, é válido com valor null
+                if (!phone || phone.trim() === '') {
+                    return { valid: true, normalized: null };
+                }
+                
+                // Remover caracteres não-numéricos, exceto + inicial
+                let cleaned = phone.trim();
+                const hasPlus = cleaned.startsWith('+');
+                cleaned = cleaned.replace(/[^\d]/g, '');
+                
+                // Restaurar + se existia
+                if (hasPlus) {
+                    cleaned = '+' + cleaned;
+                }
+                
+                // Validar tamanho mínimo (8 dígitos)
+                const digitsOnly = cleaned.replace(/\D/g, '');
+                if (digitsOnly.length < 8) {
+                    return { valid: false, normalized: null, error: 'Número muito curto' };
+                }
+                
+                // Validar tamanho máximo (E.164 permite até 15 dígitos)
+                if (digitsOnly.length > 15) {
+                    return { valid: false, normalized: null, error: 'Número muito longo' };
+                }
+                
+                // Normalizar para formato E.164
+                let normalized;
+                
+                if (cleaned.startsWith('+')) {
+                    // Já tem código de país
+                    normalized = cleaned;
+                } else if (cleaned.startsWith('55') && digitsOnly.length >= 12) {
+                    // Número brasileiro sem +
+                    normalized = '+' + cleaned;
+                } else if (digitsOnly.length === 11 || digitsOnly.length === 10) {
+                    // Número brasileiro com DDD (assumir +55)
+                    normalized = '+55' + digitsOnly;
+                } else if (digitsOnly.length >= 10) {
+                    // Tentar assumir que já tem código de país
+                    normalized = '+' + digitsOnly;
+                } else {
+                    return { valid: false, normalized: null, error: 'Formato inválido' };
+                }
+                
+                // Validação final: formato E.164
+                const e164Regex = /^\+[1-9]\d{7,14}$/;
+                if (!e164Regex.test(normalized)) {
+                    return { valid: false, normalized: null, error: 'Número inválido' };
+                }
+                
+                return { valid: true, normalized: normalized };
             }
             
             function showError(input, errorEl) {
@@ -1555,25 +1670,61 @@
                 }
             });
             
+            // Validação em tempo real do WhatsApp (opcional)
+            phoneInput.addEventListener('blur', function() {
+                const phoneValue = this.value.trim();
+                
+                // Se está vazio, é válido (campo opcional)
+                if (phoneValue === '') {
+                    hideError(this, phoneError);
+                    this.classList.remove('success');
+                    this.classList.remove('error');
+                    return;
+                }
+                
+                // Validar apenas se preenchido
+                const validation = validateAndNormalizePhone(phoneValue);
+                if (validation.valid) {
+                    hideError(this, phoneError);
+                    showSuccess(this);
+                } else {
+                    showError(this, phoneError);
+                }
+            });
+            
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
                 hideError(nameInput, nameError);
                 hideError(emailInput, emailError);
+                hideError(phoneInput, phoneError);
                 
                 let isValid = true;
                 const name = nameInput.value.trim();
                 const email = emailInput.value.trim();
+                const phoneRaw = phoneInput.value.trim();
                 
+                // Validar nome (obrigatório)
                 if (name.length < 2) {
                     showError(nameInput, nameError);
                     isValid = false;
                 }
                 
+                // Validar e-mail (obrigatório)
                 if (!isValidEmail(email)) {
                     showError(emailInput, emailError);
                     isValid = false;
                 }
+                
+                // Validar WhatsApp (opcional, mas se preenchido deve ser válido)
+                const phoneValidation = validateAndNormalizePhone(phoneRaw);
+                if (!phoneValidation.valid) {
+                    showError(phoneInput, phoneError);
+                    isValid = false;
+                }
+                
+                // phone normalizado (string E.164 ou null)
+                const phone = phoneValidation.normalized;
                 
                 if (!isValid) {
                     const firstError = form.querySelector('.error');
@@ -1614,6 +1765,8 @@
                         body: JSON.stringify({
                             name: name,
                             email: email.toLowerCase(),
+                            // phone: formato E.164 normalizado ou null (nunca undefined)
+                            phone: phone,
                             enrichment: enrichedData
                         })
                     });
@@ -1626,6 +1779,13 @@
                     if (!response.ok) {
                         // Tratar erros específicos
                         if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
+                            // Se retornou que foi atualizado com WhatsApp, mostrar sucesso
+                            if (result.data?.whatsappAdded) {
+                                console.log('📱 WhatsApp adicionado ao cadastro existente');
+                                formContent.classList.add('hidden');
+                                successContainer.classList.add('visible');
+                                return;
+                            }
                             alert('Este e-mail já está na lista de espera! 😊');
                             submitBtn.classList.remove('loading');
                             submitBtn.disabled = false;
@@ -1638,6 +1798,8 @@
                                 showError(nameInput, nameError);
                             } else if (result.field === 'email') {
                                 showError(emailInput, emailError);
+                            } else if (result.field === 'phone') {
+                                showError(phoneInput, phoneError);
                             }
                             submitBtn.classList.remove('loading');
                             submitBtn.disabled = false;
@@ -1655,9 +1817,11 @@
                         localLeads.push({ 
                             name: name,
                             email: email.toLowerCase(),
+                            phone: phone, // Incluir WhatsApp no backup local
                             id: result.data?.id, 
                             savedAt: new Date().toISOString(),
                             emailSent: result.data?.emailSent,
+                            whatsappAdded: result.data?.whatsappAdded || false,
                             engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
                         });
                         localStorage.setItem('soundy_waitlist', JSON.stringify(localLeads));
@@ -1670,6 +1834,7 @@
                     // ========================================
                     console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
                     console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
+                    console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     

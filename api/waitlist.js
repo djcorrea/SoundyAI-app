@@ -83,6 +83,77 @@ function validateName(name) {
   return { valid: true, name: trimmed };
 }
 
+/**
+ * Valida e normaliza número de WhatsApp para formato E.164
+ * @param {string|null|undefined} phone - Número de telefone informado
+ * @returns {{ valid: boolean, phone: string|null, error?: string }}
+ * 
+ * Formatos aceitos:
+ * - +5511999999999 (E.164 completo)
+ * - 5511999999999 (sem +)
+ * - 11999999999 (DDD + número BR)
+ * - (11) 99999-9999 (formatado BR)
+ * - +1234567890 (internacional)
+ * 
+ * Retorna null se campo não foi preenchido (opcional)
+ */
+function validateAndNormalizePhone(phone) {
+  // Campo opcional: se não preenchido, retorna null (não undefined)
+  if (!phone || typeof phone !== 'string' || phone.trim() === '') {
+    return { valid: true, phone: null };
+  }
+  
+  // Remover todos os caracteres não-numéricos, exceto o + inicial
+  let cleaned = phone.trim();
+  const hasPlus = cleaned.startsWith('+');
+  cleaned = cleaned.replace(/[^\d]/g, '');
+  
+  // Restaurar o + se existia
+  if (hasPlus) {
+    cleaned = '+' + cleaned;
+  }
+  
+  // Validar tamanho mínimo (pelo menos 8 dígitos para números internacionais)
+  const digitsOnly = cleaned.replace(/\D/g, '');
+  if (digitsOnly.length < 8) {
+    return { valid: false, error: 'Número de WhatsApp muito curto', phone: null };
+  }
+  
+  // Validar tamanho máximo (E.164 permite até 15 dígitos)
+  if (digitsOnly.length > 15) {
+    return { valid: false, error: 'Número de WhatsApp muito longo', phone: null };
+  }
+  
+  // Normalizar para formato E.164
+  let normalized;
+  
+  if (cleaned.startsWith('+')) {
+    // Já está com código de país
+    normalized = cleaned;
+  } else if (cleaned.startsWith('55') && digitsOnly.length >= 12) {
+    // Número brasileiro sem +
+    normalized = '+' + cleaned;
+  } else if (digitsOnly.length === 11 || digitsOnly.length === 10) {
+    // Número brasileiro com DDD (11 dígitos = celular, 10 = fixo)
+    // Assumir Brasil (+55)
+    normalized = '+55' + digitsOnly;
+  } else if (digitsOnly.length >= 10) {
+    // Número internacional sem código de país conhecido
+    // Tentar assumir que já tem código de país
+    normalized = '+' + digitsOnly;
+  } else {
+    return { valid: false, error: 'Formato de WhatsApp inválido', phone: null };
+  }
+  
+  // Validação final: formato E.164 (+ seguido de 8-15 dígitos)
+  const e164Regex = /^\+[1-9]\d{7,14}$/;
+  if (!e164Regex.test(normalized)) {
+    return { valid: false, error: 'Número de WhatsApp inválido', phone: null };
+  }
+  
+  return { valid: true, phone: normalized };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // ROTA PRINCIPAL: POST /api/waitlist
 // ═══════════════════════════════════════════════════════════════════
@@ -97,7 +168,7 @@ router.post('/', async (req, res) => {
     // STEP 1: VALIDAR DADOS
     // ═══════════════════════════════════════════════════════════════
     
-    const { name, email, enrichment } = req.body;
+    const { name, email, phone, enrichment } = req.body;
     
     // Validar nome
     const nameValidation = validateName(name);
@@ -121,13 +192,26 @@ router.post('/', async (req, res) => {
       });
     }
     
+    // Validar e normalizar WhatsApp (opcional)
+    const phoneValidation = validateAndNormalizePhone(phone);
+    if (!phoneValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        message: phoneValidation.error,
+        field: 'phone'
+      });
+    }
+    
     const sanitizedName = nameValidation.name;
     const sanitizedEmail = emailValidation.email;
+    // phone pode ser string normalizada ou null (nunca undefined)
+    const sanitizedPhone = phoneValidation.phone;
     
-    console.log(`👤 [WAITLIST-API] Lead: ${sanitizedName} <${sanitizedEmail}>`);
+    console.log(`👤 [WAITLIST-API] Lead: ${sanitizedName} <${sanitizedEmail}>${sanitizedPhone ? ` | WhatsApp: ${sanitizedPhone}` : ''}`);
     
     // ═══════════════════════════════════════════════════════════════
-    // STEP 2: VERIFICAR DUPLICIDADE
+    // STEP 2: VERIFICAR DUPLICIDADE E POSSÍVEL ATUALIZAÇÃO
     // ═══════════════════════════════════════════════════════════════
     
     const firestore = getDb();
@@ -139,7 +223,47 @@ router.post('/', async (req, res) => {
       .limit(1)
       .get();
     
+    // Se e-mail já existe, verificar se podemos atualizar o WhatsApp
     if (!existingQuery.empty) {
+      const existingDoc = existingQuery.docs[0];
+      const existingData = existingDoc.data();
+      
+      // Se o usuário está fornecendo WhatsApp E o documento atual NÃO tem WhatsApp
+      // Permite atualizar apenas o campo phone (não sobrescreve outros dados)
+      if (sanitizedPhone && (existingData.phone === null || existingData.phone === undefined)) {
+        console.log(`📱 [WAITLIST-API] Atualizando WhatsApp para e-mail existente: ${sanitizedEmail}`);
+        
+        try {
+          await existingDoc.ref.update({
+            phone: sanitizedPhone,
+            whatsappConsent: true,
+            whatsappSent: false,
+            _phoneUpdatedAt: getAdmin().firestore.FieldValue.serverTimestamp()
+          });
+          
+          console.log(`✅ [WAITLIST-API] WhatsApp atualizado com sucesso`);
+          
+          return res.status(200).json({
+            success: true,
+            message: 'WhatsApp adicionado ao seu cadastro!',
+            data: {
+              id: existingDoc.id,
+              updated: true,
+              whatsappAdded: true
+            }
+          });
+        } catch (updateError) {
+          console.error('❌ [WAITLIST-API] Erro ao atualizar WhatsApp:', updateError);
+          return res.status(500).json({
+            success: false,
+            error: 'UPDATE_ERROR',
+            message: 'Erro ao atualizar cadastro. Tente novamente.'
+          });
+        }
+      }
+      
+      // E-mail já cadastrado e não há WhatsApp novo para adicionar
+      // OU já existe WhatsApp cadastrado (não sobrescreve)
       console.log(`⚠️ [WAITLIST-API] E-mail já cadastrado: ${sanitizedEmail}`);
       return res.status(409).json({
         success: false,
@@ -157,8 +281,16 @@ router.post('/', async (req, res) => {
       name: sanitizedName,
       email: sanitizedEmail,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-      source: 'landing_pre_launch',
+      source: 'waitlist', // Padronizado conforme especificação
       status: 'waiting',
+      
+      // === WHATSAPP (novos campos conforme especificação) ===
+      // phone: formato E.164 (ex: +5511999999999) ou null se não informado
+      phone: sanitizedPhone,
+      // whatsappConsent: true apenas se o campo WhatsApp foi preenchido
+      whatsappConsent: sanitizedPhone !== null,
+      // whatsappSent: controle para automação futura (Make/WhatsApp Cloud API)
+      whatsappSent: false,
       
       // === ENRICHMENT DATA (se disponível) ===
       device: enrichment?.device || null,
@@ -170,7 +302,7 @@ router.post('/', async (req, res) => {
       inferredProfile: enrichment?.inferredProfile || null,
       
       // === METADATA ===
-      _schemaVersion: '2.0',
+      _schemaVersion: '2.1', // Incrementado para nova estrutura com WhatsApp
       _enrichmentVersion: enrichment ? 'v1' : null,
       _emailSent: false, // Será atualizado após envio
       _emailSentAt: null
