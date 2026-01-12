@@ -10,7 +10,7 @@ import { getAdmin, getAuth, getFirestore } from '../firebase/admin.js';
 // ========================================
 
 /**
- * ⚠️⚠️⚠️ DRY_RUN = true (PADRÃO) ⚠️⚠️⚠️
+ * ⚠️⚠️⚠️ DRY_RUN = false (PADRÃO) ⚠️⚠️⚠️
  * 
  * NUNCA mude para false sem antes:
  * 1. Rodar em modo DRY_RUN
@@ -22,7 +22,7 @@ import { getAdmin, getAuth, getFirestore } from '../firebase/admin.js';
  * - Mude manualmente para: const DRY_RUN = false;
  * - Rode: node scripts/cleanup-users.js
  */
-const DRY_RUN = true;
+const DRY_RUN = false;
 
 // ========================================
 // 🎯 CONFIGURAÇÕES
