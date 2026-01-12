@@ -2,6 +2,7 @@
 // ✅ INICIALIZADOR GLOBAL DO FIREBASE ADMIN
 // Singleton garantido para API + Worker + qualquer módulo
 
+import 'dotenv/config';
 import admin from "firebase-admin";
 
 let app = null;
