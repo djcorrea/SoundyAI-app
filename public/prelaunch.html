@@ -42,6 +42,53 @@
         console.log('🔥 Firebase Firestore inicializado para Waitlist');
     </script>
     
+    <!-- Slots Counter Logic -->
+    <script>
+        /**
+         * CONTADOR DE URGÊNCIA - VAGAS RESTANTES
+         * Total do programa: 100 vagas
+         * Vagas ainda disponíveis: começa em 27 e diminui até 1
+         * Período: 17/01/2026 00:00 até 22/01/2026 00:00
+         * Lógica: mostra poucas vagas restantes para gerar urgência
+         */
+        function updateSlotsCounter() {
+            const MAX_REMAINING = 27;  // Começa mostrando 27 vagas restantes
+            const START_DATE = new Date('2026-01-17T00:00:00');
+            const END_DATE = new Date('2026-01-22T00:00:00');
+            const now = new Date();
+            
+            // Se antes do início, mostrar 27
+            if (now < START_DATE) {
+                return MAX_REMAINING;
+            }
+            
+            // Se após o fim, mostrar 1 (nunca zero)
+            if (now >= END_DATE) {
+                return 1;
+            }
+            
+            // Calcular tempo total e tempo decorrido
+            const totalTime = END_DATE - START_DATE;
+            const elapsedTime = now - START_DATE;
+            const progress = elapsedTime / totalTime;
+            
+            // Calcular vagas restantes: de 27 até 1
+            const remaining = Math.max(1, Math.floor(MAX_REMAINING - (MAX_REMAINING - 1) * progress));
+            
+            return remaining;
+        }
+        
+        // Atualizar o contador no DOM quando a página carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            const slotsElement = document.getElementById('slots-remaining');
+            if (slotsElement) {
+                const remainingSlots = updateSlotsCounter();
+                slotsElement.textContent = remainingSlots;
+                console.log(`✅ Vagas restantes: ${remainingSlots}/100 (urgência ativa)`);
+            }
+        });
+    </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
         
@@ -157,27 +204,58 @@
         }
         
         /* ========================================
-           PRE-LAUNCH BADGE
+           SLOTS COUNTER
         ======================================== */
-        .pre-badge {
-            display: inline-block;
-            padding: 10px 28px;
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.12));
-            border: 1px solid rgba(168, 85, 247, 0.35);
-            border-radius: 50px;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.7rem;
+        .slots-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: rgba(8, 8, 20, 0.6);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.9rem;
             font-weight: 600;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            color: var(--neon-purple);
-            margin-bottom: 30px;
-            animation: badgePulse 2s ease-in-out infinite;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
         }
         
-        @keyframes badgePulse {
-            0%, 100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.15); }
-            50% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.4); }
+        .slots-counter .icon {
+            font-size: 1rem;
+        }
+        
+        .slots-counter .number {
+            color: var(--neon-purple);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        /* ========================================
+           PRE-LAUNCH BADGE (COPY DE URGÊNCIA)
+        ======================================== */
+        .pre-badge {
+            display: block;
+            max-width: 750px;
+            margin: 0 auto 30px;
+            padding: 0;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+            font-weight: 600;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.90);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .pre-badge .line {
+            display: block;
+        }
+        
+        .pre-badge .line:last-child {
+            color: rgba(255, 255, 255, 0.85);
         }
         
         /* ========================================
@@ -687,9 +765,16 @@
                 <div class="logo-text">SoundyAI</div>
             </div>
             
-            <!-- Pre-launch Badge -->
-            <div class="pre-badge fade-in-up">Se você chegou até aqui, a SoundyAI é para você!
-                Quem não entrar agora vai descobrir tarde demais onde está errando!
+            <!-- Slots Counter -->
+            <div class="slots-counter fade-in-up">
+                <span class="icon">⏰</span>
+                <span>Apenas <span class="number" id="slots-remaining">--</span> das 100 vagas iniciais ainda disponíveis</span>
+            </div>
+            
+            <!-- Pre-launch Badge (Copy de Urgência) -->
+            <div class="pre-badge fade-in-up">
+                <span class="line">Se você chegou até aqui, a SoundyAI é para você.</span><br>
+                <span class="line">Quem não entrar agora vai descobrir tarde demais onde está errando.</span>
             </div>
             
             <!-- Main Headline -->
