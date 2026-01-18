@@ -55,8 +55,29 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
       throw makeErr('output_scoring', `Technical data validation failed: ${validationError.message}`, 'technical_data_invalid');
     }
 
+    // 🚨 LOG CRÍTICO: Verificar reference recebido pelo scoring
+    console.error('\n╔═════════════════════════════════════════════════════════════╗');
+    console.error('║  🎯 JSON-OUTPUT: CHAMANDO computeMixScore                  ║');
+    console.error('╚═════════════════════════════════════════════════════════════╝');
+    console.error('[JSON-OUTPUT] LUFS medido:', technicalData.lufsIntegrated);
+    console.error('[JSON-OUTPUT] Reference recebido:', {
+      tipo: reference ? (reference.lufs_target ? 'FLAT' : reference.lufs ? 'NESTED' : 'UNKNOWN') : 'NULL',
+      lufs_target_flat: reference?.lufs_target,
+      lufs_nested: reference?.lufs?.target,
+      true_peak_flat: reference?.true_peak_target,
+      true_peak_nested: reference?.truePeak?.target
+    });
+    console.error('\n');
+    
     const scoringResult = computeMixScore(technicalData, reference);
     const scoreValue = scoringResult.score || scoringResult.scorePct;
+    
+    console.error('╔═════════════════════════════════════════════════════════════╗');
+    console.error('║  📊 SCORING RESULT                                         ║');
+    console.error('╚═════════════════════════════════════════════════════════════╝');
+    console.error('[JSON-OUTPUT] Score final:', scoreValue);
+    console.error('[JSON-OUTPUT] Breakdown:', scoringResult.breakdown);
+    console.error('\n');
 
     if (!scoringResult || typeof scoreValue !== 'number' || !isFinite(scoreValue)) {
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');

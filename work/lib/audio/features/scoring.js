@@ -569,6 +569,18 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   // Loudness com suporte a tol_lufs_min / tol_lufs_max
   const lufsTolMin = Number.isFinite(ref?.tol_lufs_min) ? ref.tol_lufs_min : lufsTol;
   const lufsTolMax = Number.isFinite(ref?.tol_lufs_max) ? ref.tol_lufs_max : lufsTol;
+  
+  // 🚨 LOG CRÍTICO: Ver o que está sendo usado no scoring de loudness
+  console.error('\n╔═════════════════════════════════════════════════════════════╗');
+  console.error('║  🎯 SCORING.JS: CALCULANDO LOUDNESS SUBSCORE               ║');
+  console.error('╚═════════════════════════════════════════════════════════════╝');
+  console.error('[SCORING] LUFS medido:', metrics.lufsIntegrated);
+  console.error('[SCORING] LUFS TARGET usado:', lufsTarget);
+  console.error('[SCORING] ref?.lufs_target:', ref?.lufs_target);
+  console.error('[SCORING] DEFAULT usado?', !ref?.lufs_target);
+  console.error('[SCORING] Tolerância:', { lufsTolMin, lufsTolMax, avg: (lufsTolMin + lufsTolMax)/2 });
+  console.error('\n');
+  
   addMetric('loudness', 'lufsIntegrated', metrics.lufsIntegrated, lufsTarget, (lufsTolMin + lufsTolMax)/2, { tolMin: lufsTolMin, tolMax: lufsTolMax });
   
   // 🏆 TT-DR OFICIAL vs Legacy Crest Factor

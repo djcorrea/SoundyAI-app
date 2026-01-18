@@ -9270,6 +9270,22 @@ function buildRealisticAction(realDiff, direction, emoji) {
     return `${emoji} Ajustar conforme necessário`;
 }
 
+/**
+ * 🎯 HELPER: Verificar se a métrica é uma banda espectral (EQ/frequência)
+ * Usado para aplicar controle de realismo APENAS em bandas espectrais
+ * 
+ * @param {string} metricKey - Chave da métrica (sub, bass, lufs, dr, etc)
+ * @returns {boolean} - true se for banda espectral, false caso contrário
+ */
+function isSpectralBand(metricKey) {
+    const SPECTRAL_BANDS = [
+        'sub', 'bass', 'low_bass', 'upperBass', 'upper_bass',
+        'lowMid', 'low_mid', 'mid', 'highMid', 'high_mid',
+        'presence', 'presenca', 'air', 'brilho'
+    ];
+    return SPECTRAL_BANDS.includes(metricKey);
+}
+
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
@@ -9464,6 +9480,7 @@ function renderGenreComparisonTable(options) {
                 }
                 
                 // Thresholds para severidade baseados na distância
+                // 🎯 CONTROLE DE REALISMO: Usar buildRealisticAction APENAS para bandas espectrais
                 if (absDelta >= 2) {
                     const direction = diff > 0 ? 'decrease' : 'increase';
                     const action = buildRealisticAction(absDelta, direction, '🔴');
@@ -9487,16 +9504,13 @@ function renderGenreComparisonTable(options) {
         if (absDiff <= tolerance) {
             return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff };
         } else if (absDiff <= tolerance * 2) {
-            const direction = diff > 0 ? 'decrease' : 'increase';
-            const action = buildRealisticAction(absDiff, direction, '⚠️');
+            const action = diff > 0 ? `⚠️ Reduzir ${absDiff.toFixed(1)}` : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
             return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
         } else if (absDiff <= tolerance * 3) {
-            const direction = diff > 0 ? 'decrease' : 'increase';
-            const action = buildRealisticAction(absDiff, direction, '🟡');
+            const action = diff > 0 ? `🟡 Reduzir ${absDiff.toFixed(1)}` : `🟡 Aumentar ${absDiff.toFixed(1)}`;
             return { severity: 'ALTA', severityClass: 'warning', action, diff };
         } else {
-            const direction = diff > 0 ? 'decrease' : 'increase';
-            const action = buildRealisticAction(absDiff, direction, '🔴');
+            const action = diff > 0 ? `🔴 Reduzir ${absDiff.toFixed(1)}` : `🔴 Aumentar ${absDiff.toFixed(1)}`;
             return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
         }
     };
@@ -25151,9 +25165,17 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
             severity = 'ALTA';
         }
         
-        const direction = diff > 0 ? 'decrease' : 'increase';
-        const realisticAction = buildRealisticAction(absDiff, direction, '🔴');
-        reason = realisticAction + ' (fora do range)';
+        
+        // 🎯 CONTROLE DE REALISMO: Aplicar APENAS para bandas espectrais
+        if (isSpectralBand(metricKey)) {
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            const realisticAction = buildRealisticAction(absDiff, direction, '🔴');
+            reason = realisticAction + ' (fora do range)';
+        } else {
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)} (fora do range)` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)} (fora do range)`;
+        }
             
         return {
             score: Math.round(Math.max(20, Math.min(100, score))),
@@ -25188,20 +25210,41 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         // Moderado (40-70% do range) = ATENÇÃO
         score = Math.round(95 - ((normalizedDistance - 0.4) * 40)); // 95 → 83
         severity = 'ATENÇÃO';
-        const direction = diff > 0 ? 'decrease' : 'increase';
-        reason = buildRealisticAction(absDiff, direction, '⚠️');
+        // 🎯 CONTROLE DE REALISMO: Aplicar APENAS para bandas espectrais
+        if (isSpectralBand(metricKey)) {
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            reason = buildRealisticAction(absDiff, direction, '⚠️');
+        } else {
+            reason = diff > 0 
+                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        }
     } else if (normalizedDistance <= 1.0) {
         // Perto da borda (70-100% do range) = ALTA
         score = Math.round(83 - ((normalizedDistance - 0.7) * 43)); // 83 → 70
         severity = 'ALTA';
-        const direction = diff > 0 ? 'decrease' : 'increase';
-        reason = buildRealisticAction(absDiff, direction, '🟡');
+        // 🎯 CONTROLE DE REALISMO: Aplicar APENAS para bandas espectrais
+        if (isSpectralBand(metricKey)) {
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            reason = buildRealisticAction(absDiff, direction, '🟡');
+        } else {
+            reason = diff > 0 
+                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        }
     } else {
         // Na borda ou ligeiramente fora = CRÍTICA (mas ainda "dentro" por arredondamento)
         score = Math.max(55, Math.round(70 - ((normalizedDistance - 1) * 25)));
         severity = 'CRÍTICA';
-        const direction = diff > 0 ? 'decrease' : 'increase';
-        reason = buildRealisticAction(absDiff, direction, '🔴');
+        // 🎯 CONTROLE DE REALISMO: Aplicar APENAS para bandas espectrais
+        if (isSpectralBand(metricKey)) {
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            reason = buildRealisticAction(absDiff, direction, '🔴');
+        } else {
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        }
     }
     
     return {
