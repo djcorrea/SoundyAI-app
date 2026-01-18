@@ -427,6 +427,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       // 🔥 CARREGAR TARGETS DO FILESYSTEM (ANTES de usar)
+      // 🎯 CRÍTICO: Definir soundDestination ANTES de qualquer lógica condicional
+      // Esta variável deve estar SEMPRE disponível, independente do mode
+      const soundDestination = options.soundDestination || 'pista';
+      
+      console.log('[PIPELINE] 🎯 Sound Destination:', soundDestination);
+      
       if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
         // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
         console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -451,11 +457,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.error('[PIPELINE] Bands disponíveis:', baseTargets.bands ? Object.keys(baseTargets.bands).length : 0);
           console.error('\n');
           
-          // 🎯 APLICAR OVERRIDE POR MODO (runtime - único ponto)
+          // 🎯 APLICAR OVERRIDE POR DESTINO DE ÁUDIO (runtime - único ponto)
           customTargets = structuredClone(baseTargets);
-          const soundDestinationMode = options.soundDestination || 'pista';
           
-          if (soundDestinationMode === 'streaming') {
+          if (soundDestination === 'streaming') {
             console.error('╔═══════════════════════════════════════════════════════════╗');
             console.error('║  📡 APLICANDO OVERRIDE DE STREAMING                      ║');
             console.error('╚═══════════════════════════════════════════════════════════╝');
@@ -582,7 +587,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         fileName,
         mode: mode,
         genre: detectedGenre,
-        soundDestination: soundDestinationMode,  // 🚨 CRÍTICO: enviar para frontend
+        soundDestination: soundDestination,  // 🚨 CRÍTICO: enviar para frontend (agora definido no escopo correto)
         genreTargets: genreTargetsForJSON,  // nested format (para tabela)
         flatTargets: flatTargetsForFrontend, // flat format (para gates do frontend)
         referenceJobId: options.referenceJobId,
@@ -979,11 +984,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.log(`[V2-SYSTEM] ✅ Targets base carregados de work/refs/out/${detectedGenreV2}.json`);
           console.log(`[V2-SYSTEM] 📊 LUFS base: ${baseTargetsV2.lufs?.target}, TruePeak base: ${baseTargetsV2.truePeak?.target}`);
           
-          // 🎯 APLICAR OVERRIDE POR MODO (runtime - único ponto)
+          // 🎯 APLICAR OVERRIDE POR DESTINO DE ÁUDIO (runtime - único ponto)
+          // Usar soundDestination que já foi definido no escopo superior
           customTargetsV2 = structuredClone(baseTargetsV2);
-          const soundDestinationModeV2 = options.soundDestination || 'pista';
           
-          if (soundDestinationModeV2 === 'streaming') {
+          if (soundDestination === 'streaming') {
             console.log('[V2-SYSTEM] 📡 Aplicando override de Streaming...');
             
             // Override LUFS
