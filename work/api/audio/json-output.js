@@ -817,15 +817,17 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   });
 
   return {
-    // 🎯 CORREÇÃO CRÍTICA: Incluir genre, mode e referenceStage no JSON final
+    // 🎯 CORREÇÃO CRÍTICA: Incluir genre, mode, soundDestination e referenceStage no JSON final
     // Esses campos são FUNDAMENTAIS para:
     // - Carregamento correto dos targets específicos por gênero no frontend
     // - Renderização do modo gênero vs modo referência
     // - Sugestões técnicas contextualizadas
     // - Comparação de bandas espectrais
     // - Preservação do fluxo A/B no modo referência
+    // - Override correto de LUFS para streaming (-14) vs pista (-7.2)
     genre: finalGenre,
     mode: options.mode || 'genre',
+    soundDestination: options.soundDestination || 'pista', // 🚨 CRÍTICO para override
     referenceStage: options.referenceStage || options.data?.referenceStage || null, // 🆕 BASE ou COMPARE
     referenceJobId: options.referenceJobId || null, // 🆕 ID da primeira música (se compare)
     score: Math.round(scoreValue * 10) / 10,

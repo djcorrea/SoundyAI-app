@@ -1073,6 +1073,7 @@ function getCorrectTargets(analysis) {
         console.error('╚═══════════════════════════════════════════════════════════╝');
         console.error('[TARGETS] lufs_target:', analysis.data.targets.lufs_target);
         console.error('[TARGETS] true_peak_target:', analysis.data.targets.true_peak_target);
+        console.error('[TARGETS] soundDestination:', analysis.soundDestination);
         console.error('\n');
         return JSON.parse(JSON.stringify(analysis.data.targets)); // Deep copy
     }
@@ -1098,14 +1099,21 @@ function getCorrectTargets(analysis) {
     }
     
     // 📡 STREAMING MODE: Aplicar override de LUFS e TP (APENAS se não veio de analysis.data.targets)
-    if (getSoundDestinationMode() === 'streaming') {
-        console.log('[TARGETS] 📡 STREAMING MODE - Aplicando override de LUFS/TP');
+    // 🚨 CORREÇÃO: Usar analysis.soundDestination (do backend) prioritariamente
+    const soundDest = analysis?.soundDestination || getSoundDestinationMode();
+    
+    if (soundDest === 'streaming') {
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  📡 FRONTEND: APLICANDO OVERRIDE STREAMING               ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[TARGETS] soundDestination:', soundDest);
+        console.error('[TARGETS] ANTES: lufs_target =', targets.lufs_target);
+        
         targets.lufs_target = STREAMING_TARGETS.lufs_target;      // -14
         targets.true_peak_target = STREAMING_TARGETS.true_peak_target; // -1.0
-        console.log('[TARGETS] 📡 Targets atualizados:', {
-            lufs_target: targets.lufs_target,
-            true_peak_target: targets.true_peak_target
-        });
+        
+        console.error('[TARGETS] DEPOIS: lufs_target =', targets.lufs_target);
+        console.error('\n');
     }
     
     console.log('[TARGETS] Keys:', Object.keys(targets));

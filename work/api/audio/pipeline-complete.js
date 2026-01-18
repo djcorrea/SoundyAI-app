@@ -582,6 +582,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         fileName,
         mode: mode,
         genre: detectedGenre,
+        soundDestination: soundDestinationMode,  // 🚨 CRÍTICO: enviar para frontend
         genreTargets: genreTargetsForJSON,  // nested format (para tabela)
         flatTargets: flatTargetsForFrontend, // flat format (para gates do frontend)
         referenceJobId: options.referenceJobId,
