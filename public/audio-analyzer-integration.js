@@ -24959,9 +24959,10 @@ const METRIC_TYPE = {
  * @param {string} metricKey - Chave da métrica (lufs, truePeak, sub, etc)
  * @param {number} measuredValue - Valor medido na análise
  * @param {Object} targetSpec - { target, min, max, tol, type? }
+ * @param {string} mode - Modo de análise ('streaming', 'pista', 'reference') - OPCIONAL mas recomendado
  * @returns {Object} { score, severity, diff, reason, deviationRatio, status }
  */
-window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, targetSpec) {
+window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, targetSpec, mode = 'streaming') {
     // 🛡️ Guard: valores inválidos
     if (!Number.isFinite(measuredValue) || !targetSpec) {
         return { 
@@ -25075,66 +25076,149 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
     const inRange = hasRange && measuredValue >= min && measuredValue <= max;
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // V4.1: CURVA DE SCORE BASEADA EM TOLERÂNCIA PROFISSIONAL
+    // V4.2: CURVAS DE SCORE POR MODO DE ANÁLISE
     // 
-    // PRINCÍPIO: Para LUFS e métricas críticas, usar TOLERÂNCIA como referência
-    // principal, não o range amplo. Isso garante scores altos para diferenças
-    // aceitáveis em engenharia de áudio profissional.
+    // PROBLEMA CRÍTICO RESOLVIDO: Sistema usava CURVA ÚNICA para todos os modos,
+    // causando streaming avaliar com severidade de pista/club.
     //
-    // CURVA NÃO LINEAR (baseada em padrões de streaming):
-    // - |diff| ≤ 0.5 * tol  → score ≥ 95 (excelente)
-    // - |diff| ≤ 1.0 * tol  → score ≥ 85 (muito bom)
-    // - |diff| ≤ 1.5 * tol  → score ≥ 75 (bom)
-    // - |diff| ≤ 2.0 * tol  → score ≥ 65 (aceitável)
-    // - |diff| > 2.0 * tol  → score < 65 (precisa ajuste)
+    // SOLUÇÃO: Curvas explícitas por modo com diferentes tolerâncias
+    //
+    // STREAMING: Alta tolerância, penalização suave
+    // - Plataformas normalizam automaticamente
+    // - |diff| ≤ 1.0 * tol → score ≥ 85 (muito bom)
+    // - Penalização gentil até 2.0 * tol
+    //
+    // PISTA/CLUB: Baixa tolerância, penalização agressiva  
+    // - Consistência entre faixas é crítica
+    // - |diff| > 1.0 * tol → penalização imediata
+    // - Fora do range = score crítico
     //
     // REGRA DE CONSISTÊNCIA: Se valor está DENTRO do range [min, max],
     // o score NUNCA pode ser menor que 70 (para manter coerência com
     // o status visual VERDE/OK da tabela).
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // 🎯 V4.1: Usar tolerância como referência principal para curva de score
     const toleranceRatio = absDiff / tol;
     
-    // 🎯 V4.1: CURVA NÃO LINEAR - Alta tolerância próxima ao target
-    if (toleranceRatio <= 0.5) {
-        // Muito próximo do target (≤50% da tolerância) = Excelente
-        score = Math.round(100 - (toleranceRatio * 10)); // 100 → 95
-        severity = 'OK';
-        reason = '✅ Dentro do padrão';
-    } else if (toleranceRatio <= 1.0) {
-        // Dentro da tolerância (50-100%) = Muito bom
-        score = Math.round(95 - ((toleranceRatio - 0.5) * 20)); // 95 → 85
-        severity = 'OK';
-        reason = '✅ Dentro do padrão';
-    } else if (toleranceRatio <= 1.5) {
-        // Ligeiramente fora da tolerância (100-150%) = Bom
-        score = Math.round(85 - ((toleranceRatio - 1.0) * 20)); // 85 → 75
-        severity = 'ATENÇÃO';
-        reason = diff > 0 
-            ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-            : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-    } else if (toleranceRatio <= 2.0) {
-        // Moderadamente fora (150-200%) = Aceitável
-        score = Math.round(75 - ((toleranceRatio - 1.5) * 20)); // 75 → 65
-        severity = 'ATENÇÃO';
-        reason = diff > 0 
-            ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-            : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-    } else if (toleranceRatio <= 3.0) {
-        // Significativamente fora (200-300%) = Precisa ajuste
-        score = Math.round(65 - ((toleranceRatio - 2.0) * 15)); // 65 → 50
-        severity = 'ALTA';
-        reason = diff > 0 
-            ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-            : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+    // 🎯 V4.2: CURVA ESPECÍFICA POR MODO
+    const isStreaming = (mode === 'streaming');
+    const isPista = (mode === 'pista' || mode === 'club');
+    
+    if (isStreaming) {
+        // ══════════════════════════════════════════════════════════════
+        // CURVA STREAMING: Alta tolerância, penalização SUAVE
+        // ══════════════════════════════════════════════════════════════
+        if (toleranceRatio <= 0.5) {
+            score = Math.round(100 - (toleranceRatio * 10)); // 100 → 95
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.0) {
+            // 🎯 STREAMING: diff ≤ 1.0 tol → score ≥ 85
+            score = Math.round(95 - ((toleranceRatio - 0.5) * 20)); // 95 → 85
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.5) {
+            // Penalização SUAVE
+            score = Math.round(85 - ((toleranceRatio - 1.0) * 15)); // 85 → 77.5
+            severity = 'ATENÇÃO';
+            reason = diff > 0 
+                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 2.0) {
+            score = Math.round(77.5 - ((toleranceRatio - 1.5) * 15)); // 77.5 → 70
+            severity = 'ATENÇÃO';
+            reason = diff > 0 
+                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 3.0) {
+            score = Math.round(70 - ((toleranceRatio - 2.0) * 12)); // 70 → 58
+            severity = 'ALTA';
+            reason = diff > 0 
+                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        } else {
+            score = Math.max(25, Math.round(58 - ((toleranceRatio - 3.0) * 8))); // 58 → 25
+            severity = 'CRÍTICA';
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        }
+    } else if (isPista) {
+        // ══════════════════════════════════════════════════════════════
+        // CURVA PISTA/CLUB: Baixa tolerância, penalização AGRESSIVA
+        // ══════════════════════════════════════════════════════════════
+        if (toleranceRatio <= 0.5) {
+            score = Math.round(100 - (toleranceRatio * 8)); // 100 → 96
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.0) {
+            // 🎯 PISTA: diff ≤ 1.0 tol → score 80-96 (penalização mais forte)
+            score = Math.round(96 - ((toleranceRatio - 0.5) * 32)); // 96 → 80
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.5) {
+            // Penalização AGRESSIVA
+            score = Math.round(80 - ((toleranceRatio - 1.0) * 30)); // 80 → 65
+            severity = 'ALTA';
+            reason = diff > 0 
+                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 2.0) {
+            score = Math.round(65 - ((toleranceRatio - 1.5) * 30)); // 65 → 50
+            severity = 'ALTA';
+            reason = diff > 0 
+                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 3.0) {
+            score = Math.round(50 - ((toleranceRatio - 2.0) * 15)); // 50 → 35
+            severity = 'CRÍTICA';
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        } else {
+            score = Math.max(15, Math.round(35 - ((toleranceRatio - 3.0) * 10))); // 35 → 15
+            severity = 'CRÍTICA';
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        }
     } else {
-        // Muito fora (>300%) = Crítico
-        score = Math.max(20, Math.round(50 - ((toleranceRatio - 3.0) * 10))); // 50 → 20
-        severity = 'CRÍTICA';
-        reason = diff > 0 
-            ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-            : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        // ══════════════════════════════════════════════════════════════
+        // CURVA PADRÃO (reference ou outro): Balanceada
+        // ══════════════════════════════════════════════════════════════
+        if (toleranceRatio <= 0.5) {
+            score = Math.round(100 - (toleranceRatio * 10)); // 100 → 95
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.0) {
+            score = Math.round(95 - ((toleranceRatio - 0.5) * 20)); // 95 → 85
+            severity = 'OK';
+            reason = '✅ Dentro do padrão';
+        } else if (toleranceRatio <= 1.5) {
+            score = Math.round(85 - ((toleranceRatio - 1.0) * 20)); // 85 → 75
+            severity = 'ATENÇÃO';
+            reason = diff > 0 
+                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 2.0) {
+            score = Math.round(75 - ((toleranceRatio - 1.5) * 20)); // 75 → 65
+            severity = 'ATENÇÃO';
+            reason = diff > 0 
+                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        } else if (toleranceRatio <= 3.0) {
+            score = Math.round(65 - ((toleranceRatio - 2.0) * 15)); // 65 → 50
+            severity = 'ALTA';
+            reason = diff > 0 
+                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        } else {
+            score = Math.max(20, Math.round(50 - ((toleranceRatio - 3.0) * 10))); // 50 → 20
+            severity = 'CRÍTICA';
+            reason = diff > 0 
+                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        }
     }
     
     // 🎯 V4.1: REGRA DE CONSISTÊNCIA - Se dentro do range, garantir score mínimo 70
@@ -25470,27 +25554,28 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     
     // ═══════════════════════════════════════════════════════════════════
     // 3. AVALIAR TODAS AS MÉTRICAS COM evaluateMetric (SINGLE SOURCE)
+    // V4.2: TODAS as chamadas agora recebem o parâmetro MODE
     // ═══════════════════════════════════════════════════════════════════
     const metricEvaluations = {};
     
-    // Loudness
-    metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs);
-    metricEvaluations.rms = window.evaluateMetric('rms', measured.rms, finalTargets.rms);
+    // Loudness - V4.2: passar mode para aplicar curvas corretas
+    metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs, mode);
+    metricEvaluations.rms = window.evaluateMetric('rms', measured.rms, finalTargets.rms, mode);
     
-    // Technical
-    metricEvaluations.truePeak = window.evaluateMetric('truePeak', measured.truePeak, finalTargets.truePeak);
-    metricEvaluations.samplePeak = window.evaluateMetric('samplePeak', measured.samplePeak, finalTargets.samplePeak);
-    metricEvaluations.clipping = window.evaluateMetric('clipping', measured.clipping, finalTargets.clipping);
-    metricEvaluations.dcOffset = window.evaluateMetric('dcOffset', measured.dcOffset, finalTargets.dcOffset);
+    // Technical - V4.2: passar mode
+    metricEvaluations.truePeak = window.evaluateMetric('truePeak', measured.truePeak, finalTargets.truePeak, mode);
+    metricEvaluations.samplePeak = window.evaluateMetric('samplePeak', measured.samplePeak, finalTargets.samplePeak, mode);
+    metricEvaluations.clipping = window.evaluateMetric('clipping', measured.clipping, finalTargets.clipping, mode);
+    metricEvaluations.dcOffset = window.evaluateMetric('dcOffset', measured.dcOffset, finalTargets.dcOffset, mode);
     
-    // Dynamics
-    metricEvaluations.dr = window.evaluateMetric('dr', measured.dr, finalTargets.dr);
-    metricEvaluations.crest = window.evaluateMetric('crest', measured.crest, finalTargets.crest);
-    metricEvaluations.lra = window.evaluateMetric('lra', measured.lra, finalTargets.lra);
+    // Dynamics - V4.2: passar mode
+    metricEvaluations.dr = window.evaluateMetric('dr', measured.dr, finalTargets.dr, mode);
+    metricEvaluations.crest = window.evaluateMetric('crest', measured.crest, finalTargets.crest, mode);
+    metricEvaluations.lra = window.evaluateMetric('lra', measured.lra, finalTargets.lra, mode);
     
-    // Stereo
-    metricEvaluations.correlation = window.evaluateMetric('correlation', measured.correlation, finalTargets.correlation);
-    metricEvaluations.width = window.evaluateMetric('width', measured.width, finalTargets.width);
+    // Stereo - V4.2: passar mode
+    metricEvaluations.correlation = window.evaluateMetric('correlation', measured.correlation, finalTargets.correlation, mode);
+    metricEvaluations.width = window.evaluateMetric('width', measured.width, finalTargets.width, mode);
     
     // ═══════════════════════════════════════════════════════════════════
     // V4.1: MAPEAMENTO COMPLETO DE BANDAS - CORRIGE BUG CRÍTICO
@@ -25570,8 +25655,8 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
             normalizedTarget.max = (normalizedTarget.target ?? 0) + normalizedTarget.tol;
         }
         
-        // Avaliar a banda
-        const evaluation = window.evaluateMetric(jsonBandKey, userValue, normalizedTarget);
+        // Avaliar a banda - V4.2: passar mode para aplicar curvas corretas
+        const evaluation = window.evaluateMetric(jsonBandKey, userValue, normalizedTarget, mode);
         
         // Armazenar com chave canônica para o resto do sistema
         // Se já existe (ex: low_bass e upper_bass → bass), usar o PIOR score
