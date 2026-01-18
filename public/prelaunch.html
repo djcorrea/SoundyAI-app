@@ -186,8 +186,8 @@
         
         .logo-text {
             font-family: 'Orbitron', sans-serif;
-            font-size: clamp(2.5rem, 8vw, 4rem);
-            font-weight: 900;
+            font-size: clamp(2.5rem, 6vw, 2rem);
+            font-weight: 800;
             background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 50%, var(--neon-pink) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -263,7 +263,7 @@
         ======================================== */
         .headline {
             font-family: 'Rajdhani', sans-serif;
-            font-size: clamp(1.8rem, 5vw, 2.8rem);
+            font-size: clamp(1.8rem, 5vw, 3rem);
             font-weight: 700;
             line-height: 1.2;
             margin-bottom: 16px;
@@ -762,19 +762,67 @@
         <div class="container">
             <!-- Brand -->
             <div class="brand fade-in-up">
-                <div class="logo-text">SoundyAI</div>
+                <div class="logo-text">Você Está a Um Passo de 
+</div>
             </div>
             
             <!-- Main Headline -->
             <h1 class="headline fade-in-up">
-                DESCUBRA EM  <span class="headline-highlight">1 MINUTO</span><br>
-               POR QUE SUA MÚSICA AINDA NÃO SOA  <span class="headline-highlight">PROFISSIONAL</span><br>
-            </h1>
+ 
+  <span>DESCOBRIR <span class="headline-highlight">TODOS</span></span>
+  <span>OS ERROS QUE IMPEDEM SUA <span class="headline-highlight">MIX / MASTER</span></span>
+  <span>DE SOAR <span class="headline-highlight">PROFISSIONAL</span></span>
+</h1>
+
             
             <!-- Subheadline -->
-            <p class="product-brief fade-in-up">
-                Analise seu áudio com inteligência artificial e descubra <span class="headline-highlight">exatamente</span><br> o que ajustar para alcançar o som profissional. Sem achismos. Sem perder tempo, apenas ciência aplicada à música. Preencha esse mini formulário para receber <span class="headline-highlight">gratuitamente</span> acesso antecipado a essa IA que irá te fazer evoluir como produtor!
-            </p>
+<p class="product-brief fade-in-up">
+  <span>
+    Deixe seu e-mail abaixo e seja notificado <span class="headline-highlight">primeiro</span>
+    quando abrirmos as vagas para testar o SoundyAI gratuitamente.
+  </span>
+
+  <span>
+    Essa inteligência artificial analisa sua música tecnicamente e mostra
+    <span class="headline-highlight">exatamente</span> o que ajustar na mixagem
+    para alcançar padrão profissional.
+  </span>
+
+  <span>
+    Sem achismos. Sem tentativa e erro.
+    Apenas engenharia de áudio aplicada da forma correta.
+  </span>
+
+  
+</p>
+
+            
+            <!-- Countdown Timer -->
+            <div class="countdown-section fade-in-up">
+                <div class="countdown-label">Contagem regressiva</div>
+                <p style="color: rgba(255, 255, 255, 0.85); font-size: 1rem; margin: 10px 0 20px 0; line-height: 1.6;">
+                    🚀<span class="headline-highlight"> Lançamento oficial SoundyAI </span>🚀<br>
+                 
+                </p>
+                <div class="countdown" id="countdown">
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="days">00</span>
+                        <span class="countdown-unit">Dias</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="hours">00</span>
+                        <span class="countdown-unit">Horas</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="minutes">00</span>
+                        <span class="countdown-unit">Min</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="seconds">00</span>
+                        <span class="countdown-unit">Seg</span>
+                    </div>
+                </div>
+            </div>
             
             <!-- Slots Counter -->
             <div class="slots-counter fade-in-up">
@@ -816,7 +864,8 @@
                                 <span class="error-message" id="emailError">Por favor, insira um e-mail válido</span>
                             </div>
                             
-                            <div class="form-group">
+                            <!-- Campo de telefone - OCULTO (remover style="display: none;" para reativar) -->
+                            <div class="form-group" style="display: none;">
                                 <input 
                                     type="tel" 
                                     id="phone" 
