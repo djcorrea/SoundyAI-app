@@ -24934,7 +24934,7 @@ const METRIC_TYPE = {
 };
 
 /**
- * 📊 FUNÇÃO CANÔNICA: evaluateMetric V4.1
+ * 📊 FUNÇÃO CANÔNICA: evaluateMetric V3.7
  * 
  * Esta é a ÚNICA função que deve ser usada para avaliar métricas em:
  * - Tabela (buildMetricRows)
@@ -24942,27 +24942,18 @@ const METRIC_TYPE = {
  * - Gates
  * - Sugestões
  * 
- * REGRAS V4.1 (ATUALIZADO):
+ * REGRAS V3.7:
  * 1. CEILING (truePeak, clipping): target é TETO. value > target = penalizado
- * 2. BANDPASS (lufs, dr, bandas): CURVA NÃO LINEAR baseada em TOLERÂNCIA
+ * 2. BANDPASS (lufs, dr, bandas): target é CENTRO. distância do target = penalizado
  * 3. Para CEILING: max é hard cap (ex: 0 dBTP), mas target (-1 dBTP) é o ideal
- * 4. Severidade baseada na distância do TARGET usando tolerância como referência
- * 5. CONSISTÊNCIA: valor dentro do range [min,max] → score mínimo 70
- * 
- * CURVA V4.1 PARA BANDPASS (ex: LUFS com tol=1.0):
- * - |diff| ≤ 0.5 LUFS → score ≥ 95 (excelente)
- * - |diff| ≤ 1.0 LUFS → score ≥ 85 (muito bom) 
- * - |diff| ≤ 1.5 LUFS → score ≥ 75 (bom)
- * - |diff| ≤ 2.0 LUFS → score ≥ 65 (aceitável)
- * - |diff| > 2.0 LUFS → score < 65 (precisa ajuste)
+ * 4. Severidade baseada na distância do TARGET (não do range)
  * 
  * @param {string} metricKey - Chave da métrica (lufs, truePeak, sub, etc)
  * @param {number} measuredValue - Valor medido na análise
  * @param {Object} targetSpec - { target, min, max, tol, type? }
- * @param {string} mode - Modo de análise ('streaming', 'pista', 'reference') - OPCIONAL mas recomendado
  * @returns {Object} { score, severity, diff, reason, deviationRatio, status }
  */
-window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, targetSpec, mode = 'streaming') {
+window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, targetSpec) {
     // 🛡️ Guard: valores inválidos
     if (!Number.isFinite(measuredValue) || !targetSpec) {
         return { 
@@ -25075,182 +25066,38 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
     const hasRange = min !== null && max !== null;
     const inRange = hasRange && measuredValue >= min && measuredValue <= max;
     
-    // ═══════════════════════════════════════════════════════════════════════════
-    // V4.2: CURVAS DE SCORE POR MODO DE ANÁLISE
-    // 
-    // PROBLEMA CRÍTICO RESOLVIDO: Sistema usava CURVA ÚNICA para todos os modos,
-    // causando streaming avaliar com severidade de pista/club.
-    //
-    // SOLUÇÃO: Curvas explícitas por modo com diferentes tolerâncias
-    //
-    // STREAMING: Alta tolerância, penalização suave
-    // - Plataformas normalizam automaticamente
-    // - |diff| ≤ 1.0 * tol → score ≥ 85 (muito bom)
-    // - Penalização gentil até 2.0 * tol
-    //
-    // PISTA/CLUB: Baixa tolerância, penalização agressiva  
-    // - Consistência entre faixas é crítica
-    // - |diff| > 1.0 * tol → penalização imediata
-    // - Fora do range = score crítico
-    //
-    // REGRA DE CONSISTÊNCIA: Se valor está DENTRO do range [min, max],
-    // o score NUNCA pode ser menor que 70 (para manter coerência com
-    // o status visual VERDE/OK da tabela).
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
+    // V4.0: CURVA DE PENALIZAÇÃO BANDPASS REVISADA
+    // - Score 100 APENAS se valor == target (não mais 50% tolerância)
+    // - Considera range [min, max] como fator de severidade
+    // - Severidade alinhada com tabela visual
+    // ═══════════════════════════════════════════════════════════════════
     
-    const toleranceRatio = absDiff / tol;
-    
-    // 🎯 V4.2: CURVA ESPECÍFICA POR MODO
-    const isStreaming = (mode === 'streaming');
-    const isPista = (mode === 'pista' || mode === 'club');
-    
-    if (isStreaming) {
-        // ══════════════════════════════════════════════════════════════
-        // CURVA STREAMING: Alta tolerância, penalização SUAVE
-        // ══════════════════════════════════════════════════════════════
-        if (toleranceRatio <= 0.5) {
-            score = Math.round(100 - (toleranceRatio * 10)); // 100 → 95
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.0) {
-            // 🎯 STREAMING: diff ≤ 1.0 tol → score ≥ 85
-            score = Math.round(95 - ((toleranceRatio - 0.5) * 20)); // 95 → 85
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.5) {
-            // Penalização SUAVE
-            score = Math.round(85 - ((toleranceRatio - 1.0) * 15)); // 85 → 77.5
-            severity = 'ATENÇÃO';
-            reason = diff > 0 
-                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 2.0) {
-            score = Math.round(77.5 - ((toleranceRatio - 1.5) * 15)); // 77.5 → 70
-            severity = 'ATENÇÃO';
-            reason = diff > 0 
-                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 3.0) {
-            score = Math.round(70 - ((toleranceRatio - 2.0) * 12)); // 70 → 58
-            severity = 'ALTA';
-            reason = diff > 0 
-                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
-        } else {
-            score = Math.max(25, Math.round(58 - ((toleranceRatio - 3.0) * 8))); // 58 → 25
-            severity = 'CRÍTICA';
-            reason = diff > 0 
-                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
-        }
-    } else if (isPista) {
-        // ══════════════════════════════════════════════════════════════
-        // CURVA PISTA/CLUB: Baixa tolerância, penalização AGRESSIVA
-        // ══════════════════════════════════════════════════════════════
-        if (toleranceRatio <= 0.5) {
-            score = Math.round(100 - (toleranceRatio * 8)); // 100 → 96
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.0) {
-            // 🎯 PISTA: diff ≤ 1.0 tol → score 80-96 (penalização mais forte)
-            score = Math.round(96 - ((toleranceRatio - 0.5) * 32)); // 96 → 80
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.5) {
-            // Penalização AGRESSIVA
-            score = Math.round(80 - ((toleranceRatio - 1.0) * 30)); // 80 → 65
-            severity = 'ALTA';
-            reason = diff > 0 
-                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 2.0) {
-            score = Math.round(65 - ((toleranceRatio - 1.5) * 30)); // 65 → 50
-            severity = 'ALTA';
-            reason = diff > 0 
-                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 3.0) {
-            score = Math.round(50 - ((toleranceRatio - 2.0) * 15)); // 50 → 35
-            severity = 'CRÍTICA';
-            reason = diff > 0 
-                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
-        } else {
-            score = Math.max(15, Math.round(35 - ((toleranceRatio - 3.0) * 10))); // 35 → 15
-            severity = 'CRÍTICA';
-            reason = diff > 0 
-                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
-        }
-    } else {
-        // ══════════════════════════════════════════════════════════════
-        // CURVA PADRÃO (reference ou outro): Balanceada
-        // ══════════════════════════════════════════════════════════════
-        if (toleranceRatio <= 0.5) {
-            score = Math.round(100 - (toleranceRatio * 10)); // 100 → 95
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.0) {
-            score = Math.round(95 - ((toleranceRatio - 0.5) * 20)); // 95 → 85
-            severity = 'OK';
-            reason = '✅ Dentro do padrão';
-        } else if (toleranceRatio <= 1.5) {
-            score = Math.round(85 - ((toleranceRatio - 1.0) * 20)); // 85 → 75
-            severity = 'ATENÇÃO';
-            reason = diff > 0 
-                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 2.0) {
-            score = Math.round(75 - ((toleranceRatio - 1.5) * 20)); // 75 → 65
-            severity = 'ATENÇÃO';
-            reason = diff > 0 
-                ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-                : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
-        } else if (toleranceRatio <= 3.0) {
-            score = Math.round(65 - ((toleranceRatio - 2.0) * 15)); // 65 → 50
-            severity = 'ALTA';
-            reason = diff > 0 
-                ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-                : `🟡 Aumentar ${absDiff.toFixed(1)}`;
-        } else {
-            score = Math.max(20, Math.round(50 - ((toleranceRatio - 3.0) * 10))); // 50 → 20
-            severity = 'CRÍTICA';
-            reason = diff > 0 
-                ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-                : `🔴 Aumentar ${absDiff.toFixed(1)}`;
-        }
+    // Calcular distância normalizada pelo range (se disponível)
+    let rangeSize = tol * 2; // Default: 2x tolerância = range total
+    if (hasRange) {
+        rangeSize = max - min;
     }
     
-    // 🎯 V4.1: REGRA DE CONSISTÊNCIA - Se dentro do range, garantir score mínimo 70
-    // Isso assegura que status visual VERDE/OK corresponda a score ≥70
-    if (inRange && score < 70) {
-        console.log(`[evaluateMetric V4.1] 🔧 Ajuste de consistência: ${metricKey} score ${score} → 70 (valor dentro do range)`);
-        score = 70;
-        if (severity === 'CRÍTICA') {
-            severity = 'ALTA';
-        }
-    }
+    // Distância normalizada: 0 = no target, 1 = na borda do range, >1 = fora do range
+    const normalizedDistance = rangeSize > 0 ? absDiff / (rangeSize / 2) : (absDiff / tol);
     
-    // Fora do range = aplicar penalidade adicional e ajustar severidade
+    // Fora do range = SEMPRE CRÍTICA
     if (hasRange && !inRange) {
         // Calcular quanto fora do range
         const distanceFromRange = measuredValue < min ? (min - measuredValue) : (measuredValue - max);
         const rangeExcess = distanceFromRange / tol;
         
-        // Penalidade adicional por estar fora do range
-        const rangePenalty = Math.min(30, rangeExcess * 15);
-        score = Math.max(20, score - rangePenalty);
-        
         if (rangeExcess >= 1.5) {
             // Muito fora do range = CRÍTICA severa
-            score = Math.min(score, Math.max(20, 40 - (rangeExcess * 8)));
+            score = Math.max(20, Math.round(40 - (rangeExcess * 8)));
             severity = 'CRÍTICA';
         } else if (rangeExcess >= 0.5) {
             // Moderadamente fora = CRÍTICA
-            score = Math.min(score, Math.round(55 - (rangeExcess * 15)));
+            score = Math.round(55 - (rangeExcess * 15));
             severity = 'CRÍTICA';
-        } else if (severity !== 'CRÍTICA') {
-            // Ligeiramente fora = pelo menos ALTA
+        } else {
+            // Ligeiramente fora = ALTA
             score = Math.round(70 - (rangeExcess * 20));
             severity = 'ALTA';
         }
@@ -25258,15 +25105,65 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         reason = diff > 0 
             ? `🔴 Reduzir ${absDiff.toFixed(1)} (fora do range)` 
             : `🔴 Aumentar ${absDiff.toFixed(1)} (fora do range)`;
+            
+        return {
+            score: Math.round(Math.max(20, Math.min(100, score))),
+            severity,
+            diff,
+            reason,
+            deviationRatio: Math.round(normalizedDistance * 100) / 100,
+            status: severity,
+            metricKey,
+            measuredValue,
+            metricType,
+            targetSpec: { target: effectiveTarget, min, max, tol },
+            value: measuredValue,
+            target: effectiveTarget
+        };
     }
     
-    // Retornar resultado final com toleranceRatio como deviationRatio
+    // Dentro do range - calcular score baseado na distância do target
+    // V4.0: Curva mais rigorosa que a anterior
+    
+    if (normalizedDistance <= 0.15) {
+        // Muito próximo do target (≤15% do range) = OK perfeito
+        score = 100;
+        severity = 'OK';
+        reason = '✅ Dentro do padrão';
+    } else if (normalizedDistance <= 0.4) {
+        // Próximo do target (15-40% do range) = OK com pequena ressalva
+        score = Math.round(100 - (normalizedDistance - 0.15) * 20); // 100 → 95
+        severity = 'OK';
+        reason = '✅ Dentro do padrão';
+    } else if (normalizedDistance <= 0.7) {
+        // Moderado (40-70% do range) = ATENÇÃO
+        score = Math.round(95 - ((normalizedDistance - 0.4) * 40)); // 95 → 83
+        severity = 'ATENÇÃO';
+        reason = diff > 0 
+            ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
+            : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+    } else if (normalizedDistance <= 1.0) {
+        // Perto da borda (70-100% do range) = ALTA
+        score = Math.round(83 - ((normalizedDistance - 0.7) * 43)); // 83 → 70
+        severity = 'ALTA';
+        reason = diff > 0 
+            ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
+            : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+    } else {
+        // Na borda ou ligeiramente fora = CRÍTICA (mas ainda "dentro" por arredondamento)
+        score = Math.max(55, Math.round(70 - ((normalizedDistance - 1) * 25)));
+        severity = 'CRÍTICA';
+        reason = diff > 0 
+            ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
+            : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+    }
+    
     return {
         score: Math.round(Math.max(20, Math.min(100, score))),
         severity,
         diff,
         reason,
-        deviationRatio: Math.round(toleranceRatio * 100) / 100,
+        deviationRatio: Math.round(normalizedDistance * 100) / 100,
         status: severity,
         metricKey,
         measuredValue,
@@ -25554,28 +25451,27 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     
     // ═══════════════════════════════════════════════════════════════════
     // 3. AVALIAR TODAS AS MÉTRICAS COM evaluateMetric (SINGLE SOURCE)
-    // V4.2: TODAS as chamadas agora recebem o parâmetro MODE
     // ═══════════════════════════════════════════════════════════════════
     const metricEvaluations = {};
     
-    // Loudness - V4.2: passar mode para aplicar curvas corretas
-    metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs, mode);
-    metricEvaluations.rms = window.evaluateMetric('rms', measured.rms, finalTargets.rms, mode);
+    // Loudness
+    metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs);
+    metricEvaluations.rms = window.evaluateMetric('rms', measured.rms, finalTargets.rms);
     
-    // Technical - V4.2: passar mode
-    metricEvaluations.truePeak = window.evaluateMetric('truePeak', measured.truePeak, finalTargets.truePeak, mode);
-    metricEvaluations.samplePeak = window.evaluateMetric('samplePeak', measured.samplePeak, finalTargets.samplePeak, mode);
-    metricEvaluations.clipping = window.evaluateMetric('clipping', measured.clipping, finalTargets.clipping, mode);
-    metricEvaluations.dcOffset = window.evaluateMetric('dcOffset', measured.dcOffset, finalTargets.dcOffset, mode);
+    // Technical
+    metricEvaluations.truePeak = window.evaluateMetric('truePeak', measured.truePeak, finalTargets.truePeak);
+    metricEvaluations.samplePeak = window.evaluateMetric('samplePeak', measured.samplePeak, finalTargets.samplePeak);
+    metricEvaluations.clipping = window.evaluateMetric('clipping', measured.clipping, finalTargets.clipping);
+    metricEvaluations.dcOffset = window.evaluateMetric('dcOffset', measured.dcOffset, finalTargets.dcOffset);
     
-    // Dynamics - V4.2: passar mode
-    metricEvaluations.dr = window.evaluateMetric('dr', measured.dr, finalTargets.dr, mode);
-    metricEvaluations.crest = window.evaluateMetric('crest', measured.crest, finalTargets.crest, mode);
-    metricEvaluations.lra = window.evaluateMetric('lra', measured.lra, finalTargets.lra, mode);
+    // Dynamics
+    metricEvaluations.dr = window.evaluateMetric('dr', measured.dr, finalTargets.dr);
+    metricEvaluations.crest = window.evaluateMetric('crest', measured.crest, finalTargets.crest);
+    metricEvaluations.lra = window.evaluateMetric('lra', measured.lra, finalTargets.lra);
     
-    // Stereo - V4.2: passar mode
-    metricEvaluations.correlation = window.evaluateMetric('correlation', measured.correlation, finalTargets.correlation, mode);
-    metricEvaluations.width = window.evaluateMetric('width', measured.width, finalTargets.width, mode);
+    // Stereo
+    metricEvaluations.correlation = window.evaluateMetric('correlation', measured.correlation, finalTargets.correlation);
+    metricEvaluations.width = window.evaluateMetric('width', measured.width, finalTargets.width);
     
     // ═══════════════════════════════════════════════════════════════════
     // V4.1: MAPEAMENTO COMPLETO DE BANDAS - CORRIGE BUG CRÍTICO
@@ -25655,8 +25551,8 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
             normalizedTarget.max = (normalizedTarget.target ?? 0) + normalizedTarget.tol;
         }
         
-        // Avaliar a banda - V4.2: passar mode para aplicar curvas corretas
-        const evaluation = window.evaluateMetric(jsonBandKey, userValue, normalizedTarget, mode);
+        // Avaliar a banda
+        const evaluation = window.evaluateMetric(jsonBandKey, userValue, normalizedTarget);
         
         // Armazenar com chave canônica para o resto do sistema
         // Se já existe (ex: low_bass e upper_bass → bass), usar o PIOR score
@@ -25908,19 +25804,8 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // Calcular subscore de frequência com o novo sistema
     const freqResult = calculateFrequencySubscore();
     
-    // 🎯 V4.1: SUBSCORE DE LOUDNESS MODE-AWARE
-    // - Modo streaming: APENAS LUFS (RMS não é relevante para normalização de plataformas)
-    // - Outros modos: LUFS + RMS (para análise técnica completa)
-    let loudnessMetrics = ['lufs', 'rms'];
-    if (mode === 'streaming') {
-        loudnessMetrics = ['lufs']; // RMS ignorado em streaming
-        if (DEBUG) {
-            console.log('🎯 [V4.1] Modo streaming: usando apenas LUFS para subscore loudness (RMS ignorado)');
-        }
-    }
-    
     const subScoresRaw = {
-        loudness: avgValidScores(loudnessMetrics),
+        loudness: avgValidScores(['lufs', 'rms']),
         technical: avgValidScores(['truePeak', 'samplePeak', 'clipping', 'dcOffset']),
         dynamics: avgValidScores(['dr', 'crest', 'lra']),
         stereo: avgValidScores(['correlation', 'width']),
@@ -26044,46 +25929,13 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // ═══════════════════════════════════════════════════════════════════
     // 6. CALCULAR SCORE FINAL (média ponderada dos subscores COM GATES)
     // ═══════════════════════════════════════════════════════════════════
-    
-    // 🎯 V4.1: PESOS DINÂMICOS POR MODO
-    // No modo streaming, LUFS e True Peak (technical) são mais críticos
-    // porque plataformas aplicam normalização automática
-    const MODE_WEIGHTS = {
-        streaming: {
-            loudness: 0.30,   // +5% (LUFS é crítico para streaming)
-            technical: 0.28,  // +3% (True Peak crítico para codec)
-            dynamics: 0.17,   // -3%
-            stereo: 0.12,     // -3%
-            frequency: 0.13   // -2%
-        },
-        pista: {
-            loudness: 0.22,   // Menor peso (DJ ajusta volume)
-            technical: 0.25,  // True Peak ainda importante
-            dynamics: 0.20,   // Dinâmica importante para pista
-            stereo: 0.18,     // Imagem estéreo importante
-            frequency: 0.15   // Equilíbrio tonal
-        },
-        reference: {
-            loudness: 0.20,   // Menor peso
-            technical: 0.20,  // Menor peso  
-            dynamics: 0.20,   // Igual
-            stereo: 0.20,     // Igual
-            frequency: 0.20   // Igual - referência é comparativa
-        },
-        default: {
-            loudness: 0.25,
-            technical: 0.25,
-            dynamics: 0.20,
-            stereo: 0.15,
-            frequency: 0.15
-        }
+    const WEIGHTS = {
+        loudness: 0.25,
+        technical: 0.25,
+        dynamics: 0.20,
+        stereo: 0.15,
+        frequency: 0.15
     };
-    
-    const WEIGHTS = MODE_WEIGHTS[mode] || MODE_WEIGHTS.default;
-    
-    if (DEBUG) {
-        console.log(`📊 [V4.1] Pesos para modo "${mode}":`, WEIGHTS);
-    }
     
     let weightedSum = 0;
     let totalWeight = 0;
