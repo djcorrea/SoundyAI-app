@@ -25979,8 +25979,22 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     }
     
     // 🎯 Gate #3: LUFS excessivo - Se evaluateMetric retornou CRÍTICA
+    // 🚨 EXCEÇÃO CRÍTICA: NÃO aplicar em STREAMING
+    // Em streaming, o target já é -14 LUFS (mais baixo) e o range de tolerância resolve o problema
+    // Aplicar gate em streaming causaria penalização dupla e incorreta
     const lufsEval = metricEvaluations.lufs;
-    if (lufsEval && lufsEval.severity === 'CRÍTICA') {
+    const soundDest = analysis?.soundDestination || 'pista';
+    
+    if (lufsEval && lufsEval.severity === 'CRÍTICA' && soundDest !== 'streaming') {
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  🚫 LUFS_GATE: Aplicando penalização (modo pista)        ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[LUFS_GATE] soundDestination:', soundDest);
+        console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
+        console.error('[LUFS_GATE] Target:', finalTargets.lufs.target);
+        console.error('[LUFS_GATE] Severidade:', lufsEval.severity);
+        console.error('\n');
+        
         const cap = Math.min(lufsEval.score + 5, 67);
         
         if (subscores.loudness !== null && subscores.loudness > cap) {
@@ -25999,6 +26013,17 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 reason: lufsEval.reason
             });
         }
+    } else if (lufsEval && lufsEval.severity === 'CRÍTICA' && soundDest === 'streaming') {
+        // 🎯 Log quando gate é BLOQUEADO em streaming
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  ✅ LUFS_GATE: BLOQUEADO (modo streaming)                ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[LUFS_GATE] soundDestination:', soundDest);
+        console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
+        console.error('[LUFS_GATE] Target streaming:', finalTargets.lufs.target);
+        console.error('[LUFS_GATE] Subscore mantido:', subscores.loudness);
+        console.error('[LUFS_GATE] Gate NÃO aplicado - target streaming já é adequado');
+        console.error('\n');
     }
     
     // 🎯 Gate #4: FREQUENCY - Bandas com severidade alta
