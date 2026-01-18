@@ -1752,32 +1752,8 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   }
   
   // ═══════════════════════════════════════════════════════════════════════════════
-  // 🔧 STREAMING OVERRIDE: Aplicar DEPOIS da normalização, ANTES do analyzer
-  // ═══════════════════════════════════════════════════════════════════════════════
-  const soundDestination = finalJSON?.soundDestination || 'pista';
-  if (soundDestination === 'streaming') {
-    process.stderr.write("[ENGINE] 📡 STREAMING MODE DETECTADO - Aplicando override de LUFS/TP\n");
-    
-    // Override LUFS para streaming (formato NESTED que o analyzer espera)
-    if (!effectiveTargets.lufs) effectiveTargets.lufs = {};
-    effectiveTargets.lufs.target = -14;
-    effectiveTargets.lufs.min = -14;
-    effectiveTargets.lufs.max = -14;
-    effectiveTargets.lufs.tolerance = 1.0;
-    effectiveTargets.lufs.critical = 1.5;
-    
-    // Override True Peak para streaming
-    if (!effectiveTargets.truePeak) effectiveTargets.truePeak = {};
-    effectiveTargets.truePeak.target = -1.0;
-    effectiveTargets.truePeak.min = -1.5;
-    effectiveTargets.truePeak.max = -1.0;
-    effectiveTargets.truePeak.tolerance = 0.5;
-    effectiveTargets.truePeak.critical = 0.75;
-    
-    process.stderr.write("[ENGINE] 📡 LUFS override: target=" + effectiveTargets.lufs.target + 
-                        ", min=" + effectiveTargets.lufs.min + 
-                        ", max=" + effectiveTargets.lufs.max + "\n");
-  }
+  // ✅ TARGETS JÁ VÊM COM OVERRIDE APLICADO DO PIPELINE (se streaming)
+  // Não precisa aplicar override aqui - apenas usar effectiveTargets normalizados
   // ═══════════════════════════════════════════════════════════════════════════════
   
   process.stderr.write("[ENGINE] 🎯 Targets usados: " + (hasGenreTargets ? 'finalJSON.data.genreTargets' : 'customTargets') + "\n");
