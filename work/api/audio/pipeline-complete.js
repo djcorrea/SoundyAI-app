@@ -506,13 +506,46 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[GENRE-TARGETS-PATCH-V2] usando:', customTargets ? 'customTargets (completo)' : 'options.genreTargets (fallback)');
       console.log('[GENRE-TARGETS-PATCH-V2] ----------');
       
-      // 🎯 CRÍTICO: Passar customTargets (COM override) como reference para o scoring
-      const referenceForScoring = customTargets || options.genreTargets || reference;
+      // 🎯 CRÍTICO: Converter customTargets do formato aninhado {lufs: {target}} para flat {lufs_target}
+      // O scoring.js espera formato FLAT (lufs_target, tol_lufs, etc.)
+      let referenceForScoring = customTargets || options.genreTargets || reference;
+      
+      // Se customTargets existe e tem formato aninhado, normalizar para flat
+      if (customTargets && customTargets.lufs && typeof customTargets.lufs === 'object') {
+        console.log('[SCORING-FORMAT] 🔄 Convertendo formato aninhado → flat para scoring');
+        
+        referenceForScoring = {
+          lufs_target: customTargets.lufs?.target ?? -14,
+          tol_lufs: customTargets.lufs?.tolerance ?? 3.0,
+          tol_lufs_min: customTargets.lufs?.tolerance ?? 3.0,
+          tol_lufs_max: customTargets.lufs?.tolerance ?? 3.0,
+          
+          true_peak_target: customTargets.truePeak?.target ?? -1.0,
+          tol_true_peak: customTargets.truePeak?.tolerance ?? 0.5,
+          
+          dr_target: customTargets.dr?.target ?? 10,
+          tol_dr: customTargets.dr?.tolerance ?? 5,
+          
+          lra_target: customTargets.lra?.target ?? 7,
+          tol_lra: customTargets.lra?.tolerance ?? 5,
+          
+          stereo_target: customTargets.stereoWidth?.target ?? 0.3,
+          tol_stereo: customTargets.stereoWidth?.tolerance ?? 0.7,
+          
+          // Copiar bands se existirem
+          bands: customTargets.bands || {}
+        };
+        
+        console.log('[SCORING-FORMAT] ✅ Convertido:', {
+          lufs_target: referenceForScoring.lufs_target,
+          true_peak_target: referenceForScoring.true_peak_target
+        });
+      }
       
       console.log('[SCORING-DEBUG] 🎯 Reference passado para scoring:', {
         hasCustomTargets: !!customTargets,
-        lufsTarget: referenceForScoring?.lufs?.target || referenceForScoring?.lufs_target,
-        truePeakTarget: referenceForScoring?.truePeak?.target || referenceForScoring?.true_peak_target
+        lufsTarget: referenceForScoring?.lufs_target,
+        truePeakTarget: referenceForScoring?.true_peak_target
       });
       
       finalJSON = generateJSONOutput(coreMetrics, referenceForScoring, metadata, { 

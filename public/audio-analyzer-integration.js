@@ -9226,6 +9226,50 @@ function renderGenreView(analysis) {
     console.groupEnd();
 }
 
+/**
+ * 🎯 HELPER: Aplicar controle de realismo de masterização nas ações sugeridas
+ * Garante que nenhuma sugestão mostre ajustes maiores que ±5 dB
+ * 
+ * @param {number} realDiff - Diferença real calculada (em dB)
+ * @param {string} direction - 'increase' ou 'decrease'
+ * @param {string} emoji - Emoji de severidade (🔴, 🟡, ⚠️, etc)
+ * @returns {string} - Texto realista da ação sugerida
+ */
+function buildRealisticAction(realDiff, direction, emoji) {
+    const absDiff = Math.abs(realDiff);
+    
+    // 🎯 CLAMP: Valores acima de ±5 dB devem ser expressos de forma genérica
+    if (absDiff > 5.0) {
+        if (direction === 'decrease') {
+            return `${emoji} Reduzir suavemente (≈ −2 a −5 dB)`;
+        } else {
+            return `${emoji} Aumentar levemente (≈ +2 a +5 dB)`;
+        }
+    }
+    
+    // 🎯 RANGE MÉDIO: Mostrar valor aproximado ou range
+    if (absDiff >= 1.0 && absDiff <= 5.0) {
+        const roundedDiff = Math.round(absDiff * 2) / 2; // Arredondar para 0.5 dB
+        if (direction === 'decrease') {
+            return `${emoji} Reduzir ${roundedDiff.toFixed(1)} dB`;
+        } else {
+            return `${emoji} Aumentar ${roundedDiff.toFixed(1)} dB`;
+        }
+    }
+    
+    // 🎯 AJUSTE FINO: Valores abaixo de 1 dB
+    if (absDiff < 1.0) {
+        if (direction === 'decrease') {
+            return `${emoji} Reduzir levemente (≈ −${absDiff.toFixed(1)} dB)`;
+        } else {
+            return `${emoji} Aumentar levemente (≈ +${absDiff.toFixed(1)} dB)`;
+        }
+    }
+    
+    // Fallback (não deveria chegar aqui)
+    return `${emoji} Ajustar conforme necessário`;
+}
+
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
@@ -9421,10 +9465,12 @@ function renderGenreComparisonTable(options) {
                 
                 // Thresholds para severidade baseados na distância
                 if (absDelta >= 2) {
-                    const action = diff > 0 ? `🔴 Reduzir ${absDelta.toFixed(1)} dB` : `🔴 Aumentar ${absDelta.toFixed(1)} dB`;
+                    const direction = diff > 0 ? 'decrease' : 'increase';
+                    const action = buildRealisticAction(absDelta, direction, '🔴');
                     return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
                 } else {
-                    const action = diff > 0 ? `⚠️ Reduzir ${absDelta.toFixed(1)} dB` : `⚠️ Aumentar ${absDelta.toFixed(1)} dB`;
+                    const direction = diff > 0 ? 'decrease' : 'increase';
+                    const action = buildRealisticAction(absDelta, direction, '⚠️');
                     return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
                 }
             }
@@ -9441,13 +9487,16 @@ function renderGenreComparisonTable(options) {
         if (absDiff <= tolerance) {
             return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff };
         } else if (absDiff <= tolerance * 2) {
-            const action = diff > 0 ? `⚠️ Reduzir ${absDiff.toFixed(1)}` : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            const action = buildRealisticAction(absDiff, direction, '⚠️');
             return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
         } else if (absDiff <= tolerance * 3) {
-            const action = diff > 0 ? `🟡 Reduzir ${absDiff.toFixed(1)}` : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            const action = buildRealisticAction(absDiff, direction, '🟡');
             return { severity: 'ALTA', severityClass: 'warning', action, diff };
         } else {
-            const action = diff > 0 ? `🔴 Reduzir ${absDiff.toFixed(1)}` : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+            const direction = diff > 0 ? 'decrease' : 'increase';
+            const action = buildRealisticAction(absDiff, direction, '🔴');
             return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
         }
     };
@@ -25102,9 +25151,9 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
             severity = 'ALTA';
         }
         
-        reason = diff > 0 
-            ? `🔴 Reduzir ${absDiff.toFixed(1)} (fora do range)` 
-            : `🔴 Aumentar ${absDiff.toFixed(1)} (fora do range)`;
+        const direction = diff > 0 ? 'decrease' : 'increase';
+        const realisticAction = buildRealisticAction(absDiff, direction, '🔴');
+        reason = realisticAction + ' (fora do range)';
             
         return {
             score: Math.round(Math.max(20, Math.min(100, score))),
@@ -25139,23 +25188,20 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         // Moderado (40-70% do range) = ATENÇÃO
         score = Math.round(95 - ((normalizedDistance - 0.4) * 40)); // 95 → 83
         severity = 'ATENÇÃO';
-        reason = diff > 0 
-            ? `⚠️ Reduzir ${absDiff.toFixed(1)}` 
-            : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+        const direction = diff > 0 ? 'decrease' : 'increase';
+        reason = buildRealisticAction(absDiff, direction, '⚠️');
     } else if (normalizedDistance <= 1.0) {
         // Perto da borda (70-100% do range) = ALTA
         score = Math.round(83 - ((normalizedDistance - 0.7) * 43)); // 83 → 70
         severity = 'ALTA';
-        reason = diff > 0 
-            ? `🟡 Reduzir ${absDiff.toFixed(1)}` 
-            : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+        const direction = diff > 0 ? 'decrease' : 'increase';
+        reason = buildRealisticAction(absDiff, direction, '🟡');
     } else {
         // Na borda ou ligeiramente fora = CRÍTICA (mas ainda "dentro" por arredondamento)
         score = Math.max(55, Math.round(70 - ((normalizedDistance - 1) * 25)));
         severity = 'CRÍTICA';
-        reason = diff > 0 
-            ? `🔴 Reduzir ${absDiff.toFixed(1)}` 
-            : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+        const direction = diff > 0 ? 'decrease' : 'increase';
+        reason = buildRealisticAction(absDiff, direction, '🔴');
     }
     
     return {
