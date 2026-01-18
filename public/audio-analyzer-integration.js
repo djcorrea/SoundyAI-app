@@ -28022,6 +28022,28 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     // ═══════════════════════════════════════════════════════════════════
     const mode = window.__soundyState?.render?.mode || 'streaming';
     
+    // 🚨 CRÍTICO: soundDestination É A FONTE ÚNICA DA VERDADE PARA TARGETS DE LUFS
+    // Deve ser pego de: analysis.soundDestination > window.__SOUNDY_ANALYSIS_MODE__ > 'pista'
+    const effectiveSoundDestination = analysis?.soundDestination 
+        || window.__SOUNDY_ANALYSIS_MODE__ 
+        || getSoundDestinationMode?.() 
+        || 'pista';
+    
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  🎯 CALCULANDO SCORES - soundDestination                  ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[SCORE-CALC] analysis.soundDestination:', analysis?.soundDestination);
+    console.error('[SCORE-CALC] window.__SOUNDY_ANALYSIS_MODE__:', window.__SOUNDY_ANALYSIS_MODE__);
+    console.error('[SCORE-CALC] effectiveSoundDestination:', effectiveSoundDestination);
+    console.error('\n');
+    
+    // 🚨 INJETAR soundDestination NO ANALYSIS ANTES DE PASSAR PARA computeScoreV3
+    // Isso garante que a função de scoring use o valor correto
+    const analysisWithSoundDest = {
+        ...analysis,
+        soundDestination: effectiveSoundDestination
+    };
+    
     // Preparar targets no formato esperado pelo computeScoreV3
     const targetsForV3 = {
         lufs_target: refData.lufs_target,
@@ -28039,8 +28061,8 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         bands: refData.bands
     };
     
-    // Usar novo sistema unificado
-    const v3Result = window.computeScoreV3(analysis, targetsForV3, mode);
+    // Usar novo sistema unificado - PASSAR analysisWithSoundDest em vez de analysis
+    const v3Result = window.computeScoreV3(analysisWithSoundDest, targetsForV3, mode);
     
     if (v3Result) {
         console.log('✅ [V3.5] Score calculado pelo sistema unificado:', v3Result);
