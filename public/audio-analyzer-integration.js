@@ -1065,13 +1065,25 @@ function getCorrectTargets(analysis) {
     
     let targets = null;
     
-    // 🎯 PRIORIDADE 1: analysis.data.genreTargets
+    // 🚨 PRIORIDADE MÁXIMA: analysis.data.targets (FLAT FORMAT COM OVERRIDE APLICADO!)
+    // Este campo vem do pipeline com override de streaming já aplicado (-14 LUFS)
+    if (analysis?.data?.targets && typeof analysis.data.targets === 'object') {
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  🎯 USANDO analysis.data.targets (FLAT + OVERRIDE)       ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[TARGETS] lufs_target:', analysis.data.targets.lufs_target);
+        console.error('[TARGETS] true_peak_target:', analysis.data.targets.true_peak_target);
+        console.error('\n');
+        return JSON.parse(JSON.stringify(analysis.data.targets)); // Deep copy
+    }
+    
+    // 🎯 PRIORIDADE 2: analysis.data.genreTargets
     if (analysis?.data?.genreTargets && typeof analysis.data.genreTargets === 'object') {
         console.log('[TARGETS] ✅ Usando analysis.data.genreTargets (CAMPO REAL DO POSTGRES)');
         targets = JSON.parse(JSON.stringify(analysis.data.genreTargets)); // Deep copy
     }
     
-    // 🎯 PRIORIDADE 2: PROD_AI_REF_DATA[genre] - FONTE COMPLETA
+    // 🎯 PRIORIDADE 3: PROD_AI_REF_DATA[genre] - FONTE COMPLETA
     if (!targets) {
         const genre = analysis?.genre || analysis?.data?.genre;
         if (genre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[genre]) {
@@ -1085,7 +1097,7 @@ function getCorrectTargets(analysis) {
         return null;
     }
     
-    // 📡 STREAMING MODE: Aplicar override de LUFS e TP
+    // 📡 STREAMING MODE: Aplicar override de LUFS e TP (APENAS se não veio de analysis.data.targets)
     if (getSoundDestinationMode() === 'streaming') {
         console.log('[TARGETS] 📡 STREAMING MODE - Aplicando override de LUFS/TP');
         targets.lufs_target = STREAMING_TARGETS.lufs_target;      // -14

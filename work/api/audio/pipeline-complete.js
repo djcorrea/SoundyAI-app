@@ -548,12 +548,42 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         truePeakTarget: referenceForScoring?.true_peak_target
       });
       
+      // 🎯 CRÍTICO: customTargets está em formato NESTED mas JSON/frontend precisam AMBOS os formatos
+      // O genreTargets (nested) é usado para exibir tabela, o data.targets (flat) é usado para scoring do frontend
+      const genreTargetsForJSON = customTargets || options.genreTargets;
+      
+      // 🚨 ADICIONAR TAMBÉM VERSÃO FLAT DOS TARGETS COM OVERRIDE PARA O FRONTEND GATES
+      // O frontend precisa do formato flat (lufs_target) para aplicar os gates corretamente
+      let flatTargetsForFrontend = null;
+      if (genreTargetsForJSON) {
+        flatTargetsForFrontend = {
+          lufs_target: genreTargetsForJSON.lufs?.target ?? -14,
+          tol_lufs: genreTargetsForJSON.lufs?.tolerance ?? 3.0,
+          true_peak_target: genreTargetsForJSON.truePeak?.target ?? -1.0,
+          tol_true_peak: genreTargetsForJSON.truePeak?.tolerance ?? 0.5,
+          dr_target: genreTargetsForJSON.dr?.target ?? 10,
+          tol_dr: genreTargetsForJSON.dr?.tolerance ?? 5,
+          lra_target: genreTargetsForJSON.lra?.target ?? 7,
+          tol_lra: genreTargetsForJSON.lra?.tolerance ?? 5,
+          stereo_target: genreTargetsForJSON.stereoWidth?.target ?? 0.3,
+          tol_stereo: genreTargetsForJSON.stereoWidth?.tolerance ?? 0.7
+        };
+        
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  🎯 FLAT TARGETS PARA FRONTEND (GATES)                   ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[PIPELINE] lufs_target:', flatTargetsForFrontend.lufs_target);
+        console.error('[PIPELINE] true_peak_target:', flatTargetsForFrontend.true_peak_target);
+        console.error('\n');
+      }
+      
       finalJSON = generateJSONOutput(coreMetrics, referenceForScoring, metadata, { 
         jobId, 
         fileName,
         mode: mode,
         genre: detectedGenre,
-        genreTargets: customTargets || options.genreTargets,
+        genreTargets: genreTargetsForJSON,  // nested format (para tabela)
+        flatTargets: flatTargetsForFrontend, // flat format (para gates do frontend)
         referenceJobId: options.referenceJobId,
         referenceStage: options.referenceStage || options.analysisType === 'reference' ? (options.referenceJobId ? 'compare' : 'base') : null // 🆕 Detectar estágio
       });

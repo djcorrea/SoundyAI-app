@@ -1203,6 +1203,11 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         bands: options.genreTargets.bands || options.genreTargets.spectral_bands || null
       } : null,
       
+      // 🚨 NOVO: Targets em formato FLAT para os gates do frontend (audio-analyzer-integration.js)
+      // Este campo contém os targets COM OVERRIDE aplicado (streaming usa -14 LUFS, não -7.2)
+      // O frontend deve usar ESTE campo para construir finalTargets nos gates
+      targets: options.flatTargets || null,
+      
       // ═══════════════════════════════════════════════════════════════════════════
       // 🎯 NOVO: FONTE ÚNICA DA VERDADE - Targets Normalizados
       // Frontend DEVE usar APENAS este campo para decisões de severidade/score/sugestões
