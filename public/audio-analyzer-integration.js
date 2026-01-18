@@ -25823,8 +25823,19 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // Calcular subscore de frequência com o novo sistema
     const freqResult = calculateFrequencySubscore();
     
+    // 🎯 V4.1: SUBSCORE DE LOUDNESS MODE-AWARE
+    // - Modo streaming: APENAS LUFS (RMS não é relevante para normalização de plataformas)
+    // - Outros modos: LUFS + RMS (para análise técnica completa)
+    let loudnessMetrics = ['lufs', 'rms'];
+    if (mode === 'streaming') {
+        loudnessMetrics = ['lufs']; // RMS ignorado em streaming
+        if (DEBUG) {
+            console.log('🎯 [V4.1] Modo streaming: usando apenas LUFS para subscore loudness (RMS ignorado)');
+        }
+    }
+    
     const subScoresRaw = {
-        loudness: avgValidScores(['lufs', 'rms']),
+        loudness: avgValidScores(loudnessMetrics),
         technical: avgValidScores(['truePeak', 'samplePeak', 'clipping', 'dcOffset']),
         dynamics: avgValidScores(['dr', 'crest', 'lra']),
         stereo: avgValidScores(['correlation', 'width']),
