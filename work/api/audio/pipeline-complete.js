@@ -437,7 +437,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
         // Esta função NUNCA retorna fallback - sempre lança erro se arquivo não existir
         try {
-          customTargets = await loadGenreTargetsFromWorker(detectedGenre);
+          const baseTargets = await loadGenreTargetsFromWorker(detectedGenre);
           
           // 🚨 LOG DE SUCESSO
           console.error('\n');
@@ -445,11 +445,40 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.error('║  ✅ TARGETS OFICIAIS CARREGADOS NO PIPELINE              ║');
           console.error('╚═══════════════════════════════════════════════════════════╝');
           console.error('[PIPELINE] Genre:', detectedGenre);
-          console.error('[PIPELINE] LUFS oficial:', customTargets.lufs?.target);
-          console.error('[PIPELINE] TruePeak oficial:', customTargets.truePeak?.target);
-          console.error('[PIPELINE] DR oficial:', customTargets.dr?.target);
-          console.error('[PIPELINE] Bands disponíveis:', customTargets.bands ? Object.keys(customTargets.bands).length : 0);
+          console.error('[PIPELINE] LUFS base:', baseTargets.lufs?.target);
+          console.error('[PIPELINE] TruePeak base:', baseTargets.truePeak?.target);
+          console.error('[PIPELINE] DR oficial:', baseTargets.dr?.target);
+          console.error('[PIPELINE] Bands disponíveis:', baseTargets.bands ? Object.keys(baseTargets.bands).length : 0);
           console.error('\n');
+          
+          // 🎯 APLICAR OVERRIDE POR MODO (runtime - único ponto)
+          customTargets = structuredClone(baseTargets);
+          const soundDestinationMode = options.soundDestination || 'pista';
+          
+          if (soundDestinationMode === 'streaming') {
+            console.error('╔═══════════════════════════════════════════════════════════╗');
+            console.error('║  📡 APLICANDO OVERRIDE DE STREAMING                      ║');
+            console.error('╚═══════════════════════════════════════════════════════════╝');
+            
+            // Override LUFS para padrão de streaming
+            if (!customTargets.lufs) customTargets.lufs = {};
+            customTargets.lufs.target = -14;
+            customTargets.lufs.min = -14;
+            customTargets.lufs.max = -14;
+            customTargets.lufs.tolerance = 1.0;
+            customTargets.lufs.critical = 1.5;
+            
+            // Override True Peak para padrão de streaming
+            if (!customTargets.truePeak) customTargets.truePeak = {};
+            customTargets.truePeak.target = -1.0;
+            customTargets.truePeak.min = -1.5;
+            customTargets.truePeak.max = -1.0;
+            customTargets.truePeak.tolerance = 0.5;
+            customTargets.truePeak.critical = 0.75;
+            
+            console.error('[PIPELINE] ✅ Override aplicado: LUFS =', customTargets.lufs.target, ', TruePeak =', customTargets.truePeak.target);
+            console.error('\n');
+          }
           
         } catch (error) {
           // Arquivo não encontrado - erro controlado
@@ -873,9 +902,35 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
         // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
         try {
-          customTargetsV2 = await loadGenreTargetsFromWorker(detectedGenreV2);
-          console.log(`[V2-SYSTEM] ✅ Targets oficiais carregados de work/refs/out/${detectedGenreV2}.json`);
-          console.log(`[V2-SYSTEM] 📊 LUFS: ${customTargetsV2.lufs?.target}, TruePeak: ${customTargetsV2.truePeak?.target}`);
+          const baseTargetsV2 = await loadGenreTargetsFromWorker(detectedGenreV2);
+          console.log(`[V2-SYSTEM] ✅ Targets base carregados de work/refs/out/${detectedGenreV2}.json`);
+          console.log(`[V2-SYSTEM] 📊 LUFS base: ${baseTargetsV2.lufs?.target}, TruePeak base: ${baseTargetsV2.truePeak?.target}`);
+          
+          // 🎯 APLICAR OVERRIDE POR MODO (runtime - único ponto)
+          customTargetsV2 = structuredClone(baseTargetsV2);
+          const soundDestinationModeV2 = options.soundDestination || 'pista';
+          
+          if (soundDestinationModeV2 === 'streaming') {
+            console.log('[V2-SYSTEM] 📡 Aplicando override de Streaming...');
+            
+            // Override LUFS
+            if (!customTargetsV2.lufs) customTargetsV2.lufs = {};
+            customTargetsV2.lufs.target = -14;
+            customTargetsV2.lufs.min = -14;
+            customTargetsV2.lufs.max = -14;
+            customTargetsV2.lufs.tolerance = 1.0;
+            customTargetsV2.lufs.critical = 1.5;
+            
+            // Override True Peak
+            if (!customTargetsV2.truePeak) customTargetsV2.truePeak = {};
+            customTargetsV2.truePeak.target = -1.0;
+            customTargetsV2.truePeak.min = -1.5;
+            customTargetsV2.truePeak.max = -1.0;
+            customTargetsV2.truePeak.tolerance = 0.5;
+            customTargetsV2.truePeak.critical = 0.75;
+            
+            console.log(`[V2-SYSTEM] ✅ Override aplicado: LUFS = ${customTargetsV2.lufs.target}, TruePeak = ${customTargetsV2.truePeak.target}`);
+          }
         } catch (error) {
           const errorMsg = `[V2-SYSTEM-ERROR] Falha ao carregar targets para "${detectedGenreV2}": ${error.message}`;
           console.error(errorMsg);
