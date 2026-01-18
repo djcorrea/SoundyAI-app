@@ -25542,6 +25542,39 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         }
     }
     
+    // � CRÍTICO: OVERRIDE DE STREAMING - APLICAR DEPOIS DOS TARGETS DE GÊNERO
+    // Este override DEVE acontecer DEPOIS que targets do gênero foram aplicados
+    // e ANTES de avaliar as métricas, garantindo que o subscore use o target correto
+    const soundDest = analysis?.soundDestination || 'pista';
+    
+    if (soundDest === 'streaming') {
+        console.error('\n╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  📡 FRONTEND: APLICANDO OVERRIDE STREAMING FINAL         ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        console.error('[STREAMING-OVERRIDE] ANTES: lufs.target =', finalTargets.lufs?.target);
+        
+        // Override LUFS para padrão de streaming
+        finalTargets.lufs = {
+            target: -14,
+            min: -16,
+            max: -12,
+            tol: 1.0
+        };
+        
+        // Override True Peak para padrão de streaming
+        finalTargets.truePeak = {
+            target: -1.0,
+            min: -3.0,
+            max: -1.0,
+            tol: 0.25,
+            type: 'CEILING'
+        };
+        
+        console.error('[STREAMING-OVERRIDE] DEPOIS: lufs.target =', finalTargets.lufs.target);
+        console.error('[STREAMING-OVERRIDE] soundDestination:', soundDest);
+        console.error('\n');
+    }
+    
     // 🔍 DEBUG: Log para verificar targets usados vs tabela
     if (DEBUG) {
         console.log('📊 finalTargets (usados no score):', {
@@ -25562,6 +25595,16 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // 3. AVALIAR TODAS AS MÉTRICAS COM evaluateMetric (SINGLE SOURCE)
     // ═══════════════════════════════════════════════════════════════════
     const metricEvaluations = {};
+    
+    // 🎯 LOG CRÍTICO: Verificar target usado na avaliação de LUFS
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  🎯 AVALIANDO LUFS PARA SUBSCORE                         ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[LUFS-EVAL] LUFS medido:', measured.lufs);
+    console.error('[LUFS-EVAL] Target usado:', finalTargets.lufs.target);
+    console.error('[LUFS-EVAL] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
+    console.error('[LUFS-EVAL] soundDestination:', soundDest);
+    console.error('\n');
     
     // Loudness
     metricEvaluations.lufs = window.evaluateMetric('lufs', measured.lufs, finalTargets.lufs);
@@ -25923,6 +25966,19 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
         _frequencyDetails: freqResult
     };
     
+    // 🚨 LOG CRÍTICO: Subscore RAW de loudness ANTES dos gates
+    console.error('╔═══════════════════════════════════════════════════════════╗');
+    console.error('║  📊 SUBSCORE RAW DE LOUDNESS CALCULADO                   ║');
+    console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[LOUDNESS-SUBSCORE] Subscore RAW:', subScoresRaw.loudness);
+    console.error('[LOUDNESS-SUBSCORE] LUFS score:', metricEvaluations.lufs?.score);
+    console.error('[LOUDNESS-SUBSCORE] RMS score:', metricEvaluations.rms?.score);
+    console.error('[LOUDNESS-SUBSCORE] LUFS medido:', measured.lufs);
+    console.error('[LOUDNESS-SUBSCORE] LUFS target:', finalTargets.lufs.target);
+    console.error('[LOUDNESS-SUBSCORE] Diff (LU):', Math.abs(measured.lufs - finalTargets.lufs.target).toFixed(2));
+    console.error('[LOUDNESS-SUBSCORE] soundDestination:', soundDest);
+    console.error('\n');
+    
     if (DEBUG) {
         console.log('📊 SubScores RAW:', subScoresRaw);
     }
@@ -25983,7 +26039,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // Em streaming, o target já é -14 LUFS (mais baixo) e o range de tolerância resolve o problema
     // Aplicar gate em streaming causaria penalização dupla e incorreta
     const lufsEval = metricEvaluations.lufs;
-    const soundDest = analysis?.soundDestination || 'pista';
+    // soundDest já foi declarado no topo - não redeclarar aqui
     
     if (lufsEval && lufsEval.severity === 'CRÍTICA' && soundDest !== 'streaming') {
         console.error('╔═══════════════════════════════════════════════════════════╗');
