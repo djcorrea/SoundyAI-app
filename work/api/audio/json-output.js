@@ -83,11 +83,12 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
     }
 
-    // 🎯 Passar genre, mode e preloadedReferenceMetrics para buildFinalJSON
+    // 🎯 Passar genre, mode, soundDestination e preloadedReferenceMetrics para buildFinalJSON
     const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { 
       jobId,
       genre: options.genre,
       mode: options.mode,
+      soundDestination: options.soundDestination,  // 🚨 CRÍTICO: destino do áudio (streaming vs pista)
       referenceJobId: options.referenceJobId,
       preloadedReferenceMetrics: options.preloadedReferenceMetrics
     });
