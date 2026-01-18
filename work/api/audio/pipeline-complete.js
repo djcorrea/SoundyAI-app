@@ -506,7 +506,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[GENRE-TARGETS-PATCH-V2] usando:', customTargets ? 'customTargets (completo)' : 'options.genreTargets (fallback)');
       console.log('[GENRE-TARGETS-PATCH-V2] ----------');
       
-      finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
+      // 🎯 CRÍTICO: Passar customTargets (COM override) como reference para o scoring
+      const referenceForScoring = customTargets || options.genreTargets || reference;
+      
+      console.log('[SCORING-DEBUG] 🎯 Reference passado para scoring:', {
+        hasCustomTargets: !!customTargets,
+        lufsTarget: referenceForScoring?.lufs?.target || referenceForScoring?.lufs_target,
+        truePeakTarget: referenceForScoring?.truePeak?.target || referenceForScoring?.true_peak_target
+      });
+      
+      finalJSON = generateJSONOutput(coreMetrics, referenceForScoring, metadata, { 
         jobId, 
         fileName,
         mode: mode,

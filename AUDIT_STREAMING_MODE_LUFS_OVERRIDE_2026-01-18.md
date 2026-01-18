@@ -582,8 +582,9 @@ curl -X POST /api/audio/analyze \
 
 ### **Mudanças Aplicadas**:
 
-1. **pipeline-complete.js** (2 locais):
+1. **pipeline-complete.js** (3 locais):
    - ✅ Linha ~437: Override aplicado após carregar targets (json-output)
+   - ✅ Linha ~510: **CRÍTICO** - customTargets passado como reference para scoring
    - ✅ Linha ~876: Override aplicado antes de passar para Motor V2
    - Usa `structuredClone` para não modificar baseTargets
    - Aplica override apenas se `soundDestination === 'streaming'`
@@ -595,6 +596,12 @@ curl -X POST /api/audio/analyze \
 3. **worker-redis.js**:
    - ✅ Removido bloco de override tardio (linhas ~1352-1470)
    - Apenas marca `soundDestination` no resultado final
+
+### **🐛 Bug Crítico Corrigido**:
+**Problema**: O scoring estava usando `reference` (antigo) ao invés de `customTargets` (com override)  
+**Sintoma**: Tabela mostrava targets corretos, mas subscore de loudness estava errado  
+**Solução**: Passar `customTargets` como `reference` para `generateJSONOutput` (linha ~510)  
+**Impacto**: Agora tabela, scoring e sugestões usam MESMOS targets
 
 ### **Benefícios Garantidos**:
 - ✅ **Único ponto de override**: Pipeline (antes de usar targets)
