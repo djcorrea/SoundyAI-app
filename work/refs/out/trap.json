@@ -216,14 +216,14 @@
     "lufs_max": -8.5,
     "dr_min": 5,
     "dr_max": 10.5,
-    "true_peak_min": -2.5,
+    "true_peak_min": -4,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.5,
     "lufs_target": -10.5,
-    "true_peak_target": -1,
+    "true_peak_target": -1.5,
     "dr_target": 7,
     "tol_lufs": 2,
     "tol_dr": 2.8,
-    "tol_true_peak": 1.3
+    "tol_true_peak": 4
   }
 }
