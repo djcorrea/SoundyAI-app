@@ -26268,9 +26268,50 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // Calcular subscore de frequência com o novo sistema
     const freqResult = calculateFrequencySubscore();
     
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 STREAMING MODE — SUBSCORES DIRETOS (NÃO usar média)
+    // ═══════════════════════════════════════════════════════════════════
+    // CORREÇÃO CRÍTICA: Em modo streaming, LUFS e TRUE PEAK já passaram
+    // pelas funções Strict que retornam o score FINAL correto.
+    // NÃO devemos fazer média com RMS, nem normalizar depois!
+    
+    const analysisMode = analysis?.mode || 'genre';
+    let loudnessSubscore = null;
+    let technicalSubscore = null;
+    
+    if (analysisMode === 'streaming') {
+        console.error('╔═══════════════════════════════════════════════════════════╗');
+        console.error('║  🎯 STREAMING MODE — SUBSCORES DIRETOS                   ║');
+        console.error('╚═══════════════════════════════════════════════════════════╝');
+        
+        // LOUDNESS: usar SOMENTE LUFS score (sem média com RMS)
+        loudnessSubscore = metricEvaluations.lufs?.score ?? null;
+        
+        console.error('[STREAMING-SUBSCORE] Loudness subscore DIRETO:', loudnessSubscore);
+        console.error('[STREAMING-SUBSCORE] LUFS score usado:', metricEvaluations.lufs?.score);
+        console.error('[STREAMING-SUBSCORE] LUFS severity:', metricEvaluations.lufs?.severity);
+        console.error('[STREAMING-SUBSCORE] LUFS zone:', metricEvaluations.lufs?.streamingZone);
+        console.error('[STREAMING-SUBSCORE] LUFS conformance:', metricEvaluations.lufs?.conformance);
+        console.error('\n');
+        
+        // TECHNICAL: usar SOMENTE TRUE PEAK score (sem média com outras métricas)
+        technicalSubscore = metricEvaluations.truePeak?.score ?? null;
+        
+        console.error('[STREAMING-SUBSCORE] Technical subscore DIRETO:', technicalSubscore);
+        console.error('[STREAMING-SUBSCORE] True Peak score usado:', metricEvaluations.truePeak?.score);
+        console.error('[STREAMING-SUBSCORE] True Peak severity:', metricEvaluations.truePeak?.severity);
+        console.error('[STREAMING-SUBSCORE] True Peak zone:', metricEvaluations.truePeak?.streamingZone);
+        console.error('[STREAMING-SUBSCORE] True Peak conformance:', metricEvaluations.truePeak?.conformance);
+        console.error('\n');
+    } else {
+        // OUTROS MODOS: usar média como sempre foi
+        loudnessSubscore = avgValidScores(['lufs', 'rms']);
+        technicalSubscore = avgValidScores(['truePeak', 'samplePeak', 'clipping', 'dcOffset']);
+    }
+    
     const subScoresRaw = {
-        loudness: avgValidScores(['lufs', 'rms']),
-        technical: avgValidScores(['truePeak', 'samplePeak', 'clipping', 'dcOffset']),
+        loudness: loudnessSubscore,
+        technical: technicalSubscore,
         dynamics: avgValidScores(['dr', 'crest', 'lra']),
         stereo: avgValidScores(['correlation', 'width']),
         frequency: freqResult?.score ?? null,
@@ -26282,6 +26323,7 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     console.error('╔═══════════════════════════════════════════════════════════╗');
     console.error('║  📊 SUBSCORE RAW DE LOUDNESS CALCULADO                   ║');
     console.error('╚═══════════════════════════════════════════════════════════╝');
+    console.error('[LOUDNESS-SUBSCORE] Analysis mode:', analysisMode);
     console.error('[LOUDNESS-SUBSCORE] Subscore RAW:', subScoresRaw.loudness);
     console.error('[LOUDNESS-SUBSCORE] LUFS score:', metricEvaluations.lufs?.score);
     console.error('[LOUDNESS-SUBSCORE] RMS score:', metricEvaluations.rms?.score);
