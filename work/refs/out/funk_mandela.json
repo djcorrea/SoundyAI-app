@@ -4,7 +4,7 @@
     "generated_at": "2025-12-27T14:56:55.768Z",
     "num_tracks": 10,
     "processing_mode": "fallback_safe",
-    "lufs_target": -7.2,
+    "lufs_target": -9.2,
     "true_peak_target": -0.5,
     "dr_target": 9,
     "lra_target": 4,
@@ -98,7 +98,7 @@
     },
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -7.2,
+        "lufs_integrated": -9.2,
         "true_peak_dbtp": -0.5,
         "dynamic_range": 9,
         "rms_db": -11.3,
@@ -190,7 +190,7 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -7.2,
+      "lufs_target": -9.2,
       "true_peak_target": -0.5,
       "dr_target": 9,
       "stereo_target": 0.85,
@@ -282,7 +282,7 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -9.5,
+      "lufs_min": -11.5,
       "lufs_max": -3.1,
       "dr_min": 3.6,
       "dr_max": 11.7,
@@ -304,7 +304,7 @@
       "source": "professional_analysis",
       "note": "Valores ajustados para refletir referências reais do funk mandela comercial"
     },
-    "lufs_min": -9.5,
+    "lufs_min": -11.5,
     "lufs_max": -3.1,
     "dr_min": 3.6,
     "dr_max": 11.7,
