@@ -25595,15 +25595,16 @@ window.calculateStreamingTruePeakScoreStrict = function(tp) {
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // ZONA VERDE: -2.0 a -0.8 dBTP (zona ideal rigorosa)
+    // ZONA VERDE: -2.0 a -1.2 dBTP (headroom seguro)
+    // CORREÇÃO V2: Zona verde mais rigorosa para evitar TP próximo ao clipping
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (tp >= -2.0 && tp <= -0.8) {
+    if (tp >= -2.0 && tp <= -1.2) {
         zone = 'VERDE';
         conformance = 'CONFORME';
         
         // Score alto dentro da zona verde (90-100)
         const distFromTarget = Math.abs(tp - TARGET);
-        score = Math.round(100 - (distFromTarget * 10)); // -1.0 = 100, -2.0 = 90, -0.8 = 98
+        score = Math.round(100 - (distFromTarget * 10)); // -1.0 = 100, -1.2 = 98, -2.0 = 90
         score = Math.max(90, Math.min(100, score));
         
         severity = 'OK';
@@ -25617,33 +25618,55 @@ window.calculateStreamingTruePeakScoreStrict = function(tp) {
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // ZONA AMARELA: [-3.0, -2.0) ou (-0.8, +1.0]
+    // ZONA AMARELA SUPERIOR: (-1.2, -0.5] (atenção — próximo ao clipping)
+    // CORREÇÃO V2: Nova zona para detectar TP perigosamente alto
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if ((tp >= -3.0 && tp < -2.0) || (tp > -0.8 && tp <= 1.0)) {
+    if (tp > -1.2 && tp <= -0.5) {
         zone = 'AMARELA';
-        conformance = 'FORA DO PADRÃO';
+        conformance = 'ATENÇÃO';
         
-        // Score médio/baixo (60-85)
-        let score;
+        // Score 69-90 (proporcional à distância de -1.2)
+        const distFromIdeal = Math.abs(tp - (-1.2));
+        score = Math.round(90 - (distFromIdeal * 30)); // -1.2 → 90, -0.5 → 69
+        score = Math.max(69, Math.min(90, score));
         
-        if (tp > -0.8) {
-            // Acima da zona verde (clipping)
-            const distFromEdge = Math.abs(tp - (-0.8));
-            score = Math.round(85 - (distFromEdge * 15)); // 85 → 60
-        } else {
-            // Abaixo da zona verde (conservador)
-            const distFromEdge = Math.abs(tp - (-2.0));
-            score = Math.round(85 - (distFromEdge * 20)); // 85 → 65
-        }
+        severity = 'ATENÇÃO';
+        reason = `⚠️ ATENÇÃO: Próximo ao clipping. Reduzir ${(tp - TARGET).toFixed(1)} dB para segurança`;
         
-        score = Math.max(60, Math.min(85, score));
-        severity = 'ALTA';
+        return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ZONA AMARELA INFERIOR: [-3.0, -2.0) (headroom excessivo)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp >= -3.0 && tp < -2.0) {
+        zone = 'AMARELA';
+        conformance = 'ATENÇÃO';
         
-        if (tp > -0.8) {
-            reason = `🟡 FORA DO PADRÃO (próximo ao clipping). Reduzir ${(tp - TARGET).toFixed(1)} dB`;
-        } else {
-            reason = `🟡 FORA DO PADRÃO (headroom excessivo). Aumentar ${Math.abs(tp - TARGET).toFixed(1)} dB`;
-        }
+        // Score 65-90 (conservador demais)
+        const distFromIdeal = Math.abs(tp - (-2.0));
+        score = Math.round(90 - (distFromIdeal * 25)); // -2.0 → 90, -3.0 → 65
+        score = Math.max(65, Math.min(90, score));
+        
+        severity = 'ATENÇÃO';
+        reason = `⚠️ Master conservadora. Considere aumentar ${Math.abs(tp - TARGET).toFixed(1)} dB`;
+        
+        return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ZONA VERMELHA SUPERIOR: (-0.5, +1.0] (clipping iminente)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp > -0.5 && tp <= 1.0) {
+        zone = 'VERMELHA';
+        conformance = 'CRÍTICO';
+        
+        // Score 30-65 (clipping iminente)
+        const distFromLimit = Math.abs(tp - (-0.5));
+        score = Math.max(30, Math.round(65 - (distFromLimit * 50))); // -0.5 → 65, +1.0 → 30
+        
+        severity = 'CRÍTICA';
+        reason = `🔴 CLIPPING IMINENTE! Reduzir ${(tp - TARGET).toFixed(1)} dB URGENTEMENTE`;
         
         return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
     }
@@ -26410,8 +26433,10 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     const subscores = { ...subScoresRaw };
     
     // 🎯 Gate #1: True Peak - Se evaluateMetric retornou CRÍTICA ou ALTA
+    // CORREÇÃO V2: NÃO aplicar em streaming (score já vem direto, gate é redundante)
     const tpEval = metricEvaluations.truePeak;
-    if (tpEval && (tpEval.severity === 'CRÍTICA' || tpEval.severity === 'ALTA')) {
+    if (analysisMode !== 'streaming' && 
+        tpEval && (tpEval.severity === 'CRÍTICA' || tpEval.severity === 'ALTA')) {
         // Cap baseado no score da avaliação
         const cap = Math.min(tpEval.score + 5, 65); // Cap máximo 65 para True Peak problemático
         
@@ -26458,14 +26483,14 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // 🚨 EXCEÇÃO CRÍTICA: NÃO aplicar em STREAMING
     // Em streaming, o target já é -14 LUFS (mais baixo) e o range de tolerância resolve o problema
     // Aplicar gate em streaming causaria penalização dupla e incorreta
+    // CORREÇÃO V2: Usar analysisMode (não soundDest) para consistência
     const lufsEval = metricEvaluations.lufs;
-    // soundDest já foi declarado no topo - não redeclarar aqui
     
-    if (lufsEval && lufsEval.severity === 'CRÍTICA' && soundDest !== 'streaming') {
+    if (lufsEval && lufsEval.severity === 'CRÍTICA' && analysisMode !== 'streaming') {
         console.error('╔═══════════════════════════════════════════════════════════╗');
         console.error('║  🚫 LUFS_GATE: Aplicando penalização (modo pista)        ║');
         console.error('╚═══════════════════════════════════════════════════════════╝');
-        console.error('[LUFS_GATE] soundDestination:', soundDest);
+        console.error('[LUFS_GATE] Analysis mode:', analysisMode);
         console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
         console.error('[LUFS_GATE] Target:', finalTargets.lufs.target);
         console.error('[LUFS_GATE] Severidade:', lufsEval.severity);
@@ -26489,12 +26514,12 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
                 reason: lufsEval.reason
             });
         }
-    } else if (lufsEval && lufsEval.severity === 'CRÍTICA' && soundDest === 'streaming') {
+    } else if (lufsEval && lufsEval.severity === 'CRÍTICA' && analysisMode === 'streaming') {
         // 🎯 Log quando gate é BLOQUEADO em streaming
         console.error('╔═══════════════════════════════════════════════════════════╗');
         console.error('║  ✅ LUFS_GATE: BLOQUEADO (modo streaming)                ║');
         console.error('╚═══════════════════════════════════════════════════════════╝');
-        console.error('[LUFS_GATE] soundDestination:', soundDest);
+        console.error('[LUFS_GATE] Analysis mode:', analysisMode);
         console.error('[LUFS_GATE] LUFS medido:', measured.lufs);
         console.error('[LUFS_GATE] Target streaming:', finalTargets.lufs.target);
         console.error('[LUFS_GATE] Subscore mantido:', subscores.loudness);
