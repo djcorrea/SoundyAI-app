@@ -7,7 +7,7 @@
     "hybrid_processing": {
       "original_metrics": {
         "lufs_integrated": -10.5,
-        "true_peak_dbtp": -1,
+        "true_peak_dbtp": -1.5,
         "dynamic_range": 7,
         "rms_db": -13.5,
         "stereo_correlation": 0.875,
@@ -103,7 +103,7 @@
       "dr_target": 7,
       "stereo_target": 0.875,
       "tol_lufs": 2,
-      "tol_true_peak": 1.3,
+      "tol_true_peak": 4,
       "tol_dr": 2.8,
       "lra_target": 6,
       "tol_lra": 2.5,
@@ -194,7 +194,7 @@
       "lufs_max": -8.5,
       "dr_min": 5,
       "dr_max": 10.5,
-      "true_peak_min": -2.5,
+      "true_peak_min": -4,
       "true_peak_max": 0,
       "true_peak_warn_from": -0.5
     },

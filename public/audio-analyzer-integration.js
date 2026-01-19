@@ -17668,15 +17668,17 @@ async function displayModalResults(analysis) {
             return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
-        // 🎯 FUNÇÃO DE STATUS DO TRUE PEAK (CORREÇÃO CRÍTICA)
+        // 🎯 FUNÇÃO DE STATUS DO TRUE PEAK (REFATORADA - APENAS ALERTA CLIPPING)
+        // ✅ Card só avisa quando está estourado (> 0 dBTP)
+        // ❌ Card não elogia quando está negativo (apenas exibe valor numérico)
         const getTruePeakStatus = (value) => {
-            if (!Number.isFinite(value)) return { status: '—', class: '' };
+            if (!Number.isFinite(value)) return { status: '', class: '' };
             
-            if (value <= -1.5) return { status: 'EXCELENTE', class: 'status-excellent' };
-            if (value <= -1.0) return { status: 'IDEAL', class: 'status-ideal' };
-            if (value <= -0.5) return { status: 'BOM', class: 'status-good' };
-            if (value <= 0.0) return { status: 'ACEITÁVEL', class: 'status-warning' };
-            return { status: 'ESTOURADO', class: 'status-critical' };
+            // Apenas alerta quando está clipando (> 0 dBTP)
+            if (value > 0.0) return { status: 'ESTOURADO', class: 'status-critical' };
+            
+            // Para valores negativos, não exibir status (apenas valor numérico)
+            return { status: '', class: '' };
         };
 
         // 🎯 HELPER: Obter Sample Peak (max de L/R) de forma robusta
