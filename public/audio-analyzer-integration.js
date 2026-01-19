@@ -25049,6 +25049,61 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         };
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 STREAMING MODE - CURVAS PROGRESSIVAS ESPECÍFICAS (v2026-01-19)
+    // ═══════════════════════════════════════════════════════════════════
+    // Verifica se está em modo streaming e se é LUFS ou True Peak
+    // Se sim, usa as funções especializadas que implementam curvas profissionais
+    // Se não, segue para a lógica genérica abaixo
+    
+    const currentAnalysis = window.latestAnalysisData || window.currentAnalysis || {};
+    const soundDestMode = currentAnalysis.soundDestination || 
+                         (currentAnalysis.data && currentAnalysis.data.soundDestination);
+    
+    if (soundDestMode === 'streaming') {
+        // LUFS em modo streaming -> usar curva especializada
+        if (metricKey === 'lufs' && window.calculateStreamingLufsScore) {
+            const streamingResult = window.calculateStreamingLufsScore(measuredValue);
+            // Converter para formato compatível com evaluateMetric
+            return {
+                score: streamingResult.score,
+                severity: streamingResult.severity,
+                diff: streamingResult.measuredLufs - streamingResult.targetLufs,
+                reason: streamingResult.reason,
+                deviationRatio: Math.abs(streamingResult.measuredLufs - streamingResult.targetLufs) / 1.5, // 1.5 LU = tolerância streaming
+                status: streamingResult.severity,
+                metricKey: 'lufs',
+                measuredValue: streamingResult.measuredLufs,
+                metricType: 'BANDPASS_STREAMING',
+                targetSpec: { target: -14.0, min: -15.5, max: -13.5, tol: 1.5 },
+                streamingZone: streamingResult.zone
+            };
+        }
+        
+        // True Peak em modo streaming -> usar curva especializada
+        if (metricKey === 'truePeak' && window.calculateStreamingTruePeakScore) {
+            const streamingResult = window.calculateStreamingTruePeakScore(measuredValue);
+            // Converter para formato compatível com evaluateMetric
+            return {
+                score: streamingResult.score,
+                severity: streamingResult.severity,
+                diff: streamingResult.measuredTp - streamingResult.targetTp,
+                reason: streamingResult.reason,
+                deviationRatio: Math.abs(streamingResult.measuredTp - streamingResult.targetTp) / 0.5, // 0.5 dB = tolerância streaming
+                status: streamingResult.severity,
+                metricKey: 'truePeak',
+                measuredValue: streamingResult.measuredTp,
+                metricType: 'CEILING_STREAMING',
+                targetSpec: { target: -1.0, max: 0.0, tol: 0.5 },
+                streamingZone: streamingResult.zone
+            };
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 LÓGICA GENÉRICA (para outros modos e métricas)
+    // ═══════════════════════════════════════════════════════════════════
+    
     // Normalizar targetSpec
     const target = targetSpec.target ?? targetSpec.target_db ?? null;
     const min = targetSpec.min ?? targetSpec.min_db ?? targetSpec.target_range?.min ?? null;
@@ -25285,6 +25340,232 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
 
 // Alias global
 window.SOUNDY_evaluateMetric = window.evaluateMetric;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 STREAMING SCORING - CURVAS PROGRESSIVAS ESPECÍFICAS (v2026-01-19)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// OBJETIVO: Avaliar QUALIDADE DE OTIMIZAÇÃO para streaming, não apenas conformidade
+//
+// CONTEXTO:
+// - Streaming tem padrões técnicos estritos: -14 LUFS, -1 dBTP
+// - Sistema anterior era binário (ok/erro)
+// - Agora penaliza progressivamente valores sub-ótimos
+//
+// APLICAÇÃO:
+// - SOMENTE quando analysis.soundDestination === 'streaming'
+// - NÃO afeta genre, pista, club, mastering
+//
+// REFERÊNCIAS:
+// - Spotify: -14 LUFS ± 1 dB, True Peak < -1 dBTP
+// - Apple Music: -16 LUFS ± 2 dB, True Peak < -1 dBTP
+// - YouTube: -14 LUFS ± 2 dB, True Peak < -1 dBTP
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 🎧 calculateStreamingLufsScore - Curva progressiva para LUFS em streaming
+ * 
+ * CURVA:
+ * - Faixa IDEAL [-15.5, -13.5]: score 95-100
+ * - Faixa ACEITÁVEL [-16.5, -15.5] ou [-13.5, -12.5]: score 80-94
+ * - Faixa ATENÇÃO [-17.5, -16.5] ou [-12.5, -11.5]: score 60-79
+ * - Faixa CRÍTICA: < -17.5 ou > -11.5: score < 60
+ * 
+ * JUSTIFICATIVA:
+ * - -14.0 LUFS é o target de Spotify/YouTube
+ * - ±1.5 LU é margem profissional (não ±2 ou ±3 como era antes)
+ * - Valores fora dessa margem indicam má otimização
+ * 
+ * @param {number} lufs - LUFS Integrado medido
+ * @returns {{score: number, severity: string, reason: string, zone: string}}
+ */
+window.calculateStreamingLufsScore = function(lufs) {
+    if (!Number.isFinite(lufs)) {
+        return { score: null, severity: 'N/A', reason: 'Valor inválido', zone: 'unknown' };
+    }
+    
+    let score, severity, reason, zone;
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA IDEAL: -15.5 a -13.5 LUFS (curva parabólica com pico em -14.0)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (lufs >= -15.5 && lufs <= -13.5) {
+        zone = 'IDEAL';
+        const distFromPerfect = Math.abs(lufs - (-14.0));
+        score = Math.round(100 - (distFromPerfect * distFromPerfect * 20));
+        score = Math.max(95, Math.min(100, score)); // Garantir range [95, 100]
+        
+        if (score >= 99) {
+            severity = 'OK';
+            reason = '✅ Otimização perfeita para streaming';
+        } else {
+            severity = 'OK';
+            reason = `✅ Ótimo para streaming (${Math.abs(lufs - (-14.0)).toFixed(1)} LU do ideal)`;
+        }
+        
+        return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA ACEITÁVEL: -16.5 a -15.5 (mais baixo) OU -13.5 a -12.5 (mais alto)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if ((lufs >= -16.5 && lufs < -15.5) || (lufs > -13.5 && lufs <= -12.5)) {
+        zone = 'ACEITÁVEL';
+        const distFromEdge = lufs > -13.5 
+            ? Math.abs(lufs - (-13.5))  // Distância da borda superior
+            : Math.abs(lufs - (-15.5)); // Distância da borda inferior
+        
+        score = Math.round(94 - (distFromEdge * 14)); // 94 → 80
+        score = Math.max(80, Math.min(94, score));
+        
+        severity = 'ATENÇÃO';
+        
+        if (lufs > -13.5) {
+            reason = `⚠️ Mais alto que ideal (-${Math.abs(lufs).toFixed(1)} LUFS). Considere reduzir ${(lufs - (-14.0)).toFixed(1)} LU`;
+        } else {
+            reason = `⚠️ Mais baixo que ideal (-${Math.abs(lufs).toFixed(1)} LUFS). Considere aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU`;
+        }
+        
+        return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA ATENÇÃO: -17.5 a -16.5 (muito baixo) OU -12.5 a -11.5 (muito alto)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if ((lufs >= -17.5 && lufs < -16.5) || (lufs > -12.5 && lufs <= -11.5)) {
+        zone = 'ATENÇÃO';
+        const distFromEdge = lufs > -12.5 
+            ? Math.abs(lufs - (-12.5))
+            : Math.abs(lufs - (-16.5));
+        
+        score = Math.round(79 - (distFromEdge * 19)); // 79 → 60
+        score = Math.max(60, Math.min(79, score));
+        
+        severity = 'ALTA';
+        
+        if (lufs > -12.5) {
+            reason = `🟡 Muito alto para streaming. Reduzir ${(lufs - (-14.0)).toFixed(1)} LU`;
+        } else {
+            reason = `🟡 Muito baixo para streaming. Aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU`;
+        }
+        
+        return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA CRÍTICA: < -17.5 ou > -11.5
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    zone = 'CRÍTICA';
+    const distFromLimit = lufs > -11.5 
+        ? Math.abs(lufs - (-11.5))
+        : Math.abs(lufs - (-17.5));
+    
+    score = Math.max(20, Math.round(59 - (distFromLimit * 20))); // 59 → 20
+    severity = 'CRÍTICA';
+    
+    if (lufs > -11.5) {
+        reason = `🔴 CRÍTICO: Muito alto. Reduzir ${(lufs - (-14.0)).toFixed(1)} LU urgentemente`;
+    } else {
+        reason = `🔴 CRÍTICO: Muito baixo. Aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU urgentemente`;
+    }
+    
+    return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+};
+
+/**
+ * 🔊 calculateStreamingTruePeakScore - Curva progressiva para True Peak em streaming
+ * 
+ * CURVA:
+ * - Faixa IDEAL [-1.5, -1.0]: score 97-100
+ * - Faixa ACEITÁVEL [-2.5, -1.5]: score 80-96
+ * - Faixa CONSERVADORA [-3.5, -2.5]: score 60-79
+ * - Faixa CRÍTICA: < -3.5 (headroom excessivo): score < 60
+ * - CLIPPING: > 0 dBTP: score < 35
+ * 
+ * JUSTIFICATIVA:
+ * - -1.0 dBTP é o target ideal para streaming
+ * - True Peak muito baixo (< -3.0) indica má otimização de headroom
+ * - Não é erro, mas é desperdício de volume percebido
+ * 
+ * @param {number} tp - True Peak em dBTP
+ * @returns {{score: number, severity: string, reason: string, zone: string}}
+ */
+window.calculateStreamingTruePeakScore = function(tp) {
+    if (!Number.isFinite(tp)) {
+        return { score: null, severity: 'N/A', reason: 'Valor inválido', zone: 'unknown' };
+    }
+    
+    let score, severity, reason, zone;
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // CLIPPING: > 0 dBTP (CRÍTICO SEVERO)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp > 0) {
+        zone = 'CLIPPING';
+        score = Math.max(20, Math.round(35 - (tp * 15)));
+        severity = 'CRÍTICA';
+        reason = `🔴 CLIPPING! Reduzir ${tp.toFixed(2)} dB urgentemente`;
+        return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA IDEAL: -1.5 a -1.0 dBTP (curva suave com pico em -1.0)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp >= -1.5 && tp <= -1.0) {
+        zone = 'IDEAL';
+        const distFromPerfect = Math.abs(tp - (-1.0));
+        score = Math.round(100 - (distFromPerfect * distFromPerfect * 10));
+        score = Math.max(97, Math.min(100, score));
+        
+        severity = 'OK';
+        reason = score >= 99 
+            ? '✅ True Peak perfeito para streaming'
+            : `✅ True Peak ótimo (${Math.abs(tp - (-1.0)).toFixed(2)} dB do ideal)`;
+        
+        return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA ACEITÁVEL: -2.5 a -1.5 dBTP
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp >= -2.5 && tp < -1.5) {
+        zone = 'ACEITÁVEL';
+        const distFromEdge = Math.abs(tp - (-1.5));
+        score = Math.round(96 - (distFromEdge * 16)); // 96 → 80
+        score = Math.max(80, Math.min(96, score));
+        
+        severity = 'ATENÇÃO';
+        reason = `⚠️ Conservador. Pode aumentar até ${Math.abs(tp - (-1.0)).toFixed(1)} dB`;
+        
+        return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA CONSERVADORA: -3.5 a -2.5 dBTP (headroom excessivo)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (tp >= -3.5 && tp < -2.5) {
+        zone = 'CONSERVADORA';
+        const distFromEdge = Math.abs(tp - (-2.5));
+        score = Math.round(79 - (distFromEdge * 19)); // 79 → 60
+        score = Math.max(60, Math.min(79, score));
+        
+        severity = 'ALTA';
+        reason = `🟡 Headroom excessivo. Pode aumentar ${Math.abs(tp - (-1.0)).toFixed(1)} dB`;
+        
+        return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+    }
+    
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FAIXA CRÍTICA: < -3.5 dBTP (má otimização severa)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    zone = 'CRÍTICA';
+    const distFromLimit = Math.abs(tp - (-3.5));
+    score = Math.max(20, Math.round(59 - (distFromLimit * 20))); // 59 → 20
+    severity = 'CRÍTICA';
+    reason = `🔴 Má otimização. Aumentar ${Math.abs(tp - (-1.0)).toFixed(1)} dB urgentemente`;
+    
+    return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+};
 
 /**
  * 🎯 Helper: Converte resultado de evaluateMetric para formato da tabela

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: Curvas Progressivas Streaming</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .test-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .test-card h2 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .test-input {
+            margin-bottom: 15px;
+        }
+        .test-input label {
+            display: block;
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .test-input input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .test-input input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.show {
+            display: block;
+        }
+        .result-ideal {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        .result-aceitavel {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .result-atencao {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        .result-critica {
+            background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+            color: white;
+        }
+        .result-clipping {
+            background: #000;
+            color: #ff0000;
+            border: 3px solid #ff0000;
+        }
+        .result h3 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .result p {
+            font-size: 16px;
+            margin-bottom: 8px;
+            opacity: 0.95;
+        }
+        .result .zone {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+        .comparison {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .comparison h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .comparison-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+        }
+        .comparison-row .old {
+            color: #999;
+            text-decoration: line-through;
+        }
+        .comparison-row .new {
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Teste: Curvas Progressivas Streaming v2.0</h1>
+            <p><strong>Objetivo:</strong> Validar sistema de scoring profissional para streaming (LUFS -14, True Peak -1)</p>
+            <p><strong>Impacto:</strong> SOMENTE modo streaming. Outros modos (genre, pista, club) preservados.</p>
+        </div>
+
+        <div class="test-grid">
+            <!-- TESTE LUFS -->
+            <div class="test-card">
+                <h2>🎧 Teste LUFS Streaming</h2>
+                <div class="test-input">
+                    <label>LUFS Integrado (dB)</label>
+                    <input type="number" id="lufs-input" value="-12.9" step="0.1" placeholder="-14.0">
+                </div>
+                <button class="btn" onclick="testLufs()">Calcular Score LUFS</button>
+                <div id="lufs-result" class="result"></div>
+                <div id="lufs-comparison" class="comparison" style="display: none;">
+                    <h4>📊 Comparação: Sistema Antigo vs Novo</h4>
+                    <div class="comparison-row">
+                        <span>Score Anterior:</span>
+                        <span class="old" id="lufs-old-score">94</span>
+                    </div>
+                    <div class="comparison-row">
+                        <span>Score Novo:</span>
+                        <span class="new" id="lufs-new-score">85</span>
+                    </div>
+                    <div class="comparison-row">
+                        <span>Diferença:</span>
+                        <span class="new" id="lufs-diff">-9 pontos</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TESTE TRUE PEAK -->
+            <div class="test-card">
+                <h2>🔊 Teste True Peak Streaming</h2>
+                <div class="test-input">
+                    <label>True Peak (dBTP)</label>
+                    <input type="number" id="tp-input" value="-3.0" step="0.1" placeholder="-1.0">
+                </div>
+                <button class="btn" onclick="testTruePeak()">Calcular Score True Peak</button>
+                <div id="tp-result" class="result"></div>
+                <div id="tp-comparison" class="comparison" style="display: none;">
+                    <h4>📊 Comparação: Sistema Antigo vs Novo</h4>
+                    <div class="comparison-row">
+                        <span>Score Anterior:</span>
+                        <span class="old" id="tp-old-score">100</span>
+                    </div>
+                    <div class="comparison-row">
+                        <span>Score Novo:</span>
+                        <span class="new" id="tp-new-score">72</span>
+                    </div>
+                    <div class="comparison-row">
+                        <span>Diferença:</span>
+                        <span class="new" id="tp-diff">-28 pontos</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TESTE BATCH LUFS -->
+            <div class="test-card">
+                <h2>📋 Teste Batch: LUFS</h2>
+                <button class="btn" onclick="testBatchLufs()">Testar Todos os Casos LUFS</button>
+                <div id="batch-lufs-result" style="margin-top: 15px;"></div>
+            </div>
+
+            <!-- TESTE BATCH TRUE PEAK -->
+            <div class="test-card">
+                <h2>📋 Teste Batch: True Peak</h2>
+                <button class="btn" onclick="testBatchTruePeak()">Testar Todos os Casos True Peak</button>
+                <div id="batch-tp-result" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // 🎯 FUNÇÕES DE SCORING STREAMING (Copiadas do sistema)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function calculateStreamingLufsScore(lufs) {
+            if (!Number.isFinite(lufs)) {
+                return { score: null, severity: 'N/A', reason: 'Valor inválido', zone: 'unknown' };
+            }
+            
+            let score, severity, reason, zone;
+            
+            // FAIXA IDEAL: -15.5 a -13.5 LUFS
+            if (lufs >= -15.5 && lufs <= -13.5) {
+                zone = 'IDEAL';
+                const distFromPerfect = Math.abs(lufs - (-14.0));
+                score = Math.round(100 - (distFromPerfect * distFromPerfect * 20));
+                score = Math.max(95, Math.min(100, score));
+                
+                if (score >= 99) {
+                    severity = 'OK';
+                    reason = '✅ Otimização perfeita para streaming';
+                } else {
+                    severity = 'OK';
+                    reason = `✅ Ótimo para streaming (${Math.abs(lufs - (-14.0)).toFixed(1)} LU do ideal)`;
+                }
+                
+                return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+            }
+            
+            // FAIXA ACEITÁVEL: -16.5 a -15.5 ou -13.5 a -12.5
+            if ((lufs >= -16.5 && lufs < -15.5) || (lufs > -13.5 && lufs <= -12.5)) {
+                zone = 'ACEITÁVEL';
+                const distFromEdge = lufs > -13.5 
+                    ? Math.abs(lufs - (-13.5))
+                    : Math.abs(lufs - (-15.5));
+                
+                score = Math.round(94 - (distFromEdge * 14));
+                score = Math.max(80, Math.min(94, score));
+                
+                severity = 'ATENÇÃO';
+                
+                if (lufs > -13.5) {
+                    reason = `⚠️ Mais alto que ideal (-${Math.abs(lufs).toFixed(1)} LUFS). Considere reduzir ${(lufs - (-14.0)).toFixed(1)} LU`;
+                } else {
+                    reason = `⚠️ Mais baixo que ideal (-${Math.abs(lufs).toFixed(1)} LUFS). Considere aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU`;
+                }
+                
+                return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+            }
+            
+            // FAIXA ATENÇÃO: -17.5 a -16.5 ou -12.5 a -11.5
+            if ((lufs >= -17.5 && lufs < -16.5) || (lufs > -12.5 && lufs <= -11.5)) {
+                zone = 'ATENÇÃO';
+                const distFromEdge = lufs > -12.5 
+                    ? Math.abs(lufs - (-12.5))
+                    : Math.abs(lufs - (-16.5));
+                
+                score = Math.round(79 - (distFromEdge * 19));
+                score = Math.max(60, Math.min(79, score));
+                
+                severity = 'ALTA';
+                
+                if (lufs > -12.5) {
+                    reason = `🟡 Muito alto para streaming. Reduzir ${(lufs - (-14.0)).toFixed(1)} LU`;
+                } else {
+                    reason = `🟡 Muito baixo para streaming. Aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU`;
+                }
+                
+                return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+            }
+            
+            // FAIXA CRÍTICA
+            zone = 'CRÍTICA';
+            const distFromLimit = lufs > -11.5 
+                ? Math.abs(lufs - (-11.5))
+                : Math.abs(lufs - (-17.5));
+            
+            score = Math.max(20, Math.round(59 - (distFromLimit * 20)));
+            severity = 'CRÍTICA';
+            
+            if (lufs > -11.5) {
+                reason = `🔴 CRÍTICO: Muito alto. Reduzir ${(lufs - (-14.0)).toFixed(1)} LU urgentemente`;
+            } else {
+                reason = `🔴 CRÍTICO: Muito baixo. Aumentar ${Math.abs(lufs - (-14.0)).toFixed(1)} LU urgentemente`;
+            }
+            
+            return { score, severity, reason, zone, measuredLufs: lufs, targetLufs: -14.0 };
+        }
+
+        function calculateStreamingTruePeakScore(tp) {
+            if (!Number.isFinite(tp)) {
+                return { score: null, severity: 'N/A', reason: 'Valor inválido', zone: 'unknown' };
+            }
+            
+            let score, severity, reason, zone;
+            
+            // CLIPPING
+            if (tp > 0) {
+                zone = 'CLIPPING';
+                score = Math.max(20, Math.round(35 - (tp * 15)));
+                severity = 'CRÍTICA';
+                reason = `🔴 CLIPPING! Reduzir ${tp.toFixed(2)} dB urgentemente`;
+                return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+            }
+            
+            // FAIXA IDEAL
+            if (tp >= -1.5 && tp <= -1.0) {
+                zone = 'IDEAL';
+                const distFromPerfect = Math.abs(tp - (-1.0));
+                score = Math.round(100 - (distFromPerfect * distFromPerfect * 10));
+                score = Math.max(97, Math.min(100, score));
+                
+                severity = 'OK';
+                reason = score >= 99 
+                    ? '✅ True Peak perfeito para streaming'
+                    : `✅ True Peak ótimo (${Math.abs(tp - (-1.0)).toFixed(2)} dB do ideal)`;
+                
+                return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+            }
+            
+            // FAIXA ACEITÁVEL
+            if (tp >= -2.5 && tp < -1.5) {
+                zone = 'ACEITÁVEL';
+                const distFromEdge = Math.abs(tp - (-1.5));
+                score = Math.round(96 - (distFromEdge * 16));
+                score = Math.max(80, Math.min(96, score));
+                
+                severity = 'ATENÇÃO';
+                reason = `⚠️ Conservador. Pode aumentar até ${Math.abs(tp - (-1.0)).toFixed(1)} dB`;
+                
+                return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+            }
+            
+            // FAIXA CONSERVADORA
+            if (tp >= -3.5 && tp < -2.5) {
+                zone = 'CONSERVADORA';
+                const distFromEdge = Math.abs(tp - (-2.5));
+                score = Math.round(79 - (distFromEdge * 19));
+                score = Math.max(60, Math.min(79, score));
+                
+                severity = 'ALTA';
+                reason = `🟡 Headroom excessivo. Pode aumentar ${Math.abs(tp - (-1.0)).toFixed(1)} dB`;
+                
+                return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+            }
+            
+            // FAIXA CRÍTICA
+            zone = 'CRÍTICA';
+            const distFromLimit = Math.abs(tp - (-3.5));
+            score = Math.max(20, Math.round(59 - (distFromLimit * 20)));
+            severity = 'CRÍTICA';
+            reason = `🔴 Má otimização. Aumentar ${Math.abs(tp - (-1.0)).toFixed(1)} dB urgentemente`;
+            
+            return { score, severity, reason, zone, measuredTp: tp, targetTp: -1.0 };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🧪 FUNÇÕES DE TESTE
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function testLufs() {
+            const input = parseFloat(document.getElementById('lufs-input').value);
+            const result = calculateStreamingLufsScore(input);
+            
+            displayResult('lufs-result', result, 'lufs');
+            
+            // Simular sistema antigo (mais tolerante)
+            const oldScore = calculateOldLufsScore(input);
+            document.getElementById('lufs-old-score').textContent = oldScore;
+            document.getElementById('lufs-new-score').textContent = result.score;
+            document.getElementById('lufs-diff').textContent = (result.score - oldScore >= 0 ? '+' : '') + (result.score - oldScore) + ' pontos';
+            document.getElementById('lufs-comparison').style.display = 'block';
+        }
+
+        function testTruePeak() {
+            const input = parseFloat(document.getElementById('tp-input').value);
+            const result = calculateStreamingTruePeakScore(input);
+            
+            displayResult('tp-result', result, 'tp');
+            
+            // Simular sistema antigo
+            const oldScore = calculateOldTruePeakScore(input);
+            document.getElementById('tp-old-score').textContent = oldScore;
+            document.getElementById('tp-new-score').textContent = result.score;
+            document.getElementById('tp-diff').textContent = (result.score - oldScore >= 0 ? '+' : '') + (result.score - oldScore) + ' pontos';
+            document.getElementById('tp-comparison').style.display = 'block';
+        }
+
+        function displayResult(elementId, result, type) {
+            const resultDiv = document.getElementById(elementId);
+            
+            let className = 'result show ';
+            if (result.zone === 'IDEAL') className += 'result-ideal';
+            else if (result.zone === 'ACEITÁVEL') className += 'result-aceitavel';
+            else if (result.zone === 'ATENÇÃO' || result.zone === 'CONSERVADORA') className += 'result-atencao';
+            else if (result.zone === 'CRÍTICA') className += 'result-critica';
+            else if (result.zone === 'CLIPPING') className += 'result-clipping';
+            
+            resultDiv.className = className;
+            resultDiv.innerHTML = `
+                <h3>${result.score}</h3>
+                <p><strong>${result.reason}</strong></p>
+                <p>Severidade: ${result.severity}</p>
+                <span class="zone">${result.zone}</span>
+            `;
+        }
+
+        function testBatchLufs() {
+            const testCases = [
+                -14.0, -14.1, -13.8, -14.5, -13.5, -15.5,
+                -12.9, -13.0, -12.5, -16.0, -16.5,
+                -12.0, -11.8, -11.5, -17.0, -17.5,
+                -11.0, -10.5, -18.0, -19.0
+            ];
+            
+            let html = '<table style="width:100%; font-size:12px; border-collapse: collapse;">';
+            html += '<tr style="background:#667eea; color:white;"><th style="padding:8px;">LUFS</th><th>Score</th><th>Zona</th></tr>';
+            
+            testCases.forEach(lufs => {
+                const result = calculateStreamingLufsScore(lufs);
+                const rowColor = 
+                    result.zone === 'IDEAL' ? '#d4edda' :
+                    result.zone === 'ACEITÁVEL' ? '#fff3cd' :
+                    result.zone === 'ATENÇÃO' ? '#f8d7da' : '#f5c6cb';
+                
+                html += `<tr style="background:${rowColor};">
+                    <td style="padding:8px;">${lufs.toFixed(1)}</td>
+                    <td style="font-weight:bold;">${result.score}</td>
+                    <td>${result.zone}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            document.getElementById('batch-lufs-result').innerHTML = html;
+        }
+
+        function testBatchTruePeak() {
+            const testCases = [
+                -1.0, -1.1, -1.2, -1.5,
+                -2.0, -2.5,
+                -3.0, -3.4, -3.5,
+                -4.0, -5.0, -6.0,
+                0.1, 0.5, 1.0
+            ];
+            
+            let html = '<table style="width:100%; font-size:12px; border-collapse: collapse;">';
+            html += '<tr style="background:#667eea; color:white;"><th style="padding:8px;">dBTP</th><th>Score</th><th>Zona</th></tr>';
+            
+            testCases.forEach(tp => {
+                const result = calculateStreamingTruePeakScore(tp);
+                const rowColor = 
+                    result.zone === 'IDEAL' ? '#d4edda' :
+                    result.zone === 'ACEITÁVEL' ? '#fff3cd' :
+                    result.zone === 'CONSERVADORA' ? '#f8d7da' :
+                    result.zone === 'CLIPPING' ? '#000' : '#f5c6cb';
+                const textColor = result.zone === 'CLIPPING' ? '#ff0000' : '#000';
+                
+                html += `<tr style="background:${rowColor}; color:${textColor};">
+                    <td style="padding:8px;">${tp.toFixed(1)}</td>
+                    <td style="font-weight:bold;">${result.score}</td>
+                    <td>${result.zone}</td>
+                </tr>`;
+            });
+            
+            html += '</table>';
+            document.getElementById('batch-tp-result').innerHTML = html;
+        }
+
+        // Sistema antigo (simulado)
+        function calculateOldLufsScore(lufs) {
+            const target = -14.0;
+            const range = 4.0; // [-16, -12]
+            const diff = Math.abs(lufs - target);
+            
+            if (diff <= 1.0) return Math.round(100 - (diff * 5));
+            if (diff <= 2.0) return Math.round(95 - ((diff - 1) * 10));
+            if (diff <= 3.0) return Math.round(85 - ((diff - 2) * 15));
+            return Math.max(20, Math.round(70 - ((diff - 3) * 20)));
+        }
+
+        function calculateOldTruePeakScore(tp) {
+            if (tp > 0) return Math.max(20, 35 - (tp * 15));
+            if (tp >= -3.5) return 100; // Sistema antigo dava 100 para tudo abaixo de -3.5
+            return 100;
+        }
+    </script>
+</body>
+</html>
