@@ -11,23 +11,23 @@
     "stereo_target": 0.85,
     "tol_lufs": 3.2,
     "tol_true_peak": 1.5,
-    "tol_dr": 4,
-    "tol_lra": 2.5,
+    "tol_dr": 6,
+    "tol_lra": 4,
     "tol_stereo": 0.25,
     "bands": {
       "sub": {
         "target_range": {
-          "min": -28.3,
+          "min": -33.3,
           "max": -17.2
         },
         "target_db": -22.75,
-        "energy_pct": 29.5,
+        "energy_pct": 32.8,
         "tol_db": 6,
         "severity": "soft"
       },
       "low_bass": {
         "target_range": {
-          "min": -27.9,
+          "min": -29.9,
           "max": -19.1
         },
         "target_db": -23.5,
@@ -37,7 +37,7 @@
       },
       "upper_bass": {
         "target_range": {
-          "min": -27.9,
+          "min": -28.9,
           "max": -19.1
         },
         "target_db": -23.5,
@@ -47,7 +47,7 @@
       },
       "low_mid": {
         "target_range": {
-          "min": -29.7,
+          "min": -32.2,
           "max": -21.5
         },
         "target_db": -25.6,
@@ -57,7 +57,7 @@
       },
       "mid": {
         "target_range": {
-          "min": -29.5,
+          "min": -31.5,
           "max": -24.1
         },
         "target_db": -26.8,
@@ -67,7 +67,7 @@
       },
       "high_mid": {
         "target_range": {
-          "min": -34.6,
+          "min": -36.6,
           "max": -28.4
         },
         "target_db": -31.5,
@@ -77,7 +77,7 @@
       },
       "brilho": {
         "target_range": {
-          "min": -44.3,
+          "min": -46.3,
           "max": -33.1
         },
         "target_db": -38.7,
@@ -87,7 +87,7 @@
       },
       "presenca": {
         "target_range": {
-          "min": -42.8,
+          "min": -44.8,
           "max": -32
         },
         "target_db": -37.4,
@@ -100,10 +100,10 @@
       "original_metrics": {
         "lufs_integrated": -7.2,
         "true_peak_dbtp": -0.5,
-        "dynamic_range": 6,
+        "dynamic_range": 9,
         "rms_db": -11.3,
         "stereo_correlation": 0.85,
-        "lra": 2.5
+        "lra": 6
       },
       "spectral_bands": {
         "sub": {
@@ -196,9 +196,9 @@
       "stereo_target": 0.85,
       "tol_lufs": 3.2,
       "tol_true_peak": 1.5,
-      "tol_dr": 4,
-      "lra_target": 2.5,
-      "tol_lra": 2.5,
+      "tol_dr": 6,
+      "lra_target": 6,
+      "tol_lra": 4,
       "tol_stereo": 0.25,
       "bands": {
         "sub": {
