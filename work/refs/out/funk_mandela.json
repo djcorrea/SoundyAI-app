@@ -192,7 +192,7 @@
     "legacy_compatibility": {
       "lufs_target": -7.2,
       "true_peak_target": -0.5,
-      "dr_target": 6,
+      "dr_target": 9,
       "stereo_target": 0.85,
       "tol_lufs": 3.2,
       "tol_true_peak": 1.5,
@@ -203,7 +203,7 @@
       "bands": {
         "sub": {
           "target_range": {
-            "min": -28.3,
+            "min": -31.3,
             "max": -17.2
           },
           "target_db": -22.75,
@@ -213,7 +213,7 @@
         },
         "low_bass": {
           "target_range": {
-            "min": -27.9,
+            "min": -29.9,
             "max": -19.1
           },
           "target_db": -23.5,
@@ -223,7 +223,7 @@
         },
         "upper_bass": {
           "target_range": {
-            "min": -27.9,
+            "min": -29.9,
             "max": -19.1
           },
           "target_db": -23.5,
@@ -233,7 +233,7 @@
         },
         "low_mid": {
           "target_range": {
-            "min": -29.7,
+            "min": -32.7,
             "max": -21.5
           },
           "target_db": -25.6,
@@ -243,7 +243,7 @@
         },
         "mid": {
           "target_range": {
-            "min": -29.5,
+            "min": -31.5,
             "max": -24.1
           },
           "target_db": -26.8,
@@ -253,7 +253,7 @@
         },
         "high_mid": {
           "target_range": {
-            "min": -34.6,
+            "min": -36.6,
             "max": -28.4
           },
           "target_db": -31.5,
@@ -263,7 +263,7 @@
         },
         "brilho": {
           "target_range": {
-            "min": -44.3,
+            "min": -48.3,
             "max": -33.1
           },
           "target_db": -38.7,
@@ -273,7 +273,7 @@
         },
         "presenca": {
           "target_range": {
-            "min": -42.8,
+            "min": -46.8,
             "max": -32
           },
           "target_db": -37.4,
