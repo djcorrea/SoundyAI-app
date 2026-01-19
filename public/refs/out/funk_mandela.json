@@ -286,7 +286,7 @@
       "lufs_max": -3.1,
       "dr_min": 4,
       "dr_max": 17.7,
-      "true_peak_min": -1,
+      "true_peak_min": -6,
       "true_peak_max": 0,
       "true_peak_warn_from": -0.1
     },
@@ -308,7 +308,7 @@
     "lufs_max": -3.1,
     "dr_min": 4,
     "dr_max": 17.7,
-    "true_peak_min": -1,
+    "true_peak_min": -6,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.1
   }
