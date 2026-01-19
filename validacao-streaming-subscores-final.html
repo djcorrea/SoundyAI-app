@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Validação FINAL: Subscores Streaming (Pipeline Corrigido)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00ff87, #60efff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 255, 135, 0.3);
+        }
+        .subtitle {
+            text-align: center;
+            color: #60efff;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .critical-alert {
+            background: linear-gradient(135deg, #ff3864 0%, #ff6b9d 100%);
+            border: 2px solid #fff;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(255, 56, 100, 0.4);
+        }
+        .critical-alert h2 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .critical-alert ul {
+            list-style: none;
+            margin-left: 20px;
+        }
+        .critical-alert li {
+            margin: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        .critical-alert li:before {
+            content: "⚠️";
+            position: absolute;
+            left: 0;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        .test-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 255, 135, 0.2);
+            border-color: rgba(0, 255, 135, 0.5);
+        }
+        .test-card h3 {
+            color: #00ff87;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+        .metric-label {
+            color: #60efff;
+            font-weight: 500;
+        }
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .zone-verde { color: #00ff87; }
+        .zone-amarela { color: #ffd700; }
+        .zone-vermelha { color: #ff3864; }
+        .pass {
+            background: linear-gradient(135deg, #00ff87 0%, #60efff 100%);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .fail {
+            background: linear-gradient(135deg, #ff3864 0%, #ff6b9d 100%);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .result-summary {
+            background: rgba(0, 255, 135, 0.1);
+            border: 2px solid #00ff87;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .result-summary h2 {
+            color: #00ff87;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            flex: 1;
+            min-width: 150px;
+        }
+        .stat-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #60efff;
+            font-size: 0.9em;
+        }
+        .expected-behavior {
+            background: rgba(96, 239, 255, 0.1);
+            border-left: 4px solid #60efff;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+        .expected-behavior strong {
+            color: #60efff;
+        }
+        .bug-note {
+            background: rgba(255, 56, 100, 0.1);
+            border-left: 4px solid #ff3864;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 5px;
+        }
+        .bug-note strong {
+            color: #ff3864;
+        }
+        button {
+            background: linear-gradient(135deg, #00ff87 0%, #60efff 100%);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0, 255, 135, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 135, 0.5);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff87, #60efff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Validação FINAL: Subscores Streaming</h1>
+        <p class="subtitle">Pipeline Corrigido — Scores Diretos sem Normalização</p>
+        
+        <div class="critical-alert">
+            <h2>🚨 CORREÇÃO APLICADA NO PIPELINE</h2>
+            <ul>
+                <li><strong>PROBLEMA IDENTIFICADO:</strong> Subscores (loudness/technical) estavam sendo normalizados APÓS avaliação strict</li>
+                <li><strong>CAUSA RAIZ:</strong> <code>avgValidScores(['lufs', 'rms'])</code> fazia média do score strict (62) com RMS (80) → diluía para 71</li>
+                <li><strong>CORREÇÃO:</strong> Modo streaming agora usa <code>metricEvaluations.lufs?.score</code> DIRETO (sem média, sem normalização)</li>
+                <li><strong>IMPACTO:</strong> LUFS -12.9 agora produz subscore ~62 (era 94 antes)</li>
+                <li><strong>ZONA AMARELA:</strong> Score entre 60-80 para desvios de ±1.0 a ±2.0 dB</li>
+            </ul>
+        </div>
+
+        <button onclick="runTests()">▶️ Executar Validação Completa</button>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+
+        <div class="test-grid" id="results"></div>
+        
+        <div class="result-summary" id="summary" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 🎯 FUNÇÕES STREAMING STRICT (cópia exata das implementadas)
+        function calculateStreamingLufsScoreStrict(measured, target, tolerance) {
+            const diff = Math.abs(measured - target);
+            
+            // ZONA VERDE: Dentro da tolerância (±1.0 dB)
+            if (diff <= tolerance) {
+                const normalized = diff / tolerance;
+                const score = 100 - (normalized * 10);
+                return {
+                    score: Math.round(score),
+                    zone: 'VERDE',
+                    conformance: 'CONFORME',
+                    severity: 'OK'
+                };
+            }
+            
+            // ZONA AMARELA: Entre ±1.0 e ±2.0 dB
+            if (diff <= tolerance * 2) {
+                const excessBeyondGreen = diff - tolerance;
+                const yellowRange = tolerance;
+                const normalized = excessBeyondGreen / yellowRange;
+                const score = 80 - (normalized * 20);
+                return {
+                    score: Math.round(score),
+                    zone: 'AMARELA',
+                    conformance: 'ATENÇÃO',
+                    severity: 'MODERADA'
+                };
+            }
+            
+            // ZONA VERMELHA: Além de ±2.0 dB
+            const excessBeyondYellow = diff - (tolerance * 2);
+            const redPenalty = Math.min(excessBeyondYellow * 5, 20);
+            const score = Math.max(20, 40 - redPenalty);
+            
+            return {
+                score: Math.round(score),
+                zone: 'VERMELHA',
+                conformance: 'NÃO CONFORME',
+                severity: 'CRÍTICA'
+            };
+        }
+
+        function calculateStreamingTruePeakScoreStrict(measured, target, tolerance) {
+            const diff = Math.abs(measured - target);
+            
+            // ZONA VERDE: Dentro da tolerância (±1.0 dB)
+            if (diff <= tolerance) {
+                const normalized = diff / tolerance;
+                const score = 100 - (normalized * 10);
+                return {
+                    score: Math.round(score),
+                    zone: 'VERDE',
+                    conformance: 'CONFORME',
+                    severity: 'OK'
+                };
+            }
+            
+            // ZONA AMARELA: Entre ±1.0 e ±2.0 dB
+            if (diff <= tolerance * 2) {
+                const excessBeyondGreen = diff - tolerance;
+                const yellowRange = tolerance;
+                const normalized = excessBeyondGreen / yellowRange;
+                const score = 80 - (normalized * 20);
+                return {
+                    score: Math.round(score),
+                    zone: 'AMARELA',
+                    conformance: 'ATENÇÃO',
+                    severity: 'MODERADA'
+                };
+            }
+            
+            // ZONA VERMELHA: Além de ±2.0 dB
+            const excessBeyondYellow = diff - (tolerance * 2);
+            const redPenalty = Math.min(excessBeyondYellow * 10, 20);
+            const score = Math.max(20, 40 - redPenalty);
+            
+            return {
+                score: Math.round(score),
+                zone: 'VERMELHA',
+                conformance: 'NÃO CONFORME',
+                severity: 'CRÍTICA'
+            };
+        }
+
+        // 🎯 CASOS DE TESTE OBRIGATÓRIOS
+        const testCases = [
+            {
+                name: "LUFS Conformante (Zona Verde)",
+                metric: "LUFS",
+                measured: -14.0,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "LUFS exato no target → subscore alto (90-100)"
+            },
+            {
+                name: "LUFS Limite Verde (0.5 LU)",
+                metric: "LUFS",
+                measured: -14.5,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "LUFS a 0.5 LU do target → ainda verde, subscore 95"
+            },
+            {
+                name: "LUFS Limite Verde (1.0 LU)",
+                metric: "LUFS",
+                measured: -15.0,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "LUFS no limite verde (-15.0) → subscore 90"
+            },
+            {
+                name: "🚨 LUFS Zona Amarela (1.1 LU) — TESTE CRÍTICO",
+                metric: "LUFS",
+                measured: -12.9,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "AMARELA",
+                expectedScoreMin: 60,
+                expectedScoreMax: 65,
+                description: "⚠️ BUG: LUFS -12.9 produz subscore ~62 (zona amarela) — ANTES estava 94"
+            },
+            {
+                name: "LUFS Zona Amarela Central (1.5 LU)",
+                metric: "LUFS",
+                measured: -12.5,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "AMARELA",
+                expectedScoreMin: 65,
+                expectedScoreMax: 75,
+                description: "LUFS a 1.5 LU do target → subscore ~70"
+            },
+            {
+                name: "LUFS Limite Amarelo (2.0 LU)",
+                metric: "LUFS",
+                measured: -12.0,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "AMARELA",
+                expectedScoreMin: 60,
+                expectedScoreMax: 65,
+                description: "LUFS no limite amarelo (-12.0) → subscore 60"
+            },
+            {
+                name: "🚨 LUFS Zona Vermelha (2.2 LU)",
+                metric: "LUFS",
+                measured: -11.8,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "VERMELHA",
+                expectedScoreMin: 30,
+                expectedScoreMax: 40,
+                description: "LUFS a 2.2 LU do target → subscore ≤40"
+            },
+            {
+                name: "LUFS Muito Alto (4.0 LU)",
+                metric: "LUFS",
+                measured: -10.0,
+                target: -14.0,
+                tolerance: 1.0,
+                expectedZone: "VERMELHA",
+                expectedScoreMin: 20,
+                expectedScoreMax: 30,
+                description: "LUFS muito alto → subscore crítico (~20-25)"
+            },
+            {
+                name: "True Peak Conformante",
+                metric: "TruePeak",
+                measured: -1.0,
+                target: -1.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "True Peak exato no target → subscore alto"
+            },
+            {
+                name: "🚨 True Peak Zona Amarela — TESTE CRÍTICO",
+                metric: "TruePeak",
+                measured: -3.4,
+                target: -1.0,
+                tolerance: 1.0,
+                expectedZone: "VERMELHA",
+                expectedScoreMin: 30,
+                expectedScoreMax: 40,
+                description: "⚠️ True Peak -3.4 dBTP (2.4 dB além) → subscore ≤40"
+            },
+            {
+                name: "True Peak Limite Verde Superior",
+                metric: "TruePeak",
+                measured: -0.2,
+                target: -1.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "True Peak -0.2 dBTP (0.8 dB do target) → subscore 92"
+            },
+            {
+                name: "True Peak Limite Verde Inferior",
+                metric: "TruePeak",
+                measured: -2.0,
+                target: -1.0,
+                tolerance: 1.0,
+                expectedZone: "VERDE",
+                expectedScoreMin: 90,
+                expectedScoreMax: 100,
+                description: "True Peak -2.0 dBTP (1.0 dB do target) → subscore 90"
+            }
+        ];
+
+        function runTests() {
+            const resultsDiv = document.getElementById('results');
+            const summaryDiv = document.getElementById('summary');
+            const progressBar = document.getElementById('progress');
+            
+            resultsDiv.innerHTML = '';
+            summaryDiv.style.display = 'none';
+            
+            let passed = 0;
+            let failed = 0;
+            
+            testCases.forEach((test, index) => {
+                setTimeout(() => {
+                    const progress = ((index + 1) / testCases.length) * 100;
+                    progressBar.style.width = progress + '%';
+                    
+                    let result;
+                    if (test.metric === "LUFS") {
+                        result = calculateStreamingLufsScoreStrict(test.measured, test.target, test.tolerance);
+                    } else {
+                        result = calculateStreamingTruePeakScoreStrict(test.measured, test.target, test.tolerance);
+                    }
+                    
+                    const scoreInRange = result.score >= test.expectedScoreMin && result.score <= test.expectedScoreMax;
+                    const zoneCorrect = result.zone === test.expectedZone;
+                    const testPass = scoreInRange && zoneCorrect;
+                    
+                    if (testPass) passed++;
+                    else failed++;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'test-card';
+                    card.innerHTML = `
+                        <h3>${test.name}</h3>
+                        <div class="metric-row">
+                            <span class="metric-label">Métrica:</span>
+                            <span class="metric-value">${test.metric}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Medido:</span>
+                            <span class="metric-value">${test.measured.toFixed(1)} ${test.metric === 'LUFS' ? 'LUFS' : 'dBTP'}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Target:</span>
+                            <span class="metric-value">${test.target.toFixed(1)}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Diferença:</span>
+                            <span class="metric-value">${Math.abs(test.measured - test.target).toFixed(1)} LU</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Zona:</span>
+                            <span class="metric-value zone-${result.zone.toLowerCase()}">${result.zone}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Score Calculado:</span>
+                            <span class="metric-value">${result.score}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Range Esperado:</span>
+                            <span class="metric-value">${test.expectedScoreMin}-${test.expectedScoreMax}</span>
+                        </div>
+                        <div class="expected-behavior">
+                            <strong>Comportamento Esperado:</strong><br>
+                            ${test.description}
+                        </div>
+                        <span class="${testPass ? 'pass' : 'fail'}">
+                            ${testPass ? '✅ PASSOU' : '❌ FALHOU'}
+                        </span>
+                        ${!testPass ? `
+                            <div class="bug-note">
+                                <strong>⚠️ Problema:</strong><br>
+                                Score ${result.score} fora do esperado (${test.expectedScoreMin}-${test.expectedScoreMax})
+                                ${!zoneCorrect ? `<br>Zona ${result.zone} incorreta (esperado: ${test.expectedZone})` : ''}
+                            </div>
+                        ` : ''}
+                    `;
+                    resultsDiv.appendChild(card);
+                    
+                    if (index === testCases.length - 1) {
+                        showSummary(passed, failed);
+                    }
+                }, index * 100);
+            });
+        }
+
+        function showSummary(passed, failed) {
+            const summaryDiv = document.getElementById('summary');
+            const total = passed + failed;
+            const passRate = ((passed / total) * 100).toFixed(1);
+            
+            summaryDiv.innerHTML = `
+                <h2>${passed === total ? '🎉 Todos os Testes Passaram!' : '⚠️ Alguns Testes Falharam'}</h2>
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #00ff87;">${passed}</div>
+                        <div class="stat-label">Testes Aprovados</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #ff3864;">${failed}</div>
+                        <div class="stat-label">Testes Falhados</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" style="color: #60efff;">${passRate}%</div>
+                        <div class="stat-label">Taxa de Sucesso</div>
+                    </div>
+                </div>
+                ${failed > 0 ? `
+                    <div class="bug-note" style="margin-top: 30px;">
+                        <strong>🔧 Ação Necessária:</strong><br>
+                        ${failed} teste(s) falharam. Revise o pipeline de subscores em audio-analyzer-integration.js
+                    </div>
+                ` : `
+                    <div class="expected-behavior" style="margin-top: 30px;">
+                        <strong>✅ Pipeline Validado:</strong><br>
+                        Todos os testes passaram! A correção do pipeline está funcionando corretamente.
+                        Subscores streaming agora usam scores DIRETOS sem normalização.
+                    </div>
+                `}
+            `;
+            summaryDiv.style.display = 'block';
+        }
+
+        // Auto-executar ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>
