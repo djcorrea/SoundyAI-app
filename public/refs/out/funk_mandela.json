@@ -192,7 +192,7 @@
     "legacy_compatibility": {
       "lufs_target": -7.2,
       "true_peak_target": -0.5,
-      "dr_target": 6,
+      "dr_target": 9,
       "stereo_target": 0.85,
       "tol_lufs": 3.2,
       "tol_true_peak": 1.5,
@@ -306,9 +306,9 @@
     },
     "lufs_min": -9.5,
     "lufs_max": -3.1,
-    "dr_min": 3.6,
-    "dr_max": 11.7,
-    "true_peak_min": -3,
+    "dr_min": 4,
+    "dr_max": 17.7,
+    "true_peak_min": -1,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.1
   }
