@@ -231,3 +231,96 @@ Após a correção:
 - ✅ UX mais alinhado com a proposta: som forte, sem distorção
 - ✅ Valores negativos exibem apenas o número (ex: "-1.2 dBTP")
 - ✅ Valores positivos exibem alerta crítico (ex: "+0.5 dBTP 🔴 ESTOURADO")
+
+---
+
+## ✅ CORREÇÃO APLICADA
+
+**Data:** 19 de janeiro de 2026  
+**Status:** ✅ CONCLUÍDO
+
+### 🔧 Alteração Realizada
+
+**Arquivo:** `public/audio-analyzer-integration.js`  
+**Linha:** 17672-17687  
+**Método:** Refatoração da função `getTruePeakStatus()`
+
+#### Código Aplicado:
+```javascript
+// 🎯 FUNÇÃO DE STATUS DO TRUE PEAK (REFATORADA - APENAS ALERTA CLIPPING)
+// ✅ Card só avisa quando está estourado (> 0 dBTP)
+// ❌ Card não elogia quando está negativo (apenas exibe valor numérico)
+const getTruePeakStatus = (value) => {
+    if (!Number.isFinite(value)) return { status: '', class: '' };
+    
+    // Apenas alerta quando está clipando (> 0 dBTP)
+    if (value > 0.0) return { status: 'ESTOURADO', class: 'status-critical' };
+    
+    // Para valores negativos, não exibir status (apenas valor numérico)
+    return { status: '', class: '' };
+};
+```
+
+### 📋 Impactos da Correção
+
+#### ✅ ANTES → DEPOIS
+
+| Valor TP | ANTES | DEPOIS |
+|----------|-------|--------|
+| -7.3 dBTP | EXCELENTE ❌ | (vazio) ✅ |
+| -1.5 dBTP | EXCELENTE ❌ | (vazio) ✅ |
+| -1.0 dBTP | IDEAL ❌ | (vazio) ✅ |
+| -0.5 dBTP | BOM ❌ | (vazio) ✅ |
+| 0.0 dBTP | ACEITÁVEL ❌ | (vazio) ✅ |
+| +0.2 dBTP | ESTOURADO ✅ | ESTOURADO ✅ |
+| +1.5 dBTP | ESTOURADO ✅ | ESTOURADO ✅ |
+
+### 🧪 Validação
+
+**Arquivo de teste criado:** `validacao-true-peak-card-status-fix.html`
+
+**Casos de validação (12 testes):**
+- ✅ 8 testes com valores negativos → status vazio (apenas valor numérico)
+- ✅ 1 teste com valor zero → status vazio
+- ✅ 3 testes com valores positivos → status "ESTOURADO" com classe crítica
+
+**Taxa de sucesso esperada:** 100% (12/12 testes passando)
+
+### 🔍 Locais Afetados
+
+1. **Linha 17730** - Sample Peak (dBFS) na tabela
+2. **Linha 17752** - True Peak (dBTP) na tabela
+
+Ambos agora usam a lógica refatorada que:
+- ✅ Só exibe status quando há clipping (> 0)
+- ❌ Não exibe status positivo para valores negativos
+
+---
+
+## 📊 RESUMO TÉCNICO
+
+### ✅ Implementação Bem-Sucedida
+
+- **Tipo de correção:** Refatoração de função existente (Opção 2)
+- **Abrangência:** 2 pontos de uso (Sample Peak e True Peak na tabela)
+- **Linhas alteradas:** 16 linhas (17672-17687)
+- **Compatibilidade:** ✅ Mantém estrutura de retorno existente
+- **Risco de regressão:** ⚠️ BAIXO (apenas UI, não afeta cálculos)
+
+### 🎯 Objetivos Alcançados
+
+✅ Card principal fica limpo (sem elogios automáticos)  
+✅ Sistema só alerta clipping real (> 0 dBTP)  
+✅ UX profissional e coerente com proposta  
+✅ Sem contradições com tabela/score  
+✅ Código mais simples e direto  
+
+---
+
+## 🚀 PRÓXIMOS PASSOS
+
+1. ✅ Testar validação HTML (`validacao-true-peak-card-status-fix.html`)
+2. ⏳ Validar em ambiente real com arquivos de áudio
+3. ⏳ Verificar comportamento em diferentes resoluções (mobile/desktop)
+4. ⏳ Confirmar que Sample Peak também se beneficia da mudança
+5. ⏳ Commit e push para produção após validação final
