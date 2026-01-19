@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ Validação STRICT: Streaming Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ff00;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        h2 {
+            color: #ffaa00;
+            margin: 30px 0 15px 0;
+            font-size: 18px;
+            border-bottom: 2px solid #ffaa00;
+            padding-bottom: 5px;
+        }
+        .section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .test-case {
+            background: #1e1e1e;
+            border-left: 4px solid #666;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .test-case.pass {
+            border-left-color: #00ff00;
+        }
+        .test-case.fail {
+            border-left-color: #ff0000;
+        }
+        .test-input {
+            color: #00aaff;
+            font-weight: bold;
+        }
+        .test-expected {
+            color: #ffaa00;
+        }
+        .test-result {
+            color: #00ff00;
+        }
+        .test-result.fail {
+            color: #ff0000;
+        }
+        .verde { color: #00ff00; }
+        .amarela { color: #ffaa00; }
+        .vermelha { color: #ff0000; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th {
+            background: #333;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #ffaa00;
+        }
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+        }
+        .btn {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #00cc00;
+        }
+        .btn-secondary {
+            background: #ffaa00;
+        }
+        .btn-secondary:hover {
+            background: #dd8800;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .summary {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 8px;
+        }
+        .summary.pass {
+            border-left: 5px solid #00ff00;
+        }
+        .summary.fail {
+            border-left: 5px solid #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ VALIDAÇÃO TÉCNICA RÍGIDA — STREAMING MODE</h1>
+        <p style="color: #888; margin-bottom: 30px;">
+            Teste de conformidade com padrões técnicos Spotify/YouTube/Apple Music
+        </p>
+
+        <div class="section">
+            <h2>🎯 CASOS OBRIGATÓRIOS DE TESTE</h2>
+            <p>Estes casos DEVEM passar para a correção estar correta:</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Expectativa</th>
+                        <th>Zona</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>LUFS</td>
+                        <td class="test-input">-14.0</td>
+                        <td class="test-expected">Score ALTO (≥95)</td>
+                        <td class="verde">VERDE</td>
+                    </tr>
+                    <tr>
+                        <td>LUFS</td>
+                        <td class="test-input">-13.9 / -14.8</td>
+                        <td class="test-expected">Score ALTO (≥90)</td>
+                        <td class="verde">VERDE</td>
+                    </tr>
+                    <tr>
+                        <td>LUFS</td>
+                        <td class="test-input">-12.5</td>
+                        <td class="test-expected">Score BAIXO (≤65)</td>
+                        <td class="amarela">AMARELA</td>
+                    </tr>
+                    <tr>
+                        <td>LUFS</td>
+                        <td class="test-input">-11.8</td>
+                        <td class="test-expected">Score MUITO BAIXO (≤35)</td>
+                        <td class="vermelha">VERMELHA</td>
+                    </tr>
+                    <tr>
+                        <td>True Peak</td>
+                        <td class="test-input">-3.4 dBTP</td>
+                        <td class="test-expected">Score BAIXO (≤40)</td>
+                        <td class="vermelha">VERMELHA</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <button class="btn" onclick="runMandatoryTests()">▶ Executar Testes Obrigatórios</button>
+            <button class="btn btn-secondary" onclick="runAllTests()">▶ Executar Todos os Testes</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // 🎯 FUNÇÕES STREAMING STRICT (copiadas do sistema)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function calculateStreamingLufsScoreStrict(lufs) {
+            if (!Number.isFinite(lufs)) {
+                return { 
+                    score: null, 
+                    severity: 'N/A', 
+                    reason: 'Valor inválido', 
+                    zone: 'unknown',
+                    conformance: 'N/A'
+                };
+            }
+            
+            const TARGET = -14.0;
+            let score, severity, reason, zone, conformance;
+            
+            // ZONA VERDE: -15.0 a -13.0 LUFS
+            if (lufs >= -15.0 && lufs <= -13.0) {
+                zone = 'VERDE';
+                conformance = 'CONFORME';
+                
+                const distFromTarget = Math.abs(lufs - TARGET);
+                score = Math.round(100 - (distFromTarget * 10));
+                score = Math.max(90, Math.min(100, score));
+                
+                severity = 'OK';
+                
+                if (score >= 98) {
+                    reason = '✅ Conformidade total para streaming';
+                } else {
+                    reason = `✅ Dentro do padrão streaming (${distFromTarget.toFixed(1)} LU do ideal)`;
+                }
+                
+                return { score, severity, reason, zone, conformance, measuredLufs: lufs, targetLufs: TARGET };
+            }
+            
+            // ZONA AMARELA: [-16.0, -15.0) ou (-13.0, -12.0]
+            if ((lufs >= -16.0 && lufs < -15.0) || (lufs > -13.0 && lufs <= -12.0)) {
+                zone = 'AMARELA';
+                conformance = 'FORA DO PADRÃO';
+                
+                const distFromEdge = lufs > -13.0 
+                    ? Math.abs(lufs - (-13.0))
+                    : Math.abs(lufs - (-15.0));
+                
+                score = Math.round(80 - (distFromEdge * 20));
+                score = Math.max(60, Math.min(80, score));
+                
+                severity = 'ALTA';
+                
+                if (lufs > -13.0) {
+                    reason = `🟡 FORA DO PADRÃO STREAMING (${(lufs - TARGET).toFixed(1)} LU acima). Reduzir urgentemente`;
+                } else {
+                    reason = `🟡 FORA DO PADRÃO STREAMING (${Math.abs(lufs - TARGET).toFixed(1)} LU abaixo). Aumentar urgentemente`;
+                }
+                
+                return { score, severity, reason, zone, conformance, measuredLufs: lufs, targetLufs: TARGET };
+            }
+            
+            // ZONA VERMELHA: < -16.0 ou > -12.0
+            zone = 'VERMELHA';
+            conformance = 'NÃO CONFORME';
+            
+            const distFromLimit = lufs > -12.0 
+                ? Math.abs(lufs - (-12.0))
+                : Math.abs(lufs - (-16.0));
+            
+            score = Math.max(20, Math.round(40 - (distFromLimit * 10)));
+            severity = 'CRÍTICA';
+            
+            if (lufs > -12.0) {
+                reason = `🔴 NÃO CONFORME STREAMING (${(lufs - TARGET).toFixed(1)} LU acima). CORRIGIR`;
+            } else {
+                reason = `🔴 NÃO CONFORME STREAMING (${Math.abs(lufs - TARGET).toFixed(1)} LU abaixo). CORRIGIR`;
+            }
+            
+            return { score, severity, reason, zone, conformance, measuredLufs: lufs, targetLufs: TARGET };
+        }
+
+        function calculateStreamingTruePeakScoreStrict(tp) {
+            if (!Number.isFinite(tp)) {
+                return { 
+                    score: null, 
+                    severity: 'N/A', 
+                    reason: 'Valor inválido', 
+                    zone: 'unknown',
+                    conformance: 'N/A'
+                };
+            }
+            
+            const TARGET = -1.0;
+            let score, severity, reason, zone, conformance;
+            
+            // CLIPPING SEVERO: > +1.0 dBTP
+            if (tp > 1.0) {
+                zone = 'VERMELHA';
+                conformance = 'CLIPPING SEVERO';
+                score = Math.max(20, Math.round(30 - (tp * 10)));
+                severity = 'CRÍTICA';
+                reason = `🔴 CLIPPING SEVERO! Reduzir ${(tp - TARGET).toFixed(2)} dB URGENTEMENTE`;
+                return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+            }
+            
+            // ZONA VERDE: -2.0 a 0.0 dBTP
+            if (tp >= -2.0 && tp <= 0.0) {
+                zone = 'VERDE';
+                conformance = 'CONFORME';
+                
+                const distFromTarget = Math.abs(tp - TARGET);
+                score = Math.round(100 - (distFromTarget * 15));
+                score = Math.max(85, Math.min(100, score));
+                
+                if (tp > -0.1) {
+                    score = Math.min(score, 90);
+                    severity = 'ATENÇÃO';
+                    reason = `⚠️ Próximo ao clipping (${(tp - TARGET).toFixed(2)} dB). Reduzir ${Math.abs(tp - TARGET).toFixed(1)} dB`;
+                } else {
+                    severity = 'OK';
+                    if (score >= 98) {
+                        reason = '✅ True Peak ideal para streaming';
+                    } else {
+                        reason = `✅ Dentro do padrão streaming (${distFromTarget.toFixed(2)} dB do ideal)`;
+                    }
+                }
+                
+                return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+            }
+            
+            // ZONA AMARELA: [-3.0, -2.0) ou (0.0, +1.0]
+            if ((tp >= -3.0 && tp < -2.0) || (tp > 0.0 && tp <= 1.0)) {
+                zone = 'AMARELA';
+                conformance = 'FORA DO PADRÃO';
+                
+                const distFromEdge = tp > 0.0 
+                    ? Math.abs(tp - 0.0)
+                    : Math.abs(tp - (-2.0));
+                
+                score = Math.round(80 - (distFromEdge * 20));
+                score = Math.max(60, Math.min(80, score));
+                
+                severity = 'ALTA';
+                
+                if (tp > 0.0) {
+                    reason = `🟡 FORA DO PADRÃO (clipping de +${tp.toFixed(2)} dB). Reduzir ${(tp - TARGET).toFixed(1)} dB`;
+                } else {
+                    reason = `🟡 FORA DO PADRÃO (conservador demais). Aumentar ${Math.abs(tp - TARGET).toFixed(1)} dB`;
+                }
+                
+                return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+            }
+            
+            // ZONA VERMELHA: < -3.0 dBTP
+            zone = 'VERMELHA';
+            conformance = 'ERRO TÉCNICO';
+            
+            const distFromLimit = Math.abs(tp - (-3.0));
+            
+            score = Math.max(20, Math.round(40 - (distFromLimit * 10)));
+            severity = 'CRÍTICA';
+            reason = `🔴 ERRO TÉCNICO (headroom excessivo de ${Math.abs(tp - TARGET).toFixed(1)} dB). CORRIGIR`;
+            
+            return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🧪 TESTES DE VALIDAÇÃO
+        // ═══════════════════════════════════════════════════════════════════
+        
+        function runMandatoryTests() {
+            const tests = [
+                // LUFS: -14.0 → Score ALTO
+                { 
+                    metric: 'LUFS', 
+                    value: -14.0, 
+                    expected: { minScore: 95, maxScore: 100, zone: 'VERDE' },
+                    description: 'LUFS perfeito (-14.0) deve ter score ≥95'
+                },
+                // LUFS: -13.9 / -14.8 → Score ALTO
+                { 
+                    metric: 'LUFS', 
+                    value: -13.9, 
+                    expected: { minScore: 90, maxScore: 100, zone: 'VERDE' },
+                    description: 'LUFS -13.9 (dentro da zona verde) deve ter score ≥90'
+                },
+                { 
+                    metric: 'LUFS', 
+                    value: -14.8, 
+                    expected: { minScore: 90, maxScore: 100, zone: 'VERDE' },
+                    description: 'LUFS -14.8 (dentro da zona verde) deve ter score ≥90'
+                },
+                // LUFS: -12.5 → Score BAIXO
+                { 
+                    metric: 'LUFS', 
+                    value: -12.5, 
+                    expected: { minScore: 60, maxScore: 65, zone: 'AMARELA' },
+                    description: 'LUFS -12.5 (zona amarela) deve ter score ≤65'
+                },
+                // LUFS: -11.8 → Score MUITO BAIXO
+                { 
+                    metric: 'LUFS', 
+                    value: -11.8, 
+                    expected: { minScore: 20, maxScore: 35, zone: 'VERMELHA' },
+                    description: 'LUFS -11.8 (zona vermelha) deve ter score ≤35'
+                },
+                // True Peak: -3.4 → Score BAIXO
+                { 
+                    metric: 'TruePeak', 
+                    value: -3.4, 
+                    expected: { minScore: 20, maxScore: 40, zone: 'VERMELHA' },
+                    description: 'True Peak -3.4 dBTP (zona vermelha) deve ter score ≤40'
+                }
+            ];
+            
+            runTests(tests, 'TESTES OBRIGATÓRIOS');
+        }
+
+        function runAllTests() {
+            const tests = [
+                // LUFS ZONA VERDE
+                { metric: 'LUFS', value: -14.0, expected: { minScore: 95, maxScore: 100, zone: 'VERDE' }, description: 'LUFS -14.0 (perfeito)' },
+                { metric: 'LUFS', value: -13.5, expected: { minScore: 90, maxScore: 100, zone: 'VERDE' }, description: 'LUFS -13.5 (borda verde superior)' },
+                { metric: 'LUFS', value: -15.0, expected: { minScore: 90, maxScore: 100, zone: 'VERDE' }, description: 'LUFS -15.0 (borda verde inferior)' },
+                
+                // LUFS ZONA AMARELA
+                { metric: 'LUFS', value: -12.9, expected: { minScore: 60, maxScore: 80, zone: 'AMARELA' }, description: 'LUFS -12.9 (zona amarela)' },
+                { metric: 'LUFS', value: -12.0, expected: { minScore: 60, maxScore: 70, zone: 'AMARELA' }, description: 'LUFS -12.0 (borda amarela)' },
+                { metric: 'LUFS', value: -16.0, expected: { minScore: 60, maxScore: 80, zone: 'AMARELA' }, description: 'LUFS -16.0 (borda amarela inferior)' },
+                
+                // LUFS ZONA VERMELHA
+                { metric: 'LUFS', value: -11.5, expected: { minScore: 20, maxScore: 40, zone: 'VERMELHA' }, description: 'LUFS -11.5 (zona vermelha)' },
+                { metric: 'LUFS', value: -17.0, expected: { minScore: 20, maxScore: 40, zone: 'VERMELHA' }, description: 'LUFS -17.0 (zona vermelha)' },
+                
+                // TRUE PEAK ZONA VERDE
+                { metric: 'TruePeak', value: -1.0, expected: { minScore: 95, maxScore: 100, zone: 'VERDE' }, description: 'True Peak -1.0 (perfeito)' },
+                { metric: 'TruePeak', value: -1.5, expected: { minScore: 85, maxScore: 100, zone: 'VERDE' }, description: 'True Peak -1.5 (zona verde)' },
+                { metric: 'TruePeak', value: -0.5, expected: { minScore: 85, maxScore: 95, zone: 'VERDE' }, description: 'True Peak -0.5 (zona verde)' },
+                
+                // TRUE PEAK ZONA AMARELA
+                { metric: 'TruePeak', value: -2.5, expected: { minScore: 60, maxScore: 80, zone: 'AMARELA' }, description: 'True Peak -2.5 (zona amarela)' },
+                { metric: 'TruePeak', value: +0.5, expected: { minScore: 60, maxScore: 80, zone: 'AMARELA' }, description: 'True Peak +0.5 (clipping leve)' },
+                
+                // TRUE PEAK ZONA VERMELHA
+                { metric: 'TruePeak', value: -3.4, expected: { minScore: 20, maxScore: 40, zone: 'VERMELHA' }, description: 'True Peak -3.4 (zona vermelha)' },
+                { metric: 'TruePeak', value: -4.0, expected: { minScore: 20, maxScore: 35, zone: 'VERMELHA' }, description: 'True Peak -4.0 (erro técnico)' }
+            ];
+            
+            runTests(tests, 'TODOS OS TESTES');
+        }
+
+        function runTests(tests, title) {
+            const resultsDiv = document.getElementById('results');
+            let html = `<div class="section"><h2>${title}</h2>`;
+            
+            let passed = 0;
+            let failed = 0;
+            
+            tests.forEach(test => {
+                const result = test.metric === 'LUFS' 
+                    ? calculateStreamingLufsScoreStrict(test.value)
+                    : calculateStreamingTruePeakScoreStrict(test.value);
+                
+                const scoreOk = result.score >= test.expected.minScore && result.score <= test.expected.maxScore;
+                const zoneOk = result.zone === test.expected.zone;
+                const testPassed = scoreOk && zoneOk;
+                
+                if (testPassed) passed++;
+                else failed++;
+                
+                const testClass = testPassed ? 'pass' : 'fail';
+                const resultClass = testPassed ? '' : 'fail';
+                
+                html += `
+                    <div class="test-case ${testClass}">
+                        <div><strong>${test.description}</strong></div>
+                        <div class="test-input">Input: ${test.value}</div>
+                        <div class="test-expected">Esperado: Score ${test.expected.minScore}-${test.expected.maxScore}, Zona ${test.expected.zone}</div>
+                        <div class="test-result ${resultClass}">Resultado: Score ${result.score}, Zona ${result.zone}</div>
+                        <div style="color: #888; font-size: 12px; margin-top: 5px;">${result.reason}</div>
+                        <div style="margin-top: 5px;">${testPassed ? '✅ PASSOU' : '❌ FALHOU'}</div>
+                    </div>
+                `;
+            });
+            
+            const summaryClass = failed === 0 ? 'pass' : 'fail';
+            html += `
+                <div class="summary ${summaryClass}">
+                    ${failed === 0 ? '✅' : '❌'} RESULTADO: ${passed} passou, ${failed} falhou de ${tests.length} testes
+                    ${failed === 0 ? '<br>🎉 TODAS AS VALIDAÇÕES PASSARAM!' : '<br>⚠️ CORREÇÃO NECESSÁRIA'}
+                </div>
+            `;
+            
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
