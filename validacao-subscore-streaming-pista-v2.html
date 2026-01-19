@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Validação: Subscore Streaming vs Pista</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #e0e7ff;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .alert {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .test-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+        }
+        .test-card h3 {
+            color: #e0e7ff;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .metric-label {
+            color: #c7d2fe;
+        }
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .pass {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        .fail {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+        }
+        .section-title {
+            font-size: 1.8em;
+            margin: 30px 0 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 5px solid #e0e7ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Validação: Subscore Streaming vs Pista</h1>
+        <p class="subtitle">Teste das Correções V2 — Zona Verde Rigorosa + Unificação de Variável</p>
+        
+        <div class="alert">
+            <h2>✅ Correções Aplicadas</h2>
+            <ul>
+                <li><strong>Correção #1:</strong> Zona Verde TP Streaming ajustada de [-2.0, -0.8] para [-2.0, -1.2]</li>
+                <li><strong>Correção #2:</strong> Nova Zona Amarela Superior criada (-1.2, -0.5] para TP próximo ao clipping</li>
+                <li><strong>Correção #3:</strong> Unificação de variável: gates agora usam analysisMode (não soundDest)</li>
+                <li><strong>Correção #4:</strong> Gate TP desabilitado para modo streaming (redundante)</li>
+            </ul>
+        </div>
+
+        <button onclick="runTests()">▶️ Executar Validação</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        const testCases = [
+            {
+                section: "TRUE PEAK — STREAMING (Casos Reportados)",
+                tests: [
+                    {
+                        name: "TP -0.6 (Caso Crítico Reportado)",
+                        tp: -0.6,
+                        mode: "streaming",
+                        expectedZone: "AMARELA",
+                        expectedScoreMin: 70,
+                        expectedScoreMax: 75,
+                        expectedSeverity: "ATENÇÃO",
+                        description: "❌ ANTES: zona verde (score 96). ✅ AGORA: zona amarela (score ~72)"
+                    },
+                    {
+                        name: "TP -1.0 (Target Perfeito)",
+                        tp: -1.0,
+                        mode: "streaming",
+                        expectedZone: "VERDE",
+                        expectedScoreMin: 95,
+                        expectedScoreMax: 100,
+                        expectedSeverity: "OK",
+                        description: "Target ideal deve manter zona verde"
+                    },
+                    {
+                        name: "TP -1.2 (Limite Verde)",
+                        tp: -1.2,
+                        mode: "streaming",
+                        expectedZone: "VERDE",
+                        expectedScoreMin: 90,
+                        expectedScoreMax: 100,
+                        expectedSeverity: "OK",
+                        description: "Limite inferior da zona verde"
+                    },
+                    {
+                        name: "TP -0.8 (Clipping Próximo)",
+                        tp: -0.8,
+                        mode: "streaming",
+                        expectedZone: "AMARELA",
+                        expectedScoreMin: 75,
+                        expectedScoreMax: 85,
+                        expectedSeverity: "ATENÇÃO",
+                        description: "❌ ANTES: zona verde. ✅ AGORA: zona amarela (atenção)"
+                    },
+                    {
+                        name: "TP -0.5 (Clipping Iminente)",
+                        tp: -0.5,
+                        mode: "streaming",
+                        expectedZone: "AMARELA",
+                        expectedScoreMin: 65,
+                        expectedScoreMax: 75,
+                        expectedSeverity: "ATENÇÃO",
+                        description: "Limite superior da zona amarela"
+                    },
+                    {
+                        name: "TP +0.2 (Clipping Real)",
+                        tp: 0.2,
+                        mode: "streaming",
+                        expectedZone: "VERMELHA",
+                        expectedScoreMin: 50,
+                        expectedScoreMax: 65,
+                        expectedSeverity: "CRÍTICA",
+                        description: "Clipping real deve ser zona vermelha"
+                    }
+                ]
+            },
+            {
+                section: "LUFS — STREAMING (Casos Reportados)",
+                tests: [
+                    {
+                        name: "LUFS -11.9 (Caso Crítico Reportado)",
+                        lufs: -11.9,
+                        mode: "streaming",
+                        expectedZone: "VERMELHA",
+                        expectedScoreMin: 35,
+                        expectedScoreMax: 45,
+                        expectedSeverity: "CRÍTICA",
+                        description: "❌ ANTES: subscore ~85 (bug). ✅ AGORA: score ~39 (correto)"
+                    },
+                    {
+                        name: "LUFS -14.0 (Target Perfeito)",
+                        lufs: -14.0,
+                        mode: "streaming",
+                        expectedZone: "VERDE",
+                        expectedScoreMin: 95,
+                        expectedScoreMax: 100,
+                        expectedSeverity: "OK",
+                        description: "Target ideal streaming"
+                    },
+                    {
+                        name: "LUFS -13.0 (Limite Verde Superior)",
+                        lufs: -13.0,
+                        mode: "streaming",
+                        expectedZone: "VERDE",
+                        expectedScoreMin: 90,
+                        expectedScoreMax: 100,
+                        expectedSeverity: "OK",
+                        description: "Limite da zona verde"
+                    },
+                    {
+                        name: "LUFS -12.5 (Zona Amarela)",
+                        lufs: -12.5,
+                        mode: "streaming",
+                        expectedZone: "AMARELA",
+                        expectedScoreMin: 65,
+                        expectedScoreMax: 75,
+                        expectedSeverity: "ALTA",
+                        description: "Fora do padrão, mas margem"
+                    }
+                ]
+            }
+        ];
+
+        function evaluateTruePeakStreaming(tp) {
+            if (typeof window.calculateStreamingTruePeakScoreStrict === 'function') {
+                return window.calculateStreamingTruePeakScoreStrict(tp);
+            }
+            return { score: null, severity: 'N/A', zone: 'unknown' };
+        }
+
+        function evaluateLufsStreaming(lufs) {
+            if (typeof window.calculateStreamingLufsScoreStrict === 'function') {
+                return window.calculateStreamingLufsScoreStrict(lufs);
+            }
+            return { score: null, severity: 'N/A', zone: 'unknown' };
+        }
+
+        function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            let totalPassed = 0;
+            let totalFailed = 0;
+
+            testCases.forEach(section => {
+                resultsDiv.innerHTML += `<div class="section-title">${section.section}</div>`;
+                const grid = document.createElement('div');
+                grid.className = 'test-grid';
+                
+                section.tests.forEach(test => {
+                    let result;
+                    if (test.tp !== undefined) {
+                        result = evaluateTruePeakStreaming(test.tp);
+                    } else if (test.lufs !== undefined) {
+                        result = evaluateLufsStreaming(test.lufs);
+                    }
+                    
+                    const scoreInRange = result.score >= test.expectedScoreMin && result.score <= test.expectedScoreMax;
+                    const zoneCorrect = result.zone === test.expectedZone;
+                    const severityCorrect = result.severity === test.expectedSeverity;
+                    const testPass = scoreInRange && zoneCorrect && severityCorrect;
+                    
+                    if (testPass) totalPassed++;
+                    else totalFailed++;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'test-card';
+                    card.innerHTML = `
+                        <h3>${test.name}</h3>
+                        <div class="metric-row">
+                            <span class="metric-label">Valor Medido:</span>
+                            <span class="metric-value">${test.tp !== undefined ? test.tp.toFixed(1) + ' dBTP' : test.lufs.toFixed(1) + ' LUFS'}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Modo:</span>
+                            <span class="metric-value">${test.mode}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Zona Esperada:</span>
+                            <span class="metric-value">${test.expectedZone}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Zona Calculada:</span>
+                            <span class="metric-value">${result.zone}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Score Calculado:</span>
+                            <span class="metric-value">${result.score}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Score Esperado:</span>
+                            <span class="metric-value">${test.expectedScoreMin}-${test.expectedScoreMax}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Severity:</span>
+                            <span class="metric-value">${result.severity}</span>
+                        </div>
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 5px;">
+                            <strong>Descrição:</strong><br>${test.description}
+                        </div>
+                        <span class="${testPass ? 'pass' : 'fail'}">
+                            ${testPass ? '✅ PASSOU' : '❌ FALHOU'}
+                        </span>
+                    `;
+                    grid.appendChild(card);
+                });
+                
+                resultsDiv.appendChild(grid);
+            });
+
+            // Summary
+            const total = totalPassed + totalFailed;
+            const passRate = ((totalPassed / total) * 100).toFixed(1);
+            
+            resultsDiv.innerHTML += `
+                <div class="alert" style="margin-top: 30px; text-align: center;">
+                    <h2>${totalPassed === total ? '🎉 Todos os Testes Passaram!' : '⚠️ Alguns Testes Falharam'}</h2>
+                    <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+                        <div>
+                            <div style="font-size: 3em; font-weight: bold; color: #10b981;">${totalPassed}</div>
+                            <div>Aprovados</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 3em; font-weight: bold; color: #ef4444;">${totalFailed}</div>
+                            <div>Falhados</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 3em; font-weight: bold; color: #e0e7ff;">${passRate}%</div>
+                            <div>Taxa de Sucesso</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Auto-executar ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>
