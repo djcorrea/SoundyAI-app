@@ -25135,36 +25135,103 @@ window.evaluateMetric = function evaluateMetric(metricKey, measuredValue, target
         // Calcular diferença do TARGET (não do hard cap)
         diff = measuredValue - effectiveTarget;
         
-        // 🎯 REGRA CRÍTICA: qualquer valor > target já é problemático
-        if (measuredValue <= effectiveTarget) {
-            // Abaixo ou igual ao target = OK
-            score = 100;
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🎯 CORREÇÃO V2026-01-19: JANELA BILATERAL PARA TRUE PEAK
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // PROBLEMA ANTERIOR: valores abaixo do target recebiam score 100
+        // CORREÇÃO: definir janela aceitável bilateral
+        //
+        // Para True Peak (target -1.0 dBTP):
+        // • ZONA IDEAL: [-2.0, -0.8] → score alto (85-100)
+        // • ACIMA (clipping): > -0.8 → penalizar progressivamente
+        // • ABAIXO (conservador): < -2.0 → penalizar progressivamente
+        //
+        // Exemplos corrigidos:
+        // - TP -1.0 → score 100 ✅
+        // - TP -1.8 → score 90 ✅
+        // - TP -2.2 → score 75 ✅ (antes era 100 ❌)
+        // - TP -3.4 → score 45 ✅ (antes era 100 ❌)
+        // - TP -5.0 → score 25 ✅ (antes era 100 ❌)
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        // Definir janela aceitável (zona ideal)
+        const idealMin = effectiveTarget - 1.0; // Ex: -1.0 - 1.0 = -2.0 dBTP
+        const idealMax = effectiveTarget + 0.2; // Ex: -1.0 + 0.2 = -0.8 dBTP
+        
+        // CASO 1: Valor na ZONA IDEAL [idealMin, idealMax]
+        if (measuredValue >= idealMin && measuredValue <= idealMax) {
+            // Score alto proporcional à distância do target
+            const distFromTarget = Math.abs(measuredValue - effectiveTarget);
+            const zoneSize = 1.2; // idealMax - idealMin = 1.2 dB
+            const normalizedDist = distFromTarget / zoneSize;
+            
+            score = Math.round(100 - (normalizedDist * 15)); // 100 → 85
+            score = Math.max(85, Math.min(100, score));
             severity = 'OK';
             reason = '✅ Dentro do padrão';
-            deviationRatio = 0;
-        } else if (measuredValue > hardCap) {
-            // Acima do hard cap = CRÍTICO SEVERO
-            const excessFromCap = measuredValue - hardCap;
-            deviationRatio = (excessFromCap / tol) + 3; // Força ratio > 3
-            score = Math.max(20, 35 - (excessFromCap * 15));
-            severity = 'CRÍTICA';
-            reason = `🔴 Reduzir ${diff.toFixed(2)} (ACIMA DO LIMITE!)`;
-        } else {
-            // Entre target e hard cap = penalizado proporcionalmente
-            deviationRatio = diff / tol;
+            deviationRatio = normalizedDist;
             
-            if (deviationRatio <= 1.0) {
-                score = Math.round(100 - (deviationRatio * 15)); // 100 → 85
+        // CASO 2: Valor ACIMA da zona ideal (clipping / próximo ao limite)
+        } else if (measuredValue > idealMax) {
+            // Penalizar progressivamente até o hardCap
+            const excessAboveIdeal = measuredValue - idealMax;
+            
+            if (measuredValue > hardCap) {
+                // Acima do hard cap = CRÍTICO SEVERO
+                const excessFromCap = measuredValue - hardCap;
+                deviationRatio = (excessFromCap / tol) + 3; // Força ratio > 3
+                score = Math.max(20, 35 - (excessFromCap * 15));
+                severity = 'CRÍTICA';
+                reason = `🔴 Reduzir ${diff.toFixed(2)} (ACIMA DO LIMITE!)`;
+            } else if (excessAboveIdeal <= 0.3) {
+                // Ligeiramente acima da zona ideal (até +0.3 dB)
+                score = Math.round(85 - (excessAboveIdeal * 50)); // 85 → 70
                 severity = 'ATENÇÃO';
                 reason = `⚠️ Reduzir ${diff.toFixed(2)}`;
-            } else if (deviationRatio <= 2.0) {
-                score = Math.round(85 - ((deviationRatio - 1) * 20)); // 85 → 65
+                deviationRatio = excessAboveIdeal / tol;
+            } else if (excessAboveIdeal <= 0.8) {
+                // Moderadamente acima (0.3 a 0.8 dB)
+                score = Math.round(70 - ((excessAboveIdeal - 0.3) * 40)); // 70 → 50
                 severity = 'ALTA';
                 reason = `🟡 Reduzir ${diff.toFixed(2)}`;
+                deviationRatio = excessAboveIdeal / tol;
             } else {
-                score = Math.round(65 - ((deviationRatio - 2) * 30)); // 65 → 35
+                // Muito acima (> 0.8 dB da zona ideal)
+                score = Math.round(50 - ((excessAboveIdeal - 0.8) * 30)); // 50 → 20
                 severity = 'CRÍTICA';
                 reason = `🔴 Reduzir ${diff.toFixed(2)}`;
+                deviationRatio = excessAboveIdeal / tol;
+            }
+            
+        // CASO 3: Valor ABAIXO da zona ideal (headroom excessivo)
+        } else { // measuredValue < idealMin
+            // 🚨 CORREÇÃO CRÍTICA: penalizar conservadorismo excessivo
+            const excessBelowIdeal = idealMin - measuredValue; // Ex: -2.0 - (-3.4) = 1.4 dB
+            
+            if (excessBelowIdeal <= 0.3) {
+                // Ligeiramente abaixo (até -0.3 dB)
+                score = Math.round(85 - (excessBelowIdeal * 40)); // 85 → 73
+                severity = 'ATENÇÃO';
+                reason = `⚠️ Master conservadora. Considere aumentar ${excessBelowIdeal.toFixed(1)} dB`;
+                deviationRatio = excessBelowIdeal / tol;
+            } else if (excessBelowIdeal <= 1.0) {
+                // Moderadamente abaixo (-0.3 a -1.0 dB)
+                score = Math.round(73 - ((excessBelowIdeal - 0.3) * 30)); // 73 → 52
+                severity = 'ALTA';
+                reason = `🟡 Headroom excessivo de ${excessBelowIdeal.toFixed(1)} dB. Aumentar`;
+                deviationRatio = excessBelowIdeal / tol;
+            } else if (excessBelowIdeal <= 2.0) {
+                // Muito abaixo (-1.0 a -2.0 dB)
+                score = Math.round(52 - ((excessBelowIdeal - 1.0) * 20)); // 52 → 32
+                severity = 'CRÍTICA';
+                reason = `🔴 ERRO TÉCNICO: headroom excessivo de ${excessBelowIdeal.toFixed(1)} dB`;
+                deviationRatio = excessBelowIdeal / tol;
+            } else {
+                // Extremamente abaixo (> -2.0 dB)
+                score = Math.max(20, Math.round(32 - ((excessBelowIdeal - 2.0) * 8))); // 32 → 20
+                severity = 'CRÍTICA';
+                reason = `🔴 ERRO TÉCNICO SEVERO: headroom excessivo de ${excessBelowIdeal.toFixed(1)} dB`;
+                deviationRatio = excessBelowIdeal / tol;
             }
         }
         
@@ -25528,55 +25595,54 @@ window.calculateStreamingTruePeakScoreStrict = function(tp) {
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // ZONA VERDE: -2.0 a 0.0 dBTP (±1.0 dB do target)
+    // ZONA VERDE: -2.0 a -0.8 dBTP (zona ideal rigorosa)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (tp >= -2.0 && tp <= 0.0) {
+    if (tp >= -2.0 && tp <= -0.8) {
         zone = 'VERDE';
         conformance = 'CONFORME';
         
-        // Score alto dentro da zona verde (85-100)
+        // Score alto dentro da zona verde (90-100)
         const distFromTarget = Math.abs(tp - TARGET);
-        score = Math.round(100 - (distFromTarget * 15)); // -1.0 = 100, -2.0 = 85, 0.0 = 85
-        score = Math.max(85, Math.min(100, score));
+        score = Math.round(100 - (distFromTarget * 10)); // -1.0 = 100, -2.0 = 90, -0.8 = 98
+        score = Math.max(90, Math.min(100, score));
         
-        // Penalizar levemente clipping visível (> -0.1)
-        if (tp > -0.1) {
-            score = Math.min(score, 90);
-            severity = 'ATENÇÃO';
-            reason = `⚠️ Próximo ao clipping (${(tp - TARGET).toFixed(2)} dB). Reduzir ${Math.abs(tp - TARGET).toFixed(1)} dB`;
+        severity = 'OK';
+        if (score >= 98) {
+            reason = '✅ True Peak ideal para streaming';
         } else {
-            severity = 'OK';
-            if (score >= 98) {
-                reason = '✅ True Peak ideal para streaming';
-            } else {
-                reason = `✅ Dentro do padrão streaming (${distFromTarget.toFixed(2)} dB do ideal)`;
-            }
+            reason = `✅ Dentro do padrão streaming (${distFromTarget.toFixed(2)} dB do ideal)`;
         }
         
         return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
     }
     
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // ZONA AMARELA: [-3.0, -2.0) ou (0.0, +1.0]
+    // ZONA AMARELA: [-3.0, -2.0) ou (-0.8, +1.0]
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if ((tp >= -3.0 && tp < -2.0) || (tp > 0.0 && tp <= 1.0)) {
+    if ((tp >= -3.0 && tp < -2.0) || (tp > -0.8 && tp <= 1.0)) {
         zone = 'AMARELA';
         conformance = 'FORA DO PADRÃO';
         
-        // Score médio/baixo (60-80)
-        const distFromEdge = tp > 0.0 
-            ? Math.abs(tp - 0.0)    // Distância da borda superior (clipping)
-            : Math.abs(tp - (-2.0)); // Distância da borda inferior (conservador)
+        // Score médio/baixo (60-85)
+        let score;
         
-        score = Math.round(80 - (distFromEdge * 20)); // 80 → 60
-        score = Math.max(60, Math.min(80, score));
+        if (tp > -0.8) {
+            // Acima da zona verde (clipping)
+            const distFromEdge = Math.abs(tp - (-0.8));
+            score = Math.round(85 - (distFromEdge * 15)); // 85 → 60
+        } else {
+            // Abaixo da zona verde (conservador)
+            const distFromEdge = Math.abs(tp - (-2.0));
+            score = Math.round(85 - (distFromEdge * 20)); // 85 → 65
+        }
         
+        score = Math.max(60, Math.min(85, score));
         severity = 'ALTA';
         
-        if (tp > 0.0) {
-            reason = `🟡 FORA DO PADRÃO (clipping de +${tp.toFixed(2)} dB). Reduzir ${(tp - TARGET).toFixed(1)} dB`;
+        if (tp > -0.8) {
+            reason = `🟡 FORA DO PADRÃO (próximo ao clipping). Reduzir ${(tp - TARGET).toFixed(1)} dB`;
         } else {
-            reason = `🟡 FORA DO PADRÃO (conservador demais). Aumentar ${Math.abs(tp - TARGET).toFixed(1)} dB`;
+            reason = `🟡 FORA DO PADRÃO (headroom excessivo). Aumentar ${Math.abs(tp - TARGET).toFixed(1)} dB`;
         }
         
         return { score, severity, reason, zone, conformance, measuredTp: tp, targetTp: TARGET };
