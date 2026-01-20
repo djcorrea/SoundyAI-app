@@ -34,7 +34,7 @@
         checkoutUrl: 'https://pay.hotmart.com/SEU_PRODUTO_AQUI',
         
         // URL da página do produto (landing page)
-        productPageUrl: 'https://soundyai.com.br',
+        productPageUrl: 'https://musicaprofissional.com.br/',
         
         // TTL do bloqueio (30 dias em ms)
         blockTTL: 30 * 24 * 60 * 60 * 1000,

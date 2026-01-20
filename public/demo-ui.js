@@ -105,7 +105,7 @@
         
         // Evento do botão "Voltar" (único CTA disponível)
         document.getElementById('demoSecondaryButton').addEventListener('click', () => {
-            window.location.href = CONFIG.productPageUrl || 'https://soundyai.com.br';
+            window.location.href = CONFIG.productPageUrl || 'https://musicaprofissional.com.br/';
         });
         
         // 🔴 IMPORTANTE: Prevenir qualquer interação fora do modal
