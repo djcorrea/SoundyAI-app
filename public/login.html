@@ -488,26 +488,25 @@
     </div>
 
     <div id="sms-section">
-      <p>Enviamos um código SMS para seu celular.<br>Digite o código para concluir o cadastro.</p>
+      <p style="font-size: 15px; color: #a0a0ff; margin-bottom: 24px; line-height: 1.6;">
+        📱 <strong>Código SMS Enviado!</strong><br>
+        Verifique seu celular e digite o código de 6 dígitos abaixo.
+      </p>
       
       <div class="input-group">
-        <input id="smsCode" type="text" placeholder="Código recebido por SMS" autocomplete="one-time-code" />
+        <input 
+          id="smsCode" 
+          type="text" 
+          placeholder="000000" 
+          autocomplete="one-time-code" 
+          maxlength="6"
+          style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 600;"
+        />
       </div>
 
-      <div style="display: flex; justify-content: center; margin-top: 20px; gap: 10px; flex-wrap: wrap;">
-        <button class="btn-plus" id="confirmCodeBtn">Confirmar código</button>
-        <button type="button" id="resetSMSBtn" style="background: transparent; border: 1px solid #7b2cbf; color: #7b2cbf; padding: 15px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s;" 
-                onmouseover="this.style.background='#7b2cbf'; this.style.color='white';" 
-                onmouseout="this.style.background='transparent'; this.style.color='#7b2cbf';">
-          🔄 Resetar e Tentar Novamente
-        </button>
-      </div>
-      
-      <div style="margin-top: 15px; text-align: center;">
-        <small style="color: #888; font-size: 12px;">
-          💡 Se estiver com problemas, use o botão "Resetar" acima
-        </small>
-      </div>
+      <button class="btn-plus" id="confirmCodeBtn" style="width: 100%; margin-top: 24px; padding: 18px; font-size: 17px;">
+        ✅ Confirmar Código
+      </button>
     </div>
   </div>
 
@@ -561,7 +560,7 @@
     window.showError = showError;
     window.hideStatusMessage = hideStatusMessage;
     
-    // Configurar botão de reset SMS
+    // Configurar listeners iniciais
     document.addEventListener('DOMContentLoaded', function() {
       // ✅ Detectar reset de senha bem-sucedido
       const urlParams = new URLSearchParams(window.location.search);
@@ -571,45 +570,12 @@
         window.history.replaceState({}, document.title, window.location.pathname);
       }
       
-      const resetBtn = document.getElementById('resetSMSBtn');
-      if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-          console.log('🔄 Reset manual solicitado pelo usuário');
-          
-          // Resetar estado se a função estiver disponível
-          if (typeof window.resetSMSState === 'function') {
-            window.resetSMSState();
-            
-            // Esconder seção SMS
-            const smsSection = document.getElementById('sms-section');
-            if (smsSection) {
-              smsSection.style.display = 'none';
-            }
-            
-            // Limpar campo de telefone e focar
-            const phoneInput = document.getElementById('phone');
-            if (phoneInput) {
-              phoneInput.value = '';
-              phoneInput.focus();
-            }
-            
-            showStatusMessage('✅ Estado resetado! Digite um número diferente e tente novamente.', 'success');
-            
-          } else {
-            // Fallback: recarregar página
-            showStatusMessage('🔄 Recarregando página...', 'success', 2000);
-            setTimeout(() => window.location.reload(), 2000);
-          }
-        });
-      }
-      
-      // Configurar botão "Esqueci a senha" (corrige erro do console)
+      // Configurar botão "Esqueci a senha"
       const forgotPasswordLink = document.getElementById('forgotPasswordLink');
       if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', function(e) {
           e.preventDefault();
           
-          // Verificar se a função resetPassword está disponível
           if (typeof window.resetPassword === 'function') {
             window.resetPassword();
           } else {

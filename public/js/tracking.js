@@ -188,6 +188,18 @@
         },
         
         /**
+         * Obter configuração atual (para debug/validação)
+         */
+        getConfig() {
+            return {
+                enabled: CONFIG.enabled,
+                debug: CONFIG.debug,
+                conversionId: CONFIG.googleAds.conversionId,
+                labels: { ...CONFIG.googleAds.labels }
+            };
+        },
+        
+        /**
          * Enviar evento genérico para Google Ads/GA4
          */
         trackEvent(eventName, params = {}) {
