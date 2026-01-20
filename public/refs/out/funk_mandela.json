@@ -98,8 +98,8 @@
     },
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -7.2,
-        "true_peak_dbtp": -0.5,
+        "lufs_integrated": -9.2,
+        "true_peak_dbtp": -0.1,
         "dynamic_range": 9,
         "rms_db": -11.3,
         "stereo_correlation": 0.85,
