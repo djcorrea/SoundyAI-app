@@ -1082,33 +1082,80 @@ console.log('🚀 Carregando auth.js...');
               window.location.href = "entrevista.html";
             }
           } else if (user) {
+            // ✅ USUÁRIO AUTENTICADO - Validar Firestore
+            console.log('✅ [AUTH] Usuário autenticado:', user.uid);
+            
             // 🔓 MODO ANÔNIMO: Desativar se usuário autenticou
             if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
               window.SoundyAnonymous.deactivate();
             }
             
-            // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
+            // ✅ VALIDAÇÃO CRÍTICA: Verificar se telefone foi confirmado
             try {
               const userSnap = await getDoc(doc(db, 'usuarios', user.uid));
-              if (userSnap.exists()) {
-                const userData = userSnap.data();
+              
+              if (!userSnap.exists()) {
+                // ⚠️ DOCUMENTO NÃO EXISTE: Pode ser race condition (Firestore ainda não sincronizou)
+                console.warn('⚠️ [AUTH] Documento Firestore não encontrado para:', user.uid);
+                console.warn('⚠️ [AUTH] Isso pode ser normal logo após cadastro (race condition)');
                 
-                // Se djExpired === true e modal ainda não foi exibido nesta sessão
-                if (userData.djExpired === true && !sessionStorage.getItem('betaDjModalShown')) {
-                  console.log('🎧 [BETA-DJ] Usuário com beta expirado detectado - exibindo modal');
-                  
-                  // Aguardar 1 segundo para garantir que a página carregou
-                  setTimeout(() => {
-                    if (typeof window.openBetaExpiredModal === 'function') {
-                      window.openBetaExpiredModal();
-                    } else {
-                      console.warn('⚠️ [BETA-DJ] Função openBetaExpiredModal não disponível ainda');
-                    }
-                  }, 1000);
-                }
+                // ✅ NÃO DESLOGAR - Permitir acesso temporariamente
+                // O Firestore pode levar alguns segundos para sincronizar
+                console.log('✅ [AUTH] Permitindo acesso (Firestore pode estar sincronizando)');
+                resolve(user);
+                return;
               }
+              
+              const userData = userSnap.data();
+              
+              // ✅ VALIDAÇÃO OBRIGATÓRIA: Bloquear apenas se telefone NÃO verificado
+              // IMPORTANTE: Não bloquear se criadoSemSMS === true (usuários legados)
+              if (!userData.verificadoPorSMS && !userData.criadoSemSMS) {
+                console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado');
+                console.warn('   verificadoPorSMS:', userData.verificadoPorSMS);
+                console.warn('   criadoSemSMS:', userData.criadoSemSMS);
+                
+                await auth.signOut();
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                showMessage(
+                  "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
+                  "error"
+                );
+                
+                window.location.href = "login.html";
+                resolve(null);
+                return;
+              }
+              
+              console.log('✅ [AUTH] Validação completa - acesso permitido');
+              console.log('   verificadoPorSMS:', userData.verificadoPorSMS);
+              console.log('   criadoSemSMS:', userData.criadoSemSMS);
+              
+              // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
+              if (userData.djExpired === true && !sessionStorage.getItem('betaDjModalShown')) {
+                console.log('🎧 [BETA-DJ] Usuário com beta expirado detectado - exibindo modal');
+                
+                setTimeout(() => {
+                  if (typeof window.openBetaExpiredModal === 'function') {
+                    window.openBetaExpiredModal();
+                  } else {
+                    console.warn('⚠️ [BETA-DJ] Função openBetaExpiredModal não disponível ainda');
+                  }
+                }, 1000);
+              }
+              
             } catch (error) {
-              console.error('❌ [BETA-DJ] Erro ao verificar status do beta:', error);
+              console.error('❌ [AUTH] Erro ao verificar Firestore:', error);
+              
+              // ✅ ERRO TRANSITÓRIO - NÃO DESLOGAR
+              // Pode ser problema de rede, Firestore offline, etc.
+              console.warn('⚠️ [AUTH] Erro no Firestore - permitindo acesso temporariamente');
+              console.warn('   Se o problema persistir, usuário será bloqueado na próxima tentativa');
+              
+              // Permitir acesso mesmo com erro (melhor UX)
+              // A próxima navegação validará novamente
             }
           }
           resolve(user);

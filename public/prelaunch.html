@@ -15,21 +15,18 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
     <!-- 📊 Google Tag Manager / Google Ads Tracking -->
-    <!-- IMPORTANTE: Substituir GOOGLE_ADS_ID pelo ID real do Google Ads (formato: AW-XXXXXXX) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=GOOGLE_ADS_ID"></script>
+    <!-- IMPORTANTE: IDs gerenciados no tracking-config.js -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-REPLACE_WITH_YOUR_ID"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        
-        // Configurar Google Ads (substituir GOOGLE_ADS_ID)
-        gtag('config', 'GOOGLE_ADS_ID');
-        
-        console.log('📊 Google Tag inicializado');
+        gtag('config', 'AW-REPLACE_WITH_YOUR_ID');
     </script>
     
-    <!-- 📊 Sistema de Tracking de Conversões -->
+    <!-- 📊 Sistema de Tracking de Conversões (ordem: tracking.js → tracking-config.js) -->
     <script src="/js/tracking.js" defer></script>
+    <script src="/js/tracking-config.js" defer></script>
     
     <!-- Firebase SDK v11 (Modular) -->
     <script type="module">
