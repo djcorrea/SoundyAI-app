@@ -105,6 +105,19 @@
         
         // Evento do botão "Voltar" (único CTA disponível)
         document.getElementById('demoSecondaryButton').addEventListener('click', () => {
+            // ═══════════════════════════════════════════════════════════
+            // 📊 TRACKING: CTA Demo → Página de Vendas
+            // ═══════════════════════════════════════════════════════════
+            if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
+                try {
+                    window.SoundyTracking.trackCTADemoToSales(window.location.href);
+                    console.log('📊 CTA Demo → Vendas rastreado');
+                } catch (trackingError) {
+                    console.warn('⚠️ Erro no tracking (não crítico):', trackingError);
+                }
+            }
+            
+            // Navegação (não atrasar)
             window.location.href = CONFIG.productPageUrl || 'https://musicaprofissional.com.br/';
         });
         

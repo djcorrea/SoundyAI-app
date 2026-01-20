@@ -14,6 +14,23 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
+    <!-- 📊 Google Tag Manager / Google Ads Tracking -->
+    <!-- IMPORTANTE: Substituir GOOGLE_ADS_ID pelo ID real do Google Ads (formato: AW-XXXXXXX) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GOOGLE_ADS_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        
+        // Configurar Google Ads (substituir GOOGLE_ADS_ID)
+        gtag('config', 'GOOGLE_ADS_ID');
+        
+        console.log('📊 Google Tag inicializado');
+    </script>
+    
+    <!-- 📊 Sistema de Tracking de Conversões -->
+    <script src="/js/tracking.js" defer></script>
+    
     <!-- Firebase SDK v11 (Modular) -->
     <script type="module">
         // Importar Firebase
@@ -1903,6 +1920,27 @@
                     console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
                     console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
                     console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
+                    
+                    // ═══════════════════════════════════════════════════════════
+                    // 📊 TRACKING: Conversão Lista de Espera (LEAD)
+                    // ═══════════════════════════════════════════════════════════
+                    // ⚠️ CRÍTICO: Só dispara SE o Firestore salvou com sucesso!
+                    // ═══════════════════════════════════════════════════════════
+                    if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
+                        try {
+                            // Rastrear conversão (idempotente - não duplica)
+                            window.SoundyTracking.trackWaitlistSignup(email.toLowerCase(), {
+                                value: 0, // Ou atribuir valor estimado do lead
+                                name: name,
+                                engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
+                            });
+                            console.log('📊 Conversão de lista de espera rastreada');
+                        } catch (trackingError) {
+                            // Não bloquear UX se tracking falhar
+                            console.warn('⚠️ Erro no tracking (não crítico):', trackingError);
+                        }
+                    }
+                    
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     

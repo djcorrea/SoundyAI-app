@@ -28,8 +28,8 @@ console.log('🚀 Carregando auth.js...');
     let confirmationResult = null;
     let lastPhone = "";
     let isNewUserRegistering = false;
-    // MODO TEMPORÁRIO: Desabilitar verificação SMS e usar cadastro direto por email
-    let SMS_VERIFICATION_ENABLED = false; // ⚡ Mude para true quando quiser reativar SMS
+    // ✅ SMS OBRIGATÓRIO: Ativado para segurança (1 telefone = 1 conta)
+    let SMS_VERIFICATION_ENABLED = true; // ⚡ SMS obrigatório no cadastro
     
     // Função para alternar modo SMS (para facilitar reativação)
     window.toggleSMSMode = function(enable = true) {
@@ -170,12 +170,36 @@ console.log('🚀 Carregando auth.js...');
 
         try {
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
-          if (!snap.exists() || snap.data().entrevistaConcluida === false) {
+          
+          if (!snap.exists()) {
+            // Usuário não existe no Firestore - redirecionar para entrevista
+            window.location.href = "entrevista.html";
+            return;
+          }
+          
+          const userData = snap.data();
+          
+          // ✅ VALIDAÇÃO OBRIGATÓRIA: Bloquear se telefone não verificado
+          if (!userData.verificadoPorSMS && !userData.criadoSemSMS) {
+            // Conta criada mas telefone não verificado - forçar logout
+            console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado');
+            await auth.signOut();
+            localStorage.clear();
+            showMessage(
+              "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
+              "error"
+            );
+            return;
+          }
+          
+          // Prosseguir com navegação normal
+          if (userData.entrevistaConcluida === false) {
             window.location.href = "entrevista.html";
           } else {
             window.location.href = "index.html";
           }
         } catch (e) {
+          console.error('❌ Erro ao buscar dados do usuário:', e);
           window.location.href = "entrevista.html";
         }
       } catch (error) {
@@ -403,6 +427,36 @@ console.log('🚀 Carregando auth.js...');
       // Validação básica do formato
       if (!phone.startsWith('+55') || phone.length < 13 || phone.length > 14) {
         showMessage("Formato inválido. Use: 11987654321 (DDD + número)", "error");
+        return false;
+      }
+
+      // ✅ VALIDAÇÃO DE UNICIDADE: 1 telefone = 1 conta
+      // Verificar se telefone já existe no sistema ANTES de enviar SMS
+      try {
+        const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        
+        const phoneQuery = query(
+          collection(db, 'phone_mappings'),
+          where('telefone', '==', phone)
+        );
+        
+        const snapshot = await getDocs(phoneQuery);
+        
+        if (!snapshot.empty) {
+          showMessage(
+            "❌ Este telefone já está vinculado a outra conta. Use outro número ou faça login.",
+            "error"
+          );
+          return false;
+        }
+        
+        console.log('✅ [UNICIDADE] Telefone disponível para cadastro');
+      } catch (checkError) {
+        console.error('❌ Erro ao verificar unicidade do telefone:', checkError);
+        showMessage(
+          "Erro ao validar telefone. Tente novamente.",
+          "error"
+        );
         return false;
       }
 
@@ -717,38 +771,127 @@ console.log('🚀 Carregando auth.js...');
         const emailCredential = EmailAuthProvider.credential(email, password);
         await linkWithCredential(phoneResult.user, emailCredential);
 
-        // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
-        await setDoc(doc(db, 'usuarios', phoneResult.user.uid), {
-          uid: phoneResult.user.uid,
-          email: email,
-          telefone: phone,
-          plan: "free", // ✅ Novo schema
-          messagesToday: 0, // ✅ Novo schema
-          analysesToday: 0, // ✅ Novo schema
-          lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
-          verificadoPorSMS: true, // ✅ Verificado por SMS
-          criadoSemSMS: false, // ✅ Foi criado COM SMS
-          entrevistaConcluida: false,
-          createdAt: new Date().toISOString(), // ✅ ISO string
-          updatedAt: new Date().toISOString() // ✅ ISO string
+        // ✅ OBTER DEVICE FINGERPRINT (usa FingerprintJS já existente)
+        let deviceId = null;
+        try {
+          if (window.SoundyFingerprint) {
+            const fpData = await window.SoundyFingerprint.get();
+            deviceId = fpData.fingerprint_hash;
+            console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
+          } else {
+            console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
+            deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          }
+        } catch (fpError) {
+          console.error('❌ Erro ao obter fingerprint:', fpError);
+          deviceId = 'fp_fallback_' + Date.now();
+        }
+
+        // ✅ VALIDAR SE DEVICE JÁ POSSUI CONTA (anti-burla)
+        const { collection, query, where, getDocs, runTransaction } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        
+        const deviceQuery = query(
+          collection(db, 'device_mappings'),
+          where('deviceId', '==', deviceId)
+        );
+        
+        const deviceSnapshot = await getDocs(deviceQuery);
+        
+        if (!deviceSnapshot.empty) {
+          // Dispositivo já possui conta vinculada
+          const existingDevice = deviceSnapshot.docs[0].data();
+          console.warn('⚠️ [ANTI-BURLA] Dispositivo já possui conta:', existingDevice.userId);
+          
+          showMessage(
+            "❌ Este dispositivo já possui uma conta cadastrada. Não é permitido criar múltiplas contas.",
+            "error"
+          );
+          return;
+        }
+
+        // ✅ USAR TRANSACTION PARA EVITAR RACE CONDITION
+        // Garante atomicidade: se falhar, nada é salvo
+        await runTransaction(db, async (transaction) => {
+          const userRef = doc(db, 'usuarios', phoneResult.user.uid);
+          const phoneRef = doc(db, 'phone_mappings', phone.replace(/\D/g, ''));
+          const deviceRef = doc(db, 'device_mappings', deviceId);
+
+          // Verificar novamente dentro da transaction (previne race condition)
+          const phoneDoc = await transaction.get(phoneRef);
+          if (phoneDoc.exists()) {
+            throw new Error('Telefone já cadastrado por outro usuário');
+          }
+
+          const deviceDoc = await transaction.get(deviceRef);
+          if (deviceDoc.exists()) {
+            throw new Error('Dispositivo já possui conta cadastrada');
+          }
+
+          // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
+          transaction.set(userRef, {
+            uid: phoneResult.user.uid,
+            email: email,
+            telefone: phone,
+            deviceId: deviceId, // ✅ Salvar deviceId para rastreamento
+            plan: "free", // ✅ Novo schema
+            messagesToday: 0, // ✅ Novo schema
+            analysesToday: 0, // ✅ Novo schema
+            lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
+            verificadoPorSMS: true, // ✅ Verificado por SMS
+            criadoSemSMS: false, // ✅ Foi criado COM SMS
+            entrevistaConcluida: false,
+            createdAt: new Date().toISOString(), // ✅ ISO string
+            updatedAt: new Date().toISOString() // ✅ ISO string
+          });
+
+          // ✅ CRIAR MAPEAMENTO TELEFONE → USERID (unicidade)
+          transaction.set(phoneRef, {
+            telefone: phone,
+            userId: phoneResult.user.uid,
+            createdAt: new Date().toISOString()
+          });
+
+          // ✅ CRIAR MAPEAMENTO DEVICEID → USERID (anti-burla)
+          transaction.set(deviceRef, {
+            deviceId: deviceId,
+            userId: phoneResult.user.uid,
+            createdAt: new Date().toISOString()
+          });
         });
+
+        console.log('✅ [TRANSACTION] Usuário, telefone e device salvos com sucesso');
 
         // Salvar no localStorage
         const idToken = await phoneResult.user.getIdToken();
         localStorage.setItem("idToken", idToken);
+        localStorage.setItem("authToken", idToken);
         localStorage.setItem("user", JSON.stringify({
           uid: phoneResult.user.uid,
           email: phoneResult.user.email
         }));
 
-        showMessage("Cadastro realizado com sucesso!", "success");
+        showMessage("✅ Cadastro realizado com sucesso!", "success");
         
         setTimeout(() => {
           window.location.replace("entrevista.html");
         }, 1500);
 
       } catch (error) {
-        showMessage(error, "error");
+        console.error('❌ Erro no cadastro:', error);
+        
+        let errorMessage = "Erro ao finalizar cadastro: ";
+        
+        if (error.message.includes('Telefone já cadastrado')) {
+          errorMessage = "❌ Este telefone já está em uso. Use outro número.";
+        } else if (error.message.includes('Dispositivo já possui conta')) {
+          errorMessage = "❌ Este dispositivo já possui uma conta cadastrada.";
+        } else if (error.code) {
+          errorMessage += firebaseErrorsPt[error.code] || error.message;
+        } else {
+          errorMessage += error.message;
+        }
+        
+        showMessage(errorMessage, "error");
       }
     }
 
