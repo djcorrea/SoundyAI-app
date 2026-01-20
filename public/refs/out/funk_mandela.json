@@ -4,7 +4,7 @@
     "generated_at": "2025-12-27T14:56:55.771Z",
     "num_tracks": 10,
     "processing_mode": "fallback_safe",
-    "lufs_target": -7.2,
+    "lufs_target": -9.2,
     "true_peak_target": -0.5,
     "dr_target": 9,
     "lra_target": 2.5,
