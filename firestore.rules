@@ -1,9 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // ✅ USUÁRIOS: Somente o próprio usuário pode ler/escrever
     match /usuarios/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // ✅ VALIDAÇÃO DE ESCRITA: Impedir criação sem telefone verificado
+      allow create: if request.auth != null 
+                    && request.auth.uid == userId
+                    && request.resource.data.verificadoPorSMS == true
+                    && request.resource.data.telefone != null
+                    && request.resource.data.deviceId != null;
+      
+      // ✅ ATUALIZAÇÃO: Impedir alteração de telefone sem nova verificação
+      allow update: if request.auth != null 
+                    && request.auth.uid == userId
+                    && (
+                      // Se não alterar telefone, permitir
+                      request.resource.data.telefone == resource.data.telefone
+                      // OU se alterar telefone, deve reverificar por SMS
+                      || request.resource.data.verificadoPorSMS == true
+                    );
+      
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // ✅ MAPEAMENTO TELEFONE → USERID: Apenas backend pode manipular
+    match /phone_mappings/{phoneId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Apenas Transaction do Firebase pode escrever
+    }
+    
+    // ✅ MAPEAMENTO DEVICEID → USERID: Apenas backend pode manipular
+    match /device_mappings/{deviceId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Apenas Transaction do Firebase pode escrever
+    }
+    
+    // ⚠️ COLEÇÕES LEGADAS (manter compatibilidade)
     match /phones/{phoneId} {
       allow read, write: if false;
     }
