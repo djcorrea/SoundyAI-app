@@ -283,7 +283,7 @@
         }
       },
       "lufs_min": -11.5,
-      "lufs_max": -3.1,
+      "lufs_max": -6.1,
       "dr_min": 3.6,
       "dr_max": 11.7,
       "true_peak_min": -6,
@@ -305,7 +305,7 @@
       "note": "Valores ajustados para refletir referências reais do funk mandela comercial"
     },
     "lufs_min": -11.5,
-    "lufs_max": -3.1,
+    "lufs_max": -6.1,
     "dr_min": 3.6,
     "dr_max": 11.7,
     "true_peak_min": -6,
