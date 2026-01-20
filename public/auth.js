@@ -27,7 +27,7 @@ console.log('🚀 Carregando auth.js...');
     // ✅ VARIÁVEIS GLOBAIS - Usar window para garantir persistência
     window.confirmationResult = null;
     window.lastPhone = "";
-    let isNewUserRegistering = false;
+    window.isNewUserRegistering = false; // ✅ Proteger cadastro em progresso
     // ✅ SMS OBRIGATÓRIO: Ativado para segurança (1 telefone = 1 conta)
     let SMS_VERIFICATION_ENABLED = true; // ⚡ SMS obrigatório no cadastro
     
@@ -772,6 +772,11 @@ console.log('🚀 Carregando auth.js...');
       console.log('   código digitado:', code);
 
       try {
+        // ✅ BUG #4 FIX: Marcar cadastro em progresso para proteger no checkAuthState
+        window.isNewUserRegistering = true;
+        localStorage.setItem('cadastroEmProgresso', 'true');
+        console.log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
+        
         showMessage("Verificando código...", "success");
         
         // ✅ DESBLOQUEAR SCROLL (caso esteja bloqueado)
@@ -789,12 +794,25 @@ console.log('🚀 Carregando auth.js...');
         const phoneResult = await signInWithCredential(auth, phoneCredential);
         console.log('✅ [CONFIRM] Autenticação SMS bem-sucedida:', phoneResult.user.uid);
 
+        // ✅ BUG #5 FIX: Feedback visual
+        showMessage("🔗 Vinculando e-mail...", "success");
+        
         // Vincular e-mail à conta
         console.log('🔗 [CONFIRM] Vinculando e-mail à conta...');
         const emailCredential = EmailAuthProvider.credential(email, password);
-        await linkWithCredential(phoneResult.user, emailCredential);
+        const linkedResult = await linkWithCredential(phoneResult.user, emailCredential);
         console.log('✅ [CONFIRM] E-mail vinculado com sucesso');
+        
+        // ✅ BUG #1 FIX: Forçar renovação de token após linkWithCredential
+        // Isso garante que auth.currentUser está atualizado e não é null
+        console.log('🔄 [CONFIRM] Renovando token após vinculação...');
+        await linkedResult.user.reload();
+        const freshToken = await linkedResult.user.getIdToken(true); // true = forçar refresh
+        console.log('✅ [CONFIRM] Token renovado - sessão garantida');
 
+        // ✅ BUG #5 FIX: Feedback visual
+        showMessage("💾 Salvando dados...", "success");
+        
         // ✅ OBTER DEVICE FINGERPRINT (usa FingerprintJS já existente)
         let deviceId = null;
         try {
@@ -826,6 +844,9 @@ console.log('🚀 Carregando auth.js...');
           const existingDevice = deviceSnapshot.docs[0].data();
           console.warn('⚠️ [ANTI-BURLA] Dispositivo já possui conta:', existingDevice.userId);
           
+          window.isNewUserRegistering = false;
+          localStorage.removeItem('cadastroEmProgresso');
+          
           showMessage(
             "❌ Este dispositivo já possui uma conta cadastrada. Não é permitido criar múltiplas contas.",
             "error"
@@ -833,86 +854,135 @@ console.log('🚀 Carregando auth.js...');
           return;
         }
 
-        // ✅ USAR TRANSACTION PARA EVITAR RACE CONDITION
-        // Garante atomicidade: se falhar, nada é salvo
-        console.log('💾 [CONFIRM] Iniciando Firestore Transaction...');
+        // ✅ BUG #3 FIX: USAR TRANSACTION COM RETRY AUTOMÁTICO
+        console.log('💾 [CONFIRM] Iniciando Firestore Transaction com retry...');
         
-        await runTransaction(db, async (transaction) => {
-          console.log('  ➡️ [TRANSACTION] Criando referências...');
-          const userRef = doc(db, 'usuarios', phoneResult.user.uid);
-          const phoneRef = doc(db, 'phone_mappings', phone.replace(/\D/g, ''));
-          const deviceRef = doc(db, 'device_mappings', deviceId);
+        let transactionSuccess = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (!transactionSuccess && retryCount < maxRetries) {
+          try {
+            retryCount++;
+            console.log(`  ➡️ [TRANSACTION] Tentativa ${retryCount}/${maxRetries}`);
+            
+            await runTransaction(db, async (transaction) => {
+              console.log('    🔍 [TRANSACTION] Criando referências...');
+              const userRef = doc(db, 'usuarios', linkedResult.user.uid);
+              const phoneRef = doc(db, 'phone_mappings', phone.replace(/\D/g, ''));
+              const deviceRef = doc(db, 'device_mappings', deviceId);
 
-          // Verificar novamente dentro da transaction (previne race condition)
-          console.log('  ➡️ [TRANSACTION] Validando telefone...');
-          const phoneDoc = await transaction.get(phoneRef);
-          if (phoneDoc.exists()) {
-            console.error('  ❌ [TRANSACTION] Telefone já existe');
-            throw new Error('Telefone já cadastrado por outro usuário');
+              // Verificar novamente dentro da transaction (previne race condition)
+              console.log('    🔍 [TRANSACTION] Validando telefone...');
+              const phoneDoc = await transaction.get(phoneRef);
+              if (phoneDoc.exists()) {
+                console.error('    ❌ [TRANSACTION] Telefone já existe');
+                throw new Error('Telefone já cadastrado por outro usuário');
+              }
+
+              console.log('    🔍 [TRANSACTION] Validando dispositivo...');
+              const deviceDoc = await transaction.get(deviceRef);
+              if (deviceDoc.exists()) {
+                console.error('    ❌ [TRANSACTION] Dispositivo já existe');
+                throw new Error('Dispositivo já possui conta cadastrada');
+              }
+
+              // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
+              console.log('    🔍 [TRANSACTION] Criando usuário...');
+              transaction.set(userRef, {
+                uid: linkedResult.user.uid,
+                email: email,
+                telefone: phone,
+                deviceId: deviceId,
+                plan: "free",
+                messagesToday: 0,
+                analysesToday: 0,
+                lastResetAt: new Date().toISOString().slice(0, 10),
+                verificadoPorSMS: true,
+                criadoSemSMS: false,
+                entrevistaConcluida: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+
+              // ✅ CRIAR MAPEAMENTO TELEFONE → USERID
+              console.log('    🔍 [TRANSACTION] Criando mapeamento telefone...');
+              transaction.set(phoneRef, {
+                telefone: phone,
+                userId: linkedResult.user.uid,
+                createdAt: new Date().toISOString()
+              });
+
+              // ✅ CRIAR MAPEAMENTO DEVICEID → USERID
+              console.log('    🔍 [TRANSACTION] Criando mapeamento device...');
+              transaction.set(deviceRef, {
+                deviceId: deviceId,
+                userId: linkedResult.user.uid,
+                createdAt: new Date().toISOString()
+              });
+              
+              console.log('    ✅ [TRANSACTION] Todas as operações preparadas');
+            });
+            
+            // Se chegou aqui, transaction foi bem-sucedida
+            transactionSuccess = true;
+            console.log('✅ [TRANSACTION] Firestore salvo com sucesso');
+            
+          } catch (transactionError) {
+            console.error(`❌ [TRANSACTION] Tentativa ${retryCount} falhou:`, transactionError);
+            
+            if (retryCount >= maxRetries) {
+              // ✅ BUG #3 FIX: Permitir retry manual se todas as tentativas falharam
+              console.error('❌ [TRANSACTION] Todas as tentativas falharam');
+              
+              window.isNewUserRegistering = false;
+              localStorage.removeItem('cadastroEmProgresso');
+              
+              const retryMsg = `❌ Erro ao salvar dados (Tentativa ${retryCount}/${maxRetries}). ` +
+                               `Sua conta foi criada mas os dados não foram salvos. ` +
+                               `Por favor, entre em contato com o suporte ou tente fazer login novamente.`;
+              showMessage(retryMsg, "error");
+              
+              // ✅ NÃO deslogar o usuário - ele foi autenticado com sucesso
+              // Apenas salvar token para permitir login
+              localStorage.setItem("idToken", freshToken);
+              localStorage.setItem("authToken", freshToken);
+              localStorage.setItem("user", JSON.stringify({
+                uid: linkedResult.user.uid,
+                email: linkedResult.user.email
+              }));
+              
+              console.log('⚠️ [CONFIRM] Usuário autenticado mas Firestore falhou - permitindo acesso');
+              return;
+            }
+            
+            // Aguardar antes de retry (backoff exponencial)
+            const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s
+            console.log(`⏳ [TRANSACTION] Aguardando ${delay}ms antes de retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
-
-          console.log('  ➡️ [TRANSACTION] Validando dispositivo...');
-          const deviceDoc = await transaction.get(deviceRef);
-          if (deviceDoc.exists()) {
-            console.error('  ❌ [TRANSACTION] Dispositivo já existe');
-            throw new Error('Dispositivo já possui conta cadastrada');
-          }
-
-          // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
-          console.log('  ➡️ [TRANSACTION] Criando usuário...');
-          transaction.set(userRef, {
-            uid: phoneResult.user.uid,
-            email: email,
-            telefone: phone,
-            deviceId: deviceId, // ✅ Salvar deviceId para rastreamento
-            plan: "free", // ✅ Novo schema
-            messagesToday: 0, // ✅ Novo schema
-            analysesToday: 0, // ✅ Novo schema
-            lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
-            verificadoPorSMS: true, // ✅ Verificado por SMS
-            criadoSemSMS: false, // ✅ Foi criado COM SMS
-            entrevistaConcluida: false,
-            createdAt: new Date().toISOString(), // ✅ ISO string
-            updatedAt: new Date().toISOString() // ✅ ISO string
-          });
-
-          // ✅ CRIAR MAPEAMENTO TELEFONE → USERID (unicidade)
-          console.log('  ➡️ [TRANSACTION] Criando mapeamento telefone...');
-          transaction.set(phoneRef, {
-            telefone: phone,
-            userId: phoneResult.user.uid,
-            createdAt: new Date().toISOString()
-          });
-
-          // ✅ CRIAR MAPEAMENTO DEVICEID → USERID (anti-burla)
-          console.log('  ➡️ [TRANSACTION] Criando mapeamento device...');
-          transaction.set(deviceRef, {
-            deviceId: deviceId,
-            userId: phoneResult.user.uid,
-            createdAt: new Date().toISOString()
-          });
-          
-          console.log('  ✅ [TRANSACTION] Todas as operações preparadas');
-        });
-
-        console.log('✅ [TRANSACTION] Usuário, telefone e device salvos com sucesso');
+        }
         
         // ✅ GARANTIR QUE USUÁRIO PERMANECE LOGADO
         console.log('🔐 [CONFIRM] Salvando tokens de autenticação...');
-        const idToken = await phoneResult.user.getIdToken();
-        localStorage.setItem("idToken", idToken);
-        localStorage.setItem("authToken", idToken);
+        localStorage.setItem("idToken", freshToken);
+        localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
-          uid: phoneResult.user.uid,
-          email: phoneResult.user.email
+          uid: linkedResult.user.uid,
+          email: linkedResult.user.email,
+          telefone: phone
         }));
         console.log('✅ [CONFIRM] Tokens salvos - usuário permanecerá logado');
+        
+        // ✅ Limpar flag de cadastro em progresso
+        window.isNewUserRegistering = false;
+        localStorage.removeItem('cadastroEmProgresso');
         
         // ✅ DESBLOQUEAR SCROLL novamente (garantia)
         document.body.style.overflow = '';
         document.documentElement.style.overflow = '';
 
-        showMessage("✅ Cadastro realizado com sucesso!", "success");
+        showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
         
         console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
         setTimeout(() => {
@@ -1079,8 +1149,11 @@ console.log('🚀 Carregando auth.js...');
           const isDemoPage = window.location.pathname.includes("/demo") || 
                              window.location.search.includes("mode=demo");
 
-          if (isNewUserRegistering && isEntrevistaPage) {
-            isNewUserRegistering = false;
+          // ✅ BUG #2 FIX: Proteger cadastro em progresso
+          if (window.isNewUserRegistering && isEntrevistaPage) {
+            console.log('🛡️ [AUTH] Cadastro em progresso detectado - permitindo acesso');
+            window.isNewUserRegistering = false;
+            localStorage.removeItem('cadastroEmProgresso');
             resolve(user);
             return;
           }
@@ -1175,6 +1248,14 @@ console.log('🚀 Carregando auth.js...');
               }
               
               const userData = userSnap.data();
+              
+              // ✅ BUG #2 FIX: Não validar telefone se cadastro ainda em progresso
+              const cadastroEmProgresso = localStorage.getItem('cadastroEmProgresso') === 'true';
+              if (cadastroEmProgresso) {
+                console.log('🛡️ [AUTH] Cadastro em progresso - pulando validação de telefone');
+                resolve(user);
+                return;
+              }
               
               // ✅ VALIDAÇÃO OBRIGATÓRIA: Bloquear apenas se telefone NÃO verificado
               // IMPORTANTE: Não bloquear se criadoSemSMS === true (usuários legados)
