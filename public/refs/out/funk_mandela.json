@@ -190,7 +190,7 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -7.2,
+      "lufs_target": -9.2,
       "true_peak_target": -0.5,
       "dr_target": 9,
       "stereo_target": 0.85,
@@ -282,8 +282,8 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -9.5,
-      "lufs_max": -3.1,
+      "lufs_min": -11.5,
+      "lufs_max": -6.1,
       "dr_min": 4,
       "dr_max": 17.7,
       "true_peak_min": -6,
@@ -304,8 +304,8 @@
       "source": "professional_analysis",
       "note": "Valores ajustados para refletir referências reais do funk mandela comercial"
     },
-    "lufs_min": -9.5,
-    "lufs_max": -3.1,
+    "lufs_min": -11.5,
+    "lufs_max": -6.1,
     "dr_min": 4,
     "dr_max": 17.7,
     "true_peak_min": -6,
