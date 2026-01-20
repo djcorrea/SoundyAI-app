@@ -24,9 +24,9 @@ console.log('🚀 Carregando auth.js...');
 
     console.log('✅ Todas as importações carregadas com sucesso');
 
-    // Variáveis globais
-    let confirmationResult = null;
-    let lastPhone = "";
+    // ✅ VARIÁVEIS GLOBAIS - Usar window para garantir persistência
+    window.confirmationResult = null;
+    window.lastPhone = "";
     let isNewUserRegistering = false;
     // ✅ SMS OBRIGATÓRIO: Ativado para segurança (1 telefone = 1 conta)
     let SMS_VERIFICATION_ENABLED = true; // ⚡ SMS obrigatório no cadastro
@@ -370,21 +370,6 @@ console.log('🚀 Carregando auth.js...');
         }
         
         showMessage(errorMessage, "error");
-        switch (error.code) {
-          case 'auth/email-already-in-use':
-            errorMessage = "Este e-mail já está cadastrado. Faça login ou use outro e-mail.";
-            break;
-          case 'auth/weak-password':
-            errorMessage = "Senha muito fraca. Use pelo menos 6 caracteres.";
-            break;
-          case 'auth/invalid-email':
-            errorMessage = "E-mail inválido.";
-            break;
-          default:
-            errorMessage += error.message;
-        }
-        
-        showMessage(errorMessage, "error");
       }
     }
     function resetSMSState() {
@@ -407,11 +392,15 @@ console.log('🚀 Carregando auth.js...');
         container.innerHTML = '';
       }
       
-      // Resetar variáveis
-      confirmationResult = null;
-      lastPhone = "";
+      // ⚠️ CRÍTICO: NÃO resetar confirmationResult se SMS foi enviado
+      // Apenas resetar se realmente necessário (erro antes do envio)
+      console.warn('⚠️ resetSMSState: Mantendo confirmationResult preservado');
+      console.log('   confirmationResult atual:', window.confirmationResult ? 'EXISTE' : 'NULL');
       
-      console.log('✅ Estado resetado com sucesso');
+      // ✅ NÃO fazer: confirmationResult = null
+      // ✅ NÃO fazer: lastPhone = ""
+      
+      console.log('✅ Estado resetado (confirmationResult preservado)');
     }
 
     // Função para enviar SMS
@@ -528,10 +517,19 @@ console.log('🚀 Carregando auth.js...');
       let smsSent = false;
       try {
         console.log('📱 Enviando SMS para:', phone);
-        confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
-        lastPhone = phone;
+        
+        // ✅ USAR window.confirmationResult para garantir persistência
+        window.confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
+        window.lastPhone = phone;
+        
+        // ✅ VALIDAR se verificationId existe
+        if (!window.confirmationResult || !window.confirmationResult.verificationId) {
+          throw new Error('SMS enviado mas confirmationResult inválido');
+        }
         
         console.log('✅ SMS enviado com sucesso');
+        console.log('   verificationId:', window.confirmationResult.verificationId?.substring(0, 20) + '...');
+        console.log('   confirmationResult armazenado em window.confirmationResult');
         
         // Usar função específica para sucesso do SMS
         if (typeof window.showSMSSuccess === 'function') {
@@ -689,7 +687,8 @@ console.log('🚀 Carregando auth.js...');
       const formattedPhone = '+55' + cleanPhone.replace(/^55/, '');
 
       // Se já enviou SMS para este telefone, mostrar seção SMS
-      if (confirmationResult && lastPhone === formattedPhone) {
+      if (window.confirmationResult && window.lastPhone === formattedPhone) {
+        console.log('✅ SMS já enviado para este telefone - mostrando seção');
         if (typeof window.showSMSSuccess === 'function') {
           window.showSMSSuccess();
         } else {
@@ -737,6 +736,8 @@ console.log('🚀 Carregando auth.js...');
 
     // Função para confirmar código SMS
     async function confirmSMSCode() {
+      console.log('🔐 [CONFIRM] Iniciando confirmação de código SMS...');
+      
       const email = document.getElementById("email")?.value?.trim();
       const password = document.getElementById("password")?.value?.trim();
       const phone = document.getElementById("phone")?.value?.trim();
@@ -752,24 +753,47 @@ console.log('🚀 Carregando auth.js...');
         return;
       }
 
-      if (!confirmationResult) {
-        showMessage("Solicite um novo código SMS.", "error");
+      // ✅ VALIDAÇÃO ROBUSTA do confirmationResult
+      if (!window.confirmationResult) {
+        console.error('❌ [CONFIRM] window.confirmationResult é NULL');
+        showMessage("Erro: Solicite um novo código SMS.", "error");
         return;
       }
+      
+      if (!window.confirmationResult.verificationId) {
+        console.error('❌ [CONFIRM] verificationId não existe');
+        console.error('   confirmationResult:', window.confirmationResult);
+        showMessage("Erro: Sessão de verificação inválida. Solicite novo SMS.", "error");
+        return;
+      }
+      
+      console.log('✅ [CONFIRM] confirmationResult validado com sucesso');
+      console.log('   verificationId:', window.confirmationResult.verificationId.substring(0, 20) + '...');
+      console.log('   código digitado:', code);
 
       try {
         showMessage("Verificando código...", "success");
+        
+        // ✅ DESBLOQUEAR SCROLL (caso esteja bloqueado)
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
 
-        // Confirmar código SMS
+        // ✅ Confirmar código SMS usando window.confirmationResult
+        console.log('🔐 [CONFIRM] Criando credential com verificationId...');
         const phoneCredential = PhoneAuthProvider.credential(
-          confirmationResult.verificationId, 
+          window.confirmationResult.verificationId, 
           code
         );
+        
+        console.log('🔐 [CONFIRM] Autenticando com credential...');
         const phoneResult = await signInWithCredential(auth, phoneCredential);
+        console.log('✅ [CONFIRM] Autenticação SMS bem-sucedida:', phoneResult.user.uid);
 
         // Vincular e-mail à conta
+        console.log('🔗 [CONFIRM] Vinculando e-mail à conta...');
         const emailCredential = EmailAuthProvider.credential(email, password);
         await linkWithCredential(phoneResult.user, emailCredential);
+        console.log('✅ [CONFIRM] E-mail vinculado com sucesso');
 
         // ✅ OBTER DEVICE FINGERPRINT (usa FingerprintJS já existente)
         let deviceId = null;
@@ -811,23 +835,31 @@ console.log('🚀 Carregando auth.js...');
 
         // ✅ USAR TRANSACTION PARA EVITAR RACE CONDITION
         // Garante atomicidade: se falhar, nada é salvo
+        console.log('💾 [CONFIRM] Iniciando Firestore Transaction...');
+        
         await runTransaction(db, async (transaction) => {
+          console.log('  ➡️ [TRANSACTION] Criando referências...');
           const userRef = doc(db, 'usuarios', phoneResult.user.uid);
           const phoneRef = doc(db, 'phone_mappings', phone.replace(/\D/g, ''));
           const deviceRef = doc(db, 'device_mappings', deviceId);
 
           // Verificar novamente dentro da transaction (previne race condition)
+          console.log('  ➡️ [TRANSACTION] Validando telefone...');
           const phoneDoc = await transaction.get(phoneRef);
           if (phoneDoc.exists()) {
+            console.error('  ❌ [TRANSACTION] Telefone já existe');
             throw new Error('Telefone já cadastrado por outro usuário');
           }
 
+          console.log('  ➡️ [TRANSACTION] Validando dispositivo...');
           const deviceDoc = await transaction.get(deviceRef);
           if (deviceDoc.exists()) {
+            console.error('  ❌ [TRANSACTION] Dispositivo já existe');
             throw new Error('Dispositivo já possui conta cadastrada');
           }
 
           // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
+          console.log('  ➡️ [TRANSACTION] Criando usuário...');
           transaction.set(userRef, {
             uid: phoneResult.user.uid,
             email: email,
@@ -845,6 +877,7 @@ console.log('🚀 Carregando auth.js...');
           });
 
           // ✅ CRIAR MAPEAMENTO TELEFONE → USERID (unicidade)
+          console.log('  ➡️ [TRANSACTION] Criando mapeamento telefone...');
           transaction.set(phoneRef, {
             telefone: phone,
             userId: phoneResult.user.uid,
@@ -852,16 +885,20 @@ console.log('🚀 Carregando auth.js...');
           });
 
           // ✅ CRIAR MAPEAMENTO DEVICEID → USERID (anti-burla)
+          console.log('  ➡️ [TRANSACTION] Criando mapeamento device...');
           transaction.set(deviceRef, {
             deviceId: deviceId,
             userId: phoneResult.user.uid,
             createdAt: new Date().toISOString()
           });
+          
+          console.log('  ✅ [TRANSACTION] Todas as operações preparadas');
         });
 
         console.log('✅ [TRANSACTION] Usuário, telefone e device salvos com sucesso');
-
-        // Salvar no localStorage
+        
+        // ✅ GARANTIR QUE USUÁRIO PERMANECE LOGADO
+        console.log('🔐 [CONFIRM] Salvando tokens de autenticação...');
         const idToken = await phoneResult.user.getIdToken();
         localStorage.setItem("idToken", idToken);
         localStorage.setItem("authToken", idToken);
@@ -869,22 +906,53 @@ console.log('🚀 Carregando auth.js...');
           uid: phoneResult.user.uid,
           email: phoneResult.user.email
         }));
+        console.log('✅ [CONFIRM] Tokens salvos - usuário permanecerá logado');
+        
+        // ✅ DESBLOQUEAR SCROLL novamente (garantia)
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
 
         showMessage("✅ Cadastro realizado com sucesso!", "success");
         
+        console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
         setTimeout(() => {
           window.location.replace("entrevista.html");
         }, 1500);
 
       } catch (error) {
-        console.error('❌ Erro no cadastro:', error);
+        console.error('❌ [CONFIRM] Erro no cadastro:', error);
+        console.error('   Tipo:', error.constructor.name);
+        console.error('   Código:', error.code);
+        console.error('   Mensagem:', error.message);
+        console.error('   Stack:', error.stack);
+        
+        // ✅ DESBLOQUEAR SCROLL em caso de erro
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
         
         let errorMessage = "Erro ao finalizar cadastro: ";
         
-        if (error.message.includes('Telefone já cadastrado')) {
+        // Tratamento específico de erros
+        if (error.code === 'auth/invalid-verification-code') {
+          errorMessage = "❌ Código SMS incorreto. Verifique e tente novamente.";
+          console.error('   > Código digitado não corresponde ao enviado');
+        } else if (error.code === 'auth/code-expired') {
+          errorMessage = "❌ Código SMS expirou. Solicite um novo.";
+          console.error('   > Código expirou (tempo limite ultrapassado)');
+        } else if (error.code === 'auth/session-expired') {
+          errorMessage = "❌ Sessão expirou. Recarregue a página e tente novamente.";
+          console.error('   > Sessão de verificação expirou');
+        } else if (error.code === 'auth/invalid-verification-id') {
+          errorMessage = "❌ Sessão inválida. Solicite um novo código SMS.";
+          console.error('   > verificationId inválido ou corrompido');
+        } else if (error.message.includes('Telefone já cadastrado')) {
           errorMessage = "❌ Este telefone já está em uso. Use outro número.";
         } else if (error.message.includes('Dispositivo já possui conta')) {
           errorMessage = "❌ Este dispositivo já possui uma conta cadastrada.";
+        } else if (error.code === 'auth/internal-error') {
+          errorMessage = "❌ Erro interno do Firebase. Tente novamente em alguns segundos.";
+          console.error('   > Possível problema de rede ou timeout');
+          console.error('   > Verifique conexão com Firestore');
         } else if (error.code) {
           errorMessage += firebaseErrorsPt[error.code] || error.message;
         } else {
