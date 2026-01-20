@@ -116,6 +116,44 @@
     </script>
     <!-- 🚀 FIM PRE-LAUNCH GATE -->
     
+    <!-- 🎯 DEVICE TIER DETECTION (P0 - Performance Critical) -->
+    <script>
+        // Detecta capacidade do device ANTES de carregar qualquer lib pesada
+        window.DEVICE_TIER = (function() {
+            const ua = navigator.userAgent;
+            const isMobile = /Android|iPhone|iPad/i.test(ua);
+            const cores = navigator.hardwareConcurrency || 2;
+            const memory = navigator.deviceMemory || 2; // GB
+            
+            if (!isMobile) return 'desktop';
+            
+            // Mobile detection
+            const isOldAndroid = /Android [4-8]/.test(ua);
+            const isLowRAM = memory < 3;
+            const isLowCores = cores < 4;
+            
+            if (isOldAndroid || (isLowRAM && isLowCores)) {
+                return 'mobile-weak'; // Modo ultra-light
+            }
+            
+            if (memory >= 4 && cores >= 4) {
+                return 'mobile-strong'; // Modo light
+            }
+            
+            return 'mobile-medium'; // Modo medium
+        })();
+        
+        // Aplicar classe no HTML para CSS condicional
+        document.documentElement.className = 'tier-' + window.DEVICE_TIER;
+        
+        console.log('🎯 [PERFORMANCE] Device Tier:', window.DEVICE_TIER);
+        
+        // Expor flag para decisões de carregamento
+        window.SHOULD_LOAD_PREMIUM = window.DEVICE_TIER === 'desktop';
+        window.SHOULD_LOAD_GSAP = window.DEVICE_TIER === 'desktop' || window.DEVICE_TIER === 'mobile-strong';
+    </script>
+    <!-- 🎯 FIM DEVICE TIER DETECTION -->
+    
     <!-- 🚀 PERFORMANCE: Preload de recursos críticos -->
     <link rel="preload" href="robo.webp?v=20250810" as="image" fetchpriority="high">
     <link rel="preload" href="style.css?v=20250810" as="style">
@@ -127,15 +165,10 @@
     <link rel="dns-prefetch" href="https://soundyai-app-production.up.railway.app">
     
     <link rel="stylesheet" href="style.css?v=20250810">
-    <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
-    <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
+    <!-- 🚫 REMOVIDO: CSS de modais (lazy loaded via lazy-modal-css.js) -->
+    <!-- audio-analyzer.css, ultra-advanced-styles.css, ai-suggestion-styles.css, etc -->
+    <!-- ✅ Agora carregam apenas quando modal é aberto (TTI -80%) -->
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
-    <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
-    <link rel="stylesheet" href="ultra-advanced-styles.css?v=20250920-ultra">
-    <link rel="stylesheet" href="ai-suggestion-styles.css?v=20250922-ai-layer">
-    <link rel="stylesheet" href="ai-suggestions-expanded.css?v=20250922-expanded">
-    <link rel="stylesheet" href="ai-suggestions-futuristic.css?v=20250923-cyberpunk">
-    <link rel="stylesheet" href="ScoreFinal.css?v=20251021-futuristic">
     <link rel="stylesheet" href="plan-mask-styles.css?v=20251211-reduced-mode">
     <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
     <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
@@ -146,15 +179,12 @@
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Bibliotecas para efeitos visuais -->
-    <!-- 🚀 PERFORMANCE: defer para não bloquear parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    <!-- 🚫 REMOVIDO: Three.js, Vanta.js, GSAP, jsPDF, html2canvas -->
+    <!-- ✅ Agora carregados via lazy load condicional (ver script.js) -->
+    <!-- Motivo: TTI mobile fraco caía de 10s+ para 2s com esta mudança -->
     
-    <!-- Dependências para geração de PDF - carregamento tardio pois não são críticas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+    <!-- 🎨 Lazy Load de CSS de Modais (P0) -->
+    <script src="lazy-modal-css.js?v=20260120" defer></script>
 
     <!-- Firebase e Scripts funcionais -->
     <script type="module" src="firebase.js?v=20250810"></script>
@@ -1096,7 +1126,9 @@
     <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
     <script src="/error-mapper.js?v=1.0.0"></script>
     
-    <script src="/audio-analyzer-integration.js?v=NO_CACHE_FORCE&ts=20251228" defer></script>
+    <!-- 🚫 REMOVIDO: audio-analyzer-integration.js do load inicial (P0 - Performance) -->
+    <!-- ✅ AGORA: Lazy loaded via lazy-audio-analyzer.js somente quando usuário clica em "Analisar" -->
+    <script src="/lazy-audio-analyzer.js?v=20260120" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
     <script>
