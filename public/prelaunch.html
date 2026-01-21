@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SoundyAI - Algo Grande Está Chegando</title>
+    <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
@@ -18,19 +19,18 @@
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
-    <!-- 📊 Google Tag Manager / Google Ads Tracking -->
-    <!-- IMPORTANTE: IDs gerenciados no tracking-config.js -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-REPLACE_WITH_YOUR_ID"></script>
+    <!-- 📊 Google Ads Tracking -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'AW-REPLACE_WITH_YOUR_ID');
+        gtag('config', 'AW-17884386312');
+        
+        // Debug mode: ?debug_tracking=1
+        window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
+        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
     </script>
-    
-    <!-- 📊 Sistema de Tracking de Conversões (ordem: tracking.js → tracking-config.js) -->
-    <script src="/js/tracking.js" defer></script>
-    <script src="/js/tracking-config.js" defer></script>
     
     <!-- Firebase SDK v11 (Modular) -->
     <script type="module">
@@ -1778,6 +1778,51 @@
                 }
             });
             
+            // ═══════════════════════════════════════════════════════════
+            // 📊 FUNÇÃO DE TRACKING DE CONVERSÃO LEAD
+            // ═══════════════════════════════════════════════════════════
+            function fireLeadConversion(email, transactionId) {
+                // Fail-safe: se gtag não existir, apenas retorna
+                if (typeof gtag !== 'function') {
+                    if (window.TRACKING_DEBUG) {
+                        console.log('[TRACKING] gtag não disponível, tracking ignorado');
+                    }
+                    return;
+                }
+                
+                const emailLower = email.toLowerCase();
+                const dedupKey = 'lead_sent_' + emailLower;
+                
+                // Deduplicação por sessionStorage
+                if (sessionStorage.getItem(dedupKey)) {
+                    if (window.TRACKING_DEBUG) {
+                        console.log('[TRACKING] lead dedup skip:', emailLower);
+                    }
+                    return;
+                }
+                
+                // Disparar conversão Google Ads
+                try {
+                    gtag('event', 'conversion', {
+                        'send_to': 'AW-17884386312/W06KCKfStOkbEIio-M9C',
+                        'value': 1.0,
+                        'currency': 'BRL',
+                        'transaction_id': transactionId || ''
+                    });
+                    
+                    // Marcar como enviado
+                    sessionStorage.setItem(dedupKey, Date.now());
+                    
+                    if (window.TRACKING_DEBUG) {
+                        console.log('[TRACKING] lead fired:', emailLower);
+                    }
+                } catch (error) {
+                    if (window.TRACKING_DEBUG) {
+                        console.error('[TRACKING] erro ao disparar conversão:', error);
+                    }
+                }
+            }
+            
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
@@ -1927,20 +1972,7 @@
                     // ═══════════════════════════════════════════════════════════
                     // ⚠️ CRÍTICO: Só dispara SE o Firestore salvou com sucesso!
                     // ═══════════════════════════════════════════════════════════
-                    if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
-                        try {
-                            // Rastrear conversão (idempotente - não duplica)
-                            window.SoundyTracking.trackWaitlistSignup(email.toLowerCase(), {
-                                value: 0, // Ou atribuir valor estimado do lead
-                                name: name,
-                                engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
-                            });
-                            log('📊 Conversão de lista de espera rastreada');
-                        } catch (trackingError) {
-                            // Não bloquear UX se tracking falhar
-                            warn('⚠️ Erro no tracking (não crítico):', trackingError);
-                        }
-                    }
+                    fireLeadConversion(email, result.data?.id);
                     
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');

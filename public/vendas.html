@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundyAI - Transforme Sua Produção Musical</title>
+    <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
+    
+    <!-- 📊 Google Ads Tracking -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'AW-17884386312');
+        
+        // Debug mode: ?debug_tracking=1
+        window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
+        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: 1.5em;
+            color: #555;
+            margin-bottom: 40px;
+        }
+        
+        .features {
+            text-align: left;
+            margin: 40px 0;
+            padding: 0 20px;
+        }
+        
+        .feature {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            font-size: 1.2em;
+        }
+        
+        .feature::before {
+            content: '✓';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .price {
+            font-size: 3em;
+            color: #667eea;
+            margin: 40px 0 20px;
+            font-weight: bold;
+        }
+        
+        .price-note {
+            color: #777;
+            margin-bottom: 40px;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.8em;
+            font-weight: bold;
+            padding: 25px 60px;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+        
+        .guarantee {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 SoundyAI</h1>
+        <p class="subtitle">Seu Mentor Virtual de Produção Musical</p>
+        
+        <div class="features">
+            <div class="feature">Análise técnica profissional em tempo real</div>
+            <div class="feature">Sugestões personalizadas baseadas em IA</div>
+            <div class="feature">Comparação com padrões da indústria</div>
+            <div class="feature">Interface intuitiva e fácil de usar</div>
+            <div class="feature">Resultados instantâneos</div>
+        </div>
+        
+        <div class="price">R$ 197,00</div>
+        <p class="price-note">Pagamento único • Acesso vitalício</p>
+        
+        <!-- 🎯 IMPORTANTE: Alterar URL do checkout Hotmart aqui -->
+        <a href="https://pay.hotmart.com/SEU_LINK_HOTMART" 
+           class="cta-button" 
+           id="checkout-cta"
+           data-product="soundyai-profissional">
+            Quero Transformar Minhas Músicas Agora! 🚀
+        </a>
+        
+        <div class="guarantee">
+            <strong>🔒 Garantia de 7 dias</strong><br>
+            Se não ficar satisfeito, devolvemos 100% do seu dinheiro.
+        </div>
+    </div>
+    
+    <!-- 📊 Tracking Script -->
+    <script>
+        (function() {
+            'use strict';
+            
+            // ════════════════════════════════════════════════════════════════
+            // 🎯 TRACKING DE CHECKOUT CLICK
+            // ════════════════════════════════════════════════════════════════
+            // ⚠️ IMPORTANTE: Criar conversão no Google Ads e substituir LABEL
+            // Categoria: "Outro" | Nome: "Click Checkout" | Valor: 0
+            // ════════════════════════════════════════════════════════════════
+            
+            const CHECKOUT_LABEL = 'CHECKOUT_LABEL'; // ⚠️ SUBSTITUIR com label real
+            
+            function setupCheckoutTracking() {
+                const ctaButton = document.getElementById('checkout-cta');
+                
+                if (!ctaButton) {
+                    console.warn('⚠️ Botão de checkout não encontrado');
+                    return;
+                }
+                
+                const checkoutUrl = ctaButton.href;
+                
+                if (!checkoutUrl || checkoutUrl.includes('SEU_LINK_HOTMART')) {
+                    console.warn('⚠️ URL do checkout Hotmart não configurada!');
+                }
+                
+                ctaButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    if (window.TRACKING_DEBUG) {
+                        console.log('🎯 [TRACKING] Click detectado no CTA de checkout');
+                    }
+                    
+                    // Deduplicação por sessionStorage
+                    const trackingKey = 'soundy_checkout_tracked';
+                    const alreadyTracked = sessionStorage.getItem(trackingKey);
+                    
+                    if (!alreadyTracked && typeof gtag === 'function') {
+                        try {
+                            // ⚠️ SUBSTITUIR 'CHECKOUT_LABEL' com label real quando criar conversão
+                            gtag('event', 'conversion', {
+                                'send_to': 'AW-17884386312/' + CHECKOUT_LABEL,
+                                'value': 197.0,
+                                'currency': 'BRL'
+                            });
+                            
+                            // Marcar como rastreado
+                            sessionStorage.setItem(trackingKey, Date.now());
+                            
+                            if (window.TRACKING_DEBUG) {
+                                console.log('🎯 [TRACKING] Conversão CHECKOUT_CLICK enviada');
+                            }
+                        } catch (trackingError) {
+                            console.warn('⚠️ Erro no tracking:', trackingError);
+                        }
+                    } else if (alreadyTracked) {
+                        if (window.TRACKING_DEBUG) {
+                            console.log('🎯 [TRACKING] Checkout já rastreado (deduplicado)');
+                        }
+                    }
+                    
+                    // Redirecionar após delay mínimo (garantir envio do evento)
+                    setTimeout(function() {
+                        window.location.href = checkoutUrl;
+                    }, 50);
+                });
+                
+                if (window.TRACKING_DEBUG) {
+                    console.log('✅ [TRACKING] Sistema de checkout tracking ativo');
+                }
+            }
+            
+            // Inicializar quando DOM estiver pronto
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupCheckoutTracking);
+            } else {
+                setupCheckoutTracking();
+            }
+        })();
+    </script>
+</body>
+</html>

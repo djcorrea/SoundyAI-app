@@ -4,11 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
+    <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
-    <!-- 🚀 PRE-LAUNCH GATE: Sistema de pré-lançamento -->
+    <!-- � Google Ads Tracking -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'AW-17884386312');
+        
+        // Debug mode: ?debug_tracking=1
+        window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
+        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+    </script>
+    
+    <!-- �🚀 PRE-LAUNCH GATE: Sistema de pré-lançamento -->
     <!-- ⚠️ IMPORTANTE: Altere PRE_LAUNCH para false no dia do lançamento (22/01/2026) -->
     <script>
         (function() {
