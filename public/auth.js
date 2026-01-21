@@ -738,10 +738,30 @@ console.log('🚀 Carregando auth.js...');
     async function confirmSMSCode() {
       console.log('🔐 [CONFIRM] Iniciando confirmação de código SMS...');
       
-      const email = document.getElementById("email")?.value?.trim();
-      const password = document.getElementById("password")?.value?.trim();
-      const phone = document.getElementById("phone")?.value?.trim();
+      // ✅ CRÍTICO: Capturar email do FORMULÁRIO (não do Firebase Auth)
+      const formEmail = document.getElementById("email")?.value?.trim();
+      const formPassword = document.getElementById("password")?.value?.trim();
+      const formPhone = document.getElementById("phone")?.value?.trim();
       const code = document.getElementById("smsCode")?.value?.trim();
+
+      // ✅ VALIDAÇÃO OBRIGATÓRIA: Email e senha devem existir
+      if (!formEmail) {
+        console.error('❌ [CONFIRM] Email não preenchido no formulário');
+        showMessage("❌ Erro: O campo e-mail está vazio. Preencha novamente.", "error");
+        return;
+      }
+      
+      if (!formPassword) {
+        console.error('❌ [CONFIRM] Senha não preenchida no formulário');
+        showMessage("❌ Erro: O campo senha está vazio. Preencha novamente.", "error");
+        return;
+      }
+      
+      if (!formPhone) {
+        console.error('❌ [CONFIRM] Telefone não preenchido no formulário');
+        showMessage("❌ Erro: O campo telefone está vazio. Preencha novamente.", "error");
+        return;
+      }
 
       if (!code) {
         showMessage("Digite o código recebido por SMS.", "error");
@@ -752,6 +772,13 @@ console.log('🚀 Carregando auth.js...');
         showMessage("O código deve ter 6 dígitos.", "error");
         return;
       }
+      
+      // ✅ FORMATAR TELEFONE NO PADRÃO INTERNACIONAL (consistência)
+      const cleanPhone = formPhone.replace(/\D/g, '').replace(/^55/, '');
+      const formattedPhone = '+55' + cleanPhone;
+      
+      console.log('📧 [CONFIRM] Email do formulário:', formEmail);
+      console.log('📱 [CONFIRM] Telefone formatado:', formattedPhone);
 
       // ✅ VALIDAÇÃO ROBUSTA do confirmationResult
       if (!window.confirmationResult) {
@@ -797,9 +824,10 @@ console.log('🚀 Carregando auth.js...');
         // ✅ BUG #5 FIX: Feedback visual
         showMessage("🔗 Vinculando e-mail...", "success");
         
-        // Vincular e-mail à conta
+        // Vincular e-mail à conta usando email do FORMULÁRIO
         console.log('🔗 [CONFIRM] Vinculando e-mail à conta...');
-        const emailCredential = EmailAuthProvider.credential(email, password);
+        console.log('   Email usado:', formEmail);
+        const emailCredential = EmailAuthProvider.credential(formEmail, formPassword);
         const linkedResult = await linkWithCredential(phoneResult.user, emailCredential);
         console.log('✅ [CONFIRM] E-mail vinculado com sucesso');
         
@@ -869,7 +897,7 @@ console.log('🚀 Carregando auth.js...');
             await runTransaction(db, async (transaction) => {
               console.log('    🔍 [TRANSACTION] Criando referências...');
               const userRef = doc(db, 'usuarios', linkedResult.user.uid);
-              const phoneRef = doc(db, 'phone_mappings', phone.replace(/\D/g, ''));
+              const phoneRef = doc(db, 'phone_mappings', cleanPhone);
               const deviceRef = doc(db, 'device_mappings', deviceId);
 
               // Verificar novamente dentro da transaction (previne race condition)
@@ -887,12 +915,15 @@ console.log('🚀 Carregando auth.js...');
                 throw new Error('Dispositivo já possui conta cadastrada');
               }
 
-              // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
+              // ✅ SCHEMA ATUALIZADO - Usando email do FORMULÁRIO (NUNCA auth.currentUser.email)
               console.log('    🔍 [TRANSACTION] Criando usuário...');
+              console.log('    📧 Email a salvar:', formEmail);
+              console.log('    📱 Telefone a salvar:', formattedPhone);
+              
               transaction.set(userRef, {
                 uid: linkedResult.user.uid,
-                email: email,
-                telefone: phone,
+                email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
+                telefone: formattedPhone,  // ✅ Telefone formatado (+5511...)
                 deviceId: deviceId,
                 plan: "free",
                 messagesToday: 0,
@@ -908,7 +939,7 @@ console.log('🚀 Carregando auth.js...');
               // ✅ CRIAR MAPEAMENTO TELEFONE → USERID
               console.log('    🔍 [TRANSACTION] Criando mapeamento telefone...');
               transaction.set(phoneRef, {
-                telefone: phone,
+                telefone: formattedPhone,  // ✅ Telefone formatado
                 userId: linkedResult.user.uid,
                 createdAt: new Date().toISOString()
               });
@@ -944,12 +975,13 @@ console.log('🚀 Carregando auth.js...');
               showMessage(retryMsg, "error");
               
               // ✅ NÃO deslogar o usuário - ele foi autenticado com sucesso
-              // Apenas salvar token para permitir login
+              // Salvar token com email do FORMULÁRIO (não do Auth)
               localStorage.setItem("idToken", freshToken);
               localStorage.setItem("authToken", freshToken);
               localStorage.setItem("user", JSON.stringify({
                 uid: linkedResult.user.uid,
-                email: linkedResult.user.email
+                email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
+                telefone: formattedPhone
               }));
               
               console.log('⚠️ [CONFIRM] Usuário autenticado mas Firestore falhou - permitindo acesso');
@@ -965,12 +997,13 @@ console.log('🚀 Carregando auth.js...');
         
         // ✅ GARANTIR QUE USUÁRIO PERMANECE LOGADO
         console.log('🔐 [CONFIRM] Salvando tokens de autenticação...');
+        console.log('   Email salvo no localStorage:', formEmail);
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
           uid: linkedResult.user.uid,
-          email: linkedResult.user.email,
-          telefone: phone
+          email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO (NUNCA linkedResult.user.email)
+          telefone: formattedPhone
         }));
         console.log('✅ [CONFIRM] Tokens salvos - usuário permanecerá logado');
         
