@@ -1028,29 +1028,12 @@ console.log('🚀 Carregando auth.js...');
             console.error(`❌ [TRANSACTION] Tentativa ${retryCount} falhou:`, transactionError);
             
             if (retryCount >= maxRetries) {
-              // ✅ BUG #3 FIX: Permitir retry manual se todas as tentativas falharam
-              console.error('❌ [TRANSACTION] Todas as tentativas falharam');
+              // ❌ TODAS AS TENTATIVAS FALHARAM
+              console.error('❌ [TRANSACTION] Firestore falhou após 3 tentativas');
+              console.error('   Erro:', transactionError.message);
               
-              window.isNewUserRegistering = false;
-              localStorage.removeItem('cadastroEmProgresso');
-              
-              const retryMsg = `❌ Erro ao salvar dados (Tentativa ${retryCount}/${maxRetries}). ` +
-                               `Sua conta foi criada mas os dados não foram salvos. ` +
-                               `Por favor, entre em contato com o suporte ou tente fazer login novamente.`;
-              showMessage(retryMsg, "error");
-              
-              // ✅ NÃO deslogar o usuário - ele foi autenticado com sucesso
-              // Salvar token com email do FORMULÁRIO (não do Auth)
-              localStorage.setItem("idToken", freshToken);
-              localStorage.setItem("authToken", freshToken);
-              localStorage.setItem("user", JSON.stringify({
-                uid: linkedResult.user.uid,
-                email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
-                telefone: formattedPhone
-              }));
-              
-              console.log('⚠️ [CONFIRM] Usuário autenticado mas Firestore falhou - permitindo acesso');
-              return;
+              // ⚠️ NÃO fazer return aqui - lançar erro para o catch externo
+              throw new Error(`Firestore falhou após ${maxRetries} tentativas: ${transactionError.message}`);
             }
             
             // Aguardar antes de retry (backoff exponencial)
@@ -1061,7 +1044,10 @@ console.log('🚀 Carregando auth.js...');
         }
         
         // ✅ Transaction completada com sucesso
-        console.log('✅ [FIRESTORE] Dados salvos com sucesso');
+        console.log('✅ [FIRESTORE] Dados salvos com sucesso na coleção usuarios/');
+        console.log('   UID:', linkedResult.user.uid);
+        console.log('   Email:', formEmail);
+        console.log('   Telefone:', formattedPhone);
         
       } catch (firestoreError) {
         // ⚠️ ERRO DO FIRESTORE (NÃO-CRÍTICO) - Usuário JÁ está autenticado
