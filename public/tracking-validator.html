@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Tracking Google Ads</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00ff00;
+        }
+        
+        .test-section {
+            background: #2a2a2a;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            color: #00ffff;
+            margin-bottom: 15px;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .status.success {
+            background: #1a3d1a;
+            border-left: 4px solid #00ff00;
+        }
+        
+        .status.error {
+            background: #3d1a1a;
+            border-left: 4px solid #ff0000;
+            color: #ff6666;
+        }
+        
+        .status.warning {
+            background: #3d3d1a;
+            border-left: 4px solid #ffff00;
+            color: #ffff00;
+        }
+        
+        .code {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+            color: #00ff00;
+        }
+        
+        button {
+            background: #00ff00;
+            color: #1a1a1a;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button:hover {
+            background: #00cc00;
+        }
+        
+        .links {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .links a {
+            color: #00ffff;
+            text-decoration: none;
+            margin: 0 20px;
+            font-weight: bold;
+        }
+        
+        .links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 VALIDADOR DE TRACKING GOOGLE ADS</h1>
+        
+        <div class="test-section">
+            <h2>📊 Status do Google Tag</h2>
+            <div id="gtag-status"></div>
+            <button onclick="checkGtag()">Verificar Google Tag</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔍 Conversões Configuradas</h2>
+            <div id="conversions-status"></div>
+            <button onclick="checkConversions()">Verificar Conversões</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>🧪 Teste de Eventos</h2>
+            <div id="events-test"></div>
+            <button onclick="testLeadEvent()">Simular Evento LEAD</button>
+            <button onclick="testCheckoutEvent()">Simular Evento CHECKOUT</button>
+            <button onclick="clearTracking()">Limpar Deduplicação</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Últimos Eventos Rastreados</h2>
+            <div id="recent-events"></div>
+        </div>
+        
+        <div class="links">
+            <a href="/prelaunch.html?debug_tracking=1" target="_blank">🧪 Testar Lista de Espera</a>
+            <a href="/vendas.html?debug_tracking=1" target="_blank">🛒 Testar Página de Vendas</a>
+            <a href="https://tagassistant.google.com/" target="_blank">🔗 Google Tag Assistant</a>
+        </div>
+    </div>
+    
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        // VALIDADOR DE TRACKING
+        // ════════════════════════════════════════════════════════════════
+        
+        const CONVERSION_ID = 'AW-17884386312';
+        const LEAD_LABEL = 'W06KCKfStOkbEIio-M9C';
+        const CHECKOUT_LABEL = 'CHECKOUT_LABEL'; // Aguardando criação
+        
+        function showStatus(elementId, status, message) {
+            const el = document.getElementById(elementId);
+            const statusClass = status === 'success' ? 'success' : status === 'error' ? 'error' : 'warning';
+            const icon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⚠️';
+            
+            el.innerHTML += `<div class="status ${statusClass}">${icon} ${message}</div>`;
+        }
+        
+        function checkGtag() {
+            const el = document.getElementById('gtag-status');
+            el.innerHTML = '';
+            
+            // Verificar gtag
+            if (typeof gtag === 'function') {
+                showStatus('gtag-status', 'success', 'Google Tag (gtag.js) carregado corretamente');
+            } else {
+                showStatus('gtag-status', 'error', 'Google Tag NÃO encontrado! Verificar se script está incluído.');
+                return;
+            }
+            
+            // Verificar dataLayer
+            if (window.dataLayer && Array.isArray(window.dataLayer)) {
+                showStatus('gtag-status', 'success', `dataLayer inicializado (${window.dataLayer.length} eventos)`);
+            } else {
+                showStatus('gtag-status', 'error', 'dataLayer NÃO encontrado!');
+                return;
+            }
+            
+            // Verificar ID de conversão
+            const hasConversionId = window.dataLayer.some(item => 
+                JSON.stringify(item).includes(CONVERSION_ID)
+            );
+            
+            if (hasConversionId) {
+                showStatus('gtag-status', 'success', `Conversion ID configurado: ${CONVERSION_ID}`);
+            } else {
+                showStatus('gtag-status', 'warning', 'Conversion ID não detectado no dataLayer');
+            }
+        }
+        
+        function checkConversions() {
+            const el = document.getElementById('conversions-status');
+            el.innerHTML = '';
+            
+            // LEAD
+            showStatus('conversions-status', 'success', 
+                `<strong>LEAD - Lista de Espera</strong><br>
+                send_to: ${CONVERSION_ID}/${LEAD_LABEL}<br>
+                Status: ✅ Configurado e ativo`
+            );
+            
+            // CHECKOUT
+            if (CHECKOUT_LABEL === 'CHECKOUT_LABEL') {
+                showStatus('conversions-status', 'warning', 
+                    `<strong>CHECKOUT - Página de Vendas</strong><br>
+                    send_to: ${CONVERSION_ID}/${CHECKOUT_LABEL}<br>
+                    Status: ⚠️ Aguardando criação da conversão no Google Ads`
+                );
+            } else {
+                showStatus('conversions-status', 'success', 
+                    `<strong>CHECKOUT - Página de Vendas</strong><br>
+                    send_to: ${CONVERSION_ID}/${CHECKOUT_LABEL}<br>
+                    Status: ✅ Configurado e ativo`
+                );
+            }
+        }
+        
+        function testLeadEvent() {
+            const el = document.getElementById('events-test');
+            
+            if (typeof gtag !== 'function') {
+                showStatus('events-test', 'error', 'Google Tag não disponível. Impossível testar.');
+                return;
+            }
+            
+            const testEmail = 'teste@exemplo.com';
+            const trackingKey = 'soundy_lead_tracked_' + testEmail;
+            
+            // Verificar deduplicação
+            if (sessionStorage.getItem(trackingKey)) {
+                showStatus('events-test', 'warning', 'LEAD: Evento já rastreado (deduplicado)');
+                return;
+            }
+            
+            try {
+                // Disparar evento
+                gtag('event', 'conversion', {
+                    'send_to': `${CONVERSION_ID}/${LEAD_LABEL}`,
+                    'value': 1.0,
+                    'currency': 'BRL',
+                    'transaction_id': 'test_' + Date.now()
+                });
+                
+                // Marcar como rastreado
+                sessionStorage.setItem(trackingKey, Date.now());
+                
+                showStatus('events-test', 'success', 
+                    `LEAD: Evento de teste enviado!<br>
+                    Email: ${testEmail}<br>
+                    Verificar no Google Tag Assistant`
+                );
+                
+                updateRecentEvents();
+            } catch (error) {
+                showStatus('events-test', 'error', 'Erro ao enviar evento: ' + error.message);
+            }
+        }
+        
+        function testCheckoutEvent() {
+            const el = document.getElementById('events-test');
+            
+            if (typeof gtag !== 'function') {
+                showStatus('events-test', 'error', 'Google Tag não disponível. Impossível testar.');
+                return;
+            }
+            
+            if (CHECKOUT_LABEL === 'CHECKOUT_LABEL') {
+                showStatus('events-test', 'warning', 
+                    'CHECKOUT: Label ainda não configurado. Criar conversão no Google Ads primeiro.'
+                );
+                return;
+            }
+            
+            const trackingKey = 'soundy_checkout_tracked';
+            
+            // Verificar deduplicação
+            if (sessionStorage.getItem(trackingKey)) {
+                showStatus('events-test', 'warning', 'CHECKOUT: Evento já rastreado (deduplicado)');
+                return;
+            }
+            
+            try {
+                // Disparar evento
+                gtag('event', 'conversion', {
+                    'send_to': `${CONVERSION_ID}/${CHECKOUT_LABEL}`,
+                    'value': 197.0,
+                    'currency': 'BRL'
+                });
+                
+                // Marcar como rastreado
+                sessionStorage.setItem(trackingKey, Date.now());
+                
+                showStatus('events-test', 'success', 
+                    `CHECKOUT: Evento de teste enviado!<br>
+                    Valor: R$ 197,00<br>
+                    Verificar no Google Tag Assistant`
+                );
+                
+                updateRecentEvents();
+            } catch (error) {
+                showStatus('events-test', 'error', 'Erro ao enviar evento: ' + error.message);
+            }
+        }
+        
+        function clearTracking() {
+            const keys = Object.keys(sessionStorage).filter(key => 
+                key.startsWith('soundy_lead_tracked_') || 
+                key.startsWith('soundy_checkout_tracked')
+            );
+            
+            keys.forEach(key => sessionStorage.removeItem(key));
+            
+            const el = document.getElementById('events-test');
+            showStatus('events-test', 'success', 
+                `Deduplicação limpa! ${keys.length} registro(s) removido(s).`
+            );
+            
+            updateRecentEvents();
+        }
+        
+        function updateRecentEvents() {
+            const el = document.getElementById('recent-events');
+            el.innerHTML = '<div class="code">';
+            
+            const events = Object.keys(sessionStorage)
+                .filter(key => key.startsWith('soundy_'))
+                .map(key => {
+                    const timestamp = sessionStorage.getItem(key);
+                    const date = new Date(parseInt(timestamp));
+                    return {
+                        key: key.replace('soundy_', '').replace('tracked_', ''),
+                        time: date.toLocaleString('pt-BR')
+                    };
+                });
+            
+            if (events.length === 0) {
+                el.innerHTML += 'Nenhum evento rastreado nesta sessão.';
+            } else {
+                events.forEach(event => {
+                    el.innerHTML += `${event.time} - ${event.key}<br>`;
+                });
+            }
+            
+            el.innerHTML += '</div>';
+        }
+        
+        // Inicializar
+        window.addEventListener('DOMContentLoaded', function() {
+            checkGtag();
+            checkConversions();
+            updateRecentEvents();
+        });
+    </script>
+</body>
+</html>

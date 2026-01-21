@@ -22,21 +22,21 @@
     const TRACKING_CONFIG = {
         // ⚠️ ID DA CONTA GOOGLE ADS (formato: AW-XXXXXXXXXXX)
         // Onde encontrar: Google Ads → Ferramentas → Conversões → Qualquer conversão
-        conversionId: 'AW-REPLACE_WITH_YOUR_ID',
+        conversionId: 'AW-17884386312',
         
         // ⚠️ LABELS DAS CONVERSÕES
         labels: {
             // Lead: cadastro na lista de espera
             // Criar conversão: Nome "Lista de Espera" | Categoria: Lead | Valor: 0
-            waitlistSignup: 'REPLACE_WITH_WAITLIST_LABEL',
+            waitlistSignup: 'W06KCKfStOkbEIio-M9C',
             
             // Clique para checkout Hotmart
             // Criar conversão: Nome "Checkout Click" | Categoria: Outro | Valor: 0
-            checkoutClick: 'REPLACE_WITH_CHECKOUT_LABEL',
+            checkoutClick: 'CHECKOUT_LABEL',
             
             // Compra (futuro - postback Hotmart)
             // Criar conversão: Nome "Compra" | Categoria: Compra | Valor: dinâmico
-            purchase: 'REPLACE_WITH_PURCHASE_LABEL'
+            purchase: 'PURCHASE_LABEL'
         },
         
         // Debug mode (logs no console)
