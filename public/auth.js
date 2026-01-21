@@ -1570,7 +1570,7 @@ console.log('🚀 Carregando auth.js...');
         console.log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
         console.log('   criadoSemSMS:', criadoSemSMS);
         
-        // ✅ CRIAR DOCUMENTO
+        // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
         await setDoc(userRef, {
           uid: user.uid,
           email: email,
@@ -1585,10 +1585,11 @@ console.log('🚀 Carregando auth.js...');
           billingMonth: new Date().toISOString().slice(0, 7),
           lastResetAt: new Date().toISOString().slice(0, 10),
           verificadoPorSMS: verificadoPorSMS,
+          smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null, // ✅ Campo obrigatório
           criadoSemSMS: criadoSemSMS,
           entrevistaConcluida: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          createdAt: serverTimestamp(),  // ✅ Usar serverTimestamp
+          updatedAt: serverTimestamp()   // ✅ Usar serverTimestamp
         });
         
         console.log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
