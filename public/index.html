@@ -148,15 +148,13 @@
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Bibliotecas para efeitos visuais -->
-    <!-- 🚀 PERFORMANCE: defer para não bloquear parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    <!-- 🚀 PERFORMANCE: GSAP mantido com defer (usado em múltiplas áreas) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     
-    <!-- Dependências para geração de PDF - carregamento tardio pois não são críticas -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+    <!-- 🚀 PERFORMANCE: Lazy Loader - Bibliotecas pesadas carregam sob demanda -->
+    <!-- Three.js + Vanta.js: carregam 2s após load (apenas desktop) -->
+    <!-- jsPDF + html2canvas: carregam ao gerar PDF -->
+    <script src="lazy-loader.js?v=20260121" defer></script>
 
     <!-- Firebase e Scripts funcionais -->
     <script type="module" src="firebase.js?v=20250810"></script>
@@ -1764,6 +1762,26 @@
             }, 100);
             
             log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
+        })();
+    </script>
+    
+    <!-- 🚀 PERFORMANCE: Sistema de Ativação de Animações após Load -->
+    <script>
+        (function() {
+            // Ativa animações após window.load completo
+            window.addEventListener('load', function() {
+                // Adiciona classe que ativa animações infinitas (via CSS)
+                document.body.classList.add('page-loaded');
+                log('🚀 [PERFORMANCE] Animações infinitas ativadas após load');
+            });
+            
+            // Fallback: ativa após 3 segundos mesmo se load não disparar
+            setTimeout(function() {
+                if (!document.body.classList.contains('page-loaded')) {
+                    document.body.classList.add('page-loaded');
+                    log('⏱️ [PERFORMANCE] Animações ativadas via fallback timeout');
+                }
+            }, 3000);
         })();
     </script>
 </body>
