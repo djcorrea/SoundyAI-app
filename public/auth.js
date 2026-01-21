@@ -801,7 +801,7 @@ console.log('🚀 Carregando auth.js...');
       // ═══════════════════════════════════════════════════════════════════
       // 🔐 BLOCO 1: AUTENTICAÇÃO (CRÍTICO - Se falhar, abortar)
       // ═══════════════════════════════════════════════════════════════════
-      let linkedResult = null;
+      let userResult = null;
       let freshToken = null;
       
       try {
@@ -816,43 +816,57 @@ console.log('🚀 Carregando auth.js...');
         document.body.style.overflow = '';
         document.documentElement.style.overflow = '';
 
-        // ✅ Confirmar código SMS
-        console.log('🔐 [CONFIRM] Criando credential com verificationId...');
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ FLUXO CORRETO: CRIAR USUÁRIO COM EMAIL PRIMEIRO
+        // ═══════════════════════════════════════════════════════════════════
+        
+        console.log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
+        console.log('   Email:', formEmail);
+        
+        // ✅ PASSO 1: Criar usuário com EMAIL e SENHA
+        userResult = await createUserWithEmailAndPassword(auth, formEmail, formPassword);
+        console.log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
+        console.log('   Email verificado:', userResult.user.email);
+        
+        // ✅ PASSO 2: Confirmar código SMS
+        showMessage("📱 Confirmando SMS...", "success");
+        console.log('📱 [CONFIRM] PASSO 2: Confirmando código SMS...');
+        console.log('   Código:', code);
+        
         const phoneCredential = PhoneAuthProvider.credential(
           window.confirmationResult.verificationId, 
           code
         );
         
-        console.log('🔐 [CONFIRM] Autenticando com credential...');
-        const phoneResult = await signInWithCredential(auth, phoneCredential);
-        console.log('✅ [CONFIRM] Autenticação SMS bem-sucedida:', phoneResult.user.uid);
-
-        // ✅ Vincular e-mail à conta
-        showMessage("🔗 Vinculando e-mail...", "success");
-        console.log('🔗 [CONFIRM] Vinculando e-mail:', formEmail);
+        // ✅ PASSO 3: Vincular TELEFONE ao usuário de EMAIL
+        showMessage("🔗 Vinculando telefone...", "success");
+        console.log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
+        console.log('   Telefone:', formattedPhone);
         
-        const emailCredential = EmailAuthProvider.credential(formEmail, formPassword);
-        linkedResult = await linkWithCredential(phoneResult.user, emailCredential);
-        console.log('✅ [CONFIRM] E-mail vinculado com sucesso');
+        await linkWithCredential(userResult.user, phoneCredential);
+        console.log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
-        // ✅ Renovar token (pode falhar por rede - mas tentamos)
-        console.log('🔄 [CONFIRM] Renovando token...');
+        // ✅ PASSO 4: Renovar token
+        console.log('🔄 [CONFIRM] PASSO 4: Renovando token...');
         try {
-          await linkedResult.user.reload();
-          freshToken = await linkedResult.user.getIdToken(true);
+          await userResult.user.reload();
+          freshToken = await userResult.user.getIdToken(true);
           console.log('✅ [CONFIRM] Token renovado');
         } catch (tokenError) {
           console.warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
-          // Usar token sem forçar refresh
-          freshToken = await linkedResult.user.getIdToken();
+          freshToken = await userResult.user.getIdToken();
         }
         
         // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens IMEDIATAMENTE
         console.log('💾 [CONFIRM] Salvando tokens de autenticação...');
+        console.log('   UID:', userResult.user.uid);
+        console.log('   Email:', formEmail);
+        console.log('   Telefone:', formattedPhone);
+        
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
-          uid: linkedResult.user.uid,
+          uid: userResult.user.uid,
           email: formEmail,
           telefone: formattedPhone
         }));
@@ -895,8 +909,8 @@ console.log('🚀 Carregando auth.js...');
       // 💾 BLOCO 2: FIRESTORE (NÃO-CRÍTICO - Se falhar, permitir retry)
       // ═══════════════════════════════════════════════════════════════════
       
-      if (!linkedResult) {
-        console.error('❌ [CONFIRM] linkedResult não existe - abortar');
+      if (!userResult) {
+        console.error('❌ [CONFIRM] userResult não existe - abortar');
         return;
       }
       
@@ -961,7 +975,7 @@ console.log('🚀 Carregando auth.js...');
             
             await runTransaction(db, async (transaction) => {
               console.log('    🔍 [TRANSACTION] Criando referências...');
-              const userRef = doc(db, 'usuarios', linkedResult.user.uid);
+              const userRef = doc(db, 'usuarios', userResult.user.uid);
               const phoneRef = doc(db, 'phone_mappings', cleanPhone);
               const deviceRef = doc(db, 'device_mappings', deviceId);
 
@@ -986,7 +1000,7 @@ console.log('🚀 Carregando auth.js...');
               console.log('    📱 Telefone a salvar:', formattedPhone);
               
               transaction.set(userRef, {
-                uid: linkedResult.user.uid,
+                uid: userResult.user.uid,
                 email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
                 telefone: formattedPhone,  // ✅ Telefone formatado (+5511...)
                 deviceId: deviceId,
@@ -1005,7 +1019,7 @@ console.log('🚀 Carregando auth.js...');
               console.log('    🔍 [TRANSACTION] Criando mapeamento telefone...');
               transaction.set(phoneRef, {
                 telefone: formattedPhone,  // ✅ Telefone formatado
-                userId: linkedResult.user.uid,
+                userId: userResult.user.uid,
                 createdAt: new Date().toISOString()
               });
 
@@ -1013,7 +1027,7 @@ console.log('🚀 Carregando auth.js...');
               console.log('    🔍 [TRANSACTION] Criando mapeamento device...');
               transaction.set(deviceRef, {
                 deviceId: deviceId,
-                userId: linkedResult.user.uid,
+                userId: userResult.user.uid,
                 createdAt: new Date().toISOString()
               });
               
@@ -1045,7 +1059,7 @@ console.log('🚀 Carregando auth.js...');
         
         // ✅ Transaction completada com sucesso
         console.log('✅ [FIRESTORE] Dados salvos com sucesso na coleção usuarios/');
-        console.log('   UID:', linkedResult.user.uid);
+        console.log('   UID:', userResult.user.uid);
         console.log('   Email:', formEmail);
         console.log('   Telefone:', formattedPhone);
         
@@ -1063,7 +1077,7 @@ console.log('🚀 Carregando auth.js...');
         );
         
         console.warn('⚠️ [FIRESTORE] Usuário autenticado apesar do erro no Firestore');
-        console.warn('   UID:', linkedResult.user.uid);
+        console.warn('   UID:', userResult.user.uid);
         console.warn('   Email:', formEmail);
         
         // Continuar fluxo normalmente - usuário está autenticado
