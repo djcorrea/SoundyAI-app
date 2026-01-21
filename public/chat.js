@@ -353,9 +353,14 @@ function checkAuthState() {
         const hasIdToken = localStorage.getItem('idToken');
         const hasAuthToken = localStorage.getItem('authToken');
         const hasUser = localStorage.getItem('user');
+        const hasAuthReady = window.__AUTH_READY__ === true;
         
-        if (hasIdToken || hasAuthToken || hasUser) {
+        if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
           console.log('⏳ [CHAT] Timeout mas sessão existe - aguardando Firebase Auth...');
+          console.log('   hasIdToken:', !!hasIdToken);
+          console.log('   hasAuthToken:', !!hasAuthToken);
+          console.log('   hasUser:', !!hasUser);
+          console.log('   __AUTH_READY__:', hasAuthReady);
           // NÃO ativar modo anônimo - usuário está autenticado mas Firebase está lento
           resolve(null);
           return;
@@ -387,11 +392,20 @@ function checkAuthState() {
           const hasIdToken = localStorage.getItem('idToken');
           const hasAuthToken = localStorage.getItem('authToken');
           const hasUser = localStorage.getItem('user');
+          const hasAuthReady = window.__AUTH_READY__ === true;
           
-          if (hasIdToken || hasAuthToken || hasUser) {
-            console.log('⏳ [CHAT] Firebase Auth não detectou usuário mas sessão existe - recarregando...');
-            // Firebase Auth está dessincronizado - forçar recarga
-            window.location.reload();
+          if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
+            console.log('⏳ [CHAT] Firebase Auth não detectou usuário mas sessão existe');
+            console.log('   hasIdToken:', !!hasIdToken);
+            console.log('   hasAuthToken:', !!hasAuthToken);
+            console.log('   hasUser:', !!hasUser);
+            console.log('   __AUTH_READY__:', hasAuthReady);
+            console.log('   Aguardando 2s antes de recarregar...');
+            // Firebase Auth está dessincronizado - aguardar e recarregar
+            setTimeout(() => {
+              console.log('🔄 [CHAT] Recarregando página para sincronizar Firebase Auth...');
+              window.location.reload();
+            }, 2000);
             return;
           }
           
