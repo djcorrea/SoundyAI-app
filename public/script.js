@@ -1635,6 +1635,15 @@ async function processMessage(message, images = []) {
       idToken = await currentUser.getIdToken();
       userUid = currentUser.uid;
       console.log('✅ Token obtido');
+      
+      // 🔥 CORREÇÃO CRÍTICA: Garantir visitorId existe para usuários autenticados
+      let visitorId = localStorage.getItem('visitorId');
+      if (!visitorId) {
+        console.warn('⚠️ [CHAT] visitorId ausente para usuário autenticado - gerando agora');
+        visitorId = 'auth_' + currentUser.uid + '_' + Date.now();
+        localStorage.setItem('visitorId', visitorId);
+        console.log('✅ [CHAT] visitorId gerado e salvo:', visitorId.substring(0, 20) + '...');
+      }
     } else if (isAnonymousMode) {
       console.log('🔓 Modo anônimo ativo - visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12));
       userUid = 'anon_' + (window.SoundyAnonymous?.visitorId || 'unknown');
