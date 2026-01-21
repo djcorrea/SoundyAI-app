@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Players de Áudio SoundyAI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            padding: 40px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #00f3ff;
+        }
+
+        .test-section {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #ff3366;
+        }
+
+        .player-wrapper {
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        audio {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .info {
+            font-size: 14px;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        .status {
+            background: rgba(0,243,255,0.1);
+            border: 1px solid rgba(0,243,255,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .status-ok {
+            border-color: #00ff00;
+            background: rgba(0,255,0,0.1);
+        }
+
+        .status-error {
+            border-color: #ff3366;
+            background: rgba(255,51,102,0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #00f3ff, #0099ff);
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Teste de Players de Áudio - SoundyAI</h1>
+
+        <!-- TESTE 1: Player Nativo Simples -->
+        <div class="test-section">
+            <h2>Teste 1: Player Nativo HTML5</h2>
+            
+            <div class="player-wrapper">
+                <h3>🎵 Mix Original (ANTES)</h3>
+                <audio id="audio1" controls preload="metadata">
+                    <source src="/assets/audio/SOUNDYAI_ANTES.wav" type="audio/wav">
+                    Seu navegador não suporta o elemento de áudio.
+                </audio>
+                <div class="info">Arquivo: /assets/audio/SOUNDYAI_ANTES.wav</div>
+                <button onclick="testPlay('audio1')">▶ Forçar Play</button>
+            </div>
+
+            <div class="player-wrapper">
+                <h3>✨ Mix Otimizada (DEPOIS)</h3>
+                <audio id="audio2" controls preload="metadata">
+                    <source src="/assets/audio/SOUNDYAI_DEPOIS.wav" type="audio/wav">
+                    Seu navegador não suporta o elemento de áudio.
+                </audio>
+                <div class="info">Arquivo: /assets/audio/SOUNDYAI_DEPOIS.wav</div>
+                <button onclick="testPlay('audio2')">▶ Forçar Play</button>
+            </div>
+        </div>
+
+        <!-- TESTE 2: Verificação de URL -->
+        <div class="test-section">
+            <h2>Teste 2: Verificação de URLs</h2>
+            <div id="urlTest" class="status">
+                <p>Testando URLs dos arquivos...</p>
+            </div>
+            <button onclick="testUrls()">🔄 Testar Novamente</button>
+        </div>
+
+        <!-- TESTE 3: Console de Eventos -->
+        <div class="test-section">
+            <h2>Teste 3: Log de Eventos</h2>
+            <div id="eventLog" class="status">
+                <p>Aguardando eventos...</p>
+            </div>
+            <button onclick="clearLog()">🗑️ Limpar Log</button>
+        </div>
+
+        <!-- TESTE 4: Player com Z-Index Alto -->
+        <div class="test-section">
+            <h2>Teste 4: Player com Z-Index 9999 (Garantido em Topo)</h2>
+            
+            <div class="player-wrapper" style="position: relative; z-index: 9999;">
+                <audio id="audio3" controls preload="metadata" style="position: relative; z-index: 9999;">
+                    <source src="/assets/audio/SOUNDYAI_ANTES.wav" type="audio/wav">
+                </audio>
+                <div class="info">Z-Index: 9999 (deve funcionar sempre)</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventLog = [];
+
+        // Função para testar play programaticamente
+        function testPlay(audioId) {
+            const audio = document.getElementById(audioId);
+            const promise = audio.play();
+            
+            logEvent(`🎬 Tentando tocar ${audioId}...`);
+            
+            if (promise !== undefined) {
+                promise.then(() => {
+                    logEvent(`✅ ${audioId} tocando com sucesso!`, 'ok');
+                }).catch(error => {
+                    logEvent(`❌ Erro ao tocar ${audioId}: ${error.message}`, 'error');
+                });
+            }
+        }
+
+        // Função para testar URLs
+        async function testUrls() {
+            const urlTest = document.getElementById('urlTest');
+            urlTest.innerHTML = '<p>Testando URLs...</p>';
+            
+            const urls = [
+                '/assets/audio/SOUNDYAI_ANTES.wav',
+                '/assets/audio/SOUNDYAI_DEPOIS.wav'
+            ];
+            
+            let results = '<h3>Resultado dos Testes:</h3>';
+            
+            for (const url of urls) {
+                try {
+                    const response = await fetch(url, { method: 'HEAD' });
+                    const status = response.ok ? '✅' : '❌';
+                    const size = response.headers.get('content-length');
+                    const type = response.headers.get('content-type');
+                    
+                    results += `<p>${status} ${url}</p>`;
+                    results += `<p style="margin-left: 20px; font-size: 12px;">Status: ${response.status} | Tamanho: ${(size/1024/1024).toFixed(2)}MB | Type: ${type}</p>`;
+                    
+                    if (response.ok) {
+                        logEvent(`✅ URL válida: ${url}`, 'ok');
+                    } else {
+                        logEvent(`❌ URL inválida: ${url} (${response.status})`, 'error');
+                    }
+                } catch (error) {
+                    results += `<p>❌ ${url}</p>`;
+                    results += `<p style="margin-left: 20px; font-size: 12px;">Erro: ${error.message}</p>`;
+                    logEvent(`❌ Erro ao testar ${url}: ${error.message}`, 'error');
+                }
+            }
+            
+            urlTest.innerHTML = results;
+            urlTest.className = 'status status-ok';
+        }
+
+        // Função para logar eventos
+        function logEvent(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.push(`[${timestamp}] ${message}`);
+            updateLog();
+            console.log(message);
+        }
+
+        // Atualizar log visual
+        function updateLog() {
+            const logDiv = document.getElementById('eventLog');
+            logDiv.innerHTML = eventLog.slice(-10).reverse().map(log => `<p>${log}</p>`).join('');
+        }
+
+        // Limpar log
+        function clearLog() {
+            eventLog = [];
+            updateLog();
+            logEvent('Log limpo');
+        }
+
+        // Adicionar listeners aos players
+        document.addEventListener('DOMContentLoaded', () => {
+            const audios = document.querySelectorAll('audio');
+            
+            audios.forEach((audio, index) => {
+                audio.addEventListener('loadstart', () => logEvent(`🔄 Audio ${index+1}: Iniciando carregamento...`));
+                audio.addEventListener('loadedmetadata', () => logEvent(`📊 Audio ${index+1}: Metadados carregados`, 'ok'));
+                audio.addEventListener('canplay', () => logEvent(`✅ Audio ${index+1}: Pronto para tocar`, 'ok'));
+                audio.addEventListener('play', () => logEvent(`▶️ Audio ${index+1}: Começou a tocar`, 'ok'));
+                audio.addEventListener('pause', () => logEvent(`⏸️ Audio ${index+1}: Pausado`));
+                audio.addEventListener('ended', () => logEvent(`⏹️ Audio ${index+1}: Terminou`));
+                audio.addEventListener('error', (e) => {
+                    const errorMsg = audio.error ? audio.error.message : 'Erro desconhecido';
+                    logEvent(`❌ Audio ${index+1}: ERRO - ${errorMsg}`, 'error');
+                });
+            });
+
+            // Testar URLs automaticamente ao carregar
+            setTimeout(testUrls, 1000);
+            
+            logEvent('✅ Página de teste carregada');
+        });
+
+        // Log de cliques nos players
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('audio')) {
+                logEvent('🖱️ Clique detectado no player de áudio');
+            }
+        });
+    </script>
+</body>
+</html>
