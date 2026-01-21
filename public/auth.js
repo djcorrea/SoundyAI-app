@@ -874,67 +874,92 @@ console.log('🚀 Carregando auth.js...');
         console.log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
         // ═══════════════════════════════════════════════════════════════════
-        // ✅ PASSO 4: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
+        // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
         // ═══════════════════════════════════════════════════════════════════
-        console.log('⏳ [CONFIRM] PASSO 4: Aguardando estabilização da sessão Firebase...');
+        // PROBLEMA: linkWithCredential NÃO atualiza imediatamente auth.currentUser
+        // SOLUÇÃO: Forçar reload() para obter estado atualizado do Firebase
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
+        await auth.currentUser.reload();
         
-        // Aguardar onAuthStateChanged confirmar atualização
+        // Obter referência atualizada do usuário
+        const refreshedUser = auth.currentUser;
+        console.log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
+        console.log('   UID:', refreshedUser.uid);
+        console.log('   Email:', refreshedUser.email);
+        console.log('   phoneNumber:', refreshedUser.phoneNumber);
+        console.log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
+        
+        // Validar se telefone foi realmente vinculado
+        if (!refreshedUser.phoneNumber) {
+          console.error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
+          throw new Error('Telefone não foi vinculado corretamente');
+        }
+        
+        console.log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
+        
+        // Atualizar referência do userResult para usar dados atualizados
+        userResult.user = refreshedUser;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ PASSO 5: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
+        
+        // Aguardar onAuthStateChanged confirmar atualização (com timeout curto pois já fizemos reload)
         await new Promise((resolve) => {
           const unsubscribe = auth.onAuthStateChanged((user) => {
-            if (user && user.uid === userResult.user.uid) {
-              console.log('✅ [CONFIRM] Sessão estabilizada - onAuthStateChanged confirmado');
-              console.log('   UID:', user.uid);
-              console.log('   Email:', user.email);
-              console.log('   Telefone:', user.phoneNumber || formattedPhone);
+            if (user && user.uid === refreshedUser.uid && user.phoneNumber) {
+              console.log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
               unsubscribe();
               resolve();
             }
           });
           
-          // Timeout de segurança (2 segundos)
+          // Timeout curto (1 segundo) - já garantimos o estado com reload()
           setTimeout(() => {
-            console.warn('⚠️ [CONFIRM] Timeout - continuando mesmo sem confirmação');
+            console.log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
             unsubscribe();
             resolve();
-          }, 2000);
+          }, 1000);
         });
         
-        // ✅ PASSO 5: Renovar token APÓS estabilização
-        console.log('🔄 [CONFIRM] PASSO 5: Renovando token...');
+        // ✅ PASSO 6: Renovar token com estado garantido
+        console.log('🔄 [CONFIRM] PASSO 6: Renovando token...');
         try {
-          await userResult.user.reload();
-          freshToken = await userResult.user.getIdToken(true);
+          freshToken = await refreshedUser.getIdToken(true);
           console.log('✅ [CONFIRM] Token renovado com sucesso');
         } catch (tokenError) {
           console.warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
           // Usar token sem forçar refresh
-          freshToken = await userResult.user.getIdToken();
+          freshToken = await refreshedUser.getIdToken();
         }
         
         // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens e metadados IMEDIATAMENTE
         console.log('💾 [CONFIRM] Salvando tokens de autenticação...');
         console.log('   UID:', userResult.user.uid);
         console.log('   Email:', formEmail);
-        console.log('   Telefone:', formattedPhone);
+        console.log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
         
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
           uid: userResult.user.uid,
           email: formEmail,
-          telefone: formattedPhone
+          telefone: userResult.user.phoneNumber // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
         }));
         
         // ✅ CRÍTICO: Salvar metadados do cadastro para onAuthStateChanged criar Firestore
         localStorage.setItem("cadastroMetadata", JSON.stringify({
           email: formEmail,
-          telefone: formattedPhone,
+          telefone: userResult.user.phoneNumber, // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
           deviceId: deviceId,
           timestamp: new Date().toISOString()
         }));
         
         console.log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
         console.log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
+        console.log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
