@@ -45,6 +45,15 @@
     { "src": "/refs/(.*)", "dest": "/public/refs/$1" },
     { "src": "/lib/(.*)", "dest": "/lib/$1" },
     
+    { 
+      "src": "/assets/audio/(.*\\.wav)", 
+      "dest": "/public/assets/audio/$1",
+      "headers": {
+        "Content-Type": "audio/wav",
+        "Cache-Control": "public, max-age=31536000"
+      }
+    },
+    
     { "src": "/api/chat/anonymous", "dest": "/api/chat/anonymous.js" },
     { "src": "/api/chat/test", "dest": "/api/chat/test.js" },
     { "src": "/api/audio/analyze-anonymous", "dest": "/api/audio/analyze-anonymous.js" },
