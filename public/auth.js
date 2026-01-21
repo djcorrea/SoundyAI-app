@@ -962,9 +962,12 @@ console.log('🚀 Carregando auth.js...');
 
       // ✅ TRY-CATCH ESPECÍFICO DO FIRESTORE (não derruba sessão)
       try {
-        const { collection, query, where, getDocs, runTransaction, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const { collection, query, where, getDocs, setDoc, getDoc, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
-        // Validar device
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔍 VALIDAÇÃO 1: Verificar se dispositivo já possui conta
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('🔍 [FIRESTORE] Verificando dispositivo...');
         const deviceQuery = query(
           collection(db, 'device_mappings'),
           where('deviceId', '==', deviceId)
@@ -976,7 +979,6 @@ console.log('🚀 Carregando auth.js...');
           const existingDevice = deviceSnapshot.docs[0].data();
           console.warn('⚠️ [ANTI-BURLA] Dispositivo já possui conta:', existingDevice.userId);
           
-          // ⚠️ NÃO remover flag - usuário está autenticado
           showMessage(
             "⚠️ Este dispositivo já possui uma conta. Você será redirecionado.",
             "error"
@@ -987,104 +989,77 @@ console.log('🚀 Carregando auth.js...');
           }, 2000);
           return;
         }
+        console.log('✅ [FIRESTORE] Dispositivo livre');
 
-        // Transaction com retry
-        console.log('💾 [FIRESTORE] Iniciando Transaction com retry...');
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔍 VALIDAÇÃO 2: Verificar se telefone já está cadastrado
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('🔍 [FIRESTORE] Verificando telefone...');
+        const phoneRef = doc(db, 'phone_mappings', cleanPhone);
+        const phoneSnapshot = await getDoc(phoneRef);
         
-        let transactionSuccess = false;
-        let retryCount = 0;
-        const maxRetries = 3;
+        if (phoneSnapshot.exists()) {
+          const existingPhone = phoneSnapshot.data();
+          console.warn('⚠️ [ANTI-BURLA] Telefone já cadastrado:', existingPhone.userId);
+          
+          showMessage(
+            "⚠️ Este telefone já está cadastrado em outra conta.",
+            "error"
+          );
+          return;
+        }
+        console.log('✅ [FIRESTORE] Telefone livre');
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 💾 CRIAR DOCUMENTO usuarios/{uid} - OPERAÇÃO PRINCIPAL
+        // ═══════════════════════════════════════════════════════════════════
+        // ⚠️ NOTA: phone_mappings e device_mappings têm regras "allow write: if false"
+        // Esses mapeamentos serão criados por Cloud Function ou Admin SDK
+        // O documento usuarios/ é o ESSENCIAL para o sistema funcionar
+        // ═══════════════════════════════════════════════════════════════════
         
-        while (!transactionSuccess && retryCount < maxRetries) {
-          try {
-            retryCount++;
-            console.log(`  ➡️ [TRANSACTION] Tentativa ${retryCount}/${maxRetries}`);
-            
-            await runTransaction(db, async (transaction) => {
-              console.log('    🔍 [TRANSACTION] Criando referências...');
-              const userRef = doc(db, 'usuarios', userResult.user.uid);
-              const phoneRef = doc(db, 'phone_mappings', cleanPhone);
-              const deviceRef = doc(db, 'device_mappings', deviceId);
-
-              // Verificar novamente dentro da transaction (previne race condition)
-              console.log('    🔍 [TRANSACTION] Validando telefone...');
-              const phoneDoc = await transaction.get(phoneRef);
-              if (phoneDoc.exists()) {
-                console.error('    ❌ [TRANSACTION] Telefone já existe');
-                throw new Error('Telefone já cadastrado por outro usuário');
-              }
-
-              console.log('    🔍 [TRANSACTION] Validando dispositivo...');
-              const deviceDoc = await transaction.get(deviceRef);
-              if (deviceDoc.exists()) {
-                console.error('    ❌ [TRANSACTION] Dispositivo já existe');
-                throw new Error('Dispositivo já possui conta cadastrada');
-              }
-
-              // ✅ SCHEMA ATUALIZADO - Usando email do FORMULÁRIO (NUNCA auth.currentUser.email)
-              console.log('    🔍 [TRANSACTION] Criando usuário...');
-              console.log('    📧 Email a salvar:', formEmail);
-              console.log('    📱 Telefone a salvar:', formattedPhone);
-              
-              transaction.set(userRef, {
-                uid: userResult.user.uid,
-                email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
-                telefone: formattedPhone,  // ✅ Telefone formatado (+5511...)
-                deviceId: deviceId,
-                plan: "free",
-                messagesToday: 0,
-                analysesToday: 0,
-                lastResetAt: new Date().toISOString().slice(0, 10),
-                verificadoPorSMS: true,
-                criadoSemSMS: false,
-                entrevistaConcluida: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              });
-
-              // ✅ CRIAR MAPEAMENTO TELEFONE → USERID
-              console.log('    🔍 [TRANSACTION] Criando mapeamento telefone...');
-              transaction.set(phoneRef, {
-                telefone: formattedPhone,  // ✅ Telefone formatado
-                userId: userResult.user.uid,
-                createdAt: new Date().toISOString()
-              });
-
-              // ✅ CRIAR MAPEAMENTO DEVICEID → USERID
-              console.log('    🔍 [TRANSACTION] Criando mapeamento device...');
-              transaction.set(deviceRef, {
-                deviceId: deviceId,
-                userId: userResult.user.uid,
-                createdAt: new Date().toISOString()
-              });
-              
-              console.log('    ✅ [TRANSACTION] Todas as operações preparadas');
-            });
-            
-            // Se chegou aqui, transaction foi bem-sucedida
-            transactionSuccess = true;
-            console.log('✅ [TRANSACTION] Firestore salvo com sucesso');
-            
-          } catch (transactionError) {
-            console.error(`❌ [TRANSACTION] Tentativa ${retryCount} falhou:`, transactionError);
-            
-            if (retryCount >= maxRetries) {
-              // ❌ TODAS AS TENTATIVAS FALHARAM
-              console.error('❌ [TRANSACTION] Firestore falhou após 3 tentativas');
-              console.error('   Erro:', transactionError.message);
-              
-              // ⚠️ NÃO fazer return aqui - lançar erro para o catch externo
-              throw new Error(`Firestore falhou após ${maxRetries} tentativas: ${transactionError.message}`);
-            }
-            
-            // Aguardar antes de retry (backoff exponencial)
-            const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s
-            console.log(`⏳ [TRANSACTION] Aguardando ${delay}ms antes de retry...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
+        console.log('💾 [FIRESTORE] Criando documento usuarios/...');
+        console.log('   📧 Email:', formEmail);
+        console.log('   📱 Telefone:', formattedPhone);
+        console.log('   🔑 UID:', userResult.user.uid);
+        
+        const userRef = doc(db, 'usuarios', userResult.user.uid);
+        
+        await setDoc(userRef, {
+          uid: userResult.user.uid,
+          email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
+          telefone: formattedPhone,  // ✅ Telefone formatado (+5511...)
+          deviceId: deviceId,
+          plan: "free",
+          messagesToday: 0,
+          analysesToday: 0,
+          messagesMonth: 0,
+          analysesMonth: 0,
+          imagesMonth: 0,
+          billingMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+          lastResetAt: new Date().toISOString().slice(0, 10),
+          verificadoPorSMS: true,
+          criadoSemSMS: false,
+          entrevistaConcluida: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        console.log('✅ [FIRESTORE] Documento usuarios/ criado com sucesso!');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ VERIFICAÇÃO PÓS-CRIAÇÃO: Confirmar que documento existe
+        // ═══════════════════════════════════════════════════════════════════
+        const verificacao = await getDoc(userRef);
+        if (verificacao.exists()) {
+          console.log('✅ [FIRESTORE] CONFIRMADO: Documento existe no Firestore');
+          console.log('   Dados salvos:', JSON.stringify(verificacao.data(), null, 2));
+        } else {
+          console.error('❌ [FIRESTORE] ERRO CRÍTICO: Documento NÃO foi criado!');
+          throw new Error('Falha ao criar documento no Firestore');
         }
         
-        // ✅ Transaction completada com sucesso
+        // ✅ Documento criado com sucesso
         console.log('✅ [FIRESTORE] Dados salvos com sucesso na coleção usuarios/');
         console.log('   UID:', userResult.user.uid);
         console.log('   Email:', formEmail);
