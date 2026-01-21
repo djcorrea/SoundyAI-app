@@ -21,7 +21,7 @@ if (typeof window !== 'undefined' && !window.suggestionSystem) {
 }
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
-const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
+const __DEBUG_ANALYZER__ = false; // 🔧 TEMPORÁRIO: Ativado para debug do problema
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
