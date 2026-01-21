@@ -803,12 +803,28 @@ console.log('🚀 Carregando auth.js...');
       // ═══════════════════════════════════════════════════════════════════
       let userResult = null;
       let freshToken = null;
+      let deviceId = null;
       
       try {
         // ✅ Marcar cadastro em progresso
         window.isNewUserRegistering = true;
         localStorage.setItem('cadastroEmProgresso', 'true');
         console.log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
+        
+        // ✅ OBTER DEVICE FINGERPRINT antes da autenticação
+        try {
+          if (window.SoundyFingerprint) {
+            const fpData = await window.SoundyFingerprint.get();
+            deviceId = fpData.fingerprint_hash;
+            console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
+          } else {
+            console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
+            deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          }
+        } catch (fpError) {
+          console.error('❌ Erro ao obter fingerprint:', fpError);
+          deviceId = 'fp_fallback_' + Date.now();
+        }
         
         showMessage("Verificando código...", "success");
         
@@ -884,7 +900,7 @@ console.log('🚀 Carregando auth.js...');
           freshToken = await userResult.user.getIdToken();
         }
         
-        // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens IMEDIATAMENTE
+        // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens e metadados IMEDIATAMENTE
         console.log('💾 [CONFIRM] Salvando tokens de autenticação...');
         console.log('   UID:', userResult.user.uid);
         console.log('   Email:', formEmail);
@@ -897,7 +913,17 @@ console.log('🚀 Carregando auth.js...');
           email: formEmail,
           telefone: formattedPhone
         }));
+        
+        // ✅ CRÍTICO: Salvar metadados do cadastro para onAuthStateChanged criar Firestore
+        localStorage.setItem("cadastroMetadata", JSON.stringify({
+          email: formEmail,
+          telefone: formattedPhone,
+          deviceId: deviceId,
+          timestamp: new Date().toISOString()
+        }));
+        
         console.log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
+        console.log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
         
       } catch (authError) {
         // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
@@ -933,160 +959,11 @@ console.log('🚀 Carregando auth.js...');
       }
       
       // ═══════════════════════════════════════════════════════════════════
-      // 💾 BLOCO 2: FIRESTORE (NÃO-CRÍTICO - Se falhar, permitir retry)
+      // ✅ BLOCO 2: FINALIZAÇÃO (SEMPRE EXECUTAR)
       // ═══════════════════════════════════════════════════════════════════
-      
-      if (!userResult) {
-        console.error('❌ [CONFIRM] userResult não existe - abortar');
-        return;
-      }
-      
-      showMessage("💾 Salvando dados...", "success");
-      console.log('💾 [FIRESTORE] Iniciando salvamento...');
-      
-      // ✅ OBTER DEVICE FINGERPRINT
-      let deviceId = null;
-      try {
-        if (window.SoundyFingerprint) {
-          const fpData = await window.SoundyFingerprint.get();
-          deviceId = fpData.fingerprint_hash;
-          console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
-        } else {
-          console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
-          deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        }
-      } catch (fpError) {
-        console.error('❌ Erro ao obter fingerprint:', fpError);
-        deviceId = 'fp_fallback_' + Date.now();
-      }
-
-      // ✅ TRY-CATCH ESPECÍFICO DO FIRESTORE (não derruba sessão)
-      try {
-        const { collection, query, where, getDocs, setDoc, getDoc, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔍 VALIDAÇÃO 1: Verificar se dispositivo já possui conta
-        // ═══════════════════════════════════════════════════════════════════
-        console.log('🔍 [FIRESTORE] Verificando dispositivo...');
-        const deviceQuery = query(
-          collection(db, 'device_mappings'),
-          where('deviceId', '==', deviceId)
-        );
-        
-        const deviceSnapshot = await getDocs(deviceQuery);
-        
-        if (!deviceSnapshot.empty) {
-          const existingDevice = deviceSnapshot.docs[0].data();
-          console.warn('⚠️ [ANTI-BURLA] Dispositivo já possui conta:', existingDevice.userId);
-          
-          showMessage(
-            "⚠️ Este dispositivo já possui uma conta. Você será redirecionado.",
-            "error"
-          );
-          
-          setTimeout(() => {
-            window.location.replace("index.html");
-          }, 2000);
-          return;
-        }
-        console.log('✅ [FIRESTORE] Dispositivo livre');
-
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔍 VALIDAÇÃO 2: Verificar se telefone já está cadastrado
-        // ═══════════════════════════════════════════════════════════════════
-        console.log('🔍 [FIRESTORE] Verificando telefone...');
-        const phoneRef = doc(db, 'phone_mappings', cleanPhone);
-        const phoneSnapshot = await getDoc(phoneRef);
-        
-        if (phoneSnapshot.exists()) {
-          const existingPhone = phoneSnapshot.data();
-          console.warn('⚠️ [ANTI-BURLA] Telefone já cadastrado:', existingPhone.userId);
-          
-          showMessage(
-            "⚠️ Este telefone já está cadastrado em outra conta.",
-            "error"
-          );
-          return;
-        }
-        console.log('✅ [FIRESTORE] Telefone livre');
-
-        // ═══════════════════════════════════════════════════════════════════
-        // 💾 CRIAR DOCUMENTO usuarios/{uid} - OPERAÇÃO PRINCIPAL
-        // ═══════════════════════════════════════════════════════════════════
-        // ⚠️ NOTA: phone_mappings e device_mappings têm regras "allow write: if false"
-        // Esses mapeamentos serão criados por Cloud Function ou Admin SDK
-        // O documento usuarios/ é o ESSENCIAL para o sistema funcionar
-        // ═══════════════════════════════════════════════════════════════════
-        
-        console.log('💾 [FIRESTORE] Criando documento usuarios/...');
-        console.log('   📧 Email:', formEmail);
-        console.log('   📱 Telefone:', formattedPhone);
-        console.log('   🔑 UID:', userResult.user.uid);
-        
-        const userRef = doc(db, 'usuarios', userResult.user.uid);
-        
-        await setDoc(userRef, {
-          uid: userResult.user.uid,
-          email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO
-          telefone: formattedPhone,  // ✅ Telefone formatado (+5511...)
-          deviceId: deviceId,
-          plan: "free",
-          messagesToday: 0,
-          analysesToday: 0,
-          messagesMonth: 0,
-          analysesMonth: 0,
-          imagesMonth: 0,
-          billingMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
-          lastResetAt: new Date().toISOString().slice(0, 10),
-          verificadoPorSMS: true,
-          criadoSemSMS: false,
-          entrevistaConcluida: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-        
-        console.log('✅ [FIRESTORE] Documento usuarios/ criado com sucesso!');
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // ✅ VERIFICAÇÃO PÓS-CRIAÇÃO: Confirmar que documento existe
-        // ═══════════════════════════════════════════════════════════════════
-        const verificacao = await getDoc(userRef);
-        if (verificacao.exists()) {
-          console.log('✅ [FIRESTORE] CONFIRMADO: Documento existe no Firestore');
-          console.log('   Dados salvos:', JSON.stringify(verificacao.data(), null, 2));
-        } else {
-          console.error('❌ [FIRESTORE] ERRO CRÍTICO: Documento NÃO foi criado!');
-          throw new Error('Falha ao criar documento no Firestore');
-        }
-        
-        // ✅ Documento criado com sucesso
-        console.log('✅ [FIRESTORE] Dados salvos com sucesso na coleção usuarios/');
-        console.log('   UID:', userResult.user.uid);
-        console.log('   Email:', formEmail);
-        console.log('   Telefone:', formattedPhone);
-        
-      } catch (firestoreError) {
-        // ⚠️ ERRO DO FIRESTORE (NÃO-CRÍTICO) - Usuário JÁ está autenticado
-        console.error('❌ [FIRESTORE-ERROR] Falha ao salvar no Firestore:', firestoreError);
-        console.error('   Código:', firestoreError.code);
-        console.error('   Mensagem:', firestoreError.message);
-        
-        // ✅ USUÁRIO CONTINUA LOGADO - Apenas mostrar aviso
-        showMessage(
-          "⚠️ Cadastro autenticado mas dados não foram salvos completamente. " +
-          "Entre em contato com suporte se o problema persistir.",
-          "error"
-        );
-        
-        console.warn('⚠️ [FIRESTORE] Usuário autenticado apesar do erro no Firestore');
-        console.warn('   UID:', userResult.user.uid);
-        console.warn('   Email:', formEmail);
-        
-        // Continuar fluxo normalmente - usuário está autenticado
-      }
-      
-      // ═══════════════════════════════════════════════════════════════════
-      // ✅ BLOCO 3: FINALIZAÇÃO (SEMPRE EXECUTAR)
+      // 🔥 IMPORTANTE: A criação do Firestore será feita pelo listener global
+      // onAuthStateChanged quando detectar usuário novo sem documento.
+      // Isso garante que o auth state esteja completamente estável.
       // ═══════════════════════════════════════════════════════════════════
       
       // Limpar flag de cadastro em progresso
@@ -1100,6 +977,7 @@ console.log('🚀 Carregando auth.js...');
       showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
       
       console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
+      console.log('📌 [CONFIRM] Firestore será criado automaticamente pelo listener global');
       setTimeout(() => {
         window.location.replace("entrevista.html");
       }, 1500);
@@ -1442,6 +1320,96 @@ console.log('🚀 Carregando auth.js...');
 
     // Verificar estado de autenticação
     checkAuthState();
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔥 LISTENER GLOBAL: Criar Firestore quando auth state estabilizar
+    // ═══════════════════════════════════════════════════════════════════
+    // Este listener detecta quando um usuário recém-cadastrado não possui
+    // documento no Firestore e o cria automaticamente APÓS o auth state
+    // estar completamente estável.
+    // ═══════════════════════════════════════════════════════════════════
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) return;
+      
+      // Verificar se é cadastro recém-finalizado
+      const cadastroMetadata = localStorage.getItem('cadastroMetadata');
+      if (!cadastroMetadata) return;
+      
+      console.log('🔍 [AUTH-LISTENER] Usuário autenticado detectado com metadados de cadastro');
+      console.log('   UID:', user.uid);
+      
+      try {
+        const metadata = JSON.parse(cadastroMetadata);
+        const { email, telefone, deviceId, timestamp } = metadata;
+        
+        // Verificar idade do cadastro (máx 5 minutos)
+        const age = Date.now() - new Date(timestamp).getTime();
+        if (age > 5 * 60 * 1000) {
+          console.log('⏰ [AUTH-LISTENER] Metadados de cadastro antigos, ignorando');
+          localStorage.removeItem('cadastroMetadata');
+          return;
+        }
+        
+        // Importar Firestore dinamicamente
+        const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        
+        // Verificar se documento já existe
+        const userRef = doc(db, 'usuarios', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          console.log('✅ [AUTH-LISTENER] Documento já existe, removendo metadados');
+          localStorage.removeItem('cadastroMetadata');
+          return;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 💾 CRIAR DOCUMENTO FIRESTORE - Auth State já estabilizou
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('💾 [AUTH-LISTENER] Criando documento usuarios/ após auth estabilizar...');
+        console.log('   Email:', email);
+        console.log('   Telefone:', telefone);
+        console.log('   DeviceID:', deviceId?.substring(0, 16) + '...');
+        
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: email || user.email,
+          telefone: telefone || user.phoneNumber || '',
+          deviceId: deviceId || 'unknown',
+          plan: 'free',
+          messagesToday: 0,
+          analysesToday: 0,
+          messagesMonth: 0,
+          analysesMonth: 0,
+          imagesMonth: 0,
+          billingMonth: new Date().toISOString().slice(0, 7),
+          lastResetAt: new Date().toISOString().slice(0, 10),
+          verificadoPorSMS: !!telefone,
+          criadoSemSMS: !telefone,
+          entrevistaConcluida: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        console.log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
+        
+        // Verificar criação
+        const verificacao = await getDoc(userRef);
+        if (verificacao.exists()) {
+          console.log('✅ [AUTH-LISTENER] CONFIRMADO: Documento existe no Firestore');
+          console.log('   Dados:', verificacao.data());
+          localStorage.removeItem('cadastroMetadata');
+        } else {
+          console.error('❌ [AUTH-LISTENER] ERRO: Documento não foi criado');
+        }
+        
+      } catch (error) {
+        console.error('❌ [AUTH-LISTENER] Erro ao criar Firestore:', error);
+        console.error('   Código:', error.code);
+        console.error('   Mensagem:', error.message);
+        // Não remover metadados para retry na próxima vez
+      }
+    });
 
     // Exportar funções importantes para acesso global
     window.resetSMSState = resetSMSState;

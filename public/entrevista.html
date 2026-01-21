@@ -609,40 +609,36 @@
                         
                         console.log('💾 Salvando perfil para usuário:', user.uid);
                         
-                        // Verificar se o documento do usuário já existe
+                        // ═══════════════════════════════════════════════════════════════════
+                        // ✅ GARANTIA: Documento DEVE existir (criado por auth.js listener)
+                        // Esta função APENAS atualiza, NUNCA cria o documento
+                        // ═══════════════════════════════════════════════════════════════════
                         const { getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
                         const userDocRef = doc(db, 'usuarios', user.uid);
                         const userDocSnap = await getDoc(userDocRef);
                         
                         if (!userDocSnap.exists()) {
-                            console.log('⚠️ Documento do usuário não existe, criando...');
-                            // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
-                            await setDoc(userDocRef, {
-                                uid: user.uid,
-                                email: user.email,
-                                telefone: '', // Preencher se disponível
-                                plan: 'free', // ✅ Novo schema: "plan" ao invés de "plano"
-                                messagesToday: 0, // ✅ Novo schema
-                                analysesToday: 0, // ✅ Novo schema
-                                lastResetAt: new Date().toISOString().slice(0, 10), // ✅ YYYY-MM-DD
-                                verificadoPorSMS: false,
-                                criadoSemSMS: true,
-                                entrevistaConcluida: true, // Entrevista concluída neste momento
-                                createdAt: new Date().toISOString(), // ✅ ISO string
-                                updatedAt: new Date().toISOString(), // ✅ ISO string
-                                perfil: perfilData // Dados da entrevista
-                            });
-                            console.log('✅ Documento completo criado com perfil e schema atualizado');
-                        } else {
-                            console.log('✅ Documento existe, fazendo merge do perfil...');
-                            // Atualizar apenas o perfil se documento já existe
-                            await setDoc(userDocRef, {
-                                perfil: perfilData,
-                                entrevistaConcluida: true,
-                                dataUltimaEntrevista: Timestamp.now()
-                            }, { merge: true });
-                            console.log('✅ Perfil atualizado via merge');
+                            // ❌ ERRO CRÍTICO: Documento deveria existir
+                            console.error('❌ [ENTREVISTA] Documento não existe no Firestore!');
+                            console.error('   UID:', user.uid);
+                            console.error('   CAUSA: Listener global não criou o documento ou auth state não estabilizou');
+                            
+                            alert('Erro ao salvar perfil: Sua conta não foi inicializada corretamente. Por favor, faça logout e login novamente.');
+                            return;
                         }
+                        
+                        console.log('✅ [ENTREVISTA] Documento existe, atualizando perfil...');
+                        
+                        // ✅ ATUALIZAR perfil usando merge (preserva campos existentes)
+                        await setDoc(userDocRef, {
+                            perfil: perfilData,
+                            entrevistaConcluida: true,
+                            dataUltimaEntrevista: Timestamp.now(),
+                            updatedAt: new Date().toISOString()
+                        }, { merge: true });
+                        
+                        console.log('✅ [ENTREVISTA] Perfil atualizado via merge');
+                        console.log('   Dados da entrevista:', perfilData);
                         
                         console.log('✅ Perfil salvo com sucesso!', perfilData);
                         console.log('📊 Documento final no Firestore:', user.uid);
