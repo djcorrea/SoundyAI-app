@@ -322,17 +322,12 @@ function initVantaBackground() {
                 spacing: isLowPerformance ? 35.00 : (isDesktop ? 22.00 : 28.00),
                 showDots: true
             });
-            log('✨ Vanta.js inicializado');
-        } else {
-            log('⏳ Vanta.js ainda não carregado (será carregado via lazy loader)');
+            log('✨ Vanta.js inicializado (fallback mode)');
         }
     } catch (error) {
         warn('⚠️ Vanta.js não carregou:', error.message);
     }
 }
-
-// 🚀 PERFORMANCE: Expor função globalmente para lazy loader
-window.initVantaBackground = initVantaBackground;
 
 /* ============ 🚀 PERFORMANCE: Visibility change delegado ao EffectsController ============ */
 /* O listener de visibilitychange agora está no effects-controller.js para gerenciamento centralizado */
