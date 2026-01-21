@@ -29643,25 +29643,10 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 async function generateReferenceReportPDF() {
     log('[REF-PDF] 🚀 Iniciando geração de PDF Premium (2 páginas fixas)...');
     
-    // 🚀 PERFORMANCE: Lazy load das bibliotecas PDF
-    if (typeof window.loadPDFLibraries === 'function') {
-        if (!window.jsPDF || !window.html2canvas) {
-            showTemporaryFeedback('⚙️ Carregando bibliotecas PDF...');
-            log('[REF-PDF] 📦 Carregando jsPDF e html2canvas sob demanda...');
-            try {
-                await window.loadPDFLibraries();
-            } catch (error) {
-                error('[REF-PDF] ❌ Erro ao carregar bibliotecas:', error);
-                showTemporaryFeedback('❌ Erro ao carregar dependências. Tente novamente.', true);
-                return;
-            }
-        }
-    }
-    
     // Verificar dependências
     if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        showTemporaryFeedback('⚙️ Aguardando bibliotecas...');
-        warn('[REF-PDF] ⚠️ Bibliotecas ainda não carregadas. Tentando novamente...');
+        showTemporaryFeedback('⚙️ Carregando bibliotecas...');
+        warn('[REF-PDF] ⚠️ Aguardando carregamento de jsPDF/html2canvas...');
         setTimeout(() => generateReferenceReportPDF(), 1000);
         return;
     }
@@ -30213,25 +30198,10 @@ async function downloadModalAnalysis() {
         hasTruePeak: !!(analysis.truePeak || analysis.truePeakDbtp)
     });
     
-    // 🚀 PERFORMANCE: Lazy load das bibliotecas PDF
-    if (typeof window.loadPDFLibraries === 'function') {
-        if (!window.jsPDF || !window.html2canvas) {
-            showTemporaryFeedback('⚙️ Carregando bibliotecas PDF...');
-            log('[PDF] 📦 Carregando jsPDF e html2canvas sob demanda...');
-            try {
-                await window.loadPDFLibraries();
-            } catch (error) {
-                error('[PDF] ❌ Erro ao carregar bibliotecas:', error);
-                showTemporaryFeedback('❌ Erro ao carregar dependências. Tente novamente.', true);
-                return;
-            }
-        }
-    }
-    
     // 2️⃣ VALIDAÇÃO: Verificar dependências
     if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        showTemporaryFeedback('⚙️ Aguardando bibliotecas...');
-        warn('⚠️ [PDF-WAIT] Bibliotecas ainda não carregadas. Tentando novamente...');
+        showTemporaryFeedback('⚙️ Carregando bibliotecas...');
+        warn('⚠️ [PDF-WAIT] Aguardando carregamento de jsPDF/html2canvas...');
         
         // Retry após 1s
         setTimeout(() => downloadModalAnalysis(), 1000);
