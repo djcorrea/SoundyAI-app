@@ -34,6 +34,20 @@ import {
 // 🎯 IMPORTAR SISTEMA DE PLANOS CENTRALIZADO
 import { canUseChat, registerChat } from '../work/lib/user/userPlans.js';
 
+/**
+ * 🧪 Detecta se a requisição vem do frontend de TESTE
+ * @param {Object} req - Request do Express
+ * @returns {boolean}
+ */
+function isTestEnvironmentRequest(req) {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const testOrigins = [
+    'https://soundyai-teste.vercel.app',
+    'https://soundyai-app-soundyai-teste.up.railway.app'
+  ];
+  return testOrigins.some(testOrigin => origin.includes(testOrigin));
+}
+
 // ✅ CORREÇÃO: Configuração para suporte a multipart
 export const config = {
   api: {
@@ -1216,6 +1230,9 @@ export default async function handler(req, res) {
     // Gerenciar limites de usuário com sistema centralizado
     let chatCheck;
     
+    // 🧪 TESTE: Detectar se a requisição vem do ambiente de teste
+    const isTestRequest = isTestEnvironmentRequest(req);
+    
     if (isDemoMode) {
       // 🔥 DEMO MODE: Permitir chat (frontend controla o limite de 1)
       chatCheck = { 
@@ -1231,6 +1248,21 @@ export default async function handler(req, res) {
         }
       };
       console.log(`🔥 [${requestId}] DEMO MODE: Limites controlados pelo frontend`);
+    } else if (isTestRequest) {
+      // 🧪 TESTE: Liberar chat sempre que usuário estiver autenticado
+      chatCheck = {
+        allowed: true,
+        test: true,
+        remaining: 9999,
+        user: {
+          uid: uid,
+          email: email,
+          plan: 'test-unlimited',
+          entrevistaConcluida: true,
+          messagesMonth: 0
+        }
+      };
+      console.log(`🧪 [${requestId}] TESTE: Chat liberado (ambiente de teste, usuário autenticado)`);
     } else {
       try {
         chatCheck = await canUseChat(uid, hasImages);
