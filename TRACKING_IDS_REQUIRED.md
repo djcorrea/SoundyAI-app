@@ -24,7 +24,7 @@
 - Na página de Conversões do Google Ads
 - Clicar em qualquer conversão existente
 - Copiar o ID que aparece no formato `AW-1234567890`
-
+j
 **Onde substituir:**
 - [ ] `/public/prelaunch.html` (linha ~17)
 - [ ] `/public/index.html` (linha ~12)
