@@ -846,14 +846,41 @@ console.log('🚀 Carregando auth.js...');
         await linkWithCredential(userResult.user, phoneCredential);
         console.log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
-        // ✅ PASSO 4: Renovar token
-        console.log('🔄 [CONFIRM] PASSO 4: Renovando token...');
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ PASSO 4: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('⏳ [CONFIRM] PASSO 4: Aguardando estabilização da sessão Firebase...');
+        
+        // Aguardar onAuthStateChanged confirmar atualização
+        await new Promise((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === userResult.user.uid) {
+              console.log('✅ [CONFIRM] Sessão estabilizada - onAuthStateChanged confirmado');
+              console.log('   UID:', user.uid);
+              console.log('   Email:', user.email);
+              console.log('   Telefone:', user.phoneNumber || formattedPhone);
+              unsubscribe();
+              resolve();
+            }
+          });
+          
+          // Timeout de segurança (2 segundos)
+          setTimeout(() => {
+            console.warn('⚠️ [CONFIRM] Timeout - continuando mesmo sem confirmação');
+            unsubscribe();
+            resolve();
+          }, 2000);
+        });
+        
+        // ✅ PASSO 5: Renovar token APÓS estabilização
+        console.log('🔄 [CONFIRM] PASSO 5: Renovando token...');
         try {
           await userResult.user.reload();
           freshToken = await userResult.user.getIdToken(true);
-          console.log('✅ [CONFIRM] Token renovado');
+          console.log('✅ [CONFIRM] Token renovado com sucesso');
         } catch (tokenError) {
           console.warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
+          // Usar token sem forçar refresh
           freshToken = await userResult.user.getIdToken();
         }
         
