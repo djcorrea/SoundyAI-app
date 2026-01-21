@@ -67,13 +67,18 @@ export function getAllowedOrigins(env = detectEnvironment()) {
     'http://127.0.0.1:3000'
   ];
   
-  // PRODUÇÃO: Domínio principal + Railway prod
+  // PRODUÇÃO: Domínio principal + Railway prod + Frontend TESTE
   if (env === 'production') {
     return [
       ...baseOrigins,
+      // Produção
       'https://soundyai.com.br',
       'https://www.soundyai.com.br',
-      'https://soundyai-app-production.up.railway.app'
+      'https://soundyai-app-production.up.railway.app',
+      
+      // ✅ Frontend TESTE (chama backend de produção)
+      'https://soundyai-teste.vercel.app',
+      'https://soundyai-app-soundyai-teste.up.railway.app'
     ];
   }
   
@@ -82,6 +87,7 @@ export function getAllowedOrigins(env = detectEnvironment()) {
     return [
       ...baseOrigins,
       'https://soundyai-app-soundyai-teste.up.railway.app',
+      'https://soundyai-teste.vercel.app',
       // Permitir também produção para facilitar testes cruzados
       'https://soundyai.com.br',
       'https://www.soundyai.com.br',
@@ -93,6 +99,7 @@ export function getAllowedOrigins(env = detectEnvironment()) {
   return [
     ...baseOrigins,
     'https://soundyai-app-soundyai-teste.up.railway.app',
+    'https://soundyai-teste.vercel.app',
     'https://soundyai-app-production.up.railway.app',
     'https://soundyai.com.br',
     'https://www.soundyai.com.br'
