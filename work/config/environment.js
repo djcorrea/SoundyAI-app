@@ -2,46 +2,55 @@
 // ✅ CONFIGURAÇÃO CENTRALIZADA DE AMBIENTE
 // Sistema unificado para detectar ambiente e configurar CORS/features
 
+// 🛡️ PROTEÇÃO: Log de inicialização para debug
+console.log('🌍 [ENV-CONFIG] Carregando módulo environment.js...');
+console.log('🌍 [ENV-CONFIG] __dirname:', import.meta.url);
+
 /**
  * Detecta o ambiente atual com base em variáveis do Railway e NODE_ENV
  * @returns {'production' | 'test' | 'development'}
  */
 export function detectEnvironment() {
-  // 1️⃣ RAILWAY_ENVIRONMENT: Variável do Railway que indica o ambiente
-  const railwayEnv = process.env.RAILWAY_ENVIRONMENT;
-  
-  if (railwayEnv === 'production') {
-    return 'production';
+  try {
+    // 1️⃣ RAILWAY_ENVIRONMENT: Variável do Railway que indica o ambiente
+    const railwayEnv = process.env.RAILWAY_ENVIRONMENT;
+    
+    if (railwayEnv === 'production') {
+      return 'production';
+    }
+    
+    if (railwayEnv === 'test') {
+      return 'test';
+    }
+    
+    // 2️⃣ NODE_ENV: Fallback padrão
+    const nodeEnv = process.env.NODE_ENV;
+    
+    if (nodeEnv === 'production') {
+      return 'production';
+    }
+    
+    if (nodeEnv === 'test') {
+      return 'test';
+    }
+    
+    // 3️⃣ APP_ENV: Alternativa customizada
+    const appEnv = process.env.APP_ENV;
+    
+    if (appEnv === 'production') {
+      return 'production';
+    }
+    
+    if (appEnv === 'test') {
+      return 'test';
+    }
+    
+    // Default: development
+    return 'development';
+  } catch (error) {
+    console.error('⚠️ [ENV-CONFIG] Erro ao detectar ambiente:', error.message);
+    return 'development';
   }
-  
-  if (railwayEnv === 'test') {
-    return 'test';
-  }
-  
-  // 2️⃣ NODE_ENV: Fallback padrão
-  const nodeEnv = process.env.NODE_ENV;
-  
-  if (nodeEnv === 'production') {
-    return 'production';
-  }
-  
-  if (nodeEnv === 'test') {
-    return 'test';
-  }
-  
-  // 3️⃣ APP_ENV: Alternativa customizada
-  const appEnv = process.env.APP_ENV;
-  
-  if (appEnv === 'production') {
-    return 'production';
-  }
-  
-  if (appEnv === 'test') {
-    return 'test';
-  }
-  
-  // Default: development
-  return 'development';
 }
 
 /**

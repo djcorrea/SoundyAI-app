@@ -2,7 +2,7 @@
 // Sistema de planos e limites mensais para SoundyAI
 
 import { getFirestore } from "../../../firebase/admin.js";
-import { detectEnvironment, getEnvironmentFeatures } from '../config/environment.js';
+import { detectEnvironment, getEnvironmentFeatures } from '../../config/environment.js';
 
 // ✅ Obter db via função (lazy loading) ao invés de top-level
 const getDb = () => getFirestore();
