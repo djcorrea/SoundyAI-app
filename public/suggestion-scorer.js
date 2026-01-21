@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SISTEMA DE SCORING E PRIORIZAÇÃO DE SUGESTÕES MELHORADO
 // Implementa z-score normalizado, severidade por cores, prioridade ponderada e dependências
 
@@ -396,7 +399,7 @@ class SuggestionScorer {
             
             // Log de verificação
             if (typeof console !== 'undefined') {
-                console.log(`🎯 [SUGGESTION_MAPPED] ${band || metricType}: value=${value.toFixed(1)}, target=${target.toFixed(1)}, realDelta=${realDelta.toFixed(1)}, mappedDelta=${amount}`);
+                log(`🎯 [SUGGESTION_MAPPED] ${band || metricType}: value=${value.toFixed(1)}, target=${target.toFixed(1)}, realDelta=${realDelta.toFixed(1)}, mappedDelta=${amount}`);
             }
         } else {
             // Usar template padrão com limitedDelta
@@ -545,4 +548,4 @@ window.SuggestionScorer = SuggestionScorer;
 window.suggestionScorer = new SuggestionScorer();
 
 // Log de inicialização
-console.log('🎯 Suggestion Scorer inicializado com pesos:', window.suggestionScorer.weights);
+log('🎯 Suggestion Scorer inicializado com pesos:', window.suggestionScorer.weights);

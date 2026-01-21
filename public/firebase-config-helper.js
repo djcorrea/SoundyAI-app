@@ -1,26 +1,29 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // Helper para configuração robusta do Firebase
 // Este arquivo pode ajudar a resolver problemas de reCAPTCHA Enterprise
 
 export function initializeFirebaseForAuth(auth) {
   try {
-    console.log('🔧 Aplicando configurações avançadas do Firebase Auth...');
+    log('🔧 Aplicando configurações avançadas do Firebase Auth...');
     
     // Configurações para melhorar compatibilidade
     if (auth.settings) {
       // Desabilitar verificação para teste apenas se necessário
       // auth.settings.appVerificationDisabledForTesting = true; // Apenas para desenvolvimento
       
-      console.log('✅ Configurações do Auth aplicadas');
+      log('✅ Configurações do Auth aplicadas');
     }
     
     // Configurar configurações de rede se disponível
     if (auth.tenantId) {
-      console.log('🏢 Tenant ID detectado:', auth.tenantId);
+      log('🏢 Tenant ID detectado:', auth.tenantId);
     }
     
     return true;
   } catch (error) {
-    console.warn('⚠️ Não foi possível aplicar configurações avançadas:', error);
+    warn('⚠️ Não foi possível aplicar configurações avançadas:', error);
     return false;
   }
 }
@@ -28,7 +31,7 @@ export function initializeFirebaseForAuth(auth) {
 export function createRobustRecaptcha(auth, containerId = 'recaptcha-container') {
   return new Promise((resolve, reject) => {
     try {
-      console.log('🔄 Criando reCAPTCHA robusto...');
+      log('🔄 Criando reCAPTCHA robusto...');
       
       // Configuração progressiva - tenta do mais específico ao mais simples
       const configs = [
@@ -36,10 +39,10 @@ export function createRobustRecaptcha(auth, containerId = 'recaptcha-container')
         {
           size: 'normal',
           callback: (response) => {
-            console.log('✅ reCAPTCHA callback executado:', response);
+            log('✅ reCAPTCHA callback executado:', response);
           },
           'expired-callback': () => {
-            console.log('⏰ reCAPTCHA expirado');
+            log('⏰ reCAPTCHA expirado');
           }
         },
         // Configuração minimal
@@ -58,16 +61,16 @@ export function createRobustRecaptcha(auth, containerId = 'recaptcha-container')
         
         try {
           const config = configs[configIndex];
-          console.log(`🔄 Tentando configuração ${configIndex + 1}/${configs.length}:`, config);
+          log(`🔄 Tentando configuração ${configIndex + 1}/${configs.length}:`, config);
           
           const recaptchaVerifier = new window.firebase.auth.RecaptchaVerifier(containerId, config);
           
           await recaptchaVerifier.render();
-          console.log(`✅ reCAPTCHA configuração ${configIndex + 1} funcionou!`);
+          log(`✅ reCAPTCHA configuração ${configIndex + 1} funcionou!`);
           resolve(recaptchaVerifier);
           
         } catch (error) {
-          console.warn(`⚠️ Configuração ${configIndex + 1} falhou:`, error);
+          warn(`⚠️ Configuração ${configIndex + 1} falhou:`, error);
           tryConfig(configIndex + 1);
         }
       }
@@ -75,7 +78,7 @@ export function createRobustRecaptcha(auth, containerId = 'recaptcha-container')
       tryConfig();
       
     } catch (error) {
-      console.error('❌ Erro crítico ao criar reCAPTCHA:', error);
+      error('❌ Erro crítico ao criar reCAPTCHA:', error);
       reject(error);
     }
   });
@@ -91,7 +94,7 @@ export function getRecaptchaDebugInfo() {
     firebaseVersion: window.firebase?.SDK_VERSION || 'não detectado'
   };
   
-  console.log('🔍 Debug reCAPTCHA:', info);
+  log('🔍 Debug reCAPTCHA:', info);
   return info;
 }
 
@@ -115,6 +118,6 @@ export function detectRecaptchaIssues() {
   }
   
   // Verificar console para erros específicos
-  console.log('🔍 Possíveis problemas detectados:', issues);
+  log('🔍 Possíveis problemas detectados:', issues);
   return issues;
 }

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 ﻿/* ============ PROD.AI CHATBOT SCRIPT - VERSÃO 2025.01.28-17:12 ============ */
 /* 🛑 CACHE BUSTING: Forçar reload do navegador */
 // Área de conversa do novo layout
@@ -24,19 +27,19 @@ const API_CONFIG = {
     
     // 🚀 PRODUÇÃO: soundyai.com.br (Railway) -> usar /api relativo
     if (host === 'soundyai.com.br' || host === 'www.soundyai.com.br') {
-      console.log('🌐 [API_CONFIG] Produção (soundyai.com.br) - usando /api');
+      log('🌐 [API_CONFIG] Produção (soundyai.com.br) - usando /api');
       return '/api';
     }
     
     // 🚀 Railway direto
     if (host === 'soundyai-app-production.up.railway.app') {
-      console.log('🌐 [API_CONFIG] Railway direto - usando /api');
+      log('🌐 [API_CONFIG] Railway direto - usando /api');
       return '/api';
     }
     
     // 🔧 Ambiente local -> chamar Railway
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
-      console.log('🌐 [API_CONFIG] Local - usando Railway backend');
+      log('🌐 [API_CONFIG] Local - usando Railway backend');
       return 'https://soundyai-app-production.up.railway.app/api';
     }
     
@@ -78,11 +81,11 @@ window.AuthGate = {
     // ✅ REGRA ABSOLUTA: Se tem Firebase currentUser, está autenticado
     // NÃO importa se SoundyAnonymous está ativo - Firebase Auth é a verdade
     if (hasFirebaseUser) {
-      console.log('✅ [AuthGate] Firebase currentUser existe - usuário AUTENTICADO');
+      log('✅ [AuthGate] Firebase currentUser existe - usuário AUTENTICADO');
       
       // Se modo anônimo estava ativo mas temos usuário, DESATIVAR anônimo
       if (window.SoundyAnonymous?.isAnonymousMode) {
-        console.log('🔄 [AuthGate] Desativando modo anônimo (usuário autenticado)');
+        log('🔄 [AuthGate] Desativando modo anônimo (usuário autenticado)');
         if (typeof window.SoundyAnonymous.deactivate === 'function') {
           window.SoundyAnonymous.deactivate();
         } else {
@@ -102,17 +105,17 @@ window.AuthGate = {
     
     // Se modo anônimo foi forçado E não tem tokens, não está autenticado
     if ((isAnonymousForced || forceClean) && !hasTokens) {
-      console.log('🔒 [AuthGate] Modo anônimo forçado e sem tokens - não autenticado');
+      log('🔒 [AuthGate] Modo anônimo forçado e sem tokens - não autenticado');
       return false;
     }
     
     // Se tem tokens mas não tem Firebase user, pode ser race condition
     if (hasTokens && !hasFirebaseUser) {
-      console.log('⏳ [AuthGate] Tokens existem mas Firebase user não - aguardando sincronização');
+      log('⏳ [AuthGate] Tokens existem mas Firebase user não - aguardando sincronização');
       return true; // Considerar autenticado temporariamente
     }
     
-    console.log('🔐 [AuthGate] isAuthenticated: false (sem Firebase user nem tokens)');
+    log('🔐 [AuthGate] isAuthenticated: false (sem Firebase user nem tokens)');
     return false;
   },
   
@@ -126,17 +129,17 @@ window.AuthGate = {
     
     if (type === 'chat') {
       const endpoint = isAuth ? API_CONFIG.chatEndpoint : API_CONFIG.chatAnonymousEndpoint;
-      console.log(`📍 [AuthGate] Chat endpoint: ${endpoint}`);
+      log(`📍 [AuthGate] Chat endpoint: ${endpoint}`);
       return endpoint;
     }
     
     if (type === 'analyze') {
       const endpoint = isAuth ? `${API_CONFIG.baseURL}/audio/analyze` : API_CONFIG.analyzeAnonymousEndpoint;
-      console.log(`📍 [AuthGate] Analyze endpoint: ${endpoint}`);
+      log(`📍 [AuthGate] Analyze endpoint: ${endpoint}`);
       return endpoint;
     }
     
-    console.error('❌ [AuthGate] Tipo de endpoint desconhecido:', type);
+    error('❌ [AuthGate] Tipo de endpoint desconhecido:', type);
     return null;
   },
   
@@ -151,7 +154,7 @@ window.AuthGate = {
     };
     
     if (!this.isAuthenticated()) {
-      console.log('🔓 [AuthGate] Headers anônimos (sem Authorization)');
+      log('🔓 [AuthGate] Headers anônimos (sem Authorization)');
       return headers;
     }
     
@@ -169,10 +172,10 @@ window.AuthGate = {
       
       if (idToken) {
         headers['Authorization'] = `Bearer ${idToken}`;
-        console.log('🔐 [AuthGate] Headers autenticados (com Authorization)');
+        log('🔐 [AuthGate] Headers autenticados (com Authorization)');
       }
     } catch (err) {
-      console.warn('⚠️ [AuthGate] Erro ao obter token:', err.message);
+      warn('⚠️ [AuthGate] Erro ao obter token:', err.message);
     }
     
     return headers;
@@ -191,7 +194,7 @@ window.AuthGate = {
     );
     
     if (isAnonymous && isAuthenticatedEndpoint) {
-      console.error('🚫 [AuthGate] BLOQUEANDO chamada autenticada em modo anônimo:', url);
+      error('🚫 [AuthGate] BLOQUEANDO chamada autenticada em modo anônimo:', url);
       return true;
     }
     
@@ -289,14 +292,14 @@ const performanceConfig = {
 function initVantaBackground() {
     // Se EffectsController existe, ele cuida do Vanta
     if (window.EffectsController) {
-        console.log('🎨 Vanta.js gerenciado pelo EffectsController');
+        log('🎨 Vanta.js gerenciado pelo EffectsController');
         return;
     }
     
     try {
         // Fallback: código original caso EffectsController não tenha carregado
         if (performanceConfig.prefersReducedMotion) {
-            console.log('🎨 Vanta.js desabilitado (prefers-reduced-motion)');
+            log('🎨 Vanta.js desabilitado (prefers-reduced-motion)');
             return;
         }
         
@@ -322,10 +325,10 @@ function initVantaBackground() {
                 spacing: isLowPerformance ? 35.00 : (isDesktop ? 22.00 : 28.00),
                 showDots: true
             });
-            console.log('✨ Vanta.js inicializado (fallback mode)');
+            log('✨ Vanta.js inicializado (fallback mode)');
         }
     } catch (error) {
-        console.warn('⚠️ Vanta.js não carregou:', error.message);
+        warn('⚠️ Vanta.js não carregou:', error.message);
     }
 }
 
@@ -394,7 +397,7 @@ function optimizeForMobile() {
             }
         `;
         document.head.appendChild(style);
-        console.warn('🐌 Dispositivo com performance baixa detectado - animações otimizadas');
+        warn('🐌 Dispositivo com performance baixa detectado - animações otimizadas');
         return true; // Performance mode enabled
     }
     
@@ -447,20 +450,20 @@ function waitForFirebase() {
     const checkFirebase = () => {
       // Reduzir console.log excessivos - só logar na primeira e última tentativa
       if (attempts === 0 || attempts >= maxAttempts - 1) {
-        console.log('🔍 Verificando Firebase:', { auth: !!window.auth, firebaseReady: !!window.firebaseReady });
+        log('🔍 Verificando Firebase:', { auth: !!window.auth, firebaseReady: !!window.firebaseReady });
       }
       if (window.auth && window.firebaseReady) {
-        console.log('✅ Firebase pronto!');
+        log('✅ Firebase pronto!');
         resolve();
         return; // PARAR O LOOP
       } else if (attempts >= maxAttempts) {
-        console.warn('⚠️ Timeout no Firebase, continuando...');
+        warn('⚠️ Timeout no Firebase, continuando...');
         resolve();
         return; // PARAR O LOOP
       } else {
         attempts++;
         if (attempts === 1) {
-          console.log('⏳ Firebase ainda não está pronto, aguardando...');
+          log('⏳ Firebase ainda não está pronto, aguardando...');
         }
         setTimeout(checkFirebase, 100);
       }
@@ -546,7 +549,7 @@ class ProdAIChatbot {
                 if (typeof window.openModeSelectionModal === 'function') {
                     window.openModeSelectionModal();
                 } else {
-                    console.error('openModeSelectionModal não está disponível');
+                    error('openModeSelectionModal não está disponível');
                 }
                 break;
             case 'upgrade':
@@ -599,7 +602,7 @@ class ProdAIChatbot {
                 }, 1000); // 0.6s animação + 0.4s buffer para sincronia suave
                 return; // PARAR O LOOP
             } else if (attempts >= maxAttempts) {
-                console.warn('⚠️ Timeout no carregamento, continuando...');
+                warn('⚠️ Timeout no carregamento, continuando...');
                 // Mesmo com timeout, aguardar um pouco para não conflitar
                 setTimeout(() => {
                     this.animateInitialAppearance();
@@ -676,12 +679,12 @@ class ProdAIChatbot {
         let images = [];
         if (window.imagePreviewSystem && window.imagePreviewSystem.hasImages()) {
             images = window.imagePreviewSystem.getImagesForSending();
-            console.log('📸 Primeira mensagem com imagens:', images.length);
+            log('📸 Primeira mensagem com imagens:', images.length);
         }
         
         // Se há imagens mas não há texto, não permitir envio
         if (images.length > 0 && !message) {
-            console.warn('❌ Não é possível enviar apenas imagens sem texto');
+            warn('❌ Não é possível enviar apenas imagens sem texto');
             this.shakeInput();
             return;
         }
@@ -777,14 +780,14 @@ class ProdAIChatbot {
         // ðŸ”¥ MODO DEMO: Verificar limite de mensagens (PRIORIDADE)
         if (window.SoundyDemo && window.SoundyDemo.isActive) {
             if (!window.SoundyDemo.interceptMessage()) {
-                console.log('ðŸš« [SCRIPT] Mensagem bloqueada - limite demo atingido');
+                log('ðŸš« [SCRIPT] Mensagem bloqueada - limite demo atingido');
                 return;
             }
         }
         // ðŸ”“ MODO ANÃ”NIMO: Verificar limite de mensagens
         else if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
             if (!window.SoundyAnonymous.interceptMessage()) {
-                console.log('🚫 [SCRIPT] Mensagem bloqueada - limite anônimo atingido');
+                log('🚫 [SCRIPT] Mensagem bloqueada - limite anônimo atingido');
                 return;
             }
         }
@@ -793,12 +796,12 @@ class ProdAIChatbot {
         let images = [];
         if (window.imagePreviewSystem && window.imagePreviewSystem.hasImages()) {
             images = window.imagePreviewSystem.getImagesForSending();
-            console.log('📸 Imagens encontradas para envio:', images.length);
+            log('📸 Imagens encontradas para envio:', images.length);
         }
         
         // Se há imagens mas não há texto, não permitir envio
         if (images.length > 0 && !message) {
-            console.warn('❌ Não é possível enviar apenas imagens sem texto');
+            warn('❌ Não é possível enviar apenas imagens sem texto');
             return;
         }
         
@@ -819,18 +822,18 @@ class ProdAIChatbot {
                 // 🔓 MODO ANÔNIMO: Registrar mensagem SOMENTE após resposta da IA
                 if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
                     window.SoundyAnonymous.registerMessage();
-                    console.log('📊 [ANONYMOUS] Mensagem registrada após resposta da IA');
+                    log('📊 [ANONYMOUS] Mensagem registrada após resposta da IA');
                 }
                 
                 // 🔥 MODO DEMO: Registrar mensagem SOMENTE após resposta da IA
                 // CRÍTICO: Registro só acontece após sucesso real da resposta
                 if (window.SoundyDemo && window.SoundyDemo.isActive) {
                     window.SoundyDemo.registerMessage();
-                    console.log('📊 [DEMO] Mensagem registrada após resposta da IA');
+                    log('📊 [DEMO] Mensagem registrada após resposta da IA');
                 }
             }).catch((err) => {
                 this.hideTyping();
-                console.error('❌ Erro na resposta da IA - mensagem NÃO registrada:', err);
+                error('❌ Erro na resposta da IA - mensagem NÃO registrada:', err);
             });
         }, 100);
     }
@@ -1120,7 +1123,7 @@ function appendMessage(content, className) {
   // Usar a área de conversa do novo layout
   const chatboxEl = document.getElementById('chatbotConversationArea');
   if (!chatboxEl) {
-    console.error('Área de conversa não encontrada');
+    error('Área de conversa não encontrada');
     return;
   }
 
@@ -1251,7 +1254,7 @@ function showRemainingMessages(count) {
       );
     }
   } catch (error) {
-    console.log('⚠️ Erro ao mostrar indicador de mensagens (não crítico):', error.message);
+    log('⚠️ Erro ao mostrar indicador de mensagens (não crítico):', error.message);
   }
 }
 
@@ -1610,9 +1613,9 @@ function hideTypingIndicator() {
 }
 
 async function processMessage(message, images = []) {
-  console.log('🚀 Processando mensagem:', message);
+  log('🚀 Processando mensagem:', message);
   if (images.length > 0) {
-    console.log('📸 Processando com imagens:', images.length);
+    log('📸 Processando com imagens:', images.length);
   }
   
   const mainSendBtn = document.getElementById('sendBtn');
@@ -1624,16 +1627,16 @@ async function processMessage(message, images = []) {
   showTypingIndicator();
 
   try {
-    console.log('⏳ Aguardando Firebase...');
+    log('⏳ Aguardando Firebase...');
     await waitForFirebase();
     
-    console.log('🔐 Verificando usuário...');
+    log('🔐 Verificando usuário...');
     const currentUser = window.auth?.currentUser;
     const isAnonymousMode = window.SoundyAnonymous?.isAnonymousMode;
     
     // 🔓 MODO ANÔNIMO: Permitir mensagens sem autenticação (dentro do limite)
     if (!currentUser && !isAnonymousMode) {
-      console.error('❌ Usuário não autenticado e modo anônimo não ativo');
+      error('❌ Usuário não autenticado e modo anônimo não ativo');
       appendMessage(`<strong>Assistente:</strong> Você precisa estar logado para usar o chat.`, 'bot');
       hideTypingIndicator();
       if (mainSendBtn && chatStarted) {
@@ -1648,22 +1651,22 @@ async function processMessage(message, images = []) {
     let userUid = 'anonymous';
     
     if (currentUser) {
-      console.log('✅ Usuário autenticado:', currentUser.uid);
-      console.log('🎫 Obtendo token...');
+      log('✅ Usuário autenticado:', currentUser.uid);
+      log('🎫 Obtendo token...');
       idToken = await currentUser.getIdToken();
       userUid = currentUser.uid;
-      console.log('✅ Token obtido');
+      log('✅ Token obtido');
       
       // 🔥 CORREÇÃO CRÍTICA: Garantir visitorId existe para usuários autenticados
       let visitorId = localStorage.getItem('visitorId');
       if (!visitorId) {
-        console.warn('⚠️ [CHAT] visitorId ausente para usuário autenticado - gerando agora');
+        warn('⚠️ [CHAT] visitorId ausente para usuário autenticado - gerando agora');
         visitorId = 'auth_' + currentUser.uid + '_' + Date.now();
         localStorage.setItem('visitorId', visitorId);
-        console.log('✅ [CHAT] visitorId gerado e salvo:', visitorId.substring(0, 20) + '...');
+        log('✅ [CHAT] visitorId gerado e salvo:', visitorId.substring(0, 20) + '...');
       }
     } else if (isAnonymousMode) {
-      console.log('🔓 Modo anônimo ativo - visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12));
+      log('🔓 Modo anônimo ativo - visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12));
       userUid = 'anon_' + (window.SoundyAnonymous?.visitorId || 'unknown');
     }
 
@@ -1675,7 +1678,7 @@ async function processMessage(message, images = []) {
 
     if (hasImages) {
       // ✅ CORREÇÃO #1: Usar FormData (multipart) quando há imagens
-      console.log('📸 Preparando multipart com', images.length, 'imagem(ns)');
+      log('📸 Preparando multipart com', images.length, 'imagem(ns)');
       
       const formData = new FormData();
       formData.append('message', message);
@@ -1699,9 +1702,9 @@ async function processMessage(message, images = []) {
           }
           const blob = new Blob([bytes], { type: img.type });
           formData.append('images', blob, img.filename || `image-${index + 1}.jpg`);
-          console.log(`📷 Imagem ${index + 1} adicionada:`, img.filename, blob.size, 'bytes');
+          log(`📷 Imagem ${index + 1} adicionada:`, img.filename, blob.size, 'bytes');
         } catch (error) {
-          console.error(`❌ Erro ao processar imagem ${index + 1}:`, error);
+          error(`❌ Erro ao processar imagem ${index + 1}:`, error);
           throw new Error(`Erro ao processar imagem: ${img.filename}`);
         }
       });
@@ -1711,7 +1714,7 @@ async function processMessage(message, images = []) {
       requestHeaders = idToken ? { 'Authorization': `Bearer ${idToken}` } : {};
     } else {
       // JSON para mensagens só texto
-      console.log('📝 Preparando JSON para mensagem texto', isAnonymous ? '(anônimo)' : '(autenticado)');
+      log('📝 Preparando JSON para mensagem texto', isAnonymous ? '(anônimo)' : '(autenticado)');
       
       const payload = { 
         message, 
@@ -1742,7 +1745,7 @@ async function processMessage(message, images = []) {
     if (idToken && currentUser) {
       // Usuário autenticado com token válido = SEMPRE endpoint autenticado
       chatEndpoint = API_CONFIG.chatEndpoint;
-      console.log('✅ [CHAT] Token válido presente - usando endpoint autenticado');
+      log('✅ [CHAT] Token válido presente - usando endpoint autenticado');
     } else if (window.AuthGate) {
       // Só usar AuthGate para decidir se NÃO temos token
       chatEndpoint = window.AuthGate.getEndpoint('chat');
@@ -1752,29 +1755,29 @@ async function processMessage(message, images = []) {
         : API_CONFIG.chatEndpoint;
     }
     
-    console.log('📤 Enviando para API:', chatEndpoint, hasImages ? '(multipart)' : '(json)', isAnonymous ? '[ANÔNIMO]' : '[AUTH]');
+    log('📤 Enviando para API:', chatEndpoint, hasImages ? '(multipart)' : '(json)', isAnonymous ? '[ANÔNIMO]' : '[AUTH]');
     const response = await fetch(chatEndpoint, {
       method: 'POST',
       headers: requestHeaders,
       body: requestBody
     });
 
-    console.log('📥 Resposta recebida:', response.status, response.statusText);
+    log('📥 Resposta recebida:', response.status, response.statusText);
 
     let data;
     if (response.ok) {
       const rawText = await response.text();
-      console.log('📄 Resposta raw:', rawText.substring(0, 200) + '...');
+      log('📄 Resposta raw:', rawText.substring(0, 200) + '...');
       try {
         data = JSON.parse(rawText);
-        console.log('✅ JSON parseado:', data);
+        log('✅ JSON parseado:', data);
       } catch (parseError) {
-        console.error('❌ Erro ao parsear JSON:', parseError);
+        error('❌ Erro ao parsear JSON:', parseError);
         data = { error: 'RESPONSE_PARSE_ERROR', message: 'Erro ao processar resposta do servidor' };
       }
     } else {
       const errorText = await response.text();
-      console.error('❌ Erro na resposta:', response.status, errorText);
+      error('❌ Erro na resposta:', response.status, errorText);
       
       // ✅ CORREÇÃO #3: Error handling específico (não mascarado)
       let errorData;
@@ -1828,7 +1831,7 @@ async function processMessage(message, images = []) {
       let userMessage = '';
       
       // 📊 [CHAT-LIMIT-AUDIT:FRONT] Log de diagnóstico (apenas console)
-      console.log(`[CHAT-LIMIT-AUDIT:FRONT] scope=${data.scope || 'inferred:chat'} code=${errorCode} plan=${data.plan || 'unknown'} used=${data.used || 'N/A'} limit=${data.limit || 'N/A'} period=${data.period || 'N/A'}`);
+      log(`[CHAT-LIMIT-AUDIT:FRONT] scope=${data.scope || 'inferred:chat'} code=${errorCode} plan=${data.plan || 'unknown'} used=${data.used || 'N/A'} limit=${data.limit || 'N/A'} period=${data.period || 'N/A'}`);
       
       // 🎯 V2: USAR ERROR MAPPER COM SCOPE
       if (window.ErrorMapper && typeof window.ErrorMapper.mapBlockUi === 'function') {
@@ -1849,11 +1852,11 @@ async function processMessage(message, images = []) {
         
         // Renderizar mensagem amigável
         userMessage = window.ErrorMapper.renderChatError(errorUi);
-        console.log(`[CHAT] ✅ Erro mapeado V2: ${errorUi.title} (scope: ${errorUi._debug?.scope})`);
+        log(`[CHAT] ✅ Erro mapeado V2: ${errorUi.title} (scope: ${errorUi._debug?.scope})`);
         
       } else if (window.ErrorMapper && typeof window.ErrorMapper.mapErrorToUi === 'function') {
         // 🔄 FALLBACK V1: mapErrorToUi
-        console.warn('[CHAT] Usando mapErrorToUi (V1 fallback)');
+        warn('[CHAT] Usando mapErrorToUi (V1 fallback)');
         const errorUi = window.ErrorMapper.mapErrorToUi({
           code: errorCode,
           plan: data.plan,
@@ -1869,7 +1872,7 @@ async function processMessage(message, images = []) {
         userMessage = window.ErrorMapper.renderChatError(errorUi);
       } else {
         // 🔴 FALLBACK: mensagens antigas se ErrorMapper não disponível
-        console.warn('[CHAT] ErrorMapper não disponível, usando fallback');
+        warn('[CHAT] ErrorMapper não disponível, usando fallback');
         
         if (errorCode === 'AUTH_TOKEN_MISSING' || errorCode === 'AUTH_ERROR' || (typeof errorCode === 'string' && errorCode.includes('Token'))) {
           userMessage = '🔒 Sessão expirada. <a href="index.html">Faça login novamente</a>.';
@@ -1943,7 +1946,7 @@ async function processMessage(message, images = []) {
       }
       
     } else if (data.reply) {
-      console.log('✅ Resposta recebida da IA, iniciando validação de conteúdo');
+      log('✅ Resposta recebida da IA, iniciando validação de conteúdo');
 
       // 🔎 Validação: se a mensagem do usuário aparenta ser uma análise de áudio, validar presença de números-chave
       const isAudioAnalysis = /\[ANÁLISE DE ÁUDIO\]/i.test(message) || /ANÁLISE TÉCNICA DE ÁUDIO/i.test(message) || /📊 DADOS TÉCNICOS:/i.test(message);
@@ -1955,7 +1958,7 @@ async function processMessage(message, images = []) {
           const values = extrairValoresAnaliseDoPrompt(message);
           const ok = validarPresencaValoresNaResposta(values, finalReply);
           if (!ok && !data._validatedResend) {
-            console.warn('⚠️ Resposta não contém todos os valores técnicos. Reenviando com reforço...');
+            warn('⚠️ Resposta não contém todos os valores técnicos. Reenviando com reforço...');
             showTypingIndicator();
 
             const reforco = `\n\n⚠️ REGRA OBRIGATÓRIA: Inclua explicitamente no texto todos estes valores do meu JSON: Peak ${values.peak}dB, RMS ${values.rms}dB, Dinâmica ${values.dinamica}dB e as frequências dominantes ${values.freqs.join(', ')} Hz. Explique cada ajuste com base nesses números.`;
@@ -1985,11 +1988,11 @@ async function processMessage(message, images = []) {
             }
           }
         } catch (e) {
-          console.log('Validação da análise: não foi possível extrair valores', e?.message);
+          log('Validação da análise: não foi possível extrair valores', e?.message);
         }
       }
 
-      console.log('✅ Exibindo resposta final da IA');
+      log('✅ Exibindo resposta final da IA');
       appendMessage(`<strong>Assistente:</strong> ${finalReply}`, 'bot');
       conversationHistory.push({ role: 'assistant', content: finalReply });
       
@@ -1998,14 +2001,14 @@ async function processMessage(message, images = []) {
         showRemainingMessages(data.mensagensRestantes);
       }
     } else {
-      console.error('❌ Resposta inesperada:', data);
+      error('❌ Resposta inesperada:', data);
       appendMessage(
         `<strong>Assistente:</strong> ❌ Erro: ${data.error || 'Erro inesperado'}.`,
         'bot'
       );
     }
   } catch (err) {
-    console.error('❌ Erro crítico:', err);
+    error('❌ Erro crítico:', err);
     hideTypingIndicator();
     if (err.name === 'TypeError' && err.message.includes('fetch')) {
       appendMessage(
@@ -2117,39 +2120,39 @@ function initializeEverything() {
     const isMainPage = document.querySelector('.hero') || document.querySelector('#startSendBtn') || window.location.pathname.includes('index.html');
     
     if (isMainPage) {
-        console.log('🎯 Inicializando sistema da página principal...');
+        log('🎯 Inicializando sistema da página principal...');
         
         // Vanta é gerenciado pelo EffectsController (carregado antes)
         // Apenas inicializar partículas se disponível
         if (window.initParticleEffects && typeof window.initParticleEffects === 'function') {
             window.initParticleEffects();
         } else {
-            console.log('⚠️ initParticleEffects não disponível');
+            log('⚠️ initParticleEffects não disponível');
         }
         
         // Aguardar Firebase e inicializar chatbot
         waitForFirebase().then(() => {
-            console.log('✅ Firebase pronto, inicializando chatbot...');
+            log('✅ Firebase pronto, inicializando chatbot...');
             window.prodAIChatbot = new ProdAIChatbot();
         });
     } else {
-        console.log('📄 Página secundária detectada - pulando inicialização completa do script.js');
+        log('📄 Página secundária detectada - pulando inicialização completa do script.js');
     }
 }
 
 function debugVercel() {
-  console.log('=== DEBUG VERCEL ===');
-  console.log('🌐 Location:', window.location.href);
-  console.log('🔗 API Endpoint:', API_CONFIG.chatEndpoint);
-  console.log('🔥 Auth loaded:', !!window.auth);
-  console.log('🔥 Firebase ready:', window.firebaseReady);
-  console.log('👤 Current user:', window.auth?.currentUser?.uid || 'None');
-  console.log('📝 Start input:', !!document.getElementById('start-input'));
-  console.log('🚀 Start button:', !!document.getElementById('startSendBtn'));
-  console.log('💬 User input:', !!document.getElementById('user-input'));
-  console.log('📤 Send button:', !!document.getElementById('sendBtn'));
-  console.log('📺 Chatbox:', !!document.getElementById('chatbox'));
-  console.log('=================');
+  log('=== DEBUG VERCEL ===');
+  log('🌐 Location:', window.location.href);
+  log('🔗 API Endpoint:', API_CONFIG.chatEndpoint);
+  log('🔥 Auth loaded:', !!window.auth);
+  log('🔥 Firebase ready:', window.firebaseReady);
+  log('👤 Current user:', window.auth?.currentUser?.uid || 'None');
+  log('📝 Start input:', !!document.getElementById('start-input'));
+  log('🚀 Start button:', !!document.getElementById('startSendBtn'));
+  log('💬 User input:', !!document.getElementById('user-input'));
+  log('📤 Send button:', !!document.getElementById('sendBtn'));
+  log('📺 Chatbox:', !!document.getElementById('chatbox'));
+  log('=================');
 }
 async function startAudioAnalysis(file, mode = 'genre') {
   try {
@@ -2166,12 +2169,12 @@ async function startAudioAnalysis(file, mode = 'genre') {
     if (!response.ok) throw new Error("Falha ao iniciar análise");
 
     const { jobId } = await response.json();
-    console.log("🚀 Job criado:", jobId);
+    log("🚀 Job criado:", jobId);
 
     // Começar a acompanhar
     pollJobStatus(jobId);
   } catch (err) {
-    console.error("❌ Erro ao iniciar análise:", err);
+    error("❌ Erro ao iniciar análise:", err);
     appendMessage(`<strong>Assistente:</strong> ❌ Erro ao iniciar análise: ${err.message}`, "bot");
   }
 }
@@ -2183,7 +2186,7 @@ async function pollJobStatus(jobId) {
       if (!res.ok) throw new Error("Job não encontrado");
 
       const job = await res.json();
-      console.log("📊 Status job:", job);
+      log("📊 Status job:", job);
 
       if (job.status === "completed") {
         clearInterval(interval);
@@ -2191,7 +2194,7 @@ async function pollJobStatus(jobId) {
       }
     } catch (err) {
       clearInterval(interval);
-      console.error("❌ Erro no polling:", err);
+      error("❌ Erro no polling:", err);
       appendMessage(`<strong>Assistente:</strong> ❌ Erro ao buscar resultado da análise.`, "bot");
     }
   }, 2000); // checar a cada 2s
@@ -2215,7 +2218,7 @@ ${result.message || "Análise concluída!"}
 // Patch: impedir erro de NodeAnalysisUI
 window.NodeAnalysisUI = {
   render: function(result) {
-    console.log("🎨 NodeAnalysisUI render chamado com:", result);
+    log("🎨 NodeAnalysisUI render chamado com:", result);
     showJobResult(result); // usa tua função que já mostra no chat
   }
 };
@@ -2224,7 +2227,7 @@ window.NodeAnalysisUI = {
 /* ============ INICIALIZAÇÃO DO VISUAL NOVO ============ */
 /* 🚀 PERFORMANCE V2: Vanta é gerenciado pelo EffectsController */
 function initVisualEffects() {
-    console.log('🚀 Inicializando cenário futurista...');
+    log('🚀 Inicializando cenário futurista...');
     
     optimizeForMobile();
     // Vanta gerenciado pelo EffectsController
@@ -2232,13 +2235,13 @@ function initVisualEffects() {
     initParallaxEffect();
     initHoverEffects();
     
-    console.log('✅ Cenário futurista carregado!');
+    log('✅ Cenário futurista carregado!');
 }
 
 /* ============ INICIALIZAÇÃO PRINCIPAL ============ */
 /* 🚀 PERFORMANCE V2: Vanta é gerenciado pelo EffectsController */
 function initializeApp() {
-  console.log('🚀 Inicializando aplicação...');
+  log('🚀 Inicializando aplicação...');
   
   // Inicializar visual novo (Vanta gerenciado pelo EffectsController)
   initVisualEffects();
@@ -2376,7 +2379,7 @@ setTimeout(() => {
   if (window.testAPIConnection && typeof window.testAPIConnection === 'function') {
     window.testAPIConnection();
   } else {
-    console.log('📄 testAPIConnection não disponível nesta página');
+    log('📄 testAPIConnection não disponível nesta página');
   }
 }, 1000);
 
@@ -2407,15 +2410,15 @@ function initEntranceAnimations() {
                 stagger: 0.05
             }, "-=0.4");
             
-            console.log('✅ GSAP animações carregadas');
+            log('✅ GSAP animações carregadas');
         } else {
             document.body.classList.add('fallback-animation');
-            console.warn('⚠️ GSAP não encontrado, usando animações CSS de fallback');
+            warn('⚠️ GSAP não encontrado, usando animações CSS de fallback');
         }
 
 // REMOVIDO: Listener duplicado de resize - agora está no handleResize otimizado
     } catch (error) {
-        console.warn('⚠️ Erro no GSAP:', error);
+        warn('⚠️ Erro no GSAP:', error);
         document.body.classList.add('fallback-animation');
     }
 }

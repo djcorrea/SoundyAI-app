@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔐 Configurador de API Key - SoundyAI
  * 
@@ -16,32 +19,32 @@
 // 🔑 ADICIONE SUA API KEY AQUI:
 const OPENAI_API_KEY = 'SUA_API_KEY_AQUI'; // <-- Substitua por sua API Key real
 
-console.log('🔐 [API-KEY-CONFIG] Inicializando configurador de API Key...');
+log('🔐 [API-KEY-CONFIG] Inicializando configurador de API Key...');
 
 function configureUserAPIKey() {
     try {
         // Verifica se a API Key foi configurada
         if (OPENAI_API_KEY && OPENAI_API_KEY !== 'SUA_API_KEY_AQUI' && OPENAI_API_KEY.startsWith('sk-')) {
-            console.log('🔑 [API-KEY-CONFIG] API Key encontrada, configurando...');
+            log('🔑 [API-KEY-CONFIG] API Key encontrada, configurando...');
             
             // Esperar o aiConfigManager carregar
             if (window.aiConfigManager) {
                 window.aiConfigManager.updateSetting('apiKey', OPENAI_API_KEY);
                 window.aiConfigManager.updateSetting('model', 'gpt-3.5-turbo');
-                console.log('✅ [API-KEY-CONFIG] API Key configurada com sucesso!');
+                log('✅ [API-KEY-CONFIG] API Key configurada com sucesso!');
                 
                 // Salvar no localStorage para persistir
                 localStorage.setItem('soundyai_openai_key', OPENAI_API_KEY);
                 
                 return true;
             } else {
-                console.log('⏳ [API-KEY-CONFIG] Aguardando aiConfigManager...');
+                log('⏳ [API-KEY-CONFIG] Aguardando aiConfigManager...');
                 setTimeout(configureUserAPIKey, 1000);
                 return false;
             }
         } else {
-            console.log('⚠️ [API-KEY-CONFIG] API Key não configurada - usando modo demo');
-            console.log('💡 [API-KEY-CONFIG] Para configurar, edite o arquivo api-key-config.js');
+            log('⚠️ [API-KEY-CONFIG] API Key não configurada - usando modo demo');
+            log('💡 [API-KEY-CONFIG] Para configurar, edite o arquivo api-key-config.js');
             
             // Configurar modo demo
             if (window.aiConfigManager) {
@@ -52,7 +55,7 @@ function configureUserAPIKey() {
             return false;
         }
     } catch (error) {
-        console.error('❌ [API-KEY-CONFIG] Erro ao configurar API Key:', error);
+        error('❌ [API-KEY-CONFIG] Erro ao configurar API Key:', error);
         return false;
     }
 }
@@ -60,17 +63,17 @@ function configureUserAPIKey() {
 // Função para o usuário configurar API Key via console
 function setAPIKey(apiKey) {
     if (!apiKey || !apiKey.startsWith('sk-')) {
-        console.error('❌ [API-KEY-CONFIG] API Key inválida. Deve começar com "sk-"');
+        error('❌ [API-KEY-CONFIG] API Key inválida. Deve começar com "sk-"');
         return false;
     }
     
     if (window.aiConfigManager) {
         window.aiConfigManager.updateSetting('apiKey', apiKey);
         localStorage.setItem('soundyai_openai_key', apiKey);
-        console.log('✅ [API-KEY-CONFIG] API Key configurada via console!');
+        log('✅ [API-KEY-CONFIG] API Key configurada via console!');
         return true;
     } else {
-        console.error('❌ [API-KEY-CONFIG] aiConfigManager não disponível');
+        error('❌ [API-KEY-CONFIG] aiConfigManager não disponível');
         return false;
     }
 }
@@ -80,7 +83,7 @@ function removeAPIKey() {
     if (window.aiConfigManager) {
         window.aiConfigManager.updateSetting('apiKey', '');
         localStorage.removeItem('soundyai_openai_key');
-        console.log('🗑️ [API-KEY-CONFIG] API Key removida');
+        log('🗑️ [API-KEY-CONFIG] API Key removida');
         return true;
     }
     return false;
@@ -91,7 +94,7 @@ function checkAPIKeyStatus() {
     const stored = localStorage.getItem('soundyai_openai_key');
     const current = window.aiConfigManager?.getSetting('apiKey');
     
-    console.log('📊 [API-KEY-CONFIG] Status:', {
+    log('📊 [API-KEY-CONFIG] Status:', {
         hasStored: !!stored,
         hasCurrent: !!current,
         isValid: current && current.startsWith('sk-'),
@@ -119,8 +122,8 @@ if (document.readyState === 'loading') {
     setTimeout(configureUserAPIKey, 2000);
 }
 
-console.log('✅ [API-KEY-CONFIG] Configurador carregado!');
-console.log('💡 [API-KEY-CONFIG] Funções disponíveis:');
-console.log('   - setAPIKey("sk-your-key-here") - Configurar API Key');
-console.log('   - removeAPIKey() - Remover API Key');
-console.log('   - checkAPIKeyStatus() - Verificar status');
+log('✅ [API-KEY-CONFIG] Configurador carregado!');
+log('💡 [API-KEY-CONFIG] Funções disponíveis:');
+log('   - setAPIKey("sk-your-key-here") - Configurar API Key');
+log('   - removeAPIKey() - Remover API Key');
+log('   - checkAPIKeyStatus() - Verificar status');

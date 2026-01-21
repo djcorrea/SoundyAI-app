@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔒 INTERCEPTOR DE BOTÕES PREMIUM - MODO REDUCED
 // Sistema de neutralização de handlers inline para funcionalidades premium
 // REMOVE onclick inline e listeners existentes em modo reduced
@@ -6,7 +9,7 @@
 (function() {
     'use strict';
     
-    console.log('🔒 [INTERCEPTOR] Carregando sistema de neutralização...');
+    log('🔒 [INTERCEPTOR] Carregando sistema de neutralização...');
     
     // ========================================
     // 🎯 CONFIGURAÇÃO
@@ -62,14 +65,14 @@
         init() {
             this.element = document.getElementById('upgradeModal');
             if (!this.element) {
-                console.error('❌ [INTERCEPTOR] Modal de upgrade não encontrado no DOM');
+                error('❌ [INTERCEPTOR] Modal de upgrade não encontrado no DOM');
                 return false;
             }
             
             // Configurar botões do modal
             this.setupModalButtons();
             
-            console.log('✅ [INTERCEPTOR] Modal de upgrade inicializado');
+            log('✅ [INTERCEPTOR] Modal de upgrade inicializado');
             return true;
         },
         
@@ -82,7 +85,7 @@
             if (viewPlansBtn) {
                 viewPlansBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    console.log('🔗 [INTERCEPTOR] Redirecionando para planos.html');
+                    log('🔗 [INTERCEPTOR] Redirecionando para planos.html');
                     window.location.href = 'planos.html';
                 });
             }
@@ -116,11 +119,11 @@
          */
         show() {
             if (!this.element) {
-                console.error('❌ [INTERCEPTOR] Não é possível mostrar modal: elemento não inicializado');
+                error('❌ [INTERCEPTOR] Não é possível mostrar modal: elemento não inicializado');
                 return;
             }
             
-            console.log('🔓 [INTERCEPTOR] Exibindo modal de upgrade');
+            log('🔓 [INTERCEPTOR] Exibindo modal de upgrade');
             this.element.classList.add('visible');
             
             // Acessibilidade: focar no modal
@@ -136,7 +139,7 @@
         hide() {
             if (!this.element) return;
             
-            console.log('🔒 [INTERCEPTOR] Ocultando modal de upgrade');
+            log('🔒 [INTERCEPTOR] Ocultando modal de upgrade');
             this.element.classList.remove('visible');
         },
         
@@ -162,7 +165,7 @@
         // 1. Armazenar handler original (para debug/restauração)
         if (button.onclick) {
             originalHandlers.set(button, button.onclick);
-            console.log('📦 [INTERCEPTOR] Handler original armazenado:', button.textContent.trim());
+            log('📦 [INTERCEPTOR] Handler original armazenado:', button.textContent.trim());
         }
         
         // 2. Remover onclick inline
@@ -181,14 +184,14 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
             
-            console.warn('🔒 [INTERCEPTOR] Ação premium bloqueada em modo reduced');
-            console.log('🎯 [INTERCEPTOR] Botão:', cleanButton.textContent.trim());
+            warn('🔒 [INTERCEPTOR] Ação premium bloqueada em modo reduced');
+            log('🎯 [INTERCEPTOR] Botão:', cleanButton.textContent.trim());
             
             // Mostrar modal de upgrade
             UpgradeModal.show();
         });
         
-        console.log('✅ [INTERCEPTOR] Botão neutralizado:', cleanButton.textContent.trim());
+        log('✅ [INTERCEPTOR] Botão neutralizado:', cleanButton.textContent.trim());
         
         return cleanButton;
     }
@@ -198,11 +201,11 @@
      */
     function neutralizeAllPremiumButtons() {
         if (!isReducedMode()) {
-            console.log('✅ [INTERCEPTOR] Modo FULL detectado - botões mantidos intactos');
+            log('✅ [INTERCEPTOR] Modo FULL detectado - botões mantidos intactos');
             return;
         }
         
-        console.warn('🔒 [INTERCEPTOR] Modo REDUCED detectado - neutralizando botões premium...');
+        warn('🔒 [INTERCEPTOR] Modo REDUCED detectado - neutralizando botões premium...');
         
         let neutralizedCount = 0;
         
@@ -216,9 +219,9 @@
         });
         
         if (neutralizedCount > 0) {
-            console.log(`✅ [INTERCEPTOR] ${neutralizedCount} botão(ões) neutralizado(s) com sucesso`);
+            log(`✅ [INTERCEPTOR] ${neutralizedCount} botão(ões) neutralizado(s) com sucesso`);
         } else {
-            console.warn('⚠️ [INTERCEPTOR] Nenhum botão premium encontrado para neutralizar');
+            warn('⚠️ [INTERCEPTOR] Nenhum botão premium encontrado para neutralizar');
         }
     }
     
@@ -227,7 +230,7 @@
      * Útil para debugging ou mudança dinâmica de modo
      */
     function restoreAllButtons() {
-        console.log('🔄 [INTERCEPTOR] Restaurando botões ao estado original...');
+        log('🔄 [INTERCEPTOR] Restaurando botões ao estado original...');
         
         // Esta função recarrega a página para garantir estado limpo
         // Alternativa: implementar lógica de restauração manual se necessário
@@ -242,23 +245,23 @@
      * Inicializa o sistema de interceptação
      */
     function initializeInterceptor() {
-        console.log('🚀 [INTERCEPTOR] Inicializando sistema de neutralização...');
+        log('🚀 [INTERCEPTOR] Inicializando sistema de neutralização...');
         
         // 1. Inicializar modal
         if (!UpgradeModal.init()) {
-            console.error('❌ [INTERCEPTOR] Falha ao inicializar modal - sistema desabilitado');
+            error('❌ [INTERCEPTOR] Falha ao inicializar modal - sistema desabilitado');
             return;
         }
         
         // 2. Verificar modo atual
         const currentMode = isReducedMode() ? 'REDUCED' : 'FULL';
-        console.log('🎯 [INTERCEPTOR] Modo detectado:', currentMode);
+        log('🎯 [INTERCEPTOR] Modo detectado:', currentMode);
         
         // 3. Neutralizar botões se em modo reduced
         neutralizeAllPremiumButtons();
         
         // 4. Log de configuração
-        console.log('📋 [INTERCEPTOR] Botões monitorados:', PREMIUM_BUTTON_SELECTORS);
+        log('📋 [INTERCEPTOR] Botões monitorados:', PREMIUM_BUTTON_SELECTORS);
         
         // 5. Expor API global para debug
         window.__INTERCEPTOR_DEBUG__ = {
@@ -269,9 +272,9 @@
             restoreButtons: restoreAllButtons,
             checkMode: () => {
                 const mode = isReducedMode() ? 'REDUCED' : 'FULL';
-                console.log('🔍 Modo atual:', mode);
-                console.log('📊 Estado da análise:', window.currentModalAnalysis);
-                console.log('🏷️ APP_MODE:', window.APP_MODE);
+                log('🔍 Modo atual:', mode);
+                log('📊 Estado da análise:', window.currentModalAnalysis);
+                log('🏷️ APP_MODE:', window.APP_MODE);
                 return mode;
             },
             getOriginalHandlers: () => {
@@ -282,8 +285,8 @@
             }
         };
         
-        console.log('✅ [INTERCEPTOR] Sistema ativo e funcional');
-        console.log('💡 Debug disponível: window.__INTERCEPTOR_DEBUG__');
+        log('✅ [INTERCEPTOR] Sistema ativo e funcional');
+        log('💡 Debug disponível: window.__INTERCEPTOR_DEBUG__');
     }
     
     // ========================================
@@ -301,7 +304,7 @@
             const currentMode = isReducedMode();
             
             if (currentMode !== lastMode) {
-                console.log('🔄 [INTERCEPTOR] Mudança de modo detectada:', 
+                log('🔄 [INTERCEPTOR] Mudança de modo detectada:', 
                     lastMode ? 'REDUCED' : 'FULL', '→', 
                     currentMode ? 'REDUCED' : 'FULL'
                 );
@@ -311,7 +314,7 @@
                     neutralizeAllPremiumButtons();
                 } else {
                     // Mudou para full: recarregar página para restaurar
-                    console.log('🔄 [INTERCEPTOR] Modo FULL ativado - recarregando para restaurar estado...');
+                    log('🔄 [INTERCEPTOR] Modo FULL ativado - recarregando para restaurar estado...');
                     setTimeout(() => window.location.reload(), 500);
                 }
                 

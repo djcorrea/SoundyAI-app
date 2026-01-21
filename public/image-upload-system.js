@@ -1,10 +1,13 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * Sistema de Upload e Pré-visualização de Imagens
  * Compatível com o chat existente do SoundyAI
  * Implementação: Dezembro 2024
  */
 
-console.log('🖼️ Carregando sistema de upload de imagens...');
+log('🖼️ Carregando sistema de upload de imagens...');
 
 // Classe para gerenciar o sistema de imagens
 class ImagePreviewSystem {
@@ -16,17 +19,17 @@ class ImagePreviewSystem {
     this.previewContainer = null;
     this.isInitialized = false;
     
-    console.log('🖼️ ImagePreviewSystem criado - Máximo:', this.maxImages, 'imagens');
+    log('🖼️ ImagePreviewSystem criado - Máximo:', this.maxImages, 'imagens');
   }
 
   // Inicializar o sistema
   init() {
     if (this.isInitialized) {
-      console.log('⚠️ Sistema já inicializado');
+      log('⚠️ Sistema já inicializado');
       return;
     }
     
-    console.log('🖼️ Inicializando sistema de imagens...');
+    log('🖼️ Inicializando sistema de imagens...');
     
     try {
       // Criar container de preview
@@ -36,60 +39,60 @@ class ImagePreviewSystem {
       this.setupEventListeners();
       
       this.isInitialized = true;
-      console.log('✅ Sistema de imagens inicializado com sucesso');
+      log('✅ Sistema de imagens inicializado com sucesso');
     } catch (error) {
-      console.error('❌ Erro ao inicializar sistema de imagens:', error);
+      error('❌ Erro ao inicializar sistema de imagens:', error);
     }
   }
 
   // Configurar event listeners
   setupEventListeners() {
-    console.log('🎧 Configurando event listeners...');
+    log('🎧 Configurando event listeners...');
     
     // Listener para evento de adicionar fotos do botão +
     const photoEventHandler = (event) => {
-      console.log('📸 Evento chat:add-photos recebido:', event.detail);
-      console.log('📸 Tipo do detail:', typeof event.detail);
-      console.log('📸 É array?', Array.isArray(event.detail));
-      console.log('📸 Tem length?', event.detail && event.detail.length);
+      log('📸 Evento chat:add-photos recebido:', event.detail);
+      log('📸 Tipo do detail:', typeof event.detail);
+      log('📸 É array?', Array.isArray(event.detail));
+      log('📸 Tem length?', event.detail && event.detail.length);
       
       if (event.detail && event.detail.length > 0) {
-        console.log('📸 Processando arquivos...');
+        log('📸 Processando arquivos...');
         this.handleFileSelection(Array.from(event.detail));
       } else {
-        console.warn('📸 Evento sem arquivos válidos');
+        warn('📸 Evento sem arquivos válidos');
       }
     };
     
     window.addEventListener('chat:add-photos', photoEventHandler);
-    console.log('🎧 Event listener para chat:add-photos configurado');
+    log('🎧 Event listener para chat:add-photos configurado');
 
     // Listener para mudanças nos inputs de texto (para validar estado do botão)
     const inputHandler = (e) => {
       if (e.target.matches('.chat-text-input')) {
-        console.log('⌨️ Input de texto alterado');
+        log('⌨️ Input de texto alterado');
         this.updateSendButtonState();
       }
     };
     
     document.addEventListener('input', inputHandler);
-    console.log('🎧 Event listener para input configurado');
+    log('🎧 Event listener para input configurado');
 
     // Testar se o event listener está funcionando
     setTimeout(() => {
-      console.log('🧪 Testando event listener...');
+      log('🧪 Testando event listener...');
       const testEvent = new CustomEvent('chat:add-photos', {
         detail: []
       });
       window.dispatchEvent(testEvent);
     }, 1000);
 
-    console.log('✅ Event listeners configurados com sucesso');
+    log('✅ Event listeners configurados com sucesso');
   }
 
   // Criar container de preview
   createPreviewContainer() {
-    console.log('🏗️ Criando container de preview...');
+    log('🏗️ Criando container de preview...');
 
     // Buscar TODOS os possíveis containers
     const possibleContainers = [
@@ -101,21 +104,21 @@ class ImagePreviewSystem {
       document.querySelector('#chatbotContainer')
     ];
 
-    console.log('🔍 Containers encontrados:', possibleContainers.map(c => c ? c.className : 'null'));
+    log('🔍 Containers encontrados:', possibleContainers.map(c => c ? c.className : 'null'));
 
     // Encontrar o primeiro container válido
     let targetContainer = possibleContainers.find(container => container !== null);
     
     if (!targetContainer) {
-      console.warn('⚠️ Nenhum container específico encontrado, usando body');
+      warn('⚠️ Nenhum container específico encontrado, usando body');
       targetContainer = document.body;
     } else {
-      console.log('✅ Container selecionado:', targetContainer.className);
+      log('✅ Container selecionado:', targetContainer.className);
     }
 
     // Remover containers existentes
     document.querySelectorAll('[id*="image-preview-container"]').forEach(el => {
-      console.log('🗑️ Removendo container existente:', el.id);
+      log('🗑️ Removendo container existente:', el.id);
       el.remove();
     });
 
@@ -152,15 +155,15 @@ class ImagePreviewSystem {
       const inputElement = targetContainer.querySelector('input[type="text"]');
       if (inputElement) {
         targetContainer.insertBefore(this.previewContainer, inputElement);
-        console.log('✅ Container inserido antes do input');
+        log('✅ Container inserido antes do input');
       } else {
         targetContainer.appendChild(this.previewContainer);
-        console.log('✅ Container inserido como último filho');
+        log('✅ Container inserido como último filho');
       }
     }
 
-    console.log('✅ Container de preview criado:', this.previewContainer);
-    console.log('📍 Container pai:', this.previewContainer.parentElement?.className || 'body');
+    log('✅ Container de preview criado:', this.previewContainer);
+    log('📍 Container pai:', this.previewContainer.parentElement?.className || 'body');
 
     // Criar container para ambos os estados (welcome e active)
     this.createContainerForBothStates();
@@ -186,14 +189,14 @@ class ImagePreviewSystem {
           container.appendChild(previewClone);
         }
         
-        console.log(`✅ Container criado para estado ${state.name}`);
+        log(`✅ Container criado para estado ${state.name}`);
       }
     });
   }
 
   // Manipular seleção de arquivos
   async handleFileSelection(files) {
-    console.log(`📁 ${files.length} arquivo(s) selecionado(s)`, files);
+    log(`📁 ${files.length} arquivo(s) selecionado(s)`, files);
 
     try {
       // Validar número de arquivos
@@ -213,11 +216,11 @@ class ImagePreviewSystem {
       let successCount = 0;
       for (const file of files) {
         try {
-          console.log(`🔍 Processando arquivo: ${file.name} (${file.type}, ${(file.size/1024/1024).toFixed(2)}MB)`);
+          log(`🔍 Processando arquivo: ${file.name} (${file.type}, ${(file.size/1024/1024).toFixed(2)}MB)`);
           await this.addImage(file);
           successCount++;
         } catch (error) {
-          console.error('❌ Erro ao adicionar imagem:', error);
+          error('❌ Erro ao adicionar imagem:', error);
           this.showError(error.message);
         }
       }
@@ -228,7 +231,7 @@ class ImagePreviewSystem {
         this.showSuccess(`${successCount} imagem(ns) adicionada(s) com sucesso!`);
         
         // Log debug das imagens processadas
-        console.log('📸 Imagens processadas para envio:', this.selectedImages.map(img => ({
+        log('📸 Imagens processadas para envio:', this.selectedImages.map(img => ({
           filename: img.filename,
           type: img.type,
           size: `${(img.size/1024/1024).toFixed(2)}MB`,
@@ -237,14 +240,14 @@ class ImagePreviewSystem {
       }
 
     } catch (error) {
-      console.error('❌ Erro geral ao processar arquivos:', error);
+      error('❌ Erro geral ao processar arquivos:', error);
       this.showError('Erro ao processar arquivos selecionados.');
     }
   }
 
   // ✅ CORREÇÃO CRÍTICA: Validação robusta de imagem com limite de payload
   async addImage(file) {
-    console.log(`📸 Adicionando imagem: ${file.name}`);
+    log(`📸 Adicionando imagem: ${file.name}`);
 
     // ✅ Validar tipo MIME
     if (!this.allowedTypes.includes(file.type)) {
@@ -297,7 +300,7 @@ class ImagePreviewSystem {
     };
 
     this.selectedImages.push(imageObj);
-    console.log(`✅ Imagem adicionada: ${file.name} (${(file.size/1024/1024).toFixed(1)}MB) - Total: ${(newTotalSize/1024/1024).toFixed(1)}MB`);
+    log(`✅ Imagem adicionada: ${file.name} (${(file.size/1024/1024).toFixed(1)}MB) - Total: ${(newTotalSize/1024/1024).toFixed(1)}MB`);
   }
 
   // ✅ NOVA: Verificar se arquivo é realmente uma imagem
@@ -328,10 +331,10 @@ class ImagePreviewSystem {
               return;
             }
             
-            console.warn('⚠️ Magic number não reconhecido para:', file.name);
+            warn('⚠️ Magic number não reconhecido para:', file.name);
             resolve(false);
           } catch (error) {
-            console.warn('⚠️ Erro ao verificar header da imagem:', error);
+            warn('⚠️ Erro ao verificar header da imagem:', error);
             resolve(false);
           }
         };
@@ -339,7 +342,7 @@ class ImagePreviewSystem {
         reader.onerror = () => resolve(false);
         reader.readAsArrayBuffer(file.slice(0, 8)); // Ler apenas primeiros 8 bytes
       } catch (error) {
-        console.warn('⚠️ Erro na validação de imagem:', error);
+        warn('⚠️ Erro na validação de imagem:', error);
         resolve(false);
       }
     });
@@ -386,7 +389,7 @@ class ImagePreviewSystem {
           ctx.drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         } catch (error) {
-          console.error('Erro ao criar thumbnail:', error);
+          error('Erro ao criar thumbnail:', error);
           resolve(dataUrl); // Fallback para imagem original
         }
       };
@@ -397,7 +400,7 @@ class ImagePreviewSystem {
 
   // Atualizar preview visual
   updatePreview() {
-    console.log(`🖼️ Atualizando preview: ${this.selectedImages.length} imagem(ns)`);
+    log(`🖼️ Atualizando preview: ${this.selectedImages.length} imagem(ns)`);
 
     // Buscar TODOS os containers de preview possíveis
     const containers = [
@@ -407,15 +410,15 @@ class ImagePreviewSystem {
       ...document.querySelectorAll('.image-preview-container')
     ].filter(container => container !== null);
 
-    console.log(`🔍 Containers encontrados para update: ${containers.length}`);
+    log(`🔍 Containers encontrados para update: ${containers.length}`);
 
     containers.forEach((container, index) => {
-      console.log(`🔄 Atualizando container ${index + 1}:`, container.id || container.className);
+      log(`🔄 Atualizando container ${index + 1}:`, container.id || container.className);
       
       if (this.selectedImages.length === 0) {
         container.style.display = 'none';
         container.innerHTML = '';
-        console.log(`👻 Container ${index + 1} ocultado (sem imagens)`);
+        log(`👻 Container ${index + 1} ocultado (sem imagens)`);
         return;
       }
 
@@ -428,7 +431,7 @@ class ImagePreviewSystem {
         container.appendChild(previewItem);
       });
 
-      console.log(`✅ Container ${index + 1} atualizado com ${this.selectedImages.length} imagem(ns)`);
+      log(`✅ Container ${index + 1} atualizado com ${this.selectedImages.length} imagem(ns)`);
       
       // Forçar visibilidade se houver imagens
       if (this.selectedImages.length > 0) {
@@ -446,7 +449,7 @@ class ImagePreviewSystem {
 
     // Se não há containers, criar um de emergência
     if (containers.length === 0) {
-      console.warn('⚠️ Nenhum container encontrado, criando um de emergência');
+      warn('⚠️ Nenhum container encontrado, criando um de emergência');
       this.createEmergencyContainer();
     }
   }
@@ -486,7 +489,7 @@ class ImagePreviewSystem {
       emergencyContainer.remove();
     }, 10000);
     
-    console.log('🚨 Container de emergência criado');
+    log('🚨 Container de emergência criado');
   }
 
   // Criar item de preview
@@ -592,7 +595,7 @@ class ImagePreviewSystem {
   removeImage(index) {
     if (index >= 0 && index < this.selectedImages.length) {
       const removed = this.selectedImages.splice(index, 1)[0];
-      console.log(`🗑️ Imagem removida: ${removed.filename}`);
+      log(`🗑️ Imagem removida: ${removed.filename}`);
       
       this.updatePreview();
       this.updateSendButtonState();
@@ -605,7 +608,7 @@ class ImagePreviewSystem {
     this.selectedImages = [];
     this.updatePreview();
     this.updateSendButtonState();
-    console.log('🧹 Todas as imagens removidas');
+    log('🧹 Todas as imagens removidas');
   }
 
   // Obter imagens para envio
@@ -617,9 +620,9 @@ class ImagePreviewSystem {
       type: img.type
     }));
     
-    console.log('📤 Preparando imagens para envio:', imagesToSend.length);
+    log('📤 Preparando imagens para envio:', imagesToSend.length);
     imagesToSend.forEach((img, index) => {
-      console.log(`📷 Imagem ${index + 1}: ${img.filename} (${(img.size/1024/1024).toFixed(2)}MB)`);
+      log(`📷 Imagem ${index + 1}: ${img.filename} (${(img.size/1024/1024).toFixed(2)}MB)`);
     });
     
     return imagesToSend;
@@ -655,7 +658,7 @@ class ImagePreviewSystem {
     const hasText = messageInputs.some(input => input.value && input.value.trim().length > 0);
     const hasImages = this.hasImages();
 
-    console.log('🔄 Atualizando estado dos botões:', { hasText, hasImages, sendButtons: sendButtons.length, inputs: messageInputs.length });
+    log('🔄 Atualizando estado dos botões:', { hasText, hasImages, sendButtons: sendButtons.length, inputs: messageInputs.length });
 
     // Habilitar envio apenas se houver texto + imagens
     // (bloquear envio apenas de imagens conforme requisito)
@@ -674,7 +677,7 @@ class ImagePreviewSystem {
 
   // Mostrar mensagem de erro
   showError(message) {
-    console.error('❌ Erro de imagem:', message);
+    error('❌ Erro de imagem:', message);
     
     // Criar toast de erro
     this.showToast(message, 'error');
@@ -682,7 +685,7 @@ class ImagePreviewSystem {
 
   // Mostrar informações de sucesso
   showSuccess(message) {
-    console.log('✅ Sucesso:', message);
+    log('✅ Sucesso:', message);
     
     // Criar toast de sucesso
     this.showToast(message, 'success');
@@ -764,15 +767,15 @@ class ImagePreviewSystem {
 }
 
 // Criar instância global
-console.log('🌍 Criando instância global...');
+log('🌍 Criando instância global...');
 window.imagePreviewSystem = new ImagePreviewSystem();
 
 // Função global de teste
 window.testImageUpload = function() {
-  console.log('🧪 Função de teste chamada');
-  console.log('🧪 Sistema existe?', !!window.imagePreviewSystem);
-  console.log('🧪 Sistema inicializado?', window.imagePreviewSystem?.isInitialized);
-  console.log('🧪 Imagens selecionadas:', window.imagePreviewSystem?.selectedImages?.length || 0);
+  log('🧪 Função de teste chamada');
+  log('🧪 Sistema existe?', !!window.imagePreviewSystem);
+  log('🧪 Sistema inicializado?', window.imagePreviewSystem?.isInitialized);
+  log('🧪 Imagens selecionadas:', window.imagePreviewSystem?.selectedImages?.length || 0);
   
   // Testar evento
   const testFiles = [
@@ -783,7 +786,7 @@ window.testImageUpload = function() {
     detail: testFiles
   });
   
-  console.log('🧪 Disparando evento de teste...');
+  log('🧪 Disparando evento de teste...');
   window.dispatchEvent(event);
 };
 
@@ -796,10 +799,10 @@ function waitForChatReady() {
       const hasActiveInput = document.querySelector('.chatbot-active-input-field.chat-input-container');
       
       if (hasWelcomeInput || hasActiveInput) {
-        console.log('✅ Elementos do chat encontrados');
+        log('✅ Elementos do chat encontrados');
         resolve();
       } else {
-        console.log('⏳ Aguardando elementos do chat...');
+        log('⏳ Aguardando elementos do chat...');
         setTimeout(checkElements, 100);
       }
     };
@@ -810,7 +813,7 @@ function waitForChatReady() {
 
 // Inicializar quando tudo estiver pronto
 async function initializeImageSystem() {
-  console.log('🚀 Iniciando sistema de imagens...');
+  log('🚀 Iniciando sistema de imagens...');
   
   try {
     await waitForChatReady();
@@ -834,27 +837,27 @@ async function initializeImageSystem() {
         subtree: true
       });
       
-      console.log('👁️ Observer configurado para mudanças no chat');
+      log('👁️ Observer configurado para mudanças no chat');
     }
     
   } catch (error) {
-    console.error('❌ Erro ao inicializar sistema de imagens:', error);
+    error('❌ Erro ao inicializar sistema de imagens:', error);
   }
 }
 
 // Executar inicialização
 if (document.readyState === 'loading') {
-  console.log('📄 Document ainda carregando, aguardando DOMContentLoaded...');
+  log('📄 Document ainda carregando, aguardando DOMContentLoaded...');
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOMContentLoaded disparado, iniciando sistema...');
+    log('📄 DOMContentLoaded disparado, iniciando sistema...');
     initializeImageSystem();
   });
 } else {
-  console.log('📄 Document já carregado, iniciando sistema imediatamente...');
+  log('📄 Document já carregado, iniciando sistema imediatamente...');
   initializeImageSystem();
 }
 
-console.log('✅ Sistema de upload de imagens carregado e pronto para inicialização');
+log('✅ Sistema de upload de imagens carregado e pronto para inicialização');
 
 // Exportar para uso externo se necessário
 if (typeof module !== 'undefined' && module.exports) {

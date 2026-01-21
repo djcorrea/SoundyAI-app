@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // auth.js - CORRIGIDO
 
 // Função necessária para aguardar o Firebase carregar corretamente
@@ -78,7 +81,7 @@ async function getFingerprint() {
     try {
       await loadScript('https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js');
     } catch (error) {
-      console.warn('FingerprintJS failed to load:', error);
+      warn('FingerprintJS failed to load:', error);
       return null;
     }
   }
@@ -144,7 +147,7 @@ window.login = async function () {
     window.location.href = "index.html";
   } catch (error) {
     showMessage(error, "error");
-    console.error(error);
+    error(error);
   }
 };
 
@@ -177,7 +180,7 @@ async function sendSMS(phone) {
     try {
       window.recaptchaVerifier.clear();
     } catch (e) {
-      console.log("Erro ao limpar reCAPTCHA:", e);
+      log("Erro ao limpar reCAPTCHA:", e);
     }
     window.recaptchaVerifier = null;
   }
@@ -186,10 +189,10 @@ async function sendSMS(phone) {
   window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
     'size': 'invisible',
     'callback': (response) => {
-      console.log("reCAPTCHA verificado");
+      log("reCAPTCHA verificado");
     },
     'expired-callback': () => {
-      console.log("reCAPTCHA expirado");
+      log("reCAPTCHA expirado");
     }
   });
 
@@ -200,7 +203,7 @@ async function sendSMS(phone) {
     window.showSMSSection();
     return true;
   } catch (error) {
-    console.error("Erro SMS:", error);
+    error("Erro SMS:", error);
     showMessage(error, "error");
     return false;
   }
@@ -268,7 +271,7 @@ window.confirmSMSCode = async function() {
     if (smsSection) smsSection.style.display = 'none';
 
   } catch (error) {
-    console.error("Erro no cadastro:", error);
+    error("Erro no cadastro:", error);
     showMessage(error, "error");
   }
 };
@@ -279,15 +282,15 @@ window.register = window.signUp;
 // 🔐 LOGOUT ROBUSTO - LIMPEZA COMPLETA DE ESTADO DE AUTH
 // ═══════════════════════════════════════════════════════════════════
 window.logout = async function () {
-  console.log('🔓 [LOGOUT-CHAT] Iniciando processo de logout completo...');
+  log('🔓 [LOGOUT-CHAT] Iniciando processo de logout completo...');
   
   try { 
     if (auth && typeof auth.signOut === 'function') {
       await auth.signOut(); 
-      console.log("✅ [LOGOUT-CHAT] Firebase signOut executado");
+      log("✅ [LOGOUT-CHAT] Firebase signOut executado");
     }
   } catch (e) {
-    console.warn("⚠️ [LOGOUT-CHAT] Erro no signOut (continuando):", e.message);
+    warn("⚠️ [LOGOUT-CHAT] Erro no signOut (continuando):", e.message);
   }
   
   // 🗑️ LIMPAR TODO O LOCALSTORAGE DE AUTH
@@ -309,15 +312,15 @@ window.logout = async function () {
   Object.keys(localStorage).forEach(key => {
     if (key.startsWith('firebase:')) {
       localStorage.removeItem(key);
-      console.log('🗑️ [LOGOUT-CHAT] Removido:', key);
+      log('🗑️ [LOGOUT-CHAT] Removido:', key);
     }
   });
   
-  console.log('✅ [LOGOUT-CHAT] localStorage limpo');
+  log('✅ [LOGOUT-CHAT] localStorage limpo');
   
   // 🗑️ LIMPAR SESSIONSTORAGE
   sessionStorage.clear();
-  console.log('✅ [LOGOUT-CHAT] sessionStorage limpo');
+  log('✅ [LOGOUT-CHAT] sessionStorage limpo');
   
   // 🔄 RESETAR VARIÁVEIS GLOBAIS
   window.currentUserToken = null;
@@ -328,10 +331,10 @@ window.logout = async function () {
   if (window.SoundyAnonymous) {
     window.SoundyAnonymous.isAnonymousMode = true;
     window.SoundyAnonymous.forceCleanState = true;
-    console.log('✅ [LOGOUT-CHAT] Modo anônimo preparado');
+    log('✅ [LOGOUT-CHAT] Modo anônimo preparado');
   }
   
-  console.log('🔓 [LOGOUT-CHAT] Processo de logout COMPLETO - Redirecionando...');
+  log('🔓 [LOGOUT-CHAT] Processo de logout COMPLETO - Redirecionando...');
   
   // Redirecionar para login
   setTimeout(() => {
@@ -343,7 +346,7 @@ window.logout = async function () {
 function checkAuthState() {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      console.log('Timeout na verificação de auth');
+      log('Timeout na verificação de auth');
       const isLoginPage = window.location.pathname.includes("login.html");
       const isIndexPage = window.location.pathname.includes("index.html") || window.location.pathname === '/' || window.location.pathname === '';
       
@@ -356,17 +359,17 @@ function checkAuthState() {
         const hasAuthReady = window.__AUTH_READY__ === true;
         
         if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
-          console.log('⏳ [CHAT] Timeout mas sessão existe - aguardando Firebase Auth...');
-          console.log('   hasIdToken:', !!hasIdToken);
-          console.log('   hasAuthToken:', !!hasAuthToken);
-          console.log('   hasUser:', !!hasUser);
-          console.log('   __AUTH_READY__:', hasAuthReady);
+          log('⏳ [CHAT] Timeout mas sessão existe - aguardando Firebase Auth...');
+          log('   hasIdToken:', !!hasIdToken);
+          log('   hasAuthToken:', !!hasAuthToken);
+          log('   hasUser:', !!hasUser);
+          log('   __AUTH_READY__:', hasAuthReady);
           // NÃO ativar modo anônimo - usuário está autenticado mas Firebase está lento
           resolve(null);
           return;
         }
         
-        console.log('🔓 [CHAT] Timeout - Ativando modo anônimo');
+        log('🔓 [CHAT] Timeout - Ativando modo anônimo');
         window.SoundyAnonymous.activate();
         resolve(null);
         return;
@@ -383,7 +386,7 @@ function checkAuthState() {
       const isLoginPage = window.location.pathname.includes("login.html");
       const isIndexPage = window.location.pathname.includes("index.html") || window.location.pathname === '/' || window.location.pathname === '';
 
-      console.log('Auth state changed:', user ? 'logged in' : 'not logged in');
+      log('Auth state changed:', user ? 'logged in' : 'not logged in');
 
       if (!user && !isLoginPage) {
         // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
@@ -395,33 +398,33 @@ function checkAuthState() {
           const hasAuthReady = window.__AUTH_READY__ === true;
           
           if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
-            console.log('⏳ [CHAT] Firebase Auth não detectou usuário mas sessão existe');
-            console.log('   hasIdToken:', !!hasIdToken);
-            console.log('   hasAuthToken:', !!hasAuthToken);
-            console.log('   hasUser:', !!hasUser);
-            console.log('   __AUTH_READY__:', hasAuthReady);
-            console.log('   Aguardando 2s antes de recarregar...');
+            log('⏳ [CHAT] Firebase Auth não detectou usuário mas sessão existe');
+            log('   hasIdToken:', !!hasIdToken);
+            log('   hasAuthToken:', !!hasAuthToken);
+            log('   hasUser:', !!hasUser);
+            log('   __AUTH_READY__:', hasAuthReady);
+            log('   Aguardando 2s antes de recarregar...');
             // Firebase Auth está dessincronizado - aguardar e recarregar
             setTimeout(() => {
-              console.log('🔄 [CHAT] Recarregando página para sincronizar Firebase Auth...');
+              log('🔄 [CHAT] Recarregando página para sincronizar Firebase Auth...');
               window.location.reload();
             }, 2000);
             return;
           }
           
-          console.log('🔓 [CHAT] Usuário não logado no index - Ativando modo anônimo');
+          log('🔓 [CHAT] Usuário não logado no index - Ativando modo anônimo');
           await window.SoundyAnonymous.activate();
           resolve(null);
           return;
         }
         
-        console.log('Usuário não logado, redirecionando para login');
+        log('Usuário não logado, redirecionando para login');
         window.location.href = "login.html";
       } else if (user && isLoginPage) {
-        console.log('Usuário logado, redirecionando para index');
+        log('Usuário logado, redirecionando para index');
         window.location.href = "index.html";
       } else if (user) {
-        console.log('Usuário autenticado:', user.email);
+        log('Usuário autenticado:', user.email);
         
         // 🔓 MODO ANÔNIMO: Desativar se estava ativo
         if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
@@ -436,7 +439,7 @@ function checkAuthState() {
             email: user.email
           }));
         } catch (error) {
-          console.error('Erro ao obter token:', error);
+          error('Erro ao obter token:', error);
         }
       }
       

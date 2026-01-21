@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SISTEMA UNIFICADO DE SUGESTÕES - VERSÃO CORRIGIDA
 // Corrige: Trance não aparece, textos inadequados, cálculo delta incorreto, cobertura incompleta
 
@@ -136,11 +139,11 @@ class SuggestionEngineUnified {
             const normalizedReference = this.normalizer.normalizeReferenceData(referenceData);
             
             if (!normalizedReference) {
-                console.warn('🚨 Referência de gênero não encontrada');
+                warn('🚨 Referência de gênero não encontrada');
                 return { suggestions: [], _suggestionMetadata: { error: 'invalid_reference' } };
             }
 
-            console.log('📊 [ENGINE] Processando:', normalizedReference.genre);
+            log('📊 [ENGINE] Processando:', normalizedReference.genre);
             
             // 2. Gerar sugestões para TODAS as métricas
             const suggestions = [];
@@ -160,7 +163,7 @@ class SuggestionEngineUnified {
             
             const processingTime = performance.now() - startTime;
             
-            console.log(`✅ [ENGINE] ${finalSuggestions.length} sugestões geradas em ${processingTime.toFixed(2)}ms`);
+            log(`✅ [ENGINE] ${finalSuggestions.length} sugestões geradas em ${processingTime.toFixed(2)}ms`);
             
             return {
                 suggestions: finalSuggestions,
@@ -173,7 +176,7 @@ class SuggestionEngineUnified {
             };
             
         } catch (error) {
-            console.error('❌ [ENGINE] Erro:', error);
+            error('❌ [ENGINE] Erro:', error);
             return { 
                 suggestions: [], 
                 _suggestionMetadata: { error: error.message } 
@@ -527,7 +530,7 @@ class SuggestionTextGeneratorUnified {
 class SuggestionSystemUnified {
     constructor() {
         this.engine = new SuggestionEngineUnified();
-        console.log('🎯 Sistema Unificado de Sugestões carregado (versão corrigida)');
+        log('🎯 Sistema Unificado de Sugestões carregado (versão corrigida)');
     }
 
     /**
@@ -542,5 +545,5 @@ class SuggestionSystemUnified {
 if (typeof window !== 'undefined') {
     window.SuggestionSystemUnified = SuggestionSystemUnified;
     window.suggestionSystem = new SuggestionSystemUnified();
-    console.log('✅ Sistema Unificado disponível globalmente');
+    log('✅ Sistema Unificado disponível globalmente');
 }

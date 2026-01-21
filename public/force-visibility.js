@@ -1,6 +1,9 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // Script para forçar carregamento do notebook e teclado
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔍 Verificando carregamento do notebook e teclado...');
+    log('🔍 Verificando carregamento do notebook e teclado...');
     
     const notebook = document.querySelector('.notebook');
     const teclado = document.querySelector('.teclado');
@@ -15,9 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Verificar se a imagem carregou
             if (element.complete && element.naturalHeight !== 0) {
-                console.log(`✅ ${name} carregado com sucesso`);
+                log(`✅ ${name} carregado com sucesso`);
             } else {
-                console.log(`⚠️ ${name} não carregou, tentando recarregar...`);
+                log(`⚠️ ${name} não carregou, tentando recarregar...`);
                 
                 // Tentar recarregar a imagem
                 const originalSrc = element.src;
@@ -28,22 +31,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Listener para quando carregar
                 element.addEventListener('load', () => {
-                    console.log(`✅ ${name} recarregado com sucesso`);
+                    log(`✅ ${name} recarregado com sucesso`);
                     element.style.opacity = '1';
                 });
                 
                 element.addEventListener('error', () => {
-                    console.log(`❌ Erro ao carregar ${name}`);
+                    log(`❌ Erro ao carregar ${name}`);
                     // Tentar versão PNG como fallback
                     if (element.src.includes('.webp')) {
                         const fallbackSrc = element.src.replace('.webp', '.png');
-                        console.log(`🔄 Tentando fallback PNG para ${name}: ${fallbackSrc}`);
+                        log(`🔄 Tentando fallback PNG para ${name}: ${fallbackSrc}`);
                         element.src = fallbackSrc;
                     }
                 });
             }
         } else {
-            console.log(`❌ Elemento ${name} não encontrado no DOM`);
+            log(`❌ Elemento ${name} não encontrado no DOM`);
         }
     }
     
@@ -53,11 +56,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Verificação adicional após 2 segundos
     setTimeout(() => {
-        console.log('🔍 Verificação final de visibilidade...');
+        log('🔍 Verificação final de visibilidade...');
         
         if (notebook) {
             const notebookVisible = window.getComputedStyle(notebook).opacity !== '0';
-            console.log(`📊 Notebook visível: ${notebookVisible}`);
+            log(`📊 Notebook visível: ${notebookVisible}`);
             if (!notebookVisible) {
                 notebook.style.opacity = '1';
                 notebook.style.visibility = 'visible';
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (teclado) {
             const tecladoVisible = window.getComputedStyle(teclado).opacity !== '0';
-            console.log(`📊 Teclado visível: ${tecladoVisible}`);
+            log(`📊 Teclado visível: ${tecladoVisible}`);
             if (!tecladoVisible) {
                 teclado.style.opacity = '1';
                 teclado.style.visibility = 'visible';
@@ -77,13 +80,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Verificação adicional quando a página carregar completamente
 window.addEventListener('load', function() {
-    console.log('🚀 Página carregada completamente, verificando elementos...');
+    log('🚀 Página carregada completamente, verificando elementos...');
     
     const notebook = document.querySelector('.notebook');
     const teclado = document.querySelector('.teclado');
     
     if (notebook) {
-        console.log('📋 Notebook:', {
+        log('📋 Notebook:', {
             src: notebook.src,
             complete: notebook.complete,
             naturalHeight: notebook.naturalHeight,
@@ -93,7 +96,7 @@ window.addEventListener('load', function() {
     }
     
     if (teclado) {
-        console.log('📋 Teclado:', {
+        log('📋 Teclado:', {
             src: teclado.src,
             complete: teclado.complete,
             naturalHeight: teclado.naturalHeight,

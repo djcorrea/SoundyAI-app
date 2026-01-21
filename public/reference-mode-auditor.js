@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔍 REFERENCE MODE AUDITOR - Sistema de Diagnóstico Controlado
 // NÃO ALTERA LÓGICA - Apenas instrumentação e logging
 // Ativado com: window.DEBUG_REFERENCE_AUDIT = true
@@ -64,13 +67,13 @@
     window.REFERENCE_AUDIT_LOG.push(dump);
     
     console.group(`${AUDIT_PREFIX} ${label} @ ${timestamp}`);
-    console.log('📍 Stack:', dump.stack);
-    console.log('🎯 Mode (legacy):', dump.legacy.currentAnalysisMode);
-    console.log('🔒 Flag (legacy):', dump.legacy.userExplicitlySelectedReferenceMode);
-    console.log('🎰 State Machine:', dump.stateMachine);
-    console.log('💾 Storage:', dump.storage);
+    log('📍 Stack:', dump.stack);
+    log('🎯 Mode (legacy):', dump.legacy.currentAnalysisMode);
+    log('🔒 Flag (legacy):', dump.legacy.userExplicitlySelectedReferenceMode);
+    log('🎰 State Machine:', dump.stateMachine);
+    log('💾 Storage:', dump.storage);
     if (Object.keys(extra).length > 0) {
-      console.log('➕ Extra:', extra);
+      log('➕ Extra:', extra);
     }
     console.groupEnd();
     
@@ -83,7 +86,7 @@
   function installWatchers() {
     if (!window.DEBUG_REFERENCE_AUDIT) return;
     
-    console.log(`${AUDIT_PREFIX} Installing watchers...`);
+    log(`${AUDIT_PREFIX} Installing watchers...`);
     
     // Watcher 1: window.currentAnalysisMode
     let _currentAnalysisMode = window.currentAnalysisMode;
@@ -95,8 +98,8 @@
         const oldValue = _currentAnalysisMode;
         if (oldValue !== newValue) {
           const stack = new Error().stack;
-          console.warn(`${CHANGE_PREFIX} currentAnalysisMode: "${oldValue}" → "${newValue}"`);
-          console.log('📍 Changed at:', stack.split('\n').slice(2, 6).join('\n'));
+          warn(`${CHANGE_PREFIX} currentAnalysisMode: "${oldValue}" → "${newValue}"`);
+          log('📍 Changed at:', stack.split('\n').slice(2, 6).join('\n'));
           
           window.REFERENCE_AUDIT_LOG.push({
             type: 'CHANGE',
@@ -122,8 +125,8 @@
         const oldValue = _userFlag;
         if (oldValue !== newValue) {
           const stack = new Error().stack;
-          console.warn(`${CHANGE_PREFIX} userExplicitlySelectedReferenceMode: ${oldValue} → ${newValue}`);
-          console.log('📍 Changed at:', stack.split('\n').slice(2, 6).join('\n'));
+          warn(`${CHANGE_PREFIX} userExplicitlySelectedReferenceMode: ${oldValue} → ${newValue}`);
+          log('📍 Changed at:', stack.split('\n').slice(2, 6).join('\n'));
           
           window.REFERENCE_AUDIT_LOG.push({
             type: 'CHANGE',
@@ -139,7 +142,7 @@
       configurable: true
     });
     
-    console.log(`${AUDIT_PREFIX} ✅ Watchers installed`);
+    log(`${AUDIT_PREFIX} ✅ Watchers installed`);
   }
   
   /**
@@ -149,18 +152,18 @@
     const log = window.REFERENCE_AUDIT_LOG;
     
     console.group(`${AUDIT_PREFIX} 📊 AUDIT ANALYSIS`);
-    console.log(`Total events: ${log.length}`);
+    log(`Total events: ${log.length}`);
     
     // Filtrar mudanças
     const changes = log.filter(e => e.type === 'CHANGE');
-    console.log(`Mode changes: ${changes.length}`);
+    log(`Mode changes: ${changes.length}`);
     
     if (changes.length > 0) {
       console.group('⚠️ Changes detected:');
       changes.forEach((change, idx) => {
-        console.log(`${idx + 1}. ${change.variable}: ${change.oldValue} → ${change.newValue}`);
-        console.log(`   Time: ${change.timestamp}`);
-        console.log(`   Stack:`, change.stack.slice(0, 3));
+        log(`${idx + 1}. ${change.variable}: ${change.oldValue} → ${change.newValue}`);
+        log(`   Time: ${change.timestamp}`);
+        log(`   Stack:`, change.stack.slice(0, 3));
       });
       console.groupEnd();
     }
@@ -169,9 +172,9 @@
     const dumps = log.filter(e => e.label);
     console.group('📍 Debug dumps:');
     dumps.forEach(dump => {
-      console.log(`- ${dump.label} @ ${dump.timestamp}`);
-      console.log(`  Mode: ${dump.legacy.currentAnalysisMode}, Flag: ${dump.legacy.userExplicitlySelectedReferenceMode}`);
-      console.log(`  StateMachine: ${dump.stateMachine.available ? dump.stateMachine.state.mode : 'N/A'}`);
+      log(`- ${dump.label} @ ${dump.timestamp}`);
+      log(`  Mode: ${dump.legacy.currentAnalysisMode}, Flag: ${dump.legacy.userExplicitlySelectedReferenceMode}`);
+      log(`  StateMachine: ${dump.stateMachine.available ? dump.stateMachine.state.mode : 'N/A'}`);
     });
     console.groupEnd();
     
@@ -184,13 +187,13 @@
     
     if (badChange) {
       console.group('🚨 CULPADO ENCONTRADO:');
-      console.log('Variable:', badChange.variable);
-      console.log('Change:', `${badChange.oldValue} → ${badChange.newValue}`);
-      console.log('Time:', badChange.timestamp);
-      console.log('Stack trace:', badChange.stack);
+      log('Variable:', badChange.variable);
+      log('Change:', `${badChange.oldValue} → ${badChange.newValue}`);
+      log('Time:', badChange.timestamp);
+      log('Stack trace:', badChange.stack);
       console.groupEnd();
     } else {
-      console.log('✅ Nenhuma mudança indevida de reference detectada');
+      log('✅ Nenhuma mudança indevida de reference detectada');
     }
     
     console.groupEnd();
@@ -208,7 +211,7 @@
    */
   window.clearReferenceAudit = function() {
     window.REFERENCE_AUDIT_LOG = [];
-    console.log(`${AUDIT_PREFIX} Log cleared`);
+    log(`${AUDIT_PREFIX} Log cleared`);
   };
   
   /**
@@ -222,7 +225,7 @@
     a.href = url;
     a.download = `reference-audit-${Date.now()}.json`;
     a.click();
-    console.log(`${AUDIT_PREFIX} Log exported`);
+    log(`${AUDIT_PREFIX} Log exported`);
   };
   
   // Auto-instalar watchers se DEBUG ativado
@@ -235,10 +238,10 @@
     }
   }
   
-  console.log(`${AUDIT_PREFIX} Auditor carregado. Use window.DEBUG_REFERENCE_AUDIT = true para ativar.`);
-  console.log(`${AUDIT_PREFIX} Funções disponíveis:`);
-  console.log(`  - debugDump(label, extra)`);
-  console.log(`  - analyzeReferenceAudit()`);
-  console.log(`  - clearReferenceAudit()`);
-  console.log(`  - exportReferenceAudit()`);
+  log(`${AUDIT_PREFIX} Auditor carregado. Use window.DEBUG_REFERENCE_AUDIT = true para ativar.`);
+  log(`${AUDIT_PREFIX} Funções disponíveis:`);
+  log(`  - debugDump(label, extra)`);
+  log(`  - analyzeReferenceAudit()`);
+  log(`  - clearReferenceAudit()`);
+  log(`  - exportReferenceAudit()`);
 })();

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Restauração Mensagens IA</title>
+</head>
+<body>
+    <h1>🔧 Teste - Restauração das Mensagens da IA</h1>
+    <p>Abra o console (F12) e observe os logs de auditoria:</p>
+    
+    <div id="log-container">
+        <h3>🚨 Problema Identificado e Corrigido:</h3>
+        <ol>
+            <li>❌ <strong>validateAndNormalizeSuggestions</strong> estava APAGANDO s.message</li>
+            <li>❌ Substituía por estrutura limitada: {metric, issue, solution, priority, confidence}</li>
+            <li>✅ <strong>CORRIGIDO:</strong> Agora preserva TODOS os campos originais</li>
+            <li>✅ <strong>Logs adicionados:</strong> Rastreamento completo do fluxo</li>
+            <li>✅ <strong>Campos garantidos:</strong> message, action, title nunca undefined</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testValidateFunction()">🔍 Validar função corrigida</button>
+        <button onclick="testPayloadBuild()">📦 Construção de payload</button>
+        <button onclick="testCompletePipeline()">🚀 Pipeline completo</button>
+        <button onclick="testTruePeakFlow()">⚡ Fluxo True Peak</button>
+        <button onclick="testValidationChecklist()">✅ Checklist final</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Simular validateAndNormalizeSuggestions CORRIGIDO
+        function simulateValidateAndNormalize(suggestions) {
+            console.log('[AUDIT-PRE] validateAndNormalizeSuggestions - ENTRADA:', JSON.stringify(suggestions, null, 2));
+            
+            const validSuggestions = suggestions.filter(suggestion => {
+                const hasContent = suggestion && (suggestion.message || suggestion.issue || suggestion.title);
+                if (!hasContent) {
+                    console.warn('⚠️ Sugestão inválida (sem conteúdo):', suggestion);
+                    return false;
+                }
+                return true;
+            }).map(suggestion => {
+                // 🔧 PRESERVAR TODOS OS CAMPOS ORIGINAIS + Normalizar estrutura para backend
+                return {
+                    // 🎯 CAMPOS ORIGINAIS PRESERVADOS (CRÍTICO!)
+                    ...suggestion,
+                    
+                    // 📋 CAMPOS NORMALIZADOS PARA BACKEND (sem sobrescrever originais)
+                    metric: suggestion.metric || suggestion.type || 'geral',
+                    issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
+                    solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
+                    priority: suggestion.priority || 5,
+                    confidence: suggestion.confidence || 0.7,
+                    
+                    // 🛡️ GARANTIR QUE CAMPOS CRÍTICOS NUNCA SEJAM UNDEFINED
+                    message: suggestion.message || suggestion.issue || suggestion.title,
+                    action: suggestion.action || suggestion.solution || suggestion.description,
+                    title: suggestion.title || suggestion.message || suggestion.issue
+                };
+            });
+
+            console.log('[AUDIT-POST] validateAndNormalizeSuggestions - SAÍDA:', JSON.stringify(validSuggestions, null, 2));
+            console.log('✅ Sugestões validadas E PRESERVADAS:', {
+                original: suggestions.length,
+                valid: validSuggestions.length,
+                preservedFields: validSuggestions.map(s => ({ 
+                    hasMessage: !!s.message, 
+                    hasAction: !!s.action,
+                    hasTitle: !!s.title,
+                    messagePreview: s.message?.substring(0, 50) + '...' 
+                }))
+            });
+
+            return validSuggestions;
+        }
+
+        // Simular buildValidPayload CORRIGIDO
+        function simulateBuildValidPayload(suggestions, metrics, genre) {
+            console.log('[AUDIT-PRE] buildValidPayload - ENTRADA:', JSON.stringify(suggestions, null, 2));
+            
+            const formattedSuggestions = suggestions.map((suggestion, index) => {
+                const problemText = suggestion.message || suggestion.issue || suggestion.title || 'Problema detectado';
+                const actionText = suggestion.action || suggestion.solution || suggestion.description || 'Ajuste recomendado';
+                
+                let priority = suggestion.priority || 2;
+                if (typeof priority !== 'number') {
+                    if (priority === 'alta' || priority === 'high') priority = 1;
+                    else if (priority === 'média' || priority === 'medium') priority = 2; 
+                    else if (priority === 'baixa' || priority === 'low') priority = 3;
+                    else priority = 2;
+                }
+                
+                priority = Math.max(1, Math.min(3, Math.floor(priority)));
+                
+                return {
+                    // 🔧 USAR CAMPOS ORIGINAIS COMO PRIORIDADE
+                    message: problemText,
+                    action: actionText, 
+                    priority: priority,
+                    confidence: suggestion.confidence || 0.8,
+                    
+                    // 🛡️ PRESERVAR CAMPOS ORIGINAIS PARA RETORNO
+                    originalMessage: suggestion.message,
+                    originalAction: suggestion.action,
+                    originalTitle: suggestion.title
+                };
+            });
+            
+            const payload = {
+                suggestions: formattedSuggestions,
+                metrics: metrics || {},
+                genre: genre || 'geral'
+            };
+
+            console.log('[AUDIT-POST] buildValidPayload - SAÍDA:', JSON.stringify(payload, null, 2));
+            console.log('📦 Payload para backend construído COM PRESERVAÇÃO:', {
+                suggestionsCount: payload.suggestions.length,
+                preservedMessages: payload.suggestions.map(s => ({ 
+                    message: s.message, 
+                    originalMessage: s.originalMessage,
+                    hasOriginal: !!s.originalMessage 
+                }))
+            });
+
+            return payload;
+        }
+
+        // Simular merge corrigido
+        function simulateCorrectedMerge(validSuggestions, enhancedSuggestions) {
+            console.log('[AUDIT-PRE-MERGE] enhancedSuggestions da API:', JSON.stringify(enhancedSuggestions, null, 2));
+            console.log('[AUDIT-PRE-MERGE] validSuggestions para merge:', JSON.stringify(validSuggestions, null, 2));
+            
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+                const content = meta.content || {};
+                
+                const resolvedMessage =
+                    s.message ||                           // 🎯 PRIORIDADE 1: IA direta
+                    original.message ||                    // 📋 PRIORIDADE 2: Original  
+                    meta.message ||                        // 🔍 Outras fontes...
+                    (meta.original && meta.original.message) ||
+                    (meta.enriched && meta.enriched.message) ||
+                    (content.original && content.original.message) ||
+                    (content.enriched && content.enriched.message);
+
+                const resolvedAction =
+                    s.action ||
+                    original.action ||
+                    meta.action ||
+                    (meta.original && meta.original.action) ||
+                    (meta.enriched && meta.enriched.action);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!resolvedMessage,
+                    messageSource: resolvedMessage ? "restored" : "fallback",
+                    message: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    title: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    action: resolvedAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        function displayResult(scenarioName, results, successCriteria) {
+            const div = document.getElementById('result-content');
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Critérios de sucesso:</strong> ${successCriteria}</div>
+                <div><strong>Resultados:</strong></div>
+                <ul>
+                    ${results.map(r => `<li>${r.success ? '✅' : '❌'} ${r.description}</li>`).join('')}
+                </ul>
+                <div style="margin-top: 10px;"><strong>Status geral:</strong> ${results.every(r => r.success) ? '✅ TODOS OS TESTES PASSARAM' : '❌ ALGUNS TESTES FALHARAM'}</div>
+            `;
+        }
+
+        function testValidateFunction() {
+            console.log('🔍 Cenário: Validar função validateAndNormalizeSuggestions corrigida');
+            
+            const inputSuggestions = [
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                    action: "Aplicar FabFilter Pro-L2 com threshold suave",
+                    priority: 1,
+                    confidence: 0.95,
+                    type: "true_peak"
+                },
+                {
+                    message: "📊 LUFS muito baixo para streaming",
+                    action: "Aumentar gain em +3 dB",
+                    priority: 2,
+                    confidence: 0.8
+                }
+            ];
+            
+            const validated = simulateValidateAndNormalize(inputSuggestions);
+            
+            const results = [
+                {
+                    success: validated.every(s => !!s.message),
+                    description: `Todos mantêm message: ${validated.every(s => !!s.message)}`
+                },
+                {
+                    success: validated[0].message.includes("True Peak"),
+                    description: `True Peak preservado: "${validated[0].message.substring(0, 40)}..."`
+                },
+                {
+                    success: validated.every(s => !!s.action),
+                    description: `Todos mantêm action: ${validated.every(s => !!s.action)}`
+                },
+                {
+                    success: validated.every(s => s.priority && s.confidence),
+                    description: `Priority/confidence preservados: ${validated.every(s => s.priority && s.confidence)}`
+                }
+            ];
+            
+            console.log('🔍 Validate function test:', results);
+            
+            displayResult("Função validateAndNormalizeSuggestions", results, "Todos os campos originais devem ser preservados");
+        }
+
+        function testPayloadBuild() {
+            console.log('📦 Cenário: Construção de payload com preservação');
+            
+            const suggestions = [
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA",
+                    action: "Aplicar limitador",
+                    priority: 1,
+                    confidence: 0.95
+                }
+            ];
+            
+            const payload = simulateBuildValidPayload(suggestions, {}, 'electronic');
+            
+            const results = [
+                {
+                    success: payload.suggestions[0].message.includes("True Peak"),
+                    description: `Message no payload: "${payload.suggestions[0].message}"`
+                },
+                {
+                    success: !!payload.suggestions[0].originalMessage,
+                    description: `originalMessage preservado: ${!!payload.suggestions[0].originalMessage}`
+                },
+                {
+                    success: payload.suggestions[0].originalMessage === "⚡ True Peak requer correção PRIORITÁRIA",
+                    description: `Original exato: ${payload.suggestions[0].originalMessage === "⚡ True Peak requer correção PRIORITÁRIA"}`
+                }
+            ];
+            
+            console.log('📦 Payload build test:', results);
+            
+            displayResult("Construção de payload", results, "originalMessage deve ser preservado para retorno da API");
+        }
+
+        function testCompletePipeline() {
+            console.log('🚀 Cenário: Pipeline completo com preservação');
+            
+            // 1. Input original
+            const originalSuggestions = [
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                    action: "Aplicar FabFilter Pro-L2",
+                    priority: 1
+                }
+            ];
+            
+            // 2. Validação e normalização
+            const validated = simulateValidateAndNormalize(originalSuggestions);
+            
+            // 3. Construção do payload
+            const payload = simulateBuildValidPayload(validated, {}, 'electronic');
+            
+            // 4. Simular resposta da API (preservando originalMessage)
+            const apiResponse = {
+                enhancedSuggestions: [
+                    {
+                        message: payload.suggestions[0].originalMessage, // API retorna original
+                        action: "Aplicar limitador suave FabFilter Pro-L2 com threshold em -1.0 dB",
+                        priority: 1,
+                        confidence: 0.95,
+                        metadata: {
+                            processing: "enhanced"
+                        }
+                    }
+                ]
+            };
+            
+            // 5. Merge
+            const merged = simulateCorrectedMerge(validated, apiResponse.enhancedSuggestions);
+            
+            const results = [
+                {
+                    success: validated[0].message.includes("True Peak"),
+                    description: `Etapa 1 - Validação preservou: ${validated[0].message.includes("True Peak")}`
+                },
+                {
+                    success: !!payload.suggestions[0].originalMessage,
+                    description: `Etapa 2 - Payload tem originalMessage: ${!!payload.suggestions[0].originalMessage}`
+                },
+                {
+                    success: apiResponse.enhancedSuggestions[0].message.includes("True Peak"),
+                    description: `Etapa 3 - API retornou correto: ${apiResponse.enhancedSuggestions[0].message.includes("True Peak")}`
+                },
+                {
+                    success: merged[0].hasOriginalMessage && merged[0].messageSource === "restored",
+                    description: `Etapa 4 - Merge bem-sucedido: hasOriginalMessage=${merged[0].hasOriginalMessage}, messageSource=${merged[0].messageSource}`
+                }
+            ];
+            
+            console.log('🚀 Complete pipeline test:', {
+                originalInput: originalSuggestions[0].message,
+                afterValidation: validated[0].message,
+                payloadOriginal: payload.suggestions[0].originalMessage,
+                apiResponse: apiResponse.enhancedSuggestions[0].message,
+                finalMerged: merged[0].message,
+                success: results.every(r => r.success)
+            });
+            
+            displayResult("Pipeline completo", results, "Mensagem deve ser preservada em todas as etapas");
+        }
+
+        function testTruePeakFlow() {
+            console.log('⚡ Cenário: Fluxo específico True Peak');
+            
+            const truePeakSuggestion = {
+                message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
+                action: "Limiter nativo da DAW ou FabFilter Pro-L2 com threshold em -1.0 dB",
+                priority: 1,
+                confidence: 0.98,
+                metric: "true_peak",
+                value: 2.6,
+                target: -1.0
+            };
+            
+            // Simular fluxo completo
+            const validated = simulateValidateAndNormalize([truePeakSuggestion]);
+            const payload = simulateBuildValidPayload(validated, {}, 'electronic');
+            
+            // Simular resposta da API enriquecida
+            const enhancedResponse = [{
+                message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
+                action: "Aplicar limitador suave FabFilter Pro-L2 com threshold em -1.0 dB para prevenir clipping digital",
+                priority: 1,
+                confidence: 0.98,
+                blocks: {
+                    problem: "True Peak detectado em 2.6 dBTP",
+                    cause: "Limitador muito agressivo ou ausente",
+                    solution: "Aplicar limitador suave",
+                    tip: "Use look-ahead para suavizar picos",
+                    plugin: "FabFilter Pro-L2 ou limitador nativo da DAW",
+                    result: "True Peak reduzido para -1.0 dBTP"
+                }
+            }];
+            
+            const merged = simulateCorrectedMerge(validated, enhancedResponse);
+            
+            const results = [
+                {
+                    success: merged[0].message.includes("True Peak") && merged[0].message.includes("2.6 dBTP"),
+                    description: `Mensagem completa preservada: "${merged[0].message}"`
+                },
+                {
+                    success: merged[0].action.includes("FabFilter"),
+                    description: `Plugin específico: "${merged[0].action}"`
+                },
+                {
+                    success: merged[0].hasOriginalMessage === true,
+                    description: `hasOriginalMessage: ${merged[0].hasOriginalMessage}`
+                },
+                {
+                    success: merged[0].messageSource === "restored",
+                    description: `messageSource: ${merged[0].messageSource}`
+                },
+                {
+                    success: !merged[0].message.includes("⚠️ Mensagem perdida"),
+                    description: `Sem fallback de erro: ${!merged[0].message.includes("⚠️ Mensagem perdida")}`
+                }
+            ];
+            
+            console.log('⚡ True Peak flow test:', merged[0]);
+            
+            displayResult("Fluxo True Peak", results, "True Peak deve manter todos os detalhes e nunca usar fallback");
+        }
+
+        function testValidationChecklist() {
+            console.log('✅ Cenário: Checklist de validação final');
+            
+            // Simular caso mais complexo
+            const complexSuggestions = [
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
+                    action: "Aplicar FabFilter Pro-L2",
+                    priority: 1
+                },
+                {
+                    message: "📊 LUFS adequado para streaming (-14.2 LUFS)",
+                    action: "Manter níveis atuais",
+                    priority: 2
+                }
+            ];
+            
+            const validated = simulateValidateAndNormalize(complexSuggestions);
+            const payload = simulateBuildValidPayload(validated, {}, 'electronic');
+            
+            const enhancedResponse = [
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
+                    action: "Aplicar limitador FabFilter Pro-L2",
+                    priority: 1
+                },
+                {
+                    message: "📊 LUFS adequado para streaming (-14.2 LUFS)",
+                    action: "Níveis perfeitos para Spotify/Apple Music",
+                    priority: 2
+                }
+            ];
+            
+            const merged = simulateCorrectedMerge(validated, enhancedResponse);
+            const sorted = merged.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+            
+            const checklist = [
+                {
+                    success: !sorted.some(s => s.message.includes("⚠️ Mensagem perdida")),
+                    description: "❌ Nenhum '⚠️ Mensagem perdida na integração' é exibido"
+                },
+                {
+                    success: sorted[0].message.includes("True Peak"),
+                    description: "⚡ True Peak aparece no topo com texto prioritário correto"
+                },
+                {
+                    success: sorted.every(s => s.hasOriginalMessage === true),
+                    description: "✅ hasOriginalMessage: true no log"
+                },
+                {
+                    success: sorted.every(s => s.messageSource === "restored"),
+                    description: "✅ messageSource: 'restored' no log"
+                },
+                {
+                    success: sorted.every(s => s.message && s.title && s.message === s.title),
+                    description: "✅ Nenhum campo válido é apagado (message = title)"
+                },
+                {
+                    success: sorted.some(s => s.action?.includes("FabFilter")),
+                    description: "🎹 Plugin específico preservado na action"
+                }
+            ];
+            
+            console.log('✅ Final validation checklist:', {
+                allPassed: checklist.every(c => c.success),
+                results: checklist,
+                finalSuggestions: sorted.map(s => ({
+                    message: s.message.substring(0, 60),
+                    hasOriginalMessage: s.hasOriginalMessage,
+                    messageSource: s.messageSource
+                }))
+            });
+            
+            displayResult("Checklist final de validação", checklist, "Todos os critérios devem passar para confirmação da correção");
+        }
+
+        // Log inicial
+        console.log("🔧 [RESTORE] Teste de restauração de mensagens IA iniciado");
+        console.log("🚨 Problema identificado: validateAndNormalizeSuggestions apagava s.message");
+        console.log("✅ Correção aplicada: Preservação de TODOS os campos originais");
+        console.log("🎯 Meta: hasOriginalMessage: true + messageSource: 'restored'");
+    </script>
+</body>
+</html>

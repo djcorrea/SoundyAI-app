@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 SOUNDYAI - CONFIGURAÇÃO CENTRALIZADA DE TRACKING
  * 
@@ -66,17 +69,17 @@
             // Ativar debug se necessário
             if (TRACKING_CONFIG.debug) {
                 window.SoundyTracking.setDebug(true);
-                console.log('🎯 [TRACKING-CONFIG] Debug mode ativado');
+                log('🎯 [TRACKING-CONFIG] Debug mode ativado');
             }
             
-            console.log('✅ [TRACKING-CONFIG] Sistema configurado com sucesso');
+            log('✅ [TRACKING-CONFIG] Sistema configurado com sucesso');
             
             // Verificar se IDs foram preenchidos
             if (TRACKING_CONFIG.conversionId.includes('REPLACE_WITH')) {
-                console.warn('⚠️ [TRACKING-CONFIG] IDs ainda não foram preenchidos! Ver TRACKING_SETUP.md');
+                warn('⚠️ [TRACKING-CONFIG] IDs ainda não foram preenchidos! Ver TRACKING_SETUP.md');
             }
         } else {
-            console.error('❌ [TRACKING-CONFIG] SoundyTracking não encontrado. Incluir tracking.js antes deste arquivo.');
+            error('❌ [TRACKING-CONFIG] SoundyTracking não encontrado. Incluir tracking.js antes deste arquivo.');
         }
     }
     

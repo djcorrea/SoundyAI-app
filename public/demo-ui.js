@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔥 SOUNDYAI - DEMO UI
  * 
@@ -21,7 +24,7 @@
 
     // Aguardar demo-core.js carregar
     if (!window.SoundyDemo) {
-        console.error('❌ [DEMO-UI] demo-core.js não carregado!');
+        error('❌ [DEMO-UI] demo-core.js não carregado!');
         return;
     }
 
@@ -54,7 +57,7 @@
             }
         }
         
-        console.log(`🔥 [DEMO-UI] Exibindo modal de conversão (motivo: ${reason})`);
+        log(`🔥 [DEMO-UI] Exibindo modal de conversão (motivo: ${reason})`);
         
         DEMO.modalShown = true;
         
@@ -111,9 +114,9 @@
             if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
                 try {
                     window.SoundyTracking.trackCTADemoToSales(window.location.href);
-                    console.log('📊 CTA Demo → Vendas rastreado');
+                    log('📊 CTA Demo → Vendas rastreado');
                 } catch (trackingError) {
-                    console.warn('⚠️ Erro no tracking (não crítico):', trackingError);
+                    warn('⚠️ Erro no tracking (não crítico):', trackingError);
                 }
             }
             
@@ -143,7 +146,7 @@
         };
         document.addEventListener('keydown', preventKeys, true);
         
-        console.log('🔥 [DEMO-UI] Modal de conversão exibido - BLOQUEANTE');
+        log('🔥 [DEMO-UI] Modal de conversão exibido - BLOQUEANTE');
     };
 
     /**
@@ -312,7 +315,7 @@
      * Registra motivo para analytics futuro
      */
     DEMO.redirectToCheckout = function(reason = 'unknown') {
-        console.log(`🛒 [DEMO-UI] Redirecionando para checkout (motivo: ${reason})`);
+        log(`🛒 [DEMO-UI] Redirecionando para checkout (motivo: ${reason})`);
         
         // Registrar dados de conversão (para analytics futuro)
         const conversionData = {
@@ -334,7 +337,7 @@
         // Tentar enviar para analytics (fire and forget)
         try {
             // Futuro: enviar para backend/analytics
-            console.log('📊 [DEMO-UI] Dados de conversão:', conversionData);
+            log('📊 [DEMO-UI] Dados de conversão:', conversionData);
         } catch (e) {
             // Silencioso - não bloquear redirect
         }
@@ -348,9 +351,9 @@
      */
     DEMO.setCheckoutUrl = function(url) {
         CONFIG.checkoutUrl = url;
-        console.log('✅ [DEMO-UI] Checkout URL atualizada:', url);
+        log('✅ [DEMO-UI] Checkout URL atualizada:', url);
     };
 
-    console.log('🔥 [DEMO-UI] Módulo UI carregado');
+    log('🔥 [DEMO-UI] Módulo UI carregado');
 
 })();

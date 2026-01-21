@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * band-key-aliases.js
  * Sistema centralizado de normalização de chaves de bandas espectrais
@@ -126,7 +129,7 @@
     }
     
     if (skipped.length > 0) {
-      console.warn('[BAND-ALIASES] Chaves não reconhecidas:', skipped);
+      warn('[BAND-ALIASES] Chaves não reconhecidas:', skipped);
     }
     
     return normalized;

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔐 DEVICE FINGERPRINT - Sistema de Identificação Forte de Dispositivo
  * 
@@ -255,7 +258,7 @@
      * @returns {Promise<Object>} Objeto com fingerprint_hash e componentes
      */
     async function generateDeviceFingerprint() {
-        console.log('🔐 [FINGERPRINT] Gerando fingerprint forte do dispositivo...');
+        log('🔐 [FINGERPRINT] Gerando fingerprint forte do dispositivo...');
         
         const startTime = Date.now();
         
@@ -293,7 +296,7 @@
         const fingerprintHash = await sha256(fingerprintString);
         
         const elapsedTime = Date.now() - startTime;
-        console.log(`✅ [FINGERPRINT] Gerado em ${elapsedTime}ms:`, fingerprintHash.substring(0, 16) + '...');
+        log(`✅ [FINGERPRINT] Gerado em ${elapsedTime}ms:`, fingerprintHash.substring(0, 16) + '...');
         
         return {
             fingerprint_hash: fingerprintHash,
@@ -334,7 +337,7 @@
                 // Validar que tem hash válido
                 if (parsed.fingerprint_hash && parsed.fingerprint_hash.length > 20) {
                     cachedFingerprint = parsed;
-                    console.log('🔐 [FINGERPRINT] Carregado do cache:', parsed.fingerprint_hash.substring(0, 16) + '...');
+                    log('🔐 [FINGERPRINT] Carregado do cache:', parsed.fingerprint_hash.substring(0, 16) + '...');
                     return cachedFingerprint;
                 }
             }
@@ -349,7 +352,7 @@
         try {
             localStorage.setItem(CACHE_KEY, JSON.stringify(cachedFingerprint));
         } catch (e) {
-            console.warn('⚠️ [FINGERPRINT] Erro ao salvar cache:', e.message);
+            warn('⚠️ [FINGERPRINT] Erro ao salvar cache:', e.message);
         }
         
         return cachedFingerprint;
@@ -388,8 +391,8 @@
         version: '1.0.0'
     };
 
-    console.log('🔐 [FINGERPRINT] Sistema de fingerprint forte carregado');
-    console.log('   Canvas + Audio + WebGL + Hardware');
-    console.log('   Use: SoundyFingerprint.get() para obter');
+    log('🔐 [FINGERPRINT] Sistema de fingerprint forte carregado');
+    log('   Canvas + Audio + WebGL + Hardware');
+    log('   Use: SoundyFingerprint.get() para obter');
 
 })();

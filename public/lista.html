@@ -440,6 +440,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <!-- Background Effects -->
@@ -758,7 +764,7 @@
                         if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
                             // Se retornou que foi atualizado com WhatsApp, mostrar sucesso
                             if (result.data?.whatsappAdded) {
-                                console.log('📱 WhatsApp adicionado ao cadastro existente');
+                                log('📱 WhatsApp adicionado ao cadastro existente');
                                 formContent.classList.add('hidden');
                                 successContainer.classList.add('visible');
                                 return;
@@ -802,20 +808,20 @@
                         });
                         localStorage.setItem('soundy_waitlist', JSON.stringify(existingLeads));
                     } catch (storageErr) {
-                        console.warn('LocalStorage não disponível:', storageErr);
+                        warn('LocalStorage não disponível:', storageErr);
                     }
                     
                     // ========================================
                     // ✅ SUCESSO!
                     // ========================================
-                    console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
-                    console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
-                    console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
+                    log('✅ Lead cadastrado com sucesso:', result.data?.id);
+                    log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
+                    log('📱 WhatsApp:', phone ? phone : 'Não informado');
                     formContent.classList.add('hidden');
                     successContainer.classList.add('visible');
                     
                 } catch (error) {
-                    console.error('[WAITLIST] Erro:', error);
+                    error('[WAITLIST] Erro:', error);
                     
                     // Mensagem amigável
                     let errorMessage = 'Ocorreu um erro ao processar seu cadastro. Tente novamente.';

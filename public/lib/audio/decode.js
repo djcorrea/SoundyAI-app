@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 AUDIO DECODE - Conversão e preparação de áudio
 // Decodificação PCM Float32, 48kHz, stereo com DC removal
 
@@ -26,7 +29,7 @@ async function decodeAndPrepareAudio(audioBuffer, audioContext = null) {
       });
     }
     
-    console.log('🎤 Decodificando áudio...');
+    log('🎤 Decodificando áudio...');
     
     // Decodificar áudio
     const decodedBuffer = await audioContext.decodeAudioData(
@@ -44,7 +47,7 @@ async function decodeAndPrepareAudio(audioBuffer, audioContext = null) {
     let rightProcessed = rightChannel;
     
     if (DECODE_STATS.DC_REMOVAL_ENABLED) {
-      console.log('🔧 Removendo DC offset...');
+      log('🔧 Removendo DC offset...');
       leftProcessed = removeDCOffset(leftChannel);
       rightProcessed = removeDCOffset(rightChannel);
     }
@@ -57,7 +60,7 @@ async function decodeAndPrepareAudio(audioBuffer, audioContext = null) {
     
     const decodeTime = Date.now() - startTime;
     
-    console.log('✅ Áudio decodificado:', {
+    log('✅ Áudio decodificado:', {
       duration: `${duration.toFixed(2)}s`,
       sampleRate: `${sampleRate}Hz`,
       channels: channels,
@@ -81,7 +84,7 @@ async function decodeAndPrepareAudio(audioBuffer, audioContext = null) {
     };
     
   } catch (error) {
-    console.error('❌ Erro na decodificação:', error);
+    error('❌ Erro na decodificação:', error);
     throw new Error(`Falha na decodificação de áudio: ${error.message}`);
   }
 }
@@ -106,7 +109,7 @@ function removeDCOffset(channelData) {
       result[i] = channelData[i] - dcOffset;
     }
     
-    console.log(`🧹 DC offset removido: ${(dcOffset * 1000).toFixed(3)}mV`);
+    log(`🧹 DC offset removido: ${(dcOffset * 1000).toFixed(3)}mV`);
     return result;
   }
   

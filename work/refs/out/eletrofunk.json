@@ -6,8 +6,8 @@
     "processing_mode": "fallback_safe",
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -8.5,
-        "true_peak_dbtp": -0.5,
+        "lufs_integrated": -10.5,
+        "true_peak_dbtp": -1,
         "dynamic_range": 6.5,
         "rms_db": -13,
         "stereo_correlation": 0.915,
@@ -98,12 +98,12 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -8.5,
-      "true_peak_target": -0.5,
+      "lufs_target": -10.5,
+      "true_peak_target": -1,
       "dr_target": 6.5,
       "stereo_target": 0.915,
       "tol_lufs": 2,
-      "tol_true_peak": 1,
+      "tol_true_peak": 3,
       "tol_dr": 2.5,
       "lra_target": 8.4,
       "tol_lra": 2.5,
@@ -190,11 +190,11 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -10.5,
-      "lufs_max": -6.5,
+      "lufs_min": -11.5,
+      "lufs_max": -7.5,
       "dr_min": 4.5,
       "dr_max": 9.5,
-      "true_peak_min": -2,
+      "true_peak_min": -3,
       "true_peak_max": 0,
       "true_peak_warn_from": -0.15
     },
@@ -216,14 +216,14 @@
     "lufs_max": -6.5,
     "dr_min": 4.5,
     "dr_max": 9.5,
-    "true_peak_min": -2,
+    "true_peak_min": -3,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.15,
     "lufs_target": -8.5,
-    "true_peak_target": -0.5,
+    "true_peak_target": -1,
     "dr_target": 6.5,
-    "tol_lufs": 2,
+    "tol_lufs": 3,
     "tol_dr": 2.5,
-    "tol_true_peak": 1
+    "tol_true_peak": 3
   }
 }

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔐 REDUCED MODE SECURITY GUARD
  * Função centralizada para decidir se deve renderizar valores reais
@@ -13,7 +16,7 @@
  */
 function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) {
     // 🔍 DEBUG: Log detalhado da análise recebida
-    console.log('[SECURITY-GUARD] 🔍 Checking:', { 
+    log('[SECURITY-GUARD] 🔍 Checking:', { 
         metricKey, 
         section, 
         analysisMode: analysis?.analysisMode,
@@ -29,11 +32,11 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
     );
     
     if (!isReducedMode) {
-        console.log('[SECURITY-GUARD] ✅ Modo FULL - renderizar tudo');
+        log('[SECURITY-GUARD] ✅ Modo FULL - renderizar tudo');
         return true;
     }
     
-    console.log('[SECURITY-GUARD] 🔒 Modo REDUCED detectado - verificando allowlist...');
+    log('[SECURITY-GUARD] 🔒 Modo REDUCED detectado - verificando allowlist...');
     
     // 🔓 ALLOWLIST - Métricas SEMPRE LIBERADAS no modo reduced
     const allowedMetrics = [
@@ -114,18 +117,18 @@ function shouldRenderRealValue(metricKey, section = 'primary', analysis = null) 
     
     // Verificar blocklist primeiro (tem prioridade)
     if (blockedMetrics.some(blocked => normalizedKey.includes(blocked.toLowerCase()))) {
-        console.log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (encontrado na blocklist)`);
+        log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (encontrado na blocklist)`);
         return false;
     }
     
     // Verificar allowlist
     if (allowedMetrics.some(allowed => normalizedKey.includes(allowed.toLowerCase()))) {
-        console.log(`[SECURITY-GUARD] ✅ LIBERADO: ${metricKey} (encontrado na allowlist)`);
+        log(`[SECURITY-GUARD] ✅ LIBERADO: ${metricKey} (encontrado na allowlist)`);
         return true;
     }
     
     // Por padrão, bloquear se não estiver explicitamente na allowlist
-    console.log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (não encontrado na allowlist - bloqueio padrão)`);
+    log(`[SECURITY-GUARD] 🔒 BLOQUEADO: ${metricKey} (não encontrado na allowlist - bloqueio padrão)`);
     return false;
 }
 
@@ -146,4 +149,4 @@ function renderSecurePlaceholder(type = 'value') {
     return placeholders[type] || placeholders.value;
 }
 
-console.log('✅ Reduced Mode Security Guard carregado');
+log('✅ Reduced Mode Security Guard carregado');

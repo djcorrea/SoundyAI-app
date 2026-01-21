@@ -1,9 +1,12 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎓 SISTEMA DE SUGESTÕES EDUCATIVO ULTRA-AVANÇADO
 // O melhor sistema de sugestões do planeta - educativo, intuitivo e contextual
 
 class AdvancedEducationalSuggestionSystem {
     constructor() {
-        console.log('🎓 [EDUCATIVO] Inicializando Sistema de Sugestões Ultra-Avançado...');
+        log('🎓 [EDUCATIVO] Inicializando Sistema de Sugestões Ultra-Avançado...');
         
         // 📚 Base de conhecimento educativo
         this.educationalDatabase = this.createEducationalDatabase();
@@ -27,7 +30,7 @@ class AdvancedEducationalSuggestionSystem {
             preferenceWeights: this.getDefaultPreferences()
         };
         
-        console.log('✅ [EDUCATIVO] Sistema Ultra-Avançado carregado com sucesso!');
+        log('✅ [EDUCATIVO] Sistema Ultra-Avançado carregado com sucesso!');
     }
 
     /**
@@ -419,32 +422,32 @@ class AdvancedEducationalSuggestionSystem {
      * 🎯 Método principal: analisar e gerar sugestões educativas
      */
     generateAdvancedSuggestions(analysis, referenceData, userPreferences = {}) {
-        console.log('🎓 [EDUCATIVO] Iniciando análise avançada...');
+        log('🎓 [EDUCATIVO] Iniciando análise avançada...');
         
         const startTime = Date.now();
         
         try {
             // 1. Análise contextual inteligente
             const context = this.analyzeMusicalContext(analysis, referenceData);
-            console.log('🎵 [CONTEXTO]', context);
+            log('🎵 [CONTEXTO]', context);
 
             // 2. Detecção de problemas com priorização
             const issues = this.detectIssuesWithPriority(analysis, referenceData, context);
-            console.log('🔍 [PROBLEMAS]', issues);
+            log('🔍 [PROBLEMAS]', issues);
 
             // 3. Geração de sugestões educativas
             const suggestions = this.generateEducationalSuggestions(issues, context, userPreferences);
-            console.log('💡 [SUGESTÕES]', suggestions);
+            log('💡 [SUGESTÕES]', suggestions);
 
             // 4. Enriquecimento com explicações
             const enrichedSuggestions = this.enrichWithExplanations(suggestions, context);
-            console.log('🎓 [ENRIQUECIDAS]', enrichedSuggestions);
+            log('🎓 [ENRIQUECIDAS]', enrichedSuggestions);
 
             // 5. Ordenação inteligente
             const finalSuggestions = this.intelligentPrioritization(enrichedSuggestions, userPreferences);
             
             const processingTime = Date.now() - startTime;
-            console.log(`✅ [EDUCATIVO] Análise concluída em ${processingTime}ms`);
+            log(`✅ [EDUCATIVO] Análise concluída em ${processingTime}ms`);
 
             return {
                 suggestions: finalSuggestions,
@@ -459,7 +462,7 @@ class AdvancedEducationalSuggestionSystem {
             };
 
         } catch (error) {
-            console.error('🚨 [EDUCATIVO] Erro na análise:', error);
+            error('🚨 [EDUCATIVO] Erro na análise:', error);
             return {
                 error: error.message,
                 fallbackSuggestions: this.generateFallbackSuggestions(analysis)
@@ -1026,5 +1029,5 @@ window.AdvancedEducationalSuggestionSystem = AdvancedEducationalSuggestionSystem
 // 🎯 Criar instância global
 window.advancedSuggestionSystem = new AdvancedEducationalSuggestionSystem();
 
-console.log('🎓 AdvancedEducationalSuggestionSystem carregado com sucesso!');
-console.log('📚 Acesse via: window.advancedSuggestionSystem');
+log('🎓 AdvancedEducationalSuggestionSystem carregado com sucesso!');
+log('📚 Acesse via: window.advancedSuggestionSystem');

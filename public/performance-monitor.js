@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * 🚀 PERFORMANCE MONITOR V2 - SoundyAI
@@ -155,7 +158,7 @@
 
     function initLongtaskObserver() {
         if (!('PerformanceObserver' in window)) {
-            console.warn('⚠️ [PerfMon] PerformanceObserver não suportado');
+            warn('⚠️ [PerfMon] PerformanceObserver não suportado');
             return;
         }
 
@@ -184,7 +187,7 @@
                     worstLongtasks.add(event);
                     
                     if (CONFIG.DEBUG_MODE) {
-                        console.warn(`🐌 [LongTask] ${entry.duration.toFixed(1)}ms`, event.attribution);
+                        warn(`🐌 [LongTask] ${entry.duration.toFixed(1)}ms`, event.attribution);
                     }
                     
                     // Notificar EffectsController se task muito longa
@@ -196,10 +199,10 @@
 
             longtaskObserver.observe({ entryTypes: ['longtask'] });
             if (CONFIG.DEBUG_MODE) {
-                console.log('✅ [PerfMon] LongTask observer ativo');
+                log('✅ [PerfMon] LongTask observer ativo');
             }
         } catch (e) {
-            console.warn('⚠️ [PerfMon] Falha ao criar LongTask observer:', e.message);
+            warn('⚠️ [PerfMon] Falha ao criar LongTask observer:', e.message);
         }
     }
 
@@ -221,7 +224,7 @@
             this.frameCount = 0;
             this.tick();
             if (CONFIG.DEBUG_MODE) {
-                console.log('✅ [PerfMon] FPS monitor ativo');
+                log('✅ [PerfMon] FPS monitor ativo');
             }
         },
         
@@ -272,7 +275,7 @@
             perfBuffer.add(event);
             
             if (CONFIG.DEBUG_MODE) {
-                console.warn(`📉 [FPS] ${this.fps} FPS por ${CONFIG.LOW_FPS_DURATION_ALERT}ms`);
+                warn(`📉 [FPS] ${this.fps} FPS por ${CONFIG.LOW_FPS_DURATION_ALERT}ms`);
             }
             
             // Notificar EffectsController
@@ -298,44 +301,44 @@
         console.group('📊 Performance Dump (' + events.length + ' eventos)');
         
         // Estatísticas resumidas
-        console.log('━━━ Estatísticas ━━━');
-        console.log(`LongTasks: ${stats.longtasks.count} | Avg: ${stats.longtasks.avgDuration}ms | Max: ${stats.longtasks.maxDuration}ms | P90: ${stats.longtasks.p90}ms | P95: ${stats.longtasks.p95}ms`);
-        console.log(`FPS Dips: ${stats.fpsDips.count} | Avg FPS: ${stats.fpsDips.avgFps}`);
-        console.log(`FPS Atual: ${fpsMonitor.getCurrentFps()}`);
+        log('━━━ Estatísticas ━━━');
+        log(`LongTasks: ${stats.longtasks.count} | Avg: ${stats.longtasks.avgDuration}ms | Max: ${stats.longtasks.maxDuration}ms | P90: ${stats.longtasks.p90}ms | P95: ${stats.longtasks.p95}ms`);
+        log(`FPS Dips: ${stats.fpsDips.count} | Avg FPS: ${stats.fpsDips.avgFps}`);
+        log(`FPS Atual: ${fpsMonitor.getCurrentFps()}`);
         
         // Suspeitos (se houver)
         if (suspects.length > 0) {
-            console.log('━━━ 🔍 Suspeitos (por tempo total) ━━━');
+            log('━━━ 🔍 Suspeitos (por tempo total) ━━━');
             suspects.slice(0, 5).forEach((s, i) => {
-                console.log(`${i + 1}. ${s.source}: ${s.count} ocorrências, ${s.totalDuration.toFixed(1)}ms total, max ${s.maxDuration.toFixed(1)}ms`);
+                log(`${i + 1}. ${s.source}: ${s.count} ocorrências, ${s.totalDuration.toFixed(1)}ms total, max ${s.maxDuration.toFixed(1)}ms`);
             });
         }
         
         // Eventos recentes
-        console.log('━━━ Eventos Recentes ━━━');
+        log('━━━ Eventos Recentes ━━━');
         events.forEach((e, i) => {
             const time = new Date(e.timestamp).toLocaleTimeString();
             if (e.type === 'longtask') {
                 const sources = e.attribution.map(a => a.containerSrc || a.containerName || a.name).join(', ');
-                console.log(`${i + 1}. [${time}] 🐌 LongTask: ${e.duration.toFixed(1)}ms ${sources ? '(' + sources + ')' : ''}`);
+                log(`${i + 1}. [${time}] 🐌 LongTask: ${e.duration.toFixed(1)}ms ${sources ? '(' + sources + ')' : ''}`);
             } else if (e.type === 'fps-low') {
-                console.log(`${i + 1}. [${time}] 📉 Low FPS: ${e.fps}`);
+                log(`${i + 1}. [${time}] 📉 Low FPS: ${e.fps}`);
             }
         });
         
         // Diagnóstico automático
-        console.log('━━━ 💡 Diagnóstico ━━━');
+        log('━━━ 💡 Diagnóstico ━━━');
         if (stats.longtasks.count > 10) {
-            console.log('⚠️ Muitos LongTasks detectados. Possíveis causas:');
+            log('⚠️ Muitos LongTasks detectados. Possíveis causas:');
             if (suspects[0]) {
-                console.log(`   → Principal suspeito: ${suspects[0].source}`);
+                log(`   → Principal suspeito: ${suspects[0].source}`);
             }
         }
         if (parseFloat(stats.fpsDips.avgFps) < 45) {
-            console.log('⚠️ FPS médio baixo. Considere reduzir efeitos visuais.');
+            log('⚠️ FPS médio baixo. Considere reduzir efeitos visuais.');
         }
         if (stats.longtasks.count === 0 && stats.fpsDips.count === 0) {
-            console.log('✅ Performance OK - nenhum problema detectado.');
+            log('✅ Performance OK - nenhum problema detectado.');
         }
         
         console.groupEnd();
@@ -345,10 +348,10 @@
     window.__perfStats = function() {
         const stats = perfBuffer.getStats();
         console.group('📈 Performance Stats');
-        console.log('Total eventos:', stats.totalEvents);
-        console.log('LongTasks:', stats.longtasks);
-        console.log('FPS Dips:', stats.fpsDips);
-        console.log('FPS atual:', fpsMonitor.getCurrentFps());
+        log('Total eventos:', stats.totalEvents);
+        log('LongTasks:', stats.longtasks);
+        log('FPS Dips:', stats.fpsDips);
+        log('FPS atual:', fpsMonitor.getCurrentFps());
         console.groupEnd();
         return stats;
     };
@@ -362,13 +365,13 @@
         tasks.forEach((t, i) => {
             const time = new Date(t.timestamp).toLocaleTimeString();
             const sources = t.attribution.map(a => a.containerSrc || a.containerName || a.name).filter(Boolean);
-            console.log(`${i + 1}. ${t.duration.toFixed(1)}ms [${time}] ${sources.length ? sources.join(', ') : 'unknown'}`);
+            log(`${i + 1}. ${t.duration.toFixed(1)}ms [${time}] ${sources.length ? sources.join(', ') : 'unknown'}`);
         });
         
         if (suspects.length > 0) {
-            console.log('━━━ Principais Culpados ━━━');
+            log('━━━ Principais Culpados ━━━');
             suspects.forEach((s, i) => {
-                console.log(`${i + 1}. ${s.source}: ${s.count}x, ${s.totalDuration.toFixed(0)}ms total`);
+                log(`${i + 1}. ${s.source}: ${s.count}x, ${s.totalDuration.toFixed(0)}ms total`);
             });
         }
         
@@ -379,7 +382,7 @@
     window.__perfReset = function() {
         perfBuffer.clear();
         worstLongtasks.clear();
-        console.log('🧹 [PerfMon] Buffers limpos');
+        log('🧹 [PerfMon] Buffers limpos');
     };
 
     // Expor FPS atual para outros módulos
@@ -414,7 +417,7 @@
         
         // Log silencioso - só mostra no DEBUG_MODE
         if (CONFIG.DEBUG_MODE) {
-            console.log('✅ [PerfMon] V2 Inicializado. Use __perfDump() para ver eventos.');
+            log('✅ [PerfMon] V2 Inicializado. Use __perfDump() para ver eventos.');
         }
     }
 

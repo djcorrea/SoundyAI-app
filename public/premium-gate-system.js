@@ -1,10 +1,13 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔒 SISTEMA DE GATE PREMIUM - BLOQUEIO COMPLETO
 // Implementação com defesa em profundidade: modal + wrappers + sobrescrita
 
 (function initPremiumGateSystem() {
     'use strict';
     
-    console.log('🔒 [PREMIUM-GATE] Inicializando sistema de bloqueio...');
+    log('🔒 [PREMIUM-GATE] Inicializando sistema de bloqueio...');
     
     // ==============================================
     // PASSO A: MODAL DE UPGRADE
@@ -13,7 +16,7 @@
     function createUpgradeModal() {
         // Verificar se já existe
         if (document.getElementById('premiumUpgradeModal')) {
-            console.log('🔒 [PREMIUM-GATE] Modal já existe');
+            log('🔒 [PREMIUM-GATE] Modal já existe');
             return;
         }
         
@@ -181,15 +184,15 @@
         
         closeBtn.addEventListener('click', () => {
             modal.style.display = 'none';
-            console.log('🔒 [UPGRADE MODAL] closed');
+            log('🔒 [UPGRADE MODAL] closed');
         });
         
         overlay.addEventListener('click', () => {
             modal.style.display = 'none';
-            console.log('🔒 [UPGRADE MODAL] closed');
+            log('🔒 [UPGRADE MODAL] closed');
         });
         
-        console.log('🔒 [PREMIUM-GATE] Modal criado com sucesso');
+        log('🔒 [PREMIUM-GATE] Modal criado com sucesso');
     }
     
     // ==============================================
@@ -215,12 +218,12 @@
         
         // ✅ Sem análise = permitir (early return)
         if (!analysis || typeof analysis !== 'object') {
-            console.log('⚠️ [GATE] Nenhuma análise carregada - permitindo acesso');
+            log('⚠️ [GATE] Nenhuma análise carregada - permitindo acesso');
             return false;
         }
         
         // ✅ Log diagnóstico (sincronizado com premium-blocker.js)
-        console.log('🔍 [GATE] Análise encontrada:', {
+        log('🔍 [GATE] Análise encontrada:', {
             plan: analysis.plan,
             analysisMode: analysis.analysisMode,
             isReduced: analysis.isReduced,
@@ -229,39 +232,39 @@
         
         // 🚫 CRITICAL: Prioridade 1 - isReduced explícito
         if (analysis.isReduced === true) {
-            console.log('🔒 [GATE] Modo REDUCED detectado (isReduced: true)');
+            log('🔒 [GATE] Modo REDUCED detectado (isReduced: true)');
             return true;
         }
         
         // 🚫 CRITICAL: Prioridade 2 - analysisMode === 'reduced'
         if (analysis.analysisMode === 'reduced') {
-            console.log('🔒 [GATE] Modo REDUCED detectado (analysisMode: reduced)');
+            log('🔒 [GATE] Modo REDUCED detectado (analysisMode: reduced)');
             return true;
         }
         
         // 🚫 CRITICAL: Prioridade 3 - Plano PLUS (NUNCA tem IA/PDF)
         if (analysis.plan === 'plus') {
-            console.log('🔒 [GATE] Plano PLUS detectado - IA/PDF bloqueados');
+            log('🔒 [GATE] Plano PLUS detectado - IA/PDF bloqueados');
             return true;
         }
         
         // ✅ FREE TRIAL: Se FREE + analysisMode === 'full' → PERMITIR
         if (analysis.plan === 'free' && analysis.analysisMode === 'full') {
-            console.log('🎁 [GATE] FREE TRIAL (modo FULL) - permitindo acesso');
+            log('🎁 [GATE] FREE TRIAL (modo FULL) - permitindo acesso');
             return false;
         }
         
         // ✅ PRO ou qualquer outro plano em modo full → PERMITIR
-        console.log('✅ [GATE] Plano válido - permitindo acesso');
+        log('✅ [GATE] Plano válido - permitindo acesso');
         return false;
     }
     
     function openUpgradeModal(feature) {
-        console.log('[UPGRADE MODAL] opened');
+        log('[UPGRADE MODAL] opened');
         
         // 🔐 NOVO: Usar EntitlementsHandler se disponível (para features PRO-only)
         if (window.EntitlementsHandler && ['reference', 'correctionPlan', 'pdf', 'askAI'].includes(feature)) {
-            console.log('[UPGRADE MODAL] Delegando para EntitlementsHandler');
+            log('[UPGRADE MODAL] Delegando para EntitlementsHandler');
             window.EntitlementsHandler.showUpgradeModal(feature, 'plus'); // Assumir plus se está no reduced
             return;
         }
@@ -270,7 +273,7 @@
         const textEl = document.getElementById('premiumUpgradeText');
         
         if (!modal) {
-            console.error('🔒 [PREMIUM-GATE] Modal não encontrado!');
+            error('🔒 [PREMIUM-GATE] Modal não encontrado!');
             return;
         }
         
@@ -296,7 +299,7 @@
                         window.__soundyAI?.analysis ||
                         window.__LAST_ANALYSIS_RESULT__;
         
-        console.warn('[GATE] bloqueado:', feature, {
+        warn('[GATE] bloqueado:', feature, {
             plan: analysis?.plan,
             analysisMode: analysis?.analysisMode,
             isReduced: analysis?.isReduced,
@@ -309,7 +312,7 @@
     // ==============================================
     
     function installGatedWrappers() {
-        console.log('🔒 [PREMIUM-GATE] Instalando wrappers...');
+        log('🔒 [PREMIUM-GATE] Instalando wrappers...');
         
         // Preservar funções originais
         window.__orig_sendModalAnalysisToChat = window.sendModalAnalysisToChat;
@@ -322,7 +325,7 @@
                 return false;
             }
             
-            console.log('[GATE] permitido: ai');
+            log('[GATE] permitido: ai');
             
             if (typeof window.__orig_sendModalAnalysisToChat === 'function') {
                 return window.__orig_sendModalAnalysisToChat.apply(this, args);
@@ -335,14 +338,14 @@
                 return false;
             }
             
-            console.log('[GATE] permitido: pdf');
+            log('[GATE] permitido: pdf');
             
             if (typeof window.__orig_downloadModalAnalysis === 'function') {
                 return window.__orig_downloadModalAnalysis.apply(this, args);
             }
         };
         
-        console.log('🔒 [PREMIUM-GATE] Wrappers instalados');
+        log('🔒 [PREMIUM-GATE] Wrappers instalados');
     }
     
     // ==============================================
@@ -350,7 +353,7 @@
     // ==============================================
     
     function installDeepDefense() {
-        console.log('🔒 [PREMIUM-GATE] Instalando defesa em profundidade...');
+        log('🔒 [PREMIUM-GATE] Instalando defesa em profundidade...');
         
         // Sobrescrever funções originais também
         window.sendModalAnalysisToChat = function(...args) {
@@ -359,7 +362,7 @@
                 return;
             }
             
-            console.log('[GATE] permitido: ai (direct call)');
+            log('[GATE] permitido: ai (direct call)');
             
             if (typeof window.__orig_sendModalAnalysisToChat === 'function') {
                 return window.__orig_sendModalAnalysisToChat.apply(this, args);
@@ -372,14 +375,14 @@
                 return;
             }
             
-            console.log('[GATE] permitido: pdf (direct call)');
+            log('[GATE] permitido: pdf (direct call)');
             
             if (typeof window.__orig_downloadModalAnalysis === 'function') {
                 return window.__orig_downloadModalAnalysis.apply(this, args);
             }
         };
         
-        console.log('🔒 [PREMIUM-GATE] Defesa em profundidade instalada');
+        log('🔒 [PREMIUM-GATE] Defesa em profundidade instalada');
     }
     
     // ==============================================
@@ -387,7 +390,7 @@
     // ==============================================
     
     function replaceHTMLOnclicks() {
-        console.log('🔒 [PREMIUM-GATE] Substituindo onclicks no HTML...');
+        log('🔒 [PREMIUM-GATE] Substituindo onclicks no HTML...');
         
         // Localizar botões pelo onclick atual
         const buttons = document.querySelectorAll('button[onclick]');
@@ -398,18 +401,18 @@
             
             if (onclick.includes('sendModalAnalysisToChat')) {
                 btn.setAttribute('onclick', 'return gatedSendModalAnalysisToChat()');
-                console.log('   ✅ Substituído: sendModalAnalysisToChat → gatedSendModalAnalysisToChat');
+                log('   ✅ Substituído: sendModalAnalysisToChat → gatedSendModalAnalysisToChat');
                 replaced++;
             }
             
             if (onclick.includes('downloadModalAnalysis')) {
                 btn.setAttribute('onclick', 'return gatedDownloadModalAnalysis()');
-                console.log('   ✅ Substituído: downloadModalAnalysis → gatedDownloadModalAnalysis');
+                log('   ✅ Substituído: downloadModalAnalysis → gatedDownloadModalAnalysis');
                 replaced++;
             }
         });
         
-        console.log(`🔒 [PREMIUM-GATE] ${replaced} onclicks substituídos`);
+        log(`🔒 [PREMIUM-GATE] ${replaced} onclicks substituídos`);
     }
     
     // ==============================================
@@ -429,10 +432,10 @@
         installDeepDefense();
         replaceHTMLOnclicks();
         
-        console.log('✅ [PREMIUM-GATE] Sistema de bloqueio ativo');
+        log('✅ [PREMIUM-GATE] Sistema de bloqueio ativo');
         
         // Debug info
-        console.log('🔍 [PREMIUM-GATE] Estado atual:', {
+        log('🔍 [PREMIUM-GATE] Estado atual:', {
             APP_MODE: window.APP_MODE,
             isReduced: isReducedMode(),
             currentAnalysis: getCurrentAnalysis()

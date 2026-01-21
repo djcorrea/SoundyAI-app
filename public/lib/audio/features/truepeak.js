@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🏔️ TRUE PEAK - Interpolação Linear Simples
 // ✅ Implementação simplificada e correta
 // 🎯 True Peak >= Sample Peak com diferença mínima
@@ -12,7 +15,7 @@ const TRUE_PEAK_CLIP_THRESHOLD_LINEAR = Math.pow(10, TRUE_PEAK_CLIP_THRESHOLD_DB
 class TruePeakDetector {
   constructor(sampleRate = 48000) {
     this.sampleRate = sampleRate;
-    console.log(`🏔️ True Peak Detector: Interpolação linear 4x (${sampleRate}Hz)`);
+    log(`🏔️ True Peak Detector: Interpolação linear 4x (${sampleRate}Hz)`);
   }
 
   /**
@@ -21,7 +24,7 @@ class TruePeakDetector {
    * @returns {Object} Métricas de true peak
    */
   detectTruePeak(channel) {
-    console.log('🏔️ Detectando true peaks (interpolação linear)...');
+    log('🏔️ Detectando true peaks (interpolação linear)...');
     const startTime = Date.now();
     
     let maxTruePeak = 0;
@@ -75,17 +78,17 @@ class TruePeakDetector {
     const samplePeakdB = maxSamplePeak > 0 ? 20 * Math.log10(maxSamplePeak) : -Infinity;
     const processingTime = Date.now() - startTime;
     
-    console.log(`🔍 [DEBUG] Sample Peak: ${samplePeakdB.toFixed(2)} dB, True Peak: ${dBTP.toFixed(2)} dBTP`);
-    console.log(`🔍 [DEBUG] Diferença: ${(dBTP - samplePeakdB).toFixed(2)} dB (interpolação linear)`);
+    log(`🔍 [DEBUG] Sample Peak: ${samplePeakdB.toFixed(2)} dB, True Peak: ${dBTP.toFixed(2)} dBTP`);
+    log(`🔍 [DEBUG] Diferença: ${(dBTP - samplePeakdB).toFixed(2)} dB (interpolação linear)`);
     
     // True Peak deve ser >= Sample Peak
     if (isFinite(dBTP) && isFinite(samplePeakdB) && dBTP < samplePeakdB) {
-      console.warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak menor que Sample Peak - corrigindo`);
+      warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak menor que Sample Peak - corrigindo`);
       dBTP = samplePeakdB; // Garantir que TP >= SP
       maxTruePeak = maxSamplePeak;
     }
 
-    console.log(`✅ True Peak (linear) em ${processingTime}ms: ${dBTP.toFixed(2)} dBTP`);
+    log(`✅ True Peak (linear) em ${processingTime}ms: ${dBTP.toFixed(2)} dBTP`);
 
     return {
       maxDbtp: dBTP,
@@ -156,7 +159,7 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   // Validação final
   if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
     if (maxTruePeakdBTP < maxSamplePeakdBFS) {
-      console.warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak corrigido para igualar Sample Peak`);
+      warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak corrigido para igualar Sample Peak`);
       maxTruePeakdBTP = maxSamplePeakdBFS;
     }
   }

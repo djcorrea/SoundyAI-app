@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 CACHE CONTEXT-AWARE V1
  * Sistema de cache que automaticamente invalida entradas obsoletas quando:
@@ -17,12 +20,12 @@ window.CACHE_CTX_AWARE_V1 = true;
     
     // 🔒 PREVENÇÃO DE MÚLTIPLAS EXECUÇÕES
     if (window.__CACHE_CTX_AWARE_V1_LOADED) {
-        console.log('⚠️ CACHE_CTX_AWARE_V1 já carregado, pulando inicialização');
+        log('⚠️ CACHE_CTX_AWARE_V1 já carregado, pulando inicialização');
         return;
     }
     window.__CACHE_CTX_AWARE_V1_LOADED = true;
     
-    console.log('🚀 Inicializando CACHE_CTX_AWARE_V1...');
+    log('🚀 Inicializando CACHE_CTX_AWARE_V1...');
     
     // 📊 ESTATÍSTICAS DE INVALIDAÇÃO
     const cacheStats = {
@@ -47,17 +50,17 @@ window.CACHE_CTX_AWARE_V1 = true;
      */
     function enhancedInvalidateByChange(changeType, oldValue, newValue) {
         if (!window.CACHE_CTX_AWARE_V1) {
-            console.log('🔕 CACHE_CTX_AWARE_V1 desabilitado, pulando invalidação');
+            log('🔕 CACHE_CTX_AWARE_V1 desabilitado, pulando invalidação');
             return { cleared: 0, reason: 'feature_flag_disabled' };
         }
         
         const startTime = performance.now();
-        console.log(`🔄 CACHE_CTX_AWARE_V1: ${changeType} mudou de "${oldValue}" → "${newValue}"`);
+        log(`🔄 CACHE_CTX_AWARE_V1: ${changeType} mudou de "${oldValue}" → "${newValue}"`);
         
         try {
             // 🔒 RACE CONDITION PROTECTION
             if (window.__CACHE_INVALIDATION_IN_PROGRESS) {
-                console.log('⏳ Invalidação já em andamento, aguardando...');
+                log('⏳ Invalidação já em andamento, aguardando...');
                 return { cleared: 0, reason: 'invalidation_in_progress' };
             }
             window.__CACHE_INVALIDATION_IN_PROGRESS = true;
@@ -86,7 +89,7 @@ window.CACHE_CTX_AWARE_V1 = true;
                     }
                 }
                 
-                console.log(`📦 Cache MAP: ${beforeSize} → ${window.__AUDIO_ANALYSIS_CACHE__.size} (${cleared} removidas)`);
+                log(`📦 Cache MAP: ${beforeSize} → ${window.__AUDIO_ANALYSIS_CACHE__.size} (${cleared} removidas)`);
             }
             
             // 🗑️ INVALIDAR CACHE DE REFERÊNCIAS
@@ -94,9 +97,9 @@ window.CACHE_CTX_AWARE_V1 = true;
                 try {
                     delete window.__refDataCache[oldValue];
                     delete window.__refDataCache[newValue]; // Força reload
-                    console.log(`🎵 Cache de referência invalidado para: ${oldValue}, ${newValue}`);
+                    log(`🎵 Cache de referência invalidado para: ${oldValue}, ${newValue}`);
                 } catch (e) {
-                    console.warn('⚠️ Falha ao invalidar cache de referência:', e);
+                    warn('⚠️ Falha ao invalidar cache de referência:', e);
                 }
             }
             
@@ -120,10 +123,10 @@ window.CACHE_CTX_AWARE_V1 = true;
                     cleared++;
                 });
                 if (toRemove.length > 0) {
-                    console.log(`💾 LocalStorage: ${toRemove.length} entradas removidas`);
+                    log(`💾 LocalStorage: ${toRemove.length} entradas removidas`);
                 }
             } catch (e) {
-                console.warn('⚠️ Falha ao invalidar localStorage:', e);
+                warn('⚠️ Falha ao invalidar localStorage:', e);
             }
             
             // 📊 ATUALIZAR ESTATÍSTICAS
@@ -147,7 +150,7 @@ window.CACHE_CTX_AWARE_V1 = true;
                 cacheStats.performance.invalidationTimes.reduce((a, b) => a + b, 0) / 
                 cacheStats.performance.invalidationTimes.length;
             
-            console.log(`✅ CACHE_CTX_AWARE_V1: ${cleared} entradas invalidadas em ${duration.toFixed(2)}ms`);
+            log(`✅ CACHE_CTX_AWARE_V1: ${cleared} entradas invalidadas em ${duration.toFixed(2)}ms`);
             
             return { 
                 cleared, 
@@ -159,7 +162,7 @@ window.CACHE_CTX_AWARE_V1 = true;
             };
             
         } catch (error) {
-            console.error('❌ CACHE_CTX_AWARE_V1: Erro na invalidação:', error);
+            error('❌ CACHE_CTX_AWARE_V1: Erro na invalidação:', error);
             return { 
                 cleared: 0, 
                 error: error.message,
@@ -180,7 +183,7 @@ window.CACHE_CTX_AWARE_V1 = true;
         const originalApplyGenreSelection = window.applyGenreSelection;
         
         if (!originalApplyGenreSelection) {
-            console.warn('⚠️ applyGenreSelection não encontrada, cache context-aware limitado');
+            warn('⚠️ applyGenreSelection não encontrada, cache context-aware limitado');
             return;
         }
         
@@ -189,7 +192,7 @@ window.CACHE_CTX_AWARE_V1 = true;
             
             // 🔄 TRIGGER INVALIDAÇÃO ANTES DA MUDANÇA
             if (oldGenre && oldGenre !== genre && window.CACHE_CTX_AWARE_V1) {
-                console.log(`🎯 CACHE_CTX_AWARE_V1: Detectada mudança ${oldGenre} → ${genre}`);
+                log(`🎯 CACHE_CTX_AWARE_V1: Detectada mudança ${oldGenre} → ${genre}`);
                 enhancedInvalidateByChange('genre', oldGenre, genre);
             }
             
@@ -197,7 +200,7 @@ window.CACHE_CTX_AWARE_V1 = true;
             return originalApplyGenreSelection.call(this, genre);
         };
         
-        console.log('✅ applyGenreSelection enhanced com CACHE_CTX_AWARE_V1');
+        log('✅ applyGenreSelection enhanced com CACHE_CTX_AWARE_V1');
     }
     
     /**
@@ -234,7 +237,7 @@ window.CACHE_CTX_AWARE_V1 = true;
                 }
             };
             
-            console.log('✅ _cacheChangeMonitor enhanced com CACHE_CTX_AWARE_V1');
+            log('✅ _cacheChangeMonitor enhanced com CACHE_CTX_AWARE_V1');
         }
     }
     
@@ -256,17 +259,17 @@ window.CACHE_CTX_AWARE_V1 = true;
                     invalidationTimes: []
                 }
             });
-            console.log('📊 Estatísticas CACHE_CTX_AWARE_V1 resetadas');
+            log('📊 Estatísticas CACHE_CTX_AWARE_V1 resetadas');
         },
         
         enable: () => {
             window.CACHE_CTX_AWARE_V1 = true;
-            console.log('✅ CACHE_CTX_AWARE_V1 habilitado');
+            log('✅ CACHE_CTX_AWARE_V1 habilitado');
         },
         
         disable: () => {
             window.CACHE_CTX_AWARE_V1 = false;
-            console.log('🔕 CACHE_CTX_AWARE_V1 desabilitado');
+            log('🔕 CACHE_CTX_AWARE_V1 desabilitado');
         },
         
         forceInvalidation: (changeType, oldValue, newValue) => {
@@ -285,7 +288,7 @@ window.CACHE_CTX_AWARE_V1 = true;
      * 🚀 INICIALIZAÇÃO PRINCIPAL
      */
     function initializeCacheContextAware() {
-        console.log('🔧 Configurando CACHE_CTX_AWARE_V1...');
+        log('🔧 Configurando CACHE_CTX_AWARE_V1...');
         
         // 1. Melhorar applyGenreSelection
         enhanceApplyGenreSelection();
@@ -303,13 +306,13 @@ window.CACHE_CTX_AWARE_V1 = true;
                     return originalInvalidate.call(this, changeType, oldValue, newValue);
                 }
             };
-            console.log('✅ invalidateCacheByChange enhanced');
+            log('✅ invalidateCacheByChange enhanced');
         }
         
         // 4. Log de inicialização
-        console.log('🎯 CACHE_CTX_AWARE_V1 inicializado com sucesso!');
-        console.log('📊 Estado atual:', window.CACHE_CTX_AWARE_V1_API.getCurrentContext());
-        console.log('🎛️ API disponível em: window.CACHE_CTX_AWARE_V1_API');
+        log('🎯 CACHE_CTX_AWARE_V1 inicializado com sucesso!');
+        log('📊 Estado atual:', window.CACHE_CTX_AWARE_V1_API.getCurrentContext());
+        log('🎛️ API disponível em: window.CACHE_CTX_AWARE_V1_API');
         
         // 5. Configurar detecção de mudanças automática
         if (window._cacheChangeMonitor) {
@@ -332,25 +335,25 @@ window.CACHE_CTX_AWARE_V1 = true;
  * Para verificar funcionamento básico no console
  */
 function testCacheContextAware() {
-    console.log('🧪 Testando CACHE_CTX_AWARE_V1...');
+    log('🧪 Testando CACHE_CTX_AWARE_V1...');
     
     const api = window.CACHE_CTX_AWARE_V1_API;
     if (!api) {
-        console.error('❌ API não disponível');
+        error('❌ API não disponível');
         return;
     }
     
-    console.log('📊 Estado inicial:', api.getCurrentContext());
-    console.log('📈 Estatísticas:', api.getStats());
+    log('📊 Estado inicial:', api.getCurrentContext());
+    log('📈 Estatísticas:', api.getStats());
     
     // Teste de invalidação forçada
     const result = api.forceInvalidation('genre', 'rock', 'pop');
-    console.log('🔄 Teste de invalidação:', result);
+    log('🔄 Teste de invalidação:', result);
     
-    console.log('✅ Teste concluído - verifique logs acima');
+    log('✅ Teste concluído - verifique logs acima');
 }
 
 // Disponibilizar teste globalmente
 window.testCacheContextAware = testCacheContextAware;
 
-console.log('📦 CACHE_CTX_AWARE_V1 carregado - Execute testCacheContextAware() para testar');
+log('📦 CACHE_CTX_AWARE_V1 carregado - Execute testCacheContextAware() para testar');

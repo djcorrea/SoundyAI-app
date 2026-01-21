@@ -1,0 +1,230 @@
+{
+  "rap_drill": {
+    "version": "v2_hybrid_safe",
+    "generated_at": "2025-12-27T14:56:55.827Z",
+    "num_tracks": 10,
+    "processing_mode": "fallback_safe",
+    "legacy_id": "phonk",
+    "hybrid_processing": {
+      "original_metrics": {
+        "lufs_integrated": -11.5,
+        "true_peak_dbtp": -1,
+        "dynamic_range": 8,
+        "rms_db": -12,
+        "stereo_correlation": 0.915,
+        "lra": 6.5
+      },
+      "spectral_bands": {
+        "sub": {
+          "target_range": {
+            "min": -24,
+            "max": -16.5
+          },
+          "target_db": -20.25,
+          "energy_pct": 31.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -24.5,
+            "max": -18.5
+          },
+          "target_db": -21.5,
+          "energy_pct": 27.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -24.5,
+            "max": -18.5
+          },
+          "target_db": -21.5,
+          "energy_pct": 13.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -30,
+            "max": -23.5
+          },
+          "target_db": -26.75,
+          "energy_pct": 11.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -32,
+            "max": -26
+          },
+          "target_db": -29,
+          "energy_pct": 12.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -39.5,
+            "max": -33
+          },
+          "target_db": -36.25,
+          "energy_pct": 3.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -44.5,
+            "max": -34.5
+          },
+          "target_db": -39.5,
+          "energy_pct": 0.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -45.5,
+            "max": -36.5
+          },
+          "target_db": -41,
+          "energy_pct": 0.08,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      },
+      "note": "Métricas originais + bandas normalizadas para comparação justa"
+    },
+    "legacy_compatibility": {
+      "lufs_target": -11.5,
+      "true_peak_target": -1,
+      "dr_target": 8,
+      "stereo_target": 0.915,
+      "tol_lufs": 2.5,
+      "tol_true_peak": 1,
+      "tol_dr": 3.3,
+      "lra_target": 6.5,
+      "tol_lra": 2.5,
+      "tol_stereo": 0.065,
+      "bands": {
+        "sub": {
+          "target_range": {
+            "min": -24,
+            "max": -16.5
+          },
+          "target_db": -20.25,
+          "energy_pct": 31.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -24.5,
+            "max": -18.5
+          },
+          "target_db": -21.5,
+          "energy_pct": 27.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -24.5,
+            "max": -18.5
+          },
+          "target_db": -21.5,
+          "energy_pct": 13.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -30,
+            "max": -23.5
+          },
+          "target_db": -26.75,
+          "energy_pct": 11.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -32,
+            "max": -26
+          },
+          "target_db": -29,
+          "energy_pct": 12.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -39.5,
+            "max": -33
+          },
+          "target_db": -36.25,
+          "energy_pct": 3.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -44.5,
+            "max": -34.5
+          },
+          "target_db": -39.5,
+          "energy_pct": 0.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -45.5,
+            "max": -36.5
+          },
+          "target_db": -41,
+          "energy_pct": 0.08,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      },
+      "lufs_min": -14,
+      "lufs_max": -9,
+      "dr_min": 5.5,
+      "dr_max": 12,
+      "true_peak_min": -2,
+      "true_peak_max": 0,
+      "true_peak_warn_from": -0.5
+    },
+    "last_updated": "2025-12-27T14:56:55.827Z",
+    "cache_bust": 1766847415827,
+    "processing_info": {
+      "hybrid_mode": true,
+      "safe_mode": true,
+      "ios_compatible": true,
+      "fallback_enabled": true
+    },
+    "migration_info": {
+      "migration_date": "2025-12-26T00:00:00.000Z",
+      "previous_id": "phonk",
+      "new_id": "rap_drill",
+      "note": "Renomeado de 'phonk' para 'rap_drill' - ID oficial"
+    },
+    "lufs_min": -14,
+    "lufs_max": -9,
+    "dr_min": 5.5,
+    "dr_max": 12,
+    "true_peak_min": -2,
+    "true_peak_max": 0,
+    "true_peak_warn_from": -0.5,
+    "lufs_target": -11.5,
+    "true_peak_target": -1,
+    "dr_target": 8,
+    "tol_lufs": 2.5,
+    "tol_dr": 3.3,
+    "tol_true_peak": 1
+  }
+}

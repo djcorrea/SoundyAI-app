@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 CORREÇÃO DEFINITIVA - SUB-SCORES 100% PRECISOS
 // Garante que os 4 sub-scores (dynamics, technical, loudness, frequency) sejam fiéis às análises
 
@@ -19,7 +22,7 @@ class SubScoreCorrector {
      */
     correctSubScores(baseAnalysis, reference = null) {
         if (!baseAnalysis || !baseAnalysis.technicalData) {
-            console.warn('⚠️ [SUB-SCORE] Dados técnicos ausentes para correção');
+            warn('⚠️ [SUB-SCORE] Dados técnicos ausentes para correção');
             return baseAnalysis;
         }
 
@@ -27,7 +30,7 @@ class SubScoreCorrector {
         const ref = reference || this.getDefaultReference();
 
         if (this.DEBUG) {
-            console.log('🎯 [SUB-SCORE] Iniciando correção:', { 
+            log('🎯 [SUB-SCORE] Iniciando correção:', { 
                 hasQualityBreakdown: !!baseAnalysis.qualityBreakdown,
                 technicalDataKeys: Object.keys(td)
             });
@@ -50,7 +53,7 @@ class SubScoreCorrector {
         baseAnalysis.subScoreValidation = validation;
         
         if (this.DEBUG) {
-            console.log('✅ [SUB-SCORE] Correção aplicada:', {
+            log('✅ [SUB-SCORE] Correção aplicada:', {
                 final: finalScores,
                 validation: validation.summary
             });

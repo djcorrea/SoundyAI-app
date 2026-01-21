@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 
@@ -89,7 +92,7 @@ class EnhancedSuggestionEngine {
             return result;
             
         } catch (error) {
-            console.error('🚨 Erro no processamento de sugestões:', error);
+            error('🚨 Erro no processamento de sugestões:', error);
             this.logAudit('ERROR', 'Erro no processamento', { error: error.message });
             
             // Fallback: retornar análise original com log de erro
@@ -565,7 +568,7 @@ class EnhancedSuggestionEngine {
             }
             
         } catch (error) {
-            console.warn('🚨 Erro na análise heurística:', error);
+            warn('🚨 Erro na análise heurística:', error);
             this.logAudit('HEURISTIC_ERROR', 'Erro na análise heurística', { error: error.message });
         }
         
@@ -743,4 +746,4 @@ class EnhancedSuggestionEngine {
 window.EnhancedSuggestionEngine = EnhancedSuggestionEngine;
 window.enhancedSuggestionEngine = new EnhancedSuggestionEngine();
 
-console.log('🎯 Enhanced Suggestion Engine inicializado');
+log('🎯 Enhanced Suggestion Engine inicializado');

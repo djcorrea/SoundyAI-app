@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 
@@ -7,18 +10,18 @@ if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     script.src = 'suggestion-text-generator.js';
     script.async = true;
     script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didático carregado');
+        log('[AudioIntegration] Gerador de texto didático carregado');
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
+        warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
     };
     document.head.appendChild(script);
 }
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
 const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
-const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
-const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
+const __dbg = (...a) => { if (__DEBUG_ANALYZER__) log('[AUDIO-DEBUG]', ...a); };
+const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) warn('[AUDIO-WARN]', ...a); };
 
 let currentModalAnalysis = null;
 let __audioIntegrationInitialized = false; // evita listeners duplicados
@@ -160,7 +163,7 @@ function countVisualProblems(analysis) {
 
     // Debug log para rastreamento
     if (window.DEBUG_AUDIO_ANALYSIS) {
-        console.log('🔍 Problem Count Fix - Visual Count:', {
+        log('🔍 Problem Count Fix - Visual Count:', {
             totalCount: problemMetrics.length,
             breakdown,
             originalProblemsArray: analysis.problems ? analysis.problems.length : 0,
@@ -287,7 +290,7 @@ function handleReferenceFileSelection(type) {
             }
             
             uploadedFiles[type] = file;
-            console.log(`✅ Arquivo ${type} selecionado:`, file.name);
+            log(`✅ Arquivo ${type} selecionado:`, file.name);
             
             // Atualizar interface
             updateFileStatus(type, file.name);
@@ -396,7 +399,7 @@ async function startReferenceAnalysis() {
         displayReferenceComparison(result);
         
     } catch (error) {
-        console.error('❌ Erro na análise:', error);
+        error('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
@@ -558,7 +561,7 @@ window.selectAnalysisMode = selectAnalysisMode;
 
 //! DEBUG: Função de debug global para forçar recarga
 window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
-    console.log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
+    log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
     
     // Limpar tudo
     delete window.__refDataCache;
@@ -568,11 +571,11 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
     window.__activeRefGenre = null;
     delete window.PROD_AI_REF_DATA;
     
-    console.log('💥 Cache limpo, forçando reload...');
+    log('💥 Cache limpo, forçando reload...');
     
     try {
         const result = await loadReferenceData(genre);
-        console.log('✅ Recarga forçada concluída:', {
+        log('✅ Recarga forçada concluída:', {
             version: result.version,
             lufs_target: result.lufs_target,
             true_peak_target: result.true_peak_target,
@@ -583,7 +586,7 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
         window.REFS_BYPASS_CACHE = false;
         return result;
     } catch (error) {
-        console.error('💥 Erro na recarga forçada:', error);
+        error('💥 Erro na recarga forçada:', error);
         window.REFS_BYPASS_CACHE = false;
         throw error;
     }
@@ -595,7 +598,7 @@ window.diagnosRefSources = function(genre = null) {
     const currentData = __activeRefData;
     const cached = __refDataCache[targetGenre];
     
-    console.log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
+    log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
         requestedGenre: targetGenre,
         activeGenre: __activeRefGenre,
         currentSource: currentData ? 'loaded' : 'none',
@@ -616,7 +619,7 @@ window.diagnosRefSources = function(genre = null) {
     const testUrl = `/refs/out/${targetGenre}.json?v=diagnostic`;
     fetch(testUrl).then(r => r.json()).then(j => {
         const data = j[targetGenre];
-        console.log('🌐 EXTERNAL JSON TEST:', {
+        log('🌐 EXTERNAL JSON TEST:', {
             url: testUrl,
             success: true,
             version: data?.version,
@@ -625,7 +628,7 @@ window.diagnosRefSources = function(genre = null) {
             true_peak_target: data?.true_peak_target,
             stereo_target: data?.stereo_target
         });
-    }).catch(e => console.log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
+    }).catch(e => log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
     
     return { targetGenre, currentData, cached };
 };
@@ -638,7 +641,7 @@ function __logMetricAnomaly(kind, key, context={}) {
         const store = (window.__METRIC_ANOMALIES__ = window.__METRIC_ANOMALIES__ || []);
         const stamp = Date.now();
         store.push({ t: stamp, kind, key, ctx: context });
-        if (window.DEBUG_ANALYZER) console.warn('[METRIC_ANOMALY]', kind, key, context);
+        if (window.DEBUG_ANALYZER) warn('[METRIC_ANOMALY]', kind, key, context);
         // Limitar tamanho
         if (store.length > 500) store.splice(0, store.length - 500);
     } catch {}
@@ -702,7 +705,7 @@ function enrichReferenceObject(refObj, genreKey) {
             // Se maioria positiva mas queremos alinhar a negativos, apenas anotar
             if (posRatio>0.7 && negRatio<0.3) refObj.__scale_mismatch_hint = 'positive_targets_vs_negative_measurements';
         }
-    } catch (e) { console.warn('[refEnrich] falha', e); }
+    } catch (e) { warn('[refEnrich] falha', e); }
     return refObj;
 }
 
@@ -828,7 +831,7 @@ function buildAggregatedRefStats() {
         for (const [g, st] of Object.entries(__refDerivedStats)) {
             if (st.countStereo > 0) st.avgStereo = st.sumStereo / st.countStereo;
         }
-    } catch (e) { if (window.DEBUG_ANALYZER) console.warn('buildAggregatedRefStats fail', e); }
+    } catch (e) { if (window.DEBUG_ANALYZER) warn('buildAggregatedRefStats fail', e); }
 }
 
 // Carregar dinamicamente o fallback embutido se necessário
@@ -864,13 +867,13 @@ async function fetchRefJsonWithFallback(paths) {
             // Cache-busting para evitar CDN retornar 404 ou versões antigas
             const hasQ = p.includes('?');
             const url = p + (hasQ ? '&' : '?') + 'v=' + Date.now();
-            if (__DEBUG_ANALYZER__) console.log('[refs] tentando fetch:', url);
+            if (__DEBUG_ANALYZER__) log('[refs] tentando fetch:', url);
             const res = await fetch(url, {
                 cache: 'no-store',
                 headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             });
             if (res.ok) {
-                if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
+                if (__DEBUG_ANALYZER__) log('[refs] OK:', p);
                 
                 // Verificar se a resposta tem conteúdo JSON válido
                 const text = await res.text();
@@ -878,19 +881,19 @@ async function fetchRefJsonWithFallback(paths) {
                     try {
                         return JSON.parse(text);
                     } catch (jsonError) {
-                        console.warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
+                        warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
                         throw new Error(`JSON inválido em ${p}`);
                     }
                 } else {
-                    console.warn('[refs] Resposta vazia em', p);
+                    warn('[refs] Resposta vazia em', p);
                     throw new Error(`Resposta vazia em ${p}`);
                 }
             } else {
-                if (__DEBUG_ANALYZER__) console.warn('[refs] Falha', res.status, 'em', p);
+                if (__DEBUG_ANALYZER__) warn('[refs] Falha', res.status, 'em', p);
                 lastErr = new Error(`HTTP ${res.status} @ ${p}`);
             }
         } catch (e) {
-            if (__DEBUG_ANALYZER__) console.warn('[refs] Erro fetch', p, e?.message || e);
+            if (__DEBUG_ANALYZER__) warn('[refs] Erro fetch', p, e?.message || e);
             lastErr = e;
         }
     }
@@ -988,11 +991,11 @@ async function loadReferenceData(genre) {
         }
         updateRefStatus('⏳ carregando...', '#996600');
         
-        console.log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
+        log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
         
         // PRIORIDADE CORRIGIDA: external > embedded > fallback
         // 1) Tentar carregar JSON externo primeiro (sempre, independente de REFS_ALLOW_NETWORK)
-        console.log('🌐 Tentando carregar JSON externo primeiro...');
+        log('🌐 Tentando carregar JSON externo primeiro...');
         try {
             const version = __refDataCache[genre]?.version || 'force';
             const json = await fetchRefJsonWithFallback([
@@ -1011,7 +1014,7 @@ async function loadReferenceData(genre) {
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
                 // Log de diagnóstico
-                console.log('🎯 REFS DIAGNOSTIC:', {
+                log('🎯 REFS DIAGNOSTIC:', {
                     genre,
                     source: 'external',
                     path: `/refs/out/${genre}.json`,
@@ -1027,8 +1030,8 @@ async function loadReferenceData(genre) {
                 return enrichedNet;
             }
         } catch (netError) {
-            console.log('❌ External refs failed:', netError.message);
-            console.log('🔄 Fallback para embedded refs...');
+            log('❌ External refs failed:', netError.message);
+            log('🔄 Fallback para embedded refs...');
         }
         
         // 2) Fallback para referências embutidas (embedded)
@@ -1043,7 +1046,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enriched;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'embedded',
                 path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
@@ -1061,7 +1064,7 @@ async function loadReferenceData(genre) {
         
         // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
         if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
-            console.log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
+            log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
         }
         
         // 4) Último recurso: trance inline (fallback)
@@ -1074,7 +1077,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enrichedFb;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'fallback',
                 path: '__INLINE_EMBEDDED_REFS__.trance',
@@ -1091,7 +1094,7 @@ async function loadReferenceData(genre) {
         }
         throw new Error('Sem referências disponíveis');
     } catch (e) {
-        console.warn('Falha ao carregar referências', genre, e);
+        warn('Falha ao carregar referências', genre, e);
         // Fallback: tentar EMBEDDED
         try {
             const embMap = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) || __INLINE_EMBEDDED_REFS__.byGenre || {};
@@ -1142,11 +1145,11 @@ function applyGenreSelection(genre) {
         try {
             if (typeof currentModalAnalysis === 'object' && currentModalAnalysis) {
                 // Recalcular sugestões reference_* com as novas tolerâncias
-                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
+                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { warn('updateReferenceSuggestions falhou', e); }
                 // Re-renderização completa para refletir sugestões e comparações
-                try { displayModalResults(currentModalAnalysis); } catch(e) { console.warn('re-render modal falhou', e); }
+                try { displayModalResults(currentModalAnalysis); } catch(e) { warn('re-render modal falhou', e); }
             }
-        } catch (e) { console.warn('re-render comparação falhou', e); }
+        } catch (e) { warn('re-render comparação falhou', e); }
     });
 }
 // Expor global
@@ -1190,7 +1193,7 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
 if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
     window.__runAcceptanceAudioTests = async function(opts = {}) {
         if (window.ACCEPTANCE_TEST_MODE !== true) {
-            console.warn('Acceptance test mode desativado. Defina window.ACCEPTANCE_TEST_MODE = true antes de chamar.');
+            warn('Acceptance test mode desativado. Defina window.ACCEPTANCE_TEST_MODE = true antes de chamar.');
             return { skipped: true };
         }
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1254,7 +1257,7 @@ if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
             }
         }
         const summary = { results: results.map(r=>({ name:r.name, tp:r.analysis?.technicalData?.truePeakDbtp, lufs:r.analysis?.technicalData?.lufsIntegrated, headroom:r.analysis?.technicalData?.headroomTruePeakDb, lra:r.analysis?.technicalData?.lra, balance:r.analysis?.technicalData?.balanceLR })), evals, pass: evals.every(e=>e.pass) };
-        if (window.DEBUG_ANALYZER) console.log('ACCEPTANCE TEST SUMMARY', summary);
+        if (window.DEBUG_ANALYZER) log('ACCEPTANCE TEST SUMMARY', summary);
         return summary;
     };
 }
@@ -1371,7 +1374,7 @@ function openModeSelectionModal() {
     
     const modal = document.getElementById('analysisModeModal');
     if (!modal) {
-        console.error('Modal de seleção de modo não encontrado');
+        error('Modal de seleção de modo não encontrado');
         return;
     }
     
@@ -1428,7 +1431,7 @@ function openAnalysisModalForMode(mode) {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('Modal de análise não encontrado');
+        error('Modal de análise não encontrado');
         return;
     }
     
@@ -1688,7 +1691,7 @@ async function handleModalFileSelection(file) {
         }
         
     } catch (error) {
-        console.error('❌ Erro na análise do modal:', error);
+        error('❌ Erro na análise do modal:', error);
         
         // Verificar se é um erro de fallback para modo gênero
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
@@ -1745,7 +1748,7 @@ function validateAudioFile(file) {
     
     // Mostrar recomendação para MP3
     if (file.type === 'audio/mpeg' || file.type === 'audio/mp3' || file.name.toLowerCase().endsWith('.mp3')) {
-        console.log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
+        log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
     }
     
     return true;
@@ -1764,10 +1767,10 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.userAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar se está carregando dados de gênero no modo referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
-        console.log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
+        log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
         
         // Analisar arquivo do usuário
         showModalLoading();
@@ -1786,10 +1789,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
+          warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
+        log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -1814,9 +1817,9 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.referenceAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar análise do arquivo de referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
         
         // Analisar arquivo de referência (extração de métricas com MESMAS configurações)
         showModalLoading();
@@ -1835,10 +1838,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
+          warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
+        log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -1864,7 +1867,7 @@ async function handleReferenceFileSelection(file) {
           throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair correlação estéreo da música de referência.');
         }
         
-        console.log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
+        log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
         
         referenceStepState.referenceAnalysis = analysis;
         referenceStepState.referenceMetrics = referenceMetrics;
@@ -1879,11 +1882,11 @@ async function handleReferenceFileSelection(file) {
         updateModalProgress(100, '✅ Análise por referência concluída!');
         
         // 🎯 LOGS finais de validação
-        console.log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
-        console.log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
-        console.log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
-        console.log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
-        console.log('  - Sem gênero:', !finalAnalysis.genre);
+        log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
+        log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
+        log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
+        log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
+        log('  - Sem gênero:', !finalAnalysis.genre);
         
         // Exibir modal de resultados
         displayReferenceResults(finalAnalysis);
@@ -1898,8 +1901,8 @@ async function handleReferenceFileSelection(file) {
 // 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
     // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
-    console.log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
-    console.log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
+    log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
+    log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
     
     __dbg('🔄 Iniciando nova análise - forçando exibição do loading');
     showModalLoading();
@@ -1917,7 +1920,7 @@ async function handleGenreFileSelection(file) {
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
             const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
-            console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
+            log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
             
             if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
                 updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
@@ -1925,10 +1928,10 @@ async function handleGenreFileSelection(file) {
                 updateModalProgress(30, '📚 Referências ok');
             }
         } catch (_) { 
-            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
+            log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
         }
     } else {
-        console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
+        log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
     }
     
     // Analisar arquivo
@@ -2036,9 +2039,9 @@ async function performReferenceComparison() {
             throw new Error('USER_METRICS_FAILED: Não foi possível extrair métricas LUFS da sua música');
         }
         
-        console.log('🔍 [COMPARAÇÃO] Métricas extraídas:');
-        console.log('  - Usuário:', userMetrics);
-        console.log('  - Referência:', referenceMetrics);
+        log('🔍 [COMPARAÇÃO] Métricas extraídas:');
+        log('  - Usuário:', userMetrics);
+        log('  - Referência:', referenceMetrics);
         
         // 🎯 CALCULAR diferenças PURAS (referência como baseline)
         const differences = {
@@ -2048,7 +2051,7 @@ async function performReferenceComparison() {
             truePeak: userMetrics.truePeak - referenceMetrics.truePeak
         };
         
-        console.log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
+        log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
         
         // 🎯 GERAR sugestões baseadas APENAS na referência
         const referenceSuggestions = [];
@@ -2107,7 +2110,7 @@ async function performReferenceComparison() {
             });
         }
         
-        console.log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
+        log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
         
         // 🎯 CRIAR análise final com comparação pura
         const finalAnalysis = {
@@ -2148,34 +2151,34 @@ async function performReferenceComparison() {
         };
         
         // 🎯 LOGS de validação final
-        console.log('🎉 [SUCESSO] Comparação por referência concluída:');
-        console.log('  - Modo:', finalAnalysis.comparison.mode);
-        console.log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
-        console.log('  - Sugestões:', referenceSuggestions.length);
-        console.log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
+        log('🎉 [SUCESSO] Comparação por referência concluída:');
+        log('  - Modo:', finalAnalysis.comparison.mode);
+        log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
+        log('  - Sugestões:', referenceSuggestions.length);
+        log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
         
         referenceStepState.finalAnalysis = finalAnalysis;
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
+        log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
         
         // 🎯 NOVO: Verificar se análises estão "limpas" (sem contaminar com gênero)
         const userClean = !userAnalysis.comparison && !userAnalysis.reference;
         const refClean = !refAnalysis.comparison && !refAnalysis.reference;
-        console.log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
+        log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
+        log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
         
         // Gerar comparação
         const comparison = generateComparison(userAnalysis, refAnalysis);
         
         // 🐛 DIAGNÓSTICO: Verificar se comparison está usando os dados corretos
-        console.log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
-        console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+        log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
+        log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
         
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
-        console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
-        console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
+        log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
+        log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
         
         // Criar análise combinada para exibição
         const combinedAnalysis = {
@@ -2230,7 +2233,7 @@ async function performReferenceComparison() {
             }
         };
         
-        console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
+        log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
         
@@ -2243,7 +2246,7 @@ async function performReferenceComparison() {
         }, 800);
         
     } catch (error) {
-        console.error('❌ Erro na comparação:', error);
+        error('❌ Erro na comparação:', error);
         window.logReferenceEvent('reference_comparison_error', { error: error.message });
         showModalError(`Erro na comparação: ${error.message}`);
     }
@@ -2304,16 +2307,16 @@ function compareSpectralData(userTech, refTech) {
 // 🎯 NOVO: Gerar sugestões baseadas na comparação
 function generateReferenceSuggestions(comparison) {
     // 🐛 DIAGNÓSTICO: Logs para verificar fonte dos dados
-    console.log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
-    console.log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
-    console.log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
+    log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
+    log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
+    log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
     
     const suggestions = [];
     
     // Sugestões de loudness
     if (comparison.loudness.difference !== null) {
         const diff = comparison.loudness.difference;
-        console.log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
+        log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
         
         if (Math.abs(diff) > 1) {
             const suggestion = {
@@ -2326,14 +2329,14 @@ function generateReferenceSuggestions(comparison) {
                 direction: diff > 0 ? 'decrease' : 'increase'
             };
             
-            console.log('🔍 [DIAGNÓSTICO] Adicionando sugestão de loudness:', suggestion);
+            log('🔍 [DIAGNÓSTICO] Adicionando sugestão de loudness:', suggestion);
             suggestions.push(suggestion);
         }
     }
     
     // Sugestões espectrais
     Object.entries(comparison.spectral).forEach(([band, data]) => {
-        console.log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
+        log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
         
         if (Math.abs(data.difference) > 2) {
             const freqRanges = {
@@ -2358,13 +2361,13 @@ function generateReferenceSuggestions(comparison) {
                 q_factor: 1.0
             };
             
-            console.log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
+            log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
             suggestions.push(suggestion);
         }
     });
     
-    console.log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
-    console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+    log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
+    log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
     
     return suggestions;
 }
@@ -2598,7 +2601,7 @@ function displayModalResults(analysis) {
     const technicalData = document.getElementById('modalTechnicalData');
     
     if (!results || !technicalData) {
-        console.error('❌ Elementos de resultado não encontrados');
+        error('❌ Elementos de resultado não encontrados');
         return;
     }
     
@@ -2892,7 +2895,7 @@ function displayModalResults(analysis) {
                             const generator = new window.SuggestionTextGenerator();
                             didacticText = generator.generateDidacticText(sug);
                         } catch (error) {
-                            console.warn('[RenderSuggestion] Erro no gerador de texto:', error);
+                            warn('[RenderSuggestion] Erro no gerador de texto:', error);
                         }
                     }
                     
@@ -3455,8 +3458,8 @@ function displayModalResults(analysis) {
             </div>
         `;
     
-    try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
-        try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
+    try { renderReferenceComparisons(analysis); } catch(e){ warn('ref compare fail', e);}    
+        try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
 }
 
@@ -3491,13 +3494,13 @@ function displayModalResults(analysis) {
                 btnForm.disabled = false; btnDownload.disabled = false;
                 // Área dinâmica para formulário
                 ensureValidationPanel();
-            } catch(err){ console.error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
+            } catch(err){ error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
         };
         btnForm.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ warn(e); }
         };
         btnDownload.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ warn(e); }
         };
     }
 
@@ -3521,7 +3524,7 @@ function displayModalResults(analysis) {
     }
 
     function downloadObjectAsJson(obj, filename){
-        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ console.warn('download json fail', e); }
+        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ warn('download json fail', e); }
     }
 
 // ===== Painel Resumo Inteligente (top 3 problemas + top 3 ações) =====
@@ -3645,7 +3648,7 @@ function renderSmartSummary(analysis){
             }, { passive:true });
         }
         return html;
-    } catch (e) { console.warn('smart summary fail', e); return ''; }
+    } catch (e) { warn('smart summary fail', e); return ''; }
 }
 
 function renderReferenceComparisons(analysis) {
@@ -3822,7 +3825,7 @@ function updateReferenceSuggestions(analysis) {
     // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
-            console.log('🎯 Usando Enhanced Suggestion Engine...');
+            log('🎯 Usando Enhanced Suggestion Engine...');
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
             
             // Preservar sugestões não-referência existentes se necessário
@@ -3845,11 +3848,11 @@ function updateReferenceSuggestions(analysis) {
                 analysis.auditLog = enhancedAnalysis.auditLog;
             }
             
-            console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             return;
             
         } catch (error) {
-            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
+            warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
@@ -4058,7 +4061,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         }
         
     } catch (error) {
-        console.error('❌ Erro ao enviar análise para chat:', error);
+        error('❌ Erro ao enviar análise para chat:', error);
         showTemporaryFeedback('❌ Erro ao enviar análise. Tente novamente.');
     }
 }
@@ -4073,7 +4076,7 @@ function downloadModalAnalysis() {
         return;
     }
     
-    console.log('📄 Baixando relatório...');
+    log('📄 Baixando relatório...');
     
     try {
         const report = generateDetailedReport(currentModalAnalysis);
@@ -4088,11 +4091,11 @@ function downloadModalAnalysis() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('✅ Relatório baixado com sucesso');
+        log('✅ Relatório baixado com sucesso');
         showTemporaryFeedback('📄 Relatório baixado!');
         
     } catch (error) {
-        console.error('❌ Erro ao baixar relatório:', error);
+        error('❌ Erro ao baixar relatório:', error);
         alert('Erro ao gerar relatório');
     }
 }
@@ -4305,7 +4308,7 @@ window.displayReferenceResults = function(referenceResults) {
         window.logReferenceEvent('reference_results_displayed_successfully');
         
     } catch (error) {
-        console.error('Error displaying reference results:', error);
+        error('Error displaying reference results:', error);
         window.logReferenceEvent('reference_display_error', { 
             error: error.message,
             baseline_source: referenceResults.baseline_source 

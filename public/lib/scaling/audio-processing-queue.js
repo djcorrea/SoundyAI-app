@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎵 AUDIO PROCESSING QUEUE - FASE 1
  * Sistema de fila inteligente para processamento de áudio
@@ -34,7 +37,7 @@ class AudioProcessingQueue {
       runningJobs: 0
     };
     
-    console.log('🎵 AudioProcessingQueue inicializada:', {
+    log('🎵 AudioProcessingQueue inicializada:', {
       maxConcurrent: this.maxConcurrent,
       queueTimeout: this.queueTimeout,
       jobTimeout: this.defaultJobTimeout
@@ -70,7 +73,7 @@ class AudioProcessingQueue {
       this.metrics.totalJobs++;
       this.metrics.queuedJobs = this.queue.length;
       
-      console.log(`➕ Trabalho adicionado à fila: ${job.label} (ID: ${job.id}, Prioridade: ${job.priority})`);
+      log(`➕ Trabalho adicionado à fila: ${job.label} (ID: ${job.id}, Prioridade: ${job.priority})`);
       
       // Configurar timeout da fila
       setTimeout(() => {
@@ -105,7 +108,7 @@ class AudioProcessingQueue {
     this.metrics.runningJobs = this.running.length;
     
     const startTime = Date.now();
-    console.log(`🔄 Processando: ${job.label} (ID: ${job.id})`);
+    log(`🔄 Processando: ${job.label} (ID: ${job.id})`);
     
     try {
       // Timeout do trabalho individual
@@ -121,7 +124,7 @@ class AudioProcessingQueue {
       const processingTime = Date.now() - startTime;
       this.updateMetrics(true, processingTime);
       
-      console.log(`✅ Concluído: ${job.label} (${processingTime}ms)`);
+      log(`✅ Concluído: ${job.label} (${processingTime}ms)`);
       job.resolve(result);
       
     } catch (error) {
@@ -129,7 +132,7 @@ class AudioProcessingQueue {
       const processingTime = Date.now() - startTime;
       this.updateMetrics(false, processingTime);
       
-      console.error(`❌ Falhou: ${job.label} - ${error.message}`);
+      error(`❌ Falhou: ${job.label} - ${error.message}`);
       job.reject(error);
       
     } finally {
@@ -159,7 +162,7 @@ class AudioProcessingQueue {
       return await analyzer.analyzeFile(audioFile, options);
       
     } catch (error) {
-      console.error('Erro no processamento de áudio:', error);
+      error('Erro no processamento de áudio:', error);
       throw error;
     }
   }
@@ -244,12 +247,12 @@ class AudioProcessingQueue {
   configure(options = {}) {
     if (options.maxConcurrent && options.maxConcurrent >= 1 && options.maxConcurrent <= 4) {
       this.maxConcurrent = options.maxConcurrent;
-      console.log(`🔧 Concorrência ajustada para: ${this.maxConcurrent}`);
+      log(`🔧 Concorrência ajustada para: ${this.maxConcurrent}`);
     }
     
     if (options.jobTimeout && options.jobTimeout > 0) {
       this.defaultJobTimeout = options.jobTimeout;
-      console.log(`⏱️ Timeout de trabalho ajustado para: ${this.defaultJobTimeout}ms`);
+      log(`⏱️ Timeout de trabalho ajustado para: ${this.defaultJobTimeout}ms`);
     }
   }
   
@@ -264,7 +267,7 @@ class AudioProcessingQueue {
     this.queue = [];
     this.metrics.queuedJobs = 0;
     
-    console.log(`🧹 Fila limpa: ${queuedCount} trabalhos cancelados`);
+    log(`🧹 Fila limpa: ${queuedCount} trabalhos cancelados`);
   }
 }
 
@@ -305,7 +308,7 @@ if (typeof window !== 'undefined') {
   window.__AUDIO_QUEUE_CLEAR__ = () => audioQueue.clear();
   window.__AUDIO_QUEUE_CONFIG__ = (opts) => audioQueue.configure(opts);
   
-  console.log('🎵 Audio Processing Queue carregada globalmente');
+  log('🎵 Audio Processing Queue carregada globalmente');
 }
 
 export default audioQueue;

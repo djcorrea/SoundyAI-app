@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // Script para forçar atualização dos targets em produção
 // Adiciona cache-busting dinâmico para garantir que os novos valores sejam carregados
 
@@ -8,18 +11,18 @@ if (typeof window !== 'undefined') {
     window.REFS_BYPASS_CACHE = true;
     
     // Forçar recarregamento de referências
-    console.log('🔄 Forçando atualização de cache...');
+    log('🔄 Forçando atualização de cache...');
     
     // Adicionar timestamp único para quebrar cache
     const timestamp = Date.now();
     window.CACHE_BUST_TIMESTAMP = timestamp;
     
-    console.log('✅ Cache limpo, timestamp:', timestamp);
+    log('✅ Cache limpo, timestamp:', timestamp);
 }
 
 // 2. Função para testar carregamento direto
 async function testarCarregamentoNovosTargets() {
-    console.log('🧪 TESTE: Carregamento direto dos novos targets');
+    log('🧪 TESTE: Carregamento direto dos novos targets');
     
     const urls = [
         `/public/refs/out/funk_mandela.json?v=${Date.now()}`,
@@ -28,7 +31,7 @@ async function testarCarregamentoNovosTargets() {
     
     for (const url of urls) {
         try {
-            console.log(`📡 Testando: ${url}`);
+            log(`📡 Testando: ${url}`);
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -42,20 +45,20 @@ async function testarCarregamentoNovosTargets() {
                 const truePeak = data.funk_mandela?.legacy_compatibility?.true_peak_target;
                 const versao = data.funk_mandela?.version;
                 
-                console.log(`✅ ${url}:`);
-                console.log(`   True Peak: ${truePeak}`);
-                console.log(`   Versão: ${versao}`);
-                console.log(`   Status: ${truePeak === -8 ? '🎯 NOVOS VALORES' : '⚠️ VALORES ANTIGOS'}`);
+                log(`✅ ${url}:`);
+                log(`   True Peak: ${truePeak}`);
+                log(`   Versão: ${versao}`);
+                log(`   Status: ${truePeak === -8 ? '🎯 NOVOS VALORES' : '⚠️ VALORES ANTIGOS'}`);
                 
                 if (truePeak === -8) {
-                    console.log('🎉 SUCESSO! Encontrados novos targets!');
+                    log('🎉 SUCESSO! Encontrados novos targets!');
                     return data;
                 }
             } else {
-                console.log(`❌ ${url}: ${response.status} ${response.statusText}`);
+                log(`❌ ${url}: ${response.status} ${response.statusText}`);
             }
         } catch (error) {
-            console.log(`💥 ${url}: ${error.message}`);
+            log(`💥 ${url}: ${error.message}`);
         }
     }
     
@@ -65,22 +68,22 @@ async function testarCarregamentoNovosTargets() {
 // 3. Executar teste
 testarCarregamentoNovosTargets().then(resultado => {
     if (resultado) {
-        console.log('✅ Novos targets encontrados e carregados!');
+        log('✅ Novos targets encontrados e carregados!');
         
         // Forçar refresh da página para aplicar
         if (typeof window !== 'undefined' && window.loadReferenceData) {
-            console.log('🔄 Recarregando referências...');
+            log('🔄 Recarregando referências...');
             window.loadReferenceData('funk_mandela').then(() => {
-                console.log('🎯 Referências atualizadas!');
+                log('🎯 Referências atualizadas!');
             });
         }
     } else {
-        console.log('⚠️ Novos targets ainda não disponíveis. Aguarde alguns minutos.');
+        log('⚠️ Novos targets ainda não disponíveis. Aguarde alguns minutos.');
     }
 }).catch(console.error);
 
-console.log('💡 Para usar este script:');
-console.log('1. Abra o console do navegador (F12)');
-console.log('2. Cole este código');
-console.log('3. Pressione Enter');
-console.log('4. Verifique os logs para confirmação');
+log('💡 Para usar este script:');
+log('1. Abra o console do navegador (F12)');
+log('2. Cole este código');
+log('3. Pressione Enter');
+log('4. Verifique os logs para confirmação');

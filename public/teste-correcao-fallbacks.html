@@ -72,6 +72,12 @@
             background: #f8f9fa;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste de Correção de Fallbacks</h1>
@@ -228,16 +234,16 @@
             let comparison = [];
 
             testScenarios.forEach((scenario, index) => {
-                console.log(`\n🧪 TESTE ${index + 1}: ${scenario.name}`);
-                console.log('📥 Input:', scenario.data);
+                log(`\n🧪 TESTE ${index + 1}: ${scenario.name}`);
+                log('📥 Input:', scenario.data);
 
                 // Testar versão antiga (com fallbacks)
                 const oldResult = normalizeBackendAnalysisDataOLD(scenario.data);
-                console.log('📊 OLD (com fallbacks):', oldResult.technicalData);
+                log('📊 OLD (com fallbacks):', oldResult.technicalData);
 
                 // Testar versão nova (sem fallbacks)
                 const newResult = normalizeBackendAnalysisDataNEW(scenario.data);
-                console.log('✨ NEW (sem fallbacks):', newResult.technicalData);
+                log('✨ NEW (sem fallbacks):', newResult.technicalData);
 
                 // Verificar se a nova versão não tem fallbacks fictícios
                 const metrics = ['peak', 'rms', 'dynamicRange', 'lufsIntegrated', 'stereoCorrelation'];

@@ -1,0 +1,606 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * 🎯 SCORE FINAL - DISPLAY FUTURISTA NO TOPO DA ANÁLISE
+ * ═══════════════════════════════════════════════════════════════
+ * Sistema visual tecnológico e responsivo para o score principal
+ * Mantém sub-scores inalterados na posição original
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   📦 CONTAINER PRINCIPAL
+   ═══════════════════════════════════════════════════════════════ */
+#final-score-display {
+  width: 100%;
+  text-align: center;
+  padding: 28px 20px;
+  background: rgba(10, 10, 20, 0.4);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  border-bottom: 1px solid rgba(127, 0, 255, 0.3);
+  box-shadow: 0 2px 18px rgba(127, 0, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✨ EFEITO DE PARTÍCULAS FLUTUANTES (Background Particles)
+   ═══════════════════════════════════════════════════════════════ */
+#final-score-display::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(127, 0, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 50% 20%, rgba(127, 0, 255, 0.08) 0%, transparent 40%);
+  background-size: 200% 200%;
+  animation: particleFlow 12s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+/* Animação suave de movimento orgânico */
+@keyframes particleFlow {
+  0%, 100% { 
+    background-position: 0% 50%, 100% 50%, 50% 0%;
+    opacity: 0.6;
+  }
+  25% {
+    background-position: 50% 30%, 70% 70%, 30% 50%;
+    opacity: 0.8;
+  }
+  50% { 
+    background-position: 100% 50%, 0% 50%, 50% 100%;
+    opacity: 0.5;
+  }
+  75% {
+    background-position: 30% 70%, 50% 30%, 70% 30%;
+    opacity: 0.7;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🔢 VALOR DO SCORE - Número Grande e Impactante
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-value {
+  font-size: 5rem;
+  font-weight: 700;
+  letter-spacing: 8px;
+  background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.4)) 
+          drop-shadow(0 0 10px rgba(127, 0, 255, 0.3));
+  margin-bottom: 18px;
+  animation: fadeInScale 0.8s ease, gradientShift 4s linear infinite;
+  position: relative;
+  z-index: 1;
+  font-family: 'Rajdhani', 'Arial Narrow', 'Arial', sans-serif;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Animação de entrada suave */
+@keyframes fadeInScale {
+  from { 
+    opacity: 0; 
+    transform: scale(0.85); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+/* Animação de gradiente dinâmico */
+@keyframes gradientShift {
+  0% { 
+    background-position: 0% 50%; 
+  }
+  100% { 
+    background-position: 200% 50%; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📝 LABEL DO SCORE
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+  font-family: 'Poppins', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📊 BARRA DE PROGRESSO HORIZONTAL
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-bar-container {
+  width: 100%;
+  max-width: 550px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.score-final-bar {
+  width: 100%;
+  height: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.score-final-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
+  background-size: 200% 100%;
+  animation: barGlow 4s linear infinite;
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  width: 0%; /* Inicia em 0% para animação JavaScript */
+}
+
+/* Brilho interno da barra */
+.score-final-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: barShine 2s ease-in-out infinite;
+}
+
+@keyframes barGlow {
+  0% { 
+    background-position: 0% 50%; 
+  }
+  100% { 
+    background-position: 200% 50%; 
+  }
+}
+
+@keyframes barShine {
+  0% { 
+    left: -100%; 
+  }
+  100% { 
+    left: 200%; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   💡 MENSAGEM DE STATUS (OPCIONAL)
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-status {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
+  font-family: 'Poppins', sans-serif;
+  animation: fadeIn 1s ease 0.5s both;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 0.85; 
+    transform: translateY(0); 
+  }
+}
+
+/* Cores de status baseadas no score */
+.score-final-status.status-excellent {
+  color: #00ff92;
+}
+
+.score-final-status.status-good {
+  color: #ffd700;
+}
+
+.score-final-status.status-warning {
+  color: #ff9500;
+}
+
+.score-final-status.status-poor {
+  color: #ff3366;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   � V3.4: GATE INFO (Score bruto vs penalizado)
+   ═══════════════════════════════════════════════════════════════ */
+.score-gate-info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 12px 0;
+  padding: 10px 16px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  animation: fadeIn 0.8s ease both;
+}
+
+.score-gate-info .score-raw {
+  color: #888;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.score-gate-info .score-penalty {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.score-gate-info .score-gate-reasons {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: #ff9500;
+  opacity: 0.9;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🧠 V7.0: VEREDITO SONORO INTELIGENTE - ULTRA PREMIUM
+   Engenharia de áudio + Física + Psicoacústica + Neurociência
+   Design azul profundo, elegante, minimalista
+   ═══════════════════════════════════════════════════════════════ */
+.diagnostic-container {
+  width: 100%;
+  max-width: 740px;
+  margin: 28px auto 0 auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  animation: fadeIn 0.9s ease both;
+  animation-delay: 0.5s;
+}
+
+/* Texto único do veredito - ULTRA PREMIUM AZUL */
+.verdict-text {
+  padding: 24px 36px;
+  background: linear-gradient(
+    145deg,
+    rgba(12, 32, 58, 0.85) 0%,
+    rgba(8, 24, 48, 0.75) 40%,
+    rgba(15, 35, 62, 0.85) 100%
+  );
+  border: 1px solid rgba(70, 130, 190, 0.2);
+  border-radius: 14px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: rgba(200, 218, 240, 0.94);
+  text-align: center;
+  letter-spacing: 0.12px;
+  font-weight: 400;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  box-shadow: 
+    0 6px 32px rgba(0, 15, 45, 0.5),
+    0 0 60px rgba(50, 100, 160, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Glow sutil azul no topo - elegante */
+.verdict-text::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(90, 150, 210, 0.45) 50%,
+    transparent 100%
+  );
+}
+
+/* Aspas decorativas elegantes - tom azul suave */
+.verdict-text::after {
+  content: '"';
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  font-size: 2.8rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: rgba(90, 140, 190, 0.1);
+  line-height: 1;
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🎨 CLASSES LEGADAS (mantidas para compatibilidade)
+   ═══════════════════════════════════════════════════════════════ */
+.diagnostic-header {
+  display: none;
+}
+
+.diagnostic-title {
+  display: none;
+}
+
+.diagnostic-summary,
+.diagnostic-summary-critical,
+.diagnostic-summary-warning,
+.diagnostic-summary-info,
+.diagnostic-summary-success {
+  display: none;
+}
+
+.diagnostic-list {
+  display: none;
+}
+
+.diagnostic-item,
+.diagnostic-critical,
+.diagnostic-high,
+.diagnostic-attention,
+.diagnostic-strength {
+  display: none;
+}
+
+.diagnostic-icon,
+.diagnostic-text,
+.diagnostic-more {
+  display: none;
+}
+
+.diagnostic-final-text {
+  display: none;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📱 RESPONSIVIDADE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tablets */
+@media (max-width: 768px) {
+  #final-score-display {
+    padding: 24px 16px;
+  }
+  
+  .score-final-value {
+    font-size: 4rem;
+    letter-spacing: 6px;
+  }
+  
+  .score-final-bar-container {
+    max-width: 90%;
+  }
+  
+  .score-final-bar {
+    height: 14px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  #final-score-display {
+    padding: 20px 12px;
+    margin-bottom: 16px;
+  }
+  
+  .score-final-value {
+    font-size: 3.5rem;
+    letter-spacing: 5px;
+    margin-bottom: 14px;
+  }
+  
+  .score-final-label {
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+  }
+  
+  .score-final-bar-container {
+    max-width: 95%;
+  }
+  
+  .score-final-bar {
+    height: 12px;
+  }
+  
+  .score-final-status {
+    font-size: 0.75rem;
+    margin-top: 12px;
+  }
+  
+  /* Veredito Sonoro - Mobile */
+  .diagnostic-container {
+    margin: 16px auto 0 auto;
+  }
+  
+  .verdict-text {
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    border-radius: 12px;
+  }
+  
+  .verdict-text::after {
+    font-size: 2rem;
+    top: 6px;
+    left: 12px;
+  }
+}
+
+/* Mobile Small */
+@media (max-width: 360px) {
+  .score-final-value {
+    font-size: 3rem;
+    letter-spacing: 4px;
+  }
+  
+  .score-final-label {
+    font-size: 0.75rem;
+  }
+  
+  .score-final-bar {
+    height: 10px;
+  }
+  
+  /* Veredito Sonoro - Mobile Small */
+  .verdict-text {
+    padding: 14px 16px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ♿ ACESSIBILIDADE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Reduzir animações para usuários com preferência de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  #final-score-display::before,
+  .score-final-value,
+  .score-final-bar-fill,
+  .score-final-bar-fill::after,
+  .score-final-status {
+    animation: none !important;
+  }
+  
+  .score-final-bar-fill {
+    transition: width 0.3s ease;
+  }
+}
+
+/* Alto contraste para acessibilidade */
+@media (prefers-contrast: high) {
+  #final-score-display {
+    border: 2px solid rgba(127, 0, 255, 0.8);
+    background: rgba(10, 10, 20, 0.9);
+  }
+  
+  .score-final-value {
+    text-shadow: none;
+    filter: contrast(1.5);
+  }
+  
+  .score-final-bar {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🎨 TEMA ESCURO (JÁ É PADRÃO, MAS GARANTINDO CONSISTÊNCIA)
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  #final-score-display {
+    background: rgba(10, 10, 20, 0.5);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🖥️ IMPRESSÃO (OPCIONAL - CASO O USUÁRIO IMPRIMA O RELATÓRIO)
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  #final-score-display {
+    background: white;
+    color: black;
+    border: 2px solid #333;
+    box-shadow: none;
+  }
+  
+  #final-score-display::before {
+    display: none;
+  }
+  
+  .score-final-value {
+    background: none;
+    -webkit-text-fill-color: black;
+    text-shadow: none;
+  }
+  
+  .score-final-bar {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+  }
+  
+  .score-final-bar-fill {
+    background: #7F00FF !important;
+    animation: none !important;
+  }
+  
+  /* Veredito Sonoro - Print */
+  .diagnostic-container {
+    margin-top: 16px;
+  }
+  
+  .verdict-text {
+    background: #f8f8fc;
+    border: 1px solid #ddd;
+    color: #333;
+    font-style: italic;
+  }
+  
+  .verdict-text::before,
+  .verdict-text::after {
+    display: none;
+  }
+}

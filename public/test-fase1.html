@@ -96,6 +96,12 @@
             border: 1px solid #4A5568;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -281,8 +287,8 @@
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = '<div class="console-line">🧪 Iniciando testes automatizados...</div>';
             
-            console.log('🧪 EXECUTANDO TESTES AUTOMATIZADOS DA FASE 1');
-            console.log('═══════════════════════════════════════════════════════');
+            log('🧪 EXECUTANDO TESTES AUTOMATIZADOS DA FASE 1');
+            log('═══════════════════════════════════════════════════════');
             
             // Executar testes se o debug script estiver disponível
             if (typeof window.debugFase1 !== 'undefined') {
@@ -301,13 +307,13 @@
                     }
                 }, 1500);
             } else {
-                console.log('❌ Script debugFase1 não carregado');
+                log('❌ Script debugFase1 não carregado');
                 resultsDiv.innerHTML += '<div class="console-line">❌ Script de debug não encontrado</div>';
             }
         }
         
         function verificarCompatibilidadeVercel() {
-            console.log('🔧 Verificando compatibilidade com Vercel...');
+            log('🔧 Verificando compatibilidade com Vercel...');
             
             if (typeof window.VercelCompatibilityChecker !== 'undefined') {
                 window.VercelCompatibilityChecker.checkAll();
@@ -323,9 +329,9 @@
                     'Map': 'Map' in window
                 };
                 
-                console.log('🔧 Recursos do navegador:');
+                log('🔧 Recursos do navegador:');
                 Object.entries(features).forEach(([feature, available]) => {
-                    console.log(`${available ? '✅' : '❌'} ${feature}: ${available}`);
+                    log(`${available ? '✅' : '❌'} ${feature}: ${available}`);
                 });
             }
         }
@@ -339,23 +345,23 @@
                 if (!file) return;
                 
                 statusDiv.innerHTML = `<p>📁 Arquivo selecionado: ${file.name}</p>`;
-                console.log(`🎵 Testando com arquivo real: ${file.name}`);
+                log(`🎵 Testando com arquivo real: ${file.name}`);
                 
                 // Ativar debug para ver runId em ação
                 window.DEBUG_RUNID = true;
                 
                 if (window.audioAnalyzer) {
                     const customRunId = `manual_test_${Date.now()}`;
-                    console.log(`🆔 Usando runId customizado: ${customRunId}`);
+                    log(`🆔 Usando runId customizado: ${customRunId}`);
                     
                     // Analisar arquivo com runId customizado
                     window.audioAnalyzer.analyzeAudioFile(file, { runId: customRunId })
                         .then(result => {
-                            console.log('✅ Análise concluída com sucesso');
+                            log('✅ Análise concluída com sucesso');
                             statusDiv.innerHTML += '<p style="color: #48bb78;">✅ Análise concluída! Verifique o console para logs de runId.</p>';
                         })
                         .catch(error => {
-                            console.log('❌ Erro na análise:', error.message);
+                            log('❌ Erro na análise:', error.message);
                             statusDiv.innerHTML += `<p style="color: #f56565;">❌ Erro: ${error.message}</p>`;
                         });
                 } else {

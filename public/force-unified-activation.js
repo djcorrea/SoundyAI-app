@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 FORÇADOR DE ATIVAÇÃO - SISTEMA UNIFICADO
  * 
@@ -10,8 +13,8 @@
     
     // === [SAFE-GUARD BOOT] ====================================
     if (!window.audioAnalyzer || !window.CACHE_CTX_AWARE_V1_API || !window.refsReady) {
-        console.warn("⏳ ForceActivator adiado: sistema ainda não está pronto.");
-        console.log("Estado atual:", {
+        warn("⏳ ForceActivator adiado: sistema ainda não está pronto.");
+        log("Estado atual:", {
             audioAnalyzer: !!window.audioAnalyzer,
             CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
             refsReady: !!window.refsReady
@@ -19,7 +22,7 @@
 
         // Escuta o evento que marca a inicialização real do sistema de áudio
         document.addEventListener("analysisReady", () => {
-            console.log("✅ ForceActivator executado após sistema pronto (analysisReady).");
+            log("✅ ForceActivator executado após sistema pronto (analysisReady).");
             try {
                 // Re-executa a IIFE completa quando o sistema estiver pronto
                 if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
@@ -27,7 +30,7 @@
                     safeForceActivator();
                 }
             } catch (err) {
-                console.error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
+                error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
             }
         }, { once: true });
 
@@ -53,16 +56,16 @@
 
         if (!ready) {
             if (forceCheckAttempts < 10) {
-                console.log("⏳ ForceActivator aguardando métricas core...");
+                log("⏳ ForceActivator aguardando métricas core...");
                 forceCheckAttempts++;
                 setTimeout(safeForceActivator, 300);
             } else {
-                console.warn("⚠️ ForceActivator cancelado após 10 tentativas.");
+                warn("⚠️ ForceActivator cancelado após 10 tentativas.");
             }
             return;
         }
 
-        console.log("✅ ForceActivator executado após sistema pronto (metrics core detectadas)");
+        log("✅ ForceActivator executado após sistema pronto (metrics core detectadas)");
         forceUnifiedSystemApplication();
     }
     
@@ -180,21 +183,21 @@
             stackTrace: new Error().stack
         };
         
-        console.log('🎯 [FORCE-ACTIVATOR] Sistema unificado aplicado agressivamente');
-        console.log('--- FORCE-ACTIVATOR AUDIT ---');
-        console.log('Timestamp:', auditData.timestamp);
-        console.log('audioAnalyzer:', auditData.audioAnalyzer);
-        console.log('CACHE_CTX_AWARE_V1_API:', auditData.cacheCtxAware);
-        console.log('refsReady:', auditData.refsReady);
-        console.log('genre:', auditData.genre);
-        console.log('audioLoaded:', auditData.audioLoaded);
-        console.log('Stack trace:', auditData.stackTrace);
-        console.log('-------------------------------');
+        log('🎯 [FORCE-ACTIVATOR] Sistema unificado aplicado agressivamente');
+        log('--- FORCE-ACTIVATOR AUDIT ---');
+        log('Timestamp:', auditData.timestamp);
+        log('audioAnalyzer:', auditData.audioAnalyzer);
+        log('CACHE_CTX_AWARE_V1_API:', auditData.cacheCtxAware);
+        log('refsReady:', auditData.refsReady);
+        log('genre:', auditData.genre);
+        log('audioLoaded:', auditData.audioLoaded);
+        log('Stack trace:', auditData.stackTrace);
+        log('-------------------------------');
     }
     
     // Aplicar imediatamente e reforçar periodicamente
     if (window.FORCE_ACTIVATOR_ALREADY_RUN) {
-        console.warn("⏩ ForceActivator já foi executado, ignorando chamada duplicada.");
+        warn("⏩ ForceActivator já foi executado, ignorando chamada duplicada.");
         return;
     }
     window.FORCE_ACTIVATOR_ALREADY_RUN = true;
@@ -239,18 +242,18 @@
     window.forceUnifiedSystem = forceUnifiedSystemApplication;
     window.safeForceActivator = safeForceActivator;
     
-    console.log('🚀 [FORCE-ACTIVATOR] Forçador de ativação carregado');
+    log('🚀 [FORCE-ACTIVATOR] Forçador de ativação carregado');
     
     // 🔍 AUDITORIA INICIAL: Estado no momento do carregamento do script
-    console.log('--- FORCE-ACTIVATOR INITIAL STATE ---');
-    console.log('DOMContentLoaded fired:', document.readyState !== 'loading');
-    console.log('document.readyState:', document.readyState);
-    console.log('window.audioAnalyzer:', typeof window.audioAnalyzer);
-    console.log('window.CACHE_CTX_AWARE_V1_API:', typeof window.CACHE_CTX_AWARE_V1_API);
-    console.log('window.refsReady:', window.refsReady);
-    console.log('window.currentGenre:', window.currentGenre);
-    console.log('window.audioLoaded:', window.audioLoaded);
-    console.log('Loaded via script tag in index.html (no defer)');
-    console.log('------------------------------------');
+    log('--- FORCE-ACTIVATOR INITIAL STATE ---');
+    log('DOMContentLoaded fired:', document.readyState !== 'loading');
+    log('document.readyState:', document.readyState);
+    log('window.audioAnalyzer:', typeof window.audioAnalyzer);
+    log('window.CACHE_CTX_AWARE_V1_API:', typeof window.CACHE_CTX_AWARE_V1_API);
+    log('window.refsReady:', window.refsReady);
+    log('window.currentGenre:', window.currentGenre);
+    log('window.audioLoaded:', window.audioLoaded);
+    log('Loaded via script tag in index.html (no defer)');
+    log('------------------------------------');
     
 })();

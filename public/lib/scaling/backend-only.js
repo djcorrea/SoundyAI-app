@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🚀 ESCALABILIDADE BACKEND-ONLY - SEGURA
  * Melhorias que só afetam o backend, sem tocar no frontend
@@ -7,9 +10,9 @@
 // Sistema de cache de respostas (já integrado no chat.js)
 // Cleanup automático de memória (já integrado no chat.js)
 
-console.log('🚀 Sistema de escalabilidade backend ativo');
-console.log('📊 Melhorias: Rate limiting + Cache + Cleanup automático');
-console.log('✅ Frontend preservado - funcionalidades originais mantidas');
+log('🚀 Sistema de escalabilidade backend ativo');
+log('📊 Melhorias: Rate limiting + Cache + Cleanup automático');
+log('✅ Frontend preservado - funcionalidades originais mantidas');
 
 // Métricas simples sem interferir no sistema
 if (typeof window !== 'undefined') {

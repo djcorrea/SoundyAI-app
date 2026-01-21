@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 📊 SPECTRUM ANALYZER - Análise espectral com features avançadas
 // Centroide, rolloff, flux, harmonics e envelope espectral
 
@@ -12,7 +15,7 @@ class SpectrumAnalyzer {
     this.hopSize = hopSize;
     this.stft = new STFTEngine(fftSize, hopSize, windowType);
     
-    console.log(`🌈 Spectrum Analyzer: FFT=${fftSize}, hop=${hopSize}, window=${windowType}`);
+    log(`🌈 Spectrum Analyzer: FFT=${fftSize}, hop=${hopSize}, window=${windowType}`);
   }
 
   /**
@@ -22,7 +25,7 @@ class SpectrumAnalyzer {
    * @returns {Object} Features espectrais
    */
   analyze(signal, sampleRate = 48000) {
-    console.log('🌈 Executando análise espectral...');
+    log('🌈 Executando análise espectral...');
     const startTime = Date.now();
     
     // STFT
@@ -49,7 +52,7 @@ class SpectrumAnalyzer {
     
     const processingTime = Date.now() - startTime;
     
-    console.log(`✅ Análise espectral concluída em ${processingTime}ms`);
+    log(`✅ Análise espectral concluída em ${processingTime}ms`);
     
     return {
       // Features básicas

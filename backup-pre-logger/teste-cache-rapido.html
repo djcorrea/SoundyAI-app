@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Rápido CACHE_CTX_AWARE_V1</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e1a;
+            color: #e0e6ed;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            border-radius: 12px;
+        }
+        .test-output {
+            background: #1a1f2e;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            margin: 20px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        .success { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .error { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            background: #3b82f6;
+            color: white;
+            margin: 5px;
+        }
+        .btn:hover { filter: brightness(1.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Teste Rápido CACHE_CTX_AWARE_V1</h1>
+            <p>Verificação de funcionamento do sistema de cache inteligente</p>
+        </div>
+
+        <div class="test-output">
+            <h3>🔍 Status do Sistema</h3>
+            <div id="systemStatus"></div>
+            
+            <h3>🎮 Controles de Teste</h3>
+            <button class="btn" onclick="runQuickTest()">🚀 Teste Rápido</button>
+            <button class="btn" onclick="testGenreChange()">🎵 Testar Mudança de Gênero</button>
+            <button class="btn" onclick="checkAPI()">🔧 Verificar API</button>
+            <button class="btn" onclick="showStats()">📊 Mostrar Estatísticas</button>
+            
+            <h3>📝 Log de Testes</h3>
+            <div id="testLog"></div>
+        </div>
+    </div>
+
+    <!-- Carregar dependências necessárias -->
+    <script src="refs/embedded-refs-new.js"></script>
+    <script src="audio-analyzer.js"></script>
+    <script src="cache-context-aware-v1.js"></script>
+    <script src="audio-analyzer-integration.js"></script>
+
+    <script>
+        let logContainer;
+
+        function log(message, type = 'info') {
+            if (!logContainer) logContainer = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `status ${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[TESTE] ${message}`);
+        }
+
+        function updateSystemStatus() {
+            const statusDiv = document.getElementById('systemStatus');
+            
+            const checks = [
+                {
+                    name: 'CACHE_CTX_AWARE_V1 Carregado',
+                    status: typeof window.__CACHE_CTX_AWARE_V1_LOADED !== 'undefined',
+                    details: window.__CACHE_CTX_AWARE_V1_LOADED ? 'Sistema inicializado' : 'Não carregado'
+                },
+                {
+                    name: 'Feature Flag Ativo',
+                    status: window.CACHE_CTX_AWARE_V1 === true,
+                    details: `CACHE_CTX_AWARE_V1 = ${window.CACHE_CTX_AWARE_V1}`
+                },
+                {
+                    name: 'API Disponível',
+                    status: typeof window.CACHE_CTX_AWARE_V1_API !== 'undefined',
+                    details: window.CACHE_CTX_AWARE_V1_API ? 'API funcional' : 'API não encontrada'
+                },
+                {
+                    name: 'Audio Analyzer Cache',
+                    status: typeof window.__AUDIO_ANALYSIS_CACHE__ !== 'undefined',
+                    details: window.__AUDIO_ANALYSIS_CACHE__ ? `${window.__AUDIO_ANALYSIS_CACHE__.size} entradas` : 'Cache não encontrado'
+                },
+                {
+                    name: 'applyGenreSelection Enhanced',
+                    status: typeof window.applyGenreSelection === 'function',
+                    details: window.applyGenreSelection ? 'Função disponível' : 'Função não encontrada'
+                },
+                {
+                    name: 'Gênero Atual',
+                    status: !!window.PROD_AI_REF_GENRE,
+                    details: window.PROD_AI_REF_GENRE || 'Não definido'
+                },
+                {
+                    name: 'Versão das Referências',
+                    status: !!window.EMBEDDED_REFS_VERSION,
+                    details: window.EMBEDDED_REFS_VERSION || 'Não definido'
+                }
+            ];
+
+            statusDiv.innerHTML = checks.map(check => `
+                <div class="status ${check.status ? 'success' : 'error'}">
+                    ${check.status ? '✅' : '❌'} ${check.name}: ${check.details}
+                </div>
+            `).join('');
+        }
+
+        function runQuickTest() {
+            log('🚀 Iniciando teste rápido...', 'info');
+            
+            try {
+                // Verificar se API está disponível
+                if (!window.CACHE_CTX_AWARE_V1_API) {
+                    log('❌ API CACHE_CTX_AWARE_V1_API não encontrada', 'error');
+                    return;
+                }
+
+                // Testar getCurrentContext
+                const context = window.CACHE_CTX_AWARE_V1_API.getCurrentContext();
+                log(`📊 Contexto atual: Genre=${context.genre}, Version=${context.refsVersion}, Cache=${context.cacheSize}`, 'success');
+
+                // Testar getStats
+                const stats = window.CACHE_CTX_AWARE_V1_API.getStats();
+                log(`📈 Estatísticas: ${stats.totalInvalidations} invalidações, ${stats.entriesCleared} entradas removidas`, 'info');
+
+                // Testar invalidação forçada
+                const result = window.CACHE_CTX_AWARE_V1_API.forceInvalidation('genre', 'test_old', 'test_new');
+                log(`🔄 Teste de invalidação: ${result.cleared} entradas removidas em ${result.duration}ms`, 'success');
+
+                log('✅ Teste rápido concluído com sucesso!', 'success');
+
+            } catch (error) {
+                log(`❌ Erro no teste: ${error.message}`, 'error');
+            }
+        }
+
+        function testGenreChange() {
+            log('🎵 Testando mudança de gênero...', 'info');
+            
+            try {
+                const oldGenre = window.PROD_AI_REF_GENRE || 'rock';
+                const newGenre = oldGenre === 'rock' ? 'pop' : 'rock';
+                
+                log(`🔄 Mudando de ${oldGenre} para ${newGenre}`, 'info');
+                
+                if (window.applyGenreSelection) {
+                    window.applyGenreSelection(newGenre).then(() => {
+                        log(`✅ Gênero alterado para: ${window.PROD_AI_REF_GENRE}`, 'success');
+                        updateSystemStatus();
+                    }).catch(err => {
+                        log(`❌ Erro ao alterar gênero: ${err.message}`, 'error');
+                    });
+                } else {
+                    log('❌ Função applyGenreSelection não disponível', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de gênero: ${error.message}`, 'error');
+            }
+        }
+
+        function checkAPI() {
+            log('🔧 Verificando API completa...', 'info');
+            
+            const api = window.CACHE_CTX_AWARE_V1_API;
+            if (!api) {
+                log('❌ API não disponível', 'error');
+                return;
+            }
+
+            const methods = ['getCurrentContext', 'getStats', 'enable', 'disable', 'forceInvalidation', 'clearStats'];
+            
+            methods.forEach(method => {
+                if (typeof api[method] === 'function') {
+                    log(`✅ ${method}: Disponível`, 'success');
+                } else {
+                    log(`❌ ${method}: Não encontrado`, 'error');
+                }
+            });
+
+            // Testar testCacheContextAware global
+            if (typeof window.testCacheContextAware === 'function') {
+                log('✅ testCacheContextAware: Disponível', 'success');
+                log('🧪 Executando teste global...', 'info');
+                window.testCacheContextAware();
+            } else {
+                log('❌ testCacheContextAware: Não encontrado', 'error');
+            }
+        }
+
+        function showStats() {
+            log('📊 Mostrando estatísticas detalhadas...', 'info');
+            
+            if (!window.CACHE_CTX_AWARE_V1_API) {
+                log('❌ API não disponível', 'error');
+                return;
+            }
+
+            const stats = window.CACHE_CTX_AWARE_V1_API.getStats();
+            const context = window.CACHE_CTX_AWARE_V1_API.getCurrentContext();
+            
+            log(`📈 Invalidações Totais: ${stats.totalInvalidations}`, 'info');
+            log(`🎵 Mudanças de Gênero: ${stats.genreChanges}`, 'info');
+            log(`📦 Mudanças de Versão: ${stats.versionChanges}`, 'info');
+            log(`🗑️ Entradas Removidas: ${stats.entriesCleared}`, 'info');
+            log(`⏱️ Tempo Médio: ${stats.performance.avgInvalidationTime.toFixed(2)}ms`, 'info');
+            log(`📅 Última Invalidação: ${stats.lastInvalidation || 'Nunca'}`, 'info');
+            log(`🎯 Context - Genre: ${context.genre}, Version: ${context.refsVersion}`, 'info');
+            log(`💾 Cache Size: ${context.cacheSize}, Refs Cache: ${context.refsCacheSize}`, 'info');
+        }
+
+        // Inicialização
+        setTimeout(() => {
+            log('🔄 Verificando sistema...', 'info');
+            updateSystemStatus();
+            log('✅ Sistema verificado - use os botões para testar', 'success');
+        }, 1000);
+
+        // Auto-refresh do status a cada 5 segundos
+        setInterval(updateSystemStatus, 5000);
+    </script>
+</body>
+</html>

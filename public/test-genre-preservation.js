@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧪 TESTE AUTOMATIZADO: Preservação de Gênero
 // Verifica se o gênero selecionado é preservado durante todo o fluxo
 
@@ -11,7 +14,7 @@ async function testGenrePreservation() {
     
     try {
         // 1. Simular seleção de gênero
-        console.log('1️⃣ Simulando seleção de gênero...');
+        log('1️⃣ Simulando seleção de gênero...');
         if (typeof applyGenreSelection !== 'function') {
             throw new Error('applyGenreSelection não encontrado');
         }
@@ -21,26 +24,26 @@ async function testGenrePreservation() {
         // Verificar se targets foram carregados
         if (!window.__activeRefData) {
             failed++;
-            console.error('❌ FALHA: Targets não foram carregados');
+            error('❌ FALHA: Targets não foram carregados');
         } else {
             passed++;
-            console.log('✅ PASSOU: Targets carregados');
+            log('✅ PASSOU: Targets carregados');
         }
         
         // Verificar se gênero foi salvo
         if (window.PROD_AI_REF_GENRE !== testGenre) {
             failed++;
-            console.error('❌ FALHA: Gênero não foi salvo', {
+            error('❌ FALHA: Gênero não foi salvo', {
                 esperado: testGenre,
                 recebido: window.PROD_AI_REF_GENRE
             });
         } else {
             passed++;
-            console.log('✅ PASSOU: Gênero salvo corretamente');
+            log('✅ PASSOU: Gênero salvo corretamente');
         }
         
         // 2. Simular abertura do modal de análise
-        console.log('2️⃣ Simulando abertura do modal...');
+        log('2️⃣ Simulando abertura do modal...');
         
         const genreBefore = window.PROD_AI_REF_GENRE;
         const targetsBefore = window.__activeRefData;
@@ -57,21 +60,21 @@ async function testGenrePreservation() {
         
         if (genreAfter !== genreBefore) {
             failed++;
-            console.error('❌ FALHA: Gênero foi perdido após abrir modal', {
+            error('❌ FALHA: Gênero foi perdido após abrir modal', {
                 antes: genreBefore,
                 depois: genreAfter
             });
         } else {
             passed++;
-            console.log('✅ PASSOU: Gênero preservado após modal');
+            log('✅ PASSOU: Gênero preservado após modal');
         }
         
         if (!targetsAfter || targetsAfter !== targetsBefore) {
             failed++;
-            console.error('❌ FALHA: Targets foram perdidos após abrir modal');
+            error('❌ FALHA: Targets foram perdidos após abrir modal');
         } else {
             passed++;
-            console.log('✅ PASSOU: Targets preservados após modal');
+            log('✅ PASSOU: Targets preservados após modal');
         }
         
         // 4. Verificar dropdown (se existir)
@@ -79,16 +82,16 @@ async function testGenrePreservation() {
         if (dropdown) {
             if (dropdown.value !== testGenre) {
                 failed++;
-                console.error('❌ FALHA: Dropdown não tem gênero correto', {
+                error('❌ FALHA: Dropdown não tem gênero correto', {
                     esperado: testGenre,
                     recebido: dropdown.value
                 });
             } else {
                 passed++;
-                console.log('✅ PASSOU: Dropdown com gênero correto');
+                log('✅ PASSOU: Dropdown com gênero correto');
             }
         } else {
-            console.warn('⚠️ AVISO: Dropdown não encontrado (pode ser normal)');
+            warn('⚠️ AVISO: Dropdown não encontrado (pode ser normal)');
         }
         
         // 5. Verificar contexto protegido (se implementado)
@@ -96,31 +99,31 @@ async function testGenrePreservation() {
             const context = window.GENRE_CONTEXT.get();
             if (context.genre !== testGenre) {
                 failed++;
-                console.error('❌ FALHA: GENRE_CONTEXT perdido', {
+                error('❌ FALHA: GENRE_CONTEXT perdido', {
                     esperado: testGenre,
                     recebido: context.genre
                 });
             } else {
                 passed++;
-                console.log('✅ PASSOU: GENRE_CONTEXT preservado');
+                log('✅ PASSOU: GENRE_CONTEXT preservado');
             }
         }
         
     } catch (error) {
         failed++;
-        console.error('❌ ERRO NO TESTE:', error);
+        error('❌ ERRO NO TESTE:', error);
     }
     
     // Resultado
-    console.log('\n📊 RESULTADO:');
-    console.log(`✅ Passou: ${passed}`);
-    console.log(`❌ Falhou: ${failed}`);
-    console.log(`📈 Taxa de sucesso: ${(passed / (passed + failed) * 100).toFixed(1)}%`);
+    log('\n📊 RESULTADO:');
+    log(`✅ Passou: ${passed}`);
+    log(`❌ Falhou: ${failed}`);
+    log(`📈 Taxa de sucesso: ${(passed / (passed + failed) * 100).toFixed(1)}%`);
     
     if (failed === 0) {
-        console.log('%c🎉 TODOS OS TESTES PASSARAM!', 'color:#00FF88;font-weight:bold;font-size:16px;');
+        log('%c🎉 TODOS OS TESTES PASSARAM!', 'color:#00FF88;font-weight:bold;font-size:16px;');
     } else {
-        console.log('%c⚠️ ALGUNS TESTES FALHARAM', 'color:#FF6B6B;font-weight:bold;font-size:16px;');
+        log('%c⚠️ ALGUNS TESTES FALHARAM', 'color:#FF6B6B;font-weight:bold;font-size:16px;');
     }
     
     console.groupEnd();
@@ -138,5 +141,5 @@ if (window.location.search.includes('test=genre')) {
     });
 }
 
-console.log('✅ Teste de preservação de gênero carregado');
-console.log('   Execute: testGenrePreservation()');
+log('✅ Teste de preservação de gênero carregado');
+log('   Execute: testGenrePreservation()');

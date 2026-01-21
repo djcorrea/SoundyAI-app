@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 const firebaseConfig = {
   apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
   authDomain: "prodai-58436.firebaseapp.com",
@@ -69,10 +72,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
         // entrevista-final.html foi removida do fluxo
-        console.log('🎉 Entrevista concluída - redirecionando para index.html');
+        log('🎉 Entrevista concluída - redirecionando para index.html');
         window.location.href = 'index.html';
       } catch (e) {
-        console.error(e);
+        error(e);
         btn.disabled = false;
       }
     }

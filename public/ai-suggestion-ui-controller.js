@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 ﻿//  AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
 // Sistema de interface futurista para exibição de sugestões educativas
 
@@ -85,7 +88,7 @@ function getBandTarget(metric, genreTargets) {
     const aliases = searchOrder[canonical] || [canonical];
     for (const alias of aliases) {
         if (bands[alias]) {
-            console.log(`[METRIC-KEY] 🔄 getBandTarget: "${metric}" → "${alias}" (found)`);
+            log(`[METRIC-KEY] 🔄 getBandTarget: "${metric}" → "${alias}" (found)`);
             return bands[alias];
         }
     }
@@ -122,7 +125,7 @@ class AISuggestionUIController {
             aiStatsTime: null
         };
         
-        console.log('🎨 [AI-UI] Controlador de interface inicializado');
+        log('🎨 [AI-UI] Controlador de interface inicializado');
         
         // Auto-inicializar quando DOM estiver pronto
         if (document.readyState === 'loading') {
@@ -220,12 +223,12 @@ class AISuggestionUIController {
     renderSecureTextContent(content, isReducedMode) {
         // 🔒 MODO REDUCED: Sempre retornar placeholder
         if (isReducedMode || content === null || content === undefined) {
-            console.log('[SECURE-TEXT] 🔒 BLOCKED: Retornando placeholder');
+            log('[SECURE-TEXT] 🔒 BLOCKED: Retornando placeholder');
             return '<span class="blocked-value">•••• 🔒</span>';
         }
         
         // ✅ MODO FULL: Retornar conteúdo real
-        console.log('[SECURE-TEXT] ✅ FULL: Texto real');
+        log('[SECURE-TEXT] ✅ FULL: Texto real');
         return content;
     }
     
@@ -250,7 +253,7 @@ class AISuggestionUIController {
         
         // 🔐 MODO REDUCED: NUNCA USAR content original
         if (isReducedMode || content === null || content === undefined) {
-            console.log(`[RENDER-BLOCK] 🔒 BLOCKED: ${type} - SEM TEXTO NO DOM`);
+            log(`[RENDER-BLOCK] 🔒 BLOCKED: ${type} - SEM TEXTO NO DOM`);
             
             return `
                 <div class="ai-block ${blockClass} blocked-block">
@@ -263,7 +266,7 @@ class AISuggestionUIController {
         }
         
         // ✅ MODO FULL: Renderizar texto real (já validado por renderSecureTextContent)
-        console.log(`[RENDER-BLOCK] ✅ FULL: ${type} - Texto real`);
+        log(`[RENDER-BLOCK] ✅ FULL: ${type} - Texto real`);
         
         return `
             <div class="ai-block ${blockClass}">
@@ -282,7 +285,7 @@ class AISuggestionUIController {
      */
     shouldRenderSuggestionContent(analysisMode) {
         const canRender = analysisMode === 'full';
-        console.log(`[DECISION] 🔐 shouldRenderSuggestionContent: ${canRender ? '✅ FULL' : '🔒 REDUCED'}`);
+        log(`[DECISION] 🔐 shouldRenderSuggestionContent: ${canRender ? '✅ FULL' : '🔒 REDUCED'}`);
         return canRender;
     }
     
@@ -293,7 +296,7 @@ class AISuggestionUIController {
      * @returns {string} HTML do CTA de upgrade
      */
     renderSuggestionUpgradeCTA() {
-        console.log('[CTA] 🔒 Renderizando CTA de upgrade (texto fixo)');
+        log('[CTA] 🔒 Renderizando CTA de upgrade (texto fixo)');
         
         return `
             <div class="ai-suggestion-locked">
@@ -320,13 +323,13 @@ class AISuggestionUIController {
             this.setupKeyboardShortcuts();
             this.isInitialized = true;
             
-            console.log('🎨 [AI-UI] Interface inicializada com sucesso');
+            log('🎨 [AI-UI] Interface inicializada com sucesso');
             
             // Auto-detectar se há sugestões IA para exibir
             this.checkForExistingAISuggestions();
             
         } catch (error) {
-            console.error('❌ [AI-UI] Erro na inicialização:', error);
+            error('❌ [AI-UI] Erro na inicialização:', error);
         }
     }
     
@@ -363,14 +366,14 @@ class AISuggestionUIController {
         const missingCritical = criticalElements.filter(key => !this.elements[key]);
         
         if (missingCritical.length > 0) {
-            console.error('❌ [AI-UI] Elementos DOM CRÍTICOS não encontrados:', missingCritical);
-            console.error('❌ [AI-UI] Sugestões da IA NÃO serão exibidas!');
-            console.error('❌ [AI-UI] Verifique se os IDs existem no index.html:', {
+            error('❌ [AI-UI] Elementos DOM CRÍTICOS não encontrados:', missingCritical);
+            error('❌ [AI-UI] Sugestões da IA NÃO serão exibidas!');
+            error('❌ [AI-UI] Verifique se os IDs existem no index.html:', {
                 aiSuggestionsExpanded: !!document.getElementById('aiSuggestionsExpanded'),
                 aiExpandedGrid: !!document.getElementById('aiExpandedGrid')
             });
         } else {
-            console.log('✅ [AI-UI] Elementos DOM críticos encontrados:', {
+            log('✅ [AI-UI] Elementos DOM críticos encontrados:', {
                 aiSection: !!this.elements.aiSection,
                 aiContent: !!this.elements.aiContent
             });
@@ -382,7 +385,7 @@ class AISuggestionUIController {
             .map(([key]) => key);
             
         if (allMissing.length > 0) {
-            console.warn('⚠️ [AI-UI] Elementos DOM opcionais não encontrados:', allMissing);
+            warn('⚠️ [AI-UI] Elementos DOM opcionais não encontrados:', allMissing);
         }
     }
     
@@ -456,7 +459,7 @@ class AISuggestionUIController {
      * Limpa cache local e estado interno sem afetar renderização atual
      */
     resetAISuggestionState() {
-        console.log('%c[AI-UI][RESET] 🔄 Resetando estado de sugestões IA', 'color:#FF9500;font-weight:bold;');
+        log('%c[AI-UI][RESET] 🔄 Resetando estado de sugestões IA', 'color:#FF9500;font-weight:bold;');
         
         // Limpar cache de análise anterior
         this.lastAnalysisJobId = null;
@@ -465,8 +468,8 @@ class AISuggestionUIController {
         // NÃO limpar currentSuggestions (mantém renderização visual)
         // NÃO limpar elementos DOM (preserva estrutura)
         
-        console.log('[AI-UI][RESET] ✅ Estado interno resetado');
-        console.log('[AI-UI][RESET] ℹ️  Renderização visual preservada');
+        log('[AI-UI][RESET] ✅ Estado interno resetado');
+        log('[AI-UI][RESET] ℹ️  Renderização visual preservada');
     }
     
     /**
@@ -474,23 +477,23 @@ class AISuggestionUIController {
      * Protege renderização concluída em modo reference
      */
     safeResetAIState() {
-        console.log('%c[AI-UI][SAFE-RESET] 🔍 Verificando se reset é seguro...', 'color:#00C9FF;font-weight:bold;');
+        log('%c[AI-UI][SAFE-RESET] 🔍 Verificando se reset é seguro...', 'color:#00C9FF;font-weight:bold;');
         
         // FIX: Se análise está em modo reference (comparação A/B), nunca resetar após render
         const currentMode = window.__CURRENT_ANALYSIS_MODE__;
         if (currentMode === 'reference') {
-            console.warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: modo reference ativo', 'color:#FFA500;font-weight:bold;');
+            warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: modo reference ativo', 'color:#FFA500;font-weight:bold;');
             return;
         }
         
         // FIX: Se renderização já foi concluída, não resetar (previne Safari bug)
         if (window.__AI_RENDER_COMPLETED__ === true) {
-            console.warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: renderização já concluída', 'color:#FFA500;font-weight:bold;');
+            warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: renderização já concluída', 'color:#FFA500;font-weight:bold;');
             return;
         }
         
         // Reset normal permitido
-        console.log('%c[AI-UI][SAFE-RESET] ✅ Reset permitido', 'color:#00FF88;font-weight:bold;');
+        log('%c[AI-UI][SAFE-RESET] ✅ Reset permitido', 'color:#00FF88;font-weight:bold;');
         this.resetAISuggestionState();
     }
     
@@ -504,14 +507,14 @@ class AISuggestionUIController {
      * 🔧 PRIORIDADE: userAnalysis.aiSuggestions (comparações A vs B)
      */
     extractAISuggestions(analysis) {
-        console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
+        log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
         // 🎯 PRIORIDADE 1: analysis.aiSuggestions (nível raiz - backend envia aqui)
         if (Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: NÍVEL RAIZ`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
+            log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: NÍVEL RAIZ`, 'color:#00FF88;font-weight:bold;');
+            log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
                 categoria: analysis.aiSuggestions[0]?.categoria,
                 problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
                 aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
@@ -521,9 +524,9 @@ class AISuggestionUIController {
 
         // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
         if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
-            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
+            log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis`, 'color:#00FF88;font-weight:bold;');
+            log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
                 categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
                 problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
             });
@@ -532,8 +535,8 @@ class AISuggestionUIController {
         
         // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
         if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
-            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
+            log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
             return analysis.referenceAnalysis.aiSuggestions;
         }
         
@@ -546,8 +549,8 @@ class AISuggestionUIController {
             );
             
             if (hasAIFields) {
-                console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
-                console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
+                log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
+                log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
                 return analysis.suggestions;
             }
         }
@@ -558,11 +561,11 @@ class AISuggestionUIController {
 
             // Verifica variantes possíveis (camelCase e snake_case)
             if (Array.isArray(obj.aiSuggestions) && obj.aiSuggestions.length > 0) {
-                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
                 return obj.aiSuggestions;
             }
             if (Array.isArray(obj.ai_suggestions) && obj.ai_suggestions.length > 0) {
-                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.ai_suggestions (snake_case)`, 'color:#00FF88;');
+                log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.ai_suggestions (snake_case)`, 'color:#00FF88;');
                 return obj.ai_suggestions;
             }
 
@@ -571,22 +574,22 @@ class AISuggestionUIController {
                 try {
                     const parsed = JSON.parse(obj.aiSuggestions);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                        log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
                         return parsed;
                     }
                 } catch (err) {
-                    console.warn('[AI-EXTRACT] ⚠️ Falha ao parsear aiSuggestions stringificado:', err.message);
+                    warn('[AI-EXTRACT] ⚠️ Falha ao parsear aiSuggestions stringificado:', err.message);
                 }
             }
             if (typeof obj.ai_suggestions === 'string') {
                 try {
                     const parsed = JSON.parse(obj.ai_suggestions);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.ai_suggestions`, 'color:#00FF88;');
+                        log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.ai_suggestions`, 'color:#00FF88;');
                         return parsed;
                     }
                 } catch (err) {
-                    console.warn('[AI-EXTRACT] ⚠️ Falha ao parsear ai_suggestions stringificado:', err.message);
+                    warn('[AI-EXTRACT] ⚠️ Falha ao parsear ai_suggestions stringificado:', err.message);
                 }
             }
 
@@ -603,8 +606,8 @@ class AISuggestionUIController {
 
         const result = deepSearch(analysis);
         if (Array.isArray(result) && result.length > 0) {
-            console.log(`%c[AI-EXTRACT] ✅ Encontradas ${result.length} sugestões enriquecidas`, 'color:#00FF88;');
-            console.log('[AI-EXTRACT] Sample primeira sugestão:', {
+            log(`%c[AI-EXTRACT] ✅ Encontradas ${result.length} sugestões enriquecidas`, 'color:#00FF88;');
+            log('[AI-EXTRACT] Sample primeira sugestão:', {
                 problema: result[0]?.problema?.substring(0, 50),
                 aiEnhanced: result[0]?.aiEnhanced,
                 categoria: result[0]?.categoria
@@ -612,7 +615,7 @@ class AISuggestionUIController {
             return result;
         }
 
-        console.log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado (nem ai_suggestions nem stringificado)', 'color:#FF5555;');
+        log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado (nem ai_suggestions nem stringificado)', 'color:#FF5555;');
         return [];
     }
     
@@ -622,10 +625,10 @@ class AISuggestionUIController {
     checkForAISuggestions(analysis, retryCount = 0) {
         // 🚫 GUARD: Impede segunda chamada após renderização concluída
         if (window.__AI_RENDER_COMPLETED__ === true) {
-            console.warn('%c[AI-GUARD] 🔒 Renderização já concluída — ignorando chamada duplicada de checkForAISuggestions()', 'color:#FF9500;font-weight:bold;');
-            console.log('[AI-GUARD] Status recebido:', analysis?.status);
-            console.log('[AI-GUARD] aiSuggestions:', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : 'undefined');
-            console.log('[AI-GUARD] window.__AI_RENDER_COMPLETED__:', window.__AI_RENDER_COMPLETED__);
+            warn('%c[AI-GUARD] 🔒 Renderização já concluída — ignorando chamada duplicada de checkForAISuggestions()', 'color:#FF9500;font-weight:bold;');
+            log('[AI-GUARD] Status recebido:', analysis?.status);
+            log('[AI-GUARD] aiSuggestions:', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : 'undefined');
+            log('[AI-GUARD] window.__AI_RENDER_COMPLETED__:', window.__AI_RENDER_COMPLETED__);
             return; // ✅ BLOQUEIA segunda chamada
         }
         
@@ -655,10 +658,10 @@ class AISuggestionUIController {
         );
         
         if (isReferenceBase) {
-            console.log('%c[AI-FRONT][REFERENCE-BASE] 🔐 Reference BASE detectado - IGNORANDO verificação de aiSuggestions', 'color:#FF6B00;font-weight:bold;font-size:14px;');
-            console.log('[AI-FRONT][REFERENCE-BASE] referenceStage:', analysis?.referenceStage);
-            console.log('[AI-FRONT][REFERENCE-BASE] requiresSecondTrack:', analysis?.requiresSecondTrack);
-            console.log('[AI-FRONT][REFERENCE-BASE] ✅ Base não precisa de aiSuggestions - retornando sem renderizar');
+            log('%c[AI-FRONT][REFERENCE-BASE] 🔐 Reference BASE detectado - IGNORANDO verificação de aiSuggestions', 'color:#FF6B00;font-weight:bold;font-size:14px;');
+            log('[AI-FRONT][REFERENCE-BASE] referenceStage:', analysis?.referenceStage);
+            log('[AI-FRONT][REFERENCE-BASE] requiresSecondTrack:', analysis?.requiresSecondTrack);
+            log('[AI-FRONT][REFERENCE-BASE] ✅ Base não precisa de aiSuggestions - retornando sem renderizar');
             return; // ✅ RETORNAR IMEDIATAMENTE - Base não precisa de UI de sugestões
         }
         // ═══════════════════════════════════════════════════════════════════════
@@ -666,9 +669,9 @@ class AISuggestionUIController {
         // FIX: Reset automático SEGURO com proteção contra race condition
         const currentJobId = analysis?.jobId || analysis?.userAnalysis?.jobId || window.__CURRENT_JOB_ID__;
         if (currentJobId && currentJobId !== this.lastAnalysisJobId) {
-            console.log('%c[AI-UI][RESET] 🔄 Nova análise detectada - executando reset seguro', 'color:#FF9500;font-weight:bold;');
-            console.log('[AI-UI][RESET] JobId anterior:', this.lastAnalysisJobId);
-            console.log('[AI-UI][RESET] JobId novo:', currentJobId);
+            log('%c[AI-UI][RESET] 🔄 Nova análise detectada - executando reset seguro', 'color:#FF9500;font-weight:bold;');
+            log('[AI-UI][RESET] JobId anterior:', this.lastAnalysisJobId);
+            log('[AI-UI][RESET] JobId novo:', currentJobId);
             
             // FIX: Usar safeResetAIState() em vez de resetAISuggestionState()
             this.safeResetAIState();
@@ -681,8 +684,8 @@ class AISuggestionUIController {
         );
         
         if (hasComparativeSuggestions) {
-            console.log('%c[AI-FRONT] 🔬 Modo comparativo detectado - BLOQUEANDO geração por gênero', 'color:#FF00FF;font-weight:bold;');
-            console.log('[AI-FRONT] ℹ️ Sugestões existentes:', {
+            log('%c[AI-FRONT] 🔬 Modo comparativo detectado - BLOQUEANDO geração por gênero', 'color:#FF00FF;font-weight:bold;');
+            log('[AI-FRONT] ℹ️ Sugestões existentes:', {
                 quantidade: analysis.aiSuggestions?.length,
                 categorias: analysis.aiSuggestions?.map(s => s.categoria).slice(0, 3)
             });
@@ -691,58 +694,58 @@ class AISuggestionUIController {
         // 🧩 ETAPA 1 — AUDITORIA PROFUNDA DE LOCALIZAÇÃO
         console.groupCollapsed('%c[AUDITORIA:AI-SUGGESTIONS] 🔍 Localização do campo aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
         const keys = Object.keys(analysis || {});
-        console.log('%c🔑 Chaves de nível 1:', 'color:#FFD700;', keys);
-        console.log('%c🧩 Contém referenceAnalysis?', 'color:#00C9FF;', !!analysis?.referenceAnalysis);
-        console.log('%c🧩 Contém userAnalysis?', 'color:#00C9FF;', !!analysis?.userAnalysis);
-        console.log('%c🧩 Contém metadata?', 'color:#00C9FF;', !!analysis?.metadata);
-        console.log('%c🧩 Contém data?', 'color:#00C9FF;', !!analysis?.data);
-        console.log('%c🧩 aiSuggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions));
-        console.log('%c🧩 ai_suggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.ai_suggestions));
-        console.log('%c🎯 userAnalysis.aiSuggestions:', 'color:#00FF88;font-weight:bold;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? `${analysis.userAnalysis.aiSuggestions.length} sugestões` : '❌');
-        console.log('%c🔬 Modo comparativo?', 'color:#FF00FF;', hasComparativeSuggestions);
+        log('%c🔑 Chaves de nível 1:', 'color:#FFD700;', keys);
+        log('%c🧩 Contém referenceAnalysis?', 'color:#00C9FF;', !!analysis?.referenceAnalysis);
+        log('%c🧩 Contém userAnalysis?', 'color:#00C9FF;', !!analysis?.userAnalysis);
+        log('%c🧩 Contém metadata?', 'color:#00C9FF;', !!analysis?.metadata);
+        log('%c🧩 Contém data?', 'color:#00C9FF;', !!analysis?.data);
+        log('%c🧩 aiSuggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions));
+        log('%c🧩 ai_suggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.ai_suggestions));
+        log('%c🎯 userAnalysis.aiSuggestions:', 'color:#00FF88;font-weight:bold;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? `${analysis.userAnalysis.aiSuggestions.length} sugestões` : '❌');
+        log('%c🔬 Modo comparativo?', 'color:#FF00FF;', hasComparativeSuggestions);
         console.groupEnd();
         
         // 🧩 PARTE 1 — AUDITORIA PROFUNDA (Início de `checkForAISuggestions`)
         // 🧩 PARTE 1 — AUDITORIA PROFUNDA
         console.groupCollapsed('%c[AUDITORIA:AI-FRONT] 🔍 Iniciando Auditoria Profunda de aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
-        console.log('%c[AI-AUDIT] 🔹 Análise recebida:', 'color:#00C9FF;', analysis);
-        console.log('%c[AI-AUDIT] 🔹 Chaves de nível 1:', 'color:#FFD700;', Object.keys(analysis || {}));
-        console.log('%c[AI-AUDIT] 🔹 referenceAnalysis?', 'color:#FFA500;', !!analysis?.referenceAnalysis);
-        console.log('%c[AI-AUDIT] 🔹 userAnalysis?', 'color:#FFA500;', !!analysis?.userAnalysis);
-        console.log('%c[AI-AUDIT] 🔹 aiSuggestions no topo?', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌');
-        console.log('%c[AI-AUDIT] 🔹 aiSuggestions em referenceAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.referenceAnalysis?.aiSuggestions) ? analysis.referenceAnalysis.aiSuggestions.length : '❌');
-        console.log('%c[AI-AUDIT] 🔹 aiSuggestions em userAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? analysis.userAnalysis.aiSuggestions.length : '❌');
+        log('%c[AI-AUDIT] 🔹 Análise recebida:', 'color:#00C9FF;', analysis);
+        log('%c[AI-AUDIT] 🔹 Chaves de nível 1:', 'color:#FFD700;', Object.keys(analysis || {}));
+        log('%c[AI-AUDIT] 🔹 referenceAnalysis?', 'color:#FFA500;', !!analysis?.referenceAnalysis);
+        log('%c[AI-AUDIT] 🔹 userAnalysis?', 'color:#FFA500;', !!analysis?.userAnalysis);
+        log('%c[AI-AUDIT] 🔹 aiSuggestions no topo?', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌');
+        log('%c[AI-AUDIT] 🔹 aiSuggestions em referenceAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.referenceAnalysis?.aiSuggestions) ? analysis.referenceAnalysis.aiSuggestions.length : '❌');
+        log('%c[AI-AUDIT] 🔹 aiSuggestions em userAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? analysis.userAnalysis.aiSuggestions.length : '❌');
         console.groupEnd();
         
         // 🧩 PARTE 3 — AJUSTE DO STATUS (PREVENIR BLOQUEIO DO SPINNER)
         // 🩵 Corrige status ausente herdado do subobjeto
         if (!analysis.status && analysis.referenceAnalysis?.status) {
             analysis.status = analysis.referenceAnalysis.status;
-            console.log('%c[AI-FRONT][STATUS-FIX] 🔁 Status herdado de referenceAnalysis:', 'color:#00FFFF;', analysis.status);
+            log('%c[AI-FRONT][STATUS-FIX] 🔁 Status herdado de referenceAnalysis:', 'color:#00FFFF;', analysis.status);
         }
         
         // 🎯 LOGS DE AUDITORIA VISUAL
-        console.log('%c[AI-FRONT][AUDIT] 🚀 Iniciando checkForAISuggestions()', 'color:#8F5BFF; font-weight:bold;');
-        console.log('%c[AI-FRONT][AUDIT] Status recebido:', 'color:#00C9FF;', analysis?.status);
-        console.log('%c[AI-FRONT][AUDIT] aiSuggestions:', 'color:#FFD700;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌ none');
+        log('%c[AI-FRONT][AUDIT] 🚀 Iniciando checkForAISuggestions()', 'color:#8F5BFF; font-weight:bold;');
+        log('%c[AI-FRONT][AUDIT] Status recebido:', 'color:#00C9FF;', analysis?.status);
+        log('%c[AI-FRONT][AUDIT] aiSuggestions:', 'color:#FFD700;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌ none');
         
         // 🔍 AUDITORIA PROFUNDA COM LOGS VISUAIS
         console.group('%c🔍 [AI-FRONT AUDITORIA] Iniciando verificação do sistema de IA', 'color:#8F5BFF;font-weight:bold;font-size:14px');
         console.time('⏱️ Tempo total até renderização');
         
-        console.log('%c📩 [STEP 1] JSON recebido do backend', 'color:#00C9FF;font-weight:bold', analysis);
-        console.log('%c📦 Campos principais:', 'color:#00C9FF', analysis ? Object.keys(analysis) : []);
+        log('%c📩 [STEP 1] JSON recebido do backend', 'color:#00C9FF;font-weight:bold', analysis);
+        log('%c📦 Campos principais:', 'color:#00C9FF', analysis ? Object.keys(analysis) : []);
         
-        console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][AUDIT] 🔍 VERIFICAÇÃO DE aiSuggestions');
-        console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][AUDIT] analysis.aiSuggestions:', analysis?.aiSuggestions);
-        console.log('[AI-UI][AUDIT] analysis.suggestions:', analysis?.suggestions);
-        console.log('[AI-UI][AUDIT] AI lengths:', {
+        log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AI-UI][AUDIT] 🔍 VERIFICAÇÃO DE aiSuggestions');
+        log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AI-UI][AUDIT] analysis.aiSuggestions:', analysis?.aiSuggestions);
+        log('[AI-UI][AUDIT] analysis.suggestions:', analysis?.suggestions);
+        log('[AI-UI][AUDIT] AI lengths:', {
             ai: analysis?.aiSuggestions?.length || 0,
             base: analysis?.suggestions?.length || 0
         });
-        console.log('[AI-UI][AUDIT] Analysis completo:', {
+        log('[AI-UI][AUDIT] Analysis completo:', {
             hasAnalysis: !!analysis,
             mode: analysis?.mode,
             status: analysis?.status,
@@ -754,37 +757,37 @@ class AISuggestionUIController {
         
         // � EXTRAÇÃO ROBUSTA: Buscar aiSuggestions em todos os níveis possíveis
         const extractedAI = this.extractAISuggestions(analysis);
-        console.log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
-        console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
+        log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
+        log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
         
         // 🔧 CORREÇÃO: Bypass de status se aiSuggestions existir
         const hasValidAISuggestions = Array.isArray(extractedAI) && extractedAI.length > 0;
         
         if (!analysis.status && !hasValidAISuggestions) {
-            console.warn('%c[AI-FRONT][BYPASS] ⚠️ Status undefined e sem aiSuggestions - ignorando', 'color:#FF9500;');
+            warn('%c[AI-FRONT][BYPASS] ⚠️ Status undefined e sem aiSuggestions - ignorando', 'color:#FF9500;');
             // Continua verificando outras condições
         } else if (!analysis.status && hasValidAISuggestions) {
-            console.warn('%c[AI-FRONT][BYPASS] ✅ Status undefined mas aiSuggestions presente - continuando renderização', 'color:#00FF88;font-weight:bold;');
+            warn('%c[AI-FRONT][BYPASS] ✅ Status undefined mas aiSuggestions presente - continuando renderização', 'color:#00FF88;font-weight:bold;');
             analysis.status = 'completed'; // Força status para evitar bloqueios posteriores
         }
         
         // Se ainda está processando E não tem sugestões, aguardar
         if (analysis?.status === 'processing' && !hasValidAISuggestions) {
             if (retryCount >= 10) {
-                console.error('[AI-FRONT] ❌ Timeout: 10 tentativas de polling excedidas');
+                error('[AI-FRONT] ❌ Timeout: 10 tentativas de polling excedidas');
                 this.showLoadingState('Tempo limite excedido. Recarregue a página.');
                 return;
             }
             
-            console.log('[AI-FRONT] 🕐 IA ainda processando, tentando novamente em 3s...');
-            console.log('[AI-FRONT] Tentativa:', retryCount + 1, '/ 10');
+            log('[AI-FRONT] 🕐 IA ainda processando, tentando novamente em 3s...');
+            log('[AI-FRONT] Tentativa:', retryCount + 1, '/ 10');
             
             // Exibir estado de loading
             this.showLoadingState('Aguardando análise da IA...');
             
             // Aguardar 3s e consultar novamente
             setTimeout(() => {
-                console.log('[AI-FRONT] 🔄 Reconsultando análise após 3s...');
+                log('[AI-FRONT] 🔄 Reconsultando análise após 3s...');
                 
                 // Buscar análise atualizada do backend
                 const jobId = analysis?.id || analysis?.jobId;
@@ -792,18 +795,18 @@ class AISuggestionUIController {
                     fetch(`/api/jobs/${jobId}`)
                         .then(res => res.json())
                         .then(updatedAnalysis => {
-                            console.log('[AI-FRONT] 📥 Análise atualizada recebida:', {
+                            log('[AI-FRONT] 📥 Análise atualizada recebida:', {
                                 status: updatedAnalysis.status,
                                 aiSuggestions: updatedAnalysis.aiSuggestions?.length
                             });
                             this.checkForAISuggestions(updatedAnalysis, retryCount + 1);
                         })
                         .catch(err => {
-                            console.error('[AI-FRONT] ❌ Erro ao reconsultar:', err);
+                            error('[AI-FRONT] ❌ Erro ao reconsultar:', err);
                             this.showLoadingState('Erro ao consultar análise.');
                         });
                 } else {
-                    console.error('[AI-FRONT] ❌ ID do job não encontrado para polling');
+                    error('[AI-FRONT] ❌ ID do job não encontrado para polling');
                 }
             }, 3000);
             
@@ -811,8 +814,8 @@ class AISuggestionUIController {
         }
         
         // 🧠 AUDITORIA COMPLETA: Log dos dados recebidos
-        console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AUDIT:AI-FRONT] Objeto completo recebido:', {
+        log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AUDIT:AI-FRONT] Objeto completo recebido:', {
             mode: analysis?.mode,
             status: analysis?.status,
             keys: analysis ? Object.keys(analysis).slice(0, 20) : [],
@@ -821,11 +824,11 @@ class AISuggestionUIController {
             aiSuggestions_data: analysis?.data?.aiSuggestions?.length,
             suggestions: analysis?.suggestions?.length
         });
-        console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
-            console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
+            log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
             
             // FIX: Resetar flag de render completado para nova análise
             window.__AI_RENDER_COMPLETED__ = false;
@@ -833,22 +836,22 @@ class AISuggestionUIController {
             // FIX: Atualizar lastAnalysisJobId ANTES da renderização (previne race condition)
             this.lastAnalysisJobId = analysis?.jobId || window.__CURRENT_JOB_ID__;
             this.lastAnalysisTimestamp = Date.now();
-            console.log('%c[AI-FIX] 🔒 lastAnalysisJobId atualizado ANTES do render:', 'color:#00FF88;font-weight:bold;', this.lastAnalysisJobId);
+            log('%c[AI-FIX] 🔒 lastAnalysisJobId atualizado ANTES do render:', 'color:#00FF88;font-weight:bold;', this.lastAnalysisJobId);
             
             // 🧩 ETAPA 3 — GARANTIR QUE NÃO SAIA DO MODO "IA ENRIQUECIDA"
             analysis.hasEnriched = true;
-            console.log('%c[AI-FRONT] 💜 Modo IA Enriquecida confirmado (%d sugestões)', 'color:#B279FF;font-weight:bold;', extractedAI.length);
+            log('%c[AI-FRONT] 💜 Modo IA Enriquecida confirmado (%d sugestões)', 'color:#B279FF;font-weight:bold;', extractedAI.length);
             
             // 🧩 PARTE 4 — AUDITORIA FINAL DE RENDERIZAÇÃO
             console.groupCollapsed('%c[AI-FRONT][RENDER-AUDIT] 🎨 Auditoria Final de Renderização', 'color:#8F5BFF;font-weight:bold;');
-            console.log('%c[RENDER-AUDIT] Quantidade de sugestões extraídas:', 'color:#00FF88;', extractedAI.length);
-            console.log('%c[RENDER-AUDIT] Primeiro item:', 'color:#FFD700;', extractedAI[0]);
+            log('%c[RENDER-AUDIT] Quantidade de sugestões extraídas:', 'color:#00FF88;', extractedAI.length);
+            log('%c[RENDER-AUDIT] Primeiro item:', 'color:#FFD700;', extractedAI[0]);
             console.groupEnd();
             
             // Garante que o spinner suma mesmo sem status "completed"
             if (this.elements.aiLoading) {
                 this.elements.aiLoading.style.display = 'none';
-                console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
+                log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
             // ✅ EXTRAIR METRICS E TARGETS de analysis.data
@@ -862,16 +865,16 @@ class AISuggestionUIController {
             // ════════════════════════════════════════════════════════════════════════════
             const comparisonResult = analysis?.data?.comparisonResult;
             if (comparisonResult && Array.isArray(comparisonResult.issues)) {
-                console.log('%c[AI-UI][COMPARISON] 🎯 Usando comparisonResult.issues (FONTE ÚNICA)', 'color:#00FF88;font-weight:bold;');
-                console.log('[AI-UI][COMPARISON] Issues do backend:', comparisonResult.issues.length);
-                console.log('[AI-UI][COMPARISON] Score do backend:', comparisonResult.score?.total);
+                log('%c[AI-UI][COMPARISON] 🎯 Usando comparisonResult.issues (FONTE ÚNICA)', 'color:#00FF88;font-weight:bold;');
+                log('[AI-UI][COMPARISON] Issues do backend:', comparisonResult.issues.length);
+                log('[AI-UI][COMPARISON] Score do backend:', comparisonResult.score?.total);
                 
                 // Verificar invariante: TP > 0 deve ter issue CRÍTICA
                 const tpIssue = comparisonResult.issues.find(i => i.key === 'truePeak');
                 if (tpIssue) {
-                    console.log('[AI-UI][COMPARISON] True Peak issue:', tpIssue.severity, tpIssue.problemText);
+                    log('[AI-UI][COMPARISON] True Peak issue:', tpIssue.severity, tpIssue.problemText);
                     if (metrics?.truePeak?.value > 0 && tpIssue.severity !== 'CRÍTICA') {
-                        console.error('[AI-UI][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
+                        error('[AI-UI][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
                     }
                 }
                 
@@ -883,11 +886,11 @@ class AISuggestionUIController {
                 this.renderAISuggestions(mergedSuggestions, null, metrics);
                 
                 window.__AI_RENDER_COMPLETED__ = true;
-                console.log('%c[AI-FIX] ✅ Renderização via comparisonResult completa', 'color:#00FF88;font-weight:bold;');
+                log('%c[AI-FIX] ✅ Renderização via comparisonResult completa', 'color:#00FF88;font-weight:bold;');
                 return;
             }
             
-            console.log('[AI-UI][COMPARISON] ⚠️ comparisonResult não disponível, usando fluxo legado');
+            log('[AI-UI][COMPARISON] ⚠️ comparisonResult não disponível, usando fluxo legado');
             
             // 🔐 FONTE ÚNICA: Usar targetProfile (preferido) ou referenceTargetsNormalized
             // SEM FALLBACKS para globals (PROD_AI_REF_DATA, __activeRefData, etc)
@@ -898,17 +901,17 @@ class AISuggestionUIController {
                 // 🎯 PRIORIDADE 1: targetProfile (novo formato completo)
                 genreTargets = analysis.data.targetProfile;
                 targetSource = 'targetProfile';
-                console.log('[AI-UI][TARGETS] ✅ Usando analysis.data.targetProfile (FONTE ÚNICA)');
+                log('[AI-UI][TARGETS] ✅ Usando analysis.data.targetProfile (FONTE ÚNICA)');
             } else if (analysis?.data?.referenceTargetsNormalized) {
                 // 🎯 PRIORIDADE 2: referenceTargetsNormalized (formato anterior)
                 genreTargets = analysis.data.referenceTargetsNormalized;
                 targetSource = 'referenceTargetsNormalized';
-                console.log('[AI-UI][TARGETS] ✅ Usando analysis.data.referenceTargetsNormalized');
+                log('[AI-UI][TARGETS] ✅ Usando analysis.data.referenceTargetsNormalized');
             } else if (analysis?.data?.genreTargets) {
                 // 🎯 PRIORIDADE 3: genreTargets direto (fallback mínimo)
                 genreTargets = analysis.data.genreTargets;
                 targetSource = 'genreTargets';
-                console.log('[AI-UI][TARGETS] ⚠️ Usando analysis.data.genreTargets (fallback)');
+                log('[AI-UI][TARGETS] ⚠️ Usando analysis.data.genreTargets (fallback)');
             }
             // ❌ REMOVIDO: Fallbacks para PROD_AI_REF_DATA, __activeRefData, etc.
             
@@ -917,35 +920,35 @@ class AISuggestionUIController {
             const isGenreMode = analysisMode === 'genre';
             
             if (!metrics) {
-                console.error('[AI-UI][VALIDATION] ❌ analysis.data.metrics não encontrado');
-                console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas');
+                error('[AI-UI][VALIDATION] ❌ analysis.data.metrics não encontrado');
+                warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas');
             }
             
             if (!genreTargets && isGenreMode) {
                 // ❌ Apenas erro em modo genre
-                console.error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado em modo GENRE');
-                console.warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
-                console.warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
-                console.warn('[AI-UI][VALIDATION] analysis.data:', !!analysis?.data);
+                error('[AI-UI][VALIDATION] ❌ analysis.data.genreTargets não encontrado em modo GENRE');
+                warn('[AI-UI][VALIDATION] ⚠️ Sugestões não serão validadas - podem exibir valores incorretos');
+                warn('[AI-UI][VALIDATION] analysis keys:', analysis ? Object.keys(analysis) : null);
+                warn('[AI-UI][VALIDATION] analysis.data:', !!analysis?.data);
             } else if (!genreTargets && !isGenreMode) {
                 // ℹ️ Apenas info em modo reference
-                console.info('[AI-UI][VALIDATION] ℹ️ genreTargets ausente em modo REFERENCE (OK - esperado)');
+                info('[AI-UI][VALIDATION] ℹ️ genreTargets ausente em modo REFERENCE (OK - esperado)');
             }
             
             if (metrics && genreTargets) {
-                console.log('[AI-UI][VALIDATION] ✅ Metrics e Targets encontrados');
-                console.log('[AI-UI][VALIDATION] 📍 Fonte:', targetSource);
+                log('[AI-UI][VALIDATION] ✅ Metrics e Targets encontrados');
+                log('[AI-UI][VALIDATION] 📍 Fonte:', targetSource);
                 
                 // 🔐 LOG OBRIGATÓRIO: Mostrar targets usados (para debug de divergências)
-                console.log('%c[AI-UI][TARGET-PROFILE] 🎯 TARGETS USADOS NAS SUGESTÕES:', 'color:#00FF88;font-weight:bold;');
-                console.log('[AI-UI][TARGET-PROFILE] Genre:', genreTargets._genre || analysis?.data?.genre || 'unknown');
-                console.log('[AI-UI][TARGET-PROFILE] Metrics:', {
+                log('%c[AI-UI][TARGET-PROFILE] 🎯 TARGETS USADOS NAS SUGESTÕES:', 'color:#00FF88;font-weight:bold;');
+                log('[AI-UI][TARGET-PROFILE] Genre:', genreTargets._genre || analysis?.data?.genre || 'unknown');
+                log('[AI-UI][TARGET-PROFILE] Metrics:', {
                     loudness: metrics.loudness?.value,
                     truePeak: metrics.truePeak?.value,
                     dr: metrics.dr?.value,
                     stereo: metrics.stereo?.value
                 });
-                console.log('[AI-UI][TARGET-PROFILE] Targets:', {
+                log('[AI-UI][TARGET-PROFILE] Targets:', {
                     lufs: genreTargets.lufs?.target ?? genreTargets.metrics?.lufs?.target,
                     truePeak: genreTargets.truePeak?.tp_target ?? genreTargets.truePeak?.target ?? genreTargets.metrics?.truePeak?.target,
                     dr: genreTargets.dr?.target ?? genreTargets.metrics?.dr?.target,
@@ -955,8 +958,8 @@ class AISuggestionUIController {
                 // 🔐 INVARIANTE: Se truePeak > 0, DEVE haver severidade CRÍTICA
                 const tpValue = metrics.truePeak?.value;
                 if (tpValue > 0) {
-                    console.log('%c[AI-UI][INVARIANT] 🚨 TRUE PEAK > 0 dBTP DETECTADO!', 'color:#FF4444;font-weight:bold;', tpValue);
-                    console.log('[AI-UI][INVARIANT] Severidade esperada: CRÍTICA');
+                    log('%c[AI-UI][INVARIANT] 🚨 TRUE PEAK > 0 dBTP DETECTADO!', 'color:#FF4444;font-weight:bold;', tpValue);
+                    log('[AI-UI][INVARIANT] Severidade esperada: CRÍTICA');
                 }
             }
 
@@ -965,18 +968,18 @@ class AISuggestionUIController {
             
             // FIX: Marcar renderização como concluída APÓS render
             window.__AI_RENDER_COMPLETED__ = true;
-            console.log('%c[AI-FIX] ✅ window.__AI_RENDER_COMPLETED__ = true', 'color:#00FF88;font-weight:bold;');
+            log('%c[AI-FIX] ✅ window.__AI_RENDER_COMPLETED__ = true', 'color:#00FF88;font-weight:bold;');
             
             // 🔍 AUDITORIA AUTOMÁTICA: Verificar estado após renderização
             console.group('%c[AUDITORIA:RESET-CHECK] 🔍 Estado após renderização', 'color:#FF9500;font-weight:bold;');
-            console.log('   currentJobId:', window.__CURRENT_JOB_ID__);
-            console.log('   referenceJobId:', window.__REFERENCE_JOB_ID__);
-            console.log('   hasAISuggestions:', !!(extractedAI?.length));
-            console.log('   aiSuggestionsLength:', extractedAI?.length || 0);
-            console.log('   localStorageReference:', localStorage.getItem('referenceJobId'));
-            console.log('   lastAnalysisJobId:', this.lastAnalysisJobId);
-            console.log('   renderCompleted:', window.__AI_RENDER_COMPLETED__);
-            console.log('   🔄 IDs são diferentes?', window.__CURRENT_JOB_ID__ !== this.lastAnalysisJobId ? '✅ Sim (correto)' : '⚠️ Não (possível cache)');
+            log('   currentJobId:', window.__CURRENT_JOB_ID__);
+            log('   referenceJobId:', window.__REFERENCE_JOB_ID__);
+            log('   hasAISuggestions:', !!(extractedAI?.length));
+            log('   aiSuggestionsLength:', extractedAI?.length || 0);
+            log('   localStorageReference:', localStorage.getItem('referenceJobId'));
+            log('   lastAnalysisJobId:', this.lastAnalysisJobId);
+            log('   renderCompleted:', window.__AI_RENDER_COMPLETED__);
+            log('   🔄 IDs são diferentes?', window.__CURRENT_JOB_ID__ !== this.lastAnalysisJobId ? '✅ Sim (correto)' : '⚠️ Não (possível cache)');
             console.groupEnd();
             
             return;
@@ -984,8 +987,8 @@ class AISuggestionUIController {
         
         // 🚨 RENDERIZAÇÃO FORÇADA PARA DEBUG
         if (extractedAI.length > 0) {
-            console.log('%c✅ [STEP 3] Sugestões detectadas, preparando renderização...', 'color:#00FF88;font-weight:bold');
-            console.log('%c🧠 Primeira sugestão:', 'color:#FFD700', extractedAI[0]);
+            log('%c✅ [STEP 3] Sugestões detectadas, preparando renderização...', 'color:#00FF88;font-weight:bold');
+            log('%c🧠 Primeira sugestão:', 'color:#FFD700', extractedAI[0]);
             
             // Tentar múltiplos seletores para encontrar o container
             const containerSelectors = [
@@ -1000,19 +1003,19 @@ class AISuggestionUIController {
             for (const selector of containerSelectors) {
                 container = document.querySelector(selector);
                 if (container) {
-                    console.log(`%c🎯 [DEBUG] Container encontrado com seletor: ${selector}`, 'color:#FFD700', container);
+                    log(`%c🎯 [DEBUG] Container encontrado com seletor: ${selector}`, 'color:#FFD700', container);
                     break;
                 }
             }
             
             if (!container && this.elements?.aiContent) {
                 container = this.elements.aiContent;
-                console.log('%c🎯 [DEBUG] Usando this.elements.aiContent', 'color:#FFD700', container);
+                log('%c🎯 [DEBUG] Usando this.elements.aiContent', 'color:#FFD700', container);
             }
             
             if (container) {
                 // 🔥 RENDERIZAÇÃO FORÇADA MANUAL (COM SECURITY GUARD)
-                console.log('%c🔥 [STEP 4-DEBUG] Tentando renderização forçada manual...', 'color:#FF4444;font-weight:bold');
+                log('%c🔥 [STEP 4-DEBUG] Tentando renderização forçada manual...', 'color:#FF4444;font-weight:bold');
                 
                 // 🔐 SECURITY GUARD: Proteger renderização de fallback
                 const analysis = window.currentModalAnalysis || { analysisMode: 'full' };
@@ -1022,7 +1025,7 @@ class AISuggestionUIController {
                     analysis.isReduced === true
                 );
                 
-                console.log('[FALLBACK-RENDER] 🔐 Security:', { isReducedMode, analysis });
+                log('[FALLBACK-RENDER] 🔐 Security:', { isReducedMode, analysis });
                 
                 // Mapear categoria para métrica
                 const metricKey = this.mapCategoryToMetric(extractedAI[0]);
@@ -1030,20 +1033,20 @@ class AISuggestionUIController {
                     ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
                     : false);
                 
-                console.log('[FALLBACK-RENDER] 🔐 Decision:', { metricKey, canRender });
+                log('[FALLBACK-RENDER] 🔐 Decision:', { metricKey, canRender });
                 
                 // 🔒 SE BLOQUEADO: Usar apenas placeholder, NÃO acessar texto
                 let problema, causa, solucao, plugin;
                 
                 if (!canRender) {
-                    console.log('[FALLBACK-RENDER] 🔒 BLOCKED: Usando apenas placeholders');
+                    log('[FALLBACK-RENDER] 🔒 BLOCKED: Usando apenas placeholders');
                     const securePlaceholder = '<span class="blocked-value">🔒 Disponível no plano Pro</span>';
                     problema = securePlaceholder;
                     causa = securePlaceholder;
                     solucao = securePlaceholder;
                     plugin = securePlaceholder;
                 } else {
-                    console.log('[FALLBACK-RENDER] ✅ FULL MODE: Acessando texto real');
+                    log('[FALLBACK-RENDER] ✅ FULL MODE: Acessando texto real');
                     problema = extractedAI[0].problema || extractedAI[0].message || '—';
                     causa = extractedAI[0].causaProvavel || '—';
                     solucao = extractedAI[0].solucao || extractedAI[0].action || '—';
@@ -1075,7 +1078,7 @@ class AISuggestionUIController {
                 container.innerHTML = forcedHTML;
                 container.style.display = 'block';
                 
-                console.log('%c🟢 [STEP 4] Card renderizado manualmente com sucesso!', 'color:#00FF88;font-weight:bold;font-size:16px');
+                log('%c🟢 [STEP 4] Card renderizado manualmente com sucesso!', 'color:#00FF88;font-weight:bold;font-size:16px');
                 console.timeEnd('⏱️ Tempo total até renderização');
                 
                 // Ocultar loading
@@ -1085,14 +1088,14 @@ class AISuggestionUIController {
                     el.classList.add('hidden');
                 });
                 
-                console.log('%c🎉 RENDERIZAÇÃO FORÇADA COMPLETA - Monitorando por 5s...', 'color:#FFD700;font-weight:bold;font-size:14px');
+                log('%c🎉 RENDERIZAÇÃO FORÇADA COMPLETA - Monitorando por 5s...', 'color:#FFD700;font-weight:bold;font-size:14px');
                 
                 // Monitorar se algo limpa o container
                 let cleanupAttempts = 0;
                 const monitorInterval = setInterval(() => {
                     if (!container.innerHTML.includes('Renderizado manualmente')) {
                         cleanupAttempts++;
-                        console.error(`%c🚨 [ALERTA] Container foi limpo! Tentativa: ${cleanupAttempts}`, 'color:#FF0000;font-weight:bold;font-size:14px');
+                        error(`%c🚨 [ALERTA] Container foi limpo! Tentativa: ${cleanupAttempts}`, 'color:#FF0000;font-weight:bold;font-size:14px');
                         console.trace('Stack trace do cleanup');
                     }
                 }, 500);
@@ -1100,21 +1103,21 @@ class AISuggestionUIController {
                 setTimeout(() => {
                     clearInterval(monitorInterval);
                     if (cleanupAttempts === 0) {
-                        console.log('%c✅ [SUCESSO] Container mantido intacto por 5s', 'color:#00FF88;font-weight:bold');
+                        log('%c✅ [SUCESSO] Container mantido intacto por 5s', 'color:#00FF88;font-weight:bold');
                     } else {
-                        console.error(`%c❌ [FALHA] Container foi limpo ${cleanupAttempts} vezes`, 'color:#FF0000;font-weight:bold');
+                        error(`%c❌ [FALHA] Container foi limpo ${cleanupAttempts} vezes`, 'color:#FF0000;font-weight:bold');
                     }
                     console.groupEnd();
                 }, 5000);
                 
                 return; // Parar aqui para não executar lógica normal
             } else {
-                console.error('%c🚨 [ERRO] Container de IA não encontrado no DOM.', 'color:#FF0000;font-weight:bold');
-                console.log('Seletores tentados:', containerSelectors);
-                console.log('this.elements:', this.elements);
+                error('%c🚨 [ERRO] Container de IA não encontrado no DOM.', 'color:#FF0000;font-weight:bold');
+                log('Seletores tentados:', containerSelectors);
+                log('this.elements:', this.elements);
             }
         } else {
-            console.warn('%c⚠️ [STEP 5] Nenhuma sugestão detectada', 'color:#FFA500;font-weight:bold', 'status:', analysis?.status);
+            warn('%c⚠️ [STEP 5] Nenhuma sugestão detectada', 'color:#FFA500;font-weight:bold', 'status:', analysis?.status);
         }
         
         // �🛡️ VALIDAÇÃO: Verificar se há aiSuggestions válidas e enriquecidas
@@ -1125,7 +1128,7 @@ class AISuggestionUIController {
             s.aiEnhanced === true || s.enrichmentStatus === 'success'
         );
         
-        console.log('[AI-FRONT][CHECK]', { 
+        log('[AI-FRONT][CHECK]', { 
             hasValidAI, 
             hasEnriched, 
             mode: analysis?.mode,
@@ -1135,8 +1138,8 @@ class AISuggestionUIController {
         if (hasValidAI && hasEnriched) {
             // ✅ Renderizar APENAS as sugestões da IA enriquecidas
             suggestionsToUse = extractedAI;
-            console.log('[AI-FRONT] ✅ IA detectada, renderizando sugestões...');
-            console.log('[AI-FRONT] 🟢 Renderizando', suggestionsToUse.length, 'cards de IA');
+            log('[AI-FRONT] ✅ IA detectada, renderizando sugestões...');
+            log('[AI-FRONT] 🟢 Renderizando', suggestionsToUse.length, 'cards de IA');
             
             // Ocultar loading state
             if (this.elements.aiSection) {
@@ -1148,23 +1151,23 @@ class AISuggestionUIController {
             return; // ✅ PARAR AQUI
         } else if (hasValidAI && !hasEnriched) {
             // ⚠️ Tem aiSuggestions mas não estão enriquecidas
-            console.warn('[AI-FRONT] ⚠️ aiSuggestions encontradas mas sem flag aiEnhanced');
-            console.warn('[AI-FRONT] Renderizando mesmo assim (pode ser formato legado)');
+            warn('[AI-FRONT] ⚠️ aiSuggestions encontradas mas sem flag aiEnhanced');
+            warn('[AI-FRONT] Renderizando mesmo assim (pode ser formato legado)');
             
             suggestionsToUse = extractedAI;
             this.renderAISuggestions(suggestionsToUse, genreTargets); // 🔧 PATCH: passar genreTargets
             return;
         } else {
             // 🚫 Evita fallback para métricas genéricas
-            console.log('[AI-FRONT] ⚠️ Nenhuma IA válida detectada');
-            console.log('[AI-FRONT] hasValidAI:', hasValidAI);
-            console.log('[AI-FRONT] hasEnriched:', hasEnriched);
-            console.log('[AI-FRONT] 🚫 Ocultando cards genéricos');
+            log('[AI-FRONT] ⚠️ Nenhuma IA válida detectada');
+            log('[AI-FRONT] hasValidAI:', hasValidAI);
+            log('[AI-FRONT] hasEnriched:', hasEnriched);
+            log('[AI-FRONT] 🚫 Ocultando cards genéricos');
             
             // 🔧 CORREÇÃO CRÍTICA: Ocultar loading antes de retornar
             if (this.elements.aiLoading) {
                 this.elements.aiLoading.style.display = 'none';
-                console.log('[AI-FIX] ✅ Loading ocultado (sem sugestões válidas)');
+                log('[AI-FIX] ✅ Loading ocultado (sem sugestões válidas)');
             }
             
             // Ocultar seção de sugestões
@@ -1189,14 +1192,14 @@ class AISuggestionUIController {
      * @returns {Array} Sugestões mescladas com dados numéricos corrigidos
      */
     mergeSuggestionsWithComparison(aiSuggestions, issues) {
-        console.log('[AI-UI][MERGE] 🔗 Iniciando merge de sugestões com comparisonResult');
-        console.log('[AI-UI][MERGE] aiSuggestions:', aiSuggestions?.length || 0);
-        console.log('[AI-UI][MERGE] issues:', issues?.length || 0);
+        log('[AI-UI][MERGE] 🔗 Iniciando merge de sugestões com comparisonResult');
+        log('[AI-UI][MERGE] aiSuggestions:', aiSuggestions?.length || 0);
+        log('[AI-UI][MERGE] issues:', issues?.length || 0);
         
         if (!aiSuggestions || aiSuggestions.length === 0) {
             // Se não há aiSuggestions, converter issues diretamente
             if (issues && issues.length > 0) {
-                console.log('[AI-UI][MERGE] ⚠️ Sem aiSuggestions, convertendo issues para sugestões');
+                log('[AI-UI][MERGE] ⚠️ Sem aiSuggestions, convertendo issues para sugestões');
                 return issues.map(issue => ({
                     metric: issue.key,
                     categoria: this._mapSeverityToCategory(issue.severity),
@@ -1224,7 +1227,7 @@ class AISuggestionUIController {
             for (const issue of issues) {
                 const normalizedKey = normalizeMetricKey(issue.key);
                 issueMap.set(normalizedKey, issue);
-                console.log(`[AI-UI][MERGE] Issue mapeada: ${issue.key} → ${normalizedKey}`);
+                log(`[AI-UI][MERGE] Issue mapeada: ${issue.key} → ${normalizedKey}`);
             }
         }
         
@@ -1234,7 +1237,7 @@ class AISuggestionUIController {
             const issue = issueMap.get(metricKey);
             
             if (issue) {
-                console.log(`[AI-UI][MERGE] ✅ Match encontrado para ${metricKey}:`, {
+                log(`[AI-UI][MERGE] ✅ Match encontrado para ${metricKey}:`, {
                     aiSeverity: suggestion.severity,
                     issueSeverity: issue.severity,
                     issueValue: issue.currentValue
@@ -1242,7 +1245,7 @@ class AISuggestionUIController {
                 
                 // Verificar invariante: TP > 0 DEVE ser CRÍTICA
                 if (metricKey === 'truePeak' && issue.currentValue > 0 && issue.severity !== 'CRÍTICA') {
-                    console.error('[AI-UI][MERGE][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
+                    error('[AI-UI][MERGE][INVARIANT] 🚨 VIOLAÇÃO: TP > 0 mas severity != CRÍTICA');
                     issue.severity = 'CRÍTICA'; // Corrigir
                 }
                 
@@ -1261,7 +1264,7 @@ class AISuggestionUIController {
                     mergedFromIssue: true
                 };
             } else {
-                console.log(`[AI-UI][MERGE] ⚠️ Sem issue para ${metricKey}`);
+                log(`[AI-UI][MERGE] ⚠️ Sem issue para ${metricKey}`);
                 return {
                     ...suggestion,
                     numericDataSource: 'aiSuggestion',
@@ -1274,7 +1277,7 @@ class AISuggestionUIController {
         for (const [key, issue] of issueMap) {
             const hasMatch = merged.some(s => normalizeMetricKey(s.metric || s.category) === key);
             if (!hasMatch && issue.severity !== 'OK') {
-                console.log(`[AI-UI][MERGE] ➕ Adicionando issue sem match IA: ${key}`);
+                log(`[AI-UI][MERGE] ➕ Adicionando issue sem match IA: ${key}`);
                 merged.push({
                     metric: issue.key,
                     categoria: this._mapSeverityToCategory(issue.severity),
@@ -1295,7 +1298,7 @@ class AISuggestionUIController {
             }
         }
         
-        console.log(`[AI-UI][MERGE] ✅ Merge completo: ${merged.length} sugestões`);
+        log(`[AI-UI][MERGE] ✅ Merge completo: ${merged.length} sugestões`);
         return merged;
     }
     
@@ -1333,37 +1336,37 @@ class AISuggestionUIController {
     renderAISuggestions(suggestions, genreTargets = null, metrics = null) {
         // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
         console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
-        console.log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
-        console.log('%c[AI-RENDER-AUDIT] Modo atual:', 'color:#00C9FF;', suggestions?.[0]?.aiEnhanced ? 'IA Enriquecida' : 'Base');
-        console.log('%c[AI-RENDER-AUDIT] Container principal:', 'color:#00FF88;', this.elements.aiContent);
-        console.log('%c[AI-RENDER-AUDIT] HTML antes do insert:', 'color:#FFA500;', this.elements.aiContent?.innerHTML?.slice(0, 120));
+        log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
+        log('%c[AI-RENDER-AUDIT] Modo atual:', 'color:#00C9FF;', suggestions?.[0]?.aiEnhanced ? 'IA Enriquecida' : 'Base');
+        log('%c[AI-RENDER-AUDIT] Container principal:', 'color:#00FF88;', this.elements.aiContent);
+        log('%c[AI-RENDER-AUDIT] HTML antes do insert:', 'color:#FFA500;', this.elements.aiContent?.innerHTML?.slice(0, 120));
         console.groupEnd();
         
         // �🧠 PARTE 4: Proteção extra no renderizador
         if (!suggestions || suggestions.length === 0) {
-            console.warn('%c[AI-FRONT][RENDER] ⚠️ Nenhuma sugestão recebida para renderizar', 'color:#FFA500;');
+            warn('%c[AI-FRONT][RENDER] ⚠️ Nenhuma sugestão recebida para renderizar', 'color:#FFA500;');
             return;
         }
 
-        console.log('%c[AI-FRONT][RENDER] 🟢 Renderizando', 'color:#00FF88;', suggestions.length, 'sugestão(ões)');
+        log('%c[AI-FRONT][RENDER] 🟢 Renderizando', 'color:#00FF88;', suggestions.length, 'sugestão(ões)');
         
-        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][RENDER] 🎨 INICIANDO RENDERIZAÇÃO');
-        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][RENDER] Container encontrado:', !!this.elements.aiSection);
-        console.log('[AI-UI][RENDER] Sugestões recebidas:', suggestions?.length || 0);
+        log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AI-UI][RENDER] 🎨 INICIANDO RENDERIZAÇÃO');
+        log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        log('[AI-UI][RENDER] Container encontrado:', !!this.elements.aiSection);
+        log('[AI-UI][RENDER] Sugestões recebidas:', suggestions?.length || 0);
         
-        console.log('[AI-UI][RENDER] 🟢 Renderizando', suggestions.length, 'sugestão(ões)');
-        console.log('[AI-UI][RENDER] Sample primeira sugestão:', {
+        log('[AI-UI][RENDER] 🟢 Renderizando', suggestions.length, 'sugestão(ões)');
+        log('[AI-UI][RENDER] Sample primeira sugestão:', {
             problema: suggestions[0]?.problema?.substring(0, 50) || suggestions[0]?.message?.substring(0, 50),
             categoria: suggestions[0]?.categoria,
             aiEnhanced: suggestions[0]?.aiEnhanced
         });
         
         if (!this.elements.aiSection || !this.elements.aiContent) {
-            console.error('[AI-UI][RENDER] ❌ Elementos DOM não encontrados!');
-            console.error('[AI-UI][RENDER] aiSection:', !!this.elements.aiSection);
-            console.error('[AI-UI][RENDER] aiContent:', !!this.elements.aiContent);
+            error('[AI-UI][RENDER] ❌ Elementos DOM não encontrados!');
+            error('[AI-UI][RENDER] aiSection:', !!this.elements.aiSection);
+            error('[AI-UI][RENDER] aiContent:', !!this.elements.aiContent);
             return;
         }
         
@@ -1394,7 +1397,7 @@ class AISuggestionUIController {
             const hasContent = hasProblema && hasCausa && hasSolucao;
             
             if (s.aiEnhanced && !hasContent) {
-                console.warn('[AI-UI][BADGE] ⚠️ Suggestion marcada como enriched MAS sem conteúdo:', {
+                warn('[AI-UI][BADGE] ⚠️ Suggestion marcada como enriched MAS sem conteúdo:', {
                     metric: s.metric || s.category,
                     hasProblema,
                     hasCausa,
@@ -1408,7 +1411,7 @@ class AISuggestionUIController {
         const aiEnhancedCount = suggestions.filter(s => s.aiEnhanced === true).length;
         const isAIEnriched = aiEnhancedWithContent > 0;
         
-        console.log('[AI-UI][BADGE] 🏷️ Badge Logic:', {
+        log('[AI-UI][BADGE] 🏷️ Badge Logic:', {
             totalSuggestions: suggestions.length,
             aiEnhancedFlag: aiEnhancedCount,
             aiEnhancedWithContent: aiEnhancedWithContent,
@@ -1418,22 +1421,22 @@ class AISuggestionUIController {
         // 🧩 ETAPA 2 — CORREÇÃO DE TEMPLATE
         // 🚀 Forçar template correto se for IA enriquecida
         if (isAIEnriched || suggestions?.[0]?.aiEnhanced) {
-            console.log('%c[AI-RENDER-FIX] 🔧 Modo IA Enriquecida detectado — forçando template AI', 'color:#00FF88;');
+            log('%c[AI-RENDER-FIX] 🔧 Modo IA Enriquecida detectado — forçando template AI', 'color:#00FF88;');
             this.currentTemplate = 'ai'; // força o template estilizado
         } else {
-            console.log('%c[AI-RENDER-FIX] ⚠️ Modo genérico ativo (sem IA específica)', 'color:#FFA500;');
+            log('%c[AI-RENDER-FIX] ⚠️ Modo genérico ativo (sem IA específica)', 'color:#FFA500;');
         }
         
         const renderJobId = window.__CURRENT_JOB_ID__ || window.currentModalAnalysis?.jobId || suggestions?.[0]?.jobId || this.lastAnalysisJobId;
 
         // Anti-race: não re-renderizar o mesmo job se já concluído
         if (this.lastRenderedJobId && this.lastRenderedJobId === renderJobId && window.__AI_RENDER_COMPLETED__ === true) {
-            console.warn('[AI-RENDER-GUARD] 🔒 Render já concluído para este jobId — ignorando nova chamada');
+            warn('[AI-RENDER-GUARD] 🔒 Render já concluído para este jobId — ignorando nova chamada');
             return;
         }
         this.lastRenderedJobId = renderJobId;
 
-        console.log('[AI-UI][RENDER] Tipo de sugestões:', {
+        log('[AI-UI][RENDER] Tipo de sugestões:', {
             total: suggestions.length,
             aiEnhanced: aiEnhancedCount,
             isEnriched: isAIEnriched,
@@ -1454,10 +1457,10 @@ class AISuggestionUIController {
                 ? `${displayCount} sugestões disponíveis (modo gratuito)`
                 : `${suggestions.length} sugestões IA enriquecidas`;
             this.updateStatus('success', statusText);
-            console.log('[AI-UI][RENDER] ✅ Status:', statusText);
+            log('[AI-UI][RENDER] ✅ Status:', statusText);
         } else {
             this.updateStatus('success', `${displayCount} sugestões disponíveis`);
-            console.log('[AI-UI][RENDER] ✅ Status: Sugestões base');
+            log('[AI-UI][RENDER] ✅ Status: Sugestões base');
         }
         
         // Atualizar modelo
@@ -1472,26 +1475,26 @@ class AISuggestionUIController {
         setTimeout(() => {
             const retryJobId = window.__CURRENT_JOB_ID__ || window.currentModalAnalysis?.jobId || suggestions?.[0]?.jobId || this.lastAnalysisJobId;
             if (this.lastRenderedJobId && retryJobId && retryJobId !== this.lastRenderedJobId) {
-                console.warn('[AI-RENDER-GUARD] 🔒 JobId mudou antes do retry, abortando re-render');
+                warn('[AI-RENDER-GUARD] 🔒 JobId mudou antes do retry, abortando re-render');
                 return;
             }
             const cards = this.elements.aiContent?.querySelectorAll('.ai-suggestion-card');
-            console.log('%c[AI-RENDER-VERIFY] 🔍 Cards detectados no DOM:', 'color:#00FF88;', cards?.length);
+            log('%c[AI-RENDER-VERIFY] 🔍 Cards detectados no DOM:', 'color:#00FF88;', cards?.length);
             if (!cards || cards.length === 0) {
-                console.warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
+                warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
                 this.currentTemplate = 'ai';
                 this.renderSuggestionCards(suggestions, true, genreTargets, retryJobId); // força renderização IA
             } else {
-                console.log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
+                log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
                 
                 // FIX: Marcar renderização como DEFINITIVAMENTE concluída após validação DOM
                 window.__AI_RENDER_COMPLETED__ = true;
-                console.log('%c[AI-FIX] 🔒 Renderização validada e marcada como concluída', 'color:#00FF88;font-weight:bold;');
+                log('%c[AI-FIX] 🔒 Renderização validada e marcada como concluída', 'color:#00FF88;font-weight:bold;');
             }
         }, 300);
         
-        console.log('[AI-UI][RENDER] ✅ Renderização concluída!');
-        console.log('[AI-UI][RENDER] Cards renderizados:', this.elements.aiContent.children.length);
+        log('[AI-UI][RENDER] ✅ Renderização concluída!');
+        log('[AI-UI][RENDER] Cards renderizados:', this.elements.aiContent.children.length);
     }
     
     /**
@@ -1519,12 +1522,12 @@ class AISuggestionUIController {
      */
     validateAndCorrectSuggestions(suggestions, genreTargets) {
         if (!genreTargets || !Array.isArray(suggestions)) {
-            console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não fornecido - validação ignorada');
+            warn('[AI-UI][VALIDATION] ⚠️ genreTargets não fornecido - validação ignorada');
             return suggestions;
         }
         
-        console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais (Postgres)');
-        console.log('[AI-UI][VALIDATION] 📊 Estrutura genreTargets:', {
+        log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais (Postgres)');
+        log('[AI-UI][VALIDATION] 📊 Estrutura genreTargets:', {
             hasLufs: !!genreTargets.lufs,
             hasTruePeak: !!genreTargets.truePeak,
             hasDr: !!genreTargets.dr,
@@ -1540,7 +1543,7 @@ class AISuggestionUIController {
             // 🔧 Normalizar métrica usando função universal
             const canonicalMetric = normalizeMetricKey(metric);
             if (canonicalMetric && canonicalMetric !== metric) {
-                console.log('[AI-UI][VALIDATION] 🔧 Métrica normalizada:', metric, '→', canonicalMetric);
+                log('[AI-UI][VALIDATION] 🔧 Métrica normalizada:', metric, '→', canonicalMetric);
                 metric = canonicalMetric;
             }
             
@@ -1563,7 +1566,7 @@ class AISuggestionUIController {
             
             if (globalMetricMap[metric] && genreTargets[globalMetricMap[metric]] != null) {
                 realTarget = genreTargets[globalMetricMap[metric]];
-                console.log(`[AI-UI][VALIDATION] ✅ Métrica global "${metric}": target=${realTarget}`);
+                log(`[AI-UI][VALIDATION] ✅ Métrica global "${metric}": target=${realTarget}`);
             }
             // 2. Tentar estrutura aninhada: genreTargets.lufs.target (se existir)
             else if (genreTargets[metric] && typeof genreTargets[metric] === 'object') {
@@ -1577,7 +1580,7 @@ class AISuggestionUIController {
                 if (targetData) {
                     realTarget = targetData.target_db || targetData.target;
                     realRange = targetData.target_range;
-                    console.log(`[AI-UI][VALIDATION] ✅ Banda "${metric}": target via getBandTarget`);
+                    log(`[AI-UI][VALIDATION] ✅ Banda "${metric}": target via getBandTarget`);
                 }
             }
             
@@ -1587,11 +1590,11 @@ class AISuggestionUIController {
             }
             
             if (!realTarget && !realRange) {
-                console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}"`);
+                warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}"`);
                 return suggestion;
             }
             
-            console.log(`[AI-UI][VALIDATION] ✅ Target encontrado para "${metric}":`, { realTarget, realRange });
+            log(`[AI-UI][VALIDATION] ✅ Target encontrado para "${metric}":`, { realTarget, realRange });
             
             // Corrigir textos que mencionam valores "ideal" incorretos
             const correctedSuggestion = { ...suggestion };
@@ -1610,7 +1613,7 @@ class AISuggestionUIController {
                     });
                     
                     if (original !== corrected) {
-                        console.log(`[AI-UI][VALIDATION] 🔧 Corrigido "${metric}":`, {
+                        log(`[AI-UI][VALIDATION] 🔧 Corrigido "${metric}":`, {
                             original: original.substring(0, 60) + '...',
                             corrected: corrected.substring(0, 60) + '...'
                         });
@@ -1629,7 +1632,7 @@ class AISuggestionUIController {
                 
                 // 🔍 LOG DIAGNÓSTICO: Comparar range ANTES vs DEPOIS
                 const rangeChanged = (beforeMin !== realRange.min || beforeMax !== realRange.max);
-                console.log(`[RANGE-FIX] ${rangeChanged ? '🔧 CORRIGIDO' : '✅ JÁ CORRETO'} "${metric}":`, {
+                log(`[RANGE-FIX] ${rangeChanged ? '🔧 CORRIGIDO' : '✅ JÁ CORRETO'} "${metric}":`, {
                     before: { min: beforeMin?.toFixed(2) || 'undefined', max: beforeMax?.toFixed(2) || 'undefined' },
                     after: { min: realRange.min.toFixed(2), max: realRange.max.toFixed(2) },
                     changed: rangeChanged,
@@ -1735,7 +1738,7 @@ class AISuggestionUIController {
         // 🛡️ GUARDRAIL: Se analysis é null/undefined, assumir modo FULL (não bloquear)
         // Isso previne false positives onde o modal de limitação aparece incorretamente
         if (!analysis) {
-            console.warn('[REDUCED-FILTER] ⚠️ Analysis não disponível - assumindo modo FULL por segurança');
+            warn('[REDUCED-FILTER] ⚠️ Analysis não disponível - assumindo modo FULL por segurança');
             return suggestions;
         }
         
@@ -1743,7 +1746,7 @@ class AISuggestionUIController {
         const isReducedMode = analysis?.analysisMode === 'reduced' || analysis?.isReduced === true;
         
         // 🔍 LOG DIAGNÓSTICO: Identificar fonte do modo reduced
-        console.log('[REDUCED-FILTER] 📊 Verificando modo:', {
+        log('[REDUCED-FILTER] 📊 Verificando modo:', {
             isReducedMode,
             analysisMode: analysis?.analysisMode,
             isReduced: analysis?.isReduced,
@@ -1753,12 +1756,12 @@ class AISuggestionUIController {
         });
         
         if (!isReducedMode) {
-            console.log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
+            log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
             return suggestions;
         }
         
-        console.log('[REDUCED-FILTER] 🔒 Modo Reduced detectado - filtrando sugestões...');
-        console.log('[REDUCED-FILTER] Total de sugestões:', suggestions.length);
+        log('[REDUCED-FILTER] 🔒 Modo Reduced detectado - filtrando sugestões...');
+        log('[REDUCED-FILTER] Total de sugestões:', suggestions.length);
         
         // 🔐 Usar Security Guard para decisão de filtragem
         const filtered = suggestions.filter(suggestion => {
@@ -1771,15 +1774,15 @@ class AISuggestionUIController {
                 : true;
             
             if (canRender) {
-                console.log('[REDUCED-FILTER] ✅ Sugestão permitida:', suggestion.categoria || suggestion.category || suggestion.label);
+                log('[REDUCED-FILTER] ✅ Sugestão permitida:', suggestion.categoria || suggestion.category || suggestion.label);
             } else {
-                console.log('[REDUCED-FILTER] 🚫 Sugestão bloqueada:', suggestion.categoria || suggestion.category || suggestion.label);
+                log('[REDUCED-FILTER] 🚫 Sugestão bloqueada:', suggestion.categoria || suggestion.category || suggestion.label);
             }
             
             return canRender;
         });
         
-        console.log('[REDUCED-FILTER] 📊 Resultado: ', filtered.length, '/', suggestions.length, 'sugestões renderizadas');
+        log('[REDUCED-FILTER] 📊 Resultado: ', filtered.length, '/', suggestions.length, 'sugestões renderizadas');
         
         return filtered;
     }
@@ -1790,9 +1793,9 @@ class AISuggestionUIController {
     renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null, renderJobId = null) {
         if (!this.elements.aiContent) return;
         
-        console.log('[AI-UI][RENDER] 📋 Renderizando', suggestions.length, 'cards');
-        console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
-        console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
+        log('[AI-UI][RENDER] 📋 Renderizando', suggestions.length, 'cards');
+        log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
+        log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
         // 🛡️ CORREÇÃO RACE CONDITION: Definir analysis no início da função
         // para que esteja disponível em filterReducedModeSuggestions
@@ -1802,7 +1805,7 @@ class AISuggestionUIController {
                         window.currentAnalysisData ||
                         window.lastAudioAnalysis;
         
-        console.log('[AI-UI][RENDER] 🔍 Analysis context:', {
+        log('[AI-UI][RENDER] 🔍 Analysis context:', {
             source: window.currentModalAnalysis ? 'currentModalAnalysis' :
                     window.__CURRENT_ANALYSIS__ ? '__CURRENT_ANALYSIS__' :
                     window.lastAnalysisResult ? 'lastAnalysisResult' :
@@ -1827,14 +1830,14 @@ class AISuggestionUIController {
         if (window.USE_TABLE_ROWS_FOR_MODAL && genreTargets) {
             // Removido: let analysis = ... (agora está no escopo da função)
             
-            console.log('[MODAL_VS_TABLE] 🔄 v3 ATIVADO: Suggestion-driven (filtragem apenas)');
+            log('[MODAL_VS_TABLE] 🔄 v3 ATIVADO: Suggestion-driven (filtragem apenas)');
             
             try {
                 // ════════════════════════════════════════════════════════════════
                 // FONTE ÚNICA: aiSuggestions do backend
                 // ════════════════════════════════════════════════════════════════
                 const originalSuggestions = analysis?.aiSuggestions || analysis?.suggestions || suggestions || [];
-                console.log('[MODAL_VS_TABLE] 📦 Sugestões do backend:', originalSuggestions.length);
+                log('[MODAL_VS_TABLE] 📦 Sugestões do backend:', originalSuggestions.length);
                 
                 // ════════════════════════════════════════════════════════════════
                 // HELPER LOCAL: Verificar se métrica está OK/ideal
@@ -1879,10 +1882,10 @@ class AISuggestionUIController {
                     const isOK = isMetricOK(metric, genreTargets, analysis, suggestion);
                     
                     if (isOK) {
-                        console.log(`[MODAL_VS_TABLE] ✅ ${metric}: REMOVIDO (dentro do padrão)`);
+                        log(`[MODAL_VS_TABLE] ✅ ${metric}: REMOVIDO (dentro do padrão)`);
                         return false;
                     } else {
-                        console.log(`[MODAL_VS_TABLE] ⚠️ ${metric}: MANTIDO (fora do padrão ou não validável)`);
+                        log(`[MODAL_VS_TABLE] ⚠️ ${metric}: MANTIDO (fora do padrão ou não validável)`);
                         return true;
                     }
                 });
@@ -1899,7 +1902,7 @@ class AISuggestionUIController {
                         const key = normalizeMetricKey(s.metric || s.metricKey || s.type || s.key);
                         return shouldRenderRealValue(key, 'ai-suggestion', analysis);
                     });
-                    console.log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${beforeCount} → ${finalSuggestions.length}`);
+                    log(`[MODAL_VS_TABLE] 🔒 Security Guard: ${beforeCount} → ${finalSuggestions.length}`);
                 }
                 
                 // ════════════════════════════════════════════════════════════════
@@ -1910,25 +1913,25 @@ class AISuggestionUIController {
                 const removedKeys = originalKeys.filter(k => !finalKeys.includes(k));
                 
                 console.group('[MODAL_VS_TABLE] 📋 RESULTADO v3');
-                console.log('Original (backend):', originalKeys);
-                console.log('Final (após filtro OK):', finalKeys);
-                console.log('Removidos (OK):', removedKeys);
-                console.log('Total cards:', finalSuggestions.length);
+                log('Original (backend):', originalKeys);
+                log('Final (após filtro OK):', finalKeys);
+                log('Removidos (OK):', removedKeys);
+                log('Total cards:', finalSuggestions.length);
                 
                 const hasLufs = finalKeys.includes('lufs');
                 const hasTruePeak = finalKeys.includes('truepeak') || finalKeys.includes('truePeak');
                 const hasDr = finalKeys.includes('dr');
-                console.log('Métricas críticas presentes:', { hasLufs, hasTruePeak, hasDr });
+                log('Métricas críticas presentes:', { hasLufs, hasTruePeak, hasDr });
                 console.groupEnd();
                 
                 suggestions = finalSuggestions;
                 
             } catch (error) {
-                console.error('[MODAL_VS_TABLE] ❌ Erro:', error);
-                console.error('[MODAL_VS_TABLE] Usando suggestions do backend sem filtro');
+                error('[MODAL_VS_TABLE] ❌ Erro:', error);
+                error('[MODAL_VS_TABLE] Usando suggestions do backend sem filtro');
             }
         } else {
-            console.log('[MODAL_VS_TABLE] ℹ️ Sem genreTargets ou flag desativada - usando aiSuggestions direto');
+            log('[MODAL_VS_TABLE] ℹ️ Sem genreTargets ou flag desativada - usando aiSuggestions direto');
         }
         // ════════════════════════════════════════════════════════════════════════════════
         
@@ -1940,7 +1943,7 @@ class AISuggestionUIController {
             const tableRows = document.querySelectorAll('.metric-row.critical, .metric-row.high, .metric-row.caution');
             const tableNonOKCount = tableRows.length;
             
-            console.log('[DEBUG] Contagens:', {
+            log('[DEBUG] Contagens:', {
                 tableNonOKCount: tableNonOKCount,
                 modalSuggestionsCount: suggestions.length,
                 match: tableNonOKCount === suggestions.length ? '✅' : '❌'
@@ -1948,13 +1951,13 @@ class AISuggestionUIController {
             
             // Amostra de 3 cards: comparar range
             const sampleCards = suggestions.slice(0, 3);
-            console.log('[DEBUG] Amostra de ranges (3 primeiros):');
+            log('[DEBUG] Amostra de ranges (3 primeiros):');
             sampleCards.forEach((s, i) => {
                 const tableRow = document.querySelector(`[data-metric="${s.metric}"]`);
                 const tableMin = tableRow?.dataset?.min;
                 const tableMax = tableRow?.dataset?.max;
                 
-                console.log(`[DEBUG]   Card ${i+1} (${s.metric}):`, {
+                log(`[DEBUG]   Card ${i+1} (${s.metric}):`, {
                     modalMin: s.targetMin?.toFixed(2),
                     modalMax: s.targetMax?.toFixed(2),
                     tableMin: tableMin ? parseFloat(tableMin).toFixed(2) : 'N/A',
@@ -1971,7 +1974,7 @@ class AISuggestionUIController {
         const filteredSuggestions = this.filterReducedModeSuggestions(suggestions, analysis);
         
         if (filteredSuggestions.length === 0) {
-            console.warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
+            warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
             // Exibir mensagem de upgrade
             this.elements.aiContent.innerHTML = `
                 <div class="ai-reduced-notice" style="
@@ -2017,7 +2020,7 @@ class AISuggestionUIController {
         }).join('');
         
         this.elements.aiContent.innerHTML = cardsHtml;
-        console.log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
+        log('[AI-UI][RENDER] ✅ HTML inserido no DOM');
         
         // 🚀 PLANO DE CORREÇÃO: Injetar botão FORA da seção de sugestões (no modal principal)
         // Chamado via setTimeout para garantir que o DOM está pronto
@@ -2031,7 +2034,7 @@ class AISuggestionUIController {
      * Mantido apenas para compatibilidade
      */
     appendCorrectionPlanButton() {
-        console.log('[CORRECTION-PLAN] appendCorrectionPlanButton() chamado - delegando para função global');
+        log('[CORRECTION-PLAN] appendCorrectionPlanButton() chamado - delegando para função global');
         window.injectCorrectionPlanButtonOutside?.();
     }
     
@@ -2078,7 +2081,7 @@ class AISuggestionUIController {
     mapCategoryToMetric(suggestion) {
         // 🔧 CORREÇÃO: Se metricKey já existe, usar diretamente (backend canônico)
         if (suggestion.metricKey) {
-            console.log('[SECURITY-MAP] ✅ Usando metricKey do backend:', suggestion.metricKey);
+            log('[SECURITY-MAP] ✅ Usando metricKey do backend:', suggestion.metricKey);
             return suggestion.metricKey;
         }
         
@@ -2086,70 +2089,70 @@ class AISuggestionUIController {
         const problema = (suggestion.problema || suggestion.message || '').toLowerCase();
         const texto = `${categoria} ${problema}`;
         
-        console.log('[SECURITY-MAP] 🔍 Mapeando categoria (fallback):', { categoria, problema, texto });
+        log('[SECURITY-MAP] 🔍 Mapeando categoria (fallback):', { categoria, problema, texto });
         
         // Mapeamento de palavras-chave para métricas
         if (texto.includes('loudness') || texto.includes('lufs')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: LUFS');
+            log('[SECURITY-MAP] ✅ Detectado: LUFS');
             return 'lufsIntegrated';
         }
         if (texto.includes('true peak') || texto.includes('truepeak') || texto.includes('tp')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: True Peak');
+            log('[SECURITY-MAP] ✅ Detectado: True Peak');
             return 'truePeakDbtp';
         }
         if (texto.includes('lra') || texto.includes('loudness range')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: LRA');
+            log('[SECURITY-MAP] ✅ Detectado: LRA');
             return 'lra';
         }
         if (texto.includes('dr') || texto.includes('dinâmica') || texto.includes('dynamic')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: DR');
+            log('[SECURITY-MAP] ✅ Detectado: DR');
             return 'dynamicRange';
         }
         if (texto.includes('estéreo') || texto.includes('stereo') || texto.includes('correlação')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Estéreo');
+            log('[SECURITY-MAP] ✅ Detectado: Estéreo');
             return 'stereoCorrelation';
         }
         
         // 🔧 CORREÇÃO: Bandas com ranges corretos
         // Sub: 20-60Hz
         if (texto.includes('sub') || texto.includes('20-60') || texto.includes('subgrave')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Sub (20-60Hz)');
+            log('[SECURITY-MAP] ✅ Detectado: Sub (20-60Hz)');
             return 'band_sub';
         }
         // Bass/Grave: 60-150Hz ou 60-250Hz
         if (texto.includes('bass') || texto.includes('60-150') || texto.includes('60-250') || 
             (texto.includes('grave') && !texto.includes('sub'))) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Bass/Grave (60-250Hz)');
+            log('[SECURITY-MAP] ✅ Detectado: Bass/Grave (60-250Hz)');
             return 'band_bass';
         }
         // Low Mid: 150-500Hz ou 250-500Hz
         if (texto.includes('low mid') || texto.includes('low-mid') || texto.includes('150-500') || 
             texto.includes('250-500') || texto.includes('lowmid')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Low Mid (150-500Hz)');
+            log('[SECURITY-MAP] ✅ Detectado: Low Mid (150-500Hz)');
             return 'band_lowMid';
         }
         // Mid: 500Hz-2kHz
         if ((texto.includes('mid') && !texto.includes('low') && !texto.includes('high')) ||
             texto.includes('500hz-2k') || texto.includes('500-2k')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Mid (500Hz-2kHz)');
+            log('[SECURITY-MAP] ✅ Detectado: Mid (500Hz-2kHz)');
             return 'band_mid';
         }
         // High Mid: 2-5kHz
         if (texto.includes('high mid') || texto.includes('high-mid') || texto.includes('2k-5k') || 
             texto.includes('2-5k') || texto.includes('highmid')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: High Mid (2-5kHz)');
+            log('[SECURITY-MAP] ✅ Detectado: High Mid (2-5kHz)');
             return 'band_highMid';
         }
         // 🔧 CORREÇÃO CRÍTICA: Brilho/Air = 4k-10k ou 5k-10k (NÃO é presença!)
         if (texto.includes('brilho') || texto.includes('4k-10k') || texto.includes('5k-10k') ||
             (texto.includes('air') && !texto.includes('repair'))) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (4k-10kHz)');
+            log('[SECURITY-MAP] ✅ Detectado: Brilho/Air (4k-10kHz)');
             return 'band_air';
         }
         // 🔧 CORREÇÃO CRÍTICA: Presença = 10k-20kHz (agudos extremos)
         if (texto.includes('presença') || texto.includes('presence') || texto.includes('10k-20k') ||
             texto.includes('10-20k')) {
-            console.log('[SECURITY-MAP] ✅ Detectado: Presença (10k-20kHz)');
+            log('[SECURITY-MAP] ✅ Detectado: Presença (10k-20kHz)');
             return 'band_presence';
         }
         
@@ -2157,24 +2160,24 @@ class AISuggestionUIController {
         if (categoria.includes('low end') || categoria.includes('low_end')) {
             // Tentar extrair da frequência no texto
             if (texto.includes('60') || texto.includes('250') || texto.includes('grave')) {
-                console.log('[SECURITY-MAP] ✅ LOW END → band_bass (por frequência)');
+                log('[SECURITY-MAP] ✅ LOW END → band_bass (por frequência)');
                 return 'band_bass';
             }
-            console.log('[SECURITY-MAP] ✅ LOW END genérico → band_bass');
+            log('[SECURITY-MAP] ✅ LOW END genérico → band_bass');
             return 'band_bass';
         }
         
         // Fallback para HIGH END categoria
         if (categoria.includes('high end') || categoria.includes('high_end')) {
             if (texto.includes('10k') || texto.includes('20k')) {
-                console.log('[SECURITY-MAP] ✅ HIGH END → band_presence (por frequência)');
+                log('[SECURITY-MAP] ✅ HIGH END → band_presence (por frequência)');
                 return 'band_presence';
             }
-            console.log('[SECURITY-MAP] ✅ HIGH END genérico → band_air');
+            log('[SECURITY-MAP] ✅ HIGH END genérico → band_air');
             return 'band_air';
         }
         
-        console.log('[SECURITY-MAP] ⚠️ Categoria não mapeada - usando general');
+        log('[SECURITY-MAP] ⚠️ Categoria não mapeada - usando general');
         return 'general';
     }
     
@@ -2190,7 +2193,7 @@ class AISuggestionUIController {
         const metricKey = this.mapCategoryToMetric(suggestion);
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__ || { analysisMode: 'full' };
         
-        console.log('[AI-CARD] 🔐 Security Check:', { 
+        log('[AI-CARD] 🔐 Security Check:', { 
             categoria, 
             metricKey, 
             analysisMode: analysis?.analysisMode
@@ -2205,7 +2208,7 @@ class AISuggestionUIController {
         // Se full: content = texto real
         const normalized = this.normalizeSuggestionForRender(suggestion, analysisMode);
         
-        console.log('[AI-CARD] 🔐 Normalized:', { 
+        log('[AI-CARD] 🔐 Normalized:', { 
             isReduced, 
             hasBlocked: normalized.__blocked,
             problema: normalized.problema === null ? 'NULL' : 'EXISTS'
@@ -2213,7 +2216,7 @@ class AISuggestionUIController {
         
         // 🔒 SE BLOQUEADO: Card sem texto no DOM
         if (normalized.__blocked) {
-            console.log('[AI-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
+            log('[AI-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
             
             return `
                 <div class="ai-suggestion-card ai-enriched blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}" data-blocked="true">
@@ -2257,7 +2260,7 @@ class AISuggestionUIController {
         }
         
         // ✅ FULL MODE: Renderizar com texto real
-        console.log('[AI-CARD] ✅ FULL: Texto completo');
+        log('[AI-CARD] ✅ FULL: Texto completo');
         
         const problema = suggestion.problema || 
                         (suggestion.aiEnhanced === false && suggestion.observation 
@@ -2354,11 +2357,11 @@ class AISuggestionUIController {
         const analysis = window.currentModalAnalysis || window.currentAnalysisData || null;
         const analysisMode = analysis?.analysisMode || 'full';
         
-        console.log('[AI-BASE-CARD] 🔐 DECISÃO:', { analysisMode });
+        log('[AI-BASE-CARD] 🔐 DECISÃO:', { analysisMode });
         
         // 🔐 PASSO 2: VERIFICAR SE DEVE RENDERIZAR (DECISÃO CENTRAL)
         if (!this.shouldRenderSuggestionContent(analysisMode)) {
-            console.log('[AI-BASE-CARD] 🔒 REDUCED: CTA (SEM TEXTO)');
+            log('[AI-BASE-CARD] 🔒 REDUCED: CTA (SEM TEXTO)');
             return `
                 <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                     ${this.renderSuggestionUpgradeCTA()}
@@ -2367,7 +2370,7 @@ class AISuggestionUIController {
         }
         
         // ✅ PASSO 3: MODO FULL - AGORA SIM ACESSA TEXTO
-        console.log('[AI-BASE-CARD] ✅ FULL: Texto completo');
+        log('[AI-BASE-CARD] ✅ FULL: Texto completo');
         
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
@@ -2377,7 +2380,7 @@ class AISuggestionUIController {
         
         // 🔒 SE BLOQUEADO: Card sem texto no DOM
         if (normalized.__blocked) {
-            console.log('[AI-BASE-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
+            log('[AI-BASE-CARD] 🔒 BLOCKED: Card sem texto (estrutura + placeholder)');
             
             return `
                 <div class="ai-suggestion-card ai-base blocked-card" style="animation-delay: ${index * 0.1}s" data-index="${index}" data-blocked="true">
@@ -2409,7 +2412,7 @@ class AISuggestionUIController {
         }
         
         // ✅ MODO FULL: Renderizar com texto real
-        console.log('[AI-BASE-CARD] ✅ FULL: Renderizando texto completo');
+        log('[AI-BASE-CARD] ✅ FULL: Renderizando texto completo');
         
         const message = suggestion.message || suggestion.title || 'Mensagem não especificada';
         const action = suggestion.action || suggestion.description || 'Ação não especificada';
@@ -2458,11 +2461,11 @@ class AISuggestionUIController {
      */
     displayWaitingForReferenceState() {
         if (!this.elements.aiSection || !this.elements.aiContent) {
-            console.warn('[UI-GUARD] ⚠️ Elementos aiSection/aiContent não encontrados');
+            warn('[UI-GUARD] ⚠️ Elementos aiSection/aiContent não encontrados');
             return;
         }
         
-        console.log('[UI-GUARD] 🎧 Exibindo estado de espera para comparação');
+        log('[UI-GUARD] 🎧 Exibindo estado de espera para comparação');
         
         this.elements.aiSection.style.display = 'block';
         this.elements.aiContent.innerHTML = `
@@ -2517,7 +2520,7 @@ class AISuggestionUIController {
      * �🎨 DEPRECATED: Método antigo mantido para compatibilidade
      */
     displayAISuggestions(suggestions, analysis) {
-        console.warn('[AI-UI] displayAISuggestions() DEPRECATED - use renderAISuggestions()');
+        warn('[AI-UI] displayAISuggestions() DEPRECATED - use renderAISuggestions()');
         this.renderAISuggestions(suggestions);
     }
     
@@ -2525,7 +2528,7 @@ class AISuggestionUIController {
      * 🎨 DEPRECATED: Método antigo mantido para compatibilidade
      */
     displayBaseSuggestions(suggestions, analysis) {
-        console.warn('[AI-UI] displayBaseSuggestions() DEPRECATED - use renderAISuggestions()');
+        warn('[AI-UI] displayBaseSuggestions() DEPRECATED - use renderAISuggestions()');
         this.renderAISuggestions(suggestions);
     }
     
@@ -2533,7 +2536,7 @@ class AISuggestionUIController {
      * 📋 DEPRECATED: Método antigo mantido para compatibilidade
      */
     renderCompactPreview(suggestions, isBaseSuggestions = false) {
-        console.warn('[AI-UI] renderCompactPreview() DEPRECATED - use renderSuggestionCards()');
+        warn('[AI-UI] renderCompactPreview() DEPRECATED - use renderSuggestionCards()');
         this.renderSuggestionCards(suggestions, !isBaseSuggestions);
     }
     
@@ -2596,7 +2599,7 @@ class AISuggestionUIController {
         // Atualizar estatísticas
         this.updateFullModalStats();
         
-        console.log('🖥️ [AI-UI] Modal full aberto');
+        log('🖥️ [AI-UI] Modal full aberto');
     }
     
     /**
@@ -2613,7 +2616,7 @@ class AISuggestionUIController {
         this.isFullModalOpen = false;
         document.body.classList.remove('modal-open');
         
-        console.log('❌ [AI-UI] Modal full fechado');
+        log('❌ [AI-UI] Modal full fechado');
     }
     
     /**
@@ -2645,11 +2648,11 @@ class AISuggestionUIController {
             ? shouldRenderRealValue(metricKey, 'ai-suggestion', analysis)
             : true;
         
-        console.log('[AI-FULL-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
+        log('[AI-FULL-CARD] 🔐 Decision:', { metricKey, canRender, mode: analysis?.analysisMode });
         
         // 🔒 SE BLOQUEADO: Return placeholder SEM acessar ai_blocks
         if (!canRender) {
-            console.log('[AI-FULL-CARD] 🔒 BLOCKED: Placeholder estático');
+            log('[AI-FULL-CARD] 🔒 BLOCKED: Placeholder estático');
             const category = suggestion.ai_category || 'geral';
             const priority = suggestion.ai_priority || 5;
             
@@ -2671,7 +2674,7 @@ class AISuggestionUIController {
         }
         
         // ✅ FULL MODE: Acessa ai_blocks normalmente
-        console.log('[AI-FULL-CARD] ✅ FULL: Texto completo');
+        log('[AI-FULL-CARD] ✅ FULL: Texto completo');
         
         const category = suggestion.ai_category || 'geral';
         const priority = suggestion.ai_priority || 5;
@@ -2759,10 +2762,10 @@ class AISuggestionUIController {
      * 📱 Atualizar status da IA
      */
     updateStatus(type, message) {
-        console.log('[AI-STATUS] Atualizando status:', { type, message });
+        log('[AI-STATUS] Atualizando status:', { type, message });
         
         if (!this.elements.aiStatusBadge) {
-            console.warn('[AI-STATUS] ⚠️ aiStatusBadge não encontrado');
+            warn('[AI-STATUS] ⚠️ aiStatusBadge não encontrado');
             return;
         }
         
@@ -2770,7 +2773,7 @@ class AISuggestionUIController {
         const statusDot = this.elements.aiStatusBadge.querySelector('.ai-status-dot');
         const statusText = this.elements.aiStatusBadge.querySelector('.ai-status-text');
         
-        console.log('[AI-STATUS] Elementos encontrados:', {
+        log('[AI-STATUS] Elementos encontrados:', {
             statusDot: !!statusDot,
             statusText: !!statusText
         });
@@ -2795,7 +2798,7 @@ class AISuggestionUIController {
             statusText.textContent = message;
         }
         
-        console.log('[AI-STATUS] ✅ Status atualizado para:', type);
+        log('[AI-STATUS] ✅ Status atualizado para:', type);
     }
     
     /**
@@ -2820,10 +2823,10 @@ class AISuggestionUIController {
      * 📭 Exibir estado vazio com mensagem amigável
      */
     displayEmptySuggestionsState() {
-        console.log('[AI-SUGGESTIONS] 📭 Exibindo estado vazio com mensagem amigável');
+        log('[AI-SUGGESTIONS] 📭 Exibindo estado vazio com mensagem amigável');
         
         if (!this.elements.aiSection || !this.elements.aiContent) {
-            console.error('[AI-SUGGESTIONS] ❌ Elementos DOM não encontrados para estado vazio');
+            error('[AI-SUGGESTIONS] ❌ Elementos DOM não encontrados para estado vazio');
             return;
         }
         
@@ -2857,7 +2860,7 @@ class AISuggestionUIController {
             </div>
         `;
         
-        console.log('[AI-SUGGESTIONS] ✅ Estado vazio renderizado');
+        log('[AI-SUGGESTIONS] ✅ Estado vazio renderizado');
     }
     
     /**
@@ -2866,7 +2869,7 @@ class AISuggestionUIController {
      */
     showLoadingState(message = 'Aguardando análise da IA...') {
         if (!this.elements.aiSection) {
-            console.warn('[AI-UI] showLoadingState: aiSection não encontrado');
+            warn('[AI-UI] showLoadingState: aiSection não encontrado');
             return;
         }
         
@@ -2956,7 +2959,7 @@ class AISuggestionUIController {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('💾 [AI-UI] Relatório de sugestões IA baixado');
+        log('💾 [AI-UI] Relatório de sugestões IA baixado');
     }
     
     /**
@@ -3019,7 +3022,7 @@ class AISuggestionUIController {
             window.prodAIChatbot.sendMessage(message);
         }
         
-        console.log('💬 [AI-UI] Sugestões enviadas para chat');
+        log('💬 [AI-UI] Sugestões enviadas para chat');
     }
     
     /**
@@ -3036,7 +3039,7 @@ class AISuggestionUIController {
         
         // 🔒 SE BLOQUEADO: Retornar mensagem genérica
         if (isReducedMode) {
-            console.log('[CHAT-SUMMARY] 🔒 BLOCKED: Resumo genérico');
+            log('[CHAT-SUMMARY] 🔒 BLOCKED: Resumo genérico');
             return `Analisei seu áudio e identifiquei ${this.currentSuggestions.length} pontos de melhoria.\n\n🔒 Upgrade para o plano Pro para ver sugestões detalhadas da IA.`;
         }
         
@@ -3145,7 +3148,7 @@ class AISuggestionUIController {
      * 🎯 Atualizar interface com análise (método compatibilidade)
      */
     updateUI(analysis) {
-        console.log('🎯 [AI-UI] updateUI chamado:', {
+        log('🎯 [AI-UI] updateUI chamado:', {
             hasAnalysis: !!analysis,
             suggestionCount: analysis?.suggestions?.length || 0
         });
@@ -3160,7 +3163,7 @@ class AISuggestionUIController {
      * 🎯 Vincular análise (método compatibilidade)
      */
     bindAnalysis(analysis) {
-        console.log('🎯 [AI-UI] bindAnalysis chamado:', {
+        log('🎯 [AI-UI] bindAnalysis chamado:', {
             hasAnalysis: !!analysis,
             analysisKeys: analysis ? Object.keys(analysis) : null
         });
@@ -3179,7 +3182,7 @@ class AISuggestionUIController {
     hideAISection() {
         if (this.elements.aiSection) {
             this.elements.aiSection.style.display = 'none';
-            console.log('🎯 [AI-UI] Seção IA ocultada');
+            log('🎯 [AI-UI] Seção IA ocultada');
         }
     }
 
@@ -3188,7 +3191,7 @@ class AISuggestionUIController {
      * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
      */
     renderMetricCards(payload) {
-        console.log('[AUDITORIA] ✅ renderMetricCards chamado com payload:', {
+        log('[AUDITORIA] ✅ renderMetricCards chamado com payload:', {
             mode: payload?.mode,
             hasUser: !!payload?.user,
             hasReference: !!payload?.reference,
@@ -3201,7 +3204,7 @@ class AISuggestionUIController {
         // TODO: Implementar renderização real dos cards de métricas
         
         if (!payload) {
-            console.warn('[AI-UI] renderMetricCards: payload vazio');
+            warn('[AI-UI] renderMetricCards: payload vazio');
             return;
         }
 
@@ -3216,7 +3219,7 @@ class AISuggestionUIController {
             };
         }
 
-        console.log('[AI-UI] renderMetricCards: Dados armazenados em window.currentModalAnalysis');
+        log('[AI-UI] renderMetricCards: Dados armazenados em window.currentModalAnalysis');
     }
 
     /**
@@ -3224,7 +3227,7 @@ class AISuggestionUIController {
      * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
      */
     renderScoreSection(payload) {
-        console.log('[AUDITORIA] ✅ renderScoreSection chamado com payload:', {
+        log('[AUDITORIA] ✅ renderScoreSection chamado com payload:', {
             mode: payload?.mode,
             hasUser: !!payload?.user,
             hasReference: !!payload?.reference
@@ -3235,11 +3238,11 @@ class AISuggestionUIController {
         // TODO: Implementar renderização real da seção de score
         
         if (!payload) {
-            console.warn('[AI-UI] renderScoreSection: payload vazio');
+            warn('[AI-UI] renderScoreSection: payload vazio');
             return;
         }
 
-        console.log('[AI-UI] renderScoreSection: Score calculado e pronto para renderização');
+        log('[AI-UI] renderScoreSection: Score calculado e pronto para renderização');
     }
 
     /**
@@ -3247,7 +3250,7 @@ class AISuggestionUIController {
      * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
      */
     renderSuggestions(payload) {
-        console.log('[AUDITORIA] ✅ renderSuggestions chamado com payload:', {
+        log('[AUDITORIA] ✅ renderSuggestions chamado com payload:', {
             mode: payload?.mode,
             hasUser: !!payload?.user,
             hasReference: !!payload?.reference,
@@ -3259,7 +3262,7 @@ class AISuggestionUIController {
         // Delega para checkForAISuggestions se houver sugestões
         
         if (!payload || !payload.user) {
-            console.warn('[AI-UI] renderSuggestions: payload ou user vazio');
+            warn('[AI-UI] renderSuggestions: payload ou user vazio');
             return;
         }
 
@@ -3268,7 +3271,7 @@ class AISuggestionUIController {
         const hasGenreTargets = !!(payload.targets || payload.user.data?.genreTargets);
         
         if (mode === 'genre' && hasGenreTargets) {
-            console.log('[AI-UI] 🎯 Modo GÊNERO detectado com targets:', {
+            log('[AI-UI] 🎯 Modo GÊNERO detectado com targets:', {
                 mode,
                 hasTargets: hasGenreTargets,
                 targetsKeys: payload.targets ? Object.keys(payload.targets) : 
@@ -3278,16 +3281,16 @@ class AISuggestionUIController {
             // Armazenar targets no payload do usuário para uso futuro
             payload.user.__genreTargets = payload.targets || payload.user.data?.genreTargets;
         } else if (mode === 'genre' && !hasGenreTargets) {
-            console.warn('[AI-UI] ⚠️ Modo GÊNERO sem targets - validação de comparação DESABILITADA');
-            console.warn('[AI-UI] ✅ Sugestões e métricas serão exibidas normalmente');
+            warn('[AI-UI] ⚠️ Modo GÊNERO sem targets - validação de comparação DESABILITADA');
+            warn('[AI-UI] ✅ Sugestões e métricas serão exibidas normalmente');
         }
 
         // Verificar se há sugestões para exibir
         if (payload.user.suggestions && payload.user.suggestions.length > 0) {
-            console.log('[AI-UI] renderSuggestions: Delegando para checkForAISuggestions');
+            log('[AI-UI] renderSuggestions: Delegando para checkForAISuggestions');
             this.checkForAISuggestions(payload.user);
         } else {
-            console.log('[AI-UI] renderSuggestions: Nenhuma sugestão disponível');
+            log('[AI-UI] renderSuggestions: Nenhuma sugestão disponível');
             this.hideAISection();
         }
     }
@@ -3297,7 +3300,7 @@ class AISuggestionUIController {
      * @param {Object} payload - { mode: 'single'|'reference', user: analysis, reference?: analysis }
      */
     renderFinalScoreAtTop(payload) {
-        console.log('[AUDITORIA] ✅ renderFinalScoreAtTop chamado com payload:', {
+        log('[AUDITORIA] ✅ renderFinalScoreAtTop chamado com payload:', {
             mode: payload?.mode,
             hasUser: !!payload?.user,
             hasReference: !!payload?.reference,
@@ -3309,12 +3312,12 @@ class AISuggestionUIController {
         // TODO: Implementar renderização real do score no topo
         
         if (!payload || !payload.user) {
-            console.warn('[AI-UI] renderFinalScoreAtTop: payload ou user vazio');
+            warn('[AI-UI] renderFinalScoreAtTop: payload ou user vazio');
             return;
         }
 
         const score = payload.user.score || payload.user.finalScore || 0;
-        console.log('[AI-UI] renderFinalScoreAtTop: Score final =', score);
+        log('[AI-UI] renderFinalScoreAtTop: Score final =', score);
     }
 }
 
@@ -3378,12 +3381,12 @@ window.showAIQuickConfig = function() {
         if (typeof window.aiSuggestionLayer !== 'undefined' || document.readyState === 'complete') {
             if (!window.aiUIController) {
                 window.aiUIController = new AISuggestionUIController();
-                console.log('🎨 [AI-UI] Sistema de interface inicializado globalmente');
+                log('🎨 [AI-UI] Sistema de interface inicializado globalmente');
                 
                 // ========================================
                 // ✅ AUDITORIA COMPLETA DE FUNÇÕES
                 // ========================================
-                console.log('[AUDITORIA] Controlador principal de UI detectado em: ai-suggestion-ui-controller.js');
+                log('[AUDITORIA] Controlador principal de UI detectado em: ai-suggestion-ui-controller.js');
                 
                 const requiredFunctions = [
                     'renderMetricCards',
@@ -3398,10 +3401,10 @@ window.showAIQuickConfig = function() {
                 );
                 
                 if (missingFunctions.length === 0) {
-                    console.log('[COMPAT] ✅ Todas as funções esperadas estão presentes:', requiredFunctions);
-                    console.log('[COMPAT] aiUIController pronto para uso sem gambiarra');
+                    log('[COMPAT] ✅ Todas as funções esperadas estão presentes:', requiredFunctions);
+                    log('[COMPAT] aiUIController pronto para uso sem gambiarra');
                 } else {
-                    console.error('[COMPAT-VERIFY] ❌ Funções ausentes no controlador de UI:', missingFunctions);
+                    error('[COMPAT-VERIFY] ❌ Funções ausentes no controlador de UI:', missingFunctions);
                 }
             }
         } else {
@@ -3425,29 +3428,29 @@ window.showAIQuickConfig = function() {
     try {
         if (typeof window.aiUIController === 'undefined') {
             window.aiUIController = {
-                renderMetricCards: () => console.log('[SAFE] renderMetricCards placeholder'),
-                renderScoreSection: () => console.log('[SAFE] renderScoreSection placeholder'),
-                renderSuggestions: () => console.log('[SAFE] renderSuggestions placeholder'),
-                renderFinalScoreAtTop: () => console.log('[SAFE] renderFinalScoreAtTop placeholder'),
-                checkForAISuggestions: () => console.log('[SAFE] checkForAISuggestions placeholder'),
+                renderMetricCards: () => log('[SAFE] renderMetricCards placeholder'),
+                renderScoreSection: () => log('[SAFE] renderScoreSection placeholder'),
+                renderSuggestions: () => log('[SAFE] renderSuggestions placeholder'),
+                renderFinalScoreAtTop: () => log('[SAFE] renderFinalScoreAtTop placeholder'),
+                checkForAISuggestions: () => log('[SAFE] checkForAISuggestions placeholder'),
                 __ready: true
             };
-            console.warn('[SAFE-REGISTER] aiUIController não inicializado pelo módulo principal — fallback ativado.');
+            warn('[SAFE-REGISTER] aiUIController não inicializado pelo módulo principal — fallback ativado.');
         } else {
             window.aiUIController.__ready = true;
-            console.log('[SAFE-REGISTER] ✅ aiUIController pronto.');
+            log('[SAFE-REGISTER] ✅ aiUIController pronto.');
         }
     } catch (error) {
-        console.error('[ERROR] ❌ Falha ao inicializar aiUIController:', error);
-        console.error('[ERROR] Stack trace:', error.stack);
+        error('[ERROR] ❌ Falha ao inicializar aiUIController:', error);
+        error('[ERROR] Stack trace:', error.stack);
         
         // Criar fallback de emergência mesmo com erro
         window.aiUIController = {
-            renderMetricCards: () => console.error('[EMERGENCY] renderMetricCards - sistema falhou'),
-            renderScoreSection: () => console.error('[EMERGENCY] renderScoreSection - sistema falhou'),
-            renderSuggestions: () => console.error('[EMERGENCY] renderSuggestions - sistema falhou'),
-            renderFinalScoreAtTop: () => console.error('[EMERGENCY] renderFinalScoreAtTop - sistema falhou'),
-            checkForAISuggestions: () => console.error('[EMERGENCY] checkForAISuggestions - sistema falhou'),
+            renderMetricCards: () => error('[EMERGENCY] renderMetricCards - sistema falhou'),
+            renderScoreSection: () => error('[EMERGENCY] renderScoreSection - sistema falhou'),
+            renderSuggestions: () => error('[EMERGENCY] renderSuggestions - sistema falhou'),
+            renderFinalScoreAtTop: () => error('[EMERGENCY] renderFinalScoreAtTop - sistema falhou'),
+            checkForAISuggestions: () => error('[EMERGENCY] checkForAISuggestions - sistema falhou'),
             __ready: false,
             __error: error
         };

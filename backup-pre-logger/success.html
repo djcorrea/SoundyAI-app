@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagamento Confirmado - SoundyAI</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        /* Background Effects */
+        .background-effects {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            top: -100px;
+            left: -100px;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: -4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* Container */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 500px;
+            width: 90%;
+            padding: 40px;
+        }
+
+        /* Card */
+        .success-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 48px 40px;
+            text-align: center;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Success Icon */
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s ease-in-out infinite;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(0, 255, 136, 0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 0 60px rgba(0, 255, 136, 0.5); }
+        }
+
+        .success-icon svg {
+            width: 50px;
+            height: 50px;
+            stroke: #0a0a0f;
+            stroke-width: 3;
+            fill: none;
+        }
+
+        /* Typography */
+        .success-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #00ff88, #00cc66);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        /* Status */
+        .status-container {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 32px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .status-row:not(:last-child) {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .status-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #00ff88;
+        }
+
+        .status-value.loading {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #00ff88;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Button */
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px 32px;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #0a0a0f;
+            background: linear-gradient(90deg, #00ff88, #00cc66);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Messages */
+        .message {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.info {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            display: block;
+        }
+
+        .message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            display: block;
+        }
+
+        /* Footer */
+        .footer-text {
+            margin-top: 24px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .footer-text a {
+            color: #00ff88;
+            text-decoration: none;
+        }
+
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="background-effects">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+
+    <div class="container">
+        <div class="success-card">
+            <!-- Success Icon -->
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+
+            <h1 class="success-title">Pagamento Confirmado!</h1>
+            <p class="success-subtitle">
+                Seu pagamento foi processado com sucesso.<br>
+                Estamos ativando seu plano...
+            </p>
+
+            <!-- Status Container -->
+            <div class="status-container">
+                <div class="status-row">
+                    <span class="status-label">Plano</span>
+                    <span class="status-value" id="plan-name">
+                        <span class="spinner"></span>Verificando...
+                    </span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Status</span>
+                    <span class="status-value loading" id="plan-status">
+                        <span class="spinner"></span>Atualizando...
+                    </span>
+                </div>
+            </div>
+
+            <!-- Message Area -->
+            <div class="message" id="message"></div>
+
+            <!-- CTA Button -->
+            <a href="/index.html" class="btn-primary" id="cta-button">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Ir para o App
+            </a>
+
+            <p class="footer-text">
+                Dúvidas? <a href="/suporte.html">Entre em contato</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { auth, db } from './firebase.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+        import { doc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+
+        console.log('🎉 [SUCCESS] Página de sucesso carregada');
+
+        // Elements
+        const planNameEl = document.getElementById('plan-name');
+        const planStatusEl = document.getElementById('plan-status');
+        const messageEl = document.getElementById('message');
+        const ctaButton = document.getElementById('cta-button');
+
+        // Get session_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+
+        console.log('📋 [SUCCESS] Session ID:', sessionId);
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+        }
+
+        // Update plan display
+        function updatePlanDisplay(plan, status) {
+            const planNames = {
+                'plus': 'SoundyAI Plus',
+                'pro': 'SoundyAI Pro',
+                'free': 'Gratuito'
+            };
+
+            const statusNames = {
+                'active': '✅ Ativo',
+                'past_due': '⚠️ Pagamento Pendente',
+                'canceled': '🚫 Cancelado',
+                'incomplete': '⏳ Processando...'
+            };
+
+            planNameEl.innerHTML = planNames[plan] || plan || 'Verificando...';
+            planStatusEl.innerHTML = statusNames[status] || status || 'Atualizando...';
+            planStatusEl.classList.remove('loading');
+        }
+
+        // Listen for auth state
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                console.log('❌ [SUCCESS] Usuário não autenticado');
+                showMessage('Você precisa estar logado para verificar seu plano.', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login.html';
+                }, 3000);
+                return;
+            }
+
+            console.log('✅ [SUCCESS] Usuário autenticado:', user.uid);
+
+            // ⚠️ IMPORTANTE: NÃO liberar plano aqui!
+            // A liberação acontece APENAS via webhook do Stripe
+            // Aqui apenas mostramos o status atual do Firestore
+
+            const userRef = doc(db, 'usuarios', user.uid);
+
+            // Escutar mudanças em tempo real (para quando webhook atualizar)
+            const unsubscribe = onSnapshot(userRef, (docSnap) => {
+                if (!docSnap.exists()) {
+                    console.log('⏳ [SUCCESS] Documento não encontrado, aguardando...');
+                    return;
+                }
+
+                const data = docSnap.data();
+                console.log('📊 [SUCCESS] Dados do usuário:', data);
+
+                const plan = data.plan || 'free';
+                const subscription = data.subscription || {};
+                const status = subscription.status || (plan !== 'free' ? 'active' : null);
+
+                updatePlanDisplay(plan, status);
+
+                // Se plano foi ativado (não é free)
+                if (plan !== 'free' && (status === 'active' || !status)) {
+                    showMessage('🎉 Seu plano foi ativado com sucesso! Você já pode aproveitar todos os recursos.', 'info');
+                    
+                    // Parar de escutar após confirmar ativação
+                    setTimeout(() => {
+                        unsubscribe();
+                    }, 2000);
+                } else if (status === 'past_due') {
+                    showMessage('⚠️ Há um problema com seu pagamento. Por favor, atualize seus dados de pagamento.', 'error');
+                } else if (plan === 'free') {
+                    // Ainda processando - webhook ainda não chegou
+                    console.log('⏳ [SUCCESS] Aguardando webhook processar...');
+                }
+            }, (error) => {
+                console.error('❌ [SUCCESS] Erro ao escutar documento:', error);
+                showMessage('Erro ao verificar status. Tente novamente em alguns segundos.', 'error');
+            });
+
+            // Timeout de segurança - se após 30s ainda não atualizou
+            setTimeout(() => {
+                unsubscribe();
+                const currentPlan = planNameEl.textContent;
+                if (currentPlan.includes('Verificando')) {
+                    showMessage('O pagamento está sendo processado. Seu plano será atualizado em breve. Você pode continuar usando o app.', 'info');
+                    updatePlanDisplay('processando', 'incomplete');
+                }
+            }, 30000);
+        });
+
+        // Track page view
+        console.log('📈 [SUCCESS] Evento de conversão - session:', sessionId);
+    </script>
+</body>
+</html>

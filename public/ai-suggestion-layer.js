@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🤖 AI SUGGESTION LAYER - Camada Inteligente de Sugestões SoundyAI
 // Sistema de pós-processamento que enriquece sugestões existentes com IA
 // SEGURANÇA: Nunca substitui o sistema atual - apenas enriquece
@@ -25,7 +28,7 @@ class AISuggestionLayer {
             averageResponseTime: 0
         };
         
-        console.log('🤖 [AI-LAYER] Sistema de IA inicializado - Modo: ' + this.model);
+        log('🤖 [AI-LAYER] Sistema de IA inicializado - Modo: ' + this.model);
         
         // Auto-configurar API key se disponível
         this.autoConfigureApiKey();
@@ -36,17 +39,17 @@ class AISuggestionLayer {
      * Prioridade: 1) Backend (Railway) > 2) Variável global > 3) localStorage
      */
     async autoConfigureApiKey() {
-        console.log('🔍 [AI-LAYER] Iniciando auto-configuração da API Key...');
+        log('🔍 [AI-LAYER] Iniciando auto-configuração da API Key...');
         
         // 🎯 PRIORIDADE 1: Buscar do backend (Railway OPENAI_API_KEY)
         try {
-            console.log('🌐 [AI-LAYER] Tentando buscar do backend /api/config...');
+            log('🌐 [AI-LAYER] Tentando buscar do backend /api/config...');
             const response = await fetch('/api/config');
-            console.log(`📡 [AI-LAYER] Response status: ${response.status}`);
+            log(`📡 [AI-LAYER] Response status: ${response.status}`);
             
             if (response.ok) {
                 const config = await response.json();
-                console.log('📦 [AI-LAYER] Config recebida:', { 
+                log('📦 [AI-LAYER] Config recebida:', { 
                     configured: config.configured, 
                     hasKey: !!config.openaiApiKey,
                     keyPreview: config.openaiApiKey ? config.openaiApiKey.substring(0, 10) + '...' : 'N/A'
@@ -54,22 +57,22 @@ class AISuggestionLayer {
                 
                 if (config.openaiApiKey && config.openaiApiKey !== 'not-configured') {
                     this.apiKey = config.openaiApiKey;
-                    console.log('🔑 [AI-LAYER] ✅ API Key carregada do backend (Railway)');
+                    log('🔑 [AI-LAYER] ✅ API Key carregada do backend (Railway)');
                     return;
                 } else {
-                    console.warn('⚠️ [AI-LAYER] Backend retornou "not-configured"');
+                    warn('⚠️ [AI-LAYER] Backend retornou "not-configured"');
                 }
             }
         } catch (error) {
-            console.error('❌ [AI-LAYER] Erro ao buscar do backend:', error.message);
-            console.log('⚠️ [AI-LAYER] Tentando fallbacks...');
+            error('❌ [AI-LAYER] Erro ao buscar do backend:', error.message);
+            log('⚠️ [AI-LAYER] Tentando fallbacks...');
         }
         
         // 🎯 PRIORIDADE 2: Variável global window.OPENAI_API_KEY
         const globalKey = (typeof window !== 'undefined' && (window.OPENAI_API_KEY || window.AI_API_KEY)) || null;
         if (globalKey) {
             this.apiKey = globalKey;
-            console.log('🔑 [AI-LAYER] API Key encontrada em window.OPENAI_API_KEY');
+            log('🔑 [AI-LAYER] API Key encontrada em window.OPENAI_API_KEY');
             return;
         }
         
@@ -77,12 +80,12 @@ class AISuggestionLayer {
         const storedKey = (typeof localStorage !== 'undefined' && localStorage.getItem('soundyai_openai_key')) || null;
         if (storedKey) {
             this.apiKey = storedKey;
-            console.log('🔑 [AI-LAYER] API Key encontrada no localStorage');
+            log('🔑 [AI-LAYER] API Key encontrada no localStorage');
             return;
         }
         
-        console.warn('⚠️ [AI-LAYER] API Key NÃO configurada');
-        console.log('💡 [AI-LAYER] Configure via: configureAI("sua-api-key") ou OPENAI_API_KEY no Railway');
+        warn('⚠️ [AI-LAYER] API Key NÃO configurada');
+        log('💡 [AI-LAYER] Configure via: configureAI("sua-api-key") ou OPENAI_API_KEY no Railway');
     }
     
     /**
@@ -96,7 +99,7 @@ class AISuggestionLayer {
         localStorage.setItem('soundyai_openai_key', key);
         localStorage.setItem('soundyai_ai_model', model);
         
-        console.log(`🔑 [AI-LAYER] API Key configurada - Modelo: ${model}`);
+        log(`🔑 [AI-LAYER] API Key configurada - Modelo: ${model}`);
     }
     
     /**
@@ -108,7 +111,7 @@ class AISuggestionLayer {
         // Salvar no localStorage para persistência
         localStorage.setItem('soundyai_ai_model', this.model);
         
-        console.log(`🤖 [AI-LAYER] Modelo atualizado: ${this.model}`);
+        log(`🤖 [AI-LAYER] Modelo atualizado: ${this.model}`);
         return this;
     }
     
@@ -122,18 +125,18 @@ class AISuggestionLayer {
         try {
             // 🔑 GARANTIR que a API Key foi carregada (aguardar se necessário)
             if (!this.apiKey || this.apiKey === 'demo-mode') {
-                console.log('🔄 [AI-LAYER] Tentando carregar API Key...');
+                log('🔄 [AI-LAYER] Tentando carregar API Key...');
                 await this.autoConfigureApiKey();
             }
             
             // Validações iniciais
             if (!this.apiKey || this.apiKey === 'demo-mode') {
-                console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
+                warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
                 return existingSuggestions;
             }
             
             if (!existingSuggestions || existingSuggestions.length === 0) {
-                console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
+                warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
                 return existingSuggestions;
             }
             
@@ -142,7 +145,7 @@ class AISuggestionLayer {
             const cached = this.getFromCache(cacheKey);
             if (cached) {
                 this.stats.cacheHits++;
-                console.log('💾 [AI-LAYER] Resultado encontrado no cache');
+                log('💾 [AI-LAYER] Resultado encontrado no cache');
                 return cached;
             }
             
@@ -166,17 +169,17 @@ class AISuggestionLayer {
             const responseTime = performance.now() - startTime;
             this.updateAverageResponseTime(responseTime);
             
-            console.log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
-            console.log(`📊 [AI-LAYER] ${existingSuggestions.length} → ${enhancedSuggestions.length} sugestões`);
+            log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
+            log(`📊 [AI-LAYER] ${existingSuggestions.length} → ${enhancedSuggestions.length} sugestões`);
             
             return enhancedSuggestions;
             
         } catch (error) {
             this.stats.failedRequests++;
-            console.error('❌ [AI-LAYER] Erro no processamento:', error);
+            error('❌ [AI-LAYER] Erro no processamento:', error);
             
             // FALLBACK CRÍTICO: Sempre retornar sugestões originais em caso de erro
-            console.log('🛡️ [AI-LAYER] Usando fallback - sugestões originais mantidas');
+            log('🛡️ [AI-LAYER] Usando fallback - sugestões originais mantidas');
             return existingSuggestions;
         }
     }
@@ -450,7 +453,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
             return processed;
             
         } catch (error) {
-            console.error('❌ [AI-LAYER] Erro ao processar resposta da IA:', error);
+            error('❌ [AI-LAYER] Erro ao processar resposta da IA:', error);
             // Fallback: retornar sugestões originais
             return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
         }
@@ -539,7 +542,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
      */
     cleanup() {
         this.cache.clear();
-        console.log('🧹 [AI-LAYER] Cache limpo');
+        log('🧹 [AI-LAYER] Cache limpo');
     }
 }
 
@@ -559,13 +562,13 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     window.configureAI = function(apiKey, model = 'gpt-3.5-turbo') {
         window.aiSuggestionLayer.setApiKey(apiKey, model);
         window.AI_SUGGESTION_LAYER_ENABLED = true;
-        console.log('🤖 [AI-LAYER] Configuração concluída!');
+        log('🤖 [AI-LAYER] Configuração concluída!');
     };
     
     // Função para alternar IA
     window.toggleAI = function(enabled = null) {
         window.AI_SUGGESTION_LAYER_ENABLED = enabled !== null ? enabled : !window.AI_SUGGESTION_LAYER_ENABLED;
-        console.log(`🤖 [AI-LAYER] ${window.AI_SUGGESTION_LAYER_ENABLED ? 'ATIVADA' : 'DESATIVADA'}`);
+        log(`🤖 [AI-LAYER] ${window.AI_SUGGESTION_LAYER_ENABLED ? 'ATIVADA' : 'DESATIVADA'}`);
         return window.AI_SUGGESTION_LAYER_ENABLED;
     };
     
@@ -575,9 +578,9 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     };
     
     // Logs de inicialização
-    console.log('🤖 [AI-LAYER] Sistema carregado com sucesso');
-    console.log('🔧 [AI-LAYER] Use configureAI("sua-api-key") para configurar');
-    console.log('⚡ [AI-LAYER] Use toggleAI() para ativar/desativar');
-    console.log('📊 [AI-LAYER] Use getAIStats() para ver estatísticas');
+    log('🤖 [AI-LAYER] Sistema carregado com sucesso');
+    log('🔧 [AI-LAYER] Use configureAI("sua-api-key") para configurar');
+    log('⚡ [AI-LAYER] Use toggleAI() para ativar/desativar');
+    log('📊 [AI-LAYER] Use getAIStats() para ver estatísticas');
     
 })();

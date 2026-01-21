@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔥 SOUNDYAI - DEMO GUARDS
  * 
@@ -18,7 +21,7 @@
 
     // Aguardar demo-core.js carregar
     if (!window.SoundyDemo) {
-        console.error('❌ [DEMO-GUARDS] demo-core.js não carregado!');
+        error('❌ [DEMO-GUARDS] demo-core.js não carregado!');
         return;
     }
 
@@ -45,7 +48,7 @@
         
         // 🔴 VERIFICAR BLOQUEIO TOTAL PRIMEIRO
         if (data.blocked) {
-            console.log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
+            log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
             return { allowed: false, remaining: 0, reason: data.blockReason || 'blocked' };
         }
         
@@ -74,7 +77,7 @@
         
         // 🔴 VERIFICAR BLOQUEIO TOTAL PRIMEIRO
         if (data.blocked) {
-            console.log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
+            log('🚫 [DEMO-GUARDS] Usuário já bloqueado:', data.blockReason);
             return { allowed: false, remaining: 0, reason: data.blockReason || 'blocked' };
         }
         
@@ -107,7 +110,7 @@
         
         // Incrementar contador local
         data.analyses_used++;
-        console.log(`📊 [DEMO-GUARDS] Análise registrada: ${data.analyses_used}/${CONFIG.limits.maxAnalyses}`);
+        log(`📊 [DEMO-GUARDS] Análise registrada: ${data.analyses_used}/${CONFIG.limits.maxAnalyses}`);
         
         // Salvar localmente
         await DEMO._saveDemoData(data);
@@ -117,12 +120,12 @@
         try {
             backendResult = await DEMO._registerBackend('analysis');
         } catch (e) {
-            console.warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
+            warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
         }
         
         // 🔥 MOSTRAR CTA APÓS ANÁLISE COMPLETAR
         if (data.analyses_used >= CONFIG.limits.maxAnalyses) {
-            console.log('🚫 [DEMO-GUARDS] Limite de análises atingido - mostrando CTA');
+            log('🚫 [DEMO-GUARDS] Limite de análises atingido - mostrando CTA');
             // Aguardar um pouco para o resultado da análise aparecer, depois mostrar CTA
             setTimeout(() => {
                 DEMO.showConversionModal('analysis_complete');
@@ -148,7 +151,7 @@
         
         // Incrementar contador local
         data.messages_used++;
-        console.log(`💬 [DEMO-GUARDS] Mensagem registrada: ${data.messages_used}/${CONFIG.limits.maxMessages}`);
+        log(`💬 [DEMO-GUARDS] Mensagem registrada: ${data.messages_used}/${CONFIG.limits.maxMessages}`);
         
         // Salvar localmente
         await DEMO._saveDemoData(data);
@@ -158,12 +161,12 @@
         try {
             backendResult = await DEMO._registerBackend('message');
         } catch (e) {
-            console.warn('⚠️ [DEMO-GUARDS] Falha ao registrar mensagem no backend:', e.message);
+            warn('⚠️ [DEMO-GUARDS] Falha ao registrar mensagem no backend:', e.message);
         }
         
         // Log de limite atingido
         if (data.messages_used >= CONFIG.limits.maxMessages) {
-            console.log('🚫 [DEMO-GUARDS] Limite de mensagens atingido');
+            log('🚫 [DEMO-GUARDS] Limite de mensagens atingido');
         }
         
         return { success: true, backendResult };
@@ -186,7 +189,7 @@
         const localCheck = DEMO.canAnalyze();
         
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
+            log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
             DEMO.showConversionModal('analysis_limit');
             return false;
         }
@@ -196,7 +199,7 @@
         if (typeof DEMO.checkBackendPermission === 'function') {
             DEMO.checkBackendPermission().then(result => {
                 if (!result.allowed) {
-                    console.log('🚫 [DEMO-GUARDS] Backend bloqueou async:', result.reason);
+                    log('🚫 [DEMO-GUARDS] Backend bloqueou async:', result.reason);
                     // Sincronizar estado local
                     if (DEMO.data) {
                         DEMO.data.blocked = true;
@@ -223,7 +226,7 @@
         // 1. Verificar bloqueio local primeiro (rápido)
         const localCheck = DEMO.canAnalyze();
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
+            log('🚫 [DEMO-GUARDS] Análise bloqueada localmente:', localCheck.reason);
             DEMO.showConversionModal('analysis_limit');
             return false;
         }
@@ -233,7 +236,7 @@
             const backendCheck = await DEMO.checkBackendPermission();
             
             if (!backendCheck.allowed) {
-                console.log('🚫 [DEMO-GUARDS] Análise bloqueada pelo BACKEND:', backendCheck.reason);
+                log('🚫 [DEMO-GUARDS] Análise bloqueada pelo BACKEND:', backendCheck.reason);
                 
                 // Sincronizar estado local
                 if (DEMO.data) {
@@ -246,11 +249,11 @@
                 return false;
             }
             
-            console.log('✅ [DEMO-GUARDS] Análise permitida pelo backend');
+            log('✅ [DEMO-GUARDS] Análise permitida pelo backend');
             return true;
             
         } catch (error) {
-            console.warn('⚠️ [DEMO-GUARDS] Erro na verificação backend:', error.message);
+            warn('⚠️ [DEMO-GUARDS] Erro na verificação backend:', error.message);
             // Fail-open: Se backend falhar, usar verificação local
             return localCheck.allowed;
         }
@@ -268,7 +271,7 @@
         const localCheck = DEMO.canSendMessage();
         
         if (!localCheck.allowed) {
-            console.log('🚫 [DEMO-GUARDS] Mensagem bloqueada:', localCheck.reason);
+            log('🚫 [DEMO-GUARDS] Mensagem bloqueada:', localCheck.reason);
             DEMO.showConversionModal('chat_limit');
             return false;
         }
@@ -277,7 +280,7 @@
         DEMO.validateBackend('check').then(result => {
             if (result.backendAuthoritative && 
                 result.permissions?.canMessage === false) {
-                console.log('🚫 [DEMO-GUARDS] Backend bloqueou - forçando modal');
+                log('🚫 [DEMO-GUARDS] Backend bloqueou - forçando modal');
                 DEMO.showConversionModal('chat_limit');
             }
         }).catch(() => {});
@@ -299,7 +302,7 @@
         
         const reason = options.reason || 'forced_block';
         
-        console.log('🚫 [DEMO-GUARDS] Bloqueio forçado PERMANENTE:', reason);
+        log('🚫 [DEMO-GUARDS] Bloqueio forçado PERMANENTE:', reason);
         
         const data = DEMO.data;
         if (data) {
@@ -310,7 +313,7 @@
             
             // Salvar estado
             await DEMO._saveDemoData(data);
-            console.log('💾 [DEMO-GUARDS] Estado de bloqueio salvo');
+            log('💾 [DEMO-GUARDS] Estado de bloqueio salvo');
         }
         
         // Mostrar modal de conversão
@@ -333,20 +336,20 @@
         
         // Só processar se foi sucesso
         if (!detail.success) {
-            console.log('⚠️ [DEMO-GUARDS] Análise não teve sucesso, ignorando');
+            log('⚠️ [DEMO-GUARDS] Análise não teve sucesso, ignorando');
             return;
         }
         
-        console.log('🎯 [DEMO-GUARDS] audio-analysis-finished recebido');
+        log('🎯 [DEMO-GUARDS] audio-analysis-finished recebido');
         
         // Verificar se bloqueio já foi aplicado (pelo displayModalResults)
         if (DEMO.data?.blocked) {
-            console.log('✅ [DEMO-GUARDS] Bloqueio já aplicado pelo displayModalResults');
+            log('✅ [DEMO-GUARDS] Bloqueio já aplicado pelo displayModalResults');
             return;
         }
         
         // FALLBACK: Se bloqueio não foi aplicado, aplicar agora
-        console.log('⚠️ [DEMO-GUARDS] FALLBACK: Aplicando bloqueio tardio...');
+        log('⚠️ [DEMO-GUARDS] FALLBACK: Aplicando bloqueio tardio...');
         await DEMO.registerAnalysis();
         
         if (DEMO.data) {
@@ -354,7 +357,7 @@
             DEMO.data.blockReason = 'analysis_completed_fallback';
             DEMO.data.blocked_at = new Date().toISOString();
             await DEMO._saveDemoData(DEMO.data);
-            console.log('💾 [DEMO-GUARDS] Bloqueio FALLBACK aplicado');
+            log('💾 [DEMO-GUARDS] Bloqueio FALLBACK aplicado');
         }
     });
 
@@ -371,7 +374,7 @@
     function setupDemoUIRestrictions() {
         if (!DEMO.isActive) return;
         
-        console.log('🔒 [DEMO-GUARDS] Configurando restrições de UI...');
+        log('🔒 [DEMO-GUARDS] Configurando restrições de UI...');
         
         // 0. ADICIONAR CLASSE AO BODY PRIMEIRO
         document.body.classList.add('demo-mode-active');
@@ -391,7 +394,7 @@
         // 5. BLOQUEAR CLIQUE FORA DO MODAL
         blockOutsideClick();
         
-        console.log('✅ [DEMO-GUARDS] Restrições de UI configuradas');
+        log('✅ [DEMO-GUARDS] Restrições de UI configuradas');
     }
     
     /**
@@ -442,7 +445,7 @@
         
         if (!document.getElementById('demo-hide-chat')) {
             document.head.appendChild(style);
-            console.log('🔒 [DEMO-GUARDS] Chatbot escondido');
+            log('🔒 [DEMO-GUARDS] Chatbot escondido');
         }
     }
     
@@ -475,7 +478,7 @@
         
         if (!document.getElementById('demo-hide-close-buttons')) {
             document.head.appendChild(style);
-            console.log('🔒 [DEMO-GUARDS] Botões X de fechar escondidos');
+            log('🔒 [DEMO-GUARDS] Botões X de fechar escondidos');
         }
         
         // Adicionar classe ao body
@@ -507,7 +510,7 @@
                 if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
                     return originalCloseWelcomeModal.apply(this, arguments);
                 }
-                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de boas-vindas');
+                log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de boas-vindas');
                 return; // Não fecha
             };
         }
@@ -515,7 +518,7 @@
         // 🔥 Interceptar proceedToAnalysis para permitir fechamento
         if (typeof originalProceedToAnalysis === 'function') {
             window.proceedToAnalysis = function() {
-                console.log('✅ [DEMO-GUARDS] Prosseguindo para análise - permitindo fechar welcome');
+                log('✅ [DEMO-GUARDS] Prosseguindo para análise - permitindo fechar welcome');
                 window.__demoAllowModalClose__ = true;
                 const result = originalProceedToAnalysis.apply(this, arguments);
                 // Reset flag após pequeno delay
@@ -527,7 +530,7 @@
         // 🔥 Interceptar selectSoundDestination para permitir fechamento após seleção
         if (typeof originalSelectSoundDestination === 'function') {
             window.selectSoundDestination = function(mode) {
-                console.log('✅ [DEMO-GUARDS] Seleção de destino permitida:', mode);
+                log('✅ [DEMO-GUARDS] Seleção de destino permitida:', mode);
                 window.__demoAllowModalClose__ = true;
                 const result = originalSelectSoundDestination.apply(this, arguments);
                 // Reset flag após pequeno delay
@@ -539,7 +542,7 @@
         // 🔥 Interceptar applyGenreSelection para permitir fechamento após seleção
         if (typeof originalApplyGenreSelection === 'function') {
             window.applyGenreSelection = function() {
-                console.log('✅ [DEMO-GUARDS] Seleção de gênero permitida');
+                log('✅ [DEMO-GUARDS] Seleção de gênero permitida');
                 window.__demoAllowModalClose__ = true;
                 const result = originalApplyGenreSelection.apply(this, arguments);
                 // Reset flag após pequeno delay
@@ -555,7 +558,7 @@
                 if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
                     return originalCloseModeSelection.apply(this, arguments);
                 }
-                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de seleção de modo');
+                log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de seleção de modo');
                 return; // Não fecha
             };
         }
@@ -567,7 +570,7 @@
                 if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
                     return originalCloseGenreModal.apply(this, arguments);
                 }
-                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de gênero');
+                log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de gênero');
                 return; // Não fecha
             };
         }
@@ -579,12 +582,12 @@
                 if (window.__demoAllowModalClose__ || DEMO.data?.blocked || !DEMO.isActive) {
                     return originalCloseSoundDestinationModal.apply(this, arguments);
                 }
-                console.log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de destino');
+                log('🚫 [DEMO-GUARDS] Bloqueando fechamento do modal de destino');
                 return; // Não fecha
             };
         }
         
-        console.log('🔒 [DEMO-GUARDS] Interceptadores de fechamento configurados (com permissão para seleções)');
+        log('🔒 [DEMO-GUARDS] Interceptadores de fechamento configurados (com permissão para seleções)');
     }
     
     /**
@@ -599,7 +602,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                console.log('🚫 [DEMO-GUARDS] Tecla ESC bloqueada no modo demo');
+                log('🚫 [DEMO-GUARDS] Tecla ESC bloqueada no modo demo');
             }
         }, true); // Capture phase para interceptar antes
     }
@@ -656,7 +659,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                console.log('🚫 [DEMO-GUARDS] Clique fora do modal bloqueado');
+                log('🚫 [DEMO-GUARDS] Clique fora do modal bloqueado');
             }
         }, true); // Capture phase
         
@@ -691,7 +694,7 @@
     
     // Configurar quando demo for ativado
     window.addEventListener('soundy:demo:activated', function() {
-        console.log('🎯 [DEMO-GUARDS] Evento demo:activated recebido - configurando UI');
+        log('🎯 [DEMO-GUARDS] Evento demo:activated recebido - configurando UI');
         setTimeout(setupDemoUIRestrictions, 100);
     });
     
@@ -700,6 +703,6 @@
         setTimeout(setupDemoUIRestrictions, 500);
     }
 
-    console.log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
+    log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
 
 })();

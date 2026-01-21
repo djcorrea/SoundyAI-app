@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 💾 CACHE MANAGER - FASE 2
  * Sistema de cache inteligente com fallback para Redis futuro
@@ -30,7 +33,7 @@ export class CacheManager {
     // Setup cleanup interval
     this.cleanupInterval = setInterval(() => this.cleanup(), 60000); // 1 minute
     
-    console.log('💾 CacheManager inicializado:', this.config);
+    log('💾 CacheManager inicializado:', this.config);
   }
   
   /**
@@ -63,7 +66,7 @@ export class CacheManager {
       return null;
       
     } catch (error) {
-      console.warn('Cache get error:', error);
+      warn('Cache get error:', error);
       this.metrics.misses++;
       return null;
     }
@@ -99,7 +102,7 @@ export class CacheManager {
       return true;
       
     } catch (error) {
-      console.warn('Cache set error:', error);
+      warn('Cache set error:', error);
       return false;
     }
   }
@@ -121,7 +124,7 @@ export class CacheManager {
       return deleted;
       
     } catch (error) {
-      console.warn('Cache delete error:', error);
+      warn('Cache delete error:', error);
       return false;
     }
   }
@@ -140,7 +143,7 @@ export class CacheManager {
       return entry && entry.expiresAt > Date.now();
       
     } catch (error) {
-      console.warn('Cache has error:', error);
+      warn('Cache has error:', error);
       return false;
     }
   }
@@ -167,7 +170,7 @@ export class CacheManager {
       return entry.value;
       
     } catch (error) {
-      console.warn('Cache increment error:', error);
+      warn('Cache increment error:', error);
       return 1;
     }
   }
@@ -187,7 +190,7 @@ export class CacheManager {
       return json;
       
     } catch (error) {
-      console.warn('Serialization error:', error);
+      warn('Serialization error:', error);
       return String(value);
     }
   }
@@ -203,7 +206,7 @@ export class CacheManager {
       return value;
       
     } catch (error) {
-      console.warn('Deserialization error:', error);
+      warn('Deserialization error:', error);
       return value;
     }
   }
@@ -237,7 +240,7 @@ export class CacheManager {
       this.metrics.evictions++;
     }
     
-    console.log(`🧹 Cache eviction: ${toEvict} entries removed`);
+    log(`🧹 Cache eviction: ${toEvict} entries removed`);
   }
   
   /**
@@ -255,7 +258,7 @@ export class CacheManager {
     
     const cleaned = beforeSize - this.memoryCache.size;
     if (cleaned > 0) {
-      console.log(`🧹 Cache cleanup: ${cleaned} expired entries removed`);
+      log(`🧹 Cache cleanup: ${cleaned} expired entries removed`);
     }
   }
   
@@ -283,16 +286,16 @@ export class CacheManager {
         // Upstash Redis
         const { Redis } = await import('@upstash/redis');
         this.redis = new Redis(config);
-        console.log('✅ Connected to Upstash Redis');
+        log('✅ Connected to Upstash Redis');
       } else if (config.host) {
         // Standard Redis (for future use)
-        console.log('⚠️ Standard Redis not implemented yet');
+        log('⚠️ Standard Redis not implemented yet');
       }
       
       return !!this.redis;
       
     } catch (error) {
-      console.warn('Failed to connect to Redis:', error);
+      warn('Failed to connect to Redis:', error);
       return false;
     }
   }
@@ -304,14 +307,14 @@ export class CacheManager {
     try {
       if (this.redis) {
         // Note: Be careful with FLUSHALL in production
-        console.warn('⚠️ Redis flush not implemented for safety');
+        warn('⚠️ Redis flush not implemented for safety');
       }
       
       this.memoryCache.clear();
-      console.log('🧹 Memory cache cleared');
+      log('🧹 Memory cache cleared');
       
     } catch (error) {
-      console.warn('Cache clear error:', error);
+      warn('Cache clear error:', error);
     }
   }
   
@@ -326,7 +329,7 @@ export class CacheManager {
     this.memoryCache.clear();
     this.redis = null;
     
-    console.log('💥 CacheManager destroyed');
+    log('💥 CacheManager destroyed');
   }
 }
 

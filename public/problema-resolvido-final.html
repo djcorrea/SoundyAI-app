@@ -13,6 +13,12 @@
         button { background: #333; color: #0f0; border: 1px solid #0f0; padding: 10px; margin: 5px; cursor: pointer; }
         button:hover { background: #0f0; color: #000; }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔥 PROBLEMA RESOLVIDO DEFINITIVAMENTE</h1>
@@ -38,7 +44,7 @@
     
     <script>
         function testarBuildVersion() {
-            console.log('🔥 Testando BUILD VERSION...');
+            log('🔥 Testando BUILD VERSION...');
             
             // Aguardar carregamento
             setTimeout(() => {
@@ -56,17 +62,17 @@
                     `;
                     
                     if (buildVersion && buildVersion !== 'undefined') {
-                        console.log('🎉 BUILD VERSION FUNCIONANDO:', buildVersion);
+                        log('🎉 BUILD VERSION FUNCIONANDO:', buildVersion);
                         document.getElementById('resultados').innerHTML = `
                             <div class="success">✅ PROBLEMA RESOLVIDO!</div>
                             <div class="success">🎯 Build Version: ${buildVersion}</div>
                             <div class="success">🎉 Sistema funcionando perfeitamente!</div>
                         `;
                     } else {
-                        console.error('❌ BUILD VERSION ainda com problema:', buildVersion);
+                        error('❌ BUILD VERSION ainda com problema:', buildVersion);
                     }
                 } else {
-                    console.error('❌ AudioAnalyzerV2 não encontrado');
+                    error('❌ AudioAnalyzerV2 não encontrado');
                     document.getElementById('build-display').innerHTML = `
                         <div class="error">❌ AudioAnalyzerV2 não encontrado</div>
                     `;
@@ -75,7 +81,7 @@
         }
         
         function testarAnaliseCompleta() {
-            console.log('🚀 Testando análise completa...');
+            log('🚀 Testando análise completa...');
             
             // Gerar áudio teste
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -96,7 +102,7 @@
                 const v2 = new window.AudioAnalyzerV2();
                 
                 v2.performFullAnalysis(audioBuffer).then(result => {
-                    console.log('✅ ANÁLISE COMPLETA OK:', result);
+                    log('✅ ANÁLISE COMPLETA OK:', result);
                     
                     document.getElementById('resultados').innerHTML = `
                         <div class="success">🎉 SISTEMA FUNCIONANDO COMPLETAMENTE!</div>
@@ -109,14 +115,14 @@
                         <div class="info">📚 Referência: ${result.diagnostics.referenceGenre}</div>
                     `;
                 }).catch(error => {
-                    console.error('❌ Erro na análise:', error);
+                    error('❌ Erro na análise:', error);
                 });
             }
         }
         
         // Auto-teste na inicialização
         window.addEventListener('load', () => {
-            console.log('🚀 Página carregada');
+            log('🚀 Página carregada');
             
             setTimeout(() => {
                 testarBuildVersion();

@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Busca em Metadata True Peak</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔍 Teste - Busca em Metadata para True Peak</h1>
@@ -87,7 +93,7 @@
                 <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
             `;
             
-            console.log(`🧪 ${scenarioName}:`, {
+            log(`🧪 ${scenarioName}:`, {
                 success,
                 message: result.message,
                 messageSource: result.messageSource,
@@ -98,7 +104,7 @@
         }
 
         function testMetadataMessage() {
-            console.log('🔍 Cenário: meta.message presente');
+            log('🔍 Cenário: meta.message presente');
             const validSuggestions = [{message: "Original message"}];
             const enhancedSuggestions = [{
                 message: null,
@@ -114,7 +120,7 @@
         }
 
         function testMetadataOriginal() {
-            console.log('⚡ Cenário: meta.original.message presente');
+            log('⚡ Cenário: meta.original.message presente');
             const validSuggestions = [{message: "Fallback message"}];
             const enhancedSuggestions = [{
                 message: null,
@@ -133,7 +139,7 @@
         }
 
         function testMetadataAction() {
-            console.log('🎬 Cenário: meta.original.action presente');
+            log('🎬 Cenário: meta.original.action presente');
             const validSuggestions = [{action: "Fallback action"}];
             const enhancedSuggestions = [{
                 action: null,
@@ -148,7 +154,7 @@
             
             const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
             
-            console.log('📊 Action test result:', {
+            log('📊 Action test result:', {
                 action: result.action,
                 expected: "Ajustar limitador para -1.0 dB",
                 success: result.action === "Ajustar limitador para -1.0 dB"
@@ -158,7 +164,7 @@
         }
 
         function testTruePeakFromBackend() {
-            console.log('📡 Cenário: True Peak completo do Backend');
+            log('📡 Cenário: True Peak completo do Backend');
             
             // Simular sugestão original
             const validSuggestions = [{
@@ -196,7 +202,7 @@
             const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
             const expected = "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.";
             
-            console.log('🎯 True Peak Backend test:', {
+            log('🎯 True Peak Backend test:', {
                 originalMessage: validSuggestions[0].message,
                 backendMetadata: enhancedSuggestions[0].metadata,
                 finalMessage: result.message,
@@ -208,7 +214,7 @@
         }
 
         function testCompleteMetadataFlow() {
-            console.log('🔄 Cenário: Fluxo Completo com Metadata');
+            log('🔄 Cenário: Fluxo Completo com Metadata');
             
             // Testar múltiplas sugestões com diferentes localizações de dados
             const validSuggestions = [
@@ -242,7 +248,7 @@
             
             const results = testMergeWithMetadata(validSuggestions, enhancedSuggestions);
             
-            console.log('🔄 Complete flow results:', results.map((r, i) => ({
+            log('🔄 Complete flow results:', results.map((r, i) => ({
                 index: i + 1,
                 message: r.message,
                 messageSource: r.messageSource,
@@ -259,8 +265,8 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de busca em metadata iniciado");
-        console.log("🔍 Nova ordem: s.message → meta.message → meta.original.message → original.message → original.original");
+        log("🚀 [TEST] Teste de busca em metadata iniciado");
+        log("🔍 Nova ordem: s.message → meta.message → meta.original.message → original.message → original.original");
     </script>
 </body>
 </html>

@@ -1,11 +1,14 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔌 INTEGRAÇÃO DO NOVO SISTEMA ESPECTRAL
  * Script para ativar e integrar o novo sistema de balanço espectral
  */
 
 // 🎯 INSTRUÇÕES PARA ATIVAÇÃO:
-console.log('🚀 INTEGRANDO NOVO SISTEMA DE BALANÇO ESPECTRAL');
-console.log('=' .repeat(60));
+log('🚀 INTEGRANDO NOVO SISTEMA DE BALANÇO ESPECTRAL');
+log('=' .repeat(60));
 
 /**
  * 📝 PASSO 1: Criar adaptador para integração
@@ -20,7 +23,7 @@ window.SpectralBalanceAdapter = class {
       quality: 'balanced'
     };
     
-    console.log('✅ SpectralBalanceAdapter criado');
+    log('✅ SpectralBalanceAdapter criado');
   }
   
   /**
@@ -28,17 +31,17 @@ window.SpectralBalanceAdapter = class {
    */
   async activate() {
     try {
-      console.log('🔧 Carregando módulos do novo sistema...');
+      log('🔧 Carregando módulos do novo sistema...');
       
       // Simular carregamento do módulo TypeScript (em produção seria compilado para JS)
-      console.log('📦 Módulos carregados: spectralBalance, spectralIntegration, spectralTypes');
+      log('📦 Módulos carregados: spectralBalance, spectralIntegration, spectralTypes');
       
       this.isActive = true;
-      console.log('✅ Sistema espectral ativado com sucesso!');
+      log('✅ Sistema espectral ativado com sucesso!');
       
       return true;
     } catch (error) {
-      console.error('❌ Erro ao ativar sistema espectral:', error);
+      error('❌ Erro ao ativar sistema espectral:', error);
       return false;
     }
   }
@@ -48,19 +51,19 @@ window.SpectralBalanceAdapter = class {
    */
   async analyzeAudio(audioData, sampleRate) {
     if (!this.isActive) {
-      console.warn('⚠️ Sistema espectral não está ativo. Use adapter.activate() primeiro.');
+      warn('⚠️ Sistema espectral não está ativo. Use adapter.activate() primeiro.');
       return null;
     }
     
-    console.log('🔬 Executando análise com novo sistema espectral...');
+    log('🔬 Executando análise com novo sistema espectral...');
     
     // Simular análise espectral
     const mockResult = this.generateMockSpectralData(audioData, sampleRate);
     
-    console.log('📊 Análise concluída:');
-    console.log(`  - ${mockResult.bands.length} bandas analisadas`);
-    console.log(`  - Energia total: ${mockResult.totalEnergy.toExponential(2)}`);
-    console.log(`  - Frames processados: ${mockResult.processedFrames}`);
+    log('📊 Análise concluída:');
+    log(`  - ${mockResult.bands.length} bandas analisadas`);
+    log(`  - Energia total: ${mockResult.totalEnergy.toExponential(2)}`);
+    log(`  - Frames processados: ${mockResult.processedFrames}`);
     
     return mockResult;
   }
@@ -99,11 +102,11 @@ window.SpectralBalanceAdapter = class {
    */
   integrateWithExistingSystem(existingAnalysis) {
     if (!this.isActive) {
-      console.warn('⚠️ Sistema espectral não está ativo');
+      warn('⚠️ Sistema espectral não está ativo');
       return existingAnalysis;
     }
     
-    console.log('🔗 Integrando com sistema existente...');
+    log('🔗 Integrando com sistema existente...');
     
     // Simular dados espectrais baseados na análise atual
     const spectralData = this.generateMockSpectralData([], 48000);
@@ -132,11 +135,11 @@ window.SpectralBalanceAdapter = class {
       }
     };
     
-    console.log('🎯 Integração concluída:');
-    console.log('  ✅ Campos originais mantidos');
-    console.log('  ✨ spectralBalance adicionado');
-    console.log('  ✨ bandEnergies expandido com % energia');
-    console.log('  🔗 100% compatível com sistema atual');
+    log('🎯 Integração concluída:');
+    log('  ✅ Campos originais mantidos');
+    log('  ✨ spectralBalance adicionado');
+    log('  ✨ bandEnergies expandido com % energia');
+    log('  🔗 100% compatível com sistema atual');
     
     return enhancedAnalysis;
   }
@@ -145,8 +148,8 @@ window.SpectralBalanceAdapter = class {
    * 🧪 Demonstrar funcionamento
    */
   async demonstrateSystem() {
-    console.log('\\n🧪 DEMONSTRAÇÃO DO NOVO SISTEMA');
-    console.log('=' .repeat(40));
+    log('\\n🧪 DEMONSTRAÇÃO DO NOVO SISTEMA');
+    log('=' .repeat(40));
     
     // Ativar sistema
     await this.activate();
@@ -156,22 +159,22 @@ window.SpectralBalanceAdapter = class {
     const result = await this.analyzeAudio(mockAudio, 48000);
     
     if (result) {
-      console.log('\\n📊 Resultado da análise:');
-      console.log('UI continua lendo valores dB:');
+      log('\\n📊 Resultado da análise:');
+      log('UI continua lendo valores dB:');
       result.bands.forEach(band => {
-        console.log(`  ${band.name}: ${band.rmsDb.toFixed(1)} dB`);
+        log(`  ${band.name}: ${band.rmsDb.toFixed(1)} dB`);
       });
       
-      console.log('\\nScoring interno agora usa % energia:');
+      log('\\nScoring interno agora usa % energia:');
       result.bands.forEach(band => {
-        console.log(`  ${band.name}: ${band.energyPct.toFixed(1)}%`);
+        log(`  ${band.name}: ${band.energyPct.toFixed(1)}%`);
       });
       
-      console.log('\\n🎯 Benefícios:');
-      console.log('  ✅ UI idêntica (valores dB)');
-      console.log('  ✅ Scoring mais preciso (% energia)');
-      console.log('  ✅ Zero impacto em LUFS/TP/DR/LRA');
-      console.log('  ✅ Compatibilidade total');
+      log('\\n🎯 Benefícios:');
+      log('  ✅ UI idêntica (valores dB)');
+      log('  ✅ Scoring mais preciso (% energia)');
+      log('  ✅ Zero impacto em LUFS/TP/DR/LRA');
+      log('  ✅ Compatibilidade total');
     }
     
     return result;
@@ -184,11 +187,11 @@ window.SpectralBalanceAdapter = class {
 function interceptExistingAnalyzer() {
   // Verificar se o analisador existe
   if (typeof window.audioAnalyzer === 'undefined') {
-    console.warn('⚠️ window.audioAnalyzer não encontrado. Aguardando carregamento...');
+    warn('⚠️ window.audioAnalyzer não encontrado. Aguardando carregamento...');
     return false;
   }
   
-  console.log('🔍 Interceptando sistema existente...');
+  log('🔍 Interceptando sistema existente...');
   
   // Backup da função original
   const originalAnalyzeAudioFile = window.audioAnalyzer.analyzeAudioFile;
@@ -198,7 +201,7 @@ function interceptExistingAnalyzer() {
   
   // Interceptar função de análise
   window.audioAnalyzer.analyzeAudioFile = async function(file, options = {}) {
-    console.log('🔄 Análise interceptada pelo novo sistema espectral');
+    log('🔄 Análise interceptada pelo novo sistema espectral');
     
     // Executar análise original
     const originalResult = await originalAnalyzeAudioFile.call(this, file, options);
@@ -206,14 +209,14 @@ function interceptExistingAnalyzer() {
     // Integrar novo sistema se ativo
     if (window.spectralAdapter?.isActive) {
       const enhancedResult = window.spectralAdapter.integrateWithExistingSystem(originalResult);
-      console.log('✨ Resultado aprimorado com novo sistema espectral');
+      log('✨ Resultado aprimorado com novo sistema espectral');
       return enhancedResult;
     }
     
     return originalResult;
   };
   
-  console.log('✅ Sistema interceptado com sucesso');
+  log('✅ Sistema interceptado com sucesso');
   return true;
 }
 
@@ -221,57 +224,57 @@ function interceptExistingAnalyzer() {
  * 📝 PASSO 3: Instruções para o usuário
  */
 function showInstructions() {
-  console.log('\\n' + '=' .repeat(60));
-  console.log('🎯 COMO ATIVAR O NOVO SISTEMA ESPECTRAL');
-  console.log('=' .repeat(60));
+  log('\\n' + '=' .repeat(60));
+  log('🎯 COMO ATIVAR O NOVO SISTEMA ESPECTRAL');
+  log('=' .repeat(60));
   
-  console.log('\\n📝 PASSOS PARA ATIVAÇÃO:');
-  console.log('\\n1️⃣ Ativar o adaptador:');
-  console.log('   window.spectralAdapter.activate()');
+  log('\\n📝 PASSOS PARA ATIVAÇÃO:');
+  log('\\n1️⃣ Ativar o adaptador:');
+  log('   window.spectralAdapter.activate()');
   
-  console.log('\\n2️⃣ Testar funcionamento:');
-  console.log('   window.spectralAdapter.demonstrateSystem()');
+  log('\\n2️⃣ Testar funcionamento:');
+  log('   window.spectralAdapter.demonstrateSystem()');
   
-  console.log('\\n3️⃣ Analisar áudio normalmente:');
-  console.log('   - Use a interface normal');
-  console.log('   - O sistema será ativado automaticamente');
-  console.log('   - Verifique o console para logs detalhados');
+  log('\\n3️⃣ Analisar áudio normalmente:');
+  log('   - Use a interface normal');
+  log('   - O sistema será ativado automaticamente');
+  log('   - Verifique o console para logs detalhados');
   
-  console.log('\\n🔍 VERIFICAR SE ESTÁ FUNCIONANDO:');
-  console.log('   - Abra DevTools (F12)');
-  console.log('   - Analise um áudio');
-  console.log('   - Procure por logs "✨ Resultado aprimorado"');
-  console.log('   - Inspecione result.spectralBalance');
-  console.log('   - Inspecione result.bandEnergies[banda].energyPct');
+  log('\\n🔍 VERIFICAR SE ESTÁ FUNCIONANDO:');
+  log('   - Abra DevTools (F12)');
+  log('   - Analise um áudio');
+  log('   - Procure por logs "✨ Resultado aprimorado"');
+  log('   - Inspecione result.spectralBalance');
+  log('   - Inspecione result.bandEnergies[banda].energyPct');
   
-  console.log('\\n🎯 DIFERENÇAS ESPERADAS:');
-  console.log('   ✅ UI continua igual (valores dB)');
-  console.log('   ✨ Console mostra logs do novo sistema');
-  console.log('   ✨ Objetos de resultado têm novos campos');
-  console.log('   ✨ Scoring interno pode usar % energia');
+  log('\\n🎯 DIFERENÇAS ESPERADAS:');
+  log('   ✅ UI continua igual (valores dB)');
+  log('   ✨ Console mostra logs do novo sistema');
+  log('   ✨ Objetos de resultado têm novos campos');
+  log('   ✨ Scoring interno pode usar % energia');
   
-  console.log('\\n' + '=' .repeat(60));
+  log('\\n' + '=' .repeat(60));
 }
 
 /**
  * 🚀 INICIALIZAÇÃO AUTOMÁTICA
  */
 (function init() {
-  console.log('🚀 Inicializando integração do sistema espectral...');
+  log('🚀 Inicializando integração do sistema espectral...');
   
   // Tentar interceptar imediatamente
   const intercepted = interceptExistingAnalyzer();
   
   if (!intercepted) {
     // Se não conseguiu, tentar novamente após 2 segundos
-    console.log('⏳ Aguardando carregamento do sistema base...');
+    log('⏳ Aguardando carregamento do sistema base...');
     setTimeout(() => {
       if (interceptExistingAnalyzer()) {
-        console.log('✅ Sistema interceptado após aguardar');
+        log('✅ Sistema interceptado após aguardar');
         showInstructions();
       } else {
-        console.warn('❌ Não foi possível interceptar o sistema base');
-        console.log('💡 Tente executar manualmente: interceptExistingAnalyzer()');
+        warn('❌ Não foi possível interceptar o sistema base');
+        log('💡 Tente executar manualmente: interceptExistingAnalyzer()');
       }
     }, 2000);
   } else {

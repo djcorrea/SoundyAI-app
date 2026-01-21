@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /* ============ VOICE MESSAGE INTEGRATION - PROD.AI ============ */
 /* 🎤 Integração para fazer o botão de microfone EXISTENTE funcionar */
 
@@ -16,7 +19,7 @@ class ProdAIVoiceMessage {
             this.recognition.continuous = false; // Mudança: false para parar automaticamente
             this.recognition.interimResults = true;
             this.recognition.maxAlternatives = 1;
-            console.log('🎤 Web Speech API initialized');
+            log('🎤 Web Speech API initialized');
         }
         
         this.init();
@@ -36,7 +39,7 @@ class ProdAIVoiceMessage {
         const micIcon = document.querySelector('.chatbot-mic-icon');
         
         if (micIcon) {
-            console.log('🎤 Ícone de microfone encontrado! Configurando voice message...');
+            log('🎤 Ícone de microfone encontrado! Configurando voice message...');
             
             // Fazer o ícone clicável
             micIcon.style.cursor = 'pointer';
@@ -60,9 +63,9 @@ class ProdAIVoiceMessage {
                 this.toggleVoiceMessage();
             });
             
-            console.log('✅ Voice message configurado no ícone existente!');
+            log('✅ Voice message configurado no ícone existente!');
         } else {
-            console.log('❌ Ícone de microfone não encontrado. Tentando novamente em 2s...');
+            log('❌ Ícone de microfone não encontrado. Tentando novamente em 2s...');
             setTimeout(() => this.setupVoiceButtons(), 2000);
         }
         
@@ -92,8 +95,8 @@ class ProdAIVoiceMessage {
         const activeInput = document.getElementById('chatbotActiveInput') || document.getElementById('chatbotMainInput');
         const micIcon = document.querySelector('.chatbot-mic-icon');
         
-        console.log('Active input found:', activeInput);
-        console.log('Mic icon found:', micIcon);
+        log('Active input found:', activeInput);
+        log('Mic icon found:', micIcon);
         
         if (!activeInput) {
             alert('❌ Input não encontrado');
@@ -103,21 +106,21 @@ class ProdAIVoiceMessage {
         // Configurar eventos
         this.recognition.onstart = () => {
             this.isListening = true;
-            console.log('🎤 Recognition started');
+            log('🎤 Recognition started');
             
             // Mudar ícone para vermelho e animar
             if (micIcon) {
                 micIcon.style.fill = '#ff4444';
                 micIcon.style.filter = 'drop-shadow(0 0 10px #ff4444)';
                 micIcon.style.animation = 'pulse 1s infinite';
-                console.log('🔴 Mic icon changed to red');
+                log('🔴 Mic icon changed to red');
             }
             
             // Placeholder visual
             activeInput.placeholder = '🔴 Ouvindo... Fale sua pergunta!';
             activeInput.style.borderColor = '#ff4444';
             activeInput.style.boxShadow = '0 0 10px rgba(255, 68, 68, 0.5)';
-            console.log('📝 Input placeholder updated');
+            log('📝 Input placeholder updated');
         };
         
         this.recognition.onresult = (event) => {
@@ -134,20 +137,20 @@ class ProdAIVoiceMessage {
             }
             
             // Debug logs
-            console.log('Final:', this.finalTranscript);
-            console.log('Interim:', interimTranscript);
+            log('Final:', this.finalTranscript);
+            log('Interim:', interimTranscript);
             
             // Mostrar transcrição diretamente no input
             const fullTranscript = this.finalTranscript + interimTranscript;
             activeInput.value = fullTranscript;
             
-            console.log('Input value set to:', fullTranscript);
+            log('Input value set to:', fullTranscript);
         };
         
         this.recognition.onend = () => {
             this.isListening = false;
             
-            console.log('Recognition ended. Final transcript:', this.finalTranscript);
+            log('Recognition ended. Final transcript:', this.finalTranscript);
             
             // Restaurar ícone
             if (micIcon) {
@@ -165,29 +168,29 @@ class ProdAIVoiceMessage {
             const finalText = this.finalTranscript.trim();
             activeInput.value = finalText;
             
-            console.log('Input final value:', finalText);
+            log('Input final value:', finalText);
             
             // Auto-enviar se tiver texto
             if (finalText.length > 3) {
-                console.log('Auto-sending in 1.5s...');
+                log('Auto-sending in 1.5s...');
                 // Dar um tempo para usuário ver a transcrição
                 setTimeout(() => {
                     // Simular envio automático
                     const sendBtn = document.getElementById('chatbotActiveSendBtn') || document.getElementById('chatbotSendButton');
                     if (sendBtn) {
-                        console.log('Clicking send button...');
+                        log('Clicking send button...');
                         sendBtn.click();
                     } else {
-                        console.log('Send button not found');
+                        log('Send button not found');
                     }
                 }, 1500);
             } else {
-                console.log('Text too short, not auto-sending');
+                log('Text too short, not auto-sending');
             }
         };
         
         this.recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
+            error('Speech recognition error:', event.error);
             this.isListening = false;
             
             // Restaurar ícone
@@ -205,14 +208,14 @@ class ProdAIVoiceMessage {
             // Se tiver texto parcial, manter
             if (this.finalTranscript.trim()) {
                 activeInput.value = this.finalTranscript.trim();
-                console.log('Partial text saved due to error:', this.finalTranscript.trim());
+                log('Partial text saved due to error:', this.finalTranscript.trim());
             }
         };
         
         // Auto-stop depois de 10 segundos para evitar travamento
         setTimeout(() => {
             if (this.isListening) {
-                console.log('Auto-stopping recognition after 10s');
+                log('Auto-stopping recognition after 10s');
                 this.recognition.stop();
             }
         }, 10000);
@@ -250,7 +253,7 @@ let voiceMessageInstance = null;
 function initProdAIVoice() {
     if (!voiceMessageInstance) {
         voiceMessageInstance = new ProdAIVoiceMessage();
-        console.log('🎤 PROD.AI Voice Message inicializado!');
+        log('🎤 PROD.AI Voice Message inicializado!');
     }
 }
 

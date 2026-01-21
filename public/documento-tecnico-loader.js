@@ -1,19 +1,22 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 📘 DOCUMENTO TÉCNICO - LOADER MARKDOWN
 
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('📘 [DOCLOADER] Iniciando carregamento do documento técnico...');
+    log('📘 [DOCLOADER] Iniciando carregamento do documento técnico...');
     
     const docContent = document.getElementById('docContent');
     
     if (!docContent) {
-        console.error('❌ [DOCLOADER] Container #docContent não encontrado no DOM');
+        error('❌ [DOCLOADER] Container #docContent não encontrado no DOM');
         return;
     }
 
     try {
         // 🔧 Path absoluto para funcionar em produção (Railway) e localhost
         const docPath = '/DOCUMENTO_TECNICO_USO_PLATAFORMA.md';
-        console.log(`📂 [DOCLOADER] Buscando arquivo: ${docPath}`);
+        log(`📂 [DOCLOADER] Buscando arquivo: ${docPath}`);
         
         // Carregar o arquivo Markdown
         const response = await fetch(docPath);
@@ -23,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         const markdown = await response.text();
-        console.log(`✅ [DOCLOADER] Documento carregado (${markdown.length} caracteres)`);
+        log(`✅ [DOCLOADER] Documento carregado (${markdown.length} caracteres)`);
         
         // Converter Markdown para HTML
         const html = convertMarkdownToHTML(markdown);
@@ -32,11 +35,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Highlight de seção ativa
         setupScrollSpy();
         
-        console.log('✅ [DOCLOADER] Documento renderizado com sucesso');
+        log('✅ [DOCLOADER] Documento renderizado com sucesso');
         
     } catch (error) {
-        console.error('❌ [DOCLOADER] Erro fatal ao carregar documento:', error);
-        console.error('   Stack:', error.stack);
+        error('❌ [DOCLOADER] Erro fatal ao carregar documento:', error);
+        error('   Stack:', error.stack);
         
         docContent.innerHTML = `
             <div style="text-align: center; padding: 60px 20px; color: #ff6b6b; max-width: 600px; margin: 0 auto;">

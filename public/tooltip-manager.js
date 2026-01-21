@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 TOOLTIP MANAGER - Sistema Global de Tooltips
  * 
@@ -222,6 +225,6 @@
     window.addEventListener('scroll', () => hideTooltip(true), { passive: true });
     window.addEventListener('resize', () => hideTooltip(true), { passive: true });
 
-    console.log('[TOOLTIP-MANAGER] ✅ Sistema global de tooltips inicializado (event delegation)');
+    log('[TOOLTIP-MANAGER] ✅ Sistema global de tooltips inicializado (event delegation)');
 
 })();

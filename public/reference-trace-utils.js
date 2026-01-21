@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔍 REFERENCE TRACE UTILS - PR1 Instrumentação
 // Sistema de logging e diagnóstico para modo Reference vs Genre
 // ⚠️ NÃO MODIFICA COMPORTAMENTO - apenas observa e registra
@@ -56,7 +59,7 @@ window.snapshotState = function() {
 window.logStep = function(traceId, stepName, data = {}) {
     const snapshot = window.snapshotState();
     
-    console.log('%c[REFTRACE]', 'color:#00D9FF;font-weight:bold;', {
+    log('%c[REFTRACE]', 'color:#00D9FF;font-weight:bold;', {
         traceId,
         step: stepName,
         timestamp: new Date().toISOString(),
@@ -76,7 +79,7 @@ window.assertInvariant = function(name, condition, context = {}) {
     if (condition) {
         // ✅ Invariante OK - log silencioso
         if (window.__DEBUG_STRICT__) {
-            console.log('%c[INV_OK]', 'color:#00FF88;', name);
+            log('%c[INV_OK]', 'color:#00FF88;', name);
         }
         return true;
     }
@@ -85,7 +88,7 @@ window.assertInvariant = function(name, condition, context = {}) {
     const stack = new Error().stack;
     const snapshot = window.snapshotState();
     
-    console.error('%c[INV_FAIL]', 'color:#FF0000;font-weight:bold;font-size:14px;', {
+    error('%c[INV_FAIL]', 'color:#FF0000;font-weight:bold;font-size:14px;', {
         invariant: name,
         context,
         snapshot,
@@ -202,7 +205,7 @@ window.detectModeChange = function(previousMode, newMode) {
     const stack = new Error().stack;
     const snapshot = window.snapshotState();
     
-    console.warn('%c[MODE_CHANGE_DETECTED]', 'color:#FFA500;font-weight:bold;font-size:14px;', {
+    warn('%c[MODE_CHANGE_DETECTED]', 'color:#FFA500;font-weight:bold;font-size:14px;', {
         from: previousMode,
         to: newMode,
         snapshot,
@@ -214,11 +217,11 @@ window.detectModeChange = function(previousMode, newMode) {
 // 🧪 Ativar modo strict em development
 if (window.location.hostname === 'localhost' && window.location.search.includes('debug=strict')) {
     window.__DEBUG_STRICT__ = true;
-    console.log('%c[TRACE-UTILS] Modo strict ativado - asserts lançarão exceções', 'color:#FFD700;font-weight:bold;');
+    log('%c[TRACE-UTILS] Modo strict ativado - asserts lançarão exceções', 'color:#FFD700;font-weight:bold;');
 }
 
-console.log('%c[TRACE-UTILS] ✅ Reference Trace Utils carregado', 'color:#00FF88;font-weight:bold;');
-console.log('[TRACE-UTILS] Funções disponíveis:', {
+log('%c[TRACE-UTILS] ✅ Reference Trace Utils carregado', 'color:#00FF88;font-weight:bold;');
+log('[TRACE-UTILS] Funções disponíveis:', {
     createTraceId: typeof window.createTraceId,
     snapshotState: typeof window.snapshotState,
     logStep: typeof window.logStep,

@@ -1,0 +1,56 @@
+{
+  "funk_mandela_PREV_2025-08-13": {
+    "version": "1.0",
+    "generated_at": "2025-08-13T02:14:30.995Z",
+    "num_tracks": 41,
+    "lufs_target": -9.5,
+    "tol_lufs": 1.21,
+    "true_peak_target": -6.38,
+    "tol_true_peak": 0.86,
+    "dr_target": 7.15,
+    "tol_dr": 1.09,
+    "lra_target": 8.75,
+    "tol_lra": 2.75,
+    "stereo_target": 0.2,
+    "tol_stereo": 0.08,
+    "calor_target": -10.46,
+    "brilho_target": -19.11,
+    "clareza_target": 0.01,
+    "bands": {
+      "sub": {
+        "target_db": -15.5,
+        "tol_db": 2.39
+      },
+      "low_bass": {
+        "target_db": 1.6,
+        "tol_db": 2.45
+      },
+      "upper_bass": {
+        "target_db": -1.95,
+        "tol_db": 2.1
+      },
+      "low_mid": {
+        "target_db": -0.6,
+        "tol_db": 2.85
+      },
+      "mid": {
+        "target_db": -2.05,
+        "tol_db": 2
+      },
+      "high_mid": {
+        "target_db": -8.1,
+        "tol_db": 3.05
+      },
+      "brilho": {
+        "target_db": -16.4,
+        "tol_db": 3.5
+      },
+      "presenca": {
+        "target_db": -24.55,
+        "tol_db": 3.5
+      }
+    },
+    "last_updated": "2025-08-30T22:40:34.483Z",
+    "cache_bust": 1756593634483
+  }
+}

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ Teste: Flash Branco Eliminado</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .test-header {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .test-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .test-header p {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .checklist {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .checklist h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        
+        .checklist li {
+            margin-left: 20px;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .test-btn {
+            flex: 1;
+            min-width: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .test-btn:active {
+            transform: translateY(0);
+        }
+        
+        .test-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+        }
+        
+        .corrections {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .corrections h3 {
+            color: #10b981;
+            margin-bottom: 15px;
+        }
+        
+        .corrections li {
+            margin-left: 20px;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .corrections li::marker {
+            content: '✅ ';
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🎯 Teste: Flash Branco Eliminado</h1>
+            <p><strong>Problema resolvido:</strong> Flash branco de ~1s na primeira abertura do modal de gêneros.</p>
+            
+            <div class="checklist">
+                <h3>📋 O que verificar:</h3>
+                <ul>
+                    <li>Clique em "Abrir Modal de Gênero"</li>
+                    <li>Os cards devem aparecer IMEDIATAMENTE com o visual glass (fundo semi-transparente)</li>
+                    <li>NÃO deve haver flash branco em nenhum momento</li>
+                    <li>A transição deve ser suave apenas com fade de opacidade</li>
+                    <li>Cores e gradientes devem permanecer iguais ao original</li>
+                </ul>
+            </div>
+            
+            <div class="corrections">
+                <h3>🔧 Correções Aplicadas:</h3>
+                <ul>
+                    <li>Removido <code>transition: all</code> dos cards</li>
+                    <li>Background não é mais animado (evita flash)</li>
+                    <li>Estado inicial explícito com <code>background-color: transparent</code></li>
+                    <li>Técnica "prepaint" implementada (opacity: 0 no primeiro frame)</li>
+                    <li>Transições específicas: transform, box-shadow, border-color, opacity</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="test-btn" onclick="openGenreModal()">
+                🎵 Abrir Modal de Gênero
+            </button>
+            <button class="test-btn secondary" onclick="closeGenreModal()">
+                ❌ Fechar Modal
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Gênero (estrutura original) -->
+    <div id="newGenreModal" class="genre-modal hidden" aria-hidden="true">
+        <div class="genre-modal-container">
+            <h2 class="genre-modal-title glitch" data-text="ESCOLHA SEU GÊNERO">ESCOLHA SEU GÊNERO</h2>
+            <p class="genre-modal-subtitle">Selecione o gênero musical para análise personalizada</p>
+
+            <div class="genre-grid">
+                <button class="genre-card" data-genre="pop">
+                    <div class="genre-icon">🎤</div>
+                    <div class="genre-name">Pop</div>
+                </button>
+                <button class="genre-card" data-genre="rock">
+                    <div class="genre-icon">🎸</div>
+                    <div class="genre-name">Rock</div>
+                </button>
+                <button class="genre-card" data-genre="hiphop">
+                    <div class="genre-icon">🎧</div>
+                    <div class="genre-name">Hip Hop</div>
+                </button>
+                <button class="genre-card" data-genre="electronic">
+                    <div class="genre-icon">🎹</div>
+                    <div class="genre-name">Eletrônica</div>
+                </button>
+                <button class="genre-card" data-genre="jazz">
+                    <div class="genre-icon">🎷</div>
+                    <div class="genre-name">Jazz</div>
+                </button>
+                <button class="genre-card" data-genre="classical">
+                    <div class="genre-icon">🎼</div>
+                    <div class="genre-name">Clássica</div>
+                </button>
+                <button class="genre-card" data-genre="country">
+                    <div class="genre-icon">🤠</div>
+                    <div class="genre-name">Country</div>
+                </button>
+                <button class="genre-card" data-genre="reggae">
+                    <div class="genre-icon">🌿</div>
+                    <div class="genre-name">Reggae</div>
+                </button>
+            </div>
+
+            <button class="genre-modal-close" data-close>Fechar</button>
+        </div>
+    </div>
+
+    <!-- Carregar script com correções -->
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        // Stub para funções de debug (evitar erros)
+        if (typeof __dbg === 'undefined') {
+            window.__dbg = function() {};
+            window.__dwrn = function() {};
+        }
+        
+        // Inicializar quando DOM carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ Página de teste carregada - Flash branco eliminado');
+            
+            // Inicializar modal
+            if (typeof initGenreModal === 'function') {
+                initGenreModal();
+            }
+            
+            // Log de verificação
+            console.log('%c🔧 Correções aplicadas:', 'color: #10b981; font-weight: bold');
+            console.log('✅ transition: all removido');
+            console.log('✅ background não é animado');
+            console.log('✅ Prepaint implementado');
+            console.log('✅ Estado inicial explícito');
+        });
+    </script>
+</body>
+</html>

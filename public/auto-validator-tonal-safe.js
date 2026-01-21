@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🧪 VALIDADOR AUTOMÁTICO - TONAL BALANCE SAFE V1
  * Sistema de testes automáticos para verificar se a implementação está funcionando
@@ -19,16 +22,16 @@ window.validarTonalBalanceSafe = function() {
     
     // 1. Verificar feature flag
     results.featureFlag = !!window.TONAL_BALANCE_SAFE_V1;
-    console.log(`1️⃣ Feature Flag: ${results.featureFlag ? '✅ ATIVA' : '❌ INATIVA'}`);
+    log(`1️⃣ Feature Flag: ${results.featureFlag ? '✅ ATIVA' : '❌ INATIVA'}`);
     
     // 2. Verificar se sistema carregou
     results.systemLoaded = typeof window.validateSpectralBandsData === 'function' && 
                            typeof window.tonalSummarySafe === 'function';
-    console.log(`2️⃣ Sistema Carregado: ${results.systemLoaded ? '✅ SIM' : '❌ NÃO'}`);
+    log(`2️⃣ Sistema Carregado: ${results.systemLoaded ? '✅ SIM' : '❌ NÃO'}`);
     
     // 3. Verificar se migração foi aplicada
     results.migrationApplied = !!window.tonalBalanceSafeMigrationApplied;
-    console.log(`3️⃣ Migração Aplicada: ${results.migrationApplied ? '✅ SIM' : '❌ NÃO'}`);
+    log(`3️⃣ Migração Aplicada: ${results.migrationApplied ? '✅ SIM' : '❌ NÃO'}`);
     
     // 4. Testar função básica
     if (results.systemLoaded) {
@@ -44,12 +47,12 @@ window.validarTonalBalanceSafe = function() {
             const display = window.tonalSummarySafe(testData);
             
             results.functionWorking = validation.shouldDisplay && display !== '—';
-            console.log(`4️⃣ Função Funcionando: ${results.functionWorking ? '✅ SIM' : '❌ NÃO'} (${display})`);
+            log(`4️⃣ Função Funcionando: ${results.functionWorking ? '✅ SIM' : '❌ NÃO'} (${display})`);
         } catch (error) {
-            console.log(`4️⃣ Função Funcionando: ❌ ERRO - ${error.message}`);
+            log(`4️⃣ Função Funcionando: ❌ ERRO - ${error.message}`);
         }
     } else {
-        console.log(`4️⃣ Função Funcionando: ⏸️ PULAR (sistema não carregado)`);
+        log(`4️⃣ Função Funcionando: ⏸️ PULAR (sistema não carregado)`);
     }
     
     // 5. Testar integração com audio-analyzer
@@ -67,12 +70,12 @@ window.validarTonalBalanceSafe = function() {
             const expectedResult = results.featureFlag ? '—' : (testResult.includes('15.0') ? 'valores exibidos' : 'resultado inesperado');
             results.integrationWorking = results.featureFlag ? (testResult === '—') : true;
             
-            console.log(`5️⃣ Integração: ${results.integrationWorking ? '✅ FUNCIONANDO' : '❌ PROBLEMA'} (${testResult})`);
+            log(`5️⃣ Integração: ${results.integrationWorking ? '✅ FUNCIONANDO' : '❌ PROBLEMA'} (${testResult})`);
         } else {
-            console.log(`5️⃣ Integração: ⚠️ tonalSummary global não encontrada`);
+            log(`5️⃣ Integração: ⚠️ tonalSummary global não encontrada`);
         }
     } catch (error) {
-        console.log(`5️⃣ Integração: ❌ ERRO - ${error.message}`);
+        log(`5️⃣ Integração: ❌ ERRO - ${error.message}`);
     }
     
     // Status geral
@@ -81,29 +84,29 @@ window.validarTonalBalanceSafe = function() {
     
     if (!criticalIssues && !minorIssues) {
         results.overallStatus = 'excellent';
-        console.log(`\n🎯 STATUS GERAL: ✅ EXCELENTE - Sistema totalmente funcional!`);
+        log(`\n🎯 STATUS GERAL: ✅ EXCELENTE - Sistema totalmente funcional!`);
     } else if (!criticalIssues) {
         results.overallStatus = 'good';
-        console.log(`\n🎯 STATUS GERAL: ⚠️ BOM - Sistema funcional com pequenos problemas`);
+        log(`\n🎯 STATUS GERAL: ⚠️ BOM - Sistema funcional com pequenos problemas`);
     } else {
         results.overallStatus = 'failed';
-        console.log(`\n🎯 STATUS GERAL: ❌ FALHANDO - Sistema não funcional`);
+        log(`\n🎯 STATUS GERAL: ❌ FALHANDO - Sistema não funcional`);
     }
     
     // Recomendações
     console.group('💡 RECOMENDAÇÕES');
     if (!results.featureFlag) {
-        console.log('- Ativar feature flag: window.TONAL_BALANCE_SAFE_V1 = true');
+        log('- Ativar feature flag: window.TONAL_BALANCE_SAFE_V1 = true');
     }
     if (!results.systemLoaded) {
-        console.log('- Verificar se tonal-balance-safe-v1.js foi carregado');
-        console.log('- Verificar erros no console durante carregamento');
+        log('- Verificar se tonal-balance-safe-v1.js foi carregado');
+        log('- Verificar erros no console durante carregamento');
     }
     if (!results.migrationApplied) {
-        console.log('- Executar migração manual: window.applyTonalBalanceSafeMigration?.()');
+        log('- Executar migração manual: window.applyTonalBalanceSafeMigration?.()');
     }
     if (results.overallStatus === 'excellent') {
-        console.log('✨ Sistema funcionando perfeitamente! Pode testar análise de áudio.');
+        log('✨ Sistema funcionando perfeitamente! Pode testar análise de áudio.');
     }
     console.groupEnd();
     
@@ -128,25 +131,25 @@ window.testarComAnaliseReal = function() {
         }
     };
     
-    console.log('📊 Dados de entrada:', mockAnalysisData.technicalData.tonalBalance);
+    log('📊 Dados de entrada:', mockAnalysisData.technicalData.tonalBalance);
     
     // Testar com sistema ativo
     if (window.TONAL_BALANCE_SAFE_V1) {
         if (window.validateSpectralBandsData) {
             const validation = window.validateSpectralBandsData(mockAnalysisData.technicalData.tonalBalance);
-            console.log('🔍 Validação:', validation);
+            log('🔍 Validação:', validation);
             
             const display = window.tonalSummarySafe(mockAnalysisData.technicalData.tonalBalance);
-            console.log('🎨 Resultado exibição:', display);
+            log('🎨 Resultado exibição:', display);
         } else {
-            console.log('❌ Funções de validação não disponíveis');
+            log('❌ Funções de validação não disponíveis');
         }
     } else {
-        console.log('⚠️ Sistema não ativo, executando teste básico...');
+        log('⚠️ Sistema não ativo, executando teste básico...');
         
         if (typeof window.tonalSummary === 'function') {
             const result = window.tonalSummary(mockAnalysisData.technicalData.tonalBalance);
-            console.log('📄 Resultado função original:', result);
+            log('📄 Resultado função original:', result);
         }
     }
     
@@ -159,19 +162,19 @@ window.forcarAtivacaoTonalSafe = function() {
     
     // Ativar flag
     window.TONAL_BALANCE_SAFE_V1 = true;
-    console.log('✅ Feature flag ativada');
+    log('✅ Feature flag ativada');
     
     // Tentar carregar sistema se não estiver disponível
     if (typeof window.validateSpectralBandsData !== 'function') {
-        console.log('⚠️ Sistema não carregado. Verificar se tonal-balance-safe-v1.js foi incluído.');
+        log('⚠️ Sistema não carregado. Verificar se tonal-balance-safe-v1.js foi incluído.');
     }
     
     // Forçar migração
     if (typeof window.applyTonalBalanceSafeMigration === 'function') {
         window.applyTonalBalanceSafeMigration();
-        console.log('✅ Migração forçada');
+        log('✅ Migração forçada');
     } else {
-        console.log('⚠️ Função de migração não disponível');
+        log('⚠️ Função de migração não disponível');
     }
     
     // Validar resultado
@@ -185,14 +188,14 @@ window.forcarAtivacaoTonalSafe = function() {
 // 🚀 Auto-executar validação na primeira carga (com delay)
 setTimeout(() => {
     if (typeof window.validarTonalBalanceSafe === 'function') {
-        console.log('🛡️ Auto-validação Tonal Balance Safe V1 disponível');
-        console.log('💡 Execute: validarTonalBalanceSafe() para verificar status');
-        console.log('💡 Execute: testarComAnaliseReal() para teste prático');
-        console.log('💡 Execute: forcarAtivacaoTonalSafe() se houver problemas');
+        log('🛡️ Auto-validação Tonal Balance Safe V1 disponível');
+        log('💡 Execute: validarTonalBalanceSafe() para verificar status');
+        log('💡 Execute: testarComAnaliseReal() para teste prático');
+        log('💡 Execute: forcarAtivacaoTonalSafe() se houver problemas');
         
         // Auto-executar validação básica
         window.validarTonalBalanceSafe();
     }
 }, 2000);
 
-console.log('🛡️ Auto-validador Tonal Balance Safe V1 carregado');
+log('🛡️ Auto-validador Tonal Balance Safe V1 carregado');

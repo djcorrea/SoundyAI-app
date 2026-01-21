@@ -1,16 +1,19 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🤖 Auto-Configuração da IA - SoundyAI
  * Configura automaticamente API Key e força interface IA aparecer
  */
 
-console.log('🤖 [AI-AUTO-CONFIG] Inicializando configuração automática da IA...');
+log('🤖 [AI-AUTO-CONFIG] Inicializando configuração automática da IA...');
 
 // Função para configurar API Key automaticamente
 function autoConfigureAI() {
     try {
         // Verifica se aiConfigManager existe
         if (!window.aiConfigManager) {
-            console.warn('⚠️ [AI-AUTO-CONFIG] aiConfigManager não encontrado, aguardando...');
+            warn('⚠️ [AI-AUTO-CONFIG] aiConfigManager não encontrado, aguardando...');
             setTimeout(autoConfigureAI, 1000);
             return;
         }
@@ -18,7 +21,7 @@ function autoConfigureAI() {
         // Verifica se já está configurado
         const currentKey = window.aiConfigManager.getSetting('apiKey');
         if (currentKey && currentKey !== '' && currentKey !== 'null') {
-            console.log('✅ [AI-AUTO-CONFIG] API Key já configurada:', currentKey.substring(0, 10) + '...');
+            log('✅ [AI-AUTO-CONFIG] API Key já configurada:', currentKey.substring(0, 10) + '...');
             return;
         }
 
@@ -36,7 +39,7 @@ function autoConfigureAI() {
         let keyToUse = globalKey;
 
         if (!keyToUse) {
-            console.log('🔍 [AI-AUTO-CONFIG] Nenhuma API Key encontrada, usando configuração base');
+            log('🔍 [AI-AUTO-CONFIG] Nenhuma API Key encontrada, usando configuração base');
             // Configurar para mostrar interface mesmo sem API Key válida
             keyToUse = 'demo-mode';
         }
@@ -47,7 +50,7 @@ function autoConfigureAI() {
         window.aiConfigManager.updateSetting('temperature', 0.7);
         window.aiConfigManager.updateSetting('maxTokens', 1000);
 
-        console.log('✅ [AI-AUTO-CONFIG] Configuração aplicada:', {
+        log('✅ [AI-AUTO-CONFIG] Configuração aplicada:', {
             hasKey: !!keyToUse,
             keyPreview: keyToUse ? keyToUse.substring(0, 10) + '...' : 'N/A',
             model: 'gpt-3.5-turbo'
@@ -55,7 +58,7 @@ function autoConfigureAI() {
 
         // Forçar atualização da interface
         if (window.aiUIController) {
-            console.log('🚀 [AI-AUTO-CONFIG] Forçando atualização da interface IA...');
+            log('🚀 [AI-AUTO-CONFIG] Forçando atualização da interface IA...');
             
             // Criar dados simulados se necessário
             const mockAnalysis = {
@@ -72,7 +75,7 @@ function autoConfigureAI() {
         }
 
     } catch (error) {
-        console.error('❌ [AI-AUTO-CONFIG] Erro na configuração automática:', error);
+        error('❌ [AI-AUTO-CONFIG] Erro na configuração automática:', error);
     }
 }
 
@@ -92,7 +95,7 @@ function findAPIKey() {
         try {
             const key = sources[i]();
             if (key && key.length > 20 && key.startsWith('sk-')) {
-                console.log(`🔑 [AI-AUTO-CONFIG] API Key encontrada na fonte ${i + 1}`);
+                log(`🔑 [AI-AUTO-CONFIG] API Key encontrada na fonte ${i + 1}`);
                 return key;
             }
         } catch (e) {
@@ -108,22 +111,22 @@ function quickSetupAI(apiKey = null) {
     const key = apiKey || findAPIKey();
     
     if (key) {
-        console.log('🔑 [AI-AUTO-CONFIG] Configurando API Key encontrada...');
+        log('🔑 [AI-AUTO-CONFIG] Configurando API Key encontrada...');
         if (window.aiConfigManager) {
             window.aiConfigManager.updateSetting('apiKey', key);
             window.aiConfigManager.updateSetting('model', 'gpt-3.5-turbo');
-            console.log('✅ [AI-AUTO-CONFIG] API Key configurada com sucesso!');
+            log('✅ [AI-AUTO-CONFIG] API Key configurada com sucesso!');
             return true;
         }
     }
     
-    console.log('⚠️ [AI-AUTO-CONFIG] Nenhuma API Key válida encontrada');
+    log('⚠️ [AI-AUTO-CONFIG] Nenhuma API Key válida encontrada');
     return false;
 }
 
 // Função para testar configuração
 function testAIConfig() {
-    console.log('🧪 [AI-AUTO-CONFIG] Testando configuração...');
+    log('🧪 [AI-AUTO-CONFIG] Testando configuração...');
     
     if (window.aiConfigManager) {
         const config = {
@@ -132,7 +135,7 @@ function testAIConfig() {
             temperature: window.aiConfigManager.getSetting('temperature')
         };
         
-        console.log('📊 [AI-AUTO-CONFIG] Configuração atual:', {
+        log('📊 [AI-AUTO-CONFIG] Configuração atual:', {
             hasKey: !!config.apiKey,
             keyPreview: config.apiKey ? config.apiKey.substring(0, 10) + '...' : 'N/A',
             model: config.model,
@@ -142,7 +145,7 @@ function testAIConfig() {
         return config;
     }
     
-    console.warn('❌ [AI-AUTO-CONFIG] aiConfigManager não disponível');
+    warn('❌ [AI-AUTO-CONFIG] aiConfigManager não disponível');
     return null;
 }
 
@@ -160,5 +163,5 @@ if (document.readyState === 'loading') {
     setTimeout(autoConfigureAI, 1000);
 }
 
-console.log('✅ [AI-AUTO-CONFIG] Sistema de auto-configuração carregado!');
-console.log('💡 [AI-AUTO-CONFIG] Funções disponíveis: autoConfigureAI(), quickSetupAI(), testAIConfig(), findAPIKey()');
+log('✅ [AI-AUTO-CONFIG] Sistema de auto-configuração carregado!');
+log('💡 [AI-AUTO-CONFIG] Funções disponíveis: autoConfigureAI(), quickSetupAI(), testAIConfig(), findAPIKey()');

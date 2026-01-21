@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 Teste Glitch - Título Idêntico ao Modal de Gênero</title>
+    <link rel="stylesheet" href="audio-analyzer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Orbitron', Arial, sans-serif;
+            background: linear-gradient(135deg, #0c111b 0%, #1a1f2e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #ff3366, #33ccff);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 15px;
+            transition: all 0.3s ease;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255, 51, 102, 0.4);
+        }
+        
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 40px 0;
+            align-items: start;
+        }
+        
+        .modal-preview {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 40px 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .modal-preview h3 {
+            color: #4fc3f7;
+            margin-top: 0;
+            margin-bottom: 30px;
+            font-size: 1.3rem;
+        }
+        
+        .glitch-demo {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .analysis-demo {
+            border-left: 3px solid #ff3366;
+        }
+        
+        .genre-demo {
+            border-left: 3px solid #33ccff;
+        }
+        
+        .effects-info {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .effects-info h4 {
+            color: #ff3366;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .effect-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .effect-item:last-child {
+            border-bottom: none;
+        }
+        
+        .effect-value {
+            color: #4fc3f7;
+            font-family: monospace;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .test-btn {
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔥 Teste Glitch - Título Idêntico</h1>
+        <p>Verificação do efeito glitch aplicado ao modal de análise</p>
+        
+        <div class="test-actions">
+            <button class="test-btn" onclick="openGlitchTestModal()">
+                🎧 ABRIR MODAL COM GLITCH
+            </button>
+            
+            <button class="test-btn" onclick="compareEffects()">
+                🔄 COMPARAR EFEITOS
+            </button>
+        </div>
+        
+        <div class="comparison-container">
+            <div class="modal-preview">
+                <h3>🎯 Modal de Análise (NOVO)</h3>
+                <div class="glitch-demo analysis-demo">
+                    <h2 class="analysis-modal-title glitch" data-text="COMO DESEJA ANALISAR SUA MÚSICA?">
+                        COMO DESEJA ANALISAR SUA MÚSICA?
+                    </h2>
+                </div>
+                <p><strong>Classes:</strong> <code>.analysis-modal-title.glitch</code></p>
+                <p><strong>Status:</strong> <span style="color: #4caf50;">✅ Glitch Ativo</span></p>
+            </div>
+            
+            <div class="modal-preview">
+                <h3>🎵 Referência Modal de Gênero</h3>
+                <div class="glitch-demo genre-demo">
+                    <h2 class="genre-modal-title glitch" data-text="ESCOLHA O GÊNERO">
+                        ESCOLHA O GÊNERO
+                    </h2>
+                </div>
+                <p><strong>Classes:</strong> <code>.genre-modal-title.glitch</code></p>
+                <p><strong>Status:</strong> <span style="color: #4caf50;">✅ Referência Original</span></p>
+            </div>
+        </div>
+        
+        <div class="effects-info">
+            <h4>⚡ Detalhes do Efeito Glitch Aplicado</h4>
+            
+            <div class="effect-item">
+                <span>Cor Rosa (topo 45%):</span>
+                <span class="effect-value">#ff3366</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Cor Azul (baixo 55%):</span>
+                <span class="effect-value">#33ccff</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Animação Rosa:</span>
+                <span class="effect-value">glitch-1 2s infinite alternate-reverse</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Animação Azul:</span>
+                <span class="effect-value">glitch-2 3s infinite alternate-reverse</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Text-shadow:</span>
+                <span class="effect-value">0 0 20px rgba(36, 157, 255, 0.3)</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Fonte:</span>
+                <span class="effect-value">Orbitron, 2.2rem, 700</span>
+            </div>
+            
+            <div class="effect-item">
+                <span>Letter-spacing:</span>
+                <span class="effect-value">2px</span>
+            </div>
+        </div>
+        
+        <div class="effects-info" style="border-left: 3px solid #4caf50;">
+            <h4>✅ Checklist de Verificação</h4>
+            <div id="checklistContainer">
+                <div class="effect-item">
+                    <span>Título tem efeito glitch visual</span>
+                    <span class="effect-value" id="glitchCheck">Verificando...</span>
+                </div>
+                <div class="effect-item">
+                    <span>Cores rosa e azul corretas</span>
+                    <span class="effect-value" id="colorCheck">Verificando...</span>
+                </div>
+                <div class="effect-item">
+                    <span>Text-shadow azul brilhante</span>
+                    <span class="effect-value" id="shadowCheck">Verificando...</span>
+                </div>
+                <div class="effect-item">
+                    <span>Texto centralizado</span>
+                    <span class="effect-value" id="alignCheck">Verificando...</span>
+                </div>
+                <div class="effect-item">
+                    <span>Funcionalidade JS preservada</span>
+                    <span class="effect-value" id="jsCheck">Verificando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para teste -->
+    <div id="analysisModeModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content mode-selection-modal">
+            <div class="audio-modal-header">
+                <h2 class="analysis-modal-title glitch" data-text="COMO DESEJA ANALISAR SUA MÚSICA?">
+                    COMO DESEJA ANALISAR SUA MÚSICA?
+                </h2>
+                <button class="audio-modal-close" onclick="closeGlitchTestModal()">&times;</button>
+            </div>
+            
+            <div class="mode-selection-container">
+                <div class="mode-selection-description">
+                    <p>Escolha o tipo de análise que melhor se adequa às suas necessidades:</p>
+                </div>
+                
+                <div class="mode-selection-options">
+                    <!-- Opção: Análise por Gênero (atual) -->
+                    <button class="mode-option-btn" id="genreModeBtn" onclick="testGlitchAnalysis()">
+                        <div class="mode-option-left">
+                            <svg class="icon-phones" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill="currentColor" d="M12 3a7 7 0 0 0-7 7v6a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H6v-1a6 6 0 1 1 12 0v1h-3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1a3 3 0 0 0 3-3V10a7 7 0 0 0-7-7Z"/>
+                            </svg>
+                            <div class="mode-option-content">
+                                <h4>Por Gênero Musical</h4>
+                                <p>Compare sua música com padrões profissionais do gênero selecionado</p>
+                                <span class="mode-option-badge">Recomendado</span>
+                            </div>
+                        </div>
+                        <div class="mode-option-right">→</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openGlitchTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'flex';
+            console.log('🔥 Modal glitch aberto para teste');
+            
+            // Verificar efeito glitch
+            const title = modal.querySelector('.analysis-modal-title.glitch');
+            if (title) {
+                const styles = getComputedStyle(title);
+                console.log('🎨 Título encontrado:', {
+                    fontFamily: styles.fontFamily,
+                    fontSize: styles.fontSize,
+                    color: styles.color,
+                    textShadow: styles.textShadow,
+                    textAlign: styles.textAlign
+                });
+                
+                // Verificar pseudoelementos
+                const beforeStyles = getComputedStyle(title, '::before');
+                const afterStyles = getComputedStyle(title, '::after');
+                
+                console.log('⚡ Efeitos glitch:', {
+                    before: beforeStyles.color,
+                    after: afterStyles.color,
+                    beforeAnimation: beforeStyles.animation,
+                    afterAnimation: afterStyles.animation
+                });
+            }
+            
+            checkGlitchEffects();
+        }
+
+        function closeGlitchTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'none';
+            console.log('❌ Modal fechado');
+        }
+
+        function testGlitchAnalysis() {
+            alert('🎧 Análise por Gênero selecionada!\n\n✅ Funcionalidade JS preservada!\n🔥 Efeito glitch funcionando!');
+            closeGlitchTestModal();
+        }
+
+        function compareEffects() {
+            console.log('🔄 Comparando efeitos glitch...');
+            
+            const analysisTitle = document.querySelector('.analysis-modal-title.glitch');
+            const genreTitle = document.querySelector('.genre-modal-title.glitch');
+            
+            if (analysisTitle && genreTitle) {
+                const analysisStyles = getComputedStyle(analysisTitle);
+                const genreStyles = getComputedStyle(genreTitle);
+                
+                console.log('📊 Comparação:', {
+                    analysis: {
+                        fontSize: analysisStyles.fontSize,
+                        fontWeight: analysisStyles.fontWeight,
+                        color: analysisStyles.color,
+                        textShadow: analysisStyles.textShadow
+                    },
+                    genre: {
+                        fontSize: genreStyles.fontSize,
+                        fontWeight: genreStyles.fontWeight,
+                        color: genreStyles.color,
+                        textShadow: genreStyles.textShadow
+                    }
+                });
+                
+                const isIdentical = 
+                    analysisStyles.fontSize === genreStyles.fontSize &&
+                    analysisStyles.fontWeight === genreStyles.fontWeight &&
+                    analysisStyles.color === genreStyles.color &&
+                    analysisStyles.textShadow === genreStyles.textShadow;
+                
+                alert(isIdentical ? 
+                    '✅ PERFEITO! Os estilos são idênticos!' : 
+                    '⚠️ Existem diferenças nos estilos. Verifique o console.'
+                );
+            } else {
+                alert('❌ Não foi possível encontrar ambos os títulos para comparação');
+            }
+        }
+
+        function checkGlitchEffects() {
+            const checks = {
+                glitchCheck: false,
+                colorCheck: false,
+                shadowCheck: false,
+                alignCheck: false,
+                jsCheck: false
+            };
+            
+            // Verificar se o título existe e tem classes corretas
+            const title = document.querySelector('.analysis-modal-title.glitch');
+            if (title) {
+                checks.glitchCheck = true;
+                
+                const styles = getComputedStyle(title);
+                
+                // Verificar text-shadow
+                if (styles.textShadow.includes('36, 157, 255')) {
+                    checks.shadowCheck = true;
+                }
+                
+                // Verificar alinhamento
+                if (styles.textAlign === 'center') {
+                    checks.alignCheck = true;
+                }
+                
+                // Verificar cor (deve ser branca #ffffff)
+                if (styles.color === 'rgb(255, 255, 255)') {
+                    checks.colorCheck = true;
+                }
+            }
+            
+            // Verificar se JS funciona
+            const button = document.getElementById('genreModeBtn');
+            if (button && button.onclick) {
+                checks.jsCheck = true;
+            }
+            
+            // Atualizar interface
+            Object.keys(checks).forEach(checkId => {
+                const element = document.getElementById(checkId);
+                if (element) {
+                    element.textContent = checks[checkId] ? '✅ OK' : '❌ Falhou';
+                    element.style.color = checks[checkId] ? '#4caf50' : '#ff6b6b';
+                }
+            });
+            
+            const allPassed = Object.values(checks).every(check => check);
+            console.log(allPassed ? '🎉 TODOS OS TESTES PASSARAM!' : '⚠️ Alguns testes falharam');
+        }
+
+        // Adicionar CSS para o modal de gênero de referência (caso não exista)
+        const genreCSS = `
+            .genre-modal-title {
+                font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif;
+                font-size: 2.2rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #ffffff;
+                margin-bottom: 12px;
+                position: relative;
+                letter-spacing: 2px;
+                text-shadow: 0 0 20px rgba(36, 157, 255, 0.3);
+                text-align: center;
+            }
+
+            .genre-modal-title.glitch::before,
+            .genre-modal-title.glitch::after {
+                content: attr(data-text);
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                opacity: 0.8;
+                pointer-events: none;
+            }
+
+            .genre-modal-title.glitch::before {
+                color: #ff3366;
+                animation: glitch-1 2s infinite alternate-reverse;
+                clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+            }
+
+            .genre-modal-title.glitch::after {
+                color: #33ccff;
+                animation: glitch-2 3s infinite alternate-reverse;
+                clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+            }
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = genreCSS;
+        document.head.appendChild(style);
+
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeGlitchTestModal();
+            }
+        });
+
+        // Fechar modal clicando fora
+        document.getElementById('analysisModeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGlitchTestModal();
+            }
+        });
+
+        // Executar verificações iniciais
+        setTimeout(checkGlitchEffects, 1000);
+
+        console.log('🔥 Página de teste glitch carregada!');
+        console.log('📋 Execute os testes para verificar se o efeito está idêntico ao modal de gênero');
+    </script>
+</body>
+</html>

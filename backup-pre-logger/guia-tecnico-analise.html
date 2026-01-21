@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <title>Guia Técnico de Análise de Música - SoundyAI</title>
+    
+    <!-- Fontes -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ============================================
+           RESET E BASE
+           ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at 20% 20%, 
+                rgba(93, 21, 134, 0.85) 0%, 
+                rgba(0, 0, 0, 0.95) 60%, 
+                rgba(0, 102, 255, 0.4) 100%);
+            color: #e0e0e0;
+            line-height: 1.7;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Vanta.js será usado para efeitos de fundo */
+        
+        /* Container principal */
+        .guide-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px 80px 24px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* ============================================
+           HEADER / TÍTULO PRINCIPAL
+           ============================================ */
+        .guide-header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px 32px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            border: 1px solid rgba(106, 0, 255, 0.3);
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                        inset 0 1px 2px rgba(106, 0, 255, 0.2),
+                        0 0 40px rgba(106, 0, 255, 0.15);
+        }
+        
+        .guide-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(106, 0, 255, 0.15), 
+                transparent);
+            animation: header-sweep 4s ease-in-out infinite;
+            z-index: 0;
+        }
+        
+        @keyframes header-sweep {
+            0%, 100% { 
+                left: -100%; 
+                opacity: 0;
+            }
+            10%, 90% {
+                opacity: 1;
+            }
+            50% { 
+                left: 100%; 
+            }
+        }
+        
+        /* Garantir que texto fique acima da animação */
+        .guide-header > * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .guide-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #6a00ff, #00d4ff, #6a00ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradient-shift 3s ease infinite;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 30px rgba(106, 0, 255, 0.5);
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+        
+        .guide-subtitle {
+            font-size: 1.15rem;
+            color: rgba(200, 220, 255, 0.9);
+            font-weight: 400;
+            line-height: 1.6;
+        }
+        
+        /* Botão voltar - DARK TECH STYLE */
+        .back-button {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(106, 0, 255, 0.5);
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+                        inset 0 1px 1px rgba(106, 0, 255, 0.2),
+                        0 0 20px rgba(106, 0, 255, 0.2);
+            overflow: hidden;
+        }
+        
+        .back-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 212, 255, 0.2), 
+                transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .back-button:hover::before {
+            left: 100%;
+        }
+        
+        .back-button:hover {
+            background: rgba(106, 0, 255, 0.3);
+            border-color: rgba(0, 212, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4),
+                        0 0 30px rgba(0, 212, 255, 0.3),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.1);
+        }
+        
+        .back-button:active {
+            transform: translateY(0);
+        }
+        
+        /* ============================================
+           ÍNDICE FIXO
+           ============================================ */
+        .table-of-contents {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(106, 0, 255, 0.25);
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 2px rgba(106, 0, 255, 0.15),
+                        0 0 40px rgba(106, 0, 255, 0.08);
+        }
+        
+        .toc-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #00d4ff;
+            margin-bottom: 20px;
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            letter-spacing: 1px;
+        }
+        
+        .toc-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .toc-list li a {
+            color: rgba(200, 220, 255, 0.85);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+        
+        .toc-list li a::before {
+            content: "▸";
+            color: #6a00ff;
+            font-weight: 700;
+        }
+        
+        .toc-list li a:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: rgba(0, 212, 255, 0.3);
+            color: #ffffff;
+            transform: translateX(8px);
+        }
+        
+        /* ============================================
+           SEÇÕES DO CONTEÚDO
+           ============================================ */
+        .guide-section {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(106, 0, 255, 0.3);
+            border-left: 4px solid #6a00ff;
+            border-radius: 14px;
+            padding: 32px 28px;
+            margin-bottom: 32px;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 2px rgba(106, 0, 255, 0.1),
+                        0 0 30px rgba(106, 0, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Efeito de brilho ao hover */
+        .guide-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(0, 212, 255, 0.1), 
+                transparent);
+            transition: left 0.6s ease;
+            pointer-events: none;
+        }
+        
+        .guide-section:hover::before {
+            left: 100%;
+        }
+        
+        .guide-section:hover {
+            border-left-color: #00d4ff;
+            border-color: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                        0 0 40px rgba(0, 212, 255, 0.2),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.05);
+            transform: translateY(-3px);
+        }
+        
+        /* Garantir que conteúdo fique acima do efeito */
+        .guide-section > * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .section-number {
+            display: inline-block;
+            background: linear-gradient(135deg, #6a00ff, #8b5cf6);
+            color: white;
+            font-weight: 700;
+            font-size: 0.85rem;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(106, 0, 255, 0.3);
+        }
+        
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 16px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .section-content {
+            color: rgba(220, 220, 240, 0.9);
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .section-content p {
+            margin-bottom: 16px;
+        }
+        
+        .section-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-content strong {
+            color: #ffffff;
+            font-weight: 600;
+        }
+        
+        .section-content em {
+            color: #00d4ff;
+            font-style: normal;
+            font-weight: 500;
+        }
+        
+        /* ============================================
+           LISTAS E STEPS
+           ============================================ */
+        .step-list {
+            list-style: none;
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .step-list li {
+            background: rgba(0, 212, 255, 0.06);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 10px;
+            padding: 14px 18px;
+            color: rgba(220, 240, 255, 0.95);
+            font-weight: 500;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .step-list li:hover {
+            background: rgba(0, 212, 255, 0.12);
+            border-color: rgba(0, 212, 255, 0.4);
+            transform: translateX(4px);
+        }
+        
+        /* Lista de bullet points */
+        .bullet-list {
+            list-style: disc;
+            margin: 16px 0 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            color: #6a00ff;
+        }
+        
+        .bullet-list li {
+            padding-left: 8px;
+            color: rgba(220, 220, 240, 0.9);
+        }
+        
+        .bullet-list li::marker {
+            color: #6a00ff;
+        }
+        
+        /* ============================================
+           BLOCOS DE DESTAQUE
+           ============================================ */
+        .highlight-box {
+            background: linear-gradient(135deg, 
+                rgba(255, 193, 7, 0.12) 0%, 
+                rgba(255, 152, 0, 0.08) 100%);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+        
+        .highlight-icon {
+            font-size: 1.8rem;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 10px rgba(255, 193, 7, 0.5));
+        }
+        
+        .highlight-content {
+            flex: 1;
+            color: rgba(255, 235, 200, 0.95);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        
+        .highlight-content strong {
+            color: #ffffff;
+        }
+        
+        /* Bloco de aviso/warning */
+        .warning-box {
+            background: linear-gradient(135deg, 
+                rgba(244, 67, 54, 0.12) 0%, 
+                rgba(211, 47, 47, 0.08) 100%);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin: 20px 0;
+        }
+        
+        .warning-box::before {
+            content: "⚠️ ";
+            font-size: 1.5rem;
+            margin-right: 8px;
+        }
+        
+        .warning-box p {
+            color: rgba(255, 220, 220, 0.95);
+            margin: 0;
+        }
+        
+        /* ============================================
+           CHECKLIST
+           ============================================ */
+        .checklist {
+            background: rgba(76, 175, 80, 0.08);
+            border: 1px solid rgba(76, 175, 80, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+        
+        .checklist-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #81C784;
+            margin-bottom: 16px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .checklist-items {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .checklist-items li {
+            color: rgba(200, 255, 200, 0.9);
+            font-weight: 500;
+            padding: 10px 12px 10px 40px;
+            border-radius: 8px;
+            background: rgba(76, 175, 80, 0.05);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .checklist-items li::before {
+            content: "☐";
+            position: absolute;
+            left: 12px;
+            font-size: 1.3rem;
+            color: #81C784;
+        }
+        
+        .checklist-items li:hover {
+            background: rgba(76, 175, 80, 0.12);
+            transform: translateX(4px);
+        }
+        
+        /* ============================================
+           CÓDIGO / CONFIGURAÇÃO
+           ============================================ */
+        .code-block {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin: 16px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #00d4ff;
+            overflow-x: auto;
+            line-height: 1.6;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4),
+                        0 4px 16px rgba(0, 0, 0, 0.2),
+                        0 0 20px rgba(0, 212, 255, 0.08);
+            backdrop-filter: blur(8px);
+        }
+        
+        /* ============================================
+           NOTA FINAL
+           ============================================ */
+        .final-note {
+            background: linear-gradient(135deg, 
+                rgba(156, 39, 176, 0.12) 0%, 
+                rgba(124, 77, 255, 0.08) 100%);
+            border: 2px solid rgba(156, 39, 176, 0.3);
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-top: 50px;
+            text-align: center;
+        }
+        
+        .final-note-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #CE93D8;
+            margin-bottom: 12px;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        .final-note p {
+            color: rgba(230, 200, 255, 0.9);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+        
+        /* ============================================
+           RESPONSIVIDADE
+           ============================================ */
+        @media (max-width: 768px) {
+            .guide-container {
+                padding: 20px 16px 60px 16px;
+            }
+            
+            .guide-header {
+                padding: 28px 20px;
+                margin-bottom: 32px;
+            }
+            
+            .guide-title {
+                font-size: 1.8rem;
+            }
+            
+            .guide-subtitle {
+                font-size: 1rem;
+            }
+            
+            .back-button {
+                position: static;
+                display: block;
+                margin: 0 auto 24px auto;
+                width: fit-content;
+            }
+            
+            .table-of-contents {
+                padding: 20px;
+            }
+            
+            .guide-section {
+                padding: 24px 20px;
+            }
+            
+            .section-title {
+                font-size: 1.3rem;
+            }
+            
+            .section-content {
+                font-size: 0.95rem;
+            }
+            
+            .step-list li {
+                padding-left: 46px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .guide-title {
+                font-size: 1.5rem;
+                letter-spacing: 1px;
+            }
+            
+            .guide-subtitle {
+                font-size: 0.9rem;
+            }
+            
+            .section-title {
+                font-size: 1.15rem;
+            }
+            
+            .section-content {
+                font-size: 0.9rem;
+            }
+            
+            .toc-list li a {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+    
+    <!-- Three.js e Vanta.js para efeitos futuristas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+</head>
+<body>
+    <!-- Container para Vanta.js -->
+    <div id="vanta-background" style="position: fixed; width: 100%; height: 100%; top: 0; left: 0; z-index: 0;"></div>
+    
+    <a href="javascript:window.close()" class="back-button">
+        ← Voltar à Análise
+    </a>
+    
+    <div class="guide-container">
+        <!-- HEADER -->
+        <header class="guide-header">
+            <h1 class="guide-title">Guia Técnico de Análise de Música</h1>
+            <p class="guide-subtitle">
+                Aprenda o passo a passo correto para alcançar resultados profissionais
+            </p>
+        </header>
+        
+        <!-- ÍNDICE -->
+        <nav class="table-of-contents">
+            <h2 class="toc-title">📑 Índice</h2>
+            <ul class="toc-list">
+                <li><a href="#preparacao">0. Preparação da Sessão</a></li>
+                <li><a href="#tipo-audio">1. O que Enviar: Cru vs. Mixado</a></li>
+                <li><a href="#primeira-analise">2. Primeira Análise (Baseline)</a></li>
+                <li><a href="#true-peak">3. Correção #1 — True Peak</a></li>
+                <li><a href="#lufs">4. Correção #2 — LUFS</a></li>
+                <li><a href="#dinamica">5. Correção #3 — Dinâmica</a></li>
+                <li><a href="#frequencias">6. Correção #4 — Frequências</a></li>
+                <li><a href="#iteracao">7. Fluxo de Iteração</a></li>
+                <li><a href="#export">8. Export Final</a></li>
+                <li><a href="#checklist">9. Checklist Rápido</a></li>
+                <li><a href="#problemas">10. Problemas Comuns & Soluções</a></li>
+                <li><a href="#config-fl">11. Exemplo de Configuração (FL Studio)</a></li>
+                <li><a href="#arte-tecnica">Observação: Arte vs Técnica</a></li>
+            </ul>
+        </nav>
+        
+        <p style="text-align: center; color: rgba(200, 220, 255, 0.8); margin-bottom: 40px; font-size: 1.05rem;">
+            Este guia foi feito para ser <strong>fácil de seguir e prático</strong>. A ordem abaixo reduz erros e garante que cada correção não estrague a anterior.
+        </p>
+        
+        <!-- SEÇÃO 0 -->
+        <section id="preparacao" class="guide-section">
+            <span class="section-number">ETAPA 0</span>
+            <h2 class="section-title">Preparação da Sessão (antes de tudo)</h2>
+            <div class="section-content">
+                <ul class="bullet-list">
+                    <li><strong>Organize sua mix:</strong> nomeie pistas, desative limiter no master (por enquanto), cheque roteamentos.</li>
+                    <li><strong>Headroom:</strong> deixe a saída do master sem clip (picos bem abaixo de 0 dBFS).</li>
+                    <li><strong>Medidores prontos:</strong>
+                        <ul class="bullet-list" style="margin-top: 8px;">
+                            <li>LUFS (ex.: Youlean Loudness Meter configurado em ITU-R BS.1770)</li>
+                            <li>True Peak (ex.: Wave Candy em modo Peak ou medidor de TP do seu limiter)</li>
+                        </ul>
+                    </li>
+                    <li><strong>Referência:</strong> tenha 1–2 músicas referência do mesmo subgênero para comparação auditiva (opcional, mas ajuda demais).</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 1 -->
+        <section id="tipo-audio" class="guide-section">
+            <span class="section-number">ETAPA 1</span>
+            <h2 class="section-title">O que Enviar: Cru vs. Mixado</h2>
+            <div class="section-content">
+                <p>Você tem dois caminhos possíveis:</p>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 10px 0;">A) Enviar áudio mixado (recomendado)</h3>
+                <ul class="bullet-list">
+                    <li>Faça uma mix limpa: volumes equilibrados, sem limiter no master (ou com limiter apenas como safety bem leve).</li>
+                    <li>Ajuste o master para que, sem limiter, os picos fiquem abaixo de 0 dBFS e o nível médio não esteja exagerado.</li>
+                    <li><strong>Objetivo:</strong> a análise vai ler melhor suas relações de volume, dinâmica e espectro.</li>
+                </ul>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 10px 0;">B) Enviar áudio cru</h3>
+                <ul class="bullet-list">
+                    <li>Pode enviar, mas entenda: o guia vai te mandar corrigir TP primeiro, depois LUFS, e só então frequências.</li>
+                    <li>O processo pode pedir mais reanálises (porque cada grande ajuste muda o restante).</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 2 -->
+        <section id="primeira-analise" class="guide-section">
+            <span class="section-number">ETAPA 2</span>
+            <h2 class="section-title">Primeira Análise (Baseline)</h2>
+            <div class="section-content">
+                <ul class="step-list">
+                    <li data-step="1">Exporte um trecho representativo ou a música inteira (sem fades artificiais).</li>
+                    <li data-step="2">Suba no sistema e rode a análise.</li>
+                    <li data-step="3">Anote estes 4 pontos-chave do relatório:
+                        <ul class="bullet-list" style="margin-top: 8px;">
+                            <li>True Peak (TP)</li>
+                            <li>LUFS integrado (volume médio percebido)</li>
+                            <li>Dinâmica (ex.: DR/LRA/crest factor que seu sistema exibir)</li>
+                            <li>Faixas de frequência (desvios e sobras por banda)</li>
+                        </ul>
+                    </li>
+                </ul>
+                <p>Vamos usar esse <em>baseline</em> para guiar correções na ordem certa.</p>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 3 -->
+        <section id="true-peak" class="guide-section">
+            <span class="section-number">CORREÇÃO #1</span>
+            <h2 class="section-title">True Peak (primeiro de tudo)</h2>
+            <div class="section-content">
+                <div class="highlight-box">
+                    <span class="highlight-icon">🎯</span>
+                    <div class="highlight-content">
+                        <strong>Por quê primeiro?</strong><br>
+                        Se o TP estiver alto (ou clipando), qualquer ajuste de ganho/limiter depois vai mascarar problemas e distorcer o resultado.
+                    </div>
+                </div>
+                
+                <p><strong>Meta prática para streaming:</strong> TP ≤ −1,0 dBTP (seguro contra picos entre amostras).</p>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como fazer (FL Studio / plugins comuns):</h3>
+                <ul class="step-list">
+                    <li data-step="1">No master, insira um limiter/brickwall (Fruity Limiter, Maximus, Ozone Maximizer, etc.).</li>
+                    <li data-step="2">Ceiling/Out: <strong>−1,0 dB</strong> (true peak). Ative oversampling se o plugin oferecer (reduz inter-sample peaks).</li>
+                    <li data-step="3">Ajuste gain/threshold até seus picos reais ficarem ≤ −1 dBTP em partes mais altas.</li>
+                    <li data-step="4">Reanalise no sistema para confirmar o TP.</li>
+                </ul>
+                
+                <p style="margin-top: 16px;"><em>Se o TP já estava ok, siga para LUFS.</em></p>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 4 -->
+        <section id="lufs" class="guide-section">
+            <span class="section-number">CORREÇÃO #2</span>
+            <h2 class="section-title">LUFS (volume médio percebido)</h2>
+            <div class="section-content">
+                <div class="highlight-box">
+                    <span class="highlight-icon">🎯</span>
+                    <div class="highlight-content">
+                        <strong>Por quê agora?</strong><br>
+                        O volume médio impacta como você percebe dinâmica e espectro. Deixar o target cedo estabiliza o resto.
+                    </div>
+                </div>
+                
+                <p><strong>Faixa prática recomendada</strong> para upload/análise estável: <strong>≈ −14 LUFS integrado</strong>.<br>
+                Para masters comerciais mais "altas", ajuste depois, mas garanta primeiro a qualidade sem clip.</p>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como fazer:</h3>
+                <ul class="step-list">
+                    <li data-step="1">Com o limiter já configurado (ceiling −1 dBTP), use o input/threshold do limiter (ou um gain antes dele) para levar o integrated LUFS para perto de −14 LUFS.</li>
+                    <li data-step="2">Monitore no Youlean (modo Integrated, standard ITU, True Peak ON).</li>
+                    <li data-step="3">Reanalise no sistema e confirme: TP ainda ≤ −1 dBTP e LUFS ~ −14.</li>
+                </ul>
+                
+                <div class="warning-box">
+                    <p>Ajustar LUFS pode mexer um pouco na dinâmica — é esperado.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 5 -->
+        <section id="dinamica" class="guide-section">
+            <span class="section-number">CORREÇÃO #3</span>
+            <h2 class="section-title">Dinâmica (DR / LRA / Crest Factor)</h2>
+            <div class="section-content">
+                <p><strong>Objetivo:</strong> manter impacto sem "amassar" tudo.</p>
+                
+                <ul class="bullet-list">
+                    <li>Se o crest factor está <strong>baixo demais</strong> (mix "achatada"), alivie o limiter (menos ganho), reequilibre kick/bass vs. resto.</li>
+                    <li>Se a dinâmica está "pulando" demais (inconsistente), controle picos nos grupos (compressão suave em drums/bass/vocais) ao invés de esmagar o master.</li>
+                </ul>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Passos práticos:</h3>
+                <ul class="step-list">
+                    <li data-step="1">Ajustes por bus (drums, baixos, leads, vox) antes do master: use compressores com pouca redução (1–3 dB GR).</li>
+                    <li data-step="2">Evite "corrigir tudo no limiter". O limiter é última contenção, não a solução de mix.</li>
+                    <li data-step="3">Reanalise após pequenas mudanças.</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 6 -->
+        <section id="frequencias" class="guide-section">
+            <span class="section-number">CORREÇÃO #4</span>
+            <h2 class="section-title">Frequências (EQ por bandas)</h2>
+            <div class="section-content">
+                <div class="highlight-box">
+                    <span class="highlight-icon">🎯</span>
+                    <div class="highlight-content">
+                        <strong>Por quê por último (dos grandes eixos)?</strong><br>
+                        Qualquer ganho geral (LUFS) e controle de picos (TP) mudam a percepção de graves/agudos. Ajustar EQ só agora evita retrabalho.
+                    </div>
+                </div>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como atacar:</h3>
+                <ul class="bullet-list">
+                    <li>Siga os desvios por banda apontados pelo sistema como <strong>pistas, não como ordens absolutas</strong>.</li>
+                    <li>Não faça cortes bruscos de cara. Comece em <strong>±1 a 2 dB</strong> por banda, Q moderado.</li>
+                    <li>Escute comparando com referência do mesmo subgênero (volume alinhado!).</li>
+                    <li>Foque em <em>sub e grave primeiro</em> (kick/bass), depois <em>médios</em> (corpo, presença) e por fim <em>agudos</em> (areia/aria).</li>
+                    <li>Se o sistema indicar banda "dentro da tolerância", <strong>não mexa só por mexer</strong>.</li>
+                </ul>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 24px 0 12px 0;">Exemplos práticos:</h3>
+                <ul class="bullet-list">
+                    <li><strong>Sub (20–40 Hz) exagerado?</strong> Reduza 1–2 dB com shelf suave no bus de bass/drums.</li>
+                    <li><strong>Lama em 200–350 Hz?</strong> Corte 1–2 dB com Q médio em buses que somam nessa região.</li>
+                    <li><strong>Agudo áspero (6–8 kHz)?</strong> Atenue 1–2 dB com bell leve no elemento causador (hi-hat, vox sibilante etc.).</li>
+                </ul>
+                
+                <p style="margin-top: 20px;"><strong>Depois dos ajustes:</strong> Reanalise para ver se os desvios reduziram sem matar o caráter do som.</p>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 7 -->
+        <section id="iteracao" class="guide-section">
+            <span class="section-number">ETAPA 7</span>
+            <h2 class="section-title">Fluxo de Iteração (curto e objetivo)</h2>
+            <div class="section-content">
+                <ul class="step-list">
+                    <li data-step="1"><strong>TP:</strong> garanta ≤ −1 dBTP.</li>
+                    <li data-step="2"><strong>LUFS:</strong> leve a ~ −14 LUFS (para análise estável).</li>
+                    <li data-step="3"><strong>Dinâmica:</strong> ajuste comp nos grupos se preciso.</li>
+                    <li data-step="4"><strong>EQ por bandas:</strong> micro-ajustes (±1–2 dB), ouvindo referência.</li>
+                    <li data-step="5"><strong>Reanálise</strong> → repetir onde necessário.</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 8 -->
+        <section id="export" class="guide-section">
+            <span class="section-number">ETAPA 8</span>
+            <h2 class="section-title">Export Final (para envio/lançamento)</h2>
+            <div class="section-content">
+                <ul class="bullet-list">
+                    <li><strong>Ceiling do limiter:</strong> mantenha <strong>−1,0 dBTP</strong>.</li>
+                    <li>Se for publicar direto, pode subir o mix para <strong>−13 ~ −10 LUFS</strong> (a critério do estilo), sempre conferindo TP.</li>
+                    <li>Exporte com a amostragem do projeto (ou 44.1/48 kHz) e bit depth adequado. Use dither ao descer bit depth.</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 9 - CHECKLIST -->
+        <section id="checklist" class="guide-section">
+            <span class="section-number">ETAPA 9</span>
+            <h2 class="section-title">Checklist Rápido</h2>
+            <div class="section-content">
+                <div class="checklist">
+                    <h3 class="checklist-title">✓ Checklist Completo</h3>
+                    <ul class="checklist-items">
+                        <li>Sem clip no master antes do limiter</li>
+                        <li>TP ≤ −1,0 dBTP (oversampling ativo se houver)</li>
+                        <li>LUFS ~ −14 (para análise)</li>
+                        <li>Dinâmica controlada por buses (não só no master)</li>
+                        <li>EQ em micro-passos (±1–2 dB), nada radical de primeira</li>
+                        <li>Reanálise após cada bloco de correção</li>
+                        <li>Comparação auditiva com referência do mesmo subgênero (volumes casados)</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 10 -->
+        <section id="problemas" class="guide-section">
+            <span class="section-number">ETAPA 10</span>
+            <h2 class="section-title">Problemas Comuns & Soluções Rápidas</h2>
+            <div class="section-content">
+                <ul class="bullet-list">
+                    <li><strong>TP insiste em passar de −1 dBTP:</strong> ative True Peak/oversampling no limiter e reduza 0.5–1 dB de input.</li>
+                    <li><strong>−14 LUFS atinge, mas som perde punch:</strong> reorganize ganho por buses (devolva transientes com comp paralela/clipper leve em drums).</li>
+                    <li><strong>Grave some quando ajusto LUFS:</strong> cheque sidechain kick↔bass e o "release" do limiter (muito curto pode "comer" sub).</li>
+                    <li><strong>Agudos ásperos:</strong> trate na fonte (de-esser em vox/hat), não só no master.</li>
+                    <li><strong>Análise varia muito por trecho:</strong> use um trecho representativo e confirme com a música toda na penúltima análise.</li>
+                </ul>
+            </div>
+        </section>
+        
+        <!-- SEÇÃO 11 -->
+        <section id="config-fl" class="guide-section">
+            <span class="section-number">ETAPA 11</span>
+            <h2 class="section-title">Exemplo de Configuração (FL Studio / caminho rápido)</h2>
+            <div class="section-content">
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin-bottom: 12px;">Medidores:</h3>
+                <ul class="bullet-list">
+                    <li><strong>Wave Candy (pico):</strong> modo Peak, janela longa o bastante para ver picos reais.</li>
+                    <li><strong>Youlean:</strong> Standard ITU, Integrated, TP ON.</li>
+                </ul>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Fruity Limiter / Maximizer:</h3>
+                <div class="code-block">
+Ceiling/Out: −1.0 dB<br>
+Lookahead: curto a moderado<br>
+Release: auto (ou 100–300 ms conforme o material)<br>
+Ganho/Threshold: ajuste só o necessário para bater −14 LUFS sem ultrapassar TP
+                </div>
+            </div>
+        </section>
+        
+        <!-- NOTA FINAL -->
+        <section id="arte-tecnica" class="final-note">
+            <h2 class="final-note-title">🎨 Observação Importante sobre Arte vs Técnica</h2>
+            <p>
+                <strong>As métricas guiam, mas música é arte.</strong> Se a banda está verde (ok) no seu relatório, 
+                não existe obrigação de mexer. Use o ouvido e a intenção estética do subgênero como critério final.
+            </p>
+        </section>
+        
+    </div>
+    
+    <script>
+        // Smooth scroll para âncoras
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Animação de entrada nas seções
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '0';
+                    entry.target.style.transform = 'translateY(20px)';
+                    
+                    setTimeout(() => {
+                        entry.target.style.transition = 'all 0.6s ease';
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }, 100);
+                    
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+        
+        document.querySelectorAll('.guide-section').forEach(section => {
+            observer.observe(section);
+        });
+        
+        // ============================================
+        // VANTA.JS - EFEITO FUTURISTA DE REDE NEURAL
+        // ============================================
+        if (typeof VANTA !== 'undefined') {
+            VANTA.NET({
+                el: "#vanta-background",
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0x6a00ff,          // Purple
+                backgroundColor: 0x000000, // Black
+                points: 8.00,
+                maxDistance: 25.00,
+                spacing: 18.00,
+                showDots: true
+            });
+        }
+    </script>
+</body>
+</html>

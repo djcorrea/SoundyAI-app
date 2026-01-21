@@ -135,6 +135,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -311,39 +317,39 @@
         function openFinalTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'flex';
-            console.log('🎯 Modal final aberto para teste completo');
+            log('🎯 Modal final aberto para teste completo');
             
             // Verificar dimensões
             const modalContent = modal.querySelector('.mode-selection-modal');
             const rect = modalContent.getBoundingClientRect();
             
-            console.log(`📏 Dimensões do modal: ${rect.width}px x ${rect.height}px`);
-            console.log(`📱 Viewport: ${window.innerWidth}px x ${window.innerHeight}px`);
+            log(`📏 Dimensões do modal: ${rect.width}px x ${rect.height}px`);
+            log(`📱 Viewport: ${window.innerWidth}px x ${window.innerHeight}px`);
             
             // Verificar scroll
             const hasScroll = modalContent.scrollHeight > modalContent.clientHeight;
-            console.log(`📊 Tem scroll: ${hasScroll ? 'SIM (problema!)' : 'NÃO (correto!)'}`);
+            log(`📊 Tem scroll: ${hasScroll ? 'SIM (problema!)' : 'NÃO (correto!)'}`);
             
             // Verificar título
             const title = modal.querySelector('.holo-title');
             if (title) {
                 const styles = getComputedStyle(title);
-                console.log(`🎨 Título: Fonte ${styles.fontFamily}, Tamanho ${styles.fontSize}`);
+                log(`🎨 Título: Fonte ${styles.fontFamily}, Tamanho ${styles.fontSize}`);
             }
             
             // Verificar ícone SVG
             const svgIcon = modal.querySelector('.icon-phones');
             if (svgIcon) {
-                console.log('✅ Ícone SVG carregado corretamente');
+                log('✅ Ícone SVG carregado corretamente');
             } else {
-                console.log('❌ Problema com ícone SVG');
+                log('❌ Problema com ícone SVG');
             }
         }
 
         function closeFinalTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'none';
-            console.log('❌ Modal fechado');
+            log('❌ Modal fechado');
         }
 
         function testGenreSelection() {
@@ -369,7 +375,7 @@
             ];
             
             let currentSize = 0;
-            console.log('📱 Iniciando teste responsivo...');
+            log('📱 Iniciando teste responsivo...');
             
             const interval = setInterval(() => {
                 if (currentSize < sizes.length) {
@@ -377,19 +383,19 @@
                     document.body.style.maxWidth = size.width;
                     document.body.style.margin = '0 auto';
                     
-                    console.log(`📱 ${size.label}: ${size.width}`);
+                    log(`📱 ${size.label}: ${size.width}`);
                     
                     // Verificar como o modal se adapta
                     const modalContent = modal.querySelector('.mode-selection-modal');
                     const rect = modalContent.getBoundingClientRect();
-                    console.log(`   → Modal: ${rect.width}px x ${rect.height}px`);
+                    log(`   → Modal: ${rect.width}px x ${rect.height}px`);
                     
                     currentSize++;
                 } else {
                     document.body.style.maxWidth = '100%';
                     document.body.style.margin = '0';
                     clearInterval(interval);
-                    console.log('✅ Teste responsivo concluído com sucesso!');
+                    log('✅ Teste responsivo concluído com sucesso!');
                     
                     setTimeout(() => {
                         closeFinalTestModal();
@@ -412,13 +418,13 @@
             }
         });
 
-        console.log('🎯 Página de teste final carregada - Todos os ajustes implementados!');
-        console.log('📋 Checklist:');
-        console.log('   ✅ Container: 720px x 90vh sem scroll');
-        console.log('   ✅ Título: Gradiente holográfico');
-        console.log('   ✅ Ícone: SVG perfeito');
-        console.log('   ✅ Eventos: Preservados');
-        console.log('   ✅ Responsivo: Completo');
+        log('🎯 Página de teste final carregada - Todos os ajustes implementados!');
+        log('📋 Checklist:');
+        log('   ✅ Container: 720px x 90vh sem scroll');
+        log('   ✅ Título: Gradiente holográfico');
+        log('   ✅ Ícone: SVG perfeito');
+        log('   ✅ Eventos: Preservados');
+        log('   ✅ Responsivo: Completo');
     </script>
 </body>
 </html>

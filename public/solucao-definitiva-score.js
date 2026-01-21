@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SOLUÇÃO DEFINITIVA - CORREÇÃO ORDEM DE EXECUÇÃO DO SCORING
 // 
 // PROBLEMA IDENTIFICADO:
@@ -24,17 +27,17 @@
  * Aplica a correção de ordem de execução com máxima segurança
  */
 function aplicarCorrecaoOrdemExecucao() {
-  console.log('🎯 [CORREÇÃO] Iniciando correção da ordem de execução do scoring');
+  log('🎯 [CORREÇÃO] Iniciando correção da ordem de execução do scoring');
   
   // Verificar se a correção já foi aplicada
   if (typeof window !== 'undefined' && window.__SCORE_ORDER_FIX_APPLIED) {
-    console.log('✅ [CORREÇÃO] Correção já aplicada anteriormente');
+    log('✅ [CORREÇÃO] Correção já aplicada anteriormente');
     return { success: true, message: 'Correção já aplicada' };
   }
   
   try {
     // 1. PREPARAÇÃO SEGURA
-    console.log('📋 [CORREÇÃO] Verificando pré-requisitos...');
+    log('📋 [CORREÇÃO] Verificando pré-requisitos...');
     
     // Verificar se o sistema está funcionando
     if (typeof window === 'undefined') {
@@ -47,14 +50,14 @@ function aplicarCorrecaoOrdemExecucao() {
     }
     
     // 2. BACKUP DE SEGURANÇA
-    console.log('💾 [CORREÇÃO] Criando backup do sistema atual...');
+    log('💾 [CORREÇÃO] Criando backup do sistema atual...');
     const originalAnalyzer = window.audioAnalyzer || window.AudioAnalyzer;
     
     // Salvar método original se não existe backup
     if (!window.__originalPerformFullAnalysis) {
       if (originalAnalyzer && typeof originalAnalyzer.performFullAnalysis === 'function') {
         window.__originalPerformFullAnalysis = originalAnalyzer.performFullAnalysis.bind(originalAnalyzer);
-        console.log('💾 [CORREÇÃO] Backup do performFullAnalysis criado');
+        log('💾 [CORREÇÃO] Backup do performFullAnalysis criado');
       }
     }
     
@@ -62,12 +65,12 @@ function aplicarCorrecaoOrdemExecucao() {
     if (!window.__originalEnrichWithPhase2Metrics) {
       if (originalAnalyzer && typeof originalAnalyzer._enrichWithPhase2Metrics === 'function') {
         window.__originalEnrichWithPhase2Metrics = originalAnalyzer._enrichWithPhase2Metrics.bind(originalAnalyzer);
-        console.log('💾 [CORREÇÃO] Backup do _enrichWithPhase2Metrics criado');
+        log('💾 [CORREÇÃO] Backup do _enrichWithPhase2Metrics criado');
       }
     }
     
     // 3. VALIDAÇÃO DE COMPATIBILIDADE
-    console.log('🔍 [CORREÇÃO] Validando compatibilidade...');
+    log('🔍 [CORREÇÃO] Validando compatibilidade...');
     
     // Verificar se os métodos essenciais existem
     if (!originalAnalyzer.performFullAnalysis) {
@@ -79,7 +82,7 @@ function aplicarCorrecaoOrdemExecucao() {
     }
     
     // 4. APLICAÇÃO DA CORREÇÃO
-    console.log('🛠️ [CORREÇÃO] Aplicando correção da ordem de execução...');
+    log('🛠️ [CORREÇÃO] Aplicando correção da ordem de execução...');
     
     // Marcar como aplicado ANTES de fazer mudanças
     window.__SCORE_ORDER_FIX_APPLIED = true;
@@ -87,7 +90,7 @@ function aplicarCorrecaoOrdemExecucao() {
     window.__SCORE_ORDER_FIX_TIMESTAMP = new Date().toISOString();
     
     // 5. INSTRUMENTAÇÃO PARA MONITORAMENTO
-    console.log('📊 [CORREÇÃO] Adicionando instrumentação de monitoramento...');
+    log('📊 [CORREÇÃO] Adicionando instrumentação de monitoramento...');
     
     // Contador de execuções para validação
     window.__scoreOrderStats = {
@@ -99,7 +102,7 @@ function aplicarCorrecaoOrdemExecucao() {
     };
     
     // 6. FLAG DE CONTROLE DINÂMICO
-    console.log('🎛️ [CORREÇÃO] Configurando controle dinâmico...');
+    log('🎛️ [CORREÇÃO] Configurando controle dinâmico...');
     
     // Permitir desabilitar a correção se necessário
     if (!window.SCORE_ORDER_CORRECTION_ENABLED) {
@@ -107,7 +110,7 @@ function aplicarCorrecaoOrdemExecucao() {
     }
     
     // 7. VALIDAÇÃO FINAL
-    console.log('✅ [CORREÇÃO] Validando aplicação...');
+    log('✅ [CORREÇÃO] Validando aplicação...');
     
     // Verificar se todos os backups foram criados
     const backupsOk = !!(window.__originalPerformFullAnalysis && window.__originalEnrichWithPhase2Metrics);
@@ -132,8 +135,8 @@ function aplicarCorrecaoOrdemExecucao() {
     // Salvar informações da correção
     window.__SCORE_ORDER_CORRECTION_INFO = correctionInfo;
     
-    console.log('🎉 [CORREÇÃO] Correção aplicada com sucesso!');
-    console.log('📋 [CORREÇÃO] Informações:', correctionInfo);
+    log('🎉 [CORREÇÃO] Correção aplicada com sucesso!');
+    log('📋 [CORREÇÃO] Informações:', correctionInfo);
     
     return {
       success: true,
@@ -142,7 +145,7 @@ function aplicarCorrecaoOrdemExecucao() {
     };
     
   } catch (error) {
-    console.error('❌ [CORREÇÃO] Erro ao aplicar correção:', error);
+    error('❌ [CORREÇÃO] Erro ao aplicar correção:', error);
     
     // Reverter mudanças em caso de erro
     if (typeof window !== 'undefined') {
@@ -166,7 +169,7 @@ function aplicarCorrecaoOrdemExecucao() {
  * Permite reverter a correção se necessário
  */
 function reverterCorrecaoOrdemExecucao() {
-  console.log('🔄 [REVERSÃO] Iniciando reversão da correção...');
+  log('🔄 [REVERSÃO] Iniciando reversão da correção...');
   
   try {
     if (typeof window === 'undefined') {
@@ -175,7 +178,7 @@ function reverterCorrecaoOrdemExecucao() {
     
     // Verificar se a correção foi aplicada
     if (!window.__SCORE_ORDER_FIX_APPLIED) {
-      console.log('ℹ️ [REVERSÃO] Nenhuma correção para reverter');
+      log('ℹ️ [REVERSÃO] Nenhuma correção para reverter');
       return { success: true, message: 'Nenhuma correção ativa' };
     }
     
@@ -184,12 +187,12 @@ function reverterCorrecaoOrdemExecucao() {
     if (analyzer) {
       if (window.__originalPerformFullAnalysis) {
         analyzer.performFullAnalysis = window.__originalPerformFullAnalysis;
-        console.log('🔄 [REVERSÃO] performFullAnalysis restaurado');
+        log('🔄 [REVERSÃO] performFullAnalysis restaurado');
       }
       
       if (window.__originalEnrichWithPhase2Metrics) {
         analyzer._enrichWithPhase2Metrics = window.__originalEnrichWithPhase2Metrics;
-        console.log('🔄 [REVERSÃO] _enrichWithPhase2Metrics restaurado');
+        log('🔄 [REVERSÃO] _enrichWithPhase2Metrics restaurado');
       }
     }
     
@@ -202,7 +205,7 @@ function reverterCorrecaoOrdemExecucao() {
     delete window.__originalPerformFullAnalysis;
     delete window.__originalEnrichWithPhase2Metrics;
     
-    console.log('✅ [REVERSÃO] Correção revertida com sucesso');
+    log('✅ [REVERSÃO] Correção revertida com sucesso');
     
     return {
       success: true,
@@ -210,7 +213,7 @@ function reverterCorrecaoOrdemExecucao() {
     };
     
   } catch (error) {
-    console.error('❌ [REVERSÃO] Erro ao reverter:', error);
+    error('❌ [REVERSÃO] Erro ao reverter:', error);
     return {
       success: false,
       message: 'Falha ao reverter correção',
@@ -224,7 +227,7 @@ function reverterCorrecaoOrdemExecucao() {
  * Monitora o estado da correção e fornece estatísticas
  */
 function diagnosticarOrdemExecucao() {
-  console.log('📊 [DIAGNÓSTICO] Verificando estado da correção...');
+  log('📊 [DIAGNÓSTICO] Verificando estado da correção...');
   
   if (typeof window === 'undefined') {
     return { status: 'error', message: 'Ambiente inválido' };
@@ -241,7 +244,7 @@ function diagnosticarOrdemExecucao() {
     controleAtivo: !!window.SCORE_ORDER_CORRECTION_ENABLED
   };
   
-  console.log('📋 [DIAGNÓSTICO] Estado atual:', info);
+  log('📋 [DIAGNÓSTICO] Estado atual:', info);
   
   return {
     status: 'success',
@@ -255,7 +258,7 @@ function diagnosticarOrdemExecucao() {
  * Interface principal para gerenciar a correção
  */
 function controlarCorrecaoOrdem(acao = 'status') {
-  console.log(`🎛️ [CONTROLE] Executando ação: ${acao}`);
+  log(`🎛️ [CONTROLE] Executando ação: ${acao}`);
   
   switch (acao.toLowerCase()) {
     case 'aplicar':
@@ -290,11 +293,11 @@ if (typeof window !== 'undefined') {
   window.diagnosticarOrdemExecucao = diagnosticarOrdemExecucao;
   window.controlarCorrecaoOrdem = controlarCorrecaoOrdem;
   
-  console.log('🔧 [INIT] Funções de correção disponíveis:');
-  console.log('   - window.controlarCorrecaoOrdem("aplicar") // Aplicar correção');
-  console.log('   - window.controlarCorrecaoOrdem("status")  // Ver status');
-  console.log('   - window.controlarCorrecaoOrdem("reverter") // Reverter');
-  console.log('   - window.controlarCorrecaoOrdem("diagnosticar") // Diagnóstico');
+  log('🔧 [INIT] Funções de correção disponíveis:');
+  log('   - window.controlarCorrecaoOrdem("aplicar") // Aplicar correção');
+  log('   - window.controlarCorrecaoOrdem("status")  // Ver status');
+  log('   - window.controlarCorrecaoOrdem("reverter") // Reverter');
+  log('   - window.controlarCorrecaoOrdem("diagnosticar") // Diagnóstico');
 }
 
 // 📋 INFORMAÇÕES SOBRE A CORREÇÃO
@@ -309,8 +312,8 @@ const SCORE_ORDER_FIX_INFO = {
   compatibility: '100% - UI e funcionalidades preservadas'
 };
 
-console.log('📋 [INFO] Solução carregada:', SCORE_ORDER_FIX_INFO.name, 'v' + SCORE_ORDER_FIX_INFO.version);
-console.log('🎯 [INFO] Use window.controlarCorrecaoOrdem("aplicar") para aplicar a correção');
+log('📋 [INFO] Solução carregada:', SCORE_ORDER_FIX_INFO.name, 'v' + SCORE_ORDER_FIX_INFO.version);
+log('🎯 [INFO] Use window.controlarCorrecaoOrdem("aplicar") para aplicar a correção');
 
 // 🚀 AUTO-APLICAÇÃO OPCIONAL (Desabilitada por segurança)
 // Para aplicar automaticamente, descomentar a linha abaixo:

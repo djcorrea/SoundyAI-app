@@ -50,6 +50,12 @@
             text-align: center;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔧 Diagnóstico Firebase - Sistema de Autenticação</h1>
@@ -118,7 +124,7 @@
             updateDebugConsole();
             
             // Também mostrar no console do navegador
-            console.log(`[DIAGNOSTIC] ${message}`);
+            log(`[DIAGNOSTIC] ${message}`);
         }
 
         function updateDebugConsole() {

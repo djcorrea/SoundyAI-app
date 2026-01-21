@@ -204,6 +204,12 @@
             border-color: #3b82f6;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="container">
@@ -329,7 +335,7 @@
                 this.logContainer.appendChild(entry);
                 this.logContainer.scrollTop = this.logContainer.scrollHeight;
                 
-                console.log(`[${type.toUpperCase()}] ${message}`);
+                log(`[${type.toUpperCase()}] ${message}`);
             }
             
             updateStatus(component, status) {

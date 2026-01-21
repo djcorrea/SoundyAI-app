@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔌 INTEGRAÇÃO AUDIO QUEUE - FASE 1
  * Carrega automaticamente o sistema de fila sem quebrar funcionalidade existente
@@ -11,7 +14,7 @@ import { audioQueue, processAudioFile, getAudioQueueStatus } from '/lib/scaling/
  * Redireciona automaticamente para a fila quando há múltiplos arquivos
  */
 window.addEventListener('DOMContentLoaded', function() {
-  console.log('🔌 Integrando Audio Queue ao sistema existente...');
+  log('🔌 Integrando Audio Queue ao sistema existente...');
   
   // Detectar se há sistema de análise ativo
   if (window.AudioAnalyzer) {
@@ -36,7 +39,7 @@ function enhanceExistingAudioAnalyzer() {
   const originalAnalyzer = window.AudioAnalyzer;
   if (!originalAnalyzer || originalAnalyzer._queueEnhanced) return;
   
-  console.log('🔧 Integrando fila com AudioAnalyzer existente...');
+  log('🔧 Integrando fila com AudioAnalyzer existente...');
   
   // Backup do método original
   const originalAnalyzeFile = originalAnalyzer.prototype.analyzeFile;
@@ -48,7 +51,7 @@ function enhanceExistingAudioAnalyzer() {
     const shouldUseQueue = queueStatus.running.length > 0 || queueStatus.queue.total > 0;
     
     if (shouldUseQueue || options.useQueue !== false) {
-      console.log('📥 Usando fila para processar:', file.name);
+      log('📥 Usando fila para processar:', file.name);
       
       // Mostrar feedback para usuário
       showQueueFeedback(file.name, queueStatus);
@@ -68,7 +71,7 @@ function enhanceExistingAudioAnalyzer() {
         
       } catch (error) {
         hideQueueFeedback();
-        console.warn('⚠️ Erro na fila, usando método original:', error.message);
+        warn('⚠️ Erro na fila, usando método original:', error.message);
         
         // Fallback para método original
         return originalAnalyzeFile.call(this, file, options);
@@ -81,7 +84,7 @@ function enhanceExistingAudioAnalyzer() {
   
   // Marcar como aprimorado
   originalAnalyzer._queueEnhanced = true;
-  console.log('✅ AudioAnalyzer aprimorado com sistema de fila');
+  log('✅ AudioAnalyzer aprimorado com sistema de fila');
 }
 
 /**
@@ -183,14 +186,14 @@ function createQueueMonitoringUI() {
  * Função para configurar a fila dinamicamente
  */
 window.configureAudioProcessing = function(options = {}) {
-  console.log('🔧 Configurando processamento de áudio:', options);
+  log('🔧 Configurando processamento de áudio:', options);
   
   // Configurar número de processamentos simultâneos baseado na performance do dispositivo
   if (options.auto) {
     const cores = navigator.hardwareConcurrency || 2;
     const maxConcurrent = Math.min(Math.max(Math.floor(cores / 2), 1), 3);
     audioQueue.configure({ maxConcurrent });
-    console.log(`🤖 Auto-configuração: ${maxConcurrent} processamentos simultâneos (${cores} cores detectados)`);
+    log(`🤖 Auto-configuração: ${maxConcurrent} processamentos simultâneos (${cores} cores detectados)`);
   } else {
     audioQueue.configure(options);
   }
@@ -210,4 +213,4 @@ window.getAudioProcessingStats = function() {
   };
 };
 
-console.log('✅ Audio Queue integrada com sucesso ao sistema existente');
+log('✅ Audio Queue integrada com sucesso ao sistema existente');

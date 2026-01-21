@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🚀 AI CONFIGURATION MANAGER - Gerenciamento Avançado de Configurações da IA
 // Sistema robusto de configuração, feature flags e fallbacks
 
@@ -8,7 +11,7 @@ class AIConfigurationManager {
         this.featureFlags = this.getDefaultFeatureFlags();
         this.loadSavedSettings();
         
-        console.log('🚀 [AI-Config] Gerenciador de configurações inicializado');
+        log('🚀 [AI-Config] Gerenciador de configurações inicializado');
     }
     
     /**
@@ -106,13 +109,13 @@ class AIConfigurationManager {
             // Aplicar flags globalmente
             this.applyFeatureFlags();
             
-            console.log('💾 [AI-Config] Configurações carregadas:', {
+            log('💾 [AI-Config] Configurações carregadas:', {
                 settingsCount: Object.keys(this.settings).length,
                 flagsEnabled: Object.values(this.featureFlags).filter(f => f).length
             });
             
         } catch (error) {
-            console.error('❌ [AI-Config] Erro ao carregar configurações:', error);
+            error('❌ [AI-Config] Erro ao carregar configurações:', error);
             this.resetToDefaults();
         }
     }
@@ -148,11 +151,11 @@ class AIConfigurationManager {
             localStorage.setItem('ai_suggestion_settings', JSON.stringify(this.settings));
             localStorage.setItem('ai_feature_flags', JSON.stringify(this.featureFlags));
             
-            console.log('💾 [AI-Config] Configurações salvas com sucesso');
+            log('💾 [AI-Config] Configurações salvas com sucesso');
             return true;
             
         } catch (error) {
-            console.error('❌ [AI-Config] Erro ao salvar configurações:', error);
+            error('❌ [AI-Config] Erro ao salvar configurações:', error);
             return false;
         }
     }
@@ -171,11 +174,11 @@ class AIConfigurationManager {
             // Auto-salvar
             this.saveSettings();
             
-            console.log(`⚙️ [AI-Config] Configuração atualizada: ${key} = ${value}`);
+            log(`⚙️ [AI-Config] Configuração atualizada: ${key} = ${value}`);
             return true;
         }
         
-        console.warn(`⚠️ [AI-Config] Configuração não encontrada: ${key}`);
+        warn(`⚠️ [AI-Config] Configuração não encontrada: ${key}`);
         return false;
     }
     
@@ -196,11 +199,11 @@ class AIConfigurationManager {
             // Auto-salvar
             this.saveSettings();
             
-            console.log(`🎛️ [AI-Config] Feature flag alterado: ${flag} = ${newValue}`);
+            log(`🎛️ [AI-Config] Feature flag alterado: ${flag} = ${newValue}`);
             return newValue;
         }
         
-        console.warn(`⚠️ [AI-Config] Feature flag não encontrado: ${flag}`);
+        warn(`⚠️ [AI-Config] Feature flag não encontrado: ${flag}`);
         return false;
     }
     
@@ -289,7 +292,7 @@ class AIConfigurationManager {
         this.featureFlags.FALLBACK_TO_ORIGINAL = true;
         this.featureFlags.AI_BATCH_PROCESSING = false;
         
-        console.log('🛡️ [AI-Config] Modo seguro ativado');
+        log('🛡️ [AI-Config] Modo seguro ativado');
     }
     
     /**
@@ -301,7 +304,7 @@ class AIConfigurationManager {
         this.settings.maxRequestsPerMinute = defaults.maxRequestsPerMinute;
         this.settings.timeoutMs = defaults.timeoutMs;
         
-        console.log('🚫 [AI-Config] Modo seguro desativado');
+        log('🚫 [AI-Config] Modo seguro desativado');
     }
     
     /**
@@ -321,7 +324,7 @@ class AIConfigurationManager {
             window.aiUIController.updateStatus('success', 'IA ativada');
         }
         
-        console.log('🤖 [AI-Config] Camada de IA habilitada');
+        log('🤖 [AI-Config] Camada de IA habilitada');
     }
     
     /**
@@ -342,7 +345,7 @@ class AIConfigurationManager {
             window.aiUIController.hideAISection();
         }
         
-        console.log('🚫 [AI-Config] Camada de IA desabilitada');
+        log('🚫 [AI-Config] Camada de IA desabilitada');
     }
     
     /**
@@ -358,7 +361,7 @@ class AIConfigurationManager {
             window.aiSuggestionLayer.setDebugMode(true);
         }
         
-        console.log('🐛 [AI-Config] Modo debug ativado');
+        log('🐛 [AI-Config] Modo debug ativado');
     }
     
     /**
@@ -373,7 +376,7 @@ class AIConfigurationManager {
             window.aiSuggestionLayer.setDebugMode(false);
         }
         
-        console.log('🔇 [AI-Config] Modo debug desativado');
+        log('🔇 [AI-Config] Modo debug desativado');
     }
     
     /**
@@ -424,7 +427,7 @@ class AIConfigurationManager {
         this.applyFeatureFlags();
         this.saveSettings();
         
-        console.log('🔄 [AI-Config] Configurações resetadas para padrão');
+        log('🔄 [AI-Config] Configurações resetadas para padrão');
     }
     
     /**
@@ -449,7 +452,7 @@ class AIConfigurationManager {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('🗂️ [AI-Config] Configurações exportadas');
+        log('🗂️ [AI-Config] Configurações exportadas');
     }
     
     /**
@@ -471,14 +474,14 @@ class AIConfigurationManager {
                         this.applyFeatureFlags();
                         this.saveSettings();
                         
-                        console.log('📥 [AI-Config] Configurações importadas com sucesso');
+                        log('📥 [AI-Config] Configurações importadas com sucesso');
                         resolve(true);
                     } else {
                         throw new Error('Formato de arquivo inválido');
                     }
                     
                 } catch (error) {
-                    console.error('❌ [AI-Config] Erro ao importar configurações:', error);
+                    error('❌ [AI-Config] Erro ao importar configurações:', error);
                     reject(error);
                 }
             };
@@ -630,7 +633,7 @@ window.getAIConfigStatus = function() {
     // Criar instância global do gerenciador
     window.aiConfigManager = new AIConfigurationManager();
     
-    console.log('🚀 [AI-Config] Sistema de configuração inicializado globalmente');
+    log('🚀 [AI-Config] Sistema de configuração inicializado globalmente');
     
     // Marcar timestamp da última inicialização
     localStorage.setItem('ai_config_last_saved', new Date().toISOString());

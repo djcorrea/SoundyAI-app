@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 📊 SOUNDYAI - EXEMPLO DE INTEGRAÇÃO DE TRACKING EM PÁGINAS DE VENDAS
  * 
@@ -39,7 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Rastrear evento (com delay mínimo para não atrasar UX)
             if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
                 window.SoundyTracking.trackCTASalesToCheckout(checkoutUrl);
-                console.log('📊 CTA → Checkout rastreado');
+                log('📊 CTA → Checkout rastreado');
             }
             
             // Continuar navegação após delay mínimo (ou imediato)
@@ -198,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ═══════════════════════════════════════════════════════════════════
 // 📋 CHECKLIST DE IMPLEMENTAÇÃO
 // ═══════════════════════════════════════════════════════════════════
-console.log(`
+log(`
 📊 TRACKING INTEGRATION CHECKLIST
 
 ✅ Passo 1: Incluir tracking.js na página

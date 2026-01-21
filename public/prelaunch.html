@@ -53,7 +53,7 @@
         window.firebaseDB = db;
         window.firestoreModules = { collection, addDoc, serverTimestamp, query, where, getDocs };
         
-        console.log('🔥 Firebase Firestore inicializado para Waitlist');
+        log('🔥 Firebase Firestore inicializado para Waitlist');
     </script>
     
     <!-- Slots Counter Logic -->
@@ -98,7 +98,7 @@
             if (slotsElement) {
                 const remainingSlots = updateSlotsCounter();
                 slotsElement.textContent = remainingSlots;
-                console.log(`✅ Vagas restantes: ${remainingSlots}/100 (urgência ativa)`);
+                log(`✅ Vagas restantes: ${remainingSlots}/100 (urgência ativa)`);
             }
         });
     </script>
@@ -763,6 +763,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <!-- WebGL Neural Net Background -->
@@ -1829,11 +1835,11 @@
                     try {
                         if (window.LeadEnrichment) {
                             enrichedData = window.LeadEnrichment.collect();
-                            console.log('📊 Enrichment coletado:', enrichedData.inferredProfile?.engagementScore);
+                            log('📊 Enrichment coletado:', enrichedData.inferredProfile?.engagementScore);
                         }
                     } catch (enrichError) {
                         // Enrichment falhou, mas não impede o salvamento
-                        console.warn('⚠️ Enrichment parcial:', enrichError.message);
+                        warn('⚠️ Enrichment parcial:', enrichError.message);
                     }
                     
                     // ========================================
@@ -1863,7 +1869,7 @@
                         if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
                             // Se retornou que foi atualizado com WhatsApp, mostrar sucesso
                             if (result.data?.whatsappAdded) {
-                                console.log('📱 WhatsApp adicionado ao cadastro existente');
+                                log('📱 WhatsApp adicionado ao cadastro existente');
                                 formContent.classList.add('hidden');
                                 successContainer.classList.add('visible');
                                 return;
@@ -1914,9 +1920,9 @@
                     // ========================================
                     // ✅ SUCESSO!
                     // ========================================
-                    console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
-                    console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
-                    console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
+                    log('✅ Lead cadastrado com sucesso:', result.data?.id);
+                    log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
+                    log('📱 WhatsApp:', phone ? phone : 'Não informado');
                     
                     // ═══════════════════════════════════════════════════════════
                     // 📊 TRACKING: Conversão Lista de Espera (LEAD)
@@ -1931,10 +1937,10 @@
                                 name: name,
                                 engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
                             });
-                            console.log('📊 Conversão de lista de espera rastreada');
+                            log('📊 Conversão de lista de espera rastreada');
                         } catch (trackingError) {
                             // Não bloquear UX se tracking falhar
-                            console.warn('⚠️ Erro no tracking (não crítico):', trackingError);
+                            warn('⚠️ Erro no tracking (não crítico):', trackingError);
                         }
                     }
                     
@@ -1942,7 +1948,7 @@
                     successContainer.classList.add('visible');
                     
                 } catch (error) {
-                    console.error('❌ Erro ao cadastrar:', error);
+                    error('❌ Erro ao cadastrar:', error);
                     
                     // Mensagem amigável
                     let errorMessage = 'Ocorreu um erro ao processar seu cadastro. Tente novamente.';

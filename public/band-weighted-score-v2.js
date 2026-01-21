@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 BAND-WEIGHTED SCORE CORRECTOR V2
  * 
@@ -20,12 +23,12 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
     
     // 🔒 PREVENÇÃO DE MÚLTIPLAS EXECUÇÕES
     if (window.__BAND_WEIGHTED_SCORE_V2_LOADED) {
-        console.log('⚠️ BAND_WEIGHTED_SCORE_V2 já carregado, pulando inicialização');
+        log('⚠️ BAND_WEIGHTED_SCORE_V2 já carregado, pulando inicialização');
         return;
     }
     window.__BAND_WEIGHTED_SCORE_V2_LOADED = true;
     
-    console.log('🚀 Inicializando BAND_WEIGHTED_SCORE_V2...');
+    log('🚀 Inicializando BAND_WEIGHTED_SCORE_V2...');
     
     /**
      * 🎯 CORE CLASS: Band Weighted Score Corrector
@@ -58,21 +61,21 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
          */
         calculateBandWeightedScore(technicalData, reference) {
             if (!this.flagEnabled) {
-                if (this.debug) console.log('🔕 BAND_WEIGHTED_SCORE_V2 desabilitado');
+                if (this.debug) log('🔕 BAND_WEIGHTED_SCORE_V2 desabilitado');
                 return null;
             }
             
             if (this.debug) {
-                console.log('🎯 BAND_WEIGHTED_SCORE_V2: Iniciando cálculo...');
-                console.log('📊 technicalData keys:', Object.keys(technicalData || {}));
-                console.log('📋 reference:', reference);
+                log('🎯 BAND_WEIGHTED_SCORE_V2: Iniciando cálculo...');
+                log('📊 technicalData keys:', Object.keys(technicalData || {}));
+                log('📋 reference:', reference);
             }
             
             const bands = this.extractBands(technicalData);
             const referenceBands = this.extractReferenceBands(reference);
             
             if (!bands || !referenceBands || Object.keys(bands).length === 0) {
-                if (this.debug) console.log('⚠️ Sem bandas disponíveis para análise');
+                if (this.debug) log('⚠️ Sem bandas disponíveis para análise');
                 return null;
             }
             
@@ -85,7 +88,7 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                 const refBand = referenceBands[bandName];
                 
                 if (!refBand) {
-                    if (this.debug) console.log(`⏭️ Banda ${bandName}: sem referência`);
+                    if (this.debug) log(`⏭️ Banda ${bandName}: sem referência`);
                     continue;
                 }
                 
@@ -97,16 +100,16 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                     weightedSum += (bandResult.score * bandResult.weight);
                     
                     if (this.debug) {
-                        console.log(`🎯 Banda ${bandName}: ${bandResult.score.toFixed(1)}% (${bandResult.status}, peso: ${bandResult.weight})`);
+                        log(`🎯 Banda ${bandName}: ${bandResult.score.toFixed(1)}% (${bandResult.status}, peso: ${bandResult.weight})`);
                     }
                 } else {
                     this.stats.naValuesExcluded++;
-                    if (this.debug) console.log(`🚫 Banda ${bandName}: N/A excluído`);
+                    if (this.debug) log(`🚫 Banda ${bandName}: N/A excluído`);
                 }
             }
             
             if (totalWeight === 0) {
-                if (this.debug) console.log('⚠️ Nenhuma banda válida encontrada');
+                if (this.debug) log('⚠️ Nenhuma banda válida encontrada');
                 return { score: 50, method: 'band_weighted_v2_fallback', details: [] };
             }
             
@@ -145,8 +148,8 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
             this.stats.lastCorrection = new Date().toISOString();
             
             if (this.debug) {
-                console.log('🎯 BAND_WEIGHTED_SCORE_V2 resultado:', result);
-                console.log(`📊 Composição: ${greenBands}🟢 ${yellowBands}🟡 ${redBands}🔴 (${this.stats.naValuesExcluded} N/A)`);
+                log('🎯 BAND_WEIGHTED_SCORE_V2 resultado:', result);
+                log(`📊 Composição: ${greenBands}🟢 ${yellowBands}🟡 ${redBands}🔴 (${this.stats.naValuesExcluded} N/A)`);
             }
             
             return result;
@@ -280,11 +283,11 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
          */
         runTests() {
             if (!this.flagEnabled) {
-                console.log('🔕 Testes pulados - BAND_WEIGHTED_SCORE_V2 desabilitado');
+                log('🔕 Testes pulados - BAND_WEIGHTED_SCORE_V2 desabilitado');
                 return;
             }
             
-            console.log('🧪 Executando testes BAND_WEIGHTED_SCORE_V2...');
+            log('🧪 Executando testes BAND_WEIGHTED_SCORE_V2...');
             
             const tests = [
                 this.testAllGreenBands(),
@@ -297,13 +300,13 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
             const passed = tests.filter(t => t.passed).length;
             const total = tests.length;
             
-            console.log(`🧪 Resultados: ${passed}/${total} testes passaram`);
+            log(`🧪 Resultados: ${passed}/${total} testes passaram`);
             
             tests.forEach(test => {
                 const status = test.passed ? '✅' : '❌';
-                console.log(`${status} ${test.name}: ${test.description}`);
+                log(`${status} ${test.name}: ${test.description}`);
                 if (!test.passed && test.error) {
-                    console.log(`   Erro: ${test.error}`);
+                    log(`   Erro: ${test.error}`);
                 }
             });
             
@@ -551,9 +554,9 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                 const bandScore = corrector.calculateBandWeightedScore(technicalData, reference);
                 
                 if (bandScore && bandScore.score !== null) {
-                    console.log('🎯 BAND_WEIGHTED_SCORE_V2: Correção aplicada');
-                    console.log(`   Score original: ${originalResult.scorePct}%`);
-                    console.log(`   Score corrigido: ${bandScore.score}%`);
+                    log('🎯 BAND_WEIGHTED_SCORE_V2: Correção aplicada');
+                    log(`   Score original: ${originalResult.scorePct}%`);
+                    log(`   Score corrigido: ${bandScore.score}%`);
                     
                     // 🔄 Aplicar correção
                     originalResult.scorePct = bandScore.score;
@@ -564,7 +567,7 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                 return originalResult;
             };
             
-            console.log('✅ computeMixScore patcheado com BAND_WEIGHTED_SCORE_V2');
+            log('✅ computeMixScore patcheado com BAND_WEIGHTED_SCORE_V2');
         }
         
         // 🔧 Interceptar frequencySubScoreCorrector se existir
@@ -582,8 +585,8 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                     const bandScore = corrector.calculateBandWeightedScore(technicalData, reference);
                     
                     if (bandScore && bandScore.score !== null) {
-                        console.log('🎯 BAND_WEIGHTED_SCORE_V2: Frequency subscore corrigido');
-                        console.log(`   Score: ${bandScore.score}%`);
+                        log('🎯 BAND_WEIGHTED_SCORE_V2: Frequency subscore corrigido');
+                        log(`   Score: ${bandScore.score}%`);
                         return Math.round(bandScore.score);
                     }
                     
@@ -591,7 +594,7 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
                     return original.call(this, technicalData, scores);
                 };
                 
-                console.log('✅ frequencySubScoreCorrector patcheado com BAND_WEIGHTED_SCORE_V2');
+                log('✅ frequencySubScoreCorrector patcheado com BAND_WEIGHTED_SCORE_V2');
             }
         }
         
@@ -615,13 +618,13 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
             enable: () => {
                 window.BAND_WEIGHTED_SCORE_V2 = true;
                 corrector.flagEnabled = true;
-                console.log('✅ BAND_WEIGHTED_SCORE_V2 habilitado');
+                log('✅ BAND_WEIGHTED_SCORE_V2 habilitado');
             },
             
             disable: () => {
                 window.BAND_WEIGHTED_SCORE_V2 = false;
                 corrector.flagEnabled = false;
-                console.log('🔕 BAND_WEIGHTED_SCORE_V2 desabilitado');
+                log('🔕 BAND_WEIGHTED_SCORE_V2 desabilitado');
             },
             
             // Teste manual
@@ -630,13 +633,13 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
             }
         };
         
-        console.log('🎯 BAND_WEIGHTED_SCORE_V2 inicializado com sucesso!');
-        console.log('🎛️ API disponível em: window.BAND_WEIGHTED_SCORE_V2_API');
+        log('🎯 BAND_WEIGHTED_SCORE_V2 inicializado com sucesso!');
+        log('🎛️ API disponível em: window.BAND_WEIGHTED_SCORE_V2_API');
         
         // 🧪 Executar testes automáticos se em modo debug
         if (corrector.debug) {
             setTimeout(() => {
-                console.log('🧪 Executando testes automáticos...');
+                log('🧪 Executando testes automáticos...');
                 corrector.runTests();
             }, 1000);
         }
@@ -656,27 +659,27 @@ window.BAND_WEIGHTED_SCORE_V2 = true;
  * Para verificar funcionamento no console
  */
 function testBandWeightedScore() {
-    console.log('🧪 Testando BAND_WEIGHTED_SCORE_V2...');
+    log('🧪 Testando BAND_WEIGHTED_SCORE_V2...');
     
     const api = window.BAND_WEIGHTED_SCORE_V2_API;
     if (!api) {
-        console.error('❌ API não disponível');
+        error('❌ API não disponível');
         return;
     }
     
-    console.log('📊 Estado atual:', {
+    log('📊 Estado atual:', {
         flagEnabled: window.BAND_WEIGHTED_SCORE_V2,
         stats: api.getStats()
     });
     
     // Executar testes
     const testResults = api.runTests();
-    console.log('🧪 Resultados dos testes:', testResults);
+    log('🧪 Resultados dos testes:', testResults);
     
-    console.log('✅ Teste concluído - verifique logs acima');
+    log('✅ Teste concluído - verifique logs acima');
 }
 
 // Disponibilizar teste globalmente
 window.testBandWeightedScore = testBandWeightedScore;
 
-console.log('📦 BAND_WEIGHTED_SCORE_V2 carregado - Execute testBandWeightedScore() para testar');
+log('📦 BAND_WEIGHTED_SCORE_V2 carregado - Execute testBandWeightedScore() para testar');

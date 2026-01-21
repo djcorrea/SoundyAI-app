@@ -1,0 +1,53 @@
+{
+  "eletrofunk": {
+    "version": "1.0",
+    "generated_at": "2025-08-13T01:41:13.969Z",
+    "num_tracks": 148,
+    "lufs_target": -8.3,
+    "tol_lufs": 1.22,
+    "true_peak_target": -1,
+    "tol_true_peak": 0.5,
+    "dr_target": 10.1,
+    "tol_dr": 1.35,
+    "lra_target": 8.4,
+    "tol_lra": 2.54,
+    "stereo_target": null,
+    "tol_stereo": 0.07,
+    "bands": {
+      "sub": {
+        "target_db": null,
+        "tol_db": 1.78
+      },
+      "low_bass": {
+        "target_db": 13.3,
+        "tol_db": 2.36
+      },
+      "upper_bass": {
+        "target_db": 11.5,
+        "tol_db": 2.02
+      },
+      "low_mid": {
+        "target_db": 8.8,
+        "tol_db": 2.07
+      },
+      "mid": {
+        "target_db": 2.5,
+        "tol_db": 1.81
+      },
+      "high_mid": {
+        "target_db": -6.7,
+        "tol_db": 1.52
+      },
+      "brilho": {
+        "target_db": -13.1,
+        "tol_db": 2.38
+      },
+      "presenca": {
+        "target_db": -22.7,
+        "tol_db": 3.47
+      }
+    },
+    "last_updated": "2025-08-30T22:40:34.474Z",
+    "cache_bust": 1756593634475
+  }
+}

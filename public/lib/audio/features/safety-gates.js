@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🛡️ SAFETY GATES SYSTEM - True Peak Warning Gate
 // Implementação ULTRA CONSERVADORA - apenas warnings, nunca hard fails
 // Não afeta funcionamento do TT-DR ou sistema de scoring existente
@@ -53,7 +56,7 @@ class SafetyGates {
       dynamicRange: 0
     };
     
-    console.log('🛡️ Safety Gates System inicializado (warning-only mode)');
+    log('🛡️ Safety Gates System inicializado (warning-only mode)');
   }
 
   /**
@@ -69,7 +72,7 @@ class SafetyGates {
     const truePeak = Number(truePeakValue);
     
     if (!Number.isFinite(truePeak)) {
-      console.warn('🛡️ [SAFETY-GATE] True Peak inválido:', truePeakValue);
+      warn('🛡️ [SAFETY-GATE] True Peak inválido:', truePeakValue);
       return null;
     }
     
@@ -120,11 +123,11 @@ class SafetyGates {
     
     // Log baseado na severidade
     if (severity === 'critical') {
-      console.error('🚨 [SAFETY-GATE]', message);
-      console.error('💡 [RECOMMENDATION]', recommendation);
+      error('🚨 [SAFETY-GATE]', message);
+      error('💡 [RECOMMENDATION]', recommendation);
     } else {
-      console.warn('⚠️ [SAFETY-GATE]', message);
-      console.info('💡 [RECOMMENDATION]', recommendation);
+      warn('⚠️ [SAFETY-GATE]', message);
+      info('💡 [RECOMMENDATION]', recommendation);
     }
     
     // Adicionar à lista de warnings
@@ -139,7 +142,7 @@ class SafetyGates {
    * Executa todos os gates habilitados
    */
   analyzeAudio(audioMetrics) {
-    console.log('🛡️ [SAFETY-GATES] Iniciando análise de segurança...');
+    log('🛡️ [SAFETY-GATES] Iniciando análise de segurança...');
     
     // Reset warnings da análise anterior
     this.warnings = [];
@@ -166,7 +169,7 @@ class SafetyGates {
       allClear: this.warnings.length === 0
     };
     
-    console.log('🛡️ [SAFETY-GATES] Análise completa:', summary);
+    log('🛡️ [SAFETY-GATES] Análise completa:', summary);
     
     return {
       results,
@@ -195,7 +198,7 @@ class SafetyGates {
    */
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig };
-    console.log('🛡️ [SAFETY-GATES] Configuração atualizada:', this.config);
+    log('🛡️ [SAFETY-GATES] Configuração atualizada:', this.config);
   }
 }
 
@@ -215,7 +218,7 @@ function initializeSafetyGates(config) {
       window.SAFETY_GATES_CONFIG = SAFETY_GATES_CONFIG;
     }
     
-    console.log('🛡️ Safety Gates System disponível globalmente');
+    log('🛡️ Safety Gates System disponível globalmente');
   }
   
   return globalSafetyGates;

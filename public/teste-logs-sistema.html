@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Sistema de Logs - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #00d9ff;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #0f3460;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #00d9ff;
+        }
+        .test-section h3 {
+            color: #00d9ff;
+            margin-top: 0;
+        }
+        button {
+            background: #00d9ff;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #00b8d4;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.4);
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #00c851;
+            color: white;
+        }
+        .status.info {
+            background: #33b5e5;
+            color: white;
+        }
+        .status.warning {
+            background: #ffbb33;
+            color: #1a1a2e;
+        }
+        .code {
+            background: #0a0e27;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .instruction {
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 4px solid #ffbb33;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Sistema de Logs Centralizado</h1>
+
+        <div class="status info">
+            ℹ️ <strong>Como testar:</strong><br>
+            1. Abra o DevTools (F12)<br>
+            2. Vá para a aba "Console"<br>
+            3. Clique nos botões abaixo<br>
+            4. Observe se logs aparecem ou não
+        </div>
+
+        <!-- TESTE 1: DEBUG Status -->
+        <div class="test-section">
+            <h3>📊 Teste 1: Verificar Status do DEBUG</h3>
+            <p>Este teste mostra se o DEBUG está ativado ou desativado.</p>
+            <button onclick="testDebugStatus()">▶️ Verificar DEBUG</button>
+            <div id="debug-result"></div>
+        </div>
+
+        <!-- TESTE 2: Logs Simples -->
+        <div class="test-section">
+            <h3>📝 Teste 2: Logs Informativos</h3>
+            <p>Testa funções: log(), info()</p>
+            <button onclick="testSimpleLogs()">▶️ Testar Logs Simples</button>
+            <div class="code" style="margin-top: 10px;">
+                log('Teste de log simples');<br>
+                info('Teste de info');
+            </div>
+        </div>
+
+        <!-- TESTE 3: Warnings -->
+        <div class="test-section">
+            <h3>⚠️ Teste 3: Avisos</h3>
+            <p>Testa função: warn()</p>
+            <button onclick="testWarnings()">▶️ Testar Warnings</button>
+            <div class="code" style="margin-top: 10px;">
+                warn('Teste de aviso não crítico');<br>
+                warn('Cache expirado', { age: 3600 });
+            </div>
+        </div>
+
+        <!-- TESTE 4: Errors -->
+        <div class="test-section">
+            <h3>❌ Teste 4: Erros</h3>
+            <p>Testa função: error()</p>
+            <button onclick="testErrors()">▶️ Testar Errors</button>
+            <div class="code" style="margin-top: 10px;">
+                error('Teste de erro simulado');<br>
+                error('Falha na requisição', { code: 500 });
+            </div>
+        </div>
+
+        <!-- TESTE 5: Debug -->
+        <div class="test-section">
+            <h3>🔍 Teste 5: Debug Técnico</h3>
+            <p>Testa função: debug()</p>
+            <button onclick="testDebug()">▶️ Testar Debug</button>
+            <div class="code" style="margin-top: 10px;">
+                debug('Informação técnica detalhada');<br>
+                debug('Estado interno:', { x: 10, y: 20 });
+            </div>
+        </div>
+
+        <!-- TESTE 6: Múltiplos Argumentos -->
+        <div class="test-section">
+            <h3>🔢 Teste 6: Múltiplos Argumentos</h3>
+            <p>Testa se funções aceitam vários parâmetros</p>
+            <button onclick="testMultipleArgs()">▶️ Testar Múltiplos Args</button>
+            <div class="code" style="margin-top: 10px;">
+                log('Usuário:', { id: 123 }, 'Status:', 'ativo');
+            </div>
+        </div>
+
+        <!-- TESTE 7: Objetos Complexos -->
+        <div class="test-section">
+            <h3>🗂️ Teste 7: Objetos Complexos</h3>
+            <p>Testa formatação de objetos e arrays</p>
+            <button onclick="testComplexObjects()">▶️ Testar Objetos Complexos</button>
+            <div class="code" style="margin-top: 10px;">
+                log({ usuario: { nome: 'João', idade: 25 }, ativo: true });
+            </div>
+        </div>
+
+        <!-- TESTE 8: Teste Completo -->
+        <div class="test-section">
+            <h3>🚀 Teste 8: Bateria Completa</h3>
+            <p>Executa TODOS os testes de uma vez</p>
+            <button onclick="runAllTests()">▶️ Executar Todos os Testes</button>
+        </div>
+
+        <div class="instruction">
+            <strong>📋 INTERPRETANDO OS RESULTADOS:</strong><br><br>
+            
+            <strong>Se DEBUG = false (PRODUÇÃO):</strong><br>
+            ✅ Nenhum log deve aparecer no Console do DevTools<br>
+            ✅ Site funciona normalmente<br><br>
+            
+            <strong>Se DEBUG = true (DESENVOLVIMENTO):</strong><br>
+            ✅ Todos os logs devem aparecer no Console<br>
+            ✅ Formatação preservada<br>
+            ✅ Objetos expandíveis<br><br>
+            
+            <strong>Para alterar o modo:</strong><br>
+            1. Abra o arquivo <code>public/logger.js</code><br>
+            2. Encontre a linha 15: <code>const DEBUG = false;</code><br>
+            3. Altere para <code>true</code> ou <code>false</code><br>
+            4. Salve e dê refresh (F5) nesta página
+        </div>
+    </div>
+
+    <!-- Sistema de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger
+        const { log, warn, error, info, debug, DEBUG } = window.logger;
+
+        // Teste 1: Verificar status do DEBUG
+        function testDebugStatus() {
+            const result = document.getElementById('debug-result');
+            const status = DEBUG ? 'ATIVADO ✅' : 'DESATIVADO ❌';
+            const mode = DEBUG ? 'DESENVOLVIMENTO' : 'PRODUÇÃO';
+            const color = DEBUG ? '#00c851' : '#ff4444';
+            
+            result.innerHTML = `
+                <div style="margin-top: 15px; padding: 15px; background: ${color}; color: white; border-radius: 6px; font-weight: bold;">
+                    DEBUG está ${status}<br>
+                    Modo: ${mode}
+                </div>
+            `;
+            
+            log('Teste 1: Verificação de DEBUG');
+            log('DEBUG =', DEBUG);
+        }
+
+        // Teste 2: Logs simples
+        function testSimpleLogs() {
+            log('Teste 2: Log simples executado');
+            log('Este é um log informativo básico');
+            info('Este é um log de informação');
+            info('Mensagem adicional:', 'com múltiplos', 'argumentos');
+            alert('✅ Teste 2 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 3: Warnings
+        function testWarnings() {
+            warn('Teste 3: Warning executado');
+            warn('Este é um aviso não crítico');
+            warn('Cache expirado', { age: 3600, key: 'user_data' });
+            warn('Tentativa de reconexão em 5s...');
+            alert('⚠️ Teste 3 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 4: Errors
+        function testErrors() {
+            error('Teste 4: Error executado');
+            error('Este é um erro simulado (não é real)');
+            error('Falha na requisição', { 
+                status: 500, 
+                message: 'Internal Server Error',
+                url: '/api/test'
+            });
+            error('Stack trace simulado:', new Error('Erro de teste'));
+            alert('❌ Teste 4 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 5: Debug
+        function testDebug() {
+            debug('Teste 5: Debug executado');
+            debug('Informação técnica detalhada');
+            debug('Estado interno do componente:', {
+                x: 10,
+                y: 20,
+                active: true,
+                mode: 'testing'
+            });
+            alert('🔍 Teste 5 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 6: Múltiplos argumentos
+        function testMultipleArgs() {
+            log('Teste 6: Múltiplos argumentos');
+            log('Usuário:', { id: 123, nome: 'João' }, 'Status:', 'ativo', 'Timestamp:', Date.now());
+            warn('Múltiplos avisos:', 'aviso1', 'aviso2', { detail: 'extra' });
+            error('Múltiplos erros:', 'erro1', { code: 500 }, 'contexto adicional');
+            alert('🔢 Teste 6 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 7: Objetos complexos
+        function testComplexObjects() {
+            const objetoComplexo = {
+                usuario: {
+                    id: 123,
+                    nome: 'João Silva',
+                    email: 'joao@example.com',
+                    perfil: {
+                        idade: 25,
+                        cidade: 'São Paulo',
+                        interesses: ['música', 'tecnologia', 'audio']
+                    }
+                },
+                configuracoes: {
+                    tema: 'dark',
+                    notificacoes: true,
+                    idioma: 'pt-BR'
+                },
+                historico: [
+                    { acao: 'login', timestamp: Date.now() },
+                    { acao: 'upload', arquivo: 'musica.wav', timestamp: Date.now() }
+                ]
+            };
+
+            log('Teste 7: Objeto complexo');
+            log('Estrutura aninhada:', objetoComplexo);
+            warn('Array de objetos:', objetoComplexo.historico);
+            error('Objeto de erro complexo:', {
+                error: objetoComplexo,
+                stack: 'simulado',
+                timestamp: new Date().toISOString()
+            });
+            alert('🗂️ Teste 7 executado! Verifique o Console (F12)');
+        }
+
+        // Teste 8: Executar todos
+        function runAllTests() {
+            log('═══════════════════════════════════════');
+            log('🚀 INICIANDO BATERIA COMPLETA DE TESTES');
+            log('═══════════════════════════════════════');
+            
+            testDebugStatus();
+            setTimeout(() => testSimpleLogs(), 100);
+            setTimeout(() => testWarnings(), 200);
+            setTimeout(() => testErrors(), 300);
+            setTimeout(() => testDebug(), 400);
+            setTimeout(() => testMultipleArgs(), 500);
+            setTimeout(() => testComplexObjects(), 600);
+            
+            setTimeout(() => {
+                log('═══════════════════════════════════════');
+                log('✅ BATERIA DE TESTES CONCLUÍDA');
+                log('═══════════════════════════════════════');
+                alert('✅ Todos os testes foram executados!\n\nVerifique o Console (F12) para ver os resultados.');
+            }, 700);
+        }
+
+        // Log inicial
+        log('🧪 Página de testes carregada');
+        log('Sistema de logs centralizado ativo');
+        log('DEBUG =', DEBUG);
+    </script>
+</body>
+</html>

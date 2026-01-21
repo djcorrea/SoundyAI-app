@@ -1,10 +1,13 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🧪 Teste de upload real para verificar se o pipeline está funcionando
  */
 
 async function testRealUpload() {
     try {
-        console.log('🧪 Criando arquivo de teste...');
+        log('🧪 Criando arquivo de teste...');
         
         // Criar um arquivo WAV simples
         const sampleRate = 48000;
@@ -61,52 +64,52 @@ async function testRealUpload() {
         }
         
         const audioBlob = new Blob([buffer], { type: 'audio/wav' });
-        console.log(`📁 Arquivo WAV criado: ${audioBlob.size} bytes, ${duration}s, estéreo`);
+        log(`📁 Arquivo WAV criado: ${audioBlob.size} bytes, ${duration}s, estéreo`);
         
         // Fazer upload
         const formData = new FormData();
         formData.append('audioFile', audioBlob, 'test-pipeline.wav');
         
-        console.log('📤 Fazendo upload...');
+        log('📤 Fazendo upload...');
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             body: formData
         });
         
-        console.log(`📋 Status: ${response.status} ${response.statusText}`);
+        log(`📋 Status: ${response.status} ${response.statusText}`);
         
         const result = await response.json();
         
-        console.log('\n📊 RESULTADO:');
-        console.log(`   Status: ${result.status}`);
-        console.log(`   OK: ${result.ok}`);
-        console.log(`   Score: ${result.score}`);
+        log('\n📊 RESULTADO:');
+        log(`   Status: ${result.status}`);
+        log(`   OK: ${result.ok}`);
+        log(`   Score: ${result.score}`);
         
         if (result.error) {
-            console.log(`\n❌ ERRO:`, result.error);
+            log(`\n❌ ERRO:`, result.error);
         }
         
         if (result.technicalData) {
-            console.log('\n✅ technicalData encontrado:');
-            console.log(`   truePeakDbtp: ${result.technicalData.truePeakDbtp}`);
-            console.log(`   lufsIntegrated: ${result.technicalData.lufsIntegrated}`);
-            console.log(`   dynamicRange: ${result.technicalData.dynamicRange}`);
+            log('\n✅ technicalData encontrado:');
+            log(`   truePeakDbtp: ${result.technicalData.truePeakDbtp}`);
+            log(`   lufsIntegrated: ${result.technicalData.lufsIntegrated}`);
+            log(`   dynamicRange: ${result.technicalData.dynamicRange}`);
         } else {
-            console.log('\n❌ technicalData não encontrado');
+            log('\n❌ technicalData não encontrado');
         }
         
         if (result.warnings?.length > 0) {
-            console.log('\n⚠️ Warnings:', result.warnings);
+            log('\n⚠️ Warnings:', result.warnings);
         }
         
         // Log completo para debug
-        console.log('\n🔍 JSON completo:');
-        console.log(JSON.stringify(result, null, 2));
+        log('\n🔍 JSON completo:');
+        log(JSON.stringify(result, null, 2));
         
         return result;
         
     } catch (error) {
-        console.error('❌ Erro no teste:', error);
+        error('❌ Erro no teste:', error);
         return null;
     }
 }
@@ -114,8 +117,8 @@ async function testRealUpload() {
 // Executar teste
 testRealUpload().then(result => {
     if (result && result.ok && result.technicalData?.truePeakDbtp) {
-        console.log(`\n🎉 SUCESSO! True Peak = ${result.technicalData.truePeakDbtp} dBTP`);
+        log(`\n🎉 SUCESSO! True Peak = ${result.technicalData.truePeakDbtp} dBTP`);
     } else {
-        console.log('\n💥 FALHA no pipeline');
+        log('\n💥 FALHA no pipeline');
     }
 });

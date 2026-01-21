@@ -1,10 +1,13 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧪 SCRIPT DE VALIDAÇÃO - GUARDS PREMIUM
 // Cole este código no console do navegador para testar
 
 (function testPremiumGuards() {
-    console.log('🧪 ==========================================');
-    console.log('🧪 TESTE DE GUARDS PREMIUM');
-    console.log('🧪 ==========================================\n');
+    log('🧪 ==========================================');
+    log('🧪 TESTE DE GUARDS PREMIUM');
+    log('🧪 ==========================================\n');
 
     // Salvar estado original
     const originalMode = window.APP_MODE;
@@ -14,7 +17,7 @@
     // ========================================
     // 🔬 TESTE 1: Modo Reduced - Bloquear IA
     // ========================================
-    console.log('📝 TESTE 1: Pedir Ajuda à IA (modo reduced)');
+    log('📝 TESTE 1: Pedir Ajuda à IA (modo reduced)');
     window.APP_MODE = 'reduced';
     
     // Mock da análise para evitar erros
@@ -43,31 +46,31 @@
             
             if (guardDetected && !executionDetected) {
                 console.log = originalLog;
-                console.log('✅ TESTE 1 PASSOU: Guard bloqueou execução da IA\n');
+                log('✅ TESTE 1 PASSOU: Guard bloqueou execução da IA\n');
                 testsPassed++;
             } else if (!guardDetected) {
                 console.log = originalLog;
-                console.error('❌ TESTE 1 FALHOU: Guard não foi detectado\n');
+                error('❌ TESTE 1 FALHOU: Guard não foi detectado\n');
                 testsFailed++;
             } else {
                 console.log = originalLog;
-                console.error('❌ TESTE 1 FALHOU: Função executou apesar do guard\n');
+                error('❌ TESTE 1 FALHOU: Função executou apesar do guard\n');
                 testsFailed++;
             }
         } else {
             console.log = originalLog;
-            console.warn('⚠️ TESTE 1 PULADO: Função sendModalAnalysisToChat não encontrada\n');
+            warn('⚠️ TESTE 1 PULADO: Função sendModalAnalysisToChat não encontrada\n');
         }
     } catch (error) {
         console.log = originalLog;
-        console.error('❌ TESTE 1 ERRO:', error.message, '\n');
+        error('❌ TESTE 1 ERRO:', error.message, '\n');
         testsFailed++;
     }
 
     // ========================================
     // 🔬 TESTE 2: Modo Reduced - Bloquear PDF
     // ========================================
-    console.log('📝 TESTE 2: Baixar Relatório (modo reduced)');
+    log('📝 TESTE 2: Baixar Relatório (modo reduced)');
     window.APP_MODE = 'reduced';
     
     guardDetected = false;
@@ -91,31 +94,31 @@
             
             if (guardDetected && !executionDetected) {
                 console.log = originalLog;
-                console.log('✅ TESTE 2 PASSOU: Guard bloqueou geração do PDF\n');
+                log('✅ TESTE 2 PASSOU: Guard bloqueou geração do PDF\n');
                 testsPassed++;
             } else if (!guardDetected) {
                 console.log = originalLog;
-                console.error('❌ TESTE 2 FALHOU: Guard não foi detectado\n');
+                error('❌ TESTE 2 FALHOU: Guard não foi detectado\n');
                 testsFailed++;
             } else {
                 console.log = originalLog;
-                console.error('❌ TESTE 2 FALHOU: PDF executou apesar do guard\n');
+                error('❌ TESTE 2 FALHOU: PDF executou apesar do guard\n');
                 testsFailed++;
             }
         } else {
             console.log = originalLog;
-            console.warn('⚠️ TESTE 2 PULADO: Função downloadModalAnalysis não encontrada\n');
+            warn('⚠️ TESTE 2 PULADO: Função downloadModalAnalysis não encontrada\n');
         }
     } catch (error) {
         console.log = originalLog;
-        console.error('❌ TESTE 2 ERRO:', error.message, '\n');
+        error('❌ TESTE 2 ERRO:', error.message, '\n');
         testsFailed++;
     }
 
     // ========================================
     // 🔬 TESTE 3: Modo Full - Permitir Execução
     // ========================================
-    console.log('📝 TESTE 3: Modo Full - Verificar que funções NÃO são bloqueadas');
+    log('📝 TESTE 3: Modo Full - Verificar que funções NÃO são bloqueadas');
     window.APP_MODE = 'full';
     
     guardDetected = false;
@@ -138,24 +141,24 @@
             
             if (!guardDetected && normalExecutionDetected) {
                 console.log = originalLog;
-                console.log('✅ TESTE 3 PASSOU: Função executa normalmente em modo full\n');
+                log('✅ TESTE 3 PASSOU: Função executa normalmente em modo full\n');
                 testsPassed++;
             } else if (guardDetected) {
                 console.log = originalLog;
-                console.error('❌ TESTE 3 FALHOU: Guard bloqueou em modo full (não deveria)\n');
+                error('❌ TESTE 3 FALHOU: Guard bloqueou em modo full (não deveria)\n');
                 testsFailed++;
             } else {
                 console.log = originalLog;
-                console.warn('⚠️ TESTE 3: Execução iniciada (verificar manualmente)\n');
+                warn('⚠️ TESTE 3: Execução iniciada (verificar manualmente)\n');
                 testsPassed++;
             }
         } else {
             console.log = originalLog;
-            console.warn('⚠️ TESTE 3 PULADO: Função sendModalAnalysisToChat não encontrada\n');
+            warn('⚠️ TESTE 3 PULADO: Função sendModalAnalysisToChat não encontrada\n');
         }
     } catch (error) {
         console.log = originalLog;
-        console.error('❌ TESTE 3 ERRO:', error.message, '\n');
+        error('❌ TESTE 3 ERRO:', error.message, '\n');
         testsFailed++;
     }
 
@@ -167,26 +170,26 @@
     // ========================================
     // 📊 RESUMO DOS TESTES
     // ========================================
-    console.log('🧪 ==========================================');
-    console.log('📊 RESUMO DOS TESTES');
-    console.log('🧪 ==========================================');
-    console.log(`✅ Testes Passados: ${testsPassed}`);
-    console.log(`❌ Testes Falhados: ${testsFailed}`);
+    log('🧪 ==========================================');
+    log('📊 RESUMO DOS TESTES');
+    log('🧪 ==========================================');
+    log(`✅ Testes Passados: ${testsPassed}`);
+    log(`❌ Testes Falhados: ${testsFailed}`);
     
     if (testsFailed === 0 && testsPassed > 0) {
-        console.log('🎉 TODOS OS TESTES PASSARAM!');
-        console.log('✅ Guards estão funcionando corretamente');
+        log('🎉 TODOS OS TESTES PASSARAM!');
+        log('✅ Guards estão funcionando corretamente');
     } else if (testsFailed > 0) {
-        console.error('⚠️ ALGUNS TESTES FALHARAM!');
-        console.error('🔍 Verifique os logs acima para detalhes');
+        error('⚠️ ALGUNS TESTES FALHARAM!');
+        error('🔍 Verifique os logs acima para detalhes');
     } else {
-        console.warn('⚠️ Nenhum teste foi executado');
-        console.warn('🔍 Verifique se as funções existem no escopo');
+        warn('⚠️ Nenhum teste foi executado');
+        warn('🔍 Verifique se as funções existem no escopo');
     }
     
-    console.log('\n💡 COMO USAR:');
-    console.log('1. Cole este script no console');
-    console.log('2. Analise os resultados');
-    console.log('3. Se tudo passar, teste manualmente clicando nos botões');
-    console.log('🧪 ==========================================\n');
+    log('\n💡 COMO USAR:');
+    log('1. Cole este script no console');
+    log('2. Analise os resultados');
+    log('3. Se tudo passar, teste manualmente clicando nos botões');
+    log('🧪 ==========================================\n');
 })();

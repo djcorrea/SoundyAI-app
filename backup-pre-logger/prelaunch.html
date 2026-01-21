@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundyAI - Algo Grande Está Chegando</title>
+    <meta name="description" content="A revolução na produção musical está chegando. Entre na lista de espera e seja o primeiro a experimentar.">
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="SoundyAI - Algo Grande Está Chegando">
+    <meta property="og:description" content="A revolução na produção musical está chegando. Entre na lista de espera.">
+    <meta property="og:type" content="website">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- 📊 Google Tag Manager / Google Ads Tracking -->
+    <!-- IMPORTANTE: IDs gerenciados no tracking-config.js -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-REPLACE_WITH_YOUR_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'AW-REPLACE_WITH_YOUR_ID');
+    </script>
+    
+    <!-- 📊 Sistema de Tracking de Conversões (ordem: tracking.js → tracking-config.js) -->
+    <script src="/js/tracking.js" defer></script>
+    <script src="/js/tracking-config.js" defer></script>
+    
+    <!-- Firebase SDK v11 (Modular) -->
+    <script type="module">
+        // Importar Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+        import { getFirestore, collection, addDoc, serverTimestamp, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+        
+        // Configuração Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
+            authDomain: "prodai-58436.firebaseapp.com",
+            projectId: "prodai-58436",
+            storageBucket: "prodai-58436.appspot.com",
+            messagingSenderId: "801631191322",
+            appId: "1:801631322:web:80e3d29cf7468331652ca3",
+            measurementId: "G-MBDHDYN6Z0"
+        };
+        
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Expor globalmente para uso no formulário
+        window.firebaseDB = db;
+        window.firestoreModules = { collection, addDoc, serverTimestamp, query, where, getDocs };
+        
+        console.log('🔥 Firebase Firestore inicializado para Waitlist');
+    </script>
+    
+    <!-- Slots Counter Logic -->
+    <script>
+        /**
+         * CONTADOR DE URGÊNCIA - VAGAS RESTANTES
+         * Total do programa: 100 vagas
+         * Vagas ainda disponíveis: começa em 27 e diminui até 1
+         * Período: 17/01/2026 00:00 até 22/01/2026 00:00
+         * Lógica: mostra poucas vagas restantes para gerar urgência
+         */
+        function updateSlotsCounter() {
+            const MAX_REMAINING = 27;  // Começa mostrando 27 vagas restantes
+            const START_DATE = new Date('2026-01-17T00:00:00');
+            const END_DATE = new Date('2026-01-22T00:00:00');
+            const now = new Date();
+            
+            // Se antes do início, mostrar 27
+            if (now < START_DATE) {
+                return MAX_REMAINING;
+            }
+            
+            // Se após o fim, mostrar 1 (nunca zero)
+            if (now >= END_DATE) {
+                return 1;
+            }
+            
+            // Calcular tempo total e tempo decorrido
+            const totalTime = END_DATE - START_DATE;
+            const elapsedTime = now - START_DATE;
+            const progress = elapsedTime / totalTime;
+            
+            // Calcular vagas restantes: de 27 até 1
+            const remaining = Math.max(1, Math.floor(MAX_REMAINING - (MAX_REMAINING - 1) * progress));
+            
+            return remaining;
+        }
+        
+        // Atualizar o contador no DOM quando a página carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            const slotsElement = document.getElementById('slots-remaining');
+            if (slotsElement) {
+                const remainingSlots = updateSlotsCounter();
+                slotsElement.textContent = remainingSlots;
+                console.log(`✅ Vagas restantes: ${remainingSlots}/100 (urgência ativa)`);
+            }
+        });
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-purple: #a855f7;
+            --neon-blue: #06b6d4;
+            --neon-pink: #ec4899;
+            --neon-green: #22c55e;
+            --dark-bg: #010008;
+            --darker-bg: #000004;
+            --card-bg: rgba(8, 8, 20, 0.7);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --glow-purple: rgba(168, 85, 247, 0.5);
+            --glow-blue: rgba(6, 182, 212, 0.5);
+            --error-red: #ef4444;
+            --success-green: #22c55e;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* ========================================
+           WEBGL NEURAL NET BACKGROUND
+        ======================================== */
+        #neural-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            pointer-events: none;
+            background: var(--dark-bg);
+        }
+        
+        /* ========================================
+           GRADIENT OVERLAY (complementar)
+        ======================================== */
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -5;
+            pointer-events: none;
+            background: 
+                radial-gradient(ellipse at 20% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+        }
+        
+        /* ========================================
+           MAIN CONTAINER
+        ======================================== */
+        .page-wrapper {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        /* ========================================
+           LOGO/BRAND
+        ======================================== */
+        .brand {
+            margin-bottom: 16px;
+        }
+        
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 2rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 50%, var(--neon-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            filter: drop-shadow(0 0 30px var(--glow-purple));
+            animation: logoGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes logoGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px var(--glow-purple)); }
+            50% { filter: drop-shadow(0 0 40px var(--glow-blue)); }
+        }
+        
+        /* ========================================
+           SLOTS COUNTER
+        ======================================== */
+        .slots-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: rgba(8, 8, 20, 0.6);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .slots-counter .icon {
+            font-size: 1rem;
+        }
+        
+        .slots-counter .number {
+            color: var(--neon-purple);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        /* ========================================
+           PRE-LAUNCH BADGE (COPY DE URGÊNCIA)
+        ======================================== */
+        .pre-badge {
+            display: block;
+            max-width: 750px;
+            margin: 0 auto 30px;
+            padding: 0;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(0.95rem, 2.2vw, 1.1rem);
+            font-weight: 600;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.90);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .pre-badge .line {
+            display: block;
+        }
+        
+        .pre-badge .line:last-child {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        
+        /* ========================================
+           HEADLINES
+        ======================================== */
+        .headline {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        
+        .headline-highlight {
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .product-brief {
+            font-size: clamp(1rem, 2.5vw, 1.15rem);
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.7;
+        }
+        
+        .product-brief strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        /* ========================================
+           COUNTDOWN TIMER
+        ======================================== */
+        .countdown-section {
+            margin-bottom: 45px;
+        }
+        
+        .countdown-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 18px;
+        }
+        
+        .countdown {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .countdown-item {
+            background: var(--card-bg);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 16px;
+            padding: 18px 22px;
+            min-width: 90px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .countdown-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue));
+        }
+        
+        .countdown-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.8rem, 4vw, 2.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
+            line-height: 1;
+        }
+        
+        .countdown-unit {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        /* ========================================
+           FORMULÁRIO INLINE
+        ======================================== */
+        .form-section {
+            margin: 40px auto;
+            max-width: 500px;
+        }
+        
+        .form-card {
+            background: rgba(8, 8, 20, 0.8);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 20px;
+            padding: 35px 30px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-purple));
+            background-size: 200% 100%;
+            animation: gradientSlide 3s ease infinite;
+        }
+        
+        @keyframes gradientSlide {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        .form-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .form-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .form-input:focus {
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.1), 0 0 20px rgba(168, 85, 247, 0.12);
+        }
+        
+        .form-input.error {
+            border-color: var(--error-red);
+        }
+        
+        .form-input.success {
+            border-color: var(--success-green);
+        }
+        
+        .error-message {
+            color: var(--error-red);
+            font-size: 0.8rem;
+            margin-top: 6px;
+            text-align: left;
+            display: none;
+        }
+        
+        .error-message.visible {
+            display: block;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 16px 30px;
+            margin-top: 8px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: white;
+            background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.3);
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(168, 85, 247, 0.4);
+        }
+        
+        .submit-btn:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .submit-btn .btn-text {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .submit-btn.loading .btn-text {
+            opacity: 0;
+        }
+        
+        .submit-btn .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            opacity: 0;
+        }
+        
+        .submit-btn.loading .spinner {
+            opacity: 1;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .form-privacy {
+            margin-top: 14px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        
+        /* Success State */
+        .success-container {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .success-container.visible {
+            display: block;
+        }
+        
+        .success-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2rem;
+            animation: successPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes successPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .success-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .success-message {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        .form-content.hidden {
+            display: none;
+        }
+        
+        /* ========================================
+           BENEFÍCIOS (3 cards)
+        ======================================== */
+        .benefits-section {
+            margin-top: 50px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(168, 85, 247, 0.1);
+        }
+        
+        .benefits-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 25px;
+            opacity: 0.8;
+        }
+        
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 750px;
+            margin: 0 auto;
+        }
+        
+        .benefit-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            text-align: center;
+            padding: 20px 16px;
+            background: rgba(8, 8, 20, 0.5);
+            border: 1px solid rgba(168, 85, 247, 0.12);
+            border-radius: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .benefit-item:hover {
+            background: rgba(168, 85, 247, 0.06);
+            border-color: rgba(168, 85, 247, 0.25);
+            transform: translateY(-2px);
+        }
+        
+        .benefit-icon {
+            font-size: 1.6rem;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(6, 182, 212, 0.15));
+            border-radius: 12px;
+        }
+        
+        .benefit-content h4 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        
+        .benefit-content p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        
+        /* ========================================
+           FOOTER TRUST
+        ======================================== */
+        .footer-trust {
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(168, 85, 247, 0.08);
+        }
+        
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            opacity: 0.6;
+        }
+        
+        .trust-badge span:first-child {
+            font-size: 1rem;
+        }
+        
+        /* ========================================
+           RESPONSIVE
+        ======================================== */
+        @media (max-width: 768px) {
+            .page-wrapper {
+                padding: 30px 16px;
+            }
+            
+            .countdown {
+                gap: 8px;
+            }
+            
+            .countdown-item {
+                min-width: 70px;
+                padding: 14px 16px;
+            }
+            
+            .form-card {
+                padding: 28px 22px;
+            }
+            
+            .benefits-grid {
+                grid-template-columns: 1fr;
+                max-width: 300px;
+            }
+            
+            .trust-badges {
+                gap: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .countdown-item {
+                min-width: 60px;
+                padding: 12px 14px;
+            }
+            
+            .trust-badges {
+                flex-direction: column;
+                gap: 12px;
+            }
+        }
+        
+        /* ========================================
+           ANIMATIONS ON LOAD
+        ======================================== */
+        .fade-in-up {
+            opacity: 0;
+            transform: translateY(25px);
+            animation: fadeInUp 0.7s ease forwards;
+        }
+        
+        .fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+        .fade-in-up:nth-child(2) { animation-delay: 0.15s; }
+        .fade-in-up:nth-child(3) { animation-delay: 0.2s; }
+        .fade-in-up:nth-child(4) { animation-delay: 0.25s; }
+        .fade-in-up:nth-child(5) { animation-delay: 0.3s; }
+        .fade-in-up:nth-child(6) { animation-delay: 0.35s; }
+        .fade-in-up:nth-child(7) { animation-delay: 0.4s; }
+        .fade-in-up:nth-child(8) { animation-delay: 0.45s; }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- WebGL Neural Net Background -->
+    <canvas id="neural-bg"></canvas>
+    
+    <!-- Gradient Overlay -->
+    <div class="bg-overlay"></div>
+    
+    <!-- Main Content -->
+    <div class="page-wrapper">
+        <div class="container">
+            <!-- Brand -->
+            <div class="brand fade-in-up">
+                <div class="logo-text">Você Está a Um Passo de 
+</div>
+            </div>
+            
+            <!-- Main Headline -->
+            <h1 class="headline fade-in-up">
+ 
+  <span>DESCOBRIR <span class="headline-highlight">TODOS</span></span>
+  <span>OS ERROS QUE IMPEDEM SUA <span class="headline-highlight">MIX / MASTER</span></span>
+  <span>DE SOAR <span class="headline-highlight">PROFISSIONAL</span></span>
+</h1>
+
+            
+            <!-- Subheadline -->
+<p class="product-brief fade-in-up">
+ <p class="product-brief fade-in-up">
+  <span>
+    Garanta seu lugar na lista e seja um dos
+    <span class="headline-highlight">primeiros</span>
+    a testar a SoundyAI gratuitamente no lançamento.
+  </span>
+
+  <span>
+    Essa inteligência artificial analisa o seu áudio e revela
+    <span class="headline-highlight">exatamente</span>
+    o que ajustar na mixagem para alcançar padrão profissional.
+  </span>
+
+  <span>
+    Sem achismos. Sem tentativa e erro.
+    Apenas engenharia de áudio aplicada da forma correta.
+  </span>
+</p>
+
+
+  
+</p>
+
+            
+            <!-- Countdown Timer -->
+            <div class="countdown-section fade-in-up">
+                <div class="countdown-label">Contagem regressiva</div>
+                <p style="color: rgba(255, 255, 255, 0.85); font-size: 1rem; margin: 10px 0 20px 0; line-height: 1.6;">
+                    🚀<span class="headline-highlight"> Lançamento oficial SoundyAI </span>🚀<br>
+                 
+                </p>
+                <div class="countdown" id="countdown">
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="days">00</span>
+                        <span class="countdown-unit">Dias</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="hours">00</span>
+                        <span class="countdown-unit">Horas</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="minutes">00</span>
+                        <span class="countdown-unit">Min</span>
+                    </div>
+                    <div class="countdown-item">
+                        <span class="countdown-number" id="seconds">00</span>
+                        <span class="countdown-unit">Seg</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Slots Counter -->
+            <div class="slots-counter fade-in-up">
+                <span class="icon">⏰</span>
+                <span>Apenas <span class="number" id="slots-remaining">--</span> das 100 vagas iniciais ainda disponíveis</span>
+            </div>
+            
+            <!-- Formulário Inline -->
+            <div class="form-section fade-in-up">
+                <div class="form-card">
+                    <div class="form-content" id="formContent">
+                        <h3 class="form-title">Receba diagnóstico tecníco gratúito do seu áudio por IA</h3>
+                        <p class="form-subtitle">Preencha o formulário e receba acesso antecipado à ferramenta que vai mostrar exatamente o que está impedindo sua música de soar profissional.</p>
+                        
+                        <form id="waitlistForm" novalidate>
+                            <div class="form-group">
+                                <input 
+                                    type="text" 
+                                    id="name" 
+                                    name="name" 
+                                    class="form-input" 
+                                    placeholder="Seu nome"
+                                    required
+                                    autocomplete="name"
+                                >
+                                <span class="error-message" id="nameError">Por favor, insira seu nome</span>
+                            </div>
+                            
+                            <div class="form-group">
+                                <input 
+                                    type="email" 
+                                    id="email" 
+                                    name="email" 
+                                    class="form-input" 
+                                    placeholder="Seu melhor e-mail"
+                                    required
+                                    autocomplete="email"
+                                >
+                                <span class="error-message" id="emailError">Por favor, insira um e-mail válido</span>
+                            </div>
+                            
+                            <!-- Campo de telefone - OCULTO (remover style="display: none;" para reativar) -->
+                            <div class="form-group" style="display: none;">
+                                <input 
+                                    type="tel" 
+                                    id="phone" 
+                                    name="phone" 
+                                    class="form-input" 
+                                    placeholder="Telefone"
+                                    autocomplete="tel"
+                                >
+                                <span class="error-message" id="phoneError">Número de telefone inválido</span>
+                            </div>
+                            
+                            <button type="submit" class="submit-btn" id="submitBtn">
+                                <span class="btn-text">Quero descobrir o que ajustar na minha música</span>
+                                <span class="spinner"></span>
+                            </button>
+                        </form>
+                        
+                        <p class="form-privacy">
+                            🔒 Sem spam. Nenhuma venda agora. Apenas diagnóstico técnico.
+                        </p>
+                    </div>
+                    
+                    <!-- Success State -->
+                    <div class="success-container" id="successContainer">
+                        <div class="success-icon">✓</div>
+                        <h3 class="success-title">Você está na lista! 🎉</h3>
+                        <p class="success-message">
+                            Fique de olho no seu e-mail. Você será um dos primeiros a experimentar o SoundyAI.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Benefícios (3 cards) -->
+            <div class="benefits-section fade-in-up">
+                <div class="benefits-title">Por que entrar agora?</div>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🚀</div>
+                        <div class="benefit-content">
+                            <h4>Acesso Antecipado</h4>
+                            <p>Entre antes de todo mundo e explore primeiro</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎁</div>
+                        <div class="benefit-content">
+                            <h4>Presentes de Boas-vindas 🎁</h4>
+                            <p>Quem entra na lista recebe conteúdos e materiais exclusivos no lançamento.</p>
+                        </div>
+                    </div>
+                    <div class="benefit-item">
+                        <div class="benefit-icon">🎯</div>
+                        <div class="benefit-content">
+                            <h4>Análises Avançadas</h4>
+                            <p>IA treinada com mixagens profissionais</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer Trust -->
+            <div class="footer-trust fade-in-up">
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <span>🔒</span>
+                        <span>Dados protegidos</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span>✉️</span>
+                        <span>Sem spam</span>
+                    </div>
+                    <div class="trust-badge">
+                        <span>⚡</span>
+                        <span>Cancele quando quiser</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script>
+        // ========================================
+        // NEURAL NET WEBGL BACKGROUND
+        // Ultra-performant holographic constellation
+        // ========================================
+        (function() {
+            'use strict';
+            
+            // ===== PERFORMANCE GUARDRAILS =====
+            const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+            const TARGET_FPS = 50;
+            const FRAME_TIME = 1000 / TARGET_FPS;
+            const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const PREFERS_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            
+            // ===== CONFIG =====
+            const CONFIG = {
+                pointCount: IS_MOBILE ? 60 : 120,
+                maxConnections: IS_MOBILE ? 3 : 5,
+                connectionDistance: IS_MOBILE ? 120 : 150,
+                pointSize: IS_MOBILE ? 1.5 : 2,
+                parallaxStrength: 0.02,
+                lerpFactor: 0.08,
+                pulseSpeed: 0.0008,
+                colors: {
+                    point: [168, 85, 247],      // Purple
+                    line: [106, 170, 255],       // Blue-ish
+                    glow: [139, 92, 246]         // Violet
+                }
+            };
+            
+            // ===== STATE =====
+            const canvas = document.getElementById('neural-bg');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d', { alpha: false });
+            let width, height;
+            let points = [];
+            let mouse = { x: 0.5, y: 0.5 };
+            let targetMouse = { x: 0.5, y: 0.5 };
+            let lastFrame = 0;
+            let isVisible = true;
+            let animationId = null;
+            
+            // ===== POINT CLASS =====
+            class Point {
+                constructor() {
+                    this.reset();
+                }
+                
+                reset() {
+                    this.x = Math.random();
+                    this.y = Math.random();
+                    this.z = Math.random() * 0.5 + 0.5; // Depth 0.5-1
+                    this.vx = (Math.random() - 0.5) * 0.0003;
+                    this.vy = (Math.random() - 0.5) * 0.0003;
+                    this.baseAlpha = Math.random() * 0.4 + 0.3;
+                    this.pulseOffset = Math.random() * Math.PI * 2;
+                }
+                
+                update(time) {
+                    // Slow drift
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    
+                    // Wrap around
+                    if (this.x < -0.05) this.x = 1.05;
+                    if (this.x > 1.05) this.x = -0.05;
+                    if (this.y < -0.05) this.y = 1.05;
+                    if (this.y > 1.05) this.y = -0.05;
+                    
+                    // Pulsing alpha
+                    this.alpha = this.baseAlpha + Math.sin(time * CONFIG.pulseSpeed + this.pulseOffset) * 0.15;
+                }
+                
+                getScreenPos(offsetX, offsetY) {
+                    const parallax = (this.z - 0.5) * CONFIG.parallaxStrength;
+                    return {
+                        x: (this.x + offsetX * parallax) * width,
+                        y: (this.y + offsetY * parallax) * height,
+                        size: CONFIG.pointSize * this.z,
+                        alpha: this.alpha * this.z
+                    };
+                }
+            }
+            
+            // ===== INIT =====
+            function init() {
+                resize();
+                
+                // Create points
+                points = [];
+                for (let i = 0; i < CONFIG.pointCount; i++) {
+                    points.push(new Point());
+                }
+                
+                // Event listeners
+                window.addEventListener('resize', debounce(resize, 200));
+                
+                if (!IS_MOBILE) {
+                    document.addEventListener('mousemove', onMouseMove, { passive: true });
+                }
+                
+                document.addEventListener('visibilitychange', onVisibilityChange);
+                
+                // Start animation
+                if (!PREFERS_REDUCED_MOTION) {
+                    lastFrame = performance.now();
+                    animate(lastFrame);
+                } else {
+                    // Static render for reduced motion
+                    renderStatic();
+                }
+            }
+            
+            function resize() {
+                width = canvas.width = window.innerWidth * DPR;
+                height = canvas.height = window.innerHeight * DPR;
+                canvas.style.width = window.innerWidth + 'px';
+                canvas.style.height = window.innerHeight + 'px';
+            }
+            
+            function onMouseMove(e) {
+                targetMouse.x = e.clientX / window.innerWidth;
+                targetMouse.y = e.clientY / window.innerHeight;
+            }
+            
+            function onVisibilityChange() {
+                isVisible = !document.hidden;
+                if (isVisible && !PREFERS_REDUCED_MOTION) {
+                    lastFrame = performance.now();
+                    animate(lastFrame);
+                }
+            }
+            
+            // ===== RENDER =====
+            function animate(timestamp) {
+                if (!isVisible) return;
+                
+                // FPS limiting
+                const delta = timestamp - lastFrame;
+                if (delta < FRAME_TIME) {
+                    animationId = requestAnimationFrame(animate);
+                    return;
+                }
+                lastFrame = timestamp - (delta % FRAME_TIME);
+                
+                // Lerp mouse
+                mouse.x += (targetMouse.x - mouse.x) * CONFIG.lerpFactor;
+                mouse.y += (targetMouse.y - mouse.y) * CONFIG.lerpFactor;
+                
+                // Parallax offset (centered)
+                const offsetX = (mouse.x - 0.5) * 2;
+                const offsetY = (mouse.y - 0.5) * 2;
+                
+                // Clear
+                ctx.fillStyle = '#010008';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Update points
+                for (const point of points) {
+                    point.update(timestamp);
+                }
+                
+                // Get screen positions
+                const screenPoints = points.map(p => ({
+                    point: p,
+                    screen: p.getScreenPos(offsetX, offsetY)
+                }));
+                
+                // Draw connections
+                ctx.lineWidth = 1;
+                for (let i = 0; i < screenPoints.length; i++) {
+                    const a = screenPoints[i];
+                    let connections = 0;
+                    
+                    for (let j = i + 1; j < screenPoints.length && connections < CONFIG.maxConnections; j++) {
+                        const b = screenPoints[j];
+                        const dx = a.screen.x - b.screen.x;
+                        const dy = a.screen.y - b.screen.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < CONFIG.connectionDistance * DPR) {
+                            const alpha = (1 - dist / (CONFIG.connectionDistance * DPR)) * 0.25 * a.screen.alpha * b.screen.alpha;
+                            const [r, g, b_] = CONFIG.colors.line;
+                            ctx.strokeStyle = `rgba(${r}, ${g}, ${b_}, ${alpha})`;
+                            ctx.beginPath();
+                            ctx.moveTo(a.screen.x, a.screen.y);
+                            ctx.lineTo(b.screen.x, b.screen.y);
+                            ctx.stroke();
+                            connections++;
+                        }
+                    }
+                }
+                
+                // Draw points with glow
+                for (const { screen } of screenPoints) {
+                    const [r, g, b_] = CONFIG.colors.point;
+                    const [gr, gg, gb] = CONFIG.colors.glow;
+                    
+                    // Outer glow
+                    const gradient = ctx.createRadialGradient(
+                        screen.x, screen.y, 0,
+                        screen.x, screen.y, screen.size * 4
+                    );
+                    gradient.addColorStop(0, `rgba(${gr}, ${gg}, ${gb}, ${screen.alpha * 0.3})`);
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, screen.size * 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Core point
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b_}, ${screen.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, screen.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            function renderStatic() {
+                ctx.fillStyle = '#010008';
+                ctx.fillRect(0, 0, width, height);
+                
+                const screenPoints = points.map(p => ({
+                    screen: p.getScreenPos(0, 0)
+                }));
+                
+                // Static connections
+                ctx.lineWidth = 1;
+                for (let i = 0; i < screenPoints.length; i++) {
+                    const a = screenPoints[i];
+                    for (let j = i + 1; j < screenPoints.length; j++) {
+                        const b = screenPoints[j];
+                        const dx = a.screen.x - b.screen.x;
+                        const dy = a.screen.y - b.screen.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < CONFIG.connectionDistance * DPR) {
+                            ctx.strokeStyle = `rgba(106, 170, 255, 0.1)`;
+                            ctx.beginPath();
+                            ctx.moveTo(a.screen.x, a.screen.y);
+                            ctx.lineTo(b.screen.x, b.screen.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                
+                // Static points
+                for (const { screen } of screenPoints) {
+                    ctx.fillStyle = `rgba(168, 85, 247, 0.5)`;
+                    ctx.beginPath();
+                    ctx.arc(screen.x, screen.y, CONFIG.pointSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            // ===== UTILS =====
+            function debounce(fn, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+            
+            // ===== CLEANUP (for SPA/hot reload) =====
+            window._cleanupNeuralBg = function() {
+                if (animationId) cancelAnimationFrame(animationId);
+                window.removeEventListener('resize', resize);
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('visibilitychange', onVisibilityChange);
+            };
+            
+            // Start
+            init();
+        })();
+        
+        // ========================================
+        // COUNTDOWN TIMER
+        // ========================================
+        (function() {
+            const launchDate = new Date('2026-01-22T00:00:00-03:00').getTime();
+            
+            function updateCountdown() {
+                const now = new Date().getTime();
+                const distance = launchDate - now;
+                
+                if (distance < 0) {
+                    document.getElementById('days').textContent = '00';
+                    document.getElementById('hours').textContent = '00';
+                    document.getElementById('minutes').textContent = '00';
+                    document.getElementById('seconds').textContent = '00';
+                    return;
+                }
+                
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                document.getElementById('days').textContent = String(days).padStart(2, '0');
+                document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+                document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+                document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+            }
+            
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+        })();
+        
+        // ========================================
+        // 📊 LEAD ENRICHMENT SYSTEM
+        // Sistema automático de enriquecimento de dados
+        // Coleta máxima de informações sem adicionar fricção
+        // ========================================
+        const LeadEnrichment = (function() {
+            // ========================================
+            // TRACKING STATE - Inicia imediatamente
+            // ========================================
+            const pageLoadTime = Date.now();
+            let maxScrollDepth = 0;
+            let mouseMovementDetected = false;
+            let interactionCount = 0;
+            let hoverOnCTA = false;
+            let formInteractionStarted = false;
+            
+            // ========================================
+            // 1️⃣ DEVICE & BROWSER DETECTION
+            // ========================================
+            function getDeviceInfo() {
+                const ua = navigator.userAgent || '';
+                
+                // Detectar tipo de dispositivo
+                let deviceType = 'desktop';
+                if (/tablet|ipad|playbook|silk/i.test(ua)) {
+                    deviceType = 'tablet';
+                } else if (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(ua)) {
+                    deviceType = 'mobile';
+                }
+                
+                // Detectar sistema operacional
+                let operatingSystem = 'unknown';
+                if (/windows/i.test(ua)) operatingSystem = 'Windows';
+                else if (/macintosh|mac os x/i.test(ua)) operatingSystem = 'macOS';
+                else if (/linux/i.test(ua)) operatingSystem = 'Linux';
+                else if (/android/i.test(ua)) operatingSystem = 'Android';
+                else if (/iphone|ipad|ipod/i.test(ua)) operatingSystem = 'iOS';
+                
+                // Detectar navegador
+                let browser = 'unknown';
+                if (/edg/i.test(ua)) browser = 'Edge';
+                else if (/chrome/i.test(ua)) browser = 'Chrome';
+                else if (/safari/i.test(ua)) browser = 'Safari';
+                else if (/firefox/i.test(ua)) browser = 'Firefox';
+                else if (/opera|opr/i.test(ua)) browser = 'Opera';
+                
+                return {
+                    deviceType,
+                    operatingSystem,
+                    browser,
+                    screenWidth: window.screen.width || 0,
+                    screenHeight: window.screen.height || 0,
+                    viewportWidth: window.innerWidth || 0,
+                    viewportHeight: window.innerHeight || 0,
+                    pixelRatio: window.devicePixelRatio || 1,
+                    touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+                };
+            }
+            
+            // ========================================
+            // 2️⃣ LOCALE & TIMEZONE
+            // ========================================
+            function getLocaleInfo() {
+                let timezone = 'unknown';
+                let utcOffset = 0;
+                
+                try {
+                    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    utcOffset = -(new Date().getTimezoneOffset() / 60);
+                } catch (e) {
+                    // Fallback silencioso
+                }
+                
+                // Inferir país pelo timezone (heurística)
+                let inferredCountry = 'unknown';
+                let inferredRegion = 'unknown';
+                
+                const tzCountryMap = {
+                    'America/Sao_Paulo': { country: 'Brazil', region: 'South America' },
+                    'America/Fortaleza': { country: 'Brazil', region: 'South America' },
+                    'America/Recife': { country: 'Brazil', region: 'South America' },
+                    'America/Bahia': { country: 'Brazil', region: 'South America' },
+                    'America/Belem': { country: 'Brazil', region: 'South America' },
+                    'America/Manaus': { country: 'Brazil', region: 'South America' },
+                    'America/Cuiaba': { country: 'Brazil', region: 'South America' },
+                    'America/Campo_Grande': { country: 'Brazil', region: 'South America' },
+                    'America/Porto_Velho': { country: 'Brazil', region: 'South America' },
+                    'America/Boa_Vista': { country: 'Brazil', region: 'South America' },
+                    'America/Rio_Branco': { country: 'Brazil', region: 'South America' },
+                    'America/Argentina/Buenos_Aires': { country: 'Argentina', region: 'South America' },
+                    'America/New_York': { country: 'USA', region: 'North America' },
+                    'America/Los_Angeles': { country: 'USA', region: 'North America' },
+                    'America/Chicago': { country: 'USA', region: 'North America' },
+                    'Europe/London': { country: 'UK', region: 'Europe' },
+                    'Europe/Paris': { country: 'France', region: 'Europe' },
+                    'Europe/Berlin': { country: 'Germany', region: 'Europe' },
+                    'Europe/Madrid': { country: 'Spain', region: 'Europe' },
+                    'Europe/Lisbon': { country: 'Portugal', region: 'Europe' },
+                    'Asia/Tokyo': { country: 'Japan', region: 'Asia' },
+                    'Asia/Shanghai': { country: 'China', region: 'Asia' },
+                    'Australia/Sydney': { country: 'Australia', region: 'Oceania' }
+                };
+                
+                if (tzCountryMap[timezone]) {
+                    inferredCountry = tzCountryMap[timezone].country;
+                    inferredRegion = tzCountryMap[timezone].region;
+                }
+                
+                return {
+                    language: navigator.language || 'unknown',
+                    languages: navigator.languages ? [...navigator.languages] : [],
+                    timezone,
+                    utcOffset,
+                    inferredCountry,
+                    inferredRegion
+                };
+            }
+            
+            // ========================================
+            // 3️⃣ MARKETING & UTM PARAMS
+            // ========================================
+            function getMarketingInfo() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                return {
+                    referrer: document.referrer || 'direct',
+                    referrerDomain: document.referrer ? new URL(document.referrer).hostname : 'direct',
+                    landingPage: window.location.pathname,
+                    utm_source: urlParams.get('utm_source') || null,
+                    utm_medium: urlParams.get('utm_medium') || null,
+                    utm_campaign: urlParams.get('utm_campaign') || null,
+                    utm_content: urlParams.get('utm_content') || null,
+                    utm_term: urlParams.get('utm_term') || null,
+                    gclid: urlParams.get('gclid') || null, // Google Ads
+                    fbclid: urlParams.get('fbclid') || null // Facebook Ads
+                };
+            }
+            
+            // ========================================
+            // 4️⃣ TEMPORAL CONTEXT
+            // ========================================
+            function getTemporalInfo() {
+                const now = new Date();
+                const hour = now.getHours();
+                const dayOfWeek = now.getDay();
+                
+                return {
+                    hourOfDay: hour,
+                    dayOfWeek,
+                    isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+                    timeOfDay: hour < 6 ? 'night' : hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening',
+                    localDate: now.toISOString().split('T')[0],
+                    localTime: now.toTimeString().split(' ')[0]
+                };
+            }
+            
+            // ========================================
+            // 5️⃣ ENGAGEMENT METRICS (coletadas em tempo real)
+            // ========================================
+            function getEngagementInfo() {
+                const timeOnPage = Math.round((Date.now() - pageLoadTime) / 1000);
+                
+                return {
+                    timeOnPageSeconds: timeOnPage,
+                    scrollDepthPercent: Math.round(maxScrollDepth),
+                    mouseMovementDetected,
+                    interactionCount,
+                    hoverOnCTA,
+                    formInteractionStarted
+                };
+            }
+            
+            // ========================================
+            // 6️⃣ ENVIRONMENT & PERFORMANCE
+            // ========================================
+            function getEnvironmentInfo() {
+                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+                
+                return {
+                    connectionType: connection ? connection.effectiveType : 'unknown',
+                    connectionDownlink: connection ? connection.downlink : null,
+                    deviceMemory: navigator.deviceMemory || null,
+                    hardwareConcurrency: navigator.hardwareConcurrency || null,
+                    cookiesEnabled: navigator.cookieEnabled,
+                    doNotTrack: navigator.doNotTrack === '1',
+                    online: navigator.onLine
+                };
+            }
+            
+            // ========================================
+            // 7️⃣ INFERRED PROFILE (heurístico)
+            // ========================================
+            function getInferredProfile() {
+                const device = getDeviceInfo();
+                const locale = getLocaleInfo();
+                const engagement = getEngagementInfo();
+                const temporal = getTemporalInfo();
+                const env = getEnvironmentInfo();
+                
+                // Heurísticas para inferir perfil
+                
+                // 🎵 Music Producer: alta probabilidade se chegou nesta landing
+                // (a landing é específica para produtores)
+                const musicProducer = true;
+                
+                // 🤖 AI Interested: está em uma landing de IA para música
+                const aiInterested = true;
+                
+                // 🚀 Early Adopter: entrou na waitlist antes do lançamento
+                // + navegador moderno + dispositivo decente
+                const hasModernBrowser = ['Chrome', 'Edge', 'Firefox'].includes(device.browser);
+                const hasDecentDevice = (env.hardwareConcurrency || 2) >= 4;
+                const earlyAdopter = hasModernBrowser && hasDecentDevice;
+                
+                // 💼 Professional Intent: análise combinada
+                // - Usando desktop (mais comum em trabalho)
+                // - Horário comercial
+                // - Tempo de permanência bom (>30s = interesse real)
+                const isWorkHour = temporal.hourOfDay >= 9 && temporal.hourOfDay <= 18;
+                const goodEngagement = engagement.timeOnPageSeconds > 30;
+                const professionalIntent = device.deviceType === 'desktop' && (isWorkHour || goodEngagement);
+                
+                // 🔥 High Intent: muito engajado
+                const highIntent = engagement.scrollDepthPercent > 50 && 
+                                   engagement.timeOnPageSeconds > 45 &&
+                                   engagement.interactionCount > 3;
+                
+                // 🌎 International: fora do Brasil
+                const isInternational = locale.inferredCountry !== 'Brazil' && locale.inferredCountry !== 'unknown';
+                
+                // 📱 Mobile-first: usa principalmente mobile
+                const mobileFirst = device.deviceType === 'mobile';
+                
+                return {
+                    musicProducer,
+                    aiInterested,
+                    earlyAdopter,
+                    professionalIntent,
+                    highIntent,
+                    isInternational,
+                    mobileFirst,
+                    engagementScore: calculateEngagementScore(engagement)
+                };
+            }
+            
+            // ========================================
+            // ENGAGEMENT SCORE (0-100)
+            // ========================================
+            function calculateEngagementScore(engagement) {
+                let score = 0;
+                
+                // Tempo na página (max 30 pts)
+                score += Math.min(30, engagement.timeOnPageSeconds / 2);
+                
+                // Scroll depth (max 25 pts)
+                score += engagement.scrollDepthPercent * 0.25;
+                
+                // Mouse movement (10 pts)
+                if (engagement.mouseMovementDetected) score += 10;
+                
+                // Interações (max 20 pts)
+                score += Math.min(20, engagement.interactionCount * 4);
+                
+                // Hover no CTA (10 pts)
+                if (engagement.hoverOnCTA) score += 10;
+                
+                // Form interaction started (5 pts)
+                if (engagement.formInteractionStarted) score += 5;
+                
+                return Math.round(Math.min(100, score));
+            }
+            
+            // ========================================
+            // TRACKING EVENT LISTENERS
+            // ========================================
+            
+            // Scroll tracking
+            window.addEventListener('scroll', function() {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+                maxScrollDepth = Math.max(maxScrollDepth, scrollPercent);
+                interactionCount++;
+            }, { passive: true });
+            
+            // Mouse movement tracking
+            let mouseMoveTimeout;
+            document.addEventListener('mousemove', function() {
+                if (!mouseMovementDetected) {
+                    mouseMovementDetected = true;
+                }
+                interactionCount++;
+            }, { passive: true, once: false });
+            
+            // Throttle mouse movement counting
+            document.addEventListener('mousemove', (function() {
+                let lastCount = 0;
+                return function() {
+                    if (Date.now() - lastCount > 1000) {
+                        lastCount = Date.now();
+                    }
+                };
+            })(), { passive: true });
+            
+            // Click tracking
+            document.addEventListener('click', function() {
+                interactionCount++;
+            }, { passive: true });
+            
+            // CTA hover tracking
+            setTimeout(function() {
+                const ctaButton = document.getElementById('submitBtn');
+                if (ctaButton) {
+                    ctaButton.addEventListener('mouseenter', function() {
+                        hoverOnCTA = true;
+                    }, { passive: true });
+                }
+                
+                // Form interaction tracking
+                const formInputs = document.querySelectorAll('#waitlistForm input');
+                formInputs.forEach(function(input) {
+                    input.addEventListener('focus', function() {
+                        formInteractionStarted = true;
+                        interactionCount++;
+                    }, { passive: true, once: true });
+                });
+            }, 100);
+            
+            // ========================================
+            // PUBLIC API - Função principal de enrichment
+            // ========================================
+            return {
+                // Retorna todos os dados enriquecidos
+                collect: function() {
+                    return {
+                        device: getDeviceInfo(),
+                        locale: getLocaleInfo(),
+                        marketing: getMarketingInfo(),
+                        temporal: getTemporalInfo(),
+                        engagement: getEngagementInfo(),
+                        environment: getEnvironmentInfo(),
+                        inferredProfile: getInferredProfile()
+                    };
+                },
+                
+                // Getters individuais (para debug)
+                getDevice: getDeviceInfo,
+                getLocale: getLocaleInfo,
+                getMarketing: getMarketingInfo,
+                getTemporal: getTemporalInfo,
+                getEngagement: getEngagementInfo,
+                getEnvironment: getEnvironmentInfo,
+                getInferredProfile: getInferredProfile
+            };
+        })();
+        
+        // Expor globalmente
+        window.LeadEnrichment = LeadEnrichment;
+        
+        // ========================================
+        // FORM HANDLING
+        // ========================================
+        (function() {
+            const form = document.getElementById('waitlistForm');
+            const formContent = document.getElementById('formContent');
+            const successContainer = document.getElementById('successContainer');
+            const submitBtn = document.getElementById('submitBtn');
+            const nameInput = document.getElementById('name');
+            const emailInput = document.getElementById('email');
+            const phoneInput = document.getElementById('phone');
+            const nameError = document.getElementById('nameError');
+            const emailError = document.getElementById('emailError');
+            const phoneError = document.getElementById('phoneError');
+            
+            function isValidEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(String(email).toLowerCase());
+            }
+            
+            /**
+             * Valida e normaliza número de WhatsApp para formato E.164
+             * @param {string} phone - Número digitado pelo usuário
+             * @returns {{ valid: boolean, normalized: string|null, error?: string }}
+             */
+            function validateAndNormalizePhone(phone) {
+                // Campo opcional: se vazio, é válido com valor null
+                if (!phone || phone.trim() === '') {
+                    return { valid: true, normalized: null };
+                }
+                
+                // Remover caracteres não-numéricos, exceto + inicial
+                let cleaned = phone.trim();
+                const hasPlus = cleaned.startsWith('+');
+                cleaned = cleaned.replace(/[^\d]/g, '');
+                
+                // Restaurar + se existia
+                if (hasPlus) {
+                    cleaned = '+' + cleaned;
+                }
+                
+                // Validar tamanho mínimo (8 dígitos)
+                const digitsOnly = cleaned.replace(/\D/g, '');
+                if (digitsOnly.length < 8) {
+                    return { valid: false, normalized: null, error: 'Número muito curto' };
+                }
+                
+                // Validar tamanho máximo (E.164 permite até 15 dígitos)
+                if (digitsOnly.length > 15) {
+                    return { valid: false, normalized: null, error: 'Número muito longo' };
+                }
+                
+                // Normalizar para formato E.164
+                let normalized;
+                
+                if (cleaned.startsWith('+')) {
+                    // Já tem código de país
+                    normalized = cleaned;
+                } else if (cleaned.startsWith('55') && digitsOnly.length >= 12) {
+                    // Número brasileiro sem +
+                    normalized = '+' + cleaned;
+                } else if (digitsOnly.length === 11 || digitsOnly.length === 10) {
+                    // Número brasileiro com DDD (assumir +55)
+                    normalized = '+55' + digitsOnly;
+                } else if (digitsOnly.length >= 10) {
+                    // Tentar assumir que já tem código de país
+                    normalized = '+' + digitsOnly;
+                } else {
+                    return { valid: false, normalized: null, error: 'Formato inválido' };
+                }
+                
+                // Validação final: formato E.164
+                const e164Regex = /^\+[1-9]\d{7,14}$/;
+                if (!e164Regex.test(normalized)) {
+                    return { valid: false, normalized: null, error: 'Número inválido' };
+                }
+                
+                return { valid: true, normalized: normalized };
+            }
+            
+            function showError(input, errorEl) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorEl.classList.add('visible');
+            }
+            
+            function hideError(input, errorEl) {
+                input.classList.remove('error');
+                errorEl.classList.remove('visible');
+            }
+            
+            function showSuccess(input) {
+                input.classList.remove('error');
+                input.classList.add('success');
+            }
+            
+            nameInput.addEventListener('blur', function() {
+                if (this.value.trim().length >= 2) {
+                    hideError(this, nameError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, nameError);
+                }
+            });
+            
+            emailInput.addEventListener('blur', function() {
+                if (isValidEmail(this.value.trim())) {
+                    hideError(this, emailError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, emailError);
+                }
+            });
+            
+            // Validação em tempo real do WhatsApp (opcional)
+            phoneInput.addEventListener('blur', function() {
+                const phoneValue = this.value.trim();
+                
+                // Se está vazio, é válido (campo opcional)
+                if (phoneValue === '') {
+                    hideError(this, phoneError);
+                    this.classList.remove('success');
+                    this.classList.remove('error');
+                    return;
+                }
+                
+                // Validar apenas se preenchido
+                const validation = validateAndNormalizePhone(phoneValue);
+                if (validation.valid) {
+                    hideError(this, phoneError);
+                    showSuccess(this);
+                } else {
+                    showError(this, phoneError);
+                }
+            });
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                hideError(nameInput, nameError);
+                hideError(emailInput, emailError);
+                hideError(phoneInput, phoneError);
+                
+                let isValid = true;
+                const name = nameInput.value.trim();
+                const email = emailInput.value.trim();
+                const phoneRaw = phoneInput.value.trim();
+                
+                // Validar nome (obrigatório)
+                if (name.length < 2) {
+                    showError(nameInput, nameError);
+                    isValid = false;
+                }
+                
+                // Validar e-mail (obrigatório)
+                if (!isValidEmail(email)) {
+                    showError(emailInput, emailError);
+                    isValid = false;
+                }
+                
+                // Validar WhatsApp (opcional, mas se preenchido deve ser válido)
+                const phoneValidation = validateAndNormalizePhone(phoneRaw);
+                if (!phoneValidation.valid) {
+                    showError(phoneInput, phoneError);
+                    isValid = false;
+                }
+                
+                // phone normalizado (string E.164 ou null)
+                const phone = phoneValidation.normalized;
+                
+                if (!isValid) {
+                    const firstError = form.querySelector('.error');
+                    if (firstError) firstError.focus();
+                    return;
+                }
+                
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                
+                // ========================================
+                // � ENVIAR PARA API BACKEND
+                // Backend salva no Firestore + dispara e-mail
+                // ========================================
+                try {
+                    // ========================================
+                    // 📊 COLETAR DADOS ENRIQUECIDOS
+                    // ========================================
+                    let enrichedData = null;
+                    try {
+                        if (window.LeadEnrichment) {
+                            enrichedData = window.LeadEnrichment.collect();
+                            console.log('📊 Enrichment coletado:', enrichedData.inferredProfile?.engagementScore);
+                        }
+                    } catch (enrichError) {
+                        // Enrichment falhou, mas não impede o salvamento
+                        console.warn('⚠️ Enrichment parcial:', enrichError.message);
+                    }
+                    
+                    // ========================================
+                    // 📤 ENVIAR PARA API
+                    // ========================================
+                    const response = await fetch('/api/waitlist', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            email: email.toLowerCase(),
+                            // phone: formato E.164 normalizado ou null (nunca undefined)
+                            phone: phone,
+                            enrichment: enrichedData
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // ========================================
+                    // 🔍 VERIFICAR RESPOSTA
+                    // ========================================
+                    if (!response.ok) {
+                        // Tratar erros específicos
+                        if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
+                            // Se retornou que foi atualizado com WhatsApp, mostrar sucesso
+                            if (result.data?.whatsappAdded) {
+                                console.log('📱 WhatsApp adicionado ao cadastro existente');
+                                formContent.classList.add('hidden');
+                                successContainer.classList.add('visible');
+                                return;
+                            }
+                            alert('Este e-mail já está na lista de espera! 😊');
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        if (response.status === 400 && result.field) {
+                            // Erro de validação
+                            if (result.field === 'name') {
+                                showError(nameInput, nameError);
+                            } else if (result.field === 'email') {
+                                showError(emailInput, emailError);
+                            } else if (result.field === 'phone') {
+                                showError(phoneInput, phoneError);
+                            }
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        throw new Error(result.message || 'Erro ao processar cadastro');
+                    }
+                    
+                    // ========================================
+                    // 💾 BACKUP LOCAL
+                    // ========================================
+                    try {
+                        const localLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
+                        localLeads.push({ 
+                            name: name,
+                            email: email.toLowerCase(),
+                            phone: phone, // Incluir WhatsApp no backup local
+                            id: result.data?.id, 
+                            savedAt: new Date().toISOString(),
+                            emailSent: result.data?.emailSent,
+                            whatsappAdded: result.data?.whatsappAdded || false,
+                            engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
+                        });
+                        localStorage.setItem('soundy_waitlist', JSON.stringify(localLeads));
+                    } catch (storageErr) {
+                        // LocalStorage não crítico
+                    }
+                    
+                    // ========================================
+                    // ✅ SUCESSO!
+                    // ========================================
+                    console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
+                    console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
+                    console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
+                    
+                    // ═══════════════════════════════════════════════════════════
+                    // 📊 TRACKING: Conversão Lista de Espera (LEAD)
+                    // ═══════════════════════════════════════════════════════════
+                    // ⚠️ CRÍTICO: Só dispara SE o Firestore salvou com sucesso!
+                    // ═══════════════════════════════════════════════════════════
+                    if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
+                        try {
+                            // Rastrear conversão (idempotente - não duplica)
+                            window.SoundyTracking.trackWaitlistSignup(email.toLowerCase(), {
+                                value: 0, // Ou atribuir valor estimado do lead
+                                name: name,
+                                engagementScore: enrichedData?.inferredProfile?.engagementScore || 0
+                            });
+                            console.log('📊 Conversão de lista de espera rastreada');
+                        } catch (trackingError) {
+                            // Não bloquear UX se tracking falhar
+                            console.warn('⚠️ Erro no tracking (não crítico):', trackingError);
+                        }
+                    }
+                    
+                    formContent.classList.add('hidden');
+                    successContainer.classList.add('visible');
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao cadastrar:', error);
+                    
+                    // Mensagem amigável
+                    let errorMessage = 'Ocorreu um erro ao processar seu cadastro. Tente novamente.';
+                    
+                    if (error.message.includes('network') || error.message.includes('fetch')) {
+                        errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+                    }
+                    
+                    alert(errorMessage);
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

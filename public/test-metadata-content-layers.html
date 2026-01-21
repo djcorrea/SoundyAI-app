@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Busca em metadata.content</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste - Busca em metadata.content.original/enriched</h1>
@@ -97,7 +103,7 @@
                 <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
             `;
             
-            console.log(`🧪 ${scenarioName}:`, {
+            log(`🧪 ${scenarioName}:`, {
                 success,
                 message: result.message,
                 messageSource: result.messageSource,
@@ -108,7 +114,7 @@
         }
 
         function testEnrichedMessage() {
-            console.log('✨ Cenário: metadata.content.enriched.message');
+            log('✨ Cenário: metadata.content.enriched.message');
             const validSuggestions = [{message: "Fallback"}];
             const enhancedSuggestions = [{
                 message: null,
@@ -132,7 +138,7 @@
         }
 
         function testOriginalMessage() {
-            console.log('⚡ Cenário: metadata.content.original.message');
+            log('⚡ Cenário: metadata.content.original.message');
             const validSuggestions = [{message: "Fallback"}];
             const enhancedSuggestions = [{
                 message: null,
@@ -156,7 +162,7 @@
         }
 
         function testTruePeakDeepNested() {
-            console.log('🔍 Cenário: True Peak em estrutura profunda');
+            log('🔍 Cenário: True Peak em estrutura profunda');
             const validSuggestions = [{
                 message: "⚡ True Peak original do sistema",
                 priority: 1,
@@ -192,7 +198,7 @@
         }
 
         function testCompleteContent() {
-            console.log('🌊 Cenário: Fluxo completo content com múltiplas sugestões');
+            log('🌊 Cenário: Fluxo completo content com múltiplas sugestões');
             
             const validSuggestions = [
                 {message: "LUFS original", priority: 2},
@@ -236,7 +242,7 @@
             const results = testMergeWithContentLayers(validSuggestions, enhancedSuggestions);
             const sorted = testTruePeakSorting(results);
             
-            console.log('🌊 Complete content flow results:', {
+            log('🌊 Complete content flow results:', {
                 beforeSort: results.map(r => r.message),
                 afterSort: sorted.map(r => r.message),
                 truePeakFirst: sorted[0].message?.includes("True Peak")
@@ -250,7 +256,7 @@
         }
 
         function testTruePeakSorting() {
-            console.log('🎯 Cenário: Ordenação True Peak no topo');
+            log('🎯 Cenário: Ordenação True Peak no topo');
             
             const suggestions = [
                 { message: "📊 LUFS muito baixo", priority: 2 },
@@ -262,7 +268,7 @@
             const beforeSort = suggestions.map(s => s.message);
             const afterSort = testTruePeakSorting([...suggestions]).map(s => s.message);
             
-            console.log('🎯 Sorting test:', {
+            log('🎯 Sorting test:', {
                 before: beforeSort,
                 after: afterSort,
                 truePeakFirst: afterSort[0].includes("True Peak")
@@ -276,9 +282,9 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de busca em metadata.content iniciado");
-        console.log("🔍 Nova ordem: s.message → meta.message → enrichedLayer.message → originalLayer.message → original.message");
-        console.log("🎯 Teste de ordenação: True Peak sempre no topo da UI");
+        log("🚀 [TEST] Teste de busca em metadata.content iniciado");
+        log("🔍 Nova ordem: s.message → meta.message → enrichedLayer.message → originalLayer.message → original.message");
+        log("🎯 Teste de ordenação: True Peak sempre no topo da UI");
     </script>
 </body>
 </html>

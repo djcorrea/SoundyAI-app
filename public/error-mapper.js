@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 ERROR MAPPER V3 - Sistema Centralizado de Mensagens de Erro por SCOPE
 // REGRA STUDIO: NUNCA mostrar "limite atingido" → Sempre disfarçar como "alta demanda"
 // REGRA FREE/PLUS/PRO: Mostrar limite com números e CTA upgrade
@@ -5,7 +8,7 @@
 (function() {
     'use strict';
 
-    console.log('🎯 [ERROR-MAPPER-V3] Inicializando sistema com PLAN POLICY...');
+    log('🎯 [ERROR-MAPPER-V3] Inicializando sistema com PLAN POLICY...');
 
     // ═══════════════════════════════════════════════════════════════════
     // 🎯 POLÍTICA CENTRAL POR PLANO (CRÍTICO!)
@@ -292,7 +295,7 @@
     // ═══════════════════════════════════════════════════════════════════
     
     function mapBlockUi({ scope, code, feature, plan, meta = {}, _endpoint }) {
-        console.log('[ERROR-MAPPER-V3] mapBlockUi:', { scope, code, feature, plan, meta });
+        log('[ERROR-MAPPER-V3] mapBlockUi:', { scope, code, feature, plan, meta });
         
         const normalizedCode = (code || '').toUpperCase().replace(/-/g, '_');
         let templateKey = CODE_MAPPING[normalizedCode] || 'SERVICE_ERROR';
@@ -307,14 +310,14 @@
         const normalizedPlan = plan || meta?.plan || detectCurrentPlan();
         const policy = getPlanPolicy(normalizedPlan);
         
-        console.log('[ERROR-MAPPER-V3] Policy para', normalizedPlan, ':', policy);
+        log('[ERROR-MAPPER-V3] Policy para', normalizedPlan, ':', policy);
         
         // ═══════════════════════════════════════════════════════════════
         // 🎯 REGRA CRÍTICA: STUDIO NUNCA MOSTRA "LIMITE ATINGIDO"
         // Se exposeLimits=false E código é LIMIT_REACHED → disfarçar como SYSTEM_PEAK
         // ═══════════════════════════════════════════════════════════════
         if (!policy.exposeLimits && templateKey === 'LIMIT_REACHED') {
-            console.log('[ERROR-MAPPER-V3] ⚠️ DISFARÇANDO LIMIT_REACHED como SYSTEM_PEAK para', normalizedPlan);
+            log('[ERROR-MAPPER-V3] ⚠️ DISFARÇANDO LIMIT_REACHED como SYSTEM_PEAK para', normalizedPlan);
             templateKey = 'SYSTEM_PEAK_USAGE';
         }
         
@@ -465,6 +468,6 @@
         _version: '3.0.0'
     };
 
-    console.log('✅ [ERROR-MAPPER-V3] Sistema inicializado com PLAN_POLICY. Studio nunca mostra "limite".');
+    log('✅ [ERROR-MAPPER-V3] Sistema inicializado com PLAN_POLICY. Studio nunca mostra "limite".');
 
 })();

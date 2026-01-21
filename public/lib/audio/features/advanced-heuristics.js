@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎵 ANÁLISE DE HEURÍSTICAS AVANÇADAS
 // Detecta sibilância, harshness, masking e outros artefatos baseados em análise espectral
 
@@ -349,7 +352,7 @@ class AdvancedHeuristicsAnalyzer {
             }
             
         } catch (error) {
-            console.warn('🚨 Erro na análise de heurísticas:', error);
+            warn('🚨 Erro na análise de heurísticas:', error);
         }
         
         // Ordenar por confiança e intensidade
@@ -466,4 +469,4 @@ class AdvancedHeuristicsAnalyzer {
 window.AdvancedHeuristicsAnalyzer = AdvancedHeuristicsAnalyzer;
 window.heuristicsAnalyzer = new AdvancedHeuristicsAnalyzer();
 
-console.log('🎵 Advanced Heuristics Analyzer inicializado');
+log('🎵 Advanced Heuristics Analyzer inicializado');

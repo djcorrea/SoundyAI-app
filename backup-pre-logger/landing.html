@@ -1,0 +1,2265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundyAI - Diagnóstico Técnico de Áudio com IA</title>
+    
+    <!-- Bibliotecas para efeitos visuais -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-purple: #bc13fe;
+            --deep-blue: #020205;
+            --dark-bg: #000000;
+            --card-bg: rgba(5, 5, 10, 0.8);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0c0;
+            --accent-glow: rgba(188, 19, 254, 0.6);
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            overflow-y: auto;
+            font-size: 18px;
+        }
+        
+        /* Animated Background */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10;
+            background: radial-gradient(circle at 50% 50%, #020205 0%, #000000 100%);
+        }
+        
+        .vanta-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.15;
+            mix-blend-mode: screen;
+        }
+
+        /* 8D Sound Wave Effect Background */
+        .sound-wave-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200vw;
+            height: 200vh;
+            background: repeating-radial-gradient(
+                circle at 50% 50%, 
+                transparent 0, 
+                transparent 40px, 
+                rgba(188, 19, 254, 0.03) 41px, 
+                transparent 42px
+            );
+            animation: pulse-wave 10s linear infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-wave {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+        }
+        
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 50px;
+            background: rgba(2, 2, 5, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            border-bottom: 1px solid rgba(188, 19, 254, 0.2);
+            box-shadow: 0 0 30px rgba(188, 19, 254, 0.1);
+        }
+        
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: var(--text-primary);
+            text-decoration: none;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-purple);
+        }
+        
+        .logo span {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+        
+        .nav-link {
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+        }
+        
+        .nav-link:hover {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px var(--neon-cyan);
+        }
+        
+        .nav-cta {
+            padding: 8px 25px;
+            background: rgba(0, 243, 255, 0.1);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 4px;
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+        
+        .nav-cta:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 25px rgba(0, 243, 255, 0.6);
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-toggle {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .menu-bar {
+            width: 25px;
+            height: 2px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        /* Typography & Common */
+        h1, h2, h3 {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+        }
+        
+        .section {
+            padding: 100px 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .section-title {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(188, 19, 254, 0.5);
+            letter-spacing: 2px;
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 80px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        /* 1. HERO SECTION - 8D STYLE */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 150px 20px 50px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 1400px;
+            width: 100%;
+            gap: 50px;
+            z-index: 2;
+        }
+        
+        .hero-content {
+            flex: 1;
+            max-width: 650px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(2.5rem, 4vw, 4rem);
+            line-height: 1;
+            margin-bottom: 30px;
+            background: linear-gradient(180deg, #fff 0%, #a0a0ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 30px rgba(188, 19, 254, 0.4));
+        }
+
+        .hero h1 span {
+            font-size: 0.7em;
+            display: block;
+            margin-top: 10px;
+            color: var(--neon-cyan);
+            -webkit-text-fill-color: var(--neon-cyan);
+            text-shadow: 0 0 20px var(--neon-cyan);
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            margin-bottom: 50px;
+            line-height: 1.6;
+            border-left: 3px solid var(--neon-purple);
+            padding-left: 20px;
+        }
+        
+        .hero-visual {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            position: relative;
+            transform: translate(100px, -50px) scale(0.95);
+        }
+
+        .hero-robot {
+            max-width: 110%;
+            height: auto;
+            filter: drop-shadow(0 0 60px rgba(0, 243, 255, 0.15));
+            animation: float-robot 7s ease-in-out infinite;
+            mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        }
+
+        @keyframes float-robot {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Sound Wave Animation */
+        .sound-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 60px;
+            position: absolute;
+            bottom: 20%;
+            right: -20px;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        .bar {
+            width: 6px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            animation: sound-wave 1s ease-in-out infinite;
+            border-radius: 3px;
+        }
+
+        @keyframes sound-wave {
+            0%, 100% { height: 10px; }
+            50% { height: 100%; }
+        }
+        
+        .hero-ctas {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-cyan));
+            color: #fff;
+            padding: 20px 50px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 40px rgba(188, 19, 254, 0.4);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 0 60px rgba(0, 243, 255, 0.6);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            padding: 20px 50px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            clip-path: polygon(0 0, 90% 0, 100% 30%, 100% 100%, 10% 100%, 0 70%);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        /* 2. O PROBLEMA INVISÍVEL - GLASS CARDS */
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+        }
+        
+        .problem-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 20px;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .problem-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.5s ease;
+        }
+
+        .problem-card:hover::before {
+            transform: translateX(100%);
+        }
+        
+        .problem-card:hover {
+            border-color: var(--neon-purple);
+            transform: translateY(-10px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+        
+        .problem-icon {
+            font-size: 3rem;
+            margin-bottom: 25px;
+            color: var(--neon-purple);
+            text-shadow: 0 0 20px rgba(188, 19, 254, 0.5);
+        }
+        
+        .problem-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .problem-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+
+        /* 3. COMPARATIVO - TECH TABLE (HUD STYLE) */
+        .comparison-container {
+            background: rgba(5, 5, 10, 0.6);
+            border-radius: 20px;
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            padding: 50px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comparison-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+            animation: scan-line 4s linear infinite;
+        }
+
+        @keyframes scan-line {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .comparison-container::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 20px;
+            padding: 1px;
+            background: linear-gradient(45deg, transparent, var(--neon-cyan), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 15px;
+            min-width: 700px;
+        }
+        
+        .comparison-table th {
+            text-align: left;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-family: 'Orbitron', sans-serif;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+        }
+        
+        .comparison-table th.soundy-col {
+            color: var(--neon-cyan);
+            font-size: 1.6rem;
+            text-shadow: 0 0 20px var(--neon-cyan);
+            background: linear-gradient(180deg, rgba(0, 243, 255, 0.1) 0%, transparent 100%);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            text-align: center;
+        }
+        
+        .comparison-table td {
+            padding: 25px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            font-size: 1.1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        
+        .comparison-table tr td:first-child {
+            border-top-left-radius: 10px;
+            border-bottom-left-radius: 10px;
+            color: #fff;
+            font-weight: 600;
+            width: 30%;
+        }
+        
+        .comparison-table tr td:last-child {
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+            background: rgba(0, 243, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .comparison-table tr td:last-child::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        /* ---- CARDS MOBILE PARA COMPARAÇÃO ---- */
+        .comparison-cards-mobile {
+            display: none; /* Oculto no desktop */
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-desktop {
+                display: none !important;
+            }
+            
+            .comparison-cards-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+            
+            .comparison-card-mobile {
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(0, 243, 255, 0.15);
+                border-radius: 12px;
+                padding: 18px 15px;
+                transition: border-color 0.3s ease;
+            }
+            
+            .comparison-card-mobile:hover {
+                border-color: var(--neon-purple);
+            }
+            
+            .card-feature-name {
+                font-family: 'Orbitron', sans-serif;
+                font-size: 1rem;
+                color: #fff;
+                margin-bottom: 14px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            
+            .card-comparison-row {
+                display: flex;
+                gap: 12px;
+            }
+            
+            .card-competitor,
+            .card-soundy {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 12px 8px;
+                border-radius: 8px;
+            }
+            
+            .card-competitor {
+                background: rgba(255, 51, 102, 0.05);
+                border: 1px solid rgba(255, 51, 102, 0.15);
+            }
+            
+            .card-soundy {
+                background: rgba(0, 243, 255, 0.08);
+                border: 1px solid rgba(0, 243, 255, 0.25);
+                box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            }
+            
+            .card-competitor .check,
+            .card-soundy .check {
+                font-size: 1.4rem;
+                margin-bottom: 6px;
+            }
+            
+            .card-competitor .cross,
+            .card-soundy .cross {
+                font-size: 1.4rem;
+                margin-bottom: 6px;
+            }
+            
+            .card-competitor .label,
+            .card-soundy .label {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                opacity: 0.7;
+                margin-bottom: 4px;
+            }
+            
+            .card-soundy .label {
+                color: var(--neon-cyan);
+                opacity: 1;
+            }
+            
+            .card-competitor .desc,
+            .card-soundy .desc {
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+                line-height: 1.3;
+            }
+            
+            .card-soundy .desc {
+                color: #fff;
+            }
+        }
+        
+        .check { 
+            color: var(--neon-cyan); 
+            font-weight: bold; 
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-size: 1.2rem;
+            display: block;
+        }
+        
+        .cross { 
+            color: #ff3366; 
+            opacity: 0.5; 
+            font-size: 1.2rem;
+        }
+
+        .feature-desc {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+            font-weight: normal;
+        }
+
+        /* 4. ANTES E DEPOIS - AUDIO PLAYERS (SCI-FI) */
+        .visual-mock {
+            display: flex;
+            gap: 60px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 60px;
+            position: relative;
+        }
+        
+        /* Divisor central com VS animado */
+        .visual-mock::before {
+            content: 'VS';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            color: var(--neon-purple);
+            text-shadow: 
+                0 0 20px var(--neon-purple),
+                0 0 40px var(--neon-purple),
+                0 0 60px var(--neon-purple);
+            z-index: 10;
+            animation: pulse-glow 2s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { 
+                opacity: 0.8;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% { 
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+        }
+        
+        .audio-player-card {
+            flex: 1;
+            min-width: 380px;
+            background: rgba(10, 10, 15, 0.9);
+            border-radius: 25px;
+            padding: 45px;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+            backdrop-filter: blur(25px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .audio-player-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.3;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Efeito de brilho animado no hover */
+        .audio-player-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .audio-player-card:hover::after {
+            opacity: 1;
+        }
+        
+        .audio-player-card.before {
+            border-color: rgba(255, 51, 102, 0.5);
+            box-shadow: 
+                0 0 40px rgba(255, 51, 102, 0.15),
+                inset 0 0 60px rgba(255, 51, 102, 0.03);
+            background: rgba(255, 51, 102, 0.02);
+        }
+
+        .audio-player-card.before:hover {
+            border-color: rgba(255, 51, 102, 0.8);
+            box-shadow: 
+                0 0 60px rgba(255, 51, 102, 0.3),
+                inset 0 0 80px rgba(255, 51, 102, 0.05);
+            transform: translateY(-8px);
+        }
+        
+        .audio-player-card.after {
+            border-color: rgba(0, 243, 255, 0.5);
+            box-shadow: 
+                0 0 50px rgba(0, 243, 255, 0.2),
+                inset 0 0 60px rgba(0, 243, 255, 0.05);
+            background: rgba(0, 243, 255, 0.04);
+        }
+
+        .audio-player-card.after:hover {
+            border-color: var(--neon-cyan);
+            box-shadow: 
+                0 0 70px rgba(0, 243, 255, 0.35),
+                inset 0 0 80px rgba(0, 243, 255, 0.08);
+            transform: translateY(-8px);
+        }
+
+        .player-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 1;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            padding-bottom: 20px;
+        }
+
+        .player-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .player-status {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .player-status::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: status-blink 2s ease-in-out infinite;
+        }
+
+        .before .player-label { 
+            color: #ff3366;
+            text-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
+        }
+
+        .before .player-status {
+            color: #ff6688;
+        }
+
+        .before .player-status::before {
+            background: #ff3366;
+            box-shadow: 0 0 10px #ff3366;
+        }
+        
+        .after .player-label { 
+            color: var(--neon-cyan);
+            text-shadow: 0 0 20px rgba(0, 243, 255, 0.8);
+        }
+
+        .after .player-status {
+            color: var(--neon-cyan);
+        }
+
+        .after .player-status::before {
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        @keyframes status-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Player de áudio customizado */
+        .custom-audio-player {
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .custom-audio-player audio {
+            width: 100%;
+            height: 45px;
+            filter: 
+                brightness(1.2)
+                contrast(1.1)
+                saturate(1.3);
+        }
+
+        /* Estilização dos controles nativos do audio */
+        .custom-audio-player audio::-webkit-media-controls-panel {
+            background: linear-gradient(to right, rgba(255, 51, 102, 0.1), rgba(0, 0, 0, 0.8));
+        }
+
+        .after .custom-audio-player audio::-webkit-media-controls-panel {
+            background: linear-gradient(to right, rgba(0, 243, 255, 0.1), rgba(0, 0, 0, 0.8));
+        }
+
+        .audio-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+
+        .audio-tag {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .before .audio-tag {
+            background: rgba(255, 51, 102, 0.15);
+            color: #ff3366;
+            border: 1px solid rgba(255, 51, 102, 0.3);
+        }
+
+        .after .audio-tag {
+            background: rgba(0, 243, 255, 0.15);
+            color: var(--neon-cyan);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        .waveform-visual {
+            margin-top: 20px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            opacity: 0.6;
+            position: relative;
+            z-index: 1;
+            padding: 0 10px;
+        }
+
+        .wave-bar {
+            flex: 1;
+            background: var(--text-secondary);
+            border-radius: 3px;
+            animation: quiet-wave 2s infinite ease-in-out;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+        }
+
+        .before .wave-bar {
+            background: linear-gradient(to top, #ff3366, #ff6688);
+            opacity: 0.4;
+        }
+
+        .after .wave-bar {
+            background: linear-gradient(to top, var(--neon-cyan), #00f3ff);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            opacity: 0.7;
+        }
+
+        .audio-player-card:hover .wave-bar {
+            opacity: 1;
+        }
+
+        /* Floating Elements Animation */
+        .floating-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .float-item {
+            position: absolute;
+            opacity: 0.1;
+            color: var(--neon-purple);
+            font-family: 'Orbitron', monospace;
+            animation: float-up linear infinite;
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.2; }
+            80% { opacity: 0.2; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes quiet-wave {
+            0%, 100% { height: 20%; }
+            50% { height: 60%; }
+        }
+
+        /* 5. COMO FUNCIONA - STEPS */
+        .steps-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-top: 60px;
+        }
+        
+        .step-card {
+            flex: 1;
+            min-width: 240px;
+            text-align: center;
+            position: relative;
+            padding: 30px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .step-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.04);
+            border-color: var(--neon-purple);
+        }
+        
+        .step-number {
+            font-size: 5rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.03);
+            font-family: 'Orbitron', sans-serif;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+        }
+        
+        .step-icon {
+            font-size: 3rem;
+            margin-bottom: 25px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(188, 19, 254, 0.2) 0%, transparent 70%);
+            border: 1px solid rgba(188, 19, 254, 0.3);
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .step-card h3 {
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .step-card p {
+            position: relative;
+            z-index: 1;
+            color: var(--text-secondary);
+        }
+
+        /* 6. O QUE VOCÊ RECEBE - GRID */
+        .deliverables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+        }
+        
+        .deliverable-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.2));
+            border: 1px solid rgba(0, 243, 255, 0.1);
+            padding: 35px;
+            border-radius: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        .deliverable-card:hover {
+            background: rgba(0, 243, 255, 0.05);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+        }
+        
+        .del-icon {
+            font-size: 2.2rem;
+            color: var(--neon-purple);
+            filter: drop-shadow(0 0 10px var(--neon-purple));
+        }
+        
+        .del-content h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+        
+        .del-content p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* 7. CTA FINAL */
+        .final-cta-section {
+            text-align: center;
+            padding: 180px 20px;
+            background: radial-gradient(circle at center, rgba(188, 19, 254, 0.15) 0%, transparent 70%);
+            position: relative;
+        }
+        
+        .final-cta-section h2 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            margin-bottom: 50px;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(188, 19, 254, 0.6);
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            background: #020205;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .hero-container { 
+                flex-direction: column; 
+                text-align: center;
+                align-items: center;
+            }
+            .hero-content { 
+                margin-bottom: 50px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .hero p { border-left: none; padding-left: 0; text-align: center; }
+            .hero-ctas { justify-content: center; align-items: center; }
+            .nav-links { display: none; }
+            .mobile-menu-toggle { display: flex; }
+        }
+
+        /* =============================================
+           RESPONSIVIDADE MOBILE OTIMIZADA
+           Mobile-first design para experiência premium
+           ============================================= */
+        
+        @media (max-width: 768px) {
+            /* ---- 1. TÍTULOS - Reduzir para mobile ---- */
+            h1 {
+                font-size: 2rem !important;
+                line-height: 1.2;
+            }
+            
+            h2, .section-title {
+                font-size: 1.6rem !important;
+                line-height: 1.25;
+                margin-bottom: 12px;
+            }
+            
+            h3 {
+                font-size: 1.2rem !important;
+                line-height: 1.3;
+            }
+            
+            .hero h1 {
+                font-size: 1.9rem !important;
+                margin-bottom: 20px;
+            }
+            
+            .hero h1 span {
+                font-size: 0.85em !important;
+                margin-top: 8px;
+            }
+            
+            .hero p {
+                font-size: 1.05rem;
+                margin-bottom: 30px;
+                padding-left: 15px;
+                border-left-width: 2px;
+            }
+            
+            .section-subtitle {
+                font-size: 1.05rem;
+                margin-bottom: 40px;
+                line-height: 1.5;
+            }
+            
+            /* ---- 2. REMOVER ROBÔ NO MOBILE ---- */
+            .hero-visual {
+                display: none !important;
+            }
+            
+            .hero-robot {
+                display: none !important;
+            }
+            
+            .sound-bars {
+                display: none !important;
+            }
+            
+            /* Ajustar hero sem robô - MAIOR para ocupar tela toda */
+            .hero {
+                min-height: 100vh;
+                min-height: 100dvh; /* Dynamic viewport height para mobile */
+                padding: 120px 20px 60px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .hero-container {
+                gap: 0;
+                justify-content: center;
+                text-align: center;
+            }
+            
+            .hero-content {
+                max-width: 100%;
+                margin-bottom: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            
+            .hero h1 {
+                text-align: center;
+            }
+            
+            .hero p {
+                text-align: center;
+                border-left: none;
+                padding-left: 0;
+                max-width: 90%;
+            }
+            
+            .hero-ctas {
+                justify-content: center;
+                align-items: center;
+                width: 100%;
+            }
+            
+            .trust-badge {
+                text-align: center;
+                width: 100%;
+            }
+            
+            /* ---- 3. TABELA DE COMPARAÇÃO → CARDS ---- */
+            .comparison-container {
+                padding: 20px 15px;
+                border-radius: 12px;
+                overflow-x: visible;
+            }
+            
+            /* Ocultar tabela desktop */
+            .comparison-table {
+                display: none !important;
+            }
+            
+            /* Criar cards mobile para comparação */
+            .comparison-container::before,
+            .comparison-container::after {
+                display: none;
+            }
+            
+            /* ---- 4. ESPAÇAMENTOS - Reduzir padding ---- */
+            .section {
+                padding: 50px 16px;
+            }
+            
+            body {
+                font-size: 16px;
+            }
+            
+            nav {
+                padding: 15px 16px;
+            }
+            
+            .logo {
+                font-size: 1.4rem;
+            }
+            
+            /* Cards de problema mais compactos */
+            .problem-grid {
+                gap: 20px;
+            }
+            
+            .problem-card {
+                padding: 25px 20px;
+                border-radius: 12px;
+            }
+            
+            .problem-icon {
+                font-size: 2.2rem;
+                margin-bottom: 15px;
+            }
+            
+            .problem-card h3 {
+                font-size: 1.15rem;
+                margin-bottom: 10px;
+            }
+            
+            .problem-card p {
+                font-size: 0.95rem;
+            }
+            
+            /* Steps mais compactos */
+            .steps-container {
+                gap: 20px;
+                margin-top: 30px;
+            }
+            
+            .step-card {
+                padding: 25px 15px;
+                min-width: auto;
+            }
+            
+            .step-icon {
+                width: 60px;
+                height: 60px;
+                font-size: 2rem;
+                margin-bottom: 15px;
+            }
+            
+            .step-number {
+                font-size: 3rem;
+            }
+            
+            /* Deliverables mais compactos */
+            .deliverables-grid {
+                gap: 15px;
+            }
+            
+            .deliverable-card {
+                padding: 20px;
+                gap: 15px;
+                border-radius: 10px;
+            }
+            
+            .del-icon {
+                font-size: 1.8rem;
+            }
+            
+            .del-content h3 {
+                font-size: 1.1rem;
+            }
+            
+            .del-content p {
+                font-size: 0.9rem;
+            }
+            
+            /* Audio players mais compactos */
+            .visual-mock {
+                gap: 40px;
+                margin-top: 30px;
+            }
+
+            .visual-mock::before {
+                font-size: 2rem;
+                top: 22%;
+            }
+            
+            .audio-player-card {
+                min-width: auto;
+                padding: 30px 20px;
+                border-radius: 15px;
+            }
+            
+            .player-header {
+                margin-bottom: 18px;
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+            
+            .player-label {
+                font-size: 0.95rem;
+            }
+
+            .player-status {
+                font-size: 0.75rem;
+            }
+
+            .custom-audio-player {
+                padding: 18px;
+            }
+
+            .custom-audio-player audio {
+                height: 40px;
+            }
+
+            .audio-info {
+                font-size: 0.75rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .waveform-visual {
+                height: 45px;
+                margin-top: 15px;
+            }
+            
+            /* ---- 5. CTA FINAL - Mobile otimizado ---- */
+            .final-cta-wrapper {
+                padding: 60px 16px;
+            }
+            
+            .glass-cta {
+                padding: 40px 20px;
+                border-radius: 15px;
+            }
+            
+            .glass-cta h2 {
+                font-size: 1.6rem !important;
+                margin-bottom: 15px;
+            }
+            
+            .glass-cta p {
+                font-size: 1rem;
+                margin-bottom: 25px;
+            }
+            
+            .glass-cta .btn-primary,
+            .glass-cta .glow-btn {
+                width: 90% !important;
+                max-width: 320px;
+                font-size: 1rem !important;
+                padding: 18px 25px !important;
+                display: block;
+                margin: 0 auto;
+                text-align: center;
+                box-shadow: 0 0 50px rgba(188, 19, 254, 0.5);
+            }
+            
+            /* Botões do hero */
+            .hero-ctas {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
+                align-items: center;
+            }
+            
+            .btn-primary,
+            .btn-secondary {
+                width: 100%;
+                max-width: 320px;
+                padding: 16px 30px;
+                font-size: 0.95rem;
+                text-align: center;
+                margin: 0 auto;
+            }
+            
+            /* Trust badge */
+            .trust-badge {
+                font-size: 0.85rem;
+                margin-top: 15px;
+                text-align: center;
+            }
+            
+            /* Footer mobile */
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+                text-align: center;
+            }
+            
+            .footer-col h4 {
+                margin-bottom: 15px;
+            }
+            
+            .site-footer {
+                padding: 40px 0 15px;
+            }
+            
+            .footer-bottom {
+                margin-top: 30px;
+            }
+            
+            /* Separadores menores */
+            .frequency-separator {
+                max-width: 60%;
+                margin: 10px auto;
+            }
+            
+            /* Background effects reduzidos para performance */
+            .sound-wave-bg {
+                display: none;
+            }
+            
+            .floating-elements {
+                display: none;
+            }
+        }
+        
+        /* ---- EXTRA SMALL DEVICES (< 480px) ---- */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.75rem !important;
+            }
+            
+            h2, .section-title {
+                font-size: 1.4rem !important;
+            }
+            
+            .hero h1 {
+                font-size: 1.65rem !important;
+            }
+            
+            .hero {
+                min-height: 100vh;
+                min-height: 100dvh;
+                padding: 110px 16px 50px;
+            }
+            
+            .section {
+                padding: 40px 12px;
+            }
+            
+            .problem-card,
+            .step-card,
+            .deliverable-card {
+                padding: 20px 15px;
+            }
+            
+            .glass-cta {
+                padding: 30px 15px;
+            }
+            
+            .glass-cta h2 {
+                font-size: 1.5rem !important;
+            }
+            
+            .glass-cta .btn-primary,
+            .glass-cta .glow-btn {
+                font-size: 0.95rem !important;
+                padding: 16px 20px !important;
+            }
+        }
+        
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 1s ease forwards;
+            opacity: 0;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* Frequency Separator */
+        .frequency-separator {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(188, 19, 254, 0.3), transparent);
+            position: relative;
+            margin: 0 auto;
+            max-width: 80%;
+            opacity: 0.7;
+        }
+        
+        .frequency-separator::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px;
+            height: 30px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 20' fill='none' stroke='%23bc13fe' stroke-width='2'%3E%3Cpath d='M25 0v20M15 5v10M5 8v4M35 5v10M45 8v4'/%3E%3C/svg%3E") no-repeat center;
+            background-size: contain;
+            filter: drop-shadow(0 0 5px var(--neon-purple));
+        }
+    </style>
+</head>
+<body class="page-doc">
+
+    <!-- Background -->
+    <div class="background-container">
+        <div class="vanta-background" id="vanta-bg"></div>
+        <div class="grid-overlay"></div>
+        <div class="floating-elements">
+            <!-- Generated by JS or static -->
+            <div class="float-item" style="left: 10%; animation-duration: 15s; font-size: 20px;">♪</div>
+            <div class="float-item" style="left: 20%; animation-duration: 25s; font-size: 15px;">0101</div>
+            <div class="float-item" style="left: 35%; animation-duration: 18s; font-size: 25px;">♫</div>
+            <div class="float-item" style="left: 50%; animation-duration: 22s; font-size: 18px;">AI</div>
+            <div class="float-item" style="left: 65%; animation-duration: 16s; font-size: 22px;">db</div>
+            <div class="float-item" style="left: 80%; animation-duration: 20s; font-size: 16px;">Hz</div>
+            <div class="float-item" style="left: 90%; animation-duration: 28s; font-size: 24px;">♬</div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="#" class="logo">Soundy<span>AI</span></a>
+            <ul class="nav-links">
+                <li><a href="#problem" class="nav-link">Problema</a></li>
+                <li><a href="#comparison" class="nav-link">Diferenciais</a></li>
+                <li><a href="#how-it-works" class="nav-link">Como Funciona</a></li>
+                <li><a href="index.html" class="nav-cta">Entrar</a></li>
+            </ul>
+            <div class="mobile-menu-toggle">
+                <span class="menu-bar"></span>
+                <span class="menu-bar"></span>
+                <span class="menu-bar"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 1. HERO SECTION -->
+    <section class="hero">
+        <div class="sound-wave-bg"></div>
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1>ANALISE SUA MÚSICA EM 1 MINUTO    <br><span>SAIBA O QUE CORRIGIR E COMO</span></h1>
+                <p>SoundyAI revela todos erros invisíveis da sua faixa e todos problemas que seus ouvidos e seus fones deixam passar.</p>
+                
+                <div class="hero-ctas">
+                    <a href="index.html" class="btn-primary">Analisar minha música grátis</a>
+                    <a href="#how-it-works" class="btn-secondary">Ver demonstração</a>
+                </div>
+                
+                <div class="trust-badge" style="margin-top: 20px; opacity: 0.7;">
+                    🔒 Sem cadastro • Resultado imediato • Teste grátis
+                </div>
+            </div>
+            
+            <div class="hero-visual">
+                <img src="robo.webp" alt="AI Audio Intelligence" class="hero-robot">
+                <div class="sound-bars">
+                    <div class="bar" style="animation-delay: 0.1s"></div>
+                    <div class="bar" style="animation-delay: 0.3s"></div>
+                    <div class="bar" style="animation-delay: 0.5s"></div>
+                    <div class="bar" style="animation-delay: 0.2s"></div>
+                    <div class="bar" style="animation-delay: 0.4s"></div>
+                    <div class="bar" style="animation-delay: 0.6s"></div>
+                    <div class="bar" style="animation-delay: 0.1s"></div>
+                    <div class="bar" style="animation-delay: 0.3s"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. O PROBLEMA INVISÍVEL -->
+    <div class="frequency-separator"></div>
+    <section id="problem" class="section">
+        <h2 class="section-title">O PROBLEMA INVISÍVEL</h2>
+        <p class="section-subtitle">Soar bem no seu quarto não significa estar pronto para o mundo. O Spotify, o carro e o sistema de som do evento vão revelar o que você não ouviu.</p>
+        
+        <div class="problem-grid">
+            <div class="problem-card">
+                <div class="problem-icon">🔊</div>
+                <h3>LUFS Incorreto</h3>
+                <p>Se sua faixa está muito baixa, ninguém ouve. Se está muito alta, o Spotify esmaga sua dinâmica. Você sabe exatamente onde está?</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">⚠️</div>
+                <h3>Clipping Invisível</h3>
+                <p>True Peak acima de -1dBTP pode causar distorção digital na conversão para MP3/AAC. Em sistemas muito altos, esse tipo de distorção pode ficar mais evidente, especialmente quando o áudio e a cadeia de som já estão no limite..</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">📉</div>
+                <h3>Grave Descontrolado</h3>
+                <p>O excesso de sub-grave (abaixo de 40Hz) come seu headroom e faz sua mix soar pequena e fraca, sem você perceber.</p>
+            </div>
+            <div class="problem-card">
+                <div class="problem-icon">⚖️</div>
+                <h3>Balanço Tonal</h3>
+                <p>Sua mix tem muito médio? Pouco brilho? Sem uma referência visual objetiva, seus ouvidos viciados te enganam.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. POR QUE SOUNDYAI É DIFERENTE -->
+    <div class="frequency-separator"></div>
+    <section id="comparison" class="section">
+        <h2 class="section-title">POR QUE O SOUNDYAI É DIFERENTE</h2>
+        <p class="section-subtitle">Não somos apenas mais um analisador de espectro. Somos um engenheiro virtual.</p>
+        
+        <div class="comparison-container">
+            <!-- Tabela Desktop (oculta no mobile) -->
+            <table class="comparison-table comparison-desktop">
+                <thead>
+                    <tr>
+                        <th>Recurso</th>
+                        <th>Outras Ferramentas</th>
+                        <th class="soundy-col">SoundyAI <span style="display:block; font-size:0.7rem; opacity:0.8; letter-spacing:1px;">ENGINEER CORE v2.0</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Diagnóstico</td>
+                        <td><span class="cross">✖</span> Gráficos Genéricos <span class="feature-desc">Difícil interpretação para iniciantes</span></td>
+                        <td><span class="check">✔</span> Análise Semântica <span class="feature-desc">"O baixo está colidindo com o kick em 50Hz"</span></td>
+                    </tr>
+                    <tr>
+                        <td>Plano de Ação</td>
+                        <td><span class="cross">✖</span> Nenhum <span class="feature-desc">Você precisa adivinhar o que fazer</span></td>
+                        <td><span class="check">✔</span> Passo-a-Passo <span class="feature-desc">Instruções precisas de EQ, Comp e Gain</span></td>
+                    </tr>
+                    <tr>
+                        <td>Contexto de Gênero</td>
+                        <td><span class="cross">✖</span> Padrão Único <span class="feature-desc">Trata Jazz igual a Dubstep</span></td>
+                        <td><span class="check">✔</span> Multi-Genre Target <span class="feature-desc">Comparação com hits do Top 100 do seu estilo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Precisão de Análise</td>
+                        <td><span class="cross">✖</span> Algoritmo Linear <span class="feature-desc">Baseado apenas em matemática simples</span></td>
+                        <td><span class="check">✔</span> Deep Learning <span class="feature-desc">Treinado com +10.000 faixas premiadas</span></td>
+                    </tr>
+                    <tr>
+                        <td>Feedback Visual</td>
+                        <td><span class="cross">✖</span> Estático <span class="feature-desc">Apenas números frios</span></td>
+                        <td><span class="check">✔</span> Imersivo 8D <span class="feature-desc">Visualização intuitiva do campo estéreo</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <!-- Cards Mobile (oculta no desktop) -->
+            <div class="comparison-cards-mobile">
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Diagnóstico</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Gráficos genéricos e difíceis</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Análise Semântica clara</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Plano de Ação</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Nenhum plano</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Passo-a-passo em dB e Hz</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Contexto de Gênero</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Padrão único para tudo</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Multi-Genre Target</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Precisão de Análise</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Algoritmo linear básico</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Deep Learning avançado</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card-mobile">
+                    <h4 class="card-feature-name">Feedback Visual</h4>
+                    <div class="card-comparison-row">
+                        <div class="card-competitor">
+                            <span class="cross">✖</span>
+                            <span class="label">Outras ferramentas</span>
+                            <span class="desc">Estático e frio</span>
+                        </div>
+                        <div class="card-soundy">
+                            <span class="check">✔</span>
+                            <span class="label">SoundyAI</span>
+                            <span class="desc">Visualização imersiva 8D</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. ANTES E DEPOIS -->
+    <div class="frequency-separator"></div>
+    <section id="before-after" class="section">
+        <h2 class="section-title">OUÇA A DIFERENÇA</h2>
+        <p class="section-subtitle">A tecnologia SoundyAI não apenas mostra os erros, ela guia você para o som perfeito.</p>
+        
+        <div class="visual-mock">
+            <!-- ANTES -->
+            <div class="audio-player-card before">
+                <div class="player-header">
+                    <span class="player-label">🎵 Mix Original</span>
+                    <span class="player-status">Antes do SoundyAI</span>
+                </div>
+                
+                <div class="custom-audio-player">
+                    <audio controls preload="metadata">
+                        <source src="assets/audio/SOUNDYAI ANTES.wav" type="audio/wav">
+                        Seu navegador não suporta o elemento de áudio.
+                    </audio>
+                    <div class="audio-info">
+                        <span class="audio-tag">❌ Problemas detectados</span>
+                        <span>Com desequilíbrios técnicos</span>
+                    </div>
+                </div>
+
+                <div class="waveform-visual">
+                    <div class="wave-bar" style="height: 35%; animation-delay: 0s;"></div>
+                    <div class="wave-bar" style="height: 55%; animation-delay: 0.1s;"></div>
+                    <div class="wave-bar" style="height: 25%; animation-delay: 0.2s;"></div>
+                    <div class="wave-bar" style="height: 65%; animation-delay: 0.3s;"></div>
+                    <div class="wave-bar" style="height: 45%; animation-delay: 0.4s;"></div>
+                    <div class="wave-bar" style="height: 38%; animation-delay: 0.5s;"></div>
+                    <div class="wave-bar" style="height: 72%; animation-delay: 0.6s;"></div>
+                    <div class="wave-bar" style="height: 28%; animation-delay: 0.7s;"></div>
+                    <div class="wave-bar" style="height: 58%; animation-delay: 0.8s;"></div>
+                    <div class="wave-bar" style="height: 42%; animation-delay: 0.9s;"></div>
+                    <div class="wave-bar" style="height: 50%; animation-delay: 1s;"></div>
+                    <div class="wave-bar" style="height: 30%; animation-delay: 1.1s;"></div>
+                </div>
+            </div>
+            
+            <!-- DEPOIS -->
+            <div class="audio-player-card after">
+                <div class="player-header">
+                    <span class="player-label">✨ Mix Otimizada</span>
+                    <span class="player-status">Após correções SoundyAI</span>
+                </div>
+                
+                <div class="custom-audio-player">
+                    <audio controls preload="metadata">
+                        <source src="assets/audio/SOUNDYAI DEPOIS.wav" type="audio/wav">
+                        Seu navegador não suporta o elemento de áudio.
+                    </audio>
+                    <div class="audio-info">
+                        <span class="audio-tag">✓ Profissional</span>
+                        <span>Balanceado e pronto para lançar</span>
+                    </div>
+                </div>
+
+                <div class="waveform-visual">
+                    <div class="wave-bar" style="height: 48%; animation-delay: 0s;"></div>
+                    <div class="wave-bar" style="height: 82%; animation-delay: 0.1s;"></div>
+                    <div class="wave-bar" style="height: 68%; animation-delay: 0.2s;"></div>
+                    <div class="wave-bar" style="height: 92%; animation-delay: 0.3s;"></div>
+                    <div class="wave-bar" style="height: 75%; animation-delay: 0.4s;"></div>
+                    <div class="wave-bar" style="height: 58%; animation-delay: 0.5s;"></div>
+                    <div class="wave-bar" style="height: 88%; animation-delay: 0.6s;"></div>
+                    <div class="wave-bar" style="height: 65%; animation-delay: 0.7s;"></div>
+                    <div class="wave-bar" style="height: 78%; animation-delay: 0.8s;"></div>
+                    <div class="wave-bar" style="height: 55%; animation-delay: 0.9s;"></div>
+                    <div class="wave-bar" style="height: 70%; animation-delay: 1s;"></div>
+                    <div class="wave-bar" style="height: 62%; animation-delay: 1.1s;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. COMO FUNCIONA -->
+    <div class="frequency-separator"></div>
+    <section id="how-it-works" class="section">
+        <h2 class="section-title">COMO FUNCIONA</h2>
+        
+        <div class="steps-container">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <div class="step-icon">📤</div>
+                <h3>Envie sua Música</h3>
+                <p>Arraste seu arquivo WAV ou MP3. Processamento seguro e privado.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <div class="step-icon">🤖</div>
+                <h3>A IA Analisa</h3>
+                <p>Nossos algoritmos comparam sua faixa com milhares de hits do mesmo gênero.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <div class="step-icon">📊</div>
+                <h3>Veja os Erros</h3>
+                <p>Receba um relatório visual instantâneo com tudo que precisa ser ajustado.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <div class="step-icon">🎛️</div>
+                <h3>Aplique Correções</h3>
+                <p>Siga as instruções em dB e Hz para polir sua mix em minutos.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. O QUE VOCÊ RECEBE -->
+    <div class="frequency-separator"></div>
+    <section id="deliverables" class="section">
+        <h2 class="section-title">O QUE VOCÊ RECEBE</h2>
+        
+        <div class="deliverables-grid">
+            <div class="deliverable-card">
+                <div class="del-icon">🏆</div>
+                <div class="del-content">
+                    <h3>Score Técnico</h3>
+                    <p>Uma nota de 0 a 100 para saber exatamente o nível da sua produção.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">📝</div>
+                <div class="del-content">
+                    <h3>Diagnóstico Automático</h3>
+                    <p>Lista de problemas detectados ordenados por gravidade.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">🌊</div>
+                <div class="del-content">
+                    <h3>Análise Espectral</h3>
+                    <p>Visualização clara do equilíbrio de frequências da sua faixa.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">💡</div>
+                <div class="del-content">
+                    <h3>Sugestões em dB</h3>
+                    <p>Instruções precisas de quanto aumentar ou cortar.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">🆚</div>
+                <div class="del-content">
+                    <h3>Comparação de Referência</h3>
+                    <p>Veja como sua música fica ao lado dos grandes hits.</p>
+                </div>
+            </div>
+            <div class="deliverable-card">
+                <div class="del-icon">📄</div>
+                <div class="del-content">
+                    <h3>Relatório Técnico</h3>
+                    <p>PDF completo para você guardar ou enviar para clientes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Estilos Específicos para Footer e CTA Final -->
+    <style>
+        .final-cta-wrapper {
+            position: relative;
+            padding: 100px 20px;
+            text-align: center;
+            overflow: hidden;
+        }
+        
+        .glass-cta {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 0 100px rgba(188, 19, 254, 0.1);
+        }
+
+        .glass-cta h2 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(180deg, #fff 0%, #a0a0ff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-cta p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .glow-btn {
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+        
+        .glow-btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
+            transform: scale(0);
+            transition: transform 0.6s ease-out;
+            opacity: 0.3;
+        }
+        
+        .glow-btn:hover::before {
+            transform: scale(1);
+        }
+
+        .site-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: #020205;
+            padding: 60px 0 20px;
+            margin-top: 50px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            padding: 0 20px;
+        }
+
+        .footer-col h4 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .footer-col ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .footer-col ul li {
+            margin-bottom: 10px;
+        }
+
+        .footer-col ul li a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-col ul li a:hover {
+            color: var(--neon-cyan);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Enhanced Footer Styles */
+        .footer-glow-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon-purple), var(--neon-cyan), transparent);
+            opacity: 0.6;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .social-link {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .social-link:hover {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(0, 243, 255, 0.2);
+        }
+
+        .social-link svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .footer-col ul li a:hover {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .footer-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            
+            .footer-social {
+                justify-content: center;
+            }
+        }
+    </style>
+
+    <!-- 7. CTA FINAL -->
+    <div class="frequency-separator"></div>
+    <section id="final-cta" class="final-cta-wrapper">
+        <div class="glass-cta">
+            <h2>Sua música merece ser ouvida.</h2>
+            <p>Junte-se a produtores que já elevaram o nível de suas produções com a inteligência artificial da SoundyAI.</p>
+            <a href="index.html" class="btn-primary glow-btn" style="font-size: 1.3rem; padding: 20px 50px;">COMEÇAR ANÁLISE GRATUITA</a>
+            <p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.7;">* Sem cartão de crédito necessário para teste.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-glow-line"></div>
+        <div class="footer-content">
+            <div class="footer-col">
+                <h4>SOUNDY<span style="color: var(--neon-cyan);">AI</span></h4>
+                <p style="color: var(--text-secondary); line-height: 1.6;">
+                    Tecnologia avançada de diagnóstico de áudio com inteligência artificial para produtores modernos.
+                </p>
+                <div class="footer-social">
+                    <a href="https://instagram.com/soundyai" target="_blank" aria-label="Instagram" class="social-link">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    </a>
+                    <a href="https://youtube.com/@soundyai" target="_blank" aria-label="YouTube" class="social-link">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                    </a>
+                    <a href="https://wa.me/5534998412461" target="_blank" aria-label="WhatsApp" class="social-link">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                    </a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <h4>PRODUTO</h4>
+                <ul>
+                    <li><a href="#how-it-works">Como Funciona</a></li>
+                    <li><a href="planos.html">Preços</a></li>
+                    <li><a href="#deliverables">Recursos</a></li>
+                    <li><a href="index.html">Analisar Áudio</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>LEGAL</h4>
+                <ul>
+                    <li><a href="termos.html">Termos de Uso</a></li>
+                    <li><a href="privacidade.html">Política de Privacidade</a></li>
+                    <li><a href="reembolso.html">Política de Reembolso</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>SUPORTE</h4>
+                <ul>
+                    <li><a href="suporte.html">Central de Ajuda</a></li>
+                    <li><a href="mailto:suporte@soundyai.com.br">suporte@soundyai.com.br</a></li>
+                    <li><a href="https://wa.me/5534998412461" target="_blank">WhatsApp</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 SoundyAI - Todos os direitos reservados. | CNPJ: XX.XXX.XXX/0001-XX</p>
+            <p style="margin-top: 8px; font-size: 0.8rem; opacity: 0.6;">Feito com 💜 para produtores musicais</p>
+        </div>
+    </footer>
+
+    <script>
+        // Vanta.js Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                if (window.VANTA) {
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0xbc13fe,
+                        backgroundColor: 0x000000,
+                        points: 12.00,
+                        maxDistance: 22.00,
+                        spacing: 16.00
+                    })
+                }
+            } catch (e) {
+                console.log("Vanta init error", e);
+            }
+        });
+
+        // Mobile Menu
+        const mobileToggle = document.querySelector('.mobile-menu-toggle');
+        const navLinks = document.querySelector('.nav-links');
+        
+        if(mobileToggle) {
+            mobileToggle.addEventListener('click', () => {
+                const isClosed = navLinks.style.display === 'none' || navLinks.style.display === '';
+                navLinks.style.display = isClosed ? 'flex' : 'none';
+                navLinks.style.flexDirection = 'column';
+                navLinks.style.position = 'absolute';
+                navLinks.style.top = '80px';
+                navLinks.style.left = '0';
+                navLinks.style.width = '100%';
+                navLinks.style.background = 'rgba(5, 8, 20, 0.95)';
+                navLinks.style.padding = '20px';
+            });
+        }
+        
+        // Scroll Reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        });
+        
+        document.querySelectorAll('.section').forEach((section) => {
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>

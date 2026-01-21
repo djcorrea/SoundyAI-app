@@ -1,9 +1,12 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔐 Carregador Seguro de API Key - SoundyAI
  * Sistema seguro para carregar API Keys sem expor no código
  */
 
-console.log('🔐 [SECURE-API-LOADER] Carregador seguro inicializado');
+log('🔐 [SECURE-API-LOADER] Carregador seguro inicializado');
 
 // Função para carregar API Key de fontes seguras
 async function loadSecureAPIKey() {
@@ -42,13 +45,13 @@ async function autoConfigureSecureAI() {
         window.aiConfigManager.updateSetting('apiKey', apiKey);
         window.aiConfigManager.updateSetting('model', 'gpt-3.5-turbo');
         
-        console.log('✅ [SECURE-API-LOADER] Configuração aplicada:', {
+        log('✅ [SECURE-API-LOADER] Configuração aplicada:', {
             hasKey: apiKey !== 'demo-mode',
             mode: apiKey === 'demo-mode' ? 'demo' : 'ai'
         });
         
     } catch (error) {
-        console.error('❌ [SECURE-API-LOADER] Erro:', error);
+        error('❌ [SECURE-API-LOADER] Erro:', error);
     }
 }
 
@@ -57,7 +60,7 @@ function promptForAPIKey() {
     const key = prompt('🔑 Digite sua API Key da OpenAI (sk-...):', '');
     if (key && key.startsWith('sk-')) {
         localStorage.setItem('soundyai_openai_key', key);
-        console.log('✅ [SECURE-API-LOADER] API Key salva!');
+        log('✅ [SECURE-API-LOADER] API Key salva!');
         location.reload();
     }
 }

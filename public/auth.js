@@ -1,5 +1,8 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // auth.js - Versão Corrigida
-console.log('🚀 Carregando auth.js...');
+log('🚀 Carregando auth.js...');
 
 (async () => {
   try {
@@ -22,7 +25,7 @@ console.log('🚀 Carregando auth.js...');
     // Importações Firestore
     const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
 
-    console.log('✅ Todas as importações carregadas com sucesso');
+    log('✅ Todas as importações carregadas com sucesso');
 
     // ✅ VARIÁVEIS GLOBAIS - Usar window para garantir persistência
     window.confirmationResult = null;
@@ -34,7 +37,7 @@ console.log('🚀 Carregando auth.js...');
     // Função para alternar modo SMS (para facilitar reativação)
     window.toggleSMSMode = function(enable = true) {
       SMS_VERIFICATION_ENABLED = enable;
-      console.log('🔄 Modo SMS:', enable ? 'ATIVADO' : 'DESATIVADO');
+      log('🔄 Modo SMS:', enable ? 'ATIVADO' : 'DESATIVADO');
       showMessage(`Modo SMS ${enable ? 'ativado' : 'desativado'}. Recarregue a página.`, "success");
     };
     
@@ -42,18 +45,18 @@ console.log('🚀 Carregando auth.js...');
 
     // Configuração simplificada (SMS desabilitado temporariamente)
     try {
-      console.log('🔧 Modo de cadastro direto por email ativado (SMS temporariamente desabilitado)');
+      log('🔧 Modo de cadastro direto por email ativado (SMS temporariamente desabilitado)');
       
       // Verificar configuração do projeto
-      console.log('🔍 Projeto configurado:', {
+      log('🔍 Projeto configurado:', {
         projectId: auth.app.options.projectId,
         authDomain: auth.app.options.authDomain,
         modoSMS: SMS_VERIFICATION_ENABLED ? 'Habilitado' : 'Desabilitado (temporário)'
       });
       
-      console.log('✅ Sistema configurado para cadastro direto');
+      log('✅ Sistema configurado para cadastro direto');
     } catch (configError) {
-      console.warn('⚠️ Aviso de configuração:', configError);
+      warn('⚠️ Aviso de configuração:', configError);
     }
 
     // Mensagens de erro em português (focadas em reCAPTCHA v2)
@@ -90,9 +93,9 @@ console.log('🚀 Carregando auth.js...');
         : messageOrError;
 
       if (type === "error") {
-        console.error(`${type.toUpperCase()}: ${msg}`);
+        error(`${type.toUpperCase()}: ${msg}`);
       } else {
-        console.log(`${type.toUpperCase()}: ${msg}`);
+        log(`${type.toUpperCase()}: ${msg}`);
       }
 
       // Usar as novas funções de status se disponíveis
@@ -122,10 +125,10 @@ console.log('🚀 Carregando auth.js...');
         recaptchaDiv.style.top = '-9999px';
         recaptchaDiv.style.left = '-9999px';
         document.body.appendChild(recaptchaDiv);
-        console.log('📦 Container reCAPTCHA criado');
+        log('📦 Container reCAPTCHA criado');
       } else {
         recaptchaDiv.innerHTML = '';
-        console.log('🧹 Container reCAPTCHA limpo');
+        log('🧹 Container reCAPTCHA limpo');
       }
       return recaptchaDiv;
     }
@@ -166,7 +169,7 @@ console.log('🚀 Carregando auth.js...');
         // ✅ Salvar token com chave consistente
         localStorage.setItem("authToken", idToken);
         localStorage.setItem("idToken", idToken); // Manter compatibilidade
-        console.log('✅ [AUTH] Token salvo no localStorage como authToken');
+        log('✅ [AUTH] Token salvo no localStorage como authToken');
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
@@ -190,9 +193,9 @@ console.log('🚀 Carregando auth.js...');
           
           if (!smsVerificado && !userData.criadoSemSMS) {
             // Conta criada mas telefone não verificado no Auth - forçar logout
-            console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
-            console.warn('   user.phoneNumber:', result.user.phoneNumber);
-            console.warn('   criadoSemSMS:', userData.criadoSemSMS);
+            warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
+            warn('   user.phoneNumber:', result.user.phoneNumber);
+            warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
             localStorage.clear();
             showMessage(
@@ -203,7 +206,7 @@ console.log('🚀 Carregando auth.js...');
           }
           
           if (smsVerificado) {
-            console.log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
+            log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
           }
           
           // Prosseguir com navegação normal
@@ -213,11 +216,11 @@ console.log('🚀 Carregando auth.js...');
             window.location.href = "index.html";
           }
         } catch (e) {
-          console.error('❌ Erro ao buscar dados do usuário:', e);
+          error('❌ Erro ao buscar dados do usuário:', e);
           window.location.href = "entrevista.html";
         }
       } catch (error) {
-        console.error('❌ Erro no login:', error);
+        error('❌ Erro no login:', error);
         
         let errorMessage = "Erro ao fazer login: ";
         
@@ -304,7 +307,7 @@ console.log('🚀 Carregando auth.js...');
         const result = await createUserWithEmailAndPassword(auth, email, password);
         const user = result.user;
         
-        console.log('✅ Usuário criado:', user.uid);
+        log('✅ Usuário criado:', user.uid);
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 CRÍTICO: NÃO criar Firestore aqui!
@@ -320,8 +323,8 @@ console.log('🚀 Carregando auth.js...');
           criadoSemSMS: true
         }));
         
-        console.log('📌 [DIRECT-SIGNUP] Metadados salvos para criação do Firestore');
-        console.log('   Firestore será criado automaticamente pelo listener global');
+        log('📌 [DIRECT-SIGNUP] Metadados salvos para criação do Firestore');
+        log('   Firestore será criado automaticamente pelo listener global');
 
         // Obter token
         const idToken = await user.getIdToken();
@@ -329,7 +332,7 @@ console.log('🚀 Carregando auth.js...');
         // ✅ Salvar token com chave consistente
         localStorage.setItem("authToken", idToken);
         localStorage.setItem("idToken", idToken); // Manter compatibilidade
-        console.log('✅ [AUTH] Token salvo no localStorage como authToken');
+        log('✅ [AUTH] Token salvo no localStorage como authToken');
         
         // Salvar dados localmente
         localStorage.setItem("user", JSON.stringify({
@@ -352,7 +355,7 @@ console.log('🚀 Carregando auth.js...');
         }, 2000);
 
       } catch (error) {
-        console.error('❌ Erro no cadastro direto:', error);
+        error('❌ Erro no cadastro direto:', error);
         
         let errorMessage = "Erro ao criar conta: ";
         
@@ -384,15 +387,15 @@ console.log('🚀 Carregando auth.js...');
       }
     }
     function resetSMSState() {
-      console.log('🔄 Resetando estado do SMS...');
+      log('🔄 Resetando estado do SMS...');
       
       // Limpar reCAPTCHA
       if (recaptchaVerifier) {
         try {
           recaptchaVerifier.clear();
-          console.log('🧹 reCAPTCHA limpo');
+          log('🧹 reCAPTCHA limpo');
         } catch (e) {
-          console.log('⚠️ Erro ao limpar reCAPTCHA:', e);
+          log('⚠️ Erro ao limpar reCAPTCHA:', e);
         }
         recaptchaVerifier = null;
       }
@@ -405,13 +408,13 @@ console.log('🚀 Carregando auth.js...');
       
       // ⚠️ CRÍTICO: NÃO resetar confirmationResult se SMS foi enviado
       // Apenas resetar se realmente necessário (erro antes do envio)
-      console.warn('⚠️ resetSMSState: Mantendo confirmationResult preservado');
-      console.log('   confirmationResult atual:', window.confirmationResult ? 'EXISTE' : 'NULL');
+      warn('⚠️ resetSMSState: Mantendo confirmationResult preservado');
+      log('   confirmationResult atual:', window.confirmationResult ? 'EXISTE' : 'NULL');
       
       // ✅ NÃO fazer: confirmationResult = null
       // ✅ NÃO fazer: lastPhone = ""
       
-      console.log('✅ Estado resetado (confirmationResult preservado)');
+      log('✅ Estado resetado (confirmationResult preservado)');
     }
 
     // Função para enviar SMS
@@ -450,9 +453,9 @@ console.log('🚀 Carregando auth.js...');
           return false;
         }
         
-        console.log('✅ [UNICIDADE] Telefone disponível para cadastro');
+        log('✅ [UNICIDADE] Telefone disponível para cadastro');
       } catch (checkError) {
-        console.error('❌ Erro ao verificar unicidade do telefone:', checkError);
+        error('❌ Erro ao verificar unicidade do telefone:', checkError);
         showMessage(
           "Erro ao validar telefone. Tente novamente.",
           "error"
@@ -479,34 +482,34 @@ console.log('🚀 Carregando auth.js...');
 
       // Criar reCAPTCHA v2 normal (NÃO Enterprise) - configuração simples
       try {
-        console.log('🔄 Criando reCAPTCHA v2 normal...');
+        log('🔄 Criando reCAPTCHA v2 normal...');
         
         // Configuração mínima para reCAPTCHA v2
         recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           'size': 'normal',
           'callback': function(response) {
-            console.log('✅ reCAPTCHA v2 resolvido:', response ? 'Token recebido' : 'Sem token');
+            log('✅ reCAPTCHA v2 resolvido:', response ? 'Token recebido' : 'Sem token');
           },
           'expired-callback': function() {
-            console.log('⏰ reCAPTCHA v2 expirou - solicite novo');
+            log('⏰ reCAPTCHA v2 expirou - solicite novo');
             showMessage("reCAPTCHA expirou. Clique para gerar novo.", "error");
           },
           'error-callback': function(error) {
-            console.log('❌ Erro reCAPTCHA v2:', error);
+            log('❌ Erro reCAPTCHA v2:', error);
             showMessage("Erro no reCAPTCHA. Recarregue a página.", "error");
           }
         });
 
-        console.log('🔄 Renderizando reCAPTCHA v2...');
+        log('🔄 Renderizando reCAPTCHA v2...');
         await recaptchaVerifier.render();
-        console.log('✅ reCAPTCHA v2 renderizado com sucesso');
+        log('✅ reCAPTCHA v2 renderizado com sucesso');
         
       } catch (renderError) {
-        console.error('❌ Erro no reCAPTCHA v2:', renderError);
+        error('❌ Erro no reCAPTCHA v2:', renderError);
         
         // Fallback para configuração ultra-simples
         try {
-          console.log('🔄 Tentando reCAPTCHA v2 simplificado...');
+          log('🔄 Tentando reCAPTCHA v2 simplificado...');
           if (recaptchaVerifier) {
             try { recaptchaVerifier.clear(); } catch (e) {}
           }
@@ -516,10 +519,10 @@ console.log('🚀 Carregando auth.js...');
           });
           
           await recaptchaVerifier.render();
-          console.log('✅ reCAPTCHA v2 simplificado funcionou');
+          log('✅ reCAPTCHA v2 simplificado funcionou');
           
         } catch (fallbackError) {
-          console.error('❌ Falha total reCAPTCHA v2:', fallbackError);
+          error('❌ Falha total reCAPTCHA v2:', fallbackError);
           showMessage(`Erro reCAPTCHA: ${fallbackError.message}. Verifique se reCAPTCHA v2 está habilitado no Firebase Console.`, "error");
           return false;
         }
@@ -527,7 +530,7 @@ console.log('🚀 Carregando auth.js...');
       // Tenta enviar SMS
       let smsSent = false;
       try {
-        console.log('📱 Enviando SMS para:', phone);
+        log('📱 Enviando SMS para:', phone);
         
         // ✅ USAR window.confirmationResult para garantir persistência
         window.confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
@@ -538,9 +541,9 @@ console.log('🚀 Carregando auth.js...');
           throw new Error('SMS enviado mas confirmationResult inválido');
         }
         
-        console.log('✅ SMS enviado com sucesso');
-        console.log('   verificationId:', window.confirmationResult.verificationId?.substring(0, 20) + '...');
-        console.log('   confirmationResult armazenado em window.confirmationResult');
+        log('✅ SMS enviado com sucesso');
+        log('   verificationId:', window.confirmationResult.verificationId?.substring(0, 20) + '...');
+        log('   confirmationResult armazenado em window.confirmationResult');
         
         // Usar função específica para sucesso do SMS
         if (typeof window.showSMSSuccess === 'function') {
@@ -552,7 +555,7 @@ console.log('🚀 Carregando auth.js...');
         showSMSSection();
         smsSent = true;
       } catch (smsError) {
-        console.error('❌ Erro ao enviar SMS:', smsError);
+        error('❌ Erro ao enviar SMS:', smsError);
         
         // Tratamento específico de erros com soluções
         let errorMessage = "Erro ao enviar SMS. ";
@@ -567,7 +570,7 @@ console.log('🚀 Carregando auth.js...');
               errorMessage = "⚠️ Limite de tentativas atingido. ";
               canRetry = true;
               
-              console.log('🔄 Implementando soluções para too-many-requests...');
+              log('🔄 Implementando soluções para too-many-requests...');
               
               // Resetar estado para permitir nova tentativa
               resetSMSState();
@@ -657,16 +660,16 @@ console.log('🚀 Carregando auth.js...');
 
     // Função de cadastro
     async function signUp() {
-      console.log('🔄 Iniciando processo de cadastro...');
+      log('🔄 Iniciando processo de cadastro...');
       
       // Verificar se SMS está habilitado ou usar cadastro direto
       if (!SMS_VERIFICATION_ENABLED) {
-        console.log('📧 Usando cadastro direto por email (SMS desabilitado)');
+        log('📧 Usando cadastro direto por email (SMS desabilitado)');
         return await directEmailSignUp();
       }
       
       // Sistema SMS original (quando habilitado)
-      console.log('📱 Usando cadastro com verificação SMS');
+      log('📱 Usando cadastro com verificação SMS');
       
       const email = document.getElementById("email")?.value?.trim();
       const password = document.getElementById("password")?.value?.trim();
@@ -699,7 +702,7 @@ console.log('🚀 Carregando auth.js...');
 
       // Se já enviou SMS para este telefone, mostrar seção SMS
       if (window.confirmationResult && window.lastPhone === formattedPhone) {
-        console.log('✅ SMS já enviado para este telefone - mostrando seção');
+        log('✅ SMS já enviado para este telefone - mostrando seção');
         if (typeof window.showSMSSuccess === 'function') {
           window.showSMSSuccess();
         } else {
@@ -732,7 +735,7 @@ console.log('🚀 Carregando auth.js...');
         await sendPasswordResetEmail(auth, email);
         showMessage("E-mail de recuperação enviado! Verifique sua caixa de entrada.", "success");
       } catch (error) {
-        console.error('❌ Erro ao enviar e-mail de recuperação:', error);
+        error('❌ Erro ao enviar e-mail de recuperação:', error);
         let errorMessage = "Erro ao enviar e-mail de recuperação.";
         
         if (error.code === 'auth/user-not-found') {
@@ -747,7 +750,7 @@ console.log('🚀 Carregando auth.js...');
 
     // Função para confirmar código SMS
     async function confirmSMSCode() {
-      console.log('🔐 [CONFIRM] Iniciando confirmação de código SMS...');
+      log('🔐 [CONFIRM] Iniciando confirmação de código SMS...');
       
       // ✅ CRÍTICO: Capturar email do FORMULÁRIO (não do Firebase Auth)
       const formEmail = document.getElementById("email")?.value?.trim();
@@ -757,19 +760,19 @@ console.log('🚀 Carregando auth.js...');
 
       // ✅ VALIDAÇÃO OBRIGATÓRIA: Email e senha devem existir
       if (!formEmail) {
-        console.error('❌ [CONFIRM] Email não preenchido no formulário');
+        error('❌ [CONFIRM] Email não preenchido no formulário');
         showMessage("❌ Erro: O campo e-mail está vazio. Preencha novamente.", "error");
         return;
       }
       
       if (!formPassword) {
-        console.error('❌ [CONFIRM] Senha não preenchida no formulário');
+        error('❌ [CONFIRM] Senha não preenchida no formulário');
         showMessage("❌ Erro: O campo senha está vazio. Preencha novamente.", "error");
         return;
       }
       
       if (!formPhone) {
-        console.error('❌ [CONFIRM] Telefone não preenchido no formulário');
+        error('❌ [CONFIRM] Telefone não preenchido no formulário');
         showMessage("❌ Erro: O campo telefone está vazio. Preencha novamente.", "error");
         return;
       }
@@ -788,26 +791,26 @@ console.log('🚀 Carregando auth.js...');
       const cleanPhone = formPhone.replace(/\D/g, '').replace(/^55/, '');
       const formattedPhone = '+55' + cleanPhone;
       
-      console.log('📧 [CONFIRM] Email do formulário:', formEmail);
-      console.log('📱 [CONFIRM] Telefone formatado:', formattedPhone);
+      log('📧 [CONFIRM] Email do formulário:', formEmail);
+      log('📱 [CONFIRM] Telefone formatado:', formattedPhone);
 
       // ✅ VALIDAÇÃO ROBUSTA do confirmationResult
       if (!window.confirmationResult) {
-        console.error('❌ [CONFIRM] window.confirmationResult é NULL');
+        error('❌ [CONFIRM] window.confirmationResult é NULL');
         showMessage("Erro: Solicite um novo código SMS.", "error");
         return;
       }
       
       if (!window.confirmationResult.verificationId) {
-        console.error('❌ [CONFIRM] verificationId não existe');
-        console.error('   confirmationResult:', window.confirmationResult);
+        error('❌ [CONFIRM] verificationId não existe');
+        error('   confirmationResult:', window.confirmationResult);
         showMessage("Erro: Sessão de verificação inválida. Solicite novo SMS.", "error");
         return;
       }
       
-      console.log('✅ [CONFIRM] confirmationResult validado com sucesso');
-      console.log('   verificationId:', window.confirmationResult.verificationId.substring(0, 20) + '...');
-      console.log('   código digitado:', code);
+      log('✅ [CONFIRM] confirmationResult validado com sucesso');
+      log('   verificationId:', window.confirmationResult.verificationId.substring(0, 20) + '...');
+      log('   código digitado:', code);
 
       // ═══════════════════════════════════════════════════════════════════
       // 🔐 BLOCO 1: AUTENTICAÇÃO (CRÍTICO - Se falhar, abortar)
@@ -820,20 +823,20 @@ console.log('🚀 Carregando auth.js...');
         // ✅ Marcar cadastro em progresso
         window.isNewUserRegistering = true;
         localStorage.setItem('cadastroEmProgresso', 'true');
-        console.log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
+        log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
         
         // ✅ OBTER DEVICE FINGERPRINT antes da autenticação
         try {
           if (window.SoundyFingerprint) {
             const fpData = await window.SoundyFingerprint.get();
             deviceId = fpData.fingerprint_hash;
-            console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
+            log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
           } else {
-            console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
+            warn('⚠️ SoundyFingerprint não disponível, usando fallback');
             deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
           }
         } catch (fpError) {
-          console.error('❌ Erro ao obter fingerprint:', fpError);
+          error('❌ Erro ao obter fingerprint:', fpError);
           deviceId = 'fp_fallback_' + Date.now();
         }
         
@@ -847,18 +850,18 @@ console.log('🚀 Carregando auth.js...');
         // ✅ FLUXO CORRETO: CRIAR USUÁRIO COM EMAIL PRIMEIRO
         // ═══════════════════════════════════════════════════════════════════
         
-        console.log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
-        console.log('   Email:', formEmail);
+        log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
+        log('   Email:', formEmail);
         
         // ✅ PASSO 1: Criar usuário com EMAIL e SENHA
         userResult = await createUserWithEmailAndPassword(auth, formEmail, formPassword);
-        console.log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
-        console.log('   Email verificado:', userResult.user.email);
+        log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
+        log('   Email verificado:', userResult.user.email);
         
         // ✅ PASSO 2: Confirmar código SMS
         showMessage("📱 Confirmando SMS...", "success");
-        console.log('📱 [CONFIRM] PASSO 2: Confirmando código SMS...');
-        console.log('   Código:', code);
+        log('📱 [CONFIRM] PASSO 2: Confirmando código SMS...');
+        log('   Código:', code);
         
         const phoneCredential = PhoneAuthProvider.credential(
           window.confirmationResult.verificationId, 
@@ -867,11 +870,11 @@ console.log('🚀 Carregando auth.js...');
         
         // ✅ PASSO 3: Vincular TELEFONE ao usuário de EMAIL
         showMessage("🔗 Vinculando telefone...", "success");
-        console.log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
-        console.log('   Telefone:', formattedPhone);
+        log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
+        log('   Telefone:', formattedPhone);
         
         await linkWithCredential(userResult.user, phoneCredential);
-        console.log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
+        log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
@@ -879,24 +882,24 @@ console.log('🚀 Carregando auth.js...');
         // PROBLEMA: linkWithCredential NÃO atualiza imediatamente auth.currentUser
         // SOLUÇÃO: Forçar reload() para obter estado atualizado do Firebase
         // ═══════════════════════════════════════════════════════════════════
-        console.log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
+        log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
         await auth.currentUser.reload();
         
         // Obter referência atualizada do usuário
         const refreshedUser = auth.currentUser;
-        console.log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
-        console.log('   UID:', refreshedUser.uid);
-        console.log('   Email:', refreshedUser.email);
-        console.log('   phoneNumber:', refreshedUser.phoneNumber);
-        console.log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
+        log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
+        log('   UID:', refreshedUser.uid);
+        log('   Email:', refreshedUser.email);
+        log('   phoneNumber:', refreshedUser.phoneNumber);
+        log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
         
         // Validar se telefone foi realmente vinculado
         if (!refreshedUser.phoneNumber) {
-          console.error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
+          error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
           throw new Error('Telefone não foi vinculado corretamente');
         }
         
-        console.log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
+        log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
         
         // Atualizar referência do userResult para usar dados atualizados
         userResult.user = refreshedUser;
@@ -904,13 +907,13 @@ console.log('🚀 Carregando auth.js...');
         // ═══════════════════════════════════════════════════════════════════
         // ✅ PASSO 5: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
         // ═══════════════════════════════════════════════════════════════════
-        console.log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
+        log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
         
         // Aguardar onAuthStateChanged confirmar atualização (com timeout curto pois já fizemos reload)
         await new Promise((resolve) => {
           const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user && user.uid === refreshedUser.uid && user.phoneNumber) {
-              console.log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
+              log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
               unsubscribe();
               resolve();
             }
@@ -918,28 +921,28 @@ console.log('🚀 Carregando auth.js...');
           
           // Timeout curto (1 segundo) - já garantimos o estado com reload()
           setTimeout(() => {
-            console.log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
+            log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
             unsubscribe();
             resolve();
           }, 1000);
         });
         
         // ✅ PASSO 6: Renovar token com estado garantido
-        console.log('🔄 [CONFIRM] PASSO 6: Renovando token...');
+        log('🔄 [CONFIRM] PASSO 6: Renovando token...');
         try {
           freshToken = await refreshedUser.getIdToken(true);
-          console.log('✅ [CONFIRM] Token renovado com sucesso');
+          log('✅ [CONFIRM] Token renovado com sucesso');
         } catch (tokenError) {
-          console.warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
+          warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
           // Usar token sem forçar refresh
           freshToken = await refreshedUser.getIdToken();
         }
         
         // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens e metadados IMEDIATAMENTE
-        console.log('💾 [CONFIRM] Salvando tokens de autenticação...');
-        console.log('   UID:', userResult.user.uid);
-        console.log('   Email:', formEmail);
-        console.log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
+        log('💾 [CONFIRM] Salvando tokens de autenticação...');
+        log('   UID:', userResult.user.uid);
+        log('   Email:', formEmail);
+        log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
         
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
@@ -957,9 +960,9 @@ console.log('🚀 Carregando auth.js...');
           timestamp: new Date().toISOString()
         }));
         
-        console.log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
-        console.log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
-        console.log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
+        log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
+        log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
+        log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
@@ -968,9 +971,9 @@ console.log('🚀 Carregando auth.js...');
         
       } catch (authError) {
         // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
-        console.error('❌ [AUTH-ERROR] Falha crítica na autenticação:', authError);
-        console.error('   Código:', authError.code);
-        console.error('   Mensagem:', authError.message);
+        error('❌ [AUTH-ERROR] Falha crítica na autenticação:', authError);
+        error('   Código:', authError.code);
+        error('   Mensagem:', authError.message);
         
         window.isNewUserRegistering = false;
         localStorage.removeItem('cadastroEmProgresso');
@@ -1017,8 +1020,8 @@ console.log('🚀 Carregando auth.js...');
 
       showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
       
-      console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
-      console.log('📌 [CONFIRM] Firestore será criado automaticamente pelo listener global');
+      log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
+      log('📌 [CONFIRM] Firestore será criado automaticamente pelo listener global');
       setTimeout(() => {
         window.location.replace("entrevista.html");
       }, 1500);
@@ -1028,18 +1031,18 @@ console.log('🚀 Carregando auth.js...');
     // � FUNÇÃO AUXILIAR: Inicializar sessão completa após cadastro
     // ═══════════════════════════════════════════════════════════════════
     async function initializeSessionAfterSignup(user, freshToken) {
-      console.log('🔐 [SESSION] Inicializando sessão completa após cadastro...');
+      log('🔐 [SESSION] Inicializando sessão completa após cadastro...');
       
       try {
         // 1️⃣ Marcar autenticação como pronta
         window.__AUTH_READY__ = true;
         localStorage.setItem('hasAuthToken', 'true');
-        console.log('✅ [SESSION] Estado de autenticação marcado como pronto');
+        log('✅ [SESSION] Estado de autenticação marcado como pronto');
         
         // 2️⃣ Garantir que o token está salvo
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
-        console.log('✅ [SESSION] Token revalidado e salvo');
+        log('✅ [SESSION] Token revalidado e salvo');
         
         // 3️⃣ Inicializar Visitor ID se não existir
         let visitorId = localStorage.getItem('visitorId');
@@ -1049,47 +1052,47 @@ console.log('🚀 Carregando auth.js...');
             try {
               const fpData = await window.SoundyFingerprint.get();
               visitorId = fpData.fingerprint_hash;
-              console.log('✅ [SESSION] Visitor ID obtido via FingerprintJS');
+              log('✅ [SESSION] Visitor ID obtido via FingerprintJS');
             } catch (fpError) {
-              console.warn('⚠️ [SESSION] Erro ao obter fingerprint, gerando fallback');
+              warn('⚠️ [SESSION] Erro ao obter fingerprint, gerando fallback');
               visitorId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             }
           } else {
             // Gerar visitor ID simples
             visitorId = 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            console.log('✅ [SESSION] Visitor ID gerado (fallback)');
+            log('✅ [SESSION] Visitor ID gerado (fallback)');
           }
           
           localStorage.setItem('visitorId', visitorId);
-          console.log('✅ [SESSION] Visitor ID salvo:', visitorId.substring(0, 16) + '...');
+          log('✅ [SESSION] Visitor ID salvo:', visitorId.substring(0, 16) + '...');
         } else {
-          console.log('✅ [SESSION] Visitor ID já existe:', visitorId.substring(0, 16) + '...');
+          log('✅ [SESSION] Visitor ID já existe:', visitorId.substring(0, 16) + '...');
         }
         
         // 4️⃣ Salvar UID para referência rápida
         localStorage.setItem('currentUserId', user.uid);
-        console.log('✅ [SESSION] UID salvo para referência rápida:', user.uid);
+        log('✅ [SESSION] UID salvo para referência rápida:', user.uid);
         
         // 5️⃣ Marcar modo autenticado
         localStorage.setItem('chatMode', 'authenticated');
         localStorage.removeItem('anonymousMode'); // Remover flag anônimo se existir
-        console.log('✅ [SESSION] Modo de chat definido como: authenticated');
+        log('✅ [SESSION] Modo de chat definido como: authenticated');
         
         // 6️⃣ Desativar modo anônimo explicitamente
         if (window.SoundyAnonymous && typeof window.SoundyAnonymous.deactivate === 'function') {
           window.SoundyAnonymous.deactivate();
-          console.log('✅ [SESSION] Modo anônimo desativado (SoundyAnonymous.deactivate)');
+          log('✅ [SESSION] Modo anônimo desativado (SoundyAnonymous.deactivate)');
         }
         
-        console.log('🎉 [SESSION] Sessão completa inicializada com sucesso!');
-        console.log('   UID:', user.uid);
-        console.log('   Token válido: sim');
-        console.log('   Visitor ID: sim');
-        console.log('   Modo: authenticated');
+        log('🎉 [SESSION] Sessão completa inicializada com sucesso!');
+        log('   UID:', user.uid);
+        log('   Token válido: sim');
+        log('   Visitor ID: sim');
+        log('   Modo: authenticated');
         
         return true;
       } catch (sessionError) {
-        console.error('❌ [SESSION] Erro ao inicializar sessão:', sessionError);
+        error('❌ [SESSION] Erro ao inicializar sessão:', sessionError);
         return false;
       }
     }
@@ -1098,16 +1101,16 @@ console.log('🚀 Carregando auth.js...');
     // �🔐 FUNÇÃO DE LOGOUT ROBUSTA - LIMPEZA COMPLETA DE ESTADO
     // ═══════════════════════════════════════════════════════════════════
     async function logout() {
-      console.log('🔓 [LOGOUT] Iniciando processo de logout completo...');
+      log('🔓 [LOGOUT] Iniciando processo de logout completo...');
       
       try {
         // 1️⃣ SIGNOUT DO FIREBASE
         if (auth && typeof auth.signOut === 'function') {
           await auth.signOut();
-          console.log('✅ [LOGOUT] Firebase signOut executado');
+          log('✅ [LOGOUT] Firebase signOut executado');
         }
       } catch (e) {
-        console.warn('⚠️ [LOGOUT] Erro no Firebase signOut (continuando limpeza):', e.message);
+        warn('⚠️ [LOGOUT] Erro no Firebase signOut (continuando limpeza):', e.message);
       }
       
       // 2️⃣ LIMPAR TODO O LOCALSTORAGE DE AUTH
@@ -1130,20 +1133,20 @@ console.log('🚀 Carregando auth.js...');
       allKeys.forEach(key => {
         if (key.startsWith('firebase:')) {
           localStorage.removeItem(key);
-          console.log('🗑️ [LOGOUT] Removido:', key);
+          log('🗑️ [LOGOUT] Removido:', key);
         }
       });
       
-      console.log('✅ [LOGOUT] localStorage limpo');
+      log('✅ [LOGOUT] localStorage limpo');
       
       // 3️⃣ LIMPAR SESSIONSTORAGE
       sessionStorage.clear();
-      console.log('✅ [LOGOUT] sessionStorage limpo');
+      log('✅ [LOGOUT] sessionStorage limpo');
       
       // 4️⃣ RESETAR VARIÁVEIS GLOBAIS DE AUTH
       if (window.auth) {
         // Firebase auth continua existindo mas sem currentUser
-        console.log('✅ [LOGOUT] window.auth.currentUser:', window.auth.currentUser);
+        log('✅ [LOGOUT] window.auth.currentUser:', window.auth.currentUser);
       }
       
       // Limpar qualquer referência global a token/user
@@ -1155,10 +1158,10 @@ console.log('🚀 Carregando auth.js...');
       if (window.SoundyAnonymous) {
         window.SoundyAnonymous.isAnonymousMode = true;
         window.SoundyAnonymous.forceCleanState = true;
-        console.log('✅ [LOGOUT] Modo anônimo forçado para próximo acesso');
+        log('✅ [LOGOUT] Modo anônimo forçado para próximo acesso');
       }
       
-      console.log('🔓 [LOGOUT] Processo de logout COMPLETO');
+      log('🔓 [LOGOUT] Processo de logout COMPLETO');
       
       // 6️⃣ REDIRECIONAR
       window.location.href = "login.html";
@@ -1177,7 +1180,7 @@ console.log('🚀 Carregando auth.js...');
           
           // 🔥 MODO DEMO: Permitir acesso sem login (ativado pelo demo-core.js)
           if (isDemoPage) {
-            console.log('🔥 [AUTH] Timeout - Página demo detectada, permitindo acesso');
+            log('🔥 [AUTH] Timeout - Página demo detectada, permitindo acesso');
             resolve(null);
             return;
           }
@@ -1191,24 +1194,24 @@ console.log('🚀 Carregando auth.js...');
             const hasAuthReady = window.__AUTH_READY__ === true;
             
             if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
-              console.log('⏳ [AUTH] Timeout mas sessão válida existe - aguardando Firebase Auth');
-              console.log('   hasIdToken:', !!hasIdToken);
-              console.log('   hasAuthToken:', !!hasAuthToken);
-              console.log('   hasUser:', !!hasUser);
-              console.log('   __AUTH_READY__:', hasAuthReady);
+              log('⏳ [AUTH] Timeout mas sessão válida existe - aguardando Firebase Auth');
+              log('   hasIdToken:', !!hasIdToken);
+              log('   hasAuthToken:', !!hasAuthToken);
+              log('   hasUser:', !!hasUser);
+              log('   __AUTH_READY__:', hasAuthReady);
               resolve(null);
               return;
             }
             
             // Após 5s de timeout, SoundyAnonymous deve estar disponível
             if (window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
-              console.log('🔓 [AUTH] Timeout - Nenhuma sessão válida - Ativando modo anônimo');
+              log('🔓 [AUTH] Timeout - Nenhuma sessão válida - Ativando modo anônimo');
               await window.SoundyAnonymous.activate();
               resolve(null);
               return;
             } else {
-              console.error('❌ [AUTH] Timeout - SoundyAnonymous não disponível após 5s');
-              console.log('   window.SoundyAnonymous:', window.SoundyAnonymous);
+              error('❌ [AUTH] Timeout - SoundyAnonymous não disponível após 5s');
+              log('   window.SoundyAnonymous:', window.SoundyAnonymous);
             }
           }
           
@@ -1228,7 +1231,7 @@ console.log('🚀 Carregando auth.js...');
 
           // ✅ BUG #2 FIX: Proteger cadastro em progresso
           if (window.isNewUserRegistering && isEntrevistaPage) {
-            console.log('🛡️ [AUTH] Cadastro em progresso detectado - permitindo acesso');
+            log('🛡️ [AUTH] Cadastro em progresso detectado - permitindo acesso');
             window.isNewUserRegistering = false;
             localStorage.removeItem('cadastroEmProgresso');
             resolve(user);
@@ -1238,7 +1241,7 @@ console.log('🚀 Carregando auth.js...');
           if (!user && !isLoginPage) {
             // 🔥 MODO DEMO: Permitir acesso sem login
             if (isDemoPage) {
-              console.log('🔥 [AUTH] Usuário não logado na página demo - permitindo acesso');
+              log('🔥 [AUTH] Usuário não logado na página demo - permitindo acesso');
               resolve(null);
               return;
             }
@@ -1253,15 +1256,15 @@ console.log('🚀 Carregando auth.js...');
               const hasAuthReady = window.__AUTH_READY__ === true;
               
               if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
-                console.log('⏳ [AUTH] onAuthStateChanged: Sessão válida existe mas user null');
-                console.log('   hasIdToken:', !!hasIdToken);
-                console.log('   hasAuthToken:', !!hasAuthToken);
-                console.log('   hasUser:', !!hasUser);
-                console.log('   __AUTH_READY__:', hasAuthReady);
-                console.log('   Aguardando 2s antes de recarregar...');
+                log('⏳ [AUTH] onAuthStateChanged: Sessão válida existe mas user null');
+                log('   hasIdToken:', !!hasIdToken);
+                log('   hasAuthToken:', !!hasAuthToken);
+                log('   hasUser:', !!hasUser);
+                log('   __AUTH_READY__:', hasAuthReady);
+                log('   Aguardando 2s antes de recarregar...');
                 
                 setTimeout(() => {
-                  console.log('🔄 [AUTH] Recarregando para sincronizar Firebase Auth...');
+                  log('🔄 [AUTH] Recarregando para sincronizar Firebase Auth...');
                   window.location.reload();
                 }, 2000);
                 return;
@@ -1285,7 +1288,7 @@ console.log('🚀 Carregando auth.js...');
                     resolveWait(true);
                   } else if (attempts >= maxAttempts) {
                     clearInterval(checkInterval);
-                    console.warn('⚠️ [AUTH] Timeout aguardando SoundyAnonymous');
+                    warn('⚠️ [AUTH] Timeout aguardando SoundyAnonymous');
                     resolveWait(false);
                   }
                 }, 50);
@@ -1294,7 +1297,7 @@ console.log('🚀 Carregando auth.js...');
               const anonymousAvailable = await waitForAnonymousMode();
               
               if (anonymousAvailable) {
-                console.log('🔓 [AUTH] Usuário não logado no index - Nenhuma sessão válida - Ativando modo anônimo');
+                log('🔓 [AUTH] Usuário não logado no index - Nenhuma sessão válida - Ativando modo anônimo');
                 await window.SoundyAnonymous.activate();
                 resolve(null);
                 return;
@@ -1322,7 +1325,7 @@ console.log('🚀 Carregando auth.js...');
             }
           } else if (user) {
             // ✅ USUÁRIO AUTENTICADO - Validar Firestore
-            console.log('✅ [AUTH] Usuário autenticado:', user.uid);
+            log('✅ [AUTH] Usuário autenticado:', user.uid);
             
             // 🔓 MODO ANÔNIMO: Desativar se usuário autenticou
             if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
@@ -1335,12 +1338,12 @@ console.log('🚀 Carregando auth.js...');
               
               if (!userSnap.exists()) {
                 // ⚠️ DOCUMENTO NÃO EXISTE: Pode ser race condition (Firestore ainda não sincronizou)
-                console.warn('⚠️ [AUTH] Documento Firestore não encontrado para:', user.uid);
-                console.warn('⚠️ [AUTH] Isso pode ser normal logo após cadastro (race condition)');
+                warn('⚠️ [AUTH] Documento Firestore não encontrado para:', user.uid);
+                warn('⚠️ [AUTH] Isso pode ser normal logo após cadastro (race condition)');
                 
                 // ✅ NÃO DESLOGAR - Permitir acesso temporariamente
                 // O Firestore pode levar alguns segundos para sincronizar
-                console.log('✅ [AUTH] Permitindo acesso (Firestore pode estar sincronizando)');
+                log('✅ [AUTH] Permitindo acesso (Firestore pode estar sincronizando)');
                 resolve(user);
                 return;
               }
@@ -1350,7 +1353,7 @@ console.log('🚀 Carregando auth.js...');
               // ✅ BUG #2 FIX: Não validar telefone se cadastro ainda em progresso
               const cadastroEmProgresso = localStorage.getItem('cadastroEmProgresso') === 'true';
               if (cadastroEmProgresso) {
-                console.log('🛡️ [AUTH] Cadastro em progresso - pulando validação de telefone');
+                log('🛡️ [AUTH] Cadastro em progresso - pulando validação de telefone');
                 resolve(user);
                 return;
               }
@@ -1362,37 +1365,37 @@ console.log('🚀 Carregando auth.js...');
               
               // 📊 LOGGING INFORMATIVO (NÃO BLOQUEIA)
               if (!smsVerificado && !userData.criadoSemSMS) {
-                console.warn('⚠️ [INFO] Telefone não verificado no Auth (mas acesso permitido)');
-                console.warn('   user.phoneNumber:', user.phoneNumber);
-                console.warn('   criadoSemSMS:', userData.criadoSemSMS);
-                console.warn('   ✅ Usuário autenticado - acesso PERMITIDO');
+                warn('⚠️ [INFO] Telefone não verificado no Auth (mas acesso permitido)');
+                warn('   user.phoneNumber:', user.phoneNumber);
+                warn('   criadoSemSMS:', userData.criadoSemSMS);
+                warn('   ✅ Usuário autenticado - acesso PERMITIDO');
               }
               
-              console.log('✅ [AUTH] Validação completa - acesso permitido');
-              console.log('   SMS verificado (Auth):', smsVerificado);
-              console.log('   user.phoneNumber:', user.phoneNumber);
-              console.log('   criadoSemSMS:', userData.criadoSemSMS);
+              log('✅ [AUTH] Validação completa - acesso permitido');
+              log('   SMS verificado (Auth):', smsVerificado);
+              log('   user.phoneNumber:', user.phoneNumber);
+              log('   criadoSemSMS:', userData.criadoSemSMS);
               
               // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
               if (userData.djExpired === true && !sessionStorage.getItem('betaDjModalShown')) {
-                console.log('🎧 [BETA-DJ] Usuário com beta expirado detectado - exibindo modal');
+                log('🎧 [BETA-DJ] Usuário com beta expirado detectado - exibindo modal');
                 
                 setTimeout(() => {
                   if (typeof window.openBetaExpiredModal === 'function') {
                     window.openBetaExpiredModal();
                   } else {
-                    console.warn('⚠️ [BETA-DJ] Função openBetaExpiredModal não disponível ainda');
+                    warn('⚠️ [BETA-DJ] Função openBetaExpiredModal não disponível ainda');
                   }
                 }, 1000);
               }
               
             } catch (error) {
-              console.error('❌ [AUTH] Erro ao verificar Firestore:', error);
+              error('❌ [AUTH] Erro ao verificar Firestore:', error);
               
               // ✅ ERRO TRANSITÓRIO - NÃO DESLOGAR
               // Pode ser problema de rede, Firestore offline, etc.
-              console.warn('⚠️ [AUTH] Erro no Firestore - permitindo acesso temporariamente');
-              console.warn('   Se o problema persistir, usuário será bloqueado na próxima tentativa');
+              warn('⚠️ [AUTH] Erro no Firestore - permitindo acesso temporariamente');
+              warn('   Se o problema persistir, usuário será bloqueado na próxima tentativa');
               
               // Permitir acesso mesmo com erro (melhor UX)
               // A próxima navegação validará novamente
@@ -1449,7 +1452,7 @@ console.log('🚀 Carregando auth.js...');
         });
       }
 
-      console.log('✅ Event listeners configurados');
+      log('✅ Event listeners configurados');
     }
 
     // Inicializar
@@ -1473,10 +1476,10 @@ console.log('🚀 Carregando auth.js...');
     auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       
-      console.log('🔍 [AUTH-LISTENER] Usuário autenticado detectado');
-      console.log('   UID:', user.uid);
-      console.log('   Email:', user.email);
-      console.log('   Telefone:', user.phoneNumber);
+      log('🔍 [AUTH-LISTENER] Usuário autenticado detectado');
+      log('   UID:', user.uid);
+      log('   Email:', user.email);
+      log('   Telefone:', user.phoneNumber);
       
       try {
         // Importar Firestore dinamicamente
@@ -1487,7 +1490,7 @@ console.log('🚀 Carregando auth.js...');
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
-          console.log('✅ [AUTH-LISTENER] Documento já existe no Firestore');
+          log('✅ [AUTH-LISTENER] Documento já existe no Firestore');
           
           // ═══════════════════════════════════════════════════════════════════
           // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
@@ -1497,10 +1500,10 @@ console.log('🚀 Carregando auth.js...');
             
             // Se Firestore ainda marca como não verificado, sincronizar
             if (!userData.verificadoPorSMS) {
-              console.log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
-              console.log('   user.phoneNumber:', user.phoneNumber);
-              console.log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
-              console.log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
+              log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
+              log('   user.phoneNumber:', user.phoneNumber);
+              log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
+              log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
               
               try {
                 await updateDoc(userRef, {
@@ -1510,14 +1513,14 @@ console.log('🚀 Carregando auth.js...');
                   updatedAt: new Date().toISOString()
                 });
                 
-                console.log('✅ [SMS-SYNC] Firestore atualizado para verificado');
-                console.log('   verificadoPorSMS: true');
-                console.log('   telefone:', user.phoneNumber);
+                log('✅ [SMS-SYNC] Firestore atualizado para verificado');
+                log('   verificadoPorSMS: true');
+                log('   telefone:', user.phoneNumber);
               } catch (syncError) {
-                console.error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
+                error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
               }
             } else {
-              console.log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
+              log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
             }
           }
           
@@ -1525,7 +1528,7 @@ console.log('🚀 Carregando auth.js...');
           const cadastroMetadata = localStorage.getItem('cadastroMetadata');
           if (cadastroMetadata) {
             localStorage.removeItem('cadastroMetadata');
-            console.log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
+            log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
           }
           return;
         }
@@ -1533,7 +1536,7 @@ console.log('🚀 Carregando auth.js...');
         // ═══════════════════════════════════════════════════════════════════
         // 🚨 DOCUMENTO NÃO EXISTE - CRIAR IMEDIATAMENTE
         // ═══════════════════════════════════════════════════════════════════
-        console.warn('⚠️ [AUTH-LISTENER] Documento não existe! Criando agora...');
+        warn('⚠️ [AUTH-LISTENER] Documento não existe! Criando agora...');
         
         // Tentar obter metadados (OPCIONAL - pode não existir)
         let metadata = null;
@@ -1541,17 +1544,17 @@ console.log('🚀 Carregando auth.js...');
         if (cadastroMetadataStr) {
           try {
             metadata = JSON.parse(cadastroMetadataStr);
-            console.log('📋 [AUTH-LISTENER] Metadados encontrados:', {
+            log('📋 [AUTH-LISTENER] Metadados encontrados:', {
               email: metadata.email,
               telefone: metadata.telefone,
               criadoSemSMS: metadata.criadoSemSMS
             });
           } catch (parseError) {
-            console.warn('⚠️ [AUTH-LISTENER] Erro ao parsear metadados:', parseError);
+            warn('⚠️ [AUTH-LISTENER] Erro ao parsear metadados:', parseError);
             metadata = null;
           }
         } else {
-          console.log('📋 [AUTH-LISTENER] Sem metadados - usando dados do Firebase Auth');
+          log('📋 [AUTH-LISTENER] Sem metadados - usando dados do Firebase Auth');
         }
         
         // ✅ OBTER DADOS: Preferir metadados, fallback para user
@@ -1563,12 +1566,12 @@ console.log('🚀 Carregando auth.js...');
         // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
         const verificadoPorSMS = !!user.phoneNumber;
         
-        console.log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
-        console.log('   Email:', email);
-        console.log('   Telefone:', telefone);
-        console.log('   DeviceID:', deviceId?.substring(0, 16) + '...');
-        console.log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
-        console.log('   criadoSemSMS:', criadoSemSMS);
+        log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
+        log('   Email:', email);
+        log('   Telefone:', telefone);
+        log('   DeviceID:', deviceId?.substring(0, 16) + '...');
+        log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
+        log('   criadoSemSMS:', criadoSemSMS);
         
         // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
         await setDoc(userRef, {
@@ -1592,28 +1595,28 @@ console.log('🚀 Carregando auth.js...');
           updatedAt: serverTimestamp()   // ✅ Usar serverTimestamp
         });
         
-        console.log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
+        log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
         
         // ✅ VERIFICAR CRIAÇÃO
         const verificacao = await getDoc(userRef);
         if (verificacao.exists()) {
-          console.log('✅ [AUTH-LISTENER] CONFIRMADO: Documento existe no Firestore');
-          console.log('   Dados completos:', verificacao.data());
+          log('✅ [AUTH-LISTENER] CONFIRMADO: Documento existe no Firestore');
+          log('   Dados completos:', verificacao.data());
           
           // Limpar metadados após sucesso
           if (cadastroMetadataStr) {
             localStorage.removeItem('cadastroMetadata');
-            console.log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
+            log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
           }
         } else {
-          console.error('❌ [AUTH-LISTENER] ERRO CRÍTICO: Documento não foi criado após setDoc!');
+          error('❌ [AUTH-LISTENER] ERRO CRÍTICO: Documento não foi criado após setDoc!');
         }
         
       } catch (error) {
-        console.error('❌ [AUTH-LISTENER] Erro ao processar Firestore:', error);
-        console.error('   Código:', error.code);
-        console.error('   Mensagem:', error.message);
-        console.error('   Stack:', error.stack);
+        error('❌ [AUTH-LISTENER] Erro ao processar Firestore:', error);
+        error('   Código:', error.code);
+        error('   Mensagem:', error.message);
+        error('   Stack:', error.stack);
         // NÃO remover metadados - retry na próxima inicialização
       }
     });
@@ -1628,9 +1631,9 @@ console.log('🚀 Carregando auth.js...');
     window.directEmailSignUp = directEmailSignUp;
     window.signUp = signUp;
 
-    console.log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
+    log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
 
   } catch (error) {
-    console.error('❌ Erro crítico ao carregar auth.js:', error);
+    error('❌ Erro crítico ao carregar auth.js:', error);
   }
 })();

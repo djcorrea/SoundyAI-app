@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎵 REFERÊNCIAS MUSICAIS EMBEDDADAS - ATUALIZADAS
  * Médias aritméticas recalculadas corretamente
@@ -596,13 +599,13 @@ window.PROD_AI_REF_DATA = {
 window.EMBEDDED_REFS_LOADED = true;
 window.EMBEDDED_REFS_VERSION = "v2025.08.25-arithmetic-corrected";
 
-console.log('🎵 Referências musicais carregadas:', Object.keys(window.PROD_AI_REF_DATA));
-console.log('📊 Total de gêneros:', Object.keys(window.PROD_AI_REF_DATA).length);
+log('🎵 Referências musicais carregadas:', Object.keys(window.PROD_AI_REF_DATA));
+log('📊 Total de gêneros:', Object.keys(window.PROD_AI_REF_DATA).length);
 
 // 📈 VALIDAÇÃO: Verificar se todas as referências têm dados válidos
 Object.entries(window.PROD_AI_REF_DATA).forEach(([genero, dados]) => {
     const metricas = dados.legacy_compatibility || {};
-    console.log(`✅ ${genero}: LUFS=${metricas.lufs_target}, TP=${metricas.true_peak_target}, DR=${metricas.dr_target}`);
+    log(`✅ ${genero}: LUFS=${metricas.lufs_target}, TP=${metricas.true_peak_target}, DR=${metricas.dr_target}`);
 });
 
 // 🎯 HOOK PARA DEBUG

@@ -1,0 +1,579 @@
+/* ============================================
+   LEGAL PAGES CSS - SoundyAI
+   Estilos para páginas institucionais
+   (termos, privacidade, reembolso, suporte)
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;600;700&display=swap');
+
+/* ============ CSS RESET & VARIABLES ============ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --neon-cyan: #00f3ff;
+    --neon-purple: #bc13fe;
+    --deep-blue: #020205;
+    --dark-bg: #000000;
+    --card-bg: rgba(5, 5, 10, 0.8);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0c0;
+    --accent-glow: rgba(188, 19, 254, 0.6);
+    --glass-bg: rgba(15, 15, 25, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Rajdhani', sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    font-size: 18px;
+    line-height: 1.7;
+    min-height: 100vh;
+}
+
+/* ============ ANIMATED BACKGROUND ============ */
+.legal-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -10;
+    background: 
+        radial-gradient(ellipse at 20% 20%, rgba(188, 19, 254, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(0, 243, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, #020205 0%, #000000 100%);
+}
+
+.legal-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+}
+
+/* Subtle animated gradient overlay */
+.legal-bg::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+        circle at center,
+        transparent 0%,
+        transparent 30%,
+        rgba(188, 19, 254, 0.02) 50%,
+        transparent 70%
+    );
+    animation: pulse-glow 15s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+    50% { transform: translate(10%, 10%) scale(1.1); opacity: 1; }
+}
+
+/* ============ NAVIGATION ============ */
+.legal-nav {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    padding: 20px 50px;
+    background: rgba(2, 2, 5, 0.9);
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+    border-bottom: 1px solid rgba(188, 19, 254, 0.2);
+    box-shadow: 0 0 30px rgba(188, 19, 254, 0.1);
+}
+
+.legal-nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.legal-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-purple);
+    transition: all 0.3s ease;
+}
+
+.legal-logo:hover {
+    text-shadow: 0 0 20px var(--neon-purple), 0 0 30px var(--neon-cyan);
+}
+
+.legal-logo span {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 25px;
+    background: rgba(0, 243, 255, 0.1);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 4px;
+    color: var(--neon-cyan);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.back-btn:hover {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: 0 0 25px rgba(0, 243, 255, 0.5);
+}
+
+.back-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* ============ MAIN CONTENT CONTAINER ============ */
+.legal-main {
+    padding: 140px 20px 60px;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 2;
+}
+
+/* ============ GLASSMORPHISM CARD ============ */
+.legal-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    padding: 50px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 0 60px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Neon border glow effect */
+.legal-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 20px;
+    padding: 1px;
+    background: linear-gradient(
+        135deg,
+        rgba(188, 19, 254, 0.4) 0%,
+        transparent 25%,
+        transparent 75%,
+        rgba(0, 243, 255, 0.4) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+/* Top glow line */
+.legal-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-purple), var(--neon-cyan), transparent);
+    opacity: 0.6;
+}
+
+/* ============ TYPOGRAPHY ============ */
+.legal-header {
+    text-align: center;
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.legal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 15px;
+    background: linear-gradient(180deg, #fff 0%, #a0a0ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 20px rgba(188, 19, 254, 0.3));
+}
+
+.legal-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+.legal-subtitle strong {
+    color: var(--neon-cyan);
+}
+
+/* Section Titles */
+.legal-section {
+    margin-bottom: 40px;
+}
+
+.legal-section:last-child {
+    margin-bottom: 0;
+}
+
+.legal-section h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--neon-cyan);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+}
+
+.legal-section h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 25px 0 15px;
+}
+
+/* Paragraphs and Lists */
+.legal-section p {
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+    font-size: 1.05rem;
+}
+
+.legal-section ul,
+.legal-section ol {
+    color: var(--text-secondary);
+    margin-left: 25px;
+    margin-bottom: 20px;
+}
+
+.legal-section li {
+    margin-bottom: 10px;
+    font-size: 1.05rem;
+}
+
+.legal-section li::marker {
+    color: var(--neon-purple);
+}
+
+/* Links */
+.legal-section a {
+    color: var(--neon-cyan);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.legal-section a:hover {
+    border-bottom-color: var(--neon-cyan);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+}
+
+/* Highlight boxes */
+.legal-highlight {
+    background: rgba(188, 19, 254, 0.1);
+    border-left: 3px solid var(--neon-purple);
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 0 10px 10px 0;
+}
+
+.legal-highlight.warning {
+    background: rgba(255, 193, 7, 0.1);
+    border-left-color: #ffc107;
+}
+
+.legal-highlight.info {
+    background: rgba(0, 243, 255, 0.1);
+    border-left-color: var(--neon-cyan);
+}
+
+/* ============ CONTACT CARDS (SUPORTE) ============ */
+.contact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.contact-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 15px;
+    padding: 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.contact-card:hover {
+    border-color: var(--neon-purple);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.contact-icon {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+}
+
+.contact-card h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    color: #fff;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.contact-card p {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.contact-card a {
+    color: var(--neon-cyan);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.contact-card a:hover {
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+}
+
+/* ============ FOOTER ============ */
+.legal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(2, 2, 5, 0.95);
+    padding: 50px 20px 30px;
+    margin-top: 60px;
+    position: relative;
+    z-index: 10;
+}
+
+/* Top glow line */
+.legal-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-purple), var(--neon-cyan), transparent);
+    opacity: 0.5;
+}
+
+.footer-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-links {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px 40px;
+    margin-bottom: 30px;
+}
+
+.footer-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.footer-link:hover {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+}
+
+.footer-link::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--neon-cyan);
+    transition: width 0.3s ease;
+}
+
+.footer-link:hover::after {
+    width: 100%;
+}
+
+.footer-brand {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.footer-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-purple);
+}
+
+.footer-logo span {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.footer-copyright {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 768px) {
+    .legal-nav {
+        padding: 15px 20px;
+    }
+
+    .legal-nav-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .legal-logo {
+        font-size: 1.4rem;
+    }
+
+    .back-btn {
+        padding: 8px 20px;
+        font-size: 0.85rem;
+    }
+
+    .legal-main {
+        padding: 130px 15px 40px;
+    }
+
+    .legal-card {
+        padding: 30px 20px;
+        border-radius: 15px;
+    }
+
+    .legal-title {
+        font-size: 1.6rem;
+        letter-spacing: 1px;
+    }
+
+    .legal-section h2 {
+        font-size: 1.1rem;
+    }
+
+    .legal-section p,
+    .legal-section li {
+        font-size: 1rem;
+    }
+
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .footer-links {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .legal-card {
+        padding: 25px 15px;
+    }
+
+    .legal-title {
+        font-size: 1.4rem;
+    }
+
+    .legal-header {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+    }
+
+    .legal-section {
+        margin-bottom: 30px;
+    }
+}
+
+/* ============ ANIMATIONS ============ */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.legal-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Smooth scroll target offset */
+:target::before {
+    content: '';
+    display: block;
+    height: 100px;
+    margin-top: -100px;
+}

@@ -75,6 +75,12 @@
             color: #4CAF50;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste True Peak Pipeline</h1>
@@ -252,7 +258,7 @@
                 
             } catch (error) {
                 log(`💥 Erro no teste: ${error.message}`, 'error');
-                console.error(error);
+                error(error);
             }
         }
         

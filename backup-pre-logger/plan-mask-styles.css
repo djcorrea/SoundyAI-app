@@ -1,0 +1,105 @@
+/* ========================================
+   ESTILOS PARA MÁSCARAS DE PLANO - MODO REDUZIDO
+   Backend retorna JSON completo sempre.
+   Frontend aplica máscaras visuais apenas.
+   ======================================== */
+
+/* Classe para métricas mascaradas (blur + overlay) */
+.metric-masked {
+  filter: blur(6px);
+  opacity: 0.5;
+  position: relative;
+  pointer-events: none;
+  user-select: none;
+  transition: all 0.3s ease;
+}
+
+/* Overlay com texto "Plano limitado" */
+.metric-masked::after {
+  content: "Plano limitado";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #ffffffaa;
+  font-weight: 500;
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  pointer-events: auto;
+  cursor: help;
+}
+
+/* Hover effect para melhorar UX */
+.metric-masked:hover::after {
+  color: #fff;
+  backdrop-filter: blur(3px);
+  font-size: 0.75rem;
+}
+
+/* Container para seções completamente ocultas */
+.plan-section-hidden {
+  display: none !important;
+}
+
+/* Aviso de modo reduzido */
+#reducedModeWarning {
+  animation: slideDown 0.4s ease-out;
+  position: relative;
+  z-index: 100;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Botão de upgrade animado */
+#upgradePlanBtn {
+  animation: fadeIn 0.6s ease-out 0.3s both;
+  transition: all 0.3s ease;
+}
+
+#upgradePlanBtn:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+#upgradePlanBtn:active {
+  transform: scale(0.98) !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .metric-masked::after {
+    font-size: 0.6rem;
+  }
+  
+  #reducedModeWarning {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  #upgradePlanBtn {
+    padding: 10px 20px;
+    font-size: 0.9em;
+  }
+}

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎵 STEMS SEPARATION WORKER - iOS Safe
  * Processa separação de stems em Web Worker para evitar travamento iOS
@@ -5,7 +8,7 @@
  */
 
 // Import necessário para logging
-let caiarLog = (...args) => console.log('[STEMS-WORKER]', ...args);
+let caiarLog = (...args) => log('[STEMS-WORKER]', ...args);
 
 // Funções auxiliares para processamento
 function createEmptyLike(sampleRate, numberOfChannels, length) {

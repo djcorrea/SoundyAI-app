@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // firebase.js - Configuração Firebase Corrigida
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
 import { getAuth } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
@@ -18,14 +21,14 @@ const firebaseConfig = {
 let app;
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig);
-  console.log('✅ Firebase inicializado com sucesso');
+  log('✅ Firebase inicializado com sucesso');
 } else {
   app = getApps()[0];
-  console.log('✅ Firebase já estava inicializado');
+  log('✅ Firebase já estava inicializado');
 }
 
 // Exportar instâncias
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-console.log('🔥 Firebase config carregado');
+log('🔥 Firebase config carregado');

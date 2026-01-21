@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🛒 SOUNDYAI - TRACKING DE PÁGINA DE VENDAS
  * 
@@ -16,7 +19,7 @@
 (function() {
     'use strict';
     
-    console.log('🛒 [SALES-TRACKING] Módulo carregado');
+    log('🛒 [SALES-TRACKING] Módulo carregado');
     
     /**
      * Identifica e intercepta CTAs que levam para Hotmart
@@ -24,7 +27,7 @@
     function setupSalesCTATracking() {
         // Aguardar tracking estar pronto
         if (!window.SoundyTracking || !window.SoundyTracking.isEnabled()) {
-            console.warn('⚠️ [SALES-TRACKING] Sistema de tracking não disponível');
+            warn('⚠️ [SALES-TRACKING] Sistema de tracking não disponível');
             return;
         }
         
@@ -41,11 +44,11 @@
         const buttons = document.querySelectorAll(selectors.join(','));
         
         if (buttons.length === 0) {
-            console.warn('⚠️ [SALES-TRACKING] Nenhum botão de checkout encontrado');
+            warn('⚠️ [SALES-TRACKING] Nenhum botão de checkout encontrado');
             return;
         }
         
-        console.log(`🎯 [SALES-TRACKING] ${buttons.length} botão(ões) de checkout encontrado(s)`);
+        log(`🎯 [SALES-TRACKING] ${buttons.length} botão(ões) de checkout encontrado(s)`);
         
         buttons.forEach((button, index) => {
             // Evitar múltiplos listeners no mesmo botão
@@ -63,24 +66,24 @@
                 const checkoutUrl = this.href || this.dataset.checkoutUrl;
                 
                 if (!checkoutUrl) {
-                    console.error('❌ [SALES-TRACKING] URL de checkout não encontrada');
+                    error('❌ [SALES-TRACKING] URL de checkout não encontrada');
                     return;
                 }
                 
-                console.log(`🎯 [SALES-TRACKING] Clique detectado no botão ${index + 1}:`, checkoutUrl);
+                log(`🎯 [SALES-TRACKING] Clique detectado no botão ${index + 1}:`, checkoutUrl);
                 
                 // Rastrear evento
                 try {
                     window.SoundyTracking.trackCTASalesToCheckout(checkoutUrl);
-                    console.log('✅ [SALES-TRACKING] Evento enviado');
+                    log('✅ [SALES-TRACKING] Evento enviado');
                 } catch (error) {
-                    console.error('❌ [SALES-TRACKING] Erro ao rastrear:', error);
+                    error('❌ [SALES-TRACKING] Erro ao rastrear:', error);
                 }
                 
                 // Usar sendBeacon se disponível (mais confiável)
                 if (navigator.sendBeacon && window.dataLayer) {
                     // dataLayer já foi atualizado pelo tracking.js
-                    console.log('📡 [SALES-TRACKING] Usando sendBeacon para garantia');
+                    log('📡 [SALES-TRACKING] Usando sendBeacon para garantia');
                 }
                 
                 // Continuar navegação após delay mínimo

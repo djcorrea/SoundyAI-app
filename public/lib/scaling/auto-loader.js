@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🚀 AUTO-LOADER PARA ESCALABILIDADE - FASE 1
  * Carrega automaticamente as melhorias sem quebrar o sistema existente
@@ -6,7 +9,7 @@
 (function() {
   'use strict';
   
-  console.log('🚀 Carregando melhorias de escalabilidade (Fase 1)...');
+  log('🚀 Carregando melhorias de escalabilidade (Fase 1)...');
   
   // Configurações
   const SCALING_CONFIG = {
@@ -25,7 +28,7 @@
       const module = await import(`${modulePath}?v=${timestamp}`);
       return module;
     } catch (error) {
-      console.warn(`⚠️ Falha ao carregar módulo: ${modulePath}`, error);
+      warn(`⚠️ Falha ao carregar módulo: ${modulePath}`, error);
       return null;
     }
   }
@@ -39,7 +42,7 @@
       if (SCALING_CONFIG.autoLoadQueue) {
         const queueModule = await loadScalingModule('/lib/scaling/audio-queue-integration.js');
         if (queueModule) {
-          console.log('✅ Audio Queue carregada');
+          log('✅ Audio Queue carregada');
           
           // Auto-configurar baseado no hardware
           if (SCALING_CONFIG.autoConfigureHardware && window.configureAudioProcessing) {
@@ -58,10 +61,10 @@
         setupDebugMode();
       }
       
-      console.log('🎯 Melhorias de escalabilidade carregadas com sucesso');
+      log('🎯 Melhorias de escalabilidade carregadas com sucesso');
       
     } catch (error) {
-      console.error('❌ Erro na inicialização das melhorias:', error);
+      error('❌ Erro na inicialização das melhorias:', error);
     }
   }
   
@@ -110,7 +113,7 @@
       } : 'Not available'
     });
     
-    console.log('📊 Sistema de métricas ativado');
+    log('📊 Sistema de métricas ativado');
   }
   
   /**
@@ -160,7 +163,7 @@
         <div><strong>❌ Errors:</strong> ${metrics.errors?.length || 0}</div>
         <div><strong>👆 Actions:</strong> ${metrics.userActions?.length || 0}</div>
         <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #333;">
-          <button onclick="window.__SCALING_METRICS__ && console.log(window.__SCALING_METRICS__())" 
+          <button onclick="window.__SCALING_METRICS__ && log(window.__SCALING_METRICS__())" 
                   style="background: #333; color: #00ff00; border: 1px solid #666; padding: 4px 8px; border-radius: 3px; font-size: 10px;">
             📊 Log Metrics
           </button>
@@ -176,7 +179,7 @@
     setInterval(updateDebugInfo, 3000);
     updateDebugInfo();
     
-    console.log('🐛 Modo debug ativado');
+    log('🐛 Modo debug ativado');
   }
   
   /**
@@ -190,18 +193,18 @@
       isMobile: /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     };
     
-    console.log('📱 Dispositivo detectado:', device);
+    log('📱 Dispositivo detectado:', device);
     
     // Otimizações baseadas no dispositivo
     if (device.isMobile || device.memory < 4) {
       // Dispositivo com recursos limitados
       SCALING_CONFIG.autoLoadQueue = true; // Usar fila para controlar recursos
-      console.log('⚡ Otimização para dispositivo com recursos limitados');
+      log('⚡ Otimização para dispositivo com recursos limitados');
     }
     
     if (device.connection === 'slow-2g' || device.connection === '2g') {
       // Conexão lenta - reduzir timeouts
-      console.log('🐌 Conexão lenta detectada - ajustando timeouts');
+      log('🐌 Conexão lenta detectada - ajustando timeouts');
     }
     
     return device;

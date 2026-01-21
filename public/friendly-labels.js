@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * Sistema de Labels Amigáveis para Usuários
  * Mapeia nomes técnicos para termos intuitivos
@@ -113,7 +116,7 @@ window.getFriendlyLabel = function(key, useShort = false) {
     const DEBUG_LABELS = typeof window !== 'undefined' && window.DEBUG_LABEL_MAPPING === true;
     if (DEBUG_LABELS && (cleanKey.includes('air') || cleanKey.includes('brilho') || 
         cleanKey.includes('presence') || cleanKey.includes('presenca'))) {
-        console.log('[LABEL-MAP] 🔍', {
+        log('[LABEL-MAP] 🔍', {
             keyOriginal: key,
             cleanKey: cleanKey,
             matchBand: window.FRIENDLY_BAND_LABELS[cleanKey] || 'NOT_FOUND',
@@ -335,7 +338,7 @@ window.enhanceRowLabel = function(label, key) {
     // DEBUG LOG (se habilitado)
     // ============================================================
     if (DEBUG && (friendlyLabel !== originalLabel || matchedKey)) {
-        console.log('[FRIENDLY-LABELS][enhanceRowLabel]', {
+        log('[FRIENDLY-LABELS][enhanceRowLabel]', {
             originalLabel,
             finalLabel: friendlyLabel,
             matchedKey,
@@ -461,4 +464,4 @@ window.convertSuggestionsToFriendly = function(suggestions) {
     });
 };
 
-console.log('📝 Sistema de Labels Amigáveis carregado');
+log('📝 Sistema de Labels Amigáveis carregado');
