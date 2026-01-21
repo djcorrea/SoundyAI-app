@@ -753,6 +753,11 @@ async function handlerWithoutRateLimit(req, res) {
     contentType: req.headers['content-type'],
     origin: req.headers.origin
   });
+  console.log(`🌍 [${requestId}] DEBUG ENV:`, {
+    RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
+    NODE_ENV: process.env.NODE_ENV,
+    isTestOrigin: (req.headers.origin || '').includes('teste')
+  });
 
   // Prevenir múltiplas respostas
   let responseSent = false;
@@ -889,6 +894,12 @@ async function handlerWithoutRateLimit(req, res) {
     
     // 🧪 TESTE: Detectar se a requisição vem do ambiente de teste
     const isTestRequest = isTestEnvironmentRequest(req);
+    console.log(`🧪 [${requestId}] DEBUG isTestRequest:`, {
+      isTestRequest,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      ENV: process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV
+    });
     
     let chatCheck;
     
