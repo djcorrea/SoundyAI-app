@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧪 TESTE FORÇADO - Exibição de Sugestões IA sem API Key
 // Script para forçar a exibição da interface IA para validação
 

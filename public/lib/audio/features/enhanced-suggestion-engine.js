@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 

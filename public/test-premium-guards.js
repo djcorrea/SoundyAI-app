@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧪 SCRIPT DE VALIDAÇÃO - GUARDS PREMIUM
 // Cole este código no console do navegador para testar
 

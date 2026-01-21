@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 ﻿/**
  * ðŸŽ¯ FUNÃ‡Ã•ES DE VALIDAÃ‡ÃƒO E NORMALIZAÃ‡ÃƒO PARA RELATÃ“RIOS PDF
  * 

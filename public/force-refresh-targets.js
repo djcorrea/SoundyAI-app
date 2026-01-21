@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // Script para forçar atualização dos targets em produção
 // Adiciona cache-busting dinâmico para garantir que os novos valores sejam carregados
 

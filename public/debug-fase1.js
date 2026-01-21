@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🧪 DEBUG INTERATIVO - TESTE FASE 1: Sistema runId Global
  * 

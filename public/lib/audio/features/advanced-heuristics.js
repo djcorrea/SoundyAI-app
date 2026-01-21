@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎵 ANÁLISE DE HEURÍSTICAS AVANÇADAS
 // Detecta sibilância, harshness, masking e outros artefatos baseados em análise espectral
 

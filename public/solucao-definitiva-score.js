@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 SOLUÇÃO DEFINITIVA - CORREÇÃO ORDEM DE EXECUÇÃO DO SCORING
 // 
 // PROBLEMA IDENTIFICADO:

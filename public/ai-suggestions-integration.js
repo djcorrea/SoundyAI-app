@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🚀 AI SUGGESTIONS INTEGRATION SYSTEM
 // Sistema de integração das sugestões IA com o modal expandido
 

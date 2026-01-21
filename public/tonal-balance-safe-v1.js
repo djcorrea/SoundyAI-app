@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🛡️ TONAL BALANCE SAFE V1
  * Sistema seguro para validação e exibição do bloco "Sub / Low / Mid / High"

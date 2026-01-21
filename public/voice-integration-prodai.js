@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /* ============ VOICE MESSAGE INTEGRATION - PROD.AI ============ */
 /* 🎤 Integração para fazer o botão de microfone EXISTENTE funcionar */
 

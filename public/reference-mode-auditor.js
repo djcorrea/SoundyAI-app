@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔍 REFERENCE MODE AUDITOR - Sistema de Diagnóstico Controlado
 // NÃO ALTERA LÓGICA - Apenas instrumentação e logging
 // Ativado com: window.DEBUG_REFERENCE_AUDIT = true

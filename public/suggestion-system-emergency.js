@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS
 // Versão simplificada que DEVE funcionar
 

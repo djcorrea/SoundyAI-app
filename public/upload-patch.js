@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * Patch de Emergência - Resolver "Unexpected end of JSON input"
  * 

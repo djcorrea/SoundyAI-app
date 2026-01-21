@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 ERROR MAPPER V3 - Sistema Centralizado de Mensagens de Erro por SCOPE
 // REGRA STUDIO: NUNCA mostrar "limite atingido" → Sempre disfarçar como "alta demanda"
 // REGRA FREE/PLUS/PRO: Mostrar limite com números e CTA upgrade

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🚀 SISTEMA ULTRA-AVANÇADO V2 - Integração Direta com Sugestões Existentes
 // Este sistema funciona diretamente com as sugestões geradas pelo Enhanced Engine
 

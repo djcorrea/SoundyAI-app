@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧮 MIX SCORING ENGINE
 // Calcula porcentagem de conformidade e classificação qualitativa baseada nas métricas técnicas e referências por gênero
 // 

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 

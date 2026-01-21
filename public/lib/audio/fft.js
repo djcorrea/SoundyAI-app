@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🌊 FFT ENGINE - Transformada rápida de Fourier via WASM
 // Motor FFT otimizado com windowing e análise espectral
 

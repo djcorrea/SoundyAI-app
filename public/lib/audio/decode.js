@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 AUDIO DECODE - Conversão e preparação de áudio
 // Decodificação PCM Float32, 48kHz, stereo com DC removal
 

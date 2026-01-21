@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🤖 Auto-Configuração da IA - SoundyAI
  * Configura automaticamente API Key e força interface IA aparecer

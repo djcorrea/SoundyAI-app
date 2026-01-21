@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🎵 STEMS SEPARATION WORKER - iOS Safe
  * Processa separação de stems em Web Worker para evitar travamento iOS

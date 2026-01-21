@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔍 ATIVADOR DE AUDITORIA - FASES 1-5 COMPLETAS
 // Este arquivo ativa os logs de auditoria para detectar inconsistências
 

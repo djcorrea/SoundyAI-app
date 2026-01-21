@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🚀 AI CONFIGURATION MANAGER - Gerenciamento Avançado de Configurações da IA
 // Sistema robusto de configuração, feature flags e fallbacks
 

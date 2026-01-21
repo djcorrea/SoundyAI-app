@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 VALIDADOR DE PRECISÃO DOS SUB-SCORES
 // Verifica se os 4 sub-scores (dynamics, technical, loudness, frequency) são 100% precisos e fieis às análises
 

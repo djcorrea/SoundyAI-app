@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🔄 MIGRAÇÃO GRADUAL PARA SISTEMA UNIFICADO
  * 

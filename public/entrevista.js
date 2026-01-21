@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 const firebaseConfig = {
   apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
   authDomain: "prodai-58436.firebaseapp.com",

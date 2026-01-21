@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔍 REFERENCE TRACE UTILS - PR1 Instrumentação
 // Sistema de logging e diagnóstico para modo Reference vs Genre
 // ⚠️ NÃO MODIFICA COMPORTAMENTO - apenas observa e registra

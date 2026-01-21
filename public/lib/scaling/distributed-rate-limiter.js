@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🚀 RATE LIMITER DISTRIBUÍDO - FASE 1 
  * Melhoria 100% compatível com o sistema atual

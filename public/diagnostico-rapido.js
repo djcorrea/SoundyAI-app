@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔍 SCRIPT DE DIAGNÓSTICO RÁPIDO - SoundyAI
 // Cole este script no console do navegador (F12) e pressione Enter
 

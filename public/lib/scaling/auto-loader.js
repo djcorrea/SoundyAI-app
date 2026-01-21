@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🚀 AUTO-LOADER PARA ESCALABILIDADE - FASE 1
  * Carrega automaticamente as melhorias sem quebrar o sistema existente

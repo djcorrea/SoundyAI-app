@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // analysis-state-machine.js
 // State Machine para gerenciar modo de análise (Genre vs Reference)
 // Evita contaminação de estado entre modos e persiste em sessionStorage

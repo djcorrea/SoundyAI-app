@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 ﻿// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local

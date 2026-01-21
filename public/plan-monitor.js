@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /* ============ VERIFICAÇÃO DE MUDANÇA DE PLANO (PLUS PERSONALIZAÇÃO) ============ */
 // Verificar se o usuário mudou de plano durante a sessão
 let currentUserPlan = null;

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 SISTEMA UNIFICADO DE SUGESTÕES - VERSÃO CORRIGIDA
 // Corrige: Trance não aparece, textos inadequados, cálculo delta incorreto, cobertura incompleta
 

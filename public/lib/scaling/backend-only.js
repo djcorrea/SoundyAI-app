@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🚀 ESCALABILIDADE BACKEND-ONLY - SEGURA
  * Melhorias que só afetam o backend, sem tocar no frontend

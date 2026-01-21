@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // public/analysis-history.js
 // 🕐 Sistema de Histórico de Análises - Frontend (APENAS PRO)
 // Reutiliza displayModalResults() existente para exibir análises antigas

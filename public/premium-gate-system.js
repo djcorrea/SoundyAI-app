@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔒 SISTEMA DE GATE PREMIUM - BLOQUEIO COMPLETO
 // Implementação com defesa em profundidade: modal + wrappers + sobrescrita
 

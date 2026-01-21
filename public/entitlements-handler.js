@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔐 ENTITLEMENTS FRONTEND HANDLER
 // Intercepta respostas 403 PLAN_REQUIRED e exibe modal de upgrade
 // Trabalha em conjunto com work/lib/entitlements.js no backend
