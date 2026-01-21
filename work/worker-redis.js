@@ -127,6 +127,10 @@ async function createRedisConnection() {
   return new Promise((resolve, reject) => {
     connectionAttempts++;
     
+    // 🔒 Mascarar credenciais do Redis para logs seguros
+    const redisUrl = process.env.REDIS_URL || '';
+    const maskedRedisUrl = redisUrl.replace(/:\/\/[^@]*@/, '://***@');
+    
     console.log(`🔌 [REDIS-CONNECT] Tentativa ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}`);
     console.log(`🔌 [REDIS-CONNECT] URL: ${maskedRedisUrl}`);
     
