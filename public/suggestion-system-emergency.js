@@ -1,22 +1,25 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS
 // Versão simplificada que DEVE funcionar
 
 (function() {
     'use strict';
     
-    console.log('🚨 [EMERGÊNCIA] Carregando sistema de sugestões...');
+    log('🚨 [EMERGÊNCIA] Carregando sistema de sugestões...');
     
     // Classe principal simplificada
     class SuggestionSystemEmergency {
         constructor() {
-            console.log('🚨 [EMERGÊNCIA] Sistema inicializado');
+            log('🚨 [EMERGÊNCIA] Sistema inicializado');
         }
         
         process(analysis, referenceData) {
-            console.log('🚨 [EMERGÊNCIA] Processando sugestões...');
+            log('🚨 [EMERGÊNCIA] Processando sugestões...');
             
             if (!analysis?.technicalData || !referenceData) {
-                console.warn('🚨 [EMERGÊNCIA] Dados inválidos');
+                warn('🚨 [EMERGÊNCIA] Dados inválidos');
                 return { suggestions: [] };
             }
             
@@ -103,7 +106,7 @@
                 }
             }
             
-            console.log(`🚨 [EMERGÊNCIA] ${suggestions.length} sugestões geradas`);
+            log(`🚨 [EMERGÊNCIA] ${suggestions.length} sugestões geradas`);
             
             return {
                 suggestions: suggestions,
@@ -120,23 +123,23 @@
     if (typeof window !== 'undefined') {
         // 🎯 PRIORIDADE: Usar EnhancedSuggestionEngine se disponível
         if (typeof window.EnhancedSuggestionEngine !== 'undefined') {
-            console.log('🎯 [EMERGÊNCIA] ✅ EnhancedSuggestionEngine encontrado - usando versão avançada');
+            log('🎯 [EMERGÊNCIA] ✅ EnhancedSuggestionEngine encontrado - usando versão avançada');
             
             class HybridSuggestionSystem {
                 constructor() {
                     this.enhancedEngine = new window.EnhancedSuggestionEngine();
                     this.emergencyEngine = new SuggestionSystemEmergency();
-                    console.log('🎯 [HÍBRIDO] Sistema híbrido inicializado');
+                    log('🎯 [HÍBRIDO] Sistema híbrido inicializado');
                 }
                 
                 process(analysis, referenceData) {
-                    console.log('🎯 [HÍBRIDO] Processando com engine avançado...');
+                    log('🎯 [HÍBRIDO] Processando com engine avançado...');
                     
                     try {
                         // Tentar usar o engine avançado primeiro
                         const result = this.enhancedEngine.processAnalysis(analysis, referenceData);
                         
-                        console.log('🎯 [HÍBRIDO] Engine avançado resultado:', {
+                        log('🎯 [HÍBRIDO] Engine avançado resultado:', {
                             suggestions: result.suggestions?.length || 0,
                             hasAuditLog: !!result.auditLog,
                             processingTime: result.enhancedMetrics?.processingTimeMs
@@ -144,16 +147,16 @@
                         
                         // Se obteve sugestões, usar resultado avançado
                         if (result.suggestions && result.suggestions.length > 0) {
-                            console.log('✅ [HÍBRIDO] Usando resultado do engine avançado');
+                            log('✅ [HÍBRIDO] Usando resultado do engine avançado');
                             return result;
                         } else {
-                            console.warn('⚠️ [HÍBRIDO] Engine avançado não gerou sugestões - usando fallback');
+                            warn('⚠️ [HÍBRIDO] Engine avançado não gerou sugestões - usando fallback');
                             return this.emergencyEngine.process(analysis, referenceData);
                         }
                         
                     } catch (error) {
-                        console.error('❌ [HÍBRIDO] Erro no engine avançado:', error);
-                        console.log('🔄 [HÍBRIDO] Usando sistema de emergência...');
+                        error('❌ [HÍBRIDO] Erro no engine avançado:', error);
+                        log('🔄 [HÍBRIDO] Usando sistema de emergência...');
                         return this.emergencyEngine.process(analysis, referenceData);
                     }
                 }
@@ -162,15 +165,15 @@
             window.suggestionSystem = new HybridSuggestionSystem();
             
         } else {
-            console.log('🚨 [EMERGÊNCIA] EnhancedSuggestionEngine não encontrado - usando sistema simples');
+            log('🚨 [EMERGÊNCIA] EnhancedSuggestionEngine não encontrado - usando sistema simples');
             window.suggestionSystem = new SuggestionSystemEmergency();
         }
         
         window.SuggestionSystemUnified = SuggestionSystemEmergency;
         window.USE_UNIFIED_SUGGESTIONS = true;
-        console.log('🚨 [EMERGÊNCIA] Sistema disponível globalmente');
-        console.log('✅ window.suggestionSystem:', typeof window.suggestionSystem);
-        console.log('✅ window.suggestionSystem.process:', typeof window.suggestionSystem.process);
+        log('🚨 [EMERGÊNCIA] Sistema disponível globalmente');
+        log('✅ window.suggestionSystem:', typeof window.suggestionSystem);
+        log('✅ window.suggestionSystem.process:', typeof window.suggestionSystem.process);
     }
     
 })();

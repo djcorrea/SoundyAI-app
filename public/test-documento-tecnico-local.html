@@ -44,6 +44,12 @@
             font-size: 0.9rem;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste Rápido - Documento Técnico</h1>
@@ -166,7 +172,7 @@ Primeiras 100 chars: "${text.substring(0, 100)}..."</pre>
                 <pre>Exemplo de guard em scripts da index:
 
 if (window.IS_DOCUMENTATION_PAGE) {
-    console.log('📄 Página de documentação - abortando inicialização');
+    log('📄 Página de documentação - abortando inicialização');
     return;
 }
 

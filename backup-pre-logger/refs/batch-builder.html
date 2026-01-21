@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROD.AI • Batch Builder de Referências</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;background:#0b1220;color:#eaf1ff;margin:0}
+    header{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06);background:#0e1526;position:sticky;top:0;z-index:10}
+    h1{font-size:16px;margin:0;color:#9fc2ff;letter-spacing:.2px}
+    main{padding:18px;max-width:1000px;margin:0 auto}
+    .card{background:#0d1324;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;margin-bottom:14px}
+    label{display:block;margin:6px 0 6px 0;color:#bcd4ff;font-weight:600;font-size:13px}
+    input[type=text]{width:260px;padding:8px 10px;border-radius:8px;border:1px solid #213257;background:#101a31;color:#eaf1ff}
+    button{background:#1a5fff;color:white;border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .muted{opacity:.75}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .logs{height:160px;overflow:auto;background:#0a1020;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px;font-size:12px;white-space:pre-wrap}
+    textarea{width:100%;min-height:160px;background:#0a1020;border:1px solid rgba(255,255,255,.06);border-radius:8px;color:#eaf1ff;padding:10px}
+    .kdb{display:inline-block;padding:2px 6px;border-radius:6px;background:#0c1a33;border:1px solid #16305e;color:#a9c7ff}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0f1e39;border:1px solid #1d3b72;color:#a9c7ff;font-size:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧪 PROD.AI • Batch Builder de Referências (sem alterar a interface)</h1>
+  </header>
+  <main>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="genreKey">Gênero (key)</label>
+          <input id="genreKey" type="text" placeholder="ex.: funk_mandela" />
+        </div>
+        <div class="muted">Pasta alvo: <span class="mono">/refs/&lt;gênero&gt;/samples/</span></div>
+      </div>
+      <div class="row" style="margin-top:10px;gap:8px">
+        <button id="runBtn">Analisar pasta e gerar targets</button>
+        <span class="pill" id="status">Pronto</span>
+        <button id="tryFilesBtn" style="background:#324054">Selecionar arquivos manualmente (fallback)</button>
+        <input type="file" id="fileInput" accept="audio/*" multiple style="display:none" />
+      </div>
+      <div style="margin-top:10px" class="muted">Dica: basta colocar os áudios em <span class="mono">refs/&lt;gênero&gt;/samples/</span> e clicar em "Analisar".</div>
+    </div>
+
+    <div class="card">
+      <div style="margin-bottom:6px;font-weight:700;color:#cfe1ff">Logs</div>
+      <div id="logs" class="logs"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="flex:1 1 360px">
+          <div style="margin-bottom:6px;font-weight:700;color:#cfe1ff">refs/out/&lt;gênero&gt;.json</div>
+          <textarea id="outJson" spellcheck="false"></textarea>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="copyJsonBtn">Copiar</button>
+            <button id="downloadJsonBtn" style="background:#13573a">Baixar arquivo</button>
+          </div>
+        </div>
+        <div style="flex:1 1 360px">
+          <div style="margin-bottom:6px;font-weight:700;color:#cfe1ff">Snippet p/ public/refs/embedded-refs.js</div>
+          <textarea id="outEmbed" spellcheck="false"></textarea>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="copyEmbedBtn">Copiar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;color:#cfe1ff;margin-bottom:6px">Checklist de uso</div>
+      <ol style="margin:6px 0 0 18px;line-height:1.5">
+        <li>Crie a pasta <span class="mono">refs/&lt;gênero&gt;/samples/</span> e coloque 12–20 faixas.</li>
+        <li>Digite a key do gênero acima e clique em <b>Analisar</b>.</li>
+        <li>Copie/baixe o JSON de referência e o snippet para embedded-refs.</li>
+        <li>Atualize <span class="mono">refs/out/&lt;gênero&gt;.json</span> e <span class="mono">public/refs/embedded-refs.js</span>.</li>
+        <li>Valide em <span class="mono">/public/test-complete-system.html?refgenre=&lt;gênero&gt;</span>.</li>
+      </ol>
+    </div>
+  </main>
+
+  <!-- Carrega o mesmo engine do sistema -->
+  <script>
+    // Flags para preferir métricas avançadas
+    window.DEBUG_ANALYZER = false;
+    window.PREFER_ADVANCED_METRICS = true;
+    window.USE_ADVANCED_METRICS = true;
+    window.USE_ADVANCED_LOUDNESS = true;
+    window.USE_ADVANCED_TRUEPEAK = true;
+    window.USE_ADVANCED_SPECTRUM = true;
+    // Habilitar cálculo de bandas (engine depende da existência de PROD_AI_REF_DATA)
+    window.PROD_AI_REF_DATA = { bands: { sub:{}, low_bass:{}, upper_bass:{}, low_mid:{}, mid:{}, high_mid:{}, brilho:{}, presenca:{} } };
+  </script>
+  <script src="../audio-analyzer.js?v=batch" defer></script>
+
+  <script>
+  // Utilidades simples
+  const $ = (id) => document.getElementById(id);
+  const log = (msg) => { const el = $('logs'); el.textContent += (msg + '\n'); el.scrollTop = el.scrollHeight; };
+  const setStatus = (t, color = '#1a5fff') => { const el = $('status'); el.textContent = t; el.style.borderColor = color; el.style.color = '#a9c7ff'; };
+
+  // Estatística robusta
+  function median(arr){ const a = arr.filter(Number.isFinite).slice().sort((x,y)=>x-y); if(!a.length) return null; const m = Math.floor(a.length/2); return a.length%2? a[m] : (a[m-1]+a[m])/2; }
+  function mad(arr){ const m = median(arr); if(m==null) return null; const dev = arr.filter(Number.isFinite).map(v=>Math.abs(v-m)); return median(dev); }
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  function round(v, d=1){ return Number.isFinite(v) ? parseFloat(v.toFixed(d)) : null; }
+
+  function makeFileFromBlob(blob, name){ return new File([blob], name, { type: blob.type || 'audio/mpeg' }); }
+
+  async function listSampleFiles(genre){
+    const url = `/refs/${genre}/samples/`;
+    log(`🔎 Listando: ${url}`);
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Não foi possível listar a pasta (${res.status})`);
+    const html = await res.text();
+    // Parse simples de diretório do python http.server
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const links = Array.from(doc.querySelectorAll('a'))
+      .map(a => a.getAttribute('href'))
+      .filter(href => href && /\.(wav|mp3|flac|m4a|ogg)$/i.test(href))
+      .map(href => href.startsWith('http') ? href : url + href.replace(/^\.\//,''));
+    return links;
+  }
+
+  async function fetchAsFile(url){
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Falha ao baixar: ${url} (${res.status})`);
+    const blob = await res.blob();
+    const name = url.split('/').pop() || 'audio';
+    return makeFileFromBlob(blob, name);
+  }
+
+  function extractMetrics(analysis){
+    const td = analysis?.technicalData || {};
+    const g = (k) => (td.bandEnergies?.[k]?.rms_db ?? null);
+    const lufs = Number.isFinite(td.lufsIntegrated) ? td.lufsIntegrated : td.rms;
+    const tp = Number.isFinite(td.truePeakDbtp) ? td.truePeakDbtp : td.peak;
+    return {
+      lufs, truePeak: tp, dr: td.dynamicRange ?? null, lra: td.lra ?? null, stereo: td.stereoCorrelation ?? null,
+      bands: {
+        sub: g('sub'), low_bass: g('low_bass'), upper_bass: g('upper_bass'), low_mid: g('low_mid'),
+        mid: g('mid'), high_mid: g('high_mid'), brilho: g('brilho'), presenca: g('presenca')
+      }
+    };
+  }
+
+  function computeTargets(all){
+    const N = all.length;
+    const arr = (sel) => all.map(sel).filter(Number.isFinite);
+    // Targets por mediana
+    const lufsTarget = median(arr(x=>x.lufs));
+    const tpTarget = median(arr(x=>x.truePeak));
+    const drTarget = median(arr(x=>x.dr));
+    const lraTarget = median(arr(x=>x.lra));
+    const stTarget = median(arr(x=>x.stereo));
+    // Tols por MAD ajustado (MAD * 1.4826)
+    const adj = 1.4826;
+    const tolLufs = (mad(arr(x=>x.lufs)) ?? 0.5) * adj;
+    const tolTP = (mad(arr(x=>x.truePeak)) ?? 1.0) * adj;
+    const tolDR = (mad(arr(x=>x.dr)) ?? 1.0) * adj;
+    const tolLRA = (mad(arr(x=>x.lra)) ?? 2.0) * adj;
+    const tolStereo = (mad(arr(x=>x.stereo)) ?? 0.05) * adj;
+    // Clamps
+    const cTol = {
+      lufs: clamp(tolLufs, 0.4, 2.0),
+      tp: clamp(tolTP, 0.5, 2.0),
+      dr: clamp(tolDR, 0.5, 3.0),
+      lra: clamp(tolLRA, 1.0, 5.0),
+      stereo: clamp(tolStereo, 0.02, 0.20)
+    };
+    // Bandas
+    const bands = {};
+    const bandKeys = ['sub','low_bass','upper_bass','low_mid','mid','high_mid','brilho','presenca'];
+    for (const b of bandKeys){
+      const vals = all.map(x=> x.bands?.[b]).filter(Number.isFinite);
+      const t = median(vals);
+      const tol = (mad(vals) ?? 1.2) * adj; // base tolerância banda ligeiramente maior
+      bands[b] = { target_db: round(t,1), tol_db: round(clamp(tol, 0.8, 4.0),2) };
+    }
+    return {
+      lufs_target: round(lufsTarget,1), tol_lufs: round(cTol.lufs,2),
+      true_peak_target: round(tpTarget,1), tol_true_peak: round(cTol.tp,2),
+      dr_target: round(drTarget,1), tol_dr: round(cTol.dr,2),
+      lra_target: round(lraTarget,1), tol_lra: round(cTol.lra,2),
+      stereo_target: round(stTarget,2), tol_stereo: round(cTol.stereo,2),
+      bands
+    };
+  }
+
+  async function analyzeGenre(genre, fileUrls){
+    const results = [];
+    // Garante analyzer
+    if (!window.audioAnalyzer) {
+      // aguarda script defer
+      for (let i=0;i<50 && !window.audioAnalyzer;i++) await new Promise(r=>setTimeout(r,100));
+    }
+    if (!window.audioAnalyzer) throw new Error('audioAnalyzer não carregado');
+    // Força flags robustas e bandas ativas
+    window.PREFER_ADVANCED_METRICS = true;
+    window.USE_ADVANCED_METRICS = true;
+    window.USE_ADVANCED_LOUDNESS = true;
+    window.USE_ADVANCED_TRUEPEAK = true;
+    window.USE_ADVANCED_SPECTRUM = true;
+    window.PROD_AI_REF_DATA = window.PROD_AI_REF_DATA || { bands: { sub:{}, low_bass:{}, upper_bass:{}, low_mid:{}, mid:{}, high_mid:{}, brilho:{}, presenca:{} } };
+    window.PROD_AI_REF_GENRE = genre;
+
+    let idx = 0;
+    for (const url of fileUrls){
+      idx++;
+      try {
+        setStatus(`Baixando ${idx}/${fileUrls.length}`);
+        log(`⬇️  ${url}`);
+        const file = await fetchAsFile(url);
+        setStatus(`Analisando ${idx}/${fileUrls.length}`);
+        const analysis = await window.audioAnalyzer.analyzeAudioFile(file);
+        const m = extractMetrics(analysis);
+        results.push(m);
+        log(`✅ ${file.name} | LUFS ${m.lufs?.toFixed?.(1)} | DR ${m.dr?.toFixed?.(1)} | TP ${m.truePeak?.toFixed?.(1)}`);
+      } catch(e){
+        log(`⚠️ Falha em ${url}: ${e.message||e}`);
+      }
+    }
+    return results;
+  }
+
+  function buildOutputs(genre, results){
+    const base = computeTargets(results);
+    const nowIso = new Date().toISOString();
+    const json = {
+      [genre]: {
+        version: '1.0',
+        generated_at: nowIso,
+        num_tracks: results.length,
+        ...base
+      }
+    };
+    const embed = `window.__EMBEDDED_REFS__ = window.__EMBEDDED_REFS__ || {};\n`+
+      `window.__EMBEDDED_REFS__.byGenre = window.__EMBEDDED_REFS__.byGenre || {};\n`+
+      `window.__EMBEDDED_REFS__.byGenre['${genre}'] = ${JSON.stringify(base, null, 2)};`;
+    return { jsonText: JSON.stringify(json, null, 2), embedText: embed };
+  }
+
+  function download(filename, text){
+    const blob = new Blob([text], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+
+  async function runFromFolder(){
+    const genre = $('genreKey').value.trim();
+    if (!genre) { alert('Informe a key do gênero, ex.: funk_mandela'); return; }
+    $('outJson').value = '';
+    $('outEmbed').value = '';
+    setStatus('Listando...');
+    log(`Iniciando batch para gênero: ${genre}`);
+    try {
+      const files = await listSampleFiles(genre);
+      if (!files.length){
+        log('Nenhum arquivo encontrado na pasta. Use o fallback de seleção manual.');
+        setStatus('Sem arquivos', '#8a2a2a');
+        return;
+      }
+      const res = await analyzeGenre(genre, files);
+      if (res.length < 6) log('Aviso: menos de 6 faixas analisadas — tolerâncias podem ficar instáveis.');
+      const { jsonText, embedText } = buildOutputs(genre, res);
+      $('outJson').value = jsonText;
+      $('outEmbed').value = embedText;
+      setStatus('Concluído ✅', '#13573a');
+      log('✅ Concluído. Copie/baixe os artefatos acima.');
+    } catch (e){
+      log('Erro: ' + (e.message||e));
+      setStatus('Erro', '#8a2a2a');
+    }
+  }
+
+  async function runFromFilesList(fileList){
+    const genre = $('genreKey').value.trim();
+    if (!genre) { alert('Informe a key do gênero'); return; }
+    const urls = [];
+    // Converter FileList em object URLs para fetch como blob novamente (uniformizar pipeline)
+    for (const f of fileList){ urls.push(URL.createObjectURL(f)); }
+    const res = await analyzeGenre(genre, urls);
+    const { jsonText, embedText } = buildOutputs(genre, res);
+    $('outJson').value = jsonText;
+    $('outEmbed').value = embedText;
+    setStatus('Concluído ✅', '#13573a');
+    // Cleanup object URLs
+    setTimeout(()=> urls.forEach(u=>URL.revokeObjectURL(u)), 1000);
+  }
+
+  // UI wiring
+  window.addEventListener('DOMContentLoaded', () => {
+    $('runBtn').addEventListener('click', runFromFolder);
+    $('tryFilesBtn').addEventListener('click', ()=> $('fileInput').click());
+    $('fileInput').addEventListener('change', (e)=> {
+      const files = Array.from(e.target.files||[]);
+      if (!files.length) return;
+      log(`Selecionados ${files.length} arquivo(s) manualmente.`);
+      runFromFilesList(files);
+    });
+    $('copyJsonBtn').addEventListener('click', async ()=> { try { await navigator.clipboard.writeText($('outJson').value); setStatus('JSON copiado'); } catch{} });
+    $('copyEmbedBtn').addEventListener('click', async ()=> { try { await navigator.clipboard.writeText($('outEmbed').value); setStatus('Snippet copiado'); } catch{} });
+    $('downloadJsonBtn').addEventListener('click', ()=> {
+      const genre = $('genreKey').value.trim() || 'genero';
+      const txt = $('outJson').value || '{}';
+      download(`${genre}.json`, txt);
+    });
+  });
+  </script>
+</body>
+</html>

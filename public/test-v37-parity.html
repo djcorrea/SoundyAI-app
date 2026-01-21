@@ -84,6 +84,12 @@
             margin-top: 20px;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste V3.7 - Paridade CEILING/BANDPASS</h1>
@@ -247,9 +253,9 @@
             resultsDiv.innerHTML = html;
             
             // Log no console
-            console.log('═══════════════════════════════════════════════════════════');
-            console.log(`🧪 RESULTADO V3.7: ${passed}/${testCases.length} testes passaram`);
-            console.log('═══════════════════════════════════════════════════════════');
+            log('═══════════════════════════════════════════════════════════');
+            log(`🧪 RESULTADO V3.7: ${passed}/${testCases.length} testes passaram`);
+            log('═══════════════════════════════════════════════════════════');
         }
         
         // Executar automaticamente ao carregar

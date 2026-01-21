@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 VALIDADOR DE PRECISÃO DOS SUB-SCORES
 // Verifica se os 4 sub-scores (dynamics, technical, loudness, frequency) são 100% precisos e fieis às análises
 
@@ -13,7 +16,7 @@ class SubScorePrecisionValidator {
      * @returns {Object} Relatório de validação completo
      */
     validateSubScorePrecision(technicalData, referenceData = null) {
-        console.log('🎯 [PRECISION] Iniciando validação de precisão dos sub-scores');
+        log('🎯 [PRECISION] Iniciando validação de precisão dos sub-scores');
         
         // 1. Calcular scores usando método Fallback (current)
         const fallbackScores = this.calculateFallbackScores(technicalData, referenceData);
@@ -36,7 +39,7 @@ class SubScorePrecisionValidator {
             technicalData
         );
         
-        console.log('✅ [PRECISION] Validação concluída:', report);
+        log('✅ [PRECISION] Validação concluída:', report);
         return report;
     }
 

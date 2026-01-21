@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /* ============ VERIFICAÇÃO DE MUDANÇA DE PLANO (PLUS PERSONALIZAÇÃO) ============ */
 // Verificar se o usuário mudou de plano durante a sessão
 let currentUserPlan = null;
@@ -35,11 +38,11 @@ async function checkUserPlanStatus() {
             } else if (typeof userData.planExpiresAt === 'string' || typeof userData.planExpiresAt === 'number') {
                 expirationDate = new Date(userData.planExpiresAt);
             } else {
-                console.warn('⚠️ Formato de planExpiresAt não reconhecido:', userData.planExpiresAt);
+                warn('⚠️ Formato de planExpiresAt não reconhecido:', userData.planExpiresAt);
                 return;
             }
             
-            console.log('📅 Verificando expiração do plano:', {
+            log('📅 Verificando expiração do plano:', {
                 atual: currentDate.toISOString(),
                 expira: expirationDate.toISOString(),
                 expirado: expirationDate <= currentDate
@@ -47,8 +50,8 @@ async function checkUserPlanStatus() {
             
             // Se o plano já expirou, forçar atualização da página
             if (expirationDate <= currentDate) {
-                console.log('⏰ PLANO PLUS EXPIRADO DETECTADO NO FRONTEND!');
-                console.log('🔄 Forçando reload para atualizar status...');
+                log('⏰ PLANO PLUS EXPIRADO DETECTADO NO FRONTEND!');
+                log('🔄 Forçando reload para atualizar status...');
                 
                 // Mostrar mensagem ao usuário antes do reload
                 if (typeof addMessageToChat === 'function') {
@@ -92,11 +95,11 @@ async function checkUserPlanStatus() {
                 }
             }
             
-            console.log('🔄 Plano do usuário atualizado:', previousPlan, '->', currentUserPlan);
+            log('🔄 Plano do usuário atualizado:', previousPlan, '->', currentUserPlan);
         }
     } catch (error) {
         // Log silencioso - apenas registrar sem causar alarme
-        // console.log('⚠️ Plan monitor aguardando inicialização completa');
+        // log('⚠️ Plan monitor aguardando inicialização completa');
     }
 }
 
@@ -106,12 +109,12 @@ function startPlanMonitoring() {
     const isMainPage = document.querySelector('.hero') || document.querySelector('#startSendBtn') || window.location.pathname.includes('index.html');
     
     if (isMainPage) {
-        console.log('🔄 Iniciando monitoramento de plano otimizado...');
+        log('🔄 Iniciando monitoramento de plano otimizado...');
         // Otimizado: De 30s para 2 minutos - muito menos impacto
         setInterval(checkUserPlanStatus, 120000); // 2 minutos
         setTimeout(checkUserPlanStatus, 2000); // Verificação inicial
     } else {
-        console.log('📄 Página secundária - pulando monitoramento de plano');
+        log('📄 Página secundária - pulando monitoramento de plano');
     }
 }
 

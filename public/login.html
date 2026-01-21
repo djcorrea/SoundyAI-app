@@ -440,6 +440,12 @@
       }
     }
   </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 
 <body>
@@ -580,7 +586,7 @@
             window.resetPassword();
           } else {
             showStatusMessage('⏳ Aguardando sistema carregar...', 'error', 3000);
-            console.log('⚠️ Função resetPassword ainda não carregada');
+            log('⚠️ Função resetPassword ainda não carregada');
           }
         });
       }
@@ -638,12 +644,12 @@
               spacing: isLowPerformance ? 30.00 : (isDesktop ? 20.00 : 28.00),
               showDots: true
             });
-            console.log('Vanta.js Network background initialized');
+            log('Vanta.js Network background initialized');
           } else {
-            console.log('Vanta.js libraries not available');
+            log('Vanta.js libraries not available');
           }
         } catch (error) {
-          console.log('Vanta.js initialization error:', error);
+          log('Vanta.js initialization error:', error);
         }
       }
       

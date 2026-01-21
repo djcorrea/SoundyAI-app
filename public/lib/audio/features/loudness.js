@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔊 LOUDNESS & LRA - ITU-R BS.1770-4 / EBU R128
 // Implementação completa do padrão LUFS com K-weighting e gating
 
@@ -107,7 +110,7 @@ class LUFSMeter {
     this.kWeightingL = new KWeightingFilter();
     this.kWeightingR = new KWeightingFilter();
     
-    console.log(`📊 LUFS Meter configurado: block=${this.blockSize}, hop=${this.hopSize}, ST=${this.shortTermSize}`);
+    log(`📊 LUFS Meter configurado: block=${this.blockSize}, hop=${this.hopSize}, ST=${this.shortTermSize}`);
   }
 
   /**
@@ -117,7 +120,7 @@ class LUFSMeter {
    * @returns {Object} Métricas LUFS
    */
   calculateLUFS(leftChannel, rightChannel) {
-    console.log('🎛️ Calculando LUFS integrado...');
+    log('🎛️ Calculando LUFS integrado...');
     const startTime = Date.now();
     
     // K-weighting nos canais
@@ -150,7 +153,7 @@ class LUFSMeter {
     
     const processingTime = Date.now() - startTime;
     
-    console.log(`✅ LUFS calculado em ${processingTime}ms:`, {
+    log(`✅ LUFS calculado em ${processingTime}ms:`, {
       integrated: `${integratedLoudness.toFixed(1)} LUFS`,
       lra: `${lra.toFixed(1)} LU`,
       gatedBlocks: `${gatedBlocks}/${blockLoudness.length}`

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Modal Ajustado - Tamanho e Título</title>
+    <link rel="stylesheet" href="audio-analyzer.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0c111b 0%, #1a1f2e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #249dff, #1976d2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(36, 157, 255, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .comparison-item {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .comparison-item h4 {
+            color: #4fc3f7;
+            margin-top: 0;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .status.success { background: rgba(0, 255, 0, 0.2); color: #00ff00; }
+        .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; }
+        .status.info { background: rgba(0, 150, 255, 0.2); color: #4fc3f7; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Teste dos Ajustes do Modal</h1>
+        <p>Esta página testa os ajustes de tamanho, título e ícone do modal de seleção de modo.</p>
+        
+        <div class="test-section">
+            <h2>🧪 Teste Visual</h2>
+            
+            <button class="test-btn" onclick="openTestModal()">
+                🎧 Abrir Modal Ajustado
+            </button>
+            
+            <button class="test-btn" onclick="toggleReferenceMode()">
+                🔄 Mostrar/Ocultar Modo Referência
+            </button>
+            
+            <button class="test-btn" onclick="testResponsiveness()">
+                📱 Testar Responsividade
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h2>✅ Checklist de Verificação</h2>
+            <div class="comparison">
+                <div class="comparison-item">
+                    <h4>ANTES dos Ajustes</h4>
+                    <ul style="text-align: left;">
+                        <li>Modal com max-height 70vh</li>
+                        <li>Possível scroll interno</li>
+                        <li>Ícone 🎵 quebrado no título</li>
+                        <li>Título com fonte menor</li>
+                        <li>Sem efeito glitch</li>
+                    </ul>
+                </div>
+                <div class="comparison-item">
+                    <h4>DEPOIS dos Ajustes</h4>
+                    <ul style="text-align: left;">
+                        <li>Modal com max-height 90vh</li>
+                        <li>Overflow hidden (sem scroll)</li>
+                        <li>Ícone 🎧 perfeito e alinhado</li>
+                        <li>Título maior (2.4rem)</li>
+                        <li>Efeito glitch sutil ativo</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Pontos de Verificação</h2>
+            <ol style="text-align: left;">
+                <li><strong>Tamanho:</strong> Modal ocupa até 90% da altura sem scroll</li>
+                <li><strong>Título:</strong> Fonte Orbitron, tamanho 2.4rem, efeito glitch</li>
+                <li><strong>Ícone:</strong> 🎧 bem alinhado e sem quebras</li>
+                <li><strong>Layout:</strong> Conteúdo centralizado verticalmente</li>
+                <li><strong>Responsivo:</strong> Ajusta bem em mobile</li>
+                <li><strong>Funcional:</strong> Todos os cliques funcionam</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Status dos Componentes</h2>
+            <div id="statusContainer">
+                <span class="status info">Verificando...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de teste -->
+    <div id="analysisModeModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content mode-selection-modal">
+            <div class="audio-modal-header">
+                <h3 class="glitch" data-text="COMO DESEJA ANALISAR SUA MÚSICA?">
+                    <span class="icon">🎧</span>
+                    COMO DESEJA ANALISAR SUA MÚSICA?
+                </h3>
+                <button class="audio-modal-close" onclick="closeTestModal()">&times;</button>
+            </div>
+            
+            <div class="mode-selection-container">
+                <div class="mode-selection-description">
+                    <p>Escolha o tipo de análise que melhor se adequa às suas necessidades:</p>
+                </div>
+                
+                <div class="mode-selection-options">
+                    <!-- Opção: Análise por Gênero (atual) -->
+                    <button class="mode-option-btn" id="genreModeBtn" onclick="testGenreMode()">
+                        <div class="mode-option-left">
+                            <div class="mode-option-icon">🎧</div>
+                            <div class="mode-option-content">
+                                <h4>Por Gênero Musical</h4>
+                                <p>Compare sua música com padrões profissionais do gênero selecionado</p>
+                                <span class="mode-option-badge">Recomendado</span>
+                            </div>
+                        </div>
+                        <div class="mode-option-right">→</div>
+                    </button>
+                    
+                    <!-- Opção: Análise por Referência (novo) -->
+                    <button class="mode-option-btn" id="referenceModeBtn" onclick="testReferenceMode()" 
+                            style="display: none;">
+                        <div class="mode-option-left">
+                            <div class="mode-option-icon">🎯</div>
+                            <div class="mode-option-content">
+                                <h4>Por Música de Referência</h4>
+                                <p>Compare sua música diretamente com uma faixa de referência específica</p>
+                                <span class="mode-option-badge new">Novo</span>
+                            </div>
+                        </div>
+                        <div class="mode-option-right">→</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'flex';
+            console.log('✅ Modal aberto para teste de ajustes');
+            
+            // Verificar se tem scroll
+            const modalContent = modal.querySelector('.mode-selection-modal');
+            const hasScroll = modalContent.scrollHeight > modalContent.clientHeight;
+            
+            console.log('📏 Scroll detectado:', hasScroll ? 'SIM (precisa ajustar)' : 'NÃO (correto)');
+            updateStatus();
+        }
+
+        function closeTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'none';
+            console.log('❌ Modal fechado');
+        }
+
+        function toggleReferenceMode() {
+            const referenceBtn = document.getElementById('referenceModeBtn');
+            if (referenceBtn.style.display === 'none') {
+                referenceBtn.style.display = 'block';
+                console.log('👁️ Modo Referência visível');
+            } else {
+                referenceBtn.style.display = 'none';
+                console.log('🙈 Modo Referência oculto');
+            }
+        }
+
+        function testResponsiveness() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'flex';
+            
+            // Simular diferentes tamanhos
+            const sizes = [
+                { width: '768px', label: 'Tablet' },
+                { width: '480px', label: 'Mobile' },
+                { width: '320px', label: 'Mobile Pequeno' },
+                { width: '100%', label: 'Desktop' }
+            ];
+            
+            let currentSize = 0;
+            const interval = setInterval(() => {
+                if (currentSize < sizes.length) {
+                    const size = sizes[currentSize];
+                    document.body.style.width = size.width;
+                    console.log(`📱 Testando: ${size.label} (${size.width})`);
+                    currentSize++;
+                } else {
+                    document.body.style.width = '100%';
+                    clearInterval(interval);
+                    console.log('✅ Teste de responsividade concluído');
+                }
+            }, 2000);
+        }
+
+        function testGenreMode() {
+            alert('🎧 Modo Gênero Musical selecionado!\n\nTeste funcionando corretamente.');
+            closeTestModal();
+        }
+
+        function testReferenceMode() {
+            alert('🎯 Modo Referência selecionado!\n\nTeste funcionando corretamente.');
+            closeTestModal();
+        }
+
+        function updateStatus() {
+            const statusContainer = document.getElementById('statusContainer');
+            const modal = document.getElementById('analysisModeModal');
+            const statuses = [];
+
+            // Verificar se modal existe
+            if (modal) {
+                statuses.push('<span class="status success">Modal HTML ✓</span>');
+            } else {
+                statuses.push('<span class="status error">Modal HTML ✗</span>');
+            }
+
+            // Verificar estilo do título
+            const title = modal?.querySelector('h3.glitch');
+            if (title) {
+                statuses.push('<span class="status success">Título Glitch ✓</span>');
+            } else {
+                statuses.push('<span class="status error">Título Glitch ✗</span>');
+            }
+
+            // Verificar ícone
+            const icon = modal?.querySelector('.icon');
+            if (icon) {
+                statuses.push('<span class="status success">Ícone Separado ✓</span>');
+            } else {
+                statuses.push('<span class="status error">Ícone Separado ✗</span>');
+            }
+
+            // Verificar overflow
+            const modalContent = modal?.querySelector('.mode-selection-modal');
+            if (modalContent) {
+                const style = getComputedStyle(modalContent);
+                if (style.overflowY === 'hidden') {
+                    statuses.push('<span class="status success">Overflow Hidden ✓</span>');
+                } else {
+                    statuses.push('<span class="status error">Overflow Hidden ✗</span>');
+                }
+            }
+
+            statusContainer.innerHTML = statuses.join(' ');
+        }
+
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeTestModal();
+            }
+        });
+
+        // Fechar modal clicando fora
+        document.getElementById('analysisModeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTestModal();
+            }
+        });
+
+        // Atualizar status quando carregar
+        setTimeout(updateStatus, 500);
+
+        console.log('🧪 Página de teste dos ajustes carregada!');
+    </script>
+</body>
+</html>

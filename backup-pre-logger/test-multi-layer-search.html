@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Busca Multi-Camadas Completa</title>
+</head>
+<body>
+    <h1>🧪 Teste - Busca em Todas as Camadas de Metadata</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>🔍 Ordem Completa de Busca Implementada:</h3>
+        <ol>
+            <li>🎯 <code>s.message</code> (resposta direta da IA)</li>
+            <li>🔍 <code>meta.message</code> (metadata.message)</li>
+            <li>⚡ <code>meta.original.message</code> (metadata.original.message)</li>
+            <li>✨ <code>meta.enriched.message</code> (metadata.enriched.message)</li>
+            <li>🏗️ <code>content.original.message</code> (metadata.content.original.message)</li>
+            <li>🎨 <code>content.enriched.message</code> (metadata.content.enriched.message)</li>
+            <li>📋 <code>original.message</code> (sugestão original)</li>
+            <li>🔄 <code>original.original</code> (campo aninhado)</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste de Compatibilidade:</h4>
+        <button onclick="testBackendUltraV2()">🚀 Backend Ultra V2</button>
+        <button onclick="testMetadataOriginal()">⚡ metadata.original</button>
+        <button onclick="testMetadataEnriched()">✨ metadata.enriched</button>
+        <button onclick="testContentLayers()">🏗️ content layers</button>
+        <button onclick="testAllLayers()">🌊 Todas as camadas</button>
+        <button onclick="testTruePeakPreservation()">🎯 True Peak completo</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge implementada com busca em múltiplas camadas
+        function testMergeMultiLayers(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+                const content = meta.content || {};
+                
+                // Busca mensagens em múltiplas camadas
+                const originalMsg =
+                    s.message ||
+                    meta.message ||
+                    (meta.original && meta.original.message) ||
+                    (meta.enriched && meta.enriched.message) ||
+                    (content.original && content.original.message) ||
+                    (content.enriched && content.enriched.message) ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                const originalAction =
+                    s.action ||
+                    meta.action ||
+                    (meta.original && meta.original.action) ||
+                    (meta.enriched && meta.enriched.action) ||
+                    (content.original && content.original.action) ||
+                    (content.enriched && content.enriched.action) ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!originalMsg,
+                    messageSource: originalMsg ? "restored" : "fallback",
+                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
+                    action: originalAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        function displayResult(scenarioName, result, expected, foundInLayer) {
+            const div = document.getElementById('result-content');
+            const success = result.message === expected;
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Resultado:</strong> ${success ? '✅ SUCESSO' : '❌ FALHA'}</div>
+                <div><strong>Mensagem obtida:</strong> "${result.message}"</div>
+                <div><strong>Mensagem esperada:</strong> "${expected}"</div>
+                <div><strong>Message Source:</strong> ${result.messageSource}</div>
+                <div><strong>hasOriginalMessage:</strong> ${result.hasOriginalMessage}</div>
+                <div><strong>Encontrado em:</strong> ${foundInLayer}</div>
+                <div><strong>Action:</strong> ${result.action || 'N/A'}</div>
+                <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
+            `;
+            
+            console.log(`🧪 ${scenarioName}:`, {
+                success,
+                message: result.message,
+                action: result.action,
+                messageSource: result.messageSource,
+                hasOriginalMessage: result.hasOriginalMessage,
+                foundInLayer: foundInLayer,
+                fullResult: result
+            });
+        }
+
+        function testBackendUltraV2() {
+            console.log('🚀 Cenário: Backend Ultra V2 - metadata.original.message');
+            const validSuggestions = [{
+                message: "Fallback original",
+                action: "Fallback action"
+            }];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                action: null,
+                metadata: {
+                    original: {
+                        message: "⚡ True Peak requer correção PRIORITÁRIA - Backend Ultra V2",
+                        action: "Aplicar limitador em -1.0 dB",
+                        metric: "true_peak",
+                        value: 0.8
+                    },
+                    processing_type: "mastering",
+                    priority: "critical"
+                }
+            }];
+            
+            const result = testMergeMultiLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA - Backend Ultra V2";
+            
+            displayResult("Backend Ultra V2", result, expected, "metadata.original.message");
+        }
+
+        function testMetadataOriginal() {
+            console.log('⚡ Cenário: metadata.original sem content wrapper');
+            const validSuggestions = [{message: "Fallback"}];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    original: {
+                        message: "⚡ Metadata original direto",
+                        action: "Action from metadata.original"
+                    }
+                }
+            }];
+            
+            const result = testMergeMultiLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ Metadata original direto";
+            
+            displayResult("metadata.original direto", result, expected, "meta.original.message");
+        }
+
+        function testMetadataEnriched() {
+            console.log('✨ Cenário: metadata.enriched message');
+            const validSuggestions = [{message: "Fallback"}];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    original: null,
+                    enriched: {
+                        message: "✨ Enriquecido pela IA em metadata.enriched",
+                        action: "Enhanced action",
+                        confidence: 0.95
+                    }
+                }
+            }];
+            
+            const result = testMergeMultiLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "✨ Enriquecido pela IA em metadata.enriched";
+            
+            displayResult("metadata.enriched", result, expected, "meta.enriched.message");
+        }
+
+        function testContentLayers() {
+            console.log('🏗️ Cenário: content.original e content.enriched');
+            const validSuggestions = [{message: "Fallback"}];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    content: {
+                        original: {
+                            message: "🏗️ Content original layer"
+                        },
+                        enriched: {
+                            message: "Should not be used (original wins)"
+                        }
+                    }
+                }
+            }];
+            
+            const result = testMergeMultiLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "🏗️ Content original layer";
+            
+            displayResult("content layers", result, expected, "content.original.message");
+        }
+
+        function testAllLayers() {
+            console.log('🌊 Cenário: Teste de precedência de todas as camadas');
+            
+            // Teste precedência: s.message deve ganhar
+            let test1 = testMergeMultiLayers([{message: "Fallback"}], [{
+                message: "🎯 Direct s.message (should win)",
+                metadata: {
+                    message: "Should not be used",
+                    original: { message: "Should not be used" }
+                }
+            }])[0];
+            
+            console.log('Test 1 - s.message precedence:', test1.message);
+            
+            // Teste: meta.message quando s.message é null
+            let test2 = testMergeMultiLayers([{message: "Fallback"}], [{
+                message: null,
+                metadata: {
+                    message: "🔍 Meta message (should win)",
+                    original: { message: "Should not be used" }
+                }
+            }])[0];
+            
+            console.log('Test 2 - meta.message precedence:', test2.message);
+            
+            displayResult("Todas as camadas", {
+                message: `Test 1: ${test1.message.includes('Direct') ? 'PASS' : 'FAIL'}, Test 2: ${test2.message.includes('Meta') ? 'PASS' : 'FAIL'}`,
+                messageSource: "multi_test",
+                hasOriginalMessage: true
+            }, "Test 1: PASS, Test 2: PASS", "precedence rules");
+        }
+
+        function testTruePeakPreservation() {
+            console.log('🎯 Cenário: True Peak em diferentes camadas - preservação completa');
+            
+            const scenarios = [
+                {
+                    name: "metadata.original",
+                    data: {
+                        message: null,
+                        metadata: { original: { message: "⚡ True Peak via metadata.original" } }
+                    }
+                },
+                {
+                    name: "metadata.enriched", 
+                    data: {
+                        message: null,
+                        metadata: { enriched: { message: "⚡ True Peak via metadata.enriched" } }
+                    }
+                },
+                {
+                    name: "content.original",
+                    data: {
+                        message: null,
+                        metadata: { content: { original: { message: "⚡ True Peak via content.original" } } }
+                    }
+                }
+            ];
+            
+            const results = scenarios.map(scenario => {
+                const result = testMergeMultiLayers([{message: "Fallback"}], [scenario.data])[0];
+                return {
+                    scenario: scenario.name,
+                    preserved: result.message.includes("True Peak"),
+                    message: result.message
+                };
+            });
+            
+            console.log('🎯 True Peak preservation results:', results);
+            
+            const allPreserved = results.every(r => r.preserved);
+            
+            displayResult("True Peak preservation", {
+                message: `${results.length} cenários testados, preservados: ${results.filter(r => r.preserved).length}`,
+                messageSource: allPreserved ? "all_preserved" : "some_lost",
+                hasOriginalMessage: allPreserved
+            }, `${results.length} cenários testados, preservados: ${results.length}`, "multiple layers");
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de busca multi-camadas iniciado");
+        console.log("🔍 Ordem completa: s.message → meta.message → meta.original.message → meta.enriched.message → content.original.message → content.enriched.message → original.message → original.original");
+        console.log("🎯 Compatibilidade: Backend Ultra V2 + todas as variações de metadata");
+    </script>
+</body>
+</html>

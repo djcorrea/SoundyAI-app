@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔍 ATIVADOR DE AUDITORIA - FASES 1-5 COMPLETAS
 // Este arquivo ativa os logs de auditoria para detectar inconsistências
 
@@ -9,14 +12,14 @@ window.ENABLE_PHASE3_LOGIC_ALIGNMENT = true;
 window.ENABLE_PHASE4_FINAL_AUDIT = true;
 window.ENABLE_PHASE5_CRITICAL_FIXES = true; // NOVO: Fase 5 - Correções Críticas
 
-console.log('🔍 AUDITORIA FASES 1-5 ATIVADAS - Sistema completo de correções críticas habilitado');
+log('🔍 AUDITORIA FASES 1-5 ATIVADAS - Sistema completo de correções críticas habilitado');
 
 // Função helper para consultar resultados da auditoria
 window.getAuditResults = function() {
   const results = window.__AUDIT_RESULTS__ || [];
   
   console.group('📊 RESULTADOS DA AUDITORIA');
-  console.log(`Total de análises auditadas: ${results.length}`);
+  log(`Total de análises auditadas: ${results.length}`);
   
   const allIssues = results.flatMap(r => r.issues);
   const allWarnings = results.flatMap(r => r.warnings);
@@ -24,7 +27,7 @@ window.getAuditResults = function() {
   if (allIssues.length > 0) {
     console.group('🚨 PROBLEMAS CRÍTICOS ENCONTRADOS');
     allIssues.forEach(issue => {
-      console.error(`${issue.type}: ${issue.description}`, issue.data);
+      error(`${issue.type}: ${issue.description}`, issue.data);
     });
     console.groupEnd();
   }
@@ -32,13 +35,13 @@ window.getAuditResults = function() {
   if (allWarnings.length > 0) {
     console.group('⚠️ AVISOS ENCONTRADOS');
     allWarnings.forEach(warning => {
-      console.warn(`${warning.type}: ${warning.description}`, warning.data);
+      warn(`${warning.type}: ${warning.description}`, warning.data);
     });
     console.groupEnd();
   }
   
   if (allIssues.length === 0 && allWarnings.length === 0) {
-    console.log('✅ Nenhum problema detectado nas análises');
+    log('✅ Nenhum problema detectado nas análises');
   }
   
   console.groupEnd();
@@ -56,7 +59,7 @@ window.getPhase2Corrections = function() {
   const corrections = window.__PHASE2_CORRECTIONS__ || [];
   
   console.group('🔧 CORREÇÕES FASE 2 APLICADAS');
-  console.log(`Total de análises com correções: ${corrections.length}`);
+  log(`Total de análises com correções: ${corrections.length}`);
   
   const allCorrections = corrections.flatMap(r => r.corrections);
   const correctionTypes = {};
@@ -68,17 +71,17 @@ window.getPhase2Corrections = function() {
   if (allCorrections.length > 0) {
     console.group('📈 TIPOS DE CORREÇÕES');
     Object.entries(correctionTypes).forEach(([type, count]) => {
-      console.log(`${type}: ${count} ocorrências`);
+      log(`${type}: ${count} ocorrências`);
     });
     console.groupEnd();
     
     console.group('📋 DETALHES DAS CORREÇÕES');
     allCorrections.forEach(correction => {
-      console.log(`✅ ${correction.type}: ${correction.description}`);
+      log(`✅ ${correction.type}: ${correction.description}`);
     });
     console.groupEnd();
   } else {
-    console.log('ℹ️ Nenhuma correção aplicada ainda');
+    log('ℹ️ Nenhuma correção aplicada ainda');
   }
   
   console.groupEnd();
@@ -98,7 +101,7 @@ window.clearAuditResults = function() {
   window.__PHASE3_CORRECTIONS__ = [];
   window.__PHASE4_CORRECTIONS__ = [];
   window.__PHASE5_CORRECTIONS__ = []; // NOVO: Fase 5
-  console.log('🗑️ Cache de auditoria e correções (Fases 1-5) limpo');
+  log('🗑️ Cache de auditoria e correções (Fases 1-5) limpo');
 };
 
 // 🎯 NOVO: Função para verificar correções da Fase 3
@@ -106,7 +109,7 @@ window.getPhase3Corrections = function() {
   const corrections = window.__PHASE3_CORRECTIONS__ || [];
   
   console.group('🎯 CORREÇÕES FASE 3 - ALINHAMENTO LÓGICO');
-  console.log(`Total de análises com correções lógicas: ${corrections.length}`);
+  log(`Total de análises com correções lógicas: ${corrections.length}`);
   
   const allCorrections = corrections.flatMap(r => r.corrections);
   const correctionTypes = {};
@@ -118,20 +121,20 @@ window.getPhase3Corrections = function() {
   if (allCorrections.length > 0) {
     console.group('� TIPOS DE CORREÇÕES LÓGICAS');
     Object.entries(correctionTypes).forEach(([type, count]) => {
-      console.log(`${type}: ${count} ocorrências`);
+      log(`${type}: ${count} ocorrências`);
     });
     console.groupEnd();
     
     console.group('�📋 DETALHES DAS CORREÇÕES LÓGICAS');
     allCorrections.forEach(correction => {
-      console.log(`🎯 ${correction.type}: ${correction.description}`);
+      log(`🎯 ${correction.type}: ${correction.description}`);
       if (correction.type === 'PHASE3_ROLLBACK') {
-        console.warn(`    ⚠️ Motivo do rollback: ${correction.reason}`);
+        warn(`    ⚠️ Motivo do rollback: ${correction.reason}`);
       }
     });
     console.groupEnd();
   } else {
-    console.log('ℹ️ Nenhuma correção lógica aplicada ainda');
+    log('ℹ️ Nenhuma correção lógica aplicada ainda');
   }
   
   console.groupEnd();
@@ -148,28 +151,28 @@ window.getPhase3Corrections = function() {
 window.getCompleteAudit = function() {
   console.group('🔍 AUDITORIA COMPLETA - Todas as Fases');
   
-  console.log('📊 FASE 1 - Observação:');
+  log('📊 FASE 1 - Observação:');
   const phase1 = window.getAuditResults();
   
-  console.log('\n🔧 FASE 2 - Correções Baixo Risco:');
+  log('\n🔧 FASE 2 - Correções Baixo Risco:');
   const phase2 = window.getPhase2Corrections();
   
-  console.log('\n🎯 FASE 3 - Alinhamento Lógico:');
+  log('\n🎯 FASE 3 - Alinhamento Lógico:');
   const phase3 = window.getPhase3Corrections();
   
-  console.log('\n🎯 FASE 4 - Auditoria Final Completa:');
+  log('\n🎯 FASE 4 - Auditoria Final Completa:');
   const phase4 = window.getPhase4Corrections();
   
-  console.log('\n🎯 FASE 5 - Correções Críticas Específicas:');
+  log('\n🎯 FASE 5 - Correções Críticas Específicas:');
   const phase5 = window.getPhase5Corrections();
   
-  console.log('\n📈 RESUMO GERAL:');
-  console.log(`Análises auditadas: ${phase1.totalAnalyses}`);
-  console.log(`Problemas críticos: ${phase1.criticalIssues}`);
-  console.log(`Correções Fase 2: ${phase2.totalCorrections}`);
-  console.log(`Correções Fase 3: ${phase3.totalCorrections}`);
-  console.log(`Correções Fase 4: ${phase4.totalCorrections}`);
-  console.log(`Correções Fase 5: ${phase5.totalCorrections}`);
+  log('\n📈 RESUMO GERAL:');
+  log(`Análises auditadas: ${phase1.totalAnalyses}`);
+  log(`Problemas críticos: ${phase1.criticalIssues}`);
+  log(`Correções Fase 2: ${phase2.totalCorrections}`);
+  log(`Correções Fase 3: ${phase3.totalCorrections}`);
+  log(`Correções Fase 4: ${phase4.totalCorrections}`);
+  log(`Correções Fase 5: ${phase5.totalCorrections}`);
   
   console.groupEnd();
   
@@ -181,7 +184,7 @@ window.getPhase4Corrections = function() {
   const corrections = window.__PHASE4_CORRECTIONS__ || [];
   
   console.group('🎯 FASE 4 - AUDITORIA FINAL COMPLETA');
-  console.log(`Total de análises com auditoria final: ${corrections.length}`);
+  log(`Total de análises com auditoria final: ${corrections.length}`);
   
   const allCorrections = corrections.flatMap(r => r.corrections);
   const correctionTypes = {};
@@ -193,27 +196,27 @@ window.getPhase4Corrections = function() {
   if (allCorrections.length > 0) {
     console.group('📈 TIPOS DE CORREÇÕES FINAIS');
     Object.entries(correctionTypes).forEach(([type, count]) => {
-      console.log(`${type}: ${count} ocorrências`);
+      log(`${type}: ${count} ocorrências`);
     });
     console.groupEnd();
     
     console.group('📋 DETALHES DAS CORREÇÕES FINAIS');
     allCorrections.forEach(correction => {
-      console.log(`🎯 ${correction.type}: ${correction.description}`);
+      log(`🎯 ${correction.type}: ${correction.description}`);
     });
     console.groupEnd();
     
     console.group('📊 LUFS UNIFICAÇÃO');
     corrections.slice(-2).forEach((entry, index) => {
       if (entry.lufsValues) {
-        console.log(`Análise ${index + 1}:`);
-        console.log(`  Fontes originais: ${entry.lufsValues.original.length}`);
-        console.log(`  LUFS unificado: ${entry.lufsValues.unified?.toFixed(1) || 'N/A'}`);
+        log(`Análise ${index + 1}:`);
+        log(`  Fontes originais: ${entry.lufsValues.original.length}`);
+        log(`  LUFS unificado: ${entry.lufsValues.unified?.toFixed(1) || 'N/A'}`);
       }
     });
     console.groupEnd();
   } else {
-    console.log('ℹ️ Nenhuma correção final aplicada ainda');
+    log('ℹ️ Nenhuma correção final aplicada ainda');
   }
   
   console.groupEnd();
@@ -226,21 +229,21 @@ window.getPhase4Corrections = function() {
   };
 };
 
-console.log('📋 Comandos disponíveis:');
-console.log('- window.getAuditResults() - Ver resultados da auditoria (Fase 1)');
-console.log('- window.getPhase2Corrections() - Ver correções aplicadas na Fase 2');
-console.log('- window.getPhase3Corrections() - Ver correções aplicadas na Fase 3');
-console.log('- window.getPhase4Corrections() - Ver auditoria final completa na Fase 4');
-console.log('- window.getPhase5Corrections() - Ver correções críticas específicas na Fase 5 (NOVO)');
-console.log('- window.getCompleteAudit() - Ver auditoria completa de todas as fases (atualizado)');
-console.log('- window.clearAuditResults() - Limpar cache de auditoria e correções');
+log('📋 Comandos disponíveis:');
+log('- window.getAuditResults() - Ver resultados da auditoria (Fase 1)');
+log('- window.getPhase2Corrections() - Ver correções aplicadas na Fase 2');
+log('- window.getPhase3Corrections() - Ver correções aplicadas na Fase 3');
+log('- window.getPhase4Corrections() - Ver auditoria final completa na Fase 4');
+log('- window.getPhase5Corrections() - Ver correções críticas específicas na Fase 5 (NOVO)');
+log('- window.getCompleteAudit() - Ver auditoria completa de todas as fases (atualizado)');
+log('- window.clearAuditResults() - Limpar cache de auditoria e correções');
 
 // 🎯 NOVO: Função para verificar correções da Fase 5
 window.getPhase5Corrections = function() {
   const corrections = window.__PHASE5_CORRECTIONS__ || [];
   
   console.group('🎯 FASE 5 - CORREÇÕES CRÍTICAS ESPECÍFICAS');
-  console.log(`Total de análises com correções críticas: ${corrections.length}`);
+  log(`Total de análises com correções críticas: ${corrections.length}`);
   
   const allCorrections = corrections.flatMap(r => r.corrections);
   const correctionTypes = {};
@@ -252,13 +255,13 @@ window.getPhase5Corrections = function() {
   if (allCorrections.length > 0) {
     console.group('📈 TIPOS DE CORREÇÕES CRÍTICAS');
     Object.entries(correctionTypes).forEach(([type, count]) => {
-      console.log(`${type}: ${count} ocorrências`);
+      log(`${type}: ${count} ocorrências`);
     });
     console.groupEnd();
     
     console.group('📋 DETALHES DAS CORREÇÕES CRÍTICAS');
     allCorrections.forEach(correction => {
-      console.log(`🎯 ${correction.type}: ${correction.description}`);
+      log(`🎯 ${correction.type}: ${correction.description}`);
     });
     console.groupEnd();
     
@@ -266,17 +269,17 @@ window.getPhase5Corrections = function() {
     corrections.slice(-2).forEach((entry, index) => {
       if (entry.criticalChecks) {
         const checks = entry.criticalChecks;
-        console.log(`Análise ${index + 1}:`);
-        console.log(`  LUFS fontes: ${checks.lufsValues?.length || 0}`);
-        console.log(`  Dinâmica: ${checks.dynamicsValue?.toFixed(2) || 'N/A'}`);
-        console.log(`  Score técnico: ${checks.technicalScore || 0}`);
-        console.log(`  Mono compatibility: ${checks.monoCompatibility || 'N/A'}`);
-        console.log(`  Sugestões: ${checks.suggestionsCount || 0}`);
+        log(`Análise ${index + 1}:`);
+        log(`  LUFS fontes: ${checks.lufsValues?.length || 0}`);
+        log(`  Dinâmica: ${checks.dynamicsValue?.toFixed(2) || 'N/A'}`);
+        log(`  Score técnico: ${checks.technicalScore || 0}`);
+        log(`  Mono compatibility: ${checks.monoCompatibility || 'N/A'}`);
+        log(`  Sugestões: ${checks.suggestionsCount || 0}`);
       }
     });
     console.groupEnd();
   } else {
-    console.log('ℹ️ Nenhuma correção crítica aplicada ainda');
+    log('ℹ️ Nenhuma correção crítica aplicada ainda');
   }
   
   console.groupEnd();
@@ -295,14 +298,14 @@ window.enableDetailedDebug = function() {
   window.DEBUG_ANALYZER = true;
   window.ENABLE_DETAILED_ANALYSIS_DEBUG = true;
   
-  console.log('🐛 DEBUG DETALHADO ATIVADO');
-  console.log('📊 Funções de debug habilitadas:');
-  console.log('  - performDetailedAnalysisDebug()');
-  console.log('  - debugLUFSDuplication()');
-  console.log('  - debugNegativeDynamics()');
-  console.log('  - debugTruePeakClippingContradiction()');
-  console.log('  - debugZeroTechnicalScore()');
-  console.log('  - debugMonoCompatibilityIssue()');
+  log('🐛 DEBUG DETALHADO ATIVADO');
+  log('📊 Funções de debug habilitadas:');
+  log('  - performDetailedAnalysisDebug()');
+  log('  - debugLUFSDuplication()');
+  log('  - debugNegativeDynamics()');
+  log('  - debugTruePeakClippingContradiction()');
+  log('  - debugZeroTechnicalScore()');
+  log('  - debugMonoCompatibilityIssue()');
   
   return { status: 'enabled', timestamp: new Date().toISOString() };
 };
@@ -311,7 +314,7 @@ window.disableDetailedDebug = function() {
   window.DETAILED_DEBUG_ENABLED = false;
   window.ENABLE_DETAILED_ANALYSIS_DEBUG = false;
   
-  console.log('🔇 DEBUG DETALHADO DESATIVADO');
+  log('🔇 DEBUG DETALHADO DESATIVADO');
   
   return { status: 'disabled', timestamp: new Date().toISOString() };
 };
@@ -329,13 +332,13 @@ window.getDebugStatus = function() {
   };
   
   console.group('🔍 STATUS DO SISTEMA DE DEBUG');
-  console.log('Debug detalhado:', status.detailedDebug ? '✅ Ativo' : '❌ Inativo');
-  console.log('Analyzer debug:', status.analyzerDebug ? '✅ Ativo' : '❌ Inativo');
-  console.log('Audit logs:', status.auditLogs ? '✅ Ativo' : '❌ Inativo');
-  console.log('Correções Fase 2:', status.phase2Corrections ? '✅ Ativo' : '❌ Inativo');
-  console.log('Lógica Fase 3:', status.phase3Logic ? '✅ Ativo' : '❌ Inativo');
-  console.log('Auditoria Fase 4:', status.phase4Audit ? '✅ Ativo' : '❌ Inativo');
-  console.log('Críticas Fase 5:', status.phase5Critical ? '✅ Ativo' : '❌ Inativo');
+  log('Debug detalhado:', status.detailedDebug ? '✅ Ativo' : '❌ Inativo');
+  log('Analyzer debug:', status.analyzerDebug ? '✅ Ativo' : '❌ Inativo');
+  log('Audit logs:', status.auditLogs ? '✅ Ativo' : '❌ Inativo');
+  log('Correções Fase 2:', status.phase2Corrections ? '✅ Ativo' : '❌ Inativo');
+  log('Lógica Fase 3:', status.phase3Logic ? '✅ Ativo' : '❌ Inativo');
+  log('Auditoria Fase 4:', status.phase4Audit ? '✅ Ativo' : '❌ Inativo');
+  log('Críticas Fase 5:', status.phase5Critical ? '✅ Ativo' : '❌ Inativo');
   console.groupEnd();
   
   return status;
@@ -350,15 +353,15 @@ window.enableSpecificDebug = function(problems = []) {
   window.DETAILED_DEBUG_ENABLED = true;
   
   console.group('🎯 DEBUG ESPECÍFICO ATIVADO');
-  console.log(`Problemas selecionados: ${selected.join(', ')}`);
-  console.log('Para debugar todos os problemas: enableSpecificDebug([\'lufs\', \'dynamics\', \'clipping\', \'score\', \'mono\'])');
+  log(`Problemas selecionados: ${selected.join(', ')}`);
+  log('Para debugar todos os problemas: enableSpecificDebug([\'lufs\', \'dynamics\', \'clipping\', \'score\', \'mono\'])');
   console.groupEnd();
   
   return { enabled: selected, total: validProblems };
 };
 
-console.log('🐛 Comandos de debug detalhado adicionados:');
-console.log('- window.enableDetailedDebug() - Ativar debug detalhado completo');
-console.log('- window.disableDetailedDebug() - Desativar debug detalhado');
-console.log('- window.getDebugStatus() - Verificar status de todos os sistemas');
-console.log('- window.enableSpecificDebug([\'problema1\', \'problema2\']) - Debug específico');
+log('🐛 Comandos de debug detalhado adicionados:');
+log('- window.enableDetailedDebug() - Ativar debug detalhado completo');
+log('- window.disableDetailedDebug() - Desativar debug detalhado');
+log('- window.getDebugStatus() - Verificar status de todos os sistemas');
+log('- window.enableSpecificDebug([\'problema1\', \'problema2\']) - Debug específico');

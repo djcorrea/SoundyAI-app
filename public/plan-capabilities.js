@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SISTEMA CENTRALIZADO DE CAPABILITIES - PLANOS SOUNDYAI
 // Single source of truth para decisões de acesso por plano
 // Implementa suporte correto para Plano Plus
@@ -5,7 +8,7 @@
 (function() {
     'use strict';
 
-    console.log('🎯 [CAPABILITIES] Inicializando sistema centralizado de capabilities...');
+    log('🎯 [CAPABILITIES] Inicializando sistema centralizado de capabilities...');
 
     // ========================================
     // 📊 MATRIZ DE CAPABILITIES POR PLANO
@@ -80,24 +83,24 @@
         // 1. Análise atual (mais recente - vem do backend)
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
         if (analysis?.plan && VALID_PLANS.includes(analysis.plan)) {
-            console.log(`[CAPABILITIES] 🔍 Plano detectado via análise: ${analysis.plan}`);
+            log(`[CAPABILITIES] 🔍 Plano detectado via análise: ${analysis.plan}`);
             return analysis.plan;
         }
         
         // 2. Cache local (atualizado via fetchUserPlan do Firestore)
         if (_cachedUserPlan && VALID_PLANS.includes(_cachedUserPlan)) {
-            console.log(`[CAPABILITIES] 🔍 Plano detectado via cache: ${_cachedUserPlan}`);
+            log(`[CAPABILITIES] 🔍 Plano detectado via cache: ${_cachedUserPlan}`);
             return _cachedUserPlan;
         }
         
         // 3. window.userPlan (pode ser setado por outros módulos)
         if (window.userPlan && VALID_PLANS.includes(window.userPlan)) {
-            console.log(`[CAPABILITIES] 🔍 Plano detectado via window.userPlan: ${window.userPlan}`);
+            log(`[CAPABILITIES] 🔍 Plano detectado via window.userPlan: ${window.userPlan}`);
             return window.userPlan;
         }
         
         // 4. Fallback - mas avisa que não encontrou plano autenticado
-        console.warn(`[CAPABILITIES] ⚠️ Plano não detectado, usando fallback 'free'. Cache: ${_cachedUserPlan}, window.userPlan: ${window.userPlan}`);
+        warn(`[CAPABILITIES] ⚠️ Plano não detectado, usando fallback 'free'. Cache: ${_cachedUserPlan}, window.userPlan: ${window.userPlan}`);
         return 'free';
     }
     
@@ -109,13 +112,13 @@
         try {
             // Verificar se Firebase está pronto
             if (!window.auth || !window.db || !window.firebaseReady) {
-                console.log('[CAPABILITIES] ⏳ Firebase não está pronto ainda');
+                log('[CAPABILITIES] ⏳ Firebase não está pronto ainda');
                 return null;
             }
             
             const user = window.auth.currentUser;
             if (!user) {
-                console.log('[CAPABILITIES] ⚠️ Usuário não autenticado');
+                log('[CAPABILITIES] ⚠️ Usuário não autenticado');
                 _cachedUserPlan = 'free';
                 return 'free';
             }
@@ -132,7 +135,7 @@
                 // Normalizar valores legados
                 const normalizedPlan = plan === 'gratis' ? 'free' : plan;
                 
-                console.log(`[CAPABILITIES] ✅ Plano carregado do Firestore: ${normalizedPlan} (uid: ${user.uid})`);
+                log(`[CAPABILITIES] ✅ Plano carregado do Firestore: ${normalizedPlan} (uid: ${user.uid})`);
                 
                 // Atualizar cache
                 _cachedUserPlan = normalizedPlan;
@@ -140,12 +143,12 @@
                 
                 return normalizedPlan;
             } else {
-                console.warn('[CAPABILITIES] ⚠️ Documento do usuário não encontrado');
+                warn('[CAPABILITIES] ⚠️ Documento do usuário não encontrado');
                 _cachedUserPlan = 'free';
                 return 'free';
             }
         } catch (error) {
-            console.error('[CAPABILITIES] ❌ Erro ao buscar plano do Firestore:', error);
+            error('[CAPABILITIES] ❌ Erro ao buscar plano do Firestore:', error);
             return null;
         }
     }
@@ -156,15 +159,15 @@
     function initializePlanDetection() {
         // Tentar buscar plano imediatamente se Firebase já estiver pronto
         if (window.auth && window.db && window.firebaseReady) {
-            fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Init fetch falhou:', err));
+            fetchUserPlan().catch(err => warn('[CAPABILITIES] Init fetch falhou:', err));
         }
         
         // Também escutar mudanças de autenticação
         if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
             window.auth.onAuthStateChanged((user) => {
                 if (user) {
-                    console.log('[CAPABILITIES] 🔐 Auth state changed - buscando plano...');
-                    fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Auth fetch falhou:', err));
+                    log('[CAPABILITIES] 🔐 Auth state changed - buscando plano...');
+                    fetchUserPlan().catch(err => warn('[CAPABILITIES] Auth fetch falhou:', err));
                 } else {
                     _cachedUserPlan = null;
                     window.userPlan = 'free';
@@ -175,8 +178,8 @@
         // Fallback: tentar novamente após 2 segundos caso Firebase demore
         setTimeout(() => {
             if (!_cachedUserPlan && window.auth?.currentUser) {
-                console.log('[CAPABILITIES] 🔄 Retry fetch do plano...');
-                fetchUserPlan().catch(err => console.warn('[CAPABILITIES] Retry falhou:', err));
+                log('[CAPABILITIES] 🔄 Retry fetch do plano...');
+                fetchUserPlan().catch(err => warn('[CAPABILITIES] Retry falhou:', err));
             }
         }, 2000);
     }
@@ -230,7 +233,7 @@
         const capabilities = CAPABILITIES_MATRIX[context.plan] || CAPABILITIES_MATRIX.free;
         
         // Log para debug
-        console.log(`[CAPABILITIES] Verificando feature: "${featureName}"`, {
+        log(`[CAPABILITIES] Verificando feature: "${featureName}"`, {
             plan: context.plan,
             isReduced: context.isReduced,
             analysisMode: context.analysisMode,
@@ -239,21 +242,21 @@
         
         // 🔴 PRIORIDADE MÁXIMA: Se está em modo REDUCED, bloqueia features premium
         if (context.isReduced && (featureName === 'aiHelp' || featureName === 'pdf' || featureName === 'fullSuggestions')) {
-            console.log(`[CAPABILITIES] ❌ BLOQUEADO: Modo Reduced (${context.plan})`);
+            log(`[CAPABILITIES] ❌ BLOQUEADO: Modo Reduced (${context.plan})`);
             return false;
         }
         
         // ✅ EXCEÇÃO EXPLÍCITA: Free em modo FULL tem IA e PDF
         if (context.plan === 'free' && context.analysisMode === 'full' && !context.isReduced) {
             if (featureName === 'aiHelp' || featureName === 'pdf') {
-                console.log(`[CAPABILITIES] ✅ PERMITIDO: Free em modo FULL (análises 1-3)`);
+                log(`[CAPABILITIES] ✅ PERMITIDO: Free em modo FULL (análises 1-3)`);
                 return true;
             }
         }
         
         // 📊 REGRA PADRÃO: Usar capabilities da matriz
         const allowed = capabilities[featureName] === true;
-        console.log(`[CAPABILITIES] ${allowed ? '✅ PERMITIDO' : '❌ BLOQUEADO'}: capability da matriz (${context.plan})`);
+        log(`[CAPABILITIES] ${allowed ? '✅ PERMITIDO' : '❌ BLOQUEADO'}: capability da matriz (${context.plan})`);
         return allowed;
     }
 
@@ -267,7 +270,7 @@
      */
     function shouldBlockAiHelp() {
         const result = !canUseFeature('aiHelp');
-        console.log(`[CAPABILITIES] shouldBlockAiHelp() → ${result}`);
+        log(`[CAPABILITIES] shouldBlockAiHelp() → ${result}`);
         return result;
     }
     
@@ -277,7 +280,7 @@
      */
     function shouldBlockPdf() {
         const result = !canUseFeature('pdf');
-        console.log(`[CAPABILITIES] shouldBlockPdf() → ${result}`);
+        log(`[CAPABILITIES] shouldBlockPdf() → ${result}`);
         return result;
     }
     
@@ -287,7 +290,7 @@
      */
     function shouldBlockReference() {
         const result = !canUseFeature('reference');
-        console.log(`[CAPABILITIES] shouldBlockReference() → ${result}`);
+        log(`[CAPABILITIES] shouldBlockReference() → ${result}`);
         return result;
     }
     
@@ -297,7 +300,7 @@
      */
     function shouldBlockCorrectionPlan() {
         const result = !canUseFeature('correctionPlan');
-        console.log(`[CAPABILITIES] shouldBlockCorrectionPlan() → ${result}`);
+        log(`[CAPABILITIES] shouldBlockCorrectionPlan() → ${result}`);
         return result;
     }
     
@@ -308,7 +311,7 @@
     function shouldRunFullAnalysis() {
         const context = getCurrentContext();
         const result = !context.isReduced;
-        console.log(`[CAPABILITIES] shouldRunFullAnalysis() → ${result} (isReduced: ${context.isReduced})`);
+        log(`[CAPABILITIES] shouldRunFullAnalysis() → ${result} (isReduced: ${context.isReduced})`);
         return result;
     }
 
@@ -370,23 +373,23 @@
                 'Plano Correção': canUseFeature('correctionPlan') ? '✅ PERMITIDO' : '❌ BLOQUEADO'
             };
             
-            console.log('\n📊 [CAPABILITIES] DIAGNÓSTICO COMPLETO:');
+            log('\n📊 [CAPABILITIES] DIAGNÓSTICO COMPLETO:');
             console.table(matrix);
-            console.log('\n');
+            log('\n');
             
             return matrix;
         },
         
         // 🔐 Forçar refresh do plano do Firestore
         _refreshPlan: async function() {
-            console.log('[CAPABILITIES] 🔄 Forçando refresh do plano...');
+            log('[CAPABILITIES] 🔄 Forçando refresh do plano...');
             const plan = await fetchUserPlan();
-            console.log(`[CAPABILITIES] ✅ Plano atualizado: ${plan}`);
+            log(`[CAPABILITIES] ✅ Plano atualizado: ${plan}`);
             return plan;
         },
         
         _testAllPlans: function() {
-            console.log('\n🧪 [CAPABILITIES] TESTE DE TODOS OS PLANOS:\n');
+            log('\n🧪 [CAPABILITIES] TESTE DE TODOS OS PLANOS:\n');
             
             const scenarios = [
                 { plan: 'free', mode: 'full', desc: 'Free - Modo Full' },
@@ -406,20 +409,20 @@
                 
                 const ctx = getCurrentContext();
                 
-                console.log(`\n🔍 ${scenario.desc}`);
-                console.log('   AI Help:', canUseFeature('aiHelp') ? '✅' : '❌');
-                console.log('   PDF:', canUseFeature('pdf') ? '✅' : '❌');
-                console.log('   Sugestões:', canUseFeature('fullSuggestions') ? '✅' : '❌');
-                console.log('   Modo Referência:', canUseFeature('reference') ? '✅' : '❌');
+                log(`\n🔍 ${scenario.desc}`);
+                log('   AI Help:', canUseFeature('aiHelp') ? '✅' : '❌');
+                log('   PDF:', canUseFeature('pdf') ? '✅' : '❌');
+                log('   Sugestões:', canUseFeature('fullSuggestions') ? '✅' : '❌');
+                log('   Modo Referência:', canUseFeature('reference') ? '✅' : '❌');
             });
             
-            console.log('\n✅ Teste completo finalizado\n');
+            log('\n✅ Teste completo finalizado\n');
         }
     };
     
-    console.log('✅ [CAPABILITIES] Sistema de capabilities carregado com sucesso');
-    console.log('💡 [CAPABILITIES] Use window.PlanCapabilities._debug() para diagnóstico');
-    console.log('🔄 [CAPABILITIES] Use window.PlanCapabilities._refreshPlan() para forçar atualização');
-    console.log('🧪 [CAPABILITIES] Use window.PlanCapabilities._testAllPlans() para testar todos os cenários\n');
+    log('✅ [CAPABILITIES] Sistema de capabilities carregado com sucesso');
+    log('💡 [CAPABILITIES] Use window.PlanCapabilities._debug() para diagnóstico');
+    log('🔄 [CAPABILITIES] Use window.PlanCapabilities._refreshPlan() para forçar atualização');
+    log('🧪 [CAPABILITIES] Use window.PlanCapabilities._testAllPlans() para testar todos os cenários\n');
     
 })();

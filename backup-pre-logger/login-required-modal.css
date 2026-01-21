@@ -1,0 +1,395 @@
+/**
+ * 🔒 SOUNDYAI - MODAL DE LOGIN OBRIGATÓRIO
+ * Estilos para o popup exibido quando limite anônimo é atingido
+ * 
+ * @version 1.0.0
+ * @created 2026-01-02
+ */
+
+/* ═══════════════════════════════════════════════════════════
+   🎨 VARIÁVEIS CSS
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+    --lrm-bg-overlay: rgba(0, 0, 0, 0.85);
+    --lrm-bg-modal: linear-gradient(145deg, rgba(15, 15, 25, 0.98) 0%, rgba(10, 10, 18, 0.98) 100%);
+    --lrm-border: rgba(139, 92, 246, 0.3);
+    --lrm-border-glow: rgba(139, 92, 246, 0.5);
+    --lrm-text-primary: #ffffff;
+    --lrm-text-secondary: rgba(255, 255, 255, 0.7);
+    --lrm-text-muted: rgba(255, 255, 255, 0.5);
+    --lrm-accent-purple: #8b5cf6;
+    --lrm-accent-cyan: #06b6d4;
+    --lrm-accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+    --lrm-success: #10b981;
+    --lrm-card-bg: rgba(255, 255, 255, 0.03);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📦 OVERLAY
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--lrm-bg-overlay);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    padding: 20px;
+    animation: lrmFadeIn 0.3s ease-out;
+}
+
+@keyframes lrmFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   🪟 MODAL
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal {
+    background: var(--lrm-bg-modal);
+    border: 1px solid var(--lrm-border);
+    border-radius: 24px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 
+        0 25px 50px -12px rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(139, 92, 246, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: lrmSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+@keyframes lrmSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Efeito de glow no topo */
+.login-required-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 1px;
+    background: var(--lrm-accent-gradient);
+    box-shadow: 0 0 20px var(--lrm-accent-purple);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📋 HEADER
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-header {
+    padding: 32px 32px 0;
+    text-align: center;
+    position: relative;
+}
+
+.login-required-modal-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    animation: lrmPulse 2s ease-in-out infinite;
+}
+
+@keyframes lrmPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.login-required-modal-title {
+    font-family: 'Orbitron', 'Rajdhani', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--lrm-text-primary);
+    margin: 0 0 8px;
+    letter-spacing: 0.5px;
+    background: var(--lrm-accent-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.login-required-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: var(--lrm-text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.login-required-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--lrm-text-primary);
+    transform: rotate(90deg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📝 BODY
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-body {
+    padding: 24px 32px;
+}
+
+.login-required-modal-subtitle {
+    color: var(--lrm-text-secondary);
+    font-size: 1rem;
+    text-align: center;
+    margin: 0 0 24px;
+    line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📊 USAGE INDICATORS
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-usage {
+    background: var(--lrm-card-bg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.usage-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.usage-item:last-child {
+    border-bottom: none;
+}
+
+.usage-icon {
+    font-size: 1.25rem;
+    width: 32px;
+    text-align: center;
+}
+
+.usage-text {
+    color: var(--lrm-text-secondary);
+    font-size: 0.95rem;
+}
+
+.usage-item.used .usage-text {
+    color: var(--lrm-success);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   🎁 BENEFITS
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-benefits {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.benefits-title {
+    color: var(--lrm-text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 16px;
+    text-align: center;
+}
+
+.benefits-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.benefits-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    color: var(--lrm-text-secondary);
+    font-size: 0.9rem;
+}
+
+.benefit-icon {
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   🔘 FOOTER / BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+
+.login-required-modal-footer {
+    padding: 0 32px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.login-required-btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--lrm-accent-gradient);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+}
+
+.login-required-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+}
+
+.login-required-btn-primary:active {
+    transform: translateY(0);
+}
+
+.login-required-btn-primary svg {
+    transition: transform 0.3s ease;
+}
+
+.login-required-btn-primary:hover svg {
+    transform: translateX(4px);
+}
+
+.login-required-btn-secondary {
+    width: 100%;
+    padding: 14px 24px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    color: var(--lrm-text-secondary);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.login-required-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: var(--lrm-text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📱 RESPONSIVO
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 520px) {
+    .login-required-modal-overlay {
+        padding: 16px;
+    }
+    
+    .login-required-modal {
+        border-radius: 20px;
+    }
+    
+    .login-required-modal-header {
+        padding: 24px 24px 0;
+    }
+    
+    .login-required-modal-body {
+        padding: 20px 24px;
+    }
+    
+    .login-required-modal-footer {
+        padding: 0 24px 24px;
+    }
+    
+    .login-required-modal-title {
+        font-size: 1.5rem;
+    }
+    
+    .login-required-modal-icon {
+        font-size: 40px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   🌙 ANIMAÇÕES EXTRAS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Efeito de brilho no border */
+@keyframes lrmBorderGlow {
+    0%, 100% {
+        border-color: var(--lrm-border);
+    }
+    50% {
+        border-color: var(--lrm-border-glow);
+    }
+}
+
+.login-required-modal:hover {
+    animation: lrmBorderGlow 2s ease-in-out infinite;
+}
+
+/* Scrollbar customizada */
+.login-required-modal::-webkit-scrollbar {
+    width: 6px;
+}
+
+.login-required-modal::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.login-required-modal::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.3);
+    border-radius: 3px;
+}
+
+.login-required-modal::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.5);
+}

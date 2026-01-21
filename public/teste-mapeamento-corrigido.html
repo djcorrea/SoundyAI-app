@@ -69,6 +69,12 @@
         h1, h2 { color: #333; }
         .highlight { background: #fff3cd; padding: 2px 4px; border-radius: 3px; }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste de Mapeamento Corrigido</h1>
@@ -206,11 +212,11 @@
 
         // Função normalizeBackendAnalysisData CORRIGIDA
         function normalizeBackendAnalysisDataCORRIGIDA(backendData) {
-            console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+            log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
             
             // Se já está no formato correto, retornar como está
             if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
-                console.log('📊 [NORMALIZE] Dados já estão normalizados');
+                log('📊 [NORMALIZE] Dados já estão normalizados');
                 return backendData;
             }
             
@@ -229,8 +235,8 @@
             const tech = normalized.technicalData;
             const source = backendData.technicalData || backendData.metrics || backendData;
             
-            console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
-            console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
+            log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+            log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
             
             // Função para pegar valor real ou null (sem fallbacks fictícios)
             const getRealValue = (...paths) => {
@@ -306,10 +312,10 @@
             // 🎯 DADOS DE SCORING DETALHADOS
             if (backendData.scoring) {
                 normalized.scoring = backendData.scoring;
-                console.log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
+                log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
             }
             
-            console.log('✅ [NORMALIZE] Normalização concluída:', {
+            log('✅ [NORMALIZE] Normalização concluída:', {
                 hasTechnicalData: !!normalized.technicalData,
                 qualityScore: normalized.qualityOverall,
                 hasScoring: !!normalized.scoring,
@@ -320,7 +326,7 @@
         }
 
         function runTest() {
-            console.log('🧪 Iniciando teste de mapeamento...');
+            log('🧪 Iniciando teste de mapeamento...');
 
             // Exibir JSON original
             document.getElementById('originalJson').textContent = JSON.stringify(realBackendJson, null, 2);
@@ -405,7 +411,7 @@
         // Executar teste quando a página carregar
         document.addEventListener('DOMContentLoaded', () => {
             const result = runTest();
-            console.log('🎯 Resultado do teste:', result);
+            log('🎯 Resultado do teste:', result);
         });
     </script>
 </body>

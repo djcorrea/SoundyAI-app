@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Merge Seguro AI Suggestions</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔄 Teste - Merge Seguro de Sugestões IA</h1>
@@ -99,7 +105,7 @@
         ];
 
         function testMergeFunction() {
-            console.log('🧪 [TEST] Testando função de merge com dados simulados...');
+            log('🧪 [TEST] Testando função de merge com dados simulados...');
             
             // Simular o merge seguro como implementado
             const enhanced = mockAIResponse.map((s, i) => {
@@ -115,7 +121,7 @@
                 };
             });
 
-            console.log('✅ Resultado do merge:', enhanced);
+            log('✅ Resultado do merge:', enhanced);
             
             // Validar que não há campos nulos críticos
             enhanced.forEach((sug, i) => {
@@ -125,9 +131,9 @@
                 if (!sug.priority) issues.push('priority');
                 
                 if (issues.length > 0) {
-                    console.error(`❌ Sugestão ${i + 1} tem problemas:`, issues);
+                    error(`❌ Sugestão ${i + 1} tem problemas:`, issues);
                 } else {
-                    console.log(`✅ Sugestão ${i + 1} preservada corretamente`);
+                    log(`✅ Sugestão ${i + 1} preservada corretamente`);
                 }
             });
 
@@ -135,7 +141,7 @@
         }
 
         function simulateAIResponse() {
-            console.log('🤖 [TEST] Simulando resposta completa da IA...');
+            log('🤖 [TEST] Simulando resposta completa da IA...');
             
             // Simular dados como viriam do backend
             const mockBackendResponse = {
@@ -144,25 +150,25 @@
                 success: true
             };
 
-            console.log('📦 Mock backend response:', mockBackendResponse);
+            log('📦 Mock backend response:', mockBackendResponse);
             
             // Testar preservação
             testMergeFunction();
         }
 
         function testTruePeakPreservation() {
-            console.log('⚡ [TEST] Testando preservação específica do True Peak...');
+            log('⚡ [TEST] Testando preservação específica do True Peak...');
             
             const truePeakOriginal = mockOriginalSuggestions[0];
             const truePeakAI = mockAIResponse[0];
             
-            console.log('Original True Peak:', {
+            log('Original True Peak:', {
                 message: truePeakOriginal.message,
                 action: truePeakOriginal.action,
                 priority: truePeakOriginal.priority
             });
 
-            console.log('AI Response (com nulls):', {
+            log('AI Response (com nulls):', {
                 message: truePeakAI.message,
                 action: truePeakAI.action,
                 priority: truePeakAI.priority
@@ -179,7 +185,7 @@
                 confidence: truePeakAI.confidence || truePeakOriginal.confidence || 0.9,
             };
 
-            console.log('✅ True Peak após merge seguro:', {
+            log('✅ True Peak após merge seguro:', {
                 message: merged.message,
                 action: merged.action,
                 priority: merged.priority,
@@ -188,9 +194,9 @@
             });
 
             if (merged.message === truePeakOriginal.message) {
-                console.log('🎯 SUCESSO: Mensagem prioritária do True Peak preservada!');
+                log('🎯 SUCESSO: Mensagem prioritária do True Peak preservada!');
             } else {
-                console.error('❌ FALHA: Mensagem do True Peak foi alterada!');
+                error('❌ FALHA: Mensagem do True Peak foi alterada!');
             }
         }
 
@@ -215,9 +221,9 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de merge seguro de sugestões iniciado");
-        console.log("📋 Sugestões originais mockadas:", mockOriginalSuggestions);
-        console.log("🤖 Resposta IA mockada (com nulls):", mockAIResponse);
+        log("🚀 [TEST] Teste de merge seguro de sugestões iniciado");
+        log("📋 Sugestões originais mockadas:", mockOriginalSuggestions);
+        log("🤖 Resposta IA mockada (com nulls):", mockAIResponse);
     </script>
 </body>
 </html>

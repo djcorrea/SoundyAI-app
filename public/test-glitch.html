@@ -127,6 +127,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -272,13 +278,13 @@
         function openGlitchTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'flex';
-            console.log('🔥 Modal glitch aberto para teste');
+            log('🔥 Modal glitch aberto para teste');
             
             // Verificar efeito glitch
             const title = modal.querySelector('.analysis-modal-title.glitch');
             if (title) {
                 const styles = getComputedStyle(title);
-                console.log('🎨 Título encontrado:', {
+                log('🎨 Título encontrado:', {
                     fontFamily: styles.fontFamily,
                     fontSize: styles.fontSize,
                     color: styles.color,
@@ -290,7 +296,7 @@
                 const beforeStyles = getComputedStyle(title, '::before');
                 const afterStyles = getComputedStyle(title, '::after');
                 
-                console.log('⚡ Efeitos glitch:', {
+                log('⚡ Efeitos glitch:', {
                     before: beforeStyles.color,
                     after: afterStyles.color,
                     beforeAnimation: beforeStyles.animation,
@@ -304,7 +310,7 @@
         function closeGlitchTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'none';
-            console.log('❌ Modal fechado');
+            log('❌ Modal fechado');
         }
 
         function testGlitchAnalysis() {
@@ -313,7 +319,7 @@
         }
 
         function compareEffects() {
-            console.log('🔄 Comparando efeitos glitch...');
+            log('🔄 Comparando efeitos glitch...');
             
             const analysisTitle = document.querySelector('.analysis-modal-title.glitch');
             const genreTitle = document.querySelector('.genre-modal-title.glitch');
@@ -322,7 +328,7 @@
                 const analysisStyles = getComputedStyle(analysisTitle);
                 const genreStyles = getComputedStyle(genreTitle);
                 
-                console.log('📊 Comparação:', {
+                log('📊 Comparação:', {
                     analysis: {
                         fontSize: analysisStyles.fontSize,
                         fontWeight: analysisStyles.fontWeight,
@@ -400,7 +406,7 @@
             });
             
             const allPassed = Object.values(checks).every(check => check);
-            console.log(allPassed ? '🎉 TODOS OS TESTES PASSARAM!' : '⚠️ Alguns testes falharam');
+            log(allPassed ? '🎉 TODOS OS TESTES PASSARAM!' : '⚠️ Alguns testes falharam');
         }
 
         // Adicionar CSS para o modal de gênero de referência (caso não exista)
@@ -464,8 +470,8 @@
         // Executar verificações iniciais
         setTimeout(checkGlitchEffects, 1000);
 
-        console.log('🔥 Página de teste glitch carregada!');
-        console.log('📋 Execute os testes para verificar se o efeito está idêntico ao modal de gênero');
+        log('🔥 Página de teste glitch carregada!');
+        log('📋 Execute os testes para verificar se o efeito está idêntico ao modal de gênero');
     </script>
 </body>
 </html>

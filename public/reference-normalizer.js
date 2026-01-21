@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // reference-normalizer.js
 // 🎯 Normalização ISOLADA para análise de referência
 // NÃO inclui lógica de gênero, targets ou suggestions baseadas em padrões
@@ -12,13 +15,13 @@
    */
   function normalizeReferenceAnalysisData(analysis) {
     if (!analysis) {
-      console.error('[REF-NORMALIZE] ❌ Análise inválida');
+      error('[REF-NORMALIZE] ❌ Análise inválida');
       return null;
     }
 
-    console.log('[REF-NORMALIZE] 🎯 Normalizando análise de referência');
-    console.log('[REF-NORMALIZE] Modo:', analysis.mode);
-    console.log('[REF-NORMALIZE] referenceStage:', analysis.referenceStage);
+    log('[REF-NORMALIZE] 🎯 Normalizando análise de referência');
+    log('[REF-NORMALIZE] Modo:', analysis.mode);
+    log('[REF-NORMALIZE] referenceStage:', analysis.referenceStage);
 
     // Extrair métricas técnicas (podem estar em vários lugares)
     const tech = analysis.technicalData || analysis.tech || {};
@@ -87,10 +90,10 @@
       normalized.referenceJobId = analysis.jobId;
     }
 
-    console.log('[REF-NORMALIZE] ✅ Normalização completa');
-    console.log('[REF-NORMALIZE] Stage:', normalized.referenceStage);
-    console.log('[REF-NORMALIZE] LUFS:', normalized.technicalData.lufsIntegrated);
-    console.log('[REF-NORMALIZE] DR:', normalized.technicalData.dynamicRange);
+    log('[REF-NORMALIZE] ✅ Normalização completa');
+    log('[REF-NORMALIZE] Stage:', normalized.referenceStage);
+    log('[REF-NORMALIZE] LUFS:', normalized.technicalData.lufsIntegrated);
+    log('[REF-NORMALIZE] DR:', normalized.technicalData.dynamicRange);
 
     return normalized;
   }
@@ -121,7 +124,7 @@
     }
 
     if (contaminations.length > 0) {
-      console.warn('[REF-NORMALIZE] ⚠️ Contaminação de gênero detectada:', contaminations);
+      warn('[REF-NORMALIZE] ⚠️ Contaminação de gênero detectada:', contaminations);
     }
 
     return contaminations;
@@ -134,6 +137,6 @@
   window.normalizeReferenceAnalysisData = normalizeReferenceAnalysisData;
   window.detectGenreContamination = detectGenreContamination;
 
-  console.log('[REF-NORMALIZE] ✅ Módulo carregado');
+  log('[REF-NORMALIZE] ✅ Módulo carregado');
 
 })();

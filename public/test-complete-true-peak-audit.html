@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Auditoria Completa True Peak</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔍 Teste - Auditoria Completa para True Peak</h1>
@@ -143,7 +149,7 @@
         }
 
         function testDirectAIMessage() {
-            console.log('🎯 Cenário: s.message direto da IA (prioridade 1)');
+            log('🎯 Cenário: s.message direto da IA (prioridade 1)');
             
             const validSuggestions = [{
                 message: "Mensagem original que deveria ser ignorada",
@@ -182,13 +188,13 @@
                 }
             ];
             
-            console.log('🎯 Direct AI message test:', results);
+            log('🎯 Direct AI message test:', results);
             
             displayResult("s.message direto da IA", results, "s.message deve ter prioridade sobre todas as outras fontes");
         }
 
         function testTruePeakPriority() {
-            console.log('⚡ Cenário: True Peak no topo com ordenação');
+            log('⚡ Cenário: True Peak no topo com ordenação');
             
             const validSuggestions = [
                 { message: "LUFS baixo", priority: 2 },
@@ -234,7 +240,7 @@
                 }
             ];
             
-            console.log('⚡ True Peak priority test:', {
+            log('⚡ True Peak priority test:', {
                 beforeSort: merged.map(s => s.message.substring(0, 30)),
                 afterSort: sorted.map(s => s.message.substring(0, 30)),
                 truePeakFirst: sorted[0].message.includes("True Peak")
@@ -244,7 +250,7 @@
         }
 
         function testUIFallback() {
-            console.log('🖥️ Cenário: Fallback UI quando blocos específicos não existem');
+            log('🖥️ Cenário: Fallback UI quando blocos específicos não existem');
             
             const suggestions = [
                 {
@@ -284,13 +290,13 @@
                 }
             ];
             
-            console.log('🖥️ UI Fallback test:', rendered);
+            log('🖥️ UI Fallback test:', rendered);
             
             displayResult("Fallback UI", results, "UI deve usar message como fallback quando blocos específicos não existem");
         }
 
         function testCompleteFlow() {
-            console.log('🚀 Cenário: Fluxo completo - merge + ordenação + UI');
+            log('🚀 Cenário: Fluxo completo - merge + ordenação + UI');
             
             // Simular resposta real do backend
             const validSuggestions = [
@@ -339,7 +345,7 @@
                 }
             ];
             
-            console.log('🚀 Complete flow results:', {
+            log('🚀 Complete flow results:', {
                 mergedCount: merged.length,
                 allRestored: sorted.every(s => s.hasOriginalMessage),
                 truePeakFirst: sorted[0].message.includes("True Peak"),
@@ -355,7 +361,7 @@
         }
 
         function testValidationChecklist() {
-            console.log('✅ Cenário: Checklist de validação automática');
+            log('✅ Cenário: Checklist de validação automática');
             
             // Simular caso mais complexo
             const validSuggestions = [{ message: "Original", priority: 1 }];
@@ -400,15 +406,15 @@
                 }
             ];
             
-            console.log('✅ Validation checklist:', checklist);
+            log('✅ Validation checklist:', checklist);
             
             displayResult("Checklist de validação", checklist, "Todos os critérios do checklist devem passar");
         }
 
         // Log inicial
-        console.log("🔍 [AUDIT] Auditoria completa para True Peak iniciada");
-        console.log("🎯 Correções aplicadas: prioridade s.message, fallback UI, logs detalhados");
-        console.log("⚡ Meta: eliminar '⚠️ Mensagem perdida' e exibir True Peak corretamente");
+        log("🔍 [AUDIT] Auditoria completa para True Peak iniciada");
+        log("🎯 Correções aplicadas: prioridade s.message, fallback UI, logs detalhados");
+        log("⚡ Meta: eliminar '⚠️ Mensagem perdida' e exibir True Peak corretamente");
     </script>
 </body>
 </html>

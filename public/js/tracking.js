@@ -57,7 +57,7 @@
      */
     function log(...args) {
         if (CONFIG.debug) {
-            console.log('[TRACKING]', ...args);
+            log('[TRACKING]', ...args);
         }
     }
     
@@ -65,7 +65,7 @@
      * Log de erro (sempre exibido)
      */
     function logError(...args) {
-        console.error('[TRACKING-ERROR]', ...args);
+        error('[TRACKING-ERROR]', ...args);
     }
     
     /**
@@ -530,7 +530,7 @@
     
     // Aviso se IDs não configurados
     if (CONFIG.googleAds.conversionId === 'AW-XXXXXXX') {
-        console.warn('⚠️ [TRACKING] Google Ads Conversion ID não configurado! Use SoundyTracking.configure({ conversionId: "AW-XXXXX", labels: {...} })');
+        warn('⚠️ [TRACKING] Google Ads Conversion ID não configurado! Use SoundyTracking.configure({ conversionId: "AW-XXXXX", labels: {...} })');
     }
 
 })();

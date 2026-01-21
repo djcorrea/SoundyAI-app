@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Merge Seguro AI Suggestions</title>
+</head>
+<body>
+    <h1>🔄 Teste - Merge Seguro de Sugestões IA</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Validação do Merge:</h3>
+        <ol>
+            <li>✅ Mensagens originais preservadas (especialmente True Peak)</li>
+            <li>✅ Campos `message`, `action`, `priority` nunca nulos</li>
+            <li>✅ Fallback para valores seguros quando dados ausentes</li>
+            <li>✅ Logs de auditoria mostram preservação</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Ferramentas de Teste:</h4>
+        <button onclick="testMergeFunction()">🔄 Testar Função de Merge</button>
+        <button onclick="simulateAIResponse()">🤖 Simular Resposta IA</button>
+        <button onclick="testTruePeakPreservation()">⚡ Testar Preservação True Peak</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="suggestion-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📋 Sugestões Resultantes:</h4>
+        <div id="suggestion-content">Nenhuma sugestão processada ainda.</div>
+    </div>
+
+    <script>
+        // Simular algumas sugestões originais típicas
+        const mockOriginalSuggestions = [
+            {
+                message: "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.",
+                action: "Ajustar limitador para -1.0 dB",
+                priority: 1,
+                type: "truePeak",
+                metric: "true_peak",
+                value: -0.3,
+                target: -1.0
+            },
+            {
+                message: "📊 LUFS muito baixo. Aumente o volume geral ou use compressão para atingir o padrão de streaming.",
+                action: "Aumentar gain para -14 LUFS",
+                priority: 2,
+                type: "lufs",
+                metric: "lufs",
+                value: -18.5,
+                target: -14.0
+            },
+            {
+                message: "🎵 Dynamic Range adequado para o gênero, mas pode ser otimizado.",
+                action: "Considerar ligeira compressão",
+                priority: 3,
+                type: "dynamicRange",
+                metric: "dr",
+                value: 8.2,
+                target: 7.0
+            }
+        ];
+
+        // Simular resposta da IA (com alguns valores nulos para testar fallback)
+        const mockAIResponse = [
+            {
+                message: null,  // Deveria usar original
+                action: "Aplique um limiter configurado para -1.0 dB como peak máximo",
+                priority: null, // Deveria usar original
+                confidence: 0.95,
+                ai_category: "mastering",
+                blocks: {
+                    problem: "True peak elevation detected",
+                    solution: "Apply gentle limiting"
+                }
+            },
+            {
+                message: "Enhanced: LUFS optimization required for streaming platforms",
+                action: null,   // Deveria usar original
+                priority: 1,
+                confidence: 0.88,
+                ai_category: "loudness",
+                blocks: {
+                    problem: "Loudness below streaming standards",
+                    solution: "Increase overall level"
+                }
+            },
+            {
+                message: null,
+                action: null,   // Ambos nulos, deveria usar originais
+                priority: null,
+                confidence: null, // Deveria usar fallback 0.9
+                ai_category: "dynamics",
+                blocks: {}
+            }
+        ];
+
+        function testMergeFunction() {
+            console.log('🧪 [TEST] Testando função de merge com dados simulados...');
+            
+            // Simular o merge seguro como implementado
+            const enhanced = mockAIResponse.map((s, i) => {
+                const original = mockOriginalSuggestions[i] || {};
+                return {
+                    ...original,             // preserva mensagem e ação originais
+                    ...s,                    // mescla enriquecimentos e metadados
+                    ai_enhanced: true,
+                    message: s.message || original.message || '⚠️ Sem mensagem original detectada.',
+                    action: s.action || original.action || null,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+
+            console.log('✅ Resultado do merge:', enhanced);
+            
+            // Validar que não há campos nulos críticos
+            enhanced.forEach((sug, i) => {
+                const issues = [];
+                if (!sug.message || sug.message.includes('⚠️')) issues.push('message');
+                if (sug.action === null && mockOriginalSuggestions[i]?.action) issues.push('action');
+                if (!sug.priority) issues.push('priority');
+                
+                if (issues.length > 0) {
+                    console.error(`❌ Sugestão ${i + 1} tem problemas:`, issues);
+                } else {
+                    console.log(`✅ Sugestão ${i + 1} preservada corretamente`);
+                }
+            });
+
+            updateSuggestionDisplay(enhanced);
+        }
+
+        function simulateAIResponse() {
+            console.log('🤖 [TEST] Simulando resposta completa da IA...');
+            
+            // Simular dados como viriam do backend
+            const mockBackendResponse = {
+                enhancedSuggestions: mockAIResponse,
+                source: 'ai',
+                success: true
+            };
+
+            console.log('📦 Mock backend response:', mockBackendResponse);
+            
+            // Testar preservação
+            testMergeFunction();
+        }
+
+        function testTruePeakPreservation() {
+            console.log('⚡ [TEST] Testando preservação específica do True Peak...');
+            
+            const truePeakOriginal = mockOriginalSuggestions[0];
+            const truePeakAI = mockAIResponse[0];
+            
+            console.log('Original True Peak:', {
+                message: truePeakOriginal.message,
+                action: truePeakOriginal.action,
+                priority: truePeakOriginal.priority
+            });
+
+            console.log('AI Response (com nulls):', {
+                message: truePeakAI.message,
+                action: truePeakAI.action,
+                priority: truePeakAI.priority
+            });
+
+            // Merge seguro
+            const merged = {
+                ...truePeakOriginal,
+                ...truePeakAI,
+                ai_enhanced: true,
+                message: truePeakAI.message || truePeakOriginal.message || '⚠️ Sem mensagem original detectada.',
+                action: truePeakAI.action || truePeakOriginal.action || null,
+                priority: truePeakAI.priority || truePeakOriginal.priority || 1,
+                confidence: truePeakAI.confidence || truePeakOriginal.confidence || 0.9,
+            };
+
+            console.log('✅ True Peak após merge seguro:', {
+                message: merged.message,
+                action: merged.action,
+                priority: merged.priority,
+                ai_enhanced: merged.ai_enhanced,
+                preserved_original_message: merged.message === truePeakOriginal.message
+            });
+
+            if (merged.message === truePeakOriginal.message) {
+                console.log('🎯 SUCESSO: Mensagem prioritária do True Peak preservada!');
+            } else {
+                console.error('❌ FALHA: Mensagem do True Peak foi alterada!');
+            }
+        }
+
+        function updateSuggestionDisplay(suggestions) {
+            const div = document.getElementById('suggestion-content');
+            let html = '';
+            
+            suggestions.forEach((sug, i) => {
+                html += `
+                    <div style="margin: 10px 0; padding: 10px; background: ${sug.priority === 1 ? '#fff3cd' : '#f8f9fa'}; border-radius: 5px;">
+                        <strong>Sugestão ${i + 1} (${sug.type || 'unknown'}):</strong><br>
+                        <div style="margin: 5px 0;"><strong>Message:</strong> ${sug.message || 'N/A'}</div>
+                        <div style="margin: 5px 0;"><strong>Action:</strong> ${sug.action || 'N/A'}</div>
+                        <div style="margin: 5px 0;"><strong>Priority:</strong> ${sug.priority || 'N/A'}</div>
+                        <div style="margin: 5px 0;"><strong>AI Enhanced:</strong> ${sug.ai_enhanced || false}</div>
+                        <div style="margin: 5px 0;"><strong>Confidence:</strong> ${sug.confidence || 'N/A'}</div>
+                    </div>
+                `;
+            });
+            
+            div.innerHTML = html || 'Nenhuma sugestão processada ainda.';
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de merge seguro de sugestões iniciado");
+        console.log("📋 Sugestões originais mockadas:", mockOriginalSuggestions);
+        console.log("🤖 Resposta IA mockada (com nulls):", mockAIResponse);
+    </script>
+</body>
+</html>

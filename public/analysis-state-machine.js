@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // analysis-state-machine.js
 // State Machine para gerenciar modo de análise (Genre vs Reference)
 // Evita contaminação de estado entre modos e persiste em sessionStorage
@@ -23,7 +26,7 @@
     constructor() {
       this.state = this._getInitialState();
       this._restore();
-      console.log(DEBUG_PREFIX, 'Initialized', this.state);
+      log(DEBUG_PREFIX, 'Initialized', this.state);
     }
 
     /**
@@ -49,10 +52,10 @@
         if (stored) {
           const parsed = JSON.parse(stored);
           this.state = { ...this._getInitialState(), ...parsed };
-          console.log(DEBUG_PREFIX, 'Restored from sessionStorage', this.state);
+          log(DEBUG_PREFIX, 'Restored from sessionStorage', this.state);
         }
       } catch (error) {
-        console.error(DEBUG_PREFIX, 'Failed to restore state', error);
+        error(DEBUG_PREFIX, 'Failed to restore state', error);
       }
     }
 
@@ -63,9 +66,9 @@
       try {
         this.state.timestamp = new Date().toISOString();
         sessionStorage.setItem(STATE_KEY, JSON.stringify(this.state));
-        console.log(DEBUG_PREFIX, 'Persisted', this.state);
+        log(DEBUG_PREFIX, 'Persisted', this.state);
       } catch (error) {
-        console.error(DEBUG_PREFIX, 'Failed to persist state', error);
+        error(DEBUG_PREFIX, 'Failed to persist state', error);
       }
     }
 
@@ -82,11 +85,11 @@
         throw new Error(`Invalid mode: ${mode}. Must be 'genre' or 'reference'`);
       }
 
-      console.log(DEBUG_PREFIX, `setMode(${mode}, explicit=${userExplicitlySelected})`);
+      log(DEBUG_PREFIX, `setMode(${mode}, explicit=${userExplicitlySelected})`);
 
       // Se mudou de reference para genre, limpar estado reference
       if (this.state.mode === 'reference' && mode === 'genre') {
-        console.log(DEBUG_PREFIX, 'Switching from reference to genre - clearing reference state');
+        log(DEBUG_PREFIX, 'Switching from reference to genre - clearing reference state');
         this.state.referenceFirstJobId = null;
         this.state.referenceFirstResult = null;
         this.state.awaitingSecondTrack = false;
@@ -103,10 +106,10 @@
      * Iniciar fluxo de reference (primeira track)
      */
     startReferenceFirstTrack() {
-      console.log(DEBUG_PREFIX, 'startReferenceFirstTrack()');
+      log(DEBUG_PREFIX, 'startReferenceFirstTrack()');
 
       if (this.state.mode !== 'reference') {
-        console.error(DEBUG_PREFIX, 'Cannot start reference first track - mode is not reference');
+        error(DEBUG_PREFIX, 'Cannot start reference first track - mode is not reference');
         throw new Error('Cannot start reference first track when mode is not reference');
       }
 
@@ -128,10 +131,10 @@
     setReferenceFirstResult(data) {
       const { firstJobId, firstResultSummary } = data;
 
-      console.log(DEBUG_PREFIX, `setReferenceFirstResult(jobId=${firstJobId})`);
+      log(DEBUG_PREFIX, `setReferenceFirstResult(jobId=${firstJobId})`);
 
       if (this.state.mode !== 'reference') {
-        console.error(DEBUG_PREFIX, 'Cannot set reference first result - mode is not reference');
+        error(DEBUG_PREFIX, 'Cannot set reference first result - mode is not reference');
         throw new Error('Cannot set reference first result when mode is not reference');
       }
 
@@ -144,7 +147,7 @@
       this.state.awaitingSecondTrack = true;
       this._persist();
 
-      console.log(DEBUG_PREFIX, 'Now awaiting second track', {
+      log(DEBUG_PREFIX, 'Now awaiting second track', {
         referenceFirstJobId: this.state.referenceFirstJobId,
         awaitingSecondTrack: this.state.awaitingSecondTrack
       });
@@ -166,16 +169,16 @@
      * Iniciar análise da segunda track
      */
     startReferenceSecondTrack() {
-      console.log(DEBUG_PREFIX, 'startReferenceSecondTrack()');
+      log(DEBUG_PREFIX, 'startReferenceSecondTrack()');
 
       if (!this.isAwaitingSecondTrack()) {
-        console.error(DEBUG_PREFIX, 'Cannot start second track - not awaiting', this.state);
+        error(DEBUG_PREFIX, 'Cannot start second track - not awaiting', this.state);
         throw new Error('Cannot start second track - not awaiting second track');
       }
 
       // Manter estado mas indicar que segunda track está sendo processada
       // awaitingSecondTrack permanece true até receber resultado
-      console.log(DEBUG_PREFIX, 'Second track started', {
+      log(DEBUG_PREFIX, 'Second track started', {
         referenceFirstJobId: this.state.referenceFirstJobId
       });
 
@@ -186,7 +189,7 @@
      * Resetar fluxo de referência (volta ao estado inicial)
      */
     resetReferenceFlow() {
-      console.log(DEBUG_PREFIX, 'resetReferenceFlow()');
+      log(DEBUG_PREFIX, 'resetReferenceFlow()');
 
       this.state.referenceFirstJobId = null;
       this.state.referenceFirstResult = null;
@@ -194,14 +197,14 @@
       // NÃO resetar mode nem userExplicitlySelected
       this._persist();
 
-      console.log(DEBUG_PREFIX, 'Reference flow reset', this.state);
+      log(DEBUG_PREFIX, 'Reference flow reset', this.state);
     }
 
     /**
      * Reset completo (limpa tudo)
      */
     resetAll() {
-      console.log(DEBUG_PREFIX, 'resetAll()');
+      log(DEBUG_PREFIX, 'resetAll()');
       this.state = this._getInitialState();
       this._persist();
     }
@@ -266,14 +269,14 @@
       }
 
       if (errors.length > 0) {
-        console.error(DEBUG_PREFIX, `[INVARIANT_VIOLATION] at ${location}:`, errors, this.state);
+        error(DEBUG_PREFIX, `[INVARIANT_VIOLATION] at ${location}:`, errors, this.state);
         
         // Em modo strict, lançar exceção
         if (window.location.search.includes('debug=strict')) {
           throw new Error(`State machine invariant violation at ${location}: ${errors.join(', ')}`);
         }
       } else {
-        console.log(DEBUG_PREFIX, `[INVARIANT_OK] at ${location}`);
+        log(DEBUG_PREFIX, `[INVARIANT_OK] at ${location}`);
       }
 
       return errors.length === 0;
@@ -284,13 +287,13 @@
      */
     debug() {
       console.group(DEBUG_PREFIX + ' DEBUG DUMP');
-      console.log('Current State:', this.state);
-      console.log('Mode:', this.state.mode);
-      console.log('User Explicitly Selected:', this.state.userExplicitlySelected);
-      console.log('Reference First Job ID:', this.state.referenceFirstJobId);
-      console.log('Awaiting Second Track:', this.state.awaitingSecondTrack);
-      console.log('Timestamp:', this.state.timestamp);
-      console.log('isAwaitingSecondTrack():', this.isAwaitingSecondTrack());
+      log('Current State:', this.state);
+      log('Mode:', this.state.mode);
+      log('User Explicitly Selected:', this.state.userExplicitlySelected);
+      log('Reference First Job ID:', this.state.referenceFirstJobId);
+      log('Awaiting Second Track:', this.state.awaitingSecondTrack);
+      log('Timestamp:', this.state.timestamp);
+      log('isAwaitingSecondTrack():', this.isAwaitingSecondTrack());
       console.groupEnd();
     }
   }
@@ -303,5 +306,5 @@
     window.AnalysisStateMachine.debug();
   };
 
-  console.log(DEBUG_PREFIX, 'Module loaded. Use window.AnalysisStateMachine or debugStateMachine()');
+  log(DEBUG_PREFIX, 'Module loaded. Use window.AnalysisStateMachine or debugStateMachine()');
 })();

@@ -438,6 +438,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <!-- Background -->
@@ -525,21 +531,21 @@
         // Script moderno usando Firebase v11 (mesmo do projeto)
         (async () => {
             try {
-                console.log('🔄 Carregando Firebase...');
+                log('🔄 Carregando Firebase...');
                 
                 // Importar Firebase (mesmo padrão do auth.js)
                 const { auth, db } = await import('./firebase.js');
                 const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
                 const { doc, setDoc, Timestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
                 
-                console.log('✅ Firebase carregado com sucesso');
+                log('✅ Firebase carregado com sucesso');
                 
                 // Verificar autenticação quando a página carrega
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        console.log('✅ Usuário autenticado detectado:', user.uid, user.email);
+                        log('✅ Usuário autenticado detectado:', user.uid, user.email);
                     } else {
-                        console.log('❌ Nenhum usuário autenticado encontrado');
+                        log('❌ Nenhum usuário autenticado encontrado');
                         // Mostrar aviso na tela
                         const container = document.querySelector('.interview-container');
                         if (container) {
@@ -566,7 +572,7 @@
                         e.preventDefault();
                         
                         try {
-                            console.log('🔄 Formulário submetido, verificando autenticação...');
+                            log('🔄 Formulário submetido, verificando autenticação...');
                             
                             // Verificar se há usuário autenticado
                             const user = auth.currentUser;
@@ -576,7 +582,7 @@
                             return;
                         }
                         
-                        console.log('✅ Usuário encontrado:', user.uid, user.email);
+                        log('✅ Usuário encontrado:', user.uid, user.email);
                         
                         // Coletar dados do formulário
                         const formData = new FormData(this);
@@ -587,7 +593,7 @@
                         const estilo = formData.get('estilo');
                         const sobre = formData.get('sobre');
                         
-                        console.log('📋 Dados coletados:', { nomeArtistico, nivelTecnico, daw, dificuldade, estilo });
+                        log('📋 Dados coletados:', { nomeArtistico, nivelTecnico, daw, dificuldade, estilo });
                         
                         // Validação básica
                         if (!nomeArtistico || !nivelTecnico || !daw || !dificuldade || !estilo) {
@@ -607,7 +613,7 @@
                             entrevistaConcluida: true
                         };
                         
-                        console.log('💾 Salvando perfil para usuário:', user.uid);
+                        log('💾 Salvando perfil para usuário:', user.uid);
                         
                         // ═══════════════════════════════════════════════════════════════════
                         // ✅ GARANTIA: Documento DEVE existir (criado por auth.js listener)
@@ -623,22 +629,22 @@
                         
                         while (!userDocSnap.exists() && retryCount < maxRetries) {
                             retryCount++;
-                            console.warn(`⏳ [ENTREVISTA] Documento não existe, aguardando... (tentativa ${retryCount}/${maxRetries})`);
+                            warn(`⏳ [ENTREVISTA] Documento não existe, aguardando... (tentativa ${retryCount}/${maxRetries})`);
                             await new Promise(resolve => setTimeout(resolve, 1000));
                             userDocSnap = await getDoc(userDocRef);
                         }
                         
                         if (!userDocSnap.exists()) {
                             // ❌ ERRO CRÍTICO: Documento não foi criado após retries
-                            console.error('❌ [ENTREVISTA] Documento não existe após 3 tentativas!');
-                            console.error('   UID:', user.uid);
-                            console.error('   CAUSA: Listener global falhou ou regras de segurança bloquearam');
+                            error('❌ [ENTREVISTA] Documento não existe após 3 tentativas!');
+                            error('   UID:', user.uid);
+                            error('   CAUSA: Listener global falhou ou regras de segurança bloquearam');
                             
                             alert('Erro ao salvar perfil: Sua conta não foi inicializada. Por favor, recarregue a página e tente novamente.');
                             return;
                         }
                         
-                        console.log('✅ [ENTREVISTA] Documento existe, atualizando perfil...');
+                        log('✅ [ENTREVISTA] Documento existe, atualizando perfil...');
                         
                         // ✅ ATUALIZAR perfil usando merge (preserva campos existentes)
                         await setDoc(userDocRef, {
@@ -648,40 +654,40 @@
                             updatedAt: new Date().toISOString()
                         }, { merge: true });
                         
-                        console.log('✅ [ENTREVISTA] Perfil atualizado via merge');
-                        console.log('   Dados da entrevista:', perfilData);
+                        log('✅ [ENTREVISTA] Perfil atualizado via merge');
+                        log('   Dados da entrevista:', perfilData);
                         
-                        console.log('✅ Perfil salvo com sucesso!', perfilData);
-                        console.log('📊 Documento final no Firestore:', user.uid);
+                        log('✅ Perfil salvo com sucesso!', perfilData);
+                        log('📊 Documento final no Firestore:', user.uid);
                         
                         // Verificar se realmente foi salvo
                         try {
                             const verificacao = await getDoc(userDocRef);
                             if (verificacao.exists()) {
-                                console.log('✅ CONFIRMADO: Documento existe no Firestore:', verificacao.data());
+                                log('✅ CONFIRMADO: Documento existe no Firestore:', verificacao.data());
                             } else {
-                                console.error('❌ ERRO: Documento não foi encontrado após salvamento!');
+                                error('❌ ERRO: Documento não foi encontrado após salvamento!');
                             }
                         } catch (verificacaoError) {
-                            console.warn('⚠️ Erro na verificação:', verificacaoError);
+                            warn('⚠️ Erro na verificação:', verificacaoError);
                         }
                         
                         alert('Perfil salvo com sucesso! Redirecionando...');
                         
                         // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
                         // entrevista-final.html foi removida do fluxo
-                        console.log('🎉 Entrevista concluída - redirecionando para index.html');
+                        log('🎉 Entrevista concluída - redirecionando para index.html');
                         window.location.href = 'index.html';
                         
                     } catch (error) {
-                        console.error('❌ Erro completo:', error);
+                        error('❌ Erro completo:', error);
                         alert('Erro ao salvar suas informações. Detalhes: ' + error.message);
                     }
                     });
                 }
                 
             } catch (error) {
-                console.error('❌ Erro ao carregar Firebase:', error);
+                error('❌ Erro ao carregar Firebase:', error);
                 alert('Erro ao carregar o sistema. Recarregue a página.');
             }
         })();

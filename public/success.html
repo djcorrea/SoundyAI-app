@@ -263,6 +263,12 @@
             text-decoration: underline;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <!-- Background Effects -->
@@ -326,7 +332,7 @@
         import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
         import { doc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
 
-        console.log('🎉 [SUCCESS] Página de sucesso carregada');
+        log('🎉 [SUCCESS] Página de sucesso carregada');
 
         // Elements
         const planNameEl = document.getElementById('plan-name');
@@ -338,7 +344,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const sessionId = urlParams.get('session_id');
 
-        console.log('📋 [SUCCESS] Session ID:', sessionId);
+        log('📋 [SUCCESS] Session ID:', sessionId);
 
         // Show message
         function showMessage(text, type = 'info') {
@@ -369,7 +375,7 @@
         // Listen for auth state
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                console.log('❌ [SUCCESS] Usuário não autenticado');
+                log('❌ [SUCCESS] Usuário não autenticado');
                 showMessage('Você precisa estar logado para verificar seu plano.', 'error');
                 setTimeout(() => {
                     window.location.href = '/login.html';
@@ -377,7 +383,7 @@
                 return;
             }
 
-            console.log('✅ [SUCCESS] Usuário autenticado:', user.uid);
+            log('✅ [SUCCESS] Usuário autenticado:', user.uid);
 
             // ⚠️ IMPORTANTE: NÃO liberar plano aqui!
             // A liberação acontece APENAS via webhook do Stripe
@@ -388,12 +394,12 @@
             // Escutar mudanças em tempo real (para quando webhook atualizar)
             const unsubscribe = onSnapshot(userRef, (docSnap) => {
                 if (!docSnap.exists()) {
-                    console.log('⏳ [SUCCESS] Documento não encontrado, aguardando...');
+                    log('⏳ [SUCCESS] Documento não encontrado, aguardando...');
                     return;
                 }
 
                 const data = docSnap.data();
-                console.log('📊 [SUCCESS] Dados do usuário:', data);
+                log('📊 [SUCCESS] Dados do usuário:', data);
 
                 const plan = data.plan || 'free';
                 const subscription = data.subscription || {};
@@ -413,10 +419,10 @@
                     showMessage('⚠️ Há um problema com seu pagamento. Por favor, atualize seus dados de pagamento.', 'error');
                 } else if (plan === 'free') {
                     // Ainda processando - webhook ainda não chegou
-                    console.log('⏳ [SUCCESS] Aguardando webhook processar...');
+                    log('⏳ [SUCCESS] Aguardando webhook processar...');
                 }
             }, (error) => {
-                console.error('❌ [SUCCESS] Erro ao escutar documento:', error);
+                error('❌ [SUCCESS] Erro ao escutar documento:', error);
                 showMessage('Erro ao verificar status. Tente novamente em alguns segundos.', 'error');
             });
 
@@ -432,7 +438,7 @@
         });
 
         // Track page view
-        console.log('📈 [SUCCESS] Evento de conversão - session:', sessionId);
+        log('📈 [SUCCESS] Evento de conversão - session:', sessionId);
     </script>
 </body>
 </html>

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎵 REFERÊNCIAS MUSICAIS EMBEDDADAS - ATUALIZADAS
  * Médias aritméticas recalculadas corretamente
@@ -628,7 +631,7 @@ window.normalizeGenreId = function(genreId) {
   
   // Se é um ID legado, converter para oficial
   if (LEGACY_TO_OFFICIAL[normalized]) {
-    console.log(`[GENRE-NORMALIZE] 🔄 Convertendo legado: "${normalized}" → "${LEGACY_TO_OFFICIAL[normalized]}"`);
+    log(`[GENRE-NORMALIZE] 🔄 Convertendo legado: "${normalized}" → "${LEGACY_TO_OFFICIAL[normalized]}"`);
     return LEGACY_TO_OFFICIAL[normalized];
   }
   
@@ -650,23 +653,23 @@ window.normalizeGenreId = function(genreId) {
     // Se existe o novo ID, criar alias com o legado
     if (window.PROD_AI_REF_DATA[newId]) {
       window.PROD_AI_REF_DATA[legacyId] = window.PROD_AI_REF_DATA[newId];
-      console.log(`[GENRE-ALIAS] Criado alias: "${legacyId}" → "${newId}"`);
+      log(`[GENRE-ALIAS] Criado alias: "${legacyId}" → "${newId}"`);
     }
     // Se existe apenas o legado, criar o novo ID
     else if (window.PROD_AI_REF_DATA[legacyId]) {
       window.PROD_AI_REF_DATA[newId] = window.PROD_AI_REF_DATA[legacyId];
-      console.log(`[GENRE-ALIAS] Criado novo ID: "${newId}" a partir de "${legacyId}"`);
+      log(`[GENRE-ALIAS] Criado novo ID: "${newId}" a partir de "${legacyId}"`);
     }
   });
 })();
 
-console.log('🎵 Referências musicais carregadas:', Object.keys(window.PROD_AI_REF_DATA));
-console.log('📊 Total de gêneros:', Object.keys(window.PROD_AI_REF_DATA).length);
+log('🎵 Referências musicais carregadas:', Object.keys(window.PROD_AI_REF_DATA));
+log('📊 Total de gêneros:', Object.keys(window.PROD_AI_REF_DATA).length);
 
 // 📈 VALIDAÇÃO: Verificar se todas as referências têm dados válidos
 Object.entries(window.PROD_AI_REF_DATA).forEach(([genero, dados]) => {
     const metricas = dados.legacy_compatibility || {};
-    console.log(`✅ ${genero}: LUFS=${metricas.lufs_target}, TP=${metricas.true_peak_target}, DR=${metricas.dr_target}`);
+    log(`✅ ${genero}: LUFS=${metricas.lufs_target}, TP=${metricas.true_peak_target}, DR=${metricas.dr_target}`);
 });
 
 // 🎯 HOOK PARA DEBUG
@@ -683,5 +686,5 @@ window.__DEBUG_REFS = function() {
 window.embeddedRefsLoaded = true;
 if (!window.refsReady) {
     window.refsReady = true;
-    console.log("✅ [refs] refsReady marcado como true (refs internas carregadas)");
+    log("✅ [refs] refsReady marcado como true (refs internas carregadas)");
 }

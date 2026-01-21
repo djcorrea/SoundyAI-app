@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎵 WAV MOBILE OPTIMIZER - iOS/Android WAV Processing
  * Otimizações específicas para arquivos WAV grandes em dispositivos móveis
@@ -74,7 +77,7 @@ function showWAVProcessingFeedback(analysis) {
     `;
     
     // Log detalhado
-    console.log('🎵 WAV Mobile Processing:', {
+    log('🎵 WAV Mobile Processing:', {
       size: analysis.sizeInMB + 'MB',
       estimated: analysis.estimatedSeconds + 's',
       timeout: analysis.recommendedTimeout + 'ms',
@@ -105,7 +108,7 @@ function applyWAVOptimizations(file) {
       window.__WAV_MOBILE_TIMEOUT__ = analysis.recommendedTimeout;
       window.__WAV_PROCESSING_START__ = Date.now();
       
-      console.log(`🔧 WAV mobile optimizations applied: ${analysis.recommendedTimeout}ms timeout`);
+      log(`🔧 WAV mobile optimizations applied: ${analysis.recommendedTimeout}ms timeout`);
     }
     
     // Mostrar feedback imediato
@@ -139,11 +142,11 @@ function validateWAVProgress() {
     const elapsed = Date.now() - window.__WAV_PROCESSING_START__;
     const elapsedSeconds = Math.ceil(elapsed / 1000);
     
-    console.log(`🎵 WAV processing progress: ${elapsedSeconds}s elapsed`);
+    log(`🎵 WAV processing progress: ${elapsedSeconds}s elapsed`);
     
     // Detectar possível travamento
     if (elapsed > 90000) { // >90s
-      console.warn('⚠️ WAV processing taking longer than expected');
+      warn('⚠️ WAV processing taking longer than expected');
       
       const progressText = document.getElementById('audioProgressText');
       if (progressText) {
@@ -177,7 +180,7 @@ if (typeof window !== 'undefined') {
     config: WAV_MOBILE_CONFIG
   };
   
-  console.log('🎵 WAV Mobile Optimizer carregado');
+  log('🎵 WAV Mobile Optimizer carregado');
 }
 
 export {

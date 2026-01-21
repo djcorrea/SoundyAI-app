@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 ﻿/**
  * ðŸŽ¯ FUNÃ‡Ã•ES DE VALIDAÃ‡ÃƒO E NORMALIZAÃ‡ÃƒO PARA RELATÃ“RIOS PDF
  * 
@@ -12,12 +15,12 @@
 
 // ðŸ” VALIDAÃ‡ÃƒO: Comparar dados do relatÃ³rio com a UI
 function validateAnalysisDataAgainstUI(analysis) {
-    console.log('ðŸ” [PDF-VALIDATE] Iniciando validaÃ§Ã£o contra UI...');
+    log('ðŸ” [PDF-VALIDATE] Iniciando validaÃ§Ã£o contra UI...');
     
     const assertEqual = (label, pdfValue, uiSelector, tolerance = 0.01) => {
         const uiElement = document.querySelector(uiSelector);
         if (!uiElement) {
-            console.warn(`âš ï¸ [PDF-VALIDATE] Elemento UI nÃ£o encontrado: ${uiSelector}`);
+            warn(`âš ï¸ [PDF-VALIDATE] Elemento UI nÃ£o encontrado: ${uiSelector}`);
             return;
         }
         
@@ -27,12 +30,12 @@ function validateAnalysisDataAgainstUI(analysis) {
                      parseFloat(uiElement.textContent.replace(/[^0-9.-]/g, ''));
         
         if (isNaN(uiValue)) {
-            console.warn(`âš ï¸ [PDF-VALIDATE] Valor UI nÃ£o numÃ©rico em ${uiSelector}`);
+            warn(`âš ï¸ [PDF-VALIDATE] Valor UI nÃ£o numÃ©rico em ${uiSelector}`);
             return;
         }
         
         if (pdfValue == null || isNaN(pdfValue)) {
-            console.warn(`âš ï¸ [PDF-VALIDATE] Valor PDF ausente para ${label}`);
+            warn(`âš ï¸ [PDF-VALIDATE] Valor PDF ausente para ${label}`);
             return;
         }
         
@@ -40,13 +43,13 @@ function validateAnalysisDataAgainstUI(analysis) {
         const ok = diff < tolerance;
         
         if (!ok) {
-            console.warn(`ðŸš¨ [PDF-VALIDATE] DIVERGÃŠNCIA em ${label}:`, {
+            warn(`ðŸš¨ [PDF-VALIDATE] DIVERGÃŠNCIA em ${label}:`, {
                 pdf: pdfValue,
                 ui: uiValue,
                 diferenca: diff.toFixed(3)
             });
         } else {
-            console.log(`âœ… [PDF-VALIDATE] ${label}: OK (diff=${diff.toFixed(4)})`);
+            log(`âœ… [PDF-VALIDATE] ${label}: OK (diff=${diff.toFixed(4)})`);
         }
     };
     
@@ -81,17 +84,17 @@ function validateAnalysisDataAgainstUI(analysis) {
             assertEqual('Score', analysis.score, '.score-final-value', 1);
         }
         
-        console.log('âœ… [PDF-VALIDATE] ValidaÃ§Ã£o concluÃ­da');
+        log('âœ… [PDF-VALIDATE] ValidaÃ§Ã£o concluÃ­da');
         
     } catch (error) {
-        console.error('âŒ [PDF-VALIDATE] Erro na validaÃ§Ã£o:', error);
+        error('âŒ [PDF-VALIDATE] Erro na validaÃ§Ã£o:', error);
     }
 }
 
 // ðŸŽ¯ Normalizar dados da anÃ¡lise para formato compatÃ­vel com PDF (NOVA VERSÃƒO ROBUSTA)
 function normalizeAnalysisDataForPDF(analysis) {
-    console.log('ðŸ“Š [PDF-NORMALIZE] ============ INÃCIO DA NORMALIZAÃ‡ÃƒO ============');
-    console.log('ðŸ“Š [PDF-NORMALIZE] Estrutura recebida:', {
+    log('ðŸ“Š [PDF-NORMALIZE] ============ INÃCIO DA NORMALIZAÃ‡ÃƒO ============');
+    log('ðŸ“Š [PDF-NORMALIZE] Estrutura recebida:', {
         keys: Object.keys(analysis),
         fileName: analysis.fileName || analysis.metadata?.fileName,
         mode: analysis.analysisMode || analysis.mode,
@@ -155,7 +158,7 @@ function normalizeAnalysisDataForPDF(analysis) {
         analysis.metrics?.loudness?.lra
     );
     
-    console.log('ðŸŽ§ [PDF-NORMALIZE] Loudness extraÃ­do:', {
+    log('ðŸŽ§ [PDF-NORMALIZE] Loudness extraÃ­do:', {
         integrated: lufsIntegrated,
         shortTerm: lufsShortTerm,
         momentary: lufsMomentary,
@@ -182,7 +185,7 @@ function normalizeAnalysisDataForPDF(analysis) {
         0
     );
     
-    console.log('âš™ï¸ [PDF-NORMALIZE] True Peak extraÃ­do:', {
+    log('âš™ï¸ [PDF-NORMALIZE] True Peak extraÃ­do:', {
         maxDbtp: truePeakDbtp,
         clipping: { samples: clippingSamples, percentage: clippingPercentage }
     });
@@ -202,7 +205,7 @@ function normalizeAnalysisDataForPDF(analysis) {
         analysis.metrics?.dynamics?.crest
     );
     
-    console.log('ðŸŽšï¸ [PDF-NORMALIZE] DinÃ¢mica extraÃ­da:', {
+    log('ðŸŽšï¸ [PDF-NORMALIZE] DinÃ¢mica extraÃ­da:', {
         range: dynamicRange,
         crest: crestFactor
     });
@@ -229,7 +232,7 @@ function normalizeAnalysisDataForPDF(analysis) {
         analysis.metrics?.stereo?.monoCompatibility
     );
     
-    console.log('ðŸŽ›ï¸ [PDF-NORMALIZE] Stereo extraÃ­do:', {
+    log('ðŸŽ›ï¸ [PDF-NORMALIZE] Stereo extraÃ­do:', {
         width: stereoWidth,
         correlation: stereoCorrelation,
         monoCompatibility: monoCompatibility
@@ -268,7 +271,7 @@ function normalizeAnalysisDataForPDF(analysis) {
         bandsSource.treble
     );
     
-    console.log('ðŸ“ˆ [PDF-NORMALIZE] Bandas espectrais extraÃ­das:', {
+    log('ðŸ“ˆ [PDF-NORMALIZE] Bandas espectrais extraÃ­das:', {
         sub: spectralSub,
         bass: spectralBass,
         mid: spectralMid,
@@ -355,8 +358,8 @@ function normalizeAnalysisDataForPDF(analysis) {
         recommendations: recommendations.length > 0 ? recommendations : ['âœ… AnÃ¡lise completa']
     };
     
-    console.log('âœ… [PDF-NORMALIZE] Resultado normalizado:', normalizedResult);
-    console.log('ðŸ“Š [PDF-NORMALIZE] ============ FIM DA NORMALIZAÃ‡ÃƒO ============');
+    log('âœ… [PDF-NORMALIZE] Resultado normalizado:', normalizedResult);
+    log('ðŸ“Š [PDF-NORMALIZE] ============ FIM DA NORMALIZAÃ‡ÃƒO ============');
     
     return normalizedResult;
 }

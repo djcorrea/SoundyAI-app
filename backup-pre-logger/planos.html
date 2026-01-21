@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planos & Preços - SoundyAI</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS do novo layout premium -->
+    <link rel="stylesheet" href="planos.css">
+    
+    <!--
+    ============================================
+    SELETORES CRÍTICOS PRESERVADOS (STRIPE):
+    - #btn-plus (botão assinatura Plus)
+    - #btn-pro (botão assinatura Pro)
+    - .plan-button (classe base botões)
+    - .btn-premium (classe estilo premium)
+    - handleStripeCheckout() function
+    - /api/stripe/create-checkout-session endpoint
+    ============================================
+    -->
+</head>
+<body class="planos-page">
+    <!-- ===================================
+         BACKGROUND COM ORBS ANIMADAS
+         =================================== -->
+    <div class="pricing-background">
+        <!-- Orbs com glow animado -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        
+        <!-- Grid overlay sutil -->
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- ===================================
+         CONTAINER PRINCIPAL
+         =================================== -->
+    <div class="pricing-container">
+        <!-- Header da seção -->
+        <header class="pricing-header">
+            <div class="pricing-badge">
+                <!-- Ícone Sparkles SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                    <path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+                </svg>
+                Planos
+            </div>
+            <h1 class="pricing-title">PLANOS</h1>
+            <p class="pricing-subtitle">
+                Escolha o destino do seu som: validar, corrigir e evoluir.
+            </p>
+        </header>
+
+        <!-- ===================================
+             GRID DE CARDS
+             =================================== -->
+        <div class="pricing-grid">
+            
+            <!-- ===== CARD GRÁTIS ===== -->
+            <div class="pricing-card glass-effect">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <!-- Ícone User SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-plan-name">GRÁTIS</h2>
+                    <p class="card-description">Pra testar o básico e entender seu som.</p>
+                </div>
+                
+                <div class="card-price-section">
+                    <div class="card-price">
+                        <span class="currency">R$</span>
+                        <span class="price-value">0</span>
+                    </div>
+                    <p class="price-period">Não recomendado</p>
+                </div>
+                
+                <div class="card-features">
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">2 análises completas por mês</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">20 mensagens no chat por mês</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Sem sugestões</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem análise espectral avançada</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem "Pedir ajuda à IA"</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem análise por música de referência</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem relatório em PDF</span>
+                    </div>
+                </div>
+                
+                <div class="card-cta">
+                    <a href="index.html" class="plan-button btn-free">Começar grátis</a>
+                </div>
+            </div>
+
+            <!-- ===== CARD PLUS (POPULAR) ===== -->
+            <div class="pricing-card glass-effect popular">
+                <!-- Badge Popular -->
+                <span class="card-badge badge-popular">MAIS POPULAR</span>
+                
+                <div class="card-header">
+                    <div class="card-icon">
+                        <!-- Ícone Zap SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-plan-name">PLUS</h2>
+                    <p class="card-description">Pra evoluir com consistência e corrigir rápido.</p>
+                </div>
+                
+                <div class="card-price-section">
+                    <div class="card-price">
+                        <span class="currency">R$</span>
+                        <span class="price-value">47</span>
+                        <span class="price-period">,99/mês</span>
+                    </div>
+                    <p class="price-annual">Básico que funciona</p>
+                </div>
+                
+                <div class="card-features">
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">20 análises por mês</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">80 mensagens no chat por mês</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Análise completa + sugestões inteligentes</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem função "Pedir ajuda à IA"</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem análise por música de referência</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon cross">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </span>
+                        <span class="feature-text disabled">Sem relatório em PDF</span>
+                    </div>
+                </div>
+                
+                <div class="card-cta">
+                    <!-- PRESERVADO: id="btn-plus" para Stripe -->
+                    <button id="btn-plus" class="plan-button btn-premium">Assinar Plus</button>
+                </div>
+            </div>
+
+            <!-- ===== CARD PRO (DESTAQUE) ===== -->
+            <div class="pricing-card glass-effect pro-highlight glow-purple">
+                <!-- Badge Melhor Escolha -->
+                <span class="card-badge badge-best">⭐ MELHOR ESCOLHA</span>
+                
+                <div class="card-header">
+                    <div class="card-icon">
+                        <!-- Ícone Crown SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-plan-name">PRO</h2>
+                    <p class="card-description">Pra quem quer nível profissional e resultados consistentes.</p>
+                </div>
+                
+                <div class="card-price-section">
+                    <div class="card-price">
+                        <span class="currency">R$</span>
+                        <span class="price-value">79</span>
+                        <span class="price-period">,99/mês</span>
+                    </div>
+                    <p class="price-annual">Análise profissional completa</p>
+                </div>
+                
+                <div class="card-features">
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">60 análises/mês (com relatório completo)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">300 mensagens/mês no Chat Bot</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Histórico de análises (acesso rápido aos seus resultados)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Plano de correção automático (passo a passo pra melhorar sua mix)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Pedir ajuda à IA (explicação técnica + orientação prática)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Exportar relatório em PDF (profissional e compartilhável)</span>
+                    </div>
+                </div>
+                
+                <div class="card-cta">
+                    <!-- PRESERVADO: id="btn-pro" para Stripe -->
+                    <button id="btn-pro" class="plan-button btn-premium btn-pro-special">Começar no Pro</button>
+                </div>
+            </div>
+
+            <!-- ===== CARD STUDIO (NOVO 2026-01-06) ===== -->
+            <div class="pricing-card glass-effect studio-highlight glow-gold">
+                <!-- Badge Studio -->
+                <span class="card-badge badge-studio">🎬 ESTÚDIO</span>
+                
+                <div class="card-header">
+                    <div class="card-icon studio-icon">
+                        <!-- Ícone Studio/Mixer SVG -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="6" width="6" height="12" rx="2"/>
+                            <rect x="9" y="3" width="6" height="18" rx="2"/>
+                            <rect x="16" y="8" width="6" height="8" rx="2"/>
+                        </svg>
+                    </div>
+                    <h2 class="card-plan-name">STUDIO</h2>
+                    <p class="card-description">Pra quem vive de música e precisa de volume, velocidade e prioridade.</p>
+                </div>
+                
+                <div class="card-price-section">
+                    <div class="card-price">
+                        <span class="currency">R$</span>
+                        <span class="price-value">99</span>
+                        <span class="price-period">,90/mês</span>
+                    </div>
+                    <p class="price-annual">Ideal para produtores profissionais</p>
+                </div>
+                
+                <div class="card-features">
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text highlight-feature">Análises ilimitadas (resultado completo)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text highlight-feature">Chat ilimitado e mais inteligente (respostas mais precisas e técnicas)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text highlight-feature">Prioridade de processamento (sua análise entra na frente)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text highlight-feature">Prioridade no servidor (mais estabilidade nos horários de pico)</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Histórico de análises</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Plano de correção automático</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Pedir ajuda à IA</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Exportar relatório em PDF</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon check">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <span class="feature-text">Suporte prioritário</span>
+                    </div>
+                </div>
+                
+                <div class="card-cta">
+                    <!-- NOVO: id="btn-studio" para Stripe -->
+                    <button id="btn-studio" class="plan-button btn-premium btn-studio-special">Assinar Studio</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================
+             TRUST INDICATORS
+             =================================== -->
+        <div class="trust-section">
+            <div class="trust-item">
+                <span class="trust-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span>Cancele quando quiser</span>
+            </div>
+            <div class="trust-item">
+                <span class="trust-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span>Sem taxas ocultas</span>
+            </div>
+            <div class="trust-item">
+                <span class="trust-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span>Upgrade/Downgrade a qualquer momento</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================
+         FIREBASE & STRIPE SCRIPTS
+         (PRESERVADO 100% - NÃO MODIFICAR)
+         =================================== -->
+    <script type="module">
+        // ✅ Importar Firebase do módulo compartilhado
+        import { auth } from './firebase.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+
+        console.log('🔥 Firebase importado de firebase.js compartilhado');
+
+        // ✅ VARIÁVEL GLOBAL para armazenar usuário autenticado
+        window.currentUser = null;
+
+        // ✅ MONITORAR ESTADO DE AUTENTICAÇÃO
+        onAuthStateChanged(auth, (user) => {
+            window.currentUser = user;
+            if (user) {
+                console.log('✅ Estado de autenticação: LOGADO como', user.email);
+            } else {
+                console.log('❌ Estado de autenticação: NÃO LOGADO');
+            }
+        });
+
+        // Stripe Checkout Handler - NÃO MODIFICAR
+        async function handleStripeCheckout(plan) {
+            try {
+                // ✅ Verificar se usuário está autenticado usando variável global
+                if (!window.currentUser) {
+                    alert('Você precisa estar logado para assinar um plano. Redirecionando para login...');
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                console.log(`🚀 Iniciando checkout para plano: ${plan}`);
+
+                // Obter token do Firebase
+                const idToken = await window.currentUser.getIdToken();
+                console.log('✅ Token obtido com sucesso');
+
+                // Fazer requisição ao endpoint Stripe - NÃO MODIFICAR
+                const response = await fetch('/api/stripe/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({ plan })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Erro ao criar sessão de checkout');
+                }
+
+                const data = await response.json();
+                console.log('✅ Sessão de checkout criada:', data);
+
+                // Redirecionar para Stripe Checkout
+                if (data.url) {
+                    console.log('🔗 Redirecionando para Stripe Checkout...');
+                    window.location.href = data.url;
+                } else {
+                    throw new Error('URL de checkout não retornada');
+                }
+
+            } catch (error) {
+                console.error('❌ Erro ao processar checkout:', error);
+                alert(`Erro ao processar pagamento: ${error.message}`);
+            }
+        }
+
+        // Expor função globalmente para os botões
+        window.handleStripeCheckout = handleStripeCheckout;
+    </script>
+
+    <script>
+        // Event Listeners para botões Stripe - ATUALIZADO 2026-01-06 com STUDIO
+        document.addEventListener('DOMContentLoaded', () => {
+            // ✅ PRESERVADO: Seletores críticos #btn-plus e #btn-pro
+            const btnPlus = document.getElementById('btn-plus');
+            const btnPro = document.getElementById('btn-pro');
+            // ✅ NOVO: Seletor #btn-studio
+            const btnStudio = document.getElementById('btn-studio');
+
+            if (btnPlus) {
+                btnPlus.addEventListener('click', () => {
+                    window.handleStripeCheckout('plus');
+                });
+            }
+
+            if (btnPro) {
+                btnPro.addEventListener('click', () => {
+                    window.handleStripeCheckout('pro');
+                });
+            }
+
+            // ✅ NOVO: Event listener para STUDIO
+            if (btnStudio) {
+                btnStudio.addEventListener('click', () => {
+                    window.handleStripeCheckout('studio');
+                });
+            }
+
+            console.log('✅ Event listeners Stripe configurados (Plus, Pro, Studio)');
+        });
+
+        console.log('✅ Página de planos carregada com sucesso!');
+    </script>
+</body>
+</html>

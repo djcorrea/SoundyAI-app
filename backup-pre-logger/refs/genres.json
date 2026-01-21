@@ -1,0 +1,38 @@
+{
+  "genres": [
+    {
+      "key": "progressive_trance",
+      "label": "Progressive Trance",
+      "legacy_key": "trance"
+    },
+    {
+      "key": "funk_mandela",
+      "label": "Funk Mandela"
+    },
+    {
+      "key": "funk_bruxaria",
+      "label": "Funk Bruxaria"
+    },
+    {
+      "key": "edm",
+      "label": "EDM",
+      "legacy_key": "funk_automotivo"
+    },
+    {
+      "key": "eletronico",
+      "label": "Eletrônico"
+    },
+    {
+      "key": "eletrofunk",
+      "label": "Eletrofunk"
+    },
+    {
+      "key": "funk_consciente",
+      "label": "Funk Consciente"
+    },
+    {
+      "key": "trap",
+      "label": "Trap"
+    }
+  ]
+}

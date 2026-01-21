@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 SISTEMA UNIFICADO DE STATUS E SUGESTÕES V1
  * 
@@ -28,7 +31,7 @@ window.STATUS_SUGGESTION_UNIFIED_V1 = window.STATUS_SUGGESTION_UNIFIED_V1 ?? tru
 function calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade = '', metrica = '', opcoes = {}) {
     // 🛡️ Guard Rails - Validação obrigatória
     if (!Number.isFinite(valor)) {
-        console.warn('[STATUS_UNIFIED] Valor inválido:', valor);
+        warn('[STATUS_UNIFIED] Valor inválido:', valor);
         return { 
             status: 'indefinido', 
             cor: 'na', 
@@ -39,7 +42,7 @@ function calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade = '', 
     }
     
     if (!Number.isFinite(alvo)) {
-        console.warn('[STATUS_UNIFIED] Alvo inválido:', alvo);
+        warn('[STATUS_UNIFIED] Alvo inválido:', alvo);
         return { 
             status: 'indefinido', 
             cor: 'na', 
@@ -50,7 +53,7 @@ function calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade = '', 
     }
     
     if (!Number.isFinite(tolerancia) || tolerancia <= 0) {
-        console.warn('[STATUS_UNIFIED] Tolerância inválida:', tolerancia);
+        warn('[STATUS_UNIFIED] Tolerância inválida:', tolerancia);
         return { 
             status: 'indefinido', 
             cor: 'na', 
@@ -117,7 +120,7 @@ function calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade = '', 
     
     // 📝 Log para debugging (apenas se debug ativo)
     if (opcoes.debug) {
-        console.log(`[STATUS_UNIFIED] ${metrica}: ${valor}${unidade} -> ${status} (dif: ${dif.toFixed(2)}${unidade}, tol: ±${tolerancia}${unidade})`);
+        log(`[STATUS_UNIFIED] ${metrica}: ${valor}${unidade} -> ${status} (dif: ${dif.toFixed(2)}${unidade}, tol: ±${tolerancia}${unidade})`);
     }
     
     return {
@@ -202,7 +205,7 @@ function formatarSugestaoTexto(sugestao) {
 function criarCelulaDiferenca(valor, alvo, tolerancia, unidade = '', metrica = '') {
     if (!window.STATUS_SUGGESTION_UNIFIED_V1) {
         // Fallback para sistema legacy
-        console.warn('[STATUS_UNIFIED] Feature flag desabilitada, usando sistema legacy');
+        warn('[STATUS_UNIFIED] Feature flag desabilitada, usando sistema legacy');
         return null;
     }
     
@@ -258,7 +261,7 @@ function contarProblemasUnificado(metricas) {
  * Validação automática da lógica unificada
  */
 function executarTestesUnificados() {
-    console.log('[STATUS_UNIFIED] Executando testes unitários...');
+    log('[STATUS_UNIFIED] Executando testes unitários...');
     
     const testes = [
         // Teste IDEAL
@@ -305,10 +308,10 @@ function executarTestesUnificados() {
         
         if (statusOk && corOk && sugestaoOk) {
             passou++;
-            console.log(`✅ ${teste.nome}: PASSOU`);
+            log(`✅ ${teste.nome}: PASSOU`);
         } else {
             falhou++;
-            console.error(`❌ ${teste.nome}: FALHOU`, {
+            error(`❌ ${teste.nome}: FALHOU`, {
                 esperado: teste.esperado,
                 obtido: { 
                     status: resultado.status, 
@@ -319,7 +322,7 @@ function executarTestesUnificados() {
         }
     }
     
-    console.log(`[STATUS_UNIFIED] Testes finalizados: ${passou} passou, ${falhou} falhou`);
+    log(`[STATUS_UNIFIED] Testes finalizados: ${passou} passou, ${falhou} falhou`);
     return { passou, falhou, total: testes.length };
 }
 
@@ -339,7 +342,7 @@ if (typeof window !== 'undefined') {
         setTimeout(() => executarTestesUnificados(), 100);
     }
     
-    console.log('[STATUS_UNIFIED] Sistema unificado carregado. Feature flag:', window.STATUS_SUGGESTION_UNIFIED_V1);
+    log('[STATUS_UNIFIED] Sistema unificado carregado. Feature flag:', window.STATUS_SUGGESTION_UNIFIED_V1);
 }
 
 // Exportação para Node.js/módulos

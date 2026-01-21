@@ -1,0 +1,636 @@
+/* ═══════════════════════════════════════════════════════════════════
+   🚀 DESIGN FUTURISTA ULTRA-AVANÇADO - SUGESTÕES IA CYBERPUNK
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Container Principal - Efeito Matrix/Cyberpunk */
+.ai-suggestions-container {
+    background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1729 100%);
+    border: 2px solid rgba(0, 234, 255, 0.4);
+    border-radius: 24px;
+    padding: 50px;
+    margin: 40px 0;
+    box-shadow: 
+        0 0 60px rgba(0, 234, 255, 0.25),
+        0 0 120px rgba(106, 0, 255, 0.15),
+        inset 0 0 80px rgba(0, 234, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 🚀 PERFORMANCE: Animação de fundo Matrix - otimizada para GPU */
+.ai-suggestions-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: 
+        linear-gradient(45deg, transparent 40%, rgba(0, 234, 255, 0.015) 50%, transparent 60%);
+    animation: scanline 20s linear infinite; /* Mais lento = menos processamento */
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+    transform: translateZ(0); /* Força GPU layer */
+}
+
+@keyframes scanline {
+    0% { transform: translate(-50%, -50%) rotate(0deg) translateZ(0); }
+    100% { transform: translate(-50%, -50%) rotate(360deg) translateZ(0); }
+}
+
+/* Grid de fundo tech - estático (não anima) */
+.ai-suggestions-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(0, 234, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 234, 255, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    opacity: 0.3; /* Reduzido para menos overdraw */
+    z-index: 0;
+}
+
+/* Card de Sugestão Individual - AMPLIADO */
+.ai-suggestion-card {
+    background: linear-gradient(135deg, rgba(10, 20, 50, 0.98) 0%, rgba(20, 30, 60, 0.98) 100%);
+    border: 1px solid rgba(0, 234, 255, 0.5);
+    border-radius: 20px;
+    padding: 40px;
+    margin: 30px 0;
+    min-height: 550px !important; /* 🚀 CARDS MUITO MAIORES */
+    max-height: none !important;
+    position: relative;
+    overflow: visible;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+    z-index: 1;
+    backdrop-filter: blur(10px);
+}
+
+.ai-suggestion-card:hover {
+    transform: translateY(-5px) scale(1.01);
+    border-color: rgba(0, 234, 255, 0.6);
+    box-shadow: 
+        0 15px 35px rgba(0, 234, 255, 0.15),
+        0 0 30px rgba(106, 0, 255, 0.1),
+        inset 0 0 20px rgba(0, 234, 255, 0.05);
+    z-index: 10;
+}
+
+/* Borda neon animada - REDUZIDA */
+.ai-suggestion-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(
+        45deg,
+        rgba(0, 234, 255, 0.25),
+        rgba(106, 0, 255, 0.25),
+        rgba(0, 234, 255, 0.25)
+    );
+    border-radius: 20px;
+    opacity: 0;
+    z-index: -1;
+    filter: blur(8px);
+    transition: opacity 0.5s ease;
+}
+
+.ai-suggestion-card:hover::before {
+    opacity: 0.6;
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% { filter: blur(8px) brightness(1); }
+    50% { filter: blur(10px) brightness(1.2); }
+}
+
+/* Título da Sugestão - MAIOR */
+.ai-suggestion-card .title,
+.ai-suggestion-card h3,
+.suggestion-title {
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    color: #00eaff !important;
+    text-shadow: 0 0 10px rgba(0, 234, 255, 0.3);
+    margin-bottom: 25px !important;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    line-height: 1.4;
+}
+
+.ai-suggestion-card .title::before,
+.suggestion-title::before {
+    content: '⚡';
+    font-size: 32px;
+    animation: pulse 2s ease-in-out infinite;
+    display: inline-block;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.15); }
+}
+
+/* Seções da Sugestão - MAIS ESPAÇADAS */
+.ai-suggestion-card .section,
+.suggestion-section {
+    margin: 25px 0 !important;
+    padding: 20px !important;
+    background: rgba(0, 234, 255, 0.08);
+    border-left: 4px solid #00eaff;
+    border-radius: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.ai-suggestion-card .section:hover,
+.suggestion-section:hover {
+    background: rgba(0, 234, 255, 0.12);
+    border-left-width: 6px;
+    padding-left: 25px !important;
+}
+
+.suggestion-section-title,
+.ai-suggestion-card .section-title {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: #00eaff !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.suggestion-section-content,
+.ai-suggestion-card .section-content {
+    font-size: 16px !important;
+    line-height: 1.8 !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Passo a Passo - MAIS VISUAL */
+.passo-a-passo-list,
+.ai-suggestion-card ol,
+.ai-suggestion-card ul.steps {
+    list-style: none;
+    counter-reset: passo;
+    margin: 20px 0 !important;
+    padding: 0;
+}
+
+.passo-a-passo-list li,
+.ai-suggestion-card ol li,
+.ai-suggestion-card ul.steps li {
+    counter-increment: passo;
+    padding: 16px 20px !important;
+    padding-left: 65px !important;
+    margin: 15px 0 !important;
+    background: linear-gradient(90deg, rgba(0, 234, 255, 0.12), rgba(0, 234, 255, 0.05));
+    border-left: 5px solid #00eaff;
+    border-radius: 10px;
+    position: relative;
+    font-size: 15px !important;
+    line-height: 1.7;
+    transition: all 0.3s ease;
+}
+
+.passo-a-passo-list li:hover,
+.ai-suggestion-card ol li:hover,
+.ai-suggestion-card ul.steps li:hover {
+    background: linear-gradient(90deg, rgba(0, 234, 255, 0.18), rgba(0, 234, 255, 0.08));
+    transform: translateX(10px);
+}
+
+.passo-a-passo-list li::before,
+.ai-suggestion-card ol li::before,
+.ai-suggestion-card ul.steps li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 35px;
+    height: 35px;
+    background: linear-gradient(135deg, #00eaff, #6a00ff);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 16px;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(0, 234, 255, 0.6);
+}
+
+/* DAW Details Grid - MAIS CLARO */
+.daw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 25px 0;
+}
+
+.daw-item {
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.15), rgba(106, 0, 255, 0.08));
+    border: 1px solid rgba(106, 0, 255, 0.4);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.4s ease;
+}
+
+.daw-item:hover {
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.25), rgba(106, 0, 255, 0.12));
+    border-color: rgba(106, 0, 255, 0.8);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(106, 0, 255, 0.4);
+}
+
+.daw-name {
+    font-weight: 800 !important;
+    color: #bf40ff !important;
+    font-size: 18px !important;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.daw-name::before {
+    content: '🎹';
+    font-size: 22px;
+}
+
+.daw-details {
+    font-size: 14px !important;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Tags de Prioridade - MAIS IMPACTANTES */
+.priority-badge {
+    display: inline-block;
+    padding: 8px 18px !important;
+    border-radius: 25px;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-right: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+.priority-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.priority-badge:hover::before {
+    left: 100%;
+}
+
+.priority-critico {
+    background: linear-gradient(135deg, #ff0844, #ff4757);
+    color: #fff !important;
+    box-shadow: 0 0 25px rgba(255, 8, 68, 0.6);
+    animation: priorityPulse 2s ease-in-out infinite;
+}
+
+.priority-alto {
+    background: linear-gradient(135deg, #ffa502, #ff6348);
+    color: #fff !important;
+    box-shadow: 0 0 25px rgba(255, 165, 2, 0.6);
+}
+
+.priority-medio {
+    background: linear-gradient(135deg, #1e90ff, #00bfff);
+    color: #fff !important;
+    box-shadow: 0 0 25px rgba(30, 144, 255, 0.6);
+}
+
+@keyframes priorityPulse {
+    0%, 100% { box-shadow: 0 0 25px rgba(255, 8, 68, 0.6); }
+    50% { box-shadow: 0 0 40px rgba(255, 8, 68, 0.9); }
+}
+
+/* Antes/Depois Card - MAIS VISUAL */
+.antes-depois-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+    margin: 30px 0;
+}
+
+.antes-card, .depois-card {
+    padding: 25px !important;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s ease;
+}
+
+.antes-card:hover, .depois-card:hover {
+    transform: translateY(-5px);
+}
+
+.antes-card {
+    background: linear-gradient(135deg, rgba(255, 8, 68, 0.15), rgba(255, 71, 87, 0.08));
+    border: 2px solid rgba(255, 8, 68, 0.4);
+}
+
+.antes-card:hover {
+    box-shadow: 0 15px 40px rgba(255, 8, 68, 0.3);
+}
+
+.depois-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.08));
+    border: 2px solid rgba(16, 185, 129, 0.4);
+}
+
+.depois-card:hover {
+    box-shadow: 0 15px 40px rgba(16, 185, 129, 0.3);
+}
+
+.antes-titulo, .depois-titulo {
+    font-weight: 900 !important;
+    font-size: 16px !important;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 15px !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.antes-titulo {
+    color: #ff4757 !important;
+}
+
+.antes-titulo::before {
+    content: '❌';
+    font-size: 20px;
+}
+
+.depois-titulo {
+    color: #10b981 !important;
+}
+
+.depois-titulo::before {
+    content: '✅';
+    font-size: 20px;
+}
+
+/* Conceitos Técnicos - MAIS DESTAQUE */
+.conceito-box {
+    background: rgba(0, 234, 255, 0.08);
+    border: 2px solid rgba(0, 234, 255, 0.3);
+    border-radius: 12px;
+    padding: 25px !important;
+    margin: 25px 0 !important;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.conceito-box:hover {
+    background: rgba(0, 234, 255, 0.12);
+    border-color: rgba(0, 234, 255, 0.5);
+    box-shadow: 0 10px 30px rgba(0, 234, 255, 0.2);
+}
+
+.conceito-box::before {
+    content: '💡';
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 32px;
+    opacity: 0.6;
+}
+
+/* Dica Pro - DESTAQUE DOURADO */
+.dica-pro-box {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 193, 7, 0.08));
+    border: 3px solid rgba(255, 215, 0, 0.5);
+    border-radius: 14px;
+    padding: 25px !important;
+    margin: 25px 0 !important;
+    position: relative;
+    transition: all 0.4s ease;
+}
+
+.dica-pro-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 50px rgba(255, 215, 0, 0.3);
+}
+
+.dica-pro-box::before {
+    content: '🌟 DICA PRO';
+    position: absolute;
+    top: -14px;
+    left: 25px;
+    background: linear-gradient(135deg, #ffd700, #ffc107);
+    padding: 6px 16px;
+    border-radius: 25px;
+    font-size: 13px;
+    font-weight: 900;
+    color: #000;
+    letter-spacing: 1px;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+
+/* Plugin Badge - MAIS VISUAL */
+.plugin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px !important;
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.2), rgba(106, 0, 255, 0.1));
+    border: 2px solid rgba(106, 0, 255, 0.5);
+    border-radius: 30px;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: #bf40ff !important;
+    margin: 12px 8px;
+    transition: all 0.3s ease;
+}
+
+.plugin-badge:hover {
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.3), rgba(106, 0, 255, 0.15));
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(106, 0, 255, 0.4);
+}
+
+.plugin-badge::before {
+    content: '🔌';
+    font-size: 20px;
+}
+
+/* Tempo e Curva - MAIS CLARO */
+.meta-info {
+    display: flex;
+    gap: 25px;
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 2px solid rgba(0, 234, 255, 0.3);
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    padding: 8px 16px;
+    background: rgba(0, 234, 255, 0.08);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.meta-item:hover {
+    background: rgba(0, 234, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.meta-item-icon {
+    font-size: 22px;
+}
+
+/* Textos Gerais - MAIOR E MAIS LEGÍVEL */
+.ai-suggestion-card p,
+.ai-suggestion-card li,
+.ai-suggestion-card span {
+    font-size: 15px !important;
+    line-height: 1.8 !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.ai-suggestion-card strong {
+    color: #00eaff !important;
+    font-weight: 700 !important;
+}
+
+/* Responsividade */
+@media (max-width: 1024px) {
+    .ai-suggestions-container {
+        padding: 35px;
+    }
+    
+    .ai-suggestion-card {
+        padding: 30px;
+        min-height: 450px !important;
+    }
+    
+    .daw-grid {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .ai-suggestions-container {
+        padding: 25px;
+        margin: 20px 0;
+    }
+    
+    .ai-suggestion-card {
+        padding: 25px;
+        min-height: auto !important;
+        margin: 20px 0;
+    }
+    
+    .ai-suggestion-card .title,
+    .suggestion-title {
+        font-size: 22px !important;
+    }
+    
+    .daw-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .antes-depois-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .meta-info {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+/* Animação de entrada dos cards */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ai-suggestion-card {
+    animation: slideInUp 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.ai-suggestion-card:nth-child(1) { animation-delay: 0.1s; opacity: 0; }
+.ai-suggestion-card:nth-child(2) { animation-delay: 0.2s; opacity: 0; }
+.ai-suggestion-card:nth-child(3) { animation-delay: 0.3s; opacity: 0; }
+.ai-suggestion-card:nth-child(4) { animation-delay: 0.4s; opacity: 0; }
+.ai-suggestion-card:nth-child(5) { animation-delay: 0.5s; opacity: 0; }
+.ai-suggestion-card:nth-child(6) { animation-delay: 0.6s; opacity: 0; }
+.ai-suggestion-card:nth-child(7) { animation-delay: 0.7s; opacity: 0; }
+.ai-suggestion-card:nth-child(8) { animation-delay: 0.8s; opacity: 0; }
+.ai-suggestion-card:nth-child(9) { animation-delay: 0.9s; opacity: 0; }
+
+/* Scroll suave dentro dos cards */
+.ai-suggestion-card {
+    scroll-behavior: smooth;
+}
+
+/* Destaque ao selecionar texto */
+.ai-suggestion-card ::selection {
+    background: rgba(0, 234, 255, 0.3);
+    color: #fff;
+}
+
+/* 🔥 EFEITO HOLOGRÁFICO NO HOVER */
+.ai-suggestion-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(0, 234, 255, 0.1),
+        transparent
+    );
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+}
+
+.ai-suggestion-card:hover::after {
+    transform: translateX(100%);
+}

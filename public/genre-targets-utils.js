@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 GENRE TARGETS UTILS - FONTE ÚNICA DE VERDADE
  * ====================================================
@@ -22,7 +25,7 @@
  * @returns {Object|null} Targets do gênero (null apenas se não for modo genre)
  */
 export function extractGenreTargets(source) {
-    console.log('[EXTRACT-TARGETS] 🔍 Iniciando extração de targets');
+    log('[EXTRACT-TARGETS] 🔍 Iniciando extração de targets');
     
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 1: IDENTIFICAR SE É MODO GENRE
@@ -30,7 +33,7 @@ export function extractGenreTargets(source) {
     const mode = source?.mode || source?.data?.mode || 'unknown';
     
     if (mode !== "genre") {
-        console.log('[EXTRACT-TARGETS] ⚠️ Não é modo genre, retornando null');
+        log('[EXTRACT-TARGETS] ⚠️ Não é modo genre, retornando null');
         return null;
     }
     
@@ -42,7 +45,7 @@ export function extractGenreTargets(source) {
                   source?.metadata?.genre || 
                   'unknown';
     
-    console.log('[EXTRACT-TARGETS] Gênero identificado:', genre);
+    log('[EXTRACT-TARGETS] Gênero identificado:', genre);
     
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 3: BUSCAR TARGETS NA ORDEM DE PRIORIDADE
@@ -75,21 +78,21 @@ export function extractGenreTargets(source) {
     // ETAPA 4: VALIDAR E RETORNAR SE ENCONTRADO
     // ═══════════════════════════════════════════════════════════════
     if (targets && isValidTargets(targets)) {
-        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em:', targetSource);
+        log('[EXTRACT-TARGETS] ✅ Targets encontrados em:', targetSource);
         return targets;
     }
     
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 5: FALLBACK 1 - window.__activeRefData
     // ═══════════════════════════════════════════════════════════════
-    console.warn('[EXTRACT-TARGETS] ⚠️ Targets não encontrados, usando fallback');
+    warn('[EXTRACT-TARGETS] ⚠️ Targets não encontrados, usando fallback');
     
     if (typeof window !== 'undefined' && window.__activeRefData) {
         const activeData = window.__activeRefData;
         const activeGenre = activeData.genre || activeData.data?.genre;
         
         if (activeGenre === genre || !activeGenre) {
-            console.log('[EXTRACT-TARGETS] ✅ Usando window.__activeRefData');
+            log('[EXTRACT-TARGETS] ✅ Usando window.__activeRefData');
             return activeData.targets || activeData.data?.genreTargets || activeData;
         }
     }
@@ -101,7 +104,7 @@ export function extractGenreTargets(source) {
         typeof window.PROD_AI_REF_DATA !== 'undefined' && 
         window.PROD_AI_REF_DATA[genre]) {
         
-        console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA[' + genre + ']');
+        log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA[' + genre + ']');
         return window.PROD_AI_REF_DATA[genre];
     }
     
@@ -112,15 +115,15 @@ export function extractGenreTargets(source) {
         typeof window.PROD_AI_REF_DATA === 'object' &&
         (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility)) {
         
-        console.log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA (objeto único)');
+        log('[EXTRACT-TARGETS] ✅ Usando window.PROD_AI_REF_DATA (objeto único)');
         return window.PROD_AI_REF_DATA;
     }
     
     // ═══════════════════════════════════════════════════════════════
     // ETAPA 8: ESTRUTURA VAZIA VÁLIDA (ÚLTIMO RECURSO)
     // ═══════════════════════════════════════════════════════════════
-    console.error('[EXTRACT-TARGETS] ❌ CRÍTICO: Nenhum target encontrado');
-    console.warn('[EXTRACT-TARGETS] ⚠️ Retornando estrutura vazia válida');
+    error('[EXTRACT-TARGETS] ❌ CRÍTICO: Nenhum target encontrado');
+    warn('[EXTRACT-TARGETS] ⚠️ Retornando estrutura vazia válida');
     
     return {
         lufs: { target: -14, tolerance: 1 },
@@ -148,27 +151,27 @@ function isValidTargets(targets) {
  * @returns {string|null} Nome do gênero ou null
  */
 export function extractGenre(analysis) {
-    console.log('[GENRE-TARGETS-UTILS] 🎵 Extraindo gênero da análise');
+    log('[GENRE-TARGETS-UTILS] 🎵 Extraindo gênero da análise');
     
     // 🎯 PRIORIDADE 1: analysis.data.genre (BACKEND OFICIAL)
     if (analysis?.data?.genre) {
-        console.log('[GENRE-TARGETS-UTILS] ✅ Gênero encontrado em analysis.data.genre:', analysis.data.genre);
+        log('[GENRE-TARGETS-UTILS] ✅ Gênero encontrado em analysis.data.genre:', analysis.data.genre);
         return analysis.data.genre;
     }
     
     // 🎯 PRIORIDADE 2: analysis.genre (fallback direto)
     if (analysis?.genre) {
-        console.log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.genre (fallback):', analysis.genre);
+        log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.genre (fallback):', analysis.genre);
         return analysis.genre;
     }
     
     // 🎯 PRIORIDADE 3: analysis.metadata.genre
     if (analysis?.metadata?.genre) {
-        console.log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.metadata.genre (fallback):', analysis.metadata.genre);
+        log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.metadata.genre (fallback):', analysis.metadata.genre);
         return analysis.metadata.genre;
     }
     
-    console.warn('[GENRE-TARGETS-UTILS] ❌ Nenhum gênero encontrado na análise');
+    warn('[GENRE-TARGETS-UTILS] ❌ Nenhum gênero encontrado na análise');
     return null;
 }
 
@@ -178,13 +181,13 @@ export function extractGenre(analysis) {
  * @returns {Promise<Object|null>} Targets default ou null
  */
 export async function loadDefaultGenreTargets(genreName = 'default') {
-    console.log('[GENRE-TARGETS-UTILS] 📥 Carregando targets default para:', genreName);
+    log('[GENRE-TARGETS-UTILS] 📥 Carregando targets default para:', genreName);
     
     try {
         // Tentar carregar do localStorage
         const cached = localStorage.getItem(`genre-targets-${genreName}`);
         if (cached) {
-            console.log('[GENRE-TARGETS-UTILS] ✅ Targets carregados do localStorage');
+            log('[GENRE-TARGETS-UTILS] ✅ Targets carregados do localStorage');
             return JSON.parse(cached);
         }
         
@@ -198,17 +201,17 @@ export async function loadDefaultGenreTargets(genreName = 'default') {
         const targets = data[genreName] || data.default || null;
         
         if (targets) {
-            console.log('[GENRE-TARGETS-UTILS] ✅ Targets carregados do JSON');
+            log('[GENRE-TARGETS-UTILS] ✅ Targets carregados do JSON');
             // Cachear no localStorage
             localStorage.setItem(`genre-targets-${genreName}`, JSON.stringify(targets));
             return targets;
         }
         
-        console.warn('[GENRE-TARGETS-UTILS] ❌ Targets não encontrados no JSON');
+        warn('[GENRE-TARGETS-UTILS] ❌ Targets não encontrados no JSON');
         return null;
         
     } catch (error) {
-        console.error('[GENRE-TARGETS-UTILS] ❌ Erro ao carregar targets default:', error.message);
+        error('[GENRE-TARGETS-UTILS] ❌ Erro ao carregar targets default:', error.message);
         return null;
     }
 }
@@ -228,7 +231,7 @@ export function validateGenreTargets(targets) {
     const hasAnyBand = expectedBands.some(band => targets[band] !== undefined);
     
     if (!hasAnyBand) {
-        console.warn('[GENRE-TARGETS-UTILS] ⚠️ Targets não têm bandas esperadas:', Object.keys(targets));
+        warn('[GENRE-TARGETS-UTILS] ⚠️ Targets não têm bandas esperadas:', Object.keys(targets));
         return false;
     }
     
@@ -261,8 +264,8 @@ export function normalizeGenreTargets(targets) {
         return targets.hybrid_processing.spectral_bands;
     }
     
-    console.warn('[GENRE-TARGETS-UTILS] ⚠️ Não foi possível normalizar targets:', targets);
+    warn('[GENRE-TARGETS-UTILS] ⚠️ Não foi possível normalizar targets:', targets);
     return targets;
 }
 
-console.log('✅ Genre Targets Utils carregado');
+log('✅ Genre Targets Utils carregado');

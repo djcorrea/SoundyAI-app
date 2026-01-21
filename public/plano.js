@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 PLANO.JS - Lógica da página de Plano de Correção
  * 
@@ -492,7 +495,7 @@ async function loadPlanFromFirestore(planId, uid) {
     };
     
   } catch (error) {
-    console.error('[PLANO] Erro ao carregar do Firestore:', error);
+    error('[PLANO] Erro ao carregar do Firestore:', error);
     throw error;
   }
 }
@@ -502,7 +505,7 @@ async function loadPlanFromFirestore(planId, uid) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function init() {
-  console.log('[PLANO] Inicializando página...');
+  log('[PLANO] Inicializando página...');
   showLoading();
   
   // Verificar se há ID na URL
@@ -512,23 +515,23 @@ async function init() {
     return;
   }
   
-  console.log('[PLANO] Plan ID:', planId);
+  log('[PLANO] Plan ID:', planId);
   
   // Aguardar autenticação
   auth.onAuthStateChanged(async (user) => {
     if (!user) {
-      console.log('[PLANO] Usuário não autenticado, redirecionando...');
+      log('[PLANO] Usuário não autenticado, redirecionando...');
       window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href);
       return;
     }
     
-    console.log('[PLANO] Usuário autenticado:', user.uid);
+    log('[PLANO] Usuário autenticado:', user.uid);
     
     try {
       // Carregar plano
       const { plan, metadata } = await loadPlanFromFirestore(planId, user.uid);
       
-      console.log('[PLANO] Plano carregado:', {
+      log('[PLANO] Plano carregado:', {
         stepsCount: plan.steps?.length,
         hasIntro: !!plan.intro,
         hasFinalNote: !!plan.finalNote
@@ -549,7 +552,7 @@ async function init() {
       }, 100);
       
     } catch (error) {
-      console.error('[PLANO] Erro:', error);
+      error('[PLANO] Erro:', error);
       showError(error.message || 'Erro ao carregar plano de correção.');
     }
   });

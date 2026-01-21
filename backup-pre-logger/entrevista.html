@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PROD.AI - Configuração do Perfil</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@300;400;700&family=Poppins:wght@300;400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-cyan: #00ffff;
+            --neon-purple: #ff00ff;
+            --electric-blue: #0080ff;
+            --plasma-pink: #ff0080;
+            --dark-bg: #0a0a0f;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0ff;
+            --input-bg: rgba(255, 255, 255, 0.03);
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 80px 20px 40px;
+        }
+        
+        /* Animated Background */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(135deg, #0a0a0f 0%, #120a1a 20%, #0f0f18 40%, #110a15 60%, #0a0a0f 80%, #080810 100%);
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: grid-slide 20s linear infinite;
+            transform: perspective(1200px) rotateX(45deg) translateZ(-100px);
+        }
+        
+        @keyframes grid-slide {
+            0% { transform: perspective(1200px) rotateX(45deg) translateZ(-100px) translateY(0); }
+            100% { transform: perspective(1200px) rotateX(45deg) translateZ(-100px) translateY(60px); }
+        }
+        
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #8b5cf6;
+            border-radius: 50%;
+            opacity: 0.7;
+            box-shadow: 0 0 15px #8b5cf6;
+            animation: particle-float 15s linear infinite;
+        }
+        
+        @keyframes particle-float {
+            0% {
+                transform: translateY(100vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) translateX(10px) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(10vh) translateX(-10px) scale(1);
+            }
+            100% {
+                transform: translateY(-10vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        /* Main Container */
+        .interview-container {
+            width: 85%;
+            max-width: 650px;
+            background: linear-gradient(135deg, rgba(18, 10, 26, 0.85), rgba(15, 15, 24, 0.8));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(74, 144, 226, 0.6);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 0 1px #00f0ff,
+                0 0 20px rgba(0, 240, 255, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: container-entrance 1s ease-out;
+            position: relative;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        @keyframes container-entrance {
+            0% {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .interview-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                rgba(59, 130, 246, 0.04),
+                transparent,
+                rgba(0, 240, 255, 0.03),
+                transparent
+            );
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+        
+        /* Typography */
+        .main-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(45deg, #00f0ff, #3b82f6, #8b5cf6, #a855f7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.4));
+            animation: title-pulse 3s ease-in-out infinite;
+            line-height: 1.3;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @keyframes title-pulse {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(0, 240, 255, 0.4)); }
+            50% { filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.6)); }
+        }
+        
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+            z-index: 1;
+            /* Estabiliza o container para evitar expansão */
+            transform: translateZ(0);
+            will-change: auto;
+        }
+        
+        .form-label {
+            display: block;
+            font-family: 'Poppins', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #00f0ff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+        }
+        
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(15, 10, 22, 0.8);
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            border-radius: 16px;
+            color: var(--text-primary);
+            font-size: 16px; /* Previne zoom em iOS */
+            font-family: 'Space Grotesk', sans-serif;
+            transition: all 0.3s ease;
+            outline: none;
+            /* Estabiliza transformações para evitar conflitos */
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            box-shadow: 
+                inset 0 2px 8px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(0, 240, 255, 0.4),
+                0 0 8px rgba(0, 240, 255, 0.1);
+        }
+        
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            border-color: rgba(74, 144, 226, 0.8);
+            background: rgba(15, 10, 22, 0.9);
+            box-shadow: 
+                inset 0 2px 10px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(0, 240, 255, 0.7),
+                0 0 25px rgba(0, 240, 255, 0.2),
+                0 0 40px rgba(74, 144, 226, 0.2);
+            /* Transformação mais sutil e controlada */
+            transform: translateY(-1px) translateZ(0);
+        }
+        
+        .form-select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="%2300f0ff" d="M6 8L0 0h12z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 20px center;
+            padding-right: 50px;
+        }
+        
+        .form-select option {
+            background: var(--dark-bg);
+            color: var(--text-primary);
+        }
+        
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        /* Submit Button */
+        .submit-button {
+            display: block;
+            width: 100%;
+            max-width: 280px;
+            margin: 40px auto 0;
+            padding: 18px 36px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
+            text-align: center;
+            color: #ffffff;
+            background: linear-gradient(135deg, #4A90E2 0%, #3b82f6 50%, #8b5cf6 100%);
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 4px 14px rgba(59, 130, 246, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            animation: button-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes button-glow {
+            0%, 100% {
+                box-shadow: 
+                    0 4px 14px rgba(59, 130, 246, 0.4),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+            50% {
+                box-shadow: 
+                    0 6px 20px rgba(0, 240, 255, 0.5),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+        }
+        
+        .submit-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .submit-button:hover {
+            transform: translateY(-2px) scale(1.02);
+            background: linear-gradient(135deg, #3b82f6 0%, #00f0ff 50%, #8b5cf6 100%);
+            box-shadow: 
+                0 8px 25px rgba(0, 240, 255, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        
+        .submit-button:hover::before {
+            left: 100%;
+        }
+        
+        .submit-button:active {
+            transform: translateY(0) scale(1);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 60px 15px 30px;
+                /* Prevenir zoom em mobile */
+                touch-action: manipulation;
+                -webkit-text-size-adjust: 100%;
+                -ms-text-size-adjust: 100%;
+            }
+            
+            .interview-container {
+                padding: 36px 28px;
+                width: 95%;
+                max-width: 420px;
+            }
+            
+            .main-title {
+                font-size: 1.4rem;
+                margin-bottom: 32px;
+            }
+            
+            .form-input,
+            .form-select,
+            .form-textarea {
+                font-size: 16px !important; /* Força 16px para prevenir zoom */
+                transform: translateZ(0); /* Force hardware acceleration */
+                -webkit-appearance: none; /* Remove estilo nativo iOS */
+                appearance: none; /* Remove estilo nativo */
+                padding: 14px 18px;
+                font-size: 0.9rem;
+            }
+            
+            .submit-button {
+                padding: 16px 32px;
+                font-size: 1rem;
+                max-width: 250px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 40px 10px 20px;
+            }
+            
+            .interview-container {
+                padding: 24px 20px;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                border-radius: 20px;
+            }
+            
+            .main-title {
+                font-size: 1.2rem;
+                margin-bottom: 24px;
+                line-height: 1.4;
+            }
+            
+            .form-group {
+                margin-bottom: 20px;
+            }
+            
+            .form-label {
+                font-size: 0.8rem;
+                margin-bottom: 6px;
+            }
+            
+            .form-input,
+            .form-select,
+            .form-textarea {
+                padding: 12px 16px;
+                font-size: 0.85rem;
+                border-radius: 12px;
+            }
+            
+            .form-textarea {
+                min-height: 80px;
+            }
+            
+            .submit-button {
+                padding: 14px 24px;
+                font-size: 0.9rem;
+                max-width: 220px;
+                margin-top: 30px;
+                border-radius: 12px;
+            }
+        }
+        
+        @media (max-width: 360px) {
+            .interview-container {
+                padding: 20px 15px;
+                border-radius: 16px;
+            }
+            
+            .main-title {
+                font-size: 1.1rem;
+                margin-bottom: 20px;
+            }
+            
+            .form-input,
+            .form-select,
+            .form-textarea {
+                padding: 10px 14px;
+                font-size: 0.8rem;
+            }
+            
+            .submit-button {
+                padding: 12px 20px;
+                font-size: 0.85rem;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="background-container">
+        <div class="grid-overlay"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="interview-container">
+        <h1 class="main-title">Antes de começar, queremos te conhecer melhor para personalizar suas respostas</h1>
+        
+        <form id="interviewForm" action="index.html">
+            <div class="form-group">
+                <label class="form-label">Nome Artístico</label>
+                <input type="text" name="nomeArtistico" class="form-input" placeholder="Como você gostaria de ser chamado?" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Nível Técnico</label>
+                <select name="nivelTecnico" class="form-select" required>
+                    <option value="">Selecione seu nível</option>
+                    <option value="iniciante">Iniciante</option>
+                    <option value="intermediario">Intermediário</option>
+                    <option value="avancado">Avançado</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">DAW Usada</label>
+                <select name="daw" class="form-select" required>
+                    <option value="">Selecione sua DAW</option>
+                    <option value="fl-studio">FL Studio</option>
+                    <option value="ableton">Ableton</option>
+                    <option value="logic">Logic</option>
+                    <option value="reaper">Reaper</option>
+                    <option value="outro">Outro</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Maior Dificuldade na Produção</label>
+                <input type="text" name="dificuldade" class="form-input" placeholder="Ex: Mixagem, Melodias, Sound Design..." required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Estilo Musical</label>
+                <input type="text" name="estilo" class="form-input" placeholder="Ex: Trap, House, Lo-fi..." required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Me conte mais sobre você</label>
+                <textarea name="sobre" class="form-textarea" placeholder="Compartilhe seus objetivos, experiências e o que busca aprender..."></textarea>
+            </div>
+            
+            <button type="submit" class="submit-button">Enviar Respostas</button>
+        </form>
+    </div>
+    
+    <script>
+        // Generate particles with mixed colors - cyan and blue focus
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 30;
+        const colors = ['#00f0ff', '#3b82f6', '#1e3a8a', '#8b5cf6', '#60a5fa', '#0ea5e9'];
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.background = randomColor;
+            particle.style.boxShadow = `0 0 15px ${randomColor}`;
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
+            particlesContainer.appendChild(particle);
+        }
+        
+        // Form particles effect on interaction (removido o scale que causava expansão)
+        const inputs = document.querySelectorAll('.form-input, .form-select, .form-textarea');
+        inputs.forEach(input => {
+            // O efeito visual de foco já está no CSS com translateY(-1px)
+            // Removido o JavaScript que fazia scale no container pai
+        });
+        
+        // Script moderno usando Firebase v11 (mesmo do projeto)
+        (async () => {
+            try {
+                console.log('🔄 Carregando Firebase...');
+                
+                // Importar Firebase (mesmo padrão do auth.js)
+                const { auth, db } = await import('./firebase.js');
+                const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+                const { doc, setDoc, Timestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                
+                console.log('✅ Firebase carregado com sucesso');
+                
+                // Verificar autenticação quando a página carrega
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log('✅ Usuário autenticado detectado:', user.uid, user.email);
+                    } else {
+                        console.log('❌ Nenhum usuário autenticado encontrado');
+                        // Mostrar aviso na tela
+                        const container = document.querySelector('.interview-container');
+                        if (container) {
+                            const warning = document.createElement('div');
+                            warning.style.cssText = `
+                                background: rgba(255, 0, 0, 0.1);
+                                border: 1px solid rgba(255, 0, 0, 0.3);
+                                color: #ff6b6b;
+                                padding: 1rem;
+                                border-radius: 8px;
+                                margin-bottom: 1rem;
+                                text-align: center;
+                            `;
+                            warning.innerHTML = '⚠️ Você precisa estar logado. <a href="login.html" style="color: #ff6b6b; text-decoration: underline;">Clique aqui para fazer login</a>';
+                            container.insertBefore(warning, container.firstChild);
+                        }
+                    }
+                });
+                
+                // Capturar submissão do formulário
+                const interviewForm = document.getElementById('interviewForm');
+                if (interviewForm) {
+                    interviewForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        
+                        try {
+                            console.log('🔄 Formulário submetido, verificando autenticação...');
+                            
+                            // Verificar se há usuário autenticado
+                            const user = auth.currentUser;
+                            if (!user) {
+                                alert('Você precisa estar logado para preencher a entrevista. Redirecionando...');
+                            window.location.href = 'login.html';
+                            return;
+                        }
+                        
+                        console.log('✅ Usuário encontrado:', user.uid, user.email);
+                        
+                        // Coletar dados do formulário
+                        const formData = new FormData(this);
+                        const nomeArtistico = formData.get('nomeArtistico');
+                        const nivelTecnico = formData.get('nivelTecnico');
+                        const daw = formData.get('daw');
+                        const dificuldade = formData.get('dificuldade');
+                        const estilo = formData.get('estilo');
+                        const sobre = formData.get('sobre');
+                        
+                        console.log('📋 Dados coletados:', { nomeArtistico, nivelTecnico, daw, dificuldade, estilo });
+                        
+                        // Validação básica
+                        if (!nomeArtistico || !nivelTecnico || !daw || !dificuldade || !estilo) {
+                            alert('Por favor, preencha todos os campos obrigatórios.');
+                            return;
+                        }
+                        
+                        // Dados da entrevista
+                        const perfilData = {
+                            nomeArtistico: nomeArtistico.trim(),
+                            nivelTecnico: nivelTecnico,
+                            daw: daw,
+                            dificuldade: dificuldade.trim(),
+                            estilo: estilo.trim(),
+                            sobre: sobre ? sobre.trim() : '',
+                            dataPreenchimento: Timestamp.now(),
+                            entrevistaConcluida: true
+                        };
+                        
+                        console.log('💾 Salvando perfil para usuário:', user.uid);
+                        
+                        // ═══════════════════════════════════════════════════════════════════
+                        // ✅ GARANTIA: Documento DEVE existir (criado por auth.js listener)
+                        // Se não existir, aguardar e tentar novamente (race condition)
+                        // ═══════════════════════════════════════════════════════════════════
+                        const { getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                        const userDocRef = doc(db, 'usuarios', user.uid);
+                        
+                        // 🔄 RETRY: Aguardar até 3 segundos se documento não existir
+                        let userDocSnap = await getDoc(userDocRef);
+                        let retryCount = 0;
+                        const maxRetries = 3;
+                        
+                        while (!userDocSnap.exists() && retryCount < maxRetries) {
+                            retryCount++;
+                            console.warn(`⏳ [ENTREVISTA] Documento não existe, aguardando... (tentativa ${retryCount}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            userDocSnap = await getDoc(userDocRef);
+                        }
+                        
+                        if (!userDocSnap.exists()) {
+                            // ❌ ERRO CRÍTICO: Documento não foi criado após retries
+                            console.error('❌ [ENTREVISTA] Documento não existe após 3 tentativas!');
+                            console.error('   UID:', user.uid);
+                            console.error('   CAUSA: Listener global falhou ou regras de segurança bloquearam');
+                            
+                            alert('Erro ao salvar perfil: Sua conta não foi inicializada. Por favor, recarregue a página e tente novamente.');
+                            return;
+                        }
+                        
+                        console.log('✅ [ENTREVISTA] Documento existe, atualizando perfil...');
+                        
+                        // ✅ ATUALIZAR perfil usando merge (preserva campos existentes)
+                        await setDoc(userDocRef, {
+                            perfil: perfilData,
+                            entrevistaConcluida: true,
+                            dataUltimaEntrevista: Timestamp.now(),
+                            updatedAt: new Date().toISOString()
+                        }, { merge: true });
+                        
+                        console.log('✅ [ENTREVISTA] Perfil atualizado via merge');
+                        console.log('   Dados da entrevista:', perfilData);
+                        
+                        console.log('✅ Perfil salvo com sucesso!', perfilData);
+                        console.log('📊 Documento final no Firestore:', user.uid);
+                        
+                        // Verificar se realmente foi salvo
+                        try {
+                            const verificacao = await getDoc(userDocRef);
+                            if (verificacao.exists()) {
+                                console.log('✅ CONFIRMADO: Documento existe no Firestore:', verificacao.data());
+                            } else {
+                                console.error('❌ ERRO: Documento não foi encontrado após salvamento!');
+                            }
+                        } catch (verificacaoError) {
+                            console.warn('⚠️ Erro na verificação:', verificacaoError);
+                        }
+                        
+                        alert('Perfil salvo com sucesso! Redirecionando...');
+                        
+                        // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
+                        // entrevista-final.html foi removida do fluxo
+                        console.log('🎉 Entrevista concluída - redirecionando para index.html');
+                        window.location.href = 'index.html';
+                        
+                    } catch (error) {
+                        console.error('❌ Erro completo:', error);
+                        alert('Erro ao salvar suas informações. Detalhes: ' + error.message);
+                    }
+                    });
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro ao carregar Firebase:', error);
+                alert('Erro ao carregar o sistema. Recarregue a página.');
+            }
+        })();
+    </script>
+    
+    <!-- Script para prevenir zoom em mobile -->
+    <script>
+        // Prevenir zoom em dispositivos móveis
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        // Prevenir zoom com duplo toque
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, { passive: false });
+
+        // Garantir que inputs não causem zoom (versão otimizada)
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                // Removido o scrollIntoView que causava expansão do container
+                // O CSS já cuida do efeito visual com translateY(-1px)
+                input.addEventListener('focus', function() {
+                    // Apenas garante que o input seja visível sem forçar scroll
+                    if (this.getBoundingClientRect().top < 0 || 
+                        this.getBoundingClientRect().bottom > window.innerHeight) {
+                        this.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'nearest', // Mudado de 'center' para 'nearest'
+                            inline: 'nearest'
+                        });
+                    }
+                });
+            });
+        });
+
+        // Prevenir zoom com gestos de pinch
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('gesturechange', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('gestureend', function(e) {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
+n

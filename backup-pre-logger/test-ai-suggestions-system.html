@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Teste - Sistema de Sugestões IA Avançado</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        
+        .test-section {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .test-section h2 {
+            color: #60a5fa;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .btn.success {
+            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+        }
+        
+        .btn.error {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
+        
+        .log-container {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .log-entry.info {
+            color: #93c5fd;
+        }
+        
+        .log-entry.success {
+            color: #4ade80;
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .log-entry.error {
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .log-entry.warning {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .config-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        
+        .config-group {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        .config-group h3 {
+            color: #a855f7;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .config-item {
+            margin-bottom: 12px;
+        }
+        
+        .config-label {
+            display: block;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: #f1f5f9;
+            font-size: 14px;
+        }
+        
+        .config-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Sistema de Sugestões IA Avançado</h1>
+            <p>Teste completo do sistema de sugestões inteligentes com IA</p>
+        </div>
+        
+        <!-- Status do Sistema -->
+        <div class="test-section">
+            <h2>📊 Status do Sistema</h2>
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="status-value" id="backendStatus">❓</div>
+                    <div class="status-label">Back-end</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="apiStatus">❓</div>
+                    <div class="status-label">API OpenAI</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="integrationStatus">❓</div>
+                    <div class="status-label">Integração</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-value" id="modalStatus">❓</div>
+                    <div class="status-label">Modal UI</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Testes do Back-end -->
+        <div class="test-section">
+            <h2>🔧 Testes do Back-end</h2>
+            <div class="test-buttons">
+                <button class="btn" onclick="testBackendHealth()">🏥 Health Check</button>
+                <button class="btn" onclick="testAPIEndpoint()">🔗 Teste API Suggestions</button>
+                <button class="btn" onclick="testFallbackMode()">⚠️ Teste Fallback</button>
+                <button class="btn" onclick="testMockSuggestions()">🎭 Sugestões Mock</button>
+            </div>
+        </div>
+        
+        <!-- Testes do Front-end -->
+        <div class="test-section">
+            <h2>🎨 Testes do Front-end</h2>
+            <div class="test-buttons">
+                <button class="btn" onclick="testModalElements()">🧩 Elementos DOM</button>
+                <button class="btn" onclick="testCSSStyles()">🎨 Estilos CSS</button>
+                <button class="btn" onclick="testJSIntegration()">⚙️ Integração JS</button>
+                <button class="btn" onclick="simulateAISuggestions()">🤖 Simular IA</button>
+                <button class="btn" onclick="testExpandedModal()">📺 Modal Expandido</button>
+            </div>
+        </div>
+        
+        <!-- Configuração Manual -->
+        <div class="test-section">
+            <h2>⚙️ Configuração Manual</h2>
+            <div class="config-section">
+                <div class="config-group">
+                    <h3>OpenAI Configuration</h3>
+                    <div class="config-item">
+                        <label class="config-label">API Key</label>
+                        <input type="password" class="config-input" id="apiKeyInput" placeholder="sk-...">
+                    </div>
+                    <div class="config-item">
+                        <label class="config-label">Model</label>
+                        <select class="config-input" id="modelSelect">
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                            <option value="gpt-4">GPT-4</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="config-group">
+                    <h3>Test Settings</h3>
+                    <div class="config-item">
+                        <label class="config-label">Test Genre</label>
+                        <select class="config-input" id="genreSelect">
+                            <option value="funk_mandela">Funk Mandela</option>
+                            <option value="trance">Trance</option>
+                            <option value="funk_bruxaria">Funk Bruxaria</option>
+                        </select>
+                    </div>
+                    <div class="config-item">
+                        <label class="config-label">Suggestion Count</label>
+                        <input type="number" class="config-input" id="suggestionCount" value="5" min="1" max="20">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="test-buttons" style="margin-top: 16px;">
+                <button class="btn" onclick="applyConfiguration()">💾 Aplicar Config</button>
+                <button class="btn" onclick="runFullTest()">🚀 Teste Completo</button>
+                <button class="btn" onclick="clearLogs()">🧹 Limpar Logs</button>
+            </div>
+        </div>
+        
+        <!-- Logs -->
+        <div class="test-section">
+            <h2>📝 Logs do Sistema</h2>
+            <div class="log-container" id="logContainer">
+                <!-- Logs aparecerão aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Test Framework
+        class AISuggestionsTestFramework {
+            constructor() {
+                this.logContainer = document.getElementById('logContainer');
+                this.testResults = {};
+                
+                this.log('info', '🚀 Framework de teste inicializado');
+                this.initializeTests();
+            }
+            
+            log(type, message) {
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.innerHTML = `[${timestamp}] ${message}`;
+                this.logContainer.appendChild(entry);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+                
+                console.log(`[${type.toUpperCase()}] ${message}`);
+            }
+            
+            updateStatus(component, status) {
+                const element = document.getElementById(`${component}Status`);
+                if (element) {
+                    const icons = {
+                        'ok': '✅',
+                        'error': '❌', 
+                        'warning': '⚠️',
+                        'loading': '🔄',
+                        'unknown': '❓'
+                    };
+                    element.textContent = icons[status] || status;
+                }
+            }
+            
+            async initializeTests() {
+                this.log('info', '🔍 Verificando componentes do sistema...');
+                
+                // Check backend
+                try {
+                    const response = await fetch('/health');
+                    if (response.ok) {
+                        this.updateStatus('backend', 'ok');
+                        this.log('success', '✅ Back-end respondendo');
+                    } else {
+                        this.updateStatus('backend', 'error');
+                        this.log('error', '❌ Back-end com problemas');
+                    }
+                } catch (error) {
+                    this.updateStatus('backend', 'error');
+                    this.log('error', `❌ Back-end inacessível: ${error.message}`);
+                }
+                
+                // Check DOM elements
+                const requiredElements = [
+                    'aiSuggestionsExpanded',
+                    'aiExpandedContent',
+                    'aiExpandedGrid'
+                ];
+                
+                let missingElements = 0;
+                requiredElements.forEach(id => {
+                    if (!document.getElementById(id)) {
+                        missingElements++;
+                        this.log('error', `❌ Elemento DOM não encontrado: ${id}`);
+                    }
+                });
+                
+                if (missingElements === 0) {
+                    this.updateStatus('modal', 'ok');
+                    this.log('success', '✅ Todos os elementos DOM encontrados');
+                } else {
+                    this.updateStatus('modal', 'error');
+                    this.log('error', `❌ ${missingElements} elementos DOM ausentes`);
+                }
+                
+                // Check JS integration
+                if (typeof window.aiSuggestionsSystem !== 'undefined') {
+                    this.updateStatus('integration', 'ok');
+                    this.log('success', '✅ Sistema de integração JS carregado');
+                } else {
+                    this.updateStatus('integration', 'warning');
+                    this.log('warning', '⚠️ Sistema JS ainda carregando...');
+                    
+                    // Retry after 2 seconds
+                    setTimeout(() => {
+                        if (typeof window.aiSuggestionsSystem !== 'undefined') {
+                            this.updateStatus('integration', 'ok');
+                            this.log('success', '✅ Sistema de integração JS carregado (retry)');
+                        } else {
+                            this.updateStatus('integration', 'error');
+                            this.log('error', '❌ Sistema de integração JS não carregou');
+                        }
+                    }, 2000);
+                }
+            }
+            
+            async testAPIEndpoint() {
+                this.log('info', '🔗 Testando endpoint /api/suggestions...');
+                this.updateStatus('api', 'loading');
+                
+                const mockSuggestions = [
+                    {
+                        message: "Frequência 3kHz muito alta",
+                        action: "Reduzir 3kHz em -2dB com Q=2.0",
+                        priority: 7,
+                        confidence: 0.8
+                    }
+                ];
+                
+                try {
+                    const response = await fetch('/api/suggestions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            suggestions: mockSuggestions,
+                            metrics: { lufsIntegrated: -12, truePeakDbtp: -1.2 },
+                            genre: 'test'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.updateStatus('api', 'ok');
+                        this.log('success', `✅ API respondeu: ${data.enhancedSuggestions?.length || 0} sugestões`);
+                        this.log('info', `📊 Fonte: ${data.source}, Sucesso: ${data.success}`);
+                        return data;
+                    } else {
+                        this.updateStatus('api', 'error');
+                        this.log('error', `❌ API erro ${response.status}: ${response.statusText}`);
+                        return null;
+                    }
+                } catch (error) {
+                    this.updateStatus('api', 'error');
+                    this.log('error', `❌ Erro na chamada API: ${error.message}`);
+                    return null;
+                }
+            }
+            
+            generateMockSuggestions(count = 5) {
+                const mockSuggestions = [];
+                const problems = [
+                    "Sibilância excessiva em 6kHz",
+                    "Graves muito presentes em 80Hz",
+                    "Médios mascarados em 1kHz",
+                    "Agudos muito duros em 8kHz",
+                    "Falta de presença vocal"
+                ];
+                
+                const actions = [
+                    "Aplicar de-esser em 6kHz",
+                    "Reduzir 80Hz em -3dB",
+                    "Realçar 1kHz em +2dB",
+                    "Suavizar 8kHz com EQ",
+                    "Boost sutil em 3kHz"
+                ];
+                
+                for (let i = 0; i < count; i++) {
+                    mockSuggestions.push({
+                        message: problems[i % problems.length],
+                        action: actions[i % actions.length],
+                        priority: Math.floor(Math.random() * 10) + 1,
+                        confidence: Math.random() * 0.5 + 0.5,
+                        type: 'spectral_eq'
+                    });
+                }
+                
+                return mockSuggestions;
+            }
+        }
+        
+        // Global test framework instance
+        let testFramework;
+        
+        // Initialize when DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            testFramework = new AISuggestionsTestFramework();
+        });
+        
+        // Test functions
+        async function testBackendHealth() {
+            testFramework.log('info', '🏥 Testando health do back-end...');
+            try {
+                const response = await fetch('/health');
+                if (response.ok) {
+                    const text = await response.text();
+                    testFramework.log('success', `✅ Health OK: ${text}`);
+                } else {
+                    testFramework.log('error', `❌ Health falhou: ${response.status}`);
+                }
+            } catch (error) {
+                testFramework.log('error', `❌ Erro no health check: ${error.message}`);
+            }
+        }
+        
+        async function testAPIEndpoint() {
+            await testFramework.testAPIEndpoint();
+        }
+        
+        async function testFallbackMode() {
+            testFramework.log('info', '⚠️ Testando modo fallback...');
+            
+            // Test with malformed request
+            try {
+                const response = await fetch('/api/suggestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}) // Empty request to trigger fallback
+                });
+                
+                const data = await response.json();
+                if (data.source === 'fallback') {
+                    testFramework.log('success', '✅ Modo fallback funcionando');
+                } else {
+                    testFramework.log('warning', '⚠️ Fallback não ativado como esperado');
+                }
+            } catch (error) {
+                testFramework.log('error', `❌ Erro no teste de fallback: ${error.message}`);
+            }
+        }
+        
+        function testMockSuggestions() {
+            testFramework.log('info', '🎭 Gerando sugestões mock...');
+            const count = document.getElementById('suggestionCount').value;
+            const mockSuggestions = testFramework.generateMockSuggestions(parseInt(count));
+            testFramework.log('success', `✅ ${mockSuggestions.length} sugestões mock geradas`);
+            testFramework.log('info', `📝 Primeira sugestão: "${mockSuggestions[0].message}"`);
+        }
+        
+        function testModalElements() {
+            testFramework.log('info', '🧩 Verificando elementos DOM...');
+            
+            const elements = [
+                'aiSuggestionsExpanded',
+                'aiExpandedLoading', 
+                'aiExpandedGrid',
+                'aiExpandedStatus',
+                'aiExpandedCount'
+            ];
+            
+            let found = 0;
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    found++;
+                    testFramework.log('success', `✅ Elemento encontrado: ${id}`);
+                } else {
+                    testFramework.log('error', `❌ Elemento não encontrado: ${id}`);
+                }
+            });
+            
+            testFramework.log('info', `📊 Total: ${found}/${elements.length} elementos encontrados`);
+        }
+        
+        function testCSSStyles() {
+            testFramework.log('info', '🎨 Verificando estilos CSS...');
+            
+            // Check if CSS file is loaded
+            const cssFiles = Array.from(document.styleSheets).map(sheet => {
+                try {
+                    return sheet.href;
+                } catch (e) {
+                    return 'inline';
+                }
+            }).filter(href => href && href.includes('ai-suggestions'));
+            
+            if (cssFiles.length > 0) {
+                testFramework.log('success', `✅ CSS encontrado: ${cssFiles.length} arquivo(s)`);
+            } else {
+                testFramework.log('error', '❌ CSS de sugestões IA não encontrado');
+            }
+        }
+        
+        function testJSIntegration() {
+            testFramework.log('info', '⚙️ Verificando integração JavaScript...');
+            
+            if (typeof window.aiSuggestionsSystem !== 'undefined') {
+                testFramework.log('success', '✅ Sistema aiSuggestionsSystem disponível');
+                
+                if (typeof window.aiSuggestionsSystem.processWithAI === 'function') {
+                    testFramework.log('success', '✅ Método processWithAI encontrado');
+                } else {
+                    testFramework.log('error', '❌ Método processWithAI não encontrado');
+                }
+            } else {
+                testFramework.log('error', '❌ Sistema aiSuggestionsSystem não carregado');
+            }
+        }
+        
+        async function simulateAISuggestions() {
+            testFramework.log('info', '🤖 Simulando processamento com IA...');
+            
+            if (typeof window.aiSuggestionsSystem === 'undefined') {
+                testFramework.log('error', '❌ Sistema de IA não carregado');
+                return;
+            }
+            
+            const count = document.getElementById('suggestionCount').value;
+            const genre = document.getElementById('genreSelect').value;
+            const mockSuggestions = testFramework.generateMockSuggestions(parseInt(count));
+            
+            try {
+                await window.aiSuggestionsSystem.processWithAI(
+                    mockSuggestions,
+                    { lufsIntegrated: -12, truePeakDbtp: -1.2 },
+                    genre
+                );
+                testFramework.log('success', '✅ Simulação de IA executada');
+            } catch (error) {
+                testFramework.log('error', `❌ Erro na simulação: ${error.message}`);
+            }
+        }
+        
+        function testExpandedModal() {
+            testFramework.log('info', '📺 Testando modal expandido...');
+            
+            if (typeof window.toggleAIExpanded === 'function') {
+                window.toggleAIExpanded();
+                testFramework.log('success', '✅ Função toggleAIExpanded executada');
+            } else {
+                testFramework.log('error', '❌ Função toggleAIExpanded não encontrada');
+            }
+        }
+        
+        function applyConfiguration() {
+            testFramework.log('info', '💾 Aplicando configuração...');
+            
+            const apiKey = document.getElementById('apiKeyInput').value;
+            const model = document.getElementById('modelSelect').value;
+            
+            if (apiKey) {
+                // This would set the API key (in a real app, this should be server-side)
+                testFramework.log('warning', '⚠️ Configuração de API Key deve ser feita no servidor');
+            }
+            
+            testFramework.log('info', `🔧 Modelo selecionado: ${model}`);
+            testFramework.log('success', '✅ Configuração aplicada localmente');
+        }
+        
+        async function runFullTest() {
+            testFramework.log('info', '🚀 Executando teste completo...');
+            
+            await testBackendHealth();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testAPIEndpoint();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            testModalElements();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testCSSStyles();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            testJSIntegration();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await simulateAISuggestions();
+            
+            testFramework.log('success', '🎉 Teste completo finalizado!');
+        }
+        
+        function clearLogs() {
+            testFramework.logContainer.innerHTML = '';
+            testFramework.log('info', '🧹 Logs limpos');
+        }
+    </script>
+</body>
+</html>

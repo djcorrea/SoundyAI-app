@@ -1,10 +1,13 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // gerenciar.js - Script para gerenciamento de conta
 import { auth } from './firebase.js';
 import { updatePassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
 
 // Aguardar DOM estar carregado
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔧 Gerenciar.js carregado');
+    log('🔧 Gerenciar.js carregado');
     
     // Elementos do DOM
     const newPasswordInput = document.getElementById('new-password');
@@ -18,13 +21,13 @@ document.addEventListener('DOMContentLoaded', function() {
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
-            console.log('✅ Usuário autenticado:', user.email);
+            log('✅ Usuário autenticado:', user.email);
             
             // ============ VERIFICAÇÃO DE EXPIRAÇÃO DO PLANO PLUS ============
             await checkPlanExpiration(user);
             
         } else {
-            console.log('❌ Usuário não autenticado - redirecionando...');
+            log('❌ Usuário não autenticado - redirecionando...');
             window.location.href = 'login.html';
         }
     });
@@ -34,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // Aguardar Firebase Firestore estar disponível
             if (!window.db) {
-                console.log('⚠️ Firestore não disponível ainda - pulando verificação');
+                log('⚠️ Firestore não disponível ainda - pulando verificação');
                 return;
             }
             
@@ -44,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const userDoc = await getDoc(doc(window.db, 'usuarios', user.uid));
             
             if (!userDoc.exists()) {
-                console.log('⚠️ Dados do usuário não encontrados no Firestore');
+                log('⚠️ Dados do usuário não encontrados no Firestore');
                 return;
             }
             
@@ -64,11 +67,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (typeof userData.planExpiresAt === 'string' || typeof userData.planExpiresAt === 'number') {
                     expirationDate = new Date(userData.planExpiresAt);
                 } else {
-                    console.warn('⚠️ Formato de planExpiresAt não reconhecido:', userData.planExpiresAt);
+                    warn('⚠️ Formato de planExpiresAt não reconhecido:', userData.planExpiresAt);
                     return;
                 }
                 
-                console.log('📅 Verificando expiração do plano na página de gerenciamento:', {
+                log('📅 Verificando expiração do plano na página de gerenciamento:', {
                     atual: currentDate.toISOString(),
                     expira: expirationDate.toISOString(),
                     expirado: expirationDate <= currentDate
@@ -76,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Se o plano já expirou, mostrar aviso e forçar logout + reload
                 if (expirationDate <= currentDate) {
-                    console.log('⏰ PLANO PLUS EXPIRADO DETECTADO NA PÁGINA DE GERENCIAMENTO!');
+                    log('⏰ PLANO PLUS EXPIRADO DETECTADO NA PÁGINA DE GERENCIAMENTO!');
                     
                     // Mostrar mensagem de expiração
                     showMessage('⏰ Seu plano Plus expirou. Redirecionando para atualizar seu acesso...', 'warning');
@@ -86,12 +89,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         try {
                             // Fazer logout para forçar reautenticação
                             await auth.signOut();
-                            console.log('🔓 Logout forçado devido à expiração do plano');
+                            log('🔓 Logout forçado devido à expiração do plano');
                             
                             // Redirecionar para login
                             window.location.href = 'login.html?expired=true';
                         } catch (error) {
-                            console.error('❌ Erro durante logout forçado:', error);
+                            error('❌ Erro durante logout forçado:', error);
                             // Se falhar no logout, apenas reload
                             location.reload();
                         }
@@ -101,11 +104,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 // Se não expirou, mostrar data de expiração no console
-                console.log('✅ Plano Plus ativo até:', expirationDate.toLocaleString('pt-BR'));
+                log('✅ Plano Plus ativo até:', expirationDate.toLocaleString('pt-BR'));
             }
             
         } catch (error) {
-            console.error('❌ Erro ao verificar expiração do plano:', error);
+            error('❌ Erro ao verificar expiração do plano:', error);
             // Não bloquear a página em caso de erro na verificação
         }
     }
@@ -181,7 +184,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Atualizar senha no Firebase
             await updatePassword(currentUser, newPassword);
             
-            console.log('✅ Senha atualizada com sucesso');
+            log('✅ Senha atualizada com sucesso');
             showMessage('Senha atualizada com sucesso!', 'success');
             
             // Limpar campos
@@ -189,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmPasswordInput.value = '';
             
         } catch (error) {
-            console.error('❌ Erro ao atualizar senha:', error);
+            error('❌ Erro ao atualizar senha:', error);
             
             // Tratamento de erros específicos
             let errorMessage = 'Erro ao atualizar senha. Tente novamente.';
@@ -248,6 +251,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    console.log('🔧 Event listeners configurados');
+    log('🔧 Event listeners configurados');
 });
 ff

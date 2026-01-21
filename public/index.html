@@ -51,9 +51,9 @@
                     }
                     newUrl += window.location.hash;
                     window.history.replaceState({}, '', newUrl);
-                    console.log('%c[ADMIN] Bypass salvo com sucesso!', 'color: #22c55e; font-weight: bold;');
+                    log('%c[ADMIN] Bypass salvo com sucesso!', 'color: #22c55e; font-weight: bold;');
                 } catch (e) {
-                    console.warn('[PRE-LAUNCH] Não foi possível salvar bypass no localStorage');
+                    warn('[PRE-LAUNCH] Não foi possível salvar bypass no localStorage');
                 }
             }
             
@@ -62,7 +62,7 @@
                 window.SOUNDY_PRE_LAUNCH = false; // Admin vê como se não fosse pré-lançamento
                 window.SOUNDY_LAUNCH_DATE = LAUNCH_DATE;
                 window.SOUNDY_ADMIN_MODE = true;
-                console.log('%c[ADMIN] Bypass ativo - modo desenvolvimento', 'color: #8b5cf6; font-weight: bold;');
+                log('%c[ADMIN] Bypass ativo - modo desenvolvimento', 'color: #8b5cf6; font-weight: bold;');
                 return; // Sai do IIFE, não redireciona
             }
             // ========================================
@@ -173,7 +173,7 @@
         // Logs mínimos para monitoramento
         window.logReferenceEvent = function(event, data = {}) {
             if (window.FEATURE_FLAGS.DEBUG_REFERENCE_MODE) {
-                console.log(`[REFERENCE-MODE] ${event}`, data);
+                log(`[REFERENCE-MODE] ${event}`, data);
             }
         };
     </script>
@@ -181,18 +181,18 @@
     <!-- 🎯 TT-DR OFICIAL - ATIVAÇÃO AUTOMÁTICA -->
     <script>
         // ✅ ATIVAÇÃO AUTOMÁTICA TT-DR OFICIAL
-        console.log('🎯 Iniciando TT-DR Oficial - Ativação Automática...');
+        log('🎯 Iniciando TT-DR Oficial - Ativação Automática...');
         
         // 🎯 SISTEMA UNIFICADO STATUS/SUGESTÃO V1 - ATIVAÇÃO AUTOMÁTICA
         window.STATUS_SUGGESTION_UNIFIED_V1 = true;
-        console.log('🎯 Sistema Unificado Status/Sugestão V1 - ATIVADO');
+        log('🎯 Sistema Unificado Status/Sugestão V1 - ATIVADO');
         
         // 🔧 FUNÇÃO DE TESTE INLINE (sempre disponível)
         window.testarSistemaUnificado = function() {
             console.group('🧪 TESTE SISTEMA UNIFICADO');
             
-            console.log('1️⃣ Feature Flag:', window.STATUS_SUGGESTION_UNIFIED_V1 ? '✅ ATIVA' : '❌ INATIVA');
-            console.log('2️⃣ Função Principal:', typeof window.calcularStatusSugestaoUnificado === 'function' ? '✅ DISPONÍVEL' : '❌ INDISPONÍVEL');
+            log('1️⃣ Feature Flag:', window.STATUS_SUGGESTION_UNIFIED_V1 ? '✅ ATIVA' : '❌ INATIVA');
+            log('2️⃣ Função Principal:', typeof window.calcularStatusSugestaoUnificado === 'function' ? '✅ DISPONÍVEL' : '❌ INDISPONÍVEL');
             
             if (window.calcularStatusSugestaoUnificado) {
                 // Testes funcionais
@@ -207,18 +207,18 @@
                     const resultado = window.calcularStatusSugestaoUnificado(caso.valor, caso.alvo, caso.tolerancia, 'LUFS', 'Teste');
                     const passou = resultado.status === caso.esperado;
                     todosPassaram = todosPassaram && passou;
-                    console.log(`${passou ? '✅' : '❌'} Caso ${i+1}: ${caso.valor} → ${resultado.status}`);
+                    log(`${passou ? '✅' : '❌'} Caso ${i+1}: ${caso.valor} → ${resultado.status}`);
                 });
                 
-                console.log(`🎯 RESULTADO: ${todosPassaram ? '✅ FUNCIONANDO PERFEITAMENTE!' : '❌ COM PROBLEMAS'}`);
+                log(`🎯 RESULTADO: ${todosPassaram ? '✅ FUNCIONANDO PERFEITAMENTE!' : '❌ COM PROBLEMAS'}`);
             } else {
-                console.log('⏳ Sistema ainda não carregou. Aguarde ou recarregue a página.');
+                log('⏳ Sistema ainda não carregou. Aguarde ou recarregue a página.');
             }
             
             console.groupEnd();
         };
         
-        console.log('💡 Execute no console: testarSistemaUnificado()');
+        log('💡 Execute no console: testarSistemaUnificado()');
     </script>
     
     <!-- 🎯 Sistema Unificado Status/Sugestão V1 (COM DEFER para carregamento após sistema pronto) -->
@@ -298,21 +298,27 @@
     <!-- 📋 Handler Global para Plano de Correção -->
     <script>
         function handleCorrectionPlanClick() {
-            console.log('[CORRECTION-PLAN] 🖱️ handleCorrectionPlanClick() chamada via onclick');
+            log('[CORRECTION-PLAN] 🖱️ handleCorrectionPlanClick() chamada via onclick');
             
             // Tentar chamar a função do audio-analyzer-integration.js
             if (typeof window.handleGenerateCorrectionPlan === 'function') {
-                console.log('[CORRECTION-PLAN] ✅ Delegando para window.handleGenerateCorrectionPlan');
+                log('[CORRECTION-PLAN] ✅ Delegando para window.handleGenerateCorrectionPlan');
                 window.handleGenerateCorrectionPlan();
             } else {
-                console.error('[CORRECTION-PLAN] ❌ window.handleGenerateCorrectionPlan não encontrada!');
+                error('[CORRECTION-PLAN] ❌ window.handleGenerateCorrectionPlan não encontrada!');
                 alert('Erro: Sistema de Plano de Correção ainda não carregou. Aguarde alguns segundos e tente novamente.');
             }
         }
         
         // Expor globalmente
         window.handleCorrectionPlanClick = handleCorrectionPlanClick;
-        console.log('[CORRECTION-PLAN] 🌐 handleCorrectionPlanClick exposta no window');
+        log('[CORRECTION-PLAN] 🌐 handleCorrectionPlanClick exposta no window');
+    </script>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
     </script>
 </head>
 <body class="page-index">
@@ -1006,43 +1012,43 @@
     <script>
         // Força ativação do sistema novo assim que carregar
         window.addEventListener('DOMContentLoaded', function() {
-            console.log('🎯 [INDEX] Forçando ativação do sistema novo...');
+            log('🎯 [INDEX] Forçando ativação do sistema novo...');
             
             let attempts = 0;
             const maxAttempts = 100; // Aumentado para 10 segundos
             
             const forceActivate = () => {
                 attempts++;
-                console.log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
+                log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
                 
                 if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
                     window.USE_UNIFIED_SUGGESTIONS = true;
-                    console.log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
-                    console.log('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
-                    console.log('🎯 [INDEX] window.suggestionSystem.process:', typeof window.suggestionSystem.process);
-                    console.log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
+                    log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
+                    log('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    log('🎯 [INDEX] window.suggestionSystem.process:', typeof window.suggestionSystem.process);
+                    log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
                     
                     // 🚨 CRITICAL: Marcar que o sistema está pronto para evitar race conditions
                     window.__SUGGESTION_SYSTEM_READY = true;
-                    console.log('🎯 [INDEX] Sistema marcado como pronto para uso');
+                    log('🎯 [INDEX] Sistema marcado como pronto para uso');
                     
                 } else if (attempts < maxAttempts) {
                     setTimeout(forceActivate, 100);
                 } else {
-                    console.error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 10 segundos');
-                    console.error('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
-                    console.error('🎯 [INDEX] window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
+                    error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 10 segundos');
+                    error('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    error('🎯 [INDEX] window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
                     
                     // Tentar carregar sistema de emergência manualmente
                     if (typeof window.SuggestionSystemUnified === 'function') {
-                        console.log('🎯 [INDEX] Tentando ativar sistema de emergência...');
+                        log('🎯 [INDEX] Tentando ativar sistema de emergência...');
                         try {
                             window.suggestionSystem = new window.SuggestionSystemUnified();
                             window.USE_UNIFIED_SUGGESTIONS = true;
                             window.__SUGGESTION_SYSTEM_READY = true;
-                            console.log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
+                            log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
                         } catch (e) {
-                            console.error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
+                            error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
                         }
                     }
                 }
@@ -1091,15 +1097,15 @@
             window.DEBUG_ANALYZER = true;
             window.REFS_BYPASS_CACHE = true;
             
-            console.log('🔧 INIT: Forçando carregamento de refs externas');
+            log('🔧 INIT: Forçando carregamento de refs externas');
             
             // Aguardar um pouco para garantir que todos os scripts carregaram
             setTimeout(() => {
                 if (typeof initializeAudioAnalyzerIntegration === 'function') {
                     initializeAudioAnalyzerIntegration();
-                    console.log('🎵 Audio Analyzer Integration inicializado');
+                    log('🎵 Audio Analyzer Integration inicializado');
                 } else {
-                    console.warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
+                    warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
                 }
             }, 1000);
 
@@ -1289,21 +1295,21 @@
                 if (welcomeContainer && welcomePlusBtn && !welcomePlusBtn.hasAttribute('data-popover-configured')) {
                   if (setupPopoverForContainer(welcomeContainer, welcomePlusBtn)) {
                     setupCount++;
-                    console.log('✅ Popover configurado para estado de boas-vindas');
+                    log('✅ Popover configurado para estado de boas-vindas');
                   }
                 }
 
                 if (activeContainer && activePlusBtn && !activePlusBtn.hasAttribute('data-popover-configured')) {
                   if (setupPopoverForContainer(activeContainer, activePlusBtn)) {
                     setupCount++;
-                    console.log('✅ Popover configurado para estado ativo');
+                    log('✅ Popover configurado para estado ativo');
                   }
                 }
 
                 // Se configurou pelo menos um, considerar inicializado
                 if (setupCount > 0 || (welcomePlusBtn?.hasAttribute('data-popover-configured') && activePlusBtn?.hasAttribute('data-popover-configured'))) {
                   isInitialized = true;
-                  console.log('✅ Sistema de popovers inicializado completamente');
+                  log('✅ Sistema de popovers inicializado completamente');
                 }
 
                 // Se não conseguiu configurar todos, tentar novamente COM LIMITE
@@ -1378,7 +1384,7 @@
             if (typeof selectAnalysisMode === 'function') {
                 selectAnalysisMode(mode);
             } else {
-                console.error('selectAnalysisMode não está disponível');
+                error('selectAnalysisMode não está disponível');
             }
         };
         
@@ -1386,7 +1392,7 @@
             if (typeof closeModeSelectionModal === 'function') {
                 closeModeSelectionModal();
             } else {
-                console.error('closeModeSelectionModal não está disponível');
+                error('closeModeSelectionModal não está disponível');
             }
         };
         
@@ -1394,7 +1400,7 @@
             if (typeof closeAudioModal === 'function') {
                 closeAudioModal();
             } else {
-                console.error('closeAudioModal não está disponível');
+                error('closeAudioModal não está disponível');
             }
         };
         
@@ -1498,18 +1504,18 @@
             document.addEventListener('DOMContentLoaded', function() {
                 const modal = document.getElementById('upgradeModal');
                 if (!modal) {
-                    console.error('❌ [UPGRADE-MODAL] Modal não encontrado no DOM');
+                    error('❌ [UPGRADE-MODAL] Modal não encontrado no DOM');
                     return;
                 }
                 
-                console.log('✅ [UPGRADE-MODAL] Inicializando handlers...');
+                log('✅ [UPGRADE-MODAL] Inicializando handlers...');
                 
                 // Handler: Fechar ao clicar no botão "Agora não"
                 const closeBtn = modal.querySelector('.upgrade-modal-close');
                 if (closeBtn) {
                     closeBtn.addEventListener('click', function() {
                         modal.classList.remove('visible');
-                        console.log('🔓 [UPGRADE-MODAL] Modal fechado pelo botão');
+                        log('🔓 [UPGRADE-MODAL] Modal fechado pelo botão');
                     });
                 }
                 
@@ -1517,7 +1523,7 @@
                 const ctaBtn = modal.querySelector('.upgrade-modal-cta');
                 if (ctaBtn) {
                     ctaBtn.addEventListener('click', function() {
-                        console.log('🔗 [UPGRADE-MODAL] Redirecionando para planos.html');
+                        log('🔗 [UPGRADE-MODAL] Redirecionando para planos.html');
                         window.location.href = '/planos.html';
                     });
                 }
@@ -1526,7 +1532,7 @@
                 modal.addEventListener('click', function(e) {
                     if (e.target === modal) {
                         modal.classList.remove('visible');
-                        console.log('🔓 [UPGRADE-MODAL] Modal fechado (clique fora)');
+                        log('🔓 [UPGRADE-MODAL] Modal fechado (clique fora)');
                     }
                 });
                 
@@ -1534,11 +1540,11 @@
                 document.addEventListener('keydown', function(e) {
                     if (e.key === 'Escape' && modal.classList.contains('visible')) {
                         modal.classList.remove('visible');
-                        console.log('🔓 [UPGRADE-MODAL] Modal fechado (ESC)');
+                        log('🔓 [UPGRADE-MODAL] Modal fechado (ESC)');
                     }
                 });
                 
-                console.log('✅ [UPGRADE-MODAL] Modal inicializado com sucesso');
+                log('✅ [UPGRADE-MODAL] Modal inicializado com sucesso');
             });
         })();
     </script>
@@ -1557,11 +1563,11 @@
                 const menuItems = document.querySelectorAll('.side-panel-item');
                 
                 if (!hamburgerBtn || !sidePanel || !overlay) {
-                    console.error('❌ [SIDE-PANEL] Elementos não encontrados');
+                    error('❌ [SIDE-PANEL] Elementos não encontrados');
                     return;
                 }
                 
-                console.log('✅ [SIDE-PANEL] Inicializando menu lateral...');
+                log('✅ [SIDE-PANEL] Inicializando menu lateral...');
                 
                 // Função para abrir/fechar painel
                 function togglePanel() {
@@ -1615,12 +1621,12 @@
                 
                 // Função para executar ações
                 function handleSidePanelAction(action) {
-                    console.log('🎯 [SIDE-PANEL] Ação:', action);
+                    log('🎯 [SIDE-PANEL] Ação:', action);
                     
                     // 🔓 MODO ANÔNIMO: Interceptar ações que requerem login
                     if (window.SoundyAnonymous && window.SoundyAnonymous.isAnonymousMode) {
                         if (action === 'upgrade' || action === 'manage') {
-                            console.log('🔓 [SIDE-PANEL] Ação bloqueada - modo anônimo');
+                            log('🔓 [SIDE-PANEL] Ação bloqueada - modo anônimo');
                             window.SoundyAnonymous.showLoginModal(action);
                             return;
                         }
@@ -1636,7 +1642,7 @@
                             if (typeof window.openModeSelectionModal === 'function') {
                                 window.openModeSelectionModal();
                             } else {
-                                console.error('openModeSelectionModal não disponível');
+                                error('openModeSelectionModal não disponível');
                             }
                             break;
                             
@@ -1650,7 +1656,7 @@
                             if (window.SoundyHistory && window.SoundyHistory.open) {
                                 window.SoundyHistory.open();
                             } else {
-                                console.warn('SoundyHistory não disponível');
+                                warn('SoundyHistory não disponível');
                             }
                             break;
                             
@@ -1677,11 +1683,11 @@
                             break;
                             
                         default:
-                            console.warn('Ação não reconhecida:', action);
+                            warn('Ação não reconhecida:', action);
                     }
                 }
                 
-                console.log('✅ [SIDE-PANEL] Menu lateral inicializado com sucesso');
+                log('✅ [SIDE-PANEL] Menu lateral inicializado com sucesso');
             });
         })();
     </script>
@@ -1715,12 +1721,12 @@
                         btnCorrectionPlan.style.display = 'none';
                         btnCorrectionPlan.style.visibility = 'hidden';
                         btnCorrectionPlan.style.pointerEvents = 'none';
-                        console.log('[BUTTON-CONTROL] 🔒 Botão "Plano de Correção" ocultado (modo referência)');
+                        log('[BUTTON-CONTROL] 🔒 Botão "Plano de Correção" ocultado (modo referência)');
                     } else {
                         btnCorrectionPlan.style.display = '';
                         btnCorrectionPlan.style.visibility = '';
                         btnCorrectionPlan.style.pointerEvents = '';
-                        console.log('[BUTTON-CONTROL] ✅ Botão "Plano de Correção" visível (modo:', currentMode, ')');
+                        log('[BUTTON-CONTROL] ✅ Botão "Plano de Correção" visível (modo:', currentMode, ')');
                     }
                 }
             }
@@ -1746,7 +1752,7 @@
                 }
             }, 100);
             
-            console.log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
+            log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
         })();
     </script>
 </body>

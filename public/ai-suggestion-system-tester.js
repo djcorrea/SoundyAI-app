@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧪 AI SUGGESTION SYSTEM TESTER - Sistema de Teste Automatizado
 // Validação completa da implementação de sugestões IA
 
@@ -7,7 +10,7 @@ class AISuggestionSystemTester {
         this.isRunning = false;
         this.startTime = null;
         
-        console.log('🧪 [AI-Test] Sistema de testes inicializado');
+        log('🧪 [AI-Test] Sistema de testes inicializado');
     }
     
     /**
@@ -15,7 +18,7 @@ class AISuggestionSystemTester {
      */
     async runAllTests() {
         if (this.isRunning) {
-            console.warn('⚠️ [AI-Test] Testes já estão em execução');
+            warn('⚠️ [AI-Test] Testes já estão em execução');
             return;
         }
         
@@ -23,7 +26,7 @@ class AISuggestionSystemTester {
         this.startTime = Date.now();
         this.testResults = [];
         
-        console.log('🚀 [AI-Test] Iniciando bateria completa de testes...');
+        log('🚀 [AI-Test] Iniciando bateria completa de testes...');
         
         try {
             // Testes de inicialização
@@ -51,7 +54,7 @@ class AISuggestionSystemTester {
             this.generateTestReport();
             
         } catch (error) {
-            console.error('❌ [AI-Test] Erro durante execução dos testes:', error);
+            error('❌ [AI-Test] Erro durante execução dos testes:', error);
             this.addTestResult('Sistema', 'Execução dos testes', false, error.message);
         } finally {
             this.isRunning = false;
@@ -62,7 +65,7 @@ class AISuggestionSystemTester {
      * 🔧 Testes de inicialização do sistema
      */
     async testSystemInitialization() {
-        console.log('🔧 [AI-Test] Testando inicialização...');
+        log('🔧 [AI-Test] Testando inicialização...');
         
         // Teste 1: Configuração global existe
         this.addTestResult(
@@ -101,7 +104,7 @@ class AISuggestionSystemTester {
      * ⚙️ Testes do gerenciador de configuração
      */
     async testConfigurationManager() {
-        console.log('⚙️ [AI-Test] Testando gerenciador de configuração...');
+        log('⚙️ [AI-Test] Testando gerenciador de configuração...');
         
         if (!window.aiConfigManager) {
             this.addTestResult('Configuração', 'Manager não encontrado', false, 'aiConfigManager não existe');
@@ -185,7 +188,7 @@ class AISuggestionSystemTester {
      * 🤖 Testes da camada de IA
      */
     async testAISuggestionLayer() {
-        console.log('🤖 [AI-Test] Testando camada de IA...');
+        log('🤖 [AI-Test] Testando camada de IA...');
         
         if (!window.aiSuggestionLayer) {
             this.addTestResult('Camada IA', 'Layer não encontrada', false, 'aiSuggestionLayer não existe');
@@ -278,7 +281,7 @@ class AISuggestionSystemTester {
      * 🎨 Testes do controlador de UI
      */
     async testUIController() {
-        console.log('🎨 [AI-Test] Testando controlador de UI...');
+        log('🎨 [AI-Test] Testando controlador de UI...');
         
         if (!window.aiUIController) {
             this.addTestResult('UI Controller', 'Controller não encontrado', false, 'aiUIController não existe');
@@ -350,7 +353,7 @@ class AISuggestionSystemTester {
      * 🔗 Testes de integração
      */
     async testIntegration() {
-        console.log('🔗 [AI-Test] Testando integração...');
+        log('🔗 [AI-Test] Testando integração...');
         
         // Teste 1: Comunicação entre componentes
         const configExists = window.aiConfigManager;
@@ -422,7 +425,7 @@ class AISuggestionSystemTester {
      * 🛡️ Testes de mecanismos de fallback
      */
     async testFallbackMechanisms() {
-        console.log('🛡️ [AI-Test] Testando mecanismos de fallback...');
+        log('🛡️ [AI-Test] Testando mecanismos de fallback...');
         
         // Teste 1: Sistema continua funcionando sem API key
         if (window.aiSuggestionLayer) {
@@ -521,7 +524,7 @@ class AISuggestionSystemTester {
      * ⚡ Testes de performance
      */
     async testPerformance() {
-        console.log('⚡ [AI-Test] Testando performance...');
+        log('⚡ [AI-Test] Testando performance...');
         
         // Teste 1: Tempo de inicialização
         const initTime = this.measureInitializationTime();
@@ -607,7 +610,7 @@ class AISuggestionSystemTester {
         this.testResults.push(result);
         
         const status = passed ? '✅' : '❌';
-        console.log(`${status} [AI-Test] ${category} - ${testName}: ${message}`);
+        log(`${status} [AI-Test] ${category} - ${testName}: ${message}`);
     }
     
     /**
@@ -622,13 +625,13 @@ class AISuggestionSystemTester {
         const failedTests = totalTests - passedTests;
         const successRate = ((passedTests / totalTests) * 100).toFixed(1);
         
-        console.log('\n🧪 [AI-Test] RELATÓRIO FINAL DE TESTES');
-        console.log('=====================================');
-        console.log(`⏱️  Duração: ${duration}ms`);
-        console.log(`📊 Total: ${totalTests} testes`);
-        console.log(`✅ Passou: ${passedTests} testes`);
-        console.log(`❌ Falhou: ${failedTests} testes`);
-        console.log(`🎯 Taxa de sucesso: ${successRate}%`);
+        log('\n🧪 [AI-Test] RELATÓRIO FINAL DE TESTES');
+        log('=====================================');
+        log(`⏱️  Duração: ${duration}ms`);
+        log(`📊 Total: ${totalTests} testes`);
+        log(`✅ Passou: ${passedTests} testes`);
+        log(`❌ Falhou: ${failedTests} testes`);
+        log(`🎯 Taxa de sucesso: ${successRate}%`);
         
         // Agrupar por categoria
         const byCategory = this.testResults.reduce((acc, result) => {
@@ -637,19 +640,19 @@ class AISuggestionSystemTester {
             return acc;
         }, {});
         
-        console.log('\n📋 RESULTADOS POR CATEGORIA:');
+        log('\n📋 RESULTADOS POR CATEGORIA:');
         Object.entries(byCategory).forEach(([category, results]) => {
             const categoryPassed = results.filter(r => r.passed).length;
             const categoryTotal = results.length;
             const categoryRate = ((categoryPassed / categoryTotal) * 100).toFixed(1);
             
-            console.log(`\n${category}: ${categoryPassed}/${categoryTotal} (${categoryRate}%)`);
+            log(`\n${category}: ${categoryPassed}/${categoryTotal} (${categoryRate}%)`);
             
             results.forEach(result => {
                 const status = result.passed ? '  ✅' : '  ❌';
-                console.log(`${status} ${result.testName}`);
+                log(`${status} ${result.testName}`);
                 if (!result.passed) {
-                    console.log(`      ${result.message}`);
+                    log(`      ${result.message}`);
                 }
             });
         });
@@ -658,9 +661,9 @@ class AISuggestionSystemTester {
         this.saveTestReport(duration, passedTests, totalTests, successRate);
         
         if (successRate >= 80) {
-            console.log('\n🎉 [AI-Test] SISTEMA APROVADO! Taxa de sucesso >= 80%');
+            log('\n🎉 [AI-Test] SISTEMA APROVADO! Taxa de sucesso >= 80%');
         } else {
-            console.log('\n⚠️ [AI-Test] SISTEMA PRECISA DE ATENÇÃO! Taxa de sucesso < 80%');
+            log('\n⚠️ [AI-Test] SISTEMA PRECISA DE ATENÇÃO! Taxa de sucesso < 80%');
         }
     }
     
@@ -694,7 +697,7 @@ class AISuggestionSystemTester {
             keys.sort().slice(0, -5).forEach(k => localStorage.removeItem(k));
         }
         
-        console.log(`💾 [AI-Test] Relatório salvo: ${key}`);
+        log(`💾 [AI-Test] Relatório salvo: ${key}`);
     }
     
     /**
@@ -709,7 +712,7 @@ class AISuggestionSystemTester {
      * 🏃‍♂️ Teste rápido (apenas componentes principais)
      */
     async runQuickTest() {
-        console.log('🏃‍♂️ [AI-Test] Executando teste rápido...');
+        log('🏃‍♂️ [AI-Test] Executando teste rápido...');
         
         this.testResults = [];
         
@@ -720,7 +723,7 @@ class AISuggestionSystemTester {
         const passedTests = this.testResults.filter(r => r.passed).length;
         const successRate = ((passedTests / totalTests) * 100).toFixed(1);
         
-        console.log(`🏃‍♂️ [AI-Test] Teste rápido: ${passedTests}/${totalTests} (${successRate}%)`);
+        log(`🏃‍♂️ [AI-Test] Teste rápido: ${passedTests}/${totalTests} (${successRate}%)`);
         
         return successRate >= 80;
     }
@@ -769,15 +772,15 @@ window.getAITestHistory = function() {
     // Criar instância global
     window.aiSystemTester = new AISuggestionSystemTester();
     
-    console.log('🧪 [AI-Test] Sistema de testes pronto. Use runAITests() para testar tudo.');
+    log('🧪 [AI-Test] Sistema de testes pronto. Use runAITests() para testar tudo.');
     
     // Auto-teste rápido após 5 segundos (dar tempo para inicialização)
     setTimeout(async () => {
         const quickTestPassed = await window.runQuickAITest();
         if (quickTestPassed) {
-            console.log('🎉 [AI-Test] Auto-teste inicial: PASSOU');
+            log('🎉 [AI-Test] Auto-teste inicial: PASSOU');
         } else {
-            console.warn('⚠️ [AI-Test] Auto-teste inicial: FALHOU - execute runAITests() para detalhes');
+            warn('⚠️ [AI-Test] Auto-teste inicial: FALHOU - execute runAITests() para detalhes');
         }
     }, 5000);
     

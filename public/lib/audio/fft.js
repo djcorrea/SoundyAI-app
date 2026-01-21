@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🌊 FFT ENGINE - Transformada rápida de Fourier via WASM
 // Motor FFT otimizado com windowing e análise espectral
 
@@ -197,7 +200,7 @@ class STFTEngine {
     const spectrogram = [];
     const powerSpectrum = new Float32Array(this.fftSize / 2);
     
-    console.log(`🎵 STFT: ${numFrames} frames, FFT=${this.fftSize}, hop=${this.hopSize}`);
+    log(`🎵 STFT: ${numFrames} frames, FFT=${this.fftSize}, hop=${this.hopSize}`);
     
     // Processar cada frame
     for (let frame = 0; frame < numFrames; frame++) {

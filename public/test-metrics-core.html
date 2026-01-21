@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - ForceActivator com Métricas Core</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🎯 Teste - ForceActivator aguardando Métricas Core</h1>
@@ -80,7 +86,7 @@
         }
 
         function simulateBasicSystems() {
-            console.log('🔧 [TEST] Simulando sistemas básicos...');
+            log('🔧 [TEST] Simulando sistemas básicos...');
             window.audioAnalyzer = {};
             window.CACHE_CTX_AWARE_V1_API = { ready: true };
             window.refsReady = true;
@@ -89,7 +95,7 @@
         }
 
         function simulateMetrics() {
-            console.log('🔧 [TEST] Simulando métricas core...');
+            log('🔧 [TEST] Simulando métricas core...');
             if (!window.audioAnalyzer) {
                 window.audioAnalyzer = {};
             }
@@ -99,14 +105,14 @@
                 lufs: -14.2,
                 lra: 6.8
             };
-            console.log('📊 [TEST] Métricas core simuladas:', window.audioAnalyzer.metrics);
+            log('📊 [TEST] Métricas core simuladas:', window.audioAnalyzer.metrics);
             updateStatusDisplays();
         }
 
         function checkSystemStatus() {
-            console.log('🧪 [TEST] Status atual dos sistemas:');
+            log('🧪 [TEST] Status atual dos sistemas:');
             const hasMetrics = window.audioAnalyzer && window.audioAnalyzer.metrics;
-            console.log({
+            log({
                 audioAnalyzer: !!window.audioAnalyzer,
                 'audioAnalyzer.metrics': !!hasMetrics,
                 'metrics.truePeak': hasMetrics && !!window.audioAnalyzer.metrics.truePeak,
@@ -119,11 +125,11 @@
         }
 
         function testSafeForceActivator() {
-            console.log('🧪 [TEST] Testando safeForceActivator diretamente...');
+            log('🧪 [TEST] Testando safeForceActivator diretamente...');
             if (window.safeForceActivator) {
                 window.safeForceActivator();
             } else {
-                console.error('❌ [TEST] safeForceActivator não disponível');
+                error('❌ [TEST] safeForceActivator não disponível');
             }
         }
 
@@ -131,7 +137,7 @@
         setInterval(updateStatusDisplays, 1000);
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de métricas core iniciado");
+        log("🚀 [TEST] Teste de métricas core iniciado");
         updateStatusDisplays();
     </script>
 

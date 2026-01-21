@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 CORREÇÃO DA ORDEM DO PIPELINE - SCORING APÓS BANDAS ESPECTRAIS
 // 
 // OBJETIVO: Garantir que o scoring execute SOMENTE após as bandas espectrais 
@@ -56,7 +59,7 @@ function validateSpectralBands(technicalData, runId = 'unknown') {
     if (!technicalData?.bandEnergies) {
       validationResult.reason = 'bandEnergies not found';
       if (config.verboseValidation) {
-        console.log(`[VALIDATION-DETAILED] [${runId}] bandEnergies missing in technicalData`);
+        log(`[VALIDATION-DETAILED] [${runId}] bandEnergies missing in technicalData`);
       }
       return validationResult;
     }
@@ -71,13 +74,13 @@ function validateSpectralBands(technicalData, runId = 'unknown') {
     if (bandNames.length === 0) {
       validationResult.reason = 'bandEnergies empty';
       if (config.verboseValidation) {
-        console.log(`[VALIDATION-DETAILED] [${runId}] bandEnergies object is empty`);
+        log(`[VALIDATION-DETAILED] [${runId}] bandEnergies object is empty`);
       }
       return validationResult;
     }
 
     if (config.verboseValidation) {
-      console.log(`[VALIDATION-DETAILED] [${runId}] Found ${bandNames.length} bands:`, bandNames);
+      log(`[VALIDATION-DETAILED] [${runId}] Found ${bandNames.length} bands:`, bandNames);
     }
 
     // Validar cada banda com critérios mais rigorosos
@@ -146,7 +149,7 @@ function validateSpectralBands(technicalData, runId = 'unknown') {
     }
 
     if (config.verboseValidation) {
-      console.log(`[VALIDATION-DETAILED] [${runId}] Validation result:`, {
+      log(`[VALIDATION-DETAILED] [${runId}] Validation result:`, {
         valid: validationResult.valid,
         validRatio: `${(validationResult.validRatio * 100).toFixed(1)}%`,
         threshold: `${(threshold * 100).toFixed(1)}%`,
@@ -159,7 +162,7 @@ function validateSpectralBands(technicalData, runId = 'unknown') {
   } catch (error) {
     validationResult.reason = `validation error: ${error.message}`;
     if (config.verboseValidation) {
-      console.error(`[VALIDATION-DETAILED] [${runId}] Validation error:`, error);
+      error(`[VALIDATION-DETAILED] [${runId}] Validation error:`, error);
     }
   }
 
@@ -189,7 +192,7 @@ function configureValidationThreshold(options = {}) {
     config.verboseValidation = !!options.verbose;
   }
   
-  console.log('🎯 Pipeline validation config updated:', config);
+  log('🎯 Pipeline validation config updated:', config);
   return config;
 }
 
@@ -237,7 +240,7 @@ function logPipelineEvent(stage, runId, details = {}) {
     window.__caiarLog(stage.toUpperCase(), `Pipeline: ${stage}`, logEntry);
   }
 
-  console.log(`[PIPELINE-${stage.toUpperCase()}] [${runId}]`, logEntry);
+  log(`[PIPELINE-${stage.toUpperCase()}] [${runId}]`, logEntry);
   
   return logEntry;
 }
@@ -355,4 +358,4 @@ if (typeof window !== 'undefined') {
   };
 }
 
-console.log('🎯 Pipeline Order Correction loaded - Feature flag:', window.PIPELINE_ORDER_CORRECTION_ENABLED);
+log('🎯 Pipeline Order Correction loaded - Feature flag:', window.PIPELINE_ORDER_CORRECTION_ENABLED);

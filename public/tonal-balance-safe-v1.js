@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🛡️ TONAL BALANCE SAFE V1
  * Sistema seguro para validação e exibição do bloco "Sub / Low / Mid / High"
@@ -60,7 +63,7 @@ function validateSpectralBandsData(tonalBalance) {
     if (!tonalBalance || typeof tonalBalance !== 'object') {
         result.issues.push('tonalBalance_missing_or_invalid');
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🔍 [TONAL-SAFE] Dados ausentes ou inválidos:', tonalBalance);
+            log('🔍 [TONAL-SAFE] Dados ausentes ou inválidos:', tonalBalance);
         }
         result.stats.validationTime = performance.now() - startTime;
         return result;
@@ -125,12 +128,12 @@ function validateSpectralBandsData(tonalBalance) {
     if (validValues.length >= 2 && uniqueValues.size === 1) {
         result.issues.push('all_values_identical');
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🚨 [TONAL-SAFE] Todos os valores são idênticos:', validValues[0]);
+            log('🚨 [TONAL-SAFE] Todos os valores são idênticos:', validValues[0]);
         }
     } else if (validValues.length >= 3 && uniqueValues.size <= 1) {
         result.issues.push('insufficient_value_diversity');
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🚨 [TONAL-SAFE] Diversidade insuficiente de valores:', Array.from(uniqueValues));
+            log('🚨 [TONAL-SAFE] Diversidade insuficiente de valores:', Array.from(uniqueValues));
         }
     }
 
@@ -145,7 +148,7 @@ function validateSpectralBandsData(tonalBalance) {
     result.stats.validationTime = performance.now() - startTime;
     
     if (TONAL_BALANCE_CONFIG.DEBUG) {
-        console.log('🧪 [TONAL-SAFE] Resultado validação:', {
+        log('🧪 [TONAL-SAFE] Resultado validação:', {
             shouldDisplay: result.shouldDisplay,
             validCount: result.stats.validCount,
             uniqueValues: result.stats.uniqueValues,
@@ -178,7 +181,7 @@ function tonalSummarySafe(tonalBalance) {
     
     if (!validation.shouldDisplay) {
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🚫 [TONAL-SAFE] Bloco ocultado. Motivos:', validation.issues);
+            log('🚫 [TONAL-SAFE] Bloco ocultado. Motivos:', validation.issues);
         }
         return '—';
     }
@@ -207,7 +210,7 @@ function applyTonalBalanceSafeMigration() {
     // Verificar se a migração já foi aplicada
     if (window.tonalBalanceSafeMigrationApplied) {
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🔄 [TONAL-SAFE] Migração já aplicada, pulando');
+            log('🔄 [TONAL-SAFE] Migração já aplicada, pulando');
         }
         return;
     }
@@ -248,12 +251,12 @@ function applyTonalBalanceSafeMigration() {
                     migratedCount++;
                     
                     if (TONAL_BALANCE_CONFIG.DEBUG) {
-                        console.log(`✅ [TONAL-SAFE] Migrada função: ${location}`);
+                        log(`✅ [TONAL-SAFE] Migrada função: ${location}`);
                     }
                 }
             } catch (error) {
                 if (TONAL_BALANCE_CONFIG.DEBUG) {
-                    console.warn(`⚠️ [TONAL-SAFE] Erro migrando ${location}:`, error);
+                    warn(`⚠️ [TONAL-SAFE] Erro migrando ${location}:`, error);
                 }
             }
         });
@@ -262,11 +265,11 @@ function applyTonalBalanceSafeMigration() {
         window.tonalBalanceSafeMigrationApplied = true;
         
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log(`🎯 [TONAL-SAFE] Migração completa. ${migratedCount} função(ões) migrada(s)`);
+            log(`🎯 [TONAL-SAFE] Migração completa. ${migratedCount} função(ões) migrada(s)`);
         }
         
     } catch (error) {
-        console.error('🚨 [TONAL-SAFE] Erro na migração automática:', error);
+        error('🚨 [TONAL-SAFE] Erro na migração automática:', error);
     }
 }
 
@@ -328,7 +331,7 @@ function testTonalBalanceSafe() {
     let passedTests = 0;
     
     testCases.forEach((testCase, index) => {
-        console.log(`\n🔍 Teste ${index + 1}: ${testCase.name}`);
+        log(`\n🔍 Teste ${index + 1}: ${testCase.name}`);
         
         const validation = validateSpectralBandsData(testCase.data);
         const result = tonalSummarySafe(testCase.data);
@@ -340,15 +343,15 @@ function testTonalBalanceSafe() {
         
         if (passed) {
             passedTests++;
-            console.log(`✅ PASSOU: ${result}`);
+            log(`✅ PASSOU: ${result}`);
         } else {
-            console.log(`❌ FALHOU: Esperado ${testCase.esperado}, obteve: ${result}`);
+            log(`❌ FALHOU: Esperado ${testCase.esperado}, obteve: ${result}`);
         }
         
-        console.log(`   Stats: ${validation.stats.validCount}/${validation.stats.totalBands} válidas, ${validation.stats.uniqueValues} únicas`);
+        log(`   Stats: ${validation.stats.validCount}/${validation.stats.totalBands} válidas, ${validation.stats.uniqueValues} únicas`);
     });
     
-    console.log(`\n🎯 RESULTADO: ${passedTests}/${testCases.length} testes passaram`);
+    log(`\n🎯 RESULTADO: ${passedTests}/${testCases.length} testes passaram`);
     console.groupEnd();
     
     return passedTests === testCases.length;
@@ -360,12 +363,12 @@ function testTonalBalanceSafe() {
 function initializeTonalBalanceSafe() {
     if (!window.TONAL_BALANCE_SAFE_V1) {
         if (TONAL_BALANCE_CONFIG.DEBUG) {
-            console.log('🚫 [TONAL-SAFE] Feature flag desativada, sistema não inicializado');
+            log('🚫 [TONAL-SAFE] Feature flag desativada, sistema não inicializado');
         }
         return;
     }
     
-    console.log('🛡️ [TONAL-SAFE] Inicializando sistema seguro para bandas espectrais...');
+    log('🛡️ [TONAL-SAFE] Inicializando sistema seguro para bandas espectrais...');
     
     // Aplicar migração automática
     applyTonalBalanceSafeMigration();
@@ -375,8 +378,8 @@ function initializeTonalBalanceSafe() {
     window.tonalSummarySafe = tonalSummarySafe;
     window.testTonalBalanceSafe = testTonalBalanceSafe;
     
-    console.log('✅ [TONAL-SAFE] Sistema inicializado com sucesso!');
-    console.log('💡 Execute no console: testTonalBalanceSafe()');
+    log('✅ [TONAL-SAFE] Sistema inicializado com sucesso!');
+    log('💡 Execute no console: testTonalBalanceSafe()');
 }
 
 // 🎯 Auto-inicialização quando o script carregar

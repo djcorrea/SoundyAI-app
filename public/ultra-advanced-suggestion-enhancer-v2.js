@@ -1,9 +1,12 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🚀 SISTEMA ULTRA-AVANÇADO V2 - Integração Direta com Sugestões Existentes
 // Este sistema funciona diretamente com as sugestões geradas pelo Enhanced Engine
 
 class UltraAdvancedSuggestionEnhancer {
     constructor() {
-        console.log('🚀 [ULTRA_V2] Inicializando Sistema Ultra-Avançado V2...');
+        log('🚀 [ULTRA_V2] Inicializando Sistema Ultra-Avançado V2...');
         
         // Base educacional de conhecimento
         this.educationalDatabase = {
@@ -64,7 +67,7 @@ class UltraAdvancedSuggestionEnhancer {
             }
         };
         
-        console.log('✅ [ULTRA_V2] Sistema Ultra-Avançado V2 carregado com sucesso!');
+        log('✅ [ULTRA_V2] Sistema Ultra-Avançado V2 carregado com sucesso!');
     }
     
     /**
@@ -111,21 +114,21 @@ class UltraAdvancedSuggestionEnhancer {
      * @returns {Object|null} { min, max, center, value, diff } ou null
      */
     extractTargetRangeFromMetrics(suggestion, metrics, targets) {
-        console.log('[ULTRA_V2] 🔍 Extraindo target_range de metrics/targets para:', suggestion.metric || suggestion.type);
+        log('[ULTRA_V2] 🔍 Extraindo target_range de metrics/targets para:', suggestion.metric || suggestion.type);
         
         if (!metrics || !targets) {
-            console.error('[ULTRA_V2] ❌ metrics ou targets ausentes');
+            error('[ULTRA_V2] ❌ metrics ou targets ausentes');
             return null;
         }
         
         // Identificar métrica
         const metricKey = this.normalizeMetricName(suggestion.metric || suggestion.type);
         if (!metricKey) {
-            console.warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
+            warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
             return null;
         }
         
-        console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
+        log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
         
         // Mapear nomes para acessar metrics e targets
         const metricsMap = {
@@ -157,7 +160,7 @@ class UltraAdvancedSuggestionEnhancer {
             value = metrics[metricsKey]?.value;
             targetInfo = targets[targetsKey];
             
-            console.log('[ULTRA_V2] ✅ Valor e target encontrados:', {
+            log('[ULTRA_V2] ✅ Valor e target encontrados:', {
                 metricsKey,
                 value,
                 targetsKey,
@@ -169,7 +172,7 @@ class UltraAdvancedSuggestionEnhancer {
             value = metrics.bands[metricKey]?.value;
             targetInfo = targets.bands[metricKey];
             
-            console.log('[ULTRA_V2] ✅ Banda encontrada:', {
+            log('[ULTRA_V2] ✅ Banda encontrada:', {
                 bandKey: metricKey,
                 value,
                 target: targetInfo?.target
@@ -177,7 +180,7 @@ class UltraAdvancedSuggestionEnhancer {
         }
         
         if (!targetInfo || value === null || value === undefined) {
-            console.warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada em metrics/targets');
+            warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada em metrics/targets');
             return null;
         }
         
@@ -186,7 +189,7 @@ class UltraAdvancedSuggestionEnhancer {
         const tolerance = targetInfo.tolerance || 1;
         const diff = value - target;
         
-        console.log('[ULTRA_V2] ✅ Range calculado:', {
+        log('[ULTRA_V2] ✅ Range calculado:', {
             value,
             target,
             tolerance,
@@ -211,16 +214,16 @@ class UltraAdvancedSuggestionEnhancer {
      * @returns {Object|null} { min, max, center } ou null
      */
     extractTargetRange(suggestion, context) {
-        console.log('[ULTRA_V2] 🔍 Extraindo target_range para:', suggestion.metric || suggestion.type);
+        log('[ULTRA_V2] 🔍 Extraindo target_range para:', suggestion.metric || suggestion.type);
         
         // Identificar métrica (ex: "band_sub" → "sub")
         const metricKey = this.getMetricKey(suggestion);
         if (!metricKey) {
-            console.warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
+            warn('[ULTRA_V2] ⚠️ Não foi possível identificar métrica da sugestão');
             return null;
         }
         
-        console.log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
+        log('[ULTRA_V2] 🎯 Métrica identificada:', metricKey);
         
         // ═══════════════════════════════════════════════════════════════
         // USAR EXCLUSIVAMENTE: context.correctTargets
@@ -230,13 +233,13 @@ class UltraAdvancedSuggestionEnhancer {
         const targets = context.correctTargets;
         
         if (!targets || typeof targets !== 'object') {
-            console.error('[ULTRA_V2] ❌ context.correctTargets não encontrado ou inválido');
-            console.error('[ULTRA_V2] Tipo:', typeof targets);
-            console.error('[ULTRA_V2] Context keys:', Object.keys(context));
+            error('[ULTRA_V2] ❌ context.correctTargets não encontrado ou inválido');
+            error('[ULTRA_V2] Tipo:', typeof targets);
+            error('[ULTRA_V2] Context keys:', Object.keys(context));
             return null;
         }
         
-        console.log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.data.genreTargets do Postgres)');
+        log('[ULTRA_V2] ✅ Usando targets de context.correctTargets (analysis.data.genreTargets do Postgres)');
         
         // Buscar threshold da métrica específica
         // Formato do Postgres: { target, tolerance, target_range: { min, max } }
@@ -258,26 +261,26 @@ class UltraAdvancedSuggestionEnhancer {
         // Tentar acessar diretamente
         if (targets[postgresField] && typeof targets[postgresField] === 'object') {
             threshold = targets[postgresField];
-            console.log('[ULTRA_V2] ✅ Target encontrado:', postgresField, '=', threshold);
+            log('[ULTRA_V2] ✅ Target encontrado:', postgresField, '=', threshold);
         }
         // Tentar em bands
         else if (targets.bands && metricKey) {
             if (targets.bands[metricKey]) {
                 threshold = targets.bands[metricKey];
-                console.log('[ULTRA_V2] ✅ Target encontrado em bands:', metricKey);
+                log('[ULTRA_V2] ✅ Target encontrado em bands:', metricKey);
             }
         }
         
         if (!threshold) {
-            console.warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada nos targets');
-            console.log('[ULTRA_V2] Keys disponíveis:', Object.keys(targets));
+            warn('[ULTRA_V2] ⚠️ Métrica "' + metricKey + '" não encontrada nos targets');
+            log('[ULTRA_V2] Keys disponíveis:', Object.keys(targets));
             return null;
         }
         
         // Calcular range a partir de target±tolerance
         if (typeof threshold.target === 'number') {
             const tolerance = threshold.tolerance || threshold.tol || 1; // Default tolerance
-            console.log('[ULTRA_V2] ✅ Calculando range:', {
+            log('[ULTRA_V2] ✅ Calculando range:', {
                 target: threshold.target,
                 tolerance: tolerance
             });
@@ -290,7 +293,7 @@ class UltraAdvancedSuggestionEnhancer {
         
         // Se já vier como objeto com min/max
         if (typeof threshold.min === 'number' && typeof threshold.max === 'number') {
-            console.log('[ULTRA_V2] ✅ Range já definido:', threshold);
+            log('[ULTRA_V2] ✅ Range já definido:', threshold);
             return {
                 min: threshold.min,
                 max: threshold.max,
@@ -298,7 +301,7 @@ class UltraAdvancedSuggestionEnhancer {
             };
         }
         
-        console.warn('[ULTRA_V2] ⚠️ Threshold sem target ou range válido');
+        warn('[ULTRA_V2] ⚠️ Threshold sem target ou range válido');
         return null;
     }
 
@@ -333,7 +336,7 @@ class UltraAdvancedSuggestionEnhancer {
      * 🚀 Enriquecer sugestões existentes com conteúdo educacional ultra-avançado
      */
     enhanceExistingSuggestions(suggestions, analysisContext = {}) {
-        console.log('🚀 [ULTRA_V2] Enriquecendo sugestões existentes...', {
+        log('🚀 [ULTRA_V2] Enriquecendo sugestões existentes...', {
             inputCount: suggestions.length,
             context: analysisContext
         });
@@ -346,7 +349,7 @@ class UltraAdvancedSuggestionEnhancer {
                 const enhanced = this.enhanceSingleSuggestion(suggestion, analysisContext);
                 enhancedSuggestions.push(enhanced);
             } catch (error) {
-                console.warn('⚠️ [ULTRA_V2] Erro ao enriquecer sugestão:', error);
+                warn('⚠️ [ULTRA_V2] Erro ao enriquecer sugestão:', error);
                 // Manter sugestão original em caso de erro
                 enhancedSuggestions.push(suggestion);
             }
@@ -355,7 +358,7 @@ class UltraAdvancedSuggestionEnhancer {
         const endTime = performance.now();
         const processingTime = (endTime - startTime).toFixed(2);
         
-        console.log('✅ [ULTRA_V2] Enriquecimento concluído!', {
+        log('✅ [ULTRA_V2] Enriquecimento concluído!', {
             originalCount: suggestions.length,
             enhancedCount: enhancedSuggestions.length,
             processingTime: `${processingTime}ms`
@@ -388,9 +391,9 @@ class UltraAdvancedSuggestionEnhancer {
         const targets = context.correctTargets;
         
         if (!metrics || !targets) {
-            console.error('[ULTRA_V2] ❌ CRÍTICO: metrics ou targets ausentes no context');
-            console.error('[ULTRA_V2] context.metrics:', !!metrics);
-            console.error('[ULTRA_V2] context.correctTargets:', !!targets);
+            error('[ULTRA_V2] ❌ CRÍTICO: metrics ou targets ausentes no context');
+            error('[ULTRA_V2] context.metrics:', !!metrics);
+            error('[ULTRA_V2] context.correctTargets:', !!targets);
             return enhanced; // Retorna sem enriquecer
         }
         
@@ -398,7 +401,7 @@ class UltraAdvancedSuggestionEnhancer {
         const metricKey = this.normalizeMetricName(suggestion.metric || suggestion.type);
         
         if (metricKey === 'lufs') {
-            console.log('[ULTRA TARGET DEBUG]', {
+            log('[ULTRA TARGET DEBUG]', {
                 metric: 'LUFS',
                 value: metrics.loudness?.value,
                 target: targets.lufs?.target,
@@ -406,7 +409,7 @@ class UltraAdvancedSuggestionEnhancer {
                 suggestionOriginal: suggestion.message?.substring(0, 80)
             });
         } else if (metricKey === 'truePeak') {
-            console.log('[ULTRA TARGET DEBUG]', {
+            log('[ULTRA TARGET DEBUG]', {
                 metric: 'TRUE PEAK',
                 value: metrics.truePeak?.value,
                 target: targets.truePeak?.target,
@@ -414,7 +417,7 @@ class UltraAdvancedSuggestionEnhancer {
                 suggestionOriginal: suggestion.message?.substring(0, 80)
             });
         } else if (metricKey === 'dr' || metricKey === 'dynamicRange') {
-            console.log('[ULTRA TARGET DEBUG]', {
+            log('[ULTRA TARGET DEBUG]', {
                 metric: 'DYNAMIC RANGE',
                 value: metrics.dr?.value,
                 target: targets.dr?.target,
@@ -422,7 +425,7 @@ class UltraAdvancedSuggestionEnhancer {
                 suggestionOriginal: suggestion.message?.substring(0, 80)
             });
         } else if (metricKey === 'stereo' || metricKey === 'stereoCorrelation') {
-            console.log('[ULTRA TARGET DEBUG]', {
+            log('[ULTRA TARGET DEBUG]', {
                 metric: 'STEREO',
                 value: metrics.stereo?.value,
                 target: targets.stereo?.target,
@@ -431,7 +434,7 @@ class UltraAdvancedSuggestionEnhancer {
             });
         } else if (metricKey && metrics.bands && targets.bands) {
             // Banda espectral
-            console.log('[ULTRA TARGET DEBUG]', {
+            log('[ULTRA TARGET DEBUG]', {
                 metric: `BAND ${metricKey.toUpperCase()}`,
                 value: metrics.bands[metricKey]?.value,
                 target: targets.bands[metricKey]?.target,
@@ -451,7 +454,7 @@ class UltraAdvancedSuggestionEnhancer {
             const targetInfo = targets.truePeak;
             if (targetInfo) {
                 enhanced.message = this.buildTruePeakText(metrics.truePeak.value, targetInfo);
-                console.log('[ULTRA_V2] ✅ Texto True Peak reescrito com target real:', targetInfo.target);
+                log('[ULTRA_V2] ✅ Texto True Peak reescrito com target real:', targetInfo.target);
             }
         }
         
@@ -985,4 +988,4 @@ class UltraAdvancedSuggestionEnhancer {
 
 // Disponibilizar globalmente
 window.UltraAdvancedSuggestionEnhancer = UltraAdvancedSuggestionEnhancer;
-console.log('🚀 [ULTRA_V2] Sistema Ultra-Avançado V2 disponível globalmente');
+log('🚀 [ULTRA_V2] Sistema Ultra-Avançado V2 disponível globalmente');

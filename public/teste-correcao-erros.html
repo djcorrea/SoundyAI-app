@@ -54,6 +54,12 @@
             overflow-y: auto;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔧 Teste de Correção de Erros</h1>
@@ -137,11 +143,11 @@
 
         // Função normalizeBackendAnalysisData CORRIGIDA
         function normalizeBackendAnalysisDataCORRIGIDA(backendData) {
-            console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+            log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
             
             // Se já está no formato correto, retornar como está
             if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
-                console.log('📊 [NORMALIZE] Dados já estão normalizados');
+                log('📊 [NORMALIZE] Dados já estão normalizados');
                 return backendData;
             }
             
@@ -160,8 +166,8 @@
             const tech = normalized.technicalData;
             const source = backendData.technicalData || backendData.metrics || backendData;
             
-            console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
-            console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
+            log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+            log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
             
             // Função para pegar valor real ou null (sem fallbacks fictícios)
             const getRealValue = (...paths) => {
@@ -265,7 +271,7 @@
                 }
             }
             
-            console.log('✅ [NORMALIZE] Normalização concluída sem erros');
+            log('✅ [NORMALIZE] Normalização concluída sem erros');
             
             return normalized;
         }
@@ -275,7 +281,7 @@
             let hasErrors = false;
             
             try {
-                console.log('🧪 Iniciando teste de correção de erros...');
+                log('🧪 Iniciando teste de correção de erros...');
                 
                 // Limpar console output
                 consoleOutput = [];
@@ -331,7 +337,7 @@
                     type: 'error',
                     message: `❌ Erro JavaScript: ${error.message}`
                 });
-                console.error('Erro capturado:', error);
+                error('Erro capturado:', error);
             }
             
             // Exibir resultados
@@ -358,7 +364,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 const success = runTest();
-                console.log('🎯 Teste finalizado. Sucesso:', success);
+                log('🎯 Teste finalizado. Sucesso:', success);
             }, 1000);
         });
     </script>

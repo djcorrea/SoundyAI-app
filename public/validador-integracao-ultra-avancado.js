@@ -1,7 +1,10 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🚀 VALIDADOR DE INTEGRAÇÃO - Sistema Ultra-Avançado SoundyAI
 // Este script monitora e valida se a integração foi bem-sucedida
 
-console.log('🚀 [VALIDADOR] Iniciando validação do Sistema Ultra-Avançado...');
+log('🚀 [VALIDADOR] Iniciando validação do Sistema Ultra-Avançado...');
 
 // Aguardar carregamento completo
 window.addEventListener('DOMContentLoaded', function() {
@@ -11,7 +14,7 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function validarIntegracao() {
-    console.log('🔍 [VALIDADOR] Executando validação completa...');
+    log('🔍 [VALIDADOR] Executando validação completa...');
     
     const resultados = {
         sistemaUltraAvancado: false,
@@ -23,11 +26,11 @@ function validarIntegracao() {
     // 1. Verificar se o sistema ultra-avançado está disponível
     if (typeof window.AdvancedEducationalSuggestionSystem !== 'undefined') {
         resultados.sistemaUltraAvancado = true;
-        console.log('✅ [VALIDADOR] Sistema Ultra-Avançado carregado com sucesso');
+        log('✅ [VALIDADOR] Sistema Ultra-Avançado carregado com sucesso');
         
         try {
             const testInstance = new window.AdvancedEducationalSuggestionSystem();
-            console.log('✅ [VALIDADOR] Instanciação do sistema bem-sucedida');
+            log('✅ [VALIDADOR] Instanciação do sistema bem-sucedida');
             
             // Teste básico de funcionalidade
             const testSuggestion = [{
@@ -45,16 +48,16 @@ function validarIntegracao() {
             
             if (testResult && testResult.enhancedSuggestions) {
                 resultados.funcionamentoCompleto = true;
-                console.log('✅ [VALIDADOR] Funcionalidade do sistema verificada');
+                log('✅ [VALIDADOR] Funcionalidade do sistema verificada');
             } else {
-                console.warn('⚠️ [VALIDADOR] Sistema não retornou resultados esperados');
+                warn('⚠️ [VALIDADOR] Sistema não retornou resultados esperados');
             }
             
         } catch (error) {
-            console.error('❌ [VALIDADOR] Erro ao testar sistema:', error);
+            error('❌ [VALIDADOR] Erro ao testar sistema:', error);
         }
     } else {
-        console.error('❌ [VALIDADOR] Sistema Ultra-Avançado não encontrado');
+        error('❌ [VALIDADOR] Sistema Ultra-Avançado não encontrado');
     }
     
     // 2. Verificar dependências
@@ -67,9 +70,9 @@ function validarIntegracao() {
     const dependenciasOK = dependencias.every(dep => {
         const disponivel = typeof window[dep] !== 'undefined';
         if (disponivel) {
-            console.log(`✅ [VALIDADOR] Dependência ${dep} carregada`);
+            log(`✅ [VALIDADOR] Dependência ${dep} carregada`);
         } else {
-            console.warn(`⚠️ [VALIDADOR] Dependência ${dep} não encontrada`);
+            warn(`⚠️ [VALIDADOR] Dependência ${dep} não encontrada`);
         }
         return disponivel;
     });
@@ -80,25 +83,25 @@ function validarIntegracao() {
     // Procurar pela função displayModalResults no audio-analyzer-integration.js
     const scripts = document.querySelectorAll('script[src*="audio-analyzer-integration"]');
     if (scripts.length > 0) {
-        console.log('✅ [VALIDADOR] Script de integração do modal encontrado');
+        log('✅ [VALIDADOR] Script de integração do modal encontrado');
         resultados.integracaoModal = true;
     } else {
-        console.warn('⚠️ [VALIDADOR] Script de integração do modal não encontrado');
+        warn('⚠️ [VALIDADOR] Script de integração do modal não encontrado');
     }
     
     // 4. Relatório final
-    console.log('\n📊 [VALIDADOR] RELATÓRIO FINAL DE INTEGRAÇÃO:');
-    console.log('=====================================');
-    console.log(`Sistema Ultra-Avançado: ${resultados.sistemaUltraAvancado ? '✅ OK' : '❌ FALHA'}`);
-    console.log(`Dependências: ${resultados.dependenciasCarregadas ? '✅ OK' : '❌ FALHA'}`);
-    console.log(`Integração Modal: ${resultados.integracaoModal ? '✅ OK' : '❌ FALHA'}`);
-    console.log(`Funcionamento: ${resultados.funcionamentoCompleto ? '✅ OK' : '❌ FALHA'}`);
+    log('\n📊 [VALIDADOR] RELATÓRIO FINAL DE INTEGRAÇÃO:');
+    log('=====================================');
+    log(`Sistema Ultra-Avançado: ${resultados.sistemaUltraAvancado ? '✅ OK' : '❌ FALHA'}`);
+    log(`Dependências: ${resultados.dependenciasCarregadas ? '✅ OK' : '❌ FALHA'}`);
+    log(`Integração Modal: ${resultados.integracaoModal ? '✅ OK' : '❌ FALHA'}`);
+    log(`Funcionamento: ${resultados.funcionamentoCompleto ? '✅ OK' : '❌ FALHA'}`);
     
     const todasOK = Object.values(resultados).every(r => r === true);
     
     if (todasOK) {
-        console.log('\n🎉 [VALIDADOR] INTEGRAÇÃO COMPLETA E FUNCIONAL!');
-        console.log('🚀 O Sistema Ultra-Avançado está pronto para uso no SoundyAI');
+        log('\n🎉 [VALIDADOR] INTEGRAÇÃO COMPLETA E FUNCIONAL!');
+        log('🚀 O Sistema Ultra-Avançado está pronto para uso no SoundyAI');
         
         // Marcar como pronto globalmente
         window.__ULTRA_ADVANCED_SYSTEM_READY = true;
@@ -109,15 +112,15 @@ function validarIntegracao() {
         }));
         
     } else {
-        console.error('\n❌ [VALIDADOR] INTEGRAÇÃO INCOMPLETA');
-        console.error('Alguns componentes não estão funcionando corretamente');
+        error('\n❌ [VALIDADOR] INTEGRAÇÃO INCOMPLETA');
+        error('Alguns componentes não estão funcionando corretamente');
         
         // Sugerir ações corretivas
         if (!resultados.sistemaUltraAvancado) {
-            console.error('💡 Verifique se o arquivo advanced-educational-suggestion-system.js está carregado corretamente');
+            error('💡 Verifique se o arquivo advanced-educational-suggestion-system.js está carregado corretamente');
         }
         if (!resultados.dependenciasCarregadas) {
-            console.error('💡 Verifique se todos os scripts de dependências estão carregados');
+            error('💡 Verifique se todos os scripts de dependências estão carregados');
         }
     }
     
@@ -126,10 +129,10 @@ function validarIntegracao() {
 
 // Função para testar integração durante análise de áudio
 window.testarSistemaUltraAvancadoNaAnalise = function() {
-    console.log('🎯 [VALIDADOR] Testando sistema durante análise de áudio...');
+    log('🎯 [VALIDADOR] Testando sistema durante análise de áudio...');
     
     if (!window.__ULTRA_ADVANCED_SYSTEM_READY) {
-        console.warn('⚠️ [VALIDADOR] Sistema ainda não está marcado como pronto');
+        warn('⚠️ [VALIDADOR] Sistema ainda não está marcado como pronto');
         return false;
     }
     
@@ -159,26 +162,26 @@ window.testarSistemaUltraAvancadoNaAnalise = function() {
         const resultado = ultraSystem.generateAdvancedSuggestions(mockAnalysis.suggestions, contextData);
         
         if (resultado && resultado.enhancedSuggestions && resultado.enhancedSuggestions.length > 0) {
-            console.log('✅ [VALIDADOR] Teste durante análise: SUCESSO');
-            console.log('📊 Sugestões enriquecidas:', resultado.enhancedSuggestions.length);
+            log('✅ [VALIDADOR] Teste durante análise: SUCESSO');
+            log('📊 Sugestões enriquecidas:', resultado.enhancedSuggestions.length);
             return true;
         } else {
-            console.error('❌ [VALIDADOR] Teste durante análise: FALHA - Sem sugestões');
+            error('❌ [VALIDADOR] Teste durante análise: FALHA - Sem sugestões');
             return false;
         }
         
     } catch (error) {
-        console.error('❌ [VALIDADOR] Erro durante teste de análise:', error);
+        error('❌ [VALIDADOR] Erro durante teste de análise:', error);
         return false;
     }
 };
 
 // Monitorar eventos de análise de áudio para validar automaticamente
 window.addEventListener('audioAnalysisComplete', function(event) {
-    console.log('🎧 [VALIDADOR] Análise de áudio detectada, validando sistema ultra-avançado...');
+    log('🎧 [VALIDADOR] Análise de áudio detectada, validando sistema ultra-avançado...');
     setTimeout(() => {
         window.testarSistemaUltraAvancadoNaAnalise();
     }, 500);
 });
 
-console.log('🚀 [VALIDADOR] Validador de integração carregado e ativo');
+log('🚀 [VALIDADOR] Validador de integração carregado e ativo');

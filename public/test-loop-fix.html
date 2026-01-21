@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Loop Infinito READY-CHECK Resolvido</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔄 Teste - Correção Loop Infinito READY-CHECK</h1>
@@ -50,7 +56,7 @@
                 
                 // Alerta se houver muitos READY-CHECK (possível loop)
                 if (readyCheckCount > 5) {
-                    console.error('🚨 ALERTA: Possível loop infinito detectado!', readyCheckCount, 'verificações');
+                    error('🚨 ALERTA: Possível loop infinito detectado!', readyCheckCount, 'verificações');
                 }
             }
             originalLog.apply(console, args);
@@ -70,8 +76,8 @@
         }
 
         function checkSystemStatus() {
-            console.log('🧪 [TEST] Status atual dos sistemas:');
-            console.log({
+            log('🧪 [TEST] Status atual dos sistemas:');
+            log({
                 audioAnalyzer: !!window.audioAnalyzer,
                 CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
                 refsReady: !!window.refsReady,
@@ -83,24 +89,24 @@
         }
 
         function simulateNetworkError() {
-            console.log('🧪 [TEST] Simulando erro de rede para testar fallback...');
+            log('🧪 [TEST] Simulando erro de rede para testar fallback...');
             if (!window.refsReady && window.embeddedRefsLoaded) {
                 window.refsReady = true;
-                console.log("⚠️ [TEST] refsReady forçado como true após simulação de erro de fetch externo");
+                log("⚠️ [TEST] refsReady forçado como true após simulação de erro de fetch externo");
                 updateStatusDisplay();
             }
         }
 
         function monitorReadyChecks() {
-            console.log('🔍 [TEST] Monitorando READY-CHECK por 10 segundos...');
+            log('🔍 [TEST] Monitorando READY-CHECK por 10 segundos...');
             const startCount = readyCheckCount;
             setTimeout(() => {
                 const endCount = readyCheckCount;
                 const diff = endCount - startCount;
                 if (diff === 0) {
-                    console.log('✅ [TEST] Nenhum READY-CHECK adicional detectado - Loop resolvido!');
+                    log('✅ [TEST] Nenhum READY-CHECK adicional detectado - Loop resolvido!');
                 } else {
-                    console.warn(`⚠️ [TEST] ${diff} READY-CHECK(s) detectado(s) - Possível loop ainda ativo`);
+                    warn(`⚠️ [TEST] ${diff} READY-CHECK(s) detectado(s) - Possível loop ainda ativo`);
                 }
             }, 10000);
         }
@@ -116,7 +122,7 @@
         setInterval(updateStatusDisplay, 1000);
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de correção do loop infinito iniciado");
+        log("🚀 [TEST] Teste de correção do loop infinito iniciado");
         updateStatusDisplay();
     </script>
 

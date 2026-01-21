@@ -1,26 +1,29 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 MONITOR MODAL - Detecta quando o modal de análise é exibido e verifica o sistema ultra-avançado
 
-console.log('🎯 [MODAL_MONITOR] Monitor do modal carregado');
+log('🎯 [MODAL_MONITOR] Monitor do modal carregado');
 
 // Função para interceptar e monitorar o displayModalResults
 function interceptarDisplayModalResults() {
     const safeAttachDisplayModal = () => {
         if (typeof window.displayModalResults !== 'function') {
-            console.warn("[SAFE_INTERCEPT_WAIT] Aguardando função displayModalResults...");
+            warn("[SAFE_INTERCEPT_WAIT] Aguardando função displayModalResults...");
             setTimeout(safeAttachDisplayModal, 300);
             return;
         }
 
-        console.log('🎯 [MODAL_MONITOR] displayModalResults encontrada, interceptando...');
+        log('🎯 [MODAL_MONITOR] displayModalResults encontrada, interceptando...');
         
         // 🔒 Usar cópia imutável se disponível
         const original = window.__displayModalResultsOriginal || window.displayModalResults;
         window.displayModalResults = function(data) {
-            console.log("[SAFE_INTERCEPT-MONITOR] displayModalResults interceptado (monitor-modal)", data);
+            log("[SAFE_INTERCEPT-MONITOR] displayModalResults interceptado (monitor-modal)", data);
 
             // 🔒 NÃO sobrescreve userAnalysis nem referenceAnalysis
             if (data?.mode === "reference" && data.userAnalysis && data.referenceAnalysis) {
-                console.log("[SAFE_INTERCEPT-MONITOR] Preservando estrutura A/B");
+                log("[SAFE_INTERCEPT-MONITOR] Preservando estrutura A/B");
                 
                 // ✅ GARANTIR chamada da função original
                 const result = original.call(this, data);
@@ -29,12 +32,12 @@ function interceptarDisplayModalResults() {
                 setTimeout(() => {
                     const technicalData = document.getElementById('modalTechnicalData');
                     if (!technicalData || !technicalData.innerHTML.trim()) {
-                        console.warn('[FIX] ⚠️ DOM vazio após interceptação, forçando chamada original');
+                        warn('[FIX] ⚠️ DOM vazio após interceptação, forçando chamada original');
                         if (window.__displayModalResultsOriginal) {
                             window.__displayModalResultsOriginal.call(this, data);
                         }
                     } else {
-                        console.log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente');
+                        log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente');
                     }
                 }, 100);
                 
@@ -48,7 +51,7 @@ function interceptarDisplayModalResults() {
             };
 
             // Logs de monitoramento
-            console.log('🎯 [MODAL_MONITOR] Modal sendo exibido, dados recebidos:', {
+            log('🎯 [MODAL_MONITOR] Modal sendo exibido, dados recebidos:', {
                 hasSuggestions: !!(merged && merged.suggestions),
                 suggestionsCount: merged?.suggestions?.length || 0,
                 hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined'
@@ -60,7 +63,7 @@ function interceptarDisplayModalResults() {
                 const hasEducationalContent = !!(firstSuggestion.educationalContent);
                 const hasEnhancedMetrics = !!(merged.enhancedMetrics?.ultraAdvancedSystem);
                 
-                console.log('🔍 [MODAL_MONITOR] Análise das sugestões:', {
+                log('🔍 [MODAL_MONITOR] Análise das sugestões:', {
                     firstSuggestion: firstSuggestion,
                     hasEducationalContent: hasEducationalContent,
                     hasEnhancedMetrics: hasEnhancedMetrics,
@@ -68,40 +71,40 @@ function interceptarDisplayModalResults() {
                 });
                 
                 if (hasEducationalContent) {
-                    console.log('🎉 [MODAL_MONITOR] ✅ SISTEMA ULTRA-AVANÇADO FUNCIONANDO!');
-                    console.log('📚 Conteúdo educacional detectado:', firstSuggestion.educationalContent);
+                    log('🎉 [MODAL_MONITOR] ✅ SISTEMA ULTRA-AVANÇADO FUNCIONANDO!');
+                    log('📚 Conteúdo educacional detectado:', firstSuggestion.educationalContent);
                 } else {
-                    console.warn('⚠️ [MODAL_MONITOR] Sistema ultra-avançado não aplicou conteúdo educacional');
+                    warn('⚠️ [MODAL_MONITOR] Sistema ultra-avançado não aplicou conteúdo educacional');
                 }
                 
                 if (hasEnhancedMetrics) {
-                    console.log('📊 [MODAL_MONITOR] Métricas do sistema ultra-avançado:', merged.enhancedMetrics.ultraAdvancedSystem);
+                    log('📊 [MODAL_MONITOR] Métricas do sistema ultra-avançado:', merged.enhancedMetrics.ultraAdvancedSystem);
                 }
             } else {
-                console.warn('⚠️ [MODAL_MONITOR] Nenhuma sugestão encontrada na análise');
+                warn('⚠️ [MODAL_MONITOR] Nenhuma sugestão encontrada na análise');
             }
             
             // ✅ Chamar a função original com dados mesclados
-            console.log('[SAFE_INTERCEPT-MONITOR] ✅ Chamando função original');
+            log('[SAFE_INTERCEPT-MONITOR] ✅ Chamando função original');
             const result = original.call(this, merged);
             
             // ✅ Verificar DOM após renderização
             setTimeout(() => {
                 const technicalData = document.getElementById('modalTechnicalData');
                 if (!technicalData || !technicalData.innerHTML.trim()) {
-                    console.warn('[FIX] ⚠️ DOM vazio após interceptação (modo não-reference), forçando chamada original');
+                    warn('[FIX] ⚠️ DOM vazio após interceptação (modo não-reference), forçando chamada original');
                     if (window.__displayModalResultsOriginal) {
                         window.__displayModalResultsOriginal.call(this, merged);
                     }
                 } else {
-                    console.log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente (modo não-reference)');
+                    log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente (modo não-reference)');
                 }
             }, 100);
             
             return result;
         };
         
-        console.log('✅ [MODAL_MONITOR] Interceptação ativa - monitorando próximas análises');
+        log('✅ [MODAL_MONITOR] Interceptação ativa - monitorando próximas análises');
     };
     
     safeAttachDisplayModal();
@@ -109,7 +112,7 @@ function interceptarDisplayModalResults() {
 
 // Função para testar manualmente se o sistema está funcionando
 window.testarSistemaUltraAvancadoManual = function() {
-    console.log('🧪 [MODAL_MONITOR] Executando teste manual do sistema...');
+    log('🧪 [MODAL_MONITOR] Executando teste manual do sistema...');
     
     // Dados simulados de análise
     const testAnalysis = {
@@ -156,14 +159,14 @@ window.testarSistemaUltraAvancadoManual = function() {
                 musicGenre: testAnalysis.detectedGenre
             };
             
-            console.log('🚀 [MODAL_MONITOR] Aplicando sistema ultra-avançado nos dados de teste...');
+            log('🚀 [MODAL_MONITOR] Aplicando sistema ultra-avançado nos dados de teste...');
             const resultado = ultraSystem.generateAdvancedSuggestions(testAnalysis.suggestions, contextData);
             
             if (resultado && resultado.enhancedSuggestions && resultado.enhancedSuggestions.length > 0) {
-                console.log('✅ [MODAL_MONITOR] TESTE MANUAL PASSOU!');
-                console.log('📚 Sugestões enriquecidas:', resultado.enhancedSuggestions);
-                console.log('📊 Confidence:', resultado.confidenceScore);
-                console.log('🎓 Educational Level:', resultado.educationalLevel);
+                log('✅ [MODAL_MONITOR] TESTE MANUAL PASSOU!');
+                log('📚 Sugestões enriquecidas:', resultado.enhancedSuggestions);
+                log('📊 Confidence:', resultado.confidenceScore);
+                log('🎓 Educational Level:', resultado.educationalLevel);
                 
                 // Simular exibição no modal
                 testAnalysis.suggestions = resultado.enhancedSuggestions;
@@ -177,24 +180,24 @@ window.testarSistemaUltraAvancadoManual = function() {
                 };
                 
                 if (typeof window.displayModalResults === 'function') {
-                    console.log('🎭 [MODAL_MONITOR] Exibindo modal com dados enriquecidos...');
+                    log('🎭 [MODAL_MONITOR] Exibindo modal com dados enriquecidos...');
                     window.displayModalResults(testAnalysis);
                 } else {
-                    console.warn('⚠️ [MODAL_MONITOR] displayModalResults não encontrada para teste visual');
+                    warn('⚠️ [MODAL_MONITOR] displayModalResults não encontrada para teste visual');
                 }
                 
                 return true;
             } else {
-                console.error('❌ [MODAL_MONITOR] TESTE MANUAL FALHOU - Sistema não retornou sugestões');
+                error('❌ [MODAL_MONITOR] TESTE MANUAL FALHOU - Sistema não retornou sugestões');
                 return false;
             }
             
         } catch (error) {
-            console.error('❌ [MODAL_MONITOR] Erro no teste manual:', error);
+            error('❌ [MODAL_MONITOR] Erro no teste manual:', error);
             return false;
         }
     } else {
-        console.error('❌ [MODAL_MONITOR] Sistema Ultra-Avançado não disponível para teste');
+        error('❌ [MODAL_MONITOR] Sistema Ultra-Avançado não disponível para teste');
         return false;
     }
 };
@@ -203,13 +206,13 @@ window.testarSistemaUltraAvancadoManual = function() {
 // Aguardar carregamento e iniciar interceptação
 // window.addEventListener('DOMContentLoaded', function() {
 //     setTimeout(() => {
-//         console.log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
+//         log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
 //         interceptarDisplayModalResults();
 //     }, 3000);
 // });
-console.warn('🔴 [MODAL_MONITOR] ❌ INTERCEPTAÇÃO DESABILITADA TEMPORARIAMENTE (debug modo A/B)');
+warn('🔴 [MODAL_MONITOR] ❌ INTERCEPTAÇÃO DESABILITADA TEMPORARIAMENTE (debug modo A/B)');
 
 // Disponibilizar teste no console para debug
-console.log('💡 [MODAL_MONITOR] Para testar manualmente, execute: testarSistemaUltraAvancadoManual()');
+log('💡 [MODAL_MONITOR] Para testar manualmente, execute: testarSistemaUltraAvancadoManual()');
 
-console.log('🎯 [MODAL_MONITOR] Monitor carregado e aguardando análises de áudio');
+log('🎯 [MODAL_MONITOR] Monitor carregado e aguardando análises de áudio');

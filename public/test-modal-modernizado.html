@@ -59,6 +59,12 @@
         .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; }
         .status.info { background: rgba(0, 150, 255, 0.2); color: #4fc3f7; }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -147,23 +153,23 @@
         function openTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'flex';
-            console.log('✅ Modal aberto para teste visual');
+            log('✅ Modal aberto para teste visual');
         }
 
         function closeTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'none';
-            console.log('❌ Modal fechado');
+            log('❌ Modal fechado');
         }
 
         function toggleReferenceMode() {
             const referenceBtn = document.getElementById('referenceModeBtn');
             if (referenceBtn.style.display === 'none') {
                 referenceBtn.style.display = 'block';
-                console.log('👁️ Modo Referência visível');
+                log('👁️ Modo Referência visível');
             } else {
                 referenceBtn.style.display = 'none';
-                console.log('🙈 Modo Referência oculto');
+                log('🙈 Modo Referência oculto');
             }
         }
 
@@ -191,7 +197,7 @@
             }
         });
 
-        console.log('🧪 Página de teste carregada. Pronta para verificar o modal modernizado!');
+        log('🧪 Página de teste carregada. Pronta para verificar o modal modernizado!');
     </script>
 </body>
 </html>

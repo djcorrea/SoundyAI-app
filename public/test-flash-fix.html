@@ -129,6 +129,12 @@
             content: '✅ ';
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -225,7 +231,7 @@
         
         // Inicializar quando DOM carregar
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ Página de teste carregada - Flash branco eliminado');
+            log('✅ Página de teste carregada - Flash branco eliminado');
             
             // Inicializar modal
             if (typeof initGenreModal === 'function') {
@@ -233,11 +239,11 @@
             }
             
             // Log de verificação
-            console.log('%c🔧 Correções aplicadas:', 'color: #10b981; font-weight: bold');
-            console.log('✅ transition: all removido');
-            console.log('✅ background não é animado');
-            console.log('✅ Prepaint implementado');
-            console.log('✅ Estado inicial explícito');
+            log('%c🔧 Correções aplicadas:', 'color: #10b981; font-weight: bold');
+            log('✅ transition: all removido');
+            log('✅ background não é animado');
+            log('✅ Prepaint implementado');
+            log('✅ Estado inicial explícito');
         });
     </script>
 </body>

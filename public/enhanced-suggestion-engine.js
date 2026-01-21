@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 
@@ -340,7 +343,7 @@ class EnhancedSuggestionEngine {
                     }
                 }
                 
-                console.log(`🎯 [HEURISTICS] Análise inline concluída: ${detections.length} detecções`);
+                log(`🎯 [HEURISTICS] Análise inline concluída: ${detections.length} detecções`);
                 return detections;
             }
         };
@@ -370,7 +373,7 @@ class EnhancedSuggestionEngine {
      */
     normalizeReferenceData(rawRef) {
         if (!rawRef || typeof rawRef !== 'object') {
-            console.warn('🚨 Dados de referência inválidos ou ausentes');
+            warn('🚨 Dados de referência inválidos ou ausentes');
             this.logAudit('NORMALIZE_ERROR', 'Dados de referência inválidos', { rawRef });
             return null;
         }
@@ -381,7 +384,7 @@ class EnhancedSuggestionEngine {
 
         // 🆕 NOVA ESTRUTURA: Dados diretos do backend (analysis.referenceData)
         if (rawRef.loudness !== undefined || rawRef.truePeak !== undefined || rawRef.dynamicRange !== undefined) {
-            console.log('🎯 [NORMALIZE] Detectada estrutura backend analysis.referenceData');
+            log('🎯 [NORMALIZE] Detectada estrutura backend analysis.referenceData');
             
             // Converter estrutura backend para estrutura esperada
             sourceData = {
@@ -398,7 +401,7 @@ class EnhancedSuggestionEngine {
         }
         // 🔧 ESTRUTURA JSON ELETROFUNK: Dados diretos na raiz (lufs_target, true_peak_target, etc.)
         else if (rawRef.lufs_target !== undefined || rawRef.true_peak_target !== undefined || rawRef.dr_target !== undefined) {
-            console.log('🎯 [NORMALIZE] Detectada estrutura JSON direta (eletrofunk style)');
+            log('🎯 [NORMALIZE] Detectada estrutura JSON direta (eletrofunk style)');
             
             sourceData = {
                 original_metrics: {
@@ -436,7 +439,7 @@ class EnhancedSuggestionEngine {
                 }
                 // 🔧 Se tem dados diretos na estrutura do gênero, processar
                 else if (sourceData.lufs_target !== undefined || sourceData.true_peak_target !== undefined) {
-                    console.log('🎯 [NORMALIZE] Detectada estrutura JSON dentro do gênero');
+                    log('🎯 [NORMALIZE] Detectada estrutura JSON dentro do gênero');
                     // Manter sourceData como está, mas criar original_metrics se não existir
                     if (!sourceData.original_metrics) {
                         sourceData.original_metrics = {
@@ -453,7 +456,7 @@ class EnhancedSuggestionEngine {
         }
 
         if (!sourceData) {
-            console.warn('🚨 Estrutura de dados de referência não reconhecida');
+            warn('🚨 Estrutura de dados de referência não reconhecida');
             this.logAudit('NORMALIZE_ERROR', 'Estrutura não reconhecida', { rawRef, keys: Object.keys(rawRef) });
             return null;
         }
@@ -537,7 +540,7 @@ class EnhancedSuggestionEngine {
                     
                     if (isToleranceSearch && foundAlternative) {
                         // Para tolerâncias, logar como FIX quando encontrar formato alternativo
-                        console.log(`✅ [FIX] Métrica ${metricName} encontrada via ${location.prefix}${key}: ${value}`);
+                        log(`✅ [FIX] Métrica ${metricName} encontrada via ${location.prefix}${key}: ${value}`);
                         this.logAudit('METRIC_FOUND_FALLBACK', `${metricName}: ${value} (via ${location.prefix}${key})`, { 
                             metricName, 
                             key, 
@@ -569,7 +572,7 @@ class EnhancedSuggestionEngine {
             });
         } else {
             // Para métricas principais, manter log de warning
-            console.warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
+            warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
             this.logAudit('METRIC_MISSING', `Métrica ausente: ${metricName}`, { keys, availableKeys: Object.keys(source) });
         }
         
@@ -804,8 +807,8 @@ class EnhancedSuggestionEngine {
         const bands = {};
         let sourceBands = null;
 
-        console.log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO normalizeBands() =====');
-        console.log('[ENGINE-DEBUG] source recebido:', JSON.stringify(source, null, 2));
+        log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO normalizeBands() =====');
+        log('[ENGINE-DEBUG] source recebido:', JSON.stringify(source, null, 2));
 
         // Tentar encontrar bandas em diferentes locais (incluindo estrutura backend)
         if (source.bands) {
@@ -821,7 +824,7 @@ class EnhancedSuggestionEngine {
         }
 
         if (!sourceBands || typeof sourceBands !== 'object') {
-            console.warn('⚠️ Bandas espectrais não encontradas');
+            warn('⚠️ Bandas espectrais não encontradas');
             this.logAudit('BANDS_MISSING', 'Bandas espectrais ausentes', { source: Object.keys(source) });
             return {};
         }
@@ -857,15 +860,15 @@ class EnhancedSuggestionEngine {
         for (const [sourceBandName, bandData] of Object.entries(sourceBands)) {
             if (!bandData || typeof bandData !== 'object') continue;
 
-            console.log(`\n[ENGINE-DEBUG] ===== PROCESSANDO BANDA: ${sourceBandName} =====`);
-            console.log(`[ENGINE-DEBUG] Banda recebida do JSON: "${sourceBandName}"`);
-            console.log('[ENGINE-DEBUG] bandData recebido:', JSON.stringify(bandData, null, 2));
+            log(`\n[ENGINE-DEBUG] ===== PROCESSANDO BANDA: ${sourceBandName} =====`);
+            log(`[ENGINE-DEBUG] Banda recebida do JSON: "${sourceBandName}"`);
+            log('[ENGINE-DEBUG] bandData recebido:', JSON.stringify(bandData, null, 2));
 
             // Encontrar nome padronizado
             const standardName = bandMappings[sourceBandName] || sourceBandName;
-            console.log(`[ENGINE-DEBUG] Banda usada pelo Engine: "${standardName}"`);
+            log(`[ENGINE-DEBUG] Banda usada pelo Engine: "${standardName}"`);
             if (sourceBandName !== standardName) {
-                console.warn(`⚠️ [ENGINE-WARNING] Nome divergente: JSON="${sourceBandName}" Engine="${standardName}"`);
+                warn(`⚠️ [ENGINE-WARNING] Nome divergente: JSON="${sourceBandName}" Engine="${standardName}"`);
             }
 
             // 🎯 NOVO: Extrair target_range, target_db e tol_db
@@ -877,10 +880,10 @@ class EnhancedSuggestionEngine {
                           Number.isFinite(bandData.tolerance) ? bandData.tolerance :
                           Number.isFinite(bandData.toleranceDb) ? bandData.toleranceDb : 3.0; // Default
 
-            console.log('[ENGINE-DEBUG] target_range.min recebido:', target_range?.min);
-            console.log('[ENGINE-DEBUG] target_range.max recebido:', target_range?.max);
-            console.log('[ENGINE-DEBUG] target_db recebido:', target_db);
-            console.log('[ENGINE-DEBUG] tol_db recebido:', tol_db);
+            log('[ENGINE-DEBUG] target_range.min recebido:', target_range?.min);
+            log('[ENGINE-DEBUG] target_range.max recebido:', target_range?.max);
+            log('[ENGINE-DEBUG] target_db recebido:', target_db);
+            log('[ENGINE-DEBUG] tol_db recebido:', tol_db);
 
             // Aceitar banda se tem target_range OU target_db
             if (target_range !== null || target_db !== null) {
@@ -910,7 +913,7 @@ class EnhancedSuggestionEngine {
                     });
                 }
             } else {
-                console.warn(`⚠️ Banda sem target_db nem target_range válidos: ${sourceBandName}`);
+                warn(`⚠️ Banda sem target_db nem target_range válidos: ${sourceBandName}`);
                 this.logAudit('BAND_INVALID', `Banda inválida: ${sourceBandName}`, { bandData });
             }
         }
@@ -933,7 +936,7 @@ class EnhancedSuggestionEngine {
             // � NORMALIZAR DADOS DE REFERÊNCIA PRIMEIRO
             const normalizedRef = this.normalizeReferenceData(referenceData);
             if (!normalizedRef) {
-                console.warn('🚨 Falha na normalização dos dados de referência - continuando sem sugestões');
+                warn('🚨 Falha na normalização dos dados de referência - continuando sem sugestões');
                 this.logAudit('PROCESSING_ERROR', 'Dados de referência não normalizáveis', { referenceData });
                 return {
                     ...analysis,
@@ -1088,7 +1091,7 @@ class EnhancedSuggestionEngine {
             return result;
             
         } catch (error) {
-            console.error('🚨 Erro no processamento de sugestões:', error);
+            error('🚨 Erro no processamento de sugestões:', error);
             this.logAudit('ERROR', 'Erro no processamento', { error: error.message });
             
             // Fallback: retornar análise original com log de erro
@@ -1141,7 +1144,7 @@ class EnhancedSuggestionEngine {
 
         // True Peak - priorizar truePeak.maxDbtp
         const truePeakValue = truePeak.maxDbtp || tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak;
-        console.log('🔍 [TRUE-PEAK-EXTRACT] Tentando extrair True Peak:', {
+        log('🔍 [TRUE-PEAK-EXTRACT] Tentando extrair True Peak:', {
             'truePeak.maxDbtp': truePeak.maxDbtp,
             'tech.truePeakDbtp': tech.truePeakDbtp,
             'tech.true_peak_dbtp': tech.true_peak_dbtp,
@@ -1152,10 +1155,10 @@ class EnhancedSuggestionEngine {
         
         if (Number.isFinite(truePeakValue)) {
             metrics.true_peak = truePeakValue;
-            console.log('✅ [TRUE-PEAK-EXTRACTED] True Peak extraído com sucesso:', truePeakValue);
+            log('✅ [TRUE-PEAK-EXTRACTED] True Peak extraído com sucesso:', truePeakValue);
             this.logAudit('METRIC_EXTRACTED', 'True Peak extraído', { value: truePeakValue, source: 'truePeak.maxDbtp' });
         } else {
-            console.warn('❌ [TRUE-PEAK-MISSING] True Peak NÃO extraído - valor inválido ou ausente');
+            warn('❌ [TRUE-PEAK-MISSING] True Peak NÃO extraído - valor inválido ou ausente');
         }
 
         // Dynamic Range - priorizar dynamics.range
@@ -1167,7 +1170,7 @@ class EnhancedSuggestionEngine {
 
         // LRA - priorizar loudness.lra
         const lraValue = loudness.lra || tech.lra || tech.loudnessRange || tech.loudness_range;
-        console.log('🔍 [LRA-EXTRACT] Tentando extrair LRA:', {
+        log('🔍 [LRA-EXTRACT] Tentando extrair LRA:', {
             'loudness.lra': loudness.lra,
             'tech.lra': tech.lra,
             'tech.loudnessRange': tech.loudnessRange,
@@ -1178,10 +1181,10 @@ class EnhancedSuggestionEngine {
         
         if (Number.isFinite(lraValue)) {
             metrics.lra = lraValue;
-            console.log('✅ [LRA-EXTRACTED] LRA extraído com sucesso:', lraValue);
+            log('✅ [LRA-EXTRACTED] LRA extraído com sucesso:', lraValue);
             this.logAudit('METRIC_EXTRACTED', 'LRA extraído com sucesso', { value: lraValue });
         } else {
-            console.warn('❌ [LRA-MISSING] LRA NÃO extraído - valor inválido ou ausente');
+            warn('❌ [LRA-MISSING] LRA NÃO extraído - valor inválido ou ausente');
             this.logAudit('METRIC_MISSING', 'LRA não encontrado em nenhuma estrutura', { 
                 checked: ['loudness.lra', 'tech.lra', 'tech.loudnessRange', 'tech.loudness_range'],
                 availableKeys: Object.keys(tech),
@@ -1262,35 +1265,35 @@ class EnhancedSuggestionEngine {
         });
 
         for (const [sourceBand, data] of Object.entries(bandEnergies)) {
-            console.log(`\n[ENGINE-DEBUG] ===== extractMetrics: BANDA ${sourceBand} =====`);
-            console.log(`[ENGINE-DEBUG] Banda original: "${sourceBand}"`);
+            log(`\n[ENGINE-DEBUG] ===== extractMetrics: BANDA ${sourceBand} =====`);
+            log(`[ENGINE-DEBUG] Banda original: "${sourceBand}"`);
             
             // Encontrar nome normalizado
             const normalizedBandName = bandMappings[sourceBand] || sourceBand;
-            console.log(`[ENGINE-DEBUG] Banda normalizada: "${normalizedBandName}"`);
+            log(`[ENGINE-DEBUG] Banda normalizada: "${normalizedBandName}"`);
             if (sourceBand !== normalizedBandName) {
-                console.warn(`⚠️ [ENGINE-WARNING] extractMetrics: Nome divergente: JSON="${sourceBand}" Engine="${normalizedBandName}"`);
+                warn(`⚠️ [ENGINE-WARNING] extractMetrics: Nome divergente: JSON="${sourceBand}" Engine="${normalizedBandName}"`);
             }
             
             // 🎯 PATCH 2: Extrair target_range.min/max do referenceData para bandas
             // Buscar target_range em referenceData.spectral_bands[normalizedBandName]
             const refBandData = referenceData?.spectral_bands?.[normalizedBandName];
-            console.log('[ENGINE-DEBUG] refBandData encontrado:', JSON.stringify(refBandData, null, 2));
+            log('[ENGINE-DEBUG] refBandData encontrado:', JSON.stringify(refBandData, null, 2));
             if (refBandData?.target_range) {
-                console.log('[ENGINE-DEBUG] 🎯 PATCH 2: Injetando target_range');
-                console.log('[ENGINE-DEBUG] target_range.min injetado:', refBandData.target_range.min);
-                console.log('[ENGINE-DEBUG] target_range.max injetado:', refBandData.target_range.max);
+                log('[ENGINE-DEBUG] 🎯 PATCH 2: Injetando target_range');
+                log('[ENGINE-DEBUG] target_range.min injetado:', refBandData.target_range.min);
+                log('[ENGINE-DEBUG] target_range.max injetado:', refBandData.target_range.max);
                 // Injetar min/max no data para uso posterior
                 if (typeof data === 'object') {
                     data.targetMin = refBandData.target_range.min;
                     data.targetMax = refBandData.target_range.max;
                     data.hasTargetRange = true;
-                    console.log('[ENGINE-DEBUG] ✅ target_range injetado com sucesso em data');
+                    log('[ENGINE-DEBUG] ✅ target_range injetado com sucesso em data');
                 }
             } else {
-                console.warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
+                warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
             } else {
-                console.warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
+                warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
             }
             
             let rmsValue;
@@ -1433,7 +1436,7 @@ class EnhancedSuggestionEngine {
      */
     generateReferenceSuggestions(metrics, referenceData, zScores, confidence, dependencyBonuses) {
         // 🔍 AUDITORIA: Log das métricas recebidas para geração de sugestões
-        console.log('🎯 [TRUE-PEAK-CHECK] Métricas recebidas:', {
+        log('🎯 [TRUE-PEAK-CHECK] Métricas recebidas:', {
             hasTrue_peak: 'true_peak' in metrics,
             truePeakValue: metrics.true_peak,
             hasTruePeak: 'truePeak' in metrics,
@@ -1518,7 +1521,7 @@ class EnhancedSuggestionEngine {
             
             // 🔍 LOG CRÍTICO para True Peak
             if (metric.key === 'true_peak') {
-                console.log('🎯 [TRUE-PEAK-LOOP] Processando True Peak:', {
+                log('🎯 [TRUE-PEAK-LOOP] Processando True Peak:', {
                     hasValue: value !== undefined,
                     value: value,
                     hasTarget: target !== undefined,
@@ -1761,8 +1764,8 @@ class EnhancedSuggestionEngine {
         
         // Sugestões para bandas espectrais
         if (referenceData.bands) {
-            console.log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO generateReferenceSuggestions (BANDAS) =====');
-            console.log('[ENGINE-DEBUG] referenceData.bands:', JSON.stringify(referenceData.bands, null, 2));
+            log('\n🔍 [ENGINE-DEBUG] ===== INÍCIO generateReferenceSuggestions (BANDAS) =====');
+            log('[ENGINE-DEBUG] referenceData.bands:', JSON.stringify(referenceData.bands, null, 2));
             
             this.logAudit('BANDS_REFERENCE_CHECK', 'Bandas de referência disponíveis', {
                 referenceBands: Object.keys(referenceData.bands),
@@ -1770,15 +1773,15 @@ class EnhancedSuggestionEngine {
             });
 
             for (const [band, refData] of Object.entries(referenceData.bands)) {
-                console.log(`\n[ENGINE-DEBUG] ===== PROCESSANDO SUGESTÃO PARA BANDA: ${band} =====`);
-                console.log('[ENGINE-DEBUG] refData:', JSON.stringify(refData, null, 2));
+                log(`\n[ENGINE-DEBUG] ===== PROCESSANDO SUGESTÃO PARA BANDA: ${band} =====`);
+                log('[ENGINE-DEBUG] refData:', JSON.stringify(refData, null, 2));
                 const value = metrics[band];
                 
                 // 🎯 NOVO: Suporte híbrido para target_range (prioridade) e target_db (fallback)
                 let target, targetRange, tolerance, effectiveTolerance;
                 let rangeBasedLogic = false;
                 
-                console.log('[ENGINE-DEBUG] Verificando tipo de target...');
+                log('[ENGINE-DEBUG] Verificando tipo de target...');
                 
                 // Prioridade 1: target_range (novo sistema)
                 if (refData.target_range && typeof refData.target_range === 'object' &&
@@ -1787,16 +1790,16 @@ class EnhancedSuggestionEngine {
                     targetRange = refData.target_range;
                     rangeBasedLogic = true;
                     
-                    console.log('[ENGINE-DEBUG] ✅ USANDO target_range (PRIORIDADE 1)');
-                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.min:', targetRange.min);
-                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.max:', targetRange.max);
-                    console.log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_range');
+                    log('[ENGINE-DEBUG] ✅ USANDO target_range (PRIORIDADE 1)');
+                    log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.min:', targetRange.min);
+                    log('[ENGINE-DEBUG] Valor usado pelo Engine como targetRange.max:', targetRange.max);
+                    log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_range');
                     
                     // Para ranges, usar diferente lógica de tolerância
                     const rangeSize = targetRange.max - targetRange.min;
                     effectiveTolerance = rangeSize * 0.25; // 25% do range como tolerância leve
                     
-                    console.log(`🎯 [RANGE-LOGIC] Banda ${band}: range [${targetRange.min}, ${targetRange.max}], tolerância: ${effectiveTolerance.toFixed(1)} dB`);
+                    log(`🎯 [RANGE-LOGIC] Banda ${band}: range [${targetRange.min}, ${targetRange.max}], tolerância: ${effectiveTolerance.toFixed(1)} dB`);
                     
                 } else if (Number.isFinite(refData.target_db)) {
                     // Prioridade 2: target_db fixo (sistema legado)
@@ -1804,13 +1807,13 @@ class EnhancedSuggestionEngine {
                     tolerance = refData.tol_db;
                     effectiveTolerance = tolerance;
                     
-                    console.log('[ENGINE-DEBUG] ⚠️ USANDO target_db (FALLBACK - PRIORIDADE 2)');
-                    console.log('[ENGINE-DEBUG] Valor usado pelo Engine como target:', target);
-                    console.log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_db');
+                    log('[ENGINE-DEBUG] ⚠️ USANDO target_db (FALLBACK - PRIORIDADE 2)');
+                    log('[ENGINE-DEBUG] Valor usado pelo Engine como target:', target);
+                    log('[ENGINE-DEBUG] Origem: referenceData.bands[' + band + '].target_db');
                     
-                    console.log(`🎯 [FIXED-LOGIC] Banda ${band}: target fixo ${target} dB, tolerância: ${effectiveTolerance} dB`);
+                    log(`🎯 [FIXED-LOGIC] Banda ${band}: target fixo ${target} dB, tolerância: ${effectiveTolerance} dB`);
                 } else {
-                    console.error('[ENGINE-ERROR] ❌ NEM target_range NEM target_db encontrados!');
+                    error('[ENGINE-ERROR] ❌ NEM target_range NEM target_db encontrados!');
                 }
                 
                 const zScore = zScores[band + '_z'];
@@ -1862,7 +1865,7 @@ class EnhancedSuggestionEngine {
                         shouldInclude = false;
                         calculatedDelta = 0;
                         
-                        console.log(`✅ [RANGE] ${band}: ${value.toFixed(1)} dB dentro do range [${targetRange.min}, ${targetRange.max}] - sem sugestão`);
+                        log(`✅ [RANGE] ${band}: ${value.toFixed(1)} dB dentro do range [${targetRange.min}, ${targetRange.max}] - sem sugestão`);
                         
                     } else {
                         // Fora do range → calcular distância
@@ -1879,14 +1882,14 @@ class EnhancedSuggestionEngine {
                             severityLevel = 'yellow';
                             shouldInclude = this.config.includeYellowSeverity;
                             
-                            console.log(`⚠️ [RANGE] ${band}: ${value.toFixed(1)} dB a ${distance.toFixed(1)} dB do range - sugestão leve`);
+                            log(`⚠️ [RANGE] ${band}: ${value.toFixed(1)} dB a ${distance.toFixed(1)} dB do range - sugestão leve`);
                             
                         } else {
                             // Fora de ±2 dB → sugestão forte (vermelho)
                             severityLevel = 'red';
                             shouldInclude = true;
                             
-                            console.log(`❌ [RANGE] ${band}: ${value.toFixed(1)} dB muito fora do range - sugestão forte`);
+                            log(`❌ [RANGE] ${band}: ${value.toFixed(1)} dB muito fora do range - sugestão forte`);
                         }
                     }
                 } else {
@@ -1897,7 +1900,7 @@ class EnhancedSuggestionEngine {
                     shouldInclude = severityLevel !== 'green' || 
                         (severityLevel === 'yellow' && this.config.includeYellowSeverity);
                         
-                    console.log(`📊 [FIXED] ${band}: usando lógica legada, severity: ${severityLevel}`);
+                    log(`📊 [FIXED] ${band}: usando lógica legada, severity: ${severityLevel}`);
                 }
                 
                 this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
@@ -1922,7 +1925,7 @@ class EnhancedSuggestionEngine {
                         dependencyBonus
                     });
                     
-                    console.log(`🎯 [BAND-PRIORITY] ${band}: prioridade=${priority.toFixed(3)}, severity=${severityLevel}, incluir=${shouldInclude}`);
+                    log(`🎯 [BAND-PRIORITY] ${band}: prioridade=${priority.toFixed(3)}, severity=${severityLevel}, incluir=${shouldInclude}`);
                     
                     // 🎯 NOVA GERAÇÃO DE SUGESTÃO HÍBRIDA
                     let suggestion;
@@ -1970,10 +1973,10 @@ class EnhancedSuggestionEngine {
                             rangeSize: targetRange.max - targetRange.min
                         };
                         
-                        console.log('[ENGINE-DEBUG] ✅ suggestion.technical gerado:');
-                        console.log('[ENGINE-DEBUG]   - targetMin:', suggestion.technical.targetMin);
-                        console.log('[ENGINE-DEBUG]   - targetMax:', suggestion.technical.targetMax);
-                        console.log('[ENGINE-DEBUG]   - idealRange:', suggestion.technical.idealRange);
+                        log('[ENGINE-DEBUG] ✅ suggestion.technical gerado:');
+                        log('[ENGINE-DEBUG]   - targetMin:', suggestion.technical.targetMin);
+                        log('[ENGINE-DEBUG]   - targetMax:', suggestion.technical.targetMax);
+                        log('[ENGINE-DEBUG]   - idealRange:', suggestion.technical.idealRange);
                         
                         // 🔍 VALIDAÇÃO CRÍTICA: Comparar com JSON original
                         if (refData.target_range) {
@@ -1983,11 +1986,11 @@ class EnhancedSuggestionEngine {
                             const engineMax = suggestion.technical.targetMax;
                             
                             if (jsonMin !== engineMin || jsonMax !== engineMax) {
-                                console.error('❌ [ENGINE-ERROR] Divergência detectada!');
-                                console.error('[ENGINE-ERROR] JSON.min =', jsonMin, '| Engine.min =', engineMin);
-                                console.error('[ENGINE-ERROR] JSON.max =', jsonMax, '| Engine.max =', engineMax);
+                                error('❌ [ENGINE-ERROR] Divergência detectada!');
+                                error('[ENGINE-ERROR] JSON.min =', jsonMin, '| Engine.min =', engineMin);
+                                error('[ENGINE-ERROR] JSON.max =', jsonMax, '| Engine.max =', engineMax);
                             } else {
-                                console.log('✅ [ENGINE-SUCCESS] Valores corretos: JSON e Engine coincidem');
+                                log('✅ [ENGINE-SUCCESS] Valores corretos: JSON e Engine coincidem');
                             }
                         }
 
@@ -2226,11 +2229,11 @@ class EnhancedSuggestionEngine {
             
             // Executar análise heurística (se disponível)
             if (!this.heuristics) {
-                console.warn('🚨 Heuristics analyzer não disponível - pulando análise heurística');
+                warn('🚨 Heuristics analyzer não disponível - pulando análise heurística');
                 return [];
             }
             
-            console.log('🎯 [HEURISTICS] Heuristics analyzer ativado com sucesso');
+            log('🎯 [HEURISTICS] Heuristics analyzer ativado com sucesso');
             const detections = this.heuristics.analyzeAll(analysisData);
             
             for (const detection of detections) {
@@ -2283,7 +2286,7 @@ class EnhancedSuggestionEngine {
             }
             
         } catch (error) {
-            console.warn('🚨 Erro na análise heurística:', error);
+            warn('🚨 Erro na análise heurística:', error);
             this.logAudit('HEURISTIC_ERROR', 'Erro na análise heurística', { error: error.message });
         }
         
@@ -2323,7 +2326,7 @@ class EnhancedSuggestionEngine {
             return suggestion;
         });
         
-        console.log(`🎯 [HEURISTICS] ${enrichmentCount} enriquecimentos aplicados`);
+        log(`🎯 [HEURISTICS] ${enrichmentCount} enriquecimentos aplicados`);
         
         return enrichedSuggestions;
     }
@@ -2355,7 +2358,7 @@ class EnhancedSuggestionEngine {
      */
     applyUniversalEducationalEnrichment(suggestions) {
         if (!suggestions || !Array.isArray(suggestions)) {
-            console.warn('🚨 [EDUCATIONAL] Sugestões inválidas recebidas para enriquecimento');
+            warn('🚨 [EDUCATIONAL] Sugestões inválidas recebidas para enriquecimento');
             return [];
         }
 
@@ -2402,12 +2405,12 @@ class EnhancedSuggestionEngine {
                 };
                 
             } catch (error) {
-                console.warn('🚨 [EDUCATIONAL] Erro ao enriquecer sugestão:', error, suggestion);
+                warn('🚨 [EDUCATIONAL] Erro ao enriquecer sugestão:', error, suggestion);
                 return suggestion; // Retornar sugestão original em caso de erro
             }
         });
 
-        console.log(`🎓 [EDUCATIONAL] Enriquecimento universal aplicado: ${enrichmentCount}/${suggestions.length} sugestões enriquecidas`);
+        log(`🎓 [EDUCATIONAL] Enriquecimento universal aplicado: ${enrichmentCount}/${suggestions.length} sugestões enriquecidas`);
         return enrichedSuggestions;
     }
 
@@ -2765,15 +2768,15 @@ class EnhancedSuggestionEngine {
      * @returns {Object} Resultado do teste
      */
     testNormalization(rawRef) {
-        console.log('🧪 Testando normalização de dados de referência...');
+        log('🧪 Testando normalização de dados de referência...');
         const startTime = Date.now();
         
         const result = this.normalizeReferenceData(rawRef);
         const duration = Date.now() - startTime;
         
-        console.log(`⏱️ Normalização concluída em ${duration}ms`);
-        console.log('📊 Resultado:', result);
-        console.log('📝 Log de auditoria:', this.auditLog);
+        log(`⏱️ Normalização concluída em ${duration}ms`);
+        log('📊 Resultado:', result);
+        log('📝 Log de auditoria:', this.auditLog);
         
         return {
             success: result !== null,
@@ -3019,7 +3022,7 @@ class EnhancedSuggestionEngine {
         window.__DEBUG_OPTIONS__ = options;
         
         // Log detalhado para auditoria
-        console.log("[AUDITORIA] processAnalysis capturado", {
+        log("[AUDITORIA] processAnalysis capturado", {
             analysis,
             referenceData,
             options,
@@ -3030,11 +3033,11 @@ class EnhancedSuggestionEngine {
         return originalProcessAnalysis.apply(this, arguments);
     };
     
-    console.log('🔍 Hook de auditoria ativado para processAnalysis');
+    log('🔍 Hook de auditoria ativado para processAnalysis');
 })();
 
 // Instância global do engine
 window.EnhancedSuggestionEngine = EnhancedSuggestionEngine;
 window.enhancedSuggestionEngine = new EnhancedSuggestionEngine();
 
-console.log('🎯 Enhanced Suggestion Engine inicializado');
+log('🎯 Enhanced Suggestion Engine inicializado');

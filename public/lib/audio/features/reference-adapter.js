@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * ============================================================================
  * REFERENCE ADAPTER - Single Source of Truth para Targets
@@ -196,7 +199,7 @@ export function normalizeReference(ref = null, options = {}) {
   
   // Log de debug
   if (typeof window !== 'undefined' && window.DEBUG_REFERENCE_ADAPTER) {
-    console.log('[REFERENCE_ADAPTER] normalizeReference:', {
+    log('[REFERENCE_ADAPTER] normalizeReference:', {
       mode,
       genre,
       source: normalized.source,

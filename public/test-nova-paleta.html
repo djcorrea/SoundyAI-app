@@ -198,6 +198,12 @@
             }
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -377,13 +383,13 @@
         function openAnalysisModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'flex';
-            console.log('🎯 Modal de análise aberto - Nova paleta roxo + ciano');
+            log('🎯 Modal de análise aberto - Nova paleta roxo + ciano');
             
             // Verificar cores aplicadas
             const title = modal.querySelector('.analysis-modal-title.glitch');
             if (title) {
                 const styles = getComputedStyle(title);
-                console.log('🎨 Título principal:', {
+                log('🎨 Título principal:', {
                     color: styles.color,
                     textShadow: styles.textShadow,
                     fontFamily: styles.fontFamily
@@ -394,7 +400,7 @@
                     const beforeStyles = getComputedStyle(title, '::before');
                     const afterStyles = getComputedStyle(title, '::after');
                     
-                    console.log('🟣 Efeito glitch:', {
+                    log('🟣 Efeito glitch:', {
                         before: beforeStyles.color,
                         after: afterStyles.color,
                         beforeOpacity: beforeStyles.opacity,
@@ -407,17 +413,17 @@
         function closeAnalysisModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'none';
-            console.log('❌ Modal fechado');
+            log('❌ Modal fechado');
         }
 
         function openGenreModal() {
             // Simula abertura do modal de gênero
             if (typeof window.openGenreModal === 'function') {
                 window.openGenreModal();
-                console.log('🎵 Modal de gênero aberto via função original');
+                log('🎵 Modal de gênero aberto via função original');
             } else {
                 alert('🎵 Modal de Gênero\n\nEste modal seria aberto com a mesma paleta roxo + ciano!\n\n✅ Cores unificadas aplicadas em ambos os modais.');
-                console.log('🎵 Simulação: Modal de gênero com nova paleta');
+                log('🎵 Simulação: Modal de gênero com nova paleta');
             }
         }
 
@@ -427,7 +433,7 @@
         }
 
         function comparePalettes() {
-            console.log('🔄 Comparando paletas antiga vs nova...');
+            log('🔄 Comparando paletas antiga vs nova...');
             
             const comparison = {
                 antes: {
@@ -475,9 +481,9 @@
             }
         });
 
-        console.log('🟣 Página de teste da nova paleta carregada!');
-        console.log('📋 Nova paleta: Roxo escuro #6c00a2 + Azul ciano #00d4ff');
-        console.log('✨ Melhorias: Contraste aprimorado, text-shadow em camadas, visual mais elegante');
+        log('🟣 Página de teste da nova paleta carregada!');
+        log('📋 Nova paleta: Roxo escuro #6c00a2 + Azul ciano #00d4ff');
+        log('✨ Melhorias: Contraste aprimorado, text-shadow em camadas, visual mais elegante');
     </script>
 </body>
 </html>

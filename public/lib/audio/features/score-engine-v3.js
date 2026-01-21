@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * =============================================================================
  * SCORE ENGINE V3 - Sistema de Score Realista por Gênero e Modo
@@ -35,10 +38,10 @@ async function loadV3Config() {
         throw new Error(`Falha ao carregar config V3: ${response.status}`);
       }
       v3Config = await response.json();
-      console.log('[ScoreEngineV3] Configuração carregada com sucesso');
+      log('[ScoreEngineV3] Configuração carregada com sucesso');
       return v3Config;
     } catch (error) {
-      console.error('[ScoreEngineV3] Erro ao carregar configuração:', error);
+      error('[ScoreEngineV3] Erro ao carregar configuração:', error);
       // Retorna config mínima para não quebrar
       v3Config = getDefaultConfig();
       return v3Config;
@@ -731,7 +734,7 @@ async function computeScoreV3(technicalData, referenceData, mode = 'streaming', 
     };
     
   } catch (error) {
-    console.error('[ScoreEngineV3] Erro no cálculo:', error);
+    error('[ScoreEngineV3] Erro no cálculo:', error);
     errorResult.error = error.message;
     return errorResult;
   }
@@ -944,14 +947,14 @@ if (typeof window !== 'undefined') {
   window.enableScoreV3 = function() {
     localStorage.setItem('scoreEngineVersion', 'v3');
     window.SCORE_ENGINE_VERSION = 'v3';
-    console.info('[ScoreEngineV3] ✅ V3 ativado. Recarregue a página para aplicar.');
+    info('[ScoreEngineV3] ✅ V3 ativado. Recarregue a página para aplicar.');
     return 'v3';
   };
   
   window.disableScoreV3 = function() {
     localStorage.setItem('scoreEngineVersion', 'current');
     window.SCORE_ENGINE_VERSION = 'current';
-    console.info('[ScoreEngineV3] ⚠️ V3 desativado. Usando engine atual.');
+    info('[ScoreEngineV3] ⚠️ V3 desativado. Usando engine atual.');
     return 'current';
   };
   
@@ -971,10 +974,10 @@ if (typeof window !== 'undefined') {
       dr: 8,
       stereoWidth: 0.6
     }, null, 'streaming');
-    console.log('Caso A (TP=+2.0 dBTP):', caseA.scorePct, '(esperado: <= 35)');
-    console.log('  Gates:', caseA.gatesApplied.map(g => g.type).join(', '));
+    log('Caso A (TP=+2.0 dBTP):', caseA.scorePct, '(esperado: <= 35)');
+    log('  Gates:', caseA.gatesApplied.map(g => g.type).join(', '));
     const passA = caseA.scorePct <= 35;
-    console.log('  Resultado:', passA ? '✅ PASS' : '❌ FAIL');
+    log('  Resultado:', passA ? '✅ PASS' : '❌ FAIL');
     
     // Caso B: TP no target = deve ser alto
     const caseB = await computeScoreV3({
@@ -985,9 +988,9 @@ if (typeof window !== 'undefined') {
       stereoWidth: 0.6,
       stereoCorrelation: 0.6
     }, null, 'streaming');
-    console.log('Caso B (TP=-1.0, tudo ok):', caseB.scorePct, '(esperado: >= 70)');
+    log('Caso B (TP=-1.0, tudo ok):', caseB.scorePct, '(esperado: >= 70)');
     const passB = caseB.scorePct >= 70;
-    console.log('  Resultado:', passB ? '✅ PASS' : '❌ FAIL');
+    log('  Resultado:', passB ? '✅ PASS' : '❌ FAIL');
     
     // Caso C: LUFS fora do range
     const caseC = await computeScoreV3({
@@ -996,15 +999,15 @@ if (typeof window !== 'undefined') {
       clippingPct: 0,
       dr: 8
     }, null, 'streaming');
-    console.log('Caso C (LUFS=-6 fora do range):', caseC.scorePct);
-    console.log('  Loudness subscore:', caseC.subscores.loudness.score, '(esperado: 0 ou muito baixo)');
+    log('Caso C (LUFS=-6 fora do range):', caseC.scorePct);
+    log('  Loudness subscore:', caseC.subscores.loudness.score, '(esperado: 0 ou muito baixo)');
     const passC = caseC.subscores.loudness.score <= 10;
-    console.log('  Resultado:', passC ? '✅ PASS' : '❌ FAIL');
+    log('  Resultado:', passC ? '✅ PASS' : '❌ FAIL');
     
     console.groupEnd();
     
     const allPass = passA && passB && passC;
-    console.log(allPass ? '✅ Todos os testes passaram!' : '❌ Alguns testes falharam');
+    log(allPass ? '✅ Todos os testes passaram!' : '❌ Alguns testes falharam');
     
     return { passA, passB, passC, allPass };
   };
@@ -1015,7 +1018,7 @@ if (typeof window !== 'undefined') {
     window.SCORE_ENGINE_VERSION = savedVersion;
   }
   
-  console.info('[ScoreEngineV3] ✅ Engine V3 carregado e pronto. Versão:', window.ScoreEngineV3.version);
-  console.info('[ScoreEngineV3] 📊 Use window.testScoreEngineV3() para validar');
-  console.info('[ScoreEngineV3] 🔧 Use window.enableScoreV3() / disableScoreV3() para controlar');
+  info('[ScoreEngineV3] ✅ Engine V3 carregado e pronto. Versão:', window.ScoreEngineV3.version);
+  info('[ScoreEngineV3] 📊 Use window.testScoreEngineV3() para validar');
+  info('[ScoreEngineV3] 🔧 Use window.enableScoreV3() / disableScoreV3() para controlar');
 }

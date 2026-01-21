@@ -1,8 +1,11 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🧪 Teste direto da API para verificar True Peak no JSON
  */
 
-console.log('🧪 Testando True Peak via fetch API...\n');
+log('🧪 Testando True Peak via fetch API...\n');
 
 // Criar um arquivo de áudio de teste pequeno (WAV)
 function createTestWAV() {
@@ -63,12 +66,12 @@ function createTestWAV() {
 async function testTruePeakAPI() {
     try {
         const wavBlob = createTestWAV();
-        console.log(`📁 Arquivo WAV criado: ${wavBlob.size} bytes`);
+        log(`📁 Arquivo WAV criado: ${wavBlob.size} bytes`);
         
         const formData = new FormData();
         formData.append('audioFile', wavBlob, 'test-truepeak.wav');
         
-        console.log('📤 Enviando para API...');
+        log('📤 Enviando para API...');
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             body: formData
@@ -79,33 +82,33 @@ async function testTruePeakAPI() {
         }
         
         const result = await response.json();
-        console.log('📋 Resposta da API recebida!');
+        log('📋 Resposta da API recebida!');
         
         // Verificar True Peak nos dados técnicos
-        console.log('\n🔍 Verificando True Peak:');
-        console.log(`   technicalData existe: ${!!result.technicalData}`);
-        console.log(`   technicalData.truePeakDbtp: ${result.technicalData?.truePeakDbtp}`);
-        console.log(`   technicalData.truePeakLinear: ${result.technicalData?.truePeakLinear}`);
+        log('\n🔍 Verificando True Peak:');
+        log(`   technicalData existe: ${!!result.technicalData}`);
+        log(`   technicalData.truePeakDbtp: ${result.technicalData?.truePeakDbtp}`);
+        log(`   technicalData.truePeakLinear: ${result.technicalData?.truePeakLinear}`);
         
         // Verificar no objeto truePeak
-        console.log(`   truePeak existe: ${!!result.truePeak}`);
+        log(`   truePeak existe: ${!!result.truePeak}`);
         if (result.truePeak) {
-            console.log(`   truePeak.maxDbtp: ${result.truePeak.maxDbtp}`);
-            console.log(`   truePeak.maxLinear: ${result.truePeak.maxLinear}`);
+            log(`   truePeak.maxDbtp: ${result.truePeak.maxDbtp}`);
+            log(`   truePeak.maxLinear: ${result.truePeak.maxLinear}`);
         }
         
-        console.log('\n🎯 RESULTADO:');
+        log('\n🎯 RESULTADO:');
         if (result.technicalData?.truePeakDbtp && Number.isFinite(result.technicalData.truePeakDbtp)) {
-            console.log(`✅ SUCESSO: True Peak = ${result.technicalData.truePeakDbtp} dBTP`);
-            console.log('✅ Valor deve aparecer no modal do frontend!');
+            log(`✅ SUCESSO: True Peak = ${result.technicalData.truePeakDbtp} dBTP`);
+            log('✅ Valor deve aparecer no modal do frontend!');
         } else {
-            console.log('❌ PROBLEMA: True Peak não encontrado ou inválido!');
-            console.log('❌ O modal pode não estar exibindo valor por isso!');
+            log('❌ PROBLEMA: True Peak não encontrado ou inválido!');
+            log('❌ O modal pode não estar exibindo valor por isso!');
         }
         
     } catch (error) {
-        console.error('❌ ERRO na API:', error.message);
-        console.error('💡 Verifique se o servidor está rodando em http://localhost:3000');
+        error('❌ ERRO na API:', error.message);
+        error('💡 Verifique se o servidor está rodando em http://localhost:3000');
     }
 }
 

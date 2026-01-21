@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * Patch de Emergência - Resolver "Unexpected end of JSON input"
  * 
@@ -7,7 +10,7 @@
 
 // Função robusta de upload que não falha com JSON inválido
 async function uploadFileToAPISafe(file) {
-    console.log('🔧 [PATCH] Iniciando upload seguro...', {
+    log('🔧 [PATCH] Iniciando upload seguro...', {
         name: file.name,
         size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
         type: file.type
@@ -17,7 +20,7 @@ async function uploadFileToAPISafe(file) {
         const formData = new FormData();
         formData.append('audio', file);
         
-        console.log('📤 [PATCH] Enviando requisição...');
+        log('📤 [PATCH] Enviando requisição...');
         
         const response = await fetch('/api/upload-audio', {
             method: 'POST',
@@ -28,7 +31,7 @@ async function uploadFileToAPISafe(file) {
             }
         });
         
-        console.log('📥 [PATCH] Resposta recebida:', {
+        log('📥 [PATCH] Resposta recebida:', {
             status: response.status,
             statusText: response.statusText,
             contentType: response.headers.get('content-type'),
@@ -37,7 +40,7 @@ async function uploadFileToAPISafe(file) {
         
         // Ler resposta como texto primeiro
         const responseText = await response.text();
-        console.log('📄 [PATCH] Texto da resposta:', {
+        log('📄 [PATCH] Texto da resposta:', {
             length: responseText.length,
             preview: responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''),
             isEmpty: !responseText.trim()
@@ -52,10 +55,10 @@ async function uploadFileToAPISafe(file) {
         let result;
         try {
             result = JSON.parse(responseText);
-            console.log('✅ [PATCH] JSON parseado com sucesso:', result);
+            log('✅ [PATCH] JSON parseado com sucesso:', result);
         } catch (jsonError) {
-            console.error('❌ [PATCH] Erro ao parsear JSON:', jsonError);
-            console.error('📄 [PATCH] Conteúdo que causou erro:', responseText);
+            error('❌ [PATCH] Erro ao parsear JSON:', jsonError);
+            error('📄 [PATCH] Conteúdo que causou erro:', responseText);
             
             // Se não conseguir parsear JSON, tentar extrair informação útil
             if (responseText.includes('404') || responseText.includes('Not Found')) {
@@ -71,7 +74,7 @@ async function uploadFileToAPISafe(file) {
         
         // Verificar status da resposta
         if (!response.ok) {
-            console.warn('⚠️ [PATCH] Resposta não-OK:', response.status);
+            warn('⚠️ [PATCH] Resposta não-OK:', response.status);
             
             // Tratar diferentes tipos de erro com base no JSON
             if (result.error === 'ARQUIVO_MUITO_GRANDE') {
@@ -90,14 +93,14 @@ async function uploadFileToAPISafe(file) {
         
         // Log da recomendação se houver
         if (result.recommendation) {
-            console.log('💡 [PATCH] Recomendação:', result.recommendation);
+            log('💡 [PATCH] Recomendação:', result.recommendation);
         }
         
-        console.log('✅ [PATCH] Upload concluído com sucesso');
+        log('✅ [PATCH] Upload concluído com sucesso');
         return result;
         
     } catch (error) {
-        console.error('❌ [PATCH] Erro no upload:', error);
+        error('❌ [PATCH] Erro no upload:', error);
         
         // Re-throw com informação adicional
         if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -114,10 +117,10 @@ async function uploadFileToAPISafe(file) {
 // Substituir a função original de upload no escopo global
 if (typeof window !== 'undefined') {
     window.uploadFileToAPI = uploadFileToAPISafe;
-    console.log('🔧 [PATCH] Função de upload substituída pela versão segura');
+    log('🔧 [PATCH] Função de upload substituída pela versão segura');
 } else {
     // Se não estiver no browser, exportar para Node.js
     module.exports = { uploadFileToAPISafe };
 }
 
-console.log('✅ [PATCH] Patch de emergência carregado - Upload robusto ativo');
+log('✅ [PATCH] Patch de emergência carregado - Upload robusto ativo');

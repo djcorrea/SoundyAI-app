@@ -1,0 +1,5935 @@
+/* ============ 🎵 AUDIO ANALYZER STYLES ============ */
+
+/* ============ REGRAS GLOBAIS DE SCROLL MOBILE ============ */
+/* Garante scroll suave em todas as áreas scrolláveis dos modais */
+.audio-modal-content,
+.audio-results,
+.genre-modal-container,
+.welcome-modal-content,
+.mode-selection-modal,
+.chatbot-conversation-area {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+/* Esconder scrollbars no desktop (apenas visual, scroll continua funcionando) */
+@media (min-width: 769px) {
+    .audio-modal-content,
+    .audio-results,
+    .genre-modal-container,
+    .welcome-modal-content,
+    .mode-selection-modal {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    
+    .audio-modal-content::-webkit-scrollbar,
+    .audio-results::-webkit-scrollbar,
+    .genre-modal-container::-webkit-scrollbar,
+    .welcome-modal-content::-webkit-scrollbar,
+    .mode-selection-modal::-webkit-scrollbar {
+        display: none; /* Chrome/Safari/Opera */
+    }
+}
+
+/* Forçar scroll visível e funcional no mobile */
+@media (max-width: 768px) {
+    .genre-modal-container {
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        touch-action: pan-y !important;
+    }
+}
+
+/* Botão de análise de áudio no input */
+.chatbot-audio-analyze-btn {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #00d4ff, #0096cc);
+    border: none;
+    border-radius: 50%;
+    color: #000;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    margin: 0 8px;
+    flex-shrink: 0;
+}
+
+.chatbot-audio-analyze-btn:hover {
+    background: linear-gradient(135deg, #00a8cc, #007799);
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+}
+
+.chatbot-audio-analyze-btn:active {
+    transform: scale(0.95);
+}
+
+/* Modal de análise de áudio */
+.audio-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    /* 🚫 SCROLL FIX: Overlay NÃO deve rolar, apenas o container interno */
+    overflow: hidden;
+}
+
+/* ============================================
+   🎨 MODAL DE UPLOAD - COPIADO DO MODAL DE GÊNERO
+   CSS EXATO DA FUNÇÃO injectGenreModalStyles()
+   ============================================ */
+
+/* Container principal - MAIS ESCURO COM LINHAS NEURAIS */
+#audioAnalysisModal .audio-modal-content {
+    max-width: 820px;
+    width: 90%;
+    max-height: 88vh;
+    min-height: 580px;
+    height: auto;
+    /* BACKGROUND MAIS ESCURO */
+    background: radial-gradient(
+        circle at 20% 20%, 
+        rgba(70, 15, 100, 0.9) 0%,        /* Roxo mais escuro */
+        rgba(0, 0, 0, 0.98) 60%,          /* Preto mais intenso */
+        rgba(0, 80, 200, 0.5) 100%        /* Azul mais escuro */
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    /* BORDAS E SHADOWS IDÊNTICAS */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    box-shadow: 
+        0 20px 40px rgba(91, 11, 156, 0.49),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    padding: 0;
+    text-align: center;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    transform: scale(1);
+    transition: transform 0.2s ease;
+    /* 🚫 SCROLL FIX: No desktop, modal não rola (scroll interno virá do mobile) */
+    overflow: hidden;
+}
+
+/* LINHAS NEURAIS ANIMADAS NO FUNDO - EFEITO TECH */
+#audioAnalysisModal .audio-modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        /* Linhas horizontais */
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 154, 255, 0.03) 40px,
+            rgba(106, 154, 255, 0.03) 41px
+        ),
+        /* Linhas verticais */
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 0, 255, 0.03) 40px,
+            rgba(106, 0, 255, 0.03) 41px
+        ),
+        /* Linhas diagonais */
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 60px,
+            rgba(0, 212, 255, 0.02) 60px,
+            rgba(0, 212, 255, 0.02) 61px
+        );
+    opacity: 0.6;
+    animation: neural-grid 15s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Partículas flutuantes tech */
+#audioAnalysisModal .audio-modal-content::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: 
+        radial-gradient(circle, rgba(106, 0, 255, 0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px, 80px 80px;
+    background-position: 0 0, 25px 25px;
+    animation: particles-float 20s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes neural-grid {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 0.4;
+    }
+    100% {
+        transform: translate(40px, 40px);
+        opacity: 0.6;
+    }
+}
+
+@keyframes particles-float {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    100% {
+        transform: translate(50px, 50px) rotate(360deg);
+    }
+}
+
+/* OCULTAR HEADER DO TOPO */
+#audioAnalysisModal .audio-modal-header {
+    display: none !important;
+}
+
+/* Ocultar seletor de gênero visualmente */
+#audioAnalysisModal #audioRefGenreContainer {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    pointer-events: none !important;
+}
+
+/* Ocultar progresso de steps */
+#audioAnalysisModal #referenceProgressSteps {
+    display: none !important;
+}
+
+/* OCULTAR BOTÃO X SUPERIOR */
+#audioAnalysisModal .audio-modal-close {
+    display: none !important;
+}
+
+/* BOTÃO FECHAR - CSS COPIADO DE .genre-modal-close */
+#audioAnalysisModal .audio-close-bottom {
+    background: rgba(255, 255, 255, 0.08);
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 6px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 
+        border-color 0.2s ease,
+        color 0.2s ease,
+        opacity 0.2s ease;
+    font-weight: 500;
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 32px auto 0 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto;
+    max-width: 180px;
+    height: 34px;
+    line-height: 1 !important;
+    vertical-align: middle;
+}
+
+#audioAnalysisModal .audio-close-bottom:hover {
+    background: rgba(50, 25, 75, 0.65);
+    color: rgba(220, 220, 240, 0.95);
+    border-color: rgba(106, 154, 255, 0.5);
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.75),
+        0 0 25px rgba(106, 0, 255, 0.3);
+}
+
+#audioAnalysisModal .audio-close-bottom:active {
+    opacity: 0.8;
+    background: rgba(45, 25, 70, 0.65);
+}
+
+/* ===============================
+   UPLOAD SECTION - Cyberpunk Style
+   =============================== */
+
+#audioAnalysisModal .audio-upload-area {
+    padding: 0 0 40px 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+
+/* ÁREA DE UPLOAD - SEM MOLDURA/BORDA */
+#audioAnalysisModal .upload-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 32px;
+    /* SEM BACKGROUND E SEM BORDA */
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+}
+
+/* SEM EFEITO BEFORE */
+#audioAnalysisModal .upload-content::before {
+    display: none;
+}
+
+/* ÍCONE COPIADO DE .genre-icon */
+#audioAnalysisModal .upload-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+    margin-bottom: 0;
+}
+
+@keyframes icon-float {
+    0%, 100% { 
+        transform: translateY(0px);
+        filter: drop-shadow(0 0 20px rgba(106, 154, 255, 0.5));
+    }
+    50% { 
+        transform: translateY(-10px);
+        filter: drop-shadow(0 0 30px rgba(106, 154, 255, 0.7));
+    }
+}
+
+#audioAnalysisModal .upload-content h4 {
+    /* TÍTULO PRINCIPAL DO MODAL - ESTILO DO MODAL DE GÊNERO */
+    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif !important;
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+    margin: 0 0 16px 0 !important;
+    position: relative !important;
+    letter-spacing: 2px !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    /* GLOW AZUL/ROXO/CIANO - ÉPICO */
+    text-shadow: 
+        0 0 15px rgba(0, 212, 255, 0.6),
+        0 0 30px rgba(108, 0, 162, 0.4),
+        0 0 50px rgba(0, 212, 255, 0.25),
+        0 0 70px rgba(106, 0, 255, 0.2) !important;
+    /* GRADIENTE DE TEXTO */
+    background: linear-gradient(135deg, 
+        #6a9aff 0%,      /* Azul */
+        #00d4ff 50%,     /* Ciano */
+        #8b5cf6 100%     /* Roxo */
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 25px rgba(106, 154, 255, 0.5));
+    animation: title-glow 3s ease-in-out infinite;
+}
+
+/* ANIMAÇÃO DE GLOW NO TÍTULO */
+@keyframes title-glow {
+    0%, 100% {
+        text-shadow: 
+            0 0 15px rgba(0, 212, 255, 0.6),
+            0 0 30px rgba(108, 0, 162, 0.4),
+            0 0 50px rgba(0, 212, 255, 0.25);
+        filter: drop-shadow(0 0 25px rgba(106, 154, 255, 0.5));
+    }
+    50% {
+        text-shadow: 
+            0 0 20px rgba(0, 212, 255, 0.8),
+            0 0 40px rgba(108, 0, 162, 0.6),
+            0 0 60px rgba(0, 212, 255, 0.35),
+            0 0 80px rgba(106, 0, 255, 0.3);
+        filter: drop-shadow(0 0 35px rgba(106, 154, 255, 0.7));
+    }
+}
+
+/* TEXTOS/DESCRIÇÕES DO CARD - ESTILO DARK COM EFEITOS */
+#audioAnalysisModal .upload-content p {
+    color: rgba(200, 220, 255, 0.85);
+    font-size: 0.95rem;
+    margin: 10px 0;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+#audioAnalysisModal .supported-formats {
+    font-size: 0.8rem !important;
+    color: rgba(180, 180, 200, 0.6) !important;
+    margin-top: 10px !important;
+    font-style: italic;
+}
+
+#audioAnalysisModal .format-recommendation {
+    font-size: 0.85rem !important;
+    /* GRADIENTE AZUL/CIANO COM GLOW */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    margin-top: 8px !important;
+    font-weight: 600 !important;
+    filter: drop-shadow(0 0 8px rgba(106, 154, 255, 0.4)) !important;
+    display: block !important;
+}
+
+#audioAnalysisModal .upload-btn {
+    /* BOTÃO DARK - SEM BRANCO */
+    background: rgba(40, 20, 60, 0.5);
+    background-color: transparent;
+    border: 1px solid rgba(106, 154, 255, 0.3);
+    border-radius: 16px;
+    padding: 14px 40px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: 
+        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.3s ease,
+        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top: 20px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    -webkit-appearance: none;
+    appearance: none;
+    line-height: 1 !important;
+    width: auto !important;
+    min-width: 200px;
+    text-align: center;
+    height: 48px;
+    vertical-align: middle;
+}
+
+#audioAnalysisModal .upload-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(
+        circle at center,
+        rgba(106, 0, 255, 0.2) 0%,
+        transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+#audioAnalysisModal .upload-btn:hover {
+    background: rgba(50, 25, 75, 0.75);
+    border-color: rgba(106, 154, 255, 0.5);
+    transform: scale(1.03) translateY(-2px);
+    box-shadow: 
+        0 8px 22px rgba(0, 0, 0, 0.85),
+        0 0 30px rgba(106, 0, 255, 0.4),
+        0 0 45px rgba(0, 102, 255, 0.25);
+}
+
+#audioAnalysisModal .upload-btn:hover::before {
+    opacity: 1;
+}
+
+#audioAnalysisModal .upload-btn:active {
+    transform: scale(0.98) translateY(1px);
+}
+
+/* ===============================
+   LOADING SECTION - Centralizado Dark Mode
+   =============================== */
+
+#audioAnalysisModal .audio-loading {
+    padding: 0 0 40px 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: transparent;
+    backdrop-filter: none;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+    gap: 25px;
+    max-width: 100%;
+    position: relative;
+    z-index: 5;
+}
+
+/* SPINNER ÉPICO - MENOR E CENTRALIZADO */
+#audioAnalysisModal .loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 3px solid rgba(20, 10, 40, 0.3);
+    border-top: 3px solid #6a00ff;      /* Roxo vibrante */
+    border-right: 3px solid #6a9aff;    /* Azul */
+    border-bottom: 3px solid #00d4ff;   /* Ciano */
+    border-left: 3px solid transparent;
+    border-radius: 50%;
+    animation: spin-epic 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+    box-shadow:
+        0 0 40px rgba(106, 0, 255, 0.5),
+        0 0 70px rgba(106, 154, 255, 0.3),
+        inset 0 0 20px rgba(255, 255, 255, 0.1);
+    position: relative;
+    margin: 0 auto 20px auto;
+    flex-shrink: 0;
+    z-index: 10;
+}
+
+/* Anel interno do spinner - MENOR */
+#audioAnalysisModal .loading-spinner::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60%;
+    height: 60%;
+    border: 2px solid transparent;
+    border-top: 2px solid rgba(106, 154, 255, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin-reverse 1s linear infinite;
+}
+
+/* Ponto central brilhante */
+#audioAnalysisModal .loading-spinner::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20%;
+    height: 20%;
+    background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulse-center 1.5s ease-in-out infinite;
+}
+
+@keyframes spin-epic {
+    0% { 
+        transform: rotate(0deg);
+        box-shadow:
+            0 0 60px rgba(106, 0, 255, 0.4),
+            0 0 100px rgba(106, 154, 255, 0.3);
+    }
+    50% {
+        box-shadow:
+            0 0 80px rgba(106, 0, 255, 0.6),
+            0 0 120px rgba(106, 154, 255, 0.5);
+    }
+    100% { 
+        transform: rotate(360deg);
+        box-shadow:
+            0 0 60px rgba(106, 0, 255, 0.4),
+            0 0 100px rgba(106, 154, 255, 0.3);
+    }
+}
+
+@keyframes spin-reverse {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+@keyframes pulse-center {
+    0%, 100% { 
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% { 
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.3);
+    }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ⚙️ Aviso de análise em andamento */
+.audio-analysis-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 32px auto 0 auto;
+    padding: 20px 24px;
+    background: rgba(106, 154, 255, 0.08);
+    border: 1px solid rgba(106, 154, 255, 0.2);
+    border-radius: 12px;
+    max-width: 480px;
+    width: 90%;
+    box-sizing: border-box;
+    animation: fadeInWarning 0.6s ease-out;
+}
+
+.audio-analysis-warning .warning-icon {
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.audio-analysis-warning .warning-content {
+    flex: 1;
+    text-align: left;
+}
+
+.audio-analysis-warning .warning-title {
+    margin: 0 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.4;
+}
+
+.audio-analysis-warning .warning-text {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.5;
+}
+
+.audio-analysis-warning .warning-subtext {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+@keyframes fadeInWarning {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#audioAnalysisModal #audioProgressText {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 16px;
+    font-family: 'Orbitron', sans-serif;
+    /* Gradiente igual ao título */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 25px rgba(106, 154, 255, 0.5);
+    margin: 0 0 15px 0;
+    letter-spacing: 1px;
+    animation: text-pulse 2s ease-in-out infinite;
+    text-align: center;
+    width: 100%;
+}
+
+@keyframes text-pulse {
+    0%, 100% { 
+        filter: brightness(1);
+        text-shadow: 0 0 25px rgba(106, 154, 255, 0.5);
+    }
+    50% { 
+        filter: brightness(1.2);
+        text-shadow: 0 0 35px rgba(106, 154, 255, 0.8);
+    }
+}
+
+/* ⏳ MENSAGEM DE CONEXÃO - UX IMPROVEMENT */
+#audioAnalysisModal #audioConnectionHint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px auto 10px auto;
+    padding: 16px 24px;
+    max-width: 520px;
+    width: 90%;
+    background: linear-gradient(135deg, rgba(106, 154, 255, 0.12), rgba(0, 212, 255, 0.08));
+    border: 1px solid rgba(106, 154, 255, 0.25);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    animation: fadeInHint 0.6s ease-in-out;
+}
+
+#audioAnalysisModal #audioConnectionHint .hint-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 8px rgba(106, 154, 255, 0.6));
+}
+
+#audioAnalysisModal #audioConnectionHint .hint-text {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 500;
+    font-size: 14px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.65;
+    text-align: left;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes fadeInHint {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* BARRA DE PROGRESSO ÉPICA CENTRALIZADA */
+#audioAnalysisModal .progress-bar {
+    width: 100%;
+    max-width: 550px;
+    height: 14px;
+    background: rgba(20, 10, 40, 0.6);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 0 auto 20px auto;
+    position: relative;
+    border: 2px solid rgba(100, 150, 255, 0.3);
+    box-shadow: 
+        inset 0 2px 8px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(93, 21, 134, 0.3);
+}
+
+#audioAnalysisModal .progress-fill {
+    height: 100%;
+    width: 0%;
+    /* Gradiente roxo-azul igual ao modal de gênero */
+    background: linear-gradient(90deg, 
+        #6a00ff 0%,           /* Roxo vibrante */
+        #8b5cf6 25%,          /* Roxo médio */
+        #6a9aff 50%,          /* Azul */
+        #00d4ff 100%          /* Ciano */
+    );
+    box-shadow: 
+        0 0 30px rgba(106, 0, 255, 0.6),
+        0 0 50px rgba(106, 154, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 10px;
+    position: relative;
+}
+
+/* Efeito de brilho animado na barra */
+#audioAnalysisModal .progress-fill::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent);
+    border-radius: 10px 10px 0 0;
+}
+
+/* Shimmer effect épico */
+#audioAnalysisModal .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.6), 
+        transparent
+    );
+    animation: progress-shimmer 1.5s infinite;
+}
+
+@keyframes progress-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+}
+
+/* ===============================
+   RESULTS SECTION - Expansão MAIOR
+   =============================== */
+
+#audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+    max-width: 1600px;
+    width: 96%;
+    max-height: calc(100dvh - 20px);
+    max-height: calc(100vh - 20px);
+    height: auto;
+    padding: 35px 40px;
+    
+    /* 🔧 GLASSMORPHISM DESABILITADO - Causava conflito com cards de métricas
+       Background mais suave e compatível com design existente */
+    background: rgba(0, 15, 30, 0.92);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    
+    /* Bordas suaves (não neon) */
+    border: 1px solid rgba(106, 154, 255, 0.15);
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 0 40px rgba(106, 0, 255, 0.1);
+    
+    /* SEM animação de pulso para evitar distração */
+}
+
+/* 🔧 ANIMAÇÃO DE PULSO DESABILITADA - causava flickering nos cards
+@keyframes modal-pulse {
+    0%, 100% {
+        box-shadow: 
+            0 25px 50px rgba(106, 0, 255, 0.4),
+            0 0 80px rgba(0, 212, 255, 0.2),
+            inset 0 0 100px rgba(106, 154, 255, 0.05);
+    }
+    50% {
+        box-shadow: 
+            0 30px 60px rgba(106, 0, 255, 0.5),
+            0 0 100px rgba(0, 212, 255, 0.3),
+            inset 0 0 120px rgba(106, 154, 255, 0.08);
+    }
+}
+*/
+
+#audioAnalysisModal .audio-results {
+    padding: 20px 0;
+    width: 100%;
+    max-height: calc(100dvh - 200px);
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 255, 0.4) transparent;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 255, 0.4);
+    border-radius: 3px;
+}
+
+#audioAnalysisModal .results-header h4 {
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    /* Mesmo gradiente do modal de gênero */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(106, 154, 255, 0.5);
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* ===============================
+   RESPONSIVIDADE
+   =============================== */
+
+/* RESPONSIVIDADE MOBILE - Mantendo estilo do modal de gênero */
+/* RESPONSIVIDADE COPIADA DO MODAL DE GÊNERO */
+/* 📱 MOBILE TABLETS (768px): Modal deve ocupar ~95% da tela para boa legibilidade */
+@media (max-width: 768px) {
+    #audioAnalysisModal .audio-modal-content {
+        width: 95vw;
+        /* 🔧 Modal de upload: ~90vh para ocupar quase toda tela */
+        min-height: auto;
+        max-height: 90svh;
+        max-height: 90vh; /* Fallback navegadores antigos */
+        height: auto;
+        /* 📱 Padding reduzido para aproveitar espaço mobile */
+        padding: 28px 18px 24px 18px;
+        /* 📜 Scroll suave se conteúdo exceder */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        /* 🎯 Controle de scroll iOS: evitar scroll fantasma e elástico */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        /* 🚫 Impedir scroll além do conteúdo */
+        overscroll-behavior: contain;
+    }
+    
+    /* Título principal do card - responsivo */
+    #audioAnalysisModal .upload-content h4 {
+        font-size: 1.5rem !important;
+        letter-spacing: 1.5px !important;
+    }
+    
+    #audioAnalysisModal .upload-content {
+        padding: 32px 24px;
+        gap: 10px;
+    }
+    
+    #audioAnalysisModal .upload-icon {
+        font-size: 1.5rem;
+    }
+    
+    #audioAnalysisModal .upload-content p {
+        font-size: 0.85rem;
+    }
+    
+    #audioAnalysisModal .loading-spinner {
+        width: 85px;
+        height: 85px;
+    }
+    
+    #audioAnalysisModal .progress-bar {
+        max-width: 100%;
+        height: 14px;
+    }
+    
+    #audioAnalysisModal #audioProgressText {
+        font-size: 16px;
+    }
+    
+    /* Aviso de análise - responsivo tablet */
+    #audioAnalysisModal .audio-analysis-warning {
+        padding: 16px 18px;
+        gap: 12px;
+        margin-top: 24px;
+        max-width: 100%;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-icon {
+        font-size: 24px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-title {
+        font-size: 14px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-text {
+        font-size: 12px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-subtext {
+        font-size: 11px;
+    }
+    
+    /* 📊 MODAL DE RESULTADOS: Precisa ser ainda maior para exibir gráficos/dados */
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        width: 95vw;
+        min-height: 90svh;
+        min-height: 90vh;
+        max-height: 92svh;
+        max-height: 92vh;
+        height: auto;
+        padding: 24px 16px;
+        overflow-y: auto;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+    }
+}
+
+/* 📱 MOBILE SMARTPHONES (480px): Modal deve ser quase tela cheia */
+@media (max-width: 480px) {
+    #audioAnalysisModal .audio-modal-content {
+        width: 95vw;
+        /* 🔧 Máxima altura para smartphones: ~92vh */
+        min-height: 90svh;
+        min-height: 90vh;
+        max-height: 92svh;
+        max-height: 92vh;
+        height: auto;
+        padding: 24px 16px;
+        overflow-y: auto;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+    }
+    
+    #audioAnalysisModal .upload-content {
+        padding: 28px 20px;
+    }
+    
+    /* Título principal do card - mobile */
+    #audioAnalysisModal .upload-content h4 {
+        font-size: 1.3rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    #audioAnalysisModal .upload-content p {
+        font-size: 0.85rem !important;
+    }
+    
+    /* Aviso de análise - responsivo mobile */
+    #audioAnalysisModal .audio-analysis-warning {
+        padding: 14px 16px;
+        gap: 10px;
+        margin-top: 20px;
+        border-radius: 10px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-icon {
+        font-size: 22px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-title {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-text {
+        font-size: 11.5px;
+        margin-bottom: 6px;
+    }
+    
+    #audioAnalysisModal .audio-analysis-warning .warning-subtext {
+        font-size: 10.5px;
+    }
+    
+    #audioAnalysisModal .supported-formats {
+        font-size: 0.75rem !important;
+    }
+    
+    #audioAnalysisModal .format-recommendation {
+        font-size: 0.8rem !important;
+    }
+    
+    #audioAnalysisModal .upload-btn {
+        padding: 16px 24px;
+        font-size: 0.85rem;
+    }
+    
+    #audioAnalysisModal .loading-spinner {
+        width: 75px;
+        height: 75px;
+    }
+    
+    #audioAnalysisModal #audioConnectionHint {
+        flex-direction: column;
+        gap: 8px;
+        padding: 14px 18px;
+        max-width: 95%;
+        margin: 15px auto 10px auto;
+    }
+    
+    #audioAnalysisModal #audioConnectionHint .hint-icon {
+        font-size: 20px;
+    }
+    
+    #audioAnalysisModal #audioConnectionHint .hint-text {
+        font-size: 13px;
+        text-align: center;
+    }
+    
+    #audioAnalysisModal .progress-bar {
+        height: 12px;
+    }
+    
+    #audioAnalysisModal #audioProgressText {
+        font-size: 15px;
+    }
+}
+
+/* ============ 🎨 ENHANCED CARDS DESIGN ============ */
+
+/* ============ 🎨 ENHANCED CARDS - ULTRA MODERN REDESIGN ============ */
+
+/* Enhanced Card Container - Glassmorphism + Neon */
+.enhanced-card {
+    /* Fundo glass blur com gradiente sutil */
+    background: linear-gradient(
+        135deg, 
+        rgba(106, 0, 255, 0.08) 0%, 
+        rgba(20, 20, 45, 0.85) 50%, 
+        rgba(0, 150, 200, 0.06) 100%
+    );
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    
+    /* Borda neon animada */
+    border: 2px solid rgba(106, 154, 255, 0.25);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+    
+    /* Transições suaves */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Shadow suave */
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 60px rgba(106, 0, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Espaçamento entre elementos dentro do card - OTIMIZADO */
+.enhanced-card > * + * {
+    margin-top: 14px;
+}
+
+/* Barra de acento neon no topo - MAIS SUTIL */
+.enhanced-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--card-accent-color, linear-gradient(90deg, #6a00ff, #00d4ff, #6a9aff));
+    border-radius: 20px 20px 0 0;
+    opacity: 0.8;
+    animation: neon-flow 3s linear infinite;
+}
+
+@keyframes neon-flow {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* Hover effect - SUAVE E FLUIDO */
+.enhanced-card:hover {
+    transform: translateY(-4px) scale(1.01);
+    border-color: rgba(106, 154, 255, 0.5);
+    box-shadow: 
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        0 0 80px rgba(106, 0, 255, 0.2),
+        0 0 120px rgba(0, 212, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Glow interno animado no hover */
+.enhanced-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+        circle at center,
+        rgba(106, 154, 255, 0.1) 0%,
+        transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.enhanced-card:hover::after {
+    opacity: 1;
+}
+
+/* Card Header - OTIMIZADO PARA EVITAR SCROLL */
+.card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+}
+
+.card-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.4;
+    letter-spacing: 0.4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    flex: 1;
+    
+    /* Gradiente de texto sutil */
+    background: linear-gradient(135deg, #ffffff 0%, #e0e8ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    /* Shadow sutil para legibilidade */
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.card-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+    flex-shrink: 0;
+    max-width: 200px;
+}
+
+/* Frequency Badge */
+.frequency-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    border: 2px solid rgba(255,255,255,0.2);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Severity Badges */
+.severity-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+}
+
+.severity-badge.leve { 
+    background: linear-gradient(135deg, #ffeb3b, #ffc107);
+    color: #333;
+    border-color: rgba(255, 193, 7, 0.5);
+}
+
+.severity-badge.moderada { 
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    color: white;
+    border-color: rgba(255, 152, 0, 0.5);
+}
+
+.severity-badge.alta { 
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+.severity-badge.severa {
+    background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+    color: white;
+    border-color: rgba(156, 39, 176, 0.5);
+    animation: pulse-severe 2s infinite;
+}
+
+@keyframes pulse-severe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ========== BLOCOS EDUCACIONAIS - LAYOUT OTIMIZADO ========== */
+
+/* Bloco: Explicação/Problema */
+.card-description,
+.card-explanation-block {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #e0e8ff;
+    margin-bottom: 14px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.06), rgba(20, 20, 45, 0.4));
+    border-radius: 12px;
+    border-left: 3px solid var(--card-accent-color, linear-gradient(180deg, #6a00ff, #00d4ff));
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    letter-spacing: 0.3px;
+    position: relative;
+    z-index: 1;
+    
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ========== TOOLTIPS PARA MÉTRICAS ========== */
+
+/* Container do label com ícone de info */
+.metric-label-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+}
+
+/* Ajuste para métricas em linhas com layout space-between */
+.data-row .label .metric-label-container {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 4px;
+    width: auto;
+}
+
+/* Subscores: ícone colado ao nome */
+.metric-with-progress .metric-label-container {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 4px;
+    width: auto;
+}
+
+/* Ícone de informação */
+.metric-info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: help;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    margin-left: 2px !important; /* Garante ícone colado ao nome */
+}
+
+.metric-info-icon:hover {
+    color: #00d4ff;
+    transform: scale(1.15);
+}
+
+/* Tooltip transparente */
+.metric-tooltip {
+    position: fixed;
+    background: rgba(20, 20, 30, 0.95);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #e0e8ff;
+    max-width: 350px;
+    min-width: 250px;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.6),
+        0 0 40px rgba(0, 212, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100000;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+.metric-tooltip.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Seta do tooltip */
+.metric-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid rgba(20, 20, 30, 0.95);
+    filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Ajuste do data-row para comportar o novo layout */
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.data-row .label {
+    color: #c1b5e8;
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    /* Remove qualquer recuo */
+    text-indent: 0;
+    padding-left: 0;
+    margin-left: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
+}
+
+/* Ajuste de fonte para labels longos */
+.data-row .label:has(.metric-label-container) {
+    font-size: 13px;
+}
+
+/* Ajuste automático de fonte para nomes muito longos */
+.data-row .label .metric-label-container > span:first-child {
+    max-width: 100%;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+/* Se o nome tiver mais de 25 caracteres, reduzir fonte */
+.data-row .label .metric-label-container > span:first-child {
+    font-size: clamp(11px, 13px, 14px);
+    line-height: 1.3;
+}
+
+/* Mobile: reduzir ainda mais se necessário */
+@media (max-width: 768px) {
+    .data-row .label {
+        font-size: 12px;
+    }
+    
+    .data-row .label:has(.metric-label-container) {
+        font-size: 11px;
+    }
+    
+    .data-row .label .metric-label-container > span:first-child {
+        font-size: clamp(10px, 11px, 12px);
+    }
+}
+
+@media (max-width: 480px) {
+    .data-row .label {
+        font-size: 11px;
+    }
+    
+    .data-row .label:has(.metric-label-container) {
+        font-size: 10px;
+    }
+    
+    .data-row .value {
+        font-size: 13px;
+    }
+}
+
+.data-row .value {
+    color: #00ffff;
+    font-weight: 800;
+    font-size: 15px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 0;
+    margin-right: 0;
+}
+
+.card-explanation-block strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Bloco: Ação/Solução - DESTAQUE NEON */
+.card-action,
+.card-action-block {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.12), rgba(0, 100, 150, 0.08));
+    border: 2px solid rgba(0, 212, 255, 0.35);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    
+    box-shadow: 
+        0 4px 16px rgba(0, 212, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Glow animado no bloco de ação */
+.card-action::before,
+.card-action-block::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+    animation: action-shimmer 3s infinite;
+}
+
+@keyframes action-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+}
+
+.card-action-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #00d4ff;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    position: relative;
+    z-index: 1;
+    
+    /* Glow sutil */
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+}
+
+.card-action-content {
+    font-size: 14px;
+    color: #ffffff;
+    line-height: 1.7;
+    letter-spacing: 0.3px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    position: relative;
+    z-index: 1;
+}
+
+/* Technical Details */
+.card-technical {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.tech-item {
+    background: rgba(0,0,0,0.3);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+}
+
+.tech-label {
+    font-size: 10px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.tech-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* Bloco: Resultado Esperado - VERDE SUAVE */
+.card-result-block,
+.card-expected-result {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(0, 255, 146, 0.08), rgba(0, 150, 100, 0.05));
+    border: 2px solid rgba(0, 255, 146, 0.25);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    position: relative;
+    backdrop-filter: blur(8px);
+    
+    box-shadow: 
+        0 4px 16px rgba(0, 255, 146, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.card-result-title,
+.card-expected-result-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #00ff92;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-shadow: 0 0 10px rgba(0, 255, 146, 0.3);
+}
+
+.card-result-content,
+.card-expected-result-content {
+    font-size: 13px;
+    color: #e0ffe8;
+    line-height: 1.6;
+}
+
+/* Bloco: Exemplos/DAW - AMARELO EDUCATIVO */
+.card-examples-block,
+.card-daw-examples {
+    padding: 14px 18px;
+    background: rgba(255, 193, 7, 0.08);
+    border: 2px solid rgba(255, 193, 7, 0.25);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(8px);
+}
+
+.card-examples-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffc107;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-examples-content {
+    font-size: 13px;
+    color: #fff3c4;
+    line-height: 1.5;
+}
+
+/* ⚠️ Bloco: Impacto/Alerta - MAIS SUAVE */
+.card-impact {
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 100, 0, 0.05));
+    border: 2px solid rgba(255, 152, 0, 0.3);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.1);
+}
+
+.card-impact-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ff9800;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-impact-content {
+    font-size: 13px;
+    color: #ffe0b3;
+    line-height: 1.5;
+}
+
+/* Card Type Variations */
+.enhanced-card.surgical {
+    --card-accent-color: linear-gradient(90deg, #f44336, #d32f2f);
+}
+
+.enhanced-card.band-adjust {
+    --card-accent-color: linear-gradient(90deg, #2196f3, #1976d2);
+}
+
+.enhanced-card.problem {
+    --card-accent-color: linear-gradient(90deg, #ff9800, #f57c00);
+}
+
+.enhanced-card.clipping {
+    --card-accent-color: linear-gradient(90deg, #e91e63, #c2185b);
+}
+
+.enhanced-card.balance {
+    --card-accent-color: linear-gradient(90deg, #9c27b0, #7b1fa2);
+}
+
+.enhanced-card.critical-alert {
+    --card-accent-color: linear-gradient(90deg, #f44336, #b71c1c);
+    border: 2px solid rgba(244, 67, 54, 0.3);
+    box-shadow: 0 4px 20px rgba(244, 67, 54, 0.2);
+    animation: critical-pulse 3s infinite;
+}
+
+@keyframes critical-pulse {
+    0%, 100% { 
+        border-color: rgba(244, 67, 54, 0.3);
+        box-shadow: 0 4px 20px rgba(244, 67, 54, 0.2);
+    }
+    50% { 
+        border-color: rgba(244, 67, 54, 0.6);
+        box-shadow: 0 8px 30px rgba(244, 67, 54, 0.4);
+    }
+}
+
+/* ========== RESPONSIVIDADE - MOBILE OTIMIZADO ========== */
+@media (max-width: 768px) {
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        max-width: 96vw;
+        padding: 30px 20px;
+    }
+    
+    .enhanced-card {
+        padding: 18px 20px;
+        margin-bottom: 16px;
+        border-radius: 16px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    
+    .card-title {
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    
+    .card-badges {
+        max-width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .card-technical {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .frequency-badge {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    
+    .card-description,
+    .card-explanation-block {
+        padding: 14px 16px;
+        font-size: 13px;
+    }
+    
+    .card-action,
+    .card-action-block {
+        padding: 14px 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        max-width: 98vw;
+        padding: 25px 15px;
+    }
+    
+    .enhanced-card {
+        padding: 16px 18px;
+        margin-bottom: 14px;
+    }
+    
+    .card-title {
+        font-size: 14px;
+    }
+    
+    .card-action-title,
+    .card-result-title,
+    .card-examples-title {
+        font-size: 12px;
+    }
+}
+
+/* Responsividade do tooltip */
+@media (max-width: 768px) {
+    .metric-tooltip {
+        max-width: 90vw;
+        min-width: 200px;
+        font-size: 12px;
+        padding: 12px 14px;
+    }
+    
+    .metric-info-icon {
+        width: 18px;
+        height: 18px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .metric-tooltip {
+        max-width: 95vw;
+        min-width: 150px;
+        font-size: 11px;
+        padding: 10px 12px;
+    }
+    
+    .metric-label-container {
+        gap: 6px;
+    }
+}
+
+/* Accessibility Improvements */
+.enhanced-card:focus-within {
+    outline: 2px solid var(--card-accent-color, #00d4ff);
+    outline-offset: 2px;
+}
+
+details summary {
+    transition: color 0.2s ease;
+}
+
+details summary:hover {
+    color: #00d4ff;
+}
+
+details[open] summary {
+    color: #00d4ff;
+    margin-bottom: 8px;
+}
+
+/* Loading Animation for Cards */
+.enhanced-card.loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.enhanced-card.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: loading-shimmer 1.5s infinite;
+}
+
+@keyframes loading-shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.surgical-header + .context + .action + .details {
+    font-size: 11px;
+    color: #888;
+    opacity: 0.9;
+}
+
+/* Estilos para sugestões cirúrgicas no modal */
+.diag-item.surgical {
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.08), rgba(255, 61, 0, 0.08));
+    border-left: 3px solid #ff6b6b;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+.surgical-action {
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    margin: 6px 0;
+    color: #00d4ff;
+}
+
+.surgical-details {
+    font-size: 11px;
+    color: #888;
+    opacity: 0.9;
+    margin-top: 4px;
+}
+
+/* === Estilos genéricos do modal de áudio (outros modais usam) === */
+.audio-modal-content {
+    /* Tema roxo da Fase 1 */
+    background: linear-gradient(135deg, #121122, #1b1230 40%, #0e0a1a 100%);
+    border-radius: 20px;
+    width: 95%;
+    max-width: 1400px;
+    max-height: calc(100dvh - 20px);
+    max-height: calc(100vh - 20px);
+    height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    overflow-x: hidden;
+    box-shadow: 
+        0 30px 100px rgba(0, 0, 0, 0.8),
+        0 0 50px rgba(124, 77, 255, 0.1);
+    border: 2px solid rgba(0, 255, 255, 0.2);
+    position: relative;
+    backdrop-filter: blur(10px);
+}
+
+/* Mobile optimizations para modais genéricos */
+@media (max-width: 768px) {
+    .audio-modal:not(#audioAnalysisModal) {
+        padding: 5px;
+        align-items: flex-start;
+        padding-top: max(2vh, env(safe-area-inset-top));
+    }
+    
+    .audio-modal:not(#audioAnalysisModal) .audio-modal-content {
+        width: 98%;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
+        height: auto;
+        border-radius: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .audio-modal:not(#audioAnalysisModal) {
+        padding: 3px;
+        padding-top: max(1vh, env(safe-area-inset-top));
+    }
+    
+    .audio-modal:not(#audioAnalysisModal) .audio-modal-content {
+        width: 99%;
+        max-height: calc(100dvh - 30px);
+        max-height: calc(100vh - 30px);
+        height: auto;
+        border-radius: 12px;
+    }
+}
+
+/* Estilos genéricos para outros modais (não #audioAnalysisModal) */
+.audio-modal:not(#audioAnalysisModal) .audio-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 16px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-modal:not(#audioAnalysisModal) .audio-modal-header h3 {
+    color: #b388ff; /* Roxo vivo */
+    font-size: 1.4rem;
+    margin: 0;
+}
+
+.audio-modal:not(#audioAnalysisModal) .audio-modal-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.audio-modal:not(#audioAnalysisModal) .audio-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Upload area no modal - genérico para outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-upload-area {
+    padding: 40px 24px;
+    position: relative;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content {
+    border: 2px dashed rgba(0, 255, 255, 0.3);
+    border-radius: 24px;
+    padding: 60px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    background: linear-gradient(135deg, 
+        rgba(15, 12, 30, 0.8) 0%, 
+        rgba(25, 20, 40, 0.6) 50%, 
+        rgba(15, 12, 30, 0.8) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 0 50px rgba(0, 255, 255, 0.1),
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+        rgba(0, 255, 255, 0.3) 0%,
+        rgba(124, 77, 255, 0.3) 25%,
+        rgba(255, 0, 255, 0.3) 50%,
+        rgba(124, 77, 255, 0.3) 75%,
+        rgba(0, 255, 255, 0.3) 100%);
+    border-radius: 26px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: -1;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content:hover::before,
+.audio-modal:not(#audioAnalysisModal) .upload-content.dragover::before {
+    opacity: 1;
+    animation: border-glow 2s infinite;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content:hover,
+.audio-modal:not(#audioAnalysisModal) .upload-content.dragover {
+    border-color: rgba(0, 255, 255, 0.6);
+    background: linear-gradient(135deg, 
+        rgba(25, 20, 40, 0.9) 0%, 
+        rgba(35, 30, 60, 0.7) 50%, 
+        rgba(25, 20, 40, 0.9) 100%);
+    transform: translateY(-8px);
+    box-shadow: 
+        0 0 80px rgba(0, 255, 255, 0.2),
+        0 30px 80px rgba(0, 0, 0, 0.6),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-icon {
+    font-size: 64px;
+    background: linear-gradient(135deg, #00ffff, #7c4dff, #ff00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 24px;
+    display: block;
+    animation: icon-pulse 3s ease-in-out infinite;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content h4 {
+    color: #ffffff;
+    margin: 20px 0 12px 0;
+    font-size: 24px;
+    font-weight: 800;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.5px;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-content p {
+    color: #b388ff;
+    margin: 12px 0;
+    font-size: 16px;
+    opacity: 0.9;
+    line-height: 1.4;
+}
+
+.audio-modal:not(#audioAnalysisModal) .supported-formats {
+    font-size: 12px;
+    color: #666;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-btn {
+    background: linear-gradient(135deg, #00ffff, #7c4dff, #ff00ff);
+    color: #fff;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: 900;
+    margin-top: 20px;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    min-height: 50px;
+    min-width: 160px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0, 255, 255, 0.3);
+    user-select: none;
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 0 30px rgba(0, 255, 255, 0.3),
+        0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.6s ease;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-btn:hover::before {
+    left: 100%;
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-btn:hover {
+    background: linear-gradient(135deg, #00d4ff, #5e35b1, #e91e63);
+    transform: translateY(-3px);
+    box-shadow: 
+        0 0 50px rgba(0, 255, 255, 0.4),
+        0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.audio-modal:not(#audioAnalysisModal) .upload-btn:active {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #5e35b1, #4527a0, #c2185b);
+}
+
+/* Mobile-specific touch optimizations para outros modais */
+@media (hover: none) and (pointer: coarse) {
+    .audio-modal:not(#audioAnalysisModal) .upload-btn:hover {
+        transform: none;
+        box-shadow: none;
+        background: linear-gradient(135deg, #7c4dff, #651fff);
+    }
+    
+    .audio-modal:not(#audioAnalysisModal) .upload-btn:active {
+        background: linear-gradient(135deg, #5e35b1, #4527a0);
+        transform: scale(0.98);
+    }
+    
+    .audio-modal:not(#audioAnalysisModal) .upload-content {
+        cursor: default;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .audio-modal:not(#audioAnalysisModal) .upload-btn {
+        padding: 14px 20px;
+        width: 80%;
+        max-width: 200px;
+        font-size: 15px;
+    }
+}
+
+/* Loading no modal - genérico para outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-loading {
+    padding: 60px 40px;
+    text-align: center;
+    color: #fff;
+    background: linear-gradient(135deg, 
+        rgba(15, 12, 30, 0.9) 0%, 
+        rgba(25, 20, 40, 0.8) 50%, 
+        rgba(15, 12, 30, 0.9) 100%);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    margin: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 0 50px rgba(0, 255, 255, 0.1),
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.audio-modal:not(#audioAnalysisModal) .audio-loading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.05), transparent);
+    animation: shimmer 3s infinite;
+}
+
+.audio-modal:not(#audioAnalysisModal) .loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-top: 4px solid #00ffff;
+    border-right: 4px solid #7c4dff;
+    border-bottom: 4px solid #ff00ff;
+    border-radius: 50%;
+    animation: spin-glow 1.5s linear infinite;
+    margin: 0 auto 30px auto;
+    position: relative;
+    box-shadow: 
+        0 0 30px rgba(0, 255, 255, 0.3),
+        0 0 60px rgba(124, 77, 255, 0.2),
+        inset 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+.audio-modal:not(#audioAnalysisModal) .loading-spinner::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 30px;
+    height: 30px;
+    border: 2px solid transparent;
+    border-top: 2px solid rgba(0, 255, 255, 0.8);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: spin-reverse 1s linear infinite;
+}
+
+.audio-modal:not(#audioAnalysisModal) .progress-bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 24px;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.audio-modal:not(#audioAnalysisModal) .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, 
+        #00ffff 0%, 
+        #7c4dff 50%, 
+        #ff00ff 100%);
+    width: 0%;
+    transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border-radius: 6px;
+    position: relative;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.4),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.audio-modal:not(#audioAnalysisModal) .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+/* Texto de progresso futurístico - genérico outros modais */
+.audio-modal:not(#audioAnalysisModal) #audioProgressText {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 18px;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    margin: 20px 0;
+    letter-spacing: 0.5px;
+    animation: text-glow 2s ease-in-out infinite;
+}
+
+@keyframes text-glow {
+    0%, 100% { 
+        text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        color: #ffffff;
+    }
+    50% { 
+        text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        color: #00ffff;
+    }
+}
+
+/* Resultados no modal - genérico outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-results {
+    padding: 40px 50px;
+}
+
+.audio-modal:not(#audioAnalysisModal) .results-header h4 {
+    color: #b388ff;
+    margin-bottom: 30px;
+    font-size: 1.4rem;
+    text-align: center;
+}
+
+.technical-data {
+    background: rgba(23, 18, 33, 0.6);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(124, 77, 255, 0.15);
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    position: relative;
+    transition: all 0.3s ease;
+}
+.data-row:hover {
+    background: rgba(0, 255, 255, 0.02);
+    border-radius: 8px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+.data-row:last-child {
+    border-bottom: none;
+}
+.data-row .label {
+    color: #c1b5e8;
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
+    z-index: 2;
+}
+.data-row .value {
+    color: #00ffff;
+    font-weight: 800;
+    font-size: 15px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    position: relative;
+    z-index: 2;
+}
+
+/* KPIs futuristas com glassmorphism e neon */
+.kpi-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+.kpi {
+    flex: 0 0 auto;
+    min-width: 200px;
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.03), rgba(124, 77, 255, 0.08), rgba(255, 0, 255, 0.03));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 24px;
+    padding: 30px 25px;
+    text-align: center;
+    box-shadow: 
+        0 0 50px rgba(0, 255, 255, 0.15),
+        0 0 100px rgba(124, 77, 255, 0.1),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.kpi::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.08), transparent);
+    animation: shimmer 3s infinite;
+}
+.kpi:hover {
+    transform: translateY(-5px);
+    box-shadow: 
+        0 0 80px rgba(0, 255, 255, 0.25),
+        0 0 120px rgba(124, 77, 255, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.kpi-value { 
+    color: #00ffff; 
+    font-size: 42px; 
+    font-weight: 900; 
+    line-height: 1; 
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    position: relative;
+    z-index: 1;
+}
+.kpi-label { 
+    color: #b388ff; 
+    font-size: 15px; 
+    margin-top: 12px; 
+    letter-spacing: 1px; 
+    text-transform: uppercase;
+    font-weight: 600;
+    position: relative;
+    z-index: 1;
+}
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-top: 20px;
+    align-items: start;
+}
+.card {
+    background: linear-gradient(135deg, 
+        rgba(15, 12, 30, 0.85) 0%, 
+        rgba(25, 20, 40, 0.75) 50%, 
+        rgba(15, 12, 30, 0.85) 100%);
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 
+        0 0 50px rgba(124, 77, 255, 0.08),
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+        inset 0 0 100px rgba(0, 255, 255, 0.02);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    
+    /* 🎯 AUDITORIA: Garantir mesma altura para todos os cards */
+    min-height: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    
+    /* 🔧 OTIMIZAÇÃO: Mantém font-size normal para evitar colapso de títulos
+       A remoção de whitespace agora é feita via JavaScript (normalizeCardWhitespace) */
+    font-size: 16px;        /* Tamanho normal para elementos visíveis */
+}
+
+/* Garante que todos os elementos filhos herdem corretamente */
+.card > * {
+    font-size: inherit;     /* Herda do pai */
+    line-height: normal;    /* Altura de linha padrão */
+}
+
+/* Garante que o título sempre comece no topo do card */
+.card > .card-title:first-child {
+    margin-top: 0 !important;
+}
+
+/* Remove margin-top de qualquer primeiro elemento do card (prevenção adicional) */
+.card > *:first-child {
+    margin-top: 0 !important;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg at 50% 50%, 
+        transparent 0deg, 
+        rgba(0, 255, 255, 0.05) 90deg, 
+        rgba(124, 77, 255, 0.05) 180deg, 
+        rgba(255, 0, 255, 0.05) 270deg, 
+        transparent 360deg);
+    animation: rotate 20s linear infinite;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+.card:hover::before {
+    opacity: 1;
+}
+.card:hover {
+    transform: translateY(-8px);
+    box-shadow: 
+        0 0 100px rgba(124, 77, 255, 0.15),
+        0 30px 80px rgba(0, 0, 0, 0.8),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+.card-title {
+    color: #00ffff;
+    font-weight: 800;
+    font-size: 16px !important;         /* 🔧 Força tamanho visível */
+    line-height: 1.4 !important;        /* 🔧 Garante altura de linha */
+    margin-top: 0;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    position: relative;
+    z-index: 2;
+    display: block;                     /* 🔧 Força display block */
+    opacity: 1;                         /* 🔧 Garante opacidade total */
+    visibility: visible;                /* 🔧 Garante visibilidade */
+    height: auto;                       /* 🔧 Altura automática */
+    overflow: visible;                  /* 🔧 Sem overflow oculto */
+}
+
+/* 🔒 Garantia de alinhamento no contexto do grid - SEM afetar visibilidade */
+.cards-grid .card {
+    /* 🔧 REMOVIDO line-height: 0 - causava colapso dos títulos */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Garante que todos os elementos dentro do card sejam visíveis */
+.cards-grid .card > * {
+    line-height: normal;         /* Altura de linha normal */
+    font-size: inherit;          /* Herda tamanho de fonte do pai */
+}
+
+/* Garante que o primeiro elemento visível não tenha margem superior no grid */
+.cards-grid .card > *:first-child {
+    margin-top: 0 !important;
+}
+
+.card-span-2 { 
+    grid-column: span 2; 
+}
+.warn { 
+    color: #ff3366; 
+    font-weight: 800; 
+    text-shadow: 0 0 10px rgba(255, 51, 102, 0.5);
+    animation: pulse-warn 2s infinite;
+}
+.diag-section { 
+    margin-top: 16px; 
+}
+.diag-heading { 
+    color: #ffd700; 
+    font-weight: 900; 
+    font-size: 14px;
+    margin-bottom: 12px; 
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+.diag-item { 
+    padding: 16px 18px; 
+    border-radius: 16px; 
+    margin-bottom: 12px; 
+    border: 1px solid rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s ease;
+}
+.diag-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+    animation: flow 4s infinite;
+}
+.diag-item.danger { 
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.08), rgba(255, 0, 85, 0.05));
+    border-color: rgba(255, 51, 102, 0.3);
+    box-shadow: 0 0 30px rgba(255, 51, 102, 0.1);
+}
+.diag-item.info { 
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.08), rgba(124, 77, 255, 0.05));
+    border-color: rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.1);
+}
+.diag-title { 
+    color: #ffffff; 
+    font-weight: 700; 
+    font-size: 15px;
+    position: relative;
+    z-index: 2;
+}
+.diag-tip { 
+    color: #b388ff; 
+    font-size: 13px; 
+    margin-top: 6px; 
+    opacity: 0.9;
+    position: relative;
+    z-index: 2;
+}
+.diag-empty { 
+    color: #c1b5e8; 
+    opacity: 0.6; 
+    font-style: italic; 
+    text-align: center;
+    padding: 20px;
+}
+.tag { 
+    padding: 6px 14px; 
+    border-radius: 20px; 
+    font-weight: 800; 
+    font-size: 12px; 
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+.tag::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.6s ease;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+}
+.tag:hover::before {
+    width: 200px;
+    height: 200px;
+}
+.tag-danger { 
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.2), rgba(255, 0, 85, 0.15)); 
+    color: #ff3366; 
+    border: 1px solid rgba(255, 51, 102, 0.4);
+    box-shadow: 0 0 20px rgba(255, 51, 102, 0.2);
+}
+.tag-success { 
+    background: linear-gradient(135deg, rgba(0, 255, 146, 0.2), rgba(0, 255, 195, 0.15)); 
+    color: #00ff92; 
+    border: 1px solid rgba(0, 255, 146, 0.4);
+    box-shadow: 0 0 20px rgba(0, 255, 146, 0.2);
+}
+
+@media (max-width: 1200px) {
+    .cards-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+    .cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .cards-grid { grid-template-columns: 1fr; }
+    .card-span-2 { grid-column: span 1; }
+}
+
+/* Texto informativo acima dos botões de ação */
+.analysis-helper-text {
+    text-align: center;
+    color: #b8b8ff;
+    font-size: 0.95rem;
+    font-weight: 400;
+    margin: 20px 0 25px 0;
+    line-height: 1.6;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    opacity: 0.9;
+}
+
+.analysis-helper-text strong {
+    color: #e0e8ff;
+    font-weight: 600;
+}
+
+/* Ações do modal */
+.analysis-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #7c4dff, #651fff);
+    color: #fff;
+}
+
+.action-btn.secondary {
+    background: rgba(51, 51, 51, 0.8);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn.primary:hover {
+    box-shadow: 0 6px 20px rgba(124, 77, 255, 0.35);
+}
+
+/* Animações */
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-warn {
+    0%, 100% { text-shadow: 0 0 10px rgba(255, 51, 102, 0.5); }
+    50% { text-shadow: 0 0 20px rgba(255, 51, 102, 0.8); }
+}
+
+@keyframes flow {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes border-glow {
+    0%, 100% { 
+        background: linear-gradient(45deg, 
+            rgba(0, 255, 255, 0.3) 0%,
+            rgba(124, 77, 255, 0.3) 25%,
+            rgba(255, 0, 255, 0.3) 50%,
+            rgba(124, 77, 255, 0.3) 75%,
+            rgba(0, 255, 255, 0.3) 100%);
+    }
+    50% { 
+        background: linear-gradient(45deg, 
+            rgba(255, 0, 255, 0.4) 0%,
+            rgba(0, 255, 255, 0.4) 25%,
+            rgba(124, 77, 255, 0.4) 50%,
+            rgba(0, 255, 255, 0.4) 75%,
+            rgba(255, 0, 255, 0.4) 100%);
+    }
+}
+
+@keyframes icon-pulse {
+    0%, 100% { 
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    50% { 
+        transform: scale(1.05);
+        filter: brightness(1.2);
+    }
+}
+
+@keyframes spin-glow {
+    0% { 
+        transform: rotate(0deg);
+        box-shadow: 
+            0 0 30px rgba(0, 255, 255, 0.3),
+            0 0 60px rgba(124, 77, 255, 0.2),
+            inset 0 0 30px rgba(255, 255, 255, 0.1);
+    }
+    33% {
+        box-shadow: 
+            0 0 30px rgba(124, 77, 255, 0.3),
+            0 0 60px rgba(255, 0, 255, 0.2),
+            inset 0 0 30px rgba(255, 255, 255, 0.1);
+    }
+    66% {
+        box-shadow: 
+            0 0 30px rgba(255, 0, 255, 0.3),
+            0 0 60px rgba(0, 255, 255, 0.2),
+            inset 0 0 30px rgba(255, 255, 255, 0.1);
+    }
+    100% { 
+        transform: rotate(360deg);
+        box-shadow: 
+            0 0 30px rgba(0, 255, 255, 0.3),
+            0 0 60px rgba(124, 77, 255, 0.2),
+            inset 0 0 30px rgba(255, 255, 255, 0.1);
+    }
+}
+
+@keyframes spin-reverse {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+/* ===========================================
+   MELHORIAS VISUAIS ESCOPADAS - MODAL ÁUDIO
+   =========================================== */
+
+/* Override escopado para estados do modal */
+.audio-modal .audio-modal-content {
+    /* Estado padrão - compacto para upload */
+    min-height: auto;
+    max-height: 85vh;
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 
+        0 25px 80px rgba(0, 0, 0, 0.6),
+        0 0 40px rgba(124, 77, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Estado de resultados - modal expandido */
+.audio-modal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+    width: 90vw;
+    max-width: 1400px;
+    max-height: 92vh;
+    min-height: 80vh;
+}
+
+/* Estado de upload - modal compacto */
+.audio-modal .audio-modal-content:has(.audio-upload-area:not([style*="display: none"])) {
+    max-width: 580px;
+    max-height: 60vh;
+    min-height: auto;
+}
+
+/* Estado de loading - modal médio */
+.audio-modal .audio-modal-content:has(.audio-loading:not([style*="display: none"])) {
+    max-width: 520px;
+    max-height: 40vh;
+    min-height: auto;
+}
+
+/* ===============================
+   ESTADO 1: ESCOLHER ARQUIVO
+   =============================== */
+
+.audio-modal .audio-upload-area {
+    padding: 32px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.audio-modal .upload-content {
+    text-align: center;
+    padding: 40px 32px;
+    border: 2px dashed rgba(124, 77, 255, 0.4);
+    border-radius: 16px;
+    background: linear-gradient(135deg, 
+        rgba(124, 77, 255, 0.05) 0%, 
+        rgba(156, 39, 176, 0.03) 50%, 
+        rgba(124, 77, 255, 0.05) 100%);
+    backdrop-filter: blur(8px);
+    transition: all 180ms ease;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.audio-modal .upload-content:hover {
+    border-color: rgba(124, 77, 255, 0.6);
+    background: linear-gradient(135deg, 
+        rgba(124, 77, 255, 0.08) 0%, 
+        rgba(156, 39, 176, 0.05) 50%, 
+        rgba(124, 77, 255, 0.08) 100%);
+    transform: translateY(-2px);
+}
+
+.audio-modal .upload-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #7c4dff, #9c27b0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.audio-modal .upload-content h4 {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    text-shadow: 0 0 20px rgba(124, 77, 255, 0.3);
+}
+
+.audio-modal .upload-content p {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 16px;
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+.audio-modal .supported-formats {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 16px;
+}
+
+.audio-modal .format-recommendation {
+    color: #4CAF50 !important;
+    font-size: 12px !important;
+    font-weight: 500;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    margin: 10px 0 !important;
+}
+
+.audio-modal .upload-btn {
+    height: 52px;
+    min-width: 200px;
+    margin-top: 24px;
+    background: linear-gradient(135deg, #7c4dff, #9c27b0);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 180ms ease;
+    box-shadow: 0 4px 20px rgba(124, 77, 255, 0.3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    outline-offset: 2px;
+}
+
+.audio-modal .upload-btn:hover {
+    background: linear-gradient(135deg, #8c5aff, #ab47bc);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(124, 77, 255, 0.4);
+}
+
+.audio-modal .upload-btn:focus-visible {
+    outline: 2px solid rgba(124, 77, 255, 0.8);
+    outline-offset: 2px;
+}
+
+/* ===============================
+   ESTADO 2: CARREGANDO
+   =============================== */
+
+.audio-modal .audio-loading {
+    padding: 40px 32px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    min-height: 240px;
+    justify-content: center;
+}
+
+.audio-modal .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid #7c4dff;
+    border-radius: 50%;
+    animation: spin 1.2s linear infinite;
+}
+
+.audio-modal #audioProgressText {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 0 10px rgba(124, 77, 255, 0.4);
+}
+
+.audio-modal .progress-bar {
+    width: 100%;
+    max-width: 380px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0;
+}
+
+.audio-modal .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c4dff, #9c27b0);
+    border-radius: 6px;
+    transition: width 250ms ease;
+    box-shadow: 0 0 12px rgba(124, 77, 255, 0.4);
+}
+
+/* ===============================
+   ESTADO 3: RESULTADOS
+   =============================== */
+
+.audio-modal .audio-results {
+    padding: 24px 32px 32px 32px;
+    max-height: calc(92vh - 80px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 77, 255, 0.4) transparent;
+}
+
+.audio-modal .audio-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.audio-modal .audio-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.audio-modal .audio-results::-webkit-scrollbar-thumb {
+    background: rgba(124, 77, 255, 0.4);
+    border-radius: 3px;
+}
+
+.audio-modal .results-header h4 {
+    text-align: center;
+    font-size: 20px;
+    color: #ffffff;
+    text-shadow: 0 0 15px rgba(124, 77, 255, 0.4);
+    margin-bottom: 32px;
+}
+
+/* Grid responsivo para métricas */
+.audio-modal .technical-data {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* KPIs no topo */
+.audio-modal .kpi-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.audio-modal .kpi {
+    min-width: 160px;
+    padding: 24px 20px;
+    background: linear-gradient(135deg, 
+        rgba(124, 77, 255, 0.1) 0%, 
+        rgba(156, 39, 176, 0.05) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(124, 77, 255, 0.2);
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.audio-modal .kpi-value {
+    font-family: 'Segoe UI', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    color: #7c4dff;
+    text-shadow: 0 0 15px rgba(124, 77, 255, 0.5);
+    margin-bottom: 8px;
+}
+
+.audio-modal .kpi-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+}
+
+/* Grid de cards principais */
+.audio-modal .cards-grid {
+    display: grid;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+/* Responsividade do grid */
+@media (min-width: 1280px) {
+    .audio-modal .cards-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (min-width: 900px) and (max-width: 1279px) {
+    .audio-modal .cards-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+    .audio-modal .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 599px) {
+    .audio-modal .cards-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .audio-modal .card-span-2 {
+        grid-column: span 1;
+    }
+}
+
+.audio-modal .card {
+    background: linear-gradient(135deg, 
+        rgba(124, 77, 255, 0.08) 0%, 
+        rgba(156, 39, 176, 0.04) 50%,
+        rgba(124, 77, 255, 0.08) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(124, 77, 255, 0.15);
+    border-radius: 14px;
+    padding: 20px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    transition: transform 150ms ease;
+}
+
+.audio-modal .card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124, 77, 255, 0.25);
+}
+
+.audio-modal .card-title {
+    font-size: 14px !important;         /* 🔧 Mantém tamanho compacto no modal */
+    line-height: 1.4 !important;        /* 🔧 Garante altura de linha visível */
+    font-weight: 700;
+    color: #7c4dff;
+    text-shadow: 0 0 10px rgba(124, 77, 255, 0.3);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block !important;          /* 🔧 Força display block */
+    opacity: 1 !important;              /* 🔧 Garante opacidade */
+    visibility: visible !important;     /* 🔧 Garante visibilidade */
+    height: auto !important;            /* 🔧 Altura automática */
+    overflow: visible !important;       /* 🔧 Sem overflow oculto */
+}
+
+/* Cards com scroll interno para seções longas */
+.audio-modal .card:has(.diag-section) {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.audio-modal .card:has(.diag-section)::-webkit-scrollbar {
+    width: 4px;
+}
+
+.audio-modal .card:has(.diag-section)::-webkit-scrollbar-thumb {
+    background: rgba(124, 77, 255, 0.3);
+    border-radius: 2px;
+}
+
+/* Métricas dentro dos cards */
+.audio-modal .data-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 13px;
+}
+
+.audio-modal .data-row:last-child {
+    border-bottom: none;
+}
+
+.audio-modal .data-row .label {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 500;
+}
+
+.audio-modal .data-row .value {
+    color: #ffffff;
+    font-weight: 600;
+    font-family: 'Segoe UI', monospace;
+    letter-spacing: 0.3px;
+}
+
+/* Barras de progresso para scores */
+.audio-modal .metric-with-progress {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.audio-modal .metric-value-progress {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.audio-modal .progress-bar-mini {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.audio-modal .progress-fill-mini {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 300ms ease;
+    background: linear-gradient(90deg, #7c4dff, #9c27b0);
+    box-shadow: 0 0 8px currentColor;
+}
+
+/* Diagnósticos e problemas */
+.audio-modal .diag-heading {
+    color: #7c4dff;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 12px;
+    text-shadow: 0 0 8px rgba(124, 77, 255, 0.4);
+}
+
+.audio-modal .diag-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.audio-modal .diag-item.danger {
+    border-color: rgba(244, 67, 54, 0.3);
+    background: rgba(244, 67, 54, 0.05);
+}
+
+.audio-modal .diag-title {
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 4px;
+}
+
+.audio-modal .diag-tip {
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.3;
+}
+
+/* Tags */
+.audio-modal .tag {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.audio-modal .tag-danger {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.audio-modal .tag-success {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+/* Botões de ação */
+.audio-modal .analysis-helper-text {
+    text-align: center;
+    color: #b8b8ff;
+    font-size: 0.93rem;
+    font-weight: 400;
+    margin: 24px 0 20px 0;
+    line-height: 1.6;
+    max-width: 750px;
+    margin-left: auto;
+    margin-right: auto;
+    opacity: 0.85;
+    padding: 0 20px;
+}
+
+.audio-modal .analysis-helper-text strong {
+    color: #e0e8ff;
+    font-weight: 600;
+}
+
+.audio-modal .analysis-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-modal .action-btn {
+    flex: 1;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 180ms ease;
+    outline-offset: 2px;
+}
+
+.audio-modal .action-btn.primary {
+    background: linear-gradient(135deg, #7c4dff, #9c27b0);
+    color: white;
+    box-shadow: 0 4px 16px rgba(124, 77, 255, 0.3);
+}
+
+.audio-modal .action-btn.primary:hover {
+    background: linear-gradient(135deg, #8c5aff, #ab47bc);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(124, 77, 255, 0.4);
+}
+
+.audio-modal .action-btn.secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-modal .action-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.audio-modal .action-btn:focus-visible {
+    outline: 2px solid rgba(124, 77, 255, 0.8);
+    outline-offset: 2px;
+}
+
+/* Responsividade mobile específica */
+@media (max-width: 768px) {
+    .audio-modal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        width: 98vw;
+        max-height: 95vh;
+    }
+    
+    .audio-modal .audio-results {
+        padding: 20px 16px 24px 16px;
+    }
+    
+    .audio-modal .kpi-row {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .audio-modal .kpi {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    .audio-modal .analysis-helper-text {
+        font-size: 0.85rem;
+        margin: 20px 0 16px 0;
+        padding: 0 16px;
+        line-height: 1.5;
+    }
+    
+    .audio-modal .analysis-actions {
+        flex-direction: column;
+    }
+    
+    .audio-modal .action-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .audio-modal .upload-content {
+        padding: 32px 20px;
+    }
+    
+    .audio-modal .upload-content h4 {
+        font-size: 20px;
+    }
+    
+    .audio-modal .audio-loading {
+        padding: 32px 20px;
+    }
+    
+    .audio-modal .analysis-helper-text {
+        font-size: 0.8rem;
+        margin: 16px 0 12px 0;
+        padding: 0 12px;
+        line-height: 1.4;
+    }
+}
+
+/* Barras de progresso para métricas */
+.metric-with-progress {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px;
+}
+
+.metric-value-progress {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+}
+
+.progress-bar-mini {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progress-fill-mini {
+    height: 100%;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    border-radius: 3px;
+    transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    box-shadow: 0 0 10px currentColor;
+}
+
+.progress-fill-mini::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+/* Responsivo para modal */
+@media (max-width: 600px) {
+    .audio-modal-content {
+        width: 95%;
+        margin: 20px;
+        max-height: calc(100dvh - 40px);
+        max-height: calc(100vh - 40px);
+    }
+    
+    .audio-upload-area {
+        padding: 20px 16px;
+    }
+    
+    .upload-content {
+        padding: 30px 15px;
+    }
+    
+    .analysis-actions {
+        flex-direction: column;
+    }
+    
+    .chatbot-audio-analyze-btn {
+        width: 28px;
+        height: 28px;
+        margin: 0 4px;
+    }
+}
+
+/* 📝 CSS para Cards Didáticos de Sugestões */
+.didactic-card {
+    min-height: auto !important;
+    height: auto !important;
+    white-space: normal !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4 !important;
+}
+
+.didactic-card .diag-title {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    margin-bottom: 8px !important;
+    line-height: 1.3 !important;
+}
+
+.didactic-explanation {
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    color: #e8e8e8 !important;
+    margin: 8px 0 !important;
+    padding: 0 !important;
+}
+
+.didactic-action {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    padding: 8px !important;
+    margin: 8px 0 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 4px !important;
+    border-left: 2px solid #9fb3d9 !important;
+}
+
+.didactic-rationale {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    opacity: 0.85 !important;
+    font-style: italic !important;
+    margin: 8px 0 !important;
+    padding: 6px !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 3px !important;
+}
+
+.didactic-technical {
+    font-size: 10px !important;
+    line-height: 1.3 !important;
+    opacity: 0.7 !important;
+    margin-top: 8px !important;
+    padding: 4px !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 3px !important;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+}
+
+/* Severidade por cores nos cards didáticos */
+.didactic-card.severity-green {
+    border-left-color: #4CAF50 !important;
+}
+
+.didactic-card.severity-green .didactic-action {
+    border-left-color: #4CAF50 !important;
+}
+
+.didactic-card.severity-yellow {
+    border-left-color: #FFC107 !important;
+}
+
+.didactic-card.severity-yellow .didactic-action {
+    border-left-color: #FFC107 !important;
+}
+
+.didactic-card.severity-orange {
+    border-left-color: #FF9800 !important;
+}
+
+.didactic-card.severity-orange .didactic-action {
+    border-left-color: #FF9800 !important;
+}
+
+.didactic-card.severity-red {
+    border-left-color: #F44336 !important;
+}
+
+.didactic-card.severity-red .didactic-action {
+    border-left-color: #F44336 !important;
+}
+
+/* Ajustes responsivos para cards didáticos */
+@media (max-width: 600px) {
+    .didactic-card {
+        padding: 10px !important;
+    }
+    
+    .didactic-explanation {
+        font-size: 12px !important;
+    }
+    
+    .didactic-action {
+        font-size: 11px !important;
+        padding: 6px !important;
+    }
+    
+    .didactic-rationale {
+        font-size: 10px !important;
+        padding: 4px !important;
+    }
+}
+
+/* Melhorias para largura dos cards em containers pequenos */
+.diag-section {
+    width: 100%;
+    max-width: none;
+}
+
+.diag-section .didactic-card {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Auto-height para todos os itens de diagnóstico */
+.diag-item {
+    height: auto !important;
+    min-height: 60px;
+}
+
+/* 🚨 CSS para Avisos Críticos */
+.diag-item.critical {
+    border-left-color: #F44336 !important;
+    border-left-width: 4px !important;
+    background: rgba(244, 67, 54, 0.1) !important;
+    animation: critical-pulse 2s infinite;
+}
+
+.diag-item.critical .diag-title {
+    color: #F44336 !important;
+    font-weight: 700 !important;
+}
+
+@keyframes critical-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(244, 67, 54, 0.1);
+    }
+}
+
+/* 🔍 Animação para inconsistências */
+@keyframes inconsistent-flash {
+    0%, 100% { 
+        border-left-color: #FF9800;
+        background: rgba(255, 152, 0, 0.1);
+    }
+    50% { 
+        border-left-color: #F57C00;
+        background: rgba(245, 124, 0, 0.15);
+    }
+}
+
+.diag-item.inconsistent {
+    animation: inconsistent-flash 1.5s infinite;
+}
+
+/* Responsividade para avisos críticos */
+@media (max-width: 600px) {
+    .diag-item.critical {
+        margin: 8px 0;
+        padding: 8px;
+    }
+    
+    .diag-item.inconsistent {
+        margin: 8px 0;
+        padding: 8px;
+    }
+}
+
+/* ======================================================================
+   🎯 MODAL DE SELEÇÃO DE MODO - VISUAL FUTURISTA MODERNIZADO
+   ====================================================================== */
+
+/* Modal de seleção de modo - Container principal */
+.mode-selection-modal {
+    max-width: 720px !important;
+    max-height: calc(100dvh - 40px) !important;
+    max-height: calc(100vh - 40px) !important;
+    height: auto !important;
+    width: 90% !important;
+    overflow: hidden !important;
+    padding: 40px 32px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    background: radial-gradient( 
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,       /* Roxo vibrante no canto */
+        rgba(0, 0, 0, 0.95) 60%,          /* Preto no centro */
+        rgba(0, 102, 255, 0.4) 100%       /* Azul elétrico nas bordas */
+    ) !important;
+    backdrop-filter: blur(8px) !important;
+    box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
+                0 0 60px rgba(0, 102, 255, 0.2) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+}
+
+/* LINHAS NEURAIS VANTA - MODAL DE SELEÇÃO */
+.mode-selection-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 154, 255, 0.03) 40px,
+            rgba(106, 154, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 0, 255, 0.03) 40px,
+            rgba(106, 0, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 60px,
+            rgba(0, 212, 255, 0.02) 60px,
+            rgba(0, 212, 255, 0.02) 61px
+        );
+    opacity: 0.6;
+    animation: neural-grid-mode 15s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Partículas flutuantes - Modal seleção */
+.mode-selection-modal::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: 
+        radial-gradient(circle, rgba(106, 0, 255, 0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px, 80px 80px;
+    background-position: 0 0, 25px 25px;
+    animation: particles-float-mode 20s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes neural-grid-mode {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 0.4;
+    }
+    100% {
+        transform: translate(40px, 40px);
+        opacity: 0.6;
+    }
+}
+
+@keyframes particles-float-mode {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    100% {
+        transform: translate(50px, 50px) rotate(360deg);
+    }
+}
+
+/* Garante que conteúdo fica acima */
+.mode-selection-modal > * {
+    position: relative;
+    z-index: 5;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap');
+
+.analysis-modal-title,
+.genre-modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+
+  /* 🌈 Degradê futurista */
+  background: linear-gradient(90deg, #6a00ff, #00f0ff);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+
+  /* ✨ Brilho externo bem suave */
+  text-shadow:
+    0 0 6px rgba(106, 0, 255, 0.3),
+    0 0 12px rgba(0, 240, 255, 0.25);
+
+  margin-bottom: 1rem;
+}
+
+/* 📱 Responsividade */
+@media (max-width: 600px) {
+  .analysis-modal-title,
+  .genre-modal-title {
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+  }
+}
+
+/* Header do modal - centralizado */
+.mode-selection-modal .audio-modal-header {
+    text-align: center !important;
+    margin-bottom: 8px !important;
+    position: relative !important;
+}
+
+/* Botão de fechar - estilo moderno */
+.mode-selection-modal .audio-modal-close {
+    position: absolute !important;
+    top: -10px !important;
+    right: -10px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.mode-selection-modal .audio-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    transform: scale(1.1) !important;
+}
+
+.mode-selection-container {
+    padding: 8px 0;
+}
+
+.mode-selection-description {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.mode-selection-description p {
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: 1rem !important;
+    line-height: 1.5;
+    margin: 0;
+    font-weight: 400 !important;
+}
+
+.mode-selection-options {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+/* Botões de opção de modo - Estilo futurista moderno */
+.mode-option-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 500px;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 16px !important;
+    color: white !important;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    backdrop-filter: blur(10px) !important;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    font-weight: 600 !important;
+}
+
+.mode-option-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.mode-option-btn:hover {
+    background: rgba(0, 102, 255, 0.15) !important;
+    border-color: rgba(36, 157, 255, 0.4) !important;
+    transform: scale(1.03) translateY(-2px) !important;
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(0, 102, 255, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.mode-option-btn:hover::before {
+    left: 100%;
+}
+
+.mode-option-btn:active {
+    transform: scale(0.98) translateY(1px) !important;
+    transition: transform 120ms ease !important;
+}
+
+/* Layout dos botões - esquerda e direita */
+.mode-option-btn .mode-option-icon {
+    font-size: 2rem !important;
+    margin-right: 16px !important;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) !important;
+}
+
+/* Estilo para o ícone SVG de fones de ouvido */
+.icon-phones {
+    color: #e6f7ff !important;
+    filter: drop-shadow(0 0 8px rgba(0,170,255,.45)) !important;
+    margin-right: 16px !important;
+    flex-shrink: 0 !important;
+}
+
+.mode-option-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.mode-option-content {
+    flex: 1;
+    margin-left: 4px;
+}
+
+.mode-option-content h4 {
+    margin: 0 0 4px 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    font-family: 'Orbitron', 'Rajdhani', sans-serif !important;
+    letter-spacing: 0.5px !important;
+}
+
+.mode-option-content p {
+    margin: 0 0 8px 0 !important;
+    font-size: 0.9rem !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    line-height: 1.4 !important;
+    font-weight: 400 !important;
+}
+
+.mode-option-right {
+    font-size: 1.5rem !important;
+    opacity: 0.6 !important;
+    margin-left: 16px !important;
+    transition: all 0.3s ease !important;
+    transform: translateX(0);
+}
+
+.mode-option-btn:hover .mode-option-right {
+    opacity: 1 !important;
+    transform: translateX(4px) !important;
+}
+
+.mode-option-badge {
+    display: inline-block;
+    padding: 4px 12px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-top: 4px !important;
+}
+
+.mode-option-badge:not(.new) {
+    background: rgba(76, 175, 80, 0.2) !important;
+    color: #4caf50 !important;
+    border: 1px solid rgba(76, 175, 80, 0.4) !important;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.2) !important;
+}
+
+.mode-option-badge.new {
+    background: rgba(255, 193, 7, 0.2) !important;
+    color: #ffc107 !important;
+    border: 1px solid rgba(255, 193, 7, 0.4) !important;
+    animation: new-badge-glow 2s infinite alternate !important;
+}
+
+@keyframes new-badge-glow {
+    0% {
+        box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
+    }
+    100% {
+        box-shadow: 0 0 16px rgba(255, 193, 7, 0.6);
+    }
+}
+
+.mode-option-arrow {
+    font-size: 24px;
+    color: rgba(0, 102, 255, 0.7);
+    margin-left: 16px;
+    transition: all 280ms ease;
+    transform: translateX(0);
+}
+
+.mode-option-btn:hover .mode-option-arrow {
+    color: rgba(0, 102, 255, 1);
+    transform: translateX(4px);
+}
+
+/* Estado quando modo referência está desabilitado */
+.mode-option-btn[disabled] {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .mode-selection-modal {
+        max-width: 95vw !important;
+        width: 95% !important;
+        margin: 20px auto !important;
+        padding: 32px 24px !important;
+        overflow: hidden !important;
+    }
+    
+    .mode-selection-modal .audio-modal-header h3 {
+        font-size: 2rem !important;
+        letter-spacing: 1px !important;
+        gap: 8px !important;
+    }
+    
+    .mode-selection-modal .audio-modal-header h3 .icon {
+        font-size: 1.8rem !important;
+    }
+    
+    .mode-selection-description p {
+        font-size: 0.9rem !important;
+    }
+    
+    .mode-option-btn {
+        padding: 18px 20px !important;
+        max-width: 100% !important;
+    }
+    
+    .mode-option-btn .mode-option-icon {
+        font-size: 1.8rem !important;
+        margin-right: 14px !important;
+    }
+    
+    .mode-option-content h4 {
+        font-size: 1rem !important;
+    }
+    
+    .mode-option-content p {
+        font-size: 0.85rem !important;
+    }
+    
+    .mode-option-right {
+        font-size: 1.3rem !important;
+        margin-left: 12px !important;
+    }
+    
+    .mode-option-badge {
+        font-size: 0.7rem !important;
+        padding: 3px 10px !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .mode-selection-modal {
+        max-width: 90% !important;
+        padding: 30px 20px !important;
+        overflow: hidden !important;
+    }
+    
+    .analysis-modal-title,
+    .genre-modal-title {
+        font-size: 1.8rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    .icon-phones {
+        width: 22px !important;
+        height: 22px !important;
+        margin-right: 12px !important;
+    }
+    
+    .mode-option-btn {
+        padding: 16px 18px !important;
+    }
+    
+    .mode-option-content h4 {
+        font-size: 0.95rem !important;
+    }
+    
+    .mode-option-content p {
+        font-size: 0.8rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .mode-selection-modal {
+        padding: 28px 20px !important;
+        overflow: hidden !important;
+    }
+    
+    .analysis-modal-title,
+    .genre-modal-title {
+        font-size: 1.6rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    .mode-option-btn {
+        padding: 16px 18px !important;
+    }
+    
+    .mode-option-btn .mode-option-icon {
+        font-size: 1.5rem !important;
+        margin-right: 12px !important;
+    }
+}
+
+/* Acessibilidade - foco via teclado */
+.mode-option-btn:focus {
+    outline: none !important;
+    border-color: rgba(36, 157, 255, 0.8) !important;
+    box-shadow: 
+        0 0 0 3px rgba(36, 157, 255, 0.3),
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(36, 157, 255, 0.5) !important;
+}
+
+.mode-selection-modal .audio-modal-close:focus {
+    outline: none !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ======================================================================
+   📝 PROGRESS STEPS - MODO REFERÊNCIA
+   ====================================================================== */
+
+.audio-modal-subtitle {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+    text-align: center;
+}
+
+.reference-progress-steps {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+    padding: 0 20px;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex: 1;
+    max-width: 120px;
+}
+
+.progress-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    right: -50%;
+    width: 100%;
+    height: 2px;
+    background: rgba(124, 77, 255, 0.3);
+    z-index: 1;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(124, 77, 255, 0.2);
+    border: 2px solid rgba(124, 77, 255, 0.4);
+    color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Orbitron', monospace;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 2;
+    transition: all 280ms ease;
+}
+
+.step-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    line-height: 1.3;
+    font-weight: 500;
+}
+
+/* Estados dos steps */
+.progress-step.active .step-number {
+    background: rgba(124, 77, 255, 0.8);
+    border-color: rgba(124, 77, 255, 1);
+    color: white;
+    box-shadow: 0 0 16px rgba(124, 77, 255, 0.4);
+}
+
+.progress-step.active .step-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.progress-step.completed .step-number {
+    background: rgba(76, 175, 80, 0.8);
+    border-color: rgba(76, 175, 80, 1);
+    color: white;
+}
+
+.progress-step.completed .step-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.progress-step.completed::after {
+    background: rgba(76, 175, 80, 0.6);
+}
+
+/* Responsividade mobile */
+@media (max-width: 768px) {
+    .reference-progress-steps {
+        margin: 16px 0;
+        padding: 0 10px;
+    }
+    
+    .progress-step {
+        max-width: 80px;
+    }
+    
+    .step-number {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+    
+    .step-label {
+        font-size: 11px;
+    }
+    
+    .progress-step:not(:last-child)::after {
+        right: -60%;
+    }
+}
+
+/* ======================================================================
+   🎯 SEÇÃO DE COMPARAÇÃO COM REFERÊNCIA
+   ====================================================================== */
+
+.reference-comparison-section {
+    background: linear-gradient(135deg, 
+        rgba(156, 39, 176, 0.08) 0%, 
+        rgba(124, 77, 255, 0.05) 50%, 
+        rgba(156, 39, 176, 0.08) 100%);
+    border: 1px solid rgba(156, 39, 176, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 20px 0;
+    backdrop-filter: blur(8px);
+}
+
+.comparison-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.comparison-header h4 {
+    color: white;
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    text-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+}
+
+.comparison-files {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.file-indicator {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.file-indicator.user {
+    background: rgba(33, 150, 243, 0.2);
+    border: 1px solid rgba(33, 150, 243, 0.4);
+    color: #64B5F6;
+}
+
+.file-indicator.reference {
+    background: rgba(156, 39, 176, 0.2);
+    border: 1px solid rgba(156, 39, 176, 0.4);
+    color: #CE93D8;
+}
+
+.vs-indicator {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.comparison-content {
+    margin-top: 20px;
+}
+
+.comparison-grid {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.comparison-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    transition: all 280ms ease;
+}
+
+.comparison-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(156, 39, 176, 0.3);
+}
+
+.comparison-row.unavailable {
+    opacity: 0.6;
+}
+
+.comparison-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.comparison-values {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.value-pair {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.user-value {
+    color: #64B5F6;
+    padding: 4px 8px;
+    background: rgba(33, 150, 243, 0.1);
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.ref-value {
+    color: #CE93D8;
+    padding: 4px 8px;
+    background: rgba(156, 39, 176, 0.1);
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.difference-indicator {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 60px;
+    text-align: center;
+}
+
+.difference-indicator.positive {
+    background: rgba(255, 193, 7, 0.2);
+    color: #FFD54F;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.difference-indicator.negative {
+    background: rgba(33, 150, 243, 0.2);
+    color: #64B5F6;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.difference-indicator.neutral {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81C784;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.comparison-unavailable {
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+    font-size: 13px;
+}
+
+/* Seção espectral */
+.spectral-comparison {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.spectral-comparison h5 {
+    color: white;
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 16px 0;
+    text-align: center;
+}
+
+.spectral-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+}
+
+.spectral-card {
+    padding: 12px 8px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid;
+    transition: all 280ms ease;
+}
+
+.spectral-card.high-positive {
+    background: rgba(244, 67, 54, 0.15);
+    border-color: rgba(244, 67, 54, 0.4);
+    color: #EF5350;
+}
+
+.spectral-card.positive {
+    background: rgba(255, 193, 7, 0.15);
+    border-color: rgba(255, 193, 7, 0.4);
+    color: #FFD54F;
+}
+
+.spectral-card.neutral {
+    background: rgba(76, 175, 80, 0.15);
+    border-color: rgba(76, 175, 80, 0.4);
+    color: #81C784;
+}
+
+.spectral-card.negative {
+    background: rgba(33, 150, 243, 0.15);
+    border-color: rgba(33, 150, 243, 0.4);
+    color: #64B5F6;
+}
+
+.spectral-card.high-negative {
+    background: rgba(63, 81, 181, 0.15);
+    border-color: rgba(63, 81, 181, 0.4);
+    color: #7986CB;
+}
+
+.spectral-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.spectral-band-name {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    opacity: 0.9;
+}
+
+.spectral-difference {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Orbitron', monospace;
+}
+
+/* Responsividade mobile para comparação */
+@media (max-width: 768px) {
+    .reference-comparison-section {
+        margin: 16px -8px;
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .comparison-files {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .file-indicator {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+    
+    .comparison-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+    
+    .comparison-values {
+        width: 100%;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    
+    .value-pair {
+        gap: 6px;
+    }
+    
+    .spectral-grid {
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+        gap: 6px;
+    }
+    
+    .spectral-card {
+        padding: 8px 4px;
+    }
+    
+    .spectral-band-name {
+        font-size: 10px;
+    }
+    
+    .spectral-difference {
+        font-size: 12px;
+    }
+}
+
+/* ============ 🚨 TRUE PEAK PRIORITY STYLES ============ */
+
+/* True Peak Priority Card */
+.enhanced-card.true-peak-priority {
+    background: linear-gradient(135deg, rgba(255, 87, 34, 0.15), rgba(255, 87, 34, 0.05));
+    border: 2px solid #FF5722;
+    box-shadow: 0 8px 32px rgba(255, 87, 34, 0.3);
+    position: relative;
+    animation: priorityPulse 2s ease-in-out infinite;
+}
+
+.enhanced-card.true-peak-priority::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #FF5722, #FF9800, #FFC107, #FF9800, #FF5722);
+    background-size: 300% 300%;
+    border-radius: 18px;
+    z-index: -1;
+    animation: priorityGradient 3s ease infinite;
+}
+
+.enhanced-card.true-peak-priority:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(255, 87, 34, 0.4);
+}
+
+/* Priority Warning Box */
+.priority-warning {
+    animation: warningGlow 2s ease-in-out infinite alternate;
+    font-weight: 600;
+    border-left: 4px solid #FFC107 !important;
+}
+
+/* Priority Badge */
+.priority-badge.primeiro {
+    background: linear-gradient(135deg, #FFC107, #FF9800);
+    color: #000;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+    animation: priorityBadge 1.5s ease-in-out infinite;
+}
+
+/* Severity Badge Critical */
+.severity-badge.critica {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+}
+
+/* Priority Animations */
+@keyframes priorityPulse {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(255, 87, 34, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(255, 87, 34, 0.6);
+    }
+}
+
+@keyframes priorityGradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes warningGlow {
+    0% {
+        background-color: rgba(255, 193, 7, 0.2);
+        border-color: #FFC107;
+    }
+    100% {
+        background-color: rgba(255, 193, 7, 0.35);
+        border-color: #FFD54F;
+    }
+}
+
+@keyframes priorityBadge {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.6);
+    }
+}
+
+/* Responsive adjustments for priority warning */
+@media (max-width: 768px) {
+    .enhanced-card.true-peak-priority {
+        border-width: 1px;
+        padding: 16px;
+    }
+    
+    .priority-warning {
+        padding: 10px;
+        margin: 10px 0;
+        font-size: 13px;
+    }
+    
+    .priority-badge.primeiro {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+}
+
+/* ======================================================================
+   🌟 MODAL DE BOAS-VINDAS À ANÁLISE - DARK DESIGN (IGUAL MODAL DE SELEÇÃO)
+   ====================================================================== */
+
+/* Container do modal - DARK e CENTRALIZADO */
+.welcome-modal-content {
+    max-width: 620px !important;
+    width: 90% !important;
+    max-height: calc(100dvh - 60px) !important;
+    max-height: calc(100vh - 60px) !important;
+    height: auto !important;
+    padding: 32px 36px 36px 36px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    overflow: hidden !important;
+    
+    /* BACKGROUND DARK - IGUAL AO MODAL DE SELEÇÃO */
+    background: radial-gradient( 
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,
+        rgba(0, 0, 0, 0.95) 60%,
+        rgba(0, 102, 255, 0.4) 100%
+    ) !important;
+    backdrop-filter: blur(8px) !important;
+    box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
+                0 0 60px rgba(0, 102, 255, 0.2) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+}
+
+/* LINHAS NEURAIS VANTA - FUNDO TECH */
+.welcome-modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 154, 255, 0.03) 40px,
+            rgba(106, 154, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 0, 255, 0.03) 40px,
+            rgba(106, 0, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 60px,
+            rgba(0, 212, 255, 0.02) 60px,
+            rgba(0, 212, 255, 0.02) 61px
+        );
+    opacity: 0.6;
+    animation: neural-grid-welcome 15s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Partículas flutuantes */
+.welcome-modal-content::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: 
+        radial-gradient(circle, rgba(106, 0, 255, 0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px, 80px 80px;
+    background-position: 0 0, 25px 25px;
+    animation: particles-float-welcome 20s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes neural-grid-welcome {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 0.4;
+    }
+    100% {
+        transform: translate(40px, 40px);
+        opacity: 0.6;
+    }
+}
+
+@keyframes particles-float-welcome {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    100% {
+        transform: translate(50px, 50px) rotate(360deg);
+    }
+}
+
+/* Garante que conteúdo fica acima do fundo neural */
+.welcome-modal-content > * {
+    position: relative;
+    z-index: 5;
+}
+
+/* Header do modal de boas-vindas */
+.welcome-modal-content .audio-modal-header {
+    text-align: center !important;
+    margin-bottom: 16px !important;
+    position: relative !important;
+    display: block !important;
+    padding-right: 40px !important;
+}
+
+/* Botão X no canto superior direito */
+.welcome-modal-content .audio-modal-close {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    font-size: 20px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    line-height: 1 !important;
+    padding: 0 !important;
+}
+
+.welcome-modal-content .audio-modal-close:hover {
+    background: rgba(255, 0, 0, 0.2) !important;
+    border-color: rgba(255, 0, 0, 0.4) !important;
+    transform: scale(1.1) !important;
+}
+
+/* Título já usa .analysis-modal-title que está definido globalmente */
+.welcome-modal-content .analysis-modal-title {
+    font-size: 1.8rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Corpo do modal */
+.welcome-modal-body {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
+    align-items: center;
+}
+
+/* Subtítulo logo abaixo do título */
+.welcome-subtitle {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+    margin: 0 !important;
+    font-weight: 400 !important;
+    max-width: 520px;
+}
+
+/* Descrição principal - DARK STYLE */
+.welcome-description {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(106, 0, 255, 0.25) !important;
+    border-radius: 12px !important;
+    padding: 18px 22px !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: inset 0 1px 2px rgba(106, 0, 255, 0.1),
+                0 4px 16px rgba(0, 0, 0, 0.3) !important;
+    width: 100%;
+    max-width: 520px;
+}
+
+.welcome-description p {
+    color: rgba(255, 255, 255, 0.88) !important;
+    font-size: 0.92rem !important;
+    line-height: 1.6 !important;
+    margin: 0 0 10px 0 !important;
+    font-weight: 400 !important;
+    text-align: center !important;
+}
+
+.welcome-description p:last-of-type {
+    margin-bottom: 0 !important;
+}
+
+.welcome-description strong {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    text-shadow: 0 0 8px rgba(106, 0, 255, 0.4) !important;
+}
+
+/* Dica em destaque - DARK BLUE/PURPLE */
+.welcome-tip {
+    background: linear-gradient(135deg, rgba(0, 102, 255, 0.15), rgba(106, 0, 255, 0.1)) !important;
+    border: 1px solid rgba(0, 212, 255, 0.3) !important;
+    border-radius: 10px !important;
+    padding: 14px 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 4px 16px rgba(0, 102, 255, 0.1) !important;
+    width: 100%;
+    max-width: 520px;
+}
+
+.welcome-tip .tip-icon {
+    font-size: 1.2rem !important;
+    flex-shrink: 0 !important;
+    filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.6)) !important;
+}
+
+.welcome-tip p {
+    color: rgba(220, 240, 255, 0.95) !important;
+    font-size: 0.85rem !important;
+    line-height: 1.5 !important;
+    margin: 0 !important;
+    font-weight: 400 !important;
+    text-align: center !important;
+}
+
+.welcome-tip strong {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.5) !important;
+}
+
+/* Botões de ação */
+.welcome-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: center !important;
+    width: 100%;
+    max-width: 520px;
+    margin-top: 2px !important;
+}
+
+.welcome-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    padding: 13px 24px !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 10px !important;
+    color: white !important;
+    cursor: pointer !important;
+    font-weight: 600 !important;
+    font-size: 0.94rem !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    letter-spacing: 0.2px !important;
+    gap: 7px !important;
+}
+
+.welcome-btn::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: -100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent) !important;
+    transition: left 0.6s ease !important;
+}
+
+.welcome-btn:hover::before {
+    left: 100% !important;
+}
+
+/* Botão primário (Guia Técnico) */
+.welcome-btn.primary {
+    background: rgba(0, 212, 255, 0.15) !important;
+    border-color: rgba(0, 212, 255, 0.35) !important;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.15) !important;
+}
+
+.welcome-btn.primary:hover {
+    background: rgba(0, 212, 255, 0.25) !important;
+    border-color: rgba(0, 212, 255, 0.5) !important;
+    transform: scale(1.03) translateY(-2px) !important;
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 25px rgba(0, 212, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.welcome-btn.primary:active {
+    transform: scale(0.98) translateY(1px) !important;
+}
+
+/* Botão secundário (Continuar) */
+.welcome-btn.secondary {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.welcome-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    transform: scale(1.03) translateY(-2px) !important;
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(255, 255, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.welcome-btn.secondary:active {
+    transform: scale(0.98) translateY(1px) !important;
+}
+
+/* Responsividade MOBILE */
+@media (max-width: 768px) {
+    .welcome-modal-content {
+        max-width: 95vw !important;
+        width: 95% !important;
+        padding: 32px 24px 28px 24px !important;
+        overflow: hidden !important;
+    }
+    
+    .welcome-subtitle {
+        font-size: 0.95rem !important;
+    }
+    
+    .welcome-description {
+        padding: 16px 18px !important;
+    }
+    
+    .welcome-description p {
+        font-size: 0.9rem !important;
+    }
+    
+    .welcome-steps {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    
+    .welcome-steps li {
+        padding: 10px 14px !important;
+        font-size: 0.85rem !important;
+        text-align: left !important;
+    }
+    
+    .welcome-tip {
+        padding: 14px 16px !important;
+        gap: 10px !important;
+    }
+    
+    .welcome-tip .tip-icon {
+        font-size: 1.3rem !important;
+    }
+    
+    .welcome-tip p {
+        font-size: 0.85rem !important;
+    }
+    
+    .welcome-btn {
+        padding: 14px 20px !important;
+        font-size: 0.95rem !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .welcome-modal-content {
+        padding: 28px 20px 24px 20px !important;
+        overflow: hidden !important;
+    }
+    
+    .welcome-modal-body {
+        gap: 20px !important;
+    }
+    
+    .welcome-subtitle {
+        font-size: 0.9rem !important;
+    }
+    
+    .welcome-description p {
+        font-size: 0.85rem !important;
+    }
+    
+    .welcome-steps li {
+        font-size: 0.8rem !important;
+    }
+    
+    .welcome-tip p {
+        font-size: 0.8rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .welcome-modal-content {
+        padding: 24px 18px 22px 18px !important;
+    }
+    
+    .welcome-btn {
+        padding: 12px 18px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Acessibilidade - foco via teclado */
+.welcome-btn:focus {
+    outline: none !important;
+    border-color: rgba(0, 212, 255, 0.8) !important;
+    box-shadow: 
+        0 0 0 3px rgba(0, 212, 255, 0.3),
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(0, 212, 255, 0.5) !important;
+}
+
+.welcome-modal-content .audio-modal-close:focus {
+    outline: none !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ========================================
+   🎵 MODAL DE SELEÇÃO DE GÊNERO MUSICAL
+   ======================================== */
+
+/* Modal principal */
+.genre-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+    /* 🚫 SCROLL FIX: Overlay NÃO deve rolar, apenas o container interno */
+    overflow: hidden;
+}
+
+.genre-modal.hidden {
+    display: none;
+    opacity: 0;
+}
+
+/* Container do modal */
+.genre-modal-container {
+    background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 24px;
+    padding: 32px 24px 24px 24px;
+    max-width: 750px;
+    width: 90%;
+    max-height: calc(100dvh - 60px);
+    max-height: calc(100vh - 60px);
+    height: auto;
+    /* 🚫 SCROLL FIX: No desktop não rola, scroll virá do mobile */
+    overflow: hidden;
+    position: relative;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(0, 102, 255, 0.3);
+}
+
+/* Título do modal */
+.genre-modal-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    line-height: 1.1;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #6a00ff, #00f0ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow:
+        0 0 8px rgba(106, 0, 255, 0.4),
+        0 0 16px rgba(0, 240, 255, 0.3);
+    margin: 0 0 8px 0;
+}
+
+/* Subtítulo */
+.genre-modal-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin: 0 0 24px 0;
+    font-weight: 400;
+}
+
+/* Grid de gêneros - agora com 12 cards */
+.genre-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-height: none;
+}
+
+/* Cards de gênero */
+.genre-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.genre-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
+}
+
+.genre-card:hover {
+    background: rgba(0, 102, 255, 0.15);
+    border-color: rgba(36, 157, 255, 0.4);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 
+        0 12px 24px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(0, 102, 255, 0.5);
+}
+
+.genre-card:hover::before {
+    left: 100%;
+}
+
+.genre-card:active {
+    transform: translateY(-2px) scale(0.98);
+    transition: transform 120ms ease;
+}
+
+/* Ícone do gênero */
+.genre-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+    transition: transform 0.3s ease;
+}
+
+.genre-card:hover .genre-icon {
+    transform: scale(1.15) rotate(5deg);
+}
+
+/* Nome do gênero */
+.genre-name {
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+}
+
+/* Botão de fechar */
+.genre-modal-close {
+    display: block;
+    margin: 24px auto 0;
+    padding: 12px 32px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.genre-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+/* Scrollbar customizada */
+.genre-modal-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.genre-modal-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.genre-modal-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.genre-modal-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================
+   RESPONSIVIDADE DO MODAL DE GÊNEROS
+   ======================================== */
+
+/* Tablets e telas médias */
+/* 🎵 MODAL DE GÊNERO: Deve ser confortável para navegação por cards */
+@media (max-width: 768px) {
+    .genre-modal {
+        align-items: flex-start;
+        padding: 15px 0;
+    }
+    
+    .genre-modal-container {
+        padding: 26px 18px;
+        width: 95%;
+        max-width: none;
+        /* 🔧 Fix iOS: usar svh para altura */
+        min-height: 80svh;
+        min-height: 80vh;
+        max-height: 92svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch !important;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        margin: 0 auto;
+    }
+    
+    /* Mostrar scrollbar no mobile para feedback visual */
+    .genre-modal-container::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .genre-modal-container::-webkit-scrollbar-thumb {
+        background: rgba(0, 150, 255, 0.5);
+        border-radius: 3px;
+    }
+
+    .genre-modal-title {
+        font-size: 1.6rem;
+        margin-bottom: 6px;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 20px;
+    }
+
+    .genre-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .genre-card {
+        padding: 12px 8px;
+        gap: 6px;
+    }
+
+    .genre-icon {
+        font-size: 1.8rem;
+    }
+
+    .genre-name {
+        font-size: 0.75rem;
+    }
+}
+
+/* Smartphones */
+/* 📱 SMARTPHONES: Modal de gênero quase tela cheia para fácil navegação */
+@media (max-width: 480px) {
+    .genre-modal {
+        align-items: flex-start;
+        padding: 8px 0;
+    }
+    
+    .genre-modal-container {
+        padding: 22px 14px;
+        width: 96%;
+        /* 🔧 Máxima altura possível em smartphones */
+        min-height: 85svh;
+        min-height: 85vh;
+        max-height: 94svh;
+        max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        height: auto;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch !important;
+        /* 🎯 iOS scroll fix: evitar bounce e scroll fantasma */
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        margin: 0 auto;
+    }
+
+    .genre-modal-title {
+        font-size: 1.4rem;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.8rem;
+        margin-bottom: 16px;
+    }
+
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .genre-card {
+        padding: 10px 6px;
+        gap: 5px;
+        border-radius: 10px;
+    }
+
+    .genre-icon {
+        font-size: 1.6rem;
+    }
+
+    .genre-name {
+        font-size: 0.7rem;
+        letter-spacing: 0.2px;
+    }
+
+    .genre-modal-close {
+        padding: 10px 24px;
+        font-size: 0.9rem;
+        margin-top: 12px;
+    }
+}
+
+/* Telas muito pequenas */
+@media (max-width: 360px) {
+    .genre-modal-container {
+        padding: 16px 12px 12px 12px;
+    }
+
+    .genre-modal-title {
+        font-size: 1.2rem;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.75rem;
+    }
+
+    .genre-grid {
+        gap: 6px;
+    }
+
+    .genre-card {
+        padding: 8px 4px;
+    }
+
+    .genre-icon {
+        font-size: 1.4rem;
+    }
+
+    .genre-name {
+        font-size: 0.65rem;
+    }
+}
+
+/* ========================================
+   📱 RESPONSIVIDADE - MOBILE FIRST
+   ======================================== */
+
+/* Tablets e dispositivos médios */
+@media (max-width: 768px) {
+    .genre-modal-container {
+        padding: 32px 24px;
+        max-width: 95%;
+    }
+    
+    .genre-modal-title {
+        font-size: 2rem;
+        letter-spacing: 2px;
+    }
+    
+    .genre-modal-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 24px;
+    }
+    
+    .genre-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+    }
+    
+    .genre-card {
+        padding: 16px 12px;
+    }
+    
+    .genre-icon {
+        font-size: 2rem;
+    }
+    
+    .genre-name {
+        font-size: 0.85rem;
+    }
+}
+
+/* Smartphones pequenos */
+@media (max-width: 480px) {
+    .genre-modal-container {
+        padding: 24px 16px;
+        border-radius: 20px;
+    }
+    
+    .genre-modal-title {
+        font-size: 1.5rem;
+        letter-spacing: 1px;
+    }
+    
+    .genre-modal-subtitle {
+        font-size: 0.85rem;
+    }
+    
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .genre-card {
+        padding: 14px 10px;
+        gap: 8px;
+    }
+    
+    .genre-icon {
+        font-size: 1.8rem;
+    }
+    
+    .genre-name {
+        font-size: 0.8rem;
+    }
+    
+    .genre-modal-close {
+        padding: 10px 24px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Telas muito pequenas (< 360px) */
+@media (max-width: 360px) {
+    .genre-modal-title {
+        font-size: 1.3rem;
+    }
+    
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .genre-card {
+        padding: 12px 8px;
+    }
+    
+    .genre-icon {
+        font-size: 1.5rem;
+    }
+    
+    .genre-name {
+        font-size: 0.75rem;
+    }
+}
+
+/* Telas grandes (desktop) */
+@media (min-width: 1024px) {
+    .genre-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+    }
+    
+    .genre-card {
+        padding: 24px 18px;
+    }
+}
+
+/* Acessibilidade - foco via teclado */
+.genre-card:focus {
+    outline: none;
+    border-color: rgba(0, 212, 255, 0.8);
+    box-shadow: 
+        0 0 0 3px rgba(0, 212, 255, 0.3),
+        0 12px 24px rgba(0, 0, 0, 0.4),
+        0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+.genre-modal-close:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================================================
+   PATCH DESKTOP: Remove espaço branco no topo dos cards (≥1024px)
+   Blindagem CSS + Grid alignment para eliminar whitespace phantom
+   ======================================================================== */
+@media (min-width: 1024px) {
+  /* Força os itens do grid a encostarem no topo em desktops */
+  .cards-grid {
+    align-items: start !important;
+    align-content: start !important;
+  }
+
+  /* Cada card vira um mini-grid que "cola" o primeiro filho no topo */
+  .cards-grid .card {
+    display: grid !important;
+    align-content: start !important;    /* conteúdo colado no topo */
+    justify-items: stretch !important;
+    /* 🔧 REMOVIDO line-height: 0 - causava colapso dos títulos */
+    padding-top: 24px !important;       /* mantém o padding superior padrão */
+  }
+
+  /* Restaura a tipografia apenas para elementos reais, não para nós de texto */
+  .cards-grid .card > * {
+    line-height: normal !important;
+    font-size: 16px !important;         /* 🔧 Força font-size explícito */
+  }
+
+  /* O primeiro elemento visível do card NUNCA pode ter margem superior */
+  .cards-grid .card > *:first-child {
+    margin-top: 0 !important;
+  }
+
+  /* 🔧 CRÍTICO: Garante visibilidade dos títulos com reset completo */
+  .cards-grid .card > .card-title {
+    display: block !important;
+    margin-top: 0 !important;
+    margin-bottom: 20px !important;
+    font-size: 16px !important;         /* Força tamanho da fonte */
+    line-height: 1.4 !important;        /* Restaura altura de linha visível */
+    opacity: 1 !important;              /* Garante opacidade total */
+    visibility: visible !important;     /* Garante visibilidade */
+    height: auto !important;            /* Remove qualquer altura fixa */
+    overflow: visible !important;       /* Remove qualquer overflow oculto */
+  }
+
+  /* Se houver qualquer wrapper antes do título, zera margens e colas no topo */
+  .cards-grid .card > .header,
+  .cards-grid .card > .card-header,
+  .cards-grid .card > .kpi,
+  .cards-grid .card > .summary {
+    margin-top: 0 !important;
+  }
+}
+
+/* ============================================
+   🎵 BLOCO DE IDENTIFICAÇÃO DA MÚSICA
+   Exibe nome do arquivo e informações técnicas básicas
+   ============================================ */
+
+.music-identification-block {
+    background: transparent;
+    border: none;
+    border-top: 1px solid rgba(106, 154, 255, 0.15);
+    border-bottom: 1px solid rgba(106, 154, 255, 0.15);
+    padding: 24px 16px;
+    margin: 24px 0;
+    position: relative;
+}
+
+/* Container principal do conteúdo */
+.music-id-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+}
+
+/* Container badge em volta do título */
+.music-id-title-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, 
+        rgba(106, 154, 255, 0.08) 0%,
+        rgba(106, 0, 255, 0.05) 100%
+    );
+    border: 1px solid rgba(106, 154, 255, 0.25);
+    border-radius: 12px;
+    backdrop-filter: blur(8px);
+    box-shadow: 
+        0 2px 8px rgba(106, 154, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.music-id-title-container:hover {
+    background: linear-gradient(135deg, 
+        rgba(106, 154, 255, 0.12) 0%,
+        rgba(106, 0, 255, 0.08) 100%
+    );
+    border-color: rgba(106, 154, 255, 0.35);
+    box-shadow: 
+        0 4px 12px rgba(106, 154, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Título: Nome da música */
+.music-id-title {
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    word-break: break-word;
+}
+
+/* Linha separadora sutil */
+.music-id-divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(106, 154, 255, 0.3);
+    margin: 0 auto 12px auto;
+}
+
+/* Grid de informações técnicas */
+.music-id-specs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 16px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* Item individual de especificação */
+.music-id-spec-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+/* Ícone do spec item */
+.music-id-spec-icon {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Valor do spec item */
+.music-id-spec-value {
+    font-weight: 500;
+    color: rgba(106, 154, 255, 0.9);
+}
+
+/* Linha de contexto (gênero + data) */
+.music-id-context {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 16px;
+    align-items: center;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
+}
+
+/* Badge de gênero */
+.music-id-genre-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: rgba(106, 154, 255, 0.1);
+    border: 1px solid rgba(106, 154, 255, 0.2);
+    border-radius: 12px;
+    font-weight: 400;
+    color: rgba(167, 139, 250, 0.9);
+    font-size: 11px;
+}
+
+/* Timestamp */
+.music-id-timestamp {
+    opacity: 0.7;
+}
+
+/* Responsividade Mobile */
+@media (max-width: 768px) {
+    .music-identification-block {
+        padding: 20px 12px;
+        margin: 20px 0;
+    }
+    
+    .music-id-title-container {
+        padding: 10px 18px;
+    }
+    
+    .music-id-title {
+        font-size: 18px;
+    }
+    
+    .music-id-specs {
+        gap: 8px 12px;
+    }
+    
+    .music-id-spec-item {
+        font-size: 11px;
+    }
+    
+    .music-id-context {
+        font-size: 11px;
+        gap: 6px 12px;
+    }
+    
+    .music-id-genre-badge {
+        padding: 3px 10px;
+        font-size: 11px;
+    }
+}
+
+/* Mobile muito pequeno */
+@media (max-width: 480px) {
+    .music-identification-block {
+        padding: 16px 10px;
+    }
+    
+    .music-id-title-container {
+        padding: 8px 14px;
+    }
+    
+    .music-id-title {
+        font-size: 16px;
+    }
+    
+    .music-id-specs {
+        gap: 6px 10px;
+    }
+}
+
+/* Container wrapper para controle de display */
+.music-identification-container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* ============================================
+   🎯 POSICIONAMENTO HIERÁRQUICO
+   Bloco entre texto explicativo e cards
+   ============================================ */
+
+/* Garantir espaçamento correto entre elementos */
+.analysis-info-text {
+    margin-bottom: 16px;
+}
+
+/* Bloco de identificação com margem superior e inferior */
+.music-identification-container + .analysis-info-text {
+    margin-top: 0;
+}
+
+.analysis-info-text + .music-identification-container {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+/* Score display abaixo do bloco de identificação */
+#final-score-display {
+    margin-top: 20px;
+}
+
+/* Cards abaixo do bloco de identificação */
+#modalTechnicalData {
+    margin-top: 20px;
+}
+
+/* Responsividade do container */
+@media (max-width: 768px) {
+    .music-identification-container {
+        padding: 0;
+    }
+    
+    .analysis-info-text + .music-identification-container {
+        margin-bottom: 16px;
+    }
+}
+

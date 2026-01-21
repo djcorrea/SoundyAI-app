@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste API Key - SoundyAI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            opacity: 0.8;
+            margin-bottom: 40px;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .result pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .status.success {
+            background: #10b981;
+            color: #fff;
+        }
+        
+        .status.error {
+            background: #ef4444;
+            color: #fff;
+        }
+        
+        .status.warning {
+            background: #f59e0b;
+            color: #000;
+        }
+        
+        .status.info {
+            background: #3b82f6;
+            color: #fff;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de API Key - SoundyAI</h1>
+        <p class="subtitle">Diagnóstico completo da configuração da OpenAI API</p>
+        
+        <div class="instructions">
+            <strong>⚠️ Como usar:</strong>
+            <ul>
+                <li>Clique em cada botão de teste em ordem</li>
+                <li>Verifique os resultados (verde = sucesso, vermelho = erro)</li>
+                <li>Se algum teste falhar, siga as instruções de correção</li>
+            </ul>
+        </div>
+        
+        <!-- Teste 1: Endpoint Backend -->
+        <div class="test-section">
+            <h2>🌐 Teste 1: Endpoint Backend</h2>
+            <p>Verifica se o endpoint <code>/api/config</code> está respondendo corretamente.</p>
+            <button class="btn" onclick="testEndpoint()">▶️ Executar Teste</button>
+            <button class="btn" onclick="clearResult('result1')">🗑️ Limpar</button>
+            <div id="result1" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Teste 2: AI Layer Auto-Config -->
+        <div class="test-section">
+            <h2>🤖 Teste 2: AI Layer Auto-Config</h2>
+            <p>Testa se o sistema de IA consegue carregar a chave automaticamente.</p>
+            <button class="btn" onclick="testAILayer()">▶️ Executar Teste</button>
+            <button class="btn" onclick="clearResult('result2')">🗑️ Limpar</button>
+            <div id="result2" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Teste 3: Validação Completa -->
+        <div class="test-section">
+            <h2>✅ Teste 3: Validação Completa</h2>
+            <p>Executa todos os testes e valida a integração completa.</p>
+            <button class="btn" onclick="runFullValidation()">▶️ Executar Validação Completa</button>
+            <button class="btn" onclick="clearResult('result3')">🗑️ Limpar</button>
+            <div id="result3" class="result" style="display: none;"></div>
+        </div>
+        
+        <!-- Teste 4: Teste OpenAI Real (Opcional) -->
+        <div class="test-section">
+            <h2>🔥 Teste 4: Chamada Real OpenAI (Cuidado: Consome créditos)</h2>
+            <p>⚠️ Este teste faz uma chamada REAL para a API da OpenAI e consome créditos!</p>
+            <button class="btn" onclick="testRealOpenAI()" style="background: #ef4444;">⚠️ Executar Teste REAL</button>
+            <button class="btn" onclick="clearResult('result4')">🗑️ Limpar</button>
+            <div id="result4" class="result" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Função auxiliar para exibir resultado
+        function showResult(elementId, content, statusType = 'info') {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = content;
+        }
+        
+        function clearResult(elementId) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = '';
+        }
+        
+        // TESTE 1: Endpoint Backend
+        async function testEndpoint() {
+            showResult('result1', '<p>🔄 Executando teste...</p>', 'info');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/api/config');
+                const endTime = performance.now();
+                const responseTime = (endTime - startTime).toFixed(0);
+                
+                const data = await response.json();
+                
+                let html = '<strong>📡 Resposta do Endpoint:</strong>\n\n';
+                html += `<span class="status ${response.ok ? 'success' : 'error'}">Status: ${response.status} ${response.statusText}</span>\n`;
+                html += `<span class="status info">Tempo: ${responseTime}ms</span>\n\n`;
+                html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>\n\n';
+                
+                if (data.configured && data.openaiApiKey !== 'not-configured') {
+                    html += '<span class="status success">✅ API Key CONFIGURADA!</span>\n';
+                    html += `<p>🔑 Preview: ${data.openaiApiKey.substring(0, 10)}...</p>`;
+                } else {
+                    html += '<span class="status error">❌ API Key NÃO configurada</span>\n';
+                    html += '<p>💡 Configure OPENAI_API_KEY no Railway</p>';
+                }
+                
+                showResult('result1', html);
+            } catch (error) {
+                let html = '<span class="status error">❌ ERRO</span>\n\n';
+                html += `<pre>Erro: ${error.message}</pre>\n\n`;
+                html += '<strong>🔧 Possíveis causas:</strong>\n';
+                html += '<ul>';
+                html += '<li>Servidor não está rodando</li>';
+                html += '<li>Endpoint /api/config não existe</li>';
+                html += '<li>Problema de CORS</li>';
+                html += '</ul>';
+                showResult('result1', html);
+            }
+        }
+        
+        // TESTE 2: AI Layer Auto-Config
+        async function testAILayer() {
+            showResult('result2', '<p>🔄 Executando teste...</p>', 'info');
+            
+            try {
+                if (!window.aiSuggestionLayer) {
+                    showResult('result2', '<span class="status error">❌ AI Layer não carregado</span>\n<p>Certifique-se de estar na página principal do app</p>');
+                    return;
+                }
+                
+                let html = '<strong>🤖 Testando AI Layer:</strong>\n\n';
+                
+                // Limpar chave existente para forçar reload
+                window.aiSuggestionLayer.apiKey = null;
+                
+                // Tentar auto-configurar
+                await window.aiSuggestionLayer.autoConfigureApiKey();
+                
+                if (window.aiSuggestionLayer.apiKey) {
+                    html += '<span class="status success">✅ API Key CARREGADA!</span>\n\n';
+                    html += `<p>🔑 Preview: ${window.aiSuggestionLayer.apiKey.substring(0, 10)}...</p>`;
+                    html += `<p>🤖 Modelo: ${window.aiSuggestionLayer.model}</p>`;
+                } else {
+                    html += '<span class="status error">❌ API Key NÃO carregada</span>\n\n';
+                    html += '<p>Verifique os logs do console para mais detalhes</p>';
+                }
+                
+                showResult('result2', html);
+            } catch (error) {
+                let html = '<span class="status error">❌ ERRO</span>\n\n';
+                html += `<pre>${error.message}</pre>`;
+                showResult('result2', html);
+            }
+        }
+        
+        // TESTE 3: Validação Completa
+        async function runFullValidation() {
+            showResult('result3', '<p>🔄 Executando validação completa...</p>', 'info');
+            
+            let html = '<strong>📊 RELATÓRIO DE VALIDAÇÃO COMPLETA</strong>\n\n';
+            let allPassed = true;
+            
+            // Teste 1: Endpoint
+            html += '<strong>1️⃣ Teste Endpoint:</strong>\n';
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                if (data.configured && data.openaiApiKey !== 'not-configured') {
+                    html += '<span class="status success">✅ PASSOU</span>\n\n';
+                } else {
+                    html += '<span class="status error">❌ FALHOU</span> (API Key não configurada)\n\n';
+                    allPassed = false;
+                }
+            } catch (error) {
+                html += '<span class="status error">❌ FALHOU</span> (Endpoint não responde)\n\n';
+                allPassed = false;
+            }
+            
+            // Teste 2: AI Layer
+            html += '<strong>2️⃣ Teste AI Layer:</strong>\n';
+            try {
+                if (window.aiSuggestionLayer) {
+                    window.aiSuggestionLayer.apiKey = null;
+                    await window.aiSuggestionLayer.autoConfigureApiKey();
+                    
+                    if (window.aiSuggestionLayer.apiKey) {
+                        html += '<span class="status success">✅ PASSOU</span>\n\n';
+                    } else {
+                        html += '<span class="status error">❌ FALHOU</span> (Chave não carregada)\n\n';
+                        allPassed = false;
+                    }
+                } else {
+                    html += '<span class="status warning">⚠️ PULADO</span> (AI Layer não disponível)\n\n';
+                }
+            } catch (error) {
+                html += '<span class="status error">❌ FALHOU</span> (' + error.message + ')\n\n';
+                allPassed = false;
+            }
+            
+            // Resultado final
+            html += '\n<hr style="border-color: rgba(255,255,255,0.2); margin: 20px 0;">\n';
+            html += '<strong>🎯 RESULTADO FINAL:</strong>\n';
+            
+            if (allPassed) {
+                html += '<span class="status success">✅ TODOS OS TESTES PASSARAM!</span>\n';
+                html += '<p>Sistema pronto para uso com IA!</p>';
+            } else {
+                html += '<span class="status error">❌ ALGUNS TESTES FALHARAM</span>\n';
+                html += '<p>Revise as correções necessárias acima</p>';
+            }
+            
+            showResult('result3', html);
+        }
+        
+        // TESTE 4: OpenAI Real
+        async function testRealOpenAI() {
+            if (!confirm('⚠️ ATENÇÃO: Este teste fará uma chamada REAL para a OpenAI e consumirá créditos!\n\nDeseja continuar?')) {
+                return;
+            }
+            
+            showResult('result4', '<p>🔄 Executando chamada real para OpenAI...</p>', 'info');
+            
+            try {
+                // Buscar API Key
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                if (!config.openaiApiKey || config.openaiApiKey === 'not-configured') {
+                    showResult('result4', '<span class="status error">❌ API Key não configurada</span>');
+                    return;
+                }
+                
+                // Fazer chamada real
+                const startTime = performance.now();
+                const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.openaiApiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-3.5-turbo',
+                        messages: [
+                            { role: 'system', content: 'Você é um assistente útil.' },
+                            { role: 'user', content: 'Responda apenas "OK" para confirmar que você está funcionando.' }
+                        ],
+                        max_tokens: 10
+                    })
+                });
+                
+                const endTime = performance.now();
+                const responseTime = ((endTime - startTime) / 1000).toFixed(2);
+                
+                const data = await openaiResponse.json();
+                
+                let html = '<strong>🔥 TESTE REAL OPENAI:</strong>\n\n';
+                html += `<span class="status info">Tempo: ${responseTime}s</span>\n\n`;
+                
+                if (openaiResponse.ok) {
+                    html += '<span class="status success">✅ CHAMADA BEM-SUCEDIDA!</span>\n\n';
+                    html += `<p>📝 Resposta: ${data.choices[0].message.content}</p>`;
+                    html += `<p>🎫 Tokens usados: ${data.usage.total_tokens}</p>`;
+                } else {
+                    html += '<span class="status error">❌ ERRO NA CHAMADA</span>\n\n';
+                    html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+                
+                showResult('result4', html);
+            } catch (error) {
+                let html = '<span class="status error">❌ ERRO</span>\n\n';
+                html += `<pre>${error.message}</pre>`;
+                showResult('result4', html);
+            }
+        }
+    </script>
+</body>
+</html>

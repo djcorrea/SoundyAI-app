@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Espera - SoundyAI</title>
+    <meta name="description" content="Entre na lista de espera do SoundyAI e garanta seu acesso antecipado à revolução na produção musical.">
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="Lista de Espera - SoundyAI">
+    <meta property="og:description" content="Garanta seu acesso antecipado à revolução na produção musical.">
+    <meta property="og:type" content="website">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-purple: #a855f7;
+            --neon-blue: #06b6d4;
+            --neon-pink: #ec4899;
+            --neon-green: #22c55e;
+            --dark-bg: #030014;
+            --card-bg: rgba(10, 10, 30, 0.7);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --glow-purple: rgba(168, 85, 247, 0.5);
+            --error-red: #ef4444;
+            --success-green: #22c55e;
+        }
+        
+        html, body {
+            height: 100%;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* ========================================
+           BACKGROUND EFFECTS
+        ======================================== */
+        .bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .gradient-bg {
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            top: -25%;
+            left: -25%;
+            background: 
+                radial-gradient(circle at 30% 70%, rgba(168, 85, 247, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 70% 30%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
+            animation: gradientMove 25s ease-in-out infinite;
+        }
+        
+        @keyframes gradientMove {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(3%, 3%); }
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(168, 85, 247, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(168, 85, 247, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        
+        /* ========================================
+           MAIN CONTAINER
+        ======================================== */
+        .container {
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Back link */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            color: var(--neon-purple);
+        }
+        
+        /* ========================================
+           FORM CARD
+        ======================================== */
+        .form-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 24px;
+            padding: 50px 40px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .form-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-purple));
+            background-size: 200% 100%;
+            animation: gradientSlide 3s ease infinite;
+        }
+        
+        @keyframes gradientSlide {
+            0% { background-position: 0% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        /* Header */
+        .form-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+        }
+        
+        .form-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .form-subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        /* ========================================
+           FORM STYLES
+        ======================================== */
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 16px 20px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(168, 85, 247, 0.2);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .form-input:focus {
+            border-color: var(--neon-purple);
+            box-shadow: 
+                0 0 0 4px rgba(168, 85, 247, 0.15),
+                0 0 20px rgba(168, 85, 247, 0.2);
+        }
+        
+        .form-input.error {
+            border-color: var(--error-red);
+        }
+        
+        .form-input.success {
+            border-color: var(--success-green);
+        }
+        
+        /* Error message */
+        .error-message {
+            color: var(--error-red);
+            font-size: 0.85rem;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .error-message.visible {
+            display: block;
+        }
+        
+        /* ========================================
+           SUBMIT BUTTON
+        ======================================== */
+        .submit-btn {
+            width: 100%;
+            padding: 18px 30px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: white;
+            background: linear-gradient(135deg, var(--neon-purple) 0%, var(--neon-blue) 100%);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 40px rgba(168, 85, 247, 0.3);
+            margin-top: 10px;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(168, 85, 247, 0.4);
+        }
+        
+        .submit-btn:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+        
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .submit-btn .btn-text {
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Loading state */
+        .submit-btn.loading .btn-text {
+            opacity: 0;
+        }
+        
+        .submit-btn .spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            opacity: 0;
+            animation: none;
+        }
+        
+        .submit-btn.loading .spinner {
+            opacity: 1;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        /* ========================================
+           PRIVACY NOTE
+        ======================================== */
+        .privacy-note {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+        
+        .privacy-note a {
+            color: var(--neon-purple);
+            text-decoration: none;
+        }
+        
+        .privacy-note a:hover {
+            text-decoration: underline;
+        }
+        
+        /* ========================================
+           SUCCESS STATE
+        ======================================== */
+        .success-container {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .success-container.visible {
+            display: block;
+        }
+        
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            font-size: 2.5rem;
+            animation: successPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        @keyframes successPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .success-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--neon-green), var(--neon-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .success-message {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .success-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 30px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: transparent;
+            border: 2px solid rgba(168, 85, 247, 0.4);
+            border-radius: 10px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .success-back-btn:hover {
+            background: rgba(168, 85, 247, 0.1);
+            border-color: var(--neon-purple);
+        }
+        
+        /* Form hidden state */
+        .form-content.hidden {
+            display: none;
+        }
+        
+        /* ========================================
+           RESPONSIVE
+        ======================================== */
+        @media (max-width: 520px) {
+            .form-card {
+                padding: 40px 25px;
+            }
+            
+            .form-title {
+                font-size: 1.4rem;
+            }
+            
+            .submit-btn {
+                padding: 16px 25px;
+                font-size: 1rem;
+            }
+        }
+        
+        /* ========================================
+           ANIMATIONS
+        ======================================== */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.6s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-container">
+        <div class="gradient-bg"></div>
+        <div class="grid-overlay"></div>
+    </div>
+    
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Back Link -->
+        <a href="/prelaunch.html" class="back-link fade-in">
+            ← Voltar
+        </a>
+        
+        <!-- Form Card -->
+        <div class="form-card fade-in" style="animation-delay: 0.1s;">
+            
+            <!-- Form Content (shown initially) -->
+            <div class="form-content" id="formContent">
+                <!-- Header -->
+                <div class="form-header">
+                    <div class="logo-text">SoundyAI</div>
+                    <h1 class="form-title">Garanta seu acesso antecipado</h1>
+                    <p class="form-subtitle">
+                        Seja um dos primeiros a experimentar a nova era da produção musical com IA.
+                    </p>
+                </div>
+                
+                <!-- Form -->
+                <form id="waitlistForm" novalidate>
+                    <div class="form-group">
+                        <label class="form-label" for="name">Seu nome</label>
+                        <input 
+                            type="text" 
+                            id="name" 
+                            name="name" 
+                            class="form-input" 
+                            placeholder="Como podemos te chamar?"
+                            required
+                            autocomplete="name"
+                        >
+                        <span class="error-message" id="nameError">Por favor, insira seu nome</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="email">Seu melhor e-mail</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            name="email" 
+                            class="form-input" 
+                            placeholder="email@exemplo.com"
+                            required
+                            autocomplete="email"
+                        >
+                        <span class="error-message" id="emailError">Por favor, insira um e-mail válido</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <input 
+                            type="tel" 
+                            id="phone" 
+                            name="phone" 
+                            class="form-input" 
+                            placeholder="Telefone (opcional)"
+                            autocomplete="tel"
+                        >
+                        <span class="error-message" id="phoneError">Número de telefone inválido</span>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn" id="submitBtn">
+                        <span class="btn-text">Garantir meu acesso antecipado</span>
+                        <span class="spinner"></span>
+                    </button>
+                </form>
+                
+                <p class="privacy-note">
+                    🔒 Seus dados estão seguros. Sem spam, prometemos.<br>
+                    <a href="/privacidade.html">Política de Privacidade</a>
+                </p>
+            </div>
+            
+            <!-- Success Container (shown after submission) -->
+            <div class="success-container" id="successContainer">
+                <div class="success-icon">✓</div>
+                <h2 class="success-title">Você está na lista!</h2>
+                <p class="success-message">
+                    Obrigado por se inscrever! Você receberá um e-mail com novidades exclusivas e acesso antecipado ao SoundyAI.
+                </p>
+                <a href="/prelaunch.html" class="success-back-btn">
+                    ← Voltar para a página inicial
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script>
+        (function() {
+            // ========================================
+            // ELEMENTS
+            // ========================================
+            const form = document.getElementById('waitlistForm');
+            const formContent = document.getElementById('formContent');
+            const successContainer = document.getElementById('successContainer');
+            const submitBtn = document.getElementById('submitBtn');
+            const nameInput = document.getElementById('name');
+            const emailInput = document.getElementById('email');
+            const phoneInput = document.getElementById('phone');
+            const nameError = document.getElementById('nameError');
+            const emailError = document.getElementById('emailError');
+            const phoneError = document.getElementById('phoneError');
+            
+            // ========================================
+            // VALIDATION HELPERS
+            // ========================================
+            function isValidEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(String(email).toLowerCase());
+            }
+            
+            /**
+             * Valida e normaliza número de WhatsApp para formato E.164
+             * @param {string} phone - Número digitado pelo usuário
+             * @returns {{ valid: boolean, normalized: string|null, error?: string }}
+             */
+            function validateAndNormalizePhone(phone) {
+                // Campo opcional: se vazio, é válido com valor null
+                if (!phone || phone.trim() === '') {
+                    return { valid: true, normalized: null };
+                }
+                
+                // Remover caracteres não-numéricos, exceto + inicial
+                let cleaned = phone.trim();
+                const hasPlus = cleaned.startsWith('+');
+                cleaned = cleaned.replace(/[^\d]/g, '');
+                
+                // Restaurar + se existia
+                if (hasPlus) {
+                    cleaned = '+' + cleaned;
+                }
+                
+                // Validar tamanho mínimo (8 dígitos)
+                const digitsOnly = cleaned.replace(/\D/g, '');
+                if (digitsOnly.length < 8) {
+                    return { valid: false, normalized: null, error: 'Número muito curto' };
+                }
+                
+                // Validar tamanho máximo (E.164 permite até 15 dígitos)
+                if (digitsOnly.length > 15) {
+                    return { valid: false, normalized: null, error: 'Número muito longo' };
+                }
+                
+                // Normalizar para formato E.164
+                let normalized;
+                
+                if (cleaned.startsWith('+')) {
+                    // Já tem código de país
+                    normalized = cleaned;
+                } else if (cleaned.startsWith('55') && digitsOnly.length >= 12) {
+                    // Número brasileiro sem +
+                    normalized = '+' + cleaned;
+                } else if (digitsOnly.length === 11 || digitsOnly.length === 10) {
+                    // Número brasileiro com DDD (assumir +55)
+                    normalized = '+55' + digitsOnly;
+                } else if (digitsOnly.length >= 10) {
+                    // Tentar assumir que já tem código de país
+                    normalized = '+' + digitsOnly;
+                } else {
+                    return { valid: false, normalized: null, error: 'Formato inválido' };
+                }
+                
+                // Validação final: formato E.164
+                const e164Regex = /^\+[1-9]\d{7,14}$/;
+                if (!e164Regex.test(normalized)) {
+                    return { valid: false, normalized: null, error: 'Número inválido' };
+                }
+                
+                return { valid: true, normalized: normalized };
+            }
+            
+            function showError(input, errorEl) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorEl.classList.add('visible');
+            }
+            
+            function hideError(input, errorEl) {
+                input.classList.remove('error');
+                errorEl.classList.remove('visible');
+            }
+            
+            function showSuccess(input) {
+                input.classList.remove('error');
+                input.classList.add('success');
+            }
+            
+            // ========================================
+            // REAL-TIME VALIDATION
+            // ========================================
+            nameInput.addEventListener('blur', function() {
+                if (this.value.trim().length >= 2) {
+                    hideError(this, nameError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, nameError);
+                }
+            });
+            
+            emailInput.addEventListener('blur', function() {
+                if (isValidEmail(this.value.trim())) {
+                    hideError(this, emailError);
+                    showSuccess(this);
+                } else if (this.value.trim().length > 0) {
+                    showError(this, emailError);
+                }
+            });
+            
+            // Validação em tempo real do WhatsApp (opcional)
+            phoneInput.addEventListener('blur', function() {
+                const phoneValue = this.value.trim();
+                
+                // Se está vazio, é válido (campo opcional)
+                if (phoneValue === '') {
+                    hideError(this, phoneError);
+                    this.classList.remove('success');
+                    this.classList.remove('error');
+                    return;
+                }
+                
+                // Validar apenas se preenchido
+                const validation = validateAndNormalizePhone(phoneValue);
+                if (validation.valid) {
+                    hideError(this, phoneError);
+                    showSuccess(this);
+                } else {
+                    showError(this, phoneError);
+                }
+            });
+            
+            // ========================================
+            // FORM SUBMISSION
+            // ========================================
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Reset errors
+                hideError(nameInput, nameError);
+                hideError(emailInput, emailError);
+                hideError(phoneInput, phoneError);
+                
+                // Validate
+                let isValid = true;
+                const name = nameInput.value.trim();
+                const email = emailInput.value.trim();
+                const phoneRaw = phoneInput.value.trim();
+                
+                // Validar nome (obrigatório)
+                if (name.length < 2) {
+                    showError(nameInput, nameError);
+                    isValid = false;
+                }
+                
+                // Validar e-mail (obrigatório)
+                if (!isValidEmail(email)) {
+                    showError(emailInput, emailError);
+                    isValid = false;
+                }
+                
+                // Validar WhatsApp (opcional, mas se preenchido deve ser válido)
+                const phoneValidation = validateAndNormalizePhone(phoneRaw);
+                if (!phoneValidation.valid) {
+                    showError(phoneInput, phoneError);
+                    isValid = false;
+                }
+                
+                // phone normalizado (string E.164 ou null)
+                const phone = phoneValidation.normalized;
+                
+                if (!isValid) {
+                    // Focus first error
+                    const firstError = form.querySelector('.error');
+                    if (firstError) firstError.focus();
+                    return;
+                }
+                
+                // Show loading state
+                submitBtn.classList.add('loading');
+                submitBtn.disabled = true;
+                
+                // ========================================
+                // 📤 ENVIAR PARA API BACKEND
+                // ========================================
+                try {
+                    const response = await fetch('/api/waitlist', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: name,
+                            email: email.toLowerCase(),
+                            // phone: formato E.164 normalizado ou null (nunca undefined)
+                            phone: phone
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    // ========================================
+                    // 🔍 VERIFICAR RESPOSTA
+                    // ========================================
+                    if (!response.ok) {
+                        // Tratar erros específicos
+                        if (response.status === 409 || result.error === 'DUPLICATE_EMAIL') {
+                            // Se retornou que foi atualizado com WhatsApp, mostrar sucesso
+                            if (result.data?.whatsappAdded) {
+                                console.log('📱 WhatsApp adicionado ao cadastro existente');
+                                formContent.classList.add('hidden');
+                                successContainer.classList.add('visible');
+                                return;
+                            }
+                            alert('Este e-mail já está na lista de espera! 😊');
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        if (response.status === 400 && result.field) {
+                            // Erro de validação
+                            if (result.field === 'name') {
+                                showError(nameInput, nameError);
+                            } else if (result.field === 'email') {
+                                showError(emailInput, emailError);
+                            } else if (result.field === 'phone') {
+                                showError(phoneInput, phoneError);
+                            }
+                            submitBtn.classList.remove('loading');
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                        
+                        throw new Error(result.message || 'Erro ao processar cadastro');
+                    }
+                    
+                    // ========================================
+                    // 💾 BACKUP LOCAL
+                    // ========================================
+                    try {
+                        const existingLeads = JSON.parse(localStorage.getItem('soundy_waitlist') || '[]');
+                        existingLeads.push({
+                            name: name,
+                            email: email.toLowerCase(),
+                            phone: phone,
+                            id: result.data?.id,
+                            savedAt: new Date().toISOString(),
+                            emailSent: result.data?.emailSent,
+                            whatsappAdded: result.data?.whatsappAdded || false
+                        });
+                        localStorage.setItem('soundy_waitlist', JSON.stringify(existingLeads));
+                    } catch (storageErr) {
+                        console.warn('LocalStorage não disponível:', storageErr);
+                    }
+                    
+                    // ========================================
+                    // ✅ SUCESSO!
+                    // ========================================
+                    console.log('✅ Lead cadastrado com sucesso:', result.data?.id);
+                    console.log('📧 E-mail enviado:', result.data?.emailSent ? 'Sim' : 'Não');
+                    console.log('📱 WhatsApp:', phone ? phone : 'Não informado');
+                    formContent.classList.add('hidden');
+                    successContainer.classList.add('visible');
+                    
+                } catch (error) {
+                    console.error('[WAITLIST] Erro:', error);
+                    
+                    // Mensagem amigável
+                    let errorMessage = 'Ocorreu um erro ao processar seu cadastro. Tente novamente.';
+                    
+                    if (error.message.includes('network') || error.message.includes('fetch')) {
+                        errorMessage = 'Problema de conexão. Verifique sua internet e tente novamente.';
+                    }
+                    
+                    alert(errorMessage);
+                    submitBtn.classList.remove('loading');
+                    submitBtn.disabled = false;
+                }
+            });
+            
+            // ========================================
+            // PREFILL FROM URL PARAMS (optional)
+            // ========================================
+            const urlParams = new URLSearchParams(window.location.search);
+            const prefilledEmail = urlParams.get('email');
+            if (prefilledEmail && isValidEmail(prefilledEmail)) {
+                emailInput.value = prefilledEmail;
+                showSuccess(emailInput);
+            }
+        })();
+    </script>
+</body>
+</html>

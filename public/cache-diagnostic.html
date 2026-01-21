@@ -53,6 +53,12 @@
             margin: 20px 0;
         }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔥 DIAGNÓSTICO DE CACHE - PROD.AI ANALYZER</h1>
@@ -115,7 +121,7 @@
             const line = `[${timestamp}] ${icon} ${message}\n`;
             logContent += line;
             document.getElementById('diagnosticLog').textContent = logContent;
-            console.log(`[DIAGNOSTIC] ${message}`);
+            log(`[DIAGNOSTIC] ${message}`);
         }
 
         function checkScripts() {

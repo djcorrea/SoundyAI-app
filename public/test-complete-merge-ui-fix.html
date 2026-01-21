@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Correção Completa Merge + UI</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste - Correção Completa: Merge + UI</h1>
@@ -134,7 +140,7 @@
         }
 
         function testAllMetadataStructures() {
-            console.log('🌊 Cenário: Teste de todas as estruturas de metadata');
+            log('🌊 Cenário: Teste de todas as estruturas de metadata');
             
             const structures = [
                 {
@@ -171,7 +177,7 @@
                 const merged = testCompleteMetadataMerge([{message: "Fallback"}], [structure.data]);
                 const success = merged[0].message.includes("✅") && merged[0].hasOriginalMessage;
                 
-                console.log(`🧪 ${structure.name}:`, {
+                log(`🧪 ${structure.name}:`, {
                     expected: structure.data,
                     result: merged[0].message,
                     success: success
@@ -187,7 +193,7 @@
         }
 
         function testTruePeakWithPlugins() {
-            console.log('🎯 Cenário: True Peak com plugins específicos');
+            log('🎯 Cenário: True Peak com plugins específicos');
             
             const validSuggestions = [{
                 message: "Original True Peak",
@@ -222,13 +228,13 @@
                 }
             ];
             
-            console.log('🎯 True Peak + Plugins test:', results);
+            log('🎯 True Peak + Plugins test:', results);
             
             displayResult("True Peak com plugins", results, "True Peak deve ser detectado, plugin específico preservado, e ficar no topo");
         }
 
         function testTitleMessageSync() {
-            console.log('📋 Cenário: Sincronização title/message');
+            log('📋 Cenário: Sincronização title/message');
             
             const suggestions = [
                 { message: "Mensagem sem title", title: null },
@@ -253,13 +259,13 @@
                 }
             ];
             
-            console.log('📋 Title/Message sync test:', results);
+            log('📋 Title/Message sync test:', results);
             
             displayResult("Sincronização title/message", results, "Message deve ser copiado para title quando title está vazio");
         }
 
         function testUIRendering() {
-            console.log('🖥️ Cenário: Teste de renderização UI');
+            log('🖥️ Cenário: Teste de renderização UI');
             
             const suggestions = [
                 {
@@ -293,13 +299,13 @@
                 }
             ];
             
-            console.log('🖥️ UI Rendering test:', results);
+            log('🖥️ UI Rendering test:', results);
             
             displayResult("Renderização UI", results, "Todos os cards devem ter title e message válidos");
         }
 
         function testCompleteFlow() {
-            console.log('🚀 Cenário: Fluxo completo com True Peak real');
+            log('🚀 Cenário: Fluxo completo com True Peak real');
             
             // Simular resposta real do backend
             const validSuggestions = [
@@ -362,7 +368,7 @@
                 }
             ];
             
-            console.log('🚀 Complete flow results:', {
+            log('🚀 Complete flow results:', {
                 originalCount: validSuggestions.length,
                 mergedCount: merged.length,
                 allRestored: final.every(s => s.hasOriginalMessage),
@@ -374,8 +380,8 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste completo de correção merge + UI iniciado");
-        console.log("🔍 Testando 12 estruturas de metadata + ordenação + sincronização title/message");
+        log("🚀 [TEST] Teste completo de correção merge + UI iniciado");
+        log("🔍 Testando 12 estruturas de metadata + ordenação + sincronização title/message");
     </script>
 </body>
 </html>

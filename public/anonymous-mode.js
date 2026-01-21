@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔓 SOUNDYAI - SISTEMA DE MODO ANÔNIMO
  * 
@@ -87,11 +90,11 @@
      */
     window.debugAccessModes = function() {
         console.group('🎯 [ACCESS-MODE] Status');
-        console.log('Demo ativo:', window.SoundyDemo?.isActive === true);
-        console.log('Logged (Firebase):', !!window.auth?.currentUser);
-        console.log('Anonymous ativo:', window.SoundyAnonymous?.isAnonymousMode === true);
-        console.log('Anonymous visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12) + '...');
-        console.log('→ Modo atual:', window.getAccessMode());
+        log('Demo ativo:', window.SoundyDemo?.isActive === true);
+        log('Logged (Firebase):', !!window.auth?.currentUser);
+        log('Anonymous ativo:', window.SoundyAnonymous?.isAnonymousMode === true);
+        log('Anonymous visitorId:', window.SoundyAnonymous?.visitorId?.substring(0, 12) + '...');
+        log('→ Modo atual:', window.getAccessMode());
         console.groupEnd();
     };
 
@@ -111,11 +114,11 @@
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js';
             script.onload = () => {
-                console.log('✅ [ANONYMOUS] FingerprintJS carregado');
+                log('✅ [ANONYMOUS] FingerprintJS carregado');
                 resolve(window.FingerprintJS);
             };
             script.onerror = () => {
-                console.warn('⚠️ [ANONYMOUS] Falha ao carregar FingerprintJS, usando fallback');
+                warn('⚠️ [ANONYMOUS] Falha ao carregar FingerprintJS, usando fallback');
                 resolve(null);
             };
             document.head.appendChild(script);
@@ -161,16 +164,16 @@
             if (FP) {
                 const fp = await FP.load();
                 const result = await fp.get();
-                console.log('✅ [ANONYMOUS] Fingerprint gerado:', result.visitorId.substring(0, 8) + '...');
+                log('✅ [ANONYMOUS] Fingerprint gerado:', result.visitorId.substring(0, 8) + '...');
                 return result.visitorId;
             }
         } catch (error) {
-            console.warn('⚠️ [ANONYMOUS] Erro no FingerprintJS:', error.message);
+            warn('⚠️ [ANONYMOUS] Erro no FingerprintJS:', error.message);
         }
         
         // Fallback
         const fallbackId = generateFallbackId();
-        console.log('⚠️ [ANONYMOUS] Usando fallback ID:', fallbackId.substring(0, 12) + '...');
+        log('⚠️ [ANONYMOUS] Usando fallback ID:', fallbackId.substring(0, 12) + '...');
         return fallbackId;
     }
 
@@ -186,7 +189,7 @@
             localStorage.setItem(ANONYMOUS_LIMITS.storageKey, JSON.stringify(data));
             return true;
         } catch (e) {
-            console.warn('⚠️ [ANONYMOUS] Erro ao salvar localStorage:', e.message);
+            warn('⚠️ [ANONYMOUS] Erro ao salvar localStorage:', e.message);
             return false;
         }
     }
@@ -199,7 +202,7 @@
             const raw = localStorage.getItem(ANONYMOUS_LIMITS.storageKey);
             return raw ? JSON.parse(raw) : null;
         } catch (e) {
-            console.warn('⚠️ [ANONYMOUS] Erro ao ler localStorage:', e.message);
+            warn('⚠️ [ANONYMOUS] Erro ao ler localStorage:', e.message);
             return null;
         }
     }
@@ -217,7 +220,7 @@
             const request = indexedDB.open(ANONYMOUS_LIMITS.indexedDBName, 1);
             
             request.onerror = () => {
-                console.warn('⚠️ [ANONYMOUS] Erro ao abrir IndexedDB');
+                warn('⚠️ [ANONYMOUS] Erro ao abrir IndexedDB');
                 resolve(null);
             };
             
@@ -307,7 +310,7 @@
         
         // 2. Validar se o fingerprint corresponde
         if (data && data.visitor_id === visitorId) {
-            console.log('✅ [ANONYMOUS] Dados carregados do localStorage');
+            log('✅ [ANONYMOUS] Dados carregados do localStorage');
             data.last_activity = new Date().toISOString();
             // 🔓 MIGRAR dados antigos para bloqueio granular
             data = migrateToGranularBlocking(data);
@@ -317,7 +320,7 @@
         // 3. Tentar carregar do IndexedDB (se localStorage foi limpo)
         const idbData = await loadFromIndexedDB(visitorId);
         if (idbData) {
-            console.log('✅ [ANONYMOUS] Dados recuperados do IndexedDB (anti-burla)');
+            log('✅ [ANONYMOUS] Dados recuperados do IndexedDB (anti-burla)');
             idbData.last_activity = new Date().toISOString();
             // 🔓 MIGRAR dados antigos para bloqueio granular
             const migrated = migrateToGranularBlocking(idbData);
@@ -328,7 +331,7 @@
         // 4. Se existe dados de outro visitor_id no localStorage, 
         //    pode ser tentativa de burla - herdar os limites mais restritivos
         if (data && data.visitor_id !== visitorId) {
-            console.warn('⚠️ [ANONYMOUS] Fingerprint diferente detectado - possível tentativa de burla');
+            warn('⚠️ [ANONYMOUS] Fingerprint diferente detectado - possível tentativa de burla');
             
             // Criar novo registro mas herdar contadores se estiverem altos
             const newData = createVisitorData(visitorId);
@@ -344,7 +347,7 @@
         }
         
         // 5. Criar dados novos
-        console.log('🆕 [ANONYMOUS] Criando novo registro de visitante');
+        log('🆕 [ANONYMOUS] Criando novo registro de visitante');
         return createVisitorData(visitorId);
     }
 
@@ -357,7 +360,7 @@
             return data;
         }
         
-        console.log('🔄 [ANONYMOUS] Migrando dados para bloqueio granular...');
+        log('🔄 [ANONYMOUS] Migrando dados para bloqueio granular...');
         
         // Calcular bloqueios baseado nos contadores
         data.analysis_blocked = data.analysis_count >= ANONYMOUS_LIMITS.maxAnalyses;
@@ -367,7 +370,7 @@
         data.blocked = data.analysis_blocked && data.message_blocked;
         data.block_reason = data.blocked ? 'all_limits_reached' : null;
         
-        console.log('✅ [ANONYMOUS] Migração concluída:', {
+        log('✅ [ANONYMOUS] Migração concluída:', {
             analysis_blocked: data.analysis_blocked,
             message_blocked: data.message_blocked,
             fully_blocked: data.blocked
@@ -389,7 +392,7 @@
         // Atualizar objeto global
         window.SoundyAnonymous.data = data;
         
-        console.log('💾 [ANONYMOUS] Dados salvos:', {
+        log('💾 [ANONYMOUS] Dados salvos:', {
             analyses: data.analysis_count + '/' + ANONYMOUS_LIMITS.maxAnalyses,
             messages: data.message_count + '/' + ANONYMOUS_LIMITS.maxMessages,
             analysisBlocked: data.analysis_blocked,
@@ -492,18 +495,18 @@
         if (!data) return;
         
         data.analysis_count++;
-        console.log(`📊 [ANONYMOUS] Análise registrada: ${data.analysis_count}/${ANONYMOUS_LIMITS.maxAnalyses}`);
+        log(`📊 [ANONYMOUS] Análise registrada: ${data.analysis_count}/${ANONYMOUS_LIMITS.maxAnalyses}`);
         
         // 🔓 GRANULAR: Só bloqueia ANÁLISE (chat continua liberado)
         if (data.analysis_count >= ANONYMOUS_LIMITS.maxAnalyses) {
             data.analysis_blocked = true;
-            console.log('🚫 [ANONYMOUS] Limite de ANÁLISES atingido (chat ainda disponível)');
+            log('🚫 [ANONYMOUS] Limite de ANÁLISES atingido (chat ainda disponível)');
             
             // Verificar se AMBOS estão bloqueados para mostrar modal obrigatório
             if (data.message_blocked) {
                 data.blocked = true;
                 data.block_reason = 'all_limits_reached';
-                console.log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
+                log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
                 if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
                     window.SoundyAnonymous.onLimitReached('all');
                 }
@@ -524,18 +527,18 @@
         if (!data) return;
         
         data.message_count++;
-        console.log(`💬 [ANONYMOUS] Mensagem registrada: ${data.message_count}/${ANONYMOUS_LIMITS.maxMessages}`);
+        log(`💬 [ANONYMOUS] Mensagem registrada: ${data.message_count}/${ANONYMOUS_LIMITS.maxMessages}`);
         
         // 🔓 GRANULAR: Só bloqueia MENSAGEM (análise continua liberada)
         if (data.message_count >= ANONYMOUS_LIMITS.maxMessages) {
             data.message_blocked = true;
-            console.log('🚫 [ANONYMOUS] Limite de MENSAGENS atingido (análise ainda disponível)');
+            log('🚫 [ANONYMOUS] Limite de MENSAGENS atingido (análise ainda disponível)');
             
             // Verificar se AMBOS estão bloqueados para mostrar modal obrigatório
             if (data.analysis_blocked) {
                 data.blocked = true;
                 data.block_reason = 'all_limits_reached';
-                console.log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
+                log('🔒 [ANONYMOUS] TODOS os limites atingidos - modal obrigatório');
                 if (typeof window.SoundyAnonymous.onLimitReached === 'function') {
                     window.SoundyAnonymous.onLimitReached('all');
                 }
@@ -702,11 +705,11 @@
      */
     window.SoundyAnonymous.activate = async function() {
         if (!ANONYMOUS_MODE_ENABLED) {
-            console.log('⚠️ [ANONYMOUS] Sistema desabilitado via feature flag');
+            log('⚠️ [ANONYMOUS] Sistema desabilitado via feature flag');
             return false;
         }
         
-        console.log('🔓 [ANONYMOUS] Ativando modo anônimo...');
+        log('🔓 [ANONYMOUS] Ativando modo anônimo...');
         
         // Gerar fingerprint
         const visitorId = await getVisitorFingerprint();
@@ -728,7 +731,7 @@
             window.SoundyAnonymous.showLoginModal(type);
         };
         
-        console.log('✅ [ANONYMOUS] Modo anônimo ATIVADO:', {
+        log('✅ [ANONYMOUS] Modo anônimo ATIVADO:', {
             visitorId: visitorId.substring(0, 12) + '...',
             analyses: data.analysis_count + '/' + ANONYMOUS_LIMITS.maxAnalyses,
             messages: data.message_count + '/' + ANONYMOUS_LIMITS.maxMessages,
@@ -752,7 +755,7 @@
      * Desativa o modo anônimo (após login)
      */
     window.SoundyAnonymous.deactivate = function() {
-        console.log('🔐 [ANONYMOUS] Modo anônimo DESATIVADO (usuário autenticado)');
+        log('🔐 [ANONYMOUS] Modo anônimo DESATIVADO (usuário autenticado)');
         
         window.SoundyAnonymous.isAnonymousMode = false;
         window.SoundyAnonymous.forceCleanState = false; // ✅ Resetar flag de logout
@@ -800,7 +803,7 @@
         const check = window.SoundyAnonymous.canAnalyze();
         
         if (!check.allowed) {
-            console.log('🚫 [ANONYMOUS] Análise bloqueada:', check.reason);
+            log('🚫 [ANONYMOUS] Análise bloqueada:', check.reason);
             window.SoundyAnonymous.showLoginModal('analysis');
             return false;
         }
@@ -816,7 +819,7 @@
         const check = window.SoundyAnonymous.canSendMessage();
         
         if (!check.allowed) {
-            console.log('🚫 [ANONYMOUS] Mensagem bloqueada:', check.reason);
+            log('🚫 [ANONYMOUS] Mensagem bloqueada:', check.reason);
             window.SoundyAnonymous.showLoginModal('message');
             return false;
         }
@@ -830,7 +833,7 @@
      */
     window.SoundyAnonymous.interceptPremiumAction = function(action) {
         if (window.SoundyAnonymous.isAnonymousMode) {
-            console.log('🚫 [ANONYMOUS] Ação premium bloqueada:', action);
+            log('🚫 [ANONYMOUS] Ação premium bloqueada:', action);
             window.SoundyAnonymous.showLoginModal(action);
             return false;
         }
@@ -841,10 +844,10 @@
     // 📢 LOG INICIAL
     // ═══════════════════════════════════════════════════════════
     
-    console.log('🔓 [ANONYMOUS] Sistema de Modo Anônimo carregado');
-    console.log('   Feature Flag:', ANONYMOUS_MODE_ENABLED ? 'ATIVADO' : 'DESATIVADO');
-    console.log('   Limites: 1 análise (PERMANENTE), 5 mensagens');
-    console.log('   Anti-burla: FingerprintJS + LocalStorage + IndexedDB');
-    console.log('   ⚠️ Backend é a ÚNICA autoridade para bloqueio');
+    log('🔓 [ANONYMOUS] Sistema de Modo Anônimo carregado');
+    log('   Feature Flag:', ANONYMOUS_MODE_ENABLED ? 'ATIVADO' : 'DESATIVADO');
+    log('   Limites: 1 análise (PERMANENTE), 5 mensagens');
+    log('   Anti-burla: FingerprintJS + LocalStorage + IndexedDB');
+    log('   ⚠️ Backend é a ÚNICA autoridade para bloqueio');
 
 })();

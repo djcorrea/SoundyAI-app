@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🎯 VALIDADOR AUTOMÁTICO DO SISTEMA UNIFICADO
  * 
@@ -35,36 +38,36 @@
     // Validação automática completa
     async function executeFullValidation() {
         try {
-            console.log('🎯 [AUTO-VALIDATOR] Iniciando validação completa...');
+            log('🎯 [AUTO-VALIDATOR] Iniciando validação completa...');
             
             // Aguardar sistema carregar
             await waitForUnifiedSystem();
-            console.log('✅ [AUTO-VALIDATOR] Sistema unificado carregado');
+            log('✅ [AUTO-VALIDATOR] Sistema unificado carregado');
             
             // Teste 1: Feature flag ativa
             if (!window.STATUS_SUGGESTION_UNIFIED_V1) {
                 throw new Error('Feature flag não está ativa');
             }
-            console.log('✅ [AUTO-VALIDATOR] Feature flag ativa');
+            log('✅ [AUTO-VALIDATOR] Feature flag ativa');
             
             // Teste 2: Função principal disponível
             if (typeof window.calcularStatusSugestaoUnificado !== 'function') {
                 throw new Error('Função principal não disponível');
             }
-            console.log('✅ [AUTO-VALIDATOR] Função principal disponível');
+            log('✅ [AUTO-VALIDATOR] Função principal disponível');
             
             // Teste 3: Testes unitários automáticos
             const testResult = window.executarTestesUnificados();
             if (testResult.falhou > 0) {
                 throw new Error(`${testResult.falhou} testes unitários falharam`);
             }
-            console.log(`✅ [AUTO-VALIDATOR] Testes unitários: ${testResult.passou}/${testResult.total} passaram`);
+            log(`✅ [AUTO-VALIDATOR] Testes unitários: ${testResult.passou}/${testResult.total} passaram`);
             
             // Teste 4: Migração aplicada
             if (!window.createEnhancedDiffCellOriginal) {
-                console.log('⚠️ [AUTO-VALIDATOR] Migração não detectada (normal se não havia função legacy)');
+                log('⚠️ [AUTO-VALIDATOR] Migração não detectada (normal se não havia função legacy)');
             } else {
-                console.log('✅ [AUTO-VALIDATOR] Migração aplicada');
+                log('✅ [AUTO-VALIDATOR] Migração aplicada');
             }
             
             // Teste 5: Validação funcional específica
@@ -93,7 +96,7 @@
                     throw new Error('BUG: Status não-ideal não gerou sugestão!');
                 }
             }
-            console.log('✅ [AUTO-VALIDATOR] Validação funcional completa');
+            log('✅ [AUTO-VALIDATOR] Validação funcional completa');
             
             // Teste 6: Performance básica
             const startTime = performance.now();
@@ -104,13 +107,13 @@
             const avgTime = (endTime - startTime) / 1000;
             
             if (avgTime > 1) { // Mais de 1ms por chamada é suspeito
-                console.warn(`⚠️ [AUTO-VALIDATOR] Performance suspeita: ${avgTime.toFixed(3)}ms/chamada`);
+                warn(`⚠️ [AUTO-VALIDATOR] Performance suspeita: ${avgTime.toFixed(3)}ms/chamada`);
             } else {
-                console.log(`✅ [AUTO-VALIDATOR] Performance OK: ${avgTime.toFixed(3)}ms/chamada`);
+                log(`✅ [AUTO-VALIDATOR] Performance OK: ${avgTime.toFixed(3)}ms/chamada`);
             }
             
             // Sucesso total
-            console.log('🎉 [AUTO-VALIDATOR] SISTEMA UNIFICADO FUNCIONANDO PERFEITAMENTE!');
+            log('🎉 [AUTO-VALIDATOR] SISTEMA UNIFICADO FUNCIONANDO PERFEITAMENTE!');
             
             // Disponibilizar status global
             window.UNIFIED_SYSTEM_STATUS = {
@@ -127,7 +130,7 @@
             }));
             
         } catch (error) {
-            console.error('❌ [AUTO-VALIDATOR] FALHA NA VALIDAÇÃO:', error);
+            error('❌ [AUTO-VALIDATOR] FALHA NA VALIDAÇÃO:', error);
             
             // Status de erro
             window.UNIFIED_SYSTEM_STATUS = {
@@ -140,7 +143,7 @@
             // Tentar fallback para sistema legacy
             if (window.createEnhancedDiffCellOriginal) {
                 window.createEnhancedDiffCell = window.createEnhancedDiffCellOriginal;
-                console.log('🔄 [AUTO-VALIDATOR] Fallback para sistema legacy aplicado');
+                log('🔄 [AUTO-VALIDATOR] Fallback para sistema legacy aplicado');
             }
             
             throw error;

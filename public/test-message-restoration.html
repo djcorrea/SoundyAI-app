@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Restauração Mensagens IA</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🔧 Teste - Restauração das Mensagens da IA</h1>
@@ -38,12 +44,12 @@
     <script>
         // Simular validateAndNormalizeSuggestions CORRIGIDO
         function simulateValidateAndNormalize(suggestions) {
-            console.log('[AUDIT-PRE] validateAndNormalizeSuggestions - ENTRADA:', JSON.stringify(suggestions, null, 2));
+            log('[AUDIT-PRE] validateAndNormalizeSuggestions - ENTRADA:', JSON.stringify(suggestions, null, 2));
             
             const validSuggestions = suggestions.filter(suggestion => {
                 const hasContent = suggestion && (suggestion.message || suggestion.issue || suggestion.title);
                 if (!hasContent) {
-                    console.warn('⚠️ Sugestão inválida (sem conteúdo):', suggestion);
+                    warn('⚠️ Sugestão inválida (sem conteúdo):', suggestion);
                     return false;
                 }
                 return true;
@@ -67,8 +73,8 @@
                 };
             });
 
-            console.log('[AUDIT-POST] validateAndNormalizeSuggestions - SAÍDA:', JSON.stringify(validSuggestions, null, 2));
-            console.log('✅ Sugestões validadas E PRESERVADAS:', {
+            log('[AUDIT-POST] validateAndNormalizeSuggestions - SAÍDA:', JSON.stringify(validSuggestions, null, 2));
+            log('✅ Sugestões validadas E PRESERVADAS:', {
                 original: suggestions.length,
                 valid: validSuggestions.length,
                 preservedFields: validSuggestions.map(s => ({ 
@@ -84,7 +90,7 @@
 
         // Simular buildValidPayload CORRIGIDO
         function simulateBuildValidPayload(suggestions, metrics, genre) {
-            console.log('[AUDIT-PRE] buildValidPayload - ENTRADA:', JSON.stringify(suggestions, null, 2));
+            log('[AUDIT-PRE] buildValidPayload - ENTRADA:', JSON.stringify(suggestions, null, 2));
             
             const formattedSuggestions = suggestions.map((suggestion, index) => {
                 const problemText = suggestion.message || suggestion.issue || suggestion.title || 'Problema detectado';
@@ -120,8 +126,8 @@
                 genre: genre || 'geral'
             };
 
-            console.log('[AUDIT-POST] buildValidPayload - SAÍDA:', JSON.stringify(payload, null, 2));
-            console.log('📦 Payload para backend construído COM PRESERVAÇÃO:', {
+            log('[AUDIT-POST] buildValidPayload - SAÍDA:', JSON.stringify(payload, null, 2));
+            log('📦 Payload para backend construído COM PRESERVAÇÃO:', {
                 suggestionsCount: payload.suggestions.length,
                 preservedMessages: payload.suggestions.map(s => ({ 
                     message: s.message, 
@@ -135,8 +141,8 @@
 
         // Simular merge corrigido
         function simulateCorrectedMerge(validSuggestions, enhancedSuggestions) {
-            console.log('[AUDIT-PRE-MERGE] enhancedSuggestions da API:', JSON.stringify(enhancedSuggestions, null, 2));
-            console.log('[AUDIT-PRE-MERGE] validSuggestions para merge:', JSON.stringify(validSuggestions, null, 2));
+            log('[AUDIT-PRE-MERGE] enhancedSuggestions da API:', JSON.stringify(enhancedSuggestions, null, 2));
+            log('[AUDIT-PRE-MERGE] validSuggestions para merge:', JSON.stringify(validSuggestions, null, 2));
             
             return enhancedSuggestions.map((s, i) => {
                 const original = validSuggestions[i] || {};
@@ -189,7 +195,7 @@
         }
 
         function testValidateFunction() {
-            console.log('🔍 Cenário: Validar função validateAndNormalizeSuggestions corrigida');
+            log('🔍 Cenário: Validar função validateAndNormalizeSuggestions corrigida');
             
             const inputSuggestions = [
                 {
@@ -228,13 +234,13 @@
                 }
             ];
             
-            console.log('🔍 Validate function test:', results);
+            log('🔍 Validate function test:', results);
             
             displayResult("Função validateAndNormalizeSuggestions", results, "Todos os campos originais devem ser preservados");
         }
 
         function testPayloadBuild() {
-            console.log('📦 Cenário: Construção de payload com preservação');
+            log('📦 Cenário: Construção de payload com preservação');
             
             const suggestions = [
                 {
@@ -262,13 +268,13 @@
                 }
             ];
             
-            console.log('📦 Payload build test:', results);
+            log('📦 Payload build test:', results);
             
             displayResult("Construção de payload", results, "originalMessage deve ser preservado para retorno da API");
         }
 
         function testCompletePipeline() {
-            console.log('🚀 Cenário: Pipeline completo com preservação');
+            log('🚀 Cenário: Pipeline completo com preservação');
             
             // 1. Input original
             const originalSuggestions = [
@@ -322,7 +328,7 @@
                 }
             ];
             
-            console.log('🚀 Complete pipeline test:', {
+            log('🚀 Complete pipeline test:', {
                 originalInput: originalSuggestions[0].message,
                 afterValidation: validated[0].message,
                 payloadOriginal: payload.suggestions[0].originalMessage,
@@ -335,7 +341,7 @@
         }
 
         function testTruePeakFlow() {
-            console.log('⚡ Cenário: Fluxo específico True Peak');
+            log('⚡ Cenário: Fluxo específico True Peak');
             
             const truePeakSuggestion = {
                 message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
@@ -392,13 +398,13 @@
                 }
             ];
             
-            console.log('⚡ True Peak flow test:', merged[0]);
+            log('⚡ True Peak flow test:', merged[0]);
             
             displayResult("Fluxo True Peak", results, "True Peak deve manter todos os detalhes e nunca usar fallback");
         }
 
         function testValidationChecklist() {
-            console.log('✅ Cenário: Checklist de validação final');
+            log('✅ Cenário: Checklist de validação final');
             
             // Simular caso mais complexo
             const complexSuggestions = [
@@ -464,7 +470,7 @@
                 }
             ];
             
-            console.log('✅ Final validation checklist:', {
+            log('✅ Final validation checklist:', {
                 allPassed: checklist.every(c => c.success),
                 results: checklist,
                 finalSuggestions: sorted.map(s => ({
@@ -478,10 +484,10 @@
         }
 
         // Log inicial
-        console.log("🔧 [RESTORE] Teste de restauração de mensagens IA iniciado");
-        console.log("🚨 Problema identificado: validateAndNormalizeSuggestions apagava s.message");
-        console.log("✅ Correção aplicada: Preservação de TODOS os campos originais");
-        console.log("🎯 Meta: hasOriginalMessage: true + messageSource: 'restored'");
+        log("🔧 [RESTORE] Teste de restauração de mensagens IA iniciado");
+        log("🚨 Problema identificado: validateAndNormalizeSuggestions apagava s.message");
+        log("✅ Correção aplicada: Preservação de TODOS os campos originais");
+        log("🎯 Meta: hasOriginalMessage: true + messageSource: 'restored'");
     </script>
 </body>
 </html>

@@ -1,0 +1,229 @@
+{
+  "brazilian_phonk": {
+    "version": "v2_hybrid_safe",
+    "generated_at": "2025-12-27T14:56:55.821Z",
+    "num_tracks": 10,
+    "processing_mode": "fallback_safe",
+    "hybrid_processing": {
+      "original_metrics": {
+        "lufs_integrated": -6.5,
+        "true_peak_dbtp": -0.2,
+        "dynamic_range": 4.5,
+        "rms_db": -12,
+        "stereo_correlation": 0.915,
+        "lra": 7
+      },
+      "spectral_bands": {
+        "sub": {
+          "target_range": {
+            "min": -22.5,
+            "max": -14.5
+          },
+          "target_db": -18.5,
+          "energy_pct": 33.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -23.5,
+            "max": -16.5
+          },
+          "target_db": -20,
+          "energy_pct": 29.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -23.5,
+            "max": -16.5
+          },
+          "target_db": -20,
+          "energy_pct": 12.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -29.5,
+            "max": -21.5
+          },
+          "target_db": -25.5,
+          "energy_pct": 10.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -30,
+            "max": -24
+          },
+          "target_db": -27,
+          "energy_pct": 10.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -37,
+            "max": -30
+          },
+          "target_db": -33.5,
+          "energy_pct": 2.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -46,
+            "max": -34.5
+          },
+          "target_db": -40.25,
+          "energy_pct": 0.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -46,
+            "max": -35
+          },
+          "target_db": -40.5,
+          "energy_pct": 0.15,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      },
+      "note": "Métricas originais + bandas normalizadas para comparação justa"
+    },
+    "legacy_compatibility": {
+      "lufs_target": -6.5,
+      "true_peak_target": -0.2,
+      "dr_target": 4.5,
+      "stereo_target": 0.915,
+      "tol_lufs": 1.8,
+      "tol_true_peak": 1,
+      "tol_dr": 2,
+      "lra_target": 7,
+      "tol_lra": 2.5,
+      "tol_stereo": 0.065,
+      "bands": {
+        "sub": {
+          "target_range": {
+            "min": -22.5,
+            "max": -14.5
+          },
+          "target_db": -18.5,
+          "energy_pct": 33.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {
+            "min": -23.5,
+            "max": -16.5
+          },
+          "target_db": -20,
+          "energy_pct": 29.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {
+            "min": -23.5,
+            "max": -16.5
+          },
+          "target_db": -20,
+          "energy_pct": 12.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {
+            "min": -29.5,
+            "max": -21.5
+          },
+          "target_db": -25.5,
+          "energy_pct": 10.5,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {
+            "min": -30,
+            "max": -24
+          },
+          "target_db": -27,
+          "energy_pct": 10.2,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {
+            "min": -37,
+            "max": -30
+          },
+          "target_db": -33.5,
+          "energy_pct": 2.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {
+            "min": -46,
+            "max": -34.5
+          },
+          "target_db": -40.25,
+          "energy_pct": 0.8,
+          "tol_db": 0,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {
+            "min": -46,
+            "max": -35
+          },
+          "target_db": -40.5,
+          "energy_pct": 0.15,
+          "tol_db": 0,
+          "severity": "soft"
+        }
+      },
+      "lufs_min": -8,
+      "lufs_max": -4.5,
+      "dr_min": 3,
+      "dr_max": 7,
+      "true_peak_min": -2,
+      "true_peak_max": 0,
+      "true_peak_warn_from": -0.05
+    },
+    "last_updated": "2025-12-27T14:56:55.821Z",
+    "cache_bust": 1766847415821,
+    "processing_info": {
+      "hybrid_mode": true,
+      "safe_mode": true,
+      "ios_compatible": true,
+      "fallback_enabled": true
+    },
+    "correction_info": {
+      "correction_date": "2025-10-14T00:00:00.000Z",
+      "correction_type": "new_genre_creation",
+      "source": "system_update",
+      "note": "Novo gênero Brazilian Phonk criado com padrão v2_hybrid_safe"
+    },
+    "lufs_min": -8,
+    "lufs_max": -4.5,
+    "dr_min": 3,
+    "dr_max": 7,
+    "true_peak_min": -2,
+    "true_peak_max": 0,
+    "true_peak_warn_from": -0.05,
+    "lufs_target": -6.5,
+    "true_peak_target": -0.2,
+    "dr_target": 4.5,
+    "tol_lufs": 1.8,
+    "tol_dr": 2,
+    "tol_true_peak": 1
+  }
+}

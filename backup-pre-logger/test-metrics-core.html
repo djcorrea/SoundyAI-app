@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - ForceActivator com Métricas Core</title>
+</head>
+<body>
+    <h1>🎯 Teste - ForceActivator aguardando Métricas Core</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Sequência esperada:</h3>
+        <ol>
+            <li>⏳ ForceActivator aguardando métricas core... (até 10 tentativas)</li>
+            <li>✅ ForceActivator executado após sistema pronto (metrics core detectadas)</li>
+            <li>🎯 [FORCE-ACTIVATOR] Sistema unificado aplicado agressivamente</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Ferramentas de Teste:</h4>
+        <button onclick="simulateBasicSystems()">🔧 Simular Sistemas Básicos</button>
+        <button onclick="simulateMetrics()">📊 Simular Métricas Core</button>
+        <button onclick="checkSystemStatus()">📋 Verificar Status</button>
+        <button onclick="testSafeForceActivator()">🧪 Testar SafeForceActivator</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="status-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Status Atual dos Sistemas:</h4>
+        <div id="status-content">Carregando...</div>
+    </div>
+
+    <div id="metrics-display" style="margin: 20px 0; padding: 15px; background: #f0f8e7; border-radius: 5px;">
+        <h4>📈 Status das Métricas Core:</h4>
+        <div id="metrics-content">Carregando...</div>
+    </div>
+
+    <script>
+        let waitingLogsCount = 0;
+
+        // Interceptar logs para monitorar aguardo de métricas
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('ForceActivator aguardando métricas core')) {
+                waitingLogsCount++;
+                updateStatusDisplays();
+            }
+            originalLog.apply(console, args);
+        };
+
+        function updateStatusDisplays() {
+            const statusDiv = document.getElementById('status-content');
+            const metricsDiv = document.getElementById('metrics-content');
+            
+            statusDiv.innerHTML = `
+                <div><strong>audioAnalyzer:</strong> ${!!window.audioAnalyzer}</div>
+                <div><strong>CACHE_CTX_AWARE_V1_API:</strong> ${!!window.CACHE_CTX_AWARE_V1_API}</div>
+                <div><strong>refsReady:</strong> ${!!window.refsReady}</div>
+                <div><strong>embeddedRefsLoaded:</strong> ${!!window.embeddedRefsLoaded}</div>
+                <div><strong>FORCE_ACTIVATOR_ALREADY_RUN:</strong> ${!!window.FORCE_ACTIVATOR_ALREADY_RUN}</div>
+                <div style="margin-top: 10px;"><strong>Tentativas de aguardo:</strong> ${waitingLogsCount}</div>
+            `;
+
+            const hasMetrics = window.audioAnalyzer && window.audioAnalyzer.metrics;
+            metricsDiv.innerHTML = `
+                <div><strong>audioAnalyzer.metrics:</strong> ${!!hasMetrics}</div>
+                <div><strong>truePeak:</strong> ${hasMetrics && !!window.audioAnalyzer.metrics.truePeak}</div>
+                <div><strong>dynamicRange:</strong> ${hasMetrics && !!window.audioAnalyzer.metrics.dynamicRange}</div>
+                <div style="margin-top: 10px;">
+                    <strong>Valores:</strong>
+                    ${hasMetrics ? JSON.stringify({
+                        truePeak: window.audioAnalyzer.metrics.truePeak,
+                        dynamicRange: window.audioAnalyzer.metrics.dynamicRange
+                    }, null, 2) : 'N/A'}
+                </div>
+            `;
+        }
+
+        function simulateBasicSystems() {
+            console.log('🔧 [TEST] Simulando sistemas básicos...');
+            window.audioAnalyzer = {};
+            window.CACHE_CTX_AWARE_V1_API = { ready: true };
+            window.refsReady = true;
+            window.embeddedRefsLoaded = true;
+            updateStatusDisplays();
+        }
+
+        function simulateMetrics() {
+            console.log('🔧 [TEST] Simulando métricas core...');
+            if (!window.audioAnalyzer) {
+                window.audioAnalyzer = {};
+            }
+            window.audioAnalyzer.metrics = {
+                truePeak: -1.2,
+                dynamicRange: 8.5,
+                lufs: -14.2,
+                lra: 6.8
+            };
+            console.log('📊 [TEST] Métricas core simuladas:', window.audioAnalyzer.metrics);
+            updateStatusDisplays();
+        }
+
+        function checkSystemStatus() {
+            console.log('🧪 [TEST] Status atual dos sistemas:');
+            const hasMetrics = window.audioAnalyzer && window.audioAnalyzer.metrics;
+            console.log({
+                audioAnalyzer: !!window.audioAnalyzer,
+                'audioAnalyzer.metrics': !!hasMetrics,
+                'metrics.truePeak': hasMetrics && !!window.audioAnalyzer.metrics.truePeak,
+                'metrics.dynamicRange': hasMetrics && !!window.audioAnalyzer.metrics.dynamicRange,
+                CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                refsReady: window.refsReady,
+                waitingLogsCount: waitingLogsCount
+            });
+            updateStatusDisplays();
+        }
+
+        function testSafeForceActivator() {
+            console.log('🧪 [TEST] Testando safeForceActivator diretamente...');
+            if (window.safeForceActivator) {
+                window.safeForceActivator();
+            } else {
+                console.error('❌ [TEST] safeForceActivator não disponível');
+            }
+        }
+
+        // Atualizar displays a cada segundo
+        setInterval(updateStatusDisplays, 1000);
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de métricas core iniciado");
+        updateStatusDisplays();
+    </script>
+
+    <!-- Carregar refs internas primeiro -->
+    <script src="/refs/embedded-refs-new.js"></script>
+    
+    <!-- Carregar Force Activator com defer -->
+    <script src="/force-unified-activation.js" defer></script>
+</body>
+</html>

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔒 SECURE RENDER UTILS - Sistema de Renderização Segura para Modo Reduced
  * 
@@ -95,13 +98,13 @@
         
         const allowlist = REDUCED_MODE_ALLOWLISTS[section];
         if (!allowlist) {
-            console.warn('[SECURE-RENDER] Seção desconhecida:', section);
+            warn('[SECURE-RENDER] Seção desconhecida:', section);
             return false;
         }
         
         const allowed = allowlist.includes(metricKey);
         
-        console.log(`[SECURE-RENDER] Métrica: ${metricKey}, Seção: ${section}, Permitida: ${allowed}`);
+        log(`[SECURE-RENDER] Métrica: ${metricKey}, Seção: ${section}, Permitida: ${allowed}`);
         
         return allowed;
     }
@@ -165,7 +168,7 @@
         const isReduced = isReducedMode(analysis);
         const allowed = !isReduced || isMetricAllowed(metricKey, section);
         
-        console.log(`[SECURE-RENDER] renderMetricValue: ${metricKey}, Reduced: ${isReduced}, Allowed: ${allowed}, Value: ${value}`);
+        log(`[SECURE-RENDER] renderMetricValue: ${metricKey}, Reduced: ${isReduced}, Allowed: ${allowed}, Value: ${value}`);
         
         return renderSecureValue(value, unit, allowed, options);
     }
@@ -344,7 +347,7 @@
         getAllowlist: (section) => REDUCED_MODE_ALLOWLISTS[section] || []
     };
     
-    console.log('[SECURE-RENDER] ✅ Secure Render Utils carregado');
-    console.log('[SECURE-RENDER] Allowlists configuradas:', REDUCED_MODE_ALLOWLISTS);
+    log('[SECURE-RENDER] ✅ Secure Render Utils carregado');
+    log('[SECURE-RENDER] Allowlists configuradas:', REDUCED_MODE_ALLOWLISTS);
     
 })(window);

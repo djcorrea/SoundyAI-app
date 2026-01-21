@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔥 SOUNDYAI - DEMO CORE
  * 
@@ -98,11 +101,11 @@
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js';
             script.onload = () => {
-                console.log('✅ [DEMO-CORE] FingerprintJS carregado');
+                log('✅ [DEMO-CORE] FingerprintJS carregado');
                 resolve(window.FingerprintJS);
             };
             script.onerror = () => {
-                console.warn('⚠️ [DEMO-CORE] Falha ao carregar FingerprintJS, usando fallback');
+                warn('⚠️ [DEMO-CORE] Falha ao carregar FingerprintJS, usando fallback');
                 resolve(null);
             };
             document.head.appendChild(script);
@@ -153,7 +156,7 @@
         const storedFingerprint = localStorage.getItem(FINGERPRINT_KEY);
         
         if (storedFingerprint && storedFingerprint.length > 10) {
-            console.log('✅ [DEMO-CORE] Fingerprint recuperado do storage:', storedFingerprint.substring(0, 16) + '...');
+            log('✅ [DEMO-CORE] Fingerprint recuperado do storage:', storedFingerprint.substring(0, 16) + '...');
             return storedFingerprint;
         }
         
@@ -168,17 +171,17 @@
                 
                 // Persistir para uso futuro
                 localStorage.setItem(FINGERPRINT_KEY, fingerprint);
-                console.log('✅ [DEMO-CORE] Fingerprint gerado e persistido:', fingerprint.substring(0, 16) + '...');
+                log('✅ [DEMO-CORE] Fingerprint gerado e persistido:', fingerprint.substring(0, 16) + '...');
                 return fingerprint;
             }
         } catch (error) {
-            console.warn('⚠️ [DEMO-CORE] Erro no FingerprintJS:', error.message);
+            warn('⚠️ [DEMO-CORE] Erro no FingerprintJS:', error.message);
         }
         
         // 3. Fallback determinístico
         const fallbackId = generateFallbackId();
         localStorage.setItem(FINGERPRINT_KEY, fallbackId);
-        console.log('⚠️ [DEMO-CORE] Usando fallback ID persistido:', fallbackId.substring(0, 16) + '...');
+        log('⚠️ [DEMO-CORE] Usando fallback ID persistido:', fallbackId.substring(0, 16) + '...');
         return fallbackId;
     }
 
@@ -194,7 +197,7 @@
             localStorage.setItem(DEMO_CONFIG.storageKey, JSON.stringify(data));
             return true;
         } catch (e) {
-            console.warn('⚠️ [DEMO-CORE] Erro ao salvar localStorage:', e.message);
+            warn('⚠️ [DEMO-CORE] Erro ao salvar localStorage:', e.message);
             return false;
         }
     }
@@ -285,10 +288,10 @@
         
         if (data && data.visitor_id === visitorId) {
             if (new Date(data.expires_at) < new Date()) {
-                console.log('⏰ [DEMO-CORE] Dados expirados, criando novo registro');
+                log('⏰ [DEMO-CORE] Dados expirados, criando novo registro');
                 data = createDemoData(visitorId);
             } else {
-                console.log('✅ [DEMO-CORE] Dados carregados do localStorage');
+                log('✅ [DEMO-CORE] Dados carregados do localStorage');
                 data.last_access = new Date().toISOString();
             }
             return data;
@@ -297,7 +300,7 @@
         // 2. Tentar IndexedDB (anti-burla)
         const idbData = await loadFromIndexedDB(visitorId);
         if (idbData && new Date(idbData.expires_at) >= new Date()) {
-            console.log('✅ [DEMO-CORE] Dados recuperados do IndexedDB');
+            log('✅ [DEMO-CORE] Dados recuperados do IndexedDB');
             idbData.last_access = new Date().toISOString();
             saveToLocalStorage(idbData);
             return idbData;
@@ -305,7 +308,7 @@
         
         // 3. Herdar contadores se fingerprint diferente (anti-burla)
         if (data && data.visitor_id !== visitorId) {
-            console.warn('⚠️ [DEMO-CORE] Fingerprint diferente - possível burla');
+            warn('⚠️ [DEMO-CORE] Fingerprint diferente - possível burla');
             const newData = createDemoData(visitorId);
             newData.analyses_used = Math.max(data.analyses_used || 0, 0);
             newData.messages_used = Math.max(data.messages_used || 0, 0);
@@ -313,7 +316,7 @@
         }
         
         // 4. Criar novo
-        console.log('🆕 [DEMO-CORE] Novo visitante demo');
+        log('🆕 [DEMO-CORE] Novo visitante demo');
         return createDemoData(visitorId);
     }
 
@@ -326,7 +329,7 @@
         await saveToIndexedDB(data);
         window.SoundyDemo.data = data;
         
-        console.log('💾 [DEMO-CORE] Dados salvos:', {
+        log('💾 [DEMO-CORE] Dados salvos:', {
             analyses: data.analyses_used + '/' + DEMO_CONFIG.limits.maxAnalyses,
             messages: data.messages_used + '/' + DEMO_CONFIG.limits.maxMessages
         });
@@ -366,13 +369,13 @@
             
             const result = await response.json();
             
-            console.log('🔗 [DEMO-CORE] Backend check:', result);
+            log('🔗 [DEMO-CORE] Backend check:', result);
             
             // 🔴 CRÍTICO: Backend é AUTORITATIVO
             window.SoundyDemo._backendAuthoritative = true;
             
             if (!result.allowed) {
-                console.log('🚫 [DEMO-CORE] Backend BLOQUEOU:', result.reason);
+                log('🚫 [DEMO-CORE] Backend BLOQUEOU:', result.reason);
                 
                 // Sincronizar bloqueio local
                 if (window.SoundyDemo.data) {
@@ -396,7 +399,7 @@
             };
             
         } catch (error) {
-            console.warn('⚠️ [DEMO-CORE] Erro na verificação backend:', error.message);
+            warn('⚠️ [DEMO-CORE] Erro na verificação backend:', error.message);
             // Fail-open: Se backend falhar, usar verificação local (não perder venda)
             return {
                 allowed: !window.SoundyDemo.data?.blocked,
@@ -425,7 +428,7 @@
             };
             
         } catch (error) {
-            console.warn('⚠️ [DEMO-CORE] Erro na validação backend:', error.message);
+            warn('⚠️ [DEMO-CORE] Erro na validação backend:', error.message);
             return { success: true, permissions: null, backendAuthoritative: false };
         }
     }
@@ -470,13 +473,13 @@
             options.headers['x-demo-mode'] = 'true';
             options.headers['x-demo-visitor'] = window.SoundyDemo.visitorId || 'unknown';
             
-            console.log('🔥 [DEMO-CORE] Fetch interceptado, header x-demo-mode injetado:', url);
+            log('🔥 [DEMO-CORE] Fetch interceptado, header x-demo-mode injetado:', url);
         }
         
         return originalFetch.call(window, url, options);
     };
 
-    console.log('🔥 [DEMO-CORE] Interceptador de fetch instalado');
+    log('🔥 [DEMO-CORE] Interceptador de fetch instalado');
 
     // ═══════════════════════════════════════════════════════════
     // 🚀 INICIALIZAÇÃO
@@ -488,16 +491,16 @@
      */
     window.SoundyDemo.activate = async function() {
         if (!DEMO_CONFIG.enabled) {
-            console.log('⚠️ [DEMO-CORE] Sistema desabilitado via config');
+            log('⚠️ [DEMO-CORE] Sistema desabilitado via config');
             return false;
         }
         
         if (window.SoundyDemo.initialized) {
-            console.log('✅ [DEMO-CORE] Já inicializado');
+            log('✅ [DEMO-CORE] Já inicializado');
             
             // 🔴 Se já bloqueado, mostrar modal imediatamente
             if (window.SoundyDemo.data?.blocked) {
-                console.log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal');
+                log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal');
                 setTimeout(() => {
                     if (typeof window.SoundyDemo.showConversionModal === 'function') {
                         window.SoundyDemo.showConversionModal(window.SoundyDemo.data.blockReason || 'blocked');
@@ -508,7 +511,7 @@
             return true;
         }
         
-        console.log('🔥 [DEMO-CORE] Ativando modo demo de venda...');
+        log('🔥 [DEMO-CORE] Ativando modo demo de venda...');
         
         // Gerar fingerprint
         const visitorId = await getVisitorFingerprint();
@@ -528,7 +531,7 @@
         // 🔴 AJUSTE: NÃO desativar anonymous-mode
         // Demo apenas SOBREPÕE via prioridade nos interceptors
         // Isso preserva anonymous-mode para outros usuários
-        console.log('✅ [DEMO-CORE] Modo demo ATIVADO (sobrepondo outros modos):', {
+        log('✅ [DEMO-CORE] Modo demo ATIVADO (sobrepondo outros modos):', {
             visitorId: visitorId.substring(0, 16) + '...',
             analysesUsed: data.analyses_used + '/' + DEMO_CONFIG.limits.maxAnalyses,
             messagesUsed: data.messages_used + '/' + DEMO_CONFIG.limits.maxMessages,
@@ -537,7 +540,7 @@
         
         // 🔴 VERIFICAR SE JÁ ESTÁ BLOQUEADO (de sessão anterior)
         if (data.blocked) {
-            console.log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal imediatamente');
+            log('🚫 [DEMO-CORE] Usuário já bloqueado - exibindo modal imediatamente');
             setTimeout(() => {
                 if (typeof window.SoundyDemo.showConversionModal === 'function') {
                     window.SoundyDemo.showConversionModal(data.blockReason || 'blocked');
@@ -550,7 +553,7 @@
         try {
             await validateWithBackend('check');
         } catch (e) {
-            console.warn('⚠️ [DEMO-CORE] Backend check falhou na inicialização');
+            warn('⚠️ [DEMO-CORE] Backend check falhou na inicialização');
         }
         
         // Disparar evento
@@ -564,14 +567,14 @@
             showDemoWelcomeNotice();
             
             if (typeof window.openModeSelectionModal === 'function') {
-                console.log('🎯 [DEMO-CORE] Abrindo modal de análise automaticamente...');
+                log('🎯 [DEMO-CORE] Abrindo modal de análise automaticamente...');
                 window.openModeSelectionModal();
             } else {
-                console.warn('⚠️ [DEMO-CORE] openModeSelectionModal não disponível ainda, aguardando...');
+                warn('⚠️ [DEMO-CORE] openModeSelectionModal não disponível ainda, aguardando...');
                 // Tentar novamente após mais tempo
                 setTimeout(() => {
                     if (typeof window.openModeSelectionModal === 'function') {
-                        console.log('🎯 [DEMO-CORE] Abrindo modal de análise (2ª tentativa)...');
+                        log('🎯 [DEMO-CORE] Abrindo modal de análise (2ª tentativa)...');
                         window.openModeSelectionModal();
                     }
                 }, 2000);
@@ -681,7 +684,7 @@
             setTimeout(() => notice.remove(), 500);
         }, 6000);
         
-        console.log('📢 [DEMO-CORE] Aviso de boas-vindas exibido');
+        log('📢 [DEMO-CORE] Aviso de boas-vindas exibido');
     }
 
     /**
@@ -712,10 +715,10 @@
     
     function autoInit() {
         if (isDemoMode()) {
-            console.log('🎯 [DEMO-CORE] Modo demo detectado via URL');
+            log('🎯 [DEMO-CORE] Modo demo detectado via URL');
             window.SoundyDemo.activate();
         } else {
-            console.log('ℹ️ [DEMO-CORE] Não está em modo demo');
+            log('ℹ️ [DEMO-CORE] Não está em modo demo');
         }
     }
 
@@ -725,6 +728,6 @@
         setTimeout(autoInit, 0);
     }
 
-    console.log('🔥 [DEMO-CORE] Módulo Core carregado');
+    log('🔥 [DEMO-CORE] Módulo Core carregado');
 
 })();

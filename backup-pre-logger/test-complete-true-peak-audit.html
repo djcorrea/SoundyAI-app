@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Auditoria Completa True Peak</title>
+</head>
+<body>
+    <h1>🔍 Teste - Auditoria Completa para True Peak</h1>
+    <p>Abra o console (F12) e observe os logs detalhados:</p>
+    
+    <div id="log-container">
+        <h3>🎯 Problemas Identificados e Corrigidos:</h3>
+        <ol>
+            <li>✅ <strong>Prioridade correta:</strong> s.message agora tem prioridade 1</li>
+            <li>✅ <strong>Fallback UI:</strong> createSuggestionCard usa message quando blocos específicos não existem</li>
+            <li>✅ <strong>Title/Message sync:</strong> title = message quando title está vazio</li>
+            <li>✅ <strong>True Peak no topo:</strong> ordenação mantida</li>
+            <li>✅ <strong>Logs detalhados:</strong> rastreamento completo do merge</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testDirectAIMessage()">🎯 s.message direto da IA</button>
+        <button onclick="testTruePeakPriority()">⚡ True Peak prioritário</button>
+        <button onclick="testUIFallback()">🖥️ Fallback UI</button>
+        <button onclick="testCompleteFlow()">🚀 Fluxo completo</button>
+        <button onclick="testValidationChecklist()">✅ Checklist de validação</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge corrigida com prioridade correta
+        function testCorrectedMerge(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+                const content = meta.content || {};
+                const inner = meta.inner || {};
+                const originalData = meta.originalData || {};
+                const data = meta.data || {};
+                const enriched = meta.enriched || {};
+
+                // Busca recursiva ampla - PRIORIDADE CORRETA
+                const resolvedMessage =
+                    s.message ||                           // 🎯 PRIORIDADE 1: Resposta direta da IA
+                    original.message ||                    // 📋 PRIORIDADE 2: Sugestão original  
+                    meta.message ||                        // 🔍 metadata.message
+                    (meta.original && meta.original.message) || // ⚡ metadata.original.message
+                    (meta.enriched && meta.enriched.message) || // ✨ metadata.enriched.message
+                    data.message ||                        // 📊 metadata.data.message
+                    originalData.message ||                // 🗂️ metadata.originalData.message
+                    (content.original && content.original.message) || // 🏗️ metadata.content.original.message
+                    (content.enriched && content.enriched.message) || // 🎨 metadata.content.enriched.message
+                    (inner.original && inner.original.message) ||     // 🏠 metadata.inner.original.message
+                    (inner.enriched && inner.enriched.message) ||     // 💎 metadata.inner.enriched.message
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                const resolvedAction =
+                    s.action ||                           // 🎯 PRIORIDADE 1: Action direta da IA
+                    original.action ||                    // 📋 PRIORIDADE 2: Action original
+                    meta.action ||                        // 🔍 metadata.action
+                    (meta.original && meta.original.action) || // ⚡ metadata.original.action
+                    (meta.enriched && meta.enriched.action) || // ✨ metadata.enriched.action
+                    data.action ||                        // 📊 metadata.data.action
+                    originalData.action ||                // 🗂️ metadata.originalData.action
+                    (content.original && content.original.action) || // 🏗️ metadata.content.original.action
+                    (content.enriched && content.enriched.action) || // 🎨 metadata.content.enriched.action
+                    (inner.original && inner.original.action) ||     // 🏠 metadata.inner.original.action
+                    (inner.enriched && inner.enriched.action) ||     // 💎 metadata.inner.enriched.action
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!resolvedMessage,
+                    messageSource: resolvedMessage ? "restored" : "fallback",
+                    message: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    title: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    action: resolvedAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        // Função de UI com fallback
+        function simulateUIRendering(suggestions) {
+            // Aplicar correção title/message
+            suggestions.forEach((s) => {
+                if (!s.title && s.message) {
+                    s.title = s.message;
+                }
+            });
+
+            // Simular createSuggestionCard
+            return suggestions.map(suggestion => {
+                const blocks = {
+                    problem: suggestion.problema || suggestion.blocks?.problem || (suggestion.message && suggestion.message.includes("True Peak") ? suggestion.message : null),
+                    cause: suggestion.causa || suggestion.blocks?.cause,
+                    solution: suggestion.solucao || suggestion.blocks?.solution || suggestion.action,
+                    tip: suggestion.dica_extra || suggestion.blocks?.tip,
+                    plugin: suggestion.plugin || suggestion.blocks?.plugin,
+                    result: suggestion.resultado || suggestion.blocks?.result
+                };
+                
+                // FALLBACK CRÍTICO: Se não há blocos específicos, usar message/title como problema principal
+                if (!blocks.problem && !blocks.solution && !blocks.cause) {
+                    blocks.problem = suggestion.message || suggestion.title || "⚠️ Conteúdo não disponível";
+                    if (suggestion.action) {
+                        blocks.solution = suggestion.action;
+                    }
+                }
+
+                return {
+                    ...suggestion,
+                    renderedBlocks: blocks,
+                    willDisplay: !!(blocks.problem || blocks.solution),
+                    fallbackUsed: !!(!suggestion.problema && !suggestion.blocks?.problem && suggestion.message)
+                };
+            });
+        }
+
+        function displayResult(scenarioName, results, successCriteria) {
+            const div = document.getElementById('result-content');
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Critérios de sucesso:</strong> ${successCriteria}</div>
+                <div><strong>Resultados:</strong></div>
+                <ul>
+                    ${results.map(r => `<li>${r.success ? '✅' : '❌'} ${r.description}</li>`).join('')}
+                </ul>
+                <div style="margin-top: 10px;"><strong>Status geral:</strong> ${results.every(r => r.success) ? '✅ TODOS OS TESTES PASSARAM' : '❌ ALGUNS TESTES FALHARAM'}</div>
+            `;
+        }
+
+        function testDirectAIMessage() {
+            console.log('🎯 Cenário: s.message direto da IA (prioridade 1)');
+            
+            const validSuggestions = [{
+                message: "Mensagem original que deveria ser ignorada",
+                priority: 2
+            }];
+            
+            const enhancedSuggestions = [{
+                message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                action: "Aplicar FabFilter Pro-L2 com threshold em -1.0 dB",
+                priority: 1,
+                metadata: {
+                    original: {
+                        message: "Esta mensagem deveria ser ignorada"
+                    }
+                }
+            }];
+            
+            const merged = testCorrectedMerge(validSuggestions, enhancedSuggestions);
+            
+            const results = [
+                {
+                    success: merged[0].message.includes("True Peak"),
+                    description: `s.message preservado: "${merged[0].message}"`
+                },
+                {
+                    success: merged[0].hasOriginalMessage === true,
+                    description: `hasOriginalMessage: ${merged[0].hasOriginalMessage}`
+                },
+                {
+                    success: merged[0].messageSource === "restored",
+                    description: `messageSource: ${merged[0].messageSource}`
+                },
+                {
+                    success: merged[0].action?.includes("FabFilter"),
+                    description: `Action preservada: "${merged[0].action}"`
+                }
+            ];
+            
+            console.log('🎯 Direct AI message test:', results);
+            
+            displayResult("s.message direto da IA", results, "s.message deve ter prioridade sobre todas as outras fontes");
+        }
+
+        function testTruePeakPriority() {
+            console.log('⚡ Cenário: True Peak no topo com ordenação');
+            
+            const validSuggestions = [
+                { message: "LUFS baixo", priority: 2 },
+                { message: "DR adequado", priority: 3 },
+                { message: "True Peak original", priority: 1 }
+            ];
+            
+            const enhancedSuggestions = [
+                {
+                    message: "📊 LUFS está em -18.5, ideal para streaming",
+                    priority: 2
+                },
+                {
+                    message: "🎵 Dynamic Range adequado para o gênero",
+                    priority: 3
+                },
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                    action: "Aplicar limitador suave FabFilter Pro-L2",
+                    priority: 1
+                }
+            ];
+            
+            const merged = testCorrectedMerge(validSuggestions, enhancedSuggestions);
+            const sorted = merged.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+            
+            const results = [
+                {
+                    success: sorted[0].message.includes("True Peak"),
+                    description: `True Peak no topo: "${sorted[0].message.substring(0, 40)}..."`
+                },
+                {
+                    success: sorted.every(s => s.hasOriginalMessage),
+                    description: `Todas as mensagens preservadas: ${sorted.every(s => s.hasOriginalMessage)}`
+                },
+                {
+                    success: sorted[0].action?.includes("FabFilter"),
+                    description: `Plugin específico preservado: ${sorted[0].action?.includes("FabFilter") ? 'SIM' : 'NÃO'}`
+                }
+            ];
+            
+            console.log('⚡ True Peak priority test:', {
+                beforeSort: merged.map(s => s.message.substring(0, 30)),
+                afterSort: sorted.map(s => s.message.substring(0, 30)),
+                truePeakFirst: sorted[0].message.includes("True Peak")
+            });
+            
+            displayResult("True Peak prioritário", results, "True Peak deve aparecer sempre primeiro após ordenação");
+        }
+
+        function testUIFallback() {
+            console.log('🖥️ Cenário: Fallback UI quando blocos específicos não existem');
+            
+            const suggestions = [
+                {
+                    message: "⚡ True Peak crítico detectado",
+                    action: "Aplicar limitador",
+                    hasOriginalMessage: true,
+                    messageSource: "restored",
+                    // Sem campos problema/solucao específicos
+                },
+                {
+                    message: "📊 LUFS adequado para streaming",
+                    action: "Manter níveis atuais",
+                    hasOriginalMessage: true,
+                    messageSource: "restored",
+                    problema: "Campo específico existente", // Este tem campo específico
+                }
+            ];
+            
+            const rendered = simulateUIRendering([...suggestions]);
+            
+            const results = [
+                {
+                    success: rendered[0].fallbackUsed === true,
+                    description: `Fallback ativado para True Peak: ${rendered[0].fallbackUsed}`
+                },
+                {
+                    success: rendered[0].renderedBlocks.problem === "⚡ True Peak crítico detectado",
+                    description: `Message usado como problema: "${rendered[0].renderedBlocks.problem}"`
+                },
+                {
+                    success: rendered[0].willDisplay === true,
+                    description: `Card será exibido: ${rendered[0].willDisplay}`
+                },
+                {
+                    success: rendered[1].fallbackUsed === false,
+                    description: `Campo específico preservado: ${rendered[1].fallbackUsed === false}`
+                }
+            ];
+            
+            console.log('🖥️ UI Fallback test:', rendered);
+            
+            displayResult("Fallback UI", results, "UI deve usar message como fallback quando blocos específicos não existem");
+        }
+
+        function testCompleteFlow() {
+            console.log('🚀 Cenário: Fluxo completo - merge + ordenação + UI');
+            
+            // Simular resposta real do backend
+            const validSuggestions = [
+                { message: "LUFS original", priority: 2 },
+                { message: "True Peak original", priority: 1 }
+            ];
+            
+            const enhancedSuggestions = [
+                {
+                    message: "📊 LUFS ideal para plataformas digitais",
+                    action: "Ajustar gain para -14 LUFS",
+                    priority: 2
+                },
+                {
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                    action: "Aplicar FabFilter Pro-L2 com threshold suave",
+                    priority: 1
+                }
+            ];
+            
+            // Executar fluxo completo
+            const merged = testCorrectedMerge(validSuggestions, enhancedSuggestions);
+            const sorted = merged.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+            const rendered = simulateUIRendering(sorted);
+            
+            const results = [
+                {
+                    success: sorted.every(s => s.hasOriginalMessage && s.messageSource === "restored"),
+                    description: `Todas as mensagens restauradas: ${sorted.every(s => s.hasOriginalMessage)}`
+                },
+                {
+                    success: sorted[0].message.includes("True Peak"),
+                    description: `True Peak no topo: "${sorted[0].message.substring(0, 40)}..."`
+                },
+                {
+                    success: rendered.every(r => r.willDisplay),
+                    description: `Todos os cards serão exibidos: ${rendered.every(r => r.willDisplay)}`
+                },
+                {
+                    success: !sorted.some(s => s.message.includes("⚠️ Mensagem perdida")),
+                    description: `Nenhum fallback de erro: ${!sorted.some(s => s.message.includes("⚠️ Mensagem perdida"))}`
+                }
+            ];
+            
+            console.log('🚀 Complete flow results:', {
+                mergedCount: merged.length,
+                allRestored: sorted.every(s => s.hasOriginalMessage),
+                truePeakFirst: sorted[0].message.includes("True Peak"),
+                allWillDisplay: rendered.every(r => r.willDisplay),
+                finalSuggestions: sorted.map(s => ({ 
+                    message: s.message.substring(0, 50), 
+                    action: s.action?.substring(0, 30),
+                    willDisplay: rendered.find(r => r.message === s.message)?.willDisplay
+                }))
+            });
+            
+            displayResult("Fluxo completo", results, "Merge + Ordenação + UI funcionando 100%");
+        }
+
+        function testValidationChecklist() {
+            console.log('✅ Cenário: Checklist de validação automática');
+            
+            // Simular caso mais complexo
+            const validSuggestions = [{ message: "Original", priority: 1 }];
+            const enhancedSuggestions = [{
+                message: "⚡ True Peak requer correção PRIORITÁRIA",
+                action: "Aplicar limitador nativo da DAW ou FabFilter Pro-L2",
+                priority: 1
+            }];
+            
+            const merged = testCorrectedMerge(validSuggestions, enhancedSuggestions);
+            const sorted = merged.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+            const rendered = simulateUIRendering(sorted);
+            
+            const checklist = [
+                {
+                    success: !sorted.some(s => s.message.includes("⚠️ Mensagem perdida")),
+                    description: "❌ Nenhum '⚠️ Mensagem perdida na integração' é exibido"
+                },
+                {
+                    success: sorted[0].message.includes("True Peak"),
+                    description: "✅ True Peak aparece no topo com texto prioritário correto"
+                },
+                {
+                    success: rendered.every(r => r.willDisplay && (r.renderedBlocks.problem || r.renderedBlocks.solution)),
+                    description: "✅ Todos os blocos da IA são renderizados (Problema/Solução)"
+                },
+                {
+                    success: sorted.every(s => s.hasOriginalMessage === true),
+                    description: "✅ hasOriginalMessage: true no log"
+                },
+                {
+                    success: sorted.every(s => s.messageSource === "restored"),
+                    description: "✅ messageSource: 'restored' no log"
+                },
+                {
+                    success: sorted.every(s => s.message && s.title && s.message === s.title),
+                    description: "✅ Nenhum campo válido é apagado (message = title)"
+                }
+            ];
+            
+            console.log('✅ Validation checklist:', checklist);
+            
+            displayResult("Checklist de validação", checklist, "Todos os critérios do checklist devem passar");
+        }
+
+        // Log inicial
+        console.log("🔍 [AUDIT] Auditoria completa para True Peak iniciada");
+        console.log("🎯 Correções aplicadas: prioridade s.message, fallback UI, logs detalhados");
+        console.log("⚡ Meta: eliminar '⚠️ Mensagem perdida' e exibir True Peak corretamente");
+    </script>
+</body>
+</html>

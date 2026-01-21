@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // public/analysis-history.js
 // 🕐 Sistema de Histórico de Análises - Frontend (APENAS PRO)
 // Reutiliza displayModalResults() existente para exibir análises antigas
@@ -5,7 +8,7 @@
 (function initAnalysisHistory() {
     'use strict';
 
-    console.log('🕐 [HISTORY-FE] Inicializando módulo de histórico...');
+    log('🕐 [HISTORY-FE] Inicializando módulo de histórico...');
 
     // ═══════════════════════════════════════════════════════════════════
     // 🔧 CONFIGURAÇÕES
@@ -86,12 +89,12 @@
         const userPlan = detectUserPlan();
         
         if (!userId) {
-            console.warn('🕐 [HISTORY-FE] Usuário não autenticado');
+            warn('🕐 [HISTORY-FE] Usuário não autenticado');
             return [];
         }
         
         // ✅ NOVO: Permitir busca para todos os planos (bloqueio no clique)
-        console.log(`🕐 [HISTORY-FE] Buscando histórico (plano: ${userPlan})...`);
+        log(`🕐 [HISTORY-FE] Buscando histórico (plano: ${userPlan})...`);
         
         try {
             const response = await fetch(API_BASE, {
@@ -106,15 +109,15 @@
             const data = await response.json();
             
             if (data.success && data.history) {
-                console.log(`🕐 [HISTORY-FE] ✅ ${data.history.length} análises carregadas`);
+                log(`🕐 [HISTORY-FE] ✅ ${data.history.length} análises carregadas`);
                 return data.history;
             }
             
-            console.warn('🕐 [HISTORY-FE] Resposta sem histórico:', data);
+            warn('🕐 [HISTORY-FE] Resposta sem histórico:', data);
             return [];
             
         } catch (error) {
-            console.error('🕐 [HISTORY-FE] ❌ Erro ao buscar histórico:', error);
+            error('🕐 [HISTORY-FE] ❌ Erro ao buscar histórico:', error);
             return [];
         }
     }
@@ -146,14 +149,14 @@
             const data = await response.json();
             
             if (data.success && data.analysis) {
-                console.log(`🕐 [HISTORY-FE] ✅ Análise carregada: ${data.analysis.trackName}`);
+                log(`🕐 [HISTORY-FE] ✅ Análise carregada: ${data.analysis.trackName}`);
                 return data.analysis;
             }
             
             return null;
             
         } catch (error) {
-            console.error('🕐 [HISTORY-FE] ❌ Erro ao buscar análise:', error);
+            error('🕐 [HISTORY-FE] ❌ Erro ao buscar análise:', error);
             return null;
         }
     }
@@ -185,7 +188,7 @@
             return data.success === true;
             
         } catch (error) {
-            console.error('🕐 [HISTORY-FE] ❌ Erro ao deletar:', error);
+            error('🕐 [HISTORY-FE] ❌ Erro ao deletar:', error);
             return false;
         }
     }
@@ -243,7 +246,7 @@
             }
         });
         
-        console.log('🕐 [HISTORY-FE] ✅ Painel de histórico criado');
+        log('🕐 [HISTORY-FE] ✅ Painel de histórico criado');
     }
     
     /**
@@ -455,22 +458,22 @@
      * @param {string} historyId 
      */
     async function openFromHistory(historyId) {
-        console.log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
+        log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
         
         // ✅ BLOQUEIO POR PLANO: Apenas PRO/DJ podem abrir análises
         if (!hasHistoryAccess()) {
             const currentPlan = detectUserPlan();
-            console.log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
+            log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
             closeHistoryPanel();
             showHistoryUpgradeModal(currentPlan);
             return;
         }
-        console.log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
+        log(`🕐 [HISTORY-FE] Abrindo análise do histórico: ${historyId}`);
         
         // ✅ BLOQUEIO POR PLANO
         if (!hasHistoryAccess()) {
             const currentPlan = detectUserPlan();
-            console.log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
+            log(`🕐 [HISTORY-FE] ⛔ Plano ${currentPlan} não tem acesso à abertura de análises`);
             closeHistoryPanel();
             showHistoryUpgradeModal(currentPlan);
             return;
@@ -499,7 +502,7 @@
             analysisData._fromHistory = true;
             analysisData._historyId = historyId;
             
-            console.log('🕐 [HISTORY-FE] ✅ Dados da análise carregados:', {
+            log('🕐 [HISTORY-FE] ✅ Dados da análise carregados:', {
                 trackName: item.trackName,
                 analysisType: item.analysisType,
                 hasResult: !!analysisData,
@@ -510,16 +513,16 @@
             
             // ✅ REUTILIZAR A MESMA FUNÇÃO DO SISTEMA
             if (typeof window.displayModalResults === 'function') {
-                console.log('🕐 [HISTORY-FE] Chamando displayModalResults()...');
+                log('🕐 [HISTORY-FE] Chamando displayModalResults()...');
                 
                 // 🔥 CRÍTICO: Abrir o modal ANTES de chamar displayModalResults
                 // (no fluxo normal, o modal já está aberto)
                 const modal = document.getElementById('audioAnalysisModal');
                 if (modal) {
                     modal.style.display = 'flex';
-                    console.log('🕐 [HISTORY-FE] ✅ Modal audioAnalysisModal aberto');
+                    log('🕐 [HISTORY-FE] ✅ Modal audioAnalysisModal aberto');
                 } else {
-                    console.error('🕐 [HISTORY-FE] ❌ Modal audioAnalysisModal não encontrado!');
+                    error('🕐 [HISTORY-FE] ❌ Modal audioAnalysisModal não encontrado!');
                 }
                 
                 // Chamar displayModalResults para renderizar os dados
@@ -537,15 +540,15 @@
                 if (uploadSection) uploadSection.style.display = 'none';
                 if (loadingSection) loadingSection.style.display = 'none';
                 
-                console.log('🕐 [HISTORY-FE] ✅ Análise do histórico exibida com sucesso!');
+                log('🕐 [HISTORY-FE] ✅ Análise do histórico exibida com sucesso!');
             } else {
-                console.error('🕐 [HISTORY-FE] ❌ displayModalResults não disponível!');
+                error('🕐 [HISTORY-FE] ❌ displayModalResults não disponível!');
                 alert('❌ Erro ao exibir análise. Recarregue a página.');
             }
             
         } catch (error) {
             hideHistoryLoading();
-            console.error('🕐 [HISTORY-FE] ❌ Erro ao abrir análise:', error);
+            error('🕐 [HISTORY-FE] ❌ Erro ao abrir análise:', error);
             alert('❌ Erro ao carregar análise do histórico.');
         }
     }
@@ -575,7 +578,7 @@
                 document.getElementById('historyEmpty').style.display = 'flex';
             }
             
-            console.log('🕐 [HISTORY-FE] ✅ Análise removida do histórico');
+            log('🕐 [HISTORY-FE] ✅ Análise removida do histórico');
         } else {
             alert('❌ Erro ao remover análise.');
         }
@@ -626,14 +629,14 @@
         const historyMenuItem = document.getElementById('historyMenuItem');
         
         if (!historyMenuItem) {
-            console.log('🕐 [HISTORY-FE] Item de menu "historyMenuItem" não encontrado no HTML');
+            log('🕐 [HISTORY-FE] Item de menu "historyMenuItem" não encontrado no HTML');
             return;
         }
         
         // Atualizar visibilidade baseado no plano
         updateHistoryMenuVisibility();
         
-        console.log('🕐 [HISTORY-FE] ✅ Item de histórico configurado');
+        log('🕐 [HISTORY-FE] ✅ Item de histórico configurado');
     }
     
     /**
@@ -650,10 +653,10 @@
         
         if (isPro) {
             historyMenuItem.style.display = '';  // Mostra
-            console.log('🕐 [HISTORY-FE] 🔓 Histórico visível (PRO/DJ)');
+            log('🕐 [HISTORY-FE] 🔓 Histórico visível (PRO/DJ)');
         } else {
             historyMenuItem.style.display = 'none';  // Esconde
-            console.log('🕐 [HISTORY-FE] 🔒 Histórico oculto (plano não-PRO)');
+            log('🕐 [HISTORY-FE] 🔒 Histórico oculto (plano não-PRO)');
         }
     }
     
@@ -702,7 +705,7 @@
             }
         }, 2000);
         
-        console.log('🕐 [HISTORY-FE] ✅ Módulo de histórico inicializado');
+        log('🕐 [HISTORY-FE] ✅ Módulo de histórico inicializado');
     }
     
     // ═══════════════════════════════════════════════════════════════════

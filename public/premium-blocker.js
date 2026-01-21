@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🛡️ BLOQUEIO INQUEBRÁVEL - MODO REDUCED V2
 // Sistema de defesa em profundidade para bloquear funcionalidades premium
 // NÃO ALTERA LÓGICA EXISTENTE - Apenas adiciona guards e interceptadores
@@ -53,7 +56,7 @@
     // Log condicional
     function debugLog(...args) {
         if (CONFIG.DEBUG) {
-            console.log(...args);
+            log(...args);
         }
     }
     
@@ -332,7 +335,7 @@
         
         show(feature = 'premium') {
             if (!this.element) {
-                console.error('❌ [BLOCKER] Modal não inicializado');
+                error('❌ [BLOCKER] Modal não inicializado');
                 return;
             }
             
@@ -350,7 +353,7 @@
                 textEl.textContent = messages[feature] || messages['premium'];
             }
             
-            console.warn(`🔒 [BLOCKER] Bloqueando recurso: ${feature}`);
+            warn(`🔒 [BLOCKER] Bloqueando recurso: ${feature}`);
             this.element.classList.add('visible');
         },
         
@@ -528,7 +531,7 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     
-                    console.warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType}`);
+                    warn(`🚫 [BLOCKER] Evento bloqueado: ${eventType}`);
                     debugLog(`   Target: ${text}`);
                     debugLog(`   Plan: ${analysis.plan}`);
                     debugLog(`   Mode: ${analysis.analysisMode}`);
@@ -627,7 +630,7 @@
                                 ? 'pdf'
                                 : 'ai';
                             
-                            console.warn(`🔒 [BLOCKER] Clique bloqueado em: ${text}`);
+                            warn(`🔒 [BLOCKER] Clique bloqueado em: ${text}`);
                             UpgradeModal.show(feature);
                         });
                         
@@ -638,7 +641,7 @@
                         neutralized++;
                     });
                 } catch (err) {
-                    console.error(`❌ [BLOCKER] Erro ao neutralizar: ${selector}`, err);
+                    error(`❌ [BLOCKER] Erro ao neutralizar: ${selector}`, err);
                 }
             });
             
@@ -685,9 +688,9 @@
             checkMode: () => {
                 const mode = isReducedMode() ? 'REDUCED' : 'FULL';
                 // checkMode sempre loga (chamado manualmente)
-                console.log('🔍 Modo atual:', mode);
-                console.log('🏷️ APP_MODE:', window.APP_MODE);
-                console.log('📊 Análise:', window.currentModalAnalysis);
+                log('🔍 Modo atual:', mode);
+                log('🏷️ APP_MODE:', window.APP_MODE);
+                log('📊 Análise:', window.currentModalAnalysis);
                 return mode;
             },
             reinstall: () => {
@@ -717,7 +720,7 @@
             
             if (currentMode !== lastMode) {
                 // Log apenas em mudança real de modo (importante)
-                console.log('🔄 [BLOCKER] Modo mudou:', 
+                log('🔄 [BLOCKER] Modo mudou:', 
                     lastMode ? 'REDUCED' : 'FULL', '→', 
                     currentMode ? 'REDUCED' : 'FULL'
                 );

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
@@ -9,18 +12,18 @@ if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     script.src = 'suggestion-text-generator.js';
     script.async = true;
     script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didático carregado');
+        log('[AudioIntegration] Gerador de texto didático carregado');
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
+        warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
     };
     document.head.appendChild(script);
 }
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
 const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
-const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
-const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
+const __dbg = (...a) => { if (__DEBUG_ANALYZER__) log('[AUDIO-DEBUG]', ...a); };
+const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) warn('[AUDIO-WARN]', ...a); };
 
 // 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
@@ -180,7 +183,7 @@ async function getPresignedUrl(file) {
       fileKey: data.fileKey
     };
   } catch (error) {
-    console.error('❌ Erro ao obter URL pré-assinada:', error);
+    error('❌ Erro ao obter URL pré-assinada:', error);
     throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
   }
 }
@@ -218,7 +221,7 @@ async function uploadToBucket(uploadUrl, file) {
     showUploadProgress(`Upload concluído! Processando ${file.name}...`);
 
   } catch (error) {
-    console.error('❌ Erro no upload para bucket:', error);
+    error('❌ Erro no upload para bucket:', error);
     throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
   }
 }
@@ -271,7 +274,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         };
 
     } catch (error) {
-        console.error('❌ Erro ao criar job de análise:', error);
+        error('❌ Erro ao criar job de análise:', error);
         throw new Error(`Falha ao criar job de análise: ${error.message}`);
     }
 }
@@ -337,7 +340,7 @@ async function pollJobStatus(jobId) {
                 setTimeout(poll, 5000);
 
             } catch (error) {
-                console.error('❌ Erro no polling:', error);
+                error('❌ Erro no polling:', error);
                 reject(error);
             }
         };
@@ -422,7 +425,7 @@ displayModalResults(analysisResult);
                     analysisResult: analysisResult
                 };
 
-                console.log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
+                log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
 
                 // Atualizar interface
                 updateFileStatus(type, file.name);
@@ -437,7 +440,7 @@ displayModalResults(analysisResult);
                 }
 
             } catch (error) {
-                console.error(`❌ Erro no processamento do arquivo ${type}:`, error);
+                error(`❌ Erro no processamento do arquivo ${type}:`, error);
                 alert(`❌ Erro ao processar arquivo: ${error.message}`);
 
                 // Abrir modal de análise em caso de erro
@@ -537,7 +540,7 @@ async function startReferenceAnalysis() {
         displayReferenceComparison(result);
 
     } catch (error) {
-        console.error('❌ Erro na análise:', error);
+        error('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
@@ -700,7 +703,7 @@ window.selectAnalysisMode = selectAnalysisMode;
 
 //! DEBUG: Função de debug global para forçar recarga
 window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
-    console.log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
+    log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
     
     // Limpar tudo
     delete window.__refDataCache;
@@ -710,11 +713,11 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
     window.__activeRefGenre = null;
     delete window.PROD_AI_REF_DATA;
     
-    console.log('💥 Cache limpo, forçando reload...');
+    log('💥 Cache limpo, forçando reload...');
     
     try {
         const result = await loadReferenceData(genre);
-        console.log('✅ Recarga forçada concluída:', {
+        log('✅ Recarga forçada concluída:', {
             version: result.version,
             lufs_target: result.lufs_target,
             true_peak_target: result.true_peak_target,
@@ -725,7 +728,7 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
         window.REFS_BYPASS_CACHE = false;
         return result;
     } catch (error) {
-        console.error('💥 Erro na recarga forçada:', error);
+        error('💥 Erro na recarga forçada:', error);
         window.REFS_BYPASS_CACHE = false;
         throw error;
     }
@@ -737,7 +740,7 @@ window.diagnosRefSources = function(genre = null) {
     const currentData = __activeRefData;
     const cached = __refDataCache[targetGenre];
     
-    console.log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
+    log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
         requestedGenre: targetGenre,
         activeGenre: __activeRefGenre,
         currentSource: currentData ? 'loaded' : 'none',
@@ -758,7 +761,7 @@ window.diagnosRefSources = function(genre = null) {
     const testUrl = `/public/refs/out/${targetGenre}.json?v=diagnostic`;
     fetch(testUrl).then(r => r.json()).then(j => {
         const data = j[targetGenre];
-        console.log('🌐 EXTERNAL JSON TEST:', {
+        log('🌐 EXTERNAL JSON TEST:', {
             url: testUrl,
             success: true,
             version: data?.version,
@@ -767,7 +770,7 @@ window.diagnosRefSources = function(genre = null) {
             true_peak_target: data?.true_peak_target,
             stereo_target: data?.stereo_target
         });
-    }).catch(e => console.log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
+    }).catch(e => log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
     
     return { targetGenre, currentData, cached };
 };
@@ -780,7 +783,7 @@ function __logMetricAnomaly(kind, key, context={}) {
         const store = (window.__METRIC_ANOMALIES__ = window.__METRIC_ANOMALIES__ || []);
         const stamp = Date.now();
         store.push({ t: stamp, kind, key, ctx: context });
-        if (window.DEBUG_ANALYZER) console.warn('[METRIC_ANOMALY]', kind, key, context);
+        if (window.DEBUG_ANALYZER) warn('[METRIC_ANOMALY]', kind, key, context);
         // Limitar tamanho
         if (store.length > 500) store.splice(0, store.length - 500);
     } catch {}
@@ -867,7 +870,7 @@ function enrichReferenceObject(refObj, genreKey) {
             // Se maioria positiva mas queremos alinhar a negativos, apenas anotar
             if (posRatio>0.7 && negRatio<0.3) refObj.__scale_mismatch_hint = 'positive_targets_vs_negative_measurements';
         }
-    } catch (e) { console.warn('[refEnrich] falha', e); }
+    } catch (e) { warn('[refEnrich] falha', e); }
     return refObj;
 }
 
@@ -993,7 +996,7 @@ function buildAggregatedRefStats() {
         for (const [g, st] of Object.entries(__refDerivedStats)) {
             if (st.countStereo > 0) st.avgStereo = st.sumStereo / st.countStereo;
         }
-    } catch (e) { if (window.DEBUG_ANALYZER) console.warn('buildAggregatedRefStats fail', e); }
+    } catch (e) { if (window.DEBUG_ANALYZER) warn('buildAggregatedRefStats fail', e); }
 }
 
 // Carregar dinamicamente o fallback embutido se necessário
@@ -1029,13 +1032,13 @@ async function fetchRefJsonWithFallback(paths) {
             // Cache-busting para evitar CDN retornar 404 ou versões antigas
             const hasQ = p.includes('?');
             const url = p + (hasQ ? '&' : '?') + 'v=' + Date.now();
-            if (__DEBUG_ANALYZER__) console.log('[refs] tentando fetch:', url);
+            if (__DEBUG_ANALYZER__) log('[refs] tentando fetch:', url);
             const res = await fetch(url, {
                 cache: 'no-store',
                 headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             });
             if (res.ok) {
-                if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
+                if (__DEBUG_ANALYZER__) log('[refs] OK:', p);
                 
                 // Verificar se a resposta tem conteúdo JSON válido
                 const text = await res.text();
@@ -1043,19 +1046,19 @@ async function fetchRefJsonWithFallback(paths) {
                     try {
                         return JSON.parse(text);
                     } catch (jsonError) {
-                        console.warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
+                        warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
                         throw new Error(`JSON inválido em ${p}`);
                     }
                 } else {
-                    console.warn('[refs] Resposta vazia em', p);
+                    warn('[refs] Resposta vazia em', p);
                     throw new Error(`Resposta vazia em ${p}`);
                 }
             } else {
-                if (__DEBUG_ANALYZER__) console.warn('[refs] Falha', res.status, 'em', p);
+                if (__DEBUG_ANALYZER__) warn('[refs] Falha', res.status, 'em', p);
                 lastErr = new Error(`HTTP ${res.status} @ ${p}`);
             }
         } catch (e) {
-            if (__DEBUG_ANALYZER__) console.warn('[refs] Erro fetch', p, e?.message || e);
+            if (__DEBUG_ANALYZER__) warn('[refs] Erro fetch', p, e?.message || e);
             lastErr = e;
         }
     }
@@ -1153,11 +1156,11 @@ async function loadReferenceData(genre) {
         }
         updateRefStatus('⏳ carregando...', '#996600');
         
-        console.log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
+        log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
         
         // PRIORIDADE CORRIGIDA: external > embedded > fallback
         // 1) Tentar carregar JSON externo primeiro (sempre, independente de REFS_ALLOW_NETWORK)
-        console.log('🌐 Tentando carregar JSON externo primeiro...');
+        log('🌐 Tentando carregar JSON externo primeiro...');
         try {
             const version = Date.now(); // Force cache bust
             const json = await fetchRefJsonWithFallback([
@@ -1176,7 +1179,7 @@ async function loadReferenceData(genre) {
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
                 // Log de diagnóstico
-                console.log('🎯 REFS DIAGNOSTIC:', {
+                log('🎯 REFS DIAGNOSTIC:', {
                     genre,
                     source: 'external',
                     path: `/public/refs/out/${genre}.json`,
@@ -1192,8 +1195,8 @@ async function loadReferenceData(genre) {
                 return enrichedNet;
             }
         } catch (netError) {
-            console.log('❌ External refs failed:', netError.message);
-            console.log('🔄 Fallback para embedded refs...');
+            log('❌ External refs failed:', netError.message);
+            log('🔄 Fallback para embedded refs...');
         }
         
         // 2) Fallback para referências embutidas (embedded)
@@ -1208,7 +1211,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enriched;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'embedded',
                 path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
@@ -1226,7 +1229,7 @@ async function loadReferenceData(genre) {
         
         // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
         if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
-            console.log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
+            log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
         }
         
         // 4) Último recurso: trance inline (fallback)
@@ -1239,7 +1242,7 @@ async function loadReferenceData(genre) {
             window.PROD_AI_REF_DATA = enrichedFb;
             
             // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
+            log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'fallback',
                 path: '__INLINE_EMBEDDED_REFS__.trance',
@@ -1256,7 +1259,7 @@ async function loadReferenceData(genre) {
         }
         throw new Error('Sem referências disponíveis');
     } catch (e) {
-        console.warn('Falha ao carregar referências', genre, e);
+        warn('Falha ao carregar referências', genre, e);
         // Fallback: tentar EMBEDDED
         try {
             const embMap = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) || __INLINE_EMBEDDED_REFS__.byGenre || {};
@@ -1307,8 +1310,8 @@ function applyGenreSelection(genre) {
     try { 
         delete __refDataCache[genre]; 
         invalidateReferenceDerivedCaches();
-        console.log('✅ Cache invalidado para gênero:', genre);
-    } catch(e) { console.warn('⚠️ Falha na invalidação:', e); }
+        log('✅ Cache invalidado para gênero:', genre);
+    } catch(e) { warn('⚠️ Falha na invalidação:', e); }
     // Carregar refs e, se já houver análise no modal, atualizar sugestões de referência e re-renderizar
     return loadReferenceData(genre).then(() => {
         try {
@@ -1317,12 +1320,12 @@ function applyGenreSelection(genre) {
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
                         currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
-                        console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
+                        log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
-                } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
+                } catch(e) { warn('❌ Falha ao recalcular score:', e); }
                 
                 // Recalcular sugestões reference_* com as novas tolerâncias
-                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
+                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { warn('updateReferenceSuggestions falhou', e); }
                 // Re-renderização completa para refletir sugestões e comparações
                 try { 
                     // 🔒 UI GATE: Verificar se análise ainda é válida
@@ -1330,14 +1333,14 @@ function applyGenreSelection(genre) {
                     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
                     
                     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                        console.warn(`🚫 [UI_GATE] Re-render cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
+                        warn(`🚫 [UI_GATE] Re-render cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
                         return;
                     }
                     
                     displayModalResults(currentModalAnalysis); 
-                } catch(e) { console.warn('re-render modal falhou', e); }
+                } catch(e) { warn('re-render modal falhou', e); }
             }
-        } catch (e) { console.warn('re-render comparação falhou', e); }
+        } catch (e) { warn('re-render comparação falhou', e); }
     });
 }
 // Expor global
@@ -1385,7 +1388,7 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
 
 if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
     window.__runAcceptanceAudioTests = async function(opts = {}) {
-        console.warn('⚠️ Testes de aceitação de áudio foram removidos devido à migração para análise remota');
+        warn('⚠️ Testes de aceitação de áudio foram removidos devido à migração para análise remota');
         return { 
             skipped: true, 
             reason: 'Web Audio API removida - usar testes de backend' 
@@ -1505,7 +1508,7 @@ function openModeSelectionModal() {
     
     const modal = document.getElementById('analysisModeModal');
     if (!modal) {
-        console.error('Modal de seleção de modo não encontrado');
+        error('Modal de seleção de modo não encontrado');
         return;
     }
     
@@ -1565,7 +1568,7 @@ function openAnalysisModalForMode(mode) {
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('Modal de análise não encontrado');
+        error('Modal de análise não encontrado');
         return;
     }
     
@@ -1846,7 +1849,7 @@ async function handleModalFileSelection(file) {
         }
 
     } catch (error) {
-        console.error('❌ Erro na análise do modal:', error);
+        error('❌ Erro na análise do modal:', error);
         
         // Verificar se é um erro de fallback para modo gênero
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
@@ -1879,7 +1882,7 @@ async function handleModalFileSelection(file) {
                 window.wavMobileOptimizer.cleanupWAVOptimizations();
             }
         } catch (cleanupError) {
-            console.warn('WAV cleanup error in finally (non-critical):', cleanupError);
+            warn('WAV cleanup error in finally (non-critical):', cleanupError);
         }
         
         // 🔧 CORREÇÃO: Sempre limpar flag de análise em progresso
@@ -1953,7 +1956,7 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
         }
         
     } catch (error) {
-        console.error('❌ Erro ao processar análise por referência:', error);
+        error('❌ Erro ao processar análise por referência:', error);
         window.logReferenceEvent('reference_analysis_error', { 
             error: error.message,
             fileKey,
@@ -1998,7 +2001,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         }, 500);
         
     } catch (error) {
-        console.error('❌ Erro ao processar análise por gênero:', error);
+        error('❌ Erro ao processar análise por gênero:', error);
         throw error;
     }
 }
@@ -2046,7 +2049,7 @@ function enableReferenceComparison() {
  * @param {string} message - Mensagem a ser exibida
  */
 function showNextStepMessage(message) {
-    console.log(`➡️ ${message}`);
+    log(`➡️ ${message}`);
     
     // Implementar notificação visual se necessário
     const notification = document.createElement('div');
@@ -2111,7 +2114,7 @@ function validateAudioFile(file) {
         const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
         const estimatedTime = Math.ceil(file.size / (2 * 1024 * 1024)); // ~2MB/s no mobile
         
-        console.warn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
+        warn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
         
         // Mostrar aviso não-bloqueante
         setTimeout(() => {
@@ -2124,7 +2127,7 @@ function validateAudioFile(file) {
     
     // Mostrar recomendação para MP3
     if (file.type === 'audio/mpeg' || file.type === 'audio/mp3' || file.name.toLowerCase().endsWith('.mp3')) {
-        console.log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
+        log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
     }
     
     return true;
@@ -2143,10 +2146,10 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.userAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar se está carregando dados de gênero no modo referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
-        console.log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
+        log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
         
         // Analisar arquivo do usuário
         showModalLoading();
@@ -2167,10 +2170,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
+          warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
+        log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2195,9 +2198,9 @@ async function handleReferenceFileSelection(file) {
         referenceStepState.referenceAudioFile = file;
         
         // 🐛 DIAGNÓSTICO: Verificar análise do arquivo de referência
-        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
         
         // Analisar arquivo de referência (extração de métricas com MESMAS configurações)
         showModalLoading();
@@ -2218,10 +2221,10 @@ async function handleReferenceFileSelection(file) {
         
         // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
+          warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
         }
         
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
+        log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2247,7 +2250,7 @@ async function handleReferenceFileSelection(file) {
           throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair correlação estéreo da música de referência.');
         }
         
-        console.log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
+        log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
         
         referenceStepState.referenceAnalysis = analysis;
         referenceStepState.referenceMetrics = referenceMetrics;
@@ -2262,11 +2265,11 @@ async function handleReferenceFileSelection(file) {
         updateModalProgress(100, '✅ Análise por referência concluída!');
         
         // 🎯 LOGS finais de validação
-        console.log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
-        console.log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
-        console.log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
-        console.log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
-        console.log('  - Sem gênero:', !finalAnalysis.genre);
+        log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
+        log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
+        log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
+        log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
+        log('  - Sem gênero:', !finalAnalysis.genre);
         
         // Exibir modal de resultados
         displayReferenceResults(finalAnalysis);
@@ -2281,8 +2284,8 @@ async function handleReferenceFileSelection(file) {
 // 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
     // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
-    console.log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
-    console.log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
+    log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
+    log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
     
     __dbg('🔄 Iniciando nova análise - forçando exibição do loading');
     showModalLoading();
@@ -2300,7 +2303,7 @@ async function handleGenreFileSelection(file) {
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
             const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
-            console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
+            log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
             
             if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
                 updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
@@ -2308,10 +2311,10 @@ async function handleGenreFileSelection(file) {
                 updateModalProgress(30, '📚 Referências ok');
             }
         } catch (_) { 
-            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
+            log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
         }
     } else {
-        console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
+        log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
     }
     
     // Analisar arquivo
@@ -2330,11 +2333,11 @@ async function handleGenreFileSelection(file) {
             // Aguardar carregamento com timeout
             await new Promise((resolve) => {
                 optimizerScript.onload = () => {
-                    console.log('🎵 WAV optimizer carregado');
+                    log('🎵 WAV optimizer carregado');
                     resolve();
                 };
                 optimizerScript.onerror = () => {
-                    console.warn('⚠️ WAV optimizer falhou ao carregar');
+                    warn('⚠️ WAV optimizer falhou ao carregar');
                     resolve();
                 };
                 setTimeout(resolve, 1500); // fallback timeout
@@ -2346,11 +2349,11 @@ async function handleGenreFileSelection(file) {
             const wavAnalysis = window.wavMobileOptimizer.applyWAVOptimizations(file);
             if (wavAnalysis.requiresOptimization) {
                 updateModalProgress(45, `🎵 WAV ${wavAnalysis.sizeInMB}MB - otimização mobile ativa...`);
-                console.log('🎵 WAV mobile optimizations applied:', wavAnalysis);
+                log('🎵 WAV mobile optimizations applied:', wavAnalysis);
             }
         }
     } catch (optimizerError) {
-        console.warn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
+        warn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
     }
     
     // �🎯 CORREÇÃO: Passar modo correto para análise
@@ -2368,7 +2371,7 @@ async function handleGenreFileSelection(file) {
             window.wavMobileOptimizer.cleanupWAVOptimizations();
         }
     } catch (cleanupError) {
-        console.warn('WAV cleanup error (non-critical):', cleanupError);
+        warn('WAV cleanup error (non-critical):', cleanupError);
     }
     
     __dbg('✅ Análise concluída:', analysis);
@@ -2481,9 +2484,9 @@ async function performReferenceComparison() {
             throw new Error('USER_METRICS_FAILED: Não foi possível extrair métricas LUFS da sua música');
         }
         
-        console.log('🔍 [COMPARAÇÃO] Métricas extraídas:');
-        console.log('  - Usuário:', userMetrics);
-        console.log('  - Referência:', referenceMetrics);
+        log('🔍 [COMPARAÇÃO] Métricas extraídas:');
+        log('  - Usuário:', userMetrics);
+        log('  - Referência:', referenceMetrics);
         
         // 🎯 CALCULAR diferenças PURAS (referência como baseline)
         const differences = {
@@ -2493,7 +2496,7 @@ async function performReferenceComparison() {
             truePeak: userMetrics.truePeak - referenceMetrics.truePeak
         };
         
-        console.log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
+        log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
         
         // 🎯 GERAR sugestões baseadas APENAS na referência
         const referenceSuggestions = [];
@@ -2514,7 +2517,7 @@ async function performReferenceComparison() {
                 
                 // 🚨 REGRA 1: Se CLIPPED, não sugerir aumento
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - não sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    log(`[REF-HEADROOM] 🚨 Clipping detectado - não sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
                     referenceSuggestions.push({
                         type: 'reference_loudness_blocked_clipping',
                         message: `Impossível igualar referência - áudio tem clipping`,
@@ -2542,7 +2545,7 @@ async function performReferenceComparison() {
                             headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponível`
                         });
                     } else {
-                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
+                        log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
                         referenceSuggestions.push({
                             type: 'reference_loudness_blocked_headroom',
                             message: `Impossível igualar referência - sem headroom suficiente`,
@@ -2619,7 +2622,7 @@ async function performReferenceComparison() {
             });
         }
         
-        console.log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
+        log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
         
         // 🎯 CRIAR análise final com comparação pura
         const finalAnalysis = {
@@ -2660,34 +2663,34 @@ async function performReferenceComparison() {
         };
         
         // 🎯 LOGS de validação final
-        console.log('🎉 [SUCESSO] Comparação por referência concluída:');
-        console.log('  - Modo:', finalAnalysis.comparison.mode);
-        console.log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
-        console.log('  - Sugestões:', referenceSuggestions.length);
-        console.log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
+        log('🎉 [SUCESSO] Comparação por referência concluída:');
+        log('  - Modo:', finalAnalysis.comparison.mode);
+        log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
+        log('  - Sugestões:', referenceSuggestions.length);
+        log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
         
         referenceStepState.finalAnalysis = finalAnalysis;
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
+        log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
         
         // 🎯 NOVO: Verificar se análises estão "limpas" (sem contaminar com gênero)
         const userClean = !userAnalysis.comparison && !userAnalysis.reference;
         const refClean = !refAnalysis.comparison && !refAnalysis.reference;
-        console.log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
+        log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
+        log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
         
         // Gerar comparação
         const comparison = generateComparison(userAnalysis, refAnalysis);
         
         // 🐛 DIAGNÓSTICO: Verificar se comparison está usando os dados corretos
-        console.log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
-        console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+        log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
+        log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
         
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
-        console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
-        console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
+        log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
+        log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
         
         // Criar análise combinada para exibição
         const combinedAnalysis = {
@@ -2744,7 +2747,7 @@ async function performReferenceComparison() {
             }
         };
         
-        console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
+        log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
         
@@ -2757,7 +2760,7 @@ async function performReferenceComparison() {
             const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
             
             if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                console.warn(`🚫 [UI_GATE] Comparação cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
+                warn(`🚫 [UI_GATE] Comparação cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
                 return;
             }
             
@@ -2766,7 +2769,7 @@ async function performReferenceComparison() {
         }, 800);
         
     } catch (error) {
-        console.error('❌ Erro na comparação:', error);
+        error('❌ Erro na comparação:', error);
         window.logReferenceEvent('reference_comparison_error', { error: error.message });
         showModalError(`Erro na comparação: ${error.message}`);
     }
@@ -2827,16 +2830,16 @@ function compareSpectralData(userTech, refTech) {
 // 🎯 NOVO: Gerar sugestões baseadas na comparação
 function generateReferenceSuggestions(comparison) {
     // 🐛 DIAGNÓSTICO: Logs para verificar fonte dos dados
-    console.log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
-    console.log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
-    console.log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
+    log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
+    log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
+    log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
     
     const suggestions = [];
     
     // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO
     if (comparison.loudness.difference !== null) {
         const diff = comparison.loudness.difference;
-        console.log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
+        log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
         
         if (Math.abs(diff) > 1) {
             const adjustmentDb = Math.abs(diff);
@@ -2851,7 +2854,7 @@ function generateReferenceSuggestions(comparison) {
                 const headroomSafetyMargin = -0.6;
                 
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    log(`[REF-HEADROOM] 🚨 Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
                     suggestions.push({
                         type: 'reference_loudness_blocked_clipping',
                         message: 'Impossível igualar referência - áudio tem clipping',
@@ -2878,7 +2881,7 @@ function generateReferenceSuggestions(comparison) {
                         };
                         suggestions.push(suggestion);
                     } else {
-                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
+                        log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
                         suggestions.push({
                             type: 'reference_loudness_blocked_headroom',
                             message: 'Impossível igualar referência - sem headroom suficiente',
@@ -2917,13 +2920,13 @@ function generateReferenceSuggestions(comparison) {
                 suggestions.push(suggestion);
             }
             
-            console.log('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check');
+            log('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check');
         }
     }
     
     // Sugestões espectrais
     Object.entries(comparison.spectral).forEach(([band, data]) => {
-        console.log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
+        log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
         
         if (Math.abs(data.difference) > 2) {
             const freqRanges = {
@@ -2948,13 +2951,13 @@ function generateReferenceSuggestions(comparison) {
                 q_factor: 1.0
             };
             
-            console.log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
+            log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
             suggestions.push(suggestion);
         }
     });
     
-    console.log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
-    console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
+    log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
+    log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
     
     return suggestions;
 }
@@ -3187,7 +3190,7 @@ function displayModalResults(analysis) {
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-        console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
+        warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
     
@@ -3197,14 +3200,14 @@ function displayModalResults(analysis) {
     const technicalData = document.getElementById('modalTechnicalData');
     
     if (!results || !technicalData) {
-        console.error('❌ Elementos de resultado não encontrados');
+        error('❌ Elementos de resultado não encontrados');
         return;
     }
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
         analysis = normalizeBackendAnalysisData(analysis);
-        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
+        log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
     // Ocultar outras seções
@@ -3294,7 +3297,7 @@ function displayModalResults(analysis) {
                 if (typeof window !== 'undefined' && window.METRICS_UI_VALIDATION !== false) {
                     const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
                     if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
-                        console.warn(`🎯 METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
+                        warn(`🎯 METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
                     }
                 }
                 return centralizedValue;
@@ -3582,7 +3585,7 @@ function displayModalResults(analysis) {
                             const generator = new window.SuggestionTextGenerator();
                             didacticText = generator.generateDidacticText(sug);
                         } catch (error) {
-                            console.warn('[RenderSuggestion] Erro no gerador de texto:', error);
+                            warn('[RenderSuggestion] Erro no gerador de texto:', error);
                         }
                     }
                     
@@ -4198,8 +4201,8 @@ function displayModalResults(analysis) {
             </div>
         `;
     
-    try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
-        try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
+    try { renderReferenceComparisons(analysis); } catch(e){ warn('ref compare fail', e);}    
+        try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
 }
 
@@ -4234,13 +4237,13 @@ function displayModalResults(analysis) {
                 btnForm.disabled = false; btnDownload.disabled = false;
                 // Área dinâmica para formulário
                 ensureValidationPanel();
-            } catch(err){ console.error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
+            } catch(err){ error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
         };
         btnForm.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ warn(e); }
         };
         btnDownload.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ warn(e); }
         };
     }
 
@@ -4264,7 +4267,7 @@ function displayModalResults(analysis) {
     }
 
     function downloadObjectAsJson(obj, filename){
-        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ console.warn('download json fail', e); }
+        try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ warn('download json fail', e); }
     }
 
 // ===== Painel Resumo Inteligente (top 3 problemas + top 3 ações) =====
@@ -4388,7 +4391,7 @@ function renderSmartSummary(analysis){
             }, { passive:true });
         }
         return html;
-    } catch (e) { console.warn('smart summary fail', e); return ''; }
+    } catch (e) { warn('smart summary fail', e); return ''; }
 }
 
 function renderReferenceComparisons(analysis) {
@@ -4493,7 +4496,7 @@ function renderReferenceComparisons(analysis) {
             if (typeof window !== 'undefined' && window.METRICS_REF_VALIDATION !== false) {
                 const legacyValue = fallbackPath ? getNestedValue(tech, fallbackPath) : getNestedValue(tech, metricPath);
                 if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
-                    console.warn(`🎯 REF_METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
+                    warn(`🎯 REF_METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
                 }
             }
             return centralizedValue;
@@ -4542,7 +4545,7 @@ function renderReferenceComparisons(analysis) {
                 if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && legacyBandEnergies?.[band]) {
                     const legacyValue = legacyBandEnergies[band].rms_db;
                     if (Number.isFinite(legacyValue) && Math.abs(centralizedBands[band].energy_db - legacyValue) > 0.01) {
-                        console.warn(`🎯 BAND_DIFF: ${band} centralized=${centralizedBands[band].energy_db} vs legacy=${legacyValue}`);
+                        warn(`🎯 BAND_DIFF: ${band} centralized=${centralizedBands[band].energy_db} vs legacy=${legacyValue}`);
                     }
                 }
             } else {
@@ -4603,7 +4606,7 @@ function updateReferenceSuggestions(analysis) {
     // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
-            console.log('🎯 Usando Enhanced Suggestion Engine...');
+            log('🎯 Usando Enhanced Suggestion Engine...');
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
             
             // Preservar sugestões não-referência existentes se necessário
@@ -4626,11 +4629,11 @@ function updateReferenceSuggestions(analysis) {
                 analysis.auditLog = enhancedAnalysis.auditLog;
             }
             
-            console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             return;
             
         } catch (error) {
-            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
+            warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
@@ -4792,7 +4795,7 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         }
         
     } catch (error) {
-        console.error('❌ Erro ao enviar análise para chat:', error);
+        error('❌ Erro ao enviar análise para chat:', error);
         showTemporaryFeedback('❌ Erro ao enviar análise. Tente novamente.');
     }
 }
@@ -4807,7 +4810,7 @@ function downloadModalAnalysis() {
         return;
     }
     
-    console.log('📄 Baixando relatório...');
+    log('📄 Baixando relatório...');
     
     try {
         const report = generateDetailedReport(currentModalAnalysis);
@@ -4822,11 +4825,11 @@ function downloadModalAnalysis() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('✅ Relatório baixado com sucesso');
+        log('✅ Relatório baixado com sucesso');
         showTemporaryFeedback('📄 Relatório baixado!');
         
     } catch (error) {
-        console.error('❌ Erro ao baixar relatório:', error);
+        error('❌ Erro ao baixar relatório:', error);
         alert('Erro ao gerar relatório');
     }
 }
@@ -5041,7 +5044,7 @@ window.displayReferenceResults = function(referenceResults) {
         window.logReferenceEvent('reference_results_displayed_successfully');
         
     } catch (error) {
-        console.error('Error displaying reference results:', error);
+        error('Error displaying reference results:', error);
         window.logReferenceEvent('reference_display_error', { 
             error: error.message,
             baseline_source: referenceResults.baseline_source 
@@ -5068,10 +5071,10 @@ window.displayReferenceResults = function(referenceResults) {
  * Mapeia a resposta do backend Railway para o formato que o front-end espera
  */
 function normalizeBackendAnalysisData(backendData) {
-    console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+    log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
     // 🔍 DEBUG: Log detalhado da estrutura recebida
-    console.log('🔍 [NORMALIZE] Estrutura de dados recebida:', {
+    log('🔍 [NORMALIZE] Estrutura de dados recebida:', {
         hasScore: backendData.score !== undefined,
         scoreValue: backendData.score,
         hasLoudness: backendData.loudness !== undefined,
@@ -5087,7 +5090,7 @@ function normalizeBackendAnalysisData(backendData) {
     
     // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
-        console.log('📊 [NORMALIZE] Dados já estão normalizados');
+        log('📊 [NORMALIZE] Dados já estão normalizados');
         return backendData;
     }
     
@@ -5106,7 +5109,7 @@ function normalizeBackendAnalysisData(backendData) {
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    console.log('🔧 [NORMALIZE] Dados de entrada:', { 
+    log('🔧 [NORMALIZE] Dados de entrada:', { 
         hasLoudness: !!backendData.loudness,
         hasTruePeak: !!backendData.truePeak,
         hasStereo: !!backendData.stereo,
@@ -5156,7 +5159,7 @@ function normalizeBackendAnalysisData(backendData) {
             unit: backendData.truePeak.unit || 'dBTP'
         };
         
-        console.log('🔥 [NORMALIZE] True Peak detalhado:', tech.truePeakDetailed);
+        log('🔥 [NORMALIZE] True Peak detalhado:', tech.truePeakDetailed);
     }
     
     // LUFS - CORREÇÃO CRÍTICA: Apenas dados reais do pipeline ITU-R BS.1770-4
@@ -5216,10 +5219,10 @@ function normalizeBackendAnalysisData(backendData) {
             valid: backendData.stereo.valid !== false
         };
         
-        console.log('🎧 [NORMALIZE] Stereo detalhado:', tech.stereoDetailed);
+        log('🎧 [NORMALIZE] Stereo detalhado:', tech.stereoDetailed);
     }
     
-    console.log('✅ [NORMALIZE] Métricas mapeadas:', {
+    log('✅ [NORMALIZE] Métricas mapeadas:', {
         lufsIntegrated: tech.lufsIntegrated,
         truePeakDbtp: tech.truePeakDbtp,
         stereoCorrelation: tech.stereoCorrelation,
@@ -5258,16 +5261,16 @@ function normalizeBackendAnalysisData(backendData) {
             spectralKurtosis: Number.isFinite(fftSource.spectralKurtosis) ? fftSource.spectralKurtosis : null
         };
         
-        console.log('🎵 [NORMALIZE] Métricas FFT mapeadas:', tech.fftMetrics);
+        log('🎵 [NORMALIZE] Métricas FFT mapeadas:', tech.fftMetrics);
     }
     
     // 🔊 BANDAS ESPECTRAIS - CORREÇÃO: Apenas dados reais do pipeline
     if (backendData.spectralBands && typeof backendData.spectralBands === 'object') {
         tech.spectralBands = backendData.spectralBands;
-        console.log('🔊 [NORMALIZE] Bandas espectrais REAIS mapeadas:', Object.keys(tech.spectralBands));
+        log('🔊 [NORMALIZE] Bandas espectrais REAIS mapeadas:', Object.keys(tech.spectralBands));
     } else {
         tech.spectralBands = null; // Não usar valores fictícios
-        console.log('⚠️ [NORMALIZE] Bandas espectrais não disponíveis - dados não fictícios');
+        log('⚠️ [NORMALIZE] Bandas espectrais não disponíveis - dados não fictícios');
     }
     
     // 🎯 SPECTRAL CENTROID DETALHADO - APENAS DADOS REAIS
@@ -5279,7 +5282,7 @@ function normalizeBackendAnalysisData(backendData) {
             frames: Number.isFinite(backendData.spectralCentroid.frames) ? backendData.spectralCentroid.frames : null
         };
         
-        console.log('🎯 [NORMALIZE] Spectral Centroid detalhado:', tech.spectralCentroidDetailed);
+        log('🎯 [NORMALIZE] Spectral Centroid detalhado:', tech.spectralCentroidDetailed);
     }
     
     // ⚡ DINÂMICA E CREST FACTOR - APENAS DADOS REAIS
@@ -5291,7 +5294,7 @@ function normalizeBackendAnalysisData(backendData) {
             peakToAverage: Number.isFinite(backendData.dynamics.peakToAverage) ? backendData.dynamics.peakToAverage : null
         };
         
-        console.log('⚡ [NORMALIZE] Dinâmica mapeada:', tech.dynamics);
+        log('⚡ [NORMALIZE] Dinâmica mapeada:', tech.dynamics);
     }
     
     // 📊 NORMALIZAÇÃO INFO - APENAS DADOS REAIS
@@ -5304,7 +5307,7 @@ function normalizeBackendAnalysisData(backendData) {
             isSilence: backendData.normalization.isSilence !== undefined ? backendData.normalization.isSilence : null
         };
         
-        console.log('📊 [NORMALIZE] Normalização mapeada:', tech.normalization);
+        log('📊 [NORMALIZE] Normalização mapeada:', tech.normalization);
     }
     
     // Problemas técnicos - CORREÇÃO: Apenas dados reais
@@ -5338,11 +5341,11 @@ function normalizeBackendAnalysisData(backendData) {
             presence: Number.isFinite(spectralSource.presence) ? spectralSource.presence : null,
             air: Number.isFinite(spectralSource.air) ? spectralSource.air : null
         };
-        console.log('🎵 [NORMALIZE] Spectral balance REAL mapeado:', tech.spectral_balance);
+        log('🎵 [NORMALIZE] Spectral balance REAL mapeado:', tech.spectral_balance);
     } else {
         // SEM dados espectrais - não usar valores fictícios
         tech.spectral_balance = null;
-        console.log('⚠️ [NORMALIZE] Spectral balance não disponível - não usando valores fictícios');
+        log('⚠️ [NORMALIZE] Spectral balance não disponível - não usando valores fictícios');
     }
     
     // 🎶 BAND ENERGIES - CORREÇÃO: Apenas dados reais do pipeline
@@ -5390,10 +5393,10 @@ function normalizeBackendAnalysisData(backendData) {
             }
         });
         
-        console.log(`🎶 [NORMALIZE] Band energies REAIS mapeadas: ${Object.keys(tech.bandEnergies).length} bandas`);
+        log(`🎶 [NORMALIZE] Band energies REAIS mapeadas: ${Object.keys(tech.bandEnergies).length} bandas`);
     } else {
         tech.bandEnergies = null; // Não usar valores padrão fictícios
-        console.log('⚠️ [NORMALIZE] Band energies não disponíveis - não usando dados fictícios');
+        log('⚠️ [NORMALIZE] Band energies não disponíveis - não usando dados fictícios');
     }
     
     // 🎼 TONAL BALANCE - CORREÇÃO: Apenas se temos dados reais
@@ -5424,7 +5427,7 @@ function normalizeBackendAnalysisData(backendData) {
     // Classificação do pipeline
     normalized.classification = backendData.classification || 'unknown';
     
-    console.log('🎯 [NORMALIZE] Score mapeado:', {
+    log('🎯 [NORMALIZE] Score mapeado:', {
         score: normalized.qualityOverall,
         classification: normalized.classification
     });
@@ -5490,7 +5493,7 @@ function normalizeBackendAnalysisData(backendData) {
         }
     }
     
-    console.log('✅ [NORMALIZE] Normalização concluída:', {
+    log('✅ [NORMALIZE] Normalização concluída:', {
         hasTechnicalData: !!normalized.technicalData,
         hasSpectralBalance: !!normalized.technicalData.spectral_balance,
         hasBandEnergies: !!normalized.technicalData.bandEnergies,
@@ -5499,8 +5502,8 @@ function normalizeBackendAnalysisData(backendData) {
         qualityScore: normalized.qualityOverall
     });
     
-    console.log('🎯 [NORMALIZE] Normalização concluída com sucesso!');
-    console.log('📊 [NORMALIZE] Dados finais normalizados:', {
+    log('🎯 [NORMALIZE] Normalização concluída com sucesso!');
+    log('📊 [NORMALIZE] Dados finais normalizados:', {
         score: normalized.qualityOverall,
         classification: normalized.classification,
         lufsIntegrated: normalized.technicalData.lufsIntegrated,

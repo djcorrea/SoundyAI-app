@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧮 MIX SCORING ENGINE
 // Calcula porcentagem de conformidade e classificação qualitativa baseada nas métricas técnicas e referências por gênero
 // 
@@ -28,7 +31,7 @@
 // - Usa tolerâncias da referência sempre que disponível; senão aplica fallbacks sensatos
 
 // FIXME: Código órfão comentado - precisa ser reorganizado
-// console.log('[COLOR_RATIO_V2_INTERNAL] Contagens:', { total, green, yellow, red });
+// log('[COLOR_RATIO_V2_INTERNAL] Contagens:', { total, green, yellow, red });
     
 // Debug detalhado de cada métrica considerada
 // FIXME: visibleFinal não está definido - comentado temporariamente
@@ -196,24 +199,24 @@ const CATEGORY_WEIGHTS_LEGACY = {
 
 // 🎯 NOVO SISTEMA DE SCORING: PESOS IGUAIS V3
 function _computeEqualWeightV3(analysisData) {
-  console.log('[EQUAL_WEIGHT_V3] 🎯 Iniciando cálculo com pesos iguais');
-  console.log('[EQUAL_WEIGHT_V3] 📊 analysisData recebido:', analysisData);
+  log('[EQUAL_WEIGHT_V3] 🎯 Iniciando cálculo com pesos iguais');
+  log('[EQUAL_WEIGHT_V3] 📊 analysisData recebido:', analysisData);
   
   // Validação robusta dos dados de entrada
   if (!analysisData) {
-    console.error('[EQUAL_WEIGHT_V3] ❌ analysisData é null/undefined');
+    error('[EQUAL_WEIGHT_V3] ❌ analysisData é null/undefined');
     return { score: 50, classification: 'Básico', method: 'equal_weight_v3_fallback', error: 'analysisData null' };
   }
   
   const metrics = analysisData.metrics || {};
   const reference = analysisData.reference || {};
   
-  console.log('[EQUAL_WEIGHT_V3] 📊 Metrics keys:', Object.keys(metrics));
-  console.log('[EQUAL_WEIGHT_V3] 📋 Reference keys:', Object.keys(reference));
+  log('[EQUAL_WEIGHT_V3] 📊 Metrics keys:', Object.keys(metrics));
+  log('[EQUAL_WEIGHT_V3] 📋 Reference keys:', Object.keys(reference));
   
   // Se não tem métricas, retorna fallback
   if (Object.keys(metrics).length === 0) {
-    console.warn('[EQUAL_WEIGHT_V3] ⚠️ Nenhuma métrica disponível, usando fallback');
+    warn('[EQUAL_WEIGHT_V3] ⚠️ Nenhuma métrica disponível, usando fallback');
     return { score: 50, classification: 'Básico', method: 'equal_weight_v3_fallback', error: 'no metrics' };
   }
   
@@ -267,7 +270,7 @@ function _computeEqualWeightV3(analysisData) {
     clippingPct: 0.5
   };
   
-  console.log('[EQUAL_WEIGHT_V3] Valores das métricas:', metricValues);
+  log('[EQUAL_WEIGHT_V3] Valores das métricas:', metricValues);
   
   let totalScore = 0;
   let metricCount = 0;
@@ -309,7 +312,7 @@ function _computeEqualWeightV3(analysisData) {
         metricScore: parseFloat(metricScore.toFixed(1))
       });
       
-      console.log(`[EQUAL_WEIGHT_V3] ${key}: ${value} -> ${metricScore.toFixed(1)}% (dev: ${deviationRatio.toFixed(2)}x)`);
+      log(`[EQUAL_WEIGHT_V3] ${key}: ${value} -> ${metricScore.toFixed(1)}% (dev: ${deviationRatio.toFixed(2)}x)`);
     }
   }
   
@@ -317,11 +320,11 @@ function _computeEqualWeightV3(analysisData) {
   const finalScore = metricCount > 0 ? totalScore / metricCount : 50; // Fallback para 50% se nenhuma métrica
   const scoreDecimal = parseFloat(finalScore.toFixed(1));
   
-  console.log('[EQUAL_WEIGHT_V3] 📊 Cálculo final:');
-  console.log('[EQUAL_WEIGHT_V3]   - totalScore:', totalScore);
-  console.log('[EQUAL_WEIGHT_V3]   - metricCount:', metricCount);
-  console.log('[EQUAL_WEIGHT_V3]   - finalScore:', finalScore);
-  console.log('[EQUAL_WEIGHT_V3]   - scoreDecimal:', scoreDecimal);
+  log('[EQUAL_WEIGHT_V3] 📊 Cálculo final:');
+  log('[EQUAL_WEIGHT_V3]   - totalScore:', totalScore);
+  log('[EQUAL_WEIGHT_V3]   - metricCount:', metricCount);
+  log('[EQUAL_WEIGHT_V3]   - finalScore:', finalScore);
+  log('[EQUAL_WEIGHT_V3]   - scoreDecimal:', scoreDecimal);
   
   // Garantir que o score é válido com múltiplas verificações
   let validScore = Number.isFinite(scoreDecimal) ? scoreDecimal : 50;
@@ -331,7 +334,7 @@ function _computeEqualWeightV3(analysisData) {
   if (validScore > 100) validScore = 100;
   if (isNaN(validScore)) validScore = 50;
   
-  console.log('[EQUAL_WEIGHT_V3] 📊 Score validado:', validScore);
+  log('[EQUAL_WEIGHT_V3] 📊 Score validado:', validScore);
   
   // Classificação otimizada
   let classification = 'Básico';
@@ -339,7 +342,7 @@ function _computeEqualWeightV3(analysisData) {
   else if (validScore >= 70) classification = 'Avançado';
   else if (validScore >= 55) classification = 'Intermediário';
   
-  console.log('[EQUAL_WEIGHT_V3] 🏷️ Classificação:', classification);
+  log('[EQUAL_WEIGHT_V3] 🏷️ Classificação:', classification);
   
   const result = {
     score: validScore,
@@ -360,12 +363,12 @@ function _computeEqualWeightV3(analysisData) {
     }
   };
   
-  console.log('[EQUAL_WEIGHT_V3] ✅ Resultado final completo:', result);
-  console.log('[EQUAL_WEIGHT_V3] ✅ Score verificação final:', Number.isFinite(result.score));
+  log('[EQUAL_WEIGHT_V3] ✅ Resultado final completo:', result);
+  log('[EQUAL_WEIGHT_V3] ✅ Score verificação final:', Number.isFinite(result.score));
   
   // Garantia absoluta de que nunca retorna null
   if (!result || !Number.isFinite(result.score)) {
-    console.error('[EQUAL_WEIGHT_V3] ❌ ERRO CRÍTICO: Resultado inválido, forçando fallback');
+    error('[EQUAL_WEIGHT_V3] ❌ ERRO CRÍTICO: Resultado inválido, forçando fallback');
     return {
       score: 50,
       classification: 'Básico',
@@ -378,8 +381,8 @@ function _computeEqualWeightV3(analysisData) {
 }
 
 function _computeMixScoreInternal(technicalData = {}, reference = null, force = { AUDIT_MODE:false, SCORING_V2:false, AUTO_V2:true }) {
-  console.log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado');
-  console.log('[SCORING_INTERNAL] 📊 Flags recebidas:', force);
+  log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado');
+  log('[SCORING_INTERNAL] 📊 Flags recebidas:', force);
   
   const __caiarLog = (typeof window !== 'undefined' && window.__caiarLog) ? window.__caiarLog : function(){};
   __caiarLog('SCORING_START','Iniciando cálculo de mix score', { metrics: Object.keys(technicalData||{}).length, ref: !!reference, modeFlags: force });
@@ -397,7 +400,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
     )) {
       SCORING_V2 = true;
       force._autoPromoted = true;
-      console.log('🏆 AUTO-PROMOÇÃO SCORING_V2: TT-DR detectado!');
+      log('🏆 AUTO-PROMOÇÃO SCORING_V2: TT-DR detectado!');
     }
   }
   const ref = reference;
@@ -415,7 +418,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
     if (opts.target_range && typeof opts.target_range === 'object') {
       // Sistema de intervalos: qualquer valor dentro do range = score máximo
       s = scoreToleranceRange(value, opts.target_range, target, tol);
-      console.log(`[SCORING_RANGE] ${key}: valor=${value}, range=[${opts.target_range.min}, ${opts.target_range.max}], score=${s?.toFixed(3)}`);
+      log(`[SCORING_RANGE] ${key}: valor=${value}, range=[${opts.target_range.min}, ${opts.target_range.max}], score=${s?.toFixed(3)}`);
     } else {
       // Sistema antigo: target fixo + tolerância
       const tolMin = Number.isFinite(opts.tolMin) && opts.tolMin > 0 ? opts.tolMin : null;
@@ -562,7 +565,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
           tolMax: null 
         });
         
-        console.log(`[SCORING_BAND_RANGE] ${band}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
+        log(`[SCORING_BAND_RANGE] ${band}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
         
       } else if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
         
@@ -573,7 +576,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
         
         addMetric('tonal', `band_${band}`, val, refBand.target_db, tolAvg, { tolMin, tolMax });
         
-        console.log(`[SCORING_BAND_FIXED] ${band}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
+        log(`[SCORING_BAND_FIXED] ${band}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
       }
     }
   } else if (metrics.tonalBalance) {
@@ -721,20 +724,20 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   // 🔥 FORÇAR NOVO SISTEMA: DESABILITAR COLOR_RATIO_V2 PARA USAR EQUAL_WEIGHT_V3
   const colorRatioEnabled = (() => {
     // FORÇAR DESABILITAÇÃO do color_ratio_v2 para usar equal_weight_v3
-    console.log('[EQUAL_WEIGHT_V3] ⚡ Sistema antigo color_ratio_v2 DESABILITADO - usando novo sistema');
-    console.log('[EQUAL_WEIGHT_V3] 🎯 Retornando FALSE para forçar novo sistema');
+    log('[EQUAL_WEIGHT_V3] ⚡ Sistema antigo color_ratio_v2 DESABILITADO - usando novo sistema');
+    log('[EQUAL_WEIGHT_V3] 🎯 Retornando FALSE para forçar novo sistema');
     return false; // ⭐ FORÇA USO DO NOVO SISTEMA
   })();
   
-  console.log('[SCORING_INTERNAL] 🎯 colorRatioEnabled resultado:', colorRatioEnabled);
+  log('[SCORING_INTERNAL] 🎯 colorRatioEnabled resultado:', colorRatioEnabled);
   
   if (colorRatioEnabled) {
     try {
   // 🎯 NOVO SISTEMA: PESO IGUAL PARA TODAS AS MÉTRICAS
-  console.log('[NEW_EQUAL_WEIGHT_SCORING] Iniciando cálculo com pesos iguais');
+  log('[NEW_EQUAL_WEIGHT_SCORING] Iniciando cálculo com pesos iguais');
   
   if (perMetric.length === 0) {
-    console.warn('[NEW_EQUAL_WEIGHT_SCORING] Nenhuma métrica disponível');
+    warn('[NEW_EQUAL_WEIGHT_SCORING] Nenhuma métrica disponível');
     throw new Error('Nenhuma métrica processada');
   }
   
@@ -775,7 +778,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   const totalMetrics = metricScores.length;
   const equalWeight = 100 / totalMetrics;
   
-  console.log(`[NEW_EQUAL_WEIGHT_SCORING] ${totalMetrics} métricas, peso cada: ${equalWeight.toFixed(2)}%`);
+  log(`[NEW_EQUAL_WEIGHT_SCORING] ${totalMetrics} métricas, peso cada: ${equalWeight.toFixed(2)}%`);
   
   // 🎯 SCORE FINAL COM DECIMAIS REALÍSTICOS
   const rawScore = metricScores.reduce((sum, metric) => {
@@ -785,7 +788,7 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   // 🔥 PRESERVAR DECIMAIS: Usar 1 casa decimal para realismo
   const finalScore = parseFloat(rawScore.toFixed(1));
   
-  console.log(`[NEW_EQUAL_WEIGHT_SCORING] Score final: ${finalScore}% (era ${Math.round(rawScore)}%)`);
+  log(`[NEW_EQUAL_WEIGHT_SCORING] Score final: ${finalScore}% (era ${Math.round(rawScore)}%)`);
   
   // Manter compatibilidade com sistema de cores para interface
   const total = perMetric.length;
@@ -844,12 +847,12 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   }
   } else {
     // 🎯 NOVO SISTEMA EQUAL_WEIGHT_V3 ATIVADO!
-    console.log('[EQUAL_WEIGHT_V3] Color ratio v2 desabilitado - usando novo sistema de pesos iguais');
+    log('[EQUAL_WEIGHT_V3] Color ratio v2 desabilitado - usando novo sistema de pesos iguais');
     
     try {
       // 🔧 CORREÇÃO: Preparar dados corretamente com validação robusta
-      console.log('[EQUAL_WEIGHT_V3] 📊 technicalData keys:', Object.keys(technicalData || {}));
-      console.log('[EQUAL_WEIGHT_V3] 📋 reference:', reference);
+      log('[EQUAL_WEIGHT_V3] 📊 technicalData keys:', Object.keys(technicalData || {}));
+      log('[EQUAL_WEIGHT_V3] 📋 reference:', reference);
       
       // Garantir que technicalData não é null/undefined
       const safeMetrics = technicalData || {};
@@ -861,17 +864,17 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
         runId: safeMetrics.runId || 'scoring-' + Date.now()
       };
       
-      console.log('[EQUAL_WEIGHT_V3] 🎯 Chamando _computeEqualWeightV3 com:', analysisData);
+      log('[EQUAL_WEIGHT_V3] 🎯 Chamando _computeEqualWeightV3 com:', analysisData);
       
       const equalWeightResult = _computeEqualWeightV3(analysisData);
       
-      console.log('[EQUAL_WEIGHT_V3] 📊 Resultado bruto:', equalWeightResult);
+      log('[EQUAL_WEIGHT_V3] 📊 Resultado bruto:', equalWeightResult);
       
       // Verificar se o resultado é válido com logs detalhados
       if (equalWeightResult) {
-        console.log('[EQUAL_WEIGHT_V3] ✅ Resultado existe');
-        console.log('[EQUAL_WEIGHT_V3] 📊 Score:', equalWeightResult.score);
-        console.log('[EQUAL_WEIGHT_V3] 📊 Score é finite?', Number.isFinite(equalWeightResult.score));
+        log('[EQUAL_WEIGHT_V3] ✅ Resultado existe');
+        log('[EQUAL_WEIGHT_V3] 📊 Score:', equalWeightResult.score);
+        log('[EQUAL_WEIGHT_V3] 📊 Score é finite?', Number.isFinite(equalWeightResult.score));
         
         if (Number.isFinite(equalWeightResult.score)) {
           result.scorePct = parseFloat(equalWeightResult.score.toFixed(1)); // Preservar decimal
@@ -880,19 +883,19 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
           result.classification = equalWeightResult.classification;
           result.equalWeightDetails = equalWeightResult.details;
           
-          console.log('[EQUAL_WEIGHT_V3] ✅ Score calculado:', result.scorePct + '%', 'Classificação:', result.classification);
+          log('[EQUAL_WEIGHT_V3] ✅ Score calculado:', result.scorePct + '%', 'Classificação:', result.classification);
         } else {
-          console.error('[EQUAL_WEIGHT_V3] ❌ Score não é finite:', equalWeightResult.score);
+          error('[EQUAL_WEIGHT_V3] ❌ Score não é finite:', equalWeightResult.score);
           throw new Error('Score não é finite: ' + equalWeightResult.score);
         }
       } else {
-        console.error('[EQUAL_WEIGHT_V3] ❌ Resultado é null/undefined:', equalWeightResult);
+        error('[EQUAL_WEIGHT_V3] ❌ Resultado é null/undefined:', equalWeightResult);
         throw new Error('equalWeightResult é null/undefined');
       }
       
     } catch (error) {
-      console.error('[EQUAL_WEIGHT_V3] ❌ Erro no novo sistema, fallback para advanced:', error);
-      console.error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', error.stack);
+      error('[EQUAL_WEIGHT_V3] ❌ Erro no novo sistema, fallback para advanced:', error);
+      error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', error.stack);
       result.scorePct = result.advancedScorePct;
       result.method = 'advanced_fallback';
       result.scoringMethod = 'advanced_fallback';
@@ -915,8 +918,8 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
       window.__LAST_MIX_SCORE = result;
       if (window.DEBUG_SCORE === true) {
         // Log compacto + detalhado em grupo
-        console.log('[MIX_SCORE]', result.scorePct + '%', 'mode=' + result.scoreMode, 'class=' + result.classification);
-        if (window.DEBUG_SCORE_VERBOSE) console.log('[MIX_SCORE_FULL]', result);
+        log('[MIX_SCORE]', result.scorePct + '%', 'mode=' + result.scoreMode, 'class=' + result.classification);
+        if (window.DEBUG_SCORE_VERBOSE) log('[MIX_SCORE_FULL]', result);
       }
     }
   } catch {}
@@ -1010,7 +1013,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
   const lufs = technicalData.lufsIntegrated ?? technicalData.lufs_integrated ?? null;
   
   // 🔍 DEBUG: Log dos valores extraídos para diagnóstico
-  console.log('[HARD_GATE] 📊 Valores extraídos:', {
+  log('[HARD_GATE] 📊 Valores extraídos:', {
     truePeak,
     clipping,
     dcOffset,
@@ -1070,7 +1073,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
       criticalErrors.push('TRUE_PEAK_HIGH');
     }
     
-    console.warn(`[HARD_GATE] ⚠️ TRUE PEAK ${severity}: ${truePeak.toFixed(2)} dBTP (excesso: +${excess.toFixed(2)} dB) → Cap proporcional: ${proportionalCap}%`);
+    warn(`[HARD_GATE] ⚠️ TRUE PEAK ${severity}: ${truePeak.toFixed(2)} dBTP (excesso: +${excess.toFixed(2)} dB) → Cap proporcional: ${proportionalCap}%`);
   }
   
   // =========================================================================
@@ -1091,7 +1094,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
     finalScoreCap = Math.min(finalScoreCap, clippingCap);
     criticalErrors.push('CLIPPING_SEVERE');
     if (!classificationOverride) classificationOverride = 'Necessita Correções';
-    console.warn(`[HARD_GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → Cap proporcional: ${clippingCap}%`);
+    warn(`[HARD_GATE] ⚠️ CLIPPING SEVERO: ${clipping.toFixed(2)}% → Cap proporcional: ${clippingCap}%`);
   }
   
   // =========================================================================
@@ -1114,7 +1117,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
     });
     finalScoreCap = Math.min(finalScoreCap, lufsCap);
     if (!classificationOverride && lufsExcess >= 4) classificationOverride = 'Necessita Correções';
-    console.warn(`[HARD_GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS (+${lufsExcess.toFixed(1)} LU) → Cap proporcional: ${lufsCap}%`);
+    warn(`[HARD_GATE] ⚠️ LUFS EXCESSIVO: ${lufs.toFixed(1)} LUFS (+${lufsExcess.toFixed(1)} LU) → Cap proporcional: ${lufsCap}%`);
   }
   
   // =========================================================================
@@ -1128,7 +1131,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
       value: dcOffset * 100,
       limit: 5
     });
-    console.warn(`[HARD_GATE] ⚠️ DC OFFSET ALTO: ${(dcOffset * 100).toFixed(2)}% → Penalidade de 10 pontos`);
+    warn(`[HARD_GATE] ⚠️ DC OFFSET ALTO: ${(dcOffset * 100).toFixed(2)}% → Penalidade de 10 pontos`);
   }
   
   // =========================================================================
@@ -1242,7 +1245,7 @@ function _applyV3GatesSynchronously(result, technicalData, options = {}) {
     window.__lastScoreDebug = debugPayload;
     
     // Log sempre no console para auditoria
-    console.log('[V3_GATES_DEBUG] 📊 Score Debug:', {
+    log('[V3_GATES_DEBUG] 📊 Score Debug:', {
       mode: mode,
       original: originalScore,
       final: finalScore,
@@ -1269,7 +1272,7 @@ function _classifyWithGates(scorePct) {
 async function _tryComputeScoreV3(technicalData, reference, mode, genreId) {
   // Verificar se V3 está disponível
   if (typeof window === 'undefined' || !window.ScoreEngineV3) {
-    console.warn('[SCORE_V3] ScoreEngineV3 não disponível');
+    warn('[SCORE_V3] ScoreEngineV3 não disponível');
     return null;
   }
   
@@ -1277,7 +1280,7 @@ async function _tryComputeScoreV3(technicalData, reference, mode, genreId) {
     const v3Result = await window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
     
     if (v3Result && v3Result.method === 'v3' && Number.isFinite(v3Result.scorePct)) {
-      console.log('[SCORE_V3] ✅ Cálculo V3 bem-sucedido:', v3Result.scorePct);
+      log('[SCORE_V3] ✅ Cálculo V3 bem-sucedido:', v3Result.scorePct);
       
       // Adaptar resultado V3 para formato compatível com sistema atual
       return {
@@ -1298,10 +1301,10 @@ async function _tryComputeScoreV3(technicalData, reference, mode, genreId) {
       };
     }
     
-    console.warn('[SCORE_V3] ⚠️ Resultado V3 inválido:', v3Result);
+    warn('[SCORE_V3] ⚠️ Resultado V3 inválido:', v3Result);
     return null;
   } catch (error) {
-    console.error('[SCORE_V3] ❌ Erro no cálculo V3:', error);
+    error('[SCORE_V3] ❌ Erro no cálculo V3:', error);
     return null;
   }
 }
@@ -1323,13 +1326,13 @@ function computeMixScore(technicalData = {}, reference = null, options = {}) {
   const mode = options.mode || win.__SOUNDY_ANALYSIS_MODE__ || win.SCORE_MODE || 'streaming';
   const genreId = options.genreId || reference?.genre_id || null;
   
-  console.info('[SCORE] 🎯 Engine:', scoreEngineVersion, '| Mode:', mode, '| Genre:', genreId);
+  info('[SCORE] 🎯 Engine:', scoreEngineVersion, '| Mode:', mode, '| Genre:', genreId);
   
   // ============================================================================
   // V3: Se ativo e disponível, usar EXCLUSIVAMENTE
   // ============================================================================
   if (scoreEngineVersion === 'v3' && win.ScoreEngineV3 && win.ScoreEngineV3.ready) {
-    console.info('[SCORE] 🚀 Usando Score Engine V3');
+    info('[SCORE] 🚀 Usando Score Engine V3');
     
     // Se caller suporta async, retornar promise
     if (options.async === true) {
@@ -1340,7 +1343,7 @@ function computeMixScore(technicalData = {}, reference = null, options = {}) {
             return v3Result;
           }
           // Fallback em caso de erro
-          console.warn('[SCORE] ⚠️ V3 falhou, usando fallback síncrono');
+          warn('[SCORE] ⚠️ V3 falhou, usando fallback síncrono');
           const syncResult = _computeMixScoreSync(technicalData, reference);
           const finalResult = _applyV3GatesSynchronously(syncResult, technicalData, { mode, reference, genre: genreId });
           _exposeScoreDebug(finalResult, technicalData, 'current_fallback');
@@ -1361,13 +1364,13 @@ function computeMixScore(technicalData = {}, reference = null, options = {}) {
             gatesTriggered: v3Result.gatesApplied?.map(g => g.type) || [],
             mode: mode
           };
-          console.info('[SCORE] ✅ V3 async completou:', v3Result.scorePct, '%');
+          info('[SCORE] ✅ V3 async completou:', v3Result.scorePct, '%');
         }
       })
-      .catch(err => console.error('[SCORE] V3 async error:', err));
+      .catch(err => error('[SCORE] V3 async error:', err));
     
     // Enquanto V3 calcula, usar gates síncronos para não bloquear UI
-    console.info('[SCORE] ℹ️ V3 calculando async, aplicando gates síncronos...');
+    info('[SCORE] ℹ️ V3 calculando async, aplicando gates síncronos...');
   }
   
   // ============================================================================
@@ -1385,7 +1388,7 @@ function computeMixScore(technicalData = {}, reference = null, options = {}) {
   // Expor debug
   _exposeScoreDebug(finalResult, technicalData, scoreEngineVersion);
   
-  console.info('[SCORE] ✅ Resultado:', {
+  info('[SCORE] ✅ Resultado:', {
     engine: scoreEngineVersion,
     mode: mode,
     final: finalResult.scorePct,
@@ -1421,7 +1424,7 @@ function _exposeScoreDebug(result, technicalData, engineVersion) {
   };
   
   // Log para auditoria
-  console.info('[SCORE] 📊 Debug:', {
+  info('[SCORE] 📊 Debug:', {
     engine: engineVersion,
     tp: tp,
     lufs: lufs,
@@ -1433,7 +1436,7 @@ function _exposeScoreDebug(result, technicalData, engineVersion) {
 function _computeMixScoreSync(technicalData = {}, reference = null) {
   // 🚨 DIAGNÓSTICO CRÍTICO - Verificar se dados são válidos
   if (!technicalData || typeof technicalData !== 'object') {
-    console.error('[SCORING_ENTRY] ❌ technicalData inválido:', technicalData);
+    error('[SCORING_ENTRY] ❌ technicalData inválido:', technicalData);
     return {
       scorePct: 50,
       classification: 'Básico',
@@ -1450,7 +1453,7 @@ function _computeMixScoreSync(technicalData = {}, reference = null) {
   const overrideAuditBypass = win.FORCE_SCORING_V2 === true; // permite V2 mesmo sem AUDIT_MODE
   const SCORING_V2 = (!explicitLegacy) && (explicitV2 || (AUDIT_MODE && win.SCORING_V2 !== false) || overrideAuditBypass);
   
-  console.log('[SCORING_ENTRY] 🔧 Flags calculadas:', {
+  log('[SCORING_ENTRY] 🔧 Flags calculadas:', {
     AUDIT_MODE,
     SCORING_V2,
     AUTO_V2,
@@ -1463,9 +1466,9 @@ function _computeMixScoreSync(technicalData = {}, reference = null) {
   let result;
   try {
     result = _computeMixScoreInternal(technicalData, reference, { AUDIT_MODE, SCORING_V2, AUTO_V2, overrideAuditBypass });
-    console.log('[SCORING_ENTRY] ✅ _computeMixScoreInternal sucesso:', result);
+    log('[SCORING_ENTRY] ✅ _computeMixScoreInternal sucesso:', result);
   } catch (error) {
-    console.error('[SCORING_ENTRY] ❌ Erro em _computeMixScoreInternal:', error);
+    error('[SCORING_ENTRY] ❌ Erro em _computeMixScoreInternal:', error);
     result = {
       scorePct: 50,
       classification: 'Básico',
@@ -1476,7 +1479,7 @@ function _computeMixScoreSync(technicalData = {}, reference = null) {
   
   // 🚨 VALIDAÇÃO FINAL ABSOLUTA
   if (!result) {
-    console.error('[SCORING_ENTRY] ❌ Result é null/undefined!');
+    error('[SCORING_ENTRY] ❌ Result é null/undefined!');
     result = {
       scorePct: 50,
       classification: 'Básico',
@@ -1485,13 +1488,13 @@ function _computeMixScoreSync(technicalData = {}, reference = null) {
   }
   
   if (!Number.isFinite(result.scorePct)) {
-    console.error('[SCORING_ENTRY] ❌ scorePct inválido:', result.scorePct);
+    error('[SCORING_ENTRY] ❌ scorePct inválido:', result.scorePct);
     result.scorePct = 50;
     result.classification = 'Básico';
     result.method = 'invalid_score_fallback';
   }
   
-  console.log('[SCORING_ENTRY] 📊 Resultado final garantido:', {
+  log('[SCORING_ENTRY] 📊 Resultado final garantido:', {
     score: result.scorePct,
     method: result.method,
     classification: result.classification
@@ -1522,7 +1525,7 @@ try {
     
     // FUNÇÃO DE DIAGNÓSTICO COMPLETO
     window.__DIAGNOSE_SCORE_ISSUE = function() {
-      console.log('🔍 DIAGNÓSTICO COMPLETO DO SCORE...');
+      log('🔍 DIAGNÓSTICO COMPLETO DO SCORE...');
       
       // Testar função interna diretamente
       const testData = {
@@ -1569,34 +1572,34 @@ try {
         }
       };
       
-      console.log('📊 Testando internamente _computeMixScoreInternal...');
+      log('📊 Testando internamente _computeMixScoreInternal...');
       const result = _computeMixScoreInternal(testData, testRef, { AUDIT_MODE: true, SCORING_V2: true });
       
-      console.log('📈 RESULTADO DO TESTE:');
-      console.log('  Score:', result.scorePct + '%');
-      console.log('  Método:', result.method);
-      console.log('  Color counts:', result.colorCounts);
-      console.log('  Weights:', result.weights);
-      console.log('  Yellow keys:', result.yellowKeys);
-      console.log('  Denominador info:', result.denominator_info);
+      log('📈 RESULTADO DO TESTE:');
+      log('  Score:', result.scorePct + '%');
+      log('  Método:', result.method);
+      log('  Color counts:', result.colorCounts);
+      log('  Weights:', result.weights);
+      log('  Yellow keys:', result.yellowKeys);
+      log('  Denominador info:', result.denominator_info);
       
       // Validar se está usando color_ratio_v2
       if (result.method !== 'color_ratio_v2') {
-        console.error('❌ PROBLEMA: Não está usando color_ratio_v2!');
-        console.log('Fallback info:', result.fallback_used, result._colorRatioError);
+        error('❌ PROBLEMA: Não está usando color_ratio_v2!');
+        log('Fallback info:', result.fallback_used, result._colorRatioError);
       }
       
       // Validar contagem
       const expectedScore = Math.round(100 * (5*1.0 + 4*0.5 + 3*0.0) / 12); // = 58
-      console.log('✅ Score esperado:', expectedScore + '%');
-      console.log('✅ Score obtido:', result.scorePct + '%');
-      console.log('✅ Match:', result.scorePct === expectedScore ? '✓' : '✗');
+      log('✅ Score esperado:', expectedScore + '%');
+      log('✅ Score obtido:', result.scorePct + '%');
+      log('✅ Match:', result.scorePct === expectedScore ? '✓' : '✗');
       
       // Diagnóstico das métricas
-      console.log('� BREAKDOWN POR MÉTRICA:');
+      log('� BREAKDOWN POR MÉTRICA:');
       result.perMetric.forEach(m => {
         const color = m.status === 'OK' ? '🟢' : (m.severity === 'leve' ? '🟡' : '🔴');
-        console.log(`  ${color} ${m.key}: ${m.value} vs ${m.target}±${m.tol} → status:${m.status}, severity:${m.severity}, n:${m.n}`);
+        log(`  ${color} ${m.key}: ${m.value} vs ${m.target}±${m.tol} → status:${m.status}, severity:${m.severity}, n:${m.n}`);
       });
       
       return result;
@@ -1606,23 +1609,23 @@ try {
     window.__PRINT_LAST_MIX_SCORE = function() {
       const score = window.__LAST_MIX_SCORE;
       if (!score) {
-        console.log('❌ Nenhum __LAST_MIX_SCORE disponível');
+        log('❌ Nenhum __LAST_MIX_SCORE disponível');
         return;
       }
       
-      console.log('🎯 ÚLTIMO MIX SCORE:');
-      console.log('  Método:', score.method || score.scoringMethod);
-      console.log('  Score:', score.scorePct + '%');
-      console.log('  Cores:', score.colorCounts);
-      console.log('  Amarelos:', score.yellowKeys);
-      console.log('  Pesos:', score.weights);
+      log('🎯 ÚLTIMO MIX SCORE:');
+      log('  Método:', score.method || score.scoringMethod);
+      log('  Score:', score.scorePct + '%');
+      log('  Cores:', score.colorCounts);
+      log('  Amarelos:', score.yellowKeys);
+      log('  Pesos:', score.weights);
       
       return score;
     };
     
     // TESTES OBRIGATÓRIOS PARA VALIDAÇÃO COLOR_RATIO_V2
     window.__TEST_COLOR_RATIO_V2 = function() {
-      console.log('🧪 TESTES OBRIGATÓRIOS COLOR_RATIO_V2...');
+      log('🧪 TESTES OBRIGATÓRIOS COLOR_RATIO_V2...');
       
       // Função helper para criar mock de perMetric
       const createMockData = (greenCount, yellowCount, redCount) => {
@@ -1668,19 +1671,19 @@ try {
       const { mockData: dataA, mockRef: refA } = createMockData(7, 0, 7);
       const resultA = _computeMixScoreInternal(dataA, refA, { AUDIT_MODE: true, SCORING_V2: true });
       const expectedA = Math.round(100 * (7 * 1.0 + 0 * 0.5 + 7 * 0.0) / 14); // = 50
-      console.log(`✅ Caso A: G=7, Y=0, R=7, T=14 → Expected: ${expectedA}, Got: ${resultA.scorePct}`, resultA.colorCounts);
+      log(`✅ Caso A: G=7, Y=0, R=7, T=14 → Expected: ${expectedA}, Got: ${resultA.scorePct}`, resultA.colorCounts);
       
       // Caso B: G=5, Y=0, R=9, T=14 → mixScorePct = 36
       const { mockData: dataB, mockRef: refB } = createMockData(5, 0, 9);
       const resultB = _computeMixScoreInternal(dataB, refB, { AUDIT_MODE: true, SCORING_V2: true });
       const expectedB = Math.round(100 * (5 * 1.0 + 0 * 0.5 + 9 * 0.0) / 14); // = 36
-      console.log(`✅ Caso B: G=5, Y=0, R=9, T=14 → Expected: ${expectedB}, Got: ${resultB.scorePct}`, resultB.colorCounts);
+      log(`✅ Caso B: G=5, Y=0, R=9, T=14 → Expected: ${expectedB}, Got: ${resultB.scorePct}`, resultB.colorCounts);
       
       // Caso C: G=5, Y=4, R=3, T=12 → mixScorePct = round(100*((5 + 0.5*4)/12)) = 58
       const { mockData: dataC, mockRef: refC } = createMockData(5, 4, 3);
       const resultC = _computeMixScoreInternal(dataC, refC, { AUDIT_MODE: true, SCORING_V2: true });
       const expectedC = Math.round(100 * (5 * 1.0 + 4 * 0.5 + 3 * 0.0) / 12); // = 58
-      console.log(`✅ Caso C: G=5, Y=4, R=3, T=12 → Expected: ${expectedC}, Got: ${resultC.scorePct}`, resultC.colorCounts);
+      log(`✅ Caso C: G=5, Y=4, R=3, T=12 → Expected: ${expectedC}, Got: ${resultC.scorePct}`, resultC.colorCounts);
       
       // Validações
       const tests = [
@@ -1697,21 +1700,21 @@ try {
         const methodMatch = test.result.method === 'color_ratio_v2';
         
         if (!scoreMatch || !countsMatch || !denominatorMatch || !methodMatch) {
-          console.error(`❌ ${test.name} FALHOU:`, {
+          error(`❌ ${test.name} FALHOU:`, {
             scoreMatch, countsMatch, denominatorMatch, methodMatch,
             expected: test.expected, got: test.result.scorePct,
             expectedCounts: test.counts, gotCounts: test.result.colorCounts
           });
           allPassed = false;
         } else {
-          console.log(`✅ ${test.name} PASSOU`);
+          log(`✅ ${test.name} PASSOU`);
         }
       });
       
       if (allPassed) {
-        console.log('🎉 TODOS OS TESTES PASSARAM! Color ratio v2 funcionando corretamente.');
+        log('🎉 TODOS OS TESTES PASSARAM! Color ratio v2 funcionando corretamente.');
       } else {
-        console.error('❌ Alguns testes falharam. Verificar implementação.');
+        error('❌ Alguns testes falharam. Verificar implementação.');
       }
       
       return { resultA, resultB, resultC, allPassed };
@@ -1721,7 +1724,7 @@ try {
 
 if (typeof window !== 'undefined') { 
   window.__MIX_SCORING_VERSION__ = '3.2.0-v3-global'; 
-  console.info('[SCORING] 🎯 Score Engine carregado - Versão:', window.__MIX_SCORING_VERSION__);
+  info('[SCORING] 🎯 Score Engine carregado - Versão:', window.__MIX_SCORING_VERSION__);
   
   // ============================================================================
   // 🚨 CRÍTICO: EXPOR computeMixScore NO WINDOW
@@ -1729,7 +1732,7 @@ if (typeof window !== 'undefined') {
   // (ex: audio-analyzer-integration.js) tenham acesso à função correta
   // ============================================================================
   window.computeMixScore = computeMixScore;
-  console.info('[SCORING] ✅ window.computeMixScore exposto globalmente');
+  info('[SCORING] ✅ window.computeMixScore exposto globalmente');
   
   // ============================================================================
   // FEATURE FLAG - Controle de versão da engine
@@ -1750,7 +1753,7 @@ if (typeof window !== 'undefined') {
   window.enableScoreV3 = function() { 
     localStorage.setItem('scoreEngineVersion', 'v3');
     window.SCORE_ENGINE_VERSION = 'v3'; 
-    console.info('[SCORING] ✅ Score Engine V3 ATIVADO. Recarregue para aplicar.');
+    info('[SCORING] ✅ Score Engine V3 ATIVADO. Recarregue para aplicar.');
     return 'v3';
   };
   
@@ -1760,7 +1763,7 @@ if (typeof window !== 'undefined') {
   window.disableScoreV3 = function() { 
     localStorage.setItem('scoreEngineVersion', 'current');
     window.SCORE_ENGINE_VERSION = 'current'; 
-    console.info('[SCORING] ⚠️ Score Engine V3 DESATIVADO. Usando motor atual.');
+    info('[SCORING] ⚠️ Score Engine V3 DESATIVADO. Usando motor atual.');
     return 'current';
   };
   
@@ -1781,7 +1784,7 @@ if (typeof window !== 'undefined') {
   // Helper para computar score V3 diretamente (async)
   window.computeScoreV3 = async (technicalData, reference, mode, genreId) => {
     if (!window.ScoreEngineV3) {
-      console.error('[SCORING] ❌ ScoreEngineV3 não carregado');
+      error('[SCORING] ❌ ScoreEngineV3 não carregado');
       return null;
     }
     return window.ScoreEngineV3.computeScore(technicalData, reference, mode, genreId);
@@ -1837,7 +1840,7 @@ if (typeof window !== 'undefined') {
             case1.gatesTriggered?.some(g => g.type === 'TRUE_PEAK_CRITICAL') &&
             case1.classification === 'Inaceitável'
     });
-    console.log('📋 Caso 1 (TP=+4.7):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 1 (TP=+4.7):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // CASO 2: True Peak EXATAMENTE no target streaming (-1.0 dBTP) - NÃO deve disparar WARNING
     const case2 = computeMixScore({
@@ -1859,7 +1862,7 @@ if (typeof window !== 'undefined') {
       pass: case2.scorePct >= 60 && 
             !case2.gatesTriggered?.some(g => g.type.includes('TRUE_PEAK'))
     });
-    console.log('📋 Caso 2 (TP=-1.0 target):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 2 (TP=-1.0 target):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // CASO 2B: True Peak na zona de WARNING (-0.5 dBTP = target+0.5 = risco)
     // Para streaming: target=-1.0, warningThreshold = min(-1.0+0.3, -1.0) = -1.0
@@ -1885,7 +1888,7 @@ if (typeof window !== 'undefined') {
       // Correção: warningThreshold = target + 0.3 = 0.0, TP=-0.1 < 0.0 → não dispara
       pass: case2b.scorePct >= 50 // Não deve capar drasticamente
     });
-    console.log('📋 Caso 2B (TP=-0.1 pista):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 2B (TP=-0.1 pista):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // CASO 3: Clipping severo
     const case3 = computeMixScore({
@@ -1905,7 +1908,7 @@ if (typeof window !== 'undefined') {
       pass: case3.scorePct <= 40 && 
             case3.gatesTriggered?.some(g => g.type === 'CLIPPING_SEVERE')
     });
-    console.log('📋 Caso 3 (Clipping):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 3 (Clipping):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // CASO 4: LUFS excessivo
     const case4 = computeMixScore({
@@ -1925,7 +1928,7 @@ if (typeof window !== 'undefined') {
       pass: case4.scorePct <= 50 && 
             case4.gatesTriggered?.some(g => g.type === 'LUFS_EXCESSIVE')
     });
-    console.log('📋 Caso 4 (LUFS):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 4 (LUFS):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // CASO 5: True Peak +2.9 dBTP (crítico - outro relato do usuário)
     const case5 = computeMixScore({
@@ -1945,15 +1948,15 @@ if (typeof window !== 'undefined') {
       pass: case5.scorePct <= 35 && 
             case5.gatesTriggered?.some(g => g.type === 'TRUE_PEAK_CRITICAL')
     });
-    console.log('📋 Caso 5 (TP=+2.9):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
+    log('📋 Caso 5 (TP=+2.9):', tests[tests.length-1].pass ? '✅ PASS' : '❌ FAIL', tests[tests.length-1].actual);
     
     // RESUMO
     const allPassed = tests.every(t => t.pass);
     const passCount = tests.filter(t => t.pass).length;
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`📊 RESULTADO: ${passCount}/${tests.length} testes passaram`);
-    console.log(allPassed ? '🎉 TODOS OS GATES FUNCIONANDO!' : '❌ ALGUNS GATES FALHARAM');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    log(`📊 RESULTADO: ${passCount}/${tests.length} testes passaram`);
+    log(allPassed ? '🎉 TODOS OS GATES FUNCIONANDO!' : '❌ ALGUNS GATES FALHARAM');
     console.groupEnd();
     
     // Retornar para uso programático
@@ -2013,8 +2016,8 @@ if (typeof window !== 'undefined') {
       }
     };
     
-    console.log('TP=-1.0 sem WARNING:', noWarningAtTarget ? '✅ PASS' : '❌ FAIL');
-    console.log('TP=+0.5 com CRITICAL:', criticalAboveZero ? '✅ PASS' : '❌ FAIL');
+    log('TP=-1.0 sem WARNING:', noWarningAtTarget ? '✅ PASS' : '❌ FAIL');
+    log('TP=+0.5 com CRITICAL:', criticalAboveZero ? '✅ PASS' : '❌ FAIL');
     console.groupEnd();
     
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2039,7 +2042,7 @@ if (typeof window !== 'undefined') {
         const result = BKA.normalizeBandKey(t.input);
         const pass = result === t.expected;
         if (!pass) allAliasesPass = false;
-        console.log(`  ${t.input} → ${result} (esperado: ${t.expected}) ${pass ? '✅' : '❌'}`);
+        log(`  ${t.input} → ${result} (esperado: ${t.expected}) ${pass ? '✅' : '❌'}`);
       });
       
       results.aliasResolution = {
@@ -2047,7 +2050,7 @@ if (typeof window !== 'undefined') {
         details: { tests: aliasTests.length, passed: allAliasesPass }
       };
     } else {
-      console.warn('⚠️ BandKeyAliases não carregado!');
+      warn('⚠️ BandKeyAliases não carregado!');
       results.aliasResolution = { pass: false, details: { error: 'Módulo não carregado' } };
     }
     console.groupEnd();
@@ -2092,8 +2095,8 @@ if (typeof window !== 'undefined') {
         }
       };
       
-      console.log(`Bandas mapeadas: ${bandsMatched}/7 ${bandsMatched >= 7 ? '✅' : '❌'}`);
-      console.log('Usadas:', mapping.userBandsUsed);
+      log(`Bandas mapeadas: ${bandsMatched}/7 ${bandsMatched >= 7 ? '✅' : '❌'}`);
+      log('Usadas:', mapping.userBandsUsed);
     } else {
       results.frequencyBands = { pass: false, details: { error: 'BKA não disponível' } };
     }
@@ -2127,8 +2130,8 @@ if (typeof window !== 'undefined') {
       }
     };
     
-    console.log('Tem subscores:', hasSubscores ? '✅' : '❌');
-    console.log('Score final válido:', hasValidFinal ? '✅' : '❌', scoreTest.scorePct);
+    log('Tem subscores:', hasSubscores ? '✅' : '❌');
+    log('Score final válido:', hasValidFinal ? '✅' : '❌', scoreTest.scorePct);
     console.groupEnd();
     
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2138,9 +2141,9 @@ if (typeof window !== 'undefined') {
     const passCount = Object.values(results).filter(r => r.pass).length;
     const totalTests = Object.keys(results).length;
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`📊 RESULTADO FINAL: ${passCount}/${totalTests} testes passaram`);
-    console.log(allPassed ? '🎉 SISTEMA DE SCORES OK!' : '❌ PROBLEMAS DETECTADOS');
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    log(`📊 RESULTADO FINAL: ${passCount}/${totalTests} testes passaram`);
+    log(allPassed ? '🎉 SISTEMA DE SCORES OK!' : '❌ PROBLEMAS DETECTADOS');
     console.table({
       'True Peak Gates': results.truePeakGates.pass ? '✅' : '❌',
       'Aliases de Bandas': results.aliasResolution.pass ? '✅' : '❌',
@@ -2159,8 +2162,8 @@ if (typeof window !== 'undefined') {
   // Status no console
   const v3Status = window.ScoreEngineV3?.ready ? '✅ disponível' : '⚠️ não carregado';
   const engineActive = window.getScoreEngineVersion();
-  console.info(`[SCORING] 📊 V3: ${v3Status} | Engine ativa: ${engineActive}`);
-  console.info('[SCORING] 🧪 Execute window.testScoringGates() ou window.testScoreSanity() para validar');
+  info(`[SCORING] 📊 V3: ${v3Status} | Engine ativa: ${engineActive}`);
+  info('[SCORING] 🧪 Execute window.testScoringGates() ou window.testScoreSanity() para validar');
 }
 
 // Export das funções principais

@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🔄 MIGRAÇÃO GRADUAL PARA SISTEMA UNIFICADO
  * 
@@ -150,7 +153,7 @@ function countProblemsMigrado(metrics) {
  */
 function applyUnifiedSystemPatches() {
     if (!window.STATUS_SUGGESTION_UNIFIED_V1) {
-        console.log('[MIGRATION] Feature flag desabilitada, patches não aplicados');
+        log('[MIGRATION] Feature flag desabilitada, patches não aplicados');
         return;
     }
     
@@ -158,14 +161,14 @@ function applyUnifiedSystemPatches() {
     if (window.createEnhancedDiffCell) {
         window.createEnhancedDiffCellOriginal = window.createEnhancedDiffCell;
         window.createEnhancedDiffCell = createEnhancedDiffCellMigrado;
-        console.log('[MIGRATION] ✅ createEnhancedDiffCell migrado');
+        log('[MIGRATION] ✅ createEnhancedDiffCell migrado');
     }
     
     // Disponibilizar funções de migração
     window.determineStatusMigrado = determineStatusMigrado;
     window.countProblemsMigrado = countProblemsMigrado;
     
-    console.log('[MIGRATION] Sistema de migração aplicado');
+    log('[MIGRATION] Sistema de migração aplicado');
 }
 
 /**
@@ -174,7 +177,7 @@ function applyUnifiedSystemPatches() {
  * Verifica se migration mantém compatibilidade
  */
 function testMigrationCompatibility() {
-    console.log('[MIGRATION] Testando compatibilidade...');
+    log('[MIGRATION] Testando compatibilidade...');
     
     const testCases = [
         // Teste createEnhancedDiffCell compatibility
@@ -215,10 +218,10 @@ function testMigrationCompatibility() {
                 
                 if (allFound) {
                     passed++;
-                    console.log(`✅ ${test.name}: PASSOU`);
+                    log(`✅ ${test.name}: PASSOU`);
                 } else {
                     failed++;
-                    console.error(`❌ ${test.name}: FALHOU - resultado não contém elementos esperados`);
+                    error(`❌ ${test.name}: FALHOU - resultado não contém elementos esperados`);
                 }
                 
             } else if (test.name.includes('determineStatus')) {
@@ -228,19 +231,19 @@ function testMigrationCompatibility() {
                 
                 if (statusOk && classOk) {
                     passed++;
-                    console.log(`✅ ${test.name}: PASSOU`);
+                    log(`✅ ${test.name}: PASSOU`);
                 } else {
                     failed++;
-                    console.error(`❌ ${test.name}: FALHOU`, { expected: test.expect, got: result });
+                    error(`❌ ${test.name}: FALHOU`, { expected: test.expect, got: result });
                 }
             }
         } catch (error) {
             failed++;
-            console.error(`❌ ${test.name}: ERRO`, error);
+            error(`❌ ${test.name}: ERRO`, error);
         }
     }
     
-    console.log(`[MIGRATION] Testes concluídos: ${passed} passou, ${failed} falhou`);
+    log(`[MIGRATION] Testes concluídos: ${passed} passou, ${failed} falhou`);
     return { passed, failed, total: testCases.length };
 }
 
@@ -257,15 +260,15 @@ function toggleUnifiedSystem(enable = true) {
         // Ativando sistema
         if (window.calcularStatusSugestaoUnificado) {
             applyUnifiedSystemPatches();
-            console.log('🚀 [ROLLOUT] Sistema unificado ATIVADO');
+            log('🚀 [ROLLOUT] Sistema unificado ATIVADO');
             
             // Auto-teste
             const testResult = testMigrationCompatibility();
             if (testResult.failed > 0) {
-                console.warn('⚠️ [ROLLOUT] Alguns testes falharam, considere revisar');
+                warn('⚠️ [ROLLOUT] Alguns testes falharam, considere revisar');
             }
         } else {
-            console.error('❌ [ROLLOUT] Sistema unificado não carregado, não é possível ativar');
+            error('❌ [ROLLOUT] Sistema unificado não carregado, não é possível ativar');
             window.STATUS_SUGGESTION_UNIFIED_V1 = false;
         }
         
@@ -274,7 +277,7 @@ function toggleUnifiedSystem(enable = true) {
         if (window.createEnhancedDiffCellOriginal) {
             window.createEnhancedDiffCell = window.createEnhancedDiffCellOriginal;
         }
-        console.log('🔄 [ROLLOUT] Sistema unificado DESATIVADO (rollback para legacy)');
+        log('🔄 [ROLLOUT] Sistema unificado DESATIVADO (rollback para legacy)');
     }
     
     return window.STATUS_SUGGESTION_UNIFIED_V1;
@@ -289,13 +292,13 @@ if (typeof window !== 'undefined') {
     window.determineStatusMigrado = determineStatusMigrado;
     window.countProblemsMigrado = countProblemsMigrado;
     
-    console.log('[MIGRATION] Sistema de migração carregado');
+    log('[MIGRATION] Sistema de migração carregado');
     
     // Auto-aplicar patches se flag estiver ativa (ATIVAÇÃO AUTOMÁTICA)
     setTimeout(() => {
         if (window.STATUS_SUGGESTION_UNIFIED_V1) {
             applyUnifiedSystemPatches();
-            console.log('🚀 [AUTO-INIT] Sistema unificado aplicado automaticamente');
+            log('🚀 [AUTO-INIT] Sistema unificado aplicado automaticamente');
         }
     }, 100);
 }

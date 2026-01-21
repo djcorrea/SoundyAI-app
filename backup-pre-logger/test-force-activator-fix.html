@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Force Activator Fix</title>
+</head>
+<body>
+    <h1>🎯 Teste - Correção Force Activator</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Logs esperados (em ordem correta):</h3>
+        <ol>
+            <li>⏳ ForceActivator adiado: sistema ainda não está pronto.</li>
+            <li>🎵 Audio Analyzer Integration carregada com sucesso!</li>
+            <li>⏳ [READY-CHECK] Estado atual: {audioAnalyzer: true, CACHE_CTX_AWARE_V1_API: true, refsReady: false}</li>
+            <li>⏳ [READY-CHECK] Estado atual: {audioAnalyzer: true, CACHE_CTX_AWARE_V1_API: true, refsReady: true}</li>
+            <li>✅ [GLOBAL] Todos os sistemas prontos. Disparando analysisReady...</li>
+            <li>✅ ForceActivator executado após sistema pronto (analysisReady).</li>
+        </ol>
+    </div>
+
+    <button onclick="testForceActivator()">🧪 Testar Force Activator Manual</button>
+    <button onclick="console.clear()">🧹 Limpar Console</button>
+
+    <script>
+        // Simular sequência de carregamento realista dos sistemas
+        setTimeout(() => {
+            console.log("🔧 [TEST] Simulando AudioAnalyzer pronto...");
+            window.audioAnalyzer = { ready: true };
+        }, 1000);
+
+        setTimeout(() => {
+            console.log("🔧 [TEST] Simulando CACHE_CTX_AWARE_V1_API pronto...");
+            window.CACHE_CTX_AWARE_V1_API = { ready: true };
+        }, 1500);
+
+        setTimeout(() => {
+            console.log("🔧 [TEST] Simulando refsReady...");
+            window.refsReady = true;
+            // Simular função applyGenreSelection que deveria existir
+            window.applyGenreSelection = function(genre) {
+                console.log("✅ [TEST] applyGenreSelection chamada com:", genre);
+            };
+            
+            // Simular o disparo do waitForRefsAndCacheBeforeReady para teste
+            console.log("🔧 [TEST] Simulando chamada de waitForRefsAndCacheBeforeReady...");
+            if (window.waitForRefsAndCacheBeforeReady) {
+                window.waitForRefsAndCacheBeforeReady();
+            } else {
+                // Simular o comportamento da função se não existir
+                setTimeout(() => {
+                    console.log("⏳ [READY-CHECK] Estado atual:", {
+                        audioAnalyzer: !!window.audioAnalyzer,
+                        CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                        refsReady: !!window.refsReady
+                    });
+                    console.log("✅ [GLOBAL] Todos os sistemas prontos. Disparando analysisReady...");
+                    const evt = new Event("analysisReady");
+                    document.dispatchEvent(evt);
+                }, 100);
+            }
+        }, 2000);
+
+        function testForceActivator() {
+            if (window.forceUnifiedSystem) {
+                console.log("🧪 [TEST] Testando Force Activator manual...");
+                window.forceUnifiedSystem();
+            } else {
+                console.error("❌ [TEST] Force Activator não disponível");
+            }
+        }
+
+        // Log inicial para mostrar estado
+        console.log("🚀 [TEST] Página de teste carregada");
+        console.log("Estado inicial dos sistemas:", {
+            audioAnalyzer: !!window.audioAnalyzer,
+            CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+            refsReady: !!window.refsReady
+        });
+    </script>
+
+    <!-- Carregar Force Activator com defer -->
+    <script src="/force-unified-activation.js?v=20250829" defer></script>
+</body>
+</html>

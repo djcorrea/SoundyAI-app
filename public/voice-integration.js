@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎤 VOICE MESSAGE - INTEGRAÇÃO COM CHAT EXISTENTE
 // Adicione este código ao seu arquivo de chat principal
 
@@ -192,7 +195,7 @@ class VoiceMessageIntegration {
             this.startTimer();
 
         } catch (error) {
-            console.error('Erro ao iniciar gravação:', error);
+            error('Erro ao iniciar gravação:', error);
             alert('Erro: Não foi possível acessar o microfone. Verifique as permissões.');
         }
     }
@@ -278,7 +281,7 @@ class VoiceMessageIntegration {
             reader.readAsDataURL(this.currentAudioBlob);
 
         } catch (error) {
-            console.error('Erro ao enviar voice message:', error);
+            error('Erro ao enviar voice message:', error);
             alert('Erro ao processar áudio. Tente novamente.');
         } finally {
             sendButton.textContent = 'Enviar Mensagem de Voz 🚀';
@@ -383,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Aguardar um pouco para garantir que o chat foi inicializado
     setTimeout(() => {
         window.voiceMessage = new VoiceMessageIntegration();
-        console.log('🎤 Voice Message integrado com sucesso!');
+        log('🎤 Voice Message integrado com sucesso!');
     }, 1000);
 });
 

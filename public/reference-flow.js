@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // reference-flow.js
 // 🎯 Controlador ISOLADO e DETERMINÍSTICO para fluxo de Análise de Referência
 // 
@@ -40,7 +43,7 @@
       this.jobBindings = new Map(); // jobId -> { track: 'base'|'compare', baseJobId, referenceJobId }
       this._restore();
       this._restoreBindings();
-      console.log(DEBUG_PREFIX, 'Initialized', this.state);
+      log(DEBUG_PREFIX, 'Initialized', this.state);
     }
 
     /**
@@ -66,10 +69,10 @@
         if (stored) {
           const parsed = JSON.parse(stored);
           this.state = { ...this._getInitialState(), ...parsed };
-          console.log(DEBUG_PREFIX, 'Restored from sessionStorage', this.state);
+          log(DEBUG_PREFIX, 'Restored from sessionStorage', this.state);
         }
       } catch (error) {
-        console.error(DEBUG_PREFIX, 'Failed to restore state', error);
+        error(DEBUG_PREFIX, 'Failed to restore state', error);
       }
     }
 
@@ -79,9 +82,9 @@
     _persist() {
       try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
-        console.log(DEBUG_PREFIX, 'Persisted', this.state);
+        log(DEBUG_PREFIX, 'Persisted', this.state);
       } catch (error) {
-        console.error(DEBUG_PREFIX, 'Failed to persist state', error);
+        error(DEBUG_PREFIX, 'Failed to persist state', error);
       }
     }
 
@@ -94,10 +97,10 @@
         if (stored) {
           const parsed = JSON.parse(stored);
           this.jobBindings = new Map(Object.entries(parsed));
-          console.log('[REF-BIND] Restored bindings:', this.jobBindings.size, 'jobs');
+          log('[REF-BIND] Restored bindings:', this.jobBindings.size, 'jobs');
         }
       } catch (error) {
-        console.error('[REF-BIND] Failed to restore bindings', error);
+        error('[REF-BIND] Failed to restore bindings', error);
       }
     }
 
@@ -108,9 +111,9 @@
       try {
         const obj = Object.fromEntries(this.jobBindings);
         sessionStorage.setItem(STORAGE_KEY + '_BINDINGS', JSON.stringify(obj));
-        console.log('[REF-BIND] Persisted', this.jobBindings.size, 'bindings');
+        log('[REF-BIND] Persisted', this.jobBindings.size, 'bindings');
       } catch (error) {
-        console.error('[REF-BIND] Failed to persist bindings', error);
+        error('[REF-BIND] Failed to persist bindings', error);
       }
     }
 
@@ -121,14 +124,14 @@
      */
     bindJob(jobId, binding) {
       if (!jobId) {
-        console.error('[REF-BIND] jobId inválido:', jobId);
+        error('[REF-BIND] jobId inválido:', jobId);
         return;
       }
       
       this.jobBindings.set(jobId, binding);
       this._persistBindings();
       
-      console.log('[REF-BIND] Job bound:', jobId, binding);
+      log('[REF-BIND] Job bound:', jobId, binding);
     }
 
     /**
@@ -146,14 +149,14 @@
     clearBindings() {
       this.jobBindings.clear();
       this._persistBindings();
-      console.log('[REF-BIND] Bindings cleared');
+      log('[REF-BIND] Bindings cleared');
     }
 
     /**
      * Resetar fluxo completamente
      */
     reset() {
-      console.log(DEBUG_PREFIX, 'reset() - Limpando estado de referência');
+      log(DEBUG_PREFIX, 'reset() - Limpando estado de referência');
       this.state = this._getInitialState();
       this.clearBindings();
       this._persist();
@@ -164,7 +167,7 @@
         delete window.lastReferenceJobId;
       }
       
-      console.log(DEBUG_PREFIX, 'Reset completo');
+      log(DEBUG_PREFIX, 'Reset completo');
     }
 
     /**
@@ -172,7 +175,7 @@
      * @returns {string} traceId para debug
      */
     startNewReferenceFlow() {
-      console.log(DEBUG_PREFIX, 'startNewReferenceFlow()');
+      log(DEBUG_PREFIX, 'startNewReferenceFlow()');
       
       this.reset();
       
@@ -182,7 +185,7 @@
       
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Novo fluxo iniciado', this.state.traceId);
+      log(DEBUG_PREFIX, 'Novo fluxo iniciado', this.state.traceId);
       return this.state.traceId;
     }
 
@@ -191,16 +194,16 @@
      */
     onFirstTrackSelected() {
       const traceId = this.state.traceId || `trace_${Date.now()}`;
-      console.log(DEBUG_PREFIX, 'onFirstTrackSelected()', { traceId, currentStage: this.state.stage });
+      log(DEBUG_PREFIX, 'onFirstTrackSelected()', { traceId, currentStage: this.state.stage });
       
       // ✅ CORREÇÃO: Só resetar se stage for terminal (AWAITING_SECOND, DONE)
       // Não resetar se já processando (BASE_UPLOADING, BASE_PROCESSING) - preservar baseJobId
       if (this.state.stage === Stage.AWAITING_SECOND || this.state.stage === Stage.DONE) {
-        console.warn(DEBUG_PREFIX, 'Iniciando nova análise - resetando fluxo concluído', { traceId });
+        warn(DEBUG_PREFIX, 'Iniciando nova análise - resetando fluxo concluído', { traceId });
         this.reset();
         this.startNewReferenceFlow();
       } else if (this.state.stage !== Stage.IDLE) {
-        console.warn(DEBUG_PREFIX, '⚠️ Fluxo em andamento - NÃO resetando', { 
+        warn(DEBUG_PREFIX, '⚠️ Fluxo em andamento - NÃO resetando', { 
           traceId, 
           stage: this.state.stage, 
           baseJobId: this.state.baseJobId 
@@ -211,7 +214,7 @@
       this.state.stage = Stage.BASE_UPLOADING;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.BASE_UPLOADING, { traceId, baseJobId: this.state.baseJobId });
+      log(DEBUG_PREFIX, 'Stage:', Stage.BASE_UPLOADING, { traceId, baseJobId: this.state.baseJobId });
     }
 
     /**
@@ -230,8 +233,8 @@
       ].includes(this.state.stage);
       
       if (isPostBase && this.state.baseJobId && this.state.baseJobId !== jobId) {
-        console.warn('[REF-FLOW][GUARD] ⚠️ Ignorando onFirstTrackProcessing - já existe baseJobId e stage pós-base');
-        console.warn('[REF-FLOW][GUARD] Current:', {
+        warn('[REF-FLOW][GUARD] ⚠️ Ignorando onFirstTrackProcessing - já existe baseJobId e stage pós-base');
+        warn('[REF-FLOW][GUARD] Current:', {
           stage: this.state.stage,
           baseJobId: this.state.baseJobId,
           incomingJobId: jobId
@@ -239,7 +242,7 @@
         return;
       }
       
-      console.log('[REF-STATE-TRACE]', {
+      log('[REF-STATE-TRACE]', {
         traceId,
         event: 'onFirstTrackProcessing',
         jobId: jobId,
@@ -252,7 +255,7 @@
       this.state.baseJobId = jobId;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Base processando, jobId:', jobId, { traceId });
+      log(DEBUG_PREFIX, 'Base processando, jobId:', jobId, { traceId });
     }
 
     /**
@@ -260,10 +263,10 @@
      * @param {Object} result - Resultado completo da análise base
      */
     onFirstTrackCompleted(result) {
-      console.log(DEBUG_PREFIX, 'onFirstTrackCompleted()', result?.jobId);
+      log(DEBUG_PREFIX, 'onFirstTrackCompleted()', result?.jobId);
       
       if (!result || !result.jobId) {
-        console.error(DEBUG_PREFIX, 'onFirstTrackCompleted() - resultado inválido', result);
+        error(DEBUG_PREFIX, 'onFirstTrackCompleted() - resultado inválido', result);
         return;
       }
       
@@ -284,40 +287,40 @@
       
       this._persist();
       
-      console.log(DEBUG_PREFIX, '✅ Base completa - aguardando segunda música');
-      console.log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId);
-      console.log(DEBUG_PREFIX, 'baseFileName:', this.state.baseFileName);
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.AWAITING_SECOND);
+      log(DEBUG_PREFIX, '✅ Base completa - aguardando segunda música');
+      log(DEBUG_PREFIX, 'baseJobId:', this.state.baseJobId);
+      log(DEBUG_PREFIX, 'baseFileName:', this.state.baseFileName);
+      log(DEBUG_PREFIX, 'Stage:', Stage.AWAITING_SECOND);
     }
 
     /**
      * Usuário selecionou segunda música
      */
     onSecondTrackSelected() {
-      console.log(DEBUG_PREFIX, 'onSecondTrackSelected()');
+      log(DEBUG_PREFIX, 'onSecondTrackSelected()');
       
       if (this.state.stage !== Stage.AWAITING_SECOND) {
-        console.error(DEBUG_PREFIX, 'onSecondTrackSelected() chamado fora de ordem!');
-        console.error(DEBUG_PREFIX, 'Stage atual:', this.state.stage, '| Esperado:', Stage.AWAITING_SECOND);
+        error(DEBUG_PREFIX, 'onSecondTrackSelected() chamado fora de ordem!');
+        error(DEBUG_PREFIX, 'Stage atual:', this.state.stage, '| Esperado:', Stage.AWAITING_SECOND);
         throw new Error('Segunda música selecionada mas não há base salva');
       }
       
       this.state.stage = Stage.COMPARE_UPLOADING;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_UPLOADING);
+      log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_UPLOADING);
     }
 
     /**
      * Segunda música começou a processar
      */
     onCompareProcessing() {
-      console.log(DEBUG_PREFIX, 'onCompareProcessing()');
+      log(DEBUG_PREFIX, 'onCompareProcessing()');
       
       this.state.stage = Stage.COMPARE_PROCESSING;
       this._persist();
       
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
+      log(DEBUG_PREFIX, 'Stage:', Stage.COMPARE_PROCESSING);
     }
 
     /**
@@ -325,13 +328,13 @@
      * @param {Object} result - Resultado com comparação e sugestões
      */
     onCompareCompleted(result) {
-      console.log(DEBUG_PREFIX, 'onCompareCompleted()', result?.jobId);
+      log(DEBUG_PREFIX, 'onCompareCompleted()', result?.jobId);
       
       this.state.stage = Stage.DONE;
       this._persist();
       
-      console.log(DEBUG_PREFIX, '✅ Fluxo de referência completo');
-      console.log(DEBUG_PREFIX, 'Stage:', Stage.DONE);
+      log(DEBUG_PREFIX, '✅ Fluxo de referência completo');
+      log(DEBUG_PREFIX, 'Stage:', Stage.DONE);
     }
 
     /**
@@ -404,6 +407,6 @@
     window.referenceFlow = new ReferenceFlowController();
   }
 
-  console.log('[REF-FLOW] ✅ Módulo carregado - window.referenceFlow disponível');
+  log('[REF-FLOW] ✅ Módulo carregado - window.referenceFlow disponível');
 
 })();

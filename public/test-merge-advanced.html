@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Merge Avançado True Peak</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>⚡ Teste - Merge Avançado com Busca em Múltiplos Campos</h1>
@@ -77,7 +83,7 @@
                 <div><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
             `;
             
-            console.log(`🧪 ${scenarioName}:`, {
+            log(`🧪 ${scenarioName}:`, {
                 success,
                 message: result.message,
                 hasOriginalMessage: result.hasOriginalMessage,
@@ -86,7 +92,7 @@
         }
 
         function testScenario1() {
-            console.log('🧪 Cenário 1: s.message presente');
+            log('🧪 Cenário 1: s.message presente');
             const validSuggestions = [{message: "Original message"}];
             const enhancedSuggestions = [{message: "AI message", original: "Alternative message"}];
             
@@ -97,7 +103,7 @@
         }
 
         function testScenario2() {
-            console.log('🧪 Cenário 2: s.original presente (s.message vazio)');
+            log('🧪 Cenário 2: s.original presente (s.message vazio)');
             const validSuggestions = [{message: "Original message"}];
             const enhancedSuggestions = [{message: null, original: "⚡ True Peak requer correção PRIORITÁRIA..."}];
             
@@ -108,7 +114,7 @@
         }
 
         function testScenario3() {
-            console.log('🧪 Cenário 3: original.message presente (s.message e s.original vazios)');
+            log('🧪 Cenário 3: original.message presente (s.message e s.original vazios)');
             const validSuggestions = [{message: "⚡ True Peak requer correção PRIORITÁRIA..."}];
             const enhancedSuggestions = [{message: null, original: null}];
             
@@ -119,7 +125,7 @@
         }
 
         function testScenario4() {
-            console.log('🧪 Cenário 4: original.original presente (outros vazios)');
+            log('🧪 Cenário 4: original.original presente (outros vazios)');
             const validSuggestions = [{
                 message: null, 
                 original: "⚡ True Peak requer correção PRIORITÁRIA..."
@@ -133,7 +139,7 @@
         }
 
         function testScenario5() {
-            console.log('🧪 Cenário 5: Todos campos vazios (fallback)');
+            log('🧪 Cenário 5: Todos campos vazios (fallback)');
             const validSuggestions = [{message: null}];
             const enhancedSuggestions = [{message: null, original: null}];
             
@@ -144,7 +150,7 @@
         }
 
         function testTruePeakSpecific() {
-            console.log('⚡ Teste específico True Peak com dados reais');
+            log('⚡ Teste específico True Peak com dados reais');
             
             // Simular dados como podem vir do backend
             const validSuggestions = [{
@@ -172,7 +178,7 @@
             const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
             const expected = "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.";
             
-            console.log('🎯 True Peak preservation test:', {
+            log('🎯 True Peak preservation test:', {
                 originalMessage: validSuggestions[0].message,
                 aiResponse: enhancedSuggestions[0],
                 finalMessage: result.message,
@@ -183,8 +189,8 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de merge avançado com busca em múltiplos campos iniciado");
-        console.log("🔍 Testando ordem de prioridade: s.message → s.original → original.message → original.original");
+        log("🚀 [TEST] Teste de merge avançado com busca em múltiplos campos iniciado");
+        log("🔍 Testando ordem de prioridade: s.message → s.original → original.message → original.original");
     </script>
 </body>
 </html>

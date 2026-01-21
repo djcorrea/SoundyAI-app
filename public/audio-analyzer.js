@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🎵 AUDIO ANALYZER V1 - Ponte para V2 com cache-busting agressivo
 // Versão v1.5-FIXED-CLEAN-NOHIGH sem duplicações (removido "muito alto")
 // Implementação usando Web Audio API (100% gratuito)
@@ -7,7 +10,7 @@
 // NEW_CACHE_KEY: true em dev/staging, pode ser false em prod para rollback
 if (typeof window !== 'undefined' && window.NEW_CACHE_KEY === undefined) {
   window.NEW_CACHE_KEY = window.location.hostname !== 'prod.ai'; // Default baseado no hostname
-  console.log('🔧 NEW_CACHE_KEY inicializado:', window.NEW_CACHE_KEY);
+  log('🔧 NEW_CACHE_KEY inicializado:', window.NEW_CACHE_KEY);
 }
 
 // 🚩 FEATURE FLAG: RUNID_ENFORCED - Modo rigoroso para dev/staging
@@ -46,7 +49,7 @@ class AudioAnalyzer {
   // CAIAR: log construção
   try { (window.__caiarLog||function(){})('INIT','AudioAnalyzer instanciado'); } catch {}
     
-    console.log('🎯 AudioAnalyzer V1 construído - ponte para V2 com sistema runId avançado + Memory Management');
+    log('🎯 AudioAnalyzer V1 construído - ponte para V2 com sistema runId avançado + Memory Management');
     this._preloadV2();
   this._pipelineVersion = 'CAIAR_PIPELINE_1.0_DIAGNOSTIC_MEMORY_SAFE';
   }
@@ -61,10 +64,10 @@ class AudioAnalyzer {
         }
         // Sinalizar para GC
         audioBuffer = null;
-        console.log('🧹 AudioBuffer cleanup executado');
+        log('🧹 AudioBuffer cleanup executado');
       }
     } catch (error) {
-      console.warn('⚠️ Erro na limpeza de AudioBuffer:', error);
+      warn('⚠️ Erro na limpeza de AudioBuffer:', error);
     }
   }
   
@@ -78,7 +81,7 @@ class AudioAnalyzer {
               stem.buffer._channelData = null;
             }
             stem.buffer = null;
-            console.log(`🧹 Stem ${index} buffer cleanup executado`);
+            log(`🧹 Stem ${index} buffer cleanup executado`);
           }
           // Limpar arrays float32
           if (stem.data && stem.data.length) {
@@ -89,10 +92,10 @@ class AudioAnalyzer {
         // Limpar array principal
         stems.length = 0;
         stems = null;
-        console.log('🧹 Stems arrays cleanup executado');
+        log('🧹 Stems arrays cleanup executado');
       }
     } catch (error) {
-      console.warn('⚠️ Erro na limpeza de stems:', error);
+      warn('⚠️ Erro na limpeza de stems:', error);
     }
   }
   
@@ -118,11 +121,11 @@ class AudioAnalyzer {
           cacheMap.delete(key);
         });
         
-        console.log(`🧹 LRU Cache cleanup: removidas ${toRemove.length} entradas antigas`);
-        console.log(`📊 Cache size: ${cacheMap.size}/${maxEntries}`);
+        log(`🧹 LRU Cache cleanup: removidas ${toRemove.length} entradas antigas`);
+        log(`📊 Cache size: ${cacheMap.size}/${maxEntries}`);
       }
     } catch (error) {
-      console.warn('⚠️ Erro na limpeza LRU cache:', error);
+      warn('⚠️ Erro na limpeza LRU cache:', error);
     }
   }
   
@@ -132,7 +135,7 @@ class AudioAnalyzer {
         // Força GC se disponível (apenas para debug/desenvolvimento)
         if (window.gc && typeof window.gc === 'function') {
           window.gc();
-          console.log('🧹 Garbage Collection forçado (dev mode)');
+          log('🧹 Garbage Collection forçado (dev mode)');
         } else {
           // Simular pressão de memória para encorajar GC
           let dummy = new ArrayBuffer(1024 * 1024); // 1MB
@@ -141,7 +144,7 @@ class AudioAnalyzer {
         this._memoryManager.lastGC = Date.now();
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao forçar GC:', error);
+      warn('⚠️ Erro ao forçar GC:', error);
     }
   }
   
@@ -164,7 +167,7 @@ class AudioAnalyzer {
       
       return stats;
     } catch (error) {
-      console.warn('⚠️ Erro ao obter stats de memória:', error);
+      warn('⚠️ Erro ao obter stats de memória:', error);
       return { error: error.message };
     }
   }
@@ -243,17 +246,17 @@ class AudioAnalyzer {
   // �🔬 MODO DIAGNÓSTICO - Controle
   enableDiagnosticMode(enabled = true) {
     this._diagnosticMode = enabled;
-    console.log(`🔬 Modo diagnóstico: ${enabled ? 'ATIVADO' : 'DESATIVADO'}`);
+    log(`🔬 Modo diagnóstico: ${enabled ? 'ATIVADO' : 'DESATIVADO'}`);
     if (enabled) {
-      console.log('📋 Logs detalhados por etapa habilitados');
-      console.log('🚫 Cache desabilitado - força recomputação');
+      log('📋 Logs detalhados por etapa habilitados');
+      log('🚫 Cache desabilitado - força recomputação');
     }
   }
 
   // 📊 Geração de relatório completo do pipeline
   _generatePipelineReport(runId) {
     if (!this._activeAnalyses.has(runId)) {
-      console.warn(`⚠️ Tentativa de gerar relatório para runId inexistente: ${runId}`);
+      warn(`⚠️ Tentativa de gerar relatório para runId inexistente: ${runId}`);
       return null;
     }
     
@@ -286,7 +289,7 @@ class AudioAnalyzer {
       };
     }
     
-    console.log(`📊 [${runId}] Relatório de pipeline gerado:`, report);
+    log(`📊 [${runId}] Relatório de pipeline gerado:`, report);
     return report;
   }
 
@@ -367,17 +370,17 @@ class AudioAnalyzer {
       // Timing da etapa anterior
       if (ctx.lastStageTime) {
         const stageTime = timestamp - ctx.lastStageTime;
-        console.log(`⏱️ [${runId}] ${ctx.lastStage} → ${stage}: ${stageTime}ms`);
+        log(`⏱️ [${runId}] ${ctx.lastStage} → ${stage}: ${stageTime}ms`);
       }
       
       ctx.lastStage = stage;
       ctx.lastStageTime = timestamp;
       
-      console.log(`🔄 [${runId}] ETAPA: ${stage}${this._diagnosticMode ? ' (DIAGNOSTIC)' : ''}`);
+      log(`🔄 [${runId}] ETAPA: ${stage}${this._diagnosticMode ? ' (DIAGNOSTIC)' : ''}`);
       
     } catch (error) {
       // CRÍTICO: Logging nunca pode quebrar o pipeline
-      console.warn('⚠️ Erro no logging (não crítico):', error.message);
+      warn('⚠️ Erro no logging (não crítico):', error.message);
     }
   }
   
@@ -395,10 +398,10 @@ class AudioAnalyzer {
         stageObj.durationMs = stageObj.finishedAt - stageObj.startedAt;
         stageObj.result = result;
         
-        console.log(`✅ [${runId}] ${stage} concluído em ${stageObj.durationMs.toFixed(1)}ms`);
+        log(`✅ [${runId}] ${stage} concluído em ${stageObj.durationMs.toFixed(1)}ms`);
       }
     } catch (error) {
-      console.warn('⚠️ Erro ao finalizar stage (não crítico):', error.message);
+      warn('⚠️ Erro ao finalizar stage (não crítico):', error.message);
     }
   }
 
@@ -510,11 +513,11 @@ class AudioAnalyzer {
     // Executar operações em ordem de prioridade
     for (const op of operations.sort((a, b) => a.priority - b.priority)) {
       try {
-        console.log(`⚡ [${runId}] Executando ${op.name}`);
+        log(`⚡ [${runId}] Executando ${op.name}`);
         results[op.name] = await op.operation();
-        console.log(`✅ [${runId}] ${op.name} concluído`);
+        log(`✅ [${runId}] ${op.name} concluído`);
       } catch (error) {
-        console.error(`❌ [${runId}] Erro em ${op.name}:`, error);
+        error(`❌ [${runId}] Erro em ${op.name}:`, error);
         
         // 📊 LOG: ERROR
         this._logPipelineStageCompat(runId, 'ERROR', {
@@ -533,12 +536,12 @@ class AudioAnalyzer {
   // ✅ Validação de integridade dos dados
   _validateDataIntegrity(data, runId) {
     if (!data || !runId) {
-      console.warn(`⚠️ [${runId}] Dados inválidos detectados`);
+      warn(`⚠️ [${runId}] Dados inválidos detectados`);
       return false;
     }
     
     if (data._runId && data._runId !== runId) {
-      console.warn(`⚠️ [${runId}] Conflito de runId detectado: ${data._runId} vs ${runId}`);
+      warn(`⚠️ [${runId}] Conflito de runId detectado: ${data._runId} vs ${runId}`);
       return false;
     }
     
@@ -554,7 +557,7 @@ class AudioAnalyzer {
       async get(key, factory, runId) {
         // 🚫 BYPASS CACHE EM MODO DIAGNÓSTICO
         if (this._shouldBypassCache()) {
-          console.log(`🚫 [${runId}] Cache bypass (modo diagnóstico) para ${key}`);
+          log(`🚫 [${runId}] Cache bypass (modo diagnóstico) para ${key}`);
           const value = await factory(runId);
           if (value && typeof value === 'object') {
             value._runId = runId;
@@ -567,19 +570,19 @@ class AudioAnalyzer {
         if (cache.has(key)) {
           const cached = cache.get(key);
           if (cached._runId) {
-            console.log(`📦 [${runId}] Cache hit para ${key} (originado em ${cached._runId})`);
+            log(`📦 [${runId}] Cache hit para ${key} (originado em ${cached._runId})`);
           }
           return cached;
         }
         
         if (locks.has(key)) {
-          console.log(`⏳ [${runId}] Aguardando computação em andamento para ${key}`);
+          log(`⏳ [${runId}] Aguardando computação em andamento para ${key}`);
           return await locks.get(key);
         }
         
         const promise = (async () => {
           try {
-            console.log(`🔄 [${runId}] Computando ${key}`);
+            log(`🔄 [${runId}] Computando ${key}`);
             const value = await factory(runId);
             if (value && typeof value === 'object') {
               value._runId = runId;
@@ -609,7 +612,7 @@ class AudioAnalyzer {
 
   // 🚀 Pre-carregar V2 imediatamente
   async _preloadV2() {
-    console.log('🚀 Pré-carregando Audio Analyzer V2...');
+    log('🚀 Pré-carregando Audio Analyzer V2...');
     
     if (!this._v2LoadingPromise) {
       this._v2LoadingPromise = new Promise((resolve) => {
@@ -617,18 +620,18 @@ class AudioAnalyzer {
         const cacheBust = Math.random().toString(36).substring(2);
         const url = `audio-analyzer-v2.js?v=CLEAN-${timestamp}-${cacheBust}`;
         
-        console.log('🔄 CARREGANDO V2:', url);
+        log('🔄 CARREGANDO V2:', url);
         
         const s = document.createElement('script');
         s.src = url;
         s.async = true;
         s.onload = () => { 
           this._v2Loaded = true; 
-          console.log('✅ V2 PRÉ-CARREGADO com sucesso!');
+          log('✅ V2 PRÉ-CARREGADO com sucesso!');
           resolve(); 
         };
         s.onerror = () => { 
-          console.warn('⚠️ Falha no pré-carregamento V2:', url); 
+          warn('⚠️ Falha no pré-carregamento V2:', url); 
           resolve(); 
         };
         document.head.appendChild(s);
@@ -638,7 +641,7 @@ class AudioAnalyzer {
     try { 
       await this._v2LoadingPromise; 
     } catch (e) { 
-      console.warn('Erro no pré-carregamento V2:', e); 
+      warn('Erro no pré-carregamento V2:', e); 
     }
   }
 
@@ -650,7 +653,7 @@ class AudioAnalyzer {
       
       // 🔧 CORREÇÃO: Verificar se context precisa ser resumed (política moderna de browsers)
       if (this.audioContext.state === 'suspended') {
-        console.log('🔄 AudioContext suspenso, aguardando user gesture...');
+        log('🔄 AudioContext suspenso, aguardando user gesture...');
         // Não tentar resume automaticamente, aguardar gesture do usuário
         return true; // Retornar sucesso, será resumed quando necessário
       }
@@ -666,12 +669,12 @@ class AudioAnalyzer {
       
       // 🔧 iOS DETECTION: Detectar capacidades do dispositivo
       this.capabilities = this._detectIOSCapabilities();
-      console.log('📱 Capacidades detectadas:', this.capabilities);
+      log('📱 Capacidades detectadas:', this.capabilities);
       
-  if (window.DEBUG_ANALYZER === true) console.log('🎵 Analisador de áudio inicializado com sucesso');
+  if (window.DEBUG_ANALYZER === true) log('🎵 Analisador de áudio inicializado com sucesso');
       return true;
     } catch (error) {
-      console.error('❌ Erro ao inicializar analisador:', error);
+      error('❌ Erro ao inicializar analisador:', error);
       return false;
     }
   }
@@ -711,15 +714,15 @@ class AudioAnalyzer {
     const validation = this._validateFileBasics(file);
     if (!validation.isValid) {
       const criticalError = validation.issues[0];
-      console.error(`❌ ARQUIVO INVÁLIDO: ${criticalError.message}`);
-      console.error(`💡 SOLUÇÃO: ${criticalError.suggestion}`);
+      error(`❌ ARQUIVO INVÁLIDO: ${criticalError.message}`);
+      error(`💡 SOLUÇÃO: ${criticalError.suggestion}`);
       
       throw new Error(`Arquivo inválido - ${criticalError.type}: ${criticalError.message}`);
     }
     
     // Abortar análise anterior se ainda ativa
     if (this._abortController && !this._abortController.signal.aborted) {
-      console.log('🛑 Abortando análise anterior para evitar duplicata');
+      log('🛑 Abortando análise anterior para evitar duplicata');
       this._abortController.abort();
     }
     
@@ -732,10 +735,10 @@ class AudioAnalyzer {
     
     // 🚩 RUNID_ENFORCED: Avisar se runId não foi fornecido em ambiente rigoroso
     if (RUNID_ENFORCED && !options.runId) {
-      console.warn(`⚠️ [${runId}] RUNID_ENFORCED ativo: runId não fornecido, gerado automaticamente`);
+      warn(`⚠️ [${runId}] RUNID_ENFORCED ativo: runId não fornecido, gerado automaticamente`);
     }
     
-    console.log(`🎵 [${runId}] Iniciando análise de arquivo:`, file?.name || 'unknown');
+    log(`🎵 [${runId}] Iniciando análise de arquivo:`, file?.name || 'unknown');
     
     // 🛡️ Vincular AbortController ao runId específico
     this._abortController._runId = runId;
@@ -769,12 +772,12 @@ class AudioAnalyzer {
       const DEBUG_MODE_REFERENCE = options.debugModeReference || false;
       
       if (DEBUG_MODE_REFERENCE) {
-        console.log(`🔍 [${runId}] [MODE_DEBUG] analyzeAudioFile called with mode:`, mode);
-        console.log(`🔍 [${runId}] [MODE_DEBUG] options:`, options);
+        log(`🔍 [${runId}] [MODE_DEBUG] analyzeAudioFile called with mode:`, mode);
+        log(`🔍 [${runId}] [MODE_DEBUG] options:`, options);
         
         // 🎯 MODO PURO: Apenas extrair métricas, sem comparações
         if (mode === 'pure_analysis') {
-          console.log(`🔍 [${runId}] [MODE_DEBUG] pure_analysis mode: extrair métricas sem comparações ou scores`);
+          log(`🔍 [${runId}] [MODE_DEBUG] pure_analysis mode: extrair métricas sem comparações ou scores`);
         }
       }
       
@@ -829,7 +832,7 @@ class AudioAnalyzer {
             newKey: cacheKey,
             ageMs: Date.now()-cached._ts 
           }); 
-          console.warn(`⚠️ [CACHE] Usando entrada legacy ${fileHash} -> migrando para ${cacheKey}`);
+          warn(`⚠️ [CACHE] Usando entrada legacy ${fileHash} -> migrando para ${cacheKey}`);
         } catch {}
         
         // Migrar entrada para nova chave e remover antiga
@@ -861,14 +864,14 @@ class AudioAnalyzer {
     } catch {} 
   }
   try { (window.__caiarLog||function(){})('INPUT','Arquivo recebido para análise', { name: file?.name, size: file?.size }); } catch {}
-  if (window.DEBUG_ANALYZER === true) console.log('🛰️ [Telemetry] Front antes do fetch (modo local, sem fetch):', {
+  if (window.DEBUG_ANALYZER === true) log('🛰️ [Telemetry] Front antes do fetch (modo local, sem fetch):', {
       route: '(client-only) audio-analyzer.js',
       method: 'N/A',
       file: file?.name,
       sizeBytes: file?.size,
       startedAt: tsStart
     });
-  if (window.DEBUG_ANALYZER === true) console.log(`🎵 Iniciando análise de: ${file.name}`);
+  if (window.DEBUG_ANALYZER === true) log(`🎵 Iniciando análise de: ${file.name}`);
     
     if (!this.audioContext) {
       await this.initializeAnalyzer();
@@ -878,9 +881,9 @@ class AudioAnalyzer {
     if (this.audioContext && this.audioContext.state === 'suspended') {
       try {
         await this.audioContext.resume();
-        console.log('🔄 AudioContext resumed com sucesso');
+        log('🔄 AudioContext resumed com sucesso');
       } catch (e) {
-        console.warn('⚠️ AudioContext não pode ser resumed (precisa de user gesture):', e.message);
+        warn('⚠️ AudioContext não pode ser resumed (precisa de user gesture):', e.message);
         // Continuar mesmo assim - análise offline ainda funciona
       }
     }
@@ -939,16 +942,16 @@ class AudioAnalyzer {
             clearTimeout(timeout); 
             try {
               // audioBuffer não está disponível neste escopo durante erro de decode direto
-              console.log('🧹 Direct decode error path - audioBuffer não disponível para limpeza');
+              log('🧹 Direct decode error path - audioBuffer não disponível para limpeza');
             } catch (cleanupErr) {
-              console.warn('⚠️ Erro na limpeza do AudioBuffer (direct decode error):', cleanupErr);
+              warn('⚠️ Erro na limpeza do AudioBuffer (direct decode error):', cleanupErr);
             }
             reject(e); 
           }
         });
       } catch(e){ 
-        console.warn(`🔄 [${this._currentRunId || 'unknown'}] Direct decode não suportado para este formato, usando FileReader...`);
-        console.warn(`📋 [${this._currentRunId || 'unknown'}] Detalhes: ${e?.message || e}`);
+        warn(`🔄 [${this._currentRunId || 'unknown'}] Direct decode não suportado para este formato, usando FileReader...`);
+        warn(`📋 [${this._currentRunId || 'unknown'}] Detalhes: ${e?.message || e}`);
       }
     }
 
@@ -968,7 +971,7 @@ class AudioAnalyzer {
             fileSize: file?.size
           });
           
-          if (window.DEBUG_ANALYZER === true) console.log('🎵 Decodificando áudio...');
+          if (window.DEBUG_ANALYZER === true) log('🎵 Decodificando áudio...');
           let audioData = e.target.result;
           if (!audioData && file._cachedArrayBufferForHash) audioData = file._cachedArrayBufferForHash;
           
@@ -981,7 +984,7 @@ class AudioAnalyzer {
           let timeoutMs = 15000; // padrão
           if (isWAV && isMobile && isLargeFile) {
             timeoutMs = 45000; // 45s para WAV grandes no mobile
-            console.log(`🎵 WAV grande detectado no mobile: timeout estendido para ${timeoutMs/1000}s`);
+            log(`🎵 WAV grande detectado no mobile: timeout estendido para ${timeoutMs/1000}s`);
           } else if (isWAV && isLargeFile) {
             timeoutMs = 30000; // 30s para WAV grandes no desktop
           }
@@ -1009,7 +1012,7 @@ class AudioAnalyzer {
             }
           } catch (ctxErr) { try { (window.__caiarLog||function(){})('CTX_INTEGRATION_ERROR','Erro integrando context detector', { error: ctxErr?.message||String(ctxErr) }); } catch {} }
           
-          if (window.DEBUG_ANALYZER === true) console.log('🔬 Realizando análise completa...');
+          if (window.DEBUG_ANALYZER === true) log('🔬 Realizando análise completa...');
           // Análise completa do áudio (V1)
           const t0Full = (performance&&performance.now)?performance.now():Date.now();
           // Modo de qualidade: 'fast' ou 'full' (default 'full' se CAIAR_ENABLED e window.ANALYSIS_QUALITY!='fast')
@@ -1024,7 +1027,7 @@ class AudioAnalyzer {
             analysis = await this._enrichWithPhase2Metrics(audioBuffer, analysis, file, runId);
             try { (window.__caiarLog||function(){})(`METRICS_V2_DONE_${runId}`,'Enriquecimento Fase 2 concluído', { techKeys: Object.keys(analysis.technicalData||{}), suggestions: (analysis.suggestions||[]).length }); } catch {}
           } catch (enrichErr) {
-            console.warn(`⚠️ [${runId}] Falha ao enriquecer com métricas Fase 2:`, enrichErr?.message || enrichErr);
+            warn(`⚠️ [${runId}] Falha ao enriquecer com métricas Fase 2:`, enrichErr?.message || enrichErr);
             try { (window.__caiarLog||function(){})(`METRICS_V2_ERROR_${runId}`,'Falha Fase 2', { error: enrichErr?.message||String(enrichErr) }); } catch {}
           }
 
@@ -1065,9 +1068,9 @@ class AudioAnalyzer {
                     this._cleanupStemsArrays(stemsRes.stems);
                     stemsRes.stems = null;
                     stemsRes = null;
-                    console.log('🧹 Memory cleanup: stems liberados após matrix computation');
+                    log('🧹 Memory cleanup: stems liberados após matrix computation');
                   } catch (cleanupErr) {
-                    console.warn('⚠️ Erro na limpeza de stems:', cleanupErr);
+                    warn('⚠️ Erro na limpeza de stems:', cleanupErr);
                   }
                 } else if (stemsRes && stemsRes._timeout) {
                   (window.__caiarLog||function(){})('STEMS_TIMEOUT','Timeout stems (>90s)');
@@ -1080,9 +1083,9 @@ class AudioAnalyzer {
                       this._cleanupStemsArrays(stemsRes.stems);
                     }
                     stemsRes = null;
-                    console.log('🧹 Memory cleanup: dados de timeout liberados');
+                    log('🧹 Memory cleanup: dados de timeout liberados');
                   } catch (cleanupErr) {
-                    console.warn('⚠️ Erro na limpeza de timeout:', cleanupErr);
+                    warn('⚠️ Erro na limpeza de timeout:', cleanupErr);
                   }
                 } else {
                   (window.__caiarLog||function(){})('STEMS_FALLBACK','Stems não disponíveis');
@@ -1093,9 +1096,9 @@ class AudioAnalyzer {
                     if (stemsRes) {
                       stemsRes = null;
                     }
-                    console.log('🧹 Memory cleanup: fallback stems limpo');
+                    log('🧹 Memory cleanup: fallback stems limpo');
                   } catch (cleanupErr) {
-                    console.warn('⚠️ Erro na limpeza de fallback:', cleanupErr);
+                    warn('⚠️ Erro na limpeza de fallback:', cleanupErr);
                   }
                 }
               }
@@ -1112,9 +1115,9 @@ class AudioAnalyzer {
           // 🧠 MEMORY CLEANUP: Limpeza final do AudioBuffer
           try {
             this._cleanupAudioBuffer(audioBuffer);
-            console.log(`🧹 [${runId}] AudioBuffer principal liberado`);
+            log(`🧹 [${runId}] AudioBuffer principal liberado`);
           } catch (bufferCleanupErr) {
-            console.warn(`⚠️ [${runId}] Erro na limpeza do AudioBuffer:`, bufferCleanupErr);
+            warn(`⚠️ [${runId}] Erro na limpeza do AudioBuffer:`, bufferCleanupErr);
           }
           
           resolve(finalAnalysis);
@@ -1125,10 +1128,10 @@ class AudioAnalyzer {
           try {
             if (typeof audioBuffer !== 'undefined' && audioBuffer) {
               this._cleanupAudioBuffer(audioBuffer);
-              console.log(`🧹 [${runId}] AudioBuffer limpo em caso de erro`);
+              log(`🧹 [${runId}] AudioBuffer limpo em caso de erro`);
             }
           } catch (bufferCleanupErr) {
-            console.warn(`⚠️ [${runId}] Erro na limpeza do AudioBuffer (error path):`, bufferCleanupErr);
+            warn(`⚠️ [${runId}] Erro na limpeza do AudioBuffer (error path):`, bufferCleanupErr);
           }
           
           // 📊 LOG: ERRO NA DECODIFICAÇÃO/PIPELINE
@@ -1147,7 +1150,7 @@ class AudioAnalyzer {
               ctx.finishedAt = performance.now();
             }
           } catch (cleanupError) {
-            console.warn('⚠️ Erro na limpeza de estado:', cleanupError);
+            warn('⚠️ Erro na limpeza de estado:', cleanupError);
           }
           
           // 🔄 NOTIFICAR UI PARA PARAR LOADING
@@ -1159,15 +1162,15 @@ class AudioAnalyzer {
               }));
             }
           } catch (uiError) {
-            console.warn('⚠️ Erro ao notificar UI:', uiError);
+            warn('⚠️ Erro ao notificar UI:', uiError);
           }
           
           
-          console.error(`❌ [${this._currentRunId || 'unknown'}] ERRO DE DECODIFICAÇÃO:`, error);
-          console.error(`📋 [${this._currentRunId || 'unknown'}] Arquivo: ${file?.name || 'desconhecido'}`);
-          console.error(`📋 [${this._currentRunId || 'unknown'}] Tipo: ${file?.type || 'N/A'}`);
-          console.error(`� [${this._currentRunId || 'unknown'}] Tamanho: ${file?.size || 'N/A'} bytes`);
-          console.error(`� [${this._currentRunId || 'unknown'}] Detalhes: ${error?.message || error}`);
+          error(`❌ [${this._currentRunId || 'unknown'}] ERRO DE DECODIFICAÇÃO:`, error);
+          error(`📋 [${this._currentRunId || 'unknown'}] Arquivo: ${file?.name || 'desconhecido'}`);
+          error(`📋 [${this._currentRunId || 'unknown'}] Tipo: ${file?.type || 'N/A'}`);
+          error(`� [${this._currentRunId || 'unknown'}] Tamanho: ${file?.size || 'N/A'} bytes`);
+          error(`� [${this._currentRunId || 'unknown'}] Detalhes: ${error?.message || error}`);
           
           try { (window.__caiarLog||function(){})('DECODE_ERROR','Erro de decodificação investigação', { 
             error: error?.message||String(error), 
@@ -1182,7 +1185,7 @@ class AudioAnalyzer {
       
       reader.onerror = (error) => {
         clearTimeout(timeout);
-        console.error('❌ Erro ao ler arquivo:', error);
+        error('❌ Erro ao ler arquivo:', error);
         reject(new Error('Erro ao ler arquivo de áudio'));
       };
       
@@ -1210,7 +1213,7 @@ class AudioAnalyzer {
           ctx.finishedAt = performance.now();
         }
       } catch (markError) {
-        console.warn('⚠️ Erro ao marcar estado de erro:', markError);
+        warn('⚠️ Erro ao marcar estado de erro:', markError);
       }
       
       // 🔄 NOTIFICAR UI PARA PARAR LOADING
@@ -1221,10 +1224,10 @@ class AudioAnalyzer {
           }));
         }
       } catch (uiError) {
-        console.warn('⚠️ Erro ao notificar UI sobre erro:', uiError);
+        warn('⚠️ Erro ao notificar UI sobre erro:', uiError);
       }
       
-      console.error(`❌ [${runId}] Erro na análise:`, analysisError);
+      error(`❌ [${runId}] Erro na análise:`, analysisError);
       throw analysisError;
     } finally {
       // 🧹 LIMPEZA FINAL DEFENSIVA
@@ -1240,12 +1243,12 @@ class AudioAnalyzer {
               duration: `${duration}ms`,
               error: analysisInfo.error
             });
-            console.log(`❌ [${runId}] Análise falhou em ${duration}ms: ${analysisInfo.error}`);
+            log(`❌ [${runId}] Análise falhou em ${duration}ms: ${analysisInfo.error}`);
           } else {
             this._logPipelineStage('ANALYSIS_COMPLETED', {
               duration: `${duration}ms`
             });
-            console.log(`✅ [${runId}] Análise concluída com sucesso em ${duration}ms`);
+            log(`✅ [${runId}] Análise concluída com sucesso em ${duration}ms`);
           }
           
           // Limpar independente do status
@@ -1265,7 +1268,7 @@ class AudioAnalyzer {
         }
         
       } catch (cleanupError) {
-        console.warn(`⚠️ [${runId}] Erro na limpeza final:`, cleanupError);
+        warn(`⚠️ [${runId}] Erro na limpeza final:`, cleanupError);
       }
     }
   }
@@ -1273,10 +1276,10 @@ class AudioAnalyzer {
   async _pipelineFromDecodedBuffer(audioBuffer, file, { fileHash, cacheKey }, runId = null) {
     if (!runId) {
       runId = this._generateRunId();
-      console.warn(`⚠️ [${runId}] runId não fornecido para _pipelineFromDecodedBuffer, gerando novo`);
+      warn(`⚠️ [${runId}] runId não fornecido para _pipelineFromDecodedBuffer, gerando novo`);
     }
     
-    console.log(`🔄 [${runId}] Pipeline iniciado para buffer decodificado`);
+    log(`🔄 [${runId}] Pipeline iniciado para buffer decodificado`);
     const t0Full = (performance&&performance.now)?performance.now():Date.now();
     
     // 📊 LOG: PIPELINE STARTED
@@ -1433,8 +1436,8 @@ class AudioAnalyzer {
                           (analysis._v2Metrics && analysis._v2Metrics.truePeakDbtp);
           
           if (Number.isFinite(truePeak) && truePeak > 0.0) {
-            console.warn(`🛡️ [SAFETY-GATE] True Peak warning: ${truePeak.toFixed(2)} dBTP acima de 0 dBTP`);
-            console.info('💡 [RECOMMENDATION] Considere aplicar limiting para compliance EBU R128');
+            warn(`🛡️ [SAFETY-GATE] True Peak warning: ${truePeak.toFixed(2)} dBTP acima de 0 dBTP`);
+            info('💡 [RECOMMENDATION] Considere aplicar limiting para compliance EBU R128');
             
             // Adicionar ao analysis sem quebrar estrutura existente
             if (!analysis.safetyGates) {
@@ -1450,11 +1453,11 @@ class AudioAnalyzer {
               };
             }
           } else {
-            console.log('🛡️ [SAFETY-GATE] True Peak OK');
+            log('🛡️ [SAFETY-GATE] True Peak OK');
           }
         }
       } catch (safetyError) {
-        console.warn('⚠️ [SAFETY-GATES] Erro na análise de segurança (não crítico):', safetyError.message);
+        warn('⚠️ [SAFETY-GATES] Erro na análise de segurança (não crítico):', safetyError.message);
         // Não propagar erro - safety gates são opcionais
       }
       
@@ -1478,7 +1481,7 @@ class AudioAnalyzer {
       // Adicionar relatório à análise se em modo diagnóstico
       if (this._diagnosticMode && pipelineReport) {
         analysis._pipelineReport = pipelineReport;
-        console.log(`📊 [${runId}] Relatório de pipeline anexado à análise`);
+        log(`📊 [${runId}] Relatório de pipeline anexado à análise`);
       }
       
       // Limpar registros após completar
@@ -1494,13 +1497,13 @@ class AudioAnalyzer {
         
         // Log de estatísticas de memória
         const memStats = this._getMemoryStats();
-        console.log('🧠 Memory stats pós-análise:', memStats);
+        log('🧠 Memory stats pós-análise:', memStats);
         
         // Log específico para memory management
-        console.log(`🧹 [${runId}] Memory cleanup completo - GC forçado, cache LRU aplicado`);
+        log(`🧹 [${runId}] Memory cleanup completo - GC forçado, cache LRU aplicado`);
         
       } catch (memoryError) {
-        console.warn(`⚠️ [${runId}] Erro na limpeza de memória:`, memoryError);
+        warn(`⚠️ [${runId}] Erro na limpeza de memória:`, memoryError);
       }
       
       (window.__caiarLog||function(){})('OUTPUT','Análise final pronta', { 
@@ -1513,7 +1516,7 @@ class AudioAnalyzer {
       });
       
     } catch(e) {
-      console.error(`❌ [${runId}] Erro na finalização:`, e);
+      error(`❌ [${runId}] Erro na finalização:`, e);
       
       // 📊 LOG: FINALIZATION ERROR
       this._logPipelineStageCompat(runId, 'FINALIZATION_ERROR', {
@@ -1557,10 +1560,10 @@ class AudioAnalyzer {
     // 🆔 Validar runId para prevenir race conditions
     if (!runId) {
       runId = this._generateRunId();
-      console.warn(`⚠️ [${runId}] runId não fornecido para _enrichWithPhase2Metrics, gerando novo`);
+      warn(`⚠️ [${runId}] runId não fornecido para _enrichWithPhase2Metrics, gerando novo`);
     }
     
-    console.log(`🔄 [${runId}] Iniciando métricas Fase 2`);
+    log(`🔄 [${runId}] Iniciando métricas Fase 2`);
     
     // Validar integridade dos dados antes de prosseguir
     if (!this._validateDataIntegrity(baseAnalysis, runId)) {
@@ -1570,7 +1573,7 @@ class AudioAnalyzer {
     
     // Aguardar V2 se ainda estiver carregando
     if (this._v2LoadingPromise && !this._v2Loaded) {
-      console.log('⏳ Aguardando V2 terminar de carregar...');
+      log('⏳ Aguardando V2 terminar de carregar...');
       await this._v2LoadingPromise;
     }
 
@@ -1579,58 +1582,58 @@ class AudioAnalyzer {
       try {
         baseAnalysis = await this._tryAdvancedMetricsAdapter(audioBuffer, baseAnalysis);
       } catch (e) {
-        if (__DEBUG_ANALYZER__) console.warn('⚠️ Adapter avançado falhou (sem V2):', e?.message || e);
+        if (__DEBUG_ANALYZER__) warn('⚠️ Adapter avançado falhou (sem V2):', e?.message || e);
       }
       return baseAnalysis;
     }
 
   // Executar análise V2 de forma leve usando diretamente o AudioBuffer (evita re-decodificação)
-  console.log('🎯 CRIANDO INSTÂNCIA V2...');
-  console.log('🎯 window.AudioAnalyzerV2 existe?', typeof window.AudioAnalyzerV2);
+  log('🎯 CRIANDO INSTÂNCIA V2...');
+  log('🎯 window.AudioAnalyzerV2 existe?', typeof window.AudioAnalyzerV2);
   const v2 = new window.AudioAnalyzerV2();
-  console.log('🎯 V2 INSTÂNCIA CRIADA:', !!v2);
-  console.log('🎯 V2 BUILD VERSION:', v2.__buildVersion);
+  log('🎯 V2 INSTÂNCIA CRIADA:', !!v2);
+  log('🎯 V2 BUILD VERSION:', v2.__buildVersion);
   await v2.initialize?.();
   
   // ✨ SISTEMA ESPECTRAL: Executar ANTES do V2 para afetar o scoring
   try {
     const spectralResult = this.calculateSpectralBalance(left, audioBuffer.sampleRate);
     if (spectralResult && spectralResult.summary3Bands) {
-      console.log('✨ Sistema espectral ATIVADO ANTES do scoring V2');
+      log('✨ Sistema espectral ATIVADO ANTES do scoring V2');
       baseAnalysis.spectralBalance = spectralResult;
       
       // Preparar dados para o V2 usar no scoring
       window._SPECTRAL_DATA_FOR_V2 = spectralResult;
     } else {
-      console.log('⚠️ Sistema espectral falhou, V2 usará método padrão');
+      log('⚠️ Sistema espectral falhou, V2 usará método padrão');
     }
   } catch (spectralError) {
-    console.log('⚠️ Erro no sistema espectral:', spectralError.message);
+    log('⚠️ Erro no sistema espectral:', spectralError.message);
   }
   
   if (typeof window !== 'undefined' && window.DEBUG_ANALYZER === true) {
-    console.log('🛰️ [Telemetry] V2: performFullAnalysis com audioBuffer.');
+    log('🛰️ [Telemetry] V2: performFullAnalysis com audioBuffer.');
   }
-  console.log('🎯 CHAMANDO performFullAnalysis...');
+  log('🎯 CHAMANDO performFullAnalysis...');
   
   // Removido forçamento rígido de gênero 'trance' (Fase 2)
   // Mantemos apenas fallback opcional se flag explícita estiver ativa
   if (!window.PROD_AI_REF_GENRE && window.FORCE_DEFAULT_GENRE) {
     window.PROD_AI_REF_GENRE = window.FORCE_DEFAULT_GENRE;
-    console.log('[GENRE] Atribuído gênero padrão via FORCE_DEFAULT_GENRE:', window.PROD_AI_REF_GENRE);
+    log('[GENRE] Atribuído gênero padrão via FORCE_DEFAULT_GENRE:', window.PROD_AI_REF_GENRE);
   }
   
   let v2res = null;
   try {
     v2res = await v2.performFullAnalysis(audioBuffer, { quality: 'fast', features: ['core','spectral','stereo','quality'] });
-    console.log('🎯 V2 RESULT SUCCESS:', !!v2res);
-    console.log('🎯 V2 RESULT KEYS:', v2res ? Object.keys(v2res) : 'NULL');
-    console.log('🎯 V2 DIAGNOSTICS EXISTS:', !!v2res?.diagnostics);
+    log('🎯 V2 RESULT SUCCESS:', !!v2res);
+    log('🎯 V2 RESULT KEYS:', v2res ? Object.keys(v2res) : 'NULL');
+    log('🎯 V2 DIAGNOSTICS EXISTS:', !!v2res?.diagnostics);
     if (v2res?.diagnostics) {
-      console.log('🎯 V2 DIAGNOSTICS KEYS:', Object.keys(v2res.diagnostics));
+      log('🎯 V2 DIAGNOSTICS KEYS:', Object.keys(v2res.diagnostics));
     }
   } catch (v2Error) {
-    console.error('❌ V2 performFullAnalysis ERROR:', v2Error);
+    error('❌ V2 performFullAnalysis ERROR:', v2Error);
     return baseAnalysis; // Retornar análise V1 básica em caso de erro no V2
   }
   const metrics = v2res?.metrics || {};
@@ -1651,12 +1654,12 @@ class AudioAnalyzer {
   // Disponibilizar diagnósticos V2 para a UI (sem alterar o que já existe do V1)
   if (v2res?.diagnostics) {
     // CORRIGIR: diagnostics deve estar em baseAnalysis.diagnostics, não v2Diagnostics
-    console.log('🎯 COPIANDO DIAGNOSTICS DO V2 PARA RESULT...');
+    log('🎯 COPIANDO DIAGNOSTICS DO V2 PARA RESULT...');
     baseAnalysis.diagnostics = v2res.diagnostics;
     
     baseAnalysis.v2Diagnostics = v2res.diagnostics; // manter compatibilidade
-    console.log('🎯 baseAnalysis.diagnostics copiado:', !!baseAnalysis.diagnostics);
-    console.log('🎯 baseAnalysis.diagnostics.__refEvidence:', baseAnalysis.diagnostics?.__refEvidence);
+    log('🎯 baseAnalysis.diagnostics copiado:', !!baseAnalysis.diagnostics);
+    log('🎯 baseAnalysis.diagnostics.__refEvidence:', baseAnalysis.diagnostics?.__refEvidence);
     // Mesclar sugestões/problemas avançados no resultado principal por padrão (sem mudar layout/IDs)
     try {
       const advDefaultOn = (typeof window !== 'undefined') ? (window.SUGESTOES_AVANCADAS !== false) : false;
@@ -1716,12 +1719,12 @@ class AudioAnalyzer {
                   if (mode === 'genre') {
                     activeRef = window.PROD_AI_REF_DATA_ACTIVE || window.PROD_AI_REF_DATA || null;
                     if (DEBUG_MODE_REFERENCE) {
-                      console.log('🔍 [MODE_DEBUG] Using genre targets for scoring, mode:', mode);
+                      log('🔍 [MODE_DEBUG] Using genre targets for scoring, mode:', mode);
                     }
                   } else {
                     activeRef = null; // Modos reference, extract_metrics, pure_analysis não usam targets de gênero
                     if (DEBUG_MODE_REFERENCE) {
-                      console.log('🔍 [MODE_DEBUG] Skipping genre targets, mode:', mode, '(pure analysis)');
+                      log('🔍 [MODE_DEBUG] Skipping genre targets, mode:', mode, '(pure analysis)');
                     }
                   }
                 }
@@ -1735,11 +1738,11 @@ class AudioAnalyzer {
                   const activeGenre = window.PROD_AI_REF_GENRE || 'default';
                   genreSpecificRef = activeRef[activeGenre] || null;
                   if (DEBUG_MODE_REFERENCE) {
-                    console.log('🔍 [MODE_DEBUG] Using genre-specific ref for scoring:', activeGenre);
-                    console.log('🔍 [MODE_DEBUG] Genre ref targets:', genreSpecificRef);
+                    log('🔍 [MODE_DEBUG] Using genre-specific ref for scoring:', activeGenre);
+                    log('🔍 [MODE_DEBUG] Genre ref targets:', genreSpecificRef);
                   }
                 } else if (DEBUG_MODE_REFERENCE) {
-                  console.log('🔍 [MODE_DEBUG] Skipping genre-specific ref (mode=' + mode + ')');
+                  log('🔍 [MODE_DEBUG] Skipping genre-specific ref (mode=' + mode + ')');
                 }
                 
                 // 🎯 CORREÇÃO: Passar mode para garantir que gates V3 usem o limite correto
@@ -1752,7 +1755,7 @@ class AudioAnalyzer {
                   if (typeof window !== 'undefined') {
                     window.__LAST_FULL_ANALYSIS = baseAnalysis;
                     if (window.DEBUG_SCORE === true) {
-                      console.log('[ANALYSIS] mixScorePct=', scoreRes.scorePct, 'mode=' + scoreRes.scoreMode, 'metrics=', scoreRes.perMetric?.length);
+                      log('[ANALYSIS] mixScorePct=', scoreRes.scorePct, 'mode=' + scoreRes.scoreMode, 'metrics=', scoreRes.perMetric?.length);
                     }
                   }
                 } catch {}
@@ -1796,7 +1799,7 @@ class AudioAnalyzer {
                       return keep.filter(s=>!removeSet.has(s));
                     })(baseAnalysis);
                   }
-                } catch (recErr) { if (window.DEBUG_ANALYZER) console.warn('Reconciliação sugestões falhou', recErr); }
+                } catch (recErr) { if (window.DEBUG_ANALYZER) warn('Reconciliação sugestões falhou', recErr); }
                 // ===== Contextual Rules Engine (CAIAR) =====
                 try {
                   if (typeof window !== 'undefined' && window.CAIAR_ENABLED) {
@@ -1831,7 +1834,7 @@ class AudioAnalyzer {
                 }
               }
             }
-          } catch (esc) { if (debug) console.warn('⚠️ Scoring falhou:', esc?.message || esc); }
+          } catch (esc) { if (debug) warn('⚠️ Scoring falhou:', esc?.message || esc); }
     setIfValid('lra', loud.lra, 'v2:loudness');
     setIfValid('headroomDb', loud.headroom_db, 'v2:loudness');
     // True Peak
@@ -1934,7 +1937,7 @@ class AudioAnalyzer {
       }
     }
   } catch (auditError) {
-    console.warn('⚠️ Erro nas correções de auditoria:', auditError);
+    warn('⚠️ Erro nas correções de auditoria:', auditError);
   }
   // ================================================================
   
@@ -1951,7 +1954,7 @@ class AudioAnalyzer {
   // DESABILITADO: deixar null para que o sistema scoring.js tenha precedência
   // baseAnalysis.qualityOverall = isFinite(metrics?.quality?.overall) ? metrics.quality.overall : null;
   baseAnalysis.qualityOverall = null; // ⭐ FORÇAR NULL para que scoring.js seja a única fonte
-  console.log('[SCORING_FIX] 🎯 qualityOverall forçado para null - sistema scoring.js terá precedência');
+  log('[SCORING_FIX] 🎯 qualityOverall forçado para null - sistema scoring.js terá precedência');
   baseAnalysis.qualityBreakdown = metrics?.quality?.breakdown || null;
   baseAnalysis.processingMs = Number.isFinite(v2res?.processingTime) ? v2res.processingTime : null;
 
@@ -2002,7 +2005,7 @@ class AudioAnalyzer {
           }
         }
       }
-    } catch(e){ if (window.DEBUG_ANALYZER) console.warn('Fallback espectral falhou', e); }
+    } catch(e){ if (window.DEBUG_ANALYZER) warn('Fallback espectral falhou', e); }
 
     // ===== Fallback: calcular LRA (Loudness Range) simples se ausente =====
     try {
@@ -2030,7 +2033,7 @@ class AudioAnalyzer {
           }
         }
       }
-    } catch(e) { if (window.DEBUG_ANALYZER) console.warn('Fallback LRA falhou', e); }
+    } catch(e) { if (window.DEBUG_ANALYZER) warn('Fallback LRA falhou', e); }
 
     // ===== Fallback: tonal balance simplificado (sub, low, mid, high) =====
     try {
@@ -2048,7 +2051,7 @@ class AudioAnalyzer {
           try {
             const spectralResult = this.calculateSpectralBalance(channel, sr);
             if (spectralResult && spectralResult.summary3Bands) {
-              console.log('✨ Sistema espectral auto-ativado para tonal balance');
+              log('✨ Sistema espectral auto-ativado para tonal balance');
               baseAnalysis.spectralBalance = spectralResult;
               
               const summary3Bands = spectralResult.summary3Bands;
@@ -2066,7 +2069,7 @@ class AudioAnalyzer {
             }
           } catch (spectralError) {
             // Fallback para cálculo simples original se sistema espectral falhar
-            console.log('⚠️ Fallback para análise tonal simples:', spectralError.message);
+            log('⚠️ Fallback para análise tonal simples:', spectralError.message);
             for (const [k,[a,b]] of Object.entries(bands)) {
               let energy=0, count=0; const maxBin = spec.length;
               for (let i=0;i<maxBin;i++) { const f=i*binHz; if (f>=a && f<b) { energy += spec[i]; count++; } }
@@ -2077,7 +2080,7 @@ class AudioAnalyzer {
           td.tonalBalance = out;
         }
       }
-    } catch(e){ if (window.DEBUG_ANALYZER) console.warn('Fallback tonal balance falhou', e); }
+    } catch(e){ if (window.DEBUG_ANALYZER) warn('Fallback tonal balance falhou', e); }
 
     // ===== Quality Breakdown (preencher se ausente) =====
     try {
@@ -2087,17 +2090,17 @@ class AudioAnalyzer {
         if (mode === 'genre' && typeof window !== 'undefined') {
           ref = window.PROD_AI_REF_DATA;
           if (DEBUG_MODE_REFERENCE) {
-            console.log('🔍 [MODE_DEBUG] Using genre ref for quality breakdown, mode:', mode);
+            log('🔍 [MODE_DEBUG] Using genre ref for quality breakdown, mode:', mode);
           }
         } else if (DEBUG_MODE_REFERENCE) {
-          console.log('🔍 [MODE_DEBUG] Skipping genre ref for quality breakdown, mode:', mode, '(pure analysis)');
+          log('🔍 [MODE_DEBUG] Skipping genre ref for quality breakdown, mode:', mode, '(pure analysis)');
         }
         
         const safe = (v,def=0)=> Number.isFinite(v)?v:def;
         // FASE 2: Usar dados unificados para LUFS (sem fallback RMS problemático)
         const lufsInt = safe(td.lufsIntegrated, null); // Não usar RMS como fallback
         if (lufsInt === null) {
-          console.warn('🔍 FASE 2: LUFS não disponível, pulando cálculo de loudness score');
+          warn('🔍 FASE 2: LUFS não disponível, pulando cálculo de loudness score');
         }
         const dr = safe(baseAnalysis.technicalData?.dynamicRange);
         const crest = safe(td.crestFactor);
@@ -2129,7 +2132,7 @@ class AudioAnalyzer {
         // 🎯 AGREGADOR COM PESOS V2: Sistema balanceado conforme auditoria
         // Novos pesos: Loudness 25%, Dinâmica 20%, Frequência 25%, Técnico 15%, Stereo 15%
         if (!Number.isFinite(baseAnalysis.qualityOverall)) {
-          console.log('[WEIGHTED_AGGREGATE] Triggered - qualityOverall was:', baseAnalysis.qualityOverall);
+          log('[WEIGHTED_AGGREGATE] Triggered - qualityOverall was:', baseAnalysis.qualityOverall);
           
           // Calcular score de stereo corretamente
           const scoreStereo = Number.isFinite(corr) ? calculateStereoScore(corr) : 75;
@@ -2144,14 +2147,14 @@ class AudioAnalyzer {
           });
           
           baseAnalysis.qualityOverall = clamp(weightedScore);
-          console.log('[WEIGHTED_AGGREGATE] Set qualityOverall =', baseAnalysis.qualityOverall, 
+          log('[WEIGHTED_AGGREGATE] Set qualityOverall =', baseAnalysis.qualityOverall, 
                      'components:', { scoreLoud, scoreDyn, scoreFreq, scoreTech, scoreStereo });
         }
       }
-    } catch(e){ if (window.DEBUG_ANALYZER) console.warn('Fallback quality breakdown falhou', e); }
+    } catch(e){ if (window.DEBUG_ANALYZER) warn('Fallback quality breakdown falhou', e); }
   if (typeof window !== 'undefined' && window.DEBUG_ANALYZER === true) {
-    console.log('🛰️ [Telemetry] Adapter Fase2 aplicado (novas chaves):', added.filter(k => k in td));
-    console.log('🛰️ [Telemetry] Valores mapeados:', {
+    log('🛰️ [Telemetry] Adapter Fase2 aplicado (novas chaves):', added.filter(k => k in td));
+    log('🛰️ [Telemetry] Valores mapeados:', {
       lufsIntegrated: td.lufsIntegrated,
       lra: td.lra,
       truePeakDbtp: td.truePeakDbtp,
@@ -2178,29 +2181,29 @@ class AudioAnalyzer {
         baseAnalysis = await this._tryAdvancedMetricsAdapter(audioBuffer, baseAnalysis);
       }
     } catch (e) {
-      if (__DEBUG_ANALYZER__) console.warn('⚠️ Adapter avançado falhou (com V2):', e?.message || e);
+      if (__DEBUG_ANALYZER__) warn('⚠️ Adapter avançado falhou (com V2):', e?.message || e);
     }
 
     try {
       // 🎯 CORREÇÃO DA ORDEM DO PIPELINE: Scoring após bandas espectrais
       // Garante que o scoring execute SOMENTE após bandas espectrais válidas
-      console.log('[PIPELINE-CORRECTION] 🔍 Iniciando scoring com pré-condições...');
-      console.log('[PIPELINE-CORRECTION] Feature flag ativa:', window.PIPELINE_ORDER_CORRECTION_ENABLED);
-      console.log('[PIPELINE-CORRECTION] technicalData exists:', !!baseAnalysis.technicalData);
+      log('[PIPELINE-CORRECTION] 🔍 Iniciando scoring com pré-condições...');
+      log('[PIPELINE-CORRECTION] Feature flag ativa:', window.PIPELINE_ORDER_CORRECTION_ENABLED);
+      log('[PIPELINE-CORRECTION] technicalData exists:', !!baseAnalysis.technicalData);
       
       if (typeof window !== 'undefined' && baseAnalysis.technicalData) {
-        console.log('[PIPELINE-CORRECTION] ✅ Condições iniciais atendidas');
+        log('[PIPELINE-CORRECTION] ✅ Condições iniciais atendidas');
         const tdFinal = baseAnalysis.technicalData;
-        console.log('[PIPELINE-CORRECTION] tdFinal keys:', Object.keys(tdFinal || {}));
+        log('[PIPELINE-CORRECTION] tdFinal keys:', Object.keys(tdFinal || {}));
         
         // Verificar se a correção está ativa
         const correctionEnabled = window.PIPELINE_ORDER_CORRECTION_ENABLED !== false;
-        console.log('[PIPELINE-CORRECTION] Correção ativa:', correctionEnabled);
+        log('[PIPELINE-CORRECTION] Correção ativa:', correctionEnabled);
         
         if (correctionEnabled && window.PipelineOrderCorrection) {
           // 🎯 NOVA ORDEM: Validar bandas espectrais ANTES do scoring
           const bandsValidation = window.PipelineOrderCorrection.validateSpectralBands(tdFinal, runId);
-          console.log('[PIPELINE-CORRECTION] Validação das bandas:', bandsValidation);
+          log('[PIPELINE-CORRECTION] Validação das bandas:', bandsValidation);
           
           if (!bandsValidation.ready || !bandsValidation.valid) {
             // 📝 Log estruturado de skip
@@ -2210,7 +2213,7 @@ class AudioAnalyzer {
               validation: bandsValidation
             });
             
-            console.log('[PIPELINE-CORRECTION] ⚠️ Scoring pulado - bandas não prontas:', bandsValidation.reason);
+            log('[PIPELINE-CORRECTION] ⚠️ Scoring pulado - bandas não prontas:', bandsValidation.reason);
             
             // Aplicar fallback seguro
             const fallbackScore = window.PipelineOrderCorrection.createScoringFallback(bandsValidation.reason, runId);
@@ -2218,7 +2221,7 @@ class AudioAnalyzer {
             baseAnalysis.mixScorePct = null; // UI não exibe score parcial
             baseAnalysis.mixClassification = 'unavailable';
             
-            console.log('[PIPELINE-CORRECTION] 🛡️ Fallback aplicado');
+            log('[PIPELINE-CORRECTION] 🛡️ Fallback aplicado');
             return baseAnalysis; // Retorno antecipado seguro
           }
           
@@ -2235,34 +2238,34 @@ class AudioAnalyzer {
           if (mode === 'genre') {
             activeRef = window.PROD_AI_REF_DATA_ACTIVE || window.PROD_AI_REF_DATA || null;
             if (DEBUG_MODE_REFERENCE) {
-              console.log('🔍 [MODE_DEBUG] Using genre ref for scoring, mode:', mode);
+              log('🔍 [MODE_DEBUG] Using genre ref for scoring, mode:', mode);
             }
           } else if (DEBUG_MODE_REFERENCE) {
-            console.log('🔍 [MODE_DEBUG] Skipping genre ref for scoring, mode:', mode, '(pure analysis)');
+            log('🔍 [MODE_DEBUG] Skipping genre ref for scoring, mode:', mode, '(pure analysis)');
           }
         } catch {}
         try {
-          console.log('[PIPELINE-CORRECTION] 🔍 Carregando módulo de scoring...');
+          log('[PIPELINE-CORRECTION] 🔍 Carregando módulo de scoring...');
           const scorerMod = await import('/lib/audio/features/scoring.js').catch((err)=>{
-            console.error('[PIPELINE-CORRECTION] ❌ Erro no import scoring.js:', err);
+            error('[PIPELINE-CORRECTION] ❌ Erro no import scoring.js:', err);
             return null;
           });
-          console.log('[PIPELINE-CORRECTION] scoring.js carregado:', !!scorerMod);
-          console.log('[PIPELINE-CORRECTION] computeMixScore disponível:', !!(scorerMod && typeof scorerMod.computeMixScore === 'function'));
+          log('[PIPELINE-CORRECTION] scoring.js carregado:', !!scorerMod);
+          log('[PIPELINE-CORRECTION] computeMixScore disponível:', !!(scorerMod && typeof scorerMod.computeMixScore === 'function'));
           
           if (scorerMod && typeof scorerMod.computeMixScore === 'function') {
-            console.log('[PIPELINE-CORRECTION] ✅ scoring.js válido, executando...');
+            log('[PIPELINE-CORRECTION] ✅ scoring.js válido, executando...');
             // 🎯 CORREÇÃO: Buscar targets específicos do gênero ativo (segunda ocorrência)
             let genreSpecificRef = null;
             if (mode === 'genre' && activeRef) {
               const activeGenre = window.PROD_AI_REF_GENRE || 'default';
               genreSpecificRef = activeRef[activeGenre] || null;
               if (DEBUG_MODE_REFERENCE) {
-                console.log('[PIPELINE-CORRECTION] Final scoring using genre-specific ref:', activeGenre);
-                console.log('[PIPELINE-CORRECTION] Final genre ref targets:', genreSpecificRef);
+                log('[PIPELINE-CORRECTION] Final scoring using genre-specific ref:', activeGenre);
+                log('[PIPELINE-CORRECTION] Final genre ref targets:', genreSpecificRef);
               }
             } else if (DEBUG_MODE_REFERENCE) {
-              console.log('[PIPELINE-CORRECTION] Final scoring skipping genre-specific ref (mode=' + mode + ')');
+              log('[PIPELINE-CORRECTION] Final scoring skipping genre-specific ref (mode=' + mode + ')');
             }
             
             // 🎯 CORREÇÃO DA ORDEM: Usar nova função com pré-condições
@@ -2279,16 +2282,16 @@ class AudioAnalyzer {
               );
             } else {
               // Implementação original (fallback)
-              console.log('[PIPELINE-CORRECTION] ⚠️ Usando implementação original - correção desabilitada');
+              log('[PIPELINE-CORRECTION] ⚠️ Usando implementação original - correção desabilitada');
               // 🎯 CORREÇÃO: Passar mode para garantir que gates V3 usem o limite correto
               const mode = window.__SOUNDY_ANALYSIS_MODE__ || 'streaming';
               finalScore = scorerMod.computeMixScore(tdFinal, genreSpecificRef, { mode });
             }
             
             if (finalScore) {
-              console.log('[PIPELINE-CORRECTION] 🎯 Score calculado com sucesso - scorePct:', finalScore?.scorePct);
+              log('[PIPELINE-CORRECTION] 🎯 Score calculado com sucesso - scorePct:', finalScore?.scorePct);
             } else {
-              console.log('[PIPELINE-CORRECTION] ⚠️ Score não calculado - verificar logs acima');
+              log('[PIPELINE-CORRECTION] ⚠️ Score não calculado - verificar logs acima');
             }
             
             // TESTE MANUAL COM DADOS CONHECIDOS (mantido para compatibilidade)
@@ -2314,7 +2317,7 @@ class AudioAnalyzer {
             }
             
             const testScore = scorerMod.computeMixScore(testData, testGenreSpecificRef);
-            console.log('[COLOR_RATIO_V2_TEST] Manual test G=5, Y=4, R=3, T=12 should be 59:', testScore);
+            log('[COLOR_RATIO_V2_TEST] Manual test G=5, Y=4, R=3, T=12 should be 59:', testScore);
             
             // Aplicar resultado do scoring se válido
             if (finalScore && finalScore.scorePct !== null) {
@@ -2323,20 +2326,20 @@ class AudioAnalyzer {
               baseAnalysis.mixClassification = finalScore.classification;
               
               // CRÍTICO: Atualizar qualityOverall usado pela UI
-              console.log('[PIPELINE-CORRECTION] 💾 Atualizando qualityOverall...');
-              console.log('[PIPELINE-CORRECTION] Valor anterior:', baseAnalysis.qualityOverall);
-              console.log('[PIPELINE-CORRECTION] Novo valor:', finalScore.scorePct);
+              log('[PIPELINE-CORRECTION] 💾 Atualizando qualityOverall...');
+              log('[PIPELINE-CORRECTION] Valor anterior:', baseAnalysis.qualityOverall);
+              log('[PIPELINE-CORRECTION] Novo valor:', finalScore.scorePct);
               
               baseAnalysis._originalQualityOverall = baseAnalysis.qualityOverall;
               baseAnalysis.qualityOverall = finalScore.scorePct;
-              console.log('[PIPELINE-CORRECTION] ✅ qualityOverall atualizado =', finalScore.scorePct, '(was:', baseAnalysis._originalQualityOverall, ')');
-              console.log('[PIPELINE-CORRECTION] 🎯 Método usado:', finalScore.method, 'Classificação:', finalScore.classification);
+              log('[PIPELINE-CORRECTION] ✅ qualityOverall atualizado =', finalScore.scorePct, '(was:', baseAnalysis._originalQualityOverall, ')');
+              log('[PIPELINE-CORRECTION] 🎯 Método usado:', finalScore.method, 'Classificação:', finalScore.classification);
             }
             // Logging para debug (sem override)
             try {
               const cc = finalScore.colorCounts || {};
               if (window.DEBUG_SCORE === true && cc.total > 0) {
-                console.log('[ANALYSIS][FINAL_SCORE]', {
+                log('[ANALYSIS][FINAL_SCORE]', {
                   method: finalScore.method,
                   scorePct: finalScore.scorePct,
                   colorCounts: cc,
@@ -2347,30 +2350,30 @@ class AudioAnalyzer {
               }
               try { window.__LAST_MIX_SCORE = finalScore; } catch {}
             } catch {}
-            if (window.DEBUG_SCORE === true) console.log('[ANALYSIS][RECALC_SCORE] method=', finalScore.scoringMethod, 'scorePct=', finalScore.scorePct, finalScore.colorCounts, 'weights=', finalScore.weights, 'denom=', finalScore.denominator_info, 'yellowKeys=', finalScore.yellowKeys);
+            if (window.DEBUG_SCORE === true) log('[ANALYSIS][RECALC_SCORE] method=', finalScore.scoringMethod, 'scorePct=', finalScore.scorePct, finalScore.colorCounts, 'weights=', finalScore.weights, 'denom=', finalScore.denominator_info, 'yellowKeys=', finalScore.yellowKeys);
           }
-        } catch (reScoreErr) { if (window.DEBUG_SCORE) console.warn('[RECALC_SCORE_ERROR]', reScoreErr); }
+        } catch (reScoreErr) { if (window.DEBUG_SCORE) warn('[RECALC_SCORE_ERROR]', reScoreErr); }
       }
     } catch {}
     
     // 🎯 GARANTIR QUE SEMPRE TEMOS UM SCORE VÁLIDO
     if (!Number.isFinite(baseAnalysis.qualityOverall)) {
-      console.log('[SCORE_DEBUG] ⚠️ qualityOverall inválido, aplicando fallback final');
+      log('[SCORE_DEBUG] ⚠️ qualityOverall inválido, aplicando fallback final');
       this._applyWeightedScoreFallback(baseAnalysis);
     }
     
-    console.log('[SCORE_DEBUG] 🎯 Score final definido:', baseAnalysis.qualityOverall);
+    log('[SCORE_DEBUG] 🎯 Score final definido:', baseAnalysis.qualityOverall);
     return baseAnalysis;
   }
 
   // 🔧 MÉTODO DE FALLBACK PARA SCORE
   _applyWeightedScoreFallback(baseAnalysis) {
-    console.log('[SCORE_DEBUG] 📊 Aplicando fallback de score ponderado...');
+    log('[SCORE_DEBUG] 📊 Aplicando fallback de score ponderado...');
     
     try {
       // Usar sistema de agregação ponderada existente
       if (!Number.isFinite(baseAnalysis.qualityOverall)) {
-        console.log('[WEIGHTED_AGGREGATE] Triggered - qualityOverall was:', baseAnalysis.qualityOverall);
+        log('[WEIGHTED_AGGREGATE] Triggered - qualityOverall was:', baseAnalysis.qualityOverall);
         
         // Coletar sub-scores válidos
         const subScores = [];
@@ -2388,20 +2391,20 @@ class AudioAnalyzer {
           const clamp = (v) => Math.max(0, Math.min(100, v));
           
           baseAnalysis.qualityOverall = clamp(weightedScore);
-          console.log('[WEIGHTED_AGGREGATE] Set qualityOverall =', baseAnalysis.qualityOverall, 
+          log('[WEIGHTED_AGGREGATE] Set qualityOverall =', baseAnalysis.qualityOverall, 
                      'from', subScores.length, 'sub-scores');
         } else {
           // Último recurso: score padrão conservador
           baseAnalysis.qualityOverall = 50;
-          console.log('[WEIGHTED_AGGREGATE] No sub-scores available, using default 50');
+          log('[WEIGHTED_AGGREGATE] No sub-scores available, using default 50');
         }
       }
     } catch (fallbackError) {
-      console.error('[SCORE_DEBUG] ❌ Erro no fallback:', fallbackError);
+      error('[SCORE_DEBUG] ❌ Erro no fallback:', fallbackError);
       baseAnalysis.qualityOverall = 50; // Último recurso
     }
     
-    console.log('[SCORE_DEBUG] ✅ Fallback concluído - score:', baseAnalysis.qualityOverall);
+    log('[SCORE_DEBUG] ✅ Fallback concluído - score:', baseAnalysis.qualityOverall);
   }
 
   // (remoção do conversor WAV — não é mais necessário)
@@ -2562,7 +2565,7 @@ class AudioAnalyzer {
           }
         }
       } catch (error) {
-        console.warn('⚠️ TT-DR calculation failed, using fallback:', error.message);
+        warn('⚠️ TT-DR calculation failed, using fallback:', error.message);
       }
     }
     
@@ -2670,7 +2673,7 @@ class AudioAnalyzer {
           }
         }
       }
-    } catch (e) { if (window && window.DEBUG_ANALYZER) console.warn('Invariant validator erro', e); }
+    } catch (e) { if (window && window.DEBUG_ANALYZER) warn('Invariant validator erro', e); }
 
     return analysis;
   }
@@ -2721,14 +2724,14 @@ class AudioAnalyzer {
   // Este método será removido em versões futuras - use TT-DR ou Crest Factor explicitamente
   calculateDynamicRange(channelData) {
     if (typeof window !== 'undefined' && window.DEBUG_ANALYZER) {
-      console.warn('⚠️ calculateDynamicRange() deprecated - use TT-DR (tt_dr) for official analysis or calculateCrestFactor() for Peak-RMS');
+      warn('⚠️ calculateDynamicRange() deprecated - use TT-DR (tt_dr) for official analysis or calculateCrestFactor() for Peak-RMS');
     }
     return this.calculateCrestFactor(channelData);
   }
 
   // 🎵 Encontrar frequências dominantes (versão melhorada)
   findDominantFrequencies(channelData, sampleRate) {
-  if (window.DEBUG_ANALYZER === true) console.log('🎯 Iniciando análise de frequências...');
+  if (window.DEBUG_ANALYZER === true) log('🎯 Iniciando análise de frequências...');
     
     // 🎯 Implementação melhorada com FFT maior e interpolação
     const fftSize = 2048; // Aumentado de 256 para melhor resolução
@@ -2769,12 +2772,12 @@ class AudioAnalyzer {
         frequencies.push(...peaks.slice(0, 2).map(p => p.freq));
         
       } catch (error) {
-        console.warn('Erro na análise de seção:', error);
+        warn('Erro na análise de seção:', error);
         continue;
       }
     }
 
-  if (window.DEBUG_ANALYZER === true) console.log(`🎯 Frequências encontradas: ${frequencies.length}`);
+  if (window.DEBUG_ANALYZER === true) log(`🎯 Frequências encontradas: ${frequencies.length}`);
 
     // Encontrar as frequências mais comuns
     const freqGroups = this.groupFrequencies(frequencies);
@@ -2940,7 +2943,7 @@ class AudioAnalyzer {
     // Sugestões baseadas no LUFS integrado real (quando disponível)
     // 🚨 IMPLEMENTAÇÃO HEADROOM SEGURO - só sugerir aumentar loudness se há headroom suficiente
     if (lufsIntegrated !== null && Number.isFinite(lufsIntegrated)) {
-      console.log(`[generateTechnicalSuggestions] 🎚️ LUFS detectado: ${lufsIntegrated.toFixed(1)} dB`);
+      log(`[generateTechnicalSuggestions] 🎚️ LUFS detectado: ${lufsIntegrated.toFixed(1)} dB`);
       
       // 🔒 Verificar headroom disponível antes de sugestões
       const truePeakDbTP = analysis.technical?.truePeakDbtp;
@@ -2950,7 +2953,7 @@ class AudioAnalyzer {
       
       // 🚨 REGRA 1: Se CLIPPED, não sugerir aumento de loudness
       if (isClipped) {
-        console.log(`[HEADROOM-SAFE] 🚨 Clipping detectado (${clippingSamples} samples) - bloqueando sugestões de aumento`);
+        log(`[HEADROOM-SAFE] 🚨 Clipping detectado (${clippingSamples} samples) - bloqueando sugestões de aumento`);
         
         // Só adicionar sugestão de redução se volume muito alto
         if (lufsIntegrated > -13) {
@@ -2969,7 +2972,7 @@ class AudioAnalyzer {
       // 🚨 REGRA 2: Calcular headroom disponível para aumento seguro
       else if (Number.isFinite(truePeakDbTP)) {
         const availableHeadroom = headroomSafetyMargin - truePeakDbTP; // Quanto pode aumentar sem passar de -0.6 dBTP
-        console.log(`[HEADROOM-SAFE] 📊 True Peak: ${truePeakDbTP.toFixed(2)} dBTP, Headroom disponível: ${availableHeadroom.toFixed(2)} dB`);
+        log(`[HEADROOM-SAFE] 📊 True Peak: ${truePeakDbTP.toFixed(2)} dBTP, Headroom disponível: ${availableHeadroom.toFixed(2)} dB`);
         
         if (lufsIntegrated >= -16 && lufsIntegrated <= -13) {
           analysis.suggestions.push({
@@ -2997,7 +3000,7 @@ class AudioAnalyzer {
               headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponível`
             });
           } else {
-            console.log(`[HEADROOM-SAFE] ⚠️ Ganho ${gainProposto.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando sugestão`);
+            log(`[HEADROOM-SAFE] ⚠️ Ganho ${gainProposto.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando sugestão`);
             analysis.suggestions.push({
               type: 'mastering_volume_limited_headroom',
               message: `Volume baixo mas sem headroom para correção`,
@@ -3023,7 +3026,7 @@ class AudioAnalyzer {
       }
       // FALLBACK: Se não há True Peak, usar comportamento original mas conservador
       else {
-        console.log(`[HEADROOM-SAFE] ⚠️ True Peak não disponível - usando modo conservador`);
+        log(`[HEADROOM-SAFE] ⚠️ True Peak não disponível - usando modo conservador`);
         
         if (lufsIntegrated >= -16 && lufsIntegrated <= -13) {
           analysis.suggestions.push({
@@ -3109,7 +3112,7 @@ class AudioAnalyzer {
       }
       else if (spectralCentroid >= thresholds.balanced_low && spectralCentroid <= thresholds.balanced_high) {
         // Zona equilibrada - sem sugestões de correção
-        if (window.DEBUG_ANALYZER) console.log(`[V1] ✅ Frequências equilibradas (${Math.round(spectralCentroid)}Hz)`);
+        if (window.DEBUG_ANALYZER) log(`[V1] ✅ Frequências equilibradas (${Math.round(spectralCentroid)}Hz)`);
       }
       else if (spectralCentroid > thresholds.bright) {
         analysis.suggestions.push({
@@ -3209,7 +3212,7 @@ class AudioAnalyzer {
     // 🚨 Mantém alertas visuais independente do score capped
     const correlation = analysis.technical?.stereoCorrelation ?? analysis.technicalData?.stereoCorrelation;
     if (Number.isFinite(correlation)) {
-      console.log(`[generateTechnicalSuggestions] 🎧 Correlação estéreo: ${correlation.toFixed(3)}`);
+      log(`[generateTechnicalSuggestions] 🎧 Correlação estéreo: ${correlation.toFixed(3)}`);
       
       // 🚨 ALERTA VISUAL CRÍTICO: Correlação < 0.10
       if (correlation < 0.10) {
@@ -3525,18 +3528,18 @@ class AudioAnalyzer {
 //  Função para analisar arquivo e enviar para chat
 async function analyzeAndChat(file) {
   try {
-    console.log('🎵 Iniciando análise de áudio...');
+    log('🎵 Iniciando análise de áudio...');
     
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file);
     const aiPrompt = window.audioAnalyzer.generateAIPrompt(analysis);
     
-    console.log('✅ Análise concluída:', analysis);
+    log('✅ Análise concluída:', analysis);
     
     // Enviar prompt personalizado para o chat
     await sendAudioAnalysisToChat(aiPrompt, analysis);
     
   } catch (error) {
-    console.error('❌ Erro na análise:', error);
+    error('❌ Erro na análise:', error);
     
     // Detectar tipos específicos de erro
     if (error.message?.includes('ARQUIVO_MUITO_PEQUENO')) {
@@ -3544,7 +3547,7 @@ async function analyzeAndChat(file) {
     } else if (error.message?.includes('ARQUIVO_VAZIO')) {
       alert('Arquivo vazio selecionado!\n\nO arquivo não contém dados. Selecione um arquivo de áudio válido.');
     } else if (error.message?.includes('Formato de áudio não suportado')) {
-      console.warn('⚠️ Formato de áudio incompatível:', error.message);
+      warn('⚠️ Formato de áudio incompatível:', error.message);
       alert('Formato de áudio não suportado pelo navegador. Tente converter para WAV, MP3 ou M4A.');
     } else if (error.message?.includes('Unable to decode audio data')) {
       alert('Erro ao decodificar arquivo de áudio!\n\nPossíveis causas:\n• Arquivo corrompido ou incompleto\n• Formato de áudio não suportado\n• Codificação incompatível\n\nTente converter o arquivo para WAV PCM ou MP3 padrão.');
@@ -3563,11 +3566,11 @@ async function sendAudioAnalysisToChat(prompt, analysis) {
   if (window.sendMessage) {
     window.sendMessage(message);
   } else {
-    console.log('Prompt gerado:', message);
+    log('Prompt gerado:', message);
   }
 }
 
-console.log('🎵 Audio Analyzer carregado com sucesso!');
+log('🎵 Audio Analyzer carregado com sucesso!');
 
 // Utilitário global para invalidar cache manualmente (fora da classe)
 if (typeof window !== 'undefined') {
@@ -3584,15 +3587,15 @@ if (typeof window !== 'undefined') {
         entriesCleared: size,
         reason: 'manual'
       });
-      console.log(`[AudioAnalyzer] Cache limpo (${size} entradas). Próxima análise será recalculada.`);
+      log(`[AudioAnalyzer] Cache limpo (${size} entradas). Próxima análise será recalculada.`);
       return { cleared: size };
     } catch(e){ 
-      console.warn('Falha ao invalidar cache', e); 
+      warn('Falha ao invalidar cache', e); 
       return { cleared: 0, error: e?.message };
     }
   };
   
-  console.log('✅ invalidateAudioAnalysisCache definida');
+  log('✅ invalidateAudioAnalysisCache definida');
   
   // 🔄 CACHE INVALIDATION BY GENRE/REFS CHANGE
   // Sempre redefinir para garantir versão mais recente
@@ -3629,7 +3632,7 @@ if (typeof window !== 'undefined') {
         reason: `${changeType}_change`
       });
       
-      console.log(`[AudioAnalyzer] Cache invalidado: ${cleared} entradas removidas por ${changeType} change`);
+      log(`[AudioAnalyzer] Cache invalidado: ${cleared} entradas removidas por ${changeType} change`);
       return { cleared };
       
     } catch(e) {
@@ -3637,12 +3640,12 @@ if (typeof window !== 'undefined') {
         changeType,
         error: e?.message
       });
-      console.warn('Falha ao invalidar cache por mudança', e);
+      warn('Falha ao invalidar cache por mudança', e);
       return { cleared: 0, error: e?.message };
     }
   };
   
-  console.log('✅ invalidateCacheByChange definida');
+  log('✅ invalidateCacheByChange definida');
   
   // 🔍 CACHE CHANGE MONITOR - Monitoramento automático de mudanças
   // Sempre redefinir para garantir versão mais recente
@@ -3667,7 +3670,7 @@ if (typeof window !== 'undefined') {
       }
     };
   
-  console.log('✅ _cacheChangeMonitor definido');
+  log('✅ _cacheChangeMonitor definido');
 }
 
 // === Extensão: análise direta de AudioBuffer (uso interno / testes) ===
@@ -3683,7 +3686,7 @@ if (!AudioAnalyzer.prototype.analyzeAudioBufferDirect) {
       base.syntheticLabel = label;
       return base;
     } catch (e) {
-      console.warn('analyzeAudioBufferDirect falhou', e);
+      warn('analyzeAudioBufferDirect falhou', e);
       return null;
     }
   }
@@ -3712,10 +3715,10 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
         for (let i = 0; i < normalizedAudio.length; i++) {
           normalizedAudio[i] *= linearGain;
         }
-        console.log(`🎯 LUFS normalizado: ${lufsResult.integrated.toFixed(1)} → ${targetLUFS} LUFS (ganho: ${gainNeeded.toFixed(1)}dB)`);
+        log(`🎯 LUFS normalizado: ${lufsResult.integrated.toFixed(1)} → ${targetLUFS} LUFS (ganho: ${gainNeeded.toFixed(1)}dB)`);
       }
     } catch (lufsError) {
-      console.warn('⚠️ Normalização LUFS falhou, usando áudio original:', lufsError.message);
+      warn('⚠️ Normalização LUFS falhou, usando áudio original:', lufsError.message);
     }
     
     // Usar áudio normalizado para análise espectral
@@ -3792,7 +3795,7 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
     const trackRms = Math.sqrt(totalSignalEnergy / Math.max(totalSamples, 1));
     const trackRmsDbfs = 20 * Math.log10(Math.max(trackRms, eps)); // sempre ≤ 0
     
-    console.log(`🎯 Track RMS baseline: ${trackRmsDbfs.toFixed(1)} dBFS`);
+    log(`🎯 Track RMS baseline: ${trackRmsDbfs.toFixed(1)} dBFS`);
     
     // 2. Cálculo por banda em dBFS absoluto
     const bands = bandEnergies.map(band => {
@@ -3840,7 +3843,7 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
     };
     
   } catch (error) {
-    console.warn('⚠️ Erro na análise espectral:', error);
+    warn('⚠️ Erro na análise espectral:', error);
     return null;
   }
 };
@@ -4077,10 +4080,10 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
           referenceLevel: lres.reference_level,
           meetsBroadcast: !!lres.meets_broadcast
         };
-        if (debug) console.log('✅ [ADV] Loudness/LRA aplicados:', {
+        if (debug) log('✅ [ADV] Loudness/LRA aplicados:', {
           lufs: td.lufsIntegrated, lra: td.lra, headroomDb: td.headroomDb
         });
-      } catch (e) { if (debug) console.warn('⚠️ [ADV] Falha LUFS:', e?.message || e); }
+      } catch (e) { if (debug) warn('⚠️ [ADV] Falha LUFS:', e?.message || e); }
     }
   timing.loudnessMs = Math.round(performance.now() - t0Loud);
 
@@ -4137,8 +4140,8 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
           exceedsMinus1dBTP: !!tres.exceeds_minus1dbtp,
           warnings: tres.warnings || []
         };
-        if (debug) console.log('✅ [ADV] True Peak aplicado:', { truePeakDbtp: td.truePeakDbtp });
-      } catch (e) { if (debug) console.warn('⚠️ [ADV] Falha TruePeak:', e?.message || e); }
+        if (debug) log('✅ [ADV] True Peak aplicado:', { truePeakDbtp: td.truePeakDbtp });
+      } catch (e) { if (debug) warn('⚠️ [ADV] Falha TruePeak:', e?.message || e); }
     }
   timing.truePeakMs = Math.round(performance.now() - t0TP);
 
@@ -4171,7 +4174,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
           let specRes = null;
           try {
             specRes = cache.specMod.analyzeSpectralFeatures(slice, sr, 'fast');
-          } catch (se) { if (debug) console.warn('⚠️ [ADV] Falha analyzeSpectralFeatures:', se?.message || se); }
+          } catch (se) { if (debug) warn('⚠️ [ADV] Falha analyzeSpectralFeatures:', se?.message || se); }
           if (specRes && Array.isArray(specRes.spectrum_avg) && Array.isArray(specRes.freq_bins_compact)) {
             // Definir faixas das bandas (assumido; documentar se necessário)
             const bandDefs = {
@@ -4190,7 +4193,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
             
             // ✨ AUTO-ATIVAÇÃO SISTEMA ESPECTRAL: Usar análise FFT avançada automaticamente
             if (baseAnalysis.spectralBalance && baseAnalysis.spectralBalance.bands) {
-              console.log('✨ Sistema espectral auto-ativado para bandEnergies');
+              log('✨ Sistema espectral auto-ativado para bandEnergies');
               // Mapear bandas espectrais para formato bandEnergies
               const spectralBands = baseAnalysis.spectralBalance.bands;
               const bandMapping = {
@@ -4304,7 +4307,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   (td._sources = td._sources || {}).tonalBalance = 'advanced:spectrum:rejected';
                   
                   if (typeof window !== 'undefined' && window.TONAL_BALANCE_CONFIG?.DEBUG) {
-                    console.log('🚫 [TONAL-SAFE] tonalBalance rejeitado na origem:', validation.issues);
+                    log('🚫 [TONAL-SAFE] tonalBalance rejeitado na origem:', validation.issues);
                   }
                 }
               } else {
@@ -4370,13 +4373,13 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   
                   // Verificar se não há conflito de runId antes da atribuição
                   if (td.bandNorm && td.bandNorm._runId && td.bandNorm._runId !== runId) {
-                    console.warn(`⚠️ [${runId}] Conflito de runId detectado em td.bandNorm: ${td.bandNorm._runId} vs ${runId}`);
+                    warn(`⚠️ [${runId}] Conflito de runId detectado em td.bandNorm: ${td.bandNorm._runId} vs ${runId}`);
                   }
                   
                   td.bandNorm = bandNormData;
                   (td._sources = td._sources || {}).bandNorm = `audit:band_norm:${runId}`;
                 }
-              } catch (eNorm) { if (window.DEBUG_ANALYZER) console.warn('[REF_SCALE] Falha normalização bandas', eNorm); }
+              } catch (eNorm) { if (window.DEBUG_ANALYZER) warn('[REF_SCALE] Falha normalização bandas', eNorm); }
               for (const [band, data] of Object.entries(bandEnergies)) {
                 if (addedCount >= maxBandSuggestions) break;
                 const refBand = ref?.bands?.[band];
@@ -4535,7 +4538,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   }
                 }
               }
-            } catch (es) { if (debug) console.warn('⚠️ [ADV] Sugestões bandas falharam:', es?.message || es); }
+            } catch (es) { if (debug) warn('⚠️ [ADV] Sugestões bandas falharam:', es?.message || es); }
             // Sugestões agrupadas (Lote B) – somente se múltiplas bandas relacionadas fora do alvo
             try {
               const sug = baseAnalysis.suggestions = Array.isArray(baseAnalysis.suggestions) ? baseAnalysis.suggestions : [];
@@ -4561,7 +4564,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   }
                 }
               }
-            } catch (eg) { if (debug) console.warn('⚠️ [ADV] Agrupamento bandas falhou:', eg?.message || eg); }
+            } catch (eg) { if (debug) warn('⚠️ [ADV] Agrupamento bandas falhou:', eg?.message || eg); }
             // Ordenação opcional das sugestões por prioridade (não altera padrão)
             try {
               if (typeof window !== 'undefined' && window.SORT_SUGGESTIONS === true) {
@@ -4582,7 +4585,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   .sort((a,b)=> (priority[a.s?.type]||99) - (priority[b.s?.type]||99) || a.idx - b.idx)
                   .map(x=>x.s);
               }
-            } catch (esrt) { if (debug) console.warn('⚠️ [ADV] Sort sugestões falhou:', esrt?.message || esrt); }
+            } catch (esrt) { if (debug) warn('⚠️ [ADV] Sort sugestões falhou:', esrt?.message || esrt); }
             // Sugestões cirúrgicas (detecção de ressonâncias estreitas)
             try {
               const enableSurgical = (typeof window === 'undefined' || window.USE_SURGICAL_EQ !== false);
@@ -4639,13 +4642,13 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
                   });
                 }
               }
-            } catch (esurg) { if (debug) console.warn('⚠️ [ADV] Surgical EQ falhou:', esurg?.message || esurg); }
-            if (debug) console.log('✅ [ADV] Band energies calculadas', td.bandEnergies);
+            } catch (esurg) { if (debug) warn('⚠️ [ADV] Surgical EQ falhou:', esurg?.message || esurg); }
+            if (debug) log('✅ [ADV] Band energies calculadas', td.bandEnergies);
           }
         }
       }
       if (doBands) timing.spectrumMs = Math.round(performance.now() - t0Spec);
-    } catch (e) { if (debug) console.warn('⚠️ [ADV] Band energies falharam:', e?.message || e); }
+    } catch (e) { if (debug) warn('⚠️ [ADV] Band energies falharam:', e?.message || e); }
     // ===== FASE 2 (FIM) =====
 
     // ===== Validação de consistência (DR vs crestFactor, Loudness Range plausível) =====
@@ -4673,7 +4676,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
         if (td.lra > 30) {
           mv.lraAnomaly = 'high';
           mv.lraNote = 'LRA muito alto - possível uso de algoritmo legacy';
-          console.warn(`⚠️ LRA anômalo: ${td.lra.toFixed(1)} LU - considere ativar USE_R128_LRA`);
+          warn(`⚠️ LRA anômalo: ${td.lra.toFixed(1)} LU - considere ativar USE_R128_LRA`);
         } else if (td.lra < 0.5) {
           mv.lraAnomaly = 'low';
           mv.lraNote = 'LRA muito baixo - material muito comprimido';
@@ -4699,12 +4702,12 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
         // LRA plausível: não maior que 3× DR e não negativa
         mv.lraPlausibility = (td.lra >= 0 && td.lra <= dr * 3) ? 'ok' : 'check';
       }
-    } catch (e) { if (debug) console.warn('⚠️ [ADV] Validação métricas falhou:', e?.message || e); }
+    } catch (e) { if (debug) warn('⚠️ [ADV] Validação métricas falhou:', e?.message || e); }
     // === Invariantes & saneamento (feature flag ENABLE_METRIC_INVARIANTS) ===
     try {
       if (typeof window === 'undefined' || window.ENABLE_METRIC_INVARIANTS === true) {
         const tdv = baseAnalysis.technicalData || {};
-        const logWarn = (m,c={})=>{ if (typeof window !== 'undefined' && window.DEBUG_ANALYZER) console.warn('[INVARIANT]', m, c); };
+        const logWarn = (m,c={})=>{ if (typeof window !== 'undefined' && window.DEBUG_ANALYZER) warn('[INVARIANT]', m, c); };
         // Consolidar sample peaks
         if (Number.isFinite(tdv.samplePeakLeftDb) && Number.isFinite(tdv.samplePeakRightDb)) {
           const maxPk = Math.max(tdv.samplePeakLeftDb, tdv.samplePeakRightDb);
@@ -4765,7 +4768,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
         // Anti-NaN
         Object.entries(tdv).forEach(([k,v])=>{ if (typeof v==='number' && !Number.isFinite(v)) { delete tdv[k]; logWarn('Removed non-finite', {k}); }});
       }
-    } catch (invErr) { if (typeof window !== 'undefined' && window.DEBUG_ANALYZER) console.warn('Falha invariants', invErr); }
+    } catch (invErr) { if (typeof window !== 'undefined' && window.DEBUG_ANALYZER) warn('Falha invariants', invErr); }
 
     // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Single Source of Truth
     try {
@@ -4775,7 +4778,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
       
       // Logs temporários de validação
       if (typeof window !== 'undefined' && window.METRICS_VALIDATION_LOGS !== false) {
-        console.log('🎯 METRICS_SOURCE_VALIDATION:', {
+        log('🎯 METRICS_SOURCE_VALIDATION:', {
           source: 'centralized_metrics',
           lufs_centralized: baseAnalysis.metrics?.lufs_integrated,
           lufs_legacy: baseAnalysis.technicalData?.lufsIntegrated,
@@ -4790,12 +4793,12 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
         });
       }
     } catch (metricsErr) {
-      console.warn('🚨 Erro na centralização de métricas:', metricsErr);
+      warn('🚨 Erro na centralização de métricas:', metricsErr);
     }
 
     return baseAnalysis;
   } catch (err) {
-    if (typeof window !== 'undefined' && window.DEBUG_ANALYZER === true) console.warn('⚠️ [ADV] Adapter geral falhou:', err?.message || err);
+    if (typeof window !== 'undefined' && window.DEBUG_ANALYZER === true) warn('⚠️ [ADV] Adapter geral falhou:', err?.message || err);
     return baseAnalysis;
   }
 };
@@ -4809,7 +4812,7 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
 function getUnifiedAnalysisData(baseAnalysis, technicalData, v2Metrics) {
   try {
     if (!baseAnalysis || !technicalData) {
-      console.warn('🔍 FASE 1: Dados insuficientes para unificação');
+      warn('🔍 FASE 1: Dados insuficientes para unificação');
       return {};
     }
     
@@ -4859,7 +4862,7 @@ function getUnifiedAnalysisData(baseAnalysis, technicalData, v2Metrics) {
   return unified;
   
   } catch (unificationError) {
-    console.warn('🔍 FASE 1: Erro na unificação:', unificationError.message);
+    warn('🔍 FASE 1: Erro na unificação:', unificationError.message);
     return {}; // Retorna objeto vazio em caso de erro
   }
 }
@@ -4871,7 +4874,7 @@ function getUnifiedAnalysisData(baseAnalysis, technicalData, v2Metrics) {
 function performConsistencyAudit(unifiedData, baseAnalysis) {
   try {
     if (!unifiedData || !baseAnalysis) {
-      console.warn('🔍 FASE 1: Dados insuficientes para auditoria');
+      warn('🔍 FASE 1: Dados insuficientes para auditoria');
       return;
     }
     
@@ -4943,17 +4946,17 @@ function performConsistencyAudit(unifiedData, baseAnalysis) {
     console.group('🔍 AUDITORIA ANALYZER - Inconsistências Detectadas');
     
     if (issues.length > 0) {
-      console.error('🚨 PROBLEMAS CRÍTICOS:', issues);
+      error('🚨 PROBLEMAS CRÍTICOS:', issues);
     }
     
     if (warnings.length > 0) {
-      console.warn('⚠️ AVISOS:', warnings);
+      warn('⚠️ AVISOS:', warnings);
     }
     
-    console.log('📊 DADOS UNIFICADOS:', unifiedData);
+    log('📊 DADOS UNIFICADOS:', unifiedData);
     console.groupEnd();
   } else if (window.DEBUG_ANALYZER) {
-    console.log('✅ AUDITORIA: Nenhuma inconsistência detectada');
+    log('✅ AUDITORIA: Nenhuma inconsistência detectada');
   }
   
   // Armazenar resultados para análise (não afeta comportamento)
@@ -4973,7 +4976,7 @@ function performConsistencyAudit(unifiedData, baseAnalysis) {
   }
   
   } catch (auditError) {
-    console.warn('🔍 FASE 1: Erro na auditoria:', auditError.message);
+    warn('🔍 FASE 1: Erro na auditoria:', auditError.message);
   }
 }
 
@@ -4984,7 +4987,7 @@ function performConsistencyAudit(unifiedData, baseAnalysis) {
 function applyUnifiedCorrections(baseAnalysis, technicalData, unifiedData) {
   try {
     if (!baseAnalysis || !technicalData || !unifiedData) {
-      console.warn('🔧 FASE 2: Dados insuficientes para correções');
+      warn('🔧 FASE 2: Dados insuficientes para correções');
       return;
     }
     
@@ -5052,11 +5055,11 @@ function applyUnifiedCorrections(baseAnalysis, technicalData, unifiedData) {
   if (corrections.length > 0) {
     console.group('🔧 FASE 2 - Correções Aplicadas');
     corrections.forEach(correction => {
-      console.log(`✅ ${correction.type}: ${correction.description}`);
+      log(`✅ ${correction.type}: ${correction.description}`);
     });
     console.groupEnd();
   } else if (window.DEBUG_ANALYZER) {
-    console.log('🔧 FASE 2: Nenhuma correção necessária');
+    log('🔧 FASE 2: Nenhuma correção necessária');
   }
   
   // Armazenar correções para análise
@@ -5075,7 +5078,7 @@ function applyUnifiedCorrections(baseAnalysis, technicalData, unifiedData) {
   }
   
   } catch (phase2Error) {
-    console.warn('🔧 FASE 2: Erro nas correções:', phase2Error.message);
+    warn('🔧 FASE 2: Erro nas correções:', phase2Error.message);
     // Continuar sem as correções em caso de erro
   }
 }
@@ -5090,7 +5093,7 @@ function applyUnifiedCorrections(baseAnalysis, technicalData, unifiedData) {
 function applyLogicAlignmentCorrections(baseAnalysis, technicalData, unifiedData, v2Metrics) {
   try {
     if (!baseAnalysis || !technicalData || !unifiedData) {
-      console.warn('🔧 FASE 3: Dados insuficientes para alinhamento lógico');
+      warn('🔧 FASE 3: Dados insuficientes para alinhamento lógico');
       return;
     }
     
@@ -5132,7 +5135,7 @@ function applyLogicAlignmentCorrections(baseAnalysis, technicalData, unifiedData
     // 📊 Validação e Rollback Safety
     const validationResult = validatePhase3Changes(baseAnalysis, technicalData, originalState);
     if (!validationResult.isValid) {
-      console.warn('⚠️ FASE 3: Validação falhou, fazendo rollback...');
+      warn('⚠️ FASE 3: Validação falhou, fazendo rollback...');
       rollbackChanges(baseAnalysis, technicalData, originalState);
       corrections.length = 0; // Clear corrections
       corrections.push({
@@ -5145,10 +5148,10 @@ function applyLogicAlignmentCorrections(baseAnalysis, technicalData, unifiedData
     // 📊 Log das correções aplicadas
     if (corrections.length > 0) {
       corrections.forEach(correction => {
-        console.log(`✅ ${correction.type}: ${correction.description}`);
+        log(`✅ ${correction.type}: ${correction.description}`);
       });
     } else {
-      console.log('🔧 FASE 3: Nenhuma correção lógica necessária');
+      log('🔧 FASE 3: Nenhuma correção lógica necessária');
     }
     
     console.groupEnd();
@@ -5173,7 +5176,7 @@ function applyLogicAlignmentCorrections(baseAnalysis, technicalData, unifiedData
     }
     
   } catch (phase3Error) {
-    console.warn('🔧 FASE 3: Erro no alinhamento lógico:', phase3Error.message);
+    warn('🔧 FASE 3: Erro no alinhamento lógico:', phase3Error.message);
     // Em caso de erro, não aplicar nenhuma correção
   }
 }
@@ -5210,7 +5213,7 @@ function fixClippingLogic(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de clipping:', error);
+    warn('Erro na correção de clipping:', error);
   }
   
   return correction;
@@ -5263,7 +5266,7 @@ function fixLufsThresholds(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de LUFS:', error);
+    warn('Erro na correção de LUFS:', error);
   }
   
   return correction;
@@ -5301,7 +5304,7 @@ function fixScoreCalculation(baseAnalysis, technicalData, unifiedData, v2Metrics
     }
     
   } catch (error) {
-    console.warn('Erro na correção de score:', error);
+    warn('Erro na correção de score:', error);
   }
   
   return correction;
@@ -5337,7 +5340,7 @@ function fixStereoAnalysis(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de estéreo:', error);
+    warn('Erro na correção de estéreo:', error);
   }
   
   return correction;
@@ -5384,7 +5387,7 @@ function calculateStereoScore(correlation) {
   
   // 🔍 Log para auditoria (apenas se score foi limitado)
   if (cappedScore > rawScore) {
-    console.log(`[STEREO-CAP] 🛡️ Score limitado: ${rawScore} → ${cappedScore} (correlação: ${correlation.toFixed(3)})`);
+    log(`[STEREO-CAP] 🛡️ Score limitado: ${rawScore} → ${cappedScore} (correlação: ${correlation.toFixed(3)})`);
   }
   
   return cappedScore;
@@ -5469,10 +5472,10 @@ function rollbackChanges(baseAnalysis, technicalData, originalState) {
       technicalData[key] = originalState.technicalData[key];
     });
     
-    console.log('🔄 Rollback da Fase 3 concluído com sucesso');
+    log('🔄 Rollback da Fase 3 concluído com sucesso');
     
   } catch (error) {
-    console.error('❌ Erro durante rollback da Fase 3:', error);
+    error('❌ Erro durante rollback da Fase 3:', error);
   }
 }
 
@@ -5486,7 +5489,7 @@ function rollbackChanges(baseAnalysis, technicalData, originalState) {
 function applyFinalAuditCorrections(baseAnalysis, technicalData, unifiedData, v2Metrics) {
   try {
     if (!baseAnalysis || !technicalData || !unifiedData) {
-      console.warn('🔧 FASE 4: Dados insuficientes para auditoria final');
+      warn('🔧 FASE 4: Dados insuficientes para auditoria final');
       return;
     }
     
@@ -5536,10 +5539,10 @@ function applyFinalAuditCorrections(baseAnalysis, technicalData, unifiedData, v2
     // 📊 Log das correções aplicadas
     if (corrections.length > 0) {
       corrections.forEach(correction => {
-        console.log(`✅ ${correction.type}: ${correction.description}`);
+        log(`✅ ${correction.type}: ${correction.description}`);
       });
     } else {
-      console.log('🔧 FASE 4: Sistema já está padronizado');
+      log('🔧 FASE 4: Sistema já está padronizado');
     }
     
     console.groupEnd();
@@ -5563,7 +5566,7 @@ function applyFinalAuditCorrections(baseAnalysis, technicalData, unifiedData, v2
     }
     
   } catch (phase4Error) {
-    console.warn('🔧 FASE 4: Erro na auditoria final:', phase4Error.message);
+    warn('🔧 FASE 4: Erro na auditoria final:', phase4Error.message);
   }
 }
 
@@ -5603,7 +5606,7 @@ function centralizeLUFSValues(baseAnalysis, technicalData, unifiedData, v2Metric
     }
     
   } catch (error) {
-    console.warn('Erro na centralização LUFS:', error);
+    warn('Erro na centralização LUFS:', error);
   }
   
   return correction;
@@ -5633,7 +5636,7 @@ function fixNegativeDynamics(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de dinâmica:', error);
+    warn('Erro na correção de dinâmica:', error);
   }
   
   return correction;
@@ -5665,7 +5668,7 @@ function fixTechnicalScore(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de score:', error);
+    warn('Erro na correção de score:', error);
   }
   
   return correction;
@@ -5705,7 +5708,7 @@ function fixMonoCompatibility(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na correção de mono compatibility:', error);
+    warn('Erro na correção de mono compatibility:', error);
   }
   
   return correction;
@@ -5743,7 +5746,7 @@ function applySuggestionSafetyGates(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro nos gates de segurança:', error);
+    warn('Erro nos gates de segurança:', error);
   }
   
   return correction;
@@ -5777,7 +5780,7 @@ function standardizeFormatting(baseAnalysis, technicalData, unifiedData) {
     }
     
   } catch (error) {
-    console.warn('Erro na padronização de formatação:', error);
+    warn('Erro na padronização de formatação:', error);
   }
   
   return correction;
@@ -5860,7 +5863,7 @@ function calculateTechnicalScore(technicalData, unifiedData) {
 function applyCriticalSpecificFixes(baseAnalysis, technicalData, unifiedData, v2Metrics) {
   try {
     if (!baseAnalysis || !technicalData || !unifiedData) {
-      console.warn('🔧 FASE 5: Dados insuficientes para correções críticas');
+      warn('🔧 FASE 5: Dados insuficientes para correções críticas');
       return;
     }
     
@@ -5904,10 +5907,10 @@ function applyCriticalSpecificFixes(baseAnalysis, technicalData, unifiedData, v2
     // 📊 Log das correções aplicadas
     if (corrections.length > 0) {
       corrections.forEach(correction => {
-        console.log(`✅ ${correction.type}: ${correction.description}`);
+        log(`✅ ${correction.type}: ${correction.description}`);
       });
     } else {
-      console.log('✅ FASE 5: Todos os problemas críticos já estão corrigidos');
+      log('✅ FASE 5: Todos os problemas críticos já estão corrigidos');
     }
     
     console.groupEnd();
@@ -5934,7 +5937,7 @@ function applyCriticalSpecificFixes(baseAnalysis, technicalData, unifiedData, v2
     }
     
   } catch (phase5Error) {
-    console.warn('🔧 FASE 5: Erro nas correções críticas:', phase5Error.message);
+    warn('🔧 FASE 5: Erro nas correções críticas:', phase5Error.message);
   }
 }
 
@@ -5951,7 +5954,7 @@ function fixLUFSDuplication(baseAnalysis, technicalData, unifiedData, v2Metrics)
     
     if (!Number.isFinite(canonicalLUFS)) {
       // Fallback seguro se não há LUFS válido
-      console.warn('🔍 FASE 5: Nenhum LUFS válido encontrado para unificação');
+      warn('🔍 FASE 5: Nenhum LUFS válido encontrado para unificação');
       return correction;
     }
     
@@ -5978,7 +5981,7 @@ function fixLUFSDuplication(baseAnalysis, technicalData, unifiedData, v2Metrics)
       if (technicalData.rms && Math.abs(technicalData.rms - canonicalLUFS) > 2) {
         const originalRMS = technicalData.rms;
         technicalData.rms = null; // Limpar RMS incorreto
-        console.warn(`🔍 FASE 5: RMS removido por divergir do LUFS: ${originalRMS} vs ${canonicalLUFS}`);
+        warn(`🔍 FASE 5: RMS removido por divergir do LUFS: ${originalRMS} vs ${canonicalLUFS}`);
       }
       
       correction.applied = true;
@@ -5986,11 +5989,11 @@ function fixLUFSDuplication(baseAnalysis, technicalData, unifiedData, v2Metrics)
       correction.canonicalValue = canonicalLUFS;
       correction.allSources = allLUFSValues;
     } else {
-      console.log(`✅ FASE 5: LUFS já está unificado em ${canonicalLUFS.toFixed(1)}`);
+      log(`✅ FASE 5: LUFS já está unificado em ${canonicalLUFS.toFixed(1)}`);
     }
     
   } catch (error) {
-    console.warn('🔍 FASE 5: Erro na correção LUFS:', error.message);
+    warn('🔍 FASE 5: Erro na correção LUFS:', error.message);
   }
   
   return correction;
@@ -6021,7 +6024,7 @@ function fixNegativeDynamicsAdvanced(baseAnalysis, technicalData, unifiedData) {
           technicalData[field] = correctedValue;
           corrections.push(`${field}: ${currentValue.toFixed(2)} → ${correctedValue.toFixed(2)}`);
           
-          console.warn(`🔍 FASE 5: Dinâmica negativa corrigida - ${field}: ${currentValue} → ${correctedValue}`);
+          warn(`🔍 FASE 5: Dinâmica negativa corrigida - ${field}: ${currentValue} → ${correctedValue}`);
         }
       }
     });
@@ -6030,11 +6033,11 @@ function fixNegativeDynamicsAdvanced(baseAnalysis, technicalData, unifiedData) {
       correction.applied = true;
       correction.description = `Dinâmica negativa corrigida: ${corrections.join(', ')}`;
     } else {
-      console.log('✅ FASE 5: Dinâmica já está com valores válidos');
+      log('✅ FASE 5: Dinâmica já está com valores válidos');
     }
     
   } catch (error) {
-    console.warn('🔍 FASE 5: Erro na correção de dinâmica:', error.message);
+    warn('🔍 FASE 5: Erro na correção de dinâmica:', error.message);
   }
   
   return correction;
@@ -6097,17 +6100,17 @@ function fixZeroTechnicalScore(baseAnalysis, technicalData, unifiedData) {
           correction.newScore = newScore;
           correction.availableMetrics = availableMetrics;
           
-          console.log(`✅ FASE 5: Score técnico recalculado - ${correction.description}`);
+          log(`✅ FASE 5: Score técnico recalculado - ${correction.description}`);
         }
       } else {
-        console.warn('🔍 FASE 5: Insuficientes dados técnicos para calcular score');
+        warn('🔍 FASE 5: Insuficientes dados técnicos para calcular score');
       }
     } else {
-      console.log(`✅ FASE 5: Score técnico já válido: ${currentScore}`);
+      log(`✅ FASE 5: Score técnico já válido: ${currentScore}`);
     }
     
   } catch (error) {
-    console.warn('🔍 FASE 5: Erro na correção de score:', error.message);
+    warn('🔍 FASE 5: Erro na correção de score:', error.message);
   }
   
   return correction;
@@ -6145,16 +6148,16 @@ function fixMonoAlwaysPoor(baseAnalysis, technicalData, unifiedData) {
         correction.description = `Mono compatibility: "${currentMono}" → "${newMono}" (correlação: ${correlation.toFixed(3)})`;
         correction.correlation = correlation;
         
-        console.log(`✅ FASE 5: Mono compatibility corrigida - correlação ${correlation.toFixed(3)} → ${newMono}`);
+        log(`✅ FASE 5: Mono compatibility corrigida - correlação ${correlation.toFixed(3)} → ${newMono}`);
       } else {
-        console.log(`✅ FASE 5: Mono compatibility já adequada: ${currentMono} (corr: ${correlation.toFixed(3)})`);
+        log(`✅ FASE 5: Mono compatibility já adequada: ${currentMono} (corr: ${correlation.toFixed(3)})`);
       }
     } else {
-      console.warn('🔍 FASE 5: Correlação estéreo indisponível para correção de mono compatibility');
+      warn('🔍 FASE 5: Correlação estéreo indisponível para correção de mono compatibility');
     }
     
   } catch (error) {
-    console.warn('🔍 FASE 5: Erro na correção de mono compatibility:', error.message);
+    warn('🔍 FASE 5: Erro na correção de mono compatibility:', error.message);
   }
   
   return correction;
@@ -6195,7 +6198,7 @@ function fixContradictorySuggestions(baseAnalysis, technicalData, unifiedData) {
         const isDangerous = dangerousPatterns.some(pattern => pattern.test(text));
         
         if (isDangerous) {
-          console.warn(`🔍 FASE 5: Sugestão perigosa filtrada: "${text.slice(0, 50)}..."`);
+          warn(`🔍 FASE 5: Sugestão perigosa filtrada: "${text.slice(0, 50)}..."`);
         }
         
         return !isDangerous;
@@ -6209,14 +6212,14 @@ function fixContradictorySuggestions(baseAnalysis, technicalData, unifiedData) {
         correction.filteredCount = filteredCount;
         correction.reason = hasClipping ? 'clipping detectado' : 'peak perigoso';
         
-        console.log(`✅ FASE 5: ${filteredCount} sugestões contraditórias removidas - ${correction.reason}`);
+        log(`✅ FASE 5: ${filteredCount} sugestões contraditórias removidas - ${correction.reason}`);
       }
     } else {
-      console.log('✅ FASE 5: Não há clipping/peak perigoso - sugestões mantidas');
+      log('✅ FASE 5: Não há clipping/peak perigoso - sugestões mantidas');
     }
     
   } catch (error) {
-    console.warn('🔍 FASE 5: Erro na correção de sugestões:', error.message);
+    warn('🔍 FASE 5: Erro na correção de sugestões:', error.message);
   }
   
   return correction;
@@ -6238,7 +6241,7 @@ function performDetailedAnalysisDebug(analysis) {
     
     console.groupEnd();
   } catch (error) {
-    console.warn('🔍 DEBUG: Erro no debug detalhado:', error.message);
+    warn('🔍 DEBUG: Erro no debug detalhado:', error.message);
   }
 }
 
@@ -6255,10 +6258,10 @@ function debugLUFSDuplication(analysis) {
     'peak': td.peak
   };
   
-  console.log('📊 Todos os valores LUFS/Volume encontrados:');
+  log('📊 Todos os valores LUFS/Volume encontrados:');
   Object.entries(lufsValues).forEach(([key, value]) => {
     const isValid = Number.isFinite(value);
-    console.log(`  ${key}: ${isValid ? value.toFixed(2) : 'N/A'} ${isValid ? (key.includes('lufs') ? 'LUFS' : 'dB') : ''}`);
+    log(`  ${key}: ${isValid ? value.toFixed(2) : 'N/A'} ${isValid ? (key.includes('lufs') ? 'LUFS' : 'dB') : ''}`);
   });
   
   // Detectar duplicação
@@ -6267,9 +6270,9 @@ function debugLUFSDuplication(analysis) {
     .map(([key, value]) => ({ type: key, value }));
   
   if (validLufs.length > 1) {
-    console.warn('⚠️ MÚLTIPLOS LUFS DETECTADOS:');
+    warn('⚠️ MÚLTIPLOS LUFS DETECTADOS:');
     validLufs.forEach(lufs => {
-      console.log(`  - ${lufs.type}: ${lufs.value.toFixed(2)} LUFS`);
+      log(`  - ${lufs.type}: ${lufs.value.toFixed(2)} LUFS`);
     });
     
     const values = validLufs.map(l => l.value);
@@ -6277,12 +6280,12 @@ function debugLUFSDuplication(analysis) {
     const max = Math.max(...values);
     const divergence = max - min;
     
-    console.log(`📏 Divergência máxima: ${divergence.toFixed(2)} dB`);
+    log(`📏 Divergência máxima: ${divergence.toFixed(2)} dB`);
     if (divergence > 1.0) {
-      console.error('🚨 PROBLEMA: Divergência de LUFS > 1.0 dB');
+      error('🚨 PROBLEMA: Divergência de LUFS > 1.0 dB');
     }
   } else {
-    console.log('✅ LUFS unificado ou único valor encontrado');
+    log('✅ LUFS unificado ou único valor encontrado');
   }
   
   console.groupEnd();
@@ -6299,15 +6302,15 @@ function debugNegativeDynamics(analysis) {
     'crestFactor': td.crestFactor
   };
   
-  console.log('📊 Valores de dinâmica encontrados:');
+  log('📊 Valores de dinâmica encontrados:');
   Object.entries(dynamicFields).forEach(([key, value]) => {
     const isValid = Number.isFinite(value);
     const isNegative = isValid && value < 0;
     
-    console.log(`  ${key}: ${isValid ? value.toFixed(2) : 'N/A'} dB ${isNegative ? '⚠️ IMPOSSÍVEL' : ''}`);
+    log(`  ${key}: ${isValid ? value.toFixed(2) : 'N/A'} dB ${isNegative ? '⚠️ IMPOSSÍVEL' : ''}`);
     
     if (isNegative) {
-      console.error(`🚨 PROBLEMA: ${key} com valor negativo (${value.toFixed(2)}) é fisicamente impossível`);
+      error(`🚨 PROBLEMA: ${key} com valor negativo (${value.toFixed(2)}) é fisicamente impossível`);
     }
   });
   
@@ -6326,11 +6329,11 @@ function debugTruePeakClippingContradiction(analysis) {
     clippingPct: td.clippingPct
   };
   
-  console.log('📊 Dados de clipping e picos:');
+  log('📊 Dados de clipping e picos:');
   Object.entries(clippingData).forEach(([key, value]) => {
     const isValid = Number.isFinite(value);
     const unit = key.includes('Pct') ? '%' : key.includes('Samples') ? 'samples' : key.includes('dbtp') ? 'dBTP' : 'dB';
-    console.log(`  ${key}: ${isValid ? value.toFixed(2) + ' ' + unit : 'N/A'}`);
+    log(`  ${key}: ${isValid ? value.toFixed(2) + ' ' + unit : 'N/A'}`);
   });
   
   // Analisar contradições
@@ -6339,16 +6342,16 @@ function debugTruePeakClippingContradiction(analysis) {
   const hasClipping = clippingSamples > 0;
   const dangerousPeak = Number.isFinite(truePeak) && truePeak > -0.3;
   
-  console.log('\n⚖️ Análise de consistência:');
-  console.log(`  Tem clipping: ${hasClipping}`);
-  console.log(`  Peak perigoso (>-0.3dBTP): ${dangerousPeak}`);
+  log('\n⚖️ Análise de consistência:');
+  log(`  Tem clipping: ${hasClipping}`);
+  log(`  Peak perigoso (>-0.3dBTP): ${dangerousPeak}`);
   
   if (hasClipping && !dangerousPeak) {
-    console.warn('🚨 CONTRADIÇÃO: Há clipping mas True Peak não indica perigo');
+    warn('🚨 CONTRADIÇÃO: Há clipping mas True Peak não indica perigo');
   } else if (!hasClipping && dangerousPeak) {
-    console.warn('⚠️ POSSÍVEL INCONSISTÊNCIA: True Peak alto mas sem clipping detectado');
+    warn('⚠️ POSSÍVEL INCONSISTÊNCIA: True Peak alto mas sem clipping detectado');
   } else {
-    console.log('✅ Dados consistentes entre clipping e True Peak');
+    log('✅ Dados consistentes entre clipping e True Peak');
   }
   
   // Verificar sugestões contraditórias
@@ -6360,12 +6363,12 @@ function debugTruePeakClippingContradiction(analysis) {
     });
     
     if (dangerousPatterns.length > 0) {
-      console.error('🚨 SUGESTÕES CONTRADITÓRIAS detectadas:');
+      error('🚨 SUGESTÕES CONTRADITÓRIAS detectadas:');
       dangerousPatterns.forEach(s => {
-        console.log(`  - "${s.action || s.message}"`);
+        log(`  - "${s.action || s.message}"`);
       });
     } else {
-      console.log('✅ Sugestões consistentes com situação de clipping');
+      log('✅ Sugestões consistentes com situação de clipping');
     }
   }
   
@@ -6382,18 +6385,18 @@ function debugZeroTechnicalScore(analysis) {
     mixScorePct: analysis.mixScorePct
   };
   
-  console.log('📊 Scores encontrados:');
+  log('📊 Scores encontrados:');
   Object.entries(scores).forEach(([key, value]) => {
     const isValid = Number.isFinite(value);
     const isZero = isValid && value === 0;
-    console.log(`  ${key}: ${isValid ? value : 'N/A'} ${isZero ? '⚠️ SEMPRE ZERO' : ''}`);
+    log(`  ${key}: ${isValid ? value : 'N/A'} ${isZero ? '⚠️ SEMPRE ZERO' : ''}`);
   });
   
   // Verificar breakdown
   if (analysis.qualityBreakdown) {
-    console.log('\n📊 Breakdown de scores:');
+    log('\n📊 Breakdown de scores:');
     Object.entries(analysis.qualityBreakdown).forEach(([key, value]) => {
-      console.log(`  ${key}: ${Number.isFinite(value) ? value : 'N/A'}`);
+      log(`  ${key}: ${Number.isFinite(value) ? value : 'N/A'}`);
     });
   }
   
@@ -6406,18 +6409,18 @@ function debugZeroTechnicalScore(analysis) {
     'Stereo Correlation': Number.isFinite(td.stereoCorrelation)
   };
   
-  console.log('\n🔧 Métricas disponíveis para cálculo:');
+  log('\n🔧 Métricas disponíveis para cálculo:');
   Object.entries(metricsForScore).forEach(([metric, available]) => {
-    console.log(`  ${metric}: ${available ? '✅' : '❌'}`);
+    log(`  ${metric}: ${available ? '✅' : '❌'}`);
   });
   
   const availableCount = Object.values(metricsForScore).filter(Boolean).length;
   if (availableCount >= 2 && analysis.qualityOverall === 0) {
-    console.error('🚨 PROBLEMA: Score zero apesar de métricas disponíveis');
+    error('🚨 PROBLEMA: Score zero apesar de métricas disponíveis');
   } else if (availableCount < 2) {
-    console.warn('⚠️ Métricas insuficientes para calcular score técnico');
+    warn('⚠️ Métricas insuficientes para calcular score técnico');
   } else {
-    console.log('✅ Score técnico parece estar calculado corretamente');
+    log('✅ Score técnico parece estar calculado corretamente');
   }
   
   console.groupEnd();
@@ -6435,14 +6438,14 @@ function debugMonoCompatibilityIssue(analysis) {
     balanceLR: td.balanceLR
   };
   
-  console.log('📊 Dados de estéreo/mono:');
+  log('📊 Dados de estéreo/mono:');
   Object.entries(monoData).forEach(([key, value]) => {
     if (key === 'monoCompatibility') {
-      console.log(`  ${key}: "${value || 'N/A'}"`);
+      log(`  ${key}: "${value || 'N/A'}"`);
     } else if (Number.isFinite(value)) {
-      console.log(`  ${key}: ${value.toFixed(3)}`);
+      log(`  ${key}: ${value.toFixed(3)}`);
     } else {
-      console.log(`  ${key}: N/A`);
+      log(`  ${key}: N/A`);
     }
   });
   
@@ -6451,7 +6454,7 @@ function debugMonoCompatibilityIssue(analysis) {
   const monoCompat = td.monoCompatibility;
   
   if (Number.isFinite(correlation) && monoCompat) {
-    console.log('\n⚖️ Análise de consistência:');
+    log('\n⚖️ Análise de consistência:');
     
     // Determinar o que deveria ser baseado na correlação
     let expectedMono;
@@ -6463,19 +6466,19 @@ function debugMonoCompatibilityIssue(analysis) {
     
     const currentMono = monoCompat.replace(/\s*\(.*\)/, ''); // Remove explicação
     
-    console.log(`  Correlação: ${correlation.toFixed(3)}`);
-    console.log(`  Mono atual: "${monoCompat}"`);
-    console.log(`  Mono esperado: "${expectedMono}"`);
+    log(`  Correlação: ${correlation.toFixed(3)}`);
+    log(`  Mono atual: "${monoCompat}"`);
+    log(`  Mono esperado: "${expectedMono}"`);
     
     if (currentMono.toLowerCase().includes('poor') && correlation > 0.3) {
-      console.error('🚨 PROBLEMA: Mono = "Poor" mas correlação indica qualidade superior');
+      error('🚨 PROBLEMA: Mono = "Poor" mas correlação indica qualidade superior');
     } else if (!currentMono.toLowerCase().includes(expectedMono.toLowerCase())) {
-      console.warn(`⚠️ INCONSISTÊNCIA: Mono não corresponde à correlação (deveria ser "${expectedMono}")`);
+      warn(`⚠️ INCONSISTÊNCIA: Mono não corresponde à correlação (deveria ser "${expectedMono}")`);
     } else {
-      console.log('✅ Mono compatibility consistente com correlação estéreo');
+      log('✅ Mono compatibility consistente com correlação estéreo');
     }
   } else {
-    console.warn('⚠️ Dados insuficientes para analisar consistência mono/estéreo');
+    warn('⚠️ Dados insuficientes para analisar consistência mono/estéreo');
   }
   
   console.groupEnd();
@@ -6485,12 +6488,12 @@ function debugMonoCompatibilityIssue(analysis) {
 if (typeof window !== 'undefined') {
   window.enableDetailedAnalyzerDebug = () => {
     window.DEBUG_ANALYZER_DETAILED = true;
-    console.log('🐛 DEBUG DETALHADO ATIVADO - próxima análise incluirá diagnóstico completo');
+    log('🐛 DEBUG DETALHADO ATIVADO - próxima análise incluirá diagnóstico completo');
   };
   
   window.disableDetailedAnalyzerDebug = () => {
     window.DEBUG_ANALYZER_DETAILED = false;
-    console.log('🐛 DEBUG DETALHADO DESATIVADO');
+    log('🐛 DEBUG DETALHADO DESATIVADO');
   };
 }
 
@@ -6728,7 +6731,7 @@ if (typeof window !== 'undefined') {
   // 🌟 Interface simplificada para uso (instância global)
   window.audioAnalyzer = new AudioAnalyzer();
   
-  console.log('✅ AudioAnalyzer disponibilizado:', {
+  log('✅ AudioAnalyzer disponibilizado:', {
     classe: typeof window.AudioAnalyzer,
     instancia: typeof window.audioAnalyzer
   });
@@ -6765,7 +6768,7 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           const toRemove = sortedKeys.slice(3);
           toRemove.forEach(key => {
             delete globalCache[key];
-            console.log(`🧹 Reference cache cleaned: ${key}`);
+            log(`🧹 Reference cache cleaned: ${key}`);
           });
         }
         
@@ -6774,7 +6777,7 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           cleanedEntries: cacheKeys.length - Object.keys(globalCache).length
         };
       } catch (error) {
-        console.warn('⚠️ Reference cache cleanup error:', error.message);
+        warn('⚠️ Reference cache cleanup error:', error.message);
         return { error: error.message };
       }
     },
@@ -6796,8 +6799,8 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
             // Criar promise de pré-carregamento (apenas se loadReferenceData existir)
             if (typeof window.loadReferenceData === 'function') {
               const preloadPromise = window.loadReferenceData(genre)
-                .then(() => console.log(`✅ Preloaded reference: ${genre}`))
-                .catch(() => console.log(`⚠️ Failed to preload: ${genre}`));
+                .then(() => log(`✅ Preloaded reference: ${genre}`))
+                .catch(() => log(`⚠️ Failed to preload: ${genre}`));
               preloadPromises.push(preloadPromise);
             }
           }
@@ -6809,7 +6812,7 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           alreadyCached: popularGenres.length - preloadPromises.length
         };
       } catch (error) {
-        console.warn('⚠️ Reference preload error:', error.message);
+        warn('⚠️ Reference preload error:', error.message);
         return { error: error.message };
       }
     },
@@ -6883,17 +6886,17 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           }
         };
         
-        console.log('🔍 Reference System Diagnosis:', diagnosis);
+        log('🔍 Reference System Diagnosis:', diagnosis);
         return diagnosis;
       } catch (error) {
         const errorDiagnosis = { error: error.message, timestamp: new Date().toISOString() };
-        console.error('❌ Reference diagnosis failed:', errorDiagnosis);
+        error('❌ Reference diagnosis failed:', errorDiagnosis);
         return errorDiagnosis;
       }
     }
   });
   
-  console.log('✅ Phase 2 - Reference Manager initialized safely');
+  log('✅ Phase 2 - Reference Manager initialized safely');
 }
 
 // 🚨 PHASE 3: CACHE INVALIDATION - IMPLEMENTAÇÃO SEGURA
@@ -6973,7 +6976,7 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           totalInvalidated: Object.values(invalidated).reduce((sum, count) => sum + count, 0)
         };
       } catch (error) {
-        console.warn('⚠️ Cache TTL management error:', error.message);
+        warn('⚠️ Cache TTL management error:', error.message);
         return { error: error.message };
       }
     },
@@ -7050,10 +7053,10 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
             throw new Error(`Tipo de cache inválido: ${type}`);
         }
         
-        console.log(`🧹 Cache invalidation [${type}]: ${results.invalidated} entradas removidas`);
+        log(`🧹 Cache invalidation [${type}]: ${results.invalidated} entradas removidas`);
         return results;
       } catch (error) {
-        console.error('❌ Cache invalidation error:', error.message);
+        error('❌ Cache invalidation error:', error.message);
         return { invalidated: 0, errors: [error.message] };
       }
     },
@@ -7125,7 +7128,7 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
           success: true
         };
       } catch (error) {
-        console.error('❌ Smart cache invalidation error:', error.message);
+        error('❌ Smart cache invalidation error:', error.message);
         return { success: false, error: error.message };
       }
     },
@@ -7190,10 +7193,10 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
         const statuses = [health.analysis.status, health.references.status, health.localStorage.status];
         health.overall = statuses.includes('warning') ? 'warning' : 'healthy';
         
-        console.log('📊 Cache Health Report:', health);
+        log('📊 Cache Health Report:', health);
         return health;
       } catch (error) {
-        console.error('❌ Cache health monitoring error:', error.message);
+        error('❌ Cache health monitoring error:', error.message);
         return { 
           timestamp: new Date().toISOString(),
           overall: 'error', 
@@ -7203,5 +7206,5 @@ if (typeof window !== 'undefined' && window.audioAnalyzer) {
     }
   });
   
-  console.log('✅ Phase 3 - Cache Invalidation initialized safely');
+  log('✅ Phase 3 - Cache Invalidation initialized safely');
 }

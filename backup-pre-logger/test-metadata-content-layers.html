@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Busca em metadata.content</title>
+</head>
+<body>
+    <h1>🧪 Teste - Busca em metadata.content.original/enriched</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Nova Ordem de Busca em metadata.content:</h3>
+        <ol>
+            <li>🎯 <code>s.message</code> (resposta direta da IA)</li>
+            <li>🔍 <code>meta.message</code> (metadata.message)</li>
+            <li>✨ <code>enrichedLayer.message</code> (metadata.content.enriched.message)</li>
+            <li>⚡ <code>originalLayer.message</code> (metadata.content.original.message)</li>
+            <li>📋 <code>original.message</code> (sugestão original)</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testEnrichedMessage()">✨ enriched.message</button>
+        <button onclick="testOriginalMessage()">⚡ original.message</button>
+        <button onclick="testTruePeakDeepNested()">🔍 True Peak profundo</button>
+        <button onclick="testCompleteContent()">🌊 Fluxo content completo</button>
+        <button onclick="testTruePeakSorting()">🎯 True Peak no topo</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge implementada com busca em metadata.content
+        function testMergeWithContentLayers(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+                const content = meta.content || {};
+                const originalLayer = content.original || {};
+                const enrichedLayer = content.enriched || {};
+
+                // Busca recursiva em múltiplos níveis
+                const originalMsg =
+                    s.message ||
+                    meta.message ||
+                    enrichedLayer.message ||
+                    originalLayer.message ||
+                    (original.message && typeof original.message === "string" ? original.message : null);
+
+                const originalAction =
+                    s.action ||
+                    meta.action ||
+                    enrichedLayer.action ||
+                    originalLayer.action ||
+                    (original.action && typeof original.action === "string" ? original.action : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!originalMsg,
+                    messageSource: originalMsg ? "restored" : "fallback",
+                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
+                    action: originalAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        function testTruePeakSorting(suggestions) {
+            return suggestions.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+        }
+
+        function displayResult(scenarioName, result, expected, layers) {
+            const div = document.getElementById('result-content');
+            const success = result.message === expected;
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Resultado:</strong> ${success ? '✅ SUCESSO' : '❌ FALHA'}</div>
+                <div><strong>Mensagem obtida:</strong> "${result.message}"</div>
+                <div><strong>Mensagem esperada:</strong> "${expected}"</div>
+                <div><strong>Message Source:</strong> ${result.messageSource}</div>
+                <div><strong>hasOriginalMessage:</strong> ${result.hasOriginalMessage}</div>
+                <div><strong>Camadas testadas:</strong> ${layers}</div>
+                <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
+            `;
+            
+            console.log(`🧪 ${scenarioName}:`, {
+                success,
+                message: result.message,
+                messageSource: result.messageSource,
+                hasOriginalMessage: result.hasOriginalMessage,
+                layers: layers,
+                fullResult: result
+            });
+        }
+
+        function testEnrichedMessage() {
+            console.log('✨ Cenário: metadata.content.enriched.message');
+            const validSuggestions = [{message: "Fallback"}];
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    content: {
+                        enriched: {
+                            message: "✨ Enhanced True Peak advice from enriched layer"
+                        },
+                        original: {
+                            message: "Should not be used"
+                        }
+                    }
+                }
+            }];
+            
+            const result = testMergeWithContentLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "✨ Enhanced True Peak advice from enriched layer";
+            
+            displayResult("metadata.content.enriched.message", result, expected, "enrichedLayer.message");
+        }
+
+        function testOriginalMessage() {
+            console.log('⚡ Cenário: metadata.content.original.message');
+            const validSuggestions = [{message: "Fallback"}];
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    content: {
+                        enriched: {
+                            message: null
+                        },
+                        original: {
+                            message: "⚡ True Peak requer correção PRIORITÁRIA via originalLayer"
+                        }
+                    }
+                }
+            }];
+            
+            const result = testMergeWithContentLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA via originalLayer";
+            
+            displayResult("metadata.content.original.message", result, expected, "originalLayer.message");
+        }
+
+        function testTruePeakDeepNested() {
+            console.log('🔍 Cenário: True Peak em estrutura profunda');
+            const validSuggestions = [{
+                message: "⚡ True Peak original do sistema",
+                priority: 1,
+                metric: "true_peak"
+            }];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                action: "Apply gentle limiting",
+                metadata: {
+                    processing_type: "mastering",
+                    priority: "critical",
+                    content: {
+                        enriched: {
+                            message: null,
+                            explanation: "Enhanced by AI"
+                        },
+                        original: {
+                            message: "⚡ True Peak requer correção PRIORITÁRIA. Detectado clipping digital que pode danificar equipamentos de reprodução.",
+                            action: "Aplicar limitador suave em -1.0 dB",
+                            metric: "true_peak",
+                            value: 0.8,
+                            target: -1.0
+                        }
+                    }
+                }
+            }];
+            
+            const result = testMergeWithContentLayers(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA. Detectado clipping digital que pode danificar equipamentos de reprodução.";
+            
+            displayResult("True Peak profundo", result, expected, "originalLayer.message (deep nested)");
+        }
+
+        function testCompleteContent() {
+            console.log('🌊 Cenário: Fluxo completo content com múltiplas sugestões');
+            
+            const validSuggestions = [
+                {message: "LUFS original", priority: 2},
+                {message: "DR original", priority: 3},
+                {message: "True Peak original", priority: 1}
+            ];
+            
+            const enhancedSuggestions = [
+                {
+                    message: null,
+                    metadata: {
+                        content: {
+                            enriched: {
+                                message: "📊 LUFS melhorado pela IA"
+                            }
+                        }
+                    }
+                },
+                {
+                    message: null,
+                    metadata: {
+                        content: {
+                            original: {
+                                message: "🎵 Dynamic Range preservado do backend"
+                            }
+                        }
+                    }
+                },
+                {
+                    message: null,
+                    metadata: {
+                        content: {
+                            original: {
+                                message: "⚡ True Peak crítico do content.original"
+                            }
+                        }
+                    }
+                }
+            ];
+            
+            const results = testMergeWithContentLayers(validSuggestions, enhancedSuggestions);
+            const sorted = testTruePeakSorting(results);
+            
+            console.log('🌊 Complete content flow results:', {
+                beforeSort: results.map(r => r.message),
+                afterSort: sorted.map(r => r.message),
+                truePeakFirst: sorted[0].message?.includes("True Peak")
+            });
+            
+            displayResult("Fluxo content completo", {
+                message: `${results.length} sugestões, True Peak primeiro: ${sorted[0].message?.includes("True Peak") ? 'SIM' : 'NÃO'}`,
+                messageSource: "content_layers",
+                hasOriginalMessage: results.every(r => r.hasOriginalMessage)
+            }, `${results.length} sugestões, True Peak primeiro: SIM`, "enriched + original layers");
+        }
+
+        function testTruePeakSorting() {
+            console.log('🎯 Cenário: Ordenação True Peak no topo');
+            
+            const suggestions = [
+                { message: "📊 LUFS muito baixo", priority: 2 },
+                { message: "🎵 Dynamic Range adequado", priority: 3 },
+                { message: "⚡ True Peak requer correção PRIORITÁRIA", priority: 1 },
+                { message: "🔧 EQ sugerido", priority: 4 }
+            ];
+            
+            const beforeSort = suggestions.map(s => s.message);
+            const afterSort = testTruePeakSorting([...suggestions]).map(s => s.message);
+            
+            console.log('🎯 Sorting test:', {
+                before: beforeSort,
+                after: afterSort,
+                truePeakFirst: afterSort[0].includes("True Peak")
+            });
+            
+            displayResult("True Peak no topo", {
+                message: `True Peak movido para posição: ${afterSort.indexOf(afterSort.find(m => m.includes("True Peak"))) + 1}`,
+                messageSource: "sorted",
+                hasOriginalMessage: true
+            }, "True Peak movido para posição: 1", "sorting algorithm");
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de busca em metadata.content iniciado");
+        console.log("🔍 Nova ordem: s.message → meta.message → enrichedLayer.message → originalLayer.message → original.message");
+        console.log("🎯 Teste de ordenação: True Peak sempre no topo da UI");
+    </script>
+</body>
+</html>

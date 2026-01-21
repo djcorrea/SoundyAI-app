@@ -1,31 +1,34 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧪 TESTE FORÇADO - Exibição de Sugestões IA sem API Key
 // Script para forçar a exibição da interface IA para validação
 
 (function() {
     'use strict';
     
-    console.log('🧪 [TESTE-FORÇA] Iniciando teste forçado da interface IA...');
+    log('🧪 [TESTE-FORÇA] Iniciando teste forçado da interface IA...');
     
     // Aguardar inicialização completa
     setTimeout(() => {
         if (window.aiUIController && window.currentModalAnalysis) {
-            console.log('🧪 [TESTE-FORÇA] Forçando exibição com análise atual...');
+            log('🧪 [TESTE-FORÇA] Forçando exibição com análise atual...');
             
             // Forçar exibição com sugestões base
             window.aiUIController.checkForAISuggestions(window.currentModalAnalysis);
             
-            console.log('🧪 [TESTE-FORÇA] Interface IA forçada para exibição');
+            log('🧪 [TESTE-FORÇA] Interface IA forçada para exibição');
             
             // Também forçar configuração para mostrar seção
             const aiSection = document.getElementById('aiSuggestionsSection');
             if (aiSection) {
                 aiSection.style.display = 'block';
                 aiSection.classList.add('ai-fade-in');
-                console.log('🧪 [TESTE-FORÇA] Seção IA forçada para visível');
+                log('🧪 [TESTE-FORÇA] Seção IA forçada para visível');
             }
             
         } else {
-            console.warn('🧪 [TESTE-FORÇA] Componentes não encontrados:', {
+            warn('🧪 [TESTE-FORÇA] Componentes não encontrados:', {
                 aiUIController: !!window.aiUIController,
                 currentModalAnalysis: !!window.currentModalAnalysis
             });
@@ -63,7 +66,7 @@
                         ]
                     };
                     
-                    console.log('🧪 [TESTE-FORÇA] Usando análise mock para teste');
+                    log('🧪 [TESTE-FORÇA] Usando análise mock para teste');
                     window.aiUIController.checkForAISuggestions(mockAnalysis);
                     
                     // Forçar exibição visual
@@ -80,7 +83,7 @@
     
     // Função global para teste manual
     window.forceShowAISuggestions = function() {
-        console.log('🧪 [TESTE-MANUAL] Forçando exibição manual...');
+        log('🧪 [TESTE-MANUAL] Forçando exibição manual...');
         
         const mockAnalysis = {
             suggestions: [
@@ -103,10 +106,10 @@
             if (aiSection) {
                 aiSection.style.display = 'block';
                 aiSection.classList.add('ai-fade-in');
-                console.log('🧪 [TESTE-MANUAL] ✅ Interface IA exibida');
+                log('🧪 [TESTE-MANUAL] ✅ Interface IA exibida');
             }
         } else {
-            console.error('🧪 [TESTE-MANUAL] ❌ aiUIController não encontrado');
+            error('🧪 [TESTE-MANUAL] ❌ aiUIController não encontrado');
         }
     };
     
@@ -114,7 +117,7 @@
     window.testAIConfig = function() {
         if (window.aiUIController) {
             window.aiUIController.showQuickConfig();
-            console.log('🧪 [TESTE-CONFIG] Modal de configuração exibido');
+            log('🧪 [TESTE-CONFIG] Modal de configuração exibido');
         }
     };
     
@@ -122,15 +125,15 @@
     window.testAIFullModal = function() {
         if (window.aiUIController && window.aiUIController.currentSuggestions.length > 0) {
             window.aiUIController.openFullModal();
-            console.log('🧪 [TESTE-MODAL] Modal full-screen exibido');
+            log('🧪 [TESTE-MODAL] Modal full-screen exibido');
         } else {
-            console.warn('🧪 [TESTE-MODAL] Sem sugestões para exibir no modal');
+            warn('🧪 [TESTE-MODAL] Sem sugestões para exibir no modal');
         }
     };
     
-    console.log('🧪 [TESTE-FORÇA] Funções de teste disponíveis:');
-    console.log('  - forceShowAISuggestions() - Força exibição manual');
-    console.log('  - testAIConfig() - Testa modal de configuração');
-    console.log('  - testAIFullModal() - Testa modal full-screen');
+    log('🧪 [TESTE-FORÇA] Funções de teste disponíveis:');
+    log('  - forceShowAISuggestions() - Força exibição manual');
+    log('  - testAIConfig() - Testa modal de configuração');
+    log('  - testAIFullModal() - Testa modal full-screen');
     
 })();

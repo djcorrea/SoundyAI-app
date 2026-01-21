@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🆓 VOICE MESSAGE ECONÔMICO - SEM CUSTOS DE API
 // Usando Web Speech API (GRATUITO) + Análise Local
 
@@ -24,9 +27,9 @@ class EconomicVoiceMessage {
             this.recognition.lang = 'pt-BR';
             this.recognition.maxAlternatives = 3;
             
-            console.log('✅ Speech Recognition disponível (GRÁTIS!)');
+            log('✅ Speech Recognition disponível (GRÁTIS!)');
         } else {
-            console.warn('❌ Speech Recognition não suportado - fallback para texto');
+            warn('❌ Speech Recognition não suportado - fallback para texto');
         }
     }
 
@@ -185,7 +188,7 @@ class EconomicVoiceMessage {
         };
 
         this.recognition.onerror = (event) => {
-            console.error('Speech recognition error:', event.error);
+            error('Speech recognition error:', event.error);
             status.textContent = '❌ Erro: ' + event.error;
         };
 
@@ -219,7 +222,7 @@ class EconomicVoiceMessage {
             
         } catch (error) {
             alert('Erro ao enviar. Tente novamente.');
-            console.error(error);
+            error(error);
         } finally {
             sendBtn.textContent = 'Enviar';
             sendBtn.disabled = false;
@@ -330,7 +333,7 @@ if (!document.getElementById('voice-eco-styles')) {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         window.economicVoice = new EconomicVoiceMessage();
-        console.log('🎤💰 Voice Message ECONÔMICO ativado!');
+        log('🎤💰 Voice Message ECONÔMICO ativado!');
     }, 1000);
 });
 

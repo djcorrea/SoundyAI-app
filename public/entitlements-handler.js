@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🔐 ENTITLEMENTS FRONTEND HANDLER
 // Intercepta respostas 403 PLAN_REQUIRED e exibe modal de upgrade
 // Trabalha em conjunto com work/lib/entitlements.js no backend
@@ -5,7 +8,7 @@
 (function initEntitlementsFrontend() {
     'use strict';
     
-    console.log('🔐 [ENTITLEMENTS-FE] Inicializando handler de entitlements...');
+    log('🔐 [ENTITLEMENTS-FE] Inicializando handler de entitlements...');
     
     // ═══════════════════════════════════════════════════════════════════════════════
     // 🎯 MENSAGENS POR FEATURE (sincronizado com backend)
@@ -302,7 +305,7 @@
             
             const closeModal = () => {
                 modal.style.display = 'none';
-                console.log('🔐 [ENTITLEMENTS-FE] Modal fechado');
+                log('🔐 [ENTITLEMENTS-FE] Modal fechado');
             };
             
             closeBtn.addEventListener('click', closeModal);
@@ -310,11 +313,11 @@
             overlay.addEventListener('click', closeModal);
             
             upgradeBtn.addEventListener('click', () => {
-                console.log('🔐 [ENTITLEMENTS-FE] Redirecionando para planos...');
+                log('🔐 [ENTITLEMENTS-FE] Redirecionando para planos...');
                 window.location.href = '/planos.html';
             });
             
-            console.log('🔐 [ENTITLEMENTS-FE] Modal de upgrade criado');
+            log('🔐 [ENTITLEMENTS-FE] Modal de upgrade criado');
         }
         
         return modal;
@@ -325,7 +328,7 @@
     // ═══════════════════════════════════════════════════════════════════════════════
     
     function showEntitlementUpgradeModal(feature, currentPlan = 'free') {
-        console.log(`🔐 [ENTITLEMENTS-FE] Abrindo modal para feature: ${feature} (plano atual: ${currentPlan})`);
+        log(`🔐 [ENTITLEMENTS-FE] Abrindo modal para feature: ${feature} (plano atual: ${currentPlan})`);
         
         const modal = ensureUpgradeModal();
         const featureConfig = FEATURE_MESSAGES[feature] || FEATURE_MESSAGES.reference;
@@ -342,7 +345,7 @@
         // Exibir modal
         modal.style.display = 'flex';
         
-        console.log(`🔐 [ENTITLEMENTS-FE] Modal exibido para: ${featureConfig.title}`);
+        log(`🔐 [ENTITLEMENTS-FE] Modal exibido para: ${featureConfig.title}`);
     }
     
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -381,7 +384,7 @@
                 const detectedFeature = feature || data.feature || 'reference';
                 const currentPlan = data.currentPlan || 'free';
                 
-                console.log(`🔐 [ENTITLEMENTS-FE] Erro PLAN_REQUIRED detectado:`, {
+                log(`🔐 [ENTITLEMENTS-FE] Erro PLAN_REQUIRED detectado:`, {
                     feature: detectedFeature,
                     currentPlan,
                     requiredPlan: data.requiredPlan
@@ -398,7 +401,7 @@
                 };
             }
         } catch (e) {
-            console.warn('🔐 [ENTITLEMENTS-FE] Erro ao parsear resposta:', e);
+            warn('🔐 [ENTITLEMENTS-FE] Erro ao parsear resposta:', e);
         }
         
         return { handled: false, response };
@@ -427,7 +430,7 @@
                 const data = await clonedResponse.json();
                 
                 if (isPlanRequiredError(response, data)) {
-                    console.log(`🔐 [ENTITLEMENTS-FE] Interceptado PLAN_REQUIRED em fetch para: ${url}`);
+                    log(`🔐 [ENTITLEMENTS-FE] Interceptado PLAN_REQUIRED em fetch para: ${url}`);
                     showEntitlementUpgradeModal(data.feature, data.currentPlan);
                     // Não bloquear a resposta - deixar o código original também processar
                 }
@@ -450,7 +453,7 @@
         FEATURE_MESSAGES: FEATURE_MESSAGES
     };
     
-    console.log('🔐 [ENTITLEMENTS-FE] Handler inicializado com sucesso');
-    console.log('🔐 [ENTITLEMENTS-FE] Funções exportadas: window.EntitlementsHandler');
+    log('🔐 [ENTITLEMENTS-FE] Handler inicializado com sucesso');
+    log('🔐 [ENTITLEMENTS-FE] Funções exportadas: window.EntitlementsHandler');
     
 })();

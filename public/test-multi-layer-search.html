@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teste - Busca Multi-Camadas Completa</title>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <h1>🧪 Teste - Busca em Todas as Camadas de Metadata</h1>
@@ -98,7 +104,7 @@
                 <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
             `;
             
-            console.log(`🧪 ${scenarioName}:`, {
+            log(`🧪 ${scenarioName}:`, {
                 success,
                 message: result.message,
                 action: result.action,
@@ -110,7 +116,7 @@
         }
 
         function testBackendUltraV2() {
-            console.log('🚀 Cenário: Backend Ultra V2 - metadata.original.message');
+            log('🚀 Cenário: Backend Ultra V2 - metadata.original.message');
             const validSuggestions = [{
                 message: "Fallback original",
                 action: "Fallback action"
@@ -138,7 +144,7 @@
         }
 
         function testMetadataOriginal() {
-            console.log('⚡ Cenário: metadata.original sem content wrapper');
+            log('⚡ Cenário: metadata.original sem content wrapper');
             const validSuggestions = [{message: "Fallback"}];
             
             const enhancedSuggestions = [{
@@ -159,7 +165,7 @@
         }
 
         function testMetadataEnriched() {
-            console.log('✨ Cenário: metadata.enriched message');
+            log('✨ Cenário: metadata.enriched message');
             const validSuggestions = [{message: "Fallback"}];
             
             const enhancedSuggestions = [{
@@ -182,7 +188,7 @@
         }
 
         function testContentLayers() {
-            console.log('🏗️ Cenário: content.original e content.enriched');
+            log('🏗️ Cenário: content.original e content.enriched');
             const validSuggestions = [{message: "Fallback"}];
             
             const enhancedSuggestions = [{
@@ -207,7 +213,7 @@
         }
 
         function testAllLayers() {
-            console.log('🌊 Cenário: Teste de precedência de todas as camadas');
+            log('🌊 Cenário: Teste de precedência de todas as camadas');
             
             // Teste precedência: s.message deve ganhar
             let test1 = testMergeMultiLayers([{message: "Fallback"}], [{
@@ -218,7 +224,7 @@
                 }
             }])[0];
             
-            console.log('Test 1 - s.message precedence:', test1.message);
+            log('Test 1 - s.message precedence:', test1.message);
             
             // Teste: meta.message quando s.message é null
             let test2 = testMergeMultiLayers([{message: "Fallback"}], [{
@@ -229,7 +235,7 @@
                 }
             }])[0];
             
-            console.log('Test 2 - meta.message precedence:', test2.message);
+            log('Test 2 - meta.message precedence:', test2.message);
             
             displayResult("Todas as camadas", {
                 message: `Test 1: ${test1.message.includes('Direct') ? 'PASS' : 'FAIL'}, Test 2: ${test2.message.includes('Meta') ? 'PASS' : 'FAIL'}`,
@@ -239,7 +245,7 @@
         }
 
         function testTruePeakPreservation() {
-            console.log('🎯 Cenário: True Peak em diferentes camadas - preservação completa');
+            log('🎯 Cenário: True Peak em diferentes camadas - preservação completa');
             
             const scenarios = [
                 {
@@ -274,7 +280,7 @@
                 };
             });
             
-            console.log('🎯 True Peak preservation results:', results);
+            log('🎯 True Peak preservation results:', results);
             
             const allPreserved = results.every(r => r.preserved);
             
@@ -286,9 +292,9 @@
         }
 
         // Log inicial
-        console.log("🚀 [TEST] Teste de busca multi-camadas iniciado");
-        console.log("🔍 Ordem completa: s.message → meta.message → meta.original.message → meta.enriched.message → content.original.message → content.enriched.message → original.message → original.original");
-        console.log("🎯 Compatibilidade: Backend Ultra V2 + todas as variações de metadata");
+        log("🚀 [TEST] Teste de busca multi-camadas iniciado");
+        log("🔍 Ordem completa: s.message → meta.message → meta.original.message → meta.enriched.message → content.original.message → content.enriched.message → original.message → original.original");
+        log("🎯 Compatibilidade: Backend Ultra V2 + todas as variações de metadata");
     </script>
 </body>
 </html>

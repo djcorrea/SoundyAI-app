@@ -78,6 +78,12 @@
         .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; }
         .status.info { background: rgba(0, 150, 255, 0.2); color: #4fc3f7; }
     </style>
+    <!-- Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    <script>
+        // Importar funções do logger para escopo global
+        const { log, warn, error, info, debug } = window.logger;
+    </script>
 </head>
 <body>
     <div class="test-container">
@@ -198,30 +204,30 @@
         function openTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'flex';
-            console.log('✅ Modal aberto para teste de ajustes');
+            log('✅ Modal aberto para teste de ajustes');
             
             // Verificar se tem scroll
             const modalContent = modal.querySelector('.mode-selection-modal');
             const hasScroll = modalContent.scrollHeight > modalContent.clientHeight;
             
-            console.log('📏 Scroll detectado:', hasScroll ? 'SIM (precisa ajustar)' : 'NÃO (correto)');
+            log('📏 Scroll detectado:', hasScroll ? 'SIM (precisa ajustar)' : 'NÃO (correto)');
             updateStatus();
         }
 
         function closeTestModal() {
             const modal = document.getElementById('analysisModeModal');
             modal.style.display = 'none';
-            console.log('❌ Modal fechado');
+            log('❌ Modal fechado');
         }
 
         function toggleReferenceMode() {
             const referenceBtn = document.getElementById('referenceModeBtn');
             if (referenceBtn.style.display === 'none') {
                 referenceBtn.style.display = 'block';
-                console.log('👁️ Modo Referência visível');
+                log('👁️ Modo Referência visível');
             } else {
                 referenceBtn.style.display = 'none';
-                console.log('🙈 Modo Referência oculto');
+                log('🙈 Modo Referência oculto');
             }
         }
 
@@ -242,12 +248,12 @@
                 if (currentSize < sizes.length) {
                     const size = sizes[currentSize];
                     document.body.style.width = size.width;
-                    console.log(`📱 Testando: ${size.label} (${size.width})`);
+                    log(`📱 Testando: ${size.label} (${size.width})`);
                     currentSize++;
                 } else {
                     document.body.style.width = '100%';
                     clearInterval(interval);
-                    console.log('✅ Teste de responsividade concluído');
+                    log('✅ Teste de responsividade concluído');
                 }
             }, 2000);
         }
@@ -321,7 +327,7 @@
         // Atualizar status quando carregar
         setTimeout(updateStatus, 500);
 
-        console.log('🧪 Página de teste dos ajustes carregada!');
+        log('🧪 Página de teste dos ajustes carregada!');
     </script>
 </body>
 </html>

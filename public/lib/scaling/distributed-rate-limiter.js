@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * 🚀 RATE LIMITER DISTRIBUÍDO - FASE 1 
  * Melhoria 100% compatível com o sistema atual
@@ -27,7 +30,7 @@ export class DistributedRateLimit {
     // Auto-cleanup periódico
     this.cleanupInterval = setInterval(() => this.cleanup(), CLEANUP_INTERVAL);
     
-    console.log('✅ DistributedRateLimit inicializado:', {
+    log('✅ DistributedRateLimit inicializado:', {
       window: this.windowMs + 'ms',
       maxRequests: this.maxRequests
     });
@@ -103,7 +106,7 @@ export class DistributedRateLimit {
     
     const cleaned = beforeSize - this.requests.size;
     if (cleaned > 0) {
-      console.log(`🧹 Rate limit cleanup: ${cleaned} usuários inativos removidos`);
+      log(`🧹 Rate limit cleanup: ${cleaned} usuários inativos removidos`);
     }
   }
   
@@ -126,7 +129,7 @@ export class DistributedRateLimit {
   reset(userId = null) {
     if (userId) {
       this.requests.delete(userId);
-      console.log(`🔄 Rate limit resetado para usuário: ${userId}`);
+      log(`🔄 Rate limit resetado para usuário: ${userId}`);
     } else {
       this.requests.clear();
       this.metrics = {
@@ -135,7 +138,7 @@ export class DistributedRateLimit {
         activeUsers: 0,
         lastCleanup: Date.now()
       };
-      console.log('🔄 Rate limit resetado para todos os usuários');
+      log('🔄 Rate limit resetado para todos os usuários');
     }
   }
   
@@ -147,7 +150,7 @@ export class DistributedRateLimit {
       clearInterval(this.cleanupInterval);
     }
     this.requests.clear();
-    console.log('💥 DistributedRateLimit destruído');
+    log('💥 DistributedRateLimit destruído');
   }
 }
 
@@ -205,7 +208,7 @@ export function rateLimitMiddleware(options = {}) {
       }
       
       // Erro inesperado - permitir request
-      console.error('⚠️ Erro no rate limiter:', error);
+      error('⚠️ Erro no rate limiter:', error);
       next();
     }
   };

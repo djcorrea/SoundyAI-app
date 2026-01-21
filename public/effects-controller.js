@@ -1,3 +1,6 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
  * 🎛️ EFFECTS CONTROLLER V3.1 - SoundyAI
@@ -30,7 +33,7 @@
     // SINGLETON GUARD - Prevenir múltiplas instâncias do controller
     // ═══════════════════════════════════════════════════════════════════
     if (window.__EFFECTS_CONTROLLER_LOADED__) {
-        console.warn('⚠️ [Effects] Controller já carregado, ignorando duplicata');
+        warn('⚠️ [Effects] Controller já carregado, ignorando duplicata');
         return;
     }
     window.__EFFECTS_CONTROLLER_LOADED__ = true;
@@ -214,7 +217,7 @@
     function destroyVantaCompletely() {
         // GUARD: Verificar lock de destroy
         if (state.isDestroying) {
-            console.log('⏳ [Effects] Destroy já em andamento, ignorando');
+            log('⏳ [Effects] Destroy já em andamento, ignorando');
             return;
         }
         
@@ -249,7 +252,7 @@
                             }
                         } catch (removeErr) {
                             // Silenciosamente ignora erro de removeChild
-                            console.log('⚠️ [Effects] Canvas já removido do DOM');
+                            log('⚠️ [Effects] Canvas já removido do DOM');
                         }
                     }
                 }
@@ -273,10 +276,10 @@
                     instance.destroy();
                 }
                 
-                console.log('🗑️ [Effects] Vanta destruído completamente');
+                log('🗑️ [Effects] Vanta destruído completamente');
             } catch (e) {
                 // Não logar como warning para evitar spam - destroy pode falhar se já destruído
-                console.log('⚠️ [Effects] Destroy parcial:', e.message);
+                log('⚠️ [Effects] Destroy parcial:', e.message);
             }
         }
         
@@ -325,26 +328,26 @@
     function createVantaInstance(config) {
         // GUARD: Não criar se já existe
         if (hasVantaInstance()) {
-            console.log('⚠️ [Effects] Tentativa de criar Vanta duplicado bloqueada');
+            log('⚠️ [Effects] Tentativa de criar Vanta duplicado bloqueada');
             return getVantaInstance();
         }
         
         // GUARD: Não criar se destroy em andamento
         if (state.isDestroying) {
-            console.log('⏳ [Effects] Destroy em andamento, não criando Vanta');
+            log('⏳ [Effects] Destroy em andamento, não criando Vanta');
             return null;
         }
         
         // GUARD: Verificar dependências
         if (typeof VANTA === 'undefined' || typeof THREE === 'undefined') {
-            console.warn('⚠️ [Effects] VANTA/THREE não disponíveis');
+            warn('⚠️ [Effects] VANTA/THREE não disponíveis');
             return null;
         }
         
         // GUARD: Verificar elemento
         const element = document.getElementById('vanta-bg');
         if (!element) {
-            console.warn('⚠️ [Effects] Elemento #vanta-bg não encontrado');
+            warn('⚠️ [Effects] Elemento #vanta-bg não encontrado');
             return null;
         }
         
@@ -398,11 +401,11 @@
             state.vantaElement = element;
             state.isDestroyed = false;  // Reset flag de destruído
             
-            console.log(`✨ [Effects] Vanta criado (tier: ${state.currentTier}, lineWidth: ${config.lineWidth || 1.0})`);
+            log(`✨ [Effects] Vanta criado (tier: ${state.currentTier}, lineWidth: ${config.lineWidth || 1.0})`);
             return instance;
             
         } catch (e) {
-            console.error('❌ [Effects] Erro ao criar Vanta:', e);
+            error('❌ [Effects] Erro ao criar Vanta:', e);
             return null;
         }
     }
@@ -439,7 +442,7 @@
         // Tier atual começa no base
         state.currentTier = state.baseTier;
 
-        console.log(`🎛️ [Effects] Device detected:`, {
+        log(`🎛️ [Effects] Device detected:`, {
             cores, memory, width,
             mobile: state.isMobile,
             lowEnd: state.isLowEnd,
@@ -509,7 +512,7 @@
         // GUARD: Verificar cooldown
         const now = Date.now();
         if (now - state.lastTierChange < CONFIG.TIER_CHANGE_COOLDOWN) {
-            console.log(`⏳ [Effects] Cooldown ativo, ignorando mudança para ${newTier}`);
+            log(`⏳ [Effects] Cooldown ativo, ignorando mudança para ${newTier}`);
             return false;
         }
         
@@ -523,11 +526,11 @@
         const baseIndex = tierOrder.indexOf(state.baseTier);
         const newIndex = tierOrder.indexOf(newTier);
         if (newIndex > baseIndex) {
-            console.log(`⚠️ [Effects] Não pode ir para ${newTier}, baseTier é ${state.baseTier}`);
+            log(`⚠️ [Effects] Não pode ir para ${newTier}, baseTier é ${state.baseTier}`);
             return false;
         }
         
-        console.log(`🔄 [Effects] Mudando tier: ${state.currentTier} → ${newTier} (${reason})`);
+        log(`🔄 [Effects] Mudando tier: ${state.currentTier} → ${newTier} (${reason})`);
         
         state.currentTier = newTier;
         state.lastTierChange = now;
@@ -574,7 +577,7 @@
     function activateKillSwitch(reason) {
         if (state.isKilled) return;
         
-        console.warn(`💀 [Effects] KILL SWITCH ATIVADO: ${reason}`);
+        warn(`💀 [Effects] KILL SWITCH ATIVADO: ${reason}`);
         
         state.isKilled = true;
         state.currentTier = 'killed';
@@ -711,7 +714,7 @@
             // Aba oculta = DESTROY imediato (não apenas pause)
             destroyVantaCompletely();
             document.body.classList.add('perf-animations-paused');
-            console.log('👁️ [Effects] Aba oculta - Vanta destruído');
+            log('👁️ [Effects] Aba oculta - Vanta destruído');
         } else {
             // Aba visível = restaurar se condições permitirem
             document.body.classList.remove('perf-animations-paused');
@@ -721,7 +724,7 @@
                 setTimeout(() => {
                     if (state.isDocumentVisible && shouldVantaRun()) {
                         applyCurrentTier();
-                        console.log('👁️ [Effects] Aba visível - Vanta restaurado');
+                        log('👁️ [Effects] Aba visível - Vanta restaurado');
                     }
                 }, 200);
             }
@@ -736,7 +739,7 @@
         state.blurTimer = setTimeout(() => {
             if (!state.isWindowFocused) {
                 destroyVantaCompletely();
-                console.log('🔇 [Effects] Janela perdeu foco - Vanta destruído');
+                log('🔇 [Effects] Janela perdeu foco - Vanta destruído');
             }
         }, CONFIG.BLUR_PAUSE_DELAY);
     }
@@ -750,7 +753,7 @@
             setTimeout(() => {
                 if (state.isWindowFocused && shouldVantaRun()) {
                     applyCurrentTier();
-                    console.log('🔊 [Effects] Janela focada - Vanta restaurado');
+                    log('🔊 [Effects] Janela focada - Vanta restaurado');
                 }
             }, 100);
         }
@@ -886,14 +889,14 @@
             if (isAnyModalOpen) {
                 destroyVantaCompletely();
                 document.body.classList.add('perf-animations-paused');
-                console.log('📦 [Effects] Modal aberto - Vanta destruído');
+                log('📦 [Effects] Modal aberto - Vanta destruído');
             } else {
                 document.body.classList.remove('perf-animations-paused');
                 if (shouldVantaRun()) {
                     setTimeout(() => {
                         if (!state.isModalOpen && shouldVantaRun()) {
                             applyCurrentTier();
-                            console.log('📦 [Effects] Modal fechado - Vanta restaurado');
+                            log('📦 [Effects] Modal fechado - Vanta restaurado');
                         }
                     }, 100);
                 }
@@ -991,10 +994,10 @@
         // ═══════ Debug ═══════
         debug: () => {
             console.group('🎛️ Effects Controller Debug');
-            console.log('State:', state);
-            console.log('Has Vanta:', hasVantaInstance());
-            console.log('Should Run:', shouldVantaRun());
-            console.log('Config:', CONFIG);
+            log('State:', state);
+            log('Has Vanta:', hasVantaInstance());
+            log('Should Run:', shouldVantaRun());
+            log('Config:', CONFIG);
             console.groupEnd();
         }
     };
@@ -1042,9 +1045,9 @@
                 // Forçar criação do Vanta mesmo se condições parecem não atender
                 if (shouldVantaRun() || !state.isKilled) {
                     applyCurrentTier();
-                    console.log('✨ [Effects] Vanta forçado a iniciar');
+                    log('✨ [Effects] Vanta forçado a iniciar');
                 } else {
-                    console.log('⚠️ [Effects] Condições impedem Vanta:', {
+                    log('⚠️ [Effects] Condições impedem Vanta:', {
                         visible: state.isDocumentVisible,
                         focused: state.isWindowFocused,
                         modal: state.isModalOpen,
@@ -1057,9 +1060,9 @@
                 // Inicializar typing listeners após libs carregadas
                 initTypingListeners();
                 
-                console.log('✅ [Effects] Controller V3.1 inicializado');
+                log('✅ [Effects] Controller V3.1 inicializado');
             } else {
-                console.log('⏳ [Effects] Aguardando VANTA/THREE...');
+                log('⏳ [Effects] Aguardando VANTA/THREE...');
                 setTimeout(waitForLibs, 100);
             }
         };

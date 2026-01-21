@@ -1,17 +1,20 @@
+// Sistema Centralizado de Logs - Importado automaticamente
+import { log, warn, error, info, debug } from './logger.js';
+
 // 🧪 TESTE DE VERIFICAÇÃO: Modal de Gênero Musical
 // Este arquivo verifica se a implementação está conforme especificado
 
 (function() {
-    console.log('🧪 [VERIFICAÇÃO] Iniciando testes do Modal de Gênero Musical...');
+    log('🧪 [VERIFICAÇÃO] Iniciando testes do Modal de Gênero Musical...');
     
     // ✅ TESTE 1: Verificar se o HTML foi adicionado
     function testModalHTMLExists() {
         const modal = document.getElementById('newGenreModal');
         if (modal) {
-            console.log('✅ [VERIFICAÇÃO] Modal HTML encontrado');
+            log('✅ [VERIFICAÇÃO] Modal HTML encontrado');
             return true;
         } else {
-            console.error('❌ [VERIFICAÇÃO] Modal HTML não encontrado');
+            error('❌ [VERIFICAÇÃO] Modal HTML não encontrado');
             return false;
         }
     }
@@ -23,9 +26,9 @@
         
         functions.forEach(func => {
             if (typeof window[func] === 'function') {
-                console.log(`✅ [VERIFICAÇÃO] Função ${func} encontrada`);
+                log(`✅ [VERIFICAÇÃO] Função ${func} encontrada`);
             } else {
-                console.error(`❌ [VERIFICAÇÃO] Função ${func} não encontrada`);
+                error(`❌ [VERIFICAÇÃO] Função ${func} não encontrada`);
                 allFound = false;
             }
         });
@@ -36,10 +39,10 @@
     // ✅ TESTE 3: Verificar feature flag
     function testFeatureFlag() {
         if (typeof window.FEATURE_NEW_GENRE_MODAL !== 'undefined') {
-            console.log(`✅ [VERIFICAÇÃO] Feature flag definida: ${window.FEATURE_NEW_GENRE_MODAL}`);
+            log(`✅ [VERIFICAÇÃO] Feature flag definida: ${window.FEATURE_NEW_GENRE_MODAL}`);
             return true;
         } else {
-            console.error('❌ [VERIFICAÇÃO] Feature flag não definida');
+            error('❌ [VERIFICAÇÃO] Feature flag não definida');
             return false;
         }
     }
@@ -60,40 +63,40 @@
         expectedGenres.forEach(genre => {
             const card = modal.querySelector(`[data-genre="${genre}"]`);
             if (card) {
-                console.log(`✅ [VERIFICAÇÃO] Gênero ${genre} encontrado`);
+                log(`✅ [VERIFICAÇÃO] Gênero ${genre} encontrado`);
             } else {
-                console.error(`❌ [VERIFICAÇÃO] Gênero ${genre} não encontrado`);
+                error(`❌ [VERIFICAÇÃO] Gênero ${genre} não encontrado`);
                 allGenresFound = false;
             }
         });
         
-        console.log(`📊 [VERIFICAÇÃO] Total de gêneros encontrados: ${genreCards.length}`);
+        log(`📊 [VERIFICAÇÃO] Total de gêneros encontrados: ${genreCards.length}`);
         return allGenresFound;
     }
     
     // ✅ TESTE 5: Verificar integração com applyGenreSelection
     function testApplyGenreIntegration() {
         if (typeof window.applyGenreSelection === 'function') {
-            console.log('✅ [VERIFICAÇÃO] applyGenreSelection está disponível');
+            log('✅ [VERIFICAÇÃO] applyGenreSelection está disponível');
             
             // Verificar se mantém a assinatura original
             const originalFunction = window.applyGenreSelection.toString();
             if (originalFunction.includes('genre')) {
-                console.log('✅ [VERIFICAÇÃO] applyGenreSelection aceita parâmetro genre');
+                log('✅ [VERIFICAÇÃO] applyGenreSelection aceita parâmetro genre');
                 return true;
             } else {
-                console.warn('⚠️ [VERIFICAÇÃO] applyGenreSelection pode ter assinatura alterada');
+                warn('⚠️ [VERIFICAÇÃO] applyGenreSelection pode ter assinatura alterada');
                 return false;
             }
         } else {
-            console.error('❌ [VERIFICAÇÃO] applyGenreSelection não encontrada');
+            error('❌ [VERIFICAÇÃO] applyGenreSelection não encontrada');
             return false;
         }
     }
     
     // 🎯 EXECUTAR TODOS OS TESTES
     function runAllTests() {
-        console.log('🧪 [VERIFICAÇÃO] Executando bateria de testes...');
+        log('🧪 [VERIFICAÇÃO] Executando bateria de testes...');
         
         const results = {
             modalHTML: testModalHTMLExists(),
@@ -106,12 +109,12 @@
         const passed = Object.values(results).filter(Boolean).length;
         const total = Object.keys(results).length;
         
-        console.log(`📊 [VERIFICAÇÃO] Resultados: ${passed}/${total} testes passaram`);
+        log(`📊 [VERIFICAÇÃO] Resultados: ${passed}/${total} testes passaram`);
         
         if (passed === total) {
-            console.log('🎉 [VERIFICAÇÃO] TODOS OS TESTES PASSARAM! Modal implementado corretamente');
+            log('🎉 [VERIFICAÇÃO] TODOS OS TESTES PASSARAM! Modal implementado corretamente');
         } else {
-            console.warn('⚠️ [VERIFICAÇÃO] Alguns testes falharam. Verifique os logs acima');
+            warn('⚠️ [VERIFICAÇÃO] Alguns testes falharam. Verifique os logs acima');
         }
         
         return results;
@@ -119,37 +122,37 @@
     
     // ✅ TESTE FUNCIONAL: Simular clique em gênero
     function testGenreClick(genreName = 'funk_mandela') {
-        console.log(`🎯 [VERIFICAÇÃO] Testando clique no gênero: ${genreName}`);
+        log(`🎯 [VERIFICAÇÃO] Testando clique no gênero: ${genreName}`);
         
         const modal = document.getElementById('newGenreModal');
         if (!modal) {
-            console.error('❌ [VERIFICAÇÃO] Modal não encontrado para teste de clique');
+            error('❌ [VERIFICAÇÃO] Modal não encontrado para teste de clique');
             return false;
         }
         
         const genreCard = modal.querySelector(`[data-genre="${genreName}"]`);
         if (!genreCard) {
-            console.error(`❌ [VERIFICAÇÃO] Card do gênero ${genreName} não encontrado`);
+            error(`❌ [VERIFICAÇÃO] Card do gênero ${genreName} não encontrado`);
             return false;
         }
         
         try {
             // Simular clique
             genreCard.click();
-            console.log(`✅ [VERIFICAÇÃO] Clique simulado no gênero ${genreName}`);
+            log(`✅ [VERIFICAÇÃO] Clique simulado no gênero ${genreName}`);
             
             // Verificar se modal fechou
             setTimeout(() => {
                 if (modal.classList.contains('hidden')) {
-                    console.log('✅ [VERIFICAÇÃO] Modal fechou após clique');
+                    log('✅ [VERIFICAÇÃO] Modal fechou após clique');
                 } else {
-                    console.warn('⚠️ [VERIFICAÇÃO] Modal não fechou após clique');
+                    warn('⚠️ [VERIFICAÇÃO] Modal não fechou após clique');
                 }
             }, 100);
             
             return true;
         } catch (error) {
-            console.error('❌ [VERIFICAÇÃO] Erro ao simular clique:', error);
+            error('❌ [VERIFICAÇÃO] Erro ao simular clique:', error);
             return false;
         }
     }
@@ -174,5 +177,5 @@
         setTimeout(runAllTests, 1000);
     }
     
-    console.log('🧪 [VERIFICAÇÃO] Sistema de testes carregado. Use window.genreModalTests para testes manuais');
+    log('🧪 [VERIFICAÇÃO] Sistema de testes carregado. Use window.genreModalTests para testes manuais');
 })();
