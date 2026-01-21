@@ -6,6 +6,63 @@
     <title>SoundyAI - Mentor Virtual</title>
     <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
+    <!-- 🚨 BLOQUEIO ULTRA-AGRESSIVO DE RELOAD - INLINE -->
+    <script>
+        (function() {
+            let reloadCount = 0;
+            const BLOCK_ALL = true; // TRUE = bloqueia TUDO
+            
+            // Interceptar IMEDIATAMENTE
+            const originalReload = window.location.reload.bind(window.location);
+            const originalReplace = window.location.replace.bind(window.location);
+            
+            window.location.reload = function() {
+                reloadCount++;
+                const msg = '🚨 RELOAD BLOQUEADO #' + reloadCount;
+                console.error(msg);
+                console.trace();
+                
+                // Mostrar na tela
+                if (reloadCount === 1) {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:20px;z-index:999999;font-size:20px;text-align:center;';
+                        div.innerHTML = '🚨 LOOP DE RELOAD DETECTADO E BLOQUEADO!<br>Abra o Console (F12) para ver detalhes<br>Tentativas bloqueadas: <span id="reload-count">' + reloadCount + '</span>';
+                        document.body.insertBefore(div, document.body.firstChild);
+                    });
+                }
+                
+                // Atualizar contador na tela
+                const counter = document.getElementById('reload-count');
+                if (counter) counter.textContent = reloadCount;
+                
+                return false; // NUNCA executa
+            };
+            
+            window.location.replace = function(url) {
+                console.error('🚨 REDIRECT BLOQUEADO para:', url);
+                console.trace();
+                return false;
+            };
+            
+            // Bloquear location.href
+            let _href = window.location.href;
+            Object.defineProperty(window.location, 'href', {
+                get: () => _href,
+                set: (val) => {
+                    console.error('🚨 location.href BLOQUEADO:', val);
+                    console.trace();
+                    return false;
+                }
+            });
+            
+            console.log('%c🚨 BLOQUEIO DE RELOAD ATIVO', 'background:red;color:white;font-size:20px;padding:10px;');
+        })();
+    </script>
+    
+    <!-- 🚨 EMERGÊNCIA: Bloqueador de reload infinito -->
+    <script src="emergency-reload-blocker.js"></script>
+    
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
