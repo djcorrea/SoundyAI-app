@@ -830,7 +830,7 @@ console.log('🚀 Carregando auth.js...');
         }
 
         // ✅ VALIDAR SE DEVICE JÁ POSSUI CONTA (anti-burla)
-        const { collection, query, where, getDocs, runTransaction } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const { collection, query, where, getDocs, runTransaction, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
         const deviceQuery = query(
           collection(db, 'device_mappings'),
