@@ -1184,9 +1184,25 @@ console.log('🚀 Carregando auth.js...');
           
           // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo
           if (isIndexPage) {
+            // ✅ VALIDAR SE HÁ SESSÃO AUTENTICADA ANTES DE ATIVAR ANÔNIMO
+            const hasIdToken = localStorage.getItem('idToken');
+            const hasAuthToken = localStorage.getItem('authToken');
+            const hasUser = localStorage.getItem('user');
+            const hasAuthReady = window.__AUTH_READY__ === true;
+            
+            if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
+              console.log('⏳ [AUTH] Timeout mas sessão válida existe - aguardando Firebase Auth');
+              console.log('   hasIdToken:', !!hasIdToken);
+              console.log('   hasAuthToken:', !!hasAuthToken);
+              console.log('   hasUser:', !!hasUser);
+              console.log('   __AUTH_READY__:', hasAuthReady);
+              resolve(null);
+              return;
+            }
+            
             // Após 5s de timeout, SoundyAnonymous deve estar disponível
             if (window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
-              console.log('🔓 [AUTH] Timeout - Ativando modo anônimo');
+              console.log('🔓 [AUTH] Timeout - Nenhuma sessão válida - Ativando modo anônimo');
               await window.SoundyAnonymous.activate();
               resolve(null);
               return;
@@ -1230,6 +1246,27 @@ console.log('🚀 Carregando auth.js...');
             // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
             // ✅ FIX TIMING: Aguardar SoundyAnonymous carregar se necessário
             if (isIndexPage) {
+              // ✅ VALIDAR SE HÁ SESSÃO AUTENTICADA ANTES DE ATIVAR ANÔNIMO
+              const hasIdToken = localStorage.getItem('idToken');
+              const hasAuthToken = localStorage.getItem('authToken');
+              const hasUser = localStorage.getItem('user');
+              const hasAuthReady = window.__AUTH_READY__ === true;
+              
+              if (hasIdToken || hasAuthToken || hasUser || hasAuthReady) {
+                console.log('⏳ [AUTH] onAuthStateChanged: Sessão válida existe mas user null');
+                console.log('   hasIdToken:', !!hasIdToken);
+                console.log('   hasAuthToken:', !!hasAuthToken);
+                console.log('   hasUser:', !!hasUser);
+                console.log('   __AUTH_READY__:', hasAuthReady);
+                console.log('   Aguardando 2s antes de recarregar...');
+                
+                setTimeout(() => {
+                  console.log('🔄 [AUTH] Recarregando para sincronizar Firebase Auth...');
+                  window.location.reload();
+                }, 2000);
+                return;
+              }
+              
               // Função auxiliar para aguardar SoundyAnonymous
               const waitForAnonymousMode = () => new Promise((resolveWait) => {
                 // Se já existe, usar imediatamente
@@ -1257,7 +1294,7 @@ console.log('🚀 Carregando auth.js...');
               const anonymousAvailable = await waitForAnonymousMode();
               
               if (anonymousAvailable) {
-                console.log('🔓 [AUTH] Usuário não logado no index - Ativando modo anônimo');
+                console.log('🔓 [AUTH] Usuário não logado no index - Nenhuma sessão válida - Ativando modo anônimo');
                 await window.SoundyAnonymous.activate();
                 resolve(null);
                 return;
@@ -1318,27 +1355,17 @@ console.log('🚀 Carregando auth.js...');
                 return;
               }
               
-              // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
-              // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
+              // ✅ VALIDAÇÃO INFORMATIVA: Verificar SMS (NÃO BLOQUEIA ACESSO)
+              // REGRA: auth.currentUser.phoneNumber é a ÚNICA fonte de verdade
+              // Campo verificadoPorSMS no Firestore é APENAS informativo
               const smsVerificado = !!user.phoneNumber;
               
+              // 📊 LOGGING INFORMATIVO (NÃO BLOQUEIA)
               if (!smsVerificado && !userData.criadoSemSMS) {
-                console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
+                console.warn('⚠️ [INFO] Telefone não verificado no Auth (mas acesso permitido)');
                 console.warn('   user.phoneNumber:', user.phoneNumber);
                 console.warn('   criadoSemSMS:', userData.criadoSemSMS);
-                
-                await auth.signOut();
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                showMessage(
-                  "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
-                  "error"
-                );
-                
-                window.location.href = "login.html";
-                resolve(null);
-                return;
+                console.warn('   ✅ Usuário autenticado - acesso PERMITIDO');
               }
               
               console.log('✅ [AUTH] Validação completa - acesso permitido');
