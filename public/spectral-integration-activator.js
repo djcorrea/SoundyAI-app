@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🔌 INTEGRAÇÃO DO NOVO SISTEMA ESPECTRAL
  * Script para ativar e integrar o novo sistema de balanço espectral

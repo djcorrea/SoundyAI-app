@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * Sistema de Labels Amigáveis para Usuários
  * Mapeia nomes técnicos para termos intuitivos

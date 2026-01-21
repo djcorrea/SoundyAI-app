@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔊 LOUDNESS & LRA - ITU-R BS.1770-4 / EBU R128
 // Implementação completa do padrão LUFS com K-weighting e gating
 

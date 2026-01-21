@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎤 VOICE MESSAGE - INTEGRAÇÃO COM CHAT EXISTENTE
 // Adicione este código ao seu arquivo de chat principal
 

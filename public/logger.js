@@ -8,88 +8,84 @@
  * IMPORTANTE: NÃO modificar este arquivo sem autorização
  */
 
-// ===========================
-// FLAG GLOBAL DE DEBUG
-// ===========================
-// Altere para true para ativar logs no ambiente de desenvolvimento
-const DEBUG = false;
-
-/**
- * Log padrão (informações gerais)
- * Substitui: console.log()
- */
-function log(...args) {
-  if (DEBUG) {
-    console.log(...args);
+(function() {
+  'use strict';
+  
+  // ===========================
+  // FLAG GLOBAL DE DEBUG
+  // ===========================
+  // Altere para true para ativar logs no ambiente de desenvolvimento
+  var DEBUG = false;
+  
+  /**
+   * Log padrão (informações gerais)
+   * Substitui: console.log()
+   */
+  function log() {
+    if (DEBUG && console && console.log) {
+      console.log.apply(console, arguments);
+    }
   }
-}
-
-/**
- * Log de aviso (warnings não críticos)
- * Substitui: console.warn()
- */
-function warn(...args) {
-  if (DEBUG) {
-    console.warn(...args);
+  
+  /**
+   * Log de aviso (warnings não críticos)
+   * Substitui: console.warn()
+   */
+  function warn() {
+    if (DEBUG && console && console.warn) {
+      console.warn.apply(console, arguments);
+    }
   }
-}
-
-/**
- * Log de erro (erros e exceções)
- * Substitui: console.error()
- */
-function error(...args) {
-  if (DEBUG) {
-    console.error(...args);
+  
+  /**
+   * Log de erro (erros e exceções)
+   * Substitui: console.error()
+   */
+  function error() {
+    if (DEBUG && console && console.error) {
+      console.error.apply(console, arguments);
+    }
   }
-}
-
-/**
- * Log de informação (alias para log)
- * Para manter compatibilidade com código existente
- */
-function info(...args) {
-  if (DEBUG) {
-    console.info(...args);
+  
+  /**
+   * Log de informação (alias para log)
+   * Para manter compatibilidade com código existente
+   */
+  function info() {
+    if (DEBUG && console && console.info) {
+      console.info.apply(console, arguments);
+    }
   }
-}
-
-/**
- * Log de debug (informações técnicas detalhadas)
- * Para manter compatibilidade com código existente
- */
-function debug(...args) {
-  if (DEBUG) {
-    console.debug(...args);
+  
+  /**
+   * Log de debug (informações técnicas detalhadas)
+   * Para manter compatibilidade com código existente
+   */
+  function debug() {
+    if (DEBUG && console && console.debug) {
+      console.debug.apply(console, arguments);
+    }
   }
-}
-
-// ===========================
-// EXPORTAÇÕES
-// ===========================
-// Para uso em módulos ES6
-if (typeof window !== 'undefined') {
-  window.logger = {
-    log,
-    warn,
-    error,
-    info,
-    debug,
-    DEBUG  // Exporta a flag para verificação externa
-  };
-}
-
-// Para uso em Node.js ou módulos CommonJS
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    log,
-    warn,
-    error,
-    info,
-    debug,
-    DEBUG
-  };
-}
-
-// Exportação padrão para ES6 modules
-export { log, warn, error, info, debug, DEBUG };
+  
+  // ===========================
+  // EXPORTAÇÕES GLOBAIS
+  // ===========================
+  // Expor no escopo global (window)
+  if (typeof window !== 'undefined') {
+    window.log = log;
+    window.warn = warn;
+    window.error = error;
+    window.info = info;
+    window.debug = debug;
+    
+    // Também manter objeto logger para compatibilidade
+    window.logger = {
+      log: log,
+      warn: warn,
+      error: error,
+      info: info,
+      debug: debug,
+      DEBUG: DEBUG
+    };
+  }
+})();

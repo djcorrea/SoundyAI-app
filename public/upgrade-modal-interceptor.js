@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🔒 INTERCEPTOR DE BOTÕES PREMIUM - MODO REDUCED
 // Sistema de neutralização de handlers inline para funcionalidades premium
 // REMOVE onclick inline e listeners existentes em modo reduced

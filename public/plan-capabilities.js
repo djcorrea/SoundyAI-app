@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 SISTEMA CENTRALIZADO DE CAPABILITIES - PLANOS SOUNDYAI
 // Single source of truth para decisões de acesso por plano
 // Implementa suporte correto para Plano Plus

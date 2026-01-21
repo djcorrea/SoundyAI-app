@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎵 AUDIO ANALYZER V1 - Ponte para V2 com cache-busting agressivo
 // Versão v1.5-FIXED-CLEAN-NOHIGH sem duplicações (removido "muito alto")
 // Implementação usando Web Audio API (100% gratuito)

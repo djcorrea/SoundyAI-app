@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🎵 AUDIO PROCESSING QUEUE - FASE 1
  * Sistema de fila inteligente para processamento de áudio

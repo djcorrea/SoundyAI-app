@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 💾 CACHE MANAGER - FASE 2
  * Sistema de cache inteligente com fallback para Redis futuro

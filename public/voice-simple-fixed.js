@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /* ============ VOICE MESSAGE ULTRA SIMPLES - PROD.AI ============ */
 /* 🎤 Versão corrigida que resolve os problemas reais */
 

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // Helper para configuração robusta do Firebase
 // Este arquivo pode ajudar a resolver problemas de reCAPTCHA Enterprise
 

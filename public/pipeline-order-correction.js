@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 CORREÇÃO DA ORDEM DO PIPELINE - SCORING APÓS BANDAS ESPECTRAIS
 // 
 // OBJETIVO: Garantir que o scoring execute SOMENTE após as bandas espectrais 

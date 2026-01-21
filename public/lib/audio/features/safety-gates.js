@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🛡️ SAFETY GATES SYSTEM - True Peak Warning Gate
 // Implementação ULTRA CONSERVADORA - apenas warnings, nunca hard fails
 // Não afeta funcionamento do TT-DR ou sistema de scoring existente

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧪 AI SUGGESTION SYSTEM TESTER - Sistema de Teste Automatizado
 // Validação completa da implementação de sugestões IA
 

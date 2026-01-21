@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🔌 INTEGRAÇÃO AUDIO QUEUE - FASE 1
  * Carrega automaticamente o sistema de fila sem quebrar funcionalidade existente

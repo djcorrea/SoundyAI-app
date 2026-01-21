@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧪 TESTE DE VERIFICAÇÃO: Modal de Gênero Musical
 // Este arquivo verifica se a implementação está conforme especificado
 

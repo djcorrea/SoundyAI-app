@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🚀 VALIDADOR DE INTEGRAÇÃO - Sistema Ultra-Avançado SoundyAI
 // Este script monitora e valida se a integração foi bem-sucedida
 

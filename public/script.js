@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 ﻿/* ============ PROD.AI CHATBOT SCRIPT - VERSÃO 2025.01.28-17:12 ============ */
 /* 🛑 CACHE BUSTING: Forçar reload do navegador */
 // Área de conversa do novo layout

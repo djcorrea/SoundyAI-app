@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * =============================================================================
  * SCORE ENGINE V3 - Sistema de Score Realista por Gênero e Modo

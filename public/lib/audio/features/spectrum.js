@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 📊 SPECTRUM ANALYZER - Análise espectral com features avançadas
 // Centroide, rolloff, flux, harmonics e envelope espectral
 

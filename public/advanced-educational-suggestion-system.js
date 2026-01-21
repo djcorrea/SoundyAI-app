@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎓 SISTEMA DE SUGESTÕES EDUCATIVO ULTRA-AVANÇADO
 // O melhor sistema de sugestões do planeta - educativo, intuitivo e contextual
 

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🤖 AI SUGGESTION LAYER - Camada Inteligente de Sugestões SoundyAI
 // Sistema de pós-processamento que enriquece sugestões existentes com IA
 // SEGURANÇA: Nunca substitui o sistema atual - apenas enriquece

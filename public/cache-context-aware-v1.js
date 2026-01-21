@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🎯 CACHE CONTEXT-AWARE V1
  * Sistema de cache que automaticamente invalida entradas obsoletas quando:

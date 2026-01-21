@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🆓 VOICE MESSAGE ECONÔMICO - SEM CUSTOS DE API
 // Usando Web Speech API (GRATUITO) + Análise Local
 

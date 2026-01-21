@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // reference-flow.js
 // 🎯 Controlador ISOLADO e DETERMINÍSTICO para fluxo de Análise de Referência
 // 

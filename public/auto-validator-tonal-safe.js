@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🧪 VALIDADOR AUTOMÁTICO - TONAL BALANCE SAFE V1
  * Sistema de testes automáticos para verificar se a implementação está funcionando

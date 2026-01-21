@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // Script para forçar carregamento do notebook e teclado
 document.addEventListener('DOMContentLoaded', function() {
     log('🔍 Verificando carregamento do notebook e teclado...');

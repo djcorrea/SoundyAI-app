@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🧪 TESTE AUTOMATIZADO: Preservação de Gênero
 // Verifica se o gênero selecionado é preservado durante todo o fluxo
 

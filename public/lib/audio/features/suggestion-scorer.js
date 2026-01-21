@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🎯 SISTEMA DE SCORING E PRIORIZAÇÃO DE SUGESTÕES MELHORADO
 // Implementa z-score normalizado, severidade por cores, prioridade ponderada e dependências
 

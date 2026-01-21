@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // firebase.js - Configuração Firebase Corrigida
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
 import { getAuth } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';

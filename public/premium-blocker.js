@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🛡️ BLOQUEIO INQUEBRÁVEL - MODO REDUCED V2
 // Sistema de defesa em profundidade para bloquear funcionalidades premium
 // NÃO ALTERA LÓGICA EXISTENTE - Apenas adiciona guards e interceptadores

@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 ﻿//  AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
 // Sistema de interface futurista para exibição de sugestões educativas
 

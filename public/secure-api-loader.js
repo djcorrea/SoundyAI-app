@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🔐 Carregador Seguro de API Key - SoundyAI
  * Sistema seguro para carregar API Keys sem expor no código

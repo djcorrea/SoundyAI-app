@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // Script para verificar se os novos targets estão funcionando após o deploy
 
 log('🔍 VERIFICAÇÃO FINAL - NOVOS TARGETS FUNK MANDELA');

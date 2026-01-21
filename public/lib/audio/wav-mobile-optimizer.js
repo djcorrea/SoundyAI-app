@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * 🎵 WAV MOBILE OPTIMIZER - iOS/Android WAV Processing
  * Otimizações específicas para arquivos WAV grandes em dispositivos móveis

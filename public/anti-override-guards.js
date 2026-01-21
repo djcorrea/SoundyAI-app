@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // 🛡️ DESABILITAR PREMIUM-BLOCKER.JS
 // Este script impede que o premium-blocker.js sobrescreva os guards nativos
 

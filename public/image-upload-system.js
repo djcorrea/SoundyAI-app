@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 /**
  * Sistema de Upload e Pré-visualização de Imagens
  * Compatível com o chat existente do SoundyAI

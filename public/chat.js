@@ -1,6 +1,3 @@
-// Sistema Centralizado de Logs - Importado automaticamente
-import { log, warn, error, info, debug } from './logger.js';
-
 // auth.js - CORRIGIDO
 
 // Função necessária para aguardar o Firebase carregar corretamente
