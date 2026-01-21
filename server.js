@@ -19,6 +19,51 @@ import { detectEnvironment, getCorsConfig } from './work/config/environment.js';
 import analyzeRoute from "./work/api/audio/analyze.js";
 import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres
 
+// 🚨 VALIDAÇÃO CRÍTICA DE AMBIENTE
+console.log('\n🔍 [SERVER] ═══════════════════════════════════════');
+console.log('🔍 [SERVER]    VALIDAÇÃO DE VARIÁVEIS CRÍTICAS    ');
+console.log('🔍 [SERVER] ═══════════════════════════════════════\n');
+
+const criticalVars = {
+  'DATABASE_URL': process.env.DATABASE_URL,
+  'REDIS_URL': process.env.REDIS_URL,
+  'FIREBASE_SERVICE_ACCOUNT': process.env.FIREBASE_SERVICE_ACCOUNT,
+  'B2_KEY_ID': process.env.B2_KEY_ID,
+  'B2_APP_KEY': process.env.B2_APP_KEY,
+  'B2_BUCKET_NAME': process.env.B2_BUCKET_NAME,
+};
+
+let hasErrors = false;
+
+for (const [key, value] of Object.entries(criticalVars)) {
+  if (!value) {
+    console.error(`❌ [SERVER] ERRO: ${key} não configurada`);
+    hasErrors = true;
+  } else {
+    // Mascarar valores sensíveis
+    let displayValue = value.toString();
+    if (key.includes('URL') || key.includes('KEY') || key.includes('TOKEN')) {
+      displayValue = displayValue.substring(0, 25) + '...';
+    } else if (key === 'FIREBASE_SERVICE_ACCOUNT') {
+      displayValue = JSON.parse(value).project_id || 'configurado';
+    }
+    console.log(`✅ [SERVER] ${key}: ${displayValue}`);
+  }
+}
+
+if (hasErrors) {
+  console.error('\n💥 [SERVER] ═══════════════════════════════════════');
+  console.error('💥 [SERVER]    ERRO CRÍTICO: Variáveis Ausentes   ');
+  console.error('💥 [SERVER] ═══════════════════════════════════════');
+  console.error('💡 [SERVER] Configure no Railway Dashboard → Variables');
+  console.error('📋 [SERVER] Ambiente:', process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT || 'unknown');
+  console.error('💥 [SERVER] Servidor NÃO será iniciado\n');
+  process.exit(1);
+}
+
+console.log('✅ [SERVER] Todas as variáveis críticas configuradas\n');
+
+// 📋 Logs de configuração (manter para compatibilidade)
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
 console.log("B2_APP_KEY:", process.env.B2_APP_KEY);

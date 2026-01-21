@@ -40,33 +40,47 @@ process.env.SERVICE_NAME = 'worker';
 
 // 🚀 LOG INICIAL: Worker iniciando
 console.log('🚀 [WORKER] ═══════════════════════════════════════');
-console.log('🚀 [WORKER] INICIANDO WORKER REDIS ROBUSTO');
+console.log('🚀 [WORKER]     INICIANDO WORKER REDIS ROBUSTO     ');
 console.log('🚀 [WORKER] ═══════════════════════════════════════');
 console.log(`📋 [WORKER-INIT] PID: ${process.pid}`);
-console.log(`🌍 [WORKER-INIT] ENV: ${process.env.NODE_ENV || 'development'}`);
-console.log(`⏰ [WORKER-INIT] Timestamp: ${new Date().toISOString()}`);
+console.log(`🌍 [WORKER-INIT] ENV: ${process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT || 'development'}`);
+console.log(`⏰ [WORKER-INIT] Timestamp: ${new Date().toISOString()}\n`);
 
 // 🔒 VERIFICAÇÃO CRÍTICA: Environment Variables
-if (!process.env.REDIS_URL) {
-  console.error('❌ REDIS_URL não está definida. Abortando inicialização do worker.');
+console.log('🔍 [WORKER] ═══════════════════════════════════════');
+console.log('🔍 [WORKER]    VALIDAÇÃO DE VARIÁVEIS CRÍTICAS    ');
+console.log('🔍 [WORKER] ═══════════════════════════════════════\n');
+
+const requiredVars = ['REDIS_URL', 'DATABASE_URL', 'B2_KEY_ID', 'B2_APP_KEY', 'B2_BUCKET_NAME'];
+const missingVars = [];
+
+for (const varName of requiredVars) {
+  if (!process.env[varName]) {
+    console.error(`❌ [WORKER] ${varName} não configurada`);
+    missingVars.push(varName);
+  } else {
+    const value = process.env[varName];
+    const masked = value.substring(0, 25) + '...';
+    console.log(`✅ [WORKER] ${varName}: ${masked}`);
+  }
+}
+
+if (missingVars.length > 0) {
+  console.error('\n💥 [WORKER] ═══════════════════════════════════════');
+  console.error(`💥 [WORKER]   ERRO CRÍTICO: ${missingVars.length} Variáveis Ausentes   `);
+  console.error('💥 [WORKER] ═══════════════════════════════════════');
+  console.error('💡 [WORKER] Configure no Railway Dashboard → Variables');
+  console.error('📋 [WORKER] Variáveis faltando:', missingVars.join(', '));
+  console.error('📋 [WORKER] Ambiente:', process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT || 'unknown');
+  console.error('💥 [WORKER] Worker NÃO será iniciado\n');
   process.exit(1);
 }
 
-if (!process.env.DATABASE_URL) {
-  console.error('💥 [WORKER-INIT] ERRO CRÍTICO: DATABASE_URL não configurado');
-  console.error('💡 [WORKER-INIT] Solução: Verificar arquivo .env na pasta work/');
-  process.exit(1);
-}
-
-// 🚀 LOG DA URL REDIS PARA DEBUG (com senha mascarada)
-const maskedRedisUrl = process.env.REDIS_URL.replace(/:[^:]*@/, ':***@');
-console.log('🚀 REDIS_URL atual:', maskedRedisUrl);
+console.log('✅ [WORKER] Todas as variáveis obrigatórias configuradas\n');
 
 // 🔧 DETECÇÃO AUTOMÁTICA DE TLS BASEADA NA URL
 const isTLS = process.env.REDIS_URL.startsWith('rediss://');
-console.log(`🔐 TLS detectado: ${isTLS ? 'SIM' : 'NÃO'}`);
-
-console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
+console.log(`🔐 [WORKER] TLS detectado: ${isTLS ? 'SIM' : 'NÃO'}`);
 
 // 🔧 CONFIGURAÇÃO REDIS COM RETRY/BACKOFF ROBUSTO
 // ⚙️ PARTE 2: Configuração ajustada para evitar timeouts
