@@ -14,7 +14,7 @@
 
 | Arquivo | Motivo |
 |---------|--------|
-| `ANALISE_FEEDBACK_DJ_SISTEMA_COMPLETO.md` | Arquivo de debug mas com referências encontradas |
+| `ANALISE_FEEDBACgK_DJ_SISTEMA_COMPLETO.md` | Arquivo de debug mas com referências encontradas |
 | `ANALISE_IMAGENS_100_FUNCIONANDO.md` | Arquivo de debug mas com referências encontradas |
 | `ANALISE_IMAGENS_FUNCIONANDO.md` | Arquivo de debug mas com referências encontradas |
 | `ATUALIZACAO_PROBLEMAS_MIX.md` | Arquivo de debug mas com referências encontradas |
