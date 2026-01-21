@@ -5,6 +5,19 @@ let pool;
 
 function getPool() {
   if (!pool) {
+    // 🚨 CRÍTICO: Validar DATABASE_URL antes de criar pool
+    if (!process.env.DATABASE_URL) {
+      console.error('💥 [DB] ERRO CRÍTICO: DATABASE_URL não configurado');
+      console.error('💡 [DB] Verifique as variáveis no Railway Dashboard → Variables');
+      console.error('📋 [DB] Ambiente:', process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT || 'unknown');
+      throw new Error('DATABASE_URL environment variable not configured');
+    }
+    
+    // 🔍 Log de diagnóstico (com senha mascarada)
+    const maskedUrl = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':***@');
+    console.log(`🔗 [DB] Conectando ao PostgreSQL: ${maskedUrl.substring(0, 60)}...`);
+    console.log(`🌍 [DB] Ambiente: ${process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT || 'development'}`);
+    
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       max: 2,                          // Máximo 2 conexões por worker
@@ -18,7 +31,9 @@ function getPool() {
     });
 
     pool.on('error', (err) => {
-      console.error('❌ [DB] Erro na conexão com o banco:', err);
+      console.error('❌ [DB] Erro na conexão com o banco:', err.message);
+      console.error('💡 [DB] Verifique DATABASE_URL no Railway Dashboard');
+      console.error('📋 [DB] Código de erro:', err.code);
     });
 
     // Log apenas na primeira criação do pool
