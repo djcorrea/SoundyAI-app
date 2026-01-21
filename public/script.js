@@ -68,34 +68,52 @@ window.AuthGate = {
    * @returns {boolean}
    */
   isAuthenticated() {
-    // 1. Verificar Firebase currentUser
+    // 1. Verificar Firebase currentUser (FONTE DE VERDADE PRIMÁRIA)
     const hasFirebaseUser = !!(window.auth?.currentUser);
     
     // 2. Verificar tokens no localStorage
     const hasIdToken = !!(localStorage.getItem('idToken'));
     const hasAuthToken = !!(localStorage.getItem('authToken'));
     
-    // 3. Verificar se modo anônimo está FORÇADO
+    // ✅ REGRA ABSOLUTA: Se tem Firebase currentUser, está autenticado
+    // NÃO importa se SoundyAnonymous está ativo - Firebase Auth é a verdade
+    if (hasFirebaseUser) {
+      console.log('✅ [AuthGate] Firebase currentUser existe - usuário AUTENTICADO');
+      
+      // Se modo anônimo estava ativo mas temos usuário, DESATIVAR anônimo
+      if (window.SoundyAnonymous?.isAnonymousMode) {
+        console.log('🔄 [AuthGate] Desativando modo anônimo (usuário autenticado)');
+        if (typeof window.SoundyAnonymous.deactivate === 'function') {
+          window.SoundyAnonymous.deactivate();
+        } else {
+          window.SoundyAnonymous.isAnonymousMode = false;
+        }
+      }
+      
+      return true;
+    }
+    
+    // 3. Se não tem Firebase user, verificar se tem tokens salvos
+    const hasTokens = hasIdToken || hasAuthToken;
+    
+    // 4. Verificar se modo anônimo está FORÇADO (apenas se não tem tokens)
     const isAnonymousForced = window.SoundyAnonymous?.isAnonymousMode === true;
     const forceClean = window.SoundyAnonymous?.forceCleanState === true;
     
-    // Se modo anônimo foi forçado (pós-logout), BLOQUEAR autenticação
-    if (isAnonymousForced || forceClean) {
-      console.log('🔒 [AuthGate] Modo anônimo forçado - bloqueando autenticação');
+    // Se modo anônimo foi forçado E não tem tokens, não está autenticado
+    if ((isAnonymousForced || forceClean) && !hasTokens) {
+      console.log('🔒 [AuthGate] Modo anônimo forçado e sem tokens - não autenticado');
       return false;
     }
     
-    // Usuário está autenticado se tem Firebase user E tem token
-    const isAuth = hasFirebaseUser && (hasIdToken || hasAuthToken);
+    // Se tem tokens mas não tem Firebase user, pode ser race condition
+    if (hasTokens && !hasFirebaseUser) {
+      console.log('⏳ [AuthGate] Tokens existem mas Firebase user não - aguardando sincronização');
+      return true; // Considerar autenticado temporariamente
+    }
     
-    console.log('🔐 [AuthGate] isAuthenticated:', isAuth, {
-      hasFirebaseUser,
-      hasIdToken,
-      hasAuthToken,
-      isAnonymousForced
-    });
-    
-    return isAuth;
+    console.log('🔐 [AuthGate] isAuthenticated: false (sem Firebase user nem tokens)');
+    return false;
   },
   
   /**
@@ -1716,18 +1734,18 @@ async function processMessage(message, images = []) {
       }
     }
 
-    // 🔓 ESCOLHER ENDPOINT: Usar AuthGate se disponível, senão fallback para lógica atual
+    // 🔓 ESCOLHER ENDPOINT: Baseado no token obtido (fonte de verdade)
     let chatEndpoint;
-    if (window.AuthGate) {
+    
+    // ✅ REGRA ABSOLUTA: Se temos idToken válido, SEMPRE usar endpoint autenticado
+    // NÃO depender do AuthGate para usuários já autenticados com token
+    if (idToken && currentUser) {
+      // Usuário autenticado com token válido = SEMPRE endpoint autenticado
+      chatEndpoint = API_CONFIG.chatEndpoint;
+      console.log('✅ [CHAT] Token válido presente - usando endpoint autenticado');
+    } else if (window.AuthGate) {
+      // Só usar AuthGate para decidir se NÃO temos token
       chatEndpoint = window.AuthGate.getEndpoint('chat');
-      
-      // Validação extra: bloquear chamada autenticada se AuthGate diz que não está autenticado
-      if (!isAnonymous && !window.AuthGate.isAuthenticated()) {
-        console.warn('⚠️ [CHAT] AuthGate indica que não está autenticado - forçando modo anônimo');
-        chatEndpoint = API_CONFIG.chatAnonymousEndpoint;
-        // Remover Authorization header se existir
-        delete requestHeaders['Authorization'];
-      }
     } else {
       chatEndpoint = isAnonymous 
         ? API_CONFIG.chatAnonymousEndpoint 
