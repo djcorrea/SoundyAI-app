@@ -56,6 +56,7 @@ app.get(["/demo", "/demo.html"], (req, res) => {
 
 // �👉 Servir arquivos estáticos SEM index automático
 // 🔥 FORÇA NO-CACHE para arquivos .js (evitar cache no Railway CDN)
+// 🎵 Configura MIME type correto para arquivos WAV
 app.use(
   express.static(path.join(__dirname, "public"), {
     index: false,
@@ -66,6 +67,11 @@ app.use(
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
         console.log('🔥 [NO-CACHE] Servindo:', path.basename(filePath));
+      }
+      // Configura MIME type correto para arquivos WAV
+      if (filePath.endsWith('.wav')) {
+        res.setHeader('Content-Type', 'audio/wav');
+        console.log('🎵 [WAV] Servindo:', path.basename(filePath));
       }
     }
   })
