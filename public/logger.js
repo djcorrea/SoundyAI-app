@@ -15,7 +15,7 @@
   // FLAG GLOBAL DE DEBUG
   // ===========================
   // Altere para true para ativar logs no ambiente de desenvolvimento
-  var DEBUG = false;
+  var DEBUG = true;
   
   /**
    * Log padrão (informações gerais)
