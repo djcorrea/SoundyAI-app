@@ -8,7 +8,7 @@ import { chatLimiter } from '../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiti
 import { getUserPlan, hasEntitlement, buildPlanRequiredResponse } from '../lib/entitlements.js';
 
 // ✅ CONFIGURAÇÃO CENTRALIZADA DE AMBIENTE
-import { getCorsConfig } from '../config/environment.js';
+import { getCorsConfig, getEnvironmentFeatures } from '../config/environment.js';
 
 const auth = getAuth();
 const db = getFirestore();
@@ -23,6 +23,20 @@ export const config = {
     bodyParser: false,
   },
 };
+
+/**
+ * 🧪 Detecta se a requisição vem do frontend de TESTE
+ * @param {Object} req - Request do Express
+ * @returns {boolean}
+ */
+function isTestEnvironmentRequest(req) {
+  const origin = req.headers.origin || req.headers.referer || '';
+  const testOrigins = [
+    'https://soundyai-teste.vercel.app',
+    'https://soundyai-app-soundyai-teste.up.railway.app'
+  ];
+  return testOrigins.some(testOrigin => origin.includes(testOrigin));
+}
 
 // ✅ Função para processar multipart/form-data (versão Vercel-friendly)
 async function parseMultipart(req) {
@@ -873,6 +887,9 @@ async function handlerWithoutRateLimit(req, res) {
     // ✅ VALIDAR LIMITES DE CHAT COM SISTEMA DE PLANOS
     console.log(`📊 [${requestId}] Verificando limites de chat para UID: ${uid}`);
     
+    // 🧪 TESTE: Detectar se a requisição vem do ambiente de teste
+    const isTestRequest = isTestEnvironmentRequest(req);
+    
     let chatCheck;
     
     if (isDemoMode) {
@@ -890,6 +907,20 @@ async function handlerWithoutRateLimit(req, res) {
         }
       };
       console.log(`🔥 [${requestId}] DEMO MODE: Limites controlados pelo frontend`);
+    } else if (isTestRequest) {
+      // 🧪 TESTE: Liberar chat sempre que usuário estiver autenticado
+      chatCheck = {
+        allowed: true,
+        test: true,
+        remaining: 9999,
+        user: {
+          uid: uid,
+          email: email,
+          plan: 'test-unlimited',
+          entrevistaConcluida: true
+        }
+      };
+      console.log(`🧪 [${requestId}] TESTE: Chat liberado (ambiente de teste, usuário autenticado)`);
     } else {
       try {
         // ✅ NOVO: Passar hasImages para verificar limite de imagens no PRO
@@ -963,19 +994,28 @@ async function handlerWithoutRateLimit(req, res) {
         message.includes('True Peak:')
       ));
     
+    // 🧪 TESTE: Liberar chat para ambiente de teste (usuário autenticado)
+    const isTestRequest = isTestEnvironmentRequest(req);
+    
     if (isAskAIFeature && !isDemoMode) {
       console.log(`🔐 [${requestId}] ENTITLEMENTS: Detectado uso de "Pedir Ajuda à IA"`);
       
-      // Buscar plano do usuário
-      const userDoc = await db.collection('usuarios').doc(uid).get();
-      const userDocData = userDoc.exists ? userDoc.data() : null;
-      const userPlan = getUserPlan(userDocData);
-      
-      console.log(`🔐 [${requestId}] ENTITLEMENTS: Plano do usuário: ${userPlan}`);
-      
-      if (!hasEntitlement(userPlan, 'askAI')) {
-        console.log(`🔐 [${requestId}] ENTITLEMENTS: ❌ BLOQUEADO: Pedir Ajuda à IA requer PRO, usuário tem ${userPlan}`);
-        return sendResponse(403, buildPlanRequiredResponse('askAI', userPlan));
+      // 🧪 Bypassar validação de plano em TESTE
+      if (isTestRequest) {
+        console.log(`🧪 [${requestId}] TESTE: Liberando "Pedir Ajuda à IA" (ambiente de teste)`);
+      } else {
+        // 🔐 PRODUÇÃO: Validação normal de entitlements
+        // Buscar plano do usuário
+        const userDoc = await db.collection('usuarios').doc(uid).get();
+        const userDocData = userDoc.exists ? userDoc.data() : null;
+        const userPlan = getUserPlan(userDocData);
+        
+        console.log(`🔐 [${requestId}] ENTITLEMENTS: Plano do usuário: ${userPlan}`);
+        
+        if (!hasEntitlement(userPlan, 'askAI')) {
+          console.log(`🔐 [${requestId}] ENTITLEMENTS: ❌ BLOQUEADO: Pedir Ajuda à IA requer PRO, usuário tem ${userPlan}`);
+          return sendResponse(403, buildPlanRequiredResponse('askAI', userPlan));
+        }
       }
       
       console.log(`🔐 [${requestId}] ENTITLEMENTS: ✅ Pedir Ajuda à IA permitido para plano ${userPlan}`);
