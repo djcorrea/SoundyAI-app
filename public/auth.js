@@ -216,13 +216,13 @@ log('🚀 Carregando auth.js...');
           error('❌ Erro ao buscar dados do usuário:', e);
           window.location.href = "entrevista.html";
         }
-      } catch (error) {
-        error('❌ Erro no login:', error);
+      } catch (err) {
+        error('❌ Erro no login:', err);
         
         let errorMessage = "Erro ao fazer login: ";
         
         // Tratamento específico de erros Firebase para login
-        switch (error.code) {
+        switch (err.code) {
           case 'auth/user-not-found':
             errorMessage = "E-mail não encontrado. Verifique o e-mail ou crie uma conta.";
             break;
@@ -245,7 +245,7 @@ log('🚀 Carregando auth.js...');
             errorMessage = "Credenciais inválidas. Verifique e-mail e senha.";
             break;
           default:
-            errorMessage += error.message;
+            errorMessage += err.message;
         }
         
         showMessage(errorMessage, "error");
@@ -262,8 +262,8 @@ log('🚀 Carregando auth.js...');
       try {
         await sendPasswordResetEmail(auth, email);
         showMessage("Link de redefinição enviado para seu e-mail!", "success");
-      } catch (error) {
-        showMessage(error, "error");
+      } catch (err) {
+        showMessage(err.message || "Erro ao enviar e-mail", "error");
       }
     }
 
@@ -351,13 +351,13 @@ log('🚀 Carregando auth.js...');
           window.location.href = 'index.html';
         }, 2000);
 
-      } catch (error) {
-        error('❌ Erro no cadastro direto:', error);
+      } catch (err) {
+        error('❌ Erro no cadastro direto:', err);
         
         let errorMessage = "Erro ao criar conta: ";
         
         // Tratamento específico de erros Firebase
-        switch (error.code) {
+        switch (err.code) {
           case 'auth/email-already-in-use':
             errorMessage = "Este e-mail já está em uso. Tente fazer login ou use outro e-mail.";
             break;
@@ -731,13 +731,13 @@ log('🚀 Carregando auth.js...');
         showMessage("Enviando e-mail de recuperação...", "success");
         await sendPasswordResetEmail(auth, email);
         showMessage("E-mail de recuperação enviado! Verifique sua caixa de entrada.", "success");
-      } catch (error) {
-        error('❌ Erro ao enviar e-mail de recuperação:', error);
+      } catch (err) {
+        error('❌ Erro ao enviar e-mail de recuperação:', err);
         let errorMessage = "Erro ao enviar e-mail de recuperação.";
         
-        if (error.code === 'auth/user-not-found') {
+        if (err.code === 'auth/user-not-found') {
           errorMessage = "E-mail não encontrado. Verifique se digitou corretamente.";
-        } else if (error.code === 'auth/invalid-email') {
+        } else if (err.code === 'auth/invalid-email') {
           errorMessage = "E-mail inválido. Digite um e-mail válido.";
         }
         
@@ -1386,8 +1386,8 @@ log('🚀 Carregando auth.js...');
                 }, 1000);
               }
               
-            } catch (error) {
-              error('❌ [AUTH] Erro ao verificar Firestore:', error);
+            } catch (err) {
+              error('❌ [AUTH] Erro ao verificar Firestore:', err);
               
               // ✅ ERRO TRANSITÓRIO - NÃO DESLOGAR
               // Pode ser problema de rede, Firestore offline, etc.
@@ -1609,11 +1609,11 @@ log('🚀 Carregando auth.js...');
           error('❌ [AUTH-LISTENER] ERRO CRÍTICO: Documento não foi criado após setDoc!');
         }
         
-      } catch (error) {
-        error('❌ [AUTH-LISTENER] Erro ao processar Firestore:', error);
-        error('   Código:', error.code);
-        error('   Mensagem:', error.message);
-        error('   Stack:', error.stack);
+      } catch (err) {
+        error('❌ [AUTH-LISTENER] Erro ao processar Firestore:', err);
+        error('   Código:', err.code);
+        error('   Mensagem:', err.message);
+        error('   Stack:', err.stack);
         // NÃO remover metadados - retry na próxima inicialização
       }
     });
@@ -1630,7 +1630,7 @@ log('🚀 Carregando auth.js...');
 
     log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
 
-  } catch (error) {
-    error('❌ Erro crítico ao carregar auth.js:', error);
+  } catch (err) {
+    error('❌ Erro crítico ao carregar auth.js:', err);
   }
 })();
