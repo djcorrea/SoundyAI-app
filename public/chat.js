@@ -349,6 +349,18 @@ function checkAuthState() {
       
       // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo ao invés de redirecionar
       if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+        // ✅ ANTES DE ATIVAR ANÔNIMO: Verificar se há sessão autenticada no localStorage
+        const hasIdToken = localStorage.getItem('idToken');
+        const hasAuthToken = localStorage.getItem('authToken');
+        const hasUser = localStorage.getItem('user');
+        
+        if (hasIdToken || hasAuthToken || hasUser) {
+          console.log('⏳ [CHAT] Timeout mas sessão existe - aguardando Firebase Auth...');
+          // NÃO ativar modo anônimo - usuário está autenticado mas Firebase está lento
+          resolve(null);
+          return;
+        }
+        
         console.log('🔓 [CHAT] Timeout - Ativando modo anônimo');
         window.SoundyAnonymous.activate();
         resolve(null);
@@ -371,6 +383,18 @@ function checkAuthState() {
       if (!user && !isLoginPage) {
         // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
         if (isIndexPage && window.SoundyAnonymous && window.SoundyAnonymous.isEnabled) {
+          // ✅ ANTES DE ATIVAR ANÔNIMO: Verificar se há sessão autenticada no localStorage
+          const hasIdToken = localStorage.getItem('idToken');
+          const hasAuthToken = localStorage.getItem('authToken');
+          const hasUser = localStorage.getItem('user');
+          
+          if (hasIdToken || hasAuthToken || hasUser) {
+            console.log('⏳ [CHAT] Firebase Auth não detectou usuário mas sessão existe - recarregando...');
+            // Firebase Auth está dessincronizado - forçar recarga
+            window.location.reload();
+            return;
+          }
+          
           console.log('🔓 [CHAT] Usuário não logado no index - Ativando modo anônimo');
           await window.SoundyAnonymous.activate();
           resolve(null);

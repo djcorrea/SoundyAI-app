@@ -167,6 +167,11 @@ console.log('🚀 Carregando auth.js...');
         localStorage.setItem("authToken", idToken);
         localStorage.setItem("idToken", idToken); // Manter compatibilidade
         console.log('✅ [AUTH] Token salvo no localStorage como authToken');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
+        // ═══════════════════════════════════════════════════════════════════
+        await initializeSessionAfterSignup(result.user, idToken);
 
         try {
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
@@ -333,6 +338,11 @@ console.log('🚀 Carregando auth.js...');
           telefone: phone,
           plano: 'gratis'
         }));
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
+        // ═══════════════════════════════════════════════════════════════════
+        await initializeSessionAfterSignup(user, idToken);
 
         showMessage("✅ Conta criada com sucesso! Redirecionando...", "success");
         
@@ -926,6 +936,11 @@ console.log('🚀 Carregando auth.js...');
         console.log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
         console.log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
         
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
+        // ═══════════════════════════════════════════════════════════════════
+        await initializeSessionAfterSignup(userResult.user, freshToken);
+        
       } catch (authError) {
         // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
         console.error('❌ [AUTH-ERROR] Falha crítica na autenticação:', authError);
@@ -985,7 +1000,77 @@ console.log('🚀 Carregando auth.js...');
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // 🔐 FUNÇÃO DE LOGOUT ROBUSTA - LIMPEZA COMPLETA DE ESTADO
+    // � FUNÇÃO AUXILIAR: Inicializar sessão completa após cadastro
+    // ═══════════════════════════════════════════════════════════════════
+    async function initializeSessionAfterSignup(user, freshToken) {
+      console.log('🔐 [SESSION] Inicializando sessão completa após cadastro...');
+      
+      try {
+        // 1️⃣ Marcar autenticação como pronta
+        window.__AUTH_READY__ = true;
+        localStorage.setItem('hasAuthToken', 'true');
+        console.log('✅ [SESSION] Estado de autenticação marcado como pronto');
+        
+        // 2️⃣ Garantir que o token está salvo
+        localStorage.setItem("idToken", freshToken);
+        localStorage.setItem("authToken", freshToken);
+        console.log('✅ [SESSION] Token revalidado e salvo');
+        
+        // 3️⃣ Inicializar Visitor ID se não existir
+        let visitorId = localStorage.getItem('visitorId');
+        if (!visitorId) {
+          // Tentar obter via FingerprintJS se disponível
+          if (window.SoundyFingerprint) {
+            try {
+              const fpData = await window.SoundyFingerprint.get();
+              visitorId = fpData.fingerprint_hash;
+              console.log('✅ [SESSION] Visitor ID obtido via FingerprintJS');
+            } catch (fpError) {
+              console.warn('⚠️ [SESSION] Erro ao obter fingerprint, gerando fallback');
+              visitorId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+          } else {
+            // Gerar visitor ID simples
+            visitorId = 'visitor_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            console.log('✅ [SESSION] Visitor ID gerado (fallback)');
+          }
+          
+          localStorage.setItem('visitorId', visitorId);
+          console.log('✅ [SESSION] Visitor ID salvo:', visitorId.substring(0, 16) + '...');
+        } else {
+          console.log('✅ [SESSION] Visitor ID já existe:', visitorId.substring(0, 16) + '...');
+        }
+        
+        // 4️⃣ Salvar UID para referência rápida
+        localStorage.setItem('currentUserId', user.uid);
+        console.log('✅ [SESSION] UID salvo para referência rápida:', user.uid);
+        
+        // 5️⃣ Marcar modo autenticado
+        localStorage.setItem('chatMode', 'authenticated');
+        localStorage.removeItem('anonymousMode'); // Remover flag anônimo se existir
+        console.log('✅ [SESSION] Modo de chat definido como: authenticated');
+        
+        // 6️⃣ Desativar modo anônimo explicitamente
+        if (window.SoundyAnonymous && typeof window.SoundyAnonymous.deactivate === 'function') {
+          window.SoundyAnonymous.deactivate();
+          console.log('✅ [SESSION] Modo anônimo desativado (SoundyAnonymous.deactivate)');
+        }
+        
+        console.log('🎉 [SESSION] Sessão completa inicializada com sucesso!');
+        console.log('   UID:', user.uid);
+        console.log('   Token válido: sim');
+        console.log('   Visitor ID: sim');
+        console.log('   Modo: authenticated');
+        
+        return true;
+      } catch (sessionError) {
+        console.error('❌ [SESSION] Erro ao inicializar sessão:', sessionError);
+        return false;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // �🔐 FUNÇÃO DE LOGOUT ROBUSTA - LIMPEZA COMPLETA DE ESTADO
     // ═══════════════════════════════════════════════════════════════════
     async function logout() {
       console.log('🔓 [LOGOUT] Iniciando processo de logout completo...');
