@@ -179,10 +179,15 @@ console.log('🚀 Carregando auth.js...');
           
           const userData = snap.data();
           
-          // ✅ VALIDAÇÃO OBRIGATÓRIA: Bloquear se telefone não verificado
-          if (!userData.verificadoPorSMS && !userData.criadoSemSMS) {
-            // Conta criada mas telefone não verificado - forçar logout
-            console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado');
+          // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
+          // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
+          const smsVerificado = !!result.user.phoneNumber;
+          
+          if (!smsVerificado && !userData.criadoSemSMS) {
+            // Conta criada mas telefone não verificado no Auth - forçar logout
+            console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
+            console.warn('   user.phoneNumber:', result.user.phoneNumber);
+            console.warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
             localStorage.clear();
             showMessage(
@@ -190,6 +195,10 @@ console.log('🚀 Carregando auth.js...');
               "error"
             );
             return;
+          }
+          
+          if (smsVerificado) {
+            console.log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
           }
           
           // Prosseguir com navegação normal
@@ -1199,11 +1208,13 @@ console.log('🚀 Carregando auth.js...');
                 return;
               }
               
-              // ✅ VALIDAÇÃO OBRIGATÓRIA: Bloquear apenas se telefone NÃO verificado
-              // IMPORTANTE: Não bloquear se criadoSemSMS === true (usuários legados)
-              if (!userData.verificadoPorSMS && !userData.criadoSemSMS) {
-                console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado');
-                console.warn('   verificadoPorSMS:', userData.verificadoPorSMS);
+              // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
+              // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
+              const smsVerificado = !!user.phoneNumber;
+              
+              if (!smsVerificado && !userData.criadoSemSMS) {
+                console.warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
+                console.warn('   user.phoneNumber:', user.phoneNumber);
                 console.warn('   criadoSemSMS:', userData.criadoSemSMS);
                 
                 await auth.signOut();
@@ -1221,7 +1232,8 @@ console.log('🚀 Carregando auth.js...');
               }
               
               console.log('✅ [AUTH] Validação completa - acesso permitido');
-              console.log('   verificadoPorSMS:', userData.verificadoPorSMS);
+              console.log('   SMS verificado (Auth):', smsVerificado);
+              console.log('   user.phoneNumber:', user.phoneNumber);
               console.log('   criadoSemSMS:', userData.criadoSemSMS);
               
               // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
@@ -1331,7 +1343,7 @@ console.log('🚀 Carregando auth.js...');
       
       try {
         // Importar Firestore dinamicamente
-        const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
         // ✅ SEMPRE verificar se documento existe
         const userRef = doc(db, 'usuarios', user.uid);
@@ -1339,6 +1351,39 @@ console.log('🚀 Carregando auth.js...');
         
         if (userSnap.exists()) {
           console.log('✅ [AUTH-LISTENER] Documento já existe no Firestore');
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
+          // ═══════════════════════════════════════════════════════════════════
+          if (user.phoneNumber) {
+            const userData = userSnap.data();
+            
+            // Se Firestore ainda marca como não verificado, sincronizar
+            if (!userData.verificadoPorSMS) {
+              console.log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
+              console.log('   user.phoneNumber:', user.phoneNumber);
+              console.log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
+              console.log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
+              
+              try {
+                await updateDoc(userRef, {
+                  verificadoPorSMS: true,
+                  telefone: user.phoneNumber,
+                  smsVerificadoEm: serverTimestamp(),
+                  updatedAt: new Date().toISOString()
+                });
+                
+                console.log('✅ [SMS-SYNC] Firestore atualizado para verificado');
+                console.log('   verificadoPorSMS: true');
+                console.log('   telefone:', user.phoneNumber);
+              } catch (syncError) {
+                console.error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
+              }
+            } else {
+              console.log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
+            }
+          }
+          
           // Limpar metadados se existirem
           const cadastroMetadata = localStorage.getItem('cadastroMetadata');
           if (cadastroMetadata) {
@@ -1374,16 +1419,18 @@ console.log('🚀 Carregando auth.js...');
         
         // ✅ OBTER DADOS: Preferir metadados, fallback para user
         const email = metadata?.email || user.email || '';
-        const telefone = metadata?.telefone || user.phoneNumber || '';
+        const telefone = user.phoneNumber || metadata?.telefone || ''; // ✅ Auth é a verdade
         const deviceId = metadata?.deviceId || 'fallback_' + Date.now();
         const criadoSemSMS = metadata?.criadoSemSMS || false;
-        const verificadoPorSMS = !!telefone && !criadoSemSMS;
+        
+        // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
+        const verificadoPorSMS = !!user.phoneNumber;
         
         console.log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
         console.log('   Email:', email);
         console.log('   Telefone:', telefone);
         console.log('   DeviceID:', deviceId?.substring(0, 16) + '...');
-        console.log('   verificadoPorSMS:', verificadoPorSMS);
+        console.log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
         console.log('   criadoSemSMS:', criadoSemSMS);
         
         // ✅ CRIAR DOCUMENTO
