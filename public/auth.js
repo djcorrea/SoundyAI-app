@@ -292,30 +292,22 @@ console.log('🚀 Carregando auth.js...');
         
         console.log('✅ Usuário criado:', user.uid);
         
-        // Salvar telefone no perfil do usuário (sem verificação SMS)
-        try {
-          const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-          
-          // ✅ SCHEMA ATUALIZADO - Compatível com userPlans.js
-          await setDoc(doc(db, 'usuarios', user.uid), {
-            uid: user.uid,
-            email: user.email,
-            telefone: phone,
-            plan: "free", // ✅ Novo schema: "plan" ao invés de "plano"
-            messagesToday: 0, // ✅ Novo schema: messagesToday
-            analysesToday: 0, // ✅ Novo schema: analysesToday
-            lastResetAt: new Date().toISOString().slice(0, 10), // ✅ Formato YYYY-MM-DD
-            verificadoPorSMS: false, // Indicar que não foi verificado por SMS
-            criadoSemSMS: true, // Indicar que foi criado no modo sem SMS
-            entrevistaConcluida: false, // Inicialmente false até fazer entrevista
-            createdAt: new Date().toISOString(), // ✅ ISO string
-            updatedAt: new Date().toISOString() // ✅ ISO string
-          }, { merge: true }); // ✅ Merge para não sobrescrever dados existentes
-          
-          console.log('✅ Perfil do usuário salvo no Firestore com schema atualizado');
-        } catch (firestoreError) {
-          console.warn('⚠️ Erro ao salvar no Firestore:', firestoreError);
-        }
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 CRÍTICO: NÃO criar Firestore aqui!
+        // O listener global onAuthStateChanged criará após auth estabilizar
+        // ═══════════════════════════════════════════════════════════════════
+        
+        // Salvar metadados para listener criar Firestore
+        localStorage.setItem('cadastroMetadata', JSON.stringify({
+          email: email,
+          telefone: phone,
+          deviceId: 'direct_signup_' + Date.now(),
+          timestamp: new Date().toISOString(),
+          criadoSemSMS: true
+        }));
+        
+        console.log('📌 [DIRECT-SIGNUP] Metadados salvos para criação do Firestore');
+        console.log('   Firestore será criado automaticamente pelo listener global');
 
         // Obter token
         const idToken = await user.getIdToken();
@@ -1385,7 +1377,7 @@ console.log('🚀 Carregando auth.js...');
           billingMonth: new Date().toISOString().slice(0, 7),
           lastResetAt: new Date().toISOString().slice(0, 10),
           verificadoPorSMS: !!telefone,
-          criadoSemSMS: !telefone,
+          criadoSemSMS: !telefone || metadata.criadoSemSMS === true,
           entrevistaConcluida: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
