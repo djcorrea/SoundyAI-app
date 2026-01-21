@@ -140,10 +140,10 @@ async function saveAnalysisToHistory(analysisResult) {
         
         log('🕐 [HISTORY-SAVE] Plano detectado:', userPlan);
         
-        // 3. Verificar se é PRO/DJ/STUDIO
-        // ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
-        const isPro = userPlan === 'pro' || userPlan === 'dj' || userPlan === 'studio';
-        if (!isPro) {
+        // 3. Verificar se é PRO/STUDIO (acesso ao histórico)
+        // ✅ ATUALIZADO 2026-01-21: PRO e STUDIO têm acesso completo ao histórico
+        const hasHistoryAccess = userPlan === 'pro' || userPlan === 'studio';
+        if (!hasHistoryAccess) {
             log(`🕐 [HISTORY-SAVE] ⏭️ Plano "${userPlan}" não tem histórico - pulando`);
             return;
         }
@@ -6818,6 +6818,7 @@ function proceedToAnalysis() {
 }
 
 // Expor funções globalmente para uso nos onclick do HTML
+window.openAudioModal = openAudioModal;
 window.openWelcomeModal = openWelcomeModal;
 window.closeWelcomeModal = closeWelcomeModal;
 window.openTechnicalGuide = openTechnicalGuide;
@@ -14122,7 +14123,7 @@ function insertUpgradeNotice() {
         <div class="upgrade-notice-content">
             <h4>Análises completas esgotadas</h4>
             <p>
-                Métricas avançadas, sugestões IA e diagnósticos disponíveis no plano Plus.
+                Métricas avançadas, sugestões IA e diagnósticos disponíveis no plano Studio.
             </p>
         </div>
         <button class="upgrade-notice-btn" onclick="window.location.href='/planos.html'">

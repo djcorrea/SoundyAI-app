@@ -543,10 +543,11 @@ class ProdAIChatbot {
     handleActionButton(action) {
         switch(action) {
             case 'analyze':
-                if (typeof window.openModeSelectionModal === 'function') {
-                    window.openModeSelectionModal();
+                // ✅ Usar openAudioModal para garantir fluxo completo (welcome → mode → genre/reference)
+                if (typeof window.openAudioModal === 'function') {
+                    window.openAudioModal();
                 } else {
-                    error('openModeSelectionModal não está disponível');
+                    error('openAudioModal não está disponível');
                 }
                 break;
             case 'upgrade':

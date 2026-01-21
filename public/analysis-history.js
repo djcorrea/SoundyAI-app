@@ -20,29 +20,29 @@
     // ═══════════════════════════════════════════════════════════════════
     
     /**
-     * Verifica se usuário tem acesso ao histórico (PRO/DJ/STUDIO)
-     * ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
+     * Verifica se usuário tem acesso ao histórico (PRO/STUDIO)
+     * ✅ ATUALIZADO 2026-01-21: PRO e STUDIO têm acesso completo ao histórico
      * @returns {boolean}
      */
     function hasHistoryAccess() {
         const plan = detectUserPlan();
-        return plan === 'pro' || plan === 'dj' || plan === 'studio';
+        return plan === 'pro' || plan === 'studio';
     }
     
     /**
      * Detecta plano do usuário de múltiplas fontes
-     * ✅ ATUALIZADO 2026-01-06: STUDIO adicionado
-     * @returns {string} 'free' | 'plus' | 'pro' | 'dj' | 'studio'
+     * ✅ ATUALIZADO 2026-01-21: PRO e STUDIO têm acesso completo
+     * @returns {string} 'free' | 'plus' | 'pro' | 'studio'
      */
     function detectUserPlan() {
         // 1. Análise atual
         const analysis = window.currentModalAnalysis || window.__CURRENT_ANALYSIS__;
-        if (analysis?.plan && ['free', 'plus', 'pro', 'dj', 'studio'].includes(analysis.plan)) {
+        if (analysis?.plan && ['free', 'plus', 'pro', 'studio'].includes(analysis.plan)) {
             return analysis.plan;
         }
         
         // 2. window.userPlan
-        if (window.userPlan && ['free', 'plus', 'pro', 'dj', 'studio'].includes(window.userPlan)) {
+        if (window.userPlan && ['free', 'plus', 'pro', 'studio'].includes(window.userPlan)) {
             return window.userPlan;
         }
         

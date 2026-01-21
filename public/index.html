@@ -370,7 +370,7 @@
                     <span>Documento técnico</span>
                 </button>
             </li>
-            <!-- 🕐 HISTÓRICO DE ANÁLISES - APENAS PRO -->
+            <!-- 🕐 HISTÓRICO DE ANÁLISES - PRO e STUDIO -->
             <li id="historyMenuItem" class="history-menu-item" style="display: none;">
                 <button class="side-panel-item" data-action="history">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1650,10 +1650,11 @@
                     
                     switch(action) {
                         case 'analyze':
-                            if (typeof window.openModeSelectionModal === 'function') {
-                                window.openModeSelectionModal();
+                            // ✅ Usar openAudioModal para garantir fluxo completo (welcome → mode → genre/reference)
+                            if (typeof window.openAudioModal === 'function') {
+                                window.openAudioModal();
                             } else {
-                                error('openModeSelectionModal não disponível');
+                                error('openAudioModal não disponível');
                             }
                             break;
                             
@@ -1663,7 +1664,7 @@
                             break;
                             
                         case 'history':
-                            // 🕐 Abrir histórico de análises (PRO only)
+                            // 🕐 Abrir histórico de análises (PRO/STUDIO only)
                             if (window.SoundyHistory && window.SoundyHistory.open) {
                                 window.SoundyHistory.open();
                             } else {
@@ -1703,7 +1704,7 @@
         })();
     </script>
     
-    <!-- 🕐 Sistema de Histórico de Análises (PRO only) -->
+    <!-- 🕐 Sistema de Histórico de Análises (PRO/STUDIO only) -->
     <script src="analysis-history.js?v=20260104" defer></script>
     
     <!-- Scoring Debug Visual (apenas em dev/debug) -->
