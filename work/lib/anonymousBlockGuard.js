@@ -31,10 +31,19 @@ let blocklistTableInitialized = false;
 
 /**
  * Criar tabela anonymous_blocklist se não existir
+ * 🛡️ PROTEÇÃO: Só executa em ambiente DEV
  * Esta tabela é PERMANENTE - nunca expira
  */
 async function ensureBlocklistTable() {
   if (blocklistTableInitialized) return;
+  
+  // 🛡️ PROTEÇÃO: Não criar tabelas em produção/teste
+  const env = process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT;
+  if (env === 'production' || env === 'test') {
+    console.log('⏭️ [BLOCK_GUARD] Pulando criação de tabela (ambiente:', env + ')');
+    blocklistTableInitialized = true; // Marcar como inicializado
+    return;
+  }
   
   try {
     await pool.query(`
@@ -81,12 +90,14 @@ async function ensureBlocklistTable() {
     console.log('✅ [BLOCK_GUARD] Tabela anonymous_blocklist verificada/criada');
   } catch (err) {
     console.error('❌ [BLOCK_GUARD] Erro ao criar tabela blocklist:', err.message);
-    throw err;
+    // 🛡️ PROTEÇÃO: Não crashar se falhar (pode ser permissão)
+    blocklistTableInitialized = true; // Marcar para não tentar novamente
+    console.warn('⚠️ [BLOCK_GUARD] Continuando sem criação de tabela (pode já existir)');
   }
 }
 
-// Inicializar tabela ao carregar módulo
-ensureBlocklistTable().catch(console.error);
+// 🛡️ PROTEÇÃO: NÃO executar automaticamente - tabelas devem existir previamente
+// Em DEV, chamar manualmente ensureBlocklistTable() se necessário
 
 // ═══════════════════════════════════════════════════════════════════
 // UTILITÁRIOS

@@ -44,10 +44,19 @@ let tableInitialized = false;
 
 /**
  * Criar tabela anonymous_usage se não existir
+ * 🛡️ PROTEÇÃO: Só executa em ambiente DEV
  * Esta tabela NUNCA tem TTL - dados são PERMANENTES
  */
 async function ensureTable() {
   if (tableInitialized) return;
+  
+  // 🛡️ PROTEÇÃO: Não criar tabelas em produção/teste
+  const env = process.env.NODE_ENV || process.env.RAILWAY_ENVIRONMENT;
+  if (env === 'production' || env === 'test') {
+    console.log('⏭️ [ANON_LIMITER] Pulando criação de tabela (ambiente:', env + ')');
+    tableInitialized = true; // Marcar como inicializado para não tentar novamente
+    return;
+  }
   
   try {
     await pool.query(`
@@ -78,12 +87,14 @@ async function ensureTable() {
     console.log('✅ [ANON_LIMITER] Tabela anonymous_usage verificada/criada');
   } catch (err) {
     console.error('❌ [ANON_LIMITER] Erro ao criar tabela:', err.message);
-    throw err;
+    // 🛡️ PROTEÇÃO: Não crashar se falhar (pode ser permissão)
+    tableInitialized = true; // Marcar para não tentar novamente
+    console.warn('⚠️ [ANON_LIMITER] Continuando sem criação de tabela (pode já existir)');
   }
 }
 
-// Inicializar tabela ao carregar módulo
-ensureTable().catch(console.error);
+// 🛡️ PROTEÇÃO: NÃO executar automaticamente - tabelas devem existir previamente
+// Em DEV, chamar manualmente ensureTable() se necessário
 
 // ═══════════════════════════════════════════════════════════════════
 // UTILITÁRIOS
