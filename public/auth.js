@@ -798,8 +798,14 @@ console.log('🚀 Carregando auth.js...');
       console.log('   verificationId:', window.confirmationResult.verificationId.substring(0, 20) + '...');
       console.log('   código digitado:', code);
 
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔐 BLOCO 1: AUTENTICAÇÃO (CRÍTICO - Se falhar, abortar)
+      // ═══════════════════════════════════════════════════════════════════
+      let linkedResult = null;
+      let freshToken = null;
+      
       try {
-        // ✅ BUG #4 FIX: Marcar cadastro em progresso para proteger no checkAuthState
+        // ✅ Marcar cadastro em progresso
         window.isNewUserRegistering = true;
         localStorage.setItem('cadastroEmProgresso', 'true');
         console.log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
@@ -810,7 +816,7 @@ console.log('🚀 Carregando auth.js...');
         document.body.style.overflow = '';
         document.documentElement.style.overflow = '';
 
-        // ✅ Confirmar código SMS usando window.confirmationResult
+        // ✅ Confirmar código SMS
         console.log('🔐 [CONFIRM] Criando credential com verificationId...');
         const phoneCredential = PhoneAuthProvider.credential(
           window.confirmationResult.verificationId, 
@@ -821,45 +827,103 @@ console.log('🚀 Carregando auth.js...');
         const phoneResult = await signInWithCredential(auth, phoneCredential);
         console.log('✅ [CONFIRM] Autenticação SMS bem-sucedida:', phoneResult.user.uid);
 
-        // ✅ BUG #5 FIX: Feedback visual
+        // ✅ Vincular e-mail à conta
         showMessage("🔗 Vinculando e-mail...", "success");
+        console.log('🔗 [CONFIRM] Vinculando e-mail:', formEmail);
         
-        // Vincular e-mail à conta usando email do FORMULÁRIO
-        console.log('🔗 [CONFIRM] Vinculando e-mail à conta...');
-        console.log('   Email usado:', formEmail);
         const emailCredential = EmailAuthProvider.credential(formEmail, formPassword);
-        const linkedResult = await linkWithCredential(phoneResult.user, emailCredential);
+        linkedResult = await linkWithCredential(phoneResult.user, emailCredential);
         console.log('✅ [CONFIRM] E-mail vinculado com sucesso');
         
-        // ✅ BUG #1 FIX: Forçar renovação de token após linkWithCredential
-        // Isso garante que auth.currentUser está atualizado e não é null
-        console.log('🔄 [CONFIRM] Renovando token após vinculação...');
-        await linkedResult.user.reload();
-        const freshToken = await linkedResult.user.getIdToken(true); // true = forçar refresh
-        console.log('✅ [CONFIRM] Token renovado - sessão garantida');
-
-        // ✅ BUG #5 FIX: Feedback visual
-        showMessage("💾 Salvando dados...", "success");
-        
-        // ✅ OBTER DEVICE FINGERPRINT (usa FingerprintJS já existente)
-        let deviceId = null;
+        // ✅ Renovar token (pode falhar por rede - mas tentamos)
+        console.log('🔄 [CONFIRM] Renovando token...');
         try {
-          if (window.SoundyFingerprint) {
-            const fpData = await window.SoundyFingerprint.get();
-            deviceId = fpData.fingerprint_hash;
-            console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
-          } else {
-            console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
-            deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-          }
-        } catch (fpError) {
-          console.error('❌ Erro ao obter fingerprint:', fpError);
-          deviceId = 'fp_fallback_' + Date.now();
+          await linkedResult.user.reload();
+          freshToken = await linkedResult.user.getIdToken(true);
+          console.log('✅ [CONFIRM] Token renovado');
+        } catch (tokenError) {
+          console.warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
+          // Usar token sem forçar refresh
+          freshToken = await linkedResult.user.getIdToken();
         }
+        
+        // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens IMEDIATAMENTE
+        console.log('💾 [CONFIRM] Salvando tokens de autenticação...');
+        localStorage.setItem("idToken", freshToken);
+        localStorage.setItem("authToken", freshToken);
+        localStorage.setItem("user", JSON.stringify({
+          uid: linkedResult.user.uid,
+          email: formEmail,
+          telefone: formattedPhone
+        }));
+        console.log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
+        
+      } catch (authError) {
+        // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
+        console.error('❌ [AUTH-ERROR] Falha crítica na autenticação:', authError);
+        console.error('   Código:', authError.code);
+        console.error('   Mensagem:', authError.message);
+        
+        window.isNewUserRegistering = false;
+        localStorage.removeItem('cadastroEmProgresso');
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        
+        let errorMessage = "❌ Erro ao confirmar código: ";
+        
+        if (authError.code === 'auth/invalid-verification-code') {
+          errorMessage = "❌ Código SMS incorreto. Verifique e tente novamente.";
+        } else if (authError.code === 'auth/code-expired') {
+          errorMessage = "❌ Código SMS expirou. Solicite um novo.";
+        } else if (authError.code === 'auth/session-expired') {
+          errorMessage = "❌ Sessão expirou. Recarregue a página e tente novamente.";
+        } else if (authError.code === 'auth/email-already-in-use') {
+          errorMessage = "❌ Este e-mail já está em uso. Faça login ou use outro e-mail.";
+        } else if (authError.code === 'auth/invalid-email') {
+          errorMessage = "❌ E-mail inválido. Verifique o formato.";
+        } else if (authError.code) {
+          errorMessage += firebaseErrorsPt[authError.code] || authError.message;
+        } else {
+          errorMessage += authError.message;
+        }
+        
+        showMessage(errorMessage, "error");
+        return; // ❌ ABORTAR - Autenticação falhou
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════
+      // 💾 BLOCO 2: FIRESTORE (NÃO-CRÍTICO - Se falhar, permitir retry)
+      // ═══════════════════════════════════════════════════════════════════
+      
+      if (!linkedResult) {
+        console.error('❌ [CONFIRM] linkedResult não existe - abortar');
+        return;
+      }
+      
+      showMessage("💾 Salvando dados...", "success");
+      console.log('💾 [FIRESTORE] Iniciando salvamento...');
+      
+      // ✅ OBTER DEVICE FINGERPRINT
+      let deviceId = null;
+      try {
+        if (window.SoundyFingerprint) {
+          const fpData = await window.SoundyFingerprint.get();
+          deviceId = fpData.fingerprint_hash;
+          console.log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
+        } else {
+          console.warn('⚠️ SoundyFingerprint não disponível, usando fallback');
+          deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+      } catch (fpError) {
+        console.error('❌ Erro ao obter fingerprint:', fpError);
+        deviceId = 'fp_fallback_' + Date.now();
+      }
 
-        // ✅ VALIDAR SE DEVICE JÁ POSSUI CONTA (anti-burla)
+      // ✅ TRY-CATCH ESPECÍFICO DO FIRESTORE (não derruba sessão)
+      try {
         const { collection, query, where, getDocs, runTransaction, doc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
+        // Validar device
         const deviceQuery = query(
           collection(db, 'device_mappings'),
           where('deviceId', '==', deviceId)
@@ -868,22 +932,23 @@ console.log('🚀 Carregando auth.js...');
         const deviceSnapshot = await getDocs(deviceQuery);
         
         if (!deviceSnapshot.empty) {
-          // Dispositivo já possui conta vinculada
           const existingDevice = deviceSnapshot.docs[0].data();
           console.warn('⚠️ [ANTI-BURLA] Dispositivo já possui conta:', existingDevice.userId);
           
-          window.isNewUserRegistering = false;
-          localStorage.removeItem('cadastroEmProgresso');
-          
+          // ⚠️ NÃO remover flag - usuário está autenticado
           showMessage(
-            "❌ Este dispositivo já possui uma conta cadastrada. Não é permitido criar múltiplas contas.",
+            "⚠️ Este dispositivo já possui uma conta. Você será redirecionado.",
             "error"
           );
+          
+          setTimeout(() => {
+            window.location.replace("index.html");
+          }, 2000);
           return;
         }
 
-        // ✅ BUG #3 FIX: USAR TRANSACTION COM RETRY AUTOMÁTICO
-        console.log('💾 [CONFIRM] Iniciando Firestore Transaction com retry...');
+        // Transaction com retry
+        console.log('💾 [FIRESTORE] Iniciando Transaction com retry...');
         
         let transactionSuccess = false;
         let retryCount = 0;
@@ -995,75 +1060,47 @@ console.log('🚀 Carregando auth.js...');
           }
         }
         
-        // ✅ GARANTIR QUE USUÁRIO PERMANECE LOGADO
-        console.log('🔐 [CONFIRM] Salvando tokens de autenticação...');
-        console.log('   Email salvo no localStorage:', formEmail);
-        localStorage.setItem("idToken", freshToken);
-        localStorage.setItem("authToken", freshToken);
-        localStorage.setItem("user", JSON.stringify({
-          uid: linkedResult.user.uid,
-          email: formEmail,  // ✅ CRÍTICO: Email do FORMULÁRIO (NUNCA linkedResult.user.email)
-          telefone: formattedPhone
-        }));
-        console.log('✅ [CONFIRM] Tokens salvos - usuário permanecerá logado');
+        // ✅ Transaction completada com sucesso
+        console.log('✅ [FIRESTORE] Dados salvos com sucesso');
         
-        // ✅ Limpar flag de cadastro em progresso
-        window.isNewUserRegistering = false;
-        localStorage.removeItem('cadastroEmProgresso');
+      } catch (firestoreError) {
+        // ⚠️ ERRO DO FIRESTORE (NÃO-CRÍTICO) - Usuário JÁ está autenticado
+        console.error('❌ [FIRESTORE-ERROR] Falha ao salvar no Firestore:', firestoreError);
+        console.error('   Código:', firestoreError.code);
+        console.error('   Mensagem:', firestoreError.message);
         
-        // ✅ DESBLOQUEAR SCROLL novamente (garantia)
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-
-        showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
+        // ✅ USUÁRIO CONTINUA LOGADO - Apenas mostrar aviso
+        showMessage(
+          "⚠️ Cadastro autenticado mas dados não foram salvos completamente. " +
+          "Entre em contato com suporte se o problema persistir.",
+          "error"
+        );
         
-        console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
-        setTimeout(() => {
-          window.location.replace("entrevista.html");
-        }, 1500);
-
-      } catch (error) {
-        console.error('❌ [CONFIRM] Erro no cadastro:', error);
-        console.error('   Tipo:', error.constructor.name);
-        console.error('   Código:', error.code);
-        console.error('   Mensagem:', error.message);
-        console.error('   Stack:', error.stack);
+        console.warn('⚠️ [FIRESTORE] Usuário autenticado apesar do erro no Firestore');
+        console.warn('   UID:', linkedResult.user.uid);
+        console.warn('   Email:', formEmail);
         
-        // ✅ DESBLOQUEAR SCROLL em caso de erro
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-        
-        let errorMessage = "Erro ao finalizar cadastro: ";
-        
-        // Tratamento específico de erros
-        if (error.code === 'auth/invalid-verification-code') {
-          errorMessage = "❌ Código SMS incorreto. Verifique e tente novamente.";
-          console.error('   > Código digitado não corresponde ao enviado');
-        } else if (error.code === 'auth/code-expired') {
-          errorMessage = "❌ Código SMS expirou. Solicite um novo.";
-          console.error('   > Código expirou (tempo limite ultrapassado)');
-        } else if (error.code === 'auth/session-expired') {
-          errorMessage = "❌ Sessão expirou. Recarregue a página e tente novamente.";
-          console.error('   > Sessão de verificação expirou');
-        } else if (error.code === 'auth/invalid-verification-id') {
-          errorMessage = "❌ Sessão inválida. Solicite um novo código SMS.";
-          console.error('   > verificationId inválido ou corrompido');
-        } else if (error.message.includes('Telefone já cadastrado')) {
-          errorMessage = "❌ Este telefone já está em uso. Use outro número.";
-        } else if (error.message.includes('Dispositivo já possui conta')) {
-          errorMessage = "❌ Este dispositivo já possui uma conta cadastrada.";
-        } else if (error.code === 'auth/internal-error') {
-          errorMessage = "❌ Erro interno do Firebase. Tente novamente em alguns segundos.";
-          console.error('   > Possível problema de rede ou timeout');
-          console.error('   > Verifique conexão com Firestore');
-        } else if (error.code) {
-          errorMessage += firebaseErrorsPt[error.code] || error.message;
-        } else {
-          errorMessage += error.message;
-        }
-        
-        showMessage(errorMessage, "error");
+        // Continuar fluxo normalmente - usuário está autenticado
       }
+      
+      // ═══════════════════════════════════════════════════════════════════
+      // ✅ BLOCO 3: FINALIZAÇÃO (SEMPRE EXECUTAR)
+      // ═══════════════════════════════════════════════════════════════════
+      
+      // Limpar flag de cadastro em progresso
+      window.isNewUserRegistering = false;
+      localStorage.removeItem('cadastroEmProgresso');
+      
+      // Desbloquear scroll
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+
+      showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
+      
+      console.log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
+      setTimeout(() => {
+        window.location.replace("entrevista.html");
+      }, 1500);
     }
 
     // ═══════════════════════════════════════════════════════════════════
