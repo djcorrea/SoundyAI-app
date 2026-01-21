@@ -3,21 +3,13 @@ import multer from "multer";
 import AWS from "aws-sdk";
 import cors from "cors";
 import pool from "../db.js";
+import { getCorsConfig } from '../config/environment.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---------- CORS restrito ----------
-app.use(
-  cors({
-    origin: [
-      "https://soundyai.com.br",
-      "https://www.soundyai.com.br",
-      "https://soundyai-app-production.up.railway.app",
-      "http://localhost:3000",
-    ],
-  })
-);
+// ✅ CORS usando configuração centralizada
+app.use(cors(getCorsConfig()));
 
 // ---------- Configuração Backblaze ----------
 const s3 = new AWS.S3({

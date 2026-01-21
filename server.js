@@ -11,6 +11,9 @@ import fs from "fs";
 // 🔑 IMPORTANTE: Carregar .env ANTES de importar outros módulos
 dotenv.config();
 
+// ✅ CONFIGURAÇÃO CENTRALIZADA DE AMBIENTE
+import { detectEnvironment, getCorsConfig } from './work/config/environment.js';
+
 // Rotas principais
 // 🔧 FIX: Usar arquivo correto que suporta referenceJobId e enfileira no Redis/BullMQ
 import analyzeRoute from "./work/api/audio/analyze.js";
@@ -29,12 +32,17 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ✅ Detectar ambiente e configurar CORS dinamicamente
+const currentEnv = detectEnvironment();
+console.log(`🌍 [SERVER-ROOT] Ambiente: ${currentEnv}`);
+
 // Middlewares
 // ⚠️ ATENÇÃO: Webhook Stripe precisa de raw body para validar assinatura HMAC
 // Aplicar express.raw() ANTES de express.json() para a rota específica
 app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
 
-app.use(cors());
+// ✅ CORS configurado dinamicamente por ambiente
+app.use(cors(getCorsConfig(currentEnv)));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
