@@ -554,54 +554,54 @@ class ProdAIChatbot {
     }
     
     waitForPageLoad() {
-        // 🚀 PERFORMANCE FIX: Chat aparece IMEDIATAMENTE, sem aguardar libs pesadas
-        // Antes: aguardava GSAP + Vanta (3-5s de delay)
-        // Depois: apenas DOM ready (< 0.5s)
+        let attempts = 0;
+        const maxAttempts = 200; // Máximo 10 segundos (200 * 50ms)
         
-        const showChatNow = () => {
-            console.log('🚀 [CHAT] Exibindo chat imediatamente (sem aguardar libs visuais)');
+        // Cache do querySelector para evitar consultas repetidas
+        const images = document.querySelectorAll('img');
+        
+        const checkPageReady = () => {
+            // Otimizado: Não fazer querySelectorAll a cada loop
+            let allImagesLoaded = true;
             
-            // Usar CSS puro em vez de GSAP (mais rápido, sem dependências)
-            this.animateInitialAppearanceSimple();
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                if (!img.complete || img.naturalHeight === 0) {
+                    allImagesLoaded = false;
+                    break; // Early exit - mais eficiente que forEach
+                }
+            }
             
-            // Lazy load libs premium após chat estar visível
-            this.loadPremiumFeaturesLater();
+            const librariesLoaded = typeof gsap !== 'undefined' && typeof VANTA !== 'undefined';
+            
+            if (allImagesLoaded && librariesLoaded) {
+                // Aguardar as animações fadeInPush dos elementos terminarem (0.6s) + buffer
+                setTimeout(() => {
+                    this.animateInitialAppearance();
+                }, 1000); // 0.6s animação + 0.4s buffer para sincronia suave
+                return; // PARAR O LOOP
+            } else if (attempts >= maxAttempts) {
+                console.warn('⚠️ Timeout no carregamento, continuando...');
+                // Mesmo com timeout, aguardar um pouco para não conflitar
+                setTimeout(() => {
+                    this.animateInitialAppearance();
+                }, 1000);
+                return; // PARAR O LOOP
+            } else {
+                attempts++;
+                setTimeout(checkPageReady, 50);
+            }
         };
         
-        // Executar assim que DOM estiver pronto
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', showChatNow);
+            document.addEventListener('DOMContentLoaded', checkPageReady);
         } else {
-            // DOM já está pronto, executar imediatamente
-            showChatNow();
+            checkPageReady();
         }
     }
     
-    animateInitialAppearanceSimple() {
-        // 🚀 PERFORMANCE: Animação CSS pura (sem GSAP) - mais rápida
-        console.log('✅ [CHAT] Animando entrada (CSS puro)');
-        
-        // Container principal
-        this.container.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-        this.container.style.opacity = '1';
-        this.container.style.transform = 'scale(1)';
-        
-        // Elementos internos (com delay escalonado via CSS)
-        const elements = [this.mainRobot, this.mainTitle, this.mainSubtitle, this.inputSection];
-        elements.forEach((el, index) => {
-            if (el) {
-                el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-                el.style.transitionDelay = `${index * 0.05}s`;
-                el.style.opacity = '1';
-                el.style.transform = 'translateY(0) scale(1)';
-            }
-        });
-    }
-    
     animateInitialAppearance() {
-        // 🎨 VERSÃO PREMIUM: Usa GSAP se disponível (carregado via lazy load)
         if (typeof gsap !== 'undefined') {
-            console.log('🎨 [CHAT] Animando com GSAP (premium mode)');
             gsap.fromTo(this.container, 
                 { 
                     scale: 0.7, 
@@ -633,8 +633,7 @@ class ProdAIChatbot {
                 }
             );
         } else {
-            // Fallback para CSS puro
-            this.animateInitialAppearanceSimple();
+            this.container.style.opacity = '1';
         }
     }
     
@@ -868,57 +867,6 @@ class ProdAIChatbot {
             hour: '2-digit', 
             minute: '2-digit' 
         });
-    }
-    
-    loadPremiumFeaturesLater() {
-        // 🚀 PHASE 3: Carregar libs visuais premium após chat estar ativo
-        // Condicional baseado em device tier
-        
-        const tier = window.DEVICE_TIER || 'desktop';
-        console.log(`🎨 [PREMIUM] Device tier: ${tier}`);
-        
-        if (tier === 'mobile-weak' || tier === 'mobile-medium') {
-            console.log('⚡ [PREMIUM] Mobile fraco/médio - pulando libs visuais pesadas');
-            return; // Mobile fraco: zero libs pesadas
-        }
-        
-        // Desktop ou mobile strong: carregar com delay de segurança
-        const loadDelay = tier === 'desktop' ? 2000 : 4000; // Desktop: 2s, Mobile strong: 4s
-        
-        setTimeout(async () => {
-            console.log('🎨 [PREMIUM] Carregando libs visuais...');
-            
-            try {
-                if (tier === 'desktop') {
-                    // Desktop: carregar tudo (Three.js + Vanta + GSAP)
-                    await Promise.all([
-                        window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'),
-                        window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js')
-                    ]);
-                    
-                    // Vanta depende de Three.js
-                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js');
-                    
-                    console.log('✅ [PREMIUM] Libs visuais carregadas, inicializando Vanta...');
-                    
-                    // Init Vanta background
-                    if (typeof initVantaEffect === 'function') {
-                        initVantaEffect();
-                    }
-                    
-                    // Re-animar chat com GSAP (upgrade visual)
-                    if (typeof gsap !== 'undefined') {
-                        this.animateInitialAppearance();
-                    }
-                } else if (tier === 'mobile-strong') {
-                    // Mobile strong: apenas GSAP (sem Vanta/Three)
-                    await window.loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js');
-                    console.log('✅ [PREMIUM] GSAP carregado (mobile strong)');
-                }
-            } catch (error) {
-                console.warn('⚠️ [PREMIUM] Erro ao carregar libs visuais (não crítico):', error.message);
-            }
-        }, loadDelay);
     }
 }
 
@@ -2122,9 +2070,6 @@ function incluiNumeroComSufixo(texto, numero, sufixo) {
 
 /* ============ INICIALIZAÇÃO CONSOLIDADA ============ */
 function initializeEverything() {
-    // 🚀 PERFORMANCE: Versão otimizada - chat primeiro, visual depois
-    console.log('🚀 [INIT] Inicializando (performance mode)');
-    
     // Ativar fade-in suave apenas nos elementos principais (sem fundo)
     setTimeout(() => {
         const fadeElements = document.querySelectorAll('.fade-in-start');
@@ -2145,24 +2090,23 @@ function initializeEverything() {
     const isMainPage = document.querySelector('.hero') || document.querySelector('#startSendBtn') || window.location.pathname.includes('index.html');
     
     if (isMainPage) {
-        console.log('🎯 [INIT] Página principal detectada');
+        console.log('🎯 Inicializando sistema da página principal...');
         
-        // 🚫 REMOVIDO: initVantaEffect() automático
-        // ✅ Vanta agora é lazy loaded via ProdAIChatbot.loadPremiumFeaturesLater()
+        // Vanta é gerenciado pelo EffectsController (carregado antes)
+        // Apenas inicializar partículas se disponível
+        if (window.initParticleEffects && typeof window.initParticleEffects === 'function') {
+            window.initParticleEffects();
+        } else {
+            console.log('⚠️ initParticleEffects não disponível');
+        }
         
-        // 🚫 REMOVIDO: initParticleEffects() automático
-        // Partículas devem ser lazy loaded também (desktop only)
-        
-        // ✅ PRIORIDADE: Inicializar chatbot IMEDIATAMENTE (sem aguardar Firebase)
-        console.log('✅ [INIT] Inicializando chatbot (sem aguardar Firebase)...');
-        window.prodAIChatbot = new ProdAIChatbot();
-        
-        // Firebase pode carregar em background (não bloqueia chat visual)
+        // Aguardar Firebase e inicializar chatbot
         waitForFirebase().then(() => {
-            console.log('✅ [INIT] Firebase pronto (background)');
+            console.log('✅ Firebase pronto, inicializando chatbot...');
+            window.prodAIChatbot = new ProdAIChatbot();
         });
     } else {
-        console.log('📄 [INIT] Página secundária detectada');
+        console.log('📄 Página secundária detectada - pulando inicialização completa do script.js');
     }
 }
 
