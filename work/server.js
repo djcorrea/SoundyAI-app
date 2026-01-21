@@ -5,6 +5,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+// ✅ CONFIGURAÇÃO CENTRALIZADA DE AMBIENTE
+import { detectEnvironment, getCorsConfig } from './config/environment.js';
+
 // Importar rotas da API
 import analyzeRouter from "./api/audio/analyze.js";
 import analyzeAnonymousRouter from "./api/audio/analyze-anonymous.js"; // 🔓 NOVO: Análise anônima
@@ -18,19 +21,12 @@ import chatAnonymousHandler from "./api/chat-anonymous.js"; // 🔓 NOVO: Chat a
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ---------- CORS configurado para domínios permitidos ----------
-app.use(cors({
-  origin: [
-    "https://soundyai.com.br",             // ✅ Domínio de produção
-    "https://www.soundyai.com.br",         // ✅ Domínio de produção com www
-    "https://soundyai-app-production.up.railway.app", // Backend Railway
-    "http://localhost:3000", // desenvolvimento local
-    "http://localhost:3001", // desenvolvimento alternativo
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true
-}));
+// ✅ Detectar ambiente e configurar CORS dinamicamente
+const currentEnv = detectEnvironment();
+console.log(`🌍 [SERVER] Ambiente: ${currentEnv}`);
+
+// ---------- CORS configurado dinamicamente por ambiente ----------
+app.use(cors(getCorsConfig(currentEnv)));
 
 // ---------- Middleware para JSON ----------
 // ⚠️ ATENÇÃO: Webhook Stripe precisa de raw body para validar assinatura

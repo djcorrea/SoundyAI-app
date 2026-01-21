@@ -2,12 +2,19 @@
 // Sistema de planos e limites mensais para SoundyAI
 
 import { getFirestore } from "../../../firebase/admin.js";
+import { detectEnvironment, getEnvironmentFeatures } from '../config/environment.js';
 
 // ✅ Obter db via função (lazy loading) ao invés de top-level
 const getDb = () => getFirestore();
 const USERS = "usuarios"; // Coleção existente no Firestore
 
+// ✅ Detectar ambiente
+const ENV = detectEnvironment();
+const ENV_FEATURES = getEnvironmentFeatures(ENV);
+
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
+console.log(`🌍 [USER-PLANS] Ambiente: ${ENV}`);
+console.log(`⚙️ [USER-PLANS] Auto-grant PRO em teste: ${ENV_FEATURES.features.autoGrantProPlan}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)
 // 🔓 ATUALIZAÇÃO 2026-01-06: Ajuste de limites PLUS (20), PRO (60) e criação STUDIO (400)
@@ -74,9 +81,21 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
   let changed = false;
   const currentMonth = getCurrentMonthKey(now); // "2025-12"
   
+  // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para usuários sem plano pago
+  if (ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
+    user.plan = 'pro';
+    user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 ano
+    changed = true;
+    console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (era FREE)`);
+  }
+  
   // ✅ Garantir que plan existe
   if (!user.plan) {
-    user.plan = "free";
+    user.plan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
+    if (ENV_FEATURES.features.autoGrantProPlan) {
+      user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (sem plano)`);
+    }
     changed = true;
   }
   
@@ -231,11 +250,17 @@ export async function getOrCreateUser(uid, extra = {}) {
       const nowISO = now.toISOString();
       const currentMonth = getCurrentMonthKey(now);
       
+      // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para facilitar testes
+      const defaultPlan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
+      const proExpiration = ENV_FEATURES.features.autoGrantProPlan 
+        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
+        : null;
+      
       const profile = {
         uid,
-        plan: "free",
+        plan: defaultPlan,
         plusExpiresAt: null,
-        proExpiresAt: null,
+        proExpiresAt: proExpiration,
         djExpiresAt: null,         // 🎧 NOVO: Controle Beta DJs
         djExpired: false,          // 🎧 NOVO: Flag de beta expirado
         
@@ -250,11 +275,15 @@ export async function getOrCreateUser(uid, extra = {}) {
         ...extra,
       };
       
+      if (ENV_FEATURES.features.autoGrantProPlan) {
+        console.log(`🧪 [USER-PLANS][TESTE] Auto-grant plano PRO ativado para UID: ${uid}`);
+      }
+      
       console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
       console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
       
       await ref.set(profile);
-      console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: free, billingMonth: ${currentMonth})`);
+      console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: ${defaultPlan}, billingMonth: ${currentMonth})`);
       return profile;
     }
 

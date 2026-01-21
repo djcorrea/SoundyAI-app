@@ -8,6 +8,7 @@
  */
 
 import { getAuth } from '../../firebase/admin.js';
+import { getCorsConfig } from '../config/environment.js';
 
 const auth = getAuth();
 import cors from 'cors';
@@ -21,41 +22,8 @@ const MAX_IMAGES_PER_UPLOAD = 3;
 const ALLOWED_FORMATS = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
-// Middleware CORS
-const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    // ✅ Domínios de produção
-    const productionDomains = [
-      'https://soundyai.com.br',
-      'https://www.soundyai.com.br',
-      'https://soundyai-app-production.up.railway.app'
-    ];
-    const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
-    const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
-    const localOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'http://127.0.0.1:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080'
-    ];
-
-    if (!origin ||
-        productionDomains.includes(origin) ||
-        apiPreviewRegex.test(origin) ||
-        frontendPreviewRegex.test(origin) ||
-        localOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn('[CORS:UPLOAD-WORK] Origem bloqueada:', origin);
-      callback(new Error('CORS policy violation'), false);
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-});
+// ✅ CORS usando configuração centralizada
+const corsMiddleware = cors(getCorsConfig());
 
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {

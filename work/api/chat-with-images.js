@@ -1,4 +1,5 @@
 import { getAuth, getFirestore } from '../../firebase/admin.js';
+import { getCorsConfig } from '../config/environment.js';
 
 const auth = getAuth();
 const db = getFirestore();
@@ -7,37 +8,8 @@ import cors from 'cors';
 import { canUseChat, registerChat } from '../lib/user/userPlans.js';
 import { chatLimiter } from '../lib/rateLimiterRedis.js'; // ✅ V3: Rate limiting GLOBAL via Redis
 
-// Middleware CORS dinâmico
-const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    // ✅ Domínios de produção (PRIORIDADE)
-    const productionDomains = [
-      'https://soundyai.com.br',
-      'https://www.soundyai.com.br',
-      'https://soundyai-app-production.up.railway.app'
-    ];
-    
-    const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
-    const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
-
-    // Adicionar suporte para desenvolvimento local
-    const localOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'http://127.0.0.1:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080'
-    ];
-
-    // [CORS-AUDIT] Log
-    console.log(`[CORS-AUDIT:WORK-IMAGES] origin=${origin || 'null'}`);
-
-    if (!origin ||
-        productionDomains.includes(origin) ||
-        apiPreviewRegex.test(origin) ||
-        frontendPreviewRegex.test(origin) ||
-        localOrigins.includes(origin) ||
+// ✅ CORS usando configuração centralizada
+const corsMiddleware = cors(getCorsConfig());
         origin.startsWith('file://')) {
       callback(null, true);
     } else {

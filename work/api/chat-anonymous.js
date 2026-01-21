@@ -18,6 +18,9 @@ import {
   registerAnonymousChat
 } from '../lib/anonymousLimiter.js';
 
+// ✅ CONFIGURAÇÃO CENTRALIZADA DE AMBIENTE
+import { getCorsConfig } from '../config/environment.js';
+
 // ═══════════════════════════════════════════════════════════════════
 // CONFIGURAÇÃO DE LIMITES (espelhando chat.js autenticado)
 // ═══════════════════════════════════════════════════════════════════
@@ -26,41 +29,10 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_SIZE = 5;
 
 // ═══════════════════════════════════════════════════════════════════
-// CORS MIDDLEWARE
+// CORS MIDDLEWARE - Usando configuração centralizada
 // ═══════════════════════════════════════════════════════════════════
 
-const corsMiddleware = cors({
-  origin: function(origin, callback) {
-    // Permitir requisições sem origin (mobile apps, Postman)
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-
-    const ALLOWED_ORIGINS = [
-      'https://soundyai.com.br',
-      'https://www.soundyai.com.br',
-      'https://soundyai-app-production.up.railway.app',
-      'http://localhost:3000',
-      'http://localhost:5000',
-      'http://127.0.0.1:3000'
-    ];
-
-    // Verificar se é localhost ou origem permitida
-    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    const isAllowed = ALLOWED_ORIGINS.some(allowed => origin.startsWith(allowed));
-
-    if (isLocalhost || isAllowed) {
-      callback(null, true);
-    } else {
-      console.warn(`[ANON_CHAT] CORS bloqueado: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
-});
+const corsMiddleware = cors(getCorsConfig());
 
 function runMiddleware(req, res, fn) {
   return new Promise((resolve, reject) => {

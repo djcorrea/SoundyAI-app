@@ -1,43 +1,12 @@
 import { getAuth, getFirestore } from '../../firebase/admin.js';
+import { getCorsConfig } from '../config/environment.js';
 
 const auth = getAuth();
 const db = getFirestore();
 import cors from 'cors';
 
-// Middleware CORS
-const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    // ✅ Domínios de produção
-    const productionDomains = [
-      'https://soundyai.com.br',
-      'https://www.soundyai.com.br',
-      'https://soundyai-app-production.up.railway.app'
-    ];
-    const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
-    const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
-    const localOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5500',
-      'http://127.0.0.1:5500',
-      'http://127.0.0.1:3000',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080'
-    ];
-
-    console.log(`[CORS-AUDIT:VOICE-WORK] origin=${origin || 'null'}`);
-
-    if (!origin ||
-        productionDomains.includes(origin) ||
-        apiPreviewRegex.test(origin) ||
-        frontendPreviewRegex.test(origin) ||
-        localOrigins.includes(origin) ||
-        origin.startsWith('file://')) {
-      callback(null, true);
-    } else {
-      console.log('[CORS-AUDIT:VOICE-WORK] BLOQUEADO:', origin);
-      callback(new Error('Not allowed by CORS: ' + origin));
-    }
-  },
+// ✅ CORS usando configuração centralizada
+const corsMiddleware = cors(getCorsConfig());
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
