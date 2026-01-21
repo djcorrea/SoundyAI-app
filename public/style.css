@@ -27,42 +27,6 @@ img {
     content-visibility: auto; /* Lazy rendering */
 }
 
-/* ============ 🎯 DEVICE TIER - OTIMIZAÇÕES CONDICIONAIS (P0) ============ */
-/* Mobile Fraco: Desabilitar efeitos pesados */
-.tier-mobile-weak .vanta-background,
-.tier-mobile-weak .floating-particle,
-.tier-mobile-weak [data-gsap] {
-    display: none !important;
-}
-
-.tier-mobile-weak .chatbot-message-estilosa,
-.tier-mobile-weak .chatbot-message-bubble {
-    backdrop-filter: none !important;
-    animation: none !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important; /* Sombra simples */
-}
-
-/* Mobile Médio: Simplificar animações */
-.tier-mobile-medium .floating-particle {
-    animation-duration: 60s !important; /* Muito mais lento */
-    opacity: 0.3 !important;
-}
-
-.tier-mobile-medium .chatbot-message-estilosa {
-    backdrop-filter: none !important;
-    animation-duration: 6s !important;
-}
-
-/* Desktop/Mobile Strong: Experiência completa (padrão) */
-.tier-desktop .vanta-background,
-.tier-mobile-strong .vanta-background {
-    display: block; /* Desktop mantém Vanta */
-}
-
-.tier-mobile-strong .vanta-background {
-    display: none; /* Mobile strong: sem Vanta mas com GSAP */
-}
-
 /* ============ SISTEMA DE FONT-SIZE PROPORCIONAL ============ */
 html {
     /* Font-size base proporcional para 1920x1080 */
