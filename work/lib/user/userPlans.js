@@ -509,6 +509,28 @@ export async function downgradeToFree(uid, { subscriptionId, reason }) {
  * @returns {Promise<Object>} { allowed: boolean, user: Object, remaining: number, errorCode?: string }
  */
 export async function canUseChat(uid, hasImages = false) {
+  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE
+  if (ENV === 'test' || ENV === 'development') {
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: Chat sempre permitido (ambiente de teste)`);
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, hasImages: ${hasImages}`);
+    
+    return {
+      allowed: true,
+      test: true,
+      remaining: 9999,
+      user: {
+        uid: uid,
+        plan: 'test-unlimited',
+        messagesMonth: 0,
+        imagesMonth: 0,
+        analysesMonth: 0,
+        billingMonth: getCurrentMonthKey(),
+        entrevistaConcluida: true
+      }
+    };
+  }
+  
+  // 🏭 PRODUÇÃO: Validação normal
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
   
@@ -574,6 +596,14 @@ export async function canUseChat(uid, hasImages = false) {
  * @returns {Promise<void>}
  */
 export async function registerChat(uid, hasImages = false) {
+  // 🧪 BYPASS PARA AMBIENTE DE TESTE (não incrementar contadores)
+  if (ENV === 'test' || ENV === 'development') {
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: registerChat ignorado (ambiente de teste)`);
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, hasImages: ${hasImages}`);
+    return; // Não fazer nada em teste
+  }
+  
+  // 🏭 PRODUÇÃO: Registro normal
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
@@ -603,6 +633,29 @@ export async function registerChat(uid, hasImages = false) {
  * @returns {Promise<Object>} { allowed: boolean, mode: "full"|"reduced"|"blocked", user: Object, remainingFull: number, errorCode?: string }
  */
 export async function canUseAnalysis(uid) {
+  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE
+  if (ENV === 'test' || ENV === 'development') {
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: Análise sempre permitida (ambiente de teste)`);
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}`);
+    
+    return {
+      allowed: true,
+      mode: 'full',
+      test: true,
+      remainingFull: 9999,
+      user: {
+        uid: uid,
+        plan: 'test-unlimited',
+        messagesMonth: 0,
+        imagesMonth: 0,
+        analysesMonth: 0,
+        billingMonth: getCurrentMonthKey(),
+        entrevistaConcluida: true
+      }
+    };
+  }
+  
+  // 🏭 PRODUÇÃO: Validação normal
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
   
@@ -678,12 +731,20 @@ export async function canUseAnalysis(uid) {
  * @returns {Promise<void>}
  */
 export async function registerAnalysis(uid, mode = "full") {
+  // 🧪 BYPASS PARA AMBIENTE DE TESTE (não incrementar contadores)
+  if (ENV === 'test' || ENV === 'development') {
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: registerAnalysis ignorado (ambiente de teste)`);
+    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, mode: ${mode}`);
+    return; // Não fazer nada em teste
+  }
+  
   // ✅ Só incrementa se foi análise completa
   if (mode !== "full") {
     console.log(`⏭️ [USER-PLANS] Análise NÃO registrada (modo: ${mode}): ${uid}`);
     return;
   }
 
+  // 🏭 PRODUÇÃO: Registro normal
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
