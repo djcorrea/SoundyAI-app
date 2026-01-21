@@ -1314,60 +1314,84 @@ console.log('🚀 Carregando auth.js...');
     checkAuthState();
     
     // ═══════════════════════════════════════════════════════════════════
-    // 🔥 LISTENER GLOBAL: Criar Firestore quando auth state estabilizar
+    // 🔥 LISTENER GLOBAL: Criar Firestore SEMPRE que necessário
     // ═══════════════════════════════════════════════════════════════════
-    // Este listener detecta quando um usuário recém-cadastrado não possui
-    // documento no Firestore e o cria automaticamente APÓS o auth state
-    // estar completamente estável.
+    // REGRA CRÍTICA: Cria usuarios/{uid} SEMPRE que:
+    // 1. user !== null (autenticado)
+    // 2. usuarios/{uid} não existe
+    // cadastroMetadata é OPCIONAL - usado apenas como fonte de dados
     // ═══════════════════════════════════════════════════════════════════
     auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       
-      // Verificar se é cadastro recém-finalizado
-      const cadastroMetadata = localStorage.getItem('cadastroMetadata');
-      if (!cadastroMetadata) return;
-      
-      console.log('🔍 [AUTH-LISTENER] Usuário autenticado detectado com metadados de cadastro');
+      console.log('🔍 [AUTH-LISTENER] Usuário autenticado detectado');
       console.log('   UID:', user.uid);
+      console.log('   Email:', user.email);
+      console.log('   Telefone:', user.phoneNumber);
       
       try {
-        const metadata = JSON.parse(cadastroMetadata);
-        const { email, telefone, deviceId, timestamp } = metadata;
-        
-        // Verificar idade do cadastro (máx 5 minutos)
-        const age = Date.now() - new Date(timestamp).getTime();
-        if (age > 5 * 60 * 1000) {
-          console.log('⏰ [AUTH-LISTENER] Metadados de cadastro antigos, ignorando');
-          localStorage.removeItem('cadastroMetadata');
-          return;
-        }
-        
         // Importar Firestore dinamicamente
         const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
-        // Verificar se documento já existe
+        // ✅ SEMPRE verificar se documento existe
         const userRef = doc(db, 'usuarios', user.uid);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
-          console.log('✅ [AUTH-LISTENER] Documento já existe, removendo metadados');
-          localStorage.removeItem('cadastroMetadata');
+          console.log('✅ [AUTH-LISTENER] Documento já existe no Firestore');
+          // Limpar metadados se existirem
+          const cadastroMetadata = localStorage.getItem('cadastroMetadata');
+          if (cadastroMetadata) {
+            localStorage.removeItem('cadastroMetadata');
+            console.log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
+          }
           return;
         }
         
         // ═══════════════════════════════════════════════════════════════════
-        // 💾 CRIAR DOCUMENTO FIRESTORE - Auth State já estabilizou
+        // 🚨 DOCUMENTO NÃO EXISTE - CRIAR IMEDIATAMENTE
         // ═══════════════════════════════════════════════════════════════════
-        console.log('💾 [AUTH-LISTENER] Criando documento usuarios/ após auth estabilizar...');
+        console.warn('⚠️ [AUTH-LISTENER] Documento não existe! Criando agora...');
+        
+        // Tentar obter metadados (OPCIONAL - pode não existir)
+        let metadata = null;
+        const cadastroMetadataStr = localStorage.getItem('cadastroMetadata');
+        if (cadastroMetadataStr) {
+          try {
+            metadata = JSON.parse(cadastroMetadataStr);
+            console.log('📋 [AUTH-LISTENER] Metadados encontrados:', {
+              email: metadata.email,
+              telefone: metadata.telefone,
+              criadoSemSMS: metadata.criadoSemSMS
+            });
+          } catch (parseError) {
+            console.warn('⚠️ [AUTH-LISTENER] Erro ao parsear metadados:', parseError);
+            metadata = null;
+          }
+        } else {
+          console.log('📋 [AUTH-LISTENER] Sem metadados - usando dados do Firebase Auth');
+        }
+        
+        // ✅ OBTER DADOS: Preferir metadados, fallback para user
+        const email = metadata?.email || user.email || '';
+        const telefone = metadata?.telefone || user.phoneNumber || '';
+        const deviceId = metadata?.deviceId || 'fallback_' + Date.now();
+        const criadoSemSMS = metadata?.criadoSemSMS || false;
+        const verificadoPorSMS = !!telefone && !criadoSemSMS;
+        
+        console.log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
         console.log('   Email:', email);
         console.log('   Telefone:', telefone);
         console.log('   DeviceID:', deviceId?.substring(0, 16) + '...');
+        console.log('   verificadoPorSMS:', verificadoPorSMS);
+        console.log('   criadoSemSMS:', criadoSemSMS);
         
+        // ✅ CRIAR DOCUMENTO
         await setDoc(userRef, {
           uid: user.uid,
-          email: email || user.email,
-          telefone: telefone || user.phoneNumber || '',
-          deviceId: deviceId || 'unknown',
+          email: email,
+          telefone: telefone,
+          deviceId: deviceId,
           plan: 'free',
           messagesToday: 0,
           analysesToday: 0,
@@ -1376,8 +1400,8 @@ console.log('🚀 Carregando auth.js...');
           imagesMonth: 0,
           billingMonth: new Date().toISOString().slice(0, 7),
           lastResetAt: new Date().toISOString().slice(0, 10),
-          verificadoPorSMS: !!telefone,
-          criadoSemSMS: !telefone || metadata.criadoSemSMS === true,
+          verificadoPorSMS: verificadoPorSMS,
+          criadoSemSMS: criadoSemSMS,
           entrevistaConcluida: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -1385,21 +1409,27 @@ console.log('🚀 Carregando auth.js...');
         
         console.log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
         
-        // Verificar criação
+        // ✅ VERIFICAR CRIAÇÃO
         const verificacao = await getDoc(userRef);
         if (verificacao.exists()) {
           console.log('✅ [AUTH-LISTENER] CONFIRMADO: Documento existe no Firestore');
-          console.log('   Dados:', verificacao.data());
-          localStorage.removeItem('cadastroMetadata');
+          console.log('   Dados completos:', verificacao.data());
+          
+          // Limpar metadados após sucesso
+          if (cadastroMetadataStr) {
+            localStorage.removeItem('cadastroMetadata');
+            console.log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
+          }
         } else {
-          console.error('❌ [AUTH-LISTENER] ERRO: Documento não foi criado');
+          console.error('❌ [AUTH-LISTENER] ERRO CRÍTICO: Documento não foi criado após setDoc!');
         }
         
       } catch (error) {
-        console.error('❌ [AUTH-LISTENER] Erro ao criar Firestore:', error);
+        console.error('❌ [AUTH-LISTENER] Erro ao processar Firestore:', error);
         console.error('   Código:', error.code);
         console.error('   Mensagem:', error.message);
-        // Não remover metadados para retry na próxima vez
+        console.error('   Stack:', error.stack);
+        // NÃO remover metadados - retry na próxima inicialização
       }
     });
 

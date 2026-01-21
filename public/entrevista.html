@@ -611,19 +611,30 @@
                         
                         // ═══════════════════════════════════════════════════════════════════
                         // ✅ GARANTIA: Documento DEVE existir (criado por auth.js listener)
-                        // Esta função APENAS atualiza, NUNCA cria o documento
+                        // Se não existir, aguardar e tentar novamente (race condition)
                         // ═══════════════════════════════════════════════════════════════════
                         const { getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
                         const userDocRef = doc(db, 'usuarios', user.uid);
-                        const userDocSnap = await getDoc(userDocRef);
+                        
+                        // 🔄 RETRY: Aguardar até 3 segundos se documento não existir
+                        let userDocSnap = await getDoc(userDocRef);
+                        let retryCount = 0;
+                        const maxRetries = 3;
+                        
+                        while (!userDocSnap.exists() && retryCount < maxRetries) {
+                            retryCount++;
+                            console.warn(`⏳ [ENTREVISTA] Documento não existe, aguardando... (tentativa ${retryCount}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            userDocSnap = await getDoc(userDocRef);
+                        }
                         
                         if (!userDocSnap.exists()) {
-                            // ❌ ERRO CRÍTICO: Documento deveria existir
-                            console.error('❌ [ENTREVISTA] Documento não existe no Firestore!');
+                            // ❌ ERRO CRÍTICO: Documento não foi criado após retries
+                            console.error('❌ [ENTREVISTA] Documento não existe após 3 tentativas!');
                             console.error('   UID:', user.uid);
-                            console.error('   CAUSA: Listener global não criou o documento ou auth state não estabilizou');
+                            console.error('   CAUSA: Listener global falhou ou regras de segurança bloquearam');
                             
-                            alert('Erro ao salvar perfil: Sua conta não foi inicializada corretamente. Por favor, faça logout e login novamente.');
+                            alert('Erro ao salvar perfil: Sua conta não foi inicializada. Por favor, recarregue a página e tente novamente.');
                             return;
                         }
                         
