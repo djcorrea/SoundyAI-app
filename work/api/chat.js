@@ -923,8 +923,8 @@ async function handlerWithoutRateLimit(req, res) {
       console.log(`🧪 [${requestId}] TESTE: Chat liberado (ambiente de teste, usuário autenticado)`);
     } else {
       try {
-        // ✅ NOVO: Passar hasImages para verificar limite de imagens no PRO
-        chatCheck = await canUseChat(uid, hasImages);
+        // ✅ NOVO: Passar hasImages e isTestRequest para verificar limite de imagens no PRO
+        chatCheck = await canUseChat(uid, hasImages, isTestRequest);
         console.log(`📊 [${requestId}] Resultado da verificação:`, chatCheck);
       } catch (err) {
         console.error(`❌ [${requestId}] Erro ao verificar limites de chat:`, err.message);
@@ -1156,9 +1156,9 @@ async function handlerWithoutRateLimit(req, res) {
     // 🔥 DEMO MODE: Não registrar histórico/uso no banco
     if (!isDemoMode) {
       try {
-        // ✅ NOVO: Passar hasImages para incrementar contador de imagens se aplicável
-        await registerChat(uid, hasImages);
-        console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}${hasImages ? ' (com imagem)' : ''}`);
+        // ✅ NOVO: Passar hasImages e isTestRequest para incrementar contador de imagens se aplicável
+        await registerChat(uid, hasImages, isTestRequest);
+        console.log(`📝 [${requestId}] Uso de chat registrado com sucesso para UID: ${uid}${hasImages ? ' (com imagem)' : ''}${isTestRequest ? ' (modo teste - não incrementado)' : ''}`);
       } catch (err) {
         console.error(`⚠️ [${requestId}] Erro ao registrar chat (resposta será enviada):`, err.message);
         // Não bloquear resposta - usuário já recebeu o serviço

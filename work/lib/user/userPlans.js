@@ -508,11 +508,12 @@ export async function downgradeToFree(uid, { subscriptionId, reason }) {
  * @param {boolean} hasImages - Se a mensagem contém imagens (para contabilizar uso de GPT-4o)
  * @returns {Promise<Object>} { allowed: boolean, user: Object, remaining: number, errorCode?: string }
  */
-export async function canUseChat(uid, hasImages = false) {
-  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: Chat sempre permitido (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, hasImages: ${hasImages}`);
+export async function canUseChat(uid, hasImages = false, isTestRequest = false) {
+  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE OU REQUEST DO FRONTEND DE TESTE
+  if (ENV === 'test' || ENV === 'development' || isTestRequest) {
+    const bypassReason = isTestRequest ? 'Request do frontend de teste' : `Ambiente ${ENV.toUpperCase()}`;
+    console.log(`🧪 [USER-PLANS] BYPASS: Chat sempre permitido (${bypassReason})`);
+    console.log(`🧪 [USER-PLANS] UID: ${uid}, hasImages: ${hasImages}, isTestRequest: ${isTestRequest}`);
     
     return {
       allowed: true,
@@ -595,11 +596,12 @@ export async function canUseChat(uid, hasImages = false) {
  * @param {boolean} hasImages - Se a mensagem contém imagens
  * @returns {Promise<void>}
  */
-export async function registerChat(uid, hasImages = false) {
-  // 🧪 BYPASS PARA AMBIENTE DE TESTE (não incrementar contadores)
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: registerChat ignorado (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, hasImages: ${hasImages}`);
+export async function registerChat(uid, hasImages = false, isTestRequest = false) {
+  // 🧪 BYPASS PARA AMBIENTE DE TESTE OU REQUEST DO FRONTEND DE TESTE (não incrementar contadores)
+  if (ENV === 'test' || ENV === 'development' || isTestRequest) {
+    const bypassReason = isTestRequest ? 'Request do frontend de teste' : `Ambiente ${ENV.toUpperCase()}`;
+    console.log(`🧪 [USER-PLANS] BYPASS: registerChat ignorado (${bypassReason})`);
+    console.log(`🧪 [USER-PLANS] UID: ${uid}, hasImages: ${hasImages}, isTestRequest: ${isTestRequest}`);
     return; // Não fazer nada em teste
   }
   
