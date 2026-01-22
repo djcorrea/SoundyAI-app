@@ -139,21 +139,76 @@ export function isOriginAllowed(origin, env = detectEnvironment()) {
 export function getCorsConfig(env = detectEnvironment()) {
   return {
     origin: function(origin, callback) {
-      // 🧪 SEMPRE permitir origens de teste, independente do ambiente do servidor
+      // Log detalhado para debugging
+      console.log('🔍 [CORS] ═══════════════════════════════════════');
+      console.log('🔍 [CORS] Validando origem:');
+      console.log('🔍 [CORS]   Origin:', origin || 'undefined');
+      console.log('🔍 [CORS]   Ambiente Backend:', env);
+      
+      // 🧪 Origens de TESTE
       const testOrigins = [
         'https://soundyai-teste.vercel.app',
         'https://soundyai-app-soundyai-teste.up.railway.app'
       ];
       
-      const isTestOrigin = origin && testOrigins.some(testOrigin => origin.includes(testOrigin));
+      // 🚀 Origens de PRODUÇÃO
+      const prodOrigins = [
+        'https://soundyai.com.br',
+        'https://www.soundyai.com.br',
+        'https://soundyai-app-production.up.railway.app'
+      ];
       
-      if (isTestOrigin) {
-        console.log(`🧪 [CORS] Origem de TESTE permitida: ${origin}`);
-        callback(null, true);
-      } else if (isOriginAllowed(origin, env)) {
+      const isTestOrigin = origin && testOrigins.some(testOrigin => origin.includes(testOrigin));
+      const isProdOrigin = origin && prodOrigins.some(prodOrigin => origin.includes(prodOrigin));
+      
+      // 🧪 Ambiente TEST: Permitir apenas origens de teste
+      if (env === 'test') {
+        if (isTestOrigin) {
+          console.log('✅ [CORS] PERMITIDO (test env → test origin)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(null, true);
+        } else if (isProdOrigin) {
+          console.warn('🚫 [CORS] BLOQUEADO (test env → prod origin não permitido)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(new Error('Test environment: production origins not allowed'));
+        } else if (isOriginAllowed(origin, env)) {
+          console.log('✅ [CORS] PERMITIDO (fallback: localhost/dev)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(null, true);
+        } else {
+          console.warn('🚫 [CORS] BLOQUEADO (origem desconhecida)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(new Error('Not allowed by CORS'));
+        }
+        return;
+      }
+      
+      // 🚀 Ambiente PRODUCTION: Permitir prod + test (para compatibilidade)
+      if (env === 'production') {
+        if (isProdOrigin || isTestOrigin) {
+          console.log(`✅ [CORS] PERMITIDO (${isProdOrigin ? 'prod' : 'test'} origin)`);
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(null, true);
+        } else if (isOriginAllowed(origin, env)) {
+          console.log('✅ [CORS] PERMITIDO (fallback: localhost/dev)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(null, true);
+        } else {
+          console.warn('🚫 [CORS] BLOQUEADO (origem desconhecida)');
+          console.log('🔍 [CORS] ═══════════════════════════════════════');
+          callback(new Error('Not allowed by CORS'));
+        }
+        return;
+      }
+      
+      // 🔧 Ambiente DEVELOPMENT: Permitir tudo
+      if (isOriginAllowed(origin, env)) {
+        console.log('✅ [CORS] PERMITIDO (dev environment)');
+        console.log('🔍 [CORS] ═══════════════════════════════════════');
         callback(null, true);
       } else {
-        console.warn(`[CORS] Origem bloqueada: ${origin} (env: ${env})`);
+        console.warn('🚫 [CORS] BLOQUEADO');
+        console.log('🔍 [CORS] ═══════════════════════════════════════');
         callback(new Error('Not allowed by CORS'));
       }
     },
