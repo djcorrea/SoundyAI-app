@@ -210,7 +210,9 @@ async function saveAnalysisToHistory(analysisResult) {
         });
         
         // 6. Enviar para API
-        const response = await fetch('/api/history', {
+        // ✅ Usar resolver dinâmico de API
+        const historyEndpoint = window.ApiUrlResolver?.getHistoryEndpoint() || '/api/history';
+        const response = await fetch(historyEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

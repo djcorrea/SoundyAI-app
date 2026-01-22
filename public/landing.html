@@ -66,6 +66,7 @@
             z-index: 0;
             opacity: 0.15;
             mix-blend-mode: screen;
+            pointer-events: none !important;
         }
 
         /* 8D Sound Wave Effect Background */
@@ -543,6 +544,21 @@
             box-shadow: 0 0 10px var(--neon-cyan);
         }
         
+        /* ✅ FIX: Garantir que canvas e overlays NUNCA capturem cliques */
+        canvas,
+        .vanta-canvas,
+        canvas[data-engine="three.js"],
+        .background-container canvas,
+        .vanta-background canvas {
+            pointer-events: none !important;
+        }
+
+        /* ✅ FIX: Pseudo-elementos decorativos não devem capturar cliques */
+        .audio-player-card::before,
+        .audio-player-card::after {
+            pointer-events: none !important;
+        }
+        
         /* ---- CARDS MOBILE PARA COMPARAÇÃO ---- */
         .comparison-cards-mobile {
             display: none; /* Oculto no desktop */
@@ -718,6 +734,7 @@
             padding: 45px;
             border: 2px solid rgba(255, 255, 255, 0.08);
             position: relative;
+            z-index: 150;
             backdrop-filter: blur(25px);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
@@ -865,7 +882,7 @@
         .custom-audio-player {
             width: 100%;
             position: relative;
-            z-index: 100;
+            z-index: 200;
             background: rgba(0, 0, 0, 0.5);
             border-radius: 15px;
             padding: 25px;
@@ -877,6 +894,9 @@
             min-height: 54px;
             display: block;
             outline: none;
+            position: relative;
+            z-index: 250;
+            pointer-events: auto !important;
         }
 
         .audio-info {
@@ -1813,7 +1833,7 @@
                 
                 <div class="custom-audio-player">
                     <audio controls preload="metadata">
-                        <source src="/assets/audio/SOUNDYAI_ANTES.wav" type="audio/wav">
+                        <source src="assets/audio/soundyai-antes.wav" type="audio/wav">
                         Seu navegador não suporta o elemento de áudio.
                     </audio>
                     <div class="audio-info">
@@ -1847,7 +1867,7 @@
                 
                 <div class="custom-audio-player">
                     <audio controls preload="metadata">
-                        <source src="/assets/audio/SOUNDYAI_DEPOIS.wav" type="audio/wav">
+                        <source src="assets/audio/soundyai-depois.wav" type="audio/wav">
                         Seu navegador não suporta o elemento de áudio.
                     </audio>
                     <div class="audio-info">
@@ -2218,6 +2238,38 @@
                         maxDistance: 22.00,
                         spacing: 16.00
                     })
+
+                    // ✅ FIX: Re-aplicar pointer-events:none em canvas criados dinamicamente
+                    setTimeout(() => {
+                        const vantaCanvases = document.querySelectorAll('#vanta-bg canvas, .vanta-background canvas, canvas[data-engine="three.js"]');
+                        vantaCanvases.forEach(canvas => {
+                            canvas.style.pointerEvents = 'none';
+                            canvas.style.setProperty('pointer-events', 'none', 'important');
+                        });
+                        console.log('✅ [AUDIO-FIX] Pointer-events:none aplicado em', vantaCanvases.length, 'canvas Vanta');
+                    }, 500);
+
+                    // ✅ FIX: MutationObserver para garantir que novos canvas não capturem cliques
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach((mutation) => {
+                            mutation.addedNodes.forEach((node) => {
+                                if (node.tagName === 'CANVAS' || (node.querySelectorAll && node.querySelectorAll('canvas').length > 0)) {
+                                    const canvases = node.tagName === 'CANVAS' ? [node] : node.querySelectorAll('canvas');
+                                    canvases.forEach(canvas => {
+                                        canvas.style.pointerEvents = 'none';
+                                        canvas.style.setProperty('pointer-events', 'none', 'important');
+                                        console.log('✅ [AUDIO-FIX] Canvas dinâmico detectado e bloqueado');
+                                    });
+                                }
+                            });
+                        });
+                    });
+
+                    const vantaBg = document.querySelector('#vanta-bg');
+                    if (vantaBg) {
+                        observer.observe(vantaBg, { childList: true, subtree: true });
+                        console.log('✅ [AUDIO-FIX] MutationObserver ativo no #vanta-bg');
+                    }
                 }
             } catch (e) {
                 log("Vanta init error", e);

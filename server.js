@@ -926,7 +926,11 @@ function fallbackFromOriginal(s) {
 
 // 👉 Fallback SPA
 app.get("*", (req, res, next) => {
+  // ✅ FIX: Não interceptar arquivos estáticos (CSS, JS, áudio, imagens, etc.)
   if (req.path.startsWith("/api/")) return next();
+  if (req.path.startsWith("/assets/")) return next();
+  if (req.path.match(/\.(js|css|wav|mp3|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) return next();
+  
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
