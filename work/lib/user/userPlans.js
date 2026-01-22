@@ -14,8 +14,6 @@ const ENV_FEATURES = getEnvironmentFeatures(ENV);
 
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 console.log(`🌍 [USER-PLANS] Ambiente: ${ENV}`);
-console.log(`🌍 [USER-PLANS] RAILWAY_ENVIRONMENT: ${process.env.RAILWAY_ENVIRONMENT}`);
-console.log(`🌍 [USER-PLANS] NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`⚙️ [USER-PLANS] Auto-grant PRO em teste: ${ENV_FEATURES.features.autoGrantProPlan}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)

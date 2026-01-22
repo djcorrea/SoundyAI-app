@@ -753,11 +753,6 @@ async function handlerWithoutRateLimit(req, res) {
     contentType: req.headers['content-type'],
     origin: req.headers.origin
   });
-  console.log(`🌍 [${requestId}] DEBUG ENV:`, {
-    RAILWAY_ENVIRONMENT: process.env.RAILWAY_ENVIRONMENT,
-    NODE_ENV: process.env.NODE_ENV,
-    isTestOrigin: (req.headers.origin || '').includes('teste')
-  });
 
   // Prevenir múltiplas respostas
   let responseSent = false;
@@ -850,6 +845,9 @@ async function handlerWithoutRateLimit(req, res) {
     const { message, conversationHistory, idToken, images } = validatedData;
     hasImages = validatedData.hasImages;
     
+    // 🧪 TESTE: Detectar se a requisição vem do ambiente de teste (única declaração)
+    const isTestRequest = isTestEnvironmentRequest(req);
+    
     // ✅ DEBUG: Log critical para diagnosticar seleção de modelo
     console.log(`🔍 [${requestId}] Estado antes da seleção de modelo:`, {
       hasImages,
@@ -891,15 +889,6 @@ async function handlerWithoutRateLimit(req, res) {
 
     // ✅ VALIDAR LIMITES DE CHAT COM SISTEMA DE PLANOS
     console.log(`📊 [${requestId}] Verificando limites de chat para UID: ${uid}`);
-    
-    // 🧪 TESTE: Detectar se a requisição vem do ambiente de teste
-    const isTestRequest = isTestEnvironmentRequest(req);
-    console.log(`🧪 [${requestId}] DEBUG isTestRequest:`, {
-      isTestRequest,
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      ENV: process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV
-    });
     
     let chatCheck;
     
@@ -1005,8 +994,7 @@ async function handlerWithoutRateLimit(req, res) {
         message.includes('True Peak:')
       ));
     
-    // 🧪 TESTE: Liberar chat para ambiente de teste (usuário autenticado)
-    const isTestRequest = isTestEnvironmentRequest(req);
+    // 🧪 TESTE: Reutilizar isTestRequest já declarado acima
     
     if (isAskAIFeature && !isDemoMode) {
       console.log(`🔐 [${requestId}] ENTITLEMENTS: Detectado uso de "Pedir Ajuda à IA"`);
