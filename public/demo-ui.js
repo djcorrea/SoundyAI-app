@@ -351,6 +351,291 @@
         log('✅ [DEMO-UI] Checkout URL atualizada:', url);
     };
 
+    // ═══════════════════════════════════════════════════════════
+    // 🎉 CTA NÃO-BLOQUEANTE APÓS PRIMEIRA ANÁLISE
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * Exibe banner CTA não-bloqueante após primeira análise
+     * NÃO impede visualização do resultado
+     * Aparece no topo e rodapé da interface
+     * 
+     * CARACTERÍSTICAS:
+     * - Permite scroll completo da página
+     * - Não bloqueia interação
+     * - Aparece apenas UMA vez por sessão
+     * - Design não-intrusivo mas visível
+     * 
+     * @version 1.0.0
+     * @created 2026-01-22
+     */
+    DEMO.showFirstAnalysisCTA = function() {
+        // Verificar se já foi mostrado nesta sessão
+        if (sessionStorage.getItem('demo_first_cta_shown')) {
+            log('ℹ️ [DEMO-UI] CTA de primeira análise já foi exibido nesta sessão');
+            return;
+        }
+        
+        // Verificar se está realmente em modo demo
+        if (!DEMO.isActive) {
+            log('⚠️ [DEMO-UI] Não está em modo demo, CTA não será exibido');
+            return;
+        }
+        
+        log('🎉 [DEMO-UI] Exibindo CTA não-bloqueante de primeira análise');
+        
+        // Marcar como mostrado
+        sessionStorage.setItem('demo_first_cta_shown', 'true');
+        
+        // Criar banner superior
+        const topBanner = createFirstAnalysisBanner('top');
+        document.body.insertBefore(topBanner, document.body.firstChild);
+        
+        // Criar banner inferior
+        const bottomBanner = createFirstAnalysisBanner('bottom');
+        document.body.appendChild(bottomBanner);
+        
+        // Adicionar estilos se não existirem
+        if (!document.getElementById('demoFirstAnalysisCTAStyles')) {
+            const styles = document.createElement('style');
+            styles.id = 'demoFirstAnalysisCTAStyles';
+            styles.textContent = getFirstAnalysisCTAStyles();
+            document.head.appendChild(styles);
+        }
+        
+        // Animar entrada após um pequeno delay
+        setTimeout(() => {
+            topBanner.style.transform = 'translateY(0)';
+            topBanner.style.opacity = '1';
+            bottomBanner.style.transform = 'translateY(0)';
+            bottomBanner.style.opacity = '1';
+        }, 500);
+        
+        log('✅ [DEMO-UI] Banners CTA de primeira análise exibidos');
+    };
+    
+    /**
+     * Cria banner de CTA (top ou bottom)
+     */
+    function createFirstAnalysisBanner(position) {
+        const banner = document.createElement('div');
+        banner.className = `demo-first-analysis-banner demo-first-analysis-banner-${position}`;
+        banner.setAttribute('data-position', position);
+        
+        banner.innerHTML = `
+            <div class="demo-first-analysis-content">
+                <div class="demo-first-analysis-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4"></path>
+                        <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                </div>
+                <div class="demo-first-analysis-text">
+                    <h3>🎉 Você acabou de rodar sua análise teste!</h3>
+                    <p>Entre aqui para desbloquear mais análises e ter acesso completo a todas as funcionalidades.</p>
+                </div>
+                <button class="demo-first-analysis-button" onclick="window.SoundyDemo._handleFirstAnalysisCTAClick()">
+                    Garantir mais análises
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        return banner;
+    }
+    
+    /**
+     * Handler do clique no CTA de primeira análise
+     */
+    DEMO._handleFirstAnalysisCTAClick = function() {
+        log('🎯 [DEMO-UI] CTA de primeira análise clicado');
+        
+        // Tracking
+        if (window.SoundyTracking && window.SoundyTracking.isEnabled()) {
+            try {
+                window.SoundyTracking.trackCTADemoToSales(window.location.href, 'first_analysis_cta');
+                log('📊 CTA primeira análise → Vendas rastreado');
+            } catch (trackingError) {
+                warn('⚠️ Erro no tracking (não crítico):', trackingError);
+            }
+        }
+        
+        // Redirecionar para página do produto
+        window.location.href = CONFIG.productPageUrl || 'https://musicaprofissional.com.br/';
+    };
+    
+    /**
+     * Retorna CSS dos banners de primeira análise
+     */
+    function getFirstAnalysisCTAStyles() {
+        return `
+            /* Banners de CTA após primeira análise */
+            .demo-first-analysis-banner {
+                position: fixed;
+                left: 0;
+                right: 0;
+                z-index: 999999;
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border: 2px solid rgba(188, 19, 254, 0.5);
+                box-shadow: 0 4px 20px rgba(188, 19, 254, 0.3);
+                padding: 20px;
+                opacity: 0;
+                transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .demo-first-analysis-banner-top {
+                top: 0;
+                transform: translateY(-100%);
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
+                border-top: none;
+            }
+            
+            .demo-first-analysis-banner-bottom {
+                bottom: 0;
+                transform: translateY(100%);
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+                border-bottom: none;
+            }
+            
+            .demo-first-analysis-content {
+                max-width: 1200px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 20px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .demo-first-analysis-icon {
+                width: 48px;
+                height: 48px;
+                background: linear-gradient(135deg, #00f3ff 0%, #bc13fe 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                animation: demoPulseSmall 2s infinite;
+            }
+            
+            @keyframes demoPulseSmall {
+                0%, 100% { 
+                    box-shadow: 0 0 15px rgba(0, 243, 255, 0.5); 
+                }
+                50% { 
+                    box-shadow: 0 0 25px rgba(188, 19, 254, 0.7); 
+                }
+            }
+            
+            .demo-first-analysis-icon svg {
+                width: 24px;
+                height: 24px;
+                stroke: white;
+            }
+            
+            .demo-first-analysis-text {
+                flex: 1;
+                min-width: 300px;
+                text-align: left;
+            }
+            
+            .demo-first-analysis-text h3 {
+                font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+                font-size: 1.4rem;
+                font-weight: 700;
+                color: #ffffff;
+                margin: 0 0 6px 0;
+                line-height: 1.3;
+            }
+            
+            .demo-first-analysis-text p {
+                font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+                font-size: 1rem;
+                color: #b0b0d0;
+                margin: 0;
+                line-height: 1.5;
+            }
+            
+            .demo-first-analysis-button {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 14px 28px;
+                font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: #ffffff;
+                background: linear-gradient(135deg, #00f3ff 0%, #bc13fe 100%);
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                flex-shrink: 0;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            .demo-first-analysis-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 25px rgba(188, 19, 254, 0.6);
+            }
+            
+            .demo-first-analysis-button svg {
+                width: 16px;
+                height: 16px;
+                stroke: white;
+            }
+            
+            /* Responsivo */
+            @media (max-width: 768px) {
+                .demo-first-analysis-banner {
+                    padding: 16px;
+                }
+                
+                .demo-first-analysis-content {
+                    flex-direction: column;
+                    text-align: center;
+                    gap: 16px;
+                }
+                
+                .demo-first-analysis-text {
+                    text-align: center;
+                    min-width: auto;
+                }
+                
+                .demo-first-analysis-text h3 {
+                    font-size: 1.2rem;
+                }
+                
+                .demo-first-analysis-text p {
+                    font-size: 0.95rem;
+                }
+                
+                .demo-first-analysis-button {
+                    width: 100%;
+                    justify-content: center;
+                    padding: 12px 20px;
+                    font-size: 1rem;
+                }
+                
+                .demo-first-analysis-icon {
+                    width: 40px;
+                    height: 40px;
+                }
+                
+                .demo-first-analysis-icon svg {
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+        `;
+    }
+
     log('🔥 [DEMO-UI] Módulo UI carregado');
 
 })();
