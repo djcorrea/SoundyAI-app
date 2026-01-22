@@ -289,7 +289,9 @@ class VoiceMessageIntegration {
     async callVoiceAPI(audioBase64) {
         const idToken = localStorage.getItem('idToken');
         
-        const response = await fetch('/api/voice-message', {
+        // ✅ Usar resolver dinâmico de API
+        const voiceEndpoint = window.ApiUrlResolver?.getVoiceEndpoint() || '/api/voice-message';
+        const response = await fetch(voiceEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

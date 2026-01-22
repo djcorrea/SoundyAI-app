@@ -118,20 +118,20 @@
             <div class="player-wrapper">
                 <h3>🎵 Mix Original (ANTES)</h3>
                 <audio id="audio1" controls preload="metadata">
-                    <source src="/assets/audio/SOUNDYAI_ANTES.wav" type="audio/wav">
+                    <source src="/assets/audio/soundyai-antes.wav" type="audio/wav">
                     Seu navegador não suporta o elemento de áudio.
                 </audio>
-                <div class="info">Arquivo: /assets/audio/SOUNDYAI_ANTES.wav</div>
+                <div class="info">Arquivo: /assets/audio/soundyai-antes.wav</div>
                 <button onclick="testPlay('audio1')">▶ Forçar Play</button>
             </div>
 
             <div class="player-wrapper">
                 <h3>✨ Mix Otimizada (DEPOIS)</h3>
                 <audio id="audio2" controls preload="metadata">
-                    <source src="/assets/audio/SOUNDYAI_DEPOIS.wav" type="audio/wav">
+                    <source src="/assets/audio/soundyai-depois.wav" type="audio/wav">
                     Seu navegador não suporta o elemento de áudio.
                 </audio>
-                <div class="info">Arquivo: /assets/audio/SOUNDYAI_DEPOIS.wav</div>
+                <div class="info">Arquivo: /assets/audio/soundyai-depois.wav</div>
                 <button onclick="testPlay('audio2')">▶ Forçar Play</button>
             </div>
         </div>
@@ -160,7 +160,7 @@
             
             <div class="player-wrapper" style="position: relative; z-index: 9999;">
                 <audio id="audio3" controls preload="metadata" style="position: relative; z-index: 9999;">
-                    <source src="/assets/audio/SOUNDYAI_ANTES.wav" type="audio/wav">
+                    <source src="/assets/audio/soundyai-antes.wav" type="audio/wav">
                 </audio>
                 <div class="info">Z-Index: 9999 (deve funcionar sempre)</div>
             </div>
@@ -192,8 +192,8 @@
             urlTest.innerHTML = '<p>Testando URLs...</p>';
             
             const urls = [
-                '/assets/audio/SOUNDYAI_ANTES.wav',
-                '/assets/audio/SOUNDYAI_DEPOIS.wav'
+                '/assets/audio/soundyai-antes.wav',
+                '/assets/audio/soundyai-depois.wav'
             ];
             
             let results = '<h3>Resultado dos Testes:</h3>';

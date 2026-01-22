@@ -233,8 +233,9 @@ class EconomicVoiceMessage {
         // Adicionar contexto de voice message no prompt
         const voiceMessage = `[VOICE MESSAGE] ${transcript}`;
         
-        // Usar sua API de chat existente!
-        const response = await fetch('/api/chat', {
+        // ✅ Usar resolver dinâmico de API
+        const chatEndpoint = window.ApiUrlResolver?.getChatEndpoint() || API_CONFIG.chatEndpoint;
+        const response = await fetch(chatEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
