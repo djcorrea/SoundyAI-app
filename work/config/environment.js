@@ -139,7 +139,18 @@ export function isOriginAllowed(origin, env = detectEnvironment()) {
 export function getCorsConfig(env = detectEnvironment()) {
   return {
     origin: function(origin, callback) {
-      if (isOriginAllowed(origin, env)) {
+      // 🧪 SEMPRE permitir origens de teste, independente do ambiente do servidor
+      const testOrigins = [
+        'https://soundyai-teste.vercel.app',
+        'https://soundyai-app-soundyai-teste.up.railway.app'
+      ];
+      
+      const isTestOrigin = origin && testOrigins.some(testOrigin => origin.includes(testOrigin));
+      
+      if (isTestOrigin) {
+        console.log(`🧪 [CORS] Origem de TESTE permitida: ${origin}`);
+        callback(null, true);
+      } else if (isOriginAllowed(origin, env)) {
         callback(null, true);
       } else {
         console.warn(`[CORS] Origem bloqueada: ${origin} (env: ${env})`);
