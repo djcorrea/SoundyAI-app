@@ -522,7 +522,7 @@ class ProdAIChatbot {
     init() {
         this.setupElements();
         this.setupEventListeners();
-        this.waitForPageLoad();
+        this.showChatbotImmediately();
     }
     
     setupElements() {
@@ -614,50 +614,21 @@ class ProdAIChatbot {
         }
     }
     
-    waitForPageLoad() {
-        let attempts = 0;
-        const maxAttempts = 200; // Máximo 10 segundos (200 * 50ms)
+    showChatbotImmediately() {
+        log('🚀 [PERFORMANCE] Inicializando chatbot otimizado - exibição imediata');
         
-        // Cache do querySelector para evitar consultas repetidas
-        const images = document.querySelectorAll('img');
-        
-        const checkPageReady = () => {
-            // Otimizado: Não fazer querySelectorAll a cada loop
-            let allImagesLoaded = true;
+        const initChatbot = () => {
+            log('✅ [PERFORMANCE] DOMContentLoaded - animando chatbot IMEDIATAMENTE');
             
-            for (let i = 0; i < images.length; i++) {
-                const img = images[i];
-                if (!img.complete || img.naturalHeight === 0) {
-                    allImagesLoaded = false;
-                    break; // Early exit - mais eficiente que forEach
-                }
-            }
-            
-            const librariesLoaded = typeof gsap !== 'undefined' && typeof VANTA !== 'undefined';
-            
-            if (allImagesLoaded && librariesLoaded) {
-                // Aguardar as animações fadeInPush dos elementos terminarem (0.6s) + buffer
-                setTimeout(() => {
-                    this.animateInitialAppearance();
-                }, 1000); // 0.6s animação + 0.4s buffer para sincronia suave
-                return; // PARAR O LOOP
-            } else if (attempts >= maxAttempts) {
-                warn('⚠️ Timeout no carregamento, continuando...');
-                // Mesmo com timeout, aguardar um pouco para não conflitar
-                setTimeout(() => {
-                    this.animateInitialAppearance();
-                }, 1000);
-                return; // PARAR O LOOP
-            } else {
-                attempts++;
-                setTimeout(checkPageReady, 50);
-            }
+            // Animar chatbot imediatamente (com ou sem GSAP)
+            this.animateInitialAppearance();
         };
         
+        // Executar no DOMContentLoaded (ou imediatamente se já carregou)
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', checkPageReady);
+            document.addEventListener('DOMContentLoaded', initChatbot);
         } else {
-            checkPageReady();
+            initChatbot();
         }
     }
     
