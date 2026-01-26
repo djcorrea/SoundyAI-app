@@ -120,13 +120,24 @@
             warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
         }
         
-        // 🔥 MOSTRAR CTA APÓS ANÁLISE COMPLETAR
-        if (data.analyses_used >= CONFIG.limits.maxAnalyses) {
-            log('🚫 [DEMO-GUARDS] Limite de análises atingido - mostrando CTA');
-            // Aguardar um pouco para o resultado da análise aparecer, depois mostrar CTA
+        // 🎉 NOVO: Mostrar CTA não-bloqueante após PRIMEIRA análise
+        if (data.analyses_used === 1) {
+            log('🎉 [DEMO-GUARDS] Primeira análise concluída - mostrando CTA não-bloqueante');
+            // Aguardar resultado aparecer, depois mostrar CTA
             setTimeout(() => {
-                DEMO.showConversionModal('analysis_complete');
-            }, 3000); // 3 segundos após o resultado
+                if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                    DEMO.showFirstAnalysisCTA();
+                } else {
+                    warn('⚠️ [DEMO-GUARDS] Função showFirstAnalysisCTA não encontrada');
+                }
+            }, 2000); // 2 segundos após o resultado aparecer
+        }
+        
+        // 🔥 Modal bloqueante continua sendo exibido ao atingir limite (segunda tentativa)
+        if (data.analyses_used >= CONFIG.limits.maxAnalyses) {
+            log('🚫 [DEMO-GUARDS] Limite de análises atingido - modal bloqueante será exibido na próxima tentativa');
+            // Nota: Modal bloqueante aparece quando usuário TENTA fazer outra análise
+            // Isso é tratado nos guards de verificação (canAnalyze)
         }
         
         return { success: true, backendResult };

@@ -339,6 +339,15 @@
         if (titleEl) titleEl.textContent = `${featureConfig.title} - PRO`;
         if (textEl) textEl.textContent = featureConfig.message;
         
+        // 📊 GA4 Tracking: Paywall visualizado
+        if (window.GATracking?.trackPaywallView) {
+            window.GATracking.trackPaywallView({
+                trigger: feature || 'unknown',
+                currentPlan: currentPlan,
+                featureBlocked: featureConfig.title
+            });
+        }
+        
         // Exibir modal
         modal.style.display = 'flex';
         
