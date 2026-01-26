@@ -3905,6 +3905,15 @@ async function uploadToBucket(uploadUrl, file) {
 
     __dbg('✅ Upload para bucket concluído com sucesso');
     showUploadProgress(`Upload concluído! Processando ${file.name}...`);
+    
+    // 📊 GA4 Tracking: Upload de áudio iniciado
+    if (window.GATracking?.trackAudioUploadStarted) {
+      window.GATracking.trackAudioUploadStarted({
+        format: file.name.split('.').pop(),
+        sizeMB: parseFloat((file.size / 1024 / 1024).toFixed(2)),
+        mode: window.currentAnalysisMode || 'genre'
+      });
+    }
 
   } catch (error) {
     error('❌ Erro no upload para bucket:', error);
@@ -4595,6 +4604,15 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             mode: data.mode,
             fileKey: data.fileKey
         });
+        
+        // 📊 GA4 Tracking: Análise de áudio iniciada
+        if (window.GATracking?.trackAudioAnalysisStarted) {
+            window.GATracking.trackAudioAnalysisStarted({
+                mode: data.mode || mode,
+                genre: payload.genre || null,
+                hasReference: mode === 'reference' || !!payload.referenceJobId
+            });
+        }
 
         // 🔒 BIND: Registrar binding se payload tinha _pendingBinding
         if (payload._pendingBinding && window.referenceFlow) {
@@ -14575,7 +14593,17 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // 🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
+    // � GA4 Tracking: Análise de áudio completada
+    if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
+        window.GATracking.trackAudioAnalysisCompleted({
+            mode: analysis?.mode || analysis?.analysisMode || 'genre',
+            score: analysis?.technicalData?.overallScore || null,
+            durationSeconds: analysis?.metadata?.durationSeconds || null,
+            genre: analysis?.data?.genre || analysis?.genre || null
+        });
+    }
+    
+    // �🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
     // (Análises de referência usam displayReferenceComparison)
     if (analysis && !analysis._fromHistory && analysis.technicalData) {
         const analysisMode = analysis.mode || analysis.analysisMode || 'genre';

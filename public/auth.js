@@ -343,6 +343,14 @@ log('🚀 Carregando auth.js...');
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(user, idToken);
+        
+        // 📊 GA4 Tracking: Cadastro completado
+        if (window.GATracking?.trackSignupCompleted) {
+            window.GATracking.trackSignupCompleted({
+                method: 'email',
+                plan: 'gratis'
+            });
+        }
 
         showMessage("✅ Conta criada com sucesso! Redirecionando...", "success");
         

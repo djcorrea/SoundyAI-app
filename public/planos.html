@@ -8,6 +8,22 @@
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
+    <!-- 📊 Google Ads Tracking -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'AW-17884386312');
+        
+        // Debug mode: ?debug_tracking=1
+        window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
+        if (window.TRACKING_DEBUG) console.log('🎯 [TRACKING] Debug mode ativado');
+    </script>
+    
+    <!-- 📊 Google Analytics 4 Tracking Module -->
+    <script src="analytics-tracking.js" defer></script>
+    
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -450,6 +466,16 @@
 
                 const data = await response.json();
                 log('✅ Sessão de checkout criada:', data);
+                
+                // 📊 GA4 Tracking: Assinatura iniciada
+                if (window.GATracking?.trackSubscriptionStarted) {
+                    const planPrices = { plus: 9.90, pro: 47.00, studio: 197.00 };
+                    window.GATracking.trackSubscriptionStarted({
+                        plan: plan,
+                        price: planPrices[plan] || null,
+                        currency: 'BRL'
+                    });
+                }
 
                 // Redirecionar para Stripe Checkout
                 if (data.url) {
