@@ -17,8 +17,8 @@
     // CONFIGURAÇÃO
     // ========================================
 
-    // IDs de rastreamento (serão preenchidos automaticamente via gtag config)
-    const GA4_MEASUREMENT_ID = 'AW-17884386312'; // ID já existente no projeto
+    // ID do Google Ads para conversões
+    const GOOGLE_ADS_ID = 'AW-17884386312';
     
     // Flag de debug (ativa via URL ?debug_tracking=1)
     const DEBUG_MODE = window.TRACKING_DEBUG || false;
