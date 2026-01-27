@@ -1727,12 +1727,23 @@
                             if (typeof window.logout === 'function') {
                                 window.logout();
                             } else {
-                                // Preserva o bypass de admin antes de limpar
+                                // 🔗 Preservar dados importantes antes de limpar
                                 var adminBypass = localStorage.getItem('soundy_admin_bypass');
+                                var referralCode = localStorage.getItem('soundy_referral_code');
+                                var referralTimestamp = localStorage.getItem('soundy_referral_timestamp');
+                                
                                 localStorage.clear();
+                                
+                                // Restaurar dados preservados
                                 if (adminBypass) {
                                     localStorage.setItem('soundy_admin_bypass', adminBypass);
                                 }
+                                if (referralCode) {
+                                    localStorage.setItem('soundy_referral_code', referralCode);
+                                    localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
+                                    console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+                                }
+                                
                                 window.location.href = 'login.html';
                             }
                             break;

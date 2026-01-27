@@ -194,7 +194,17 @@ log('🚀 Carregando auth.js...');
             warn('   user.phoneNumber:', result.user.phoneNumber);
             warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
+            
+            // 🔗 PRESERVAR referralCode antes de limpar localStorage
+            const referralCode = localStorage.getItem('soundy_referral_code');
+            const referralTimestamp = localStorage.getItem('soundy_referral_timestamp');
             localStorage.clear();
+            if (referralCode) {
+              localStorage.setItem('soundy_referral_code', referralCode);
+              localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
+              console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+            }
+            
             showMessage(
               "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
               "error"
@@ -1572,6 +1582,10 @@ log('🚀 Carregando auth.js...');
         const verificadoPorSMS = !!user.phoneNumber;
         
         // 🔗 SISTEMA DE AFILIADOS: Capturar código de referência do localStorage
+        log('🔍 [REFERRAL-DEBUG] Lendo localStorage ANTES do cadastro...');
+        log('   localStorage.soundy_referral_code:', localStorage.getItem('soundy_referral_code'));
+        log('   localStorage.soundy_referral_timestamp:', localStorage.getItem('soundy_referral_timestamp'));
+        
         const referralCode = localStorage.getItem('soundy_referral_code') || null;
         const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
         
