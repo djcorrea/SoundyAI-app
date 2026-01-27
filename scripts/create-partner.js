@@ -159,16 +159,16 @@ async function main() {
   console.log('========================================\n');
 
   try {
-    // ✅ EXEMPLO 1: Criar parceiro "Estúdio Herta"
+    // ✅ CRIAR PARCEIRO: papohertz
     await createPartner({
-      partnerId: 'estudioherta',
-      name: 'Estúdio Herta',
-      referralCode: 'estudioherta',
-      email: 'contato@estudioherta.com',
+      partnerId: 'papohertz',
+      name: 'Papo Hertz',
+      referralCode: 'papohertz',
+      email: 'contato@papohertz.com',  // ⚠️ ALTERE para o email real do parceiro
       commissionPercent: 50,
       active: true,
-      description: 'Parceiro oficial - Canal YouTube',
-      website: 'https://youtube.com/@estudioherta',
+      description: 'Parceiro oficial - Papo Hertz',
+      website: 'https://youtube.com/@papohertz',  // ⚠️ ALTERE se necessário
       tier: 'gold',
     });
 
