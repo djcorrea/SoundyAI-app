@@ -100,17 +100,30 @@
      * - Chamar APÓS análise completa (resultado recebido)
      */
     DEMO.registerAnalysis = async function() {
-        if (!DEMO.isActive) return { success: false, reason: 'not_active' };
+        console.group('📊 [DEMO-GUARDS] registerAnalysis() chamado');
+        console.log('isActive:', DEMO.isActive);
+        console.log('data antes:', DEMO.data);
+        
+        if (!DEMO.isActive) {
+            console.groupEnd();
+            return { success: false, reason: 'not_active' };
+        }
         
         const data = DEMO.data;
-        if (!data) return { success: false, reason: 'no_data' };
+        if (!data) {
+            console.groupEnd();
+            return { success: false, reason: 'no_data' };
+        }
         
         // Incrementar contador local
+        const prevCount = data.analyses_used;
         data.analyses_used++;
+        console.log(`📊 Contador incrementado: ${prevCount} → ${data.analyses_used}`);
         log(`📊 [DEMO-GUARDS] Análise registrada: ${data.analyses_used}/${CONFIG.limits.maxAnalyses}`);
         
         // Salvar localmente
         await DEMO._saveDemoData(data);
+        console.log('💾 Dados salvos');
         
         // 🔗 Sincronizar com backend
         let backendResult = null;
@@ -122,6 +135,7 @@
         
         // 🎉 CTA NÃO-BLOQUEANTE: Mostrar imediatamente após PRIMEIRA análise
         if (data.analyses_used === 1) {
+            console.log('✅ [DEMO-GUARDS] É a primeira análise! Iniciando fluxo de CTA...');
             log('🎉 [DEMO-GUARDS] Primeira análise concluída - mostrando CTA não-bloqueante');
             
             // 🔴 CRÍTICO: Aguardar resultado DOM estar renderizado, depois exibir CTA
@@ -145,6 +159,8 @@
             
             // Aguardar 2 segundos para resultado aparecer, depois iniciar tentativas
             setTimeout(tryShowCTA, 2000);
+        } else {
+            console.log(`ℹ️ [DEMO-GUARDS] Não é primeira análise (analyses_used=${data.analyses_used}), CTA não será exibido`);
         }
         
         // 🔥 Modal bloqueante continua sendo exibido ao atingir limite (segunda tentativa)
@@ -154,6 +170,7 @@
             // Isso é tratado nos guards de verificação (canAnalyze)
         }
         
+        console.groupEnd();
         return { success: true, backendResult };
     };
 

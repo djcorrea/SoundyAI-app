@@ -5166,9 +5166,17 @@ function handleReferenceFileSelection(type) {
                     log('📊 [ANONYMOUS] Análise registrada com sucesso');
                 }
                 
-                // �🔥 [DEMO-MODE] Registrar análise concluída
+                // 🔥 [DEMO-MODE] Registrar análise concluída
                 if (window.SoundyDemo?.isActive) {
-                    window.SoundyDemo.registerAnalysis();
+                    console.log('🔥 [AUDIO-ANALYZER] Chamando SoundyDemo.registerAnalysis()...');
+                    console.log('Estado antes:', {
+                        isActive: window.SoundyDemo.isActive,
+                        analyses_used: window.SoundyDemo.data?.analyses_used
+                    });
+                    await window.SoundyDemo.registerAnalysis();
+                    console.log('Estado depois:', {
+                        analyses_used: window.SoundyDemo.data?.analyses_used
+                    });
                     log('📊 [DEMO] Análise registrada com sucesso');
                 }
 
