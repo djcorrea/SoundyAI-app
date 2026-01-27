@@ -5167,6 +5167,13 @@ function handleReferenceFileSelection(type) {
                 }
                 
                 // 🔥 [DEMO-MODE] Registrar análise concluída
+                console.log('🔍 [DEBUG] Verificando modo demo:', {
+                    exists: !!window.SoundyDemo,
+                    isActive: window.SoundyDemo?.isActive,
+                    pathname: window.location.pathname,
+                    search: window.location.search
+                });
+                
                 if (window.SoundyDemo?.isActive) {
                     console.log('🔥 [AUDIO-ANALYZER] Chamando SoundyDemo.registerAnalysis()...');
                     console.log('Estado antes:', {
@@ -5178,6 +5185,17 @@ function handleReferenceFileSelection(type) {
                         analyses_used: window.SoundyDemo.data?.analyses_used
                     });
                     log('📊 [DEMO] Análise registrada com sucesso');
+                } else {
+                    console.warn('⚠️ [DEMO] Modo demo NÃO está ativo, mas URL é /demo. Forçando ativação...');
+                    // Se a URL é /demo mas modo não está ativo, forçar
+                    if (window.location.pathname.includes('/demo') && window.SoundyDemo) {
+                        console.log('🔧 Forçando ativação do modo demo...');
+                        window.SoundyDemo.isActive = true;
+                        if (window.SoundyDemo.data) {
+                            window.SoundyDemo.data.analyses_used = window.SoundyDemo.data.analyses_used || 0;
+                        }
+                        await window.SoundyDemo.registerAnalysis();
+                    }
                 }
 
                 // 5. Armazenar resultado

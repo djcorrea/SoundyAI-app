@@ -742,6 +742,79 @@
         setTimeout(setupDemoUIRestrictions, 500);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // 🎯 LISTENER ALTERNATIVO: CTA APÓS RESULTADO
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🔴 BACKUP: Observar quando resultado é exibido no DOM
+     * Se registerAnalysis() falhar, este listener garante exibição do CTA
+     */
+    const observeResultModal = () => {
+        if (!DEMO.isActive) return;
+        
+        console.log('👁️ [DEMO-GUARDS] Observador de resultado iniciado');
+        
+        // Verificar periodicamente se resultado apareceu
+        const checkInterval = setInterval(() => {
+            // Procurar por elementos que indicam resultado exibido
+            const scoreDisplay = document.querySelector('#scoreDisplay');
+            const hasScore = scoreDisplay && scoreDisplay.textContent.trim().length > 0;
+            
+            if (hasScore) {
+                const currentCount = DEMO.data?.analyses_used || 0;
+                console.log(`🎯 [DEMO-GUARDS] Resultado detectado! analyses_used=${currentCount}`);
+                
+                if (currentCount === 0) {
+                    console.log('✅ [DEMO-GUARDS] É a primeira análise! Registrando e exibindo CTA...');
+                    clearInterval(checkInterval);
+                    
+                    // Registrar análise
+                    DEMO.data.analyses_used = 1;
+                    DEMO._saveDemoData(DEMO.data).then(() => {
+                        console.log('💾 [DEMO-GUARDS] Análise registrada via observer');
+                        
+                        // Exibir CTA após 2s
+                        setTimeout(() => {
+                            if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                                console.log('🎉 [DEMO-GUARDS] Exibindo CTA via observer');
+                                DEMO.showFirstAnalysisCTA();
+                            } else {
+                                console.error('❌ [DEMO-GUARDS] showFirstAnalysisCTA não encontrada!');
+                            }
+                        }, 2000);
+                    });
+                } else if (currentCount === 1) {
+                    // Já foi registrada, apenas exibir CTA se não existir
+                    if (!document.querySelector('.demo-first-analysis-banner')) {
+                        console.log('🎉 [DEMO-GUARDS] Primeira análise já registrada, exibindo CTA...');
+                        clearInterval(checkInterval);
+                        setTimeout(() => {
+                            if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                                DEMO.showFirstAnalysisCTA();
+                            }
+                        }, 2000);
+                    } else {
+                        clearInterval(checkInterval);
+                    }
+                }
+            }
+        }, 500);
+        
+        // Limpar após 30s (timeout)
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            console.log('⏱️ [DEMO-GUARDS] Observador encerrado (timeout)');
+        }, 30000);
+    };
+    
+    // Iniciar observador se modo demo ativo
+    setTimeout(() => {
+        if (DEMO.isActive) {
+            observeResultModal();
+        }
+    }, 1000);
+
     log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
 
 })();
