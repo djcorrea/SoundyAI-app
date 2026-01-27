@@ -1,0 +1,13 @@
+{
+  "partnerId": "papohertz",
+  "name": "Papo Hertz",
+  "referralCode": "papohertz",
+  "email": "contato@papohertz.com",
+  "commissionPercent": 50,
+  "active": true,
+  "description": "Parceiro oficial - Papo Hertz",
+  "website": "https://youtube.com/@papohertz",
+  "tier": "gold",
+  "createdAt": "2026-01-27T14:30:00.000Z",
+  "updatedAt": "2026-01-27T14:30:00.000Z"
+}
