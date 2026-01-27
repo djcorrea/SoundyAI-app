@@ -14,6 +14,7 @@ service cloud.firestore {
                     && request.resource.data.deviceId != null;
       
       // ✅ ATUALIZAÇÃO: Impedir alteração de telefone sem nova verificação
+      // 🔒 SEGURANÇA AFILIADOS: Usuário NÃO pode alterar campos de referência
       allow update: if request.auth != null 
                     && request.auth.uid == userId
                     && (
@@ -21,6 +22,15 @@ service cloud.firestore {
                       request.resource.data.telefone == resource.data.telefone
                       // OU se alterar telefone, deve reverificar por SMS
                       || request.resource.data.verificadoPorSMS == true
+                    )
+                    // ✅ NOVO: Proteger campos de sistema de afiliados
+                    && (
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                        'referralCode',
+                        'referralTimestamp',
+                        'convertedAt',
+                        'firstPaidPlan'
+                      ])
                     );
       
       allow delete: if request.auth != null && request.auth.uid == userId;
@@ -44,6 +54,26 @@ service cloud.firestore {
     }
     match /fingerprints/{fpId} {
       allow read, write: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🤝 SISTEMA DE AFILIADOS
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // ✅ PARCEIROS: Leitura pública (para validação), escrita apenas backend
+    match /partners/{partnerId} {
+      allow read: if request.auth != null;  // Qualquer usuário autenticado
+      allow write: if false;  // Apenas admin via backend/script
+    }
+    
+    // ✅ TRANSAÇÕES STRIPE (idempotência)
+    match /processed_stripe_events/{eventId} {
+      allow read, write: if false;  // Apenas backend
+    }
+    
+    // ✅ TRANSAÇÕES HOTMART (idempotência)
+    match /hotmart_transactions/{transactionId} {
+      allow read, write: if false;  // Apenas backend
     }
   }
 }

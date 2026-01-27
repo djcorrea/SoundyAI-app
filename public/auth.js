@@ -1571,12 +1571,23 @@ log('🚀 Carregando auth.js...');
         // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
         const verificadoPorSMS = !!user.phoneNumber;
         
+        // 🔗 SISTEMA DE AFILIADOS: Capturar código de referência do localStorage
+        const referralCode = localStorage.getItem('soundy_referral_code') || null;
+        const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
+        
         log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
         log('   Email:', email);
         log('   Telefone:', telefone);
         log('   DeviceID:', deviceId?.substring(0, 16) + '...');
         log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
         log('   criadoSemSMS:', criadoSemSMS);
+        
+        if (referralCode) {
+          log('🔗 [REFERRAL] Código detectado:', referralCode);
+          log('🕐 [REFERRAL] Timestamp:', referralTimestamp);
+        } else {
+          log('🔗 [REFERRAL] Nenhum código de referência detectado');
+        }
         
         // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
         await setDoc(userRef, {
@@ -1596,11 +1607,23 @@ log('🚀 Carregando auth.js...');
           smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null, // ✅ Campo obrigatório
           criadoSemSMS: criadoSemSMS,
           entrevistaConcluida: false,
+          // 🔗 SISTEMA DE AFILIADOS: Campos de referência
+          referralCode: referralCode,              // Código do parceiro (ex: "estudioherta")
+          referralTimestamp: referralTimestamp,    // ISO timestamp de quando capturou
+          convertedAt: null,                       // Será preenchido quando virar pagante
+          firstPaidPlan: null,                     // Primeiro plano pago (plus/pro/studio)
           createdAt: serverTimestamp(),  // ✅ Usar serverTimestamp
           updatedAt: serverTimestamp()   // ✅ Usar serverTimestamp
         });
         
         log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
+        
+        // 🧹 LIMPAR localStorage após sucesso (evita reutilização indevida)
+        if (referralCode) {
+          localStorage.removeItem('soundy_referral_code');
+          localStorage.removeItem('soundy_referral_timestamp');
+          log('🧹 [REFERRAL] Código limpo do localStorage (usado com sucesso)');
+        }
         
         // ✅ VERIFICAR CRIAÇÃO
         const verificacao = await getDoc(userRef);

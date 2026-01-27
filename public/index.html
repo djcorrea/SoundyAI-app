@@ -9,6 +9,36 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
+    <!-- 🔗 SISTEMA DE AFILIADOS: Captura de código de referência -->
+    <script>
+        (function() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const refCode = urlParams.get('ref');
+                
+                if (refCode && refCode.trim()) {
+                    const cleanRef = refCode.trim().toLowerCase();
+                    const timestamp = new Date().toISOString();
+                    
+                    // Salvar em localStorage (persiste entre páginas)
+                    localStorage.setItem('soundy_referral_code', cleanRef);
+                    localStorage.setItem('soundy_referral_timestamp', timestamp);
+                    
+                    console.log('🔗 [REFERRAL] Código capturado:', cleanRef);
+                    console.log('🕐 [REFERRAL] Timestamp:', timestamp);
+                    
+                    // Remover ?ref da URL para ficar limpo (opcional)
+                    const cleanUrl = window.location.protocol + '//' + 
+                                     window.location.host + 
+                                     window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                }
+            } catch (error) {
+                console.error('❌ [REFERRAL] Erro ao capturar código:', error);
+            }
+        })();
+    </script>
+    
     <!-- 🌐 API URL Resolver - DEVE SER CARREGADO ANTES DE TUDO -->
     <script src="api-url-resolver.js?v=20260121"></script>
     

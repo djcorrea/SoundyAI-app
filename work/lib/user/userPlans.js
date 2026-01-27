@@ -315,6 +315,79 @@ export async function getOrCreateUser(uid, extra = {}) {
 }
 
 /**
+ * 🔗 SISTEMA DE AFILIADOS: Registrar conversão de referência
+ * Valida backend se o código do parceiro existe e está ativo, e marca conversão APENAS UMA VEZ.
+ * @param {string} uid - UID do usuário
+ * @param {string} plan - Plano pago ativado (plus/pro/studio/dj)
+ * @returns {Promise<void>}
+ */
+async function registerReferralConversion(uid, plan) {
+  try {
+    const userRef = getDb().collection(USERS).doc(uid);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      console.warn(`⚠️ [REFERRAL] Usuário ${uid} não existe no Firestore`);
+      return;
+    }
+    
+    const userData = userDoc.data();
+    const referralCode = userData.referralCode;
+    
+    // ✅ REGRA 1: Sem código de referência = nada a fazer
+    if (!referralCode) {
+      console.log(`ℹ️ [REFERRAL] Usuário ${uid} não possui código de referência`);
+      return;
+    }
+    
+    // ✅ REGRA 2: Já convertido = idempotência (não registrar novamente)
+    if (userData.convertedAt) {
+      console.log(`✅ [REFERRAL] Usuário ${uid} já converteu anteriormente em ${userData.convertedAt}`);
+      return;
+    }
+    
+    // ✅ REGRA 3: Validação BACKEND - verificar se parceiro existe e está ativo
+    const partnerRef = getDb().collection('partners').doc(referralCode);
+    const partnerDoc = await partnerRef.get();
+    
+    if (!partnerDoc.exists) {
+      console.warn(`⚠️ [REFERRAL] Código "${referralCode}" não existe na coleção partners`);
+      return;
+    }
+    
+    const partnerData = partnerDoc.data();
+    if (!partnerData.active) {
+      console.warn(`⚠️ [REFERRAL] Parceiro "${referralCode}" está inativo`);
+      return;
+    }
+    
+    // ✅ REGRA 4: Validar se plano é válido para conversão (excluir "free")
+    const validPlans = ['plus', 'pro', 'studio', 'dj'];
+    if (!validPlans.includes(plan)) {
+      console.warn(`⚠️ [REFERRAL] Plano "${plan}" não é válido para conversão`);
+      return;
+    }
+    
+    // 🎯 MARCAR CONVERSÃO (APENAS UMA VEZ)
+    const convertedAt = new Date().toISOString();
+    await userRef.update({
+      convertedAt: convertedAt,
+      firstPaidPlan: plan,
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log(`✅ [REFERRAL] Conversão registrada!`);
+    console.log(`   Usuário: ${uid}`);
+    console.log(`   Parceiro: ${referralCode}`);
+    console.log(`   Plano: ${plan}`);
+    console.log(`   Timestamp: ${convertedAt}`);
+    
+  } catch (error) {
+    console.error(`❌ [REFERRAL] Erro ao registrar conversão:`, error);
+  }
+}
+
+/**
  * Aplicar plano (usado pelos webhooks Mercado Pago e Hotmart)
  * @param {string} uid - UID do Firebase Auth
  * @param {Object} options - { plan: 'plus'|'pro'|'studio'|'dj', durationDays: number }
@@ -371,6 +444,9 @@ export async function applyPlan(uid, { plan, durationDays }) {
   const updatedUser = (await ref.get()).data();
   console.log(`✅ [USER-PLANS] Plano aplicado: ${uid} → ${plan} até ${expires}`);
   
+  // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável
+  await registerReferralConversion(uid, plan);
+  
   return updatedUser;
 }
 
@@ -425,6 +501,9 @@ export async function applySubscription(uid, { plan, subscriptionId, customerId,
   
   const updatedUser = (await ref.get()).data();
   console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId}, Status: ${status})`);
+  
+  // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável
+  await registerReferralConversion(uid, plan);
   
   return updatedUser;
 }
