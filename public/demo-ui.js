@@ -363,29 +363,33 @@
      * CARACTERÍSTICAS:
      * - Permite scroll completo da página
      * - Não bloqueia interação
-     * - Aparece apenas UMA vez por sessão
+     * - Aparece SEMPRE após primeira análise (garantia de conversão)
      * - Design não-intrusivo mas visível
      * 
-     * @version 1.0.0
+     * @version 2.0.0
+     * @updated 2026-01-27 - Removido sessionStorage, garantir exibição sempre
      * @created 2026-01-22
      */
     DEMO.showFirstAnalysisCTA = function() {
-        // Verificar se já foi mostrado nesta sessão
-        if (sessionStorage.getItem('demo_first_cta_shown')) {
-            log('ℹ️ [DEMO-UI] CTA de primeira análise já foi exibido nesta sessão');
-            return;
-        }
-        
-        // Verificar se está realmente em modo demo
+        // 🔴 CRÍTICO: Verificar se está realmente em modo demo
         if (!DEMO.isActive) {
             log('⚠️ [DEMO-UI] Não está em modo demo, CTA não será exibido');
             return;
         }
         
-        log('🎉 [DEMO-UI] Exibindo CTA não-bloqueante de primeira análise');
+        // 🔴 CRÍTICO: Evitar duplicação DOM (se já existe, não criar novamente)
+        if (document.querySelector('.demo-first-analysis-banner')) {
+            log('ℹ️ [DEMO-UI] CTA de primeira análise já está no DOM');
+            return;
+        }
         
-        // Marcar como mostrado
-        sessionStorage.setItem('demo_first_cta_shown', 'true');
+        // 🔴 CRÍTICO: Verificar se é realmente a primeira análise
+        if (DEMO.data && DEMO.data.analyses_used !== 1) {
+            log('⚠️ [DEMO-UI] Não é a primeira análise, CTA não será exibido');
+            return;
+        }
+        
+        log('🎉 [DEMO-UI] Exibindo CTA não-bloqueante de primeira análise');
         
         // Criar banner superior
         const topBanner = createFirstAnalysisBanner('top');
@@ -431,11 +435,11 @@
                     </svg>
                 </div>
                 <div class="demo-first-analysis-text">
-                    <h3>🎉 Você acabou de rodar sua análise teste!</h3>
-                    <p>Entre aqui para desbloquear mais análises e ter acesso completo a todas as funcionalidades.</p>
+                    <h3>⚠️ Análise teste concluída</h3>
+                    <p>O que você viu é só 30% do diagnóstico real. Descubra como ter acesso completo e ilimitado.</p>
                 </div>
                 <button class="demo-first-analysis-button" onclick="window.SoundyDemo._handleFirstAnalysisCTAClick()">
-                    Garantir mais análises
+                    Desbloquear acesso completo
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M5 12h14M12 5l7 7-7 7"/>
                     </svg>
@@ -462,8 +466,8 @@
             }
         }
         
-        // Redirecionar para página do produto
-        window.location.href = CONFIG.productPageUrl || 'https://musicaprofissional.com.br/';
+        // Redirecionar para página do produto com âncora #oferta
+        window.location.href = (CONFIG.productPageUrl || 'https://musicaprofissional.com.br/') + '#oferta';
     };
     
     /**

@@ -120,17 +120,31 @@
             warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
         }
         
-        // 🎉 NOVO: Mostrar CTA não-bloqueante após PRIMEIRA análise
+        // 🎉 CTA NÃO-BLOQUEANTE: Mostrar imediatamente após PRIMEIRA análise
         if (data.analyses_used === 1) {
             log('🎉 [DEMO-GUARDS] Primeira análise concluída - mostrando CTA não-bloqueante');
-            // Aguardar resultado aparecer, depois mostrar CTA
-            setTimeout(() => {
+            
+            // 🔴 CRÍTICO: Aguardar resultado DOM estar renderizado, depois exibir CTA
+            // Tentativas múltiplas garantem exibição mesmo com variação de timing
+            let ctaAttempts = 0;
+            const maxCtaAttempts = 5;
+            
+            const tryShowCTA = () => {
+                ctaAttempts++;
+                
                 if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                    log(`✅ [DEMO-GUARDS] Exibindo CTA (tentativa ${ctaAttempts})`);
                     DEMO.showFirstAnalysisCTA();
+                } else if (ctaAttempts < maxCtaAttempts) {
+                    warn(`⚠️ [DEMO-GUARDS] Função showFirstAnalysisCTA não disponível, tentando novamente em 1s (${ctaAttempts}/${maxCtaAttempts})`);
+                    setTimeout(tryShowCTA, 1000);
                 } else {
-                    warn('⚠️ [DEMO-GUARDS] Função showFirstAnalysisCTA não encontrada');
+                    error('❌ [DEMO-GUARDS] Falha ao exibir CTA após múltiplas tentativas');
                 }
-            }, 2000); // 2 segundos após o resultado aparecer
+            };
+            
+            // Aguardar 2 segundos para resultado aparecer, depois iniciar tentativas
+            setTimeout(tryShowCTA, 2000);
         }
         
         // 🔥 Modal bloqueante continua sendo exibido ao atingir limite (segunda tentativa)
