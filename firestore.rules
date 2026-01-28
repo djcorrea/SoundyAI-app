@@ -2,78 +2,168 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ✅ USUÁRIOS: Somente o próprio usuário pode ler/escrever
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📋 COLEÇÃO: usuarios/{userId}
+    // ═══════════════════════════════════════════════════════════════════════
+    // REGRA CRÍTICA: Permitir criação ANTES de SMS estar completo
+    // ═══════════════════════════════════════════════════════════════════════
+    
     match /usuarios/{userId} {
+      
+      // ✅ LEITURA: Apenas o próprio usuário
       allow read: if request.auth != null && request.auth.uid == userId;
       
-      // ✅ VALIDAÇÃO DE ESCRITA: Impedir criação sem telefone verificado
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔥 CORREÇÃO: CRIAÇÃO INICIAL (permite verificadoPorSMS = false)
+      // ═══════════════════════════════════════════════════════════════════
+      // JUSTIFICATIVA:
+      // - Durante cadastro com SMS, onAuthStateChanged dispara ANTES de linkWithCredential
+      // - Documento precisa ser criado com verificadoPorSMS: false temporariamente
+      // - Após linkWithCredential, será atualizado para verificadoPorSMS: true
+      // ═══════════════════════════════════════════════════════════════════
+      
       allow create: if request.auth != null 
                     && request.auth.uid == userId
-                    && request.resource.data.verificadoPorSMS == true
-                    && request.resource.data.telefone != null
-                    && request.resource.data.deviceId != null;
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email is string
+                    && request.resource.data.plan is string
+                    && request.resource.data.deviceId is string;
       
-      // ✅ ATUALIZAÇÃO: Impedir alteração de telefone sem nova verificação
-      // 🔒 SEGURANÇA AFILIADOS: Usuário NÃO pode alterar campos de referência
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔒 ATUALIZAÇÃO: Permite sincronização de SMS e campos permitidos
+      // ═══════════════════════════════════════════════════════════════════
+      
       allow update: if request.auth != null 
                     && request.auth.uid == userId
                     && (
-                      // Se não alterar telefone, permitir
-                      request.resource.data.telefone == resource.data.telefone
-                      // OU se alterar telefone, deve reverificar por SMS
-                      || request.resource.data.verificadoPorSMS == true
-                    )
-                    // ✅ NOVO: Proteger campos de sistema de afiliados
-                    && (
-                      !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-                        'referralCode',
-                        'referralTimestamp',
-                        'convertedAt',
-                        'firstPaidPlan'
-                      ])
+                      // ✅ SINCRONIZAÇÃO SMS (após linkWithCredential)
+                      // Permite atualizar verificadoPorSMS e telefone
+                      (
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                          'verificadoPorSMS',
+                          'telefone',
+                          'smsVerificadoEm',
+                          'updatedAt'
+                        ])
+                      )
+                      // ✅ CAMPOS DE USO GERAL (messagesToday, analysesToday, etc)
+                      || (
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                          'uid',
+                          'email',
+                          'referralCode',
+                          'referralTimestamp',
+                          'convertedAt',
+                          'firstPaidPlan',
+                          'visitorId',
+                          'plan',
+                          'subscription',
+                          'deviceId'
+                        ])
+                      )
                     );
       
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      // ❌ DELEÇÃO: Bloqueada (manter histórico)
+      allow delete: if false;
     }
     
-    // ✅ MAPEAMENTO TELEFONE → USERID: Apenas backend pode manipular
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔗 COLEÇÃO: referral_visitors/{visitorId}
+    // ═══════════════════════════════════════════════════════════════════════
+    // Sistema de Afiliados V2 - Rastreamento desde primeira visita
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    match /referral_visitors/{visitorId} {
+      
+      // ✅ CRIAÇÃO: Anônimos podem criar (apenas campos específicos)
+      allow create: if request.auth == null 
+                    && request.resource.data.visitorId == visitorId
+                    && request.resource.data.partnerId is string
+                    && request.resource.data.registered == false
+                    && request.resource.data.uid == null
+                    && request.resource.data.converted == false
+                    && request.resource.data.plan == null
+                    && request.resource.data.convertedAt == null;
+      
+      // 🔒 ATUALIZAÇÃO: Apenas backend (via Admin SDK no auth.js onAuthStateChanged)
+      // Frontend autenticado NÃO pode atualizar para evitar fraude
+      allow update: if false;
+      
+      // 👁️ LEITURA: Usuário pode ler seu próprio registro
+      allow read: if request.auth != null 
+                  && resource.data.uid == request.auth.uid;
+      
+      // ❌ DELEÇÃO: Bloqueada
+      allow delete: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🤝 COLEÇÃO: partners/{partnerId}
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    match /partners/{partnerId} {
+      allow read: if request.auth != null;
+      allow write: if false;  // Apenas admin/script
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔐 COLEÇÕES DE MAPEAMENTO (Unicidade telefone/device)
+    // ═══════════════════════════════════════════════════════════════════════
+    
     match /phone_mappings/{phoneId} {
       allow read: if request.auth != null;
-      allow write: if false; // Apenas Transaction do Firebase pode escrever
+      allow write: if false;  // Apenas Transaction backend
     }
     
-    // ✅ MAPEAMENTO DEVICEID → USERID: Apenas backend pode manipular
     match /device_mappings/{deviceId} {
       allow read: if request.auth != null;
-      allow write: if false; // Apenas Transaction do Firebase pode escrever
+      allow write: if false;  // Apenas Transaction backend
     }
     
-    // ⚠️ COLEÇÕES LEGADAS (manter compatibilidade)
-    match /phones/{phoneId} {
-      allow read, write: if false;
-    }
-    match /fingerprints/{fpId} {
-      allow read, write: if false;
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // 💳 COLEÇÕES DE PAGAMENTO (Idempotência)
+    // ═══════════════════════════════════════════════════════════════════════
     
-    // ═══════════════════════════════════════════════════════════════════
-    // 🤝 SISTEMA DE AFILIADOS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    // ✅ PARCEIROS: Leitura pública (para validação), escrita apenas backend
-    match /partners/{partnerId} {
-      allow read: if request.auth != null;  // Qualquer usuário autenticado
-      allow write: if false;  // Apenas admin via backend/script
-    }
-    
-    // ✅ TRANSAÇÕES STRIPE (idempotência)
     match /processed_stripe_events/{eventId} {
       allow read, write: if false;  // Apenas backend
     }
     
-    // ✅ TRANSAÇÕES HOTMART (idempotência)
     match /hotmart_transactions/{transactionId} {
       allow read, write: if false;  // Apenas backend
     }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📊 COLEÇÕES DE HISTÓRICO E ANÁLISE
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    match /analysis_history/{analysisId} {
+      allow read: if request.auth != null 
+                  && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null 
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    
+    match /ips/{ipId} {
+      allow read, write: if false;  // Apenas backend para rate limiting
+    }
+    
+    match /waitlist/{email} {
+      allow create: if true;  // Qualquer um pode se inscrever
+      allow read, update, delete: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⚠️ COLEÇÕES LEGADAS (Deprecadas mas mantidas para compatibilidade)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    match /phones/{phoneId} {
+      allow read, write: if false;
+    }
+    
+    match /fingerprints/{fpId} {
+      allow read, write: if false;
+    }
   }
 }
+
