@@ -112,21 +112,26 @@ log('🚀 Carregando auth.js...');
       }
     }
 
-    // Função para garantir container do reCAPTCHA
+    // 🔥 CORREÇÃO DEFINITIVA: Container do reCAPTCHA
+    // Garantir que container existe e está VISÍVEL (não criar duplicado)
     function ensureRecaptchaDiv() {
       let recaptchaDiv = document.getElementById('recaptcha-container');
+      
       if (!recaptchaDiv) {
-        recaptchaDiv = document.createElement('div');
-        recaptchaDiv.id = 'recaptcha-container';
-        recaptchaDiv.style.position = 'absolute';
-        recaptchaDiv.style.top = '-9999px';
-        recaptchaDiv.style.left = '-9999px';
-        document.body.appendChild(recaptchaDiv);
-        log('📦 Container reCAPTCHA criado');
-      } else {
-        recaptchaDiv.innerHTML = '';
-        log('🧹 Container reCAPTCHA limpo');
+        error('❌ ERRO CRÍTICO: Container recaptcha-container não existe no HTML!');
+        error('   Verifique se login.html tem <div id="recaptcha-container"></div>');
+        return null;
       }
+      
+      // Limpar conteúdo mas manter container visível
+      recaptchaDiv.innerHTML = '';
+      
+      // 🔥 GARANTIR que container está VISÍVEL
+      recaptchaDiv.style.display = 'flex';
+      recaptchaDiv.style.justifyContent = 'center';
+      recaptchaDiv.style.margin = '24px 0';
+      
+      log('✅ Container reCAPTCHA pronto e visível');
       return recaptchaDiv;
     }
 
@@ -478,56 +483,58 @@ log('🚀 Carregando auth.js...');
         return false;
       }
 
-      // 🔥 CORREÇÃO CRÍTICA: Garantir container existe e está vazio
-      ensureRecaptchaDiv();
-      const container = document.getElementById('recaptcha-container');
+      // 🔥 CORREÇÃO DEFINITIVA: Container do reCAPTCHA
+      const container = ensureRecaptchaDiv();
       
       if (!container) {
-        error('❌ Container recaptcha-container não existe!');
-        showMessage("Erro interno: Container do reCAPTCHA não encontrado.", "error");
+        error('❌ Container recaptcha-container não existe no HTML!');
+        showMessage("ERRO: Container do reCAPTCHA não encontrado. Recarregue a página.", "error");
         return false;
       }
 
-      // 🔥 CORREÇÃO: Limpar COMPLETAMENTE antes de recriar
+      // 🔥 LIMPAR instância anterior COMPLETAMENTE
       if (window.recaptchaVerifier) {
         try { 
           window.recaptchaVerifier.clear(); 
-          log('🧹 reCAPTCHA anterior limpo');
+          log('🧹 reCAPTCHA anterior destruído');
         } catch (e) {
-          log('⚠️ Ignorando erro ao limpar reCAPTCHA:', e.message);
+          log('⚠️ Ignorando erro ao limpar:', e.message);
         }
         window.recaptchaVerifier = null;
       }
 
-      // Limpar DOM completamente
-      container.innerHTML = '';
-      log('✅ Container limpo e pronto');
+      // 🔥 AGUARDAR 100ms para garantir DOM está pronto
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 🔥 CORREÇÃO: Criar reCAPTCHA APENAS UMA VEZ, no momento certo
+      // 🔥 CRIAR RecaptchaVerifier com configuração MÍNIMA
       try {
-        log('🔄 Criando RecaptchaVerifier ÚNICO...');
+        log('🔄 Criando RecaptchaVerifier...');
+        log('   Container:', container.id);
         log('   Auth pronto:', !!auth);
-        log('   Container ID:', container.id);
         
-        // Criar com configuração mínima
         window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'normal',
+          'size': 'normal', // Visível - usuário resolve manualmente
           'callback': (response) => {
             log('✅ reCAPTCHA resolvido pelo usuário');
+            log('   Token recebido:', response ? 'SIM' : 'NÃO');
           },
           'expired-callback': () => {
-            warn('⏰ reCAPTCHA expirou');
+            warn('⏰ reCAPTCHA expirou (3 minutos)');
             showMessage("reCAPTCHA expirou. Resolva novamente.", "error");
+          },
+          'error-callback': (error) => {
+            error('❌ reCAPTCHA erro:', error);
           }
         });
 
-        log('🔄 Renderizando reCAPTCHA...');
+        log('🔄 Renderizando reCAPTCHA (aguarde)...');
         await window.recaptchaVerifier.render();
-        log('✅ reCAPTCHA renderizado com sucesso!');
+        log('✅ reCAPTCHA RENDERIZADO COM SUCESSO!');
         
       } catch (renderError) {
-        error('❌ Erro ao criar reCAPTCHA:', renderError);
-        showMessage(`Erro: ${renderError.message}. Verifique configuração Firebase.`, "error");
+        error('❌ Falha ao criar reCAPTCHA:', renderError);
+        error('   Código:', renderError.code);
+        error('   Mensagem:', renderError.message);
         
         // Limpar estado de falha
         if (window.recaptchaVerifier) {
@@ -535,16 +542,31 @@ log('🚀 Carregando auth.js...');
           window.recaptchaVerifier = null;
         }
         
+        // Mensagem específica baseada no erro
+        let userMessage = "Erro ao carregar reCAPTCHA. ";
+        
+        if (renderError.code === 'auth/invalid-app-credential') {
+          userMessage += "Configure reCAPTCHA v2 no Firebase Console.";
+        } else if (renderError.code === 'auth/app-not-authorized') {
+          userMessage += "Domínio não autorizado. Configure no Firebase Console.";
+        } else {
+          userMessage += renderError.message;
+        }
+        
+        showMessage(userMessage, "error");
         return false;
       }
       
-      // 🔥 CORREÇÃO: Enviar SMS SÓ DEPOIS que reCAPTCHA está RENDERIZADO
+      // 🔥 AGUARDAR mais 500ms para garantir reCAPTCHA está pronto
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 🔥 ENVIAR SMS apenas após reCAPTCHA COMPLETAMENTE pronto
       let smsSent = false;
       try {
-        log('📱 Enviando SMS para:', phone);
-        log('   RecaptchaVerifier pronto:', !!window.recaptchaVerifier);
+        log('📱 Enviando SMS...');
+        log('   Telefone:', phone);
+        log('   RecaptchaVerifier:', !!window.recaptchaVerifier);
         
-        // ✅ USAR window.confirmationResult para garantir persistência
         window.confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
         window.lastPhone = phone;
         
