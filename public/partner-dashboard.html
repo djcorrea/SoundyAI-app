@@ -105,6 +105,59 @@
             opacity: 0.8;
         }
         
+        /* 🎯 ESTILOS DO FUNIL (NOVO) */
+        .funnel-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .funnel-section h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .funnel-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .funnel-step {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .funnel-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .funnel-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .funnel-rate {
+            font-size: 16px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .funnel-bar {
+            height: 8px;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
         .referral-link {
             background: #f8f9fa;
             border-radius: 12px;
@@ -382,14 +435,21 @@
             content.innerHTML = '<div class="loading">⏳ Carregando dados...</div>';
 
             try {
-                // Buscar usuários referenciados
-                const usersQuery = query(collection(db, 'usuarios'), where('referralCode', '==', partnerId));
-                const usersSnapshot = await getDocs(usersQuery);
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 CONSULTA V2: Buscar de referral_visitors (fonte primária)
+                // ═══════════════════════════════════════════════════════════════════
                 
-                const users = [];
-                let totalSignups = 0;
-                let activeSubscribers = 0;
-                let mrr = 0;
+                const visitorsQuery = query(collection(db, 'referral_visitors'), where('partnerId', '==', partnerId));
+                const visitorsSnapshot = await getDocs(visitorsQuery);
+                
+                let totalVisitors = 0;      // Total de visitas com ?ref
+                let totalSignups = 0;       // Cadastros (registered=true)
+                let totalConversions = 0;   // Conversões (converted=true)
+                let activeSubscribers = 0;  // Assinaturas ativas
+                let mrr = 0;                // MRR total
+                
+                const visitors = [];
+                const userUids = [];
 
                 // Preços dos planos (em R$)
                 const planPrices = {
@@ -398,30 +458,86 @@
                     studio: 99.90
                 };
 
-                usersSnapshot.forEach(doc => {
-                    const userData = doc.data();
-                    totalSignups++;
-
-                    // ✅ REGRA: MRR apenas assinaturas ATIVAS (subscription.status === 'active')
-                    const plan = userData.plan;
-                    const isActive = userData.subscription?.status === 'active';
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 1: Processar todos os visitantes
+                // ═══════════════════════════════════════════════════════════════════
+                
+                visitorsSnapshot.forEach(doc => {
+                    const visitorData = doc.data();
+                    totalVisitors++;
                     
-                    if (isActive && planPrices[plan]) {
-                        activeSubscribers++;
-                        mrr += planPrices[plan];
+                    if (visitorData.registered) {
+                        totalSignups++;
+                        if (visitorData.uid) {
+                            userUids.push(visitorData.uid);
+                        }
                     }
-
-                    users.push({
-                        email: userData.email,
-                        plan: plan || 'free',
-                        convertedAt: userData.convertedAt,
-                        subscriptionStatus: userData.subscription?.status || 'none'
+                    
+                    if (visitorData.converted) {
+                        totalConversions++;
+                    }
+                    
+                    visitors.push({
+                        visitorId: doc.id,
+                        uid: visitorData.uid,
+                        registered: visitorData.registered,
+                        converted: visitorData.converted,
+                        plan: visitorData.plan,
+                        convertedAt: visitorData.convertedAt,
+                        firstSeenAt: visitorData.firstSeenAt
                     });
                 });
+                
+                console.log(`📊 [PARTNER-V2] Métricas brutas:`);
+                console.log(`   Visitantes: ${totalVisitors}`);
+                console.log(`   Cadastros: ${totalSignups}`);
+                console.log(`   Conversões: ${totalConversions}`);
+                
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 2: Buscar dados de assinatura em usuarios (MRR)
+                // ═══════════════════════════════════════════════════════════════════
+                
+                const usersWithSubscription = [];
+                
+                for (const uid of userUids) {
+                    try {
+                        const userDoc = await getDoc(doc(db, 'usuarios', uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data();
+                            const plan = userData.plan;
+                            const isActive = userData.subscription?.status === 'active';
+                            
+                            if (isActive && planPrices[plan]) {
+                                activeSubscribers++;
+                                mrr += planPrices[plan];
+                            }
+                            
+                            usersWithSubscription.push({
+                                uid: uid,
+                                email: userData.email,
+                                plan: plan || 'free',
+                                subscriptionStatus: userData.subscription?.status || 'none',
+                                convertedAt: userData.convertedAt
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`⚠️ [PARTNER-V2] Erro ao buscar usuário ${uid}:`, error.message);
+                    }
+                }
+                
+                console.log(`   Assinaturas ativas: ${activeSubscribers}`);
+                console.log(`   MRR total: R$ ${mrr.toFixed(2)}`);
 
                 const commission = (mrr * (partnerData.commissionPercent / 100)).toFixed(2);
+                
+                // Calcular taxas de conversão
+                const signupRate = totalVisitors > 0 ? ((totalSignups / totalVisitors) * 100).toFixed(1) : '0.0';
+                const conversionRate = totalSignups > 0 ? ((totalConversions / totalSignups) * 100).toFixed(1) : '0.0';
 
-                // Renderizar painel
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 RENDERIZAR PAINEL COM FUNIL COMPLETO
+                // ═══════════════════════════════════════════════════════════════════
+
                 content.innerHTML = `
                     <div class="partner-info">
                         <h2>👤 ${partnerData.name}</h2>
@@ -437,36 +553,64 @@
                             <button class="copy-button" onclick="copyLink()">Copiar</button>
                         </div>
                     </div>
+                    
+                    <!-- 🎯 FUNIL DE CONVERSÃO (NOVO) -->
+                    <div class="funnel-section">
+                        <h3>📊 Funil de Conversão</h3>
+                        <div class="funnel-steps">
+                            <div class="funnel-step">
+                                <div class="funnel-label">1️⃣ Visitantes</div>
+                                <div class="funnel-value">${totalVisitors}</div>
+                                <div class="funnel-bar" style="width: 100%; background: #4CAF50;"></div>
+                            </div>
+                            <div class="funnel-step">
+                                <div class="funnel-label">2️⃣ Cadastros</div>
+                                <div class="funnel-value">${totalSignups} <span class="funnel-rate">(${signupRate}%)</span></div>
+                                <div class="funnel-bar" style="width: ${signupRate}%; background: #2196F3;"></div>
+                            </div>
+                            <div class="funnel-step">
+                                <div class="funnel-label">3️⃣ Conversões</div>
+                                <div class="funnel-value">${totalConversions} <span class="funnel-rate">(${conversionRate}%)</span></div>
+                                <div class="funnel-bar" style="width: ${conversionRate}%; background: #FF9800;"></div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="metrics">
                         <div class="metric-card">
-                            <div class="metric-label">Total de Cadastros</div>
-                            <div class="metric-value">${totalSignups}</div>
-                            <div class="metric-description">Usuários que usaram seu link</div>
+                            <div class="metric-label">🌐 Total de Visitantes</div>
+                            <div class="metric-value">${totalVisitors}</div>
+                            <div class="metric-description">Clicaram no seu link</div>
                         </div>
 
                         <div class="metric-card">
-                            <div class="metric-label">Assinantes Ativos</div>
+                            <div class="metric-label">📝 Total de Cadastros</div>
+                            <div class="metric-value">${totalSignups}</div>
+                            <div class="metric-description">Taxa: ${signupRate}%</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-label">💎 Assinantes Ativos</div>
                             <div class="metric-value">${activeSubscribers}</div>
                             <div class="metric-description">Planos pagos ativos</div>
                         </div>
 
                         <div class="metric-card">
-                            <div class="metric-label">MRR Gerado</div>
+                            <div class="metric-label">💰 MRR Gerado</div>
                             <div class="metric-value">R$ ${mrr.toFixed(2)}</div>
                             <div class="metric-description">Receita recorrente mensal</div>
                         </div>
 
                         <div class="metric-card">
-                            <div class="metric-label">Sua Comissão</div>
+                            <div class="metric-label">🎁 Sua Comissão</div>
                             <div class="metric-value">R$ ${commission}</div>
                             <div class="metric-description">${partnerData.commissionPercent}% do MRR</div>
                         </div>
                     </div>
 
                     <div class="users-table">
-                        <h3>📋 Usuários Indicados (${users.length})</h3>
-                        ${users.length === 0 ? '<p style="color: #666;">Nenhum usuário ainda.</p>' : `
+                        <h3>📋 Usuários Cadastrados (${usersWithSubscription.length})</h3>
+                        ${usersWithSubscription.length === 0 ? '<p style="color: #666;">Nenhum cadastro ainda.</p>' : `
                             <table>
                                 <thead>
                                     <tr>
@@ -477,7 +621,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${users.map(u => `
+                                    ${usersWithSubscription.map(u => `
                                         <tr>
                                             <td>${u.email}</td>
                                             <td><span class="badge badge-${u.plan}">${u.plan.toUpperCase()}</span></td>
@@ -491,7 +635,7 @@
                     </div>
                 `;
             } catch (error) {
-                console.error('❌ [PARTNER] Erro ao carregar dados:', error);
+                console.error('❌ [PARTNER-V2] Erro ao carregar dados:', error);
                 content.innerHTML = `<div class="error">❌ Erro: ${error.message}</div>`;
             }
         }

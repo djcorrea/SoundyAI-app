@@ -315,8 +315,9 @@ export async function getOrCreateUser(uid, extra = {}) {
 }
 
 /**
- * 🔗 SISTEMA DE AFILIADOS: Registrar conversão de referência
+ * 🔗 SISTEMA DE AFILIADOS V2: Registrar conversão de referência
  * Valida backend se o código do parceiro existe e está ativo, e marca conversão APENAS UMA VEZ.
+ * Atualiza AMBOS usuarios/{uid} E referral_visitors/{visitorId}
  * @param {string} uid - UID do usuário
  * @param {string} plan - Plano pago ativado (plus/pro/studio/dj)
  * @returns {Promise<void>}
@@ -327,22 +328,23 @@ async function registerReferralConversion(uid, plan) {
     const userDoc = await userRef.get();
     
     if (!userDoc.exists) {
-      console.warn(`⚠️ [REFERRAL] Usuário ${uid} não existe no Firestore`);
+      console.warn(`⚠️ [REFERRAL-V2] Usuário ${uid} não existe no Firestore`);
       return;
     }
     
     const userData = userDoc.data();
     const referralCode = userData.referralCode;
+    const visitorId = userData.visitorId; // 🆔 Novo campo
     
     // ✅ REGRA 1: Sem código de referência = nada a fazer
     if (!referralCode) {
-      console.log(`ℹ️ [REFERRAL] Usuário ${uid} não possui código de referência`);
+      console.log(`ℹ️ [REFERRAL-V2] Usuário ${uid} não possui código de referência`);
       return;
     }
     
     // ✅ REGRA 2: Já convertido = idempotência (não registrar novamente)
     if (userData.convertedAt) {
-      console.log(`✅ [REFERRAL] Usuário ${uid} já converteu anteriormente em ${userData.convertedAt}`);
+      console.log(`✅ [REFERRAL-V2] Usuário ${uid} já converteu anteriormente em ${userData.convertedAt}`);
       return;
     }
     
@@ -351,24 +353,24 @@ async function registerReferralConversion(uid, plan) {
     const partnerDoc = await partnerRef.get();
     
     if (!partnerDoc.exists) {
-      console.warn(`⚠️ [REFERRAL] Código "${referralCode}" não existe na coleção partners`);
+      console.warn(`⚠️ [REFERRAL-V2] Código "${referralCode}" não existe na coleção partners`);
       return;
     }
     
     const partnerData = partnerDoc.data();
     if (!partnerData.active) {
-      console.warn(`⚠️ [REFERRAL] Parceiro "${referralCode}" está inativo`);
+      console.warn(`⚠️ [REFERRAL-V2] Parceiro "${referralCode}" está inativo`);
       return;
     }
     
     // ✅ REGRA 4: Validar se plano é válido para conversão (excluir "free")
     const validPlans = ['plus', 'pro', 'studio', 'dj'];
     if (!validPlans.includes(plan)) {
-      console.warn(`⚠️ [REFERRAL] Plano "${plan}" não é válido para conversão`);
+      console.warn(`⚠️ [REFERRAL-V2] Plano "${plan}" não é válido para conversão`);
       return;
     }
     
-    // 🎯 MARCAR CONVERSÃO (APENAS UMA VEZ)
+    // 🎯 MARCAR CONVERSÃO EM usuarios/{uid}
     const convertedAt = new Date().toISOString();
     await userRef.update({
       convertedAt: convertedAt,
@@ -376,14 +378,45 @@ async function registerReferralConversion(uid, plan) {
       updatedAt: new Date().toISOString()
     });
     
-    console.log(`✅ [REFERRAL] Conversão registrada!`);
+    console.log(`✅ [REFERRAL-V2] Conversão registrada em usuarios/`);
     console.log(`   Usuário: ${uid}`);
     console.log(`   Parceiro: ${referralCode}`);
     console.log(`   Plano: ${plan}`);
     console.log(`   Timestamp: ${convertedAt}`);
     
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 MARCAR CONVERSÃO EM referral_visitors/{visitorId}
+    // ═══════════════════════════════════════════════════════════════════
+    
+    if (visitorId) {
+      try {
+        const visitorRef = getDb().collection('referral_visitors').doc(visitorId);
+        const visitorDoc = await visitorRef.get();
+        
+        if (visitorDoc.exists) {
+          await visitorRef.update({
+            converted: true,
+            plan: plan,
+            convertedAt: convertedAt,
+            updatedAt: new Date().toISOString()
+          });
+          
+          console.log(`✅ [REFERRAL-V2] Conversão registrada em referral_visitors/`);
+          console.log(`   VisitorId: ${visitorId}`);
+          console.log(`   Plano: ${plan}`);
+        } else {
+          console.warn(`⚠️ [REFERRAL-V2] Visitor ${visitorId} não existe em referral_visitors/`);
+        }
+      } catch (error) {
+        console.error(`❌ [REFERRAL-V2] Erro ao atualizar referral_visitors:`, error);
+        // Não bloqueia a conversão principal
+      }
+    } else {
+      console.warn(`⚠️ [REFERRAL-V2] Usuário ${uid} não possui visitorId (cadastro antigo)`);
+    }
+    
   } catch (error) {
-    console.error(`❌ [REFERRAL] Erro ao registrar conversão:`, error);
+    console.error(`❌ [REFERRAL-V2] Erro ao registrar conversão:`, error);
   }
 }
 

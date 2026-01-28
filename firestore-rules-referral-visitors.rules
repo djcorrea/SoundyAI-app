@@ -1,0 +1,124 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔒 FIRESTORE SECURITY RULES - COLEÇÃO referral_visitors
+// ═══════════════════════════════════════════════════════════════════════════
+// 
+// ARQUIVO: firestore-rules-referral-visitors.rules
+// 
+// 🎯 OBJETIVO: Regras de segurança para a coleção referral_visitors
+// 
+// ARQUITETURA:
+// - Usuários anônimos podem CRIAR visitantes (primeira visita com ?ref)
+// - Apenas backend pode ATUALIZAR (vincular uid, marcar conversão)
+// - Usuários autenticados podem LER apenas seus próprios dados
+// - Parceiros podem LER dados dos visitantes com seu partnerId
+// 
+// ═══════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 📋 COLEÇÃO: referral_visitors/{visitorId}
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    match /referral_visitors/{visitorId} {
+      
+      // ✅ CREATE: Anônimos podem criar (apenas campos específicos)
+      allow create: if request.auth == null 
+                    && request.resource.data.visitorId == visitorId
+                    && request.resource.data.partnerId is string
+                    && request.resource.data.registered == false
+                    && request.resource.data.uid == null
+                    && request.resource.data.converted == false
+                    && request.resource.data.plan == null
+                    && request.resource.data.convertedAt == null;
+      
+      // 🔒 UPDATE: Apenas backend (via Admin SDK) pode atualizar
+      // Usuários frontend NÃO podem editar (previne fraude)
+      allow update: if false;
+      
+      // 👁️ READ: Usuário autenticado pode ler seus próprios dados
+      allow read: if request.auth != null 
+                  && (resource.data.uid == request.auth.uid);
+      
+      // 📊 READ (Parceiros): Lógica especial para partners acessarem dashboard
+      // NOTA: Implementar via backend endpoint autenticado para evitar exposição
+      // Frontend do parceiro deve chamar endpoint backend, não Firestore direto
+      
+      // 🗑️ DELETE: Apenas backend (via Admin SDK)
+      allow delete: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔐 OBSERVAÇÕES DE SEGURANÇA
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // 1. FRAUD PREVENTION:
+    //    - Usuários anônimos SÓ podem criar com registered=false
+    //    - Não podem forjar conversões (converted deve ser false)
+    //    - Não podem alterar após criação (UPDATE bloqueado)
+    
+    // 2. BACKEND UPDATES:
+    //    - auth.js usa Firebase Client SDK mas com onAuthStateChanged (autenticado)
+    //    - userPlans.js usa Admin SDK (bypass de regras)
+    //    - Webhook Stripe usa Admin SDK (bypass de regras)
+    
+    // 3. PARTNER DASHBOARD:
+    //    - Recomendado: Criar endpoint backend /api/partner/stats
+    //    - Backend valida auth do parceiro (email/password)
+    //    - Backend consulta referral_visitors WHERE partnerId == X
+    //    - Retorna métricas agregadas (não expõe dados individuais)
+    
+    // 4. USER PRIVACY:
+    //    - Usuário só vê seu próprio visitorId (via uid match)
+    //    - Parceiro não vê email/dados pessoais (apenas métricas)
+    
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📋 INSTRUÇÕES DE DEPLOY
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// OPÇÃO 1: Console Firebase
+// 1. Acesse: https://console.firebase.google.com
+// 2. Selecione projeto: soundy-ai
+// 3. Menu: Firestore Database → Rules
+// 4. Copie a seção "match /referral_visitors/{visitorId}" acima
+// 5. Cole DENTRO do bloco "match /databases/{database}/documents"
+// 6. Clique "Publicar"
+//
+// OPÇÃO 2: Firebase CLI
+// 1. firebase init firestore (se ainda não inicializado)
+// 2. Edite: firestore.rules
+// 3. Adicione a seção referral_visitors
+// 4. Execute: firebase deploy --only firestore:rules
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ ATENÇÃO: TESTAR EM AMBIENTE DE DESENVOLVIMENTO ANTES DE PRODUÇÃO
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// TESTES RECOMENDADOS:
+// 
+// Teste 1: Criar visitante anônimo
+// - URL: /?ref=papohertz
+// - Esperado: Documento criado em referral_visitors/
+// - Validar: registered=false, uid=null, converted=false
+//
+// Teste 2: Cadastro vincula uid
+// - Cadastrar email após teste 1
+// - Esperado: referral_visitors/{visitorId} atualizado com uid
+// - Validar: registered=true, uid preenchido
+//
+// Teste 3: Conversão via Stripe
+// - Comprar plano Plus após teste 2
+// - Esperado: referral_visitors/{visitorId} atualizado
+// - Validar: converted=true, plan='plus', convertedAt preenchido
+//
+// Teste 4: Tentativa de fraude
+// - Console navegador: Tentar updateDoc(visitorRef, {converted: true})
+// - Esperado: ERRO "Missing or insufficient permissions"
+// - Validar: UPDATE bloqueado para frontend
+//
+// ═══════════════════════════════════════════════════════════════════════════

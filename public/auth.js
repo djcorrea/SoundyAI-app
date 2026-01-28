@@ -20,7 +20,7 @@ log('🚀 Carregando auth.js...');
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
     
     // Importações Firestore
-    const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+    const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
 
     log('✅ Todas as importações carregadas com sucesso');
 
@@ -1581,11 +1581,16 @@ log('🚀 Carregando auth.js...');
         // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
         const verificadoPorSMS = !!user.phoneNumber;
         
-        // 🔗 SISTEMA DE AFILIADOS: Capturar código de referência do localStorage
-        log('🔍 [REFERRAL-DEBUG] Lendo localStorage ANTES do cadastro...');
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔗 SISTEMA DE AFILIADOS V2: Vincular visitorId ao cadastro
+        // ═══════════════════════════════════════════════════════════════════
+        
+        log('🔍 [REFERRAL-V2-DEBUG] Lendo localStorage ANTES do cadastro...');
+        log('   localStorage.soundy_visitor_id:', localStorage.getItem('soundy_visitor_id'));
         log('   localStorage.soundy_referral_code:', localStorage.getItem('soundy_referral_code'));
         log('   localStorage.soundy_referral_timestamp:', localStorage.getItem('soundy_referral_timestamp'));
         
+        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
         const referralCode = localStorage.getItem('soundy_referral_code') || null;
         const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
         
@@ -1597,10 +1602,11 @@ log('🚀 Carregando auth.js...');
         log('   criadoSemSMS:', criadoSemSMS);
         
         if (referralCode) {
-          log('🔗 [REFERRAL] Código detectado:', referralCode);
-          log('🕐 [REFERRAL] Timestamp:', referralTimestamp);
+          log('🔗 [REFERRAL-V2] Código detectado:', referralCode);
+          log('🔗 [REFERRAL-V2] Visitor ID:', visitorId);
+          log('🕐 [REFERRAL-V2] Timestamp:', referralTimestamp);
         } else {
-          log('🔗 [REFERRAL] Nenhum código de referência detectado');
+          log('🔗 [REFERRAL-V2] Nenhum código de referência detectado');
         }
         
         // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
@@ -1621,7 +1627,8 @@ log('🚀 Carregando auth.js...');
           smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null, // ✅ Campo obrigatório
           criadoSemSMS: criadoSemSMS,
           entrevistaConcluida: false,
-          // 🔗 SISTEMA DE AFILIADOS: Campos de referência
+          // 🔗 SISTEMA DE AFILIADOS V2: Campos de referência
+          visitorId: visitorId,                    // 🆔 UUID do visitante (rastreável antes do cadastro)
           referralCode: referralCode,              // Código do parceiro (ex: "estudioherta")
           referralTimestamp: referralTimestamp,    // ISO timestamp de quando capturou
           convertedAt: null,                       // Será preenchido quando virar pagante
@@ -1632,11 +1639,36 @@ log('🚀 Carregando auth.js...');
         
         log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
         
-        // 🧹 LIMPAR localStorage após sucesso (evita reutilização indevida)
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔗 ATUALIZAR referral_visitors COM UID (VINCULAR CADASTRO)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        if (visitorId && referralCode) {
+          try {
+            log('💾 [REFERRAL-V2] Atualizando referral_visitors com uid...');
+            
+            const visitorRef = doc(db, 'referral_visitors', visitorId);
+            await updateDoc(visitorRef, {
+              registered: true,
+              uid: user.uid,
+              registeredAt: serverTimestamp(),
+              lastSeenAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            
+            log('✅ [REFERRAL-V2] Visitante atualizado com uid:', user.uid);
+            
+          } catch (error) {
+            log('⚠️ [REFERRAL-V2] Erro ao atualizar referral_visitors:', error.message);
+            // Não bloqueia o cadastro
+          }
+        }
+        
+        // 🧹 LIMPAR CÓDIGOS do localStorage (manter visitorId)
         if (referralCode) {
           localStorage.removeItem('soundy_referral_code');
           localStorage.removeItem('soundy_referral_timestamp');
-          log('🧹 [REFERRAL] Código limpo do localStorage (usado com sucesso)');
+          log('🧹 [REFERRAL-V2] Códigos limpos do localStorage (visitorId mantido)');
         }
         
         // ✅ VERIFICAR CRIAÇÃO

@@ -9,32 +9,136 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
-    <!-- 🔗 SISTEMA DE AFILIADOS: Captura de código de referência -->
-    <script>
-        (function() {
+    <!-- 🔗 SISTEMA DE AFILIADOS V2: Rastreamento profissional com visitorId -->
+    <script type="module">
+        (async function() {
             try {
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 1: GERAR/RECUPERAR VISITOR ID (UUID ÚNICO)
+                // ═══════════════════════════════════════════════════════════════════
+                
+                function generateVisitorId() {
+                    // UUID v4 (RFC 4122)
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0;
+                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+                
+                let visitorId = localStorage.getItem('soundy_visitor_id');
+                
+                if (!visitorId) {
+                    visitorId = generateVisitorId();
+                    localStorage.setItem('soundy_visitor_id', visitorId);
+                    console.log('🆔 [VISITOR] Novo visitante gerado:', visitorId);
+                } else {
+                    console.log('🆔 [VISITOR] Visitante existente:', visitorId);
+                }
+                
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 2: CAPTURAR CÓDIGO DE PARCEIRO (?ref)
+                // ═══════════════════════════════════════════════════════════════════
+                
                 const urlParams = new URLSearchParams(window.location.search);
                 const refCode = urlParams.get('ref');
+                
+                let partnerId = localStorage.getItem('soundy_referral_code');
+                let referralTimestamp = localStorage.getItem('soundy_referral_timestamp');
                 
                 if (refCode && refCode.trim()) {
                     const cleanRef = refCode.trim().toLowerCase();
                     const timestamp = new Date().toISOString();
                     
-                    // Salvar em localStorage (persiste entre páginas)
+                    // Atualizar localStorage
                     localStorage.setItem('soundy_referral_code', cleanRef);
                     localStorage.setItem('soundy_referral_timestamp', timestamp);
+                    
+                    partnerId = cleanRef;
+                    referralTimestamp = timestamp;
                     
                     console.log('🔗 [REFERRAL] Código capturado:', cleanRef);
                     console.log('🕐 [REFERRAL] Timestamp:', timestamp);
                     
-                    // Remover ?ref da URL para ficar limpo (opcional)
+                    // Remover ?ref da URL para ficar limpo
                     const cleanUrl = window.location.protocol + '//' + 
                                      window.location.host + 
                                      window.location.pathname;
                     window.history.replaceState({}, document.title, cleanUrl);
                 }
+                
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 3: PERSISTIR NO FIRESTORE (referral_visitors)
+                // ═══════════════════════════════════════════════════════════════════
+                
+                if (partnerId) {
+                    console.log('💾 [VISITOR] Tentando salvar no Firestore...');
+                    console.log('   visitorId:', visitorId);
+                    console.log('   partnerId:', partnerId);
+                    
+                    try {
+                        // Importar Firebase dinamicamente
+                        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
+                        const { getFirestore, doc, setDoc, getDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                        
+                        // Config Firebase
+                        const firebaseConfig = {
+                            apiKey: "AIzaSyA-oHlXfFCUCkV0TgR8Dq2Hh-yZYeXOiIg",
+                            authDomain: "soundy-ai.firebaseapp.com",
+                            projectId: "soundy-ai",
+                            storageBucket: "soundy-ai.firebasestorage.app",
+                            messagingSenderId: "846015668746",
+                            appId: "1:846015668746:web:8ff5d15ea4a1a7e05a1834"
+                        };
+                        
+                        const app = initializeApp(firebaseConfig);
+                        const db = getFirestore(app);
+                        
+                        // Verificar se já existe
+                        const visitorRef = doc(db, 'referral_visitors', visitorId);
+                        const visitorSnap = await getDoc(visitorRef);
+                        
+                        if (visitorSnap.exists()) {
+                            console.log('✅ [VISITOR] Registro já existe no Firestore');
+                            console.log('   Dados:', visitorSnap.data());
+                        } else {
+                            // Criar novo registro
+                            const visitorData = {
+                                visitorId: visitorId,
+                                partnerId: partnerId,
+                                firstSeenAt: serverTimestamp(),
+                                lastSeenAt: serverTimestamp(),
+                                registered: false,
+                                uid: null,
+                                registeredAt: null,
+                                converted: false,
+                                plan: null,
+                                convertedAt: null,
+                                userAgent: navigator.userAgent,
+                                referrer: document.referrer || null,
+                                createdAt: serverTimestamp(),
+                                updatedAt: serverTimestamp()
+                            };
+                            
+                            await setDoc(visitorRef, visitorData);
+                            
+                            console.log('✅ [VISITOR] Registro criado no Firestore!');
+                            console.log('   Collection: referral_visitors');
+                            console.log('   Document ID:', visitorId);
+                            console.log('   Partner:', partnerId);
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ [VISITOR] Erro ao salvar no Firestore:', error);
+                        console.error('   Detalhes:', error.message);
+                        // Não bloqueia o carregamento da página
+                    }
+                } else {
+                    console.log('ℹ️ [VISITOR] Sem código de parceiro, não salva no Firestore');
+                }
+                
             } catch (error) {
-                console.error('❌ [REFERRAL] Erro ao capturar código:', error);
+                console.error('❌ [REFERRAL-V2] Erro geral:', error);
             }
         })();
     </script>
