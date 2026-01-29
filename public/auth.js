@@ -1659,12 +1659,62 @@ log('🚀 Carregando auth.js...');
         log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔗 ATUALIZAR referral_visitors COM UID (VINCULAR CADASTRO)
+        // 🔗 VINCULAR CADASTRO AO REFERRAL (REFERRAL V3 - BACKEND)
         // ═══════════════════════════════════════════════════════════════════
         
         if (visitorId && referralCode) {
           try {
-            log('💾 [REFERRAL-V2] Atualizando referral_visitors com uid...');
+            log('💾 [REFERRAL-V3] Vinculando cadastro via backend...');
+            log('   visitorId:', visitorId.substring(0, 16) + '...');
+            log('   uid:', user.uid);
+            log('   partnerId:', referralCode);
+            
+            // ✅ NOVO: Chamar backend via Admin SDK (bypassa Firestore Rules)
+            const apiUrl = window.getAPIUrl ? window.getAPIUrl('/api/referral/link-registration') : '/api/referral/link-registration';
+            
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                uid: user.uid,
+                visitorId: visitorId
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              log('✅ [REFERRAL-V3] Vinculação concluída com sucesso!');
+              log('   Mensagem:', result.message);
+              log('   Linked:', result.data?.linked);
+              log('   PartnerId:', result.data?.partnerId);
+              
+              // Se vinculou, mostrar confirmação no console
+              if (result.data?.linked && result.data?.partnerId) {
+                log('🎉 [REFERRAL-V3] Cadastro rastreado para parceiro:', result.data.partnerId);
+              }
+            } else {
+              warn('⚠️ [REFERRAL-V3] Backend retornou erro:', result.message);
+              warn('   Reason:', result.reason);
+              // NÃO bloqueia cadastro - erro silencioso
+            }
+            
+          } catch (error) {
+            error('❌ [REFERRAL-V3] Erro ao chamar backend:', error);
+            error('   Detalhes:', error.message);
+            // ⚠️ NÃO bloqueia cadastro - erro silencioso
+          }
+          
+          // ═══════════════════════════════════════════════════════════════
+          // ⚠️ CÓDIGO LEGADO V2 (MANTER POR ENQUANTO - FALLBACK)
+          // ═══════════════════════════════════════════════════════════════
+          // Este código será removido após validação do V3 em produção
+          // POR ENQUANTO: mantido como fallback caso backend falhe
+          
+          try {
+            log('💾 [REFERRAL-V2-FALLBACK] Tentando método antigo (direto no Firestore)...');
             
             const visitorRef = doc(db, 'referral_visitors', visitorId);
             await updateDoc(visitorRef, {
@@ -1675,10 +1725,11 @@ log('🚀 Carregando auth.js...');
               updatedAt: serverTimestamp()
             });
             
-            log('✅ [REFERRAL-V2] Visitante atualizado com uid:', user.uid);
+            log('✅ [REFERRAL-V2-FALLBACK] Método antigo também executou');
             
           } catch (error) {
-            log('⚠️ [REFERRAL-V2] Erro ao atualizar referral_visitors:', error.message);
+            log('⚠️ [REFERRAL-V2-FALLBACK] Método antigo falhou (esperado - rules bloqueadas)');
+            log('   Erro:', error.message);
             // Não bloqueia o cadastro
           }
         }
@@ -1687,7 +1738,7 @@ log('🚀 Carregando auth.js...');
         if (referralCode) {
           localStorage.removeItem('soundy_referral_code');
           localStorage.removeItem('soundy_referral_timestamp');
-          log('🧹 [REFERRAL-V2] Códigos limpos do localStorage (visitorId mantido)');
+          log('🧹 [REFERRAL-V3] Códigos limpos do localStorage (visitorId mantido)');
         }
         
         // ✅ VERIFICAR CRIAÇÃO

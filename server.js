@@ -278,6 +278,18 @@ console.log('   - DELETE /api/history/:id (remover análise do histórico)');
 
 // 📧 WAITLIST: Cadastro na lista de espera com envio de e-mail
 app.use("/api/waitlist", waitlistRouter);
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔗 REFERRAL SYSTEM V3: Sistema de Afiliados (backend-first)
+// ═══════════════════════════════════════════════════════════════════
+import trackVisitorRoute from "./api/referral/track-visitor.js";
+import linkRegistrationRoute from "./api/referral/link-registration.js";
+
+app.use("/api/referral/track-visitor", trackVisitorRoute);
+app.use("/api/referral/link-registration", linkRegistrationRoute);
+console.log('🔗 [REFERRAL-V3] Sistema de afiliados registrado:');
+console.log('   - POST /api/referral/track-visitor (rastrear visitante com ?ref)');
+console.log('   - POST /api/referral/link-registration (vincular cadastro)');
 console.log('📧 [WAITLIST] Rotas registradas:');
 console.log('   - POST /api/waitlist (cadastrar lead + enviar e-mail)');
 console.log('   - GET /api/waitlist/count (contar leads)');

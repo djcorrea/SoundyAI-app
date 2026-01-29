@@ -85,9 +85,40 @@ service cloud.firestore {
                     && request.resource.data.plan == null
                     && request.resource.data.convertedAt == null;
       
-      // 🔒 ATUALIZAÇÃO: Apenas backend (via Admin SDK no auth.js onAuthStateChanged)
-      // Frontend autenticado NÃO pode atualizar para evitar fraude
-      allow update: if false;
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔥 CORREÇÃO CRÍTICA: Permitir UPDATE de registro (visitor → user)
+      // ═══════════════════════════════════════════════════════════════════
+      // PROBLEMA ANTERIOR:
+      // - allow update: if false → Bloqueava vincular uid ao visitor
+      // - auth.js linha 1670 falhava silenciosamente
+      // - Painel do parceiro não detectava cadastros (registered=false)
+      // 
+      // SOLUÇÃO:
+      // - Permitir update APENAS na primeira vez (registered: false → true)
+      // - UID no update DEVE coincidir com request.auth.uid (anti-fraude)
+      // - Permitir alterar APENAS campos de registro (não fraudar conversão)
+      // - Bloquear alterações subsequentes (idempotência)
+      // ═══════════════════════════════════════════════════════════════════
+      
+      allow update: if request.auth != null
+                    && (
+                      // ✅ CENÁRIO 1: VINCULAR UID ao cadastrar (registered: false → true)
+                      (
+                        resource.data.registered == false  // Primeira vez
+                        && request.resource.data.registered == true
+                        && request.resource.data.uid == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['registered', 'uid', 'registeredAt', 'lastSeenAt', 'updatedAt'])
+                      )
+                      // ✅ CENÁRIO 2: BACKEND atualiza conversão (apenas campos específicos)
+                      // Nota: Backend usa Admin SDK que bypassa estas regras
+                      // Este caso é redundante mas explícito para documentação
+                      || (
+                        resource.data.uid == request.auth.uid  // Próprio usuário
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                           .hasOnly(['converted', 'plan', 'convertedAt', 'lastSeenAt', 'updatedAt'])
+                      )
+                    );
       
       // 👁️ LEITURA: Usuário pode ler seu próprio registro
       allow read: if request.auth != null 

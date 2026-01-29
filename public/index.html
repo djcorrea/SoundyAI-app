@@ -68,73 +68,50 @@
                 }
                 
                 // ═══════════════════════════════════════════════════════════════════
-                // 🎯 ETAPA 3: PERSISTIR NO FIRESTORE (referral_visitors)
+                // 🎯 ETAPA 3: PERSISTIR VIA BACKEND (REFERRAL V3)
                 // ═══════════════════════════════════════════════════════════════════
                 
                 if (partnerId) {
-                    console.log('💾 [VISITOR] Tentando salvar no Firestore...');
+                    console.log('💾 [REFERRAL-V3] Enviando para backend...');
                     console.log('   visitorId:', visitorId);
                     console.log('   partnerId:', partnerId);
                     
                     try {
-                        // Importar Firebase dinamicamente
-                        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js');
-                        const { getFirestore, doc, setDoc, getDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                        // ✅ NOVO: Chamar backend via Admin SDK (bypassa Firestore Rules)
+                        const apiUrl = window.getAPIUrl ? window.getAPIUrl('/api/referral/track-visitor') : '/api/referral/track-visitor';
                         
-                        // Config Firebase
-                        const firebaseConfig = {
-                            apiKey: "AIzaSyA-oHlXfFCUCkV0TgR8Dq2Hh-yZYeXOiIg",
-                            authDomain: "soundy-ai.firebaseapp.com",
-                            projectId: "soundy-ai",
-                            storageBucket: "soundy-ai.firebasestorage.app",
-                            messagingSenderId: "846015668746",
-                            appId: "1:846015668746:web:8ff5d15ea4a1a7e05a1834"
-                        };
-                        
-                        const app = initializeApp(firebaseConfig);
-                        const db = getFirestore(app);
-                        
-                        // Verificar se já existe
-                        const visitorRef = doc(db, 'referral_visitors', visitorId);
-                        const visitorSnap = await getDoc(visitorRef);
-                        
-                        if (visitorSnap.exists()) {
-                            console.log('✅ [VISITOR] Registro já existe no Firestore');
-                            console.log('   Dados:', visitorSnap.data());
-                        } else {
-                            // Criar novo registro
-                            const visitorData = {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
                                 visitorId: visitorId,
                                 partnerId: partnerId,
-                                firstSeenAt: serverTimestamp(),
-                                lastSeenAt: serverTimestamp(),
-                                registered: false,
-                                uid: null,
-                                registeredAt: null,
-                                converted: false,
-                                plan: null,
-                                convertedAt: null,
+                                timestamp: referralTimestamp,
                                 userAgent: navigator.userAgent,
-                                referrer: document.referrer || null,
-                                createdAt: serverTimestamp(),
-                                updatedAt: serverTimestamp()
-                            };
-                            
-                            await setDoc(visitorRef, visitorData);
-                            
-                            console.log('✅ [VISITOR] Registro criado no Firestore!');
-                            console.log('   Collection: referral_visitors');
-                            console.log('   Document ID:', visitorId);
-                            console.log('   Partner:', partnerId);
+                                referrer: document.referrer || null
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            console.log('✅ [REFERRAL-V3] Rastreamento salvo com sucesso!');
+                            console.log('   Backend response:', result.message);
+                            console.log('   isNew:', result.data?.isNew);
+                        } else {
+                            console.warn('⚠️ [REFERRAL-V3] Backend retornou erro:', result.message);
+                            console.warn('   Detalhes:', result.error);
                         }
                         
                     } catch (error) {
-                        console.error('❌ [VISITOR] Erro ao salvar no Firestore:', error);
+                        console.error('❌ [REFERRAL-V3] Erro ao chamar backend:', error);
                         console.error('   Detalhes:', error.message);
-                        // Não bloqueia o carregamento da página
+                        // ⚠️ NÃO bloquear carregamento da página - erro silencioso
                     }
                 } else {
-                    console.log('ℹ️ [VISITOR] Sem código de parceiro, não salva no Firestore');
+                    console.log('ℹ️ [REFERRAL-V3] Sem código de parceiro, nada a rastrear');
                 }
                 
             } catch (error) {
