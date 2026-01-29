@@ -284,12 +284,16 @@ app.use("/api/waitlist", waitlistRouter);
 // ═══════════════════════════════════════════════════════════════════
 import trackVisitorRoute from "./api/referral/track-visitor.js";
 import linkRegistrationRoute from "./api/referral/link-registration.js";
+import partnerDashboardRoute from "./api/partner/dashboard.js";
 
 app.use("/api/referral/track-visitor", trackVisitorRoute);
 app.use("/api/referral/link-registration", linkRegistrationRoute);
+app.use("/api/partner/dashboard", partnerDashboardRoute);
 console.log('🔗 [REFERRAL-V3] Sistema de afiliados registrado:');
 console.log('   - POST /api/referral/track-visitor (rastrear visitante com ?ref)');
 console.log('   - POST /api/referral/link-registration (vincular cadastro)');
+console.log('📊 [PARTNER-DASH] Painel de afiliados registrado:');
+console.log('   - GET /api/partner/dashboard?partnerId=X (métricas READ-ONLY)');
 console.log('📧 [WAITLIST] Rotas registradas:');
 console.log('   - POST /api/waitlist (cadastrar lead + enviar e-mail)');
 console.log('   - GET /api/waitlist/count (contar leads)');
