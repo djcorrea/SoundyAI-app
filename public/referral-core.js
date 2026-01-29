@@ -132,12 +132,19 @@
    */
   async function trackVisitorOnBackend(visitorId, partnerId, timestamp) {
     try {
-      // Usar window.getAPIUrl se disponível
-      const apiUrl = typeof window.getAPIUrl === 'function'
-        ? window.getAPIUrl('/api/referral/track-visitor')
-        : '/api/referral/track-visitor';
+      // Usar ApiUrlResolver se disponível, senão fallback para window.getAPIUrl
+      let apiUrl;
+      
+      if (typeof window.ApiUrlResolver !== 'undefined' && typeof window.ApiUrlResolver.buildApiUrl === 'function') {
+        apiUrl = window.ApiUrlResolver.buildApiUrl('referral/track-visitor');
+      } else if (typeof window.getAPIUrl === 'function') {
+        apiUrl = window.getAPIUrl('/api/referral/track-visitor');
+      } else {
+        apiUrl = '/api/referral/track-visitor';
+      }
       
       console.log('[REFERRAL] 📡 Enviando rastreamento ao backend...');
+      console.log('[REFERRAL] 🌐 API URL:', apiUrl);
       
       const response = await fetch(apiUrl, {
         method: 'POST',

@@ -127,6 +127,17 @@
         return buildApiUrl(`jobs/${jobId}`);
     }
 
+    /**
+     * Alias legado para compatibilidade
+     * @param {string} endpoint - Endpoint com ou sem /api
+     * @returns {string} URL completa
+     */
+    function getAPIUrl(endpoint) {
+        // Remover /api se presente (buildApiUrl já adiciona)
+        const cleanEndpoint = endpoint.replace(/^\/api\/?/, '');
+        return buildApiUrl(cleanEndpoint);
+    }
+
     // Exportar para window
     window.ApiUrlResolver = {
         detectEnvironment,
@@ -138,6 +149,9 @@
         getHistoryEndpoint,
         getJobEndpoint
     };
+
+    // Alias legado para compatibilidade
+    window.getAPIUrl = getAPIUrl;
 
     // Log de inicialização
     console.log('🌐 [API-RESOLVER] ═══════════════════════════════════════');
