@@ -444,7 +444,6 @@
                 
                 let totalVisitors = 0;      // Total de visitas com ?ref
                 let totalSignups = 0;       // Cadastros (registered=true)
-                let totalConversions = 0;   // Conversões (converted=true)
                 let activeSubscribers = 0;  // Assinaturas ativas
                 let mrr = 0;                // MRR total
                 
@@ -473,15 +472,10 @@
                         }
                     }
                     
-                    if (visitorData.converted) {
-                        totalConversions++;
-                    }
-                    
                     visitors.push({
                         visitorId: doc.id,
                         uid: visitorData.uid,
                         registered: visitorData.registered,
-                        converted: visitorData.converted,
                         plan: visitorData.plan,
                         convertedAt: visitorData.convertedAt,
                         firstSeenAt: visitorData.firstSeenAt
@@ -491,7 +485,6 @@
                 console.log(`📊 [PARTNER-V2] Métricas brutas:`);
                 console.log(`   Visitantes: ${totalVisitors}`);
                 console.log(`   Cadastros: ${totalSignups}`);
-                console.log(`   Conversões: ${totalConversions}`);
                 
                 // ═══════════════════════════════════════════════════════════════════
                 // 🎯 ETAPA 2: Buscar dados de assinatura em usuarios (MRR)
@@ -530,9 +523,8 @@
 
                 const commission = (mrr * (partnerData.commissionPercent / 100)).toFixed(2);
                 
-                // Calcular taxas de conversão
+                // Calcular taxa de conversão de visitantes para cadastros
                 const signupRate = totalVisitors > 0 ? ((totalSignups / totalVisitors) * 100).toFixed(1) : '0.0';
-                const conversionRate = totalSignups > 0 ? ((totalConversions / totalSignups) * 100).toFixed(1) : '0.0';
 
                 // ═══════════════════════════════════════════════════════════════════
                 // 🎯 RENDERIZAR PAINEL COM FUNIL COMPLETO
@@ -554,7 +546,7 @@
                         </div>
                     </div>
                     
-                    <!-- 🎯 FUNIL DE CONVERSÃO (NOVO) -->
+                    <!-- 🎯 FUNIL DE CONVERSÃO -->
                     <div class="funnel-section">
                         <h3>📊 Funil de Conversão</h3>
                         <div class="funnel-steps">
@@ -567,11 +559,6 @@
                                 <div class="funnel-label">2️⃣ Cadastros</div>
                                 <div class="funnel-value">${totalSignups} <span class="funnel-rate">(${signupRate}%)</span></div>
                                 <div class="funnel-bar" style="width: ${signupRate}%; background: #2196F3;"></div>
-                            </div>
-                            <div class="funnel-step">
-                                <div class="funnel-label">3️⃣ Conversões</div>
-                                <div class="funnel-value">${totalConversions} <span class="funnel-rate">(${conversionRate}%)</span></div>
-                                <div class="funnel-bar" style="width: ${conversionRate}%; background: #FF9800;"></div>
                             </div>
                         </div>
                     </div>
@@ -617,7 +604,6 @@
                                         <th>Email</th>
                                         <th>Plano</th>
                                         <th>Status</th>
-                                        <th>Conversão</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -626,7 +612,6 @@
                                             <td>${u.email}</td>
                                             <td><span class="badge badge-${u.plan}">${u.plan.toUpperCase()}</span></td>
                                             <td>${u.subscriptionStatus}</td>
-                                            <td>${u.convertedAt ? new Date(u.convertedAt).toLocaleDateString('pt-BR') : '-'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
