@@ -6664,6 +6664,18 @@ function initializeAudioAnalyzerIntegration() {
     }
     __audioIntegrationInitialized = true;
     __dbg('🎵 Inicializando integração do Audio Analyzer...');
+    // Prova: indicar qual implementacao de subscore de frequência está presente
+    try {
+        const providers = {
+            FrequencySubScoreCorrector: typeof window.FrequencySubScoreCorrector !== 'undefined',
+            frequencySubScoreCorrector_instance: !!window.frequencySubScoreCorrector,
+            BAND_WEIGHTED_SCORE_V2_flag: !!window.BAND_WEIGHTED_SCORE_V2,
+            computeScoreV3_exists: typeof window.computeScoreV3 === 'function'
+        };
+        console.log('[FREQ-RANGE-SCORE v1] Providers detection:', providers);
+    } catch (e) {
+        // noop
+    }
     // Habilitar flag de referência por gênero via parâmetro de URL (ex.: ?refgenre=trance)
     try {
         if (typeof window !== 'undefined') {
@@ -26224,107 +26236,122 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     // ═══════════════════════════════════════════════════════════════════════════
     function calculateFrequencySubscore() {
         const POINTS_PER_BAND = 100 / 7; // ≈ 14.285 pontos por banda
-        
+
+        // Prova de uso — log sempre visível para facilitar validação em DevTools
+        try {
+            console.log('[FREQ-RANGE-SCORE v1] usando calculateFrequencySubscore em public/audio-analyzer-integration.js');
+        } catch (e) {
+            // noop
+        }
+
         // Contadores para tracking
         let totalPoints = 0;
         let greenBands = 0;
-        let yellowBands = 0;
-        let redBands = 0;
+        let attentionBands = 0; // 'ATENÇÃO'
+        let highBands = 0; // 'ALTA'
+        let redBands = 0; // 'CRÍTICA'
         let processedBands = 0;
-        
+
         // Detalhes para debug
         const bandDetails = [];
-        
+
         // Processar cada banda
         for (const bandKey of BAND_KEYS) {
             const eval_ = metricEvaluations[bandKey];
-            
+
             // Banda sem dados = ignorar (não conta para nada)
             if (!eval_ || eval_.score === null || eval_.score === undefined) {
-                bandDetails.push({
-                    band: bandKey,
-                    severity: 'N/A',
-                    points: 0,
-                    reason: 'Sem dados'
-                });
+                bandDetails.push({ band: bandKey, severity: 'N/A', points: 0, reason: 'Sem dados' });
                 continue;
             }
-            
+
             processedBands++;
             let points = 0;
-            
+
+            const sev = String(eval_.severity || '').toUpperCase();
+            const measuredVal = (eval_.measuredValue !== undefined && eval_.measuredValue !== null) ? eval_.measuredValue : (eval_.value ?? eval_.score);
+            const minVal = eval_.targetSpec?.min ?? eval_.min ?? null;
+            const maxVal = eval_.targetSpec?.max ?? eval_.max ?? null;
+
             // Classificar banda por severidade e atribuir pontos
-            if (eval_.severity === 'OK') {
-                // 🟢 VERDE: Dentro do range = pontos completos
+            if (sev === 'OK' || sev === 'FINO') {
                 points = POINTS_PER_BAND;
                 greenBands++;
-            } else if (eval_.severity === 'ATENÇÃO' || eval_.severity === 'ALTA') {
-                // 🟡 AMARELO: Levemente fora ou próximo da borda = metade dos pontos
+            } else if (sev === 'ATENÇÃO') {
                 points = POINTS_PER_BAND * 0.5;
-                yellowBands++;
-            } else if (eval_.severity === 'CRÍTICA') {
-                // 🔴 VERMELHO: Significativamente fora = zero pontos
+                attentionBands++;
+            } else if (sev === 'ALTA') {
+                points = POINTS_PER_BAND * 0.5;
+                highBands++;
+            } else if (sev === 'CRÍTICA' || sev === 'CRITICA') {
                 points = 0;
                 redBands++;
             } else {
-                // Severidade desconhecida = tratar como amarelo (seguro)
+                // Severidade desconhecida = tratar como atenção (seguro)
                 points = POINTS_PER_BAND * 0.5;
-                yellowBands++;
+                attentionBands++;
             }
-            
+
             totalPoints += points;
-            
+
             bandDetails.push({
                 band: bandKey,
-                severity: eval_.severity,
-                score: eval_.score,
-                points: points.toFixed(2),
-                percentage: ((points / POINTS_PER_BAND) * 100).toFixed(0) + '%'
+                measured: measuredVal,
+                min: minVal,
+                max: maxVal,
+                severity: sev,
+                points: Number(points.toFixed(3))
             });
+
+            // Log detalhado por banda (formato de prova solicitado)
+            try {
+                console.log(`[FREQ-RANGE-SCORE v1] band=${bandKey} value=${measuredVal} min=${minVal} max=${maxVal} severity=${sev} points=${points.toFixed(3)}`);
+            } catch (e) {
+                // noop
+            }
         }
-        
+
         // Se nenhuma banda foi processada, retornar null
         if (processedBands === 0) {
-            if (DEBUG) {
-                log('📊 [FREQ-SUBSCORE] Nenhuma banda válida para calcular subscore');
-            }
+            console.warn('[FREQ-RANGE-SCORE v1] Nenhuma banda válida para calcular subscore');
             return null;
         }
-        
+
         // Score final = soma dos pontos (já está em escala 0-100)
         const finalScore = Math.round(totalPoints);
-        
-        // Log detalhado para debug
-        if (DEBUG) {
-            log('═══════════════════════════════════════════════════════════');
-            log('📊 [FREQ-SUBSCORE V5.0 - RANGE-BASED] Cálculo Simplificado');
-            log('═══════════════════════════════════════════════════════════');
-            console.table(bandDetails);
-            log('📊 Distribuição de bandas:');
-            log(`   🟢 Verdes (OK): ${greenBands}`);
-            log(`   🟡 Amarelas (ATENÇÃO/ALTA): ${yellowBands}`);
-            log(`   🔴 Vermelhas (CRÍTICA): ${redBands}`);
-            log(`   ⚪ Total processadas: ${processedBands}`);
-            log('📊 Pontuação:');
-            log(`   Pontos por banda: ${POINTS_PER_BAND.toFixed(2)}`);
-            log(`   Total acumulado: ${totalPoints.toFixed(2)}`);
-            log(`   Score FINAL: ${finalScore}`);
-            log('═══════════════════════════════════════════════════════════');
-            log('📋 Exemplos esperados:');
-            log('   7 verdes → 100');
-            log('   6 verdes + 1 amarela → 93');
-            log('   5 verdes + 2 amarelas → 86');
-            log('   6 verdes + 1 vermelha → 86');
-            log('   5 verdes + 1 amarela + 1 vermelha → 79');
-            log('═══════════════════════════════════════════════════════════');
-        }
-        
+
+        // Montar campos compatíveis com código que espera outros nomes
+        const criticalCount = redBands;
+        const highCount = highBands;
+        const attentionCount = attentionBands;
+        const rawScore = Math.round(totalPoints);
+        const appliedCap = finalScore; // sem gates internos, cap é o próprio score
+        const capReason = null;
+
+        // Sumário
+        console.log('[FREQ-RANGE-SCORE v1] resumo', {
+            method: 'RANGE-ONLY-7-BANDS-v1',
+            finalScore,
+            greenBands,
+            attentionCount,
+            highCount,
+            criticalCount,
+            processedBands
+        });
+
         return {
             score: finalScore,
             greenBands,
-            yellowBands,
-            redBands,
+            attentionCount,
+            highCount,
+            redBands: criticalCount,
+            criticalCount,
+            highCount,
+            attentionCount,
             processedBands,
+            rawScore,
+            appliedCap,
+            capReason,
             totalPoints: totalPoints.toFixed(2),
             bandDetails,
             method: 'RANGE-BASED-V5.0',
