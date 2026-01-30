@@ -137,6 +137,9 @@ log('🚀 Carregando auth.js...');
 
     // Função para mostrar seção SMS
     function showSMSSection() {
+      // ✅ CRÍTICO: GARANTIR SCROLL SEMPRE DESBLOQUEADO
+      forceUnlockScroll();
+      
       const smsSection = document.getElementById('sms-section');
       if (smsSection) {
         smsSection.style.display = 'block';
@@ -148,6 +151,29 @@ log('🚀 Carregando auth.js...');
         signUpBtn.disabled = true;
         signUpBtn.textContent = 'Código Enviado';
       }
+      
+      // ✅ Verificar novamente após 100ms (garantir que está desbloqueado)
+      setTimeout(() => forceUnlockScroll(), 100);
+    }
+    
+    // ✅ FUNÇÃO AUXILIAR: Forçar desbloqueio de scroll (failsafe)
+    function forceUnlockScroll() {
+      // Desbloquear body
+      document.body.style.overflow = 'auto';
+      document.body.style.overflowY = 'auto';
+      document.body.style.overflowX = 'hidden';
+      document.body.style.position = 'relative';
+      
+      // Desbloquear html
+      document.documentElement.style.overflow = 'auto';
+      document.documentElement.style.overflowY = 'auto';
+      document.documentElement.style.overflowX = 'hidden';
+      
+      // Remover classes que possam bloquear scroll
+      document.body.classList.remove('modal-open', 'no-scroll', 'scroll-locked');
+      document.documentElement.classList.remove('modal-open', 'no-scroll', 'scroll-locked');
+      
+      log('✅ [SCROLL] Scroll forçado para desbloqueado');
     }
 
     // Função de login
@@ -531,6 +557,9 @@ log('🚀 Carregando auth.js...');
         await window.recaptchaVerifier.render();
         log('✅ reCAPTCHA RENDERIZADO COM SUCESSO!');
         
+        // ✅ GARANTIR que scroll não travou após render do reCAPTCHA
+        forceUnlockScroll();
+        
       } catch (renderError) {
         error('❌ Falha ao criar reCAPTCHA:', renderError);
         error('   Código:', renderError.code);
@@ -579,6 +608,9 @@ log('🚀 Carregando auth.js...');
         log('   verificationId:', window.confirmationResult.verificationId?.substring(0, 20) + '...');
         log('   confirmationResult armazenado em window.confirmationResult');
         
+        // ✅ CRÍTICO: DESBLOQUEAR SCROLL IMEDIATAMENTE
+        forceUnlockScroll();
+        
         // Usar função específica para sucesso do SMS
         if (typeof window.showSMSSuccess === 'function') {
           window.showSMSSuccess();
@@ -588,6 +620,9 @@ log('🚀 Carregando auth.js...');
         
         showSMSSection();
         smsSent = true;
+        
+        // ✅ Verificar novamente após 200ms (garantia adicional)
+        setTimeout(() => forceUnlockScroll(), 200);
       } catch (smsError) {
         error('❌ Erro ao enviar SMS:', smsError);
         

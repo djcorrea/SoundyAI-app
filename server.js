@@ -158,7 +158,7 @@ import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
-// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+// 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
 
 // 🔍 VERIFY PURCHASE: Verificação manual de compra e ativação de plano
@@ -240,7 +240,7 @@ app.use("/api/voice", voiceMessageRoute);
 // Rotas mais específicas (/api/webhook/hotmart) DEVEM vir ANTES
 // de rotas genéricas (/api/webhook) para evitar interceptação.
 
-// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+// 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 app.use('/api/webhook/hotmart', hotmartWebhookRouter);
 console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
 

@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
   <title>SoundyAI – Login</title>
   
   <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
@@ -32,6 +32,13 @@
       box-sizing: border-box;
     }
     
+    html {
+      overflow-y: auto; /* ✅ Permitir scroll no root */
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch; /* ✅ iOS Safari: scroll suave */
+      height: 100%;
+    }
+    
     body {
       font-family: 'Inter', sans-serif;
       background: var(--dark-bg);
@@ -40,7 +47,8 @@
       align-items: center;
       justify-content: center;
       color: #ffffff;
-      overflow: hidden;
+      overflow-y: auto; /* ✅ CORRIGIDO: Permitir scroll vertical */
+      overflow-x: hidden; /* Manter bloqueio horizontal apenas */
       position: relative;
     }
     
@@ -54,6 +62,9 @@
       z-index: -1;
       background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
       overflow: hidden;
+      /* ✅ iOS Safari: Prevenir bloqueio de scroll */
+      -webkit-overflow-scrolling: touch;
+      pointer-events: none; /* Não capturar eventos de toque */
     }
     
     .vanta-background {
@@ -121,6 +132,10 @@
       position: relative;
       z-index: 10;
       transition: border-color 3s ease-in-out, box-shadow 3s ease-in-out;
+      /* ✅ Mobile: Garantir scroll suave dentro do container se necessário */
+      -webkit-overflow-scrolling: touch;
+      overflow-y: auto;
+      max-height: 95vh; /* Limitar altura em telas pequenas */
     }
     
     .logo {
@@ -365,6 +380,15 @@
       justify-content: center;
       align-items: center;
       min-height: 78px; /* Altura padrão do reCAPTCHA normal */
+      pointer-events: auto; /* ✅ Garantir eventos de toque funcionem */
+      touch-action: auto; /* ✅ Permitir gestos nativos */
+    }
+    
+    /* ✅ Garantir iframe do reCAPTCHA não bloqueie scroll */
+    #recaptcha-container iframe {
+      pointer-events: auto;
+      touch-action: auto;
+      max-width: 100%;
     }
     
     /* Responsivo */
@@ -567,6 +591,43 @@
     
     // Configurar listeners iniciais
     document.addEventListener('DOMContentLoaded', function() {
+      // ✅ CRÍTICO: GARANTIR SCROLL DESBLOQUEADO AO CARREGAR PÁGINA
+      function ensureScrollUnlocked() {
+        document.body.style.overflow = 'auto';
+        document.body.style.overflowY = 'auto';
+        document.body.style.overflowX = 'hidden';
+        document.documentElement.style.overflow = 'auto';
+        document.documentElement.style.overflowY = 'auto';
+        document.documentElement.style.overflowX = 'hidden';
+        log('✅ [INIT] Scroll garantido como desbloqueado no carregamento');
+      }
+      
+      // Executar imediatamente
+      ensureScrollUnlocked();
+      
+      // ✅ Monitorar mudanças de estilo que possam bloquear scroll
+      const scrollObserver = new MutationObserver(() => {
+        const bodyOverflow = window.getComputedStyle(document.body).overflow;
+        const htmlOverflow = window.getComputedStyle(document.documentElement).overflow;
+        
+        if (bodyOverflow === 'hidden' || htmlOverflow === 'hidden') {
+          log('⚠️ [SCROLL-MONITOR] Detectado bloqueio de scroll - corrigindo...');
+          ensureScrollUnlocked();
+        }
+      });
+      
+      scrollObserver.observe(document.body, { 
+        attributes: true, 
+        attributeFilter: ['style', 'class'] 
+      });
+      scrollObserver.observe(document.documentElement, { 
+        attributes: true, 
+        attributeFilter: ['style', 'class'] 
+      });
+      
+      // Disponibilizar globalmente
+      window.ensureScrollUnlocked = ensureScrollUnlocked;
+      
       // ✅ Detectar reset de senha bem-sucedido
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('reset') === 'success') {
