@@ -372,25 +372,60 @@ async function processWebhookAsync(data) {
     // ═══════════════════════════════════════════════════════════════
     // PASSO 3: Garantir documento no Firestore
     // ═══════════════════════════════════════════════════════════════
-    await getOrCreateUser(user.uid, {
+    console.log('═════════════════════════════════════════════');
+    console.log('📝 [HOTMART-ASYNC] Criando/atualizando usuário no Firestore:');
+    console.log('   UID:', user.uid);
+    console.log('   Email:', data.buyerEmail);
+    console.log('   Name:', data.buyerName);
+    console.log('   origin: hotmart');
+    console.log('   criadoSemSMS: true  ← 🔑 CAMPO CRÍTICO PARA BYPASS SMS');
+    console.log('   authType: hotmart');
+    console.log('   hotmartTransactionId:', data.transactionId);
+    console.log('═════════════════════════════════════════════');
+    
+    const firestoreData = {
       email: data.buyerEmail,
       name: data.buyerName,
       origin: 'hotmart',
       hotmartTransactionId: data.transactionId,
       criadoSemSMS: true,  // ✅ HOTMART: Usuário não precisa SMS (login direto com senha)
       authType: 'hotmart'  // ✅ Identificador de método de autenticação
-    });
+    };
+    
+    await getOrCreateUser(user.uid, firestoreData);
+    
+    console.log('✅ [HOTMART-ASYNC] Usuário salvo no Firestore com bypass SMS ativado');
 
     // ═══════════════════════════════════════════════════════════════
     // PASSO 4: Ativar plano PLUS por 30 dias
     // ═══════════════════════════════════════════════════════════════
     console.log(`💳 [HOTMART-ASYNC] Ativando PLUS para ${user.uid} (${PLUS_DURATION_DAYS} dias)`);
     
+    // 🔍 DEBUG: Estado ANTES do applyPlan
+    const db = getFirestore();
+    const userDocBefore = await db.collection('usuarios').doc(user.uid).get();
+    console.log('🔍 [HOTMART DEBUG] BEFORE applyPlan:', JSON.stringify({
+      uid: user.uid,
+      plan: userDocBefore.data()?.plan,
+      plusExpiresAt: userDocBefore.data()?.plusExpiresAt,
+      studioExpiresAt: userDocBefore.data()?.studioExpiresAt,
+      origin: userDocBefore.data()?.origin
+    }, null, 2));
+    
     const updatedUser = await applyPlan(user.uid, {
       plan: 'plus',
       durationDays: PLUS_DURATION_DAYS
     });
 
+    // 🔍 DEBUG: Estado DEPOIS do applyPlan
+    console.log('🔍 [HOTMART DEBUG] AFTER applyPlan:', JSON.stringify({
+      uid: user.uid,
+      plan: updatedUser.plan,
+      plusExpiresAt: updatedUser.plusExpiresAt,
+      studioExpiresAt: updatedUser.studioExpiresAt,
+      origin: updatedUser.origin
+    }, null, 2));
+    
     console.log(`✅ [HOTMART-ASYNC] Plano PLUS ativado: ${user.uid} até ${updatedUser.plusExpiresAt}`);
 
     // ═══════════════════════════════════════════════════════════════

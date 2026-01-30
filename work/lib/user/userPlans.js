@@ -181,7 +181,16 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
         if (tx.planApplied === 'plus') {
           // Se já for plus, apenas garantir campos consistentes
           if (user.plan !== 'plus' || !user.plusExpiresAt) {
+            console.log(`🔁 [USER-PLANS] ⚠️ CORREÇÃO ATIVADA: Plano era '${user.plan}' mas hotmart_transactions indica 'plus'`);
             console.log(`🔁 [USER-PLANS] Restaurando plano PLUS a partir de hotmart_transactions para UID=${uid}`);
+            console.log('🔍 [HOTMART-PROTECTION DEBUG] BEFORE fix:', JSON.stringify({
+              uid,
+              plan: user.plan,
+              plusExpiresAt: user.plusExpiresAt,
+              studioExpiresAt: user.studioExpiresAt,
+              hotmartTransactionId: user.hotmartTransactionId,
+              txPlanApplied: tx.planApplied
+            }, null, 2));
             user.plan = 'plus';
             // Preferir expiresAt gravado na transação, se disponível
             if (tx.expiresAt) {
@@ -315,8 +324,28 @@ export async function getOrCreateUser(uid, extra = {}) {
       console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
       console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
       
+      // 🔍 DEBUG: Verificar se campos Hotmart estão presentes
+      if (profile.criadoSemSMS || profile.origin === 'hotmart') {
+        console.log('═════════════════════════════════════════════');
+        console.log('🎯 [USER-PLANS] USUÁRIO HOTMART DETECTADO:');
+        console.log('   criadoSemSMS:', profile.criadoSemSMS);
+        console.log('   origin:', profile.origin);
+        console.log('   authType:', profile.authType);
+        console.log('   hotmartTransactionId:', profile.hotmartTransactionId);
+        console.log('   ⚠️ Este usuário NÃO precisará de SMS no login');
+        console.log('═════════════════════════════════════════════');
+      }
+      
       await ref.set(profile);
       console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: ${defaultPlan}, billingMonth: ${currentMonth})`);
+      
+      // 🔍 DEBUG: Confirmar que campos foram salvos
+      if (profile.criadoSemSMS || profile.origin === 'hotmart') {
+        console.log(`✅ [USER-PLANS] Campos Hotmart confirmados no documento:`);
+        console.log(`   criadoSemSMS: ${profile.criadoSemSMS}`);
+        console.log(`   origin: ${profile.origin}`);
+      }
+      
       return profile;
     }
 
@@ -462,7 +491,18 @@ async function registerReferralConversion(uid, plan) {
 export async function applyPlan(uid, { plan, durationDays }) {
   console.log(`💳 [USER-PLANS] Aplicando plano ${plan} para ${uid} (${durationDays} dias)`);
   
+  // 🔍 DEBUG: Estado ANTES de aplicar
   const ref = getDb().collection(USERS).doc(uid);
+  const docBefore = await ref.get();
+  console.log('🔍 [APPLY-PLAN DEBUG] BEFORE:', JSON.stringify({
+    uid,
+    requestedPlan: plan,
+    requestedDays: durationDays,
+    currentPlan: docBefore.data()?.plan,
+    currentPlusExpiresAt: docBefore.data()?.plusExpiresAt,
+    currentStudioExpiresAt: docBefore.data()?.studioExpiresAt
+  }, null, 2));
+  
   await getOrCreateUser(uid);
 
   const now = Date.now();
@@ -508,6 +548,16 @@ export async function applyPlan(uid, { plan, durationDays }) {
   await ref.update(update);
   
   const updatedUser = (await ref.get()).data();
+  
+  // 🔍 DEBUG: Estado DEPOIS de aplicar
+  console.log('🔍 [APPLY-PLAN DEBUG] AFTER:', JSON.stringify({
+    uid,
+    finalPlan: updatedUser.plan,
+    finalPlusExpiresAt: updatedUser.plusExpiresAt,
+    finalStudioExpiresAt: updatedUser.studioExpiresAt,
+    finalProExpiresAt: updatedUser.proExpiresAt
+  }, null, 2));
+  
   console.log(`✅ [USER-PLANS] Plano aplicado: ${uid} → ${plan} até ${expires}`);
   
   // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável

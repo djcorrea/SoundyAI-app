@@ -215,11 +215,37 @@ log('🚀 Carregando auth.js...');
           
           const userData = snap.data();
           
+          // 🔍 DEBUG: Imprimir userData completo para auditoria
+          console.log('═════════════════════════════════════════════');
+          console.log('🔍 [AUTH-DEBUG] DADOS COMPLETOS DO USUÁRIO:');
+          console.log('   UID:', result.user.uid);
+          console.log('   Email:', result.user.email);
+          console.log('   userData completo:', JSON.stringify(userData, null, 2));
+          console.log('═════════════════════════════════════════════');
+          console.log('📋 [AUTH-DEBUG] CAMPOS CRÍTICOS DE BYPASS SMS:');
+          console.log('   origin:', userData.origin || '(não definido)');
+          console.log('   criadoSemSMS:', userData.criadoSemSMS);
+          console.log('   authType:', userData.authType || '(não definido)');
+          console.log('   hotmartTransactionId:', userData.hotmartTransactionId || '(não definido)');
+          console.log('   user.phoneNumber (Firebase Auth):', result.user.phoneNumber || '(null)');
+          console.log('═════════════════════════════════════════════');
+          
           // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
           // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
           const smsVerificado = !!result.user.phoneNumber;
           
-          if (!smsVerificado && !userData.criadoSemSMS) {
+          // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
+          const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
+          
+          console.log('🔐 [AUTH-DEBUG] VERIFICAÇÃO DE SMS:');
+          console.log('   smsVerificado (phoneNumber exists):', smsVerificado);
+          console.log('   criadoSemSMS === true:', userData.criadoSemSMS === true);
+          console.log('   origin === hotmart:', userData.origin === 'hotmart');
+          console.log('   isBypassSMS (pode entrar sem SMS):', isBypassSMS);
+          console.log('   Decisão:', (!smsVerificado && !isBypassSMS) ? '❌ BLOQUEIO' : '✅ PERMITE');
+          console.log('═════════════════════════════════════════════');
+          
+          if (!smsVerificado && !isBypassSMS) {
             // Conta criada mas telefone não verificado no Auth - forçar logout
             warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
             warn('   user.phoneNumber:', result.user.phoneNumber);
@@ -245,6 +271,15 @@ log('🚀 Carregando auth.js...');
           
           if (smsVerificado) {
             log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
+          } else if (isBypassSMS) {
+            console.log('═════════════════════════════════════════════');
+            console.log('✅ [HOTMART-BYPASS] LOGIN SEM SMS APROVADO');
+            console.log('   Motivo: Usuário Hotmart (criadoSemSMS: true ou origin: hotmart)');
+            console.log('   UID:', result.user.uid);
+            console.log('   Email:', result.user.email);
+            console.log('   origin:', userData.origin);
+            console.log('   authType:', userData.authType);
+            console.log('═════════════════════════════════════════════');
           }
           
           // Prosseguir com navegação normal

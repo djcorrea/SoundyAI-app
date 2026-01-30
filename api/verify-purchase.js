@@ -1,12 +1,13 @@
 /**
- * 🔍 VERIFY PURCHASE - Endpoint de verificação e ativação manual do plano PRO
+ * 🔍 VERIFY PURCHASE - Endpoint de verificação e ativação manual do plano PLUS
  * 
  * ✅ NÃO depende do webhook da Hotmart
  * ✅ Usuário logado pode verificar se comprou
- * ✅ Ativa plano PRO por 120 dias se compra confirmada
+ * ✅ Ativa plano PLUS por 30 dias se compra confirmada
  * ✅ Pode ser usado como fallback se webhook falhar
  * 
- * @version 1.0.0
+ * @version 2.0.0
+ * @updated 2026-01-30 - Corrigido para PLUS 30 dias (era PRO 120d)
  * @created 2026-01-04
  */
 
@@ -21,7 +22,7 @@ const router = express.Router();
 // 📊 CONFIGURAÇÃO
 // ═══════════════════════════════════════════════════════════════════
 
-const PRO_DURATION_DAYS = 120; // 4 meses
+const PLUS_DURATION_DAYS = 30; // 1 mês
 const COLLECTION_TRANSACTIONS = 'hotmart_transactions';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -230,9 +231,9 @@ router.post('/', requireAuth, async (req, res) => {
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // PASSO 4: Ativar plano PRO
+    // PASSO 4: Ativar plano PLUS
     // ═══════════════════════════════════════════════════════════════
-    console.log('💳 [VERIFY-PURCHASE] Ativando plano PRO por verificação manual');
+    console.log('💳 [VERIFY-PURCHASE] Ativando plano PLUS por verificação manual');
     
     // Garantir documento no Firestore
     await getOrCreateUser(req.user.uid, {
@@ -240,13 +241,13 @@ router.post('/', requireAuth, async (req, res) => {
       origin: 'hotmart-manual-verification'
     });
     
-    // Aplicar plano PRO
+    // Aplicar plano PLUS
     const updatedUser = await applyPlan(req.user.uid, {
-      plan: 'pro',
-      durationDays: PRO_DURATION_DAYS
+      plan: 'plus',
+      durationDays: PLUS_DURATION_DAYS
     });
     
-    console.log(`✅ [VERIFY-PURCHASE] Plano PRO ativado: ${req.user.uid} até ${updatedUser.proExpiresAt}`);
+    console.log(`✅ [VERIFY-PURCHASE] Plano PLUS ativado: ${req.user.uid} até ${updatedUser.plusExpiresAt}`);
     
     // ═══════════════════════════════════════════════════════════════
     // PASSO 5: Tentar enviar e-mail de boas-vindas (não crítico)
@@ -257,7 +258,7 @@ router.post('/', requireAuth, async (req, res) => {
         name: transaction.buyerName || req.user.email.split('@')[0],
         tempPassword: null, // Usuário já tem senha
         isNewUser: false,
-        expiresAt: updatedUser.proExpiresAt,
+        expiresAt: updatedUser.plusExpiresAt,
         transactionId: transaction.transactionId
       });
       console.log('📧 [VERIFY-PURCHASE] E-mail de confirmação enviado');
@@ -274,12 +275,12 @@ router.post('/', requireAuth, async (req, res) => {
     
     return res.json({
       success: true,
-      message: 'Plano PRO ativado com sucesso!',
+      message: 'Plano PLUS ativado com sucesso!',
       plan: {
-        type: 'pro',
+        type: 'plus',
         status: 'active',
-        expiresAt: updatedUser.proExpiresAt,
-        durationDays: PRO_DURATION_DAYS
+        expiresAt: updatedUser.plusExpiresAt,
+        durationDays: PLUS_DURATION_DAYS
       },
       transaction: {
         id: transaction.transactionId,
