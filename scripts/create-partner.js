@@ -164,7 +164,7 @@ async function main() {
       partnerId: 'papohertz',
       name: 'Papo Hertz',
       referralCode: 'papohertz',
-      email: 'contato@papohertz.com',  // ⚠️ ALTERE para o email real do parceiro
+      email: 'papohertz@soundyai.com',  // ⚠️ ALTERE para o email real do parceiro
       commissionPercent: 50,
       active: true,
       description: 'Parceiro oficial - Papo Hertz',
