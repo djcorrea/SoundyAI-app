@@ -2121,7 +2121,7 @@ function incluiNumeroComSufixo(texto, numero, sufixo) {
 /* ============ INICIALIZAÇÃO DO SISTEMA ============ */
 
 /* ============ INICIALIZAÇÃO CONSOLIDADA ============ */
-function initializeEverything() {
+async function initializeEverything() {
     // Ativar fade-in suave apenas nos elementos principais (sem fundo)
     setTimeout(() => {
         const fadeElements = document.querySelectorAll('.fade-in-start');
@@ -2152,11 +2152,23 @@ function initializeEverything() {
             log('⚠️ initParticleEffects não disponível');
         }
         
-        // Aguardar Firebase e inicializar chatbot
-        waitForFirebase().then(() => {
-            log('✅ Firebase pronto, inicializando chatbot...');
-            window.prodAIChatbot = new ProdAIChatbot();
-        });
+        // ✅ FLUXO CORRETO: Firebase → Plano → App
+        await waitForFirebase();
+        log('✅ Firebase pronto');
+        
+        // ⏳ AGUARDAR plano do usuário estar carregado
+        if (window.PlanCapabilities && typeof window.PlanCapabilities.waitForUserPlan === 'function') {
+            log('⏳ Aguardando plano do usuário...');
+            const userPlan = await window.PlanCapabilities.waitForUserPlan();
+            log(`✅ Plano carregado: ${userPlan}`);
+            window.userPlan = userPlan; // Garantir que está disponível globalmente
+        } else {
+            warn('⚠️ PlanCapabilities.waitForUserPlan não disponível - continuando...');
+        }
+        
+        // 🚀 AGORA SIM inicializar app com plano correto
+        log('🚀 Inicializando chatbot com plano:', window.userPlan);
+        window.prodAIChatbot = new ProdAIChatbot();
     } else {
         log('📄 Página secundária detectada - pulando inicialização completa do script.js');
     }
