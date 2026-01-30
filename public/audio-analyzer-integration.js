@@ -26208,208 +26208,127 @@ window.computeScoreV3 = function computeScoreV3(analysis, targets, mode = 'strea
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // 🎵 V4.0: CÁLCULO DE SUBSCORE DE FREQUÊNCIA - COERENTE COM TABELA
-    // Princípios:
-    // 1. Score individual por banda baseado em evaluateMetric (SINGLE SOURCE)
-    // 2. Pesos PERCEPTIVOS (High Mid/Presença = fadiga auditiva)
-    // 3. NUNCA permitir score alto se qualquer banda está CRÍTICA
-    // 4. Score final = f(pior banda, média ponderada)
+    // 🎵 V5.0 (2026-01-30): SUBSCORE DE FREQUÊNCIA BASEADO PURAMENTE EM RANGE
+    // 
+    // PRINCÍPIO: O subscore deve refletir EXATAMENTE as cores da tabela visual
+    // 
+    // LÓGICA SIMPLES E TRANSPARENTE:
+    // - 7 bandas de frequência (sub, bass, lowMid, mid, highMid, presence, air)
+    // - Cada banda contribui IGUALMENTE: 100 / 7 ≈ 14.285 pontos
+    // - Pontuação por banda baseada na SEVERIDADE (cor da tabela):
+    //   🟢 OK (verde) = 14.285 pontos (100%)
+    //   🟡 ATENÇÃO/ALTA (amarelo) = 7.14 pontos (50%)
+    //   🔴 CRÍTICA (vermelho) = 0 pontos (0%)
+    // 
+    // OBJETIVO: Eliminar quedas inexplicáveis de score quando tabela mostra "tudo verde"
     // ═══════════════════════════════════════════════════════════════════════════
     function calculateFrequencySubscore() {
-        // 🎯 V4.0: PESOS PERCEPTIVOS (baseado em impacto auditivo real)
-        // - High Mid (2-4kHz): onde ouvimos fadiga, estridência = MAIOR PESO
-        // - Presença (4-8kHz): clareza, sibilância = PESO ALTO
-        // - Sub/Bass: importante, mas menos sensível perceptivamente
-        const BAND_WEIGHTS = {
-            sub: 0.12,      // 12% - fundação, menos sensível
-            bass: 0.14,     // 14% - corpo, moderado  
-            lowMid: 0.12,   // 12% - "muddiness"
-            mid: 0.16,      // 16% - presença vocal/instrumental
-            highMid: 0.20,  // 20% - FADIGA AUDITIVA (maior peso)
-            presence: 0.14, // 14% - clareza/sibilância
-            air: 0.12       // 12% - brilho/ar
-        };
+        const POINTS_PER_BAND = 100 / 7; // ≈ 14.285 pontos por banda
         
-        // Coletar avaliações válidas
-        const bandEvals = {};
-        let totalWeight = 0;
-        let weightedSum = 0;
-        let bandsWithScore = 0;
+        // Contadores para tracking
+        let totalPoints = 0;
+        let greenBands = 0;
+        let yellowBands = 0;
+        let redBands = 0;
+        let processedBands = 0;
         
-        // Contadores de severidade para gates
-        let criticalCount = 0;
-        let highCount = 0;
-        let attentionCount = 0;
-        
-        // 🎯 V4.0: Rastrear pior banda (para gate baseado no mínimo)
-        let worstScore = 100;
-        let worstBand = null;
-        let worstSeverity = 'OK';
-        
-        // Log detalhado
+        // Detalhes para debug
         const bandDetails = [];
         
+        // Processar cada banda
         for (const bandKey of BAND_KEYS) {
             const eval_ = metricEvaluations[bandKey];
-            const weight = BAND_WEIGHTS[bandKey] || (1 / BAND_KEYS.length);
             
-            if (eval_ && eval_.score !== null && eval_.score !== undefined) {
-                bandEvals[bandKey] = eval_;
-                weightedSum += eval_.score * weight;
-                totalWeight += weight;
-                bandsWithScore++;
-                
-                // Contar severidades
-                if (eval_.severity === 'CRÍTICA') criticalCount++;
-                else if (eval_.severity === 'ALTA') highCount++;
-                else if (eval_.severity === 'ATENÇÃO') attentionCount++;
-                
-                // Rastrear pior banda
-                if (eval_.score < worstScore) {
-                    worstScore = eval_.score;
-                    worstBand = bandKey;
-                    worstSeverity = eval_.severity;
-                }
-                
+            // Banda sem dados = ignorar (não conta para nada)
+            if (!eval_ || eval_.score === null || eval_.score === undefined) {
                 bandDetails.push({
                     band: bandKey,
-                    score: eval_.score,
-                    severity: eval_.severity,
-                    weight: weight,
-                    contribution: (eval_.score * weight).toFixed(2)
+                    severity: 'N/A',
+                    points: 0,
+                    reason: 'Sem dados'
                 });
+                continue;
             }
+            
+            processedBands++;
+            let points = 0;
+            
+            // Classificar banda por severidade e atribuir pontos
+            if (eval_.severity === 'OK') {
+                // 🟢 VERDE: Dentro do range = pontos completos
+                points = POINTS_PER_BAND;
+                greenBands++;
+            } else if (eval_.severity === 'ATENÇÃO' || eval_.severity === 'ALTA') {
+                // 🟡 AMARELO: Levemente fora ou próximo da borda = metade dos pontos
+                points = POINTS_PER_BAND * 0.5;
+                yellowBands++;
+            } else if (eval_.severity === 'CRÍTICA') {
+                // 🔴 VERMELHO: Significativamente fora = zero pontos
+                points = 0;
+                redBands++;
+            } else {
+                // Severidade desconhecida = tratar como amarelo (seguro)
+                points = POINTS_PER_BAND * 0.5;
+                yellowBands++;
+            }
+            
+            totalPoints += points;
+            
+            bandDetails.push({
+                band: bandKey,
+                severity: eval_.severity,
+                score: eval_.score,
+                points: points.toFixed(2),
+                percentage: ((points / POINTS_PER_BAND) * 100).toFixed(0) + '%'
+            });
         }
         
-        if (totalWeight === 0 || bandsWithScore === 0) {
+        // Se nenhuma banda foi processada, retornar null
+        if (processedBands === 0) {
             if (DEBUG) {
-                log('📊 [FREQ-SUBSCORE] Nenhuma banda válida');
+                log('📊 [FREQ-SUBSCORE] Nenhuma banda válida para calcular subscore');
             }
             return null;
         }
         
-        // Score base ponderado
-        const weightedAvg = Math.round(weightedSum / totalWeight);
+        // Score final = soma dos pontos (já está em escala 0-100)
+        const finalScore = Math.round(totalPoints);
         
-        // ═══════════════════════════════════════════════════════════════════
-        // 🚨 V4.0: CÁLCULO DO SCORE FINAL - NUNCA IGNORAR ERROS CRÍTICOS
-        // Fórmula: score = 0.6 * média_ponderada + 0.4 * pior_banda
-        // Isso garante que erros críticos SEMPRE puxem o score para baixo
-        // ═══════════════════════════════════════════════════════════════════
-        let rawScore = Math.round(0.6 * weightedAvg + 0.4 * worstScore);
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // 🚨 V4.0: GATES DE SANIDADE MAIS AGRESSIVOS
-        // ═══════════════════════════════════════════════════════════════════
-        let appliedCap = null;
-        let capReason = null;
-        
-        // Regra 0: QUALQUER banda CRÍTICA → cap no máximo score dessa banda + 10
-        if (criticalCount >= 1 && worstSeverity === 'CRÍTICA') {
-            const criticalCap = Math.min(worstScore + 10, 65);
-            if (appliedCap === null || criticalCap < appliedCap) {
-                appliedCap = criticalCap;
-                capReason = `1+ banda CRÍTICA (${worstBand}: ${worstScore})`;
-            }
-        }
-        
-        // Regra 1: 3+ bandas CRÍTICAS → cap 45 (muito grave)
-        if (criticalCount >= 3) {
-            const cap = 45;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${criticalCount} bandas CRÍTICAS`;
-            }
-        }
-        // Regra 2: 2 bandas CRÍTICAS → cap 55
-        else if (criticalCount >= 2) {
-            const cap = 55;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${criticalCount} bandas CRÍTICAS`;
-            }
-        }
-        
-        // Regra 3: 3+ bandas ALTA → cap 70
-        if (highCount >= 3) {
-            const cap = 70;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${highCount} bandas ALTA`;
-            }
-        }
-        // Regra 4: 2 bandas ALTA → cap 78
-        else if (highCount >= 2) {
-            const cap = 78;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${highCount} bandas ALTA`;
-            }
-        }
-        // Regra 5: 1 banda ALTA → cap 85
-        else if (highCount >= 1) {
-            const cap = 85;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${highCount} banda ALTA`;
-            }
-        }
-        
-        // Regra 6: 3+ bandas ATENÇÃO → cap 88
-        if (attentionCount >= 3) {
-            const cap = 88;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${attentionCount} bandas ATENÇÃO`;
-            }
-        }
-        // Regra 7: 2 bandas ATENÇÃO → cap 92
-        else if (attentionCount >= 2) {
-            const cap = 92;
-            if (appliedCap === null || cap < appliedCap) {
-                appliedCap = cap;
-                capReason = `${attentionCount} bandas ATENÇÃO`;
-            }
-        }
-        
-        // Aplicar cap se necessário
-        const finalScore = appliedCap !== null ? Math.min(rawScore, appliedCap) : rawScore;
-        
-        // Log detalhado
+        // Log detalhado para debug
         if (DEBUG) {
             log('═══════════════════════════════════════════════════════════');
-            log('📊 [FREQ-SUBSCORE V4.0] Cálculo Detalhado');
+            log('📊 [FREQ-SUBSCORE V5.0 - RANGE-BASED] Cálculo Simplificado');
             log('═══════════════════════════════════════════════════════════');
             console.table(bandDetails);
-            log('📊 Contagem de severidades:', {
-                CRÍTICA: criticalCount,
-                ALTA: highCount,
-                ATENÇÃO: attentionCount,
-                OK: bandsWithScore - criticalCount - highCount - attentionCount
-            });
-            log('📊 Pior banda:', worstBand, '→', worstScore, `(${worstSeverity})`);
-            log('📊 Média ponderada:', weightedAvg);
-            log('📊 Score RAW (0.6*avg + 0.4*worst):', rawScore);
-            if (appliedCap !== null) {
-                log(`🚨 GATE APLICADO: Cap ${appliedCap} (${capReason})`);
-            }
-            log('📊 Score FINAL:', finalScore);
+            log('📊 Distribuição de bandas:');
+            log(`   🟢 Verdes (OK): ${greenBands}`);
+            log(`   🟡 Amarelas (ATENÇÃO/ALTA): ${yellowBands}`);
+            log(`   🔴 Vermelhas (CRÍTICA): ${redBands}`);
+            log(`   ⚪ Total processadas: ${processedBands}`);
+            log('📊 Pontuação:');
+            log(`   Pontos por banda: ${POINTS_PER_BAND.toFixed(2)}`);
+            log(`   Total acumulado: ${totalPoints.toFixed(2)}`);
+            log(`   Score FINAL: ${finalScore}`);
+            log('═══════════════════════════════════════════════════════════');
+            log('📋 Exemplos esperados:');
+            log('   7 verdes → 100');
+            log('   6 verdes + 1 amarela → 93');
+            log('   5 verdes + 2 amarelas → 86');
+            log('   6 verdes + 1 vermelha → 86');
+            log('   5 verdes + 1 amarela + 1 vermelha → 79');
             log('═══════════════════════════════════════════════════════════');
         }
         
         return {
             score: finalScore,
-            rawScore,
-            weightedAvg,
-            worstScore,
-            worstBand,
-            worstSeverity,
-            appliedCap,
-            capReason,
-            criticalCount,
-            highCount,
-            attentionCount,
-            bandDetails
+            greenBands,
+            yellowBands,
+            redBands,
+            processedBands,
+            totalPoints: totalPoints.toFixed(2),
+            bandDetails,
+            method: 'RANGE-BASED-V5.0',
+            description: 'Cada banda contribui igualmente baseada em sua severidade (OK=100%, ATENÇÃO/ALTA=50%, CRÍTICA=0%)'
         };
     }
     
