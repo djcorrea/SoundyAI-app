@@ -81,16 +81,20 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
   let changed = false;
   const currentMonth = getCurrentMonthKey(now); // "2025-12"
   
+  // 🔐 PROTEÇÃO HOTMART: NUNCA aplicar defaults ou sobrescrever plano de usuários Hotmart
+  const isHotmartUser = user.origin === 'hotmart';
+  
   // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para usuários sem plano pago
-  if (ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
+  // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+  if (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
     user.plan = 'pro';
     user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 ano
     changed = true;
     console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (era FREE)`);
   }
   
-  // ✅ Garantir que plan existe
-  if (!user.plan) {
+  // ✅ Garantir que plan existe (EXCETO Hotmart)
+  if (!isHotmartUser && !user.plan) {
     user.plan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
     if (ENV_FEATURES.features.autoGrantProPlan) {
       user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -166,6 +170,48 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     console.log(`🎬 [USER-PLANS] Plano Studio expirado para: ${uid}`);
     user.plan = "free";
     changed = true;
+  }
+
+  // 🔐 PROTEÇÃO HOTMART: Se o usuário vier da Hotmart e a transação
+  // registrou `planApplied: 'plus'`, garantir que o plano seja PLUS.
+  // Isso previne que outras rotinas sobrescrevam indevidamente o plano
+  // aplicado pelo webhook da Hotmart.
+  try {
+    if (user.origin === 'hotmart' && user.hotmartTransactionId) {
+      const txRef = getDb().collection('hotmart_transactions').doc(user.hotmartTransactionId);
+      const txSnap = await txRef.get();
+      if (txSnap.exists) {
+        const tx = txSnap.data();
+        if (tx.planApplied === 'plus') {
+          // Se já for plus, apenas garantir campos consistentes
+          if (user.plan !== 'plus' || !user.plusExpiresAt) {
+            console.log(`🔁 [USER-PLANS] ⚠️ CORREÇÃO ATIVADA: Plano era '${user.plan}' mas hotmart_transactions indica 'plus'`);
+            console.log(`🔁 [USER-PLANS] Restaurando plano PLUS a partir de hotmart_transactions para UID=${uid}`);
+            console.log('🔍 [HOTMART-PROTECTION DEBUG] BEFORE fix:', JSON.stringify({
+              uid,
+              plan: user.plan,
+              plusExpiresAt: user.plusExpiresAt,
+              studioExpiresAt: user.studioExpiresAt,
+              hotmartTransactionId: user.hotmartTransactionId,
+              txPlanApplied: tx.planApplied
+            }, null, 2));
+            user.plan = 'plus';
+            // Preferir expiresAt gravado na transação, se disponível
+            if (tx.expiresAt) {
+              user.plusExpiresAt = tx.expiresAt;
+            }
+            // Limpar campos STUDIO/PRO/DJ para evitar conflito
+            user.studioExpiresAt = null;
+            user.proExpiresAt = null;
+            user.djExpiresAt = null;
+            changed = true;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [USER-PLANS] Erro ao validar transação Hotmart para UID=${uid}:`, err.message);
+    // Não bloquear a normalização por erro na verificação adicional
   }
 
   // ✅ STRIPE: Verificar expiração de assinatura recorrente
@@ -250,40 +296,72 @@ export async function getOrCreateUser(uid, extra = {}) {
       const nowISO = now.toISOString();
       const currentMonth = getCurrentMonthKey(now);
       
+      // 🔐 PROTEÇÃO HOTMART: Se origin='hotmart', NUNCA sobrescrever plano/expiração
+      const isHotmartUser = extra.origin === 'hotmart';
+      
       // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para facilitar testes
-      const defaultPlan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
-      const proExpiration = ENV_FEATURES.features.autoGrantProPlan 
+      // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+      const defaultPlan = isHotmartUser 
+        ? (extra.plan || 'free')  // ✅ Usar plano do webhook
+        : (ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free');
+      
+      const proExpiration = (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan)
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
         : null;
       
       const profile = {
         uid,
-        plan: defaultPlan,
-        plusExpiresAt: null,
-        proExpiresAt: proExpiration,
-        djExpiresAt: null,         // 🎧 NOVO: Controle Beta DJs
-        djExpired: false,          // 🎧 NOVO: Flag de beta expirado
-        
-        // ✅ NOVOS CAMPOS MENSAIS
+        // ✅ CAMPOS BASE (podem ser sobrescritos por ...extra)
         messagesMonth: 0,
         analysesMonth: 0,
-        imagesMonth: 0, // ✅ NOVO: Contador de imagens
+        imagesMonth: 0,
         billingMonth: currentMonth,
-        
+        djExpired: false,
         createdAt: nowISO,
         updatedAt: nowISO,
+        
+        // ✅ MESCLAR extra ANTES de definir defaults (prioridade para webhook)
         ...extra,
+        
+        // ✅ Aplicar defaults APENAS se extra não forneceu
+        plan: extra.plan || defaultPlan,
+        plusExpiresAt: extra.plusExpiresAt || null,
+        proExpiresAt: extra.proExpiresAt || proExpiration,
+        djExpiresAt: extra.djExpiresAt || null,
       };
       
-      if (ENV_FEATURES.features.autoGrantProPlan) {
+      if (ENV_FEATURES.features.autoGrantProPlan && !isHotmartUser) {
         console.log(`🧪 [USER-PLANS][TESTE] Auto-grant plano PRO ativado para UID: ${uid}`);
       }
       
       console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
       console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
       
+      // 🔍 DEBUG: Verificar se campos Hotmart estão presentes
+      if (profile.criadoSemSMS || profile.origin === 'hotmart') {
+        console.log('═════════════════════════════════════════════');
+        console.log('🎯 [USER-PLANS] USUÁRIO HOTMART DETECTADO NA CRIAÇÃO:');
+        console.log('   plan:', profile.plan);
+        console.log('   plusExpiresAt:', profile.plusExpiresAt);
+        console.log('   criadoSemSMS:', profile.criadoSemSMS);
+        console.log('   origin:', profile.origin);
+        console.log('   authType:', profile.authType);
+        console.log('   hotmartTransactionId:', profile.hotmartTransactionId);
+        console.log('   ⚠️ Este usuário NÃO precisará de SMS no login');
+        console.log('   ✅ Plano e expiração vindos do webhook NÃO foram sobrescritos');
+        console.log('═════════════════════════════════════════════');
+      }
+      
       await ref.set(profile);
       console.log(`✅ [USER-PLANS] Novo usuário criado com sucesso: ${uid} (plan: ${defaultPlan}, billingMonth: ${currentMonth})`);
+      
+      // 🔍 DEBUG: Confirmar que campos foram salvos
+      if (profile.criadoSemSMS || profile.origin === 'hotmart') {
+        console.log(`✅ [USER-PLANS] Campos Hotmart confirmados no documento:`);
+        console.log(`   criadoSemSMS: ${profile.criadoSemSMS}`);
+        console.log(`   origin: ${profile.origin}`);
+      }
+      
       return profile;
     }
 
@@ -315,6 +393,112 @@ export async function getOrCreateUser(uid, extra = {}) {
 }
 
 /**
+ * 🔗 SISTEMA DE AFILIADOS V2: Registrar conversão de referência
+ * Valida backend se o código do parceiro existe e está ativo, e marca conversão APENAS UMA VEZ.
+ * Atualiza AMBOS usuarios/{uid} E referral_visitors/{visitorId}
+ * @param {string} uid - UID do usuário
+ * @param {string} plan - Plano pago ativado (plus/pro/studio/dj)
+ * @returns {Promise<void>}
+ */
+async function registerReferralConversion(uid, plan) {
+  try {
+    const userRef = getDb().collection(USERS).doc(uid);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      console.warn(`⚠️ [REFERRAL-V2] Usuário ${uid} não existe no Firestore`);
+      return;
+    }
+    
+    const userData = userDoc.data();
+    const referralCode = userData.referralCode;
+    const visitorId = userData.visitorId; // 🆔 Novo campo
+    
+    // ✅ REGRA 1: Sem código de referência = nada a fazer
+    if (!referralCode) {
+      console.log(`ℹ️ [REFERRAL-V2] Usuário ${uid} não possui código de referência`);
+      return;
+    }
+    
+    // ✅ REGRA 2: Já convertido = idempotência (não registrar novamente)
+    if (userData.convertedAt) {
+      console.log(`✅ [REFERRAL-V2] Usuário ${uid} já converteu anteriormente em ${userData.convertedAt}`);
+      return;
+    }
+    
+    // ✅ REGRA 3: Validação BACKEND - verificar se parceiro existe e está ativo
+    const partnerRef = getDb().collection('partners').doc(referralCode);
+    const partnerDoc = await partnerRef.get();
+    
+    if (!partnerDoc.exists) {
+      console.warn(`⚠️ [REFERRAL-V2] Código "${referralCode}" não existe na coleção partners`);
+      return;
+    }
+    
+    const partnerData = partnerDoc.data();
+    if (!partnerData.active) {
+      console.warn(`⚠️ [REFERRAL-V2] Parceiro "${referralCode}" está inativo`);
+      return;
+    }
+    
+    // ✅ REGRA 4: Validar se plano é válido para conversão (excluir "free")
+    const validPlans = ['plus', 'pro', 'studio', 'dj'];
+    if (!validPlans.includes(plan)) {
+      console.warn(`⚠️ [REFERRAL-V2] Plano "${plan}" não é válido para conversão`);
+      return;
+    }
+    
+    // 🎯 MARCAR CONVERSÃO EM usuarios/{uid}
+    const convertedAt = new Date().toISOString();
+    await userRef.update({
+      convertedAt: convertedAt,
+      firstPaidPlan: plan,
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log(`✅ [REFERRAL-V2] Conversão registrada em usuarios/`);
+    console.log(`   Usuário: ${uid}`);
+    console.log(`   Parceiro: ${referralCode}`);
+    console.log(`   Plano: ${plan}`);
+    console.log(`   Timestamp: ${convertedAt}`);
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🎯 MARCAR CONVERSÃO EM referral_visitors/{visitorId}
+    // ═══════════════════════════════════════════════════════════════════
+    
+    if (visitorId) {
+      try {
+        const visitorRef = getDb().collection('referral_visitors').doc(visitorId);
+        const visitorDoc = await visitorRef.get();
+        
+        if (visitorDoc.exists) {
+          await visitorRef.update({
+            converted: true,
+            plan: plan,
+            convertedAt: convertedAt,
+            updatedAt: new Date().toISOString()
+          });
+          
+          console.log(`✅ [REFERRAL-V2] Conversão registrada em referral_visitors/`);
+          console.log(`   VisitorId: ${visitorId}`);
+          console.log(`   Plano: ${plan}`);
+        } else {
+          console.warn(`⚠️ [REFERRAL-V2] Visitor ${visitorId} não existe em referral_visitors/`);
+        }
+      } catch (error) {
+        console.error(`❌ [REFERRAL-V2] Erro ao atualizar referral_visitors:`, error);
+        // Não bloqueia a conversão principal
+      }
+    } else {
+      console.warn(`⚠️ [REFERRAL-V2] Usuário ${uid} não possui visitorId (cadastro antigo)`);
+    }
+    
+  } catch (error) {
+    console.error(`❌ [REFERRAL-V2] Erro ao registrar conversão:`, error);
+  }
+}
+
+/**
  * Aplicar plano (usado pelos webhooks Mercado Pago e Hotmart)
  * @param {string} uid - UID do Firebase Auth
  * @param {Object} options - { plan: 'plus'|'pro'|'studio'|'dj', durationDays: number }
@@ -323,7 +507,18 @@ export async function getOrCreateUser(uid, extra = {}) {
 export async function applyPlan(uid, { plan, durationDays }) {
   console.log(`💳 [USER-PLANS] Aplicando plano ${plan} para ${uid} (${durationDays} dias)`);
   
+  // 🔍 DEBUG: Estado ANTES de aplicar
   const ref = getDb().collection(USERS).doc(uid);
+  const docBefore = await ref.get();
+  console.log('🔍 [APPLY-PLAN DEBUG] BEFORE:', JSON.stringify({
+    uid,
+    requestedPlan: plan,
+    requestedDays: durationDays,
+    currentPlan: docBefore.data()?.plan,
+    currentPlusExpiresAt: docBefore.data()?.plusExpiresAt,
+    currentStudioExpiresAt: docBefore.data()?.studioExpiresAt
+  }, null, 2));
+  
   await getOrCreateUser(uid);
 
   const now = Date.now();
@@ -369,7 +564,20 @@ export async function applyPlan(uid, { plan, durationDays }) {
   await ref.update(update);
   
   const updatedUser = (await ref.get()).data();
+  
+  // 🔍 DEBUG: Estado DEPOIS de aplicar
+  console.log('🔍 [APPLY-PLAN DEBUG] AFTER:', JSON.stringify({
+    uid,
+    finalPlan: updatedUser.plan,
+    finalPlusExpiresAt: updatedUser.plusExpiresAt,
+    finalStudioExpiresAt: updatedUser.studioExpiresAt,
+    finalProExpiresAt: updatedUser.proExpiresAt
+  }, null, 2));
+  
   console.log(`✅ [USER-PLANS] Plano aplicado: ${uid} → ${plan} até ${expires}`);
+  
+  // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável
+  await registerReferralConversion(uid, plan);
   
   return updatedUser;
 }
@@ -425,6 +633,9 @@ export async function applySubscription(uid, { plan, subscriptionId, customerId,
   
   const updatedUser = (await ref.get()).data();
   console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId}, Status: ${status})`);
+  
+  // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável
+  await registerReferralConversion(uid, plan);
   
   return updatedUser;
 }
@@ -733,32 +944,30 @@ export async function canUseAnalysis(uid) {
  * @returns {Promise<void>}
  */
 export async function registerAnalysis(uid, mode = "full") {
-  // 🧪 BYPASS PARA AMBIENTE DE TESTE (não incrementar contadores)
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: registerAnalysis ignorado (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, mode: ${mode}`);
-    return; // Não fazer nada em teste
-  }
-  
   // ✅ Só incrementa se foi análise completa
   if (mode !== "full") {
     console.log(`⏭️ [USER-PLANS] Análise NÃO registrada (modo: ${mode}): ${uid}`);
     return;
   }
 
-  // 🏭 PRODUÇÃO: Registro normal
+  // 📝 Registro SEMPRE ocorre (produção E teste)
+  // Motivo: Firestore é o MESMO para prod e test - contadores devem ser consistentes
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
 
   const newCount = (user.analysesMonth || 0) + 1;
 
+  console.log(`📊 [USER-PLANS][${ENV.toUpperCase()}] Registrando análise COMPLETA para ${uid}`);
+  console.log(`   analysesMonth ANTES: ${user.analysesMonth || 0}`);
+  console.log(`   analysesMonth DEPOIS: ${newCount}`);
+
   await ref.update({
     analysesMonth: newCount,
     updatedAt: new Date().toISOString(),
   });
   
-  console.log(`📝 [USER-PLANS] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
+  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
 }
 
 /**

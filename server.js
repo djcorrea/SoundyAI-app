@@ -158,7 +158,7 @@ import stripeCheckoutRouter from "./work/api/stripe/create-checkout-session.js";
 import stripeCancelRouter from "./work/api/stripe/cancel-subscription.js";
 import stripeWebhookRouter from "./work/api/webhook/stripe.js";
 
-// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+// 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 import hotmartWebhookRouter from "./api/webhook/hotmart.js";
 
 // 🔍 VERIFY PURCHASE: Verificação manual de compra e ativação de plano
@@ -240,7 +240,7 @@ app.use("/api/voice", voiceMessageRoute);
 // Rotas mais específicas (/api/webhook/hotmart) DEVEM vir ANTES
 // de rotas genéricas (/api/webhook) para evitar interceptação.
 
-// 🎓 HOTMART: Webhook para combo Curso + PRO 4 meses
+// 🎓 HOTMART: Webhook para combo Curso + PLUS 1 mês
 app.use('/api/webhook/hotmart', hotmartWebhookRouter);
 console.log('🎓 [HOTMART] Webhook registrado: POST /api/webhook/hotmart');
 
@@ -278,6 +278,22 @@ console.log('   - DELETE /api/history/:id (remover análise do histórico)');
 
 // 📧 WAITLIST: Cadastro na lista de espera com envio de e-mail
 app.use("/api/waitlist", waitlistRouter);
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔗 REFERRAL SYSTEM V3: Sistema de Afiliados (backend-first)
+// ═══════════════════════════════════════════════════════════════════
+import trackVisitorRoute from "./api/referral/track-visitor.js";
+import linkRegistrationRoute from "./api/referral/link-registration.js";
+import partnerDashboardRoute from "./api/partner/dashboard.js";
+
+app.use("/api/referral/track-visitor", trackVisitorRoute);
+app.use("/api/referral/link-registration", linkRegistrationRoute);
+app.use("/api/partner/dashboard", partnerDashboardRoute);
+console.log('🔗 [REFERRAL-V3] Sistema de afiliados registrado:');
+console.log('   - POST /api/referral/track-visitor (rastrear visitante com ?ref)');
+console.log('   - POST /api/referral/link-registration (vincular cadastro)');
+console.log('📊 [PARTNER-DASH] Painel de afiliados registrado:');
+console.log('   - GET /api/partner/dashboard?partnerId=X (métricas READ-ONLY)');
 console.log('📧 [WAITLIST] Rotas registradas:');
 console.log('   - POST /api/waitlist (cadastrar lead + enviar e-mail)');
 console.log('   - GET /api/waitlist/count (contar leads)');

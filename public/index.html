@@ -9,8 +9,11 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
-    <!-- 🌐 API URL Resolver - DEVE SER CARREGADO ANTES DE TUDO -->
+    <!-- 🌐 API URL Resolver - Necessário para referral-core.js -->
     <script src="api-url-resolver.js?v=20260121"></script>
+    
+    <!-- 🔗 SISTEMA DE AFILIADOS V3: Rastreamento centralizado -->
+    <script src="referral-core.js"></script>
     
     <!-- 📊 Google Ads Conversion Tracking -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
@@ -178,8 +181,11 @@
     <!-- �🔥 Sistema de Demo de Venda (detecta /demo ou ?mode=demo) -->
     <!-- Módulos refatorados: Core → Guards → UI (ordem obrigatória) -->
     <script src="demo-core.js?v=20260102" defer></script>
-    <script src="demo-guards.js?v=20260122" defer></script>
-    <script src="demo-ui.js?v=20260122" defer></script>
+    <script src="demo-guards.js?v=20260127" defer></script>
+    <script src="demo-ui.js?v=20260127" defer></script>
+    
+    <!-- 🔥🔥🔥 FORÇA BRUTA: CTA Demo (garantia absoluta) -->
+    <script src="demo-cta-force.js?v=20260127" defer></script>
     
     <!-- 🧪 Validação do CTA de Primeira Análise (apenas dev/test) -->
     <!-- Descomentar para testar localmente -->
@@ -1108,7 +1114,7 @@
     <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
     <script src="/error-mapper.js?v=1.0.0"></script>
     
-    <script src="/audio-analyzer-integration.js?v=NO_CACHE_FORCE&ts=20251228" defer></script>
+    <script src="/audio-analyzer-integration.js?v=20260130_1" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
     <script>
@@ -1694,12 +1700,23 @@
                             if (typeof window.logout === 'function') {
                                 window.logout();
                             } else {
-                                // Preserva o bypass de admin antes de limpar
+                                // 🔗 Preservar dados importantes antes de limpar
                                 var adminBypass = localStorage.getItem('soundy_admin_bypass');
+                                var referralCode = localStorage.getItem('soundy_referral_code');
+                                var referralTimestamp = localStorage.getItem('soundy_referral_timestamp');
+                                
                                 localStorage.clear();
+                                
+                                // Restaurar dados preservados
                                 if (adminBypass) {
                                     localStorage.setItem('soundy_admin_bypass', adminBypass);
                                 }
+                                if (referralCode) {
+                                    localStorage.setItem('soundy_referral_code', referralCode);
+                                    localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
+                                    console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+                                }
+                                
                                 window.location.href = 'login.html';
                             }
                             break;

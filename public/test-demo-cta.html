@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste CTA Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        .test-panel {
+            background: #1a1a2e;
+            border: 2px solid #bc13fe;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: linear-gradient(135deg, #00f3ff 0%, #bc13fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(188, 19, 254, 0.5);
+        }
+        .log-output {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .status.ok { background: rgba(0, 255, 0, 0.2); border: 1px solid #0f0; }
+        .status.error { background: rgba(255, 0, 0, 0.2); border: 1px solid #f00; }
+        .status.warning { background: rgba(255, 255, 0, 0.2); border: 1px solid #ff0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste CTA Demo - Diagnóstico</h1>
+    
+    <div class="test-panel">
+        <h2>📊 Estado Atual</h2>
+        <div id="currentState" class="log-output">Carregando...</div>
+        <button onclick="refreshState()">🔄 Atualizar Estado</button>
+    </div>
+    
+    <div class="test-panel">
+        <h2>🧪 Testes</h2>
+        <button onclick="testShowCTA()">1️⃣ Testar showFirstAnalysisCTA()</button>
+        <button onclick="simulateFirstAnalysis()">2️⃣ Simular Primeira Análise</button>
+        <button onclick="resetDemo()">🔄 Resetar Demo</button>
+        <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+    </div>
+    
+    <div class="test-panel">
+        <h2>📝 Logs de Teste</h2>
+        <div id="testLogs" class="log-output"></div>
+    </div>
+
+    <script>
+        // Override console para capturar logs
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        const originalGroup = console.group;
+        const originalGroupEnd = console.groupEnd;
+        
+        let groupLevel = 0;
+        
+        function addTestLog(message, type = 'log') {
+            const logsDiv = document.getElementById('testLogs');
+            const indent = '  '.repeat(groupLevel);
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'warn' ? '#ffd93d' : '#4ecdc4';
+            logsDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${indent}${message}</div>`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addTestLog(args.join(' '), 'log');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addTestLog('⚠️ ' + args.join(' '), 'warn');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addTestLog('❌ ' + args.join(' '), 'error');
+        };
+        
+        console.group = function(...args) {
+            originalGroup.apply(console, args);
+            addTestLog('📂 ' + args.join(' '), 'log');
+            groupLevel++;
+        };
+        
+        console.groupEnd = function() {
+            originalGroupEnd.apply(console);
+            groupLevel = Math.max(0, groupLevel - 1);
+        };
+        
+        function refreshState() {
+            const stateDiv = document.getElementById('currentState');
+            const demo = window.SoundyDemo;
+            
+            if (!demo) {
+                stateDiv.innerHTML = '<div class="status error">❌ window.SoundyDemo não encontrado!</div>';
+                return;
+            }
+            
+            const state = {
+                isActive: demo.isActive,
+                initialized: demo.initialized,
+                visitorId: demo.visitorId?.substring(0, 16) + '...',
+                data: demo.data,
+                hasShowFirstAnalysisCTA: typeof demo.showFirstAnalysisCTA === 'function',
+                bannerExists: !!document.querySelector('.demo-first-analysis-banner')
+            };
+            
+            stateDiv.innerHTML = `
+                <div class="status ${state.isActive ? 'ok' : 'error'}">
+                    <strong>isActive:</strong> ${state.isActive} ${state.isActive ? '✅' : '❌'}
+                </div>
+                <div class="status ${state.initialized ? 'ok' : 'error'}">
+                    <strong>initialized:</strong> ${state.initialized} ${state.initialized ? '✅' : '❌'}
+                </div>
+                <div class="status ok">
+                    <strong>visitorId:</strong> ${state.visitorId || 'N/A'}
+                </div>
+                <div class="status ${state.data ? 'ok' : 'error'}">
+                    <strong>data:</strong> ${state.data ? '✅ Presente' : '❌ Ausente'}
+                    ${state.data ? `<br>- analyses_used: ${state.data.analyses_used}<br>- messages_used: ${state.data.messages_used}<br>- blocked: ${state.data.blocked || false}` : ''}
+                </div>
+                <div class="status ${state.hasShowFirstAnalysisCTA ? 'ok' : 'error'}">
+                    <strong>showFirstAnalysisCTA:</strong> ${state.hasShowFirstAnalysisCTA ? '✅ Disponível' : '❌ Não encontrada'}
+                </div>
+                <div class="status ${state.bannerExists ? 'warning' : 'ok'}">
+                    <strong>Banner no DOM:</strong> ${state.bannerExists ? '⚠️ Já existe' : '✅ Limpo'}
+                </div>
+            `;
+        }
+        
+        function testShowCTA() {
+            console.log('\n🧪 TESTE: Chamando showFirstAnalysisCTA() diretamente...\n');
+            
+            if (!window.SoundyDemo) {
+                console.error('window.SoundyDemo não encontrado!');
+                return;
+            }
+            
+            if (typeof window.SoundyDemo.showFirstAnalysisCTA !== 'function') {
+                console.error('showFirstAnalysisCTA() não é uma função!');
+                return;
+            }
+            
+            try {
+                window.SoundyDemo.showFirstAnalysisCTA();
+                console.log('✅ Função executada sem erros');
+                setTimeout(refreshState, 1000);
+            } catch (e) {
+                console.error('Erro ao executar:', e);
+            }
+        }
+        
+        function simulateFirstAnalysis() {
+            console.log('\n🧪 TESTE: Simulando primeira análise...\n');
+            
+            if (!window.SoundyDemo) {
+                console.error('window.SoundyDemo não encontrado!');
+                return;
+            }
+            
+            // Garantir que está em modo demo
+            if (!window.SoundyDemo.isActive) {
+                console.warn('Modo demo não está ativo. Ativando...');
+                window.SoundyDemo.isActive = true;
+            }
+            
+            // Resetar contador se necessário
+            if (window.SoundyDemo.data) {
+                window.SoundyDemo.data.analyses_used = 0;
+                console.log('Contador resetado para 0');
+            }
+            
+            // Simular registerAnalysis
+            console.log('Chamando registerAnalysis()...');
+            window.SoundyDemo.registerAnalysis().then(() => {
+                console.log('✅ registerAnalysis() concluído');
+                setTimeout(refreshState, 3000);
+            });
+        }
+        
+        function resetDemo() {
+            console.log('\n🔄 Resetando demo...\n');
+            
+            // Limpar storage
+            localStorage.removeItem('soundy_demo_data');
+            sessionStorage.clear();
+            
+            // Remover banners
+            document.querySelectorAll('.demo-first-analysis-banner').forEach(el => el.remove());
+            
+            console.log('✅ Demo resetado. Recarregue a página para reinicializar.');
+            refreshState();
+        }
+        
+        function clearLogs() {
+            document.getElementById('testLogs').innerHTML = '';
+        }
+        
+        // Inicializar
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(refreshState, 1000);
+        });
+    </script>
+</body>
+</html>

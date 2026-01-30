@@ -151,6 +151,41 @@
     }
     
     /**
+     * ⏳ FUNÇÃO CRÍTICA: Aguarda plano estar carregado (SYNC ASYNC)
+     * @returns {Promise<string>} Plano do usuário
+     */
+    function waitForUserPlan() {
+        return new Promise((resolve) => {
+            // Se já tem cache, retorna imediatamente
+            if (_cachedUserPlan) {
+                log('[CAPABILITIES] ✅ Plano já em cache:', _cachedUserPlan);
+                resolve(_cachedUserPlan);
+                return;
+            }
+            
+            // Se não está autenticado, retorna free
+            if (!window.auth?.currentUser) {
+                log('[CAPABILITIES] ⚠️ Usuário não autenticado - retornando free');
+                _cachedUserPlan = 'free';
+                resolve('free');
+                return;
+            }
+            
+            // Buscar do Firestore e aguardar
+            log('[CAPABILITIES] ⏳ Buscando plano do Firestore (AGUARDANDO)...');
+            fetchUserPlan().then((plan) => {
+                const finalPlan = plan || 'free';
+                log(`[CAPABILITIES] ✅ Plano carregado: ${finalPlan}`);
+                resolve(finalPlan);
+            }).catch((err) => {
+                warn('[CAPABILITIES] ❌ Erro ao buscar plano:', err);
+                _cachedUserPlan = 'free';
+                resolve('free');
+            });
+        });
+    }
+    
+    /**
      * 🔐 INICIALIZAÇÃO AUTOMÁTICA: Busca plano quando Firebase está pronto
      */
     function initializePlanDetection() {
@@ -346,6 +381,7 @@
         // 🔐 Funções de plano (novas)
         detectUserPlan,
         fetchUserPlan,
+        waitForUserPlan,
         
         // Debug e diagnóstico
         _matrix: CAPABILITIES_MATRIX,

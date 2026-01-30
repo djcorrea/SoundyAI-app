@@ -1721,11 +1721,11 @@ class AISuggestionUIController {
     }
     
     /**
-     * � Filtrar sugestões para Reduced Mode
+     * 🔐 Filtrar sugestões para Reduced Mode
      * Apenas "Estéreo" e "Dinâmica" são renderizadas
      * @param {Array} suggestions - Array de sugestões
      * @param {Object} analysisContext - Análise passada como contexto (evita race condition)
-     * @returns {Array} Sugestões filtradas
+     * @returns {{suggestions: Array, filterReason: string}} Sugestões filtradas + motivo
      */
     filterReducedModeSuggestions(suggestions, analysisContext = null) {
         // 🛡️ CORREÇÃO: Priorizar analysisContext passado (evita race condition)
@@ -1736,7 +1736,7 @@ class AISuggestionUIController {
         // Isso previne false positives onde o modal de limitação aparece incorretamente
         if (!analysis) {
             warn('[REDUCED-FILTER] ⚠️ Analysis não disponível - assumindo modo FULL por segurança');
-            return suggestions;
+            return { suggestions, filterReason: 'no_analysis' };
         }
         
         // ✅ CORRIGIDO: Verificar APENAS analysisMode/isReduced, não plan
@@ -1754,7 +1754,7 @@ class AISuggestionUIController {
         
         if (!isReducedMode) {
             log('[REDUCED-FILTER] ✅ Modo completo - todas as sugestões permitidas');
-            return suggestions;
+            return { suggestions, filterReason: 'full_mode' };
         }
         
         log('[REDUCED-FILTER] 🔒 Modo Reduced detectado - filtrando sugestões...');
@@ -1781,7 +1781,10 @@ class AISuggestionUIController {
         
         log('[REDUCED-FILTER] 📊 Resultado: ', filtered.length, '/', suggestions.length, 'sugestões renderizadas');
         
-        return filtered;
+        const filterReason = filtered.length === 0 ? 'all_filtered' : 
+                            filtered.length < suggestions.length ? 'partial_filter' : 'no_filter';
+        
+        return { suggestions: filtered, filterReason };
     }
     
     /**
@@ -1968,42 +1971,118 @@ class AISuggestionUIController {
         
         // 🔒 FILTRAR SUGESTÕES PARA REDUCED MODE (antes da validação)
         // 🛡️ CORRIGIDO: Passar analysis explicitamente para evitar race condition
-        const filteredSuggestions = this.filterReducedModeSuggestions(suggestions, analysis);
+        const filterResult = this.filterReducedModeSuggestions(suggestions, analysis);
+        const filteredSuggestions = filterResult.suggestions;
+        const filterReason = filterResult.filterReason;
         
+        // 🎯 DETERMINAR PLANO DO USUÁRIO (não usar fallback perigoso)
+        const userPlan = analysis?.plan || window.currentModalAnalysis?.plan || null;
+        const planStatus = !userPlan ? 'loading' : 
+                          (userPlan === 'free' ? 'free' : 'paid');
+        
+        // 🔍 LOG DIAGNÓSTICO COMPLETO
+        console.log('%c[AI-UI][RENDER] 🔍 DIAGNÓSTICO DE RENDERIZAÇÃO', 'color:#FF6B35;font-weight:bold;font-size:14px;');
+        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[AI-UI][RENDER] 📊 Estado:', {
+            planStatus: planStatus,
+            userPlan: userPlan,
+            rawSuggestionsCount: suggestions.length,
+            filteredSuggestionsCount: filteredSuggestions.length,
+            filterReason: filterReason,
+            analysisMode: analysis?.analysisMode,
+            isReduced: analysis?.isReduced
+        });
+        
+        // 🚨 VALIDAÇÃO CRÍTICA: Se plano é PAID e nenhuma sugestão, NÃO mostrar upsell
         if (filteredSuggestions.length === 0) {
-            warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem Reduced Mode');
-            // Exibir mensagem de upgrade
-            this.elements.aiContent.innerHTML = `
-                <div class="ai-reduced-notice" style="
-                    padding: 24px;
-                    text-align: center;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    border-radius: 12px;
-                    margin: 20px 0;
-                ">
-                    <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
-                    <h3 style="margin: 0 0 12px 0;">Sugestões IA Limitadas</h3>
-                    <p style="margin: 0; opacity: 0.9;">
-                        No plano gratuito, você tem acesso apenas às sugestões de <b>Estéreo</b> e <b>Dinâmica</b>.
-                        Faça upgrade para acessar todas as sugestões técnicas avançadas.
-                    </p>
-                    <button style="
-                        margin-top: 20px;
-                        padding: 12px 24px;
-                        background: white;
-                        color: #667eea;
-                        border: none;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        cursor: pointer;
-                    " onclick="window.location.href='/planos.html'">
-                        Ver Planos
-                    </button>
-                </div>
-            `;
-            return;
+            warn('[AI-UI][RENDER] ⚠️ Nenhuma sugestão após filtragem');
+            
+            if (planStatus === 'paid') {
+                // ✅ USUÁRIO PAGO: Mostrar empty state premium (não upsell)
+                console.log('%c[AI-UI][RENDER] ✅ PAID USER - Renderizando empty state premium', 'color:#4CAF50;font-weight:bold;');
+                this.elements.aiContent.innerHTML = `
+                    <div class="ai-premium-empty" style="
+                        padding: 32px;
+                        text-align: center;
+                        background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(33, 150, 243, 0.1) 100%);
+                        border: 2px solid rgba(76, 175, 80, 0.3);
+                        color: #4CAF50;
+                        border-radius: 12px;
+                        margin: 20px 0;
+                    ">
+                        <div style="font-size: 56px; margin-bottom: 16px;">✅</div>
+                        <h3 style="margin: 0 0 12px 0; color: #4CAF50;">Sem Sugestões no Momento</h3>
+                        <p style="margin: 0; opacity: 0.85; color: #81C784; font-size: 15px;">
+                            Sua mixagem está dentro dos padrões esperados.
+                        </p>
+                        ${filterReason === 'all_filtered' ? `
+                            <p style="margin: 10px 0 0 0; opacity: 0.7; color: #A5D6A7; font-size: 13px;">
+                                <i>Motivo: Diferenças técnicas muito pequenas para recomendar ajustes</i>
+                            </p>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // 🔒 VALIDAÇÃO: Garantir que não mostramos upsell para usuário pago
+                console.error('[AI-UI][RENDER] ❌ ERRO EVITADO: Usuário PAID quase viu card de upsell!');
+                return;
+                
+            } else if (planStatus === 'free') {
+                // ⚠️ USUÁRIO FREE: Mostrar card de upsell
+                console.log('%c[AI-UI][RENDER] 🔒 FREE USER - Renderizando upsell', 'color:#FF9800;font-weight:bold;');
+                this.elements.aiContent.innerHTML = `
+                    <div class="ai-reduced-notice" style="
+                        padding: 24px;
+                        text-align: center;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border-radius: 12px;
+                        margin: 20px 0;
+                    ">
+                        <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+                        <h3 style="margin: 0 0 12px 0;">Sugestões IA Limitadas</h3>
+                        <p style="margin: 0; opacity: 0.9;">
+                            No plano gratuito, você tem acesso apenas às sugestões de <b>Estéreo</b> e <b>Dinâmica</b>.
+                            Faça upgrade para acessar todas as sugestões técnicas avançadas.
+                        </p>
+                        <button style="
+                            margin-top: 20px;
+                            padding: 12px 24px;
+                            background: white;
+                            color: #667eea;
+                            border: none;
+                            border-radius: 8px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        " onclick="window.location.href='/planos.html'">
+                            Ver Planos
+                        </button>
+                    </div>
+                `;
+                return;
+                
+            } else {
+                // 🕐 PLANO LOADING: Mostrar skeleton (não upsell)
+                console.log('%c[AI-UI][RENDER] ⏳ LOADING - Renderizando skeleton', 'color:#2196F3;font-weight:bold;');
+                this.elements.aiContent.innerHTML = `
+                    <div class="ai-loading-skeleton" style="
+                        padding: 24px;
+                        text-align: center;
+                        background: rgba(255,255,255,0.05);
+                        border-radius: 12px;
+                        margin: 20px 0;
+                    ">
+                        <div style="font-size: 32px; margin-bottom: 12px;">⏳</div>
+                        <p style="margin: 0; opacity: 0.7; color: #999;">Carregando informações do plano...</p>
+                    </div>
+                `;
+                return;
+            }
         }
+        
+        // ✅ TEM SUGESTÕES: Renderizar normalmente
+        console.log('%c[AI-UI][RENDER] ✅ Renderizando ' + filteredSuggestions.length + ' sugestões', 'color:#4CAF50;font-weight:bold;');
+        console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
         const validatedSuggestions = this.validateAndCorrectSuggestions(filteredSuggestions, genreTargets);

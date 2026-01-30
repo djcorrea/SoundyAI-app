@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Parceiro - SoundyAI</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <!-- ✅ Sistema Centralizado de Logs -->
+    <script src="logger.js"></script>
+    
+    <!-- 🌐 API URL Resolver -->
+    <script src="api-url-resolver.js?v=20260121"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .partner-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .partner-info h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+        
+        .partner-info p {
+            color: #666;
+            font-size: 14px;
+            margin: 4px 0;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 24px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .metric-description {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        /* 🎯 ESTILOS DO FUNIL (NOVO) */
+        .funnel-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+        }
+        
+        .funnel-section h3 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .funnel-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .funnel-step {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .funnel-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .funnel-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        .funnel-rate {
+            font-size: 16px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .funnel-bar {
+            height: 8px;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .referral-link {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .referral-link h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+        
+        .link-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .link-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            background: white;
+        }
+        
+        .copy-button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .copy-button:hover {
+            background: #5568d3;
+        }
+        
+        .copy-button.copied {
+            background: #10b981;
+        }
+        
+        .users-table {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        .users-table h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            text-align: left;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-free { background: #e0e0e0; color: #666; }
+        .badge-plus { background: #10b981; color: white; }
+        .badge-pro { background: #667eea; color: white; }
+        .badge-studio { background: #f59e0b; color: white; }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 8px;
+            padding: 16px;
+            color: #c33;
+            margin-bottom: 20px;
+        }
+        
+        .logout-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .logout-button:hover {
+            background: #dc2626;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+            
+            .link-container {
+                flex-direction: column;
+            }
+            
+            .link-input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="logout-button" onclick="logout()">Sair</button>
+        
+        <div class="header">
+            <h1>🎯 Painel do Parceiro</h1>
+            <p>Acompanhe suas indicações e comissões em tempo real</p>
+        </div>
+        
+        <div id="content"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+
+        // ✅ Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
+            authDomain: "prodai-58436.firebaseapp.com",
+            projectId: "prodai-58436",
+            storageBucket: "prodai-58436.appspot.com",
+            messagingSenderId: "801631191322",
+            appId: "1:801631322:web:80e3d29cf7468331652ca3",
+            measurementId: "G-MBDHDYN6Z0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const content = document.getElementById('content');
+
+        // 🔐 Verificar autenticação
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                showLogin();
+                return;
+            }
+
+            try {
+                // Verificar se usuário é parceiro
+                const partnerDoc = await getDoc(doc(db, 'partners', user.email.split('@')[0]));
+                
+                if (!partnerDoc.exists()) {
+                    // Tentar buscar por email completo
+                    const partnersSnapshot = await getDocs(query(collection(db, 'partners'), where('email', '==', user.email)));
+                    
+                    if (partnersSnapshot.empty) {
+                        content.innerHTML = `
+                            <div class="error">
+                                ❌ Acesso negado: você não está cadastrado como parceiro.
+                                <br><br>
+                                Email autenticado: ${user.email}
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Usar primeiro parceiro encontrado
+                    const partnerData = partnersSnapshot.docs[0].data();
+                    const partnerId = partnersSnapshot.docs[0].id;
+                    await loadDashboard(partnerId, partnerData);
+                } else {
+                    const partnerData = partnerDoc.data();
+                    const partnerId = partnerDoc.id;
+                    
+                    if (!partnerData.active) {
+                        content.innerHTML = `<div class="error">❌ Sua conta de parceiro está inativa. Entre em contato com o suporte.</div>`;
+                        return;
+                    }
+                    
+                    await loadDashboard(partnerId, partnerData);
+                }
+            } catch (error) {
+                console.error('❌ [PARTNER] Erro ao carregar dados:', error);
+                content.innerHTML = `<div class="error">❌ Erro ao carregar painel: ${error.message}</div>`;
+            }
+        });
+
+        // 🔓 Tela de login
+        function showLogin() {
+            content.innerHTML = `
+                <div style="max-width: 400px; margin: 0 auto;">
+                    <h2 style="margin-bottom: 20px; text-align: center; color: #333;">Login de Parceiro</h2>
+                    <form id="loginForm" style="display: flex; flex-direction: column; gap: 16px;">
+                        <input type="email" id="email" placeholder="Email" required 
+                               style="padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                        <input type="password" id="password" placeholder="Senha" required
+                               style="padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                        <button type="submit" class="copy-button" style="width: 100%;">Entrar</button>
+                        <p id="loginError" style="color: #ef4444; font-size: 14px; display: none;"></p>
+                    </form>
+                </div>
+            `;
+
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const errorEl = document.getElementById('loginError');
+
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (error) {
+                    errorEl.textContent = `Erro: ${error.message}`;
+                    errorEl.style.display = 'block';
+                }
+            });
+        }
+
+        // 📊 Carregar dashboard
+        async function loadDashboard(partnerId, partnerData) {
+            content.innerHTML = '<div class="loading">⏳ Carregando dados...</div>';
+
+            try {
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 CONSULTA V2: Buscar de referral_visitors (fonte primária)
+                // ═══════════════════════════════════════════════════════════════════
+                
+                const visitorsQuery = query(collection(db, 'referral_visitors'), where('partnerId', '==', partnerId));
+                const visitorsSnapshot = await getDocs(visitorsQuery);
+                
+                let totalVisitors = 0;      // Total de visitas com ?ref
+                let totalSignups = 0;       // Cadastros (registered=true)
+                let activeSubscribers = 0;  // Assinaturas ativas
+                let mrr = 0;                // MRR total
+                
+                const visitors = [];
+                const userUids = [];
+
+                // Preços dos planos (em R$)
+                const planPrices = {
+                    plus: 47.99,
+                    pro: 197.00,
+                    studio: 99.90
+                };
+
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 1: Processar todos os visitantes
+                // ═══════════════════════════════════════════════════════════════════
+                
+                visitorsSnapshot.forEach(doc => {
+                    const visitorData = doc.data();
+                    totalVisitors++;
+                    
+                    if (visitorData.registered) {
+                        totalSignups++;
+                        if (visitorData.uid) {
+                            userUids.push(visitorData.uid);
+                        }
+                    }
+                    
+                    visitors.push({
+                        visitorId: doc.id,
+                        uid: visitorData.uid,
+                        registered: visitorData.registered,
+                        plan: visitorData.plan,
+                        convertedAt: visitorData.convertedAt,
+                        firstSeenAt: visitorData.firstSeenAt
+                    });
+                });
+                
+                console.log(`📊 [PARTNER-V2] Métricas brutas:`);
+                console.log(`   Visitantes: ${totalVisitors}`);
+                console.log(`   Cadastros: ${totalSignups}`);
+                
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 ETAPA 2: Buscar dados de assinatura em usuarios (MRR)
+                // ═══════════════════════════════════════════════════════════════════
+                
+                const usersWithSubscription = [];
+                
+                for (const uid of userUids) {
+                    try {
+                        const userDoc = await getDoc(doc(db, 'usuarios', uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data();
+                            const plan = userData.plan;
+                            const isActive = userData.subscription?.status === 'active';
+                            
+                            if (isActive && planPrices[plan]) {
+                                activeSubscribers++;
+                                mrr += planPrices[plan];
+                            }
+                            
+                            usersWithSubscription.push({
+                                uid: uid,
+                                email: userData.email,
+                                plan: plan || 'free',
+                                subscriptionStatus: userData.subscription?.status || 'none',
+                                convertedAt: userData.convertedAt
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`⚠️ [PARTNER-V2] Erro ao buscar usuário ${uid}:`, error.message);
+                    }
+                }
+                
+                console.log(`   Assinaturas ativas: ${activeSubscribers}`);
+                console.log(`   MRR total: R$ ${mrr.toFixed(2)}`);
+
+                const commission = (mrr * (partnerData.commissionPercent / 100)).toFixed(2);
+                
+                // Calcular taxa de conversão de visitantes para cadastros
+                const signupRate = totalVisitors > 0 ? ((totalSignups / totalVisitors) * 100).toFixed(1) : '0.0';
+
+                // ═══════════════════════════════════════════════════════════════════
+                // 🎯 RENDERIZAR PAINEL COM FUNIL COMPLETO
+                // ═══════════════════════════════════════════════════════════════════
+
+                content.innerHTML = `
+                    <div class="partner-info">
+                        <h2>👤 ${partnerData.name}</h2>
+                        <p><strong>Email:</strong> ${partnerData.email}</p>
+                        <p><strong>Código:</strong> ${partnerData.referralCode || partnerId}</p>
+                        <p><strong>Comissão:</strong> ${partnerData.commissionPercent}%</p>
+                    </div>
+
+                    <div class="referral-link">
+                        <h3>🔗 Seu Link de Indicação</h3>
+                        <div class="link-container">
+                            <input type="text" class="link-input" id="referralLink" value="https://soundyai-app-soundyai-teste.up.railway.app/?ref=${partnerId}" readonly>
+                            <button class="copy-button" onclick="copyLink()">Copiar</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 🎯 FUNIL DE CONVERSÃO -->
+                    <div class="funnel-section">
+                        <h3>📊 Funil de Conversão</h3>
+                        <div class="funnel-steps">
+                            <div class="funnel-step">
+                                <div class="funnel-label">1️⃣ Visitantes</div>
+                                <div class="funnel-value">${totalVisitors}</div>
+                                <div class="funnel-bar" style="width: 100%; background: #4CAF50;"></div>
+                            </div>
+                            <div class="funnel-step">
+                                <div class="funnel-label">2️⃣ Cadastros</div>
+                                <div class="funnel-value">${totalSignups} <span class="funnel-rate">(${signupRate}%)</span></div>
+                                <div class="funnel-bar" style="width: ${signupRate}%; background: #2196F3;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metrics">
+                        <div class="metric-card">
+                            <div class="metric-label">🌐 Total de Visitantes</div>
+                            <div class="metric-value">${totalVisitors}</div>
+                            <div class="metric-description">Clicaram no seu link</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-label">📝 Total de Cadastros</div>
+                            <div class="metric-value">${totalSignups}</div>
+                            <div class="metric-description">Taxa: ${signupRate}%</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-label">💎 Assinantes Ativos</div>
+                            <div class="metric-value">${activeSubscribers}</div>
+                            <div class="metric-description">Planos pagos ativos</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-label">💰 MRR Gerado</div>
+                            <div class="metric-value">R$ ${mrr.toFixed(2)}</div>
+                            <div class="metric-description">Receita recorrente mensal</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-label">🎁 Sua Comissão</div>
+                            <div class="metric-value">R$ ${commission}</div>
+                            <div class="metric-description">${partnerData.commissionPercent}% do MRR</div>
+                        </div>
+                    </div>
+
+                    <div class="users-table">
+                        <h3>📋 Usuários Cadastrados (${usersWithSubscription.length})</h3>
+                        ${usersWithSubscription.length === 0 ? '<p style="color: #666;">Nenhum cadastro ainda.</p>' : `
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Email</th>
+                                        <th>Plano</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${usersWithSubscription.map(u => `
+                                        <tr>
+                                            <td>${u.email}</td>
+                                            <td><span class="badge badge-${u.plan}">${u.plan.toUpperCase()}</span></td>
+                                            <td>${u.subscriptionStatus}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        `}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('❌ [PARTNER-V2] Erro ao carregar dados:', error);
+                content.innerHTML = `<div class="error">❌ Erro: ${error.message}</div>`;
+            }
+        }
+
+        // 📋 Copiar link
+        window.copyLink = function() {
+            const input = document.getElementById('referralLink');
+            input.select();
+            document.execCommand('copy');
+            
+            const button = event.target;
+            button.textContent = '✅ Copiado!';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+                button.textContent = 'Copiar';
+                button.classList.remove('copied');
+            }, 2000);
+        };
+
+        // 🚪 Logout
+        window.logout = async function() {
+            try {
+                await signOut(auth);
+                content.innerHTML = '<div class="loading">Saindo...</div>';
+            } catch (error) {
+                console.error('❌ [PARTNER] Erro ao sair:', error);
+                alert('Erro ao sair: ' + error.message);
+            }
+        };
+    </script>
+</body>
+</html>

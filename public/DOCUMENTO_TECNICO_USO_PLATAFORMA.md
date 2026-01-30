@@ -1,7 +1,7 @@
 # DOCUMENTO TÉCNICO OFICIAL - SoundyAI
 
-**Versão:** 1.0  
-**Última atualização:** 04 de janeiro de 2026  
+**Versão:** 1.1  
+**Última atualização:** 29 de janeiro de 2026  
 **Público-alvo:** Produtores musicais, DJs e engenheiros de áudio
 
 ---
@@ -68,19 +68,9 @@ Cada estilo possui targets (alvos) de referência específicos, baseados em aná
 
 Seguir o fluxo correto evita retrabalho e garante que você interprete os resultados adequadamente. Aplicar correções na ordem errada pode mascarar outros problemas ou criar novos.
 
-### Passo 1: Upload do áudio
+### Passo 1: Seleção do estilo musical
 
-1. Clique no botão "Análise de áudio" no menu lateral
-2. Leia o modal de boas-vindas (opcional, mas recomendado)
-3. Na tela de upload, arraste seu arquivo ou clique em "Escolher Arquivo"
-4. Formatos suportados: WAV, FLAC, MP3 (máximo 150MB)
-5. **Recomendação:** Prefira WAV ou FLAC para maior precisão
-
-**Por que essa ordem:** Começar com o formato correto garante que a análise seja precisa desde o início.
-
-### Passo 2: Seleção do estilo musical
-
-Antes do upload, você deve escolher o gênero de referência no dropdown "Gênero de Referência".
+Na tela de análise, escolha o gênero de referência no dropdown "Gênero de Referência".
 
 Opções disponíveis:
 - Progressive Trance
@@ -90,7 +80,17 @@ Opções disponíveis:
 - EDM
 - Eletrônico
 
-**Por que essa ordem:** O gênero define os alvos (targets) de comparação. Escolher o gênero errado resultará em sugestões inadequadas.
+**Por que essa ordem:** O gênero define os alvos (targets) de comparação. Escolher o gênero correto é essencial para receber sugestões adequadas ao seu estilo.
+
+### Passo 2: Upload do áudio
+
+1. Clique no botão "Análise de áudio" no menu lateral (se ainda não estiver na tela)
+2. Leia o modal de boas-vindas (opcional, mas recomendado)
+3. Na tela de upload, arraste seu arquivo ou clique em "Escolher Arquivo"
+4. Formatos suportados: WAV, FLAC, MP3 (máximo 150MB)
+5. **Recomendação:** Prefira WAV ou FLAC para maior precisão
+
+**Por que essa ordem:** Começar com o formato correto garante que a análise seja precisa desde o início.
 
 ### Passo 3: Aguardar análise
 
@@ -119,7 +119,7 @@ Valores técnicos individuais: Loudness, True Peak, Dinâmica, Estéreo.
 Distribuição de energia em 6 bandas espectrais.
 
 **Tabela Comparativa**  
-Comparação direta entre seu áudio e a referência do gênero, mostrando diferença percentual e severidade (OK, Atenção, Crítico).
+Comparação direta entre seu áudio e a referência do gênero, mostrando delta (dB) e severidade (OK, Atenção, Crítico).
 
 **Sugestões Inteligentes**  
 Lista de ajustes recomendados com prioridade e explicação.
@@ -131,7 +131,7 @@ Lista de ajustes recomendados com prioridade e explicação.
 A tabela mostra:
 - **Valor:** Sua métrica atual
 - **Alvo:** Valor de referência do gênero
-- **Diferença (%):** Percentual de desvio
+- **Delta (dB):** Diferença absoluta em relação ao alvo (para métricas em dB)
 - **Status:** Severidade visual (cor verde/amarela/vermelha)
 
 **Interpretação de cores:**
@@ -164,7 +164,7 @@ Após aplicar correções na sua DAW:
 ### Resumo do fluxo ideal
 
 ```
-Upload → Seleção de Gênero → Análise → Score/Métricas → Tabela Comparativa → 
+Seleção de Gênero → Upload → Análise → Score/Métricas → Tabela Comparativa → 
 Sugestões → Aplicar Correções → Reanálise
 ```
 
@@ -226,29 +226,33 @@ LUFS muito baixo resulta em música sem presença. LUFS muito alto pode gerar di
 Pico absoluto do sinal de áudio após oversampling 4x, detectando picos inter-sample (que ocorrem entre amostras digitais).
 
 **Por que importa:**  
-Previne clipping digital durante conversão D/A (digital para analógico) em sistemas de reprodução. True Peak acima de 0 dBTP pode causar distorção em alto-falantes e compressores de streaming.
+Previne clipping digital durante conversão D/A (digital para analógico) em sistemas de reprodução e processamento por codecs (MP3, AAC). True Peak acima de 0 dBTP pode causar distorção em alto-falantes e durante compressão de streaming.
 
 **Alvo recomendado:**  
-Manter abaixo de -1.0 dBTP (idealmente -1.5 dBTP para margem de segurança).
+Manter True Peak ≤ -1.0 dBTP para segurança geral (especialmente streaming/codec).
+
+**Uso avançado/pista:** Valores mais próximos de 0 dBTP (ex: -0.3 dBTP) são comuns em masters de pista para máximo impacto, mas com risco aumentado de distorção em sistemas de conversão/codec. Use apenas se tiver certeza do contexto de reprodução.
 
 **Impacto na pista:**  
-True Peak estourado (> 0 dBTP) gera distorção digital audível como "cliques" ou "crunches" desagradáveis.
+True Peak acima de 0 dBTP pode gerar distorção digital audível como aspereza ou cliques desagradáveis, especialmente após compressão de codec ou em sistemas de reprodução específicos.
 
-### Dinâmica (DR - Dynamic Range)
+### Dinâmica (indicador de variação em dB)
 
 **O que é:**  
-Diferença entre os trechos mais altos e mais baixos da música, medida em dB.
+Indicador em dB que representa a variação entre os trechos mais altos e mais baixos da música ao longo do tempo. Valores mais altos indicam maior variação dinâmica; valores mais baixos indicam som mais comprimido/consistente.
 
 **Por que importa:**  
-Define o "espaço para respirar" da música. Alta dinâmica = sons mais naturais. Baixa dinâmica = som mais constante e "agressivo".
+Define o "espaço para respirar" da música. Alta dinâmica = sons mais naturais e variação perceptível. Baixa dinâmica = som mais constante e "agressivo".
 
-**Alvos típicos:**
-- Funk/EDM de pista: 6-10 DR (mais comprimido)
-- Trance melódico: 8-12 DR
-- Música dinâmica: > 12 DR
+**Faixas típicas (variáveis por subgênero e intenção):**
+- Funk/EDM de pista: 6-10 dB (mais comprimido para impacto constante)
+- Trance melódico: 8-12 dB (equilíbrio entre impacto e variação)
+- Música dinâmica/orgânica: > 12 dB (preservação de transientes naturais)
+
+**Nota:** Esses valores são referências gerais. Masters para streaming vs pista podem ter diferenças significativas. O contexto de uso sempre importa.
 
 **Impacto na pista:**  
-DR muito baixo (< 6) resulta em som cansativo e "tijolaço". DR muito alto pode parecer fraco em sistemas de PA.
+Dinâmica muito baixa (< 6 dB) pode resultar em som cansativo e "esmagado". Dinâmica muito alta pode parecer fraca em sistemas de PA ou ambientes ruidosos.
 
 ### Crest Factor
 
@@ -258,25 +262,25 @@ Relação entre o pico do sinal e o RMS (Root Mean Square - valor médio), medid
 **Por que importa:**  
 Indica o quanto de "headroom" a música tem para transientes (ataques de bateria, drops). Crest Factor baixo indica compressão excessiva.
 
-**Alvo típico:**  
-8-12 dB para música eletrônica.
+**Faixa típica:**  
+8-12 dB para música eletrônica, mas varia conforme material e intenção (faixas com muitos transientes tendem a valores mais altos; faixas altamente comprimidas tendem a valores mais baixos).
 
 **Impacto na pista:**  
-Crest Factor muito baixo torna a música sem punch. Muito alto pode resultar em volume percebido baixo.
+Crest Factor muito baixo torna a música sem punch e sem definição de transientes. Muito alto pode resultar em volume percebido baixo.
 
 ### Estéreo (Correlação e Largura)
 
 **O que é:**  
-Mede a diferença entre canais Left e Right. Correlação de +1 = mono, 0 = estéreo descorrelacionado, -1 = anti-fase (problemático).
+Mede a diferença entre canais Left e Right. Correlação de +1 = mono perfeito, 0 = estéreo completamente descorrelacionado, -1 = anti-fase (problemático).
 
 **Por que importa:**  
-Define a sensação de "largura" e "espaço" da música. Correlação negativa pode causar cancelamento de fase em sistemas mono (ex: celulares, rádio).
+Define a sensação de "largura" e "espaço" da música. Correlação negativa pode causar cancelamento de fase em sistemas mono (ex: celulares, rádio, alguns sistemas de PA).
 
-**Alvo recomendado:**  
-Correlação entre 0.3 e 0.7 (estéreo balanceado).
+**Recomendações:**  
+Evite correlação negativa persistente (abaixo de 0) e sempre teste compatibilidade mono. Não há "valor ideal" universal — depende do material e estética desejada.
 
 **Impacto na pista:**  
-Correlação muito alta (> 0.8) = som mono, sem espacialidade. Correlação negativa = problemas em mono.
+Correlação muito alta (> 0.8) = som muito mono, sem espacialidade. Correlação negativa = problemas graves de cancelamento em sistemas mono, perda de graves/vocais.
 
 ---
 
@@ -296,25 +300,25 @@ A SoundyAI divide o espectro em 6 bandas:
 ### Como ler os valores
 
 Cada banda mostra:
-- **Valor atual (dB):** Energia média da banda em sua música
+- **Valor atual (dB):** Energia média da banda em sua música, segundo o método de análise da plataforma
 - **Alvo (dB):** Energia de referência para o gênero
-- **Diferença (%):** Desvio em relação ao alvo
+- **Delta (dB):** Diferença absoluta em relação ao alvo (Valor - Alvo)
 
 **Exemplo:**  
 ```
-Sub: -12.5 dB (alvo: -10.0 dB) → -25% → Crítico
+Sub: -12.5 dB (alvo: -10.0 dB) → Δ = -2.5 dB → Crítico
 ```
 
-Isso significa: seu sub está 25% mais fraco que o padrão do gênero.
+Isso significa: seu sub está 2.5 dB mais fraco que o padrão do gênero.
 
 ### O que significa "dentro do padrão"
 
 Status "OK" (verde) indica que a banda está dentro da **tolerância técnica** do gênero. Isso não significa que seja perfeita, mas sim que está no range aceitável.
 
-**Tolerâncias típicas:**
-- Sub/Grave: ±3 dB (mais sensível)
-- Médios: ±4 dB
-- Agudos: ±5 dB (menos sensível)
+**Tolerâncias típicas (baseadas em delta em dB):**
+- Sub/Grave: |Δ| ≤ 2 dB (mais sensível)
+- Médios: |Δ| ≤ 3 dB
+- Agudos: |Δ| ≤ 4 dB (menos sensível)
 
 ### Quando mexer e quando NÃO mexer
 
@@ -338,7 +342,7 @@ Status "OK" (verde) indica que a banda está dentro da **tolerância técnica** 
 A tabela exibe lado a lado:
 - **Sua música** (coluna "Valor")
 - **Referência do gênero** (coluna "Alvo")
-- **Diferença percentual** (coluna "Diferença")
+- **Delta (dB)** (coluna "Delta" ou "Diferença")
 - **Severidade visual** (coluna "Status")
 
 ### Como interpretar cada coluna
@@ -349,15 +353,22 @@ Sua métrica atual, calculada pela análise.
 **Alvo:**  
 Valor médio de referências profissionais do gênero, baseado em análises de faixas reais de mercado.
 
-**Diferença (%):**  
-`((Valor - Alvo) / Alvo) × 100`
+**Delta (dB):**  
+`Valor - Alvo`
 
-Exemplo: LUFS -16.5 vs alvo -8.3 = -98.8% (muito mais baixo)
+Para métricas em dB (LUFS, dBTP, bandas de frequência), o delta representa a diferença absoluta em decibels.
+
+**Exemplos:**
+- LUFS: -16.5 vs alvo -8.3 → Δ = -8.2 LUFS (muito mais baixo)
+- Sub: -12.0 dB vs alvo -9.0 dB → Δ = -3.0 dB (mais fraco)
+- True Peak: -0.5 dBTP vs alvo -1.0 dBTP → Δ = +0.5 dB (mais alto)
 
 **Status (cor):**
-- Verde: dentro da tolerância (0-15% de desvio)
-- Amarelo: desvio moderado (15-30%)
-- Vermelho: desvio grande (> 30%)
+- 🟢 Verde (OK): |Δ| ≤ 1.0 dB (dentro da tolerância)
+- 🟡 Amarelo (Atenção): 1.0 < |Δ| ≤ 3.0 dB (desvio moderado)
+- 🔴 Vermelho (Crítico): |Δ| > 3.0 dB (desvio grande)
+
+**Nota:** Para bandas de frequência mais sensíveis (Sub/Grave), os thresholds podem ser ajustados (ex: Crítico > 4 dB). O sistema considera o contexto de cada métrica.
 
 ### Por que seguir referência NÃO é regra absoluta
 
@@ -436,9 +447,9 @@ Você verá 3 colunas:
 | Grave | -9.1 | -9.0 | -0.1 |
 
 **Cores na coluna Delta:**
-- 🟢 Verde: Dentro da tolerância (≤ 1 dB ou 10%)
-- 🟡 Amarelo: Atenção necessária (1-3 dB ou 10-30%)
-- 🔴 Vermelho: Crítico (> 3 dB ou > 30%)
+- 🟢 Verde: Dentro da tolerância (|Δ| ≤ 1.0 dB)
+- 🟡 Amarelo: Atenção necessária (1.0 < |Δ| ≤ 3.0 dB)
+- 🔴 Vermelho: Crítico (|Δ| > 3.0 dB)
 
 ### Estratégias profissionais de uso
 
@@ -595,7 +606,7 @@ Score: 86 (vs 68 inicial)
 ### Por que combinar os dois modos é poderoso
 
 **Modo Gênero (análise de mercado):**
-- "Meu grave está 30% abaixo do padrão de Funk profissional"
+- "Meu grave está 3 dB abaixo do padrão de Funk profissional"
 - Diagnóstico: "Estou fora dos padrões comerciais do estilo"
 - Baseado em dezenas de faixas de sucesso analisadas
 
@@ -687,9 +698,10 @@ Você: "True Peak está em +0.8 dBTP mas não ouço distorção.
        Preciso mesmo corrigir?"
 IA: "Sim, é crítico. True Peak acima de 0 dBTP causa clipping 
      inter-sample em conversores D/A e algoritmos de streaming 
-     (MP3/AAC). Você não ouve em WAV, mas aparecerá em MP3 
-     exportado. Solução: aplicar limitador true peak com ceiling 
-     em -0.3 dBTP."
+     (MP3/AAC). Você não ouve em WAV, mas pode aparecer distorção 
+     após conversão de codec. Solução: aplicar limitador true peak 
+     com ceiling em -1.0 dBTP (seguro para qualquer uso) ou -0.5 dBTP 
+     se precisar de máximo impacto."
 ```
 
 #### 3. Interpretação de análise de referência
@@ -754,11 +766,11 @@ IA: *Analisa prioridade técnica*
 
 **Exemplo: Dúvida criativa**
 ```
-Você: "Quero deixar minha faixa com mais dinâmica (DR 10) mesmo 
-       que o alvo seja DR 6. Tem problema?"
+Você: "Quero deixar minha faixa com mais dinâmica (10 dB) mesmo 
+       que o alvo seja 6 dB. Tem problema?"
 IA: "Decisão válida, mas considere:
      
-     Prós de DR 10:
+     Prós de 10 dB de dinâmica:
      - Mais 'headroom' para transientes
      - Som menos 'esmagado'
      - Melhor para sistemas hi-fi
@@ -768,9 +780,9 @@ IA: "Decisão válida, mas considere:
      - Menos competitivo em playlists
      - Pode perder impacto em PAs de clube
      
-     Contexto: Para Funk (gênero de energia constante), DR 6 é 
-     padrão comercial. DR 10 pode funcionar se sua intenção é 
-     'chill funk' ou 'lounge'. Para dancefloor, considere DR 6-7."
+     Contexto: Para Funk (gênero de energia constante), 6 dB é 
+     padrão comercial. 10 dB pode funcionar se sua intenção é 
+     'chill funk' ou 'lounge'. Para dancefloor, considere 6-7 dB."
 ```
 
 #### 7. Troubleshooting avançado
@@ -948,7 +960,7 @@ IA: "Ok, agora posso ajudar..."
 **Com botão "Pedir ajuda":**
 ```
 *Clique no botão*
-IA: "Vi que seu Grave (Funk Mandela) está em -12 dB, -33% do 
+IA: "Vi que seu Grave (Funk Mandela) está em -12 dB, 3 dB abaixo do 
      alvo -9 dB. Sugestões: [lista]"
 Você: "Qual a melhor forma de corrigir?"
 IA: *Responde diretamente*
@@ -1018,7 +1030,7 @@ Cada sugestão está vinculada a uma métrica específica:
 🔴 Loudness muito baixo
 Sua música: -21.5 LUFS
 Alvo: -8.3 LUFS
-Diferença: -158.8%
+Delta: -13.2 LUFS (muito abaixo do padrão)
 
 Ação: Aumentar loudness final em aproximadamente 13.2 dB usando 
 limitador/maximizer no master. Atenção: subir LUFS pode gerar 
@@ -1219,8 +1231,8 @@ Unidade de medida de volume percebido, padrão ITU-R BS.1770-4.
 **dBTP (Decibels True Peak):**  
 Pico absoluto do sinal após oversampling, detectando picos inter-sample.
 
-**DR (Dynamic Range):**  
-Diferença em dB entre trechos mais altos e mais baixos.
+**Dinâmica (indicador em dB):**  
+Indicador que representa a variação de amplitude entre trechos mais altos e mais baixos ao longo do tempo.
 
 **RMS (Root Mean Square):**  
 Valor médio quadrático do sinal, representa energia média.
@@ -1256,7 +1268,7 @@ A SoundyAI é uma ferramenta técnica para auxiliar produtores e engenheiros a v
 - Contexto e intenção sempre importam
 
 **Fluxo ideal:**  
-Upload → Análise → Interpretação → Correção → Reanálise → Validação Auditiva
+Seleção de Gênero → Upload → Análise → Interpretação → Correção → Reanálise → Validação Auditiva
 
 **Dúvidas?**  
 Entre em contato pelo suporte da plataforma.

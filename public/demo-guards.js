@@ -100,17 +100,30 @@
      * - Chamar APÓS análise completa (resultado recebido)
      */
     DEMO.registerAnalysis = async function() {
-        if (!DEMO.isActive) return { success: false, reason: 'not_active' };
+        console.group('📊 [DEMO-GUARDS] registerAnalysis() chamado');
+        console.log('isActive:', DEMO.isActive);
+        console.log('data antes:', DEMO.data);
+        
+        if (!DEMO.isActive) {
+            console.groupEnd();
+            return { success: false, reason: 'not_active' };
+        }
         
         const data = DEMO.data;
-        if (!data) return { success: false, reason: 'no_data' };
+        if (!data) {
+            console.groupEnd();
+            return { success: false, reason: 'no_data' };
+        }
         
         // Incrementar contador local
+        const prevCount = data.analyses_used;
         data.analyses_used++;
+        console.log(`📊 Contador incrementado: ${prevCount} → ${data.analyses_used}`);
         log(`📊 [DEMO-GUARDS] Análise registrada: ${data.analyses_used}/${CONFIG.limits.maxAnalyses}`);
         
         // Salvar localmente
         await DEMO._saveDemoData(data);
+        console.log('💾 Dados salvos');
         
         // 🔗 Sincronizar com backend
         let backendResult = null;
@@ -120,17 +133,34 @@
             warn('⚠️ [DEMO-GUARDS] Falha ao registrar análise no backend:', e.message);
         }
         
-        // 🎉 NOVO: Mostrar CTA não-bloqueante após PRIMEIRA análise
+        // 🎉 CTA NÃO-BLOQUEANTE: Mostrar imediatamente após PRIMEIRA análise
         if (data.analyses_used === 1) {
+            console.log('✅ [DEMO-GUARDS] É a primeira análise! Iniciando fluxo de CTA...');
             log('🎉 [DEMO-GUARDS] Primeira análise concluída - mostrando CTA não-bloqueante');
-            // Aguardar resultado aparecer, depois mostrar CTA
-            setTimeout(() => {
+            
+            // 🔴 CRÍTICO: Aguardar resultado DOM estar renderizado, depois exibir CTA
+            // Tentativas múltiplas garantem exibição mesmo com variação de timing
+            let ctaAttempts = 0;
+            const maxCtaAttempts = 5;
+            
+            const tryShowCTA = () => {
+                ctaAttempts++;
+                
                 if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                    log(`✅ [DEMO-GUARDS] Exibindo CTA (tentativa ${ctaAttempts})`);
                     DEMO.showFirstAnalysisCTA();
+                } else if (ctaAttempts < maxCtaAttempts) {
+                    warn(`⚠️ [DEMO-GUARDS] Função showFirstAnalysisCTA não disponível, tentando novamente em 1s (${ctaAttempts}/${maxCtaAttempts})`);
+                    setTimeout(tryShowCTA, 1000);
                 } else {
-                    warn('⚠️ [DEMO-GUARDS] Função showFirstAnalysisCTA não encontrada');
+                    error('❌ [DEMO-GUARDS] Falha ao exibir CTA após múltiplas tentativas');
                 }
-            }, 2000); // 2 segundos após o resultado aparecer
+            };
+            
+            // Aguardar 2 segundos para resultado aparecer, depois iniciar tentativas
+            setTimeout(tryShowCTA, 2000);
+        } else {
+            console.log(`ℹ️ [DEMO-GUARDS] Não é primeira análise (analyses_used=${data.analyses_used}), CTA não será exibido`);
         }
         
         // 🔥 Modal bloqueante continua sendo exibido ao atingir limite (segunda tentativa)
@@ -140,6 +170,7 @@
             // Isso é tratado nos guards de verificação (canAnalyze)
         }
         
+        console.groupEnd();
         return { success: true, backendResult };
     };
 
@@ -710,6 +741,79 @@
     if (DEMO.isActive) {
         setTimeout(setupDemoUIRestrictions, 500);
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // 🎯 LISTENER ALTERNATIVO: CTA APÓS RESULTADO
+    // ═══════════════════════════════════════════════════════════
+    
+    /**
+     * 🔴 BACKUP: Observar quando resultado é exibido no DOM
+     * Se registerAnalysis() falhar, este listener garante exibição do CTA
+     */
+    const observeResultModal = () => {
+        if (!DEMO.isActive) return;
+        
+        console.log('👁️ [DEMO-GUARDS] Observador de resultado iniciado');
+        
+        // Verificar periodicamente se resultado apareceu
+        const checkInterval = setInterval(() => {
+            // Procurar por elementos que indicam resultado exibido
+            const scoreDisplay = document.querySelector('#scoreDisplay');
+            const hasScore = scoreDisplay && scoreDisplay.textContent.trim().length > 0;
+            
+            if (hasScore) {
+                const currentCount = DEMO.data?.analyses_used || 0;
+                console.log(`🎯 [DEMO-GUARDS] Resultado detectado! analyses_used=${currentCount}`);
+                
+                if (currentCount === 0) {
+                    console.log('✅ [DEMO-GUARDS] É a primeira análise! Registrando e exibindo CTA...');
+                    clearInterval(checkInterval);
+                    
+                    // Registrar análise
+                    DEMO.data.analyses_used = 1;
+                    DEMO._saveDemoData(DEMO.data).then(() => {
+                        console.log('💾 [DEMO-GUARDS] Análise registrada via observer');
+                        
+                        // Exibir CTA após 2s
+                        setTimeout(() => {
+                            if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                                console.log('🎉 [DEMO-GUARDS] Exibindo CTA via observer');
+                                DEMO.showFirstAnalysisCTA();
+                            } else {
+                                console.error('❌ [DEMO-GUARDS] showFirstAnalysisCTA não encontrada!');
+                            }
+                        }, 2000);
+                    });
+                } else if (currentCount === 1) {
+                    // Já foi registrada, apenas exibir CTA se não existir
+                    if (!document.querySelector('.demo-first-analysis-banner')) {
+                        console.log('🎉 [DEMO-GUARDS] Primeira análise já registrada, exibindo CTA...');
+                        clearInterval(checkInterval);
+                        setTimeout(() => {
+                            if (typeof DEMO.showFirstAnalysisCTA === 'function') {
+                                DEMO.showFirstAnalysisCTA();
+                            }
+                        }, 2000);
+                    } else {
+                        clearInterval(checkInterval);
+                    }
+                }
+            }
+        }, 500);
+        
+        // Limpar após 30s (timeout)
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            console.log('⏱️ [DEMO-GUARDS] Observador encerrado (timeout)');
+        }, 30000);
+    };
+    
+    // Iniciar observador se modo demo ativo
+    setTimeout(() => {
+        if (DEMO.isActive) {
+            observeResultModal();
+        }
+    }, 1000);
 
     log('🔥 [DEMO-GUARDS] Módulo Guards carregado');
 

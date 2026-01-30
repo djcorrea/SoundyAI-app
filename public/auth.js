@@ -20,7 +20,7 @@ log('🚀 Carregando auth.js...');
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
     
     // Importações Firestore
-    const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+    const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
 
     log('✅ Todas as importações carregadas com sucesso');
 
@@ -28,6 +28,8 @@ log('🚀 Carregando auth.js...');
     window.confirmationResult = null;
     window.lastPhone = "";
     window.isNewUserRegistering = false; // ✅ Proteger cadastro em progresso
+    window.recaptchaVerifier = null; // 🔥 CORREÇÃO: Mover para window para controle total
+    
     // ✅ SMS OBRIGATÓRIO: Ativado para segurança (1 telefone = 1 conta)
     let SMS_VERIFICATION_ENABLED = true; // ⚡ SMS obrigatório no cadastro
     
@@ -37,8 +39,6 @@ log('🚀 Carregando auth.js...');
       log('🔄 Modo SMS:', enable ? 'ATIVADO' : 'DESATIVADO');
       showMessage(`Modo SMS ${enable ? 'ativado' : 'desativado'}. Recarregue a página.`, "success");
     };
-    
-    let recaptchaVerifier = null;
 
     // Configuração simplificada (SMS desabilitado temporariamente)
     try {
@@ -112,26 +112,34 @@ log('🚀 Carregando auth.js...');
       }
     }
 
-    // Função para garantir container do reCAPTCHA
+    // 🔥 CORREÇÃO DEFINITIVA: Container do reCAPTCHA
+    // Garantir que container existe e está VISÍVEL (não criar duplicado)
     function ensureRecaptchaDiv() {
       let recaptchaDiv = document.getElementById('recaptcha-container');
+      
       if (!recaptchaDiv) {
-        recaptchaDiv = document.createElement('div');
-        recaptchaDiv.id = 'recaptcha-container';
-        recaptchaDiv.style.position = 'absolute';
-        recaptchaDiv.style.top = '-9999px';
-        recaptchaDiv.style.left = '-9999px';
-        document.body.appendChild(recaptchaDiv);
-        log('📦 Container reCAPTCHA criado');
-      } else {
-        recaptchaDiv.innerHTML = '';
-        log('🧹 Container reCAPTCHA limpo');
+        error('❌ ERRO CRÍTICO: Container recaptcha-container não existe no HTML!');
+        error('   Verifique se login.html tem <div id="recaptcha-container"></div>');
+        return null;
       }
+      
+      // Limpar conteúdo mas manter container visível
+      recaptchaDiv.innerHTML = '';
+      
+      // 🔥 GARANTIR que container está VISÍVEL
+      recaptchaDiv.style.display = 'flex';
+      recaptchaDiv.style.justifyContent = 'center';
+      recaptchaDiv.style.margin = '24px 0';
+      
+      log('✅ Container reCAPTCHA pronto e visível');
       return recaptchaDiv;
     }
 
     // Função para mostrar seção SMS
     function showSMSSection() {
+      // ✅ CRÍTICO: GARANTIR SCROLL SEMPRE DESBLOQUEADO
+      forceUnlockScroll();
+      
       const smsSection = document.getElementById('sms-section');
       if (smsSection) {
         smsSection.style.display = 'block';
@@ -143,6 +151,29 @@ log('🚀 Carregando auth.js...');
         signUpBtn.disabled = true;
         signUpBtn.textContent = 'Código Enviado';
       }
+      
+      // ✅ Verificar novamente após 100ms (garantir que está desbloqueado)
+      setTimeout(() => forceUnlockScroll(), 100);
+    }
+    
+    // ✅ FUNÇÃO AUXILIAR: Forçar desbloqueio de scroll (failsafe)
+    function forceUnlockScroll() {
+      // Desbloquear body
+      document.body.style.overflow = 'auto';
+      document.body.style.overflowY = 'auto';
+      document.body.style.overflowX = 'hidden';
+      document.body.style.position = 'relative';
+      
+      // Desbloquear html
+      document.documentElement.style.overflow = 'auto';
+      document.documentElement.style.overflowY = 'auto';
+      document.documentElement.style.overflowX = 'hidden';
+      
+      // Remover classes que possam bloquear scroll
+      document.body.classList.remove('modal-open', 'no-scroll', 'scroll-locked');
+      document.documentElement.classList.remove('modal-open', 'no-scroll', 'scroll-locked');
+      
+      log('✅ [SCROLL] Scroll forçado para desbloqueado');
     }
 
     // Função de login
@@ -184,17 +215,53 @@ log('🚀 Carregando auth.js...');
           
           const userData = snap.data();
           
+          // 🔍 DEBUG: Imprimir userData completo para auditoria
+          console.log('═════════════════════════════════════════════');
+          console.log('🔍 [AUTH-DEBUG] DADOS COMPLETOS DO USUÁRIO:');
+          console.log('   UID:', result.user.uid);
+          console.log('   Email:', result.user.email);
+          console.log('   userData completo:', JSON.stringify(userData, null, 2));
+          console.log('═════════════════════════════════════════════');
+          console.log('📋 [AUTH-DEBUG] CAMPOS CRÍTICOS DE BYPASS SMS:');
+          console.log('   origin:', userData.origin || '(não definido)');
+          console.log('   criadoSemSMS:', userData.criadoSemSMS);
+          console.log('   authType:', userData.authType || '(não definido)');
+          console.log('   hotmartTransactionId:', userData.hotmartTransactionId || '(não definido)');
+          console.log('   user.phoneNumber (Firebase Auth):', result.user.phoneNumber || '(null)');
+          console.log('═════════════════════════════════════════════');
+          
           // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
           // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
           const smsVerificado = !!result.user.phoneNumber;
           
-          if (!smsVerificado && !userData.criadoSemSMS) {
+          // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
+          const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
+          
+          console.log('🔐 [AUTH-DEBUG] VERIFICAÇÃO DE SMS:');
+          console.log('   smsVerificado (phoneNumber exists):', smsVerificado);
+          console.log('   criadoSemSMS === true:', userData.criadoSemSMS === true);
+          console.log('   origin === hotmart:', userData.origin === 'hotmart');
+          console.log('   isBypassSMS (pode entrar sem SMS):', isBypassSMS);
+          console.log('   Decisão:', (!smsVerificado && !isBypassSMS) ? '❌ BLOQUEIO' : '✅ PERMITE');
+          console.log('═════════════════════════════════════════════');
+          
+          if (!smsVerificado && !isBypassSMS) {
             // Conta criada mas telefone não verificado no Auth - forçar logout
             warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
             warn('   user.phoneNumber:', result.user.phoneNumber);
             warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
+            
+            // 🔗 PRESERVAR referralCode antes de limpar localStorage
+            const referralCode = localStorage.getItem('soundy_referral_code');
+            const referralTimestamp = localStorage.getItem('soundy_referral_timestamp');
             localStorage.clear();
+            if (referralCode) {
+              localStorage.setItem('soundy_referral_code', referralCode);
+              localStorage.setItem('soundy_referral_timestamp', referralTimestamp);
+              console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
+            }
+            
             showMessage(
               "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
               "error"
@@ -204,6 +271,15 @@ log('🚀 Carregando auth.js...');
           
           if (smsVerificado) {
             log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
+          } else if (isBypassSMS) {
+            console.log('═════════════════════════════════════════════');
+            console.log('✅ [HOTMART-BYPASS] LOGIN SEM SMS APROVADO');
+            console.log('   Motivo: Usuário Hotmart (criadoSemSMS: true ou origin: hotmart)');
+            console.log('   UID:', result.user.uid);
+            console.log('   Email:', result.user.email);
+            console.log('   origin:', userData.origin);
+            console.log('   authType:', userData.authType);
+            console.log('═════════════════════════════════════════════');
           }
           
           // Prosseguir com navegação normal
@@ -395,14 +471,14 @@ log('🚀 Carregando auth.js...');
       log('🔄 Resetando estado do SMS...');
       
       // Limpar reCAPTCHA
-      if (recaptchaVerifier) {
+      if (window.recaptchaVerifier) {
         try {
-          recaptchaVerifier.clear();
+          window.recaptchaVerifier.clear();
           log('🧹 reCAPTCHA limpo');
         } catch (e) {
           log('⚠️ Erro ao limpar reCAPTCHA:', e);
         }
-        recaptchaVerifier = null;
+        window.recaptchaVerifier = null;
       }
       
       // Limpar container DOM
@@ -468,77 +544,94 @@ log('🚀 Carregando auth.js...');
         return false;
       }
 
-      // Garantir container do reCAPTCHA
-      ensureRecaptchaDiv();
+      // 🔥 CORREÇÃO DEFINITIVA: Container do reCAPTCHA
+      const container = ensureRecaptchaDiv();
+      
+      if (!container) {
+        error('❌ Container recaptcha-container não existe no HTML!');
+        showMessage("ERRO: Container do reCAPTCHA não encontrado. Recarregue a página.", "error");
+        return false;
+      }
 
-      // Limpar reCAPTCHA anterior
-      if (recaptchaVerifier) {
+      // 🔥 LIMPAR instância anterior COMPLETAMENTE
+      if (window.recaptchaVerifier) {
         try { 
-          recaptchaVerifier.clear(); 
-        } catch (e) {}
-        recaptchaVerifier = null;
+          window.recaptchaVerifier.clear(); 
+          log('🧹 reCAPTCHA anterior destruído');
+        } catch (e) {
+          log('⚠️ Ignorando erro ao limpar:', e.message);
+        }
+        window.recaptchaVerifier = null;
       }
 
-      // Limpar o container DOM
-      const container = document.getElementById('recaptcha-container');
-      if (container) {
-        container.innerHTML = '';
-      }
+      // 🔥 AGUARDAR 100ms para garantir DOM está pronto
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Criar reCAPTCHA v2 normal (NÃO Enterprise) - configuração simples
+      // 🔥 CRIAR RecaptchaVerifier com configuração MÍNIMA
       try {
-        log('🔄 Criando reCAPTCHA v2 normal...');
+        log('🔄 Criando RecaptchaVerifier...');
+        log('   Container:', container.id);
+        log('   Auth pronto:', !!auth);
         
-        // Configuração mínima para reCAPTCHA v2
-        recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'normal',
-          'callback': function(response) {
-            log('✅ reCAPTCHA v2 resolvido:', response ? 'Token recebido' : 'Sem token');
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'normal', // Visível - usuário resolve manualmente
+          'callback': (response) => {
+            log('✅ reCAPTCHA resolvido pelo usuário');
+            log('   Token recebido:', response ? 'SIM' : 'NÃO');
           },
-          'expired-callback': function() {
-            log('⏰ reCAPTCHA v2 expirou - solicite novo');
-            showMessage("reCAPTCHA expirou. Clique para gerar novo.", "error");
+          'expired-callback': () => {
+            warn('⏰ reCAPTCHA expirou (3 minutos)');
+            showMessage("reCAPTCHA expirou. Resolva novamente.", "error");
           },
-          'error-callback': function(error) {
-            log('❌ Erro reCAPTCHA v2:', error);
-            showMessage("Erro no reCAPTCHA. Recarregue a página.", "error");
+          'error-callback': (error) => {
+            error('❌ reCAPTCHA erro:', error);
           }
         });
 
-        log('🔄 Renderizando reCAPTCHA v2...');
-        await recaptchaVerifier.render();
-        log('✅ reCAPTCHA v2 renderizado com sucesso');
+        log('🔄 Renderizando reCAPTCHA (aguarde)...');
+        await window.recaptchaVerifier.render();
+        log('✅ reCAPTCHA RENDERIZADO COM SUCESSO!');
+        
+        // ✅ GARANTIR que scroll não travou após render do reCAPTCHA
+        forceUnlockScroll();
         
       } catch (renderError) {
-        error('❌ Erro no reCAPTCHA v2:', renderError);
+        error('❌ Falha ao criar reCAPTCHA:', renderError);
+        error('   Código:', renderError.code);
+        error('   Mensagem:', renderError.message);
         
-        // Fallback para configuração ultra-simples
-        try {
-          log('🔄 Tentando reCAPTCHA v2 simplificado...');
-          if (recaptchaVerifier) {
-            try { recaptchaVerifier.clear(); } catch (e) {}
-          }
-          
-          recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'normal'
-          });
-          
-          await recaptchaVerifier.render();
-          log('✅ reCAPTCHA v2 simplificado funcionou');
-          
-        } catch (fallbackError) {
-          error('❌ Falha total reCAPTCHA v2:', fallbackError);
-          showMessage(`Erro reCAPTCHA: ${fallbackError.message}. Verifique se reCAPTCHA v2 está habilitado no Firebase Console.`, "error");
-          return false;
+        // Limpar estado de falha
+        if (window.recaptchaVerifier) {
+          try { window.recaptchaVerifier.clear(); } catch (e) {}
+          window.recaptchaVerifier = null;
         }
+        
+        // Mensagem específica baseada no erro
+        let userMessage = "Erro ao carregar reCAPTCHA. ";
+        
+        if (renderError.code === 'auth/invalid-app-credential') {
+          userMessage += "Configure reCAPTCHA v2 no Firebase Console.";
+        } else if (renderError.code === 'auth/app-not-authorized') {
+          userMessage += "Domínio não autorizado. Configure no Firebase Console.";
+        } else {
+          userMessage += renderError.message;
+        }
+        
+        showMessage(userMessage, "error");
+        return false;
       }
-      // Tenta enviar SMS
+      
+      // 🔥 AGUARDAR mais 500ms para garantir reCAPTCHA está pronto
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 🔥 ENVIAR SMS apenas após reCAPTCHA COMPLETAMENTE pronto
       let smsSent = false;
       try {
-        log('📱 Enviando SMS para:', phone);
+        log('📱 Enviando SMS...');
+        log('   Telefone:', phone);
+        log('   RecaptchaVerifier:', !!window.recaptchaVerifier);
         
-        // ✅ USAR window.confirmationResult para garantir persistência
-        window.confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
+        window.confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
         window.lastPhone = phone;
         
         // ✅ VALIDAR se verificationId existe
@@ -550,6 +643,9 @@ log('🚀 Carregando auth.js...');
         log('   verificationId:', window.confirmationResult.verificationId?.substring(0, 20) + '...');
         log('   confirmationResult armazenado em window.confirmationResult');
         
+        // ✅ CRÍTICO: DESBLOQUEAR SCROLL IMEDIATAMENTE
+        forceUnlockScroll();
+        
         // Usar função específica para sucesso do SMS
         if (typeof window.showSMSSuccess === 'function') {
           window.showSMSSuccess();
@@ -559,6 +655,9 @@ log('🚀 Carregando auth.js...');
         
         showSMSSection();
         smsSent = true;
+        
+        // ✅ Verificar novamente após 200ms (garantia adicional)
+        setTimeout(() => forceUnlockScroll(), 200);
       } catch (smsError) {
         error('❌ Erro ao enviar SMS:', smsError);
         
@@ -1571,12 +1670,33 @@ log('🚀 Carregando auth.js...');
         // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
         const verificadoPorSMS = !!user.phoneNumber;
         
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔗 SISTEMA DE AFILIADOS V2: Vincular visitorId ao cadastro
+        // ═══════════════════════════════════════════════════════════════════
+        
+        log('🔍 [REFERRAL-V2-DEBUG] Lendo localStorage ANTES do cadastro...');
+        log('   localStorage.soundy_visitor_id:', localStorage.getItem('soundy_visitor_id'));
+        log('   localStorage.soundy_referral_code:', localStorage.getItem('soundy_referral_code'));
+        log('   localStorage.soundy_referral_timestamp:', localStorage.getItem('soundy_referral_timestamp'));
+        
+        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
+        const referralCode = localStorage.getItem('soundy_referral_code') || null;
+        const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
+        
         log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
         log('   Email:', email);
         log('   Telefone:', telefone);
         log('   DeviceID:', deviceId?.substring(0, 16) + '...');
         log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
         log('   criadoSemSMS:', criadoSemSMS);
+        
+        if (referralCode) {
+          log('🔗 [REFERRAL-V2] Código detectado:', referralCode);
+          log('🔗 [REFERRAL-V2] Visitor ID:', visitorId);
+          log('🕐 [REFERRAL-V2] Timestamp:', referralTimestamp);
+        } else {
+          log('🔗 [REFERRAL-V2] Nenhum código de referência detectado');
+        }
         
         // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
         await setDoc(userRef, {
@@ -1596,11 +1716,100 @@ log('🚀 Carregando auth.js...');
           smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null, // ✅ Campo obrigatório
           criadoSemSMS: criadoSemSMS,
           entrevistaConcluida: false,
+          // 🔗 SISTEMA DE AFILIADOS V2: Campos de referência
+          visitorId: visitorId,                    // 🆔 UUID do visitante (rastreável antes do cadastro)
+          referralCode: referralCode,              // Código do parceiro (ex: "estudioherta")
+          referralTimestamp: referralTimestamp,    // ISO timestamp de quando capturou
+          convertedAt: null,                       // Será preenchido quando virar pagante
+          firstPaidPlan: null,                     // Primeiro plano pago (plus/pro/studio)
           createdAt: serverTimestamp(),  // ✅ Usar serverTimestamp
           updatedAt: serverTimestamp()   // ✅ Usar serverTimestamp
         });
         
         log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔗 VINCULAR CADASTRO AO REFERRAL (REFERRAL V3 - BACKEND)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        if (visitorId && referralCode) {
+          try {
+            log('💾 [REFERRAL-V3] Vinculando cadastro via backend...');
+            log('   visitorId:', visitorId.substring(0, 16) + '...');
+            log('   uid:', user.uid);
+            log('   partnerId:', referralCode);
+            
+            // ✅ NOVO: Chamar backend via Admin SDK (bypassa Firestore Rules)
+            const apiUrl = window.getAPIUrl ? window.getAPIUrl('/api/referral/link-registration') : '/api/referral/link-registration';
+            
+            const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                uid: user.uid,
+                visitorId: visitorId
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              log('✅ [REFERRAL-V3] Vinculação concluída com sucesso!');
+              log('   Mensagem:', result.message);
+              log('   Linked:', result.data?.linked);
+              log('   PartnerId:', result.data?.partnerId);
+              
+              // Se vinculou, mostrar confirmação no console
+              if (result.data?.linked && result.data?.partnerId) {
+                log('🎉 [REFERRAL-V3] Cadastro rastreado para parceiro:', result.data.partnerId);
+              }
+            } else {
+              warn('⚠️ [REFERRAL-V3] Backend retornou erro:', result.message);
+              warn('   Reason:', result.reason);
+              // NÃO bloqueia cadastro - erro silencioso
+            }
+            
+          } catch (error) {
+            error('❌ [REFERRAL-V3] Erro ao chamar backend:', error);
+            error('   Detalhes:', error.message);
+            // ⚠️ NÃO bloqueia cadastro - erro silencioso
+          }
+          
+          // ═══════════════════════════════════════════════════════════════
+          // ⚠️ CÓDIGO LEGADO V2 (MANTER POR ENQUANTO - FALLBACK)
+          // ═══════════════════════════════════════════════════════════════
+          // Este código será removido após validação do V3 em produção
+          // POR ENQUANTO: mantido como fallback caso backend falhe
+          
+          try {
+            log('💾 [REFERRAL-V2-FALLBACK] Tentando método antigo (direto no Firestore)...');
+            
+            const visitorRef = doc(db, 'referral_visitors', visitorId);
+            await updateDoc(visitorRef, {
+              registered: true,
+              uid: user.uid,
+              registeredAt: serverTimestamp(),
+              lastSeenAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+            
+            log('✅ [REFERRAL-V2-FALLBACK] Método antigo também executou');
+            
+          } catch (error) {
+            log('⚠️ [REFERRAL-V2-FALLBACK] Método antigo falhou (esperado - rules bloqueadas)');
+            log('   Erro:', error.message);
+            // Não bloqueia o cadastro
+          }
+        }
+        
+        // 🧹 LIMPAR CÓDIGOS do localStorage (manter visitorId)
+        if (referralCode) {
+          localStorage.removeItem('soundy_referral_code');
+          localStorage.removeItem('soundy_referral_timestamp');
+          log('🧹 [REFERRAL-V3] Códigos limpos do localStorage (visitorId mantido)');
+        }
         
         // ✅ VERIFICAR CRIAÇÃO
         const verificacao = await getDoc(userRef);

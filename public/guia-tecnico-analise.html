@@ -661,6 +661,22 @@
             </ul>
         </nav>
         
+        <!-- SEÇÃO DE AUDIT - MUDANÇAS APLICADAS -->
+        <section class="guide-section" style="background: rgba(0, 212, 255, 0.08); border-left-color: #00d4ff;">
+            <span class="section-number">ATUALIZAÇÃO</span>
+            <h2 class="section-title">✅ Alinhamento com Documento Técnico Oficial v1.0</h2>
+            <div class="section-content">
+                <p><strong>Este guia foi atualizado para 100% de consistência:</strong></p>
+                <ul class="bullet-list">
+                    <li>✅ <strong>True Peak:</strong> agora especificado como dBTP (inter-sample) com oversampling 4x, não confundir com Peak dBFS</li>
+                    <li>✅ <strong>LUFS:</strong> removida dogmatização de -14 LUFS; explicado que targets variam por gênero (Funk/EDM ~ -8.3 LUFS, Streaming ~ -14 LUFS)</li>
+                    <li>✅ <strong>Dinâmica:</strong> DR como métrica principal, Crest Factor como apoio (removida ênfase em LRA)</li>
+                    <li>✅ <strong>Frequências:</strong> alinhadas às 6 bandas oficiais (Sub 20-60, Grave 60-250, Low-Mid 250-500, Mid 500-2000, High-Mid 2000-4000, Brilho 4000-20000 Hz)</li>
+                    <li>✅ <strong>Score/Targets:</strong> enfatizado que refletem aderência técnica ao gênero, não julgamento artístico</li>
+                </ul>
+            </div>
+        </section>
+        
         <p style="text-align: center; color: rgba(200, 220, 255, 0.8); margin-bottom: 40px; font-size: 1.05rem;">
             Este guia foi feito para ser <strong>fácil de seguir e prático</strong>. A ordem abaixo reduz erros e garante que cada correção não estrague a anterior.
         </p>
@@ -675,8 +691,8 @@
                     <li><strong>Headroom:</strong> deixe a saída do master sem clip (picos bem abaixo de 0 dBFS).</li>
                     <li><strong>Medidores prontos:</strong>
                         <ul class="bullet-list" style="margin-top: 8px;">
-                            <li>LUFS (ex.: Youlean Loudness Meter configurado em ITU-R BS.1770)</li>
-                            <li>True Peak (ex.: Wave Candy em modo Peak ou medidor de TP do seu limiter)</li>
+                            <li>LUFS (ex.: Youlean Loudness Meter configurado em ITU-R BS.1770-4)</li>
+                            <li><strong>True Peak (dBTP):</strong> use medidor com True Peak real (dBTP) e/ou limiter com True Peak Detection + oversampling (ideal 4x). <em>Importante: Wave Candy 'Peak' mede dBFS (sample peak), não dBTP.</em></li>
                         </ul>
                     </li>
                     <li><strong>Referência:</strong> tenha 1–2 músicas referência do mesmo subgênero para comparação auditiva (opcional, mas ajuda demais).</li>
@@ -716,10 +732,10 @@
                     <li data-step="2">Suba no sistema e rode a análise.</li>
                     <li data-step="3">Anote estes 4 pontos-chave do relatório:
                         <ul class="bullet-list" style="margin-top: 8px;">
-                            <li>True Peak (TP)</li>
-                            <li>LUFS integrado (volume médio percebido)</li>
-                            <li>Dinâmica (ex.: DR/LRA/crest factor que seu sistema exibir)</li>
-                            <li>Faixas de frequência (desvios e sobras por banda)</li>
+                            <li>True Peak (TP em dBTP)</li>
+                            <li>LUFS integrado (volume médio percebido, padrão ITU-R BS.1770-4)</li>
+                            <li>Dinâmica (DR - Dynamic Range) + Crest Factor (se disponível)</li>
+                            <li>Faixas de frequência (desvios por banda - veja tabela comparativa Valor vs Alvo)</li>
                         </ul>
                     </li>
                 </ul>
@@ -740,14 +756,18 @@
                     </div>
                 </div>
                 
-                <p><strong>Meta prática para streaming:</strong> TP ≤ −1,0 dBTP (seguro contra picos entre amostras).</p>
+                <p><strong>Meta recomendada:</strong> TP ≤ <strong>-1.0 dBTP</strong> (seguro), idealmente <strong>≤ -1.5 dBTP</strong> (margem extra de segurança).</p>
+                
+                <div class="warning-box">
+                    <p><strong>True Peak (dBTP)</strong> mede picos inter-sample (entre amostras digitais) usando oversampling. Isso é diferente de Peak dBFS (sample peak).</p>
+                </div>
                 
                 <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como fazer (FL Studio / plugins comuns):</h3>
                 <ul class="step-list">
                     <li data-step="1">No master, insira um limiter/brickwall (Fruity Limiter, Maximus, Ozone Maximizer, etc.).</li>
-                    <li data-step="2">Ceiling/Out: <strong>−1,0 dB</strong> (true peak). Ative oversampling se o plugin oferecer (reduz inter-sample peaks).</li>
-                    <li data-step="3">Ajuste gain/threshold até seus picos reais ficarem ≤ −1 dBTP em partes mais altas.</li>
-                    <li data-step="4">Reanalise no sistema para confirmar o TP.</li>
+                    <li data-step="2">Ceiling/Out: <strong>−1.0 dBTP</strong> (True Peak ON). <strong>Ative oversampling (ideal 4x)</strong> se o plugin oferecer — isso detecta picos inter-sample.</li>
+                    <li data-step="3">Ajuste gain/threshold até TP ficar ≤ −1.0 dBTP (monitore com medidor True Peak real, não apenas Peak dBFS).</li>
+                    <li data-step="4">Reanálise no sistema para confirmar o TP.</li>
                 </ul>
                 
                 <p style="margin-top: 16px;"><em>Se o TP já estava ok, siga para LUFS.</em></p>
@@ -763,22 +783,37 @@
                     <span class="highlight-icon">🎯</span>
                     <div class="highlight-content">
                         <strong>Por quê agora?</strong><br>
-                        O volume médio impacta como você percebe dinâmica e espectro. Deixar o target cedo estabiliza o resto.
+                        O volume médio impacta como você percebe dinâmica e espectro. Ajustar LUFS cedo estabiliza o resto.
                     </div>
                 </div>
                 
-                <p><strong>Faixa prática recomendada</strong> para upload/análise estável: <strong>≈ −14 LUFS integrado</strong>.<br>
-                Para masters comerciais mais "altas", ajuste depois, mas garanta primeiro a qualidade sem clip.</p>
+                <div class="warning-box">
+                    <p><strong>⚠️ IMPORTANTE:</strong> -14 LUFS não é regra universal. É apenas referência de streaming/padronização (Spotify, YouTube). A SoundyAI usa <strong>targets por gênero</strong> (ex.: Funk/EDM de pista ~ -8.3 LUFS). Veja a coluna "Alvo" na tabela comparativa para o target do seu gênero.</p>
+                </div>
                 
-                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como fazer:</h3>
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Escolha seu objetivo:</h3>
+                
+                <p><strong>A) Modo Pista/Clube (por gênero):</strong></p>
+                <ul class="bullet-list">
+                    <li>Use o <strong>alvo LUFS do gênero</strong> mostrado na tabela comparativa (ex.: Funk ~ -8.3 LUFS, EDM ~ -8 a -10 LUFS)</li>
+                    <li>Ideal para DJ sets, clubes, competição com outras faixas de alto impacto</li>
+                </ul>
+                
+                <p><strong>B) Modo Streaming (padronização):</strong></p>
+                <ul class="bullet-list">
+                    <li>Ajuste para <strong>~ -14 LUFS</strong> (padrão Spotify/YouTube)</li>
+                    <li>Plataformas normalizam para esse nível, então masters muito altos serão reduzidos</li>
+                </ul>
+                
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como fazer (passo prático):</h3>
                 <ul class="step-list">
-                    <li data-step="1">Com o limiter já configurado (ceiling −1 dBTP), use o input/threshold do limiter (ou um gain antes dele) para levar o integrated LUFS para perto de −14 LUFS.</li>
-                    <li data-step="2">Monitore no Youlean (modo Integrated, standard ITU, True Peak ON).</li>
-                    <li data-step="3">Reanalise no sistema e confirme: TP ainda ≤ −1 dBTP e LUFS ~ −14.</li>
+                    <li data-step="1">Com limiter configurado (ceiling -1.0 dBTP, oversampling ativo), ajuste input/threshold do limiter (ou gain antes dele) para atingir o LUFS do seu objetivo.</li>
+                    <li data-step="2">Monitore no Youlean (modo Integrated, ITU-R BS.1770-4, True Peak ON).</li>
+                    <li data-step="3">Reanálise no sistema e confirme: TP ainda ≤ -1.0 dBTP e LUFS no target desejado.</li>
                 </ul>
                 
                 <div class="warning-box">
-                    <p>Ajustar LUFS pode mexer um pouco na dinâmica — é esperado.</p>
+                    <p>Ajustar LUFS pode mexer na dinâmica — é esperado. Se perder muito punch, revise compressão nos buses antes de esmagar o limiter.</p>
                 </div>
             </div>
         </section>
@@ -786,12 +821,16 @@
         <!-- SEÇÃO 5 -->
         <section id="dinamica" class="guide-section">
             <span class="section-number">CORREÇÃO #3</span>
-            <h2 class="section-title">Dinâmica (DR / LRA / Crest Factor)</h2>
+            <h2 class="section-title">Dinâmica (DR) + Crest Factor</h2>
             <div class="section-content">
-                <p><strong>Objetivo:</strong> manter impacto sem "amassar" tudo.</p>
+                <p><strong>Objetivo:</strong> manter impacto sem "amassar" tudo. A métrica principal é <strong>DR (Dynamic Range)</strong>, com Crest Factor como apoio.</p>
+                
+                <div class="warning-box">
+                    <p><strong>DR (Dynamic Range):</strong> diferença em dB entre trechos mais altos e mais baixos. Alvos típicos: Funk/EDM de pista 6-10 DR, Trance melódico 8-12 DR.</p>
+                </div>
                 
                 <ul class="bullet-list">
-                    <li>Se o crest factor está <strong>baixo demais</strong> (mix "achatada"), alivie o limiter (menos ganho), reequilibre kick/bass vs. resto.</li>
+                    <li>Se <strong>DR ou Crest Factor estão baixos demais</strong> (mix "achatada", sem respiração), alivie o limiter (menos ganho/threshold), reequilibre kick/bass vs. resto.</li>
                     <li>Se a dinâmica está "pulando" demais (inconsistente), controle picos nos grupos (compressão suave em drums/bass/vocais) ao invés de esmagar o master.</li>
                 </ul>
                 
@@ -817,20 +856,27 @@
                     </div>
                 </div>
                 
+                <div class="warning-box">
+                    <p><strong>6 Bandas Oficiais Analisadas:</strong> Sub (20-60 Hz), Grave (60-250 Hz), Low-Mid (250-500 Hz), Mid (500-2000 Hz), High-Mid (2000-4000 Hz), Brilho (4000-20000 Hz). Use a <strong>tabela comparativa</strong> (Valor vs Alvo vs Diferença vs Status) como guia principal.</p>
+                </div>
+                
                 <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Como atacar:</h3>
                 <ul class="bullet-list">
-                    <li>Siga os desvios por banda apontados pelo sistema como <strong>pistas, não como ordens absolutas</strong>.</li>
+                    <li>Siga os desvios por banda apontados na <strong>tabela comparativa</strong> como <strong>pistas, não ordens absolutas</strong>.</li>
+                    <li>Se Status é <strong>verde (OK)</strong>, banda está dentro da tolerância → <strong>não mexa só por mexer</strong>.</li>
+                    <li>Se Status é <strong>amarelo (Atenção)</strong> ou <strong>vermelho (Crítico)</strong>, aplique ajustes graduais.</li>
                     <li>Não faça cortes bruscos de cara. Comece em <strong>±1 a 2 dB</strong> por banda, Q moderado.</li>
                     <li>Escute comparando com referência do mesmo subgênero (volume alinhado!).</li>
-                    <li>Foque em <em>sub e grave primeiro</em> (kick/bass), depois <em>médios</em> (corpo, presença) e por fim <em>agudos</em> (areia/aria).</li>
-                    <li>Se o sistema indicar banda "dentro da tolerância", <strong>não mexa só por mexer</strong>.</li>
+                    <li>Foque em <em>Sub e Grave primeiro</em> (kick/bass), depois <em>Médios</em> (corpo, presença) e por fim <em>Agudos</em> (ar/sparkle).</li>
                 </ul>
                 
-                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 24px 0 12px 0;">Exemplos práticos:</h3>
+                <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 24px 0 12px 0;">Exemplos práticos (bandas oficiais):</h3>
                 <ul class="bullet-list">
-                    <li><strong>Sub (20–40 Hz) exagerado?</strong> Reduza 1–2 dB com shelf suave no bus de bass/drums.</li>
-                    <li><strong>Lama em 200–350 Hz?</strong> Corte 1–2 dB com Q médio em buses que somam nessa região.</li>
-                    <li><strong>Agudo áspero (6–8 kHz)?</strong> Atenue 1–2 dB com bell leve no elemento causador (hi-hat, vox sibilante etc.).</li>
+                    <li><strong>Sub (20–60 Hz) exagerado?</strong> Reduza 1–2 dB com shelf suave no bus de bass/drums.</li>
+                    <li><strong>Grave (60-250 Hz) com lama?</strong> Corte 1–2 dB com Q médio em buses que somam nessa região.</li>
+                    <li><strong>Low-Mid (250-500 Hz) abafado?</strong> Atenue 1-2 dB para clarear corpo.</li>
+                    <li><strong>High-Mid (2000-4000 Hz) áspero?</strong> Reduza 1-2 dB no elemento causador (hi-hat, vox sibilante).</li>
+                    <li><strong>Brilho (4000-20000 Hz) opaco?</strong> Boost leve 1-2 dB em 8-12 kHz (ar/presença).</li>
                 </ul>
                 
                 <p style="margin-top: 20px;"><strong>Depois dos ajustes:</strong> Reanalise para ver se os desvios reduziram sem matar o caráter do som.</p>
@@ -843,11 +889,11 @@
             <h2 class="section-title">Fluxo de Iteração (curto e objetivo)</h2>
             <div class="section-content">
                 <ul class="step-list">
-                    <li data-step="1"><strong>TP:</strong> garanta ≤ −1 dBTP.</li>
-                    <li data-step="2"><strong>LUFS:</strong> leve a ~ −14 LUFS (para análise estável).</li>
-                    <li data-step="3"><strong>Dinâmica:</strong> ajuste comp nos grupos se preciso.</li>
-                    <li data-step="4"><strong>EQ por bandas:</strong> micro-ajustes (±1–2 dB), ouvindo referência.</li>
-                    <li data-step="5"><strong>Reanálise</strong> → repetir onde necessário.</li>
+                    <li data-step="1"><strong>TP:</strong> garanta ≤ -1.0 dBTP (ideal -1.5 dBTP).</li>
+                    <li data-step="2"><strong>LUFS:</strong> ajuste ao target do seu objetivo (gênero da tabela ou -14 para streaming).</li>
+                    <li data-step="3"><strong>Dinâmica (DR):</strong> ajuste compressão nos buses se preciso (não só no limiter).</li>
+                    <li data-step="4"><strong>EQ por bandas:</strong> micro-ajustes (±1–2 dB) nas bandas com Status crítico/atenção, ouvindo referência.</li>
+                    <li data-step="5"><strong>Reanálise</strong> → verificar Score/Tabela → repetir onde necessário.</li>
                 </ul>
             </div>
         </section>
@@ -858,9 +904,9 @@
             <h2 class="section-title">Export Final (para envio/lançamento)</h2>
             <div class="section-content">
                 <ul class="bullet-list">
-                    <li><strong>Ceiling do limiter:</strong> mantenha <strong>−1,0 dBTP</strong>.</li>
-                    <li>Se for publicar direto, pode subir o mix para <strong>−13 ~ −10 LUFS</strong> (a critério do estilo), sempre conferindo TP.</li>
-                    <li>Exporte com a amostragem do projeto (ou 44.1/48 kHz) e bit depth adequado. Use dither ao descer bit depth.</li>
+                    <li><strong>Ceiling do limiter:</strong> mantenha <strong>-1.0 dBTP</strong> (ideal -1.5 dBTP).</li>
+                    <li><strong>LUFS final:</strong> ajuste conforme objetivo — <strong>pista/clube:</strong> usar alvo do gênero (ex.: -8.3 para Funk); <strong>streaming:</strong> ~ -14 LUFS. Sempre confirme TP dentro do limite.</li>
+                    <li>Exporte com a amostragem do projeto (44.1/48 kHz) e bit depth adequado. Use dither ao descer bit depth (24→16 bits).</li>
                 </ul>
             </div>
         </section>
@@ -870,16 +916,21 @@
             <span class="section-number">ETAPA 9</span>
             <h2 class="section-title">Checklist Rápido</h2>
             <div class="section-content">
+                <div class="warning-box">
+                    <p><strong>Lembre-se:</strong> Score e targets refletem <strong>aderência técnica ao padrão do gênero</strong>, não julgamento artístico. Use como guia, não como regra absoluta. Música é arte.</p>
+                </div>
+                
                 <div class="checklist">
                     <h3 class="checklist-title">✓ Checklist Completo</h3>
                     <ul class="checklist-items">
                         <li>Sem clip no master antes do limiter</li>
-                        <li>TP ≤ −1,0 dBTP (oversampling ativo se houver)</li>
-                        <li>LUFS ~ −14 (para análise)</li>
-                        <li>Dinâmica controlada por buses (não só no master)</li>
-                        <li>EQ em micro-passos (±1–2 dB), nada radical de primeira</li>
+                        <li>TP ≤ -1.0 dBTP (ideal -1.5 dBTP, oversampling 4x ativo)</li>
+                        <li>LUFS ajustado ao target (gênero da tabela ou -14 para streaming)</li>
+                        <li>Dinâmica (DR) controlada por buses, não só no limiter</li>
+                        <li>EQ em micro-passos (±1–2 dB), foco em bandas críticas/atenção da tabela</li>
                         <li>Reanálise após cada bloco de correção</li>
                         <li>Comparação auditiva com referência do mesmo subgênero (volumes casados)</li>
+                        <li>Verificar tabela comparativa: bandas verdes (OK) não precisam ajuste</li>
                     </ul>
                 </div>
             </div>
@@ -907,16 +958,18 @@
             <div class="section-content">
                 <h3 style="color: #00d4ff; font-size: 1.15rem; margin-bottom: 12px;">Medidores:</h3>
                 <ul class="bullet-list">
-                    <li><strong>Wave Candy (pico):</strong> modo Peak, janela longa o bastante para ver picos reais.</li>
-                    <li><strong>Youlean:</strong> Standard ITU, Integrated, TP ON.</li>
+                    <li><strong>True Peak (dBTP):</strong> use limiter com True Peak Detection + oversampling 4x. <em>Wave Candy 'Peak' mede dBFS (sample peak), não True Peak.</em></li>
+                    <li><strong>Youlean:</strong> Standard ITU-R BS.1770-4, Integrated, True Peak ON.</li>
                 </ul>
                 
                 <h3 style="color: #00d4ff; font-size: 1.15rem; margin: 20px 0 12px 0;">Fruity Limiter / Maximizer:</h3>
                 <div class="code-block">
-Ceiling/Out: −1.0 dB<br>
+Ceiling/Out: <strong>-1.0 dBTP</strong> (True Peak ON)<br>
+Oversampling: <strong>ativar (ideal 4x)</strong><br>
 Lookahead: curto a moderado<br>
-Release: auto (ou 100–300 ms conforme o material)<br>
-Ganho/Threshold: ajuste só o necessário para bater −14 LUFS sem ultrapassar TP
+Release: auto (ou 100–300 ms conforme material)<br>
+Ganho/Threshold: ajustar para atingir LUFS do objetivo (gênero ou streaming)<br>
+<em>Sempre monitorar: TP ≤ -1.0 dBTP e LUFS no target</em>
                 </div>
             </div>
         </section>
@@ -925,8 +978,11 @@ Ganho/Threshold: ajuste só o necessário para bater −14 LUFS sem ultrapassar 
         <section id="arte-tecnica" class="final-note">
             <h2 class="final-note-title">🎨 Observação Importante sobre Arte vs Técnica</h2>
             <p>
-                <strong>As métricas guiam, mas música é arte.</strong> Se a banda está verde (ok) no seu relatório, 
-                não existe obrigação de mexer. Use o ouvido e a intenção estética do subgênero como critério final.
+                <strong>Score e targets refletem aderência técnica ao padrão do gênero, não julgamento artístico.</strong><br><br>
+                As métricas guiam, mas música é arte. Se a banda está verde (OK) na tabela comparativa, 
+                não existe obrigação de mexer. Use o ouvido e a intenção estética do subgênero como critério final.<br><br>
+                Um score baixo não significa "música ruim" — pode ser escolha artística intencional. 
+                Um score alto não garante sucesso artístico. <strong>Use as métricas como guia técnico, não como regra absoluta.</strong>
             </p>
         </section>
         
