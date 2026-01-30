@@ -275,19 +275,110 @@ graph TD
 
 ## ✅ CERTIFICAÇÃO DE AUDITORIA
 
-**Status:** ✅ **APROVADO - SEM NECESSIDADE DE REFATORAÇÃO**
+**Status Inicial:** ✅ **APROVADO - MAS COM DECISÃO DE PRODUTO DE SIMPLIFICAR**
 
-**Confirmações:**
+**Confirmações da Auditoria:**
 - [x] Tabela visual usa lógica RANGE-BASED
 - [x] Subscore de frequência usa MESMA fonte (evaluateMetric)
 - [x] evaluateMetric considera RANGE como critério primário
 - [x] Não há duplicação de lógicas
-- [x] Gates de sanidade estão corretos
-- [x] Pesos perceptivos são justificados
+- [x] Gates de sanidade estavam corretos (mas complexos)
+- [x] Pesos perceptivos eram justificados (mas criavam opacidade)
 
 **Auditado por:** GitHub Copilot (Claude Sonnet 4.5)  
 **Data:** 30 de janeiro de 2026  
-**Conclusão:** Sistema funcionando conforme especificado. Lógicas alinhadas.
+**Conclusão Auditoria:** Sistema funcionando conforme especificado. Lógicas tecnicamente alinhadas.
+
+---
+
+## 🔧 REFATORAÇÃO APLICADA (V5.0 - 2026-01-30)
+
+### ⚠️ PROBLEMA IDENTIFICADO PELO USUÁRIO
+
+Mesmo com lógicas tecnicamente alinhadas, o sistema anterior causava **confusão**:
+- Tabela mostrando "7 bandas verdes"
+- Subscore caindo para 55-70 devido a gates e pesos
+
+**Causa:**
+- Pesos perceptivos desiguais (High Mid 20% vs Sub 12%)
+- Fórmula híbrida (0.6 × média + 0.4 × pior_banda)
+- Gates agressivos (1 banda próxima da borda → cap 65)
+- `evaluateMetric` dava score 83 para banda "no limite verde" (normalizedDistance 0.6)
+
+**Decisão de Produto:** Priorizar **simplicidade e transparência** sobre complexidade perceptiva.
+
+### ✨ NOVA LÓGICA V5.0 (RANGE-BASED PURO)
+
+**Princípio:** Subscore reflete **EXATAMENTE** as cores da tabela
+
+```javascript
+// V5.0: Lógica Simplificada
+const POINTS_PER_BAND = 100 / 7; // ≈ 14.285 pontos
+
+// Classificação por severidade (cor da tabela):
+if (severity === 'OK') {
+    points = 14.285;  // 🟢 Verde = 100%
+} else if (severity === 'ATENÇÃO' || severity === 'ALTA') {
+    points = 7.14;    // 🟡 Amarelo = 50%
+} else if (severity === 'CRÍTICA') {
+    points = 0;       // 🔴 Vermelho = 0%
+}
+
+finalScore = sum(points); // Já em escala 0-100
+```
+
+**Características:**
+- ✅ Todas as bandas contribuem **igualmente** (14.285 pontos cada)
+- ✅ Sem pesos perceptivos
+- ✅ Sem fórmula híbrida
+- ✅ Sem gates complexos
+- ✅ Usa apenas a **severidade** (cor) de `evaluateMetric`
+
+### 📊 RESULTADOS ESPERADOS
+
+| Distribuição | Score | Explicação |
+|--------------|-------|------------|
+| 7 verdes | **100** | 7 × 14.285 = 100 |
+| 6 verdes + 1 amarela | **93** | 6 × 14.285 + 1 × 7.14 ≈ 93 |
+| 5 verdes + 2 amarelas | **86** | 5 × 14.285 + 2 × 7.14 ≈ 86 |
+| 6 verdes + 1 vermelha | **86** | 6 × 14.285 + 0 = 86 |
+| 5 verdes + 1 amarela + 1 vermelha | **79** | 5 × 14.285 + 1 × 7.14 = 79 |
+| 7 vermelhas | **0** | 0 pontos |
+
+### 🔄 O QUE FOI ALTERADO
+
+**Arquivo:** `audio-analyzer-integration.js`  
+**Função:** `calculateFrequencySubscore()` (linhas ~26218)
+
+**Removido:**
+- ❌ Pesos perceptivos (`BAND_WEIGHTS`)
+- ❌ Fórmula híbrida (`0.6 × avg + 0.4 × worst`)
+- ❌ Gates complexos (caps por contagem de severidades)
+- ❌ Tracking de "pior banda"
+- ❌ Média ponderada
+
+**Adicionado:**
+- ✅ Pontuação fixa por banda (`100 / 7`)
+- ✅ Classificação simples por severidade
+- ✅ Contadores de bandas verdes/amarelas/vermelhas
+- ✅ Log transparente mostrando distribuição
+
+### 🎯 BENEFÍCIOS DA REFATORAÇÃO
+
+1. **Transparência Total:** Score reflete exatamente o que o usuário vê na tabela
+2. **Simplicidade:** Lógica compreensível sem conhecimento técnico profundo
+3. **Previsibilidade:** 7 verdes = sempre 100, sem exceções
+4. **Debugging Facilitado:** Logs mostram claramente: X verdes + Y amarelas + Z vermelhas = Score
+
+### 🚫 O QUE NÃO FOI ALTERADO (CONFORME SOLICITADO)
+
+- ✅ Lógica de LUFS (inalterada)
+- ✅ Lógica de True Peak (inalterada)
+- ✅ Lógica de Dinâmica (inalterada)
+- ✅ Renderização da tabela visual (inalterada)
+- ✅ `evaluateMetric()` (inalterada - continua sendo fonte única)
+- ✅ Outros subscores (inalterados)
+- ✅ Backend (inalterado)
 
 ---
 
