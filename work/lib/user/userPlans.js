@@ -81,16 +81,20 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
   let changed = false;
   const currentMonth = getCurrentMonthKey(now); // "2025-12"
   
+  // 🔐 PROTEÇÃO HOTMART: NUNCA aplicar defaults ou sobrescrever plano de usuários Hotmart
+  const isHotmartUser = user.origin === 'hotmart';
+  
   // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para usuários sem plano pago
-  if (ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
+  // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+  if (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
     user.plan = 'pro';
     user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 ano
     changed = true;
     console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (era FREE)`);
   }
   
-  // ✅ Garantir que plan existe
-  if (!user.plan) {
+  // ✅ Garantir que plan existe (EXCETO Hotmart)
+  if (!isHotmartUser && !user.plan) {
     user.plan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
     if (ENV_FEATURES.features.autoGrantProPlan) {
       user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -292,32 +296,41 @@ export async function getOrCreateUser(uid, extra = {}) {
       const nowISO = now.toISOString();
       const currentMonth = getCurrentMonthKey(now);
       
+      // 🔐 PROTEÇÃO HOTMART: Se origin='hotmart', NUNCA sobrescrever plano/expiração
+      const isHotmartUser = extra.origin === 'hotmart';
+      
       // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para facilitar testes
-      const defaultPlan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
-      const proExpiration = ENV_FEATURES.features.autoGrantProPlan 
+      // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+      const defaultPlan = isHotmartUser 
+        ? (extra.plan || 'free')  // ✅ Usar plano do webhook
+        : (ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free');
+      
+      const proExpiration = (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan)
         ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
         : null;
       
       const profile = {
         uid,
-        plan: defaultPlan,
-        plusExpiresAt: null,
-        proExpiresAt: proExpiration,
-        djExpiresAt: null,         // 🎧 NOVO: Controle Beta DJs
-        djExpired: false,          // 🎧 NOVO: Flag de beta expirado
-        
-        // ✅ NOVOS CAMPOS MENSAIS
+        // ✅ CAMPOS BASE (podem ser sobrescritos por ...extra)
         messagesMonth: 0,
         analysesMonth: 0,
-        imagesMonth: 0, // ✅ NOVO: Contador de imagens
+        imagesMonth: 0,
         billingMonth: currentMonth,
-        
+        djExpired: false,
         createdAt: nowISO,
         updatedAt: nowISO,
+        
+        // ✅ MESCLAR extra ANTES de definir defaults (prioridade para webhook)
         ...extra,
+        
+        // ✅ Aplicar defaults APENAS se extra não forneceu
+        plan: extra.plan || defaultPlan,
+        plusExpiresAt: extra.plusExpiresAt || null,
+        proExpiresAt: extra.proExpiresAt || proExpiration,
+        djExpiresAt: extra.djExpiresAt || null,
       };
       
-      if (ENV_FEATURES.features.autoGrantProPlan) {
+      if (ENV_FEATURES.features.autoGrantProPlan && !isHotmartUser) {
         console.log(`🧪 [USER-PLANS][TESTE] Auto-grant plano PRO ativado para UID: ${uid}`);
       }
       
@@ -327,12 +340,15 @@ export async function getOrCreateUser(uid, extra = {}) {
       // 🔍 DEBUG: Verificar se campos Hotmart estão presentes
       if (profile.criadoSemSMS || profile.origin === 'hotmart') {
         console.log('═════════════════════════════════════════════');
-        console.log('🎯 [USER-PLANS] USUÁRIO HOTMART DETECTADO:');
+        console.log('🎯 [USER-PLANS] USUÁRIO HOTMART DETECTADO NA CRIAÇÃO:');
+        console.log('   plan:', profile.plan);
+        console.log('   plusExpiresAt:', profile.plusExpiresAt);
         console.log('   criadoSemSMS:', profile.criadoSemSMS);
         console.log('   origin:', profile.origin);
         console.log('   authType:', profile.authType);
         console.log('   hotmartTransactionId:', profile.hotmartTransactionId);
         console.log('   ⚠️ Este usuário NÃO precisará de SMS no login');
+        console.log('   ✅ Plano e expiração vindos do webhook NÃO foram sobrescritos');
         console.log('═════════════════════════════════════════════');
       }
       
