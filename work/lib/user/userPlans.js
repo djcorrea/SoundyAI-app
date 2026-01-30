@@ -944,32 +944,30 @@ export async function canUseAnalysis(uid) {
  * @returns {Promise<void>}
  */
 export async function registerAnalysis(uid, mode = "full") {
-  // 🧪 BYPASS PARA AMBIENTE DE TESTE (não incrementar contadores)
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: registerAnalysis ignorado (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}, mode: ${mode}`);
-    return; // Não fazer nada em teste
-  }
-  
   // ✅ Só incrementa se foi análise completa
   if (mode !== "full") {
     console.log(`⏭️ [USER-PLANS] Análise NÃO registrada (modo: ${mode}): ${uid}`);
     return;
   }
 
-  // 🏭 PRODUÇÃO: Registro normal
+  // 📝 Registro SEMPRE ocorre (produção E teste)
+  // Motivo: Firestore é o MESMO para prod e test - contadores devem ser consistentes
   const ref = getDb().collection(USERS).doc(uid);
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
 
   const newCount = (user.analysesMonth || 0) + 1;
 
+  console.log(`📊 [USER-PLANS][${ENV.toUpperCase()}] Registrando análise COMPLETA para ${uid}`);
+  console.log(`   analysesMonth ANTES: ${user.analysesMonth || 0}`);
+  console.log(`   analysesMonth DEPOIS: ${newCount}`);
+
   await ref.update({
     analysesMonth: newCount,
     updatedAt: new Date().toISOString(),
   });
   
-  console.log(`📝 [USER-PLANS] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
+  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
 }
 
 /**
