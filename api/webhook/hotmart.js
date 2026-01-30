@@ -376,7 +376,9 @@ async function processWebhookAsync(data) {
       email: data.buyerEmail,
       name: data.buyerName,
       origin: 'hotmart',
-      hotmartTransactionId: data.transactionId
+      hotmartTransactionId: data.transactionId,
+      criadoSemSMS: true,  // ✅ HOTMART: Usuário não precisa SMS (login direto com senha)
+      authType: 'hotmart'  // ✅ Identificador de método de autenticação
     });
 
     // ═══════════════════════════════════════════════════════════════

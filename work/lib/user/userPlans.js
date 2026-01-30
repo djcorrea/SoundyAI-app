@@ -168,6 +168,39 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     changed = true;
   }
 
+  // 🔐 PROTEÇÃO HOTMART: Se o usuário vier da Hotmart e a transação
+  // registrou `planApplied: 'plus'`, garantir que o plano seja PLUS.
+  // Isso previne que outras rotinas sobrescrevam indevidamente o plano
+  // aplicado pelo webhook da Hotmart.
+  try {
+    if (user.origin === 'hotmart' && user.hotmartTransactionId) {
+      const txRef = getDb().collection('hotmart_transactions').doc(user.hotmartTransactionId);
+      const txSnap = await txRef.get();
+      if (txSnap.exists) {
+        const tx = txSnap.data();
+        if (tx.planApplied === 'plus') {
+          // Se já for plus, apenas garantir campos consistentes
+          if (user.plan !== 'plus' || !user.plusExpiresAt) {
+            console.log(`🔁 [USER-PLANS] Restaurando plano PLUS a partir de hotmart_transactions para UID=${uid}`);
+            user.plan = 'plus';
+            // Preferir expiresAt gravado na transação, se disponível
+            if (tx.expiresAt) {
+              user.plusExpiresAt = tx.expiresAt;
+            }
+            // Limpar campos STUDIO/PRO/DJ para evitar conflito
+            user.studioExpiresAt = null;
+            user.proExpiresAt = null;
+            user.djExpiresAt = null;
+            changed = true;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [USER-PLANS] Erro ao validar transação Hotmart para UID=${uid}:`, err.message);
+    // Não bloquear a normalização por erro na verificação adicional
+  }
+
   // ✅ STRIPE: Verificar expiração de assinatura recorrente
   if (user.subscription && user.subscription.status === 'canceled') {
     const currentPeriodEnd = new Date(user.subscription.currentPeriodEnd).getTime();

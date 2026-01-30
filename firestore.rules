@@ -58,7 +58,11 @@ service cloud.firestore {
                           'visitorId',
                           'plan',
                           'subscription',
-                          'deviceId'
+                          'deviceId',
+                          'criadoSemSMS',       // 🔐 HOTMART: Não permite alteração (só Admin SDK)
+                          'authType',           // 🔐 HOTMART: Não permite alteração (só Admin SDK)
+                          'origin',             // 🔐 HOTMART: Não permite alteração (só Admin SDK)
+                          'hotmartTransactionId' // 🔐 HOTMART: Não permite alteração (só Admin SDK)
                         ])
                       )
                     );
