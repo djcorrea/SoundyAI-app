@@ -55,23 +55,6 @@ body.perf-animations-paused .vanta-background {
     transition: opacity 0.3s ease-out;
 }
 
-/* 🎯 DEBUG: Indicador visual quando animações estão pausadas (remover em produção) */
-body.perf-animations-paused::before {
-    content: '⏸️ Animações Pausadas';
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 0, 0, 0.8);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    z-index: 999999;
-    font-weight: bold;
-    pointer-events: none;
-    opacity: 0.7;
-}
-
 /* ============ 🚀 PERFORMANCE: Otimizações globais de renderização ============ */
 img {
     content-visibility: auto; /* Lazy rendering */
