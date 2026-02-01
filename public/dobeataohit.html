@@ -1004,6 +1004,40 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* ================ CONTROLE DE PERFORMANCE ================ */
+        /* Reduz movimento para usuários que preferem menos animação */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Otimização de rendering */
+        .animated-background,
+        .hexagon,
+        .circle-deco,
+        .hex-frame,
+        .icon-circle {
+            will-change: transform;
+            backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* Pausa animações quando fora da viewport */
+        @media (prefers-reduced-motion: no-preference) {
+            .paused-animations .animated-background,
+            .paused-animations .hexagon,
+            .paused-animations .circle-deco,
+            .paused-animations .hex-frame,
+            .paused-animations .icon-circle {
+                animation-play-state: paused !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1321,7 +1355,146 @@
     </section>
 
     <script>
+        // ============================================
+        // SISTEMA DE CONTROLE DE PERFORMANCE
+        // ============================================
+        let performanceMode = {
+            isLowPower: false,
+            animationsEnabled: true,
+            carouselInterval: null
+        };
+
+        // Detecta dispositivos de baixo poder
+        function detectLowPowerDevice() {
+            const ua = navigator.userAgent.toLowerCase();
+            const isMobile = /mobile|android|iphone|ipad|tablet/.test(ua);
+            const isOldDevice = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4;
+            
+            return isMobile || isOldDevice;
+        }
+
+        // Pausa animações CSS pesadas
+        function pauseHeavyAnimations() {
+            if (performanceMode.isLowPower) return;
+            
+            performanceMode.animationsEnabled = false;
+            
+            // Pausa animações de background
+            const animatedBg = document.querySelector('.animated-background');
+            if (animatedBg) animatedBg.style.animation = 'none';
+            
+            // Pausa hexágonos flutuantes
+            document.querySelectorAll('.hexagon').forEach(hex => {
+                hex.style.animation = 'none';
+            });
+            
+            // Pausa círculos decorativos
+            document.querySelectorAll('.circle-deco').forEach(circle => {
+                circle.style.animation = 'none';
+            });
+            
+            // Pausa frame hexagonal
+            const hexFrame = document.querySelector('.hex-frame');
+            if (hexFrame) hexFrame.style.animation = 'none';
+            
+            // Pausa ícones flutuantes
+            document.querySelectorAll('.icon-circle').forEach(icon => {
+                icon.style.animation = 'none';
+            });
+            
+            // Para o carousel
+            if (performanceMode.carouselInterval) {
+                clearInterval(performanceMode.carouselInterval);
+                performanceMode.carouselInterval = null;
+            }
+            
+            console.log('🔵 Performance: Animações pesadas pausadas');
+        }
+
+        // Retoma animações CSS
+        function resumeHeavyAnimations() {
+            if (performanceMode.isLowPower) return;
+            
+            performanceMode.animationsEnabled = true;
+            
+            // Retoma animações de background
+            const animatedBg = document.querySelector('.animated-background');
+            if (animatedBg) animatedBg.style.animation = 'gradientFlow 20s ease infinite';
+            
+            // Retoma hexágonos flutuantes
+            const hexagons = [
+                { selector: '.hex-1', delay: '0s', duration: '12s' },
+                { selector: '.hex-2', delay: '2s', duration: '12s' },
+                { selector: '.hex-3', delay: '4s', duration: '12s' },
+                { selector: '.hex-4', delay: '1s', duration: '12s' }
+            ];
+            
+            hexagons.forEach(hex => {
+                const el = document.querySelector(hex.selector);
+                if (el) {
+                    el.style.animation = `floatHex ${hex.duration} infinite ease-in-out`;
+                    el.style.animationDelay = hex.delay;
+                }
+            });
+            
+            // Retoma círculos decorativos
+            const circles = [
+                { selector: '.deco-1', delay: '0.5s' },
+                { selector: '.deco-2', delay: '1.5s' }
+            ];
+            
+            circles.forEach(circle => {
+                const el = document.querySelector(circle.selector);
+                if (el) {
+                    el.style.animation = 'pulseDeco 4s infinite ease-in-out';
+                    el.style.animationDelay = circle.delay;
+                }
+            });
+            
+            // Retoma frame hexagonal
+            const hexFrame = document.querySelector('.hex-frame');
+            if (hexFrame) hexFrame.style.animation = 'rotateHexFrame 20s linear infinite';
+            
+            // Retoma ícones flutuantes
+            const icons = [
+                { selector: '.icon-1', delay: '0s' },
+                { selector: '.icon-2', delay: '1s' },
+                { selector: '.icon-3', delay: '2s' }
+            ];
+            
+            icons.forEach(icon => {
+                const el = document.querySelector(icon.selector);
+                if (el) {
+                    el.style.animation = 'floatIcon 6s infinite ease-in-out';
+                    el.style.animationDelay = icon.delay;
+                }
+            });
+            
+            // Retoma carousel
+            startCarousel();
+            
+            console.log('🟢 Performance: Animações retomadas');
+        }
+
+        // Inicializa controle de performance
+        if (detectLowPowerDevice()) {
+            performanceMode.isLowPower = true;
+            console.log('⚡ Performance: Modo de baixo consumo ativado automaticamente');
+            pauseHeavyAnimations();
+        }
+
+        // Detecta quando a página fica inativa (muda de aba)
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                pauseHeavyAnimations();
+            } else if (!performanceMode.isLowPower) {
+                resumeHeavyAnimations();
+            }
+        });
+
+        // ============================================
         // ANIMAÇÃO DE SCROLL
+        // ============================================
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -100px 0px'
@@ -1337,7 +1510,9 @@
 
         document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 
+        // ============================================
         // CARROSSEL
+        // ============================================
         const track = document.getElementById('carouselTrack');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
@@ -1358,11 +1533,24 @@
             updateCarousel();
         });
 
-        // AUTO-PLAY CARROSSEL
-        setInterval(() => {
-            currentIndex = (currentIndex + 1) % slides.length;
-            updateCarousel();
-        }, 5000);
+        // Função para iniciar o carousel
+        function startCarousel() {
+            if (performanceMode.carouselInterval) {
+                clearInterval(performanceMode.carouselInterval);
+            }
+            
+            performanceMode.carouselInterval = setInterval(() => {
+                if (performanceMode.animationsEnabled) {
+                    currentIndex = (currentIndex + 1) % slides.length;
+                    updateCarousel();
+                }
+            }, 5000);
+        }
+
+        // Inicia carousel apenas se animações estiverem habilitadas
+        if (performanceMode.animationsEnabled) {
+            startCarousel();
+        }
 
         // CTA BUTTONS
         document.querySelectorAll('.cta-primary').forEach(button => {
@@ -1384,6 +1572,16 @@
                 }
             });
         });
+
+        // ============================================
+        // API DE CONTROLE GLOBAL (opcional)
+        // ============================================
+        window.performanceControl = {
+            pause: pauseHeavyAnimations,
+            resume: resumeHeavyAnimations,
+            isActive: () => performanceMode.animationsEnabled,
+            isLowPower: () => performanceMode.isLowPower
+        };
     </script>
 </body>
 </html>
