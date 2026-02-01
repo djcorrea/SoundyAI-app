@@ -867,9 +867,12 @@
     // ═══════════════════════════════════════════════════════════════════
     
     const HEAVY_MODALS = [
-        'audioAnalysisModal',
-        'analysisModeModal',
-        'welcomeAnalysisModal'
+        'audioAnalysisModal',           // Modal principal de análise
+        'analysisModeModal',            // Modal de seleção de modo
+        'welcomeAnalysisModal',         // Modal de boas-vindas de análise
+        'newGenreModal',                // Modal de novo gênero
+        'aiSuggestionsFullModal',       // Modal de sugestões full
+        'betaDjExpiredModal'            // Modal de beta expirado
     ];
 
     function checkModalState() {
@@ -877,48 +880,84 @@
             const modal = document.getElementById(id);
             if (!modal) return false;
             const style = window.getComputedStyle(modal);
-            return style.display !== 'none' && style.visibility !== 'hidden';
+            const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+            const hasHiddenClass = modal.classList.contains('hidden');
+            return isVisible && !hasHiddenClass;
         });
 
         if (isAnyModalOpen !== state.isModalOpen) {
             state.isModalOpen = isAnyModalOpen;
             
             if (isAnyModalOpen) {
+                // 🎯 PERFORMANCE: Destruir Vanta e pausar TODAS as animações
                 destroyVantaCompletely();
                 document.body.classList.add('perf-animations-paused');
-                log('📦 [Effects] Modal aberto - Vanta destruído');
+                log('📦 [Effects] Modal aberto - Vanta + animações pausados');
             } else {
+                // 🎯 PERFORMANCE: Restaurar apenas se condições permitirem
                 document.body.classList.remove('perf-animations-paused');
                 if (shouldVantaRun()) {
                     setTimeout(() => {
                         if (!state.isModalOpen && shouldVantaRun()) {
                             applyCurrentTier();
-                            log('📦 [Effects] Modal fechado - Vanta restaurado');
+                            log('📦 [Effects] Modal fechado - Vanta + animações restaurados');
                         }
-                    }, 100);
+                    }, 150); // Delay maior para garantir transição suave
                 }
             }
         }
     }
 
     function initModalObserver() {
-        const observer = new MutationObserver(() => {
+        // 🎯 Observer principal para mudanças de estilo/classe nos modais
+        const modalObserver = new MutationObserver(() => {
             clearTimeout(state.modalCheckTimer);
-            state.modalCheckTimer = setTimeout(checkModalState, 50);
+            state.modalCheckTimer = setTimeout(checkModalState, 30); // Reduzido para 30ms (mais responsivo)
         });
 
+        // 🎯 Observer secundário para novos modais adicionados dinamicamente
+        const bodyObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === 1) { // ELEMENT_NODE
+                        const id = node.id;
+                        if (HEAVY_MODALS.includes(id)) {
+                            log(`🔍 [Effects] Novo modal detectado: ${id}`);
+                            modalObserver.observe(node, { 
+                                attributes: true, 
+                                attributeFilter: ['style', 'class'] 
+                            });
+                            checkModalState();
+                        }
+                    }
+                });
+            });
+        });
+
+        // Observar modais existentes
         HEAVY_MODALS.forEach(id => {
             const modal = document.getElementById(id);
             if (modal) {
-                observer.observe(modal, { 
+                modalObserver.observe(modal, { 
                     attributes: true, 
                     attributeFilter: ['style', 'class'] 
                 });
+                log(`👀 [Effects] Observando modal: ${id}`);
             }
         });
 
-        observer.observe(document.body, { childList: true, subtree: false });
-        return observer;
+        // Observar body para novos modais
+        bodyObserver.observe(document.body, { 
+            childList: true, 
+            subtree: true 
+        });
+        
+        // Verificação inicial
+        checkModalState();
+        
+        log('✅ [Effects] Modal observers inicializados');
+        
+        return { modalObserver, bodyObserver };
     }
 
     // ═══════════════════════════════════════════════════════════════════

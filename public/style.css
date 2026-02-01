@@ -22,6 +22,39 @@
     }
 }
 
+/* ============ 🚀 PERFORMANCE: Pausar animações quando modais estão abertos ============ */
+body.perf-animations-paused .robo,
+body.perf-animations-paused .notebook,
+body.perf-animations-paused .teclado,
+body.perf-animations-paused .caixas,
+body.perf-animations-paused .mesa {
+    animation-play-state: paused !important;
+}
+
+/* Ocultar partículas completamente quando modal está aberto (sem quebrar layout) */
+body.perf-animations-paused .particles-overlay {
+    opacity: 0 !important;
+    animation-play-state: paused !important;
+    pointer-events: none !important;
+}
+
+/* Pausar animações CSS do Vanta background quando modal aberto */
+body.perf-animations-paused .vanta-background {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Suavizar transições de pause/resume */
+.particles-overlay,
+.vanta-background,
+.robo,
+.notebook,
+.teclado,
+.caixas,
+.mesa {
+    transition: opacity 0.3s ease-out;
+}
+
 /* ============ 🚀 PERFORMANCE: Otimizações globais de renderização ============ */
 img {
     content-visibility: auto; /* Lazy rendering */
