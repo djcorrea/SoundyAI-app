@@ -72,6 +72,31 @@ async function recycleProcessIfNeeded(jobId) {
     // Aguardar flush de logs
     await new Promise(resolve => setTimeout(resolve, 300));
     
+    console.log(`[RECYCLE] 🔄 Iniciando shutdown gracioso...`);
+    
+    // 🔒 SHUTDOWN GRACIOSO: Fechar Worker e Redis corretamente
+    try {
+      // 1. Fechar Worker BullMQ (não aceita mais jobs)
+      if (worker) {
+        console.log(`[RECYCLE] 🔄 Fechando Worker BullMQ...`);
+        await worker.close();
+        console.log(`[RECYCLE] ✅ Worker BullMQ fechado com sucesso`);
+      }
+      
+      // 2. Fechar conexão Redis
+      if (redisConnection) {
+        console.log(`[RECYCLE] 🔄 Fechando conexão Redis...`);
+        await redisConnection.quit();
+        console.log(`[RECYCLE] ✅ Conexão Redis fechada com sucesso`);
+      }
+      
+      console.log(`[RECYCLE] ✅ Shutdown gracioso concluído`);
+      
+    } catch (shutdownError) {
+      console.error(`[RECYCLE] ⚠️ Erro durante shutdown gracioso:`, shutdownError.message);
+      console.error(`[RECYCLE] ⚠️ Continuando com exit de qualquer forma...`);
+    }
+    
     console.log(`[RECYCLE] ♻️ Encerrando processo para reciclagem de memória`);
     console.log(`[RECYCLE] ═══════════════════════════════════════════════════`);
     
