@@ -20,6 +20,69 @@ import express from 'express';
 import { enrichSuggestionsWithAI } from './lib/ai/suggestion-enricher.js';
 import { referenceSuggestionEngine } from './lib/audio/features/reference-suggestion-engine.js';
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔧 MEMORY LEAK MITIGATION - CONFIGURAÇÕES E INSTRUMENTAÇÃO
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Contador de jobs processados pelo processo atual
+let jobsProcessed = 0;
+
+// Máximo de jobs antes de reciclar o processo (env ou default 1)
+const MAX_JOBS_PER_PROCESS = parseInt(process.env.MAX_JOBS_PER_PROCESS || '1', 10);
+
+// Set para rastrear jobIds já processados (idempotência)
+const processedJobIds = new Set();
+
+/**
+ * 🔍 INSTRUMENTAÇÃO DE MEMÓRIA
+ * Imprime uso de memória detalhado para diagnóstico de leaks
+ * @param {string} tag - Identificador do ponto de medição
+ * @param {string} [jobId] - ID do job (opcional)
+ */
+function logMem(tag, jobId = null) {
+  const mem = process.memoryUsage();
+  const timestamp = new Date().toISOString();
+  const jobStr = jobId ? jobId.substring(0, 8) : 'N/A';
+  
+  console.log(`[MEM-TRACK][${timestamp}][${tag}]`, {
+    jobId: jobStr,
+    rss: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`,
+    heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+    heapTotal: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+    external: `${(mem.external / 1024 / 1024).toFixed(2)} MB`,
+    arrayBuffers: `${(mem.arrayBuffers / 1024 / 1024).toFixed(2)} MB`,
+    jobsProcessed,
+    maxJobs: MAX_JOBS_PER_PROCESS
+  });
+}
+
+/**
+ * 🔄 RECYCLE DO PROCESSO
+ * Encerra o processo após completar jobs para liberar memória
+ * Railway/Kubernetes irão reiniciar automaticamente
+ */
+async function recycleProcessIfNeeded(jobId) {
+  if (jobsProcessed >= MAX_JOBS_PER_PROCESS) {
+    console.log(`[RECYCLE][${new Date().toISOString()}] ═══════════════════════════════════════`);
+    console.log(`[RECYCLE] 🔄 Limite de jobs atingido: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    console.log(`[RECYCLE] Último job processado: ${jobId?.substring(0, 8) || 'N/A'}`);
+    logMem('PRE-RECYCLE', jobId);
+    console.log(`[RECYCLE] Aguardando 300ms para flush de logs...`);
+    
+    // Aguardar flush de logs
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    console.log(`[RECYCLE] ♻️ Encerrando processo para reciclagem de memória`);
+    console.log(`[RECYCLE] ═══════════════════════════════════════════════════`);
+    
+    // Exit graceful - Railway irá reiniciar
+    process.exit(0);
+  }
+}
+
+// Log inicial de memória
+logMem('WORKER-STARTUP');
+console.log(`[MEMORY-CONFIG] MAX_JOBS_PER_PROCESS = ${MAX_JOBS_PER_PROCESS}`);
 
 // ---------- Importar pipeline completo para análise REAL ----------
 let processAudioComplete = null;
@@ -317,8 +380,11 @@ async function initializeWorker() {
     // ⚙️ ETAPA 2: CONFIGURAR WORKER
     console.log('⚙️ [WORKER-INIT] Etapa 2: Configurando Worker BullMQ...');
     
-    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 6;
-    console.log(`🚀 [WORKER-INIT] Worker iniciado com concurrency = ${concurrency} (WORKER_CONCURRENCY=${process.env.WORKER_CONCURRENCY || 'não definida, usando fallback'})`);
+    // 🔧 MEMORY FIX: Forçar concurrency=1 para evitar leak de memória
+    // Isso garante que cada réplica processe apenas 1 job por vez
+    const concurrency = 1; // FIXADO para mitigação de memory leak
+    console.log(`🚀 [WORKER-INIT] Worker iniciado com concurrency = ${concurrency} (FORÇADO=1 para mitigação de memory leak)`);
+    console.log(`🚀 [WORKER-INIT] MAX_JOBS_PER_PROCESS = ${MAX_JOBS_PER_PROCESS}`);
     
     // 🎯 CRIAR WORKER COM CONEXÃO ESTABELECIDA
     // ⚙️ PARTE 2: Worker com configuração otimizada e lockDuration aumentado
@@ -788,6 +854,15 @@ async function downloadFileFromBucket(fileKey) {
 async function processReferenceBase(job) {
   const { jobId, fileKey, fileName } = job.data;
   
+  // 🔧 IDEMPOTÊNCIA: Verificar se job já foi processado
+  if (processedJobIds.has(jobId)) {
+    console.warn(`[REFERENCE-BASE] ⚠️ Job ${jobId.substring(0, 8)} já processado - ignorando duplicação`);
+    return { status: 'skipped', reason: 'already_processed', jobId };
+  }
+  
+  // 🔍 INSTRUMENTAÇÃO: Log de memória no início do job
+  logMem('JOB-START-BASE', jobId);
+  
   console.log('');
   console.log('🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵');
   console.log('🔵 [REFERENCE-BASE] ⚡⚡⚡ FUNÇÃO CHAMADA! ⚡⚡⚡');
@@ -813,6 +888,9 @@ async function processReferenceBase(job) {
     // Ler buffer
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após carregar áudio
+    logMem('AFTER-AUDIO-LOAD-BASE', jobId);
 
     // Processar via pipeline (SEM genre, SEM suggestion engine)
     console.log('[REFERENCE-BASE] Iniciando pipeline...');
@@ -837,6 +915,10 @@ async function processReferenceBase(job) {
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após extrair features/FFT/métricas
+    logMem('AFTER-PIPELINE-BASE', jobId);
+    
     console.log('[REFERENCE-BASE] 🔍 Pipeline retornou:', {
       hasTechnicalData: !!finalJSON.technicalData,
       hasScore: finalJSON.score !== undefined,
@@ -914,8 +996,15 @@ async function processReferenceBase(job) {
     });
     
     try {
+      // 🔍 INSTRUMENTAÇÃO: Log antes de salvar
+      logMem('BEFORE-DB-SAVE-BASE', jobId);
+      
       await updateJobStatus(jobId, 'completed', finalJSON);
       console.log('[REFERENCE-BASE] ✅ Status COMPLETED salvo no banco com sucesso!');
+      
+      // 🔍 INSTRUMENTAÇÃO: Log após salvar
+      logMem('AFTER-DB-SAVE-BASE', jobId);
+      
     } catch (dbError) {
       console.error('[DB-SAVE-ERROR][REFERENCE-BASE] ❌ Falha ao salvar no Postgres:', dbError.message);
       console.warn('[DB-SAVE-ERROR][REFERENCE-BASE] 🔄 Tentando fallback: salvar no Redis...');
@@ -943,10 +1032,26 @@ async function processReferenceBase(job) {
       fs.unlinkSync(localFilePath);
     }
 
+    // 🔍 INSTRUMENTAÇÃO: Log final antes de retornar
+    logMem('JOB-END-BASE', jobId);
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados
+    jobsProcessed++;
+    console.log(`[REFERENCE-BASE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
+
     return finalJSON;
 
   } catch (error) {
     console.error('[REFERENCE-BASE] ❌ Erro:', error.message);
+    
+    // 🔍 INSTRUMENTAÇÃO: Log em caso de erro
+    logMem('JOB-ERROR-BASE', jobId);
 
     // Limpar arquivo temporário em caso de erro
     if (localFilePath && fs.existsSync(localFilePath)) {
@@ -958,6 +1063,16 @@ async function processReferenceBase(job) {
       mode: 'reference',
       referenceStage: 'base'
     });
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado (mesmo com erro)
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados (mesmo com erro)
+    jobsProcessed++;
+    console.log(`[REFERENCE-BASE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
 
     throw error;
   }
@@ -975,6 +1090,15 @@ async function processReferenceBase(job) {
  */
 async function processReferenceCompare(job) {
   const { jobId, fileKey, fileName, referenceJobId } = job.data;
+
+  // 🔒 IDEMPOTÊNCIA: Verificar se job já foi processado
+  if (processedJobIds.has(jobId)) {
+    console.warn(`[REFERENCE-COMPARE] ⚠️ Job ${jobId.substring(0, 8)} já processado - ignorando duplicação`);
+    return { status: 'skipped', reason: 'already_processed', jobId };
+  }
+  
+  // 🔍 INSTRUMENTAÇÃO: Log de memória no início do job
+  logMem('JOB-START-COMPARE', jobId);
 
   console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
   console.log('[REFERENCE-COMPARE] Processando 2ª música (COMPARE)');
@@ -1021,6 +1145,9 @@ async function processReferenceCompare(job) {
     // ETAPA 3: Ler buffer e processar
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após carregar áudio
+    logMem('AFTER-AUDIO-LOAD-COMPARE', jobId);
 
     console.log('[REFERENCE-COMPARE] Iniciando pipeline...');
     const t0 = Date.now();
@@ -1035,6 +1162,9 @@ async function processReferenceCompare(job) {
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após extrair features/FFT/métricas
+    logMem('AFTER-PIPELINE-COMPARE', jobId);
 
     // ETAPA 4: Calcular referenceComparison (deltas)
     console.log('[REFERENCE-COMPARE] Calculando deltas...');
@@ -1154,18 +1284,40 @@ async function processReferenceCompare(job) {
     console.log('[REFERENCE-COMPARE] Compare LUFS:', compareTech.lufsIntegrated || 'N/A');
     console.log('[REFERENCE-COMPARE] Delta LUFS:', referenceComparison.deltas.lufsIntegrated.toFixed(2));
 
+    // 🔍 INSTRUMENTAÇÃO: Log antes de salvar
+    logMem('BEFORE-DB-SAVE-COMPARE', jobId);
+
     // ETAPA 7: Salvar como COMPLETED
     await updateJobStatus(jobId, 'completed', finalJSON);
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após salvar
+    logMem('AFTER-DB-SAVE-COMPARE', jobId);
 
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }
 
+    // 🔍 INSTRUMENTAÇÃO: Log final antes de retornar
+    logMem('JOB-END-COMPARE', jobId);
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados
+    jobsProcessed++;
+    console.log(`[REFERENCE-COMPARE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
+
     return finalJSON;
 
   } catch (error) {
     console.error('[REFERENCE-COMPARE] ❌ Erro:', error.message);
+    
+    // 🔍 INSTRUMENTAÇÃO: Log em caso de erro
+    logMem('JOB-ERROR-COMPARE', jobId);
 
     // Limpar arquivo temporário em caso de erro
     if (localFilePath && fs.existsSync(localFilePath)) {
@@ -1178,6 +1330,16 @@ async function processReferenceCompare(job) {
       referenceStage: 'compare',
       referenceJobId
     });
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado (mesmo com erro)
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados (mesmo com erro)
+    jobsProcessed++;
+    console.log(`[REFERENCE-COMPARE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
 
     throw error;
   }
@@ -1243,6 +1405,15 @@ async function audioProcessor(job) {
   // ══════════════════════════════════════════════════════════════════════════════
   // 🎵 GENRE MODE: LÓGICA ORIGINAL (INALTERADA)
   // ══════════════════════════════════════════════════════════════════════════════
+  
+  // 🔒 IDEMPOTÊNCIA: Verificar se job já foi processado (para GENRE mode)
+  if (processedJobIds.has(jobId)) {
+    console.warn(`[WORKER][GENRE] ⚠️ Job ${jobId.substring(0, 8)} já processado - ignorando duplicação`);
+    return { status: 'skipped', reason: 'already_processed', jobId };
+  }
+  
+  // 🔍 INSTRUMENTAÇÃO: Log de memória no início do job GENRE
+  logMem('JOB-START-GENRE', jobId);
   
   // 🎯 EXTRAÇÃO CRÍTICA: planContext (CORREÇÃO PARA PLANOS)
   let extractedPlanContext = null;
@@ -1337,6 +1508,9 @@ async function audioProcessor(job) {
     // Ler arquivo para buffer
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após carregar áudio
+    logMem('AFTER-AUDIO-LOAD-GENRE', jobId);
 
     const t0 = Date.now();
     
@@ -1363,6 +1537,10 @@ async function audioProcessor(job) {
     const totalMs = Date.now() - t0;
     
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após extrair features/FFT/métricas
+    logMem('AFTER-PIPELINE-GENRE', jobId);
+    
     console.log('[WORKER][GENRE] LUFS:', finalJSON.technicalData?.lufsIntegrated || 'N/A');
     console.log('[WORKER][GENRE] Score:', finalJSON.score || 0);
     
@@ -1452,7 +1630,13 @@ async function audioProcessor(job) {
     
     console.log('[WORKER][GENRE] ✅ JSON validado - salvando como completed');
     
+    // 🔍 INSTRUMENTAÇÃO: Log antes de salvar
+    logMem('BEFORE-DB-SAVE-GENRE', jobId);
+    
     await updateJobStatus(jobId, 'completed', finalJSON);
+    
+    // 🔍 INSTRUMENTAÇÃO: Log após salvar
+    logMem('AFTER-DB-SAVE-GENRE', jobId);
     
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
@@ -1466,12 +1650,28 @@ async function audioProcessor(job) {
       aiSuggestions: finalJSON.aiSuggestions?.length || 0
     });
 
+    // 🔍 INSTRUMENTAÇÃO: Log final antes de retornar
+    logMem('JOB-END-GENRE', jobId);
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados
+    jobsProcessed++;
+    console.log(`[WORKER][GENRE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
+
     return finalJSON;
 
   } catch (error) {
     console.error('[WORKER][GENRE] ❌ Erro:', error.message);
     
-    // 🔥 RETORNO DE SEGURANÇA
+    // � INSTRUMENTAÇÃO: Log em caso de erro
+    logMem('JOB-ERROR-GENRE', jobId);
+    
+    // �🔥 RETORNO DE SEGURANÇA
     const errorResult = {
       status: 'error',
       error: {
@@ -1520,6 +1720,16 @@ async function audioProcessor(job) {
         console.error('[WORKER][GENRE] ❌ Erro ao limpar arquivo:', cleanupError.message);
       }
     }
+    
+    // 🔒 IDEMPOTÊNCIA: Marcar job como processado (mesmo com erro)
+    processedJobIds.add(jobId);
+    
+    // 📊 CONTADOR: Incrementar jobs processados (mesmo com erro)
+    jobsProcessed++;
+    console.log(`[WORKER][GENRE] 📊 Jobs processados neste processo: ${jobsProcessed}/${MAX_JOBS_PER_PROCESS}`);
+    
+    // ♻️ RECYCLE: Verificar se precisa reciclar o processo
+    await recycleProcessIfNeeded(jobId);
     
     throw error;
   }

@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Do Beat ao Hit - Produção de Funk Profissional | DJ Corrêa</title>
-    <meta name="description" content="Transforme seus beats em hits profissionais de Funk. Curso completo de produção musical com DJ Corrêa.">
-    
+    <title>DO BEAT AO HIT – TRANSFORME SUAS PRODUÇÕES</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -14,516 +15,522 @@
         }
 
         :root {
-            --primary-purple: #8B3FFF;
-            --secondary-blue: #00D9FF;
-            --neon-blue: #00F0FF;
-            --dark-bg: #0A0A0F;
-            --darker-bg: #05050A;
-            --card-bg: rgba(20, 20, 35, 0.8);
-            --text-primary: #FFFFFF;
-            --text-secondary: #B8B8D4;
-            --gradient-primary: linear-gradient(135deg, #8B3FFF 0%, #00D9FF 100%);
-            --gradient-hover: linear-gradient(135deg, #A05FFF 0%, #20E9FF 100%);
-        }
-
-        html {
-            scroll-behavior: smooth;
+            --primary: #00d4ff;
+            --secondary: #5b00ff;
+            --accent: #00fff5;
+            --dark-blue: #0a1628;
+            --purple-dark: #1a0033;
+            --cyan: #00f5ff;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: var(--dark-bg);
-            color: var(--text-primary);
-            line-height: 1.6;
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0014;
+            color: #ffffff;
             overflow-x: hidden;
         }
 
-        /* Background Animation */
-        .bg-animation {
+        /* ================ BACKGROUND DINÂMICO ================ */
+        .animated-background {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
+            background: linear-gradient(135deg, 
+                #0a1628 0%, 
+                #1a0033 25%, 
+                #0066ff 50%, 
+                #00d4ff 75%, 
+                #5b00ff 100%);
+            background-size: 400% 400%;
+            animation: gradientFlow 20s ease infinite;
+            z-index: -10;
+        }
+
+        @keyframes gradientFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 50%, 
+                rgba(10, 0, 20, 0.6) 0%, 
+                rgba(10, 0, 20, 0.85) 50%,
+                rgba(10, 0, 20, 0.95) 100%);
+            z-index: -9;
+        }
+
+        .halftone {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+                radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+            background-size: 50px 50px, 30px 30px;
+            background-position: 0 0, 25px 25px;
+            z-index: -8;
             opacity: 0.4;
-            background: 
-                radial-gradient(circle at 20% 50%, rgba(139, 63, 255, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(0, 217, 255, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(139, 63, 255, 0.1) 0%, transparent 40%);
         }
 
-        /* Container */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
+        /* ================ LINHAS DECORATIVAS ================ */
+        .scan-lines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(255, 255, 255, 0.03) 0px,
+                transparent 1px,
+                transparent 2px,
+                rgba(255, 255, 255, 0.03) 3px
+            );
+            z-index: -7;
+            pointer-events: none;
         }
 
-        /* Header/Hero Section */
+        /* ================ FORMAS GEOMÉTRICAS FLUTUANTES ================ */
+        .floating-shapes {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .hexagon {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, 
+                rgba(0, 102, 255, 0.15), 
+                rgba(0, 245, 255, 0.15));
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            animation: floatHex 12s infinite ease-in-out;
+        }
+
+        .hex-1 { top: 10%; left: 5%; animation-delay: 0s; width: 100px; height: 100px; }
+        .hex-2 { top: 60%; right: 5%; animation-delay: 2s; width: 150px; height: 150px; }
+        .hex-3 { top: 30%; right: 15%; animation-delay: 4s; width: 80px; height: 80px; }
+        .hex-4 { bottom: 10%; left: 10%; animation-delay: 1s; width: 110px; height: 110px; }
+
+        @keyframes floatHex {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+            50% { transform: translateY(-40px) rotate(15deg); opacity: 1; }
+        }
+
+        .circle-deco {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border: 3px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            animation: pulseDeco 4s infinite ease-in-out;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+        }
+
+        .deco-1 { top: 15%; left: 8%; animation-delay: 0.5s; }
+        .deco-2 { top: 65%; right: 8%; animation-delay: 1.5s; }
+
+        @keyframes pulseDeco {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(0, 245, 255, 0.4); }
+            50% { transform: scale(1.15); box-shadow: 0 0 50px rgba(0, 245, 255, 0.8); }
+        }
+
+        /* ================ NAVBAR ================ */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 30px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 0, 30, 0.4);
+            backdrop-filter: blur(25px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 1000;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 45px;
+            list-style: none;
+        }
+
+        .nav-menu a {
+            color: rgba(255, 255, 255, 0.85);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .nav-menu a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.4s ease;
+            box-shadow: 0 0 10px var(--cyan);
+        }
+
+        .nav-menu a:hover {
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 245, 255, 0.8);
+        }
+
+        .nav-menu a:hover::after {
+            width: 100%;
+        }
+
+        /* ================ HERO SECTION ================ */
         .hero {
             min-height: 100vh;
             display: flex;
             align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 60px 20px;
+            padding: 140px 60px 60px;
             position: relative;
-            overflow: hidden;
+            z-index: 1;
         }
 
-        .hero::before {
+        .hero-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-subtitle {
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--cyan);
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(0, 245, 255, 0.6);
+        }
+
+        .hero-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(3rem, 7vw, 5.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .title-line-1 {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            animation: glowBlue 3s ease-in-out infinite;
+        }
+
+        .title-line-2 {
+            color: #ffffff;
+            display: block;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes glowBlue {
+            0%, 100% { filter: brightness(1) drop-shadow(0 0 20px rgba(0, 212, 255, 0.6)); }
+            50% { filter: brightness(1.3) drop-shadow(0 0 40px rgba(0, 212, 255, 1)); }
+        }
+
+        .hero-description {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.85);
+            margin: 30px 0 40px;
+            max-width: 600px;
+        }
+
+        .hero-highlights {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .highlight-badge {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 245, 255, 0.3);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .highlight-badge:hover {
+            transform: translateX(10px);
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+            background: rgba(0, 245, 255, 0.08);
+        }
+
+        /* ================ HERO IMAGE (HEXAGONAL) ================ */
+        .hero-visual {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hex-frame {
+            width: 500px;
+            height: 500px;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            position: relative;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 4px;
+            animation: rotateHexFrame 20s linear infinite;
+            filter: drop-shadow(0 0 40px rgba(0, 212, 255, 0.6));
+        }
+
+        .hex-inner {
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            background: url('/fotocurso/1.jpeg') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(0px);
+        }
+
+        @keyframes rotateHexFrame {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .floating-icons {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .icon-circle {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(0, 102, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border: 3px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            animation: floatIcon 6s infinite ease-in-out;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+        }
+
+        .icon-1 { top: 5%; left: 5%; animation-delay: 0s; }
+        .icon-2 { bottom: 10%; right: 5%; animation-delay: 1s; background: rgba(91, 0, 255, 0.15); border-color: var(--secondary); box-shadow: 0 0 30px rgba(91, 0, 255, 0.5); }
+        .icon-3 { top: 50%; left: -5%; animation-delay: 2s; background: rgba(0, 245, 255, 0.15); border-color: var(--cyan); box-shadow: 0 0 30px rgba(0, 245, 255, 0.5); }
+
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+        }
+
+        /* ================ BOTÃO CTA IMPACTANTE ================ */
+        .cta-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            padding: 22px 50px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--primary), var(--secondary), #0066ff);
+            background-size: 200% 200%;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            letter-spacing: 2px;
+            box-shadow: 0 15px 50px rgba(0, 212, 255, 0.5);
+            transition: all 0.4s ease;
+            animation: bgSlide 3s ease infinite;
+        }
+
+        @keyframes bgSlide {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .cta-primary::before {
             content: '';
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 800px;
-            height: 800px;
-            background: radial-gradient(circle, rgba(139, 63, 255, 0.3) 0%, transparent 70%);
-            filter: blur(100px);
-            animation: pulse 4s ease-in-out infinite;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transition: width 0.6s ease, height 0.6s ease;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.1); }
+        .cta-primary:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 20px 60px rgba(0, 212, 255, 0.8), 0 0 50px rgba(91, 0, 255, 0.6);
         }
 
-        .hero-content {
+        .cta-primary:hover::before {
+            width: 500px;
+            height: 500px;
+        }
+
+        /* ================ SEÇÃO DO MERCADO ================ */
+        .market-section {
+            padding: 120px 60px;
             position: relative;
             z-index: 1;
-            max-width: 900px;
+            background: rgba(10, 0, 30, 0.4);
+            backdrop-filter: blur(20px);
+        }
+
+        .market-content {
+            max-width: 1100px;
             margin: 0 auto;
-        }
-
-        .hero-badge {
-            display: inline-block;
-            padding: 8px 20px;
-            background: rgba(139, 63, 255, 0.2);
-            border: 1px solid var(--primary-purple);
-            border-radius: 30px;
-            font-size: 0.9rem;
-            color: var(--neon-blue);
-            margin-bottom: 20px;
-            animation: fadeInDown 0.8s ease-out;
-        }
-
-        .hero h1 {
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 20px;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: fadeInUp 0.8s ease-out 0.2s backwards;
-        }
-
-        .hero p {
-            font-size: clamp(1.1rem, 2vw, 1.4rem);
-            color: var(--text-secondary);
-            margin-bottom: 40px;
-            animation: fadeInUp 0.8s ease-out 0.4s backwards;
-        }
-
-        .cta-button {
-            display: inline-block;
-            padding: 18px 45px;
-            background: var(--gradient-primary);
-            color: white;
-            font-size: 1.1rem;
-            font-weight: 700;
-            text-decoration: none;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 40px rgba(139, 63, 255, 0.4);
-            animation: fadeInUp 0.8s ease-out 0.6s backwards;
-            border: none;
-            cursor: pointer;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 50px rgba(139, 63, 255, 0.6);
-            background: var(--gradient-hover);
-        }
-
-        /* Section Styles */
-        section {
-            padding: 100px 20px;
-            position: relative;
-        }
-
-        .section-header {
             text-align: center;
-            margin-bottom: 60px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s ease;
         }
 
-        .section-header.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .section-header h2 {
-            font-size: clamp(2rem, 4vw, 3rem);
-            margin-bottom: 15px;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .section-header p {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
-        }
-
-        /* Problem Section */
-        .problem-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 50px;
-        }
-
-        .problem-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 63, 255, 0.2);
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .problem-card.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .problem-card:hover {
-            transform: translateY(-10px);
-            border-color: var(--primary-purple);
-            box-shadow: 0 20px 40px rgba(139, 63, 255, 0.3);
-        }
-
-        .problem-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-
-        .problem-card h3 {
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-            color: var(--text-primary);
-        }
-
-        .problem-card p {
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* Solution Section */
-        .solution-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-            margin-top: 50px;
-        }
-
-        .solution-text {
-            opacity: 0;
-            transform: translateX(-30px);
-            transition: all 0.8s ease;
-        }
-
-        .solution-text.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .solution-text h3 {
-            font-size: 2rem;
-            margin-bottom: 20px;
-            color: var(--neon-blue);
-        }
-
-        .solution-text p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
+        .market-text {
+            font-size: 1.3rem;
+            line-height: 2;
+            color: rgba(255, 255, 255, 0.9);
             margin-bottom: 30px;
-            line-height: 1.8;
         }
 
-        .solution-features {
-            display: grid;
-            gap: 15px;
+        .market-text strong {
+            color: var(--primary);
+            font-weight: 700;
         }
 
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 15px;
-            background: rgba(139, 63, 255, 0.1);
-            border-radius: 10px;
-            border-left: 3px solid var(--primary-purple);
-        }
-
-        .feature-item::before {
-            content: '✓';
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            background: var(--gradient-primary);
-            border-radius: 50%;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-
-        .solution-visual {
-            opacity: 0;
-            transform: translateX(30px);
-            transition: all 0.8s ease;
-        }
-
-        .solution-visual.visible {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        .visual-box {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 217, 255, 0.3);
+        .market-highlight {
+            background: rgba(0, 212, 255, 0.08);
+            border: 2px solid rgba(0, 212, 255, 0.3);
             border-radius: 20px;
+            padding: 35px;
+            margin: 30px 0;
+            backdrop-filter: blur(15px);
+        }
+
+        /* ================ SEÇÃO DE TRANSFORMAÇÃO ================ */
+        .transformation {
+            padding: 120px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            text-align: center;
+            text-transform: uppercase;
+            margin-bottom: 80px;
+            line-height: 1.2;
+        }
+
+        .section-title .gradient-text {
+            background: linear-gradient(135deg, var(--cyan), var(--secondary), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+        }
+
+        .transformation-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 50px;
+        }
+
+        .transform-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 30px;
             padding: 50px;
             text-align: center;
             position: relative;
             overflow: hidden;
+            transition: all 0.5s ease;
         }
 
-        .visual-box::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--gradient-primary);
-        }
-
-        .visual-box h4 {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            color: var(--neon-blue);
-        }
-
-        .visual-box .big-number {
-            font-size: 4rem;
-            font-weight: 800;
-            background: var(--gradient-primary);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin: 20px 0;
-        }
-
-        /* Learning Modules */
-        .modules-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 30px;
-            margin-top: 50px;
-        }
-
-        .module-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 63, 255, 0.2);
-            border-radius: 20px;
-            padding: 40px 30px;
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: scale(0.9);
-        }
-
-        .module-card.visible {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .module-card:hover {
-            border-color: var(--neon-blue);
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0, 217, 255, 0.3);
-        }
-
-        .module-number {
-            display: inline-block;
-            width: 50px;
-            height: 50px;
-            background: var(--gradient-primary);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 800;
-            margin-bottom: 20px;
-        }
-
-        .module-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: var(--text-primary);
-        }
-
-        .module-card p {
-            color: var(--text-secondary);
-            line-height: 1.7;
-        }
-
-        /* Author Section */
-        .author-section {
-            background: linear-gradient(135deg, rgba(139, 63, 255, 0.1) 0%, rgba(0, 217, 255, 0.1) 100%);
-            border-radius: 30px;
-            padding: 80px 60px;
-            margin-top: 50px;
-            display: flex;
-            align-items: center;
-            gap: 60px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s ease;
-        }
-
-        .author-section.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .author-image {
-            flex-shrink: 0;
-        }
-
-        .author-image-placeholder {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 4rem;
-            border: 5px solid rgba(139, 63, 255, 0.3);
-            box-shadow: 0 20px 60px rgba(139, 63, 255, 0.4);
-        }
-
-        .author-content h3 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: var(--neon-blue);
-        }
-
-        .author-content h4 {
-            font-size: 1.2rem;
-            color: var(--primary-purple);
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
-
-        .author-content p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-        }
-
-        /* Proof Section */
-        .proof-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 30px;
-            margin-top: 50px;
-        }
-
-        .proof-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 217, 255, 0.2);
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .proof-card.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .proof-card:hover {
-            border-color: var(--neon-blue);
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(0, 217, 255, 0.3);
-        }
-
-        .proof-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-        }
-
-        .proof-card h4 {
-            font-size: 1.3rem;
-            margin-bottom: 10px;
-            color: var(--neon-blue);
-        }
-
-        .proof-card p {
-            color: var(--text-secondary);
-        }
-
-        /* Offer Section */
-        .offer-box {
-            background: linear-gradient(135deg, rgba(139, 63, 255, 0.2) 0%, rgba(0, 217, 255, 0.2) 100%);
-            border: 2px solid var(--primary-purple);
-            border-radius: 30px;
-            padding: 80px 60px;
-            text-align: center;
-            margin-top: 50px;
-            position: relative;
-            overflow: hidden;
-            opacity: 0;
-            transform: scale(0.95);
-            transition: all 0.8s ease;
-        }
-
-        .offer-box.visible {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .offer-box::before {
+        .transform-card::before {
             content: '';
             position: absolute;
             top: -50%;
             left: -50%;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle, rgba(139, 63, 255, 0.1) 0%, transparent 70%);
-            animation: rotate 10s linear infinite;
+            background: conic-gradient(from 0deg, transparent, var(--primary), transparent);
+            animation: rotate 6s linear infinite;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .transform-card:hover::before {
+            opacity: 0.3;
         }
 
         @keyframes rotate {
@@ -531,657 +538,793 @@
             to { transform: rotate(360deg); }
         }
 
-        .offer-content {
+        .transform-card:hover {
+            transform: translateY(-15px);
+            border-color: rgba(0, 212, 255, 0.5);
+            box-shadow: 0 25px 70px rgba(0, 212, 255, 0.4);
+        }
+
+        .transform-icon {
+            font-size: 5rem;
+            margin-bottom: 25px;
+            display: block;
             position: relative;
             z-index: 1;
         }
 
-        .offer-badge {
-            display: inline-block;
-            padding: 10px 30px;
-            background: var(--gradient-primary);
-            border-radius: 30px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            font-size: 1rem;
+        .transform-card.before .transform-icon {
+            filter: grayscale(100%) opacity(0.5);
         }
 
-        .offer-box h3 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
+        .transform-card.after .transform-icon {
+            filter: drop-shadow(0 0 30px var(--cyan));
         }
 
-        .offer-box .price {
-            font-size: 3rem;
-            font-weight: 800;
-            background: var(--gradient-primary);
+        .transform-label {
+            font-size: 2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .transform-card.before .transform-label {
+            color: #ff4444;
+            text-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+        }
+
+        .transform-card.after .transform-label {
+            background: linear-gradient(135deg, var(--cyan), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin: 30px 0;
         }
 
-        .offer-features {
-            text-align: left;
-            max-width: 600px;
-            margin: 40px auto;
+        .transform-text {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.8);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ================ MÓDULOS DO CURSO ================ */
+        .modules {
+            padding: 120px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .modules-grid {
+            max-width: 1400px;
+            margin: 0 auto;
             display: grid;
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 35px;
         }
 
-        .offer-features li {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            font-size: 1.1rem;
-            padding: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-        }
-
-        .offer-features li::before {
-            content: '✓';
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            background: var(--gradient-primary);
-            border-radius: 50%;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-
-        /* Guarantee Section */
-        .guarantee-box {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(0, 217, 255, 0.3);
+        .module-card {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 245, 255, 0.2);
             border-radius: 20px;
-            padding: 50px;
-            text-align: center;
-            margin-top: 50px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s ease;
-        }
-
-        .guarantee-box.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .guarantee-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-        }
-
-        .guarantee-box h3 {
-            font-size: 2rem;
-            margin-bottom: 15px;
-            color: var(--neon-blue);
-        }
-
-        .guarantee-box p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-        }
-
-        /* FAQ Section */
-        .faq-container {
-            max-width: 800px;
-            margin: 50px auto 0;
-        }
-
-        .faq-item {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 63, 255, 0.2);
-            border-radius: 15px;
-            margin-bottom: 20px;
+            padding: 35px;
+            transition: all 0.4s ease;
+            position: relative;
             overflow: hidden;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s ease;
         }
 
-        .faq-item.visible {
-            opacity: 1;
-            transform: translateY(0);
+        .module-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+            transition: left 0.6s ease;
         }
 
-        .faq-question {
-            padding: 25px 30px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 1.2rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
+        .module-card:hover::after {
+            left: 100%;
         }
 
-        .faq-question:hover {
-            color: var(--neon-blue);
+        .module-card:hover {
+            transform: translateY(-10px) translateX(5px);
+            border-color: var(--cyan);
+            box-shadow: 0 15px 50px rgba(0, 245, 255, 0.3);
+            background: rgba(0, 245, 255, 0.05);
         }
 
-        .faq-question::after {
-            content: '+';
-            font-size: 2rem;
-            font-weight: 300;
-            transition: transform 0.3s ease;
-        }
-
-        .faq-item.active .faq-question::after {
-            transform: rotate(45deg);
-        }
-
-        .faq-answer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-
-        .faq-answer-content {
-            padding: 0 30px 25px;
-            color: var(--text-secondary);
-            line-height: 1.8;
-        }
-
-        .faq-item.active .faq-answer {
-            max-height: 300px;
-        }
-
-        /* Final CTA */
-        .final-cta {
-            background: linear-gradient(135deg, rgba(139, 63, 255, 0.15) 0%, rgba(0, 217, 255, 0.15) 100%);
-            border-radius: 30px;
-            padding: 100px 60px;
-            text-align: center;
-            margin-top: 50px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.8s ease;
-        }
-
-        .final-cta.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .final-cta h2 {
-            font-size: clamp(2rem, 4vw, 3rem);
+        .module-icon {
+            font-size: 3rem;
             margin-bottom: 20px;
-        }
-
-        .final-cta p {
-            font-size: 1.3rem;
-            color: var(--text-secondary);
-            margin-bottom: 40px;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* Footer */
-        footer {
-            padding: 40px 20px;
-            text-align: center;
-            border-top: 1px solid rgba(139, 63, 255, 0.2);
-            color: var(--text-secondary);
-        }
-
-        /* Floating CTA (Mobile) */
-        .floating-cta {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: none;
-            animation: slideUp 0.5s ease-out;
-        }
-
-        .floating-cta.show {
             display: block;
         }
 
-        @keyframes slideUp {
-            from {
-                transform: translateX(-50%) translateY(100px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(-50%) translateY(0);
-                opacity: 1;
-            }
+        .module-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--cyan);
+            margin-bottom: 15px;
+            letter-spacing: 1px;
         }
 
-        /* Animations */
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .module-desc {
+            color: rgba(255, 255, 255, 0.75);
+            line-height: 1.7;
         }
 
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* ================ PROVAS SOCIAIS ================ */
+        .social-proof {
+            padding: 120px 60px;
+            background: rgba(10, 0, 30, 0.5);
+            backdrop-filter: blur(20px);
+            position: relative;
+            z-index: 1;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            section {
-                padding: 60px 20px;
-            }
+        .carousel {
+            max-width: 1000px;
+            margin: 60px auto 0;
+            position: relative;
+        }
 
-            .solution-content {
+        .carousel-track {
+            display: flex;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 25px;
+            overflow: hidden;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 25px;
+            padding: 50px;
+            text-align: center;
+        }
+
+        .carousel-slide img {
+            max-width: 100%;
+            max-height: 600px;
+            width: auto;
+            height: auto;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            transition: all 0.4s ease;
+        }
+
+        .carousel-slide:hover img {
+            transform: scale(1.03);
+            box-shadow: 0 25px 80px rgba(0, 212, 255, 0.5);
+        }
+
+        .carousel-controls {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-top: 40px;
+        }
+
+        .carousel-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.1);
+            border: 3px solid var(--primary);
+            color: var(--primary);
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .carousel-btn:hover {
+            background: var(--primary);
+            color: #fff;
+            transform: scale(1.15);
+            box-shadow: 0 0 40px rgba(0, 212, 255, 0.8);
+        }
+
+        .social-proof-text {
+            text-align: center;
+            font-size: 1.3rem;
+            line-height: 1.9;
+            color: rgba(255, 255, 255, 0.85);
+            max-width: 900px;
+            margin: 50px auto 0;
+        }
+
+        /* ================ AUTORIDADE ================ */
+        .authority {
+            padding: 120px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .authority-card {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px);
+            border: 2px solid rgba(0, 212, 255, 0.4);
+            border-radius: 35px;
+            padding: 70px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .authority-card::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: radial-gradient(circle, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+            animation: rotateGlow 15s linear infinite;
+        }
+
+        .authority-photo {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+            position: relative;
+            z-index: 1;
+        }
+
+        .authority-content {
+            text-align: left;
+        }
+
+        @keyframes rotateGlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .authority-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--secondary), var(--primary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .authority-bio {
+            font-size: 1.3rem;
+            line-height: 1.9;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .authority-highlight {
+            font-size: 1.4rem;
+            font-weight: 600;
+            padding: 30px;
+            background: rgba(0, 212, 255, 0.15);
+            border-radius: 20px;
+            border: 2px solid rgba(0, 212, 255, 0.4);
+            margin-top: 40px;
+            position: relative;
+            z-index: 1;
+            color: #ffffff;
+        }
+
+        /* ================ BENEFÍCIOS ================ */
+        .benefits {
+            padding: 120px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .benefits-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .benefit-item {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 245, 255, 0.25);
+            border-radius: 18px;
+            padding: 30px;
+            display: flex;
+            align-items: flex-start;
+            gap: 18px;
+            transition: all 0.4s ease;
+        }
+
+        .benefit-item:hover {
+            transform: translateY(-8px);
+            border-color: var(--cyan);
+            background: rgba(0, 245, 255, 0.05);
+            box-shadow: 0 15px 40px rgba(0, 245, 255, 0.25);
+        }
+
+        .benefit-icon {
+            font-size: 1.8rem;
+            flex-shrink: 0;
+            filter: drop-shadow(0 0 10px var(--cyan));
+        }
+
+        .benefit-text {
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.7;
+            font-size: 1.05rem;
+        }
+
+        /* ================ CTA FINAL ================ */
+        .final-cta {
+            padding: 150px 60px;
+            background: rgba(10, 0, 30, 0.6);
+            backdrop-filter: blur(30px);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .final-cta::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 212, 255, 0.15) 0%, transparent 70%);
+            animation: pulseBg 6s infinite ease-in-out;
+        }
+
+        @keyframes pulseBg {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        .final-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--primary), var(--cyan), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .final-text {
+            font-size: 1.4rem;
+            line-height: 1.9;
+            color: rgba(255, 255, 255, 0.85);
+            max-width: 800px;
+            margin: 0 auto 50px;
+        }
+
+        /* ================ RESPONSIVO ================ */
+        @media (max-width: 1024px) {
+            .hero-container {
                 grid-template-columns: 1fr;
-                gap: 40px;
+                gap: 60px;
             }
 
-            .author-section {
-                flex-direction: column;
+            .hex-frame {
+                width: 400px;
+                height: 400px;
+            }
+
+            .transformation-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .authority-card {
+                grid-template-columns: 1fr;
                 text-align: center;
-                padding: 50px 30px;
             }
 
-            .offer-box,
-            .guarantee-box,
-            .final-cta {
-                padding: 50px 30px;
+            .authority-content {
+                text-align: center;
+            }
             }
 
-            .offer-features {
-                margin: 30px 0;
+            .hero-title {
+                font-size: 2.5rem;
             }
 
-            .floating-cta {
-                width: 90%;
+            .hex-frame {
+                width: 320px;
+                height: 320px;
             }
 
-            .floating-cta .cta-button {
-                width: 100%;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .hero {
-                padding: 40px 20px;
+            .transformation, .modules, .social-proof, .authority, .benefits, .final-cta {
+                padding: 80px 30px;
             }
 
-            .problem-grid,
-            .modules-grid,
-            .proof-grid {
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .modules-grid {
                 grid-template-columns: 1fr;
             }
 
-            .cta-button {
-                padding: 15px 35px;
-                font-size: 1rem;
+            .hero-highlights {
+                grid-template-columns: 1fr;
             }
+        }
+
+        /* ================ SCROLLBAR ================ */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0014;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--cyan), var(--secondary));
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.8);
+        }
+
+        /* ================ ANIMAÇÃO DE ENTRADA ================ */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(60px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
-    <div class="bg-animation"></div>
+    <!-- BACKGROUNDS -->
+    <div class="animated-background"></div>
+    <div class="overlay"></div>
+    <div class="halftone"></div>
+    <div class="scan-lines"></div>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <div class="hero-badge">🎵 Curso Completo de Produção Musical</div>
-            <h1>Do Beat ao Hit:<br>Produção de Funk Profissional</h1>
-            <p>Transforme seus beats amadores em hits profissionais.<br>Domine produção, mixagem, melodias e finalização com método técnico e criativo.</p>
-            <a href="#oferta" class="cta-button">Quero Produzir Funk Profissional</a>
-        </div>
-    </section>
-
-    <!-- Problem Section -->
-    <section id="problema">
-        <div class="container">
-            <div class="section-header">
-                <h2>Você Está Travado na Produção?</h2>
-                <p>Reconheça essas frustrações que impedem sua evolução</p>
-            </div>
-            <div class="problem-grid">
-                <div class="problem-card">
-                    <div class="problem-icon">😤</div>
-                    <h3>Som Fraco e Sem Peso</h3>
-                    <p>Seus beats não têm o impacto profissional que você ouve nas grandes produções.</p>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">🎚️</div>
-                    <h3>Mixagem Confusa</h3>
-                    <p>Não sabe equalizar, comprimir ou criar espaço na mix. Tudo parece embolado.</p>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">🎹</div>
-                    <h3>Melodias Sem Criatividade</h3>
-                    <p>Trava na hora de criar melodias envolventes e acaba usando sempre os mesmos padrões.</p>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">🏗️</div>
-                    <h3>Estrutura Desorganizada</h3>
-                    <p>Não sabe como estruturar uma música completa do começo ao fim.</p>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">🎤</div>
-                    <h3>Vocais Mal Tratados</h3>
-                    <p>Não consegue fazer a voz encaixar na produção de forma profissional.</p>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">⏱️</div>
-                    <h3>Demora Demais</h3>
-                    <p>Passa horas produzindo e não sai do lugar. Falta método e direção clara.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Solution Section -->
-    <section id="solucao">
-        <div class="container">
-            <div class="section-header">
-                <h2>A Solução Completa</h2>
-                <p>Método técnico e prático de produção de Funk profissional</p>
-            </div>
-            <div class="solution-content">
-                <div class="solution-text">
-                    <h3>Do Beat ao Hit</h3>
-                    <p>Este não é mais um curso genérico de produção. É um método completo focado especificamente em Funk moderno: Mandela, Automotivo Melódico, Bruxaria e todos os subgêneros que estão dominando o mercado.</p>
-                    <p>Você vai aprender do absoluto zero até a finalização profissional, com técnicas reais usadas por produtores de sucesso.</p>
-                    <div class="solution-features">
-                        <div class="feature-item">Produção do zero ao profissional</div>
-                        <div class="feature-item">Plugins e ferramentas corretas</div>
-                        <div class="feature-item">Melodias criativas e envolventes</div>
-                        <div class="feature-item">Tratamento de voz técnico</div>
-                        <div class="feature-item">Estruturação completa de beat</div>
-                        <div class="feature-item">Mixagem e masterização real</div>
-                    </div>
-                </div>
-                <div class="solution-visual">
-                    <div class="visual-box">
-                        <h4>Método Completo</h4>
-                        <div class="big-number">40+</div>
-                        <p>Aulas práticas e diretas ao ponto</p>
-                        <p style="margin-top: 20px; color: var(--neon-blue); font-weight: 600;">Do iniciante ao profissional</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Differential Section -->
-    <section id="diferencial">
-        <div class="container">
-            <div class="section-header">
-                <h2>O Que Torna Este Curso Único</h2>
-                <p>Diferenciais que você não encontra em outros lugares</p>
-            </div>
-            <div class="proof-grid">
-                <div class="proof-card">
-                    <div class="proof-icon">🎓</div>
-                    <h4>Mais de 40 Aulas</h4>
-                    <p>Conteúdo extenso e completo, do básico ao avançado</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">🎵</div>
-                    <h4>Focado em Funk Real</h4>
-                    <p>Não é genérico. Técnicas específicas para Funk moderno</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">🤖</div>
-                    <h4>Bônus: SoundyAI</h4>
-                    <p>Acesso à plataforma de IA para analisar suas músicas</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">⚡</div>
-                    <h4>Método Técnico + Criativo</h4>
-                    <p>Equilibra conhecimento técnico com criatividade prática</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Learning Modules -->
-    <section id="modulos">
-        <div class="container">
-            <div class="section-header">
-                <h2>O Que Você Vai Aprender</h2>
-                <p>Módulos práticos com foco em resultados reais</p>
-            </div>
-            <div class="modules-grid">
-                <div class="module-card">
-                    <div class="module-number">01</div>
-                    <h3>Beats Profissionais de Funk</h3>
-                    <p>Aprenda a criar batidas impactantes com peso e groove característico do Funk. Técnicas de drum programming e layering.</p>
-                </div>
-                <div class="module-card">
-                    <div class="module-number">02</div>
-                    <h3>Melodias Envolventes</h3>
-                    <p>Desenvolva melodias criativas que prendem a atenção. Harmonia, escalas e técnicas de composição para Funk.</p>
-                </div>
-                <div class="module-card">
-                    <div class="module-number">03</div>
-                    <h3>Tratamento de Vocais</h3>
-                    <p>Domine equalização, compressão, reverb e efeitos para vocais. Deixe a voz soando profissional e encaixada na mix.</p>
-                </div>
-                <div class="module-card">
-                    <div class="module-number">04</div>
-                    <h3>Mixagem Profissional</h3>
-                    <p>Aprenda a técnica real de mixagem: balanço, espaço, frequências, dinâmica e glue. Som limpo e potente.</p>
-                </div>
-                <div class="module-card">
-                    <div class="module-number">05</div>
-                    <h3>Masterização Final</h3>
-                    <p>Finalize suas músicas com loudness, clareza e competitividade comercial. Pronto para lançamento.</p>
-                </div>
-                <div class="module-card">
-                    <div class="module-number">06</div>
-                    <h3>Plugins e Ferramentas</h3>
-                    <p>Uso correto de plugins essenciais. Saiba quais usar, quando usar e como extrair o máximo de cada ferramenta.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Author Section -->
-    <section id="autor">
-        <div class="container">
-            <div class="section-header">
-                <h2>Quem Vai Te Ensinar</h2>
-                <p>Produtor profissional com mais de 10 anos de experiência</p>
-            </div>
-            <div class="author-section">
-                <div class="author-image">
-                    <div class="author-image-placeholder">🎧</div>
-                </div>
-                <div class="author-content">
-                    <h3>DJ Corrêa</h3>
-                    <h4>Produtor Musical & Criador da SoundyAI</h4>
-                    <p>Produtor musical há mais de 10 anos, especialista em mixagem, masterização e produção de Funk moderno. Criador da plataforma SoundyAI, ferramenta de análise musical com inteligência artificial. Já ajudou milhares de produtores a evoluírem com método técnico e prático. Formação em engenharia de áudio e experiência real com produções comerciais.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Proof Section -->
-    <section id="prova">
-        <div class="container">
-            <div class="section-header">
-                <h2>Garantia de Qualidade</h2>
-                <p>Você está investindo em conteúdo real e profissional</p>
-            </div>
-            <div class="proof-grid">
-                <div class="proof-card">
-                    <div class="proof-icon">✅</div>
-                    <h4>+40 Aulas Práticas</h4>
-                    <p>Conteúdo extenso e completo sem enrolação</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">🎯</div>
-                    <h4>Direto ao Ponto</h4>
-                    <p>Sem teoria desnecessária. Foco em resultado</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">🔥</div>
-                    <h4>Técnicas Reais</h4>
-                    <p>Métodos usados por produtores profissionais</p>
-                </div>
-                <div class="proof-card">
-                    <div class="proof-icon">♾️</div>
-                    <h4>Atualizações Futuras</h4>
-                    <p>Acesso vitalício com conteúdo sempre atualizado</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Offer Section -->
-    <section id="oferta">
-        <div class="container">
-            <div class="section-header">
-                <h2>Comece Sua Transformação Agora</h2>
-                <p>Tudo o que você precisa para produzir Funk profissional</p>
-            </div>
-            <div class="offer-box">
-                <div class="offer-content">
-                    <div class="offer-badge">OFERTA ESPECIAL</div>
-                    <h3>Do Beat ao Hit + Bônus SoundyAI</h3>
-                    <ul class="offer-features" style="list-style: none;">
-                        <li>✓ Curso completo com mais de 40 aulas</li>
-                        <li>✓ Acesso vitalício ao conteúdo</li>
-                        <li>✓ Bônus: Acesso à plataforma SoundyAI</li>
-                        <li>✓ Certificado de conclusão</li>
-                        <li>✓ Atualizações futuras incluídas</li>
-                        <li>✓ Suporte direto com o criador</li>
-                        <li>✓ Comunidade exclusiva de alunos</li>
-                    </ul>
-                    <a href="https://pay.hotmart.com/SEU_LINK_AQUI" class="cta-button" style="font-size: 1.3rem; padding: 20px 50px;">Garantir Minha Vaga Agora</a>
-                    <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-secondary);">✓ Pagamento 100% Seguro via Hotmart</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Guarantee Section -->
-    <section id="garantia">
-        <div class="container">
-            <div class="section-header">
-                <h2>Risco Zero Para Você</h2>
-                <p>Experimente sem compromisso</p>
-            </div>
-            <div class="guarantee-box">
-                <div class="guarantee-icon">🛡️</div>
-                <h3>Garantia de 7 Dias</h3>
-                <p>Você tem 7 dias para acessar todo o conteúdo, assistir as aulas, aplicar as técnicas e avaliar os resultados. Se por qualquer motivo você não ficar satisfeito, devolvemos 100% do seu investimento. Sem perguntas, sem burocracia.</p>
-                <p style="margin-top: 20px; color: var(--neon-blue); font-weight: 600;">Garantia oficial Hotmart</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section id="faq">
-        <div class="container">
-            <div class="section-header">
-                <h2>Perguntas Frequentes</h2>
-                <p>Tire suas dúvidas antes de começar</p>
-            </div>
-            <div class="faq-container">
-                <div class="faq-item">
-                    <div class="faq-question">Preciso saber teoria musical?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            Não! O curso é estruturado do zero. Você vai aprender os conceitos musicais necessários de forma prática e direta, aplicados especificamente à produção de Funk.
-                        </div>
-                    </div>
-                </div>
-                <div class="faq-item">
-                    <div class="faq-question">O curso serve para iniciantes?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            Sim! O curso é perfeito para iniciantes, mas também tem conteúdo avançado para produtores intermediários que querem evoluir. Começamos do básico e avançamos até técnicas profissionais.
-                        </div>
-                    </div>
-                </div>
-                <div class="faq-item">
-                    <div class="faq-question">Serve para outros estilos musicais?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            Embora o foco seja Funk, as técnicas de mixagem, masterização, melodias e estruturação servem para qualquer estilo. A base técnica é universal.
-                        </div>
-                    </div>
-                </div>
-                <div class="faq-item">
-                    <div class="faq-question">O acesso é vitalício?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            Sim! Você paga uma única vez e tem acesso para sempre, incluindo todas as atualizações futuras do curso.
-                        </div>
-                    </div>
-                </div>
-                <div class="faq-item">
-                    <div class="faq-question">Tem suporte?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            Sim! Você terá acesso a uma comunidade exclusiva de alunos e suporte direto para tirar dúvidas sobre o conteúdo do curso.
-                        </div>
-                    </div>
-                </div>
-                <div class="faq-item">
-                    <div class="faq-question">Quais programas preciso ter?</div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-content">
-                            O curso é focado em conceitos e técnicas aplicáveis a qualquer DAW (FL Studio, Ableton, Logic, etc). Recomendamos FL Studio, mas você pode usar o que preferir.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Final CTA -->
-    <section id="cta-final">
-        <div class="container">
-            <div class="final-cta">
-                <h2>Sua Produção Musical Nunca Mais Será a Mesma</h2>
-                <p>Pare de travar na produção. Pare de fazer beats fracos. É hora de produzir com método profissional e alcançar o som que você sempre quis.</p>
-                <a href="https://pay.hotmart.com/SEU_LINK_AQUI" class="cta-button" style="font-size: 1.3rem; padding: 20px 50px;">Começar Minha Transformação Agora</a>
-                <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-secondary);">✓ Garantia de 7 dias • ✓ Acesso imediato • ✓ Pagamento seguro</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 DJ Corrêa - Do Beat ao Hit. Todos os direitos reservados.</p>
-            <p style="margin-top: 10px; font-size: 0.9rem;">Curso hospedado na plataforma Hotmart • Pagamento 100% seguro</p>
-        </div>
-    </footer>
-
-    <!-- Floating CTA (Mobile) -->
-    <div class="floating-cta">
-        <a href="https://pay.hotmart.com/SEU_LINK_AQUI" class="cta-button">Garantir Minha Vaga</a>
+    <!-- FORMAS FLUTUANTES -->
+    <div class="floating-shapes">
+        <div class="hexagon hex-1"></div>
+        <div class="hexagon hex-2"></div>
+        <div class="hexagon hex-3"></div>
+        <div class="hexagon hex-4"></div>
+        <div class="circle-deco deco-1">🎵</div>
+        <div class="circle-deco deco-2">🎧</div>
     </div>
 
+    <!-- NAVBAR -->
+    <nav>
+        <div class="logo">SOUNDY</div>
+        <ul class="nav-menu">
+            <li><a href="#inicio">Início</a></li>
+            <li><a href="#curso">O Curso</a></li>
+            <li><a href="#resultados">Resultados</a></li>
+            <li><a href="#instrutor">Instrutor</a></li>
+        </ul>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <section class="hero" id="inicio">
+        <div class="hero-container">
+            <div class="hero-content fade-up">
+                <p class="hero-subtitle">PRODUÇÃO MUSICAL DE FUNK</p>
+                <h1 class="hero-title">
+                    <span class="title-line-1">DO BEAT</span>
+                    <span class="title-line-2">AO HIT</span>
+                </h1>
+                <p class="hero-description">
+                    Descubra os segredos do Funk, tenha acesso a técnicas e ferramentas avançadas e crie hits com facilidade, com peso e qualidade de estúdio! Melhore suas tracks e eleve sua chance de mudar de vida com a música!
+                </p>
+
+                <div class="hero-highlights">
+                    <div class="highlight-badge">✅ Produção completa: melodia, vocal, beat</div>
+                    <div class="highlight-badge">✅ Todos os sub gêneros</div>
+                    <div class="highlight-badge">✅ Pack de samples e presets</div>
+                    <div class="highlight-badge">✅ IA inclusa</div>
+                </div>
+
+                <a href="#" class="cta-primary" id="cta-hero">
+                    <span>👉 QUERO SUBIR DE NÍVEL</span>
+                </a>
+            </div>
+
+            <div class="hero-visual fade-up">
+                <div class="hex-frame">
+                    <div class="hex-inner"></div>
+                </div>
+                <div class="floating-icons">
+                    <div class="icon-circle icon-1">🎵</div>
+                    <div class="icon-circle icon-2">🎤</div>
+                    <div class="icon-circle icon-3">🎹</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SEÇÃO DO MERCADO -->
+    <section class="market-section">
+        <div class="market-content">
+            <h2 class="section-title fade-up">
+                <span class="gradient-text">POR QUE DOMINAR A PRODUÇÃO</span>
+                <span>DE FUNK HOJE?</span>
+            </h2>
+
+            <p class="market-text fade-up">
+                O Funk é o gênero musical que mais cresce no Brasil — dominando plataformas, festas, carros de som e redes sociais.
+            </p>
+
+            <p class="market-text fade-up">
+                Mas o que muita gente não sabe é que <strong>existe uma grande diferença entre um funk fraco e um funk de verdade.</strong>
+            </p>
+
+            <div class="market-highlight fade-up">
+                <p class="market-text">
+                    Por trás dos funks que estouram, existem <strong>técnicas específicas de produção, estrutura, melodias, mixagem e impacto sonoro</strong> que poucos produtores dominam.
+                </p>
+            </div>
+
+            <p class="market-text fade-up">
+                São essas técnicas que separam quem só faz beat por hobby de quem cria músicas que chamam atenção, viralizam e têm potencial real de virar hit.
+            </p>
+
+            <p class="market-text fade-up">
+                <strong>Chegou a sua vez de dominar exatamente os mesmos métodos usados por grandes produtores brasileiros.</strong>
+            </p>
+
+            <p class="market-text fade-up">
+                Com o treinamento <strong>Do Beat ao Hit</strong>, você vai aprender passo a passo como produzir funks de impacto desde o zero — criando beats impactantes, melodias envolventes, vocais bem trabalhados e finalizações de nível profissional.
+            </p>
+
+            <div class="market-highlight fade-up">
+                <p class="market-text">
+                    Este é um treinamento <strong>completo, prático e direto ao ponto</strong>, focado nos subgêneros que realmente fazem sucesso hoje: <strong>Funk Mandela, Automotivo Melódico, Bruxaria, Funk ritmada</strong> e muito mais.
+                </p>
+            </div>
+
+            <p class="market-text fade-up">
+                Ao final do curso, você não vai mais travar na produção, não vai mais ter som fraco e nem depender de tentativa e erro.
+            </p>
+
+            <p class="market-text fade-up">
+                <strong>Você vai ter um método claro para criar músicas fortes, profissionais e com muito mais chances de se destacarem no mercado.</strong>
+            </p>
+        </div>
+    </section>
+
+    <!-- MÓDULOS -->
+    <section class="modules" id="curso">
+        <h2 class="section-title fade-up">
+            <span class="gradient-text">O QUE VOCÊ VAI</span>
+            <span>DOMINAR</span>
+        </h2>
+
+        <div class="modules-grid">
+            <div class="module-card fade-up">
+                <span class="module-icon">🎛</span>
+                <h3 class="module-title">Plugins e Efeitos</h3>
+                <p class="module-desc">Aprenda a usar os plugins essenciais que deixam seu som com qualidade de estúdio.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎼</span>
+                <h3 class="module-title">Escalas Musicais</h3>
+                <p class="module-desc">Entenda de vez a teoria musical e comece a criar com mais sentimento e profissionalismo.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎤</span>
+                <h3 class="module-title">Tratamento de Voz</h3>
+                <p class="module-desc">Deixe a voz limpa e bem colocada dentro do beat – Separa os amadores dos profissionais.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎵</span>
+                <h3 class="module-title">Melodias com Base na Voz</h3>
+                <p class="module-desc">Descubra o tom certo da voz e crie melodias no clima exato da música.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎹</span>
+                <h3 class="module-title">Melodias Envolventes</h3>
+                <p class="module-desc">Crie melodias marcantes que grudam na cabeça e passam emoção de verdade.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎚</span>
+                <h3 class="module-title">Criar Synth do Zero</h3>
+                <p class="module-desc">Aprenda a criar seus próprios timbres e sons únicos com o sintetizador.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🥁</span>
+                <h3 class="module-title">Estrutura de Beat</h3>
+                <p class="module-desc">Aprenda como montar um beat de forma lógica, criativa e profissional.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🚗</span>
+                <h3 class="module-title">Beat Automotivo</h3>
+                <p class="module-desc">Produza o estilo que domina as ruas, com graves marcantes e muita pressão sonora.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🔥</span>
+                <h3 class="module-title">Beat Completo</h3>
+                <p class="module-desc">Junte todos os elementos e monte seu próprio beat, passo a passo.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🎚</span>
+                <h3 class="module-title">Mixagem</h3>
+                <p class="module-desc">Aprenda a equilibrar todos os sons da música e dar clareza total para o seu projeto.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🏆</span>
+                <h3 class="module-title">Masterização</h3>
+                <p class="module-desc">Finalize sua música como um profissional e prepare ela pra tocar em qualquer lugar.</p>
+            </div>
+
+            <div class="module-card fade-up">
+                <span class="module-icon">🤖</span>
+                <h3 class="module-title">Inteligência Artificial</h3>
+                <p class="module-desc">Aulas extras de IA na música, produzindo outros estilos e muito mais!</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROVAS SOCIAIS -->
+    <section class="social-proof" id="resultados">
+        <h2 class="section-title fade-up">
+            <span class="gradient-text">VEJA O QUE OS ALUNOS</span>
+            <span>ESTÃO FALANDO</span>
+        </h2>
+
+        <div class="carousel fade-up">
+            <div class="carousel-track" id="carouselTrack">
+                <div class="carousel-slide">
+                    <img src="provas/1751414334760436.JPG" alt="Feedback de aluno">
+                </div>
+            </div>
+            <div class="carousel-controls">
+                <button class="carousel-btn" id="prevBtn">‹</button>
+                <button class="carousel-btn" id="nextBtn">›</button>
+            </div>
+        </div>
+
+        <p class="social-proof-text fade-up">
+            Esses são apenas alguns dos feedbacks de quem teve acesso ao conteúdo e já sentiu a diferença na prática.<br><br>
+            <strong>Se você já produz e quer levar seus beats a um novo nível, aqui é o seu lugar.</strong> A evolução está a um passo. Agora é com você.
+        </p>
+    </section>
+
+    <!-- AUTORIDADE -->
+    <section class="authority" id="instrutor">
+        <h2 class="section-title fade-up">
+            <span class="gradient-text">APRENDA COM ALGUÉM</span>
+            <span>QUE ENTENDE DE VERDADE</span>
+        </h2>
+
+        <div class="authority-card fade-up">
+            <img src="fotocurso/2.JPG" alt="DJ Corrêa" class="authority-photo">
+            <div class="authority-content">
+                <h3 class="authority-name">DJ CORRÊA</h3>
+                <p class="authority-bio">
+                    DJ Corrêa, produtor experiente, produz à quase 10 anos, dominou o FL Studio e já produziu com grandes nomes como: <strong>Niack, MC Jhey, DJ Guuga, MC Gw...</strong>
+                </p>
+                <div class="authority-highlight">
+                    Além de te explicar técnicas avançadas e segredos da produção, durante o curso irei produzir uma música do zero e você irá acompanhar todo o processo até o final!
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BENEFÍCIOS -->
+    <section class="benefits">
+        <h2 class="section-title fade-up">
+            <span class="gradient-text">VOCÊ VAI TER</span>
+            <span>ACESSO IMEDIATO A:</span>
+        </h2>
+
+        <div class="benefits-grid">
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Curso completo do básico ao avançado, direto no FL Studio.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Acesso exclusivo a SoundyAI - Inteligência Artificial.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Analisador de Mixagem com IA.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Chat bot treinado 100% para produção musical.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Pack de samples, presets, plugin e FLP free.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Ebook para melhorar suas melodias.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Aulas passo a passo sobre voz, melodia, beat, mixagem e master.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Acesso vitalício para você assistir quando e onde quiser.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Técnicas que os grandes produtores usam no dia a dia.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Assistência online no Whatsapp 24 horas comigo.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Certificado de conclusão do curso.</p>
+            </div>
+            <div class="benefit-item fade-up">
+                <span class="benefit-icon">✅</span>
+                <p class="benefit-text">Bônus e aulas extras.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA FINAL -->
+    <section class="final-cta">
+        <h2 class="final-title fade-up">A EVOLUÇÃO ESTÁ A UM PASSO</h2>
+        <p class="final-text fade-up">
+            Se você já produz e quer levar seus beats a um novo nível, aqui é o seu lugar. Não perca mais tempo com produções amadoras. <strong>Transforme suas ideias em hits profissionais agora.</strong>
+        </p>
+        <a href="#" class="cta-primary fade-up" id="cta-final">
+            <span>🚀 QUERO SUBIR DE NÍVEL AGORA</span>
+        </a>
+    </section>
+
     <script>
-        // Scroll Reveal Animation
+        // ANIMAÇÃO DE SCROLL
         const observerOptions = {
             threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
+            rootMargin: '0px 0px -100px 0px'
         };
 
         const observer = new IntersectionObserver((entries) => {
@@ -1192,81 +1335,54 @@
             });
         }, observerOptions);
 
-        // Observe all animated elements
-        document.querySelectorAll('.section-header, .problem-card, .module-card, .proof-card, .solution-text, .solution-visual, .author-section, .offer-box, .guarantee-box, .final-cta, .faq-item').forEach(el => {
-            observer.observe(el);
+        document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+        // CARROSSEL
+        const track = document.getElementById('carouselTrack');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const slides = track.querySelectorAll('.carousel-slide');
+        let currentIndex = 0;
+
+        function updateCarousel() {
+            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
+
+        prevBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+            updateCarousel();
         });
 
-        // FAQ Accordion
-        document.querySelectorAll('.faq-question').forEach(question => {
-            question.addEventListener('click', () => {
-                const faqItem = question.parentElement;
-                const wasActive = faqItem.classList.contains('active');
-                
-                // Close all FAQ items
-                document.querySelectorAll('.faq-item').forEach(item => {
-                    item.classList.remove('active');
-                });
-                
-                // Open clicked item if it wasn't active
-                if (!wasActive) {
-                    faqItem.classList.add('active');
-                }
+        nextBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % slides.length;
+            updateCarousel();
+        });
+
+        // AUTO-PLAY CARROSSEL
+        setInterval(() => {
+            currentIndex = (currentIndex + 1) % slides.length;
+            updateCarousel();
+        }, 5000);
+
+        // CTA BUTTONS
+        document.querySelectorAll('.cta-primary').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                // ADICIONE O LINK DO CHECKOUT AQUI
+                alert('Redirecionar para checkout!');
+                // window.location.href = 'SEU_LINK_CHECKOUT';
             });
         });
 
-        // Floating CTA on scroll (mobile)
-        let lastScrollTop = 0;
-        const floatingCTA = document.querySelector('.floating-cta');
-        
-        window.addEventListener('scroll', () => {
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            
-            // Show floating CTA after scrolling 50% of the page
-            if (scrollTop > document.documentElement.scrollHeight * 0.3 && window.innerWidth <= 768) {
-                floatingCTA.classList.add('show');
-            } else {
-                floatingCTA.classList.remove('show');
-            }
-            
-            lastScrollTop = scrollTop;
-        });
-
-        // Smooth scroll for anchor links
+        // SMOOTH SCROLL
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
+            anchor.addEventListener('click', function(e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             });
-        });
-
-        // Stagger animation for cards
-        const animateCards = (selector, delay = 100) => {
-            document.querySelectorAll(selector).forEach((card, index) => {
-                setTimeout(() => {
-                    observer.observe(card);
-                }, index * delay);
-            });
-        };
-
-        animateCards('.problem-card', 100);
-        animateCards('.module-card', 150);
-        animateCards('.proof-card', 100);
-        animateCards('.faq-item', 80);
-
-        // Parallax effect for hero background
-        window.addEventListener('scroll', () => {
-            const scrolled = window.pageYOffset;
-            const hero = document.querySelector('.hero::before');
-            if (hero) {
-                document.documentElement.style.setProperty('--scroll', scrolled * 0.5 + 'px');
-            }
         });
     </script>
 </body>
