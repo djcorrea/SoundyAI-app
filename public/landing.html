@@ -226,6 +226,29 @@
             line-height: 1.6;
         }
 
+        /* Título centralizado entre subtítulo e cards */
+        .revela-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .revela-title {
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1.25rem;
+            margin: 0;
+            /* Gradiente azul que combina com o estilo neon da página */
+            background: linear-gradient(90deg, #24c6ff 0%, #2b6fff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            text-shadow: 0 0 12px rgba(43,111,255,0.12);
+        }
         /* 1. HERO SECTION - 8D STYLE */
         .hero {
             min-height: 100vh;
@@ -1617,7 +1640,7 @@
                 <li><a href="#problem" class="nav-link">Problema</a></li>
                 <li><a href="#comparison" class="nav-link">Diferenciais</a></li>
                 <li><a href="#how-it-works" class="nav-link">Como Funciona</a></li>
-                <li><a href="login.html" class="nav-cta">Entrar</a></li>
+                <li><a href="index.html" class="nav-cta">Entrar</a></li>
             </ul>
             <div class="mobile-menu-toggle">
                 <span class="menu-bar"></span>
@@ -1633,15 +1656,15 @@
         <div class="hero-container">
             <div class="hero-content">
                 <h1>ANALISE SUA MÚSICA COM IA    <br><span>DESCUBRA ERROS INVISÍVEIS NA SUA MIX E MASTER</span></h1>
-                <p>SoundyAI revela erros técnicos invisíveis da sua faixa e problemas que seus ouvidos e seus fones deixam passar.</p>
+                <p>Já produz mas não manda bem na parte de Mix e Master? A SoundyAI revela problemas que seus ouvidos e seus fones deixam passar e te ajuda a corrigi-los sem precisar saber Engenharia de Áudio.</p>
                 
                 <div class="hero-ctas">
-                    <a href="login.html" class="btn-primary">Analisar minha música grátis</a>
+                    <a href="index.html" class="btn-primary">Analisar minha música grátis</a>
                     <a href="#how-it-works" class="btn-secondary">Ver demonstração</a>
                 </div>
                 
                 <div class="trust-badge" style="margin-top: 20px; opacity: 0.7;">
-                    🔒 Sem cadastro • Resultado imediato • Teste grátis
+                    🔒  Resultado imediato • Teste grátis
                 </div>
             </div>
             
@@ -1665,18 +1688,22 @@
     <div class="frequency-separator"></div>
     <section id="problem" class="section">
         <h2 class="section-title">O PROBLEMA INVISÍVEL</h2>
-        <p class="section-subtitle">Soar bem no seu quarto não significa estar pronto para o mundo. O Spotify, o carro e o sistema de som do evento vão revelar o que você não ouviu.</p>
-        
+        <p class="section-subtitle">Soar bem no seu quarto e no fone não significa que sua música esteja pronta para o mundo. O Spotify, o carro e o sistema de som do evento vão revelar os problemas que você não ouviu.</p>
+
+        <div class="revela-wrap">
+            <h3 class="revela-title">O QUE A SOUNDYAI TE REVELA</h3>
+        </div>
+
         <div class="problem-grid">
             <div class="problem-card">
                 <div class="problem-icon">🔊</div>
                 <h3>LUFS Incorreto</h3>
-                <p>Se sua faixa está muito baixa, ninguém ouve. Se está muito alta, o Spotify esmaga sua dinâmica. Você sabe exatamente onde está?</p>
+                <p>Resultado: música fraca ou esmagada no streaming. Se sua faixa está muito baixa, ninguém ouve. Se está muito alta, o Spotify esmaga sua dinâmica. Você sabe exatamente onde está?</p>
             </div>
             <div class="problem-card">
                 <div class="problem-icon">⚠️</div>
                 <h3>Clipping Invisível</h3>
-                <p>True Peak acima de -1dBTP pode causar distorção digital na conversão para MP3/AAC. Em sistemas muito altos, esse tipo de distorção pode ficar mais evidente, especialmente quando o áudio e a cadeia de som já estão no limite..</p>
+                <p>Mesmo que sua música não pareça estourada no fone, picos de True Peak acima do ideal fazem o áudio distorcer quando vai pro streaming ou toca em sistemas grandes. É por isso que muitas músicas soam “distorcidas”, sem impacto em caixas de som potentes, mesmo parecendo normais no quarto.</p>
             </div>
             <div class="problem-card">
                 <div class="problem-icon">📉</div>
@@ -2164,7 +2191,7 @@
         <div class="glass-cta">
             <h2>Sua música merece ser ouvida.</h2>
             <p>Junte-se a produtores que já elevaram o nível de suas produções com a inteligência artificial da SoundyAI.</p>
-            <a href="login.html" class="btn-primary glow-btn" style="font-size: 1.3rem; padding: 20px 50px;">COMEÇAR ANÁLISE GRATUITA</a>
+            <a href="index.html" class="btn-primary glow-btn" style="font-size: 1.3rem; padding: 20px 50px;">COMEÇAR ANÁLISE GRATUITA</a>
             <p style="margin-top: 20px; font-size: 0.9rem; opacity: 0.7;">* Sem cartão de crédito necessário para teste.</p>
         </div>
     </section>
@@ -2196,7 +2223,7 @@
                     <li><a href="#how-it-works">Como Funciona</a></li>
                     <li><a href="planos.html">Preços</a></li>
                     <li><a href="#deliverables">Recursos</a></li>
-                    <li><a href="login.html">Analisar Áudio</a></li>
+                    <li><a href="index.html">Analisar Áudio</a></li>
                 </ul>
             </div>
             <div class="footer-col">

@@ -387,48 +387,24 @@ log('🚀 Carregando auth.js...');
         log('✅ [GOOGLE-AUTH] Token salvo no localStorage');
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 CRÍTICO: Verificar se usuário já existe no Firestore
+        // 🔥 GARANTIR CRIAÇÃO DE DOCUMENTO FIRESTORE (FUNÇÃO CENTRALIZADA)
         // ═══════════════════════════════════════════════════════════════════
         
         try {
-          const userDocRef = doc(db, 'usuarios', user.uid);
-          const userSnap = await getDoc(userDocRef);
+          // ✅ USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
+          const wasCreated = await ensureUserDocument(user, {
+            provider: 'google',
+            deviceId: 'google_auth_' + Date.now()
+          });
           
-          if (!userSnap.exists()) {
-            // ✅ Usuário novo - criar documento no Firestore
-            log('📝 [GOOGLE-AUTH] Usuário novo detectado - criando documento no Firestore');
-            
-            const now = new Date().toISOString();
-            const userData = {
-              uid: user.uid,
-              email: user.email,
-              nome: user.displayName || 'Usuário Google',
-              telefone: user.phoneNumber || null,
-              plano: 'gratis',
-              creditos: 5,
-              entrevistaConcluida: false,
-              dataCriacao: now,
-              dataUltimoLogin: now,
-              authType: 'google',
-              criadoSemSMS: true, // ✅ Bypass SMS para login Google
-              origin: 'google_auth',
-              deviceId: 'google_auth_' + Date.now()
-            };
-            
-            await setDoc(userDocRef, userData);
-            log('✅ [GOOGLE-AUTH] Documento criado no Firestore');
-            
-            // 📊 GA4 Tracking: Cadastro completado
-            if (window.GATracking?.trackSignupCompleted) {
-              window.GATracking.trackSignupCompleted({
-                method: 'google',
-                plan: 'gratis'
-              });
-            }
+          if (wasCreated) {
+            log('✅ [GOOGLE-AUTH] Novo usuário - documento criado');
           } else {
-            // ✅ Usuário existente - atualizar último login
-            log('✅ [GOOGLE-AUTH] Usuário existente detectado - atualizando último login');
+            log('✅ [GOOGLE-AUTH] Usuário existente - documento já existe');
             
+            // Atualizar último login
+            const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+            const userDocRef = doc(db, 'usuarios', user.uid);
             await updateDoc(userDocRef, {
               dataUltimoLogin: new Date().toISOString()
             });
@@ -442,8 +418,10 @@ log('🚀 Carregando auth.js...');
           showMessage("✅ Login com Google realizado com sucesso!", "success");
           
           // Verificar se precisa ir para entrevista
-          const userSnap2 = await getDoc(userDocRef);
-          const userData = userSnap2.data();
+          const { doc: docFunc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userDocRef = docFunc(db, 'usuarios', user.uid);
+          const userSnap = await getDoc(userDocRef);
+          const userData = userSnap.data();
           
           if (userData.entrevistaConcluida === false) {
             log('🎯 [GOOGLE-AUTH] Redirecionando para entrevista');
@@ -1287,7 +1265,178 @@ log('🚀 Carregando auth.js...');
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // � FUNÇÃO AUXILIAR: Inicializar sessão completa após cadastro
+    // 🔥 FUNÇÃO CENTRALIZADA: Garantir criação de documento Firestore
+    // ═══════════════════════════════════════════════════════════════════
+    /**
+     * Garante que o usuário autenticado tenha um documento no Firestore.
+     * Se não existir, cria com todos os campos padrão necessários.
+     * 
+     * @param {Object} user - Objeto user do Firebase Auth
+     * @param {Object} options - Opções adicionais
+     * @param {string} options.provider - Método de autenticação ('google', 'email', 'phone')
+     * @param {string} options.deviceId - ID do dispositivo (opcional)
+     * @param {string} options.referralCode - Código de afiliado (opcional)
+     * @returns {Promise<boolean>} - true se criou novo documento, false se já existia
+     */
+    async function ensureUserDocument(user, options = {}) {
+      if (!user || !user.uid) {
+        error('❌ [ENSURE-USER] user ou user.uid é inválido');
+        return false;
+      }
+
+      const {
+        provider = 'unknown',
+        deviceId = null,
+        referralCode = null
+      } = options;
+
+      log('🔍 [ENSURE-USER] Verificando documento Firestore para:', user.uid);
+      log('   Email:', user.email);
+      log('   Telefone:', user.phoneNumber);
+      log('   Provider:', provider);
+
+      try {
+        // Importar Firestore dinamicamente
+        const { doc, getDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        
+        const userRef = doc(db, 'usuarios', user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          log('✅ [ENSURE-USER] Documento já existe - nenhuma ação necessária');
+          return false; // Documento já existe
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🚨 DOCUMENTO NÃO EXISTE - CRIAR AGORA
+        // ═══════════════════════════════════════════════════════════════════
+        log('📝 [ENSURE-USER] Documento não existe - criando...');
+        
+        // Tentar obter deviceId de diferentes fontes
+        let finalDeviceId = deviceId;
+        if (!finalDeviceId) {
+          // Tentar obter de metadata salvos
+          const metadataStr = localStorage.getItem('cadastroMetadata');
+          if (metadataStr) {
+            try {
+              const metadata = JSON.parse(metadataStr);
+              finalDeviceId = metadata.deviceId;
+            } catch (e) {
+              // Ignorar erro de parse
+            }
+          }
+          
+          // Fallback: gerar novo
+          if (!finalDeviceId) {
+            if (window.SoundyFingerprint) {
+              try {
+                const fpData = await window.SoundyFingerprint.get();
+                finalDeviceId = fpData.fingerprint_hash;
+              } catch (fpError) {
+                finalDeviceId = 'fp_fallback_' + Date.now();
+              }
+            } else {
+              finalDeviceId = 'fp_fallback_' + Date.now();
+            }
+          }
+        }
+        
+        // Obter referralCode e visitorId do localStorage (sistema de afiliados)
+        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
+        const storedReferralCode = referralCode || localStorage.getItem('soundy_referral_code') || null;
+        const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
+        
+        // Determinar se foi criado sem SMS
+        const criadoSemSMS = provider === 'google' || provider === 'email';
+        const verificadoPorSMS = !!user.phoneNumber;
+        
+        // Nome do usuário (displayName do Google ou email)
+        const nome = user.displayName || user.email?.split('@')[0] || 'Usuário';
+        
+        log('📋 [ENSURE-USER] Dados do novo documento:');
+        log('   Email:', user.email);
+        log('   Nome:', nome);
+        log('   Telefone:', user.phoneNumber || '(nenhum)');
+        log('   Provider:', provider);
+        log('   DeviceID:', finalDeviceId?.substring(0, 16) + '...');
+        log('   criadoSemSMS:', criadoSemSMS);
+        log('   verificadoPorSMS:', verificadoPorSMS);
+        log('   referralCode:', storedReferralCode || '(nenhum)');
+        log('   visitorId:', visitorId?.substring(0, 16) + '...' || '(nenhum)');
+        
+        // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS NECESSÁRIOS
+        const newUserDoc = {
+          uid: user.uid,
+          email: user.email || '',
+          nome: nome,
+          telefone: user.phoneNumber || null,
+          deviceId: finalDeviceId,
+          authType: provider,
+          
+          // Plano e limites
+          plano: 'gratis',
+          creditos: 5,
+          messagesToday: 0,
+          analysesToday: 0,
+          messagesMonth: 0,
+          analysesMonth: 0,
+          imagesMonth: 0,
+          billingMonth: new Date().toISOString().slice(0, 7),
+          lastResetAt: new Date().toISOString().slice(0, 10),
+          
+          // Status e verificações
+          verificadoPorSMS: verificadoPorSMS,
+          smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null,
+          criadoSemSMS: criadoSemSMS,
+          entrevistaConcluida: false,
+          
+          // Sistema de afiliados
+          visitorId: visitorId,
+          referralCode: storedReferralCode,
+          referralTimestamp: referralTimestamp,
+          convertedAt: null,
+          firstPaidPlan: null,
+          
+          // Origem (pode ser sobrescrito por integração Hotmart)
+          origin: provider === 'google' ? 'google_auth' : 'direct_signup',
+          
+          // Timestamps
+          dataCriacao: new Date().toISOString(),
+          dataUltimoLogin: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        await setDoc(userRef, newUserDoc);
+        
+        log('✅ [ENSURE-USER] Documento criado com sucesso!');
+        log('   UID:', user.uid);
+        log('   Plano:', newUserDoc.plano);
+        log('   Créditos:', newUserDoc.creditos);
+        
+        // Limpar metadados após criação
+        localStorage.removeItem('cadastroMetadata');
+        
+        // 📊 GA4 Tracking: Cadastro completado
+        if (window.GATracking?.trackSignupCompleted) {
+          window.GATracking.trackSignupCompleted({
+            method: provider,
+            plan: 'gratis'
+          });
+        }
+        
+        return true; // Documento criado
+        
+      } catch (err) {
+        error('❌ [ENSURE-USER] Erro ao garantir documento:', err);
+        error('   UID:', user.uid);
+        error('   Stack:', err.stack);
+        throw err; // Propagar erro para tratamento upstream
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔐 FUNÇÃO AUXILIAR: Inicializar sessão completa após cadastro
     // ═══════════════════════════════════════════════════════════════════
     async function initializeSessionAfterSignup(user, freshToken) {
       log('🔐 [SESSION] Inicializando sessão completa após cadastro...');
@@ -1676,6 +1825,7 @@ log('🚀 Carregando auth.js...');
     window.confirmSMSCode = confirmSMSCode;
     window.forgotPassword = forgotPassword;
     window.loginWithGoogle = loginWithGoogle; // ✅ Expor login com Google
+    window.ensureUserDocument = ensureUserDocument; // ✅ Expor função centralizada
     window.logout = logout;
     window.showSMSSection = showSMSSection;
     window.auth = auth;
@@ -1757,20 +1907,49 @@ log('🚀 Carregando auth.js...');
       log('   Telefone:', user.phoneNumber);
       
       try {
-        // Importar Firestore dinamicamente
-        const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
+        // ═══════════════════════════════════════════════════════════════════
         
-        // ✅ SEMPRE verificar se documento existe
-        const userRef = doc(db, 'usuarios', user.uid);
-        const userSnap = await getDoc(userRef);
+        // Detectar provider baseado em user
+        let provider = 'unknown';
+        if (user.providerData && user.providerData.length > 0) {
+          const providerId = user.providerData[0].providerId;
+          if (providerId === 'google.com') provider = 'google';
+          else if (providerId === 'password') provider = 'email';
+          else if (providerId === 'phone') provider = 'phone';
+        }
         
-        if (userSnap.exists()) {
-          log('✅ [AUTH-LISTENER] Documento já existe no Firestore');
+        // Tentar obter deviceId dos metadados
+        let deviceId = null;
+        const metadataStr = localStorage.getItem('cadastroMetadata');
+        if (metadataStr) {
+          try {
+            const metadata = JSON.parse(metadataStr);
+            deviceId = metadata.deviceId;
+          } catch (e) {
+            // Ignorar erro de parse
+          }
+        }
+        
+        // ✅ CHAMAR FUNÇÃO CENTRALIZADA
+        const wasCreated = await ensureUserDocument(user, {
+          provider: provider,
+          deviceId: deviceId
+        });
+        
+        if (wasCreated) {
+          log('✅ [AUTH-LISTENER] Novo usuário - documento criado pela função centralizada');
+        } else {
+          log('✅ [AUTH-LISTENER] Usuário existente - documento já existe');
           
           // ═══════════════════════════════════════════════════════════════════
           // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
           // ═══════════════════════════════════════════════════════════════════
           if (user.phoneNumber) {
+            const { doc, getDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+            const userRef = doc(db, 'usuarios', user.uid);
+            const userSnap = await getDoc(userRef);
             const userData = userSnap.data();
             
             // Se Firestore ainda marca como não verificado, sincronizar
@@ -1798,106 +1977,20 @@ log('🚀 Carregando auth.js...');
               log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
             }
           }
-          
-          // Limpar metadados se existirem
-          const cadastroMetadata = localStorage.getItem('cadastroMetadata');
-          if (cadastroMetadata) {
-            localStorage.removeItem('cadastroMetadata');
-            log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
-          }
-          return;
         }
         
-        // ═══════════════════════════════════════════════════════════════════
-        // 🚨 DOCUMENTO NÃO EXISTE - CRIAR IMEDIATAMENTE
-        // ═══════════════════════════════════════════════════════════════════
-        warn('⚠️ [AUTH-LISTENER] Documento não existe! Criando agora...');
-        
-        // Tentar obter metadados (OPCIONAL - pode não existir)
-        let metadata = null;
-        const cadastroMetadataStr = localStorage.getItem('cadastroMetadata');
-        if (cadastroMetadataStr) {
-          try {
-            metadata = JSON.parse(cadastroMetadataStr);
-            log('📋 [AUTH-LISTENER] Metadados encontrados:', {
-              email: metadata.email,
-              telefone: metadata.telefone,
-              criadoSemSMS: metadata.criadoSemSMS
-            });
-          } catch (parseError) {
-            warn('⚠️ [AUTH-LISTENER] Erro ao parsear metadados:', parseError);
-            metadata = null;
-          }
-        } else {
-          log('📋 [AUTH-LISTENER] Sem metadados - usando dados do Firebase Auth');
+        // Limpar metadados se existirem
+        const cadastroMetadata = localStorage.getItem('cadastroMetadata');
+        if (cadastroMetadata) {
+          localStorage.removeItem('cadastroMetadata');
+          log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
         }
         
-        // ✅ OBTER DADOS: Preferir metadados, fallback para user
-        const email = metadata?.email || user.email || '';
-        const telefone = user.phoneNumber || metadata?.telefone || ''; // ✅ Auth é a verdade
-        const deviceId = metadata?.deviceId || 'fallback_' + Date.now();
-        const criadoSemSMS = metadata?.criadoSemSMS || false;
-        
-        // 🔥 REGRA DE OURO: user.phoneNumber === telefone verificado
-        const verificadoPorSMS = !!user.phoneNumber;
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔗 SISTEMA DE AFILIADOS V2: Vincular visitorId ao cadastro
-        // ═══════════════════════════════════════════════════════════════════
-        
-        log('🔍 [REFERRAL-V2-DEBUG] Lendo localStorage ANTES do cadastro...');
-        log('   localStorage.soundy_visitor_id:', localStorage.getItem('soundy_visitor_id'));
-        log('   localStorage.soundy_referral_code:', localStorage.getItem('soundy_referral_code'));
-        log('   localStorage.soundy_referral_timestamp:', localStorage.getItem('soundy_referral_timestamp'));
-        
-        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
-        const referralCode = localStorage.getItem('soundy_referral_code') || null;
-        const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
-        
-        log('💾 [AUTH-LISTENER] Criando documento usuarios/ com dados:');
-        log('   Email:', email);
-        log('   Telefone:', telefone);
-        log('   DeviceID:', deviceId?.substring(0, 16) + '...');
-        log('   verificadoPorSMS:', verificadoPorSMS, '(baseado em user.phoneNumber)');
-        log('   criadoSemSMS:', criadoSemSMS);
-        
-        if (referralCode) {
-          log('🔗 [REFERRAL-V2] Código detectado:', referralCode);
-          log('🔗 [REFERRAL-V2] Visitor ID:', visitorId);
-          log('🕐 [REFERRAL-V2] Timestamp:', referralTimestamp);
-        } else {
-          log('🔗 [REFERRAL-V2] Nenhum código de referência detectado');
-        }
-        
-        // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS OBRIGATÓRIOS
-        await setDoc(userRef, {
-          uid: user.uid,
-          email: email,
-          telefone: telefone,
-          deviceId: deviceId,
-          plan: 'free',
-          messagesToday: 0,
-          analysesToday: 0,
-          messagesMonth: 0,
-          analysesMonth: 0,
-          imagesMonth: 0,
-          billingMonth: new Date().toISOString().slice(0, 7),
-          lastResetAt: new Date().toISOString().slice(0, 10),
-          verificadoPorSMS: verificadoPorSMS,
-          smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null, // ✅ Campo obrigatório
-          criadoSemSMS: criadoSemSMS,
-          entrevistaConcluida: false,
-          // 🔗 SISTEMA DE AFILIADOS V2: Campos de referência
-          visitorId: visitorId,                    // 🆔 UUID do visitante (rastreável antes do cadastro)
-          referralCode: referralCode,              // Código do parceiro (ex: "estudioherta")
-          referralTimestamp: referralTimestamp,    // ISO timestamp de quando capturou
-          convertedAt: null,                       // Será preenchido quando virar pagante
-          firstPaidPlan: null,                     // Primeiro plano pago (plus/pro/studio)
-          createdAt: serverTimestamp(),  // ✅ Usar serverTimestamp
-          updatedAt: serverTimestamp()   // ✅ Usar serverTimestamp
-        });
-        
-        log('✅ [AUTH-LISTENER] Documento usuarios/ criado com sucesso!');
+      } catch (error) {
+        error('❌ [AUTH-LISTENER] Erro:', error);
+        error('   Stack:', error.stack);
+      }
+    });
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔗 VINCULAR CADASTRO AO REFERRAL (REFERRAL V3 - BACKEND)
