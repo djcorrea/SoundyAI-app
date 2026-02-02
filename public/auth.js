@@ -16,7 +16,9 @@ log('🚀 Carregando auth.js...');
       EmailAuthProvider, 
       PhoneAuthProvider, 
       signInWithCredential, 
-      linkWithCredential 
+      linkWithCredential,
+      GoogleAuthProvider,
+      signInWithPopup
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
     
     // Importações Firestore
@@ -340,6 +342,159 @@ log('🚀 Carregando auth.js...');
         showMessage("Link de redefinição enviado para seu e-mail!", "success");
       } catch (err) {
         showMessage(err.message || "Erro ao enviar e-mail", "error");
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔐 LOGIN COM GOOGLE - Integração completa
+    // ═══════════════════════════════════════════════════════════════════
+    async function loginWithGoogle() {
+      log('🔵 [GOOGLE-AUTH] Iniciando login com Google...');
+      
+      try {
+        showMessage("Abrindo janela de login do Google...", "success");
+        
+        // Criar provider do Google
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+          prompt: 'select_account'
+        });
+        
+        log('✅ [GOOGLE-AUTH] Provider configurado');
+        
+        // Executar login com popup
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        
+        log('✅ [GOOGLE-AUTH] Login bem-sucedido:', {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        });
+        
+        // Obter token
+        const idToken = await user.getIdToken();
+        
+        // Salvar token localmente
+        localStorage.setItem("authToken", idToken);
+        localStorage.setItem("idToken", idToken);
+        localStorage.setItem("user", JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        }));
+        
+        log('✅ [GOOGLE-AUTH] Token salvo no localStorage');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 CRÍTICO: Verificar se usuário já existe no Firestore
+        // ═══════════════════════════════════════════════════════════════════
+        
+        try {
+          const userDocRef = doc(db, 'usuarios', user.uid);
+          const userSnap = await getDoc(userDocRef);
+          
+          if (!userSnap.exists()) {
+            // ✅ Usuário novo - criar documento no Firestore
+            log('📝 [GOOGLE-AUTH] Usuário novo detectado - criando documento no Firestore');
+            
+            const now = new Date().toISOString();
+            const userData = {
+              uid: user.uid,
+              email: user.email,
+              nome: user.displayName || 'Usuário Google',
+              telefone: user.phoneNumber || null,
+              plano: 'gratis',
+              creditos: 5,
+              entrevistaConcluida: false,
+              dataCriacao: now,
+              dataUltimoLogin: now,
+              authType: 'google',
+              criadoSemSMS: true, // ✅ Bypass SMS para login Google
+              origin: 'google_auth',
+              deviceId: 'google_auth_' + Date.now()
+            };
+            
+            await setDoc(userDocRef, userData);
+            log('✅ [GOOGLE-AUTH] Documento criado no Firestore');
+            
+            // 📊 GA4 Tracking: Cadastro completado
+            if (window.GATracking?.trackSignupCompleted) {
+              window.GATracking.trackSignupCompleted({
+                method: 'google',
+                plan: 'gratis'
+              });
+            }
+          } else {
+            // ✅ Usuário existente - atualizar último login
+            log('✅ [GOOGLE-AUTH] Usuário existente detectado - atualizando último login');
+            
+            await updateDoc(userDocRef, {
+              dataUltimoLogin: new Date().toISOString()
+            });
+          }
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // 🔥 INICIALIZAR SESSÃO COMPLETA
+          // ═══════════════════════════════════════════════════════════════════
+          await initializeSessionAfterSignup(user, idToken);
+          
+          showMessage("✅ Login com Google realizado com sucesso!", "success");
+          
+          // Verificar se precisa ir para entrevista
+          const userSnap2 = await getDoc(userDocRef);
+          const userData = userSnap2.data();
+          
+          if (userData.entrevistaConcluida === false) {
+            log('🎯 [GOOGLE-AUTH] Redirecionando para entrevista');
+            setTimeout(() => {
+              window.location.href = "entrevista.html";
+            }, 1500);
+          } else {
+            log('🎯 [GOOGLE-AUTH] Redirecionando para index');
+            setTimeout(() => {
+              window.location.href = "index.html";
+            }, 1500);
+          }
+          
+        } catch (firestoreError) {
+          error('❌ [GOOGLE-AUTH] Erro ao gerenciar Firestore:', firestoreError);
+          showMessage("Erro ao salvar dados do usuário. Tente novamente.", "error");
+        }
+        
+      } catch (err) {
+        error('❌ [GOOGLE-AUTH] Erro no login com Google:', err);
+        
+        let errorMessage = "Erro ao fazer login com Google: ";
+        
+        // Tratamento de erros específicos do Google Auth
+        switch (err.code) {
+          case 'auth/popup-closed-by-user':
+            errorMessage = "Login cancelado. Tente novamente.";
+            break;
+          case 'auth/popup-blocked':
+            errorMessage = "Popup bloqueado pelo navegador. Permita popups e tente novamente.";
+            break;
+          case 'auth/cancelled-popup-request':
+            errorMessage = "Login cancelado. Tente novamente.";
+            break;
+          case 'auth/account-exists-with-different-credential':
+            errorMessage = "Este e-mail já está cadastrado com outro método. Tente fazer login com e-mail e senha.";
+            break;
+          case 'auth/operation-not-allowed':
+            errorMessage = "Login com Google não está habilitado. Entre em contato com o suporte.";
+            break;
+          case 'auth/unauthorized-domain':
+            errorMessage = "Domínio não autorizado. Configure no Firebase Console.";
+            break;
+          case 'auth/network-request-failed':
+            errorMessage = "Falha de conexão. Verifique sua internet.";
+            break;
+          default:
+            errorMessage += err.message;
+        }
+        
+        showMessage(errorMessage, "error");
       }
     }
 
@@ -1289,7 +1444,9 @@ log('🚀 Carregando auth.js...');
             return;
           }
           
-          // 🔓 MODO ANÔNIMO: Se está no index.html, ativar modo anônimo
+          // 🔓 MODO ANÔNIMO: DESATIVADO 2026-02-02 - Forçar login obrigatório
+          // ✅ Para reativar: descomente o bloco abaixo
+          /*
           if (isIndexPage) {
             // ✅ VALIDAR SE HÁ SESSÃO AUTENTICADA ANTES DE ATIVAR ANÔNIMO
             const hasIdToken = localStorage.getItem('idToken');
@@ -1318,6 +1475,7 @@ log('🚀 Carregando auth.js...');
               log('   window.SoundyAnonymous:', window.SoundyAnonymous);
             }
           }
+          */
           
           if (!isLoginPage) window.location.href = "login.html";
           resolve(null);
@@ -1350,8 +1508,9 @@ log('🚀 Carregando auth.js...');
               return;
             }
             
-            // 🔓 MODO ANÔNIMO: Se está no index.html, permitir acesso anônimo
-            // ✅ FIX TIMING: Aguardar SoundyAnonymous carregar se necessário
+            // 🔓 MODO ANÔNIMO: DESATIVADO 2026-02-02 - Forçar login obrigatório
+            // ✅ Para reativar: descomente o bloco abaixo
+            /*
             if (isIndexPage) {
               // ✅ VALIDAR SE HÁ SESSÃO AUTENTICADA ANTES DE ATIVAR ANÔNIMO
               const hasIdToken = localStorage.getItem('idToken');
@@ -1407,6 +1566,7 @@ log('🚀 Carregando auth.js...');
                 return;
               }
             }
+            */
             
             window.location.href = "login.html";
           } else if (user && isLoginPage) {
@@ -1515,6 +1675,7 @@ log('🚀 Carregando auth.js...');
     window.signUp = signUp;
     window.confirmSMSCode = confirmSMSCode;
     window.forgotPassword = forgotPassword;
+    window.loginWithGoogle = loginWithGoogle; // ✅ Expor login com Google
     window.logout = logout;
     window.showSMSSection = showSMSSection;
     window.auth = auth;
@@ -1527,6 +1688,7 @@ log('🚀 Carregando auth.js...');
       const signUpBtn = document.getElementById("signUpBtn");
       const confirmBtn = document.getElementById("confirmCodeBtn");
       const forgotLink = document.getElementById("forgotPasswordLink");
+      const googleLoginBtn = document.getElementById("googleLoginBtn"); // ✅ Botão Google
 
       if (loginBtn) {
         loginBtn.addEventListener("click", (e) => {
@@ -1554,6 +1716,15 @@ log('🚀 Carregando auth.js...');
           e.preventDefault();
           window.resetPassword();
         });
+      }
+      
+      // ✅ LISTENER DO GOOGLE LOGIN
+      if (googleLoginBtn) {
+        googleLoginBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.loginWithGoogle();
+        });
+        log('✅ [GOOGLE-AUTH] Event listener do botão Google configurado');
       }
 
       log('✅ Event listeners configurados');
