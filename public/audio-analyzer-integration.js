@@ -14631,26 +14631,6 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // 🔐 CORREÇÃO CRÍTICA: Buscar reducedMode do Firestore ANTES de renderizar
-    // Este campo é autoritativo e deve sobrescrever qualquer flag do backend
-    let userReducedMode = false;
-    try {
-        const currentUser = firebase.auth().currentUser;
-        if (currentUser) {
-            const userDocRef = firebase.firestore().collection('usuarios').doc(currentUser.uid);
-            const userSnap = await userDocRef.get();
-            if (userSnap.exists) {
-                const userData = userSnap.data();
-                userReducedMode = userData.reducedMode === true;
-                log('[REDUCED-MODE-CHECK] 📋 Campo reducedMode do Firestore:', userReducedMode);
-                log('[REDUCED-MODE-CHECK] Plan:', userData.plan, '| AnalysesMonth:', userData.analysesMonth);
-            }
-        }
-    } catch (err) {
-        warn('[REDUCED-MODE-CHECK] ⚠️ Erro ao buscar reducedMode do Firestore:', err);
-        // Continuar com fallback para analysisMode do backend
-    }
-    
     // GA4 Tracking: Análise de áudio completada
     if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
         window.GATracking.trackAudioAnalysisCompleted({
@@ -14676,15 +14656,20 @@ async function displayModalResults(analysis) {
         }
     }
     
-    // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido
-    // ORDEM DE PRIORIDADE: 1) reducedMode do Firestore, 2) analysisMode do backend
-    const isReduced = userReducedMode || analysis.analysisMode === 'reduced' || analysis.isReduced === true;
+    // ✅ VERIFICAÇÃO: Modo Reduzido (decidido pelo BACKEND baseado em plan + analysesMonth)
+    // O backend retorna analysisMode: 'full' ou 'reduced' baseado em:
+    // - FREE: 1 análise full, depois reduced
+    // - PLUS: 20 análises full, depois reduced
+    // - PRO: 60 análises full, depois reduced
+    // - STUDIO: Bloqueia após 400 (hard cap)
+    const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
     
     if (isReduced) {
-        log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO');
-        log('[PLAN-FILTER] 📊 Fonte:', userReducedMode ? 'Firestore (reducedMode: true)' : 'Backend (analysisMode: reduced)');
-        log('[PLAN-FILTER] 📊 Campos do JSON:', Object.keys(analysis));
-        log('[PLAN-FILTER] 🎯 Usando sistema avançado de mascaramento dinâmico...');
+        log('[REDUCED-MODE] ⚠️ MODO REDUZIDO ATIVADO');
+        log('[REDUCED-MODE] 📊 Fonte: Backend (analysisMode da resposta da API)');
+        log('[REDUCED-MODE] 📊 Motivo: Limite de análises full atingido para este plano');
+        log('[REDUCED-MODE] 📊 Campos do JSON:', Object.keys(analysis));
+        log('[REDUCED-MODE] 🎯 Aplicando máscaras em métricas avançadas...');
         
         // ✅ NÃO parar aqui! Continuar renderização normal
         // O sistema de mascaramento será aplicado APÓS o DOM ser renderizado

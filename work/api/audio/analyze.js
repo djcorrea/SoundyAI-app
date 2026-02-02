@@ -708,10 +708,24 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
     const analysisMode = analysisCheck.mode; // "full" | "reduced"
     const features = getPlanFeatures(analysisCheck.user?.plan || 'demo', analysisMode);
     
+    console.log(`\n═══════════════════════════════════════════════════════`);
+    console.log(`📊 [ANALYZE] MODO DE ANÁLISE DECIDIDO`);
+    console.log(`═══════════════════════════════════════════════════════`);
+    console.log(`  Modo: ${analysisMode.toUpperCase()}`);
+    console.log(`  Plano: ${analysisCheck.user?.plan || 'demo'}`);
+    console.log(`  Análises usadas: ${analysisCheck.user?.analysesMonth || 0}`);
+    console.log(`  Análises full restantes: ${analysisCheck.remainingFull}`);
+    console.log(`  UID: ${uid}`);
+    if (analysisMode === 'reduced') {
+      console.log(`  ⚠️ REDUCED: Backend enviará JSON completo`);
+      console.log(`  ⚠️ REDUCED: Frontend aplicará máscaras nas métricas avançadas`);
+    } else {
+      console.log(`  ✅ FULL: Todas as métricas serão exibidas sem restrições`);
+    }
+    console.log(`═══════════════════════════════════════════════════════\n`);
+    
     console.log(`✅ [ANALYZE] Análise permitida - UID: ${uid}`);
-    console.log(`📊 [ANALYZE] Modo: ${analysisMode}, Plano: ${analysisCheck.user?.plan}`);
     console.log(`🎯 [ANALYZE] Features:`, features);
-    console.log(`📈 [ANALYZE] Análises completas restantes: ${analysisCheck.remainingFull}`);
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][BACKEND] 📥 Payload recebido do frontend:', {

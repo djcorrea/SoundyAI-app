@@ -907,13 +907,19 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ ANÁLISES FULL ILIMITADAS (PRO antes do hard cap)
+  // ✅ ANÁLISES FULL ILIMITADAS (PRO/DJ/STUDIO antes do hard cap)
   if (limits.maxFullAnalysesPerMonth === Infinity) {
     const remaining = limits.hardCapAnalysesPerMonth 
       ? limits.hardCapAnalysesPerMonth - currentMonthAnalyses 
       : Infinity;
     
-    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth || '∞'})`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`✅ [USER-PLANS] MODO: FULL (ILIMITADO)`);
+    console.log(`✅ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`✅ [USER-PLANS] Motivo: Plano premium com análises ilimitadas`);
+    console.log(`✅ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth || '∞'}`);
+    console.log(`✅ [USER-PLANS] UID: ${uid}`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'full',
@@ -922,10 +928,16 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ ANÁLISES FULL LIMITADAS (FREE/PLUS)
+  // ✅ ANÁLISES FULL LIMITADAS (FREE/PLUS/PRO)
   if (currentMonthAnalyses < limits.maxFullAnalysesPerMonth) {
     const remaining = limits.maxFullAnalysesPerMonth - currentMonthAnalyses;
-    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth}) - ${remaining} restantes`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`✅ [USER-PLANS] MODO: FULL`);
+    console.log(`✅ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`✅ [USER-PLANS] Motivo: Análises disponíveis (${remaining} restantes)`);
+    console.log(`✅ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth}`);
+    console.log(`✅ [USER-PLANS] UID: ${uid}`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'full',
@@ -934,9 +946,17 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ MODO REDUZIDO (FREE/PLUS após limite de full)
+  // ✅ MODO REDUZIDO (FREE/PLUS/PRO após limite de full)
   if (limits.allowReducedAfterLimit) {
-    console.log(`⚠️ [USER-PLANS] Análise em MODO REDUZIDO (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth} completas usadas)`);
+    console.log(`⚠️ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`⚠️ [USER-PLANS] MODO: REDUCED`);
+    console.log(`⚠️ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`⚠️ [USER-PLANS] Motivo: Limite de análises FULL atingido`);
+    console.log(`⚠️ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth} (completas usadas)`);
+    console.log(`⚠️ [USER-PLANS] UID: ${uid}`);
+    console.log(`⚠️ [USER-PLANS] Comportamento: Métricas básicas visíveis, avançadas borradas`);
+    console.log(`⚠️ [USER-PLANS] Próximo reset: Início do próximo mês`);
+    console.log(`⚠️ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'reduced',
