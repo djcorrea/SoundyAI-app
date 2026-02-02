@@ -392,22 +392,17 @@ log('🚀 Carregando auth.js...');
         
         try {
           // ✅ USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
-          const wasCreated = await ensureUserDocument(user, {
+          const result = await ensureUserDocument(user, {
             provider: 'google',
             deviceId: 'google_auth_' + Date.now()
           });
           
-          if (wasCreated) {
-            log('✅ [GOOGLE-AUTH] Novo usuário - documento criado');
+          if (result.created) {
+            log('✅ [GOOGLE-AUTH] Novo usuário - documento criado com plan: "free"');
+          } else if (result.updated) {
+            log('✅ [GOOGLE-AUTH] Usuário existente - documento atualizado (plan preservado)');
           } else {
-            log('✅ [GOOGLE-AUTH] Usuário existente - documento já existe');
-            
-            // Atualizar último login
-            const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-            const userDocRef = doc(db, 'usuarios', user.uid);
-            await updateDoc(userDocRef, {
-              dataUltimoLogin: new Date().toISOString()
-            });
+            log('✅ [GOOGLE-AUTH] Usuário existente - nenhuma alteração necessária');
           }
           
           // ═══════════════════════════════════════════════════════════════════
@@ -1278,10 +1273,115 @@ log('🚀 Carregando auth.js...');
      * @param {string} options.referralCode - Código de afiliado (opcional)
      * @returns {Promise<boolean>} - true se criou novo documento, false se já existia
      */
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🎯 SCHEMA OFICIAL DO USUÁRIO - VERSÃO CORRIGIDA 2026-02-02
+    // ═══════════════════════════════════════════════════════════════════════
+    // REGRAS OBRIGATÓRIAS:
+    // 1. Apenas campos em INGLÊS (campos em português são legacy)
+    // 2. Campo de plano oficial: "plan" (valores: "free" | "plus" | "pro" | "studio")
+    // 3. Primeiro login SEMPRE cria com plan: "free"
+    // 4. Upgrade de plano APENAS via fluxo de pagamento (Stripe/Hotmart)
+    // 5. Login NUNCA altera plan de usuário existente
+    // 6. Não criar campos aleatórios não previstos no schema
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    const USER_SCHEMA_ALLOWED_FIELDS = [
+      // Identificação
+      'uid', 'email', 'displayName', 'phoneNumber', 'deviceId', 'authType',
+      
+      // Plano (APENAS EM INGLÊS)
+      'plan', // ✅ Campo oficial (valores: "free" | "plus" | "pro" | "studio")
+      
+      // Limites e contadores
+      'messagesToday', 'analysesToday', 'messagesMonth', 'analysesMonth', 'imagesMonth',
+      'billingMonth', 'lastResetAt',
+      
+      // Status e verificações
+      'verified', 'verifiedAt', 'bypassSMS', 'onboardingCompleted',
+      
+      // Sistema de afiliados
+      'visitorId', 'referralCode', 'referralTimestamp', 'convertedAt', 'firstPaidPlan',
+      
+      // Assinaturas (expiração de planos pagos)
+      'plusExpiresAt', 'proExpiresAt', 'studioExpiresAt',
+      
+      // Metadata e origem
+      'origin', 'createdAt', 'updatedAt', 'lastLoginAt',
+      
+      // Beta/legado (manter compatibilidade temporária)
+      'djExpiresAt', 'djExpired'
+    ];
+    
+    const DEFAULT_USER_DOCUMENT = {
+      // Identificação (preenchido dinamicamente)
+      uid: null,
+      email: null,
+      displayName: null,
+      phoneNumber: null,
+      deviceId: null,
+      authType: 'unknown',
+      
+      // ✅ PLANO PADRÃO: SEMPRE "free" NO PRIMEIRO LOGIN
+      plan: 'free',
+      
+      // Limites e contadores (resetados mensalmente)
+      messagesToday: 0,
+      analysesToday: 0,
+      messagesMonth: 0,
+      analysesMonth: 0,
+      imagesMonth: 0,
+      billingMonth: new Date().toISOString().slice(0, 7), // YYYY-MM
+      lastResetAt: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+      
+      // Status e verificações
+      verified: false,
+      verifiedAt: null,
+      bypassSMS: false,
+      onboardingCompleted: false,
+      
+      // Sistema de afiliados
+      visitorId: null,
+      referralCode: null,
+      referralTimestamp: null,
+      convertedAt: null,
+      firstPaidPlan: null,
+      
+      // Assinaturas (null = plano não adquirido)
+      plusExpiresAt: null,
+      proExpiresAt: null,
+      studioExpiresAt: null,
+      
+      // Metadata
+      origin: 'direct_signup',
+      createdAt: null, // serverTimestamp()
+      updatedAt: null, // serverTimestamp()
+      lastLoginAt: null // serverTimestamp()
+    };
+
+    /**
+     * 🔐 FUNÇÃO CENTRALIZADA: Garantir documento do usuário no Firestore
+     * 
+     * COMPORTAMENTO:
+     * - Se documento NÃO existe: cria com DEFAULT_USER_DOCUMENT (plan: "free")
+     * - Se documento JÁ existe: NÃO altera plan, apenas garante campos mínimos
+     * 
+     * REGRAS:
+     * 1. NUNCA setar plan como "pro"/"plus"/"studio" no login
+     * 2. Upgrade de plano APENAS via webhook de pagamento
+     * 3. Validar campos contra whitelist (USER_SCHEMA_ALLOWED_FIELDS)
+     * 4. Remover campos legacy em português (plano, creditos, etc)
+     * 
+     * @param {Object} user - Objeto user do Firebase Auth
+     * @param {Object} options - Opções adicionais
+     * @param {string} options.provider - Método de autenticação ('google', 'email', 'phone')
+     * @param {string} options.deviceId - ID do dispositivo (opcional)
+     * @param {string} options.referralCode - Código de afiliado (opcional)
+     * @returns {Promise<{created: boolean, updated: boolean}>}
+     */
     async function ensureUserDocument(user, options = {}) {
       if (!user || !user.uid) {
         error('❌ [ENSURE-USER] user ou user.uid é inválido');
-        return false;
+        return { created: false, updated: false };
       }
 
       const {
@@ -1297,25 +1397,69 @@ log('🚀 Carregando auth.js...');
 
       try {
         // Importar Firestore dinamicamente
-        const { doc, getDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
         
         const userRef = doc(db, 'usuarios', user.uid);
         const userSnap = await getDoc(userRef);
         
+        // ═══════════════════════════════════════════════════════════════════
+        // CASO 1: DOCUMENTO JÁ EXISTE - APENAS GARANTIR CAMPOS MÍNIMOS
+        // ═══════════════════════════════════════════════════════════════════
         if (userSnap.exists()) {
-          log('✅ [ENSURE-USER] Documento já existe - nenhuma ação necessária');
-          return false; // Documento já existe
+          log('✅ [ENSURE-USER] Documento já existe');
+          
+          const existingData = userSnap.data();
+          log('   Plan atual:', existingData.plan || existingData.plano || 'não definido');
+          
+          // 🔄 Atualizar apenas lastLoginAt (sem alterar plan)
+          const updates = {
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          // 🔧 MIGRAÇÃO: Se existe "plano" (PT) mas não existe "plan" (EN), migrar
+          if (existingData.plano && !existingData.plan) {
+            const legacyPlanMap = {
+              'gratis': 'free',
+              'plus': 'plus',
+              'pro': 'pro',
+              'studio': 'studio',
+              'dj': 'dj'
+            };
+            updates.plan = legacyPlanMap[existingData.plano] || 'free';
+            log('🔄 [MIGRAÇÃO] Convertendo plano PT → EN:', existingData.plano, '→', updates.plan);
+          }
+          
+          // ✅ Garantir campos mínimos ausentes (sem sobrescrever existentes)
+          const missingFields = {};
+          if (!existingData.plan && !existingData.plano) missingFields.plan = 'free';
+          if (!existingData.messagesToday) missingFields.messagesToday = 0;
+          if (!existingData.analysesToday) missingFields.analysesToday = 0;
+          if (!existingData.messagesMonth) missingFields.messagesMonth = 0;
+          if (!existingData.analysesMonth) missingFields.analysesMonth = 0;
+          if (!existingData.imagesMonth) missingFields.imagesMonth = 0;
+          if (!existingData.billingMonth) missingFields.billingMonth = new Date().toISOString().slice(0, 7);
+          if (!existingData.lastResetAt) missingFields.lastResetAt = new Date().toISOString().slice(0, 10);
+          
+          if (Object.keys(missingFields).length > 0) {
+            log('🔧 [ENSURE-USER] Adicionando campos ausentes:', Object.keys(missingFields));
+            Object.assign(updates, missingFields);
+          }
+          
+          await updateDoc(userRef, updates);
+          log('✅ [ENSURE-USER] Documento atualizado (plan preservado)');
+          
+          return { created: false, updated: true };
         }
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🚨 DOCUMENTO NÃO EXISTE - CRIAR AGORA
+        // CASO 2: DOCUMENTO NÃO EXISTE - CRIAR COM DEFAULTS CORRETOS
         // ═══════════════════════════════════════════════════════════════════
-        log('📝 [ENSURE-USER] Documento não existe - criando...');
+        log('📝 [ENSURE-USER] Documento não existe - criando com plan: "free"');
         
         // Tentar obter deviceId de diferentes fontes
         let finalDeviceId = deviceId;
         if (!finalDeviceId) {
-          // Tentar obter de metadata salvos
           const metadataStr = localStorage.getItem('cadastroMetadata');
           if (metadataStr) {
             try {
@@ -1346,36 +1490,39 @@ log('🚀 Carregando auth.js...');
         const storedReferralCode = referralCode || localStorage.getItem('soundy_referral_code') || null;
         const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
         
-        // Determinar se foi criado sem SMS
-        const criadoSemSMS = provider === 'google' || provider === 'email';
-        const verificadoPorSMS = !!user.phoneNumber;
+        // Determinar verificação SMS
+        const bypassSMS = provider === 'google' || provider === 'email';
+        const verified = !!user.phoneNumber;
         
-        // Nome do usuário (displayName do Google ou email)
-        const nome = user.displayName || user.email?.split('@')[0] || 'Usuário';
+        // Nome do usuário
+        const displayName = user.displayName || user.email?.split('@')[0] || 'User';
         
         log('📋 [ENSURE-USER] Dados do novo documento:');
         log('   Email:', user.email);
-        log('   Nome:', nome);
-        log('   Telefone:', user.phoneNumber || '(nenhum)');
+        log('   Nome:', displayName);
+        log('   Telefone:', user.phoneNumber || '(none)');
         log('   Provider:', provider);
         log('   DeviceID:', finalDeviceId?.substring(0, 16) + '...');
-        log('   criadoSemSMS:', criadoSemSMS);
-        log('   verificadoPorSMS:', verificadoPorSMS);
-        log('   referralCode:', storedReferralCode || '(nenhum)');
-        log('   visitorId:', visitorId?.substring(0, 16) + '...' || '(nenhum)');
+        log('   Plan:', 'free'); // ✅ SEMPRE "free" no primeiro login
+        log('   bypassSMS:', bypassSMS);
+        log('   verified:', verified);
+        log('   referralCode:', storedReferralCode || '(none)');
+        log('   visitorId:', visitorId?.substring(0, 16) + '...' || '(none)');
         
-        // ✅ CRIAR DOCUMENTO COM TODOS OS CAMPOS NECESSÁRIOS
+        // ✅ CRIAR DOCUMENTO COM SCHEMA OFICIAL (APENAS CAMPOS EM INGLÊS)
         const newUserDoc = {
+          // Identificação
           uid: user.uid,
           email: user.email || '',
-          nome: nome,
-          telefone: user.phoneNumber || null,
+          displayName: displayName,
+          phoneNumber: user.phoneNumber || null,
           deviceId: finalDeviceId,
           authType: provider,
           
-          // Plano e limites
-          plano: 'gratis',
-          creditos: 5,
+          // ✅ PLANO: SEMPRE "free" NO PRIMEIRO LOGIN
+          plan: 'free',
+          
+          // Limites e contadores
           messagesToday: 0,
           analysesToday: 0,
           messagesMonth: 0,
@@ -1385,10 +1532,10 @@ log('🚀 Carregando auth.js...');
           lastResetAt: new Date().toISOString().slice(0, 10),
           
           // Status e verificações
-          verificadoPorSMS: verificadoPorSMS,
-          smsVerificadoEm: verificadoPorSMS ? serverTimestamp() : null,
-          criadoSemSMS: criadoSemSMS,
-          entrevistaConcluida: false,
+          verified: verified,
+          verifiedAt: verified ? serverTimestamp() : null,
+          bypassSMS: bypassSMS,
+          onboardingCompleted: false,
           
           // Sistema de afiliados
           visitorId: visitorId,
@@ -1397,22 +1544,34 @@ log('🚀 Carregando auth.js...');
           convertedAt: null,
           firstPaidPlan: null,
           
-          // Origem (pode ser sobrescrito por integração Hotmart)
-          origin: provider === 'google' ? 'google_auth' : 'direct_signup',
+          // Assinaturas (null = não adquirido)
+          plusExpiresAt: null,
+          proExpiresAt: null,
+          studioExpiresAt: null,
           
-          // Timestamps
-          dataCriacao: new Date().toISOString(),
-          dataUltimoLogin: new Date().toISOString(),
+          // Metadata
+          origin: provider === 'google' ? 'google_auth' : 'direct_signup',
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp()
         };
         
-        await setDoc(userRef, newUserDoc);
+        // 🔒 VALIDAÇÃO: Filtrar apenas campos permitidos (whitelist)
+        const validatedDoc = {};
+        for (const [key, value] of Object.entries(newUserDoc)) {
+          if (USER_SCHEMA_ALLOWED_FIELDS.includes(key)) {
+            validatedDoc[key] = value;
+          } else {
+            warn('⚠️ [ENSURE-USER] Campo não permitido ignorado:', key);
+          }
+        }
+        
+        await setDoc(userRef, validatedDoc);
         
         log('✅ [ENSURE-USER] Documento criado com sucesso!');
         log('   UID:', user.uid);
-        log('   Plano:', newUserDoc.plano);
-        log('   Créditos:', newUserDoc.creditos);
+        log('   Plan:', validatedDoc.plan); // ✅ Sempre "free"
+        log('   Campos criados:', Object.keys(validatedDoc).length);
         
         // Limpar metadados após criação
         localStorage.removeItem('cadastroMetadata');
@@ -1421,17 +1580,17 @@ log('🚀 Carregando auth.js...');
         if (window.GATracking?.trackSignupCompleted) {
           window.GATracking.trackSignupCompleted({
             method: provider,
-            plan: 'gratis'
+            plan: 'free' // ✅ Sempre "free"
           });
         }
         
-        return true; // Documento criado
+        return { created: true, updated: false };
         
       } catch (err) {
         error('❌ [ENSURE-USER] Erro ao garantir documento:', err);
         error('   UID:', user.uid);
         error('   Stack:', err.stack);
-        throw err; // Propagar erro para tratamento upstream
+        throw err;
       }
     }
 
@@ -1933,15 +2092,17 @@ log('🚀 Carregando auth.js...');
         }
         
         // ✅ CHAMAR FUNÇÃO CENTRALIZADA
-        const wasCreated = await ensureUserDocument(user, {
+        const result = await ensureUserDocument(user, {
           provider: provider,
           deviceId: deviceId
         });
         
-        if (wasCreated) {
-          log('✅ [AUTH-LISTENER] Novo usuário - documento criado pela função centralizada');
+        if (result.created) {
+          log('✅ [AUTH-LISTENER] Novo usuário - documento criado com plan: "free"');
+        } else if (result.updated) {
+          log('✅ [AUTH-LISTENER] Usuário existente - documento atualizado (plan preservado)');
         } else {
-          log('✅ [AUTH-LISTENER] Usuário existente - documento já existe');
+          log('✅ [AUTH-LISTENER] Usuário existente - nenhuma alteração necessária');
           
           // ═══════════════════════════════════════════════════════════════════
           // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
