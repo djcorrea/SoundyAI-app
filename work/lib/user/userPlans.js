@@ -14,7 +14,6 @@ const ENV_FEATURES = getEnvironmentFeatures(ENV);
 
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 console.log(`🌍 [USER-PLANS] Ambiente: ${ENV}`);
-console.log(`⚙️ [USER-PLANS] Auto-grant PRO em teste: ${ENV_FEATURES.features.autoGrantProPlan}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)
 // 🔓 ATUALIZAÇÃO 2026-01-06: Ajuste de limites PLUS (20), PRO (60) e criação STUDIO (400)
@@ -84,23 +83,46 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
   // 🔐 PROTEÇÃO HOTMART: NUNCA aplicar defaults ou sobrescrever plano de usuários Hotmart
   const isHotmartUser = user.origin === 'hotmart';
   
-  // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para usuários sem plano pago
-  // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
-  if (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
-    user.plan = 'pro';
-    user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 ano
+  // ❌ REMOVIDO: Auto-grant PRO que estava promovendo usuários FREE para PRO
+  // ✅ NOVO: Sistema de trial com freeAnalysesRemaining
+  
+  // ✅ Garantir que plan existe e é válido
+  if (!user.plan || !['free', 'plus', 'pro', 'studio', 'dj'].includes(user.plan)) {
+    user.plan = 'free';
     changed = true;
-    console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (era FREE)`);
+    console.log(`✅ [USER-PLANS] Plan definido como 'free' para UID: ${uid}`);
   }
   
-  // ✅ Garantir que plan existe (EXCETO Hotmart)
-  if (!isHotmartUser && !user.plan) {
-    user.plan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
-    if (ENV_FEATURES.features.autoGrantProPlan) {
-      user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (sem plano)`);
-    }
+  // ✅ Garantir que freeAnalysesRemaining existe (trial de 1 análise)
+  if (typeof user.freeAnalysesRemaining !== 'number') {
+    user.freeAnalysesRemaining = 1; // Usuário começa com 1 análise full gratuita
     changed = true;
+    console.log(`✅ [USER-PLANS] Trial inicializado: freeAnalysesRemaining = 1 para UID: ${uid}`);
+  }
+  
+  // ✅ NOVO: Verificar se deve ativar reducedMode baseado nos limites atuais
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  const currentAnalyses = user.analysesMonth || 0;
+  const shouldBeInReducedMode = (
+    limits.maxFullAnalysesPerMonth !== Infinity && 
+    limits.allowReducedAfterLimit &&
+    currentAnalyses >= limits.maxFullAnalysesPerMonth
+  );
+  
+  // Se deveria estar em reducedMode mas não está, ativar
+  if (shouldBeInReducedMode && user.reducedMode !== true) {
+    user.reducedMode = true;
+    changed = true;
+    console.log(`⚠️ [USER-PLANS] reducedMode ATIVADO na normalização para ${uid}`);
+    console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${currentAnalyses}`);
+  }
+  
+  // Se NÃO deveria estar em reducedMode mas está, desativar
+  if (!shouldBeInReducedMode && user.reducedMode === true) {
+    user.reducedMode = false;
+    changed = true;
+    console.log(`✅ [USER-PLANS] reducedMode DESATIVADO na normalização para ${uid}`);
+    console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${currentAnalyses}`);
   }
   
   // ✅ Garantir que analysesMonth e messagesMonth existam e sejam números
@@ -139,6 +161,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     user.analysesMonth = 0;
     user.messagesMonth = 0;
     user.imagesMonth = 0; // ✅ NOVO: Resetar contador de imagens
+    user.reducedMode = false; // ✅ NOVO: Desativar reducedMode no início do mês
     user.billingMonth = currentMonth;
     changed = true;
   }
@@ -235,6 +258,8 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
       imagesMonth: user.imagesMonth ?? 0,
+      freeAnalysesRemaining: user.freeAnalysesRemaining ?? 0, // ✅ NOVO: Trial system
+      reducedMode: user.reducedMode ?? false, // ✅ NOVO: Persiste reducedMode
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
@@ -299,15 +324,11 @@ export async function getOrCreateUser(uid, extra = {}) {
       // 🔐 PROTEÇÃO HOTMART: Se origin='hotmart', NUNCA sobrescrever plano/expiração
       const isHotmartUser = extra.origin === 'hotmart';
       
-      // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para facilitar testes
-      // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+      // ❌ REMOVIDO: Auto-grant PRO para facilitar testes
+      // ✅ NOVO: Usuário sempre começa com plan: 'free'
       const defaultPlan = isHotmartUser 
         ? (extra.plan || 'free')  // ✅ Usar plano do webhook
-        : (ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free');
-      
-      const proExpiration = (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan)
-        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
-        : null;
+        : 'free'; // ✅ SEMPRE FREE (exceto Hotmart)
       
       const profile = {
         uid,
@@ -315,6 +336,7 @@ export async function getOrCreateUser(uid, extra = {}) {
         messagesMonth: 0,
         analysesMonth: 0,
         imagesMonth: 0,
+        freeAnalysesRemaining: 1, // ✅ NOVO: Trial de 1 análise full
         billingMonth: currentMonth,
         djExpired: false,
         createdAt: nowISO,
@@ -326,16 +348,13 @@ export async function getOrCreateUser(uid, extra = {}) {
         // ✅ Aplicar defaults APENAS se extra não forneceu
         plan: extra.plan || defaultPlan,
         plusExpiresAt: extra.plusExpiresAt || null,
-        proExpiresAt: extra.proExpiresAt || proExpiration,
+        proExpiresAt: extra.proExpiresAt || null,
         djExpiresAt: extra.djExpiresAt || null,
       };
       
-      if (ENV_FEATURES.features.autoGrantProPlan && !isHotmartUser) {
-        console.log(`🧪 [USER-PLANS][TESTE] Auto-grant plano PRO ativado para UID: ${uid}`);
-      }
-      
       console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
-      console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
+      console.log(`📋 [USER-PLANS] Perfil: plan=${profile.plan}, freeAnalysesRemaining=${profile.freeAnalysesRemaining}`);
+      console.log(`📋 [USER-PLANS] Detalhes:`, JSON.stringify(profile, null, 2));
       
       // 🔍 DEBUG: Verificar se campos Hotmart estão presentes
       if (profile.criadoSemSMS || profile.origin === 'hotmart') {
@@ -846,29 +865,8 @@ export async function registerChat(uid, hasImages = false, isTestRequest = false
  * @returns {Promise<Object>} { allowed: boolean, mode: "full"|"reduced"|"blocked", user: Object, remainingFull: number, errorCode?: string }
  */
 export async function canUseAnalysis(uid) {
-  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: Análise sempre permitida (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}`);
-    
-    return {
-      allowed: true,
-      mode: 'full',
-      test: true,
-      remainingFull: 9999,
-      user: {
-        uid: uid,
-        plan: 'test-unlimited',
-        messagesMonth: 0,
-        imagesMonth: 0,
-        analysesMonth: 0,
-        billingMonth: getCurrentMonthKey(),
-        entrevistaConcluida: true
-      }
-    };
-  }
-  
-  // 🏭 PRODUÇÃO: Validação normal
+  // ✅ BYPASS DE TESTE REMOVIDO: Sistema sempre valida limites reais do plano
+  // 🏭 Validação aplicada em TODOS os ambientes
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
   
@@ -888,13 +886,19 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ ANÁLISES FULL ILIMITADAS (PRO antes do hard cap)
+  // ✅ ANÁLISES FULL ILIMITADAS (PRO/DJ/STUDIO antes do hard cap)
   if (limits.maxFullAnalysesPerMonth === Infinity) {
     const remaining = limits.hardCapAnalysesPerMonth 
       ? limits.hardCapAnalysesPerMonth - currentMonthAnalyses 
       : Infinity;
     
-    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth || '∞'})`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`✅ [USER-PLANS] MODO: FULL (ILIMITADO)`);
+    console.log(`✅ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`✅ [USER-PLANS] Motivo: Plano premium com análises ilimitadas`);
+    console.log(`✅ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.hardCapAnalysesPerMonth || '∞'}`);
+    console.log(`✅ [USER-PLANS] UID: ${uid}`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'full',
@@ -903,10 +907,16 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ ANÁLISES FULL LIMITADAS (FREE/PLUS)
+  // ✅ ANÁLISES FULL LIMITADAS (FREE/PLUS/PRO)
   if (currentMonthAnalyses < limits.maxFullAnalysesPerMonth) {
     const remaining = limits.maxFullAnalysesPerMonth - currentMonthAnalyses;
-    console.log(`✅ [USER-PLANS] Análise COMPLETA permitida (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth}) - ${remaining} restantes`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`✅ [USER-PLANS] MODO: FULL`);
+    console.log(`✅ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`✅ [USER-PLANS] Motivo: Análises disponíveis (${remaining} restantes)`);
+    console.log(`✅ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth}`);
+    console.log(`✅ [USER-PLANS] UID: ${uid}`);
+    console.log(`✅ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'full',
@@ -915,9 +925,17 @@ export async function canUseAnalysis(uid) {
     };
   }
 
-  // ✅ MODO REDUZIDO (FREE/PLUS após limite de full)
+  // ✅ MODO REDUZIDO (FREE/PLUS/PRO após limite de full)
   if (limits.allowReducedAfterLimit) {
-    console.log(`⚠️ [USER-PLANS] Análise em MODO REDUZIDO (${user.plan.toUpperCase()}): ${uid} (${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth} completas usadas)`);
+    console.log(`⚠️ [USER-PLANS] ══════════════════════════════════════`);
+    console.log(`⚠️ [USER-PLANS] MODO: REDUCED`);
+    console.log(`⚠️ [USER-PLANS] Plano: ${user.plan.toUpperCase()}`);
+    console.log(`⚠️ [USER-PLANS] Motivo: Limite de análises FULL atingido`);
+    console.log(`⚠️ [USER-PLANS] Contador: ${currentMonthAnalyses}/${limits.maxFullAnalysesPerMonth} (completas usadas)`);
+    console.log(`⚠️ [USER-PLANS] UID: ${uid}`);
+    console.log(`⚠️ [USER-PLANS] Comportamento: Métricas básicas visíveis, avançadas borradas`);
+    console.log(`⚠️ [USER-PLANS] Próximo reset: Início do próximo mês`);
+    console.log(`⚠️ [USER-PLANS] ══════════════════════════════════════`);
     return {
       allowed: true,
       mode: 'reduced',
@@ -961,13 +979,35 @@ export async function registerAnalysis(uid, mode = "full") {
   console.log(`📊 [USER-PLANS][${ENV.toUpperCase()}] Registrando análise COMPLETA para ${uid}`);
   console.log(`   analysesMonth ANTES: ${user.analysesMonth || 0}`);
   console.log(`   analysesMonth DEPOIS: ${newCount}`);
+  
+  // ✅ VERIFICAR SE DEVE ATIVAR reducedMode
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  let shouldActivateReducedMode = false;
+  
+  // Se o plano tem limite de análises full E permite reduced após limite
+  if (limits.maxFullAnalysesPerMonth !== Infinity && limits.allowReducedAfterLimit) {
+    // Se atingiu ou ultrapassou o limite
+    if (newCount >= limits.maxFullAnalysesPerMonth) {
+      shouldActivateReducedMode = true;
+      console.log(`⚠️ [USER-PLANS] LIMITE ATINGIDO: Ativando reducedMode para ${uid}`);
+      console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${newCount}`);
+    }
+  }
 
-  await ref.update({
+  const updateData = {
     analysesMonth: newCount,
     updatedAt: new Date().toISOString(),
-  });
+  };
   
-  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
+  // ✅ Ativar reducedMode se necessário
+  if (shouldActivateReducedMode) {
+    updateData.reducedMode = true;
+    console.log(`✅ [USER-PLANS] reducedMode ATIVADO para ${uid}`);
+  }
+
+  await ref.update(updateData);
+  
+  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})${shouldActivateReducedMode ? ' - reducedMode ATIVADO' : ''}`);
 }
 
 /**

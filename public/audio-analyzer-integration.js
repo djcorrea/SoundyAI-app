@@ -14631,7 +14631,7 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // � GA4 Tracking: Análise de áudio completada
+    // GA4 Tracking: Análise de áudio completada
     if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
         window.GATracking.trackAudioAnalysisCompleted({
             mode: analysis?.mode || analysis?.analysisMode || 'genre',
@@ -14641,7 +14641,7 @@ async function displayModalResults(analysis) {
         });
     }
     
-    // �🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
+    // HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
     // (Análises de referência usam displayReferenceComparison)
     if (analysis && !analysis._fromHistory && analysis.technicalData) {
         const analysisMode = analysis.mode || analysis.analysisMode || 'genre';
@@ -14656,13 +14656,20 @@ async function displayModalResults(analysis) {
         }
     }
     
-    // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
+    // ✅ VERIFICAÇÃO: Modo Reduzido (decidido pelo BACKEND baseado em plan + analysesMonth)
+    // O backend retorna analysisMode: 'full' ou 'reduced' baseado em:
+    // - FREE: 1 análise full, depois reduced
+    // - PLUS: 20 análises full, depois reduced
+    // - PRO: 60 análises full, depois reduced
+    // - STUDIO: Bloqueia após 400 (hard cap)
     const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
     
     if (isReduced) {
-        log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - JSON completo recebido');
-        log('[PLAN-FILTER] 📊 Campos do JSON:', Object.keys(analysis));
-        log('[PLAN-FILTER] 🎯 Usando sistema avançado de mascaramento dinâmico...');
+        log('[REDUCED-MODE] ⚠️ MODO REDUZIDO ATIVADO');
+        log('[REDUCED-MODE] 📊 Fonte: Backend (analysisMode da resposta da API)');
+        log('[REDUCED-MODE] 📊 Motivo: Limite de análises full atingido para este plano');
+        log('[REDUCED-MODE] 📊 Campos do JSON:', Object.keys(analysis));
+        log('[REDUCED-MODE] 🎯 Aplicando máscaras em métricas avançadas...');
         
         // ✅ NÃO parar aqui! Continuar renderização normal
         // O sistema de mascaramento será aplicado APÓS o DOM ser renderizado

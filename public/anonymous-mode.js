@@ -21,7 +21,9 @@
     // 🎛️ CONFIGURAÇÃO - FEATURE FLAG
     // ═══════════════════════════════════════════════════════════
     
-    const ANONYMOUS_MODE_ENABLED = true; // Alterar para false desativa todo o sistema
+    // ❌ DESATIVADO 2026-02-02: Forçar login obrigatório
+    // ✅ Para reativar: mude para true
+    const ANONYMOUS_MODE_ENABLED = false; // Alterar para false desativa todo o sistema
     
     // ═══════════════════════════════════════════════════════════
     // 📊 LIMITES DO MODO ANÔNIMO

@@ -139,9 +139,10 @@ import deleteAccountRoute from "./api/delete-account.js";
 import mercadopagoRoute from "./api/mercadopago.js";
 import uploadAudioRoute from "./api/upload-audio.js";
 
-// 🔓 ROTAS ANÔNIMAS - Para usuários sem autenticação Firebase
-import chatAnonymousHandler from "./work/api/chat-anonymous.js";
-import analyzeAnonymousRoute from "./work/api/audio/analyze-anonymous.js";
+// 🔓 ROTAS ANÔNIMAS - DESATIVADAS 2026-02-02
+// ✅ Para reativar: descomente as linhas abaixo
+// import chatAnonymousHandler from "./work/api/chat-anonymous.js";
+// import analyzeAnonymousRoute from "./work/api/audio/analyze-anonymous.js";
 import uploadImageRoute from "./api/upload-image.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
@@ -174,9 +175,11 @@ import waitlistRouter from "./api/waitlist.js";
 import launchRouter from "./api/launch.js";
 
 // ═══════════════════════════════════════════════════════════════════
-// 🔓 ROTAS ANÔNIMAS - DEVEM SER REGISTRADAS PRIMEIRO!
+// 🔓 ROTAS ANÔNIMAS - DESATIVADAS 2026-02-02 (Forçar login obrigatório)
+// ✅ Para reativar: descomente o bloco abaixo e reimporte os handlers
 // ═══════════════════════════════════════════════════════════════════
 
+/*
 // 🔓 Chat anônimo (5 mensagens/dia)
 app.post("/api/chat/anonymous", async (req, res) => {
   console.log('[ANONYMOUS-CHAT] 📥 POST /api/chat/anonymous recebido');
@@ -210,6 +213,10 @@ console.log('🔓 [ANONYMOUS] Rotas anônimas registradas:');
 console.log('   - POST /api/chat/anonymous');
 console.log('   - POST /api/audio/analyze-anonymous');
 console.log('   - GET /api/anonymous/status');
+*/
+
+console.log('⚠️  [ANONYMOUS] Rotas anônimas DESATIVADAS (login obrigatório)');
+
 
 // ═══════════════════════════════════════════════════════════════════
 // � ROTAS DEMO - Controle de limite 100% backend

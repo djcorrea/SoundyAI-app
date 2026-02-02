@@ -25,9 +25,9 @@ service cloud.firestore {
       allow create: if request.auth != null 
                     && request.auth.uid == userId
                     && request.resource.data.uid == userId
-                    && request.resource.data.email is string
                     && request.resource.data.plan is string
-                    && request.resource.data.deviceId is string;
+                    && (request.resource.data.email is string || request.resource.data.email == null)
+                    && (request.resource.data.deviceId is string || request.resource.data.deviceId == null);
       
       // ═══════════════════════════════════════════════════════════════════
       // 🔒 ATUALIZAÇÃO: Permite sincronização de SMS e campos permitidos
