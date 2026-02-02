@@ -865,29 +865,8 @@ export async function registerChat(uid, hasImages = false, isTestRequest = false
  * @returns {Promise<Object>} { allowed: boolean, mode: "full"|"reduced"|"blocked", user: Object, remainingFull: number, errorCode?: string }
  */
 export async function canUseAnalysis(uid) {
-  // 🧪 BYPASS TOTAL PARA AMBIENTE DE TESTE
-  if (ENV === 'test' || ENV === 'development') {
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] BYPASS: Análise sempre permitida (ambiente de teste)`);
-    console.log(`🧪 [USER-PLANS][${ENV.toUpperCase()}] UID: ${uid}`);
-    
-    return {
-      allowed: true,
-      mode: 'full',
-      test: true,
-      remainingFull: 9999,
-      user: {
-        uid: uid,
-        plan: 'test-unlimited',
-        messagesMonth: 0,
-        imagesMonth: 0,
-        analysesMonth: 0,
-        billingMonth: getCurrentMonthKey(),
-        entrevistaConcluida: true
-      }
-    };
-  }
-  
-  // 🏭 PRODUÇÃO: Validação normal
+  // ✅ BYPASS DE TESTE REMOVIDO: Sistema sempre valida limites reais do plano
+  // 🏭 Validação aplicada em TODOS os ambientes
   const user = await getOrCreateUser(uid);
   await normalizeUserDoc(user, uid);
   
