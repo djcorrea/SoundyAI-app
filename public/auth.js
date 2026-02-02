@@ -1986,15 +1986,14 @@ log('🚀 Carregando auth.js...');
           log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
         }
         
-      } catch (error) {
-        error('❌ [AUTH-LISTENER] Erro:', error);
-        error('   Stack:', error.stack);
-      }
-    });
-        
         // ═══════════════════════════════════════════════════════════════════
         // 🔗 VINCULAR CADASTRO AO REFERRAL (REFERRAL V3 - BACKEND)
         // ═══════════════════════════════════════════════════════════════════
+        
+        // Obter visitorId e referralCode do localStorage
+        const visitorId = localStorage.getItem('visitorId');
+        const referralCode = localStorage.getItem('soundy_referral_code');
+        const userRef = doc(db, 'usuarios', user.uid);
         
         if (visitorId && referralCode) {
           try {
@@ -2066,10 +2065,8 @@ log('🚀 Carregando auth.js...');
             log('   Erro:', error.message);
             // Não bloqueia o cadastro
           }
-        }
-        
-        // 🧹 LIMPAR CÓDIGOS do localStorage (manter visitorId)
-        if (referralCode) {
+          
+          // 🧹 LIMPAR CÓDIGOS do localStorage (manter visitorId)
           localStorage.removeItem('soundy_referral_code');
           localStorage.removeItem('soundy_referral_timestamp');
           log('🧹 [REFERRAL-V3] Códigos limpos do localStorage (visitorId mantido)');
@@ -2081,10 +2078,11 @@ log('🚀 Carregando auth.js...');
           log('✅ [AUTH-LISTENER] CONFIRMADO: Documento existe no Firestore');
           log('   Dados completos:', verificacao.data());
           
-          // Limpar metadados após sucesso
+          // Limpar metadados após sucesso (já foi limpo acima se existia)
+          const cadastroMetadataStr = localStorage.getItem('cadastroMetadata');
           if (cadastroMetadataStr) {
             localStorage.removeItem('cadastroMetadata');
-            log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos');
+            log('🧹 [AUTH-LISTENER] Metadados de cadastro removidos (segunda verificação)');
           }
         } else {
           error('❌ [AUTH-LISTENER] ERRO CRÍTICO: Documento não foi criado após setDoc!');
