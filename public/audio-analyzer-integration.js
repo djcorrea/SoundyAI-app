@@ -14631,7 +14631,27 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // � GA4 Tracking: Análise de áudio completada
+    // 🔐 CORREÇÃO CRÍTICA: Buscar reducedMode do Firestore ANTES de renderizar
+    // Este campo é autoritativo e deve sobrescrever qualquer flag do backend
+    let userReducedMode = false;
+    try {
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser) {
+            const userDocRef = firebase.firestore().collection('usuarios').doc(currentUser.uid);
+            const userSnap = await userDocRef.get();
+            if (userSnap.exists) {
+                const userData = userSnap.data();
+                userReducedMode = userData.reducedMode === true;
+                log('[REDUCED-MODE-CHECK] 📋 Campo reducedMode do Firestore:', userReducedMode);
+                log('[REDUCED-MODE-CHECK] Plan:', userData.plan, '| AnalysesMonth:', userData.analysesMonth);
+            }
+        }
+    } catch (err) {
+        warn('[REDUCED-MODE-CHECK] ⚠️ Erro ao buscar reducedMode do Firestore:', err);
+        // Continuar com fallback para analysisMode do backend
+    }
+    
+    // GA4 Tracking: Análise de áudio completada
     if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
         window.GATracking.trackAudioAnalysisCompleted({
             mode: analysis?.mode || analysis?.analysisMode || 'genre',
@@ -14641,7 +14661,7 @@ async function displayModalResults(analysis) {
         });
     }
     
-    // �🕐 HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
+    // HISTÓRICO PRO: Ponto único de salvamento para análises de GÊNERO
     // (Análises de referência usam displayReferenceComparison)
     if (analysis && !analysis._fromHistory && analysis.technicalData) {
         const analysisMode = analysis.mode || analysis.analysisMode || 'genre';
@@ -14656,11 +14676,13 @@ async function displayModalResults(analysis) {
         }
     }
     
-    // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido (backend envia JSON completo, frontend aplica máscara)
-    const isReduced = analysis.analysisMode === 'reduced' || analysis.isReduced === true;
+    // ✅ VERIFICAÇÃO PRIORITÁRIA: Modo Reduzido
+    // ORDEM DE PRIORIDADE: 1) reducedMode do Firestore, 2) analysisMode do backend
+    const isReduced = userReducedMode || analysis.analysisMode === 'reduced' || analysis.isReduced === true;
     
     if (isReduced) {
-        log('[PLAN-FILTER] ⚠️ MODO REDUZIDO DETECTADO - JSON completo recebido');
+        log('[PLAN-FILTER] ⚠️ MODO REDUZIDO ATIVADO');
+        log('[PLAN-FILTER] 📊 Fonte:', userReducedMode ? 'Firestore (reducedMode: true)' : 'Backend (analysisMode: reduced)');
         log('[PLAN-FILTER] 📊 Campos do JSON:', Object.keys(analysis));
         log('[PLAN-FILTER] 🎯 Usando sistema avançado de mascaramento dinâmico...');
         
