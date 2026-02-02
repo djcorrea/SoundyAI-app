@@ -1291,6 +1291,8 @@ log('🚀 Carregando auth.js...');
       
       // Plano (APENAS EM INGLÊS)
       'plan', // ✅ Campo oficial (valores: "free" | "plus" | "pro" | "studio")
+      'freeAnalysesRemaining', // ✅ Trial: 1 análise full gratuita
+      'reducedMode', // ✅ Modo reduzido (métricas borradas após trial)
       
       // Limites e contadores
       'messagesToday', 'analysesToday', 'messagesMonth', 'analysesMonth', 'imagesMonth',
@@ -1323,6 +1325,8 @@ log('🚀 Carregando auth.js...');
       
       // ✅ PLANO PADRÃO: SEMPRE "free" NO PRIMEIRO LOGIN
       plan: 'free',
+      freeAnalysesRemaining: 1,  // Trial de 1 análise full
+      reducedMode: false,        // Começa em modo completo
       
       // Limites e contadores (resetados mensalmente)
       messagesToday: 0,
@@ -1433,6 +1437,8 @@ log('🚀 Carregando auth.js...');
           // ✅ Garantir campos mínimos ausentes (sem sobrescrever existentes)
           const missingFields = {};
           if (!existingData.plan && !existingData.plano) missingFields.plan = 'free';
+          if (typeof existingData.freeAnalysesRemaining !== 'number') missingFields.freeAnalysesRemaining = 1;
+          if (typeof existingData.reducedMode !== 'boolean') missingFields.reducedMode = false;
           if (!existingData.messagesToday) missingFields.messagesToday = 0;
           if (!existingData.analysesToday) missingFields.analysesToday = 0;
           if (!existingData.messagesMonth) missingFields.messagesMonth = 0;
@@ -1521,6 +1527,10 @@ log('🚀 Carregando auth.js...');
           
           // ✅ PLANO: SEMPRE "free" NO PRIMEIRO LOGIN
           plan: 'free',
+          
+          // ✅ SISTEMA DE TRIAL
+          freeAnalysesRemaining: 1,  // Trial de 1 análise full
+          reducedMode: false,        // Começa em modo completo
           
           // Limites e contadores
           messagesToday: 0,
