@@ -670,10 +670,8 @@
                             warn('⚠️ Erro na verificação:', verificacaoError);
                         }
                         
-                        alert('Perfil salvo com sucesso! Redirecionando...');
-                        
-                        // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
-                        // entrevista-final.html foi removida do fluxo
+                        // Perfil salvo com sucesso — redirecionar imediatamente
+                        // (removido alert para evitar popup bloqueador)
                         log('🎉 Entrevista concluída - redirecionando para index.html');
                         window.location.href = 'index.html';
                         

@@ -233,8 +233,9 @@ export function getEnvironmentFeatures(env = detectEnvironment()) {
     
     // Features de teste
     features: {
-      // Em teste, usuários autenticados ganham plano PRO automaticamente
-      autoGrantProPlan: env === 'test' || env === 'development',
+      // ❌ DESABILITADO: NÃO promover usuários para PRO automaticamente
+      // Usuários FREE devem permanecer FREE até upgrade via pagamento
+      autoGrantProPlan: false, // ✅ CORRIGIDO: era env === 'test' || env === 'development'
       
       // Logs detalhados em não-produção
       verboseLogs: env !== 'production',

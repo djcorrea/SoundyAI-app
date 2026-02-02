@@ -14,7 +14,6 @@ const ENV_FEATURES = getEnvironmentFeatures(ENV);
 
 console.log(`🔥 [USER-PLANS] Módulo carregado (MIGRAÇÃO MENSAL) - Collection: ${USERS}`);
 console.log(`🌍 [USER-PLANS] Ambiente: ${ENV}`);
-console.log(`⚙️ [USER-PLANS] Auto-grant PRO em teste: ${ENV_FEATURES.features.autoGrantProPlan}`);
 
 // ✅ Sistema de limites mensais (NOVA ESTRUTURA)
 // 🔓 ATUALIZAÇÃO 2026-01-06: Ajuste de limites PLUS (20), PRO (60) e criação STUDIO (400)
@@ -84,23 +83,21 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
   // 🔐 PROTEÇÃO HOTMART: NUNCA aplicar defaults ou sobrescrever plano de usuários Hotmart
   const isHotmartUser = user.origin === 'hotmart';
   
-  // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para usuários sem plano pago
-  // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
-  if (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan && user.plan === 'free') {
-    user.plan = 'pro';
-    user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(); // 1 ano
+  // ❌ REMOVIDO: Auto-grant PRO que estava promovendo usuários FREE para PRO
+  // ✅ NOVO: Sistema de trial com freeAnalysesRemaining
+  
+  // ✅ Garantir que plan existe e é válido
+  if (!user.plan || !['free', 'plus', 'pro', 'studio', 'dj'].includes(user.plan)) {
+    user.plan = 'free';
     changed = true;
-    console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (era FREE)`);
+    console.log(`✅ [USER-PLANS] Plan definido como 'free' para UID: ${uid}`);
   }
   
-  // ✅ Garantir que plan existe (EXCETO Hotmart)
-  if (!isHotmartUser && !user.plan) {
-    user.plan = ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free';
-    if (ENV_FEATURES.features.autoGrantProPlan) {
-      user.proExpiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      console.log(`🧪 [USER-PLANS][TESTE] Auto-grant PRO aplicado para UID: ${uid} (sem plano)`);
-    }
+  // ✅ NOVO: Garantir que freeAnalysesRemaining existe (trial de 1 análise)
+  if (typeof user.freeAnalysesRemaining !== 'number') {
+    user.freeAnalysesRemaining = 1; // Usuário começa com 1 análise full gratuita
     changed = true;
+    console.log(`✅ [USER-PLANS] Trial inicializado: freeAnalysesRemaining = 1 para UID: ${uid}`);
   }
   
   // ✅ Garantir que analysesMonth e messagesMonth existam e sejam números
@@ -235,6 +232,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       analysesMonth: user.analysesMonth,
       messagesMonth: user.messagesMonth,
       imagesMonth: user.imagesMonth ?? 0,
+      freeAnalysesRemaining: user.freeAnalysesRemaining ?? 0, // ✅ NOVO: Trial system
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
@@ -299,15 +297,11 @@ export async function getOrCreateUser(uid, extra = {}) {
       // 🔐 PROTEÇÃO HOTMART: Se origin='hotmart', NUNCA sobrescrever plano/expiração
       const isHotmartUser = extra.origin === 'hotmart';
       
-      // 🧪 AMBIENTE DE TESTE: Auto-grant plano PRO para facilitar testes
-      // ❌ MAS NÃO aplicar para usuários Hotmart (eles já vêm com plano definido)
+      // ❌ REMOVIDO: Auto-grant PRO para facilitar testes
+      // ✅ NOVO: Usuário sempre começa com plan: 'free'
       const defaultPlan = isHotmartUser 
         ? (extra.plan || 'free')  // ✅ Usar plano do webhook
-        : (ENV_FEATURES.features.autoGrantProPlan ? 'pro' : 'free');
-      
-      const proExpiration = (!isHotmartUser && ENV_FEATURES.features.autoGrantProPlan)
-        ? new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 ano
-        : null;
+        : 'free'; // ✅ SEMPRE FREE (exceto Hotmart)
       
       const profile = {
         uid,
@@ -315,6 +309,7 @@ export async function getOrCreateUser(uid, extra = {}) {
         messagesMonth: 0,
         analysesMonth: 0,
         imagesMonth: 0,
+        freeAnalysesRemaining: 1, // ✅ NOVO: Trial de 1 análise full
         billingMonth: currentMonth,
         djExpired: false,
         createdAt: nowISO,
@@ -326,16 +321,13 @@ export async function getOrCreateUser(uid, extra = {}) {
         // ✅ Aplicar defaults APENAS se extra não forneceu
         plan: extra.plan || defaultPlan,
         plusExpiresAt: extra.plusExpiresAt || null,
-        proExpiresAt: extra.proExpiresAt || proExpiration,
+        proExpiresAt: extra.proExpiresAt || null,
         djExpiresAt: extra.djExpiresAt || null,
       };
       
-      if (ENV_FEATURES.features.autoGrantProPlan && !isHotmartUser) {
-        console.log(`🧪 [USER-PLANS][TESTE] Auto-grant plano PRO ativado para UID: ${uid}`);
-      }
-      
       console.log(`💾 [USER-PLANS] Criando novo usuário no Firestore...`);
-      console.log(`📋 [USER-PLANS] Perfil:`, JSON.stringify(profile, null, 2));
+      console.log(`📋 [USER-PLANS] Perfil: plan=${profile.plan}, freeAnalysesRemaining=${profile.freeAnalysesRemaining}`);
+      console.log(`📋 [USER-PLANS] Detalhes:`, JSON.stringify(profile, null, 2));
       
       // 🔍 DEBUG: Verificar se campos Hotmart estão presentes
       if (profile.criadoSemSMS || profile.origin === 'hotmart') {
