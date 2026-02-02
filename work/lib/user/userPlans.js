@@ -93,11 +93,36 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     console.log(`✅ [USER-PLANS] Plan definido como 'free' para UID: ${uid}`);
   }
   
-  // ✅ NOVO: Garantir que freeAnalysesRemaining existe (trial de 1 análise)
+  // ✅ Garantir que freeAnalysesRemaining existe (trial de 1 análise)
   if (typeof user.freeAnalysesRemaining !== 'number') {
     user.freeAnalysesRemaining = 1; // Usuário começa com 1 análise full gratuita
     changed = true;
     console.log(`✅ [USER-PLANS] Trial inicializado: freeAnalysesRemaining = 1 para UID: ${uid}`);
+  }
+  
+  // ✅ NOVO: Verificar se deve ativar reducedMode baseado nos limites atuais
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  const currentAnalyses = user.analysesMonth || 0;
+  const shouldBeInReducedMode = (
+    limits.maxFullAnalysesPerMonth !== Infinity && 
+    limits.allowReducedAfterLimit &&
+    currentAnalyses >= limits.maxFullAnalysesPerMonth
+  );
+  
+  // Se deveria estar em reducedMode mas não está, ativar
+  if (shouldBeInReducedMode && user.reducedMode !== true) {
+    user.reducedMode = true;
+    changed = true;
+    console.log(`⚠️ [USER-PLANS] reducedMode ATIVADO na normalização para ${uid}`);
+    console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${currentAnalyses}`);
+  }
+  
+  // Se NÃO deveria estar em reducedMode mas está, desativar
+  if (!shouldBeInReducedMode && user.reducedMode === true) {
+    user.reducedMode = false;
+    changed = true;
+    console.log(`✅ [USER-PLANS] reducedMode DESATIVADO na normalização para ${uid}`);
+    console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${currentAnalyses}`);
   }
   
   // ✅ Garantir que analysesMonth e messagesMonth existam e sejam números
@@ -136,6 +161,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     user.analysesMonth = 0;
     user.messagesMonth = 0;
     user.imagesMonth = 0; // ✅ NOVO: Resetar contador de imagens
+    user.reducedMode = false; // ✅ NOVO: Desativar reducedMode no início do mês
     user.billingMonth = currentMonth;
     changed = true;
   }
@@ -233,6 +259,7 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
       messagesMonth: user.messagesMonth,
       imagesMonth: user.imagesMonth ?? 0,
       freeAnalysesRemaining: user.freeAnalysesRemaining ?? 0, // ✅ NOVO: Trial system
+      reducedMode: user.reducedMode ?? false, // ✅ NOVO: Persiste reducedMode
       billingMonth: user.billingMonth,
       plusExpiresAt: user.plusExpiresAt ?? null,
       proExpiresAt: user.proExpiresAt ?? null,
@@ -953,13 +980,35 @@ export async function registerAnalysis(uid, mode = "full") {
   console.log(`📊 [USER-PLANS][${ENV.toUpperCase()}] Registrando análise COMPLETA para ${uid}`);
   console.log(`   analysesMonth ANTES: ${user.analysesMonth || 0}`);
   console.log(`   analysesMonth DEPOIS: ${newCount}`);
+  
+  // ✅ VERIFICAR SE DEVE ATIVAR reducedMode
+  const limits = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  let shouldActivateReducedMode = false;
+  
+  // Se o plano tem limite de análises full E permite reduced após limite
+  if (limits.maxFullAnalysesPerMonth !== Infinity && limits.allowReducedAfterLimit) {
+    // Se atingiu ou ultrapassou o limite
+    if (newCount >= limits.maxFullAnalysesPerMonth) {
+      shouldActivateReducedMode = true;
+      console.log(`⚠️ [USER-PLANS] LIMITE ATINGIDO: Ativando reducedMode para ${uid}`);
+      console.log(`   Plan: ${user.plan}, Limite: ${limits.maxFullAnalysesPerMonth}, Usado: ${newCount}`);
+    }
+  }
 
-  await ref.update({
+  const updateData = {
     analysesMonth: newCount,
     updatedAt: new Date().toISOString(),
-  });
+  };
   
-  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})`);
+  // ✅ Ativar reducedMode se necessário
+  if (shouldActivateReducedMode) {
+    updateData.reducedMode = true;
+    console.log(`✅ [USER-PLANS] reducedMode ATIVADO para ${uid}`);
+  }
+
+  await ref.update(updateData);
+  
+  console.log(`✅ [USER-PLANS][${ENV.toUpperCase()}] Análise COMPLETA registrada: ${uid} (total no mês: ${newCount})${shouldActivateReducedMode ? ' - reducedMode ATIVADO' : ''}`);
 }
 
 /**
