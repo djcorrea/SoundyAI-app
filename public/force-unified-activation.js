@@ -39,7 +39,7 @@
     // Força ativação imediata
     window.STATUS_SUGGESTION_UNIFIED_V1 = true;
     
-    // 🎯 CONTADOR DE TENTATIVAS E FUNÇÃO SEGURA PARA METRICS CORE
+    // 🎯 CONTADOR DE TENTATIVAS (declarado ANTES de safeForceActivator)
     let forceCheckAttempts = 0;
     
     function safeForceActivator() {

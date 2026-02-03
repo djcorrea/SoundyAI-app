@@ -13,35 +13,43 @@
     'use strict';
     
     let currentMode = 'genre'; // Estado interno
+    let isUpdating = false; // Guard para evitar recursão
     
     /**
      * Setter de modo (substitui window.currentAnalysisMode)
      */
     function setAnalysisMode(mode, options = {}) {
-        const oldMode = currentMode;
-        currentMode = mode;
-        
-        // Log mudança
-        if (oldMode !== mode) {
-            console.log(`🔄 [MODE] Mudança detectada: ${oldMode} → ${mode}`);
-            
-            // Disparar evento customizado
-            window.dispatchEvent(new CustomEvent('analysisModeChanged', {
-                detail: {
-                    mode: mode,
-                    oldMode: oldMode,
-                    userExplicitlySelected: options.userExplicitlySelected || false
-                }
-            }));
+        // GUARD: Evitar recursão infinita
+        if (isUpdating) {
+            return currentMode;
         }
         
-        // Atualizar também a variável global (para compatibilidade)
-        window.currentAnalysisMode = mode;
-        
-        // Atualizar atributo no body para CSS
-        document.body.setAttribute('data-analysis-mode', mode);
-        
-        return mode;
+        isUpdating = true;
+        try {
+            const oldMode = currentMode;
+            currentMode = mode;
+            
+            // Log mudança
+            if (oldMode !== mode) {
+                console.log(`🔄 [MODE] Mudança detectada: ${oldMode} → ${mode}`);
+                
+                // Disparar evento customizado
+                window.dispatchEvent(new CustomEvent('analysisModeChanged', {
+                    detail: {
+                        mode: mode,
+                        oldMode: oldMode,
+                        userExplicitlySelected: options.userExplicitlySelected || false
+                    }
+                }));
+            }
+            
+            // Atualizar atributo no body para CSS
+            document.body.setAttribute('data-analysis-mode', mode);
+            
+            return mode;
+        } finally {
+            isUpdating = false;
+        }
     }
     
     /**
@@ -108,7 +116,10 @@
             return currentMode;
         },
         set(value) {
-            setAnalysisMode(value);
+            // GUARD: Evitar recursão via setter
+            if (!isUpdating && value !== currentMode) {
+                setAnalysisMode(value);
+            }
         },
         configurable: true
     });

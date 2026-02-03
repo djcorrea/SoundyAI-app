@@ -3,7 +3,16 @@
 // Implementação usando Web Audio API (100% gratuito)
 // 🔄 Cache determinístico: genre:fileHash:refsVer para invalidação precisa
 
-// 🚩 FEATURE FLAGS CONFIGURATION
+// �️ GUARD: Prevenir carregamento duplicado
+if (typeof window !== 'undefined' && window.__AUDIO_ANALYZER_LOADED__) {
+    console.warn('⚠️ Audio Analyzer já carregado, ignorando duplicata');
+    // Não executar nada, apenas retornar
+    (function() { return; })();
+} else if (typeof window !== 'undefined') {
+    window.__AUDIO_ANALYZER_LOADED__ = true;
+}
+
+// �🚩 FEATURE FLAGS CONFIGURATION
 // NEW_CACHE_KEY: true em dev/staging, pode ser false em prod para rollback
 if (typeof window !== 'undefined' && window.NEW_CACHE_KEY === undefined) {
   window.NEW_CACHE_KEY = window.location.hostname !== 'prod.ai'; // Default baseado no hostname
