@@ -1038,11 +1038,11 @@
     <script src="secure-api-loader.js?v=20250922-secure" defer></script>
     -->
     
-    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO (ANTI-LOOP) -->
+    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO (EVENT-DRIVEN) -->
     <script>
         // Força ativação do sistema novo assim que carregar
         window.addEventListener('DOMContentLoaded', function() {
-            log('🎯 [INDEX] Forçando ativação do sistema novo...');
+            log('🎯 [INDEX] Forçando ativação do sistema novo (event-driven)...');
             
             // 🔒 GUARDRAILS ANTI-REINIT
             if (window.__SUGGESTION_SYSTEM_ACTIVATING) {
@@ -1057,15 +1057,16 @@
             
             window.__SUGGESTION_SYSTEM_ACTIVATING = true;
             
-            let attempts = 0;
-            const MAX_ATTEMPTS = 15; // 1.5 segundos máximo
-            let timeoutId = null;
-            
-            const forceActivate = () => {
-                attempts++;
-                log(`🎯 [INDEX] Tentativa ${attempts}/${MAX_ATTEMPTS} de ativação...`);
+            // ⚡ FUNÇÃO DE ATIVAÇÃO (Única execução)
+            const activateOnce = () => {
+                // Prevenir múltiplas execuções
+                if (window.__SUGGESTION_SYSTEM_READY) {
+                    log('✅ [INDEX] Sistema já ativado, ignorando');
+                    return;
+                }
                 
-                // ✅ SUCESSO: Sistema carregado
+                log('🎯 [INDEX] Ativando sistema...');
+                
                 if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
                     window.USE_UNIFIED_SUGGESTIONS = true;
                     log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
@@ -1077,45 +1078,47 @@
                     window.__SUGGESTION_SYSTEM_READY = true;
                     window.__SUGGESTION_SYSTEM_ACTIVATING = false;
                     
-                    // 🧹 CLEANUP: Limpar timeout pendente
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                        timeoutId = null;
-                    }
-                    
                     log('🎯 [INDEX] Sistema marcado como pronto para uso');
-                    return; // ✅ PARA AQUI
-                }
-                
-                // ⚠️ LIMITE ATINGIDO: Falha controlada
-                if (attempts >= MAX_ATTEMPTS) {
-                    error('🎯 [INDEX] ❌ FALHA CONTROLADA: Sistema não carregou após 1.5s');
-                    error('🎯 [INDEX] Dependências faltantes:');
+                } else {
+                    error('🎯 [INDEX] ❌ Dependências ainda não disponíveis');
                     error('  - window.suggestionSystem:', typeof window.suggestionSystem);
                     error('  - window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
-                    
-                    // Tentar carregar sistema de emergência manualmente
-                    if (typeof window.SuggestionSystemUnified === 'function') {
-                        log('🎯 [INDEX] Tentando ativar sistema de emergência...');
-                        try {
-                            window.suggestionSystem = new window.SuggestionSystemUnified();
-                            window.USE_UNIFIED_SUGGESTIONS = true;
-                            window.__SUGGESTION_SYSTEM_READY = true;
-                            log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
-                        } catch (e) {
-                            error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
-                        }
-                    }
-                    
                     window.__SUGGESTION_SYSTEM_ACTIVATING = false;
-                    return; // ✅ PARA AQUI - NÃO TENTA MAIS
                 }
-                
-                // ⏳ RETRY: Tentar novamente
-                timeoutId = setTimeout(forceActivate, 100);
             };
             
-            forceActivate();
+            // ⚡ ESTRATÉGIA EVENT-DRIVEN
+            if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
+                // Já disponível - ativar imediatamente
+                log('🎯 [INDEX] Sistema já disponível, ativando...');
+                activateOnce();
+            } else {
+                // Aguardar evento de prontidão
+                log('🎯 [INDEX] Aguardando evento soundy:suggestionSystemReady...');
+                window.addEventListener('soundy:suggestionSystemReady', activateOnce, { once: true });
+                
+                // ⏰ TIMEOUT DE SEGURANÇA: 4s para fallback
+                setTimeout(() => {
+                    if (!window.__SUGGESTION_SYSTEM_READY) {
+                        error('🎯 [INDEX] ⏰ TIMEOUT: Sistema não carregou em 4s');
+                        
+                        // Tentar ativação de emergência
+                        if (typeof window.SuggestionSystemUnified === 'function') {
+                            log('🎯 [INDEX] Tentando ativar sistema de emergência...');
+                            try {
+                                window.suggestionSystem = new window.SuggestionSystemUnified();
+                                window.USE_UNIFIED_SUGGESTIONS = true;
+                                window.__SUGGESTION_SYSTEM_READY = true;
+                                log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
+                            } catch (e) {
+                                error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
+                            }
+                        }
+                        
+                        window.__SUGGESTION_SYSTEM_ACTIVATING = false;
+                    }
+                }, 4000);
+            }
         });
     </script>
     <!-- ✅ LAZY LOAD: Scripts abaixo carregam via audio-analyzer-lazy-loader.js -->
