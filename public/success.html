@@ -394,19 +394,21 @@
             // Google Analytics 4 - Event Tracking
             // Rastrear conversão concluída
             if (typeof gtag === 'function') {
-                gtag('event', 'purchase', {
-                    event_category: 'ecommerce',
-                    event_label: 'pagamento_confirmado',
-                    transaction_id: new URLSearchParams(window.location.search).get('session_id') || 'unknown',
-                    page_location: window.location.href
+                const sessionId = new URLSearchParams(window.location.search).get('session_id') || 'unknown';
+                
+                gtag('event', 'purchase_completed', {
+                    transaction_id: sessionId,
+                    value: 197.0,
+                    currency: 'BRL',
+                    items: [{
+                        item_name: 'SoundyAI Subscription',
+                        item_id: 'soundyai-plan',
+                        price: 197.0,
+                        quantity: 1
+                    }]
                 });
                 
-                gtag('event', 'page_view', {
-                    page_title: 'Pagamento Confirmado',
-                    page_location: window.location.href
-                });
-                
-                console.log('🎯 [GA4] Evento purchase enviado');
+                console.log('🎯 [GA4] Evento purchase_completed disparado:', sessionId);
             }
 
             // ⚠️ IMPORTANTE: NÃO liberar plano aqui!

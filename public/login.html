@@ -743,10 +743,12 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // Função auxiliar para enviar eventos
-      function trackEvent(eventName, params = {}) {
+      function sendGA4Event(eventName, params = {}) {
         if (typeof gtag === 'function') {
           gtag('event', eventName, params);
-          console.log('🎯 [GA4] Evento enviado:', eventName, params);
+          console.log('🎯 [GA4] Evento disparado:', eventName, params);
+        } else {
+          console.warn('⚠️ [GA4] gtag não está disponível');
         }
       }
       
@@ -754,10 +756,9 @@
       const loginBtn = document.getElementById('loginBtn');
       if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-          trackEvent('login_attempt', {
-            event_category: 'user_action',
-            event_label: 'email_login',
-            page_location: window.location.href
+          sendGA4Event('login_email_attempt', {
+            method: 'email',
+            page_path: window.location.pathname
           });
         });
       }
@@ -766,10 +767,9 @@
       const googleLoginBtn = document.getElementById('googleLoginBtn');
       if (googleLoginBtn) {
         googleLoginBtn.addEventListener('click', () => {
-          trackEvent('login_attempt', {
-            event_category: 'user_action',
-            event_label: 'google_login',
-            page_location: window.location.href
+          sendGA4Event('login_google_attempt', {
+            method: 'google',
+            page_path: window.location.pathname
           });
         });
       }
@@ -778,10 +778,8 @@
       const forgotPasswordLink = document.getElementById('forgotPasswordLink');
       if (forgotPasswordLink) {
         forgotPasswordLink.addEventListener('click', () => {
-          trackEvent('cta_click', {
-            event_category: 'engagement',
-            event_label: 'esqueci_senha',
-            page_location: window.location.href
+          sendGA4Event('forgot_password_click', {
+            page_path: window.location.pathname
           });
         });
       }
