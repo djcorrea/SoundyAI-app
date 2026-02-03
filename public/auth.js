@@ -210,8 +210,10 @@ log('🚀 Carregando auth.js...');
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
           
           if (!snap.exists()) {
-            // Usuário não existe no Firestore - redirecionar para entrevista
-            window.location.href = "entrevista.html";
+            // Usuário não existe no Firestore - criar será feito automaticamente pelo listener
+            // Redirecionar direto para index.html (entrevista é premium-only)
+            log('✅ [AUTH] Novo usuário - redirecionando para index.html');
+            window.location.href = "index.html";
             return;
           }
           
@@ -285,9 +287,15 @@ log('🚀 Carregando auth.js...');
           }
           
           // Prosseguir com navegação normal
-          if (userData.entrevistaConcluida === false) {
+          // ✅ NOVO: Entrevista apenas para planos pagos (PRO, STUDIO, DJ)
+          const userPlan = userData.plan || 'free';
+          const isPaidPlan = ['pro', 'studio', 'dj'].includes(userPlan);
+          
+          if (userData.entrevistaConcluida === false && isPaidPlan) {
+            log(`✅ [AUTH] Plano ${userPlan} - verificando entrevista`);
             window.location.href = "entrevista.html";
           } else {
+            log(`✅ [AUTH] Plano ${userPlan} - redirecionando para index.html`);
             window.location.href = "index.html";
           }
         } catch (e) {
@@ -412,19 +420,23 @@ log('🚀 Carregando auth.js...');
           
           showMessage("✅ Login com Google realizado com sucesso!", "success");
           
-          // Verificar se precisa ir para entrevista
+          // Verificar se precisa ir para entrevista (apenas planos pagos)
           const { doc: docFunc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
           const userDocRef = docFunc(db, 'usuarios', user.uid);
           const userSnap = await getDoc(userDocRef);
           const userData = userSnap.data();
           
-          if (userData.entrevistaConcluida === false) {
-            log('🎯 [GOOGLE-AUTH] Redirecionando para entrevista');
+          // ✅ NOVO: Entrevista apenas para planos pagos
+          const userPlan = userData.plan || 'free';
+          const isPaidPlan = ['pro', 'studio', 'dj'].includes(userPlan);
+          
+          if (userData.entrevistaConcluida === false && isPaidPlan) {
+            log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para entrevista`);
             setTimeout(() => {
               window.location.href = "entrevista.html";
             }, 1500);
           } else {
-            log('🎯 [GOOGLE-AUTH] Redirecionando para index');
+            log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para index`);
             setTimeout(() => {
               window.location.href = "index.html";
             }, 1500);
@@ -1252,10 +1264,11 @@ log('🚀 Carregando auth.js...');
 
       showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
       
-      log('🚀 [CONFIRM] Redirecionando para entrevista.html em 1.5s...');
+      // ✅ NOVO: Redirecionar para index.html (entrevista é premium-only via modal)
+      log('🚀 [CONFIRM] Redirecionando para index.html em 1.5s...');
       log('📌 [CONFIRM] Firestore será criado automaticamente pelo listener global');
       setTimeout(() => {
-        window.location.replace("entrevista.html");
+        window.location.replace("index.html");
       }, 1500);
     }
 
@@ -1927,15 +1940,27 @@ log('🚀 Carregando auth.js...');
             
             try {
               const snap = await getDoc(doc(db, 'usuarios', user.uid));
-              if (snap.exists() && snap.data().entrevistaConcluida === false) {
-                window.location.href = "entrevista.html";
-              } else if (snap.exists() && snap.data().entrevistaConcluida === true) {
-                window.location.href = "index.html";
+              if (snap.exists()) {
+                const userData = snap.data();
+                const userPlan = userData.plan || 'free';
+                const isPaidPlan = ['pro', 'studio', 'dj'].includes(userPlan);
+                
+                // ✅ NOVO: Entrevista apenas para planos pagos não concluídos
+                if (userData.entrevistaConcluida === false && isPaidPlan) {
+                  log(`✅ [AUTH-STATE] Plano ${userPlan} - redirecionando para entrevista`);
+                  window.location.href = "entrevista.html";
+                } else {
+                  log(`✅ [AUTH-STATE] Plano ${userPlan} - redirecionando para index.html`);
+                  window.location.href = "index.html";
+                }
               } else {
-                window.location.href = "entrevista.html";
+                // Documento não existe - ir para index (será criado automaticamente)
+                log('✅ [AUTH-STATE] Documento não existe - redirecionando para index.html');
+                window.location.href = "index.html";
               }
             } catch (e) {
-              window.location.href = "entrevista.html";
+              error('❌ [AUTH-STATE] Erro ao verificar usuário:', e);
+              window.location.href = "index.html";
             }
           } else if (user) {
             // ✅ USUÁRIO AUTENTICADO - Validar Firestore

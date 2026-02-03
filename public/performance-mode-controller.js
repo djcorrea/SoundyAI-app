@@ -42,7 +42,7 @@
             return;
         }
         
-        console.log(timestamp(), '🚀 [PERF] ATIVANDO Performance Mode...');
+        console.log(timestamp(), '🚀 [PERF] ATIVANDO Performance Mode AGRESSIVO...');
         perfModeActive = true;
         
         // Adicionar classe no body
@@ -51,6 +51,9 @@
         
         // Pausar Vanta.js
         pauseVanta();
+        
+        // 🚨 MODO AGRESSIVO: Desligar observers não essenciais
+        pauseNonEssentialObservers();
         
         // Cancelar loops de animação não essenciais
         // (requestAnimationFrame handles são mantidos no Set para possível cancelamento)
@@ -82,6 +85,9 @@
         
         // Retomar Vanta.js
         resumeVanta();
+        
+        // 🔄 RESTAURAR: Reativar observers apenas se necessário
+        resumeNonEssentialObservers();
         
         // Disparar evento customizado
         window.dispatchEvent(new CustomEvent('performanceModeDisabled', {
@@ -146,7 +152,7 @@
             const vantaBg = document.getElementById('vanta-bg');
             if (vantaBg) {
                 vantaBg.style.display = '';
-                console.log(timestamp(), '👁️  [VANTA] Elemento #vanta-bg mostrado');
+                console.log(timestamp(), '👁️  [VANTA] Elemento #vanta-bg exibido');
             }
             
             vantaPaused = false;
@@ -157,6 +163,94 @@
     }
     
     /**
+     * 🚨 MODO AGRESSIVO: Pausa observers não essenciais
+     */
+    function pauseNonEssentialObservers() {
+        console.log(timestamp(), '🛑 [PERF] Pausando observers não essenciais...');
+        
+        // Desconectar Voice DOM Observer
+        if (window.__VOICE_DOM_OBSERVER_INSTANCE && window.__VOICE_DOM_OBSERVER_ACTIVE) {
+            try {
+                window.__VOICE_DOM_OBSERVER_INSTANCE.disconnect();
+                window.__VOICE_DOM_OBSERVER_WAS_ACTIVE = true; // Flag para restaurar depois
+                console.log(timestamp(), '⏸️  [PERF] Voice DOM Observer desconectado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao desconectar Voice Observer:', e);
+            }
+        }
+        
+        // Desabilitar Tooltip Manager temporariamente
+        if (window.TooltipManager && typeof window.TooltipManager.disable === 'function') {
+            try {
+                window.TooltipManager.disable();
+                window.__TOOLTIP_WAS_ACTIVE = true;
+                console.log(timestamp(), '⏸️  [PERF] Tooltip Manager desabilitado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao desabilitar Tooltip Manager:', e);
+            }
+        }
+        
+        // Desabilitar Premium Popovers/Watchers
+        if (window.premiumWatcher && typeof window.premiumWatcher.pause === 'function') {
+            try {
+                window.premiumWatcher.pause();
+                window.__PREMIUM_WATCHER_WAS_ACTIVE = true;
+                console.log(timestamp(), '⏸️  [PERF] Premium Watcher pausado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao pausar Premium Watcher:', e);
+            }
+        }
+        
+        console.log(timestamp(), '✅ [PERF] Observers não essenciais pausados');
+    }
+    
+    /**
+     * 🔄 RESTAURAR: Retoma observers apenas se necessário
+     */
+    function resumeNonEssentialObservers() {
+        console.log(timestamp(), '🔄 [PERF] Restaurando observers...');
+        
+        // Reconectar Voice DOM Observer (APENAS se estava ativo antes)
+        if (window.__VOICE_DOM_OBSERVER_WAS_ACTIVE && window.__VOICE_DOM_OBSERVER_INSTANCE) {
+            try {
+                window.__VOICE_DOM_OBSERVER_INSTANCE.observe(document.body, {
+                    childList: true,
+                    subtree: true
+                });
+                window.__VOICE_DOM_OBSERVER_WAS_ACTIVE = false;
+                console.log(timestamp(), '▶️  [PERF] Voice DOM Observer reconectado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao reconectar Voice Observer:', e);
+            }
+        }
+        
+        // Reabilitar Tooltip Manager (APENAS se estava ativo antes)
+        if (window.__TOOLTIP_WAS_ACTIVE && window.TooltipManager && typeof window.TooltipManager.enable === 'function') {
+            try {
+                window.TooltipManager.enable();
+                window.__TOOLTIP_WAS_ACTIVE = false;
+                console.log(timestamp(), '▶️  [PERF] Tooltip Manager reabilitado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao reabilitar Tooltip Manager:', e);
+            }
+        }
+        
+        // Retomar Premium Watcher (APENAS se estava ativo antes)
+        if (window.__PREMIUM_WATCHER_WAS_ACTIVE && window.premiumWatcher && typeof window.premiumWatcher.resume === 'function') {
+            try {
+                window.premiumWatcher.resume();
+                window.__PREMIUM_WATCHER_WAS_ACTIVE = false;
+                console.log(timestamp(), '▶️  [PERF] Premium Watcher retomado');
+            } catch (e) {
+                console.error(timestamp(), '❌ [PERF] Erro ao retomar Premium Watcher:', e);
+            }
+        }
+        
+        console.log(timestamp(), '✅ [PERF] Observers restaurados');
+    }
+    
+    /**
+     * Setup auto-detection de modais
      * Auto-detectar abertura/fechamento de modal de análise
      */
     function setupAutoDetection() {

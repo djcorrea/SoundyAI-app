@@ -169,6 +169,10 @@
     <!-- Firebase e Scripts funcionais -->
     <script type="module" src="firebase.js?v=20250810"></script>
     <script src="auth.js?v=20250810" defer></script>
+    
+    <!-- ✅ NOVO 2026-02-03: Modal de convite para entrevista (pós-upgrade) -->
+    <script src="interview-invite-modal.js?v=20260203" defer></script>
+    
     <script src="friendly-labels.js?v=20250817" defer></script>
     
     <!-- 🔓 Sistema de Modo Anônimo -->
@@ -1034,19 +1038,34 @@
     <script src="secure-api-loader.js?v=20250922-secure" defer></script>
     -->
     
-    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
+    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO (ANTI-LOOP) -->
     <script>
         // Força ativação do sistema novo assim que carregar
         window.addEventListener('DOMContentLoaded', function() {
             log('🎯 [INDEX] Forçando ativação do sistema novo...');
             
+            // 🔒 GUARDRAILS ANTI-REINIT
+            if (window.__SUGGESTION_SYSTEM_ACTIVATING) {
+                log('⚠️ [INDEX] Ativação já em progresso, abortando (single-flight)');
+                return;
+            }
+            
+            if (window.__SUGGESTION_SYSTEM_READY) {
+                log('✅ [INDEX] Sistema já ativado anteriormente, abortando');
+                return;
+            }
+            
+            window.__SUGGESTION_SYSTEM_ACTIVATING = true;
+            
             let attempts = 0;
-            const maxAttempts = 100; // Aumentado para 10 segundos
+            const MAX_ATTEMPTS = 15; // 1.5 segundos máximo
+            let timeoutId = null;
             
             const forceActivate = () => {
                 attempts++;
-                log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
+                log(`🎯 [INDEX] Tentativa ${attempts}/${MAX_ATTEMPTS} de ativação...`);
                 
+                // ✅ SUCESSO: Sistema carregado
                 if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
                     window.USE_UNIFIED_SUGGESTIONS = true;
                     log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
@@ -1054,16 +1073,26 @@
                     log('🎯 [INDEX] window.suggestionSystem.process:', typeof window.suggestionSystem.process);
                     log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
                     
-                    // 🚨 CRITICAL: Marcar que o sistema está pronto para evitar race conditions
+                    // 🔒 SUCCESS LOCK: Nunca mais tenta ativar
                     window.__SUGGESTION_SYSTEM_READY = true;
-                    log('🎯 [INDEX] Sistema marcado como pronto para uso');
+                    window.__SUGGESTION_SYSTEM_ACTIVATING = false;
                     
-                } else if (attempts < maxAttempts) {
-                    setTimeout(forceActivate, 100);
-                } else {
-                    error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 10 segundos');
-                    error('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
-                    error('🎯 [INDEX] window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
+                    // 🧹 CLEANUP: Limpar timeout pendente
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                    }
+                    
+                    log('🎯 [INDEX] Sistema marcado como pronto para uso');
+                    return; // ✅ PARA AQUI
+                }
+                
+                // ⚠️ LIMITE ATINGIDO: Falha controlada
+                if (attempts >= MAX_ATTEMPTS) {
+                    error('🎯 [INDEX] ❌ FALHA CONTROLADA: Sistema não carregou após 1.5s');
+                    error('🎯 [INDEX] Dependências faltantes:');
+                    error('  - window.suggestionSystem:', typeof window.suggestionSystem);
+                    error('  - window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
                     
                     // Tentar carregar sistema de emergência manualmente
                     if (typeof window.SuggestionSystemUnified === 'function') {
@@ -1077,7 +1106,13 @@
                             error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
                         }
                     }
+                    
+                    window.__SUGGESTION_SYSTEM_ACTIVATING = false;
+                    return; // ✅ PARA AQUI - NÃO TENTA MAIS
                 }
+                
+                // ⏳ RETRY: Tentar novamente
+                timeoutId = setTimeout(forceActivate, 100);
             };
             
             forceActivate();

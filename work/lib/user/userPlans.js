@@ -93,6 +93,22 @@ async function normalizeUserDoc(user, uid, now = new Date()) {
     console.log(`✅ [USER-PLANS] Plan definido como 'free' para UID: ${uid}`);
   }
   
+  // ✅ NORMALIZAÇÃO 2026-02-03: Usuários FREE sempre têm entrevista "concluída"
+  // (entrevista é premium-only, FREE não precisa preencher)
+  if (user.plan === 'free' && user.entrevistaConcluida !== true) {
+    user.entrevistaConcluida = true;
+    changed = true;
+    console.log(`✅ [USER-PLANS] entrevistaConcluida definida como true para FREE (UID: ${uid})`);
+  }
+  
+  // ✅ NORMALIZAÇÃO 2026-02-03: Usuários PLUS sempre têm entrevista "concluída"
+  // (PLUS não tem acesso à entrevista personalizada)
+  if (user.plan === 'plus' && user.entrevistaConcluida !== true) {
+    user.entrevistaConcluida = true;
+    changed = true;
+    console.log(`✅ [USER-PLANS] entrevistaConcluida definida como true para PLUS (UID: ${uid})`);
+  }
+  
   // ✅ Garantir que freeAnalysesRemaining existe (trial de 1 análise)
   if (typeof user.freeAnalysesRemaining !== 'number') {
     user.freeAnalysesRemaining = 1; // Usuário começa com 1 análise full gratuita
@@ -550,6 +566,8 @@ export async function applyPlan(uid, { plan, durationDays }) {
   const update = {
     plan,
     updatedAt: new Date().toISOString(),
+    // ✅ NOVO 2026-02-03: Flag para mostrar modal de convite para entrevista
+    needsInterviewInvite: ['pro', 'studio', 'dj'].includes(plan), // true apenas para planos pagos
   };
 
   // ✅ ETAPA 2.5: Limpar campo anterior para evitar estados inconsistentes
@@ -630,6 +648,8 @@ export async function applySubscription(uid, { plan, subscriptionId, customerId,
     // ✅ Salvar customerId no nível do documento para fácil acesso
     stripeCustomerId: customerId || null,
     updatedAt: new Date().toISOString(),
+    // ✅ NOVO 2026-02-03: Flag para mostrar modal de convite para entrevista
+    needsInterviewInvite: ['pro', 'studio', 'dj'].includes(plan), // true apenas para planos pagos
   };
 
   // Limpar campos de expiração anteriores (pagamentos únicos)
@@ -656,6 +676,11 @@ export async function applySubscription(uid, { plan, subscriptionId, customerId,
   
   const updatedUser = (await ref.get()).data();
   console.log(`✅ [USER-PLANS] Assinatura aplicada: ${uid} → ${plan} (Sub: ${subscriptionId}, Status: ${status})`);
+  
+  // ✅ LOG: Confirmar flag de convite para entrevista
+  if (update.needsInterviewInvite) {
+    console.log(`🎯 [USER-PLANS] Flag needsInterviewInvite ativada para ${uid} (plano: ${plan})`);
+  }
   
   // 🔗 SISTEMA DE AFILIADOS: Registrar conversão se aplicável
   await registerReferralConversion(uid, plan);
