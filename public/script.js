@@ -585,11 +585,30 @@ class ProdAIChatbot {
     handleActionButton(action) {
         switch(action) {
             case 'analyze':
-                // ✅ Usar openAudioModal para garantir fluxo completo (welcome → mode → genre/reference)
-                if (typeof window.openAudioModal === 'function') {
-                    window.openAudioModal();
+                // ✅ PERFORMANCE: Lazy-load audio-analyzer antes de abrir modal
+                if (typeof window.loadAudioAnalyzer === 'function') {
+                    log('🚀 [PERFORMANCE] Carregando Audio Analyzer sob demanda...');
+                    window.loadAudioAnalyzer()
+                        .then(() => {
+                            log('✅ [PERFORMANCE] Audio Analyzer carregado, abrindo modal...');
+                            if (typeof window.openAudioModal === 'function') {
+                                window.openAudioModal();
+                            } else {
+                                error('openAudioModal não está disponível após lazy-load');
+                            }
+                        })
+                        .catch(err => {
+                            error('❌ [PERFORMANCE] Falha ao carregar Audio Analyzer:', err);
+                            alert('Erro ao carregar sistema de análise. Por favor, recarregue a página.');
+                        });
                 } else {
-                    error('openAudioModal não está disponível');
+                    // Fallback: se lazy-loader não estiver disponível, tentar chamar diretamente
+                    warn('⚠️ loadAudioAnalyzer não encontrado, tentando chamar openAudioModal diretamente');
+                    if (typeof window.openAudioModal === 'function') {
+                        window.openAudioModal();
+                    } else {
+                        error('openAudioModal não está disponível');
+                    }
                 }
                 break;
             case 'upgrade':

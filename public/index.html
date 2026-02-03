@@ -984,6 +984,15 @@
     <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
     <script src="error-mapper.js?v=1.0.0"></script>
     
+    <!-- 🚀 PERFORMANCE OPTIMIZATIONS -->
+    <!-- Analysis Mode Manager - Event-driven (substitui polling de 100ms) -->
+    <script src="analysis-mode-manager.js?v=20260203-perf"></script>
+    
+    <!-- ✅ Vanta.js já é gerenciado pelo effects-controller.js (pause automático em modais) -->
+    
+    <!-- Audio Analyzer Lazy Loader - Carrega sob demanda -->
+    <script src="audio-analyzer-lazy-loader.js?v=20260203-perf"></script>
+    
     <!-- Script integrado com as funcionalidades existentes -->
     <!-- Otimizado: Removido cache busting desnecessário para melhor cache -->
     <script src="script.js?v=20250813-1" defer></script>
@@ -993,34 +1002,21 @@
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     
-    <!-- 🎵 AUDIO ANALYZER - Carregar os scripts -->
+    <!-- 🎵 AUDIO ANALYZER - LAZY LOAD (carregado sob demanda via audio-analyzer-lazy-loader.js) -->
+    <!-- ✅ PERFORMANCE: Scripts abaixo só carregam quando usuário clicar em "Analisar áudio" -->
+    <!-- Economiza ~9s de processamento JS no load inicial -->
+    <!--
     <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
-    <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
     <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
-    <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
     <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
-    
-    <!-- 🎯 SISTEMA DE SUGESTÕES MELHORADO - DEPENDÊNCIAS ESSENCIAIS -->
     <script src="suggestion-scorer.js?v=20250920-enhanced" defer></script>
     <script src="enhanced-suggestion-engine.js?v=20250920-enhanced" defer></script>
-    
-    <!-- 🚀 SISTEMA ULTRA-AVANÇADO DE SUGESTÕES EDUCACIONAIS -->
     <script src="advanced-educational-suggestion-system.js?v=20250920-ultra" defer></script>
-    
-    <!-- 🚀 SISTEMA ULTRA-AVANÇADO V2 - Integração Direta -->
     <script src="ultra-advanced-suggestion-enhancer-v2.js?v=20250920-ultra-v2" defer></script>
-    
-    <!-- 🔍 VALIDADOR DE INTEGRAÇÃO DO SISTEMA ULTRA-AVANÇADO -->
     <script src="validador-integracao-ultra-avancado.js?v=20250920-validator" defer></script>
-    
-    <!-- 🎯 MONITOR MODAL - Detecta e valida sistema ultra-avançado durante análises -->
     <script src="monitor-modal-ultra-avancado.js?v=20250920-monitor" defer></script>
-    
     <script src="suggestion-text-generator.js?v=20250815" defer></script>
-    <!-- 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS -->
     <script src="suggestion-system-emergency.js?v=emergency-20250920" defer></script>
-    
-    <!-- 🤖 NOVA CAMADA DE IA - Sistema Inteligente de Sugestões -->
     <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
     <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
     <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
@@ -1029,6 +1025,7 @@
     <script src="ai-force-test.js?v=20250922-force" defer></script>
     <script src="ai-auto-config.js?v=20250922-autoconfig" defer></script>
     <script src="secure-api-loader.js?v=20250922-secure" defer></script>
+    -->
     
     <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
     <script>
@@ -1079,39 +1076,28 @@
             forceActivate();
         });
     </script>
-    <!-- 🔒 Secure Render Utils - Sistema de Renderização Segura -->
+    <!-- ✅ LAZY LOAD: Scripts abaixo carregam via audio-analyzer-lazy-loader.js -->
+    <!--
     <script src="/secure-render-utils.js?v=2.0.0" defer></script>
-    <!-- 🔐 Reduced Mode Security Guard - Função Centralizada de Segurança -->
     <script src="/reduced-mode-security-guard.js?v=1.0.0" defer></script>
-    <!-- 🔍 AUDIT: Reference Mode Auditor (ANTES de tudo) -->
     <script src="/reference-mode-auditor.js?v=AUDIT" defer></script>
-    <!-- 🆕 REF-FLOW: Reference Flow Controller (ISOLADO E DETERMINÍSTICO) -->
     <script src="/reference-flow.js?v=1.0.0" defer></script>
-    <!-- 🆕 REF-NORMALIZE: Reference Normalizer (SEM GÊNERO) -->
     <script src="/reference-normalizer.js?v=1.0.0" defer></script>
-    <!-- 🆕 PR2: Analysis State Machine (PRIMEIRO - fonte de verdade - SEM defer) -->
-    <script src="/analysis-state-machine.js?v=PR2"></script>
-    <!-- 🔍 PR1: Reference Trace Utils (ANTES DO AUDIO ANALYZER) -->
     <script src="/reference-trace-utils.js?v=PR1" defer></script>
-    
-    <!-- 🎯 BAND KEY ALIASES - Sistema centralizado de normalização de bandas -->
     <script src="/lib/audio/utils/band-key-aliases.js?v=1.0.0"></script>
-    
-    <!-- 🎯 SCORE ENGINE V3 - Sistema de Score Realista por Gênero e Modo -->
     <script src="/lib/audio/features/score-engine-v3.js?v=3.3.0" defer></script>
-    
-    <!-- 🚨 SCORING.JS - MÓDULO PRINCIPAL DE CÁLCULO (expõe window.computeMixScore) -->
-    <script type="module" src="/lib/audio/features/scoring.js?v=3.3.0"></script>
-    
-    <!-- 🎯 TOOLTIP MANAGER - Sistema Global de Tooltips com Event Delegation -->
+    <script src="/lib/audio/features/scoring.js?v=3.3.0"></script>
     <script src="tooltip-manager.js?v=20260105-tooltips" defer></script>
-    
-    <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
     <script src="/error-mapper.js?v=1.0.0"></script>
-    
     <script src="/audio-analyzer-integration.js?v=20260130_1" defer></script>
+    -->
     
-    <!-- Inicializar Audio Analyzer -->
+    <!-- 🆕 PR2: Analysis State Machine (CRÍTICO - carrega SEMPRE) -->
+    <script src="/analysis-state-machine.js?v=PR2"></script>
+    
+    <!-- ✅ LAZY LOAD: Inicialização movida para audio-analyzer-lazy-loader.js -->
+    <!-- Audio Analyzer só carrega quando usuário clica em "Analisar áudio" -->
+    <!--
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Force external refs loading (bypass embedded)
@@ -1130,7 +1116,9 @@
                     warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
                 }
             }, 1000);
-
+    -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
             // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
             (function setupPlusPopovers() {
               let isInitialized = false; // Flag para evitar múltiplas inicializações
@@ -1886,18 +1874,9 @@
                 document.addEventListener('DOMContentLoaded', updateCorrectionPlanButtonVisibility);
             }
             
-            // Monitorar mudanças no modo
-            setInterval(updateCorrectionPlanButtonVisibility, 500);
-            
-            // Observar mudanças no currentAnalysisMode
-            let lastMode = null;
-            setInterval(() => {
-                const currentMode = window.currentAnalysisMode;
-                if (currentMode !== lastMode) {
-                    lastMode = currentMode;
-                    updateCorrectionPlanButtonVisibility();
-                }
-            }, 100);
+            // ✅ OTIMIZAÇÃO: Removido polling de setInterval (100ms/500ms)
+            // Agora usa sistema event-driven via analysis-mode-manager.js
+            // Mudanças de modo disparam CustomEvent('analysisModeChanged')
             
             log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
         })();
