@@ -1,13 +1,56 @@
-// 🎯 FIRST ANALYSIS UPGRADE CTA - SoundyAI V4 (CORREÇÃO CRÍTICA)
-// Sistema de bloqueio REAL de funcionalidades premium na primeira análise FREE
-// ✅ GARANTIAS V4:
-// - Blur FORÇADO em TODAS as sugestões (múltiplos seletores)
-// - Interceptação de clique COM preventDefault/stopPropagation
-// - Event listeners de captura (capture: true) para garantir bloqueio
-// - NÃO executa NENHUMA função premium na primeira análise free
+// 🎯 FIRST ANALYSIS UPGRADE CTA - SoundyAI V5 (BLOQUEIO INCONTORNÁVEL)
+// Sistema de bloqueio ABSOLUTO de funcionalidades premium na primeira análise FREE
+// ✅ GARANTIAS V5:
+// - LOCK GLOBAL persistente (não pode ser removido acidentalmente)
+// - Blur PERMANENTE até upgrade real de plano
+// - MutationObserver re-aplica lock se removido
+// - "Continuar grátis" NÃO remove blur (apenas fecha modal)
+// - Interceptação em 2 camadas (capture + override global)
+// - Logs completos de tentativas de contorno
 
 (function() {
     'use strict';
+    
+    // ========================================
+    // 🔒 ESTADO GLOBAL PERSISTENTE (LOCK)
+    // ========================================
+    
+    window.FIRST_ANALYSIS_LOCK = {
+        active: false,
+        reason: '',
+        appliedAt: null,
+        
+        activate(reason) {
+            this.active = true;
+            this.reason = reason;
+            this.appliedAt = new Date().toISOString();
+            console.log('%c[FIRST-ANALYSIS-LOCK] aplicado', 
+                'color:#FF0000;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;',
+                `Razão: ${reason}`);
+        },
+        
+        deactivate(reason) {
+            // ⚠️ Lock só pode ser removido por upgrade de plano
+            if (reason !== 'UPGRADE_TO_PAID_PLAN') {
+                const stack = new Error().stack;
+                console.warn('%c[FIRST-ANALYSIS-LOCK] tentativa de remover bloqueio IGNORADA', 
+                    'color:#FF0000;font-weight:bold;background:#FFFF00;padding:4px 8px;border-radius:4px;',
+                    `Tentativa: ${reason}`,
+                    `Stack:`, stack);
+                return false;
+            }
+            
+            this.active = false;
+            this.reason = '';
+            console.log('%c[FIRST-ANALYSIS-LOCK] removido (UPGRADE)', 
+                'color:#00FF00;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+            return true;
+        },
+        
+        isLocked() {
+            return this.active === true;
+        }
+    };
     
     // ========================================
     // 🎯 CONFIGURAÇÃO
@@ -68,6 +111,12 @@
         const message = `[FIRST-ANALYSIS-CTA] ${action}`;
         console.log(`%c${message}${details ? ' → ' + details : ''}`, 
             'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+    }
+    
+    function logLockReapplied(reason = '') {
+        console.log('%c[FIRST-ANALYSIS-LOCK] reaplicado', 
+            'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;',
+            reason ? `Razão: ${reason}` : '');
     }
     
     function debugLog(...args) {
@@ -442,7 +491,8 @@
                 upgradeBtn.addEventListener('click', () => {
                     debugLog('🚀 Upgrade clicked - abrindo em nova aba');
                     PersistenceManager.markCTAShown();
-                    window.open('planos.html', '_blank');
+                    // ✅ NOVA GUIA com noopener/noreferrer
+                    window.open('planos.html', '_blank', 'noopener,noreferrer');
                     this.hide();
                 });
             }
@@ -453,8 +503,10 @@
                     debugLog('👋 Continuar grátis clicked');
                     PersistenceManager.markCTAShown();
                     this.hide();
-                    SuggestionsBlocker.removeBlur();
-                    ButtonBlocker.restore();
+                    // ⚠️ CRÍTICO: NÃO REMOVE BLUR - Lock permanece ativo
+                    // SuggestionsBlocker.removeBlur(); // ❌ REMOVIDO
+                    // ButtonBlocker.restore(); // ❌ REMOVIDO
+                    debugLog('⚠️ Lock permanece ativo após fechar CTA');
                 });
             }
             
@@ -602,9 +654,20 @@
             
             // ✅ LOG CLARO
             logAction('Sugestões bloqueadas com blur');
+            
+            // ✅ Iniciar vigilância (MutationObserver + setInterval)
+            this._startLockVigilance();
         },
         
-        removeBlur() {
+        removeBlur(reason = 'unknown') {
+            // ⚠️ Só permite remover se Lock global permitir
+            if (window.FIRST_ANALYSIS_LOCK.isLocked()) {
+                if (!window.FIRST_ANALYSIS_LOCK.deactivate(reason)) {
+                    debugLog('❌ Tentativa de remover blur BLOQUEADA');
+                    return false;
+                }
+            }
+            
             debugLog('🌫️ Removendo blur das sugestões...');
             
             document.querySelectorAll('.first-analysis-suggestions-blocked').forEach(el => {
@@ -617,6 +680,106 @@
             
             this.blocked = false;
             this.targetContainer = null;
+            
+            // Parar vigilância
+            this._stopLockVigilance();
+            
+            return true;
+        },
+        
+        // ✅ VIGILÂNCIA: Re-aplica lock se removido
+        _startLockVigilance() {
+            if (this._vigilanceInterval || this._vigilanceObserver) return;
+            
+            debugLog('👁️ Iniciando vigilância de lock...');
+            
+            // setInterval leve por 60s
+            let checks = 0;
+            this._vigilanceInterval = setInterval(() => {
+                if (!window.FIRST_ANALYSIS_LOCK.isLocked()) return;
+                
+                if (this.targetContainer && !this.targetContainer.classList.contains('first-analysis-suggestions-blocked')) {
+                    logLockReapplied('Lock removido detectado via setInterval');
+                    this.targetContainer.classList.add('first-analysis-suggestions-blocked');
+                    
+                    // Re-criar overlay se sumiu
+                    if (!this.targetContainer.querySelector('.suggestions-block-overlay')) {
+                        this._recreateOverlay();
+                    }
+                }
+                
+                checks++;
+                if (checks >= 120) { // 60s (500ms * 120)
+                    clearInterval(this._vigilanceInterval);
+                    this._vigilanceInterval = null;
+                }
+            }, 500);
+            
+            // MutationObserver para mudanças no DOM
+            if (this.targetContainer) {
+                this._vigilanceObserver = new MutationObserver((mutations) => {
+                    if (!window.FIRST_ANALYSIS_LOCK.isLocked()) return;
+                    
+                    const hasClass = this.targetContainer.classList.contains('first-analysis-suggestions-blocked');
+                    if (!hasClass) {
+                        logLockReapplied('Lock removido detectado via MutationObserver');
+                        this.targetContainer.classList.add('first-analysis-suggestions-blocked');
+                    }
+                    
+                    const hasOverlay = this.targetContainer.querySelector('.suggestions-block-overlay');
+                    if (!hasOverlay) {
+                        this._recreateOverlay();
+                    }
+                });
+                
+                this._vigilanceObserver.observe(this.targetContainer, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                    childList: true,
+                    subtree: false
+                });
+            }
+        },
+        
+        _stopLockVigilance() {
+            if (this._vigilanceInterval) {
+                clearInterval(this._vigilanceInterval);
+                this._vigilanceInterval = null;
+            }
+            if (this._vigilanceObserver) {
+                this._vigilanceObserver.disconnect();
+                this._vigilanceObserver = null;
+            }
+            debugLog('👁️ Vigilância de lock interrompida');
+        },
+        
+        _recreateOverlay() {
+            if (!this.targetContainer) return;
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'suggestions-block-overlay';
+            overlay.innerHTML = `
+                <div class="suggestions-block-content">
+                    <div class="block-icon">🔒</div>
+                    <h3 class="block-title">Sugestões de Melhoria Bloqueadas</h3>
+                    <p class="block-text">
+                        Desbloqueie as sugestões inteligentes da IA para ver como melhorar sua mix de forma profissional.
+                    </p>
+                    <button class="block-btn" id="suggestionsUnlockBtn">✨ Desbloquear Agora</button>
+                </div>
+            `;
+            
+            this.targetContainer.appendChild(overlay);
+            
+            const unlockBtn = overlay.querySelector('#suggestionsUnlockBtn');
+            if (unlockBtn) {
+                unlockBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    logAction('CTA exibido', 'Overlay nas sugestões');
+                    UpgradeCtaModal.show('Overlay nas sugestões');
+                });
+            }
         }
     };
     
@@ -654,8 +817,15 @@
             // Substituir com bloqueio
             window[funcName] = function(...args) {
                 // Verificação SÍNCRONA para bloqueio imediato
-                if (ContextDetector.isFirstFreeFullAnalysisSync()) {
+                if (window.FIRST_ANALYSIS_LOCK.isLocked() || ContextDetector.isFirstFreeFullAnalysisSync()) {
                     // ✅ LOG CLARO
+                    if (funcName === 'sendModalAnalysisToChat') {
+                        console.log('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
+                            'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+                    } else if (funcName === 'downloadModalAnalysis') {
+                        console.log('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
+                            'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+                    }
                     logAction(`Botão ${label.toUpperCase()} bloqueado`, 'CTA exibido');
                     UpgradeCtaModal.show(`Botão ${label}`);
                     return; // ❌ NÃO EXECUTA
@@ -669,13 +839,85 @@
         },
         
         _installCaptureListeners() {
-            // Encontrar botões premium e adicionar listeners de captura
+            // Event delegation GLOBAL em capture phase
+            const globalHandler = (e) => {
+                if (!window.FIRST_ANALYSIS_LOCK.isLocked() && !ContextDetector.isFirstFreeFullAnalysisSync()) {
+                    return; // Não interceptar se não estiver bloqueado
+                }
+                
+                const target = e.target.closest('button');
+                if (!target) return;
+                
+                const targetText = target.textContent?.toLowerCase() || '';
+                const targetOnclick = target.getAttribute('onclick') || '';
+                const targetId = target.id || '';
+                
+                // Detectar botão IA
+                if (targetText.includes('pedir ajuda') || 
+                    targetText.includes('ajuda ia') ||
+                    targetText.includes('ask ai') ||
+                    targetOnclick.includes('sendModalAnalysisToChat') ||
+                    targetId.includes('ask-ai') ||
+                    targetId.includes('btnAskAI')) {
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    console.log('%c[FIRST-ANALYSIS-CTA] intercept IA click -> CTA', 
+                        'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+                    logAction('Botão IA bloqueado via capture', 'CTA exibido');
+                    UpgradeCtaModal.show('Botão IA');
+                    return false;
+                }
+                
+                // Detectar botão PDF
+                if (targetText.includes('pdf') || 
+                    targetText.includes('relatório') ||
+                    targetText.includes('download') ||
+                    targetOnclick.includes('downloadModalAnalysis') ||
+                    targetId.includes('download-pdf') ||
+                    targetId.includes('btnDownloadPDF')) {
+                    
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    console.log('%c[FIRST-ANALYSIS-CTA] intercept PDF click -> CTA', 
+                        'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
+                    logAction('Botão PDF bloqueado via capture', 'CTA exibido');
+                    UpgradeCtaModal.show('Botão PDF');
+                    return false;
+                }
+                
+                // Detectar outros botões premium por seletor
+                for (const selector of CONFIG.premiumButtonSelectors) {
+                    if (target.matches(selector)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        
+                        const label = target.textContent?.trim() || 'Premium';
+                        logAction(`Botão "${label}" bloqueado via capture`, 'CTA exibido');
+                        UpgradeCtaModal.show(`Botão: ${label}`);
+                        return false;
+                    }
+                }
+            };
+            
+            // Adicionar ao document em CAPTURE PHASE
+            document.addEventListener('click', globalHandler, { capture: true });
+            this.globalCaptureHandler = globalHandler;
+            
+            debugLog('✅ Event delegation global instalado');
+            
+            // Fallback: listeners diretos nos botões
             setTimeout(() => {
                 CONFIG.premiumButtonSelectors.forEach(selector => {
                     const buttons = document.querySelectorAll(selector);
                     buttons.forEach(btn => {
                         const handler = (e) => {
-                            if (ContextDetector.isFirstFreeFullAnalysisSync()) {
+                            if (window.FIRST_ANALYSIS_LOCK.isLocked() || ContextDetector.isFirstFreeFullAnalysisSync()) {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.stopImmediatePropagation();
@@ -695,7 +937,15 @@
             }, 1000);
         },
         
-        restore() {
+        restore(reason = 'unknown') {
+            // ⚠️ Só permite restaurar se Lock global permitir
+            if (window.FIRST_ANALYSIS_LOCK.isLocked()) {
+                if (!window.FIRST_ANALYSIS_LOCK.deactivate(reason)) {
+                    debugLog('❌ Tentativa de restaurar botões BLOQUEADA');
+                    return false;
+                }
+            }
+            
             debugLog('🔓 Restaurando funções originais...');
             
             // Restaurar funções
@@ -706,11 +956,19 @@
             }
             this.originalFunctions = {};
             
-            // Remover capture handlers
+            // Remover capture handlers diretos
             this.captureHandlers.forEach(({ btn, handler }) => {
                 btn.removeEventListener('click', handler, { capture: true });
             });
             this.captureHandlers = [];
+            
+            // Remover global handler
+            if (this.globalCaptureHandler) {
+                document.removeEventListener('click', this.globalCaptureHandler, { capture: true });
+                this.globalCaptureHandler = null;
+            }
+            
+            return true;
         }
     };
     
@@ -727,6 +985,9 @@
             
             if (shouldApply) {
                 debugLog('✅ PRIMEIRA ANÁLISE FREE FULL DETECTADA');
+                
+                // 0. ATIVAR LOCK GLOBAL
+                window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
                 
                 // 1. Instalar bloqueio nos botões IMEDIATAMENTE
                 ButtonBlocker.install();
@@ -758,7 +1019,7 @@
     
     function initialize() {
         debugLog('🚀 ═══════════════════════════════════════════');
-        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V4...');
+        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (BLOQUEIO INCONTORNÁVEL)...');
         
         // 1. Inicializar modal
         UpgradeCtaModal.init();
@@ -795,31 +1056,51 @@
             }, 1000);
         }
         
-        // 3. Expor API de debug
+        // 3. Expor API de debug + UNLOCK para upgrade
         window.__FIRST_ANALYSIS_CTA__ = {
             showCTA: () => UpgradeCtaModal.show('MANUAL (debug)'),
             hideCTA: () => UpgradeCtaModal.hide(),
             checkContext: () => ContextDetector.isFirstFreeFullAnalysisAsync(),
             checkContextSync: () => ContextDetector.isFirstFreeFullAnalysisSync(),
             applyBlur: () => SuggestionsBlocker.applyBlur(),
-            removeBlur: () => SuggestionsBlocker.removeBlur(),
-            restoreButtons: () => ButtonBlocker.restore(),
+            removeBlur: () => SuggestionsBlocker.removeBlur('UPGRADE_TO_PAID_PLAN'),
+            restoreButtons: () => ButtonBlocker.restore('UPGRADE_TO_PAID_PLAN'),
+            
+            // ⚠️ CRÍTICO: Função para desbloquear após upgrade REAL de plano
+            unlockAfterUpgrade: () => {
+                debugLog('🔓 UNLOCK após upgrade de plano...');
+                const unlocked = window.FIRST_ANALYSIS_LOCK.deactivate('UPGRADE_TO_PAID_PLAN');
+                if (unlocked) {
+                    SuggestionsBlocker.removeBlur('UPGRADE_TO_PAID_PLAN');
+                    ButtonBlocker.restore('UPGRADE_TO_PAID_PLAN');
+                    debugLog('✅ Conteúdo desbloqueado completamente');
+                    return true;
+                }
+                return false;
+            },
+            
             resetCache: () => {
                 PersistenceManager.resetCache();
                 localStorage.removeItem(CONFIG.localStorageKey);
+                window.FIRST_ANALYSIS_LOCK.deactivate('UPGRADE_TO_PAID_PLAN');
                 debugLog('✅ Cache resetado');
             },
+            
             getStatus: async () => ({
                 isFirstFreeFullAnalysis: await ContextDetector.isFirstFreeFullAnalysisAsync(),
+                lockActive: window.FIRST_ANALYSIS_LOCK.isLocked(),
+                lockReason: window.FIRST_ANALYSIS_LOCK.reason,
                 blurApplied: SuggestionsBlocker.blocked,
                 ctaVisible: UpgradeCtaModal.isVisible,
                 hasShownCTA: PersistenceManager.hasShownCTA()
             }),
-            VERSION: '4.0'
+            
+            VERSION: '5.0'
         };
         
-        debugLog('✅ Sistema V4 inicializado');
+        debugLog('✅ Sistema V5 inicializado (BLOQUEIO INCONTORNÁVEL)');
         debugLog('💡 API: window.__FIRST_ANALYSIS_CTA__');
+        debugLog('🔓 Para desbloquear após upgrade: window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade()');
     }
     
     // Inicializar quando DOM estiver pronto
