@@ -3,14 +3,42 @@
 
 log('🎤 VOICE CLEAN VERSION loaded');
 
-// Aguardar DOM completamente carregado
-window.addEventListener('load', () => {
-    log('🚀 Window loaded - starting voice integration');
-    setTimeout(setupVoice, 1500); // Aguarda 1.5s para garantir
+// ⚡ PERF MODE: NÃO auto-iniciar se perf mode agressivo ativo
+if (window.__PERF_DISABLE_VOICE_AUTOSTART) {
+    log('⏸️ [PERF-AGG] Voice auto-start desabilitado - aguardando interação do usuário');
     
-    // ADICIONAR OBSERVADOR DE MUDANÇAS NO DOM
-    setupDOMObserver();
-});
+    // Configurar listeners para iniciar ao clicar no microfone
+    document.addEventListener('DOMContentLoaded', () => {
+        // Encontrar todos os ícones de microfone
+        const micIcons = document.querySelectorAll('.chatbot-mic-icon');
+        
+        micIcons.forEach(mic => {
+            mic.addEventListener('click', function initVoiceOnClick() {
+                log('🎤 [PERF-AGG] Microfone clicado - inicializando voice integration...');
+                
+                // Remover listener (só inicializar uma vez)
+                mic.removeEventListener('click', initVoiceOnClick);
+                
+                // Inicializar voice integration
+                setTimeout(setupVoice, 100);
+                setTimeout(setupDOMObserver, 500);
+            }, { once: true });
+        });
+        
+        log('🎤 [PERF-AGG] Listeners instalados - voice inicializará ao clicar no microfone');
+    });
+    
+    // NÃO continuar com inicialização automática
+} else {
+    // Comportamento normal - aguardar DOM completamente carregado
+    window.addEventListener('load', () => {
+        log('🚀 Window loaded - starting voice integration');
+        setTimeout(setupVoice, 1500); // Aguarda 1.5s para garantir
+        
+        // ADICIONAR OBSERVADOR DE MUDANÇAS NO DOM
+        setupDOMObserver();
+    });
+}
 
 // FUNÇÃO PARA OBSERVAR MUDANÇAS NO DOM E RECONFIGURAR MICROFONES
 function setupDOMObserver() {

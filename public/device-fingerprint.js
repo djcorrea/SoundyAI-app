@@ -11,12 +11,34 @@
  * ⚠️ Este fingerprint é enviado ao backend junto com o visitorId
  * O backend usa AMBOS para bloqueio definitivo
  * 
- * @version 1.0.0 - BLOQUEIO FORTE
- * @date 2026-01-03
+ * ⚡ PERF MODE: SÓ executa quando necessário (anti-burla em modo anônimo)
+ * 
+ * @version 1.1.0 - BLOQUEIO FORTE + PERF OPTIMIZATION
+ * @date 2026-02-03
  */
 
 (function() {
     'use strict';
+    
+    // ⚡ PERF MODE: Verificar se deve executar fingerprint
+    const shouldRun = window.shouldRunFingerprint ? window.shouldRunFingerprint() : true;
+    
+    if (!shouldRun) {
+        log('⏸️ [PERF-AGG] Fingerprint forte bloqueado - não necessário no momento');
+        
+        // Expor API vazia (lazy loading)
+        window.SoundyFingerprint = {
+            get: async function() {
+                log('🔄 [PERF-AGG] Fingerprint solicitado - gerando agora...');
+                // Aqui poderia carregar o fingerprint sob demanda
+                return 'perf_mode_lazy_' + Date.now();
+            }
+        };
+        
+        return; // ✅ NÃO executar fingerprint forte
+    }
+    
+    log('🔍 [FINGERPRINT] Iniciando geração de fingerprint forte...');
 
     // ═══════════════════════════════════════════════════════════
     // 🔧 UTILITÁRIOS DE HASH

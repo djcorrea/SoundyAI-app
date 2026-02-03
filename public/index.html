@@ -9,6 +9,10 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
+    <!-- ⚡ PERFORMANCE MODE AGRESSIVO - Detecta máquinas fracas e desabilita recursos pesados -->
+    <!-- CRITICAL: Deve carregar LOGO APÓS logger.js e ANTES de todos os outros módulos -->
+    <script src="perf-mode-aggressive.js?v=20260203-agg"></script>
+    
     <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
     <script>
@@ -178,8 +182,9 @@
     <!-- 🔓 Sistema de Modo Anônimo -->
     <script src="anonymous-mode.js?v=20260102" defer></script>
     
-    <!-- � Sistema de Fingerprint Forte (Canvas + Audio + WebGL + Hardware) -->
-    <script src="device-fingerprint.js?v=20260103" defer></script>
+    <!-- 🔍 Sistema de Fingerprint Forte (Canvas + Audio + WebGL + Hardware) -->
+    <!-- ⚡ PERF MODE: Só executa se necessário (modo anônimo ou perf mode off) -->
+    <script src="device-fingerprint.js?v=20260203-perf" defer></script>
     
     <!-- �🔥 Sistema de Demo de Venda (detecta /demo ou ?mode=demo) -->
     <!-- Módulos refatorados: Core → Guards → UI (ordem obrigatória) -->
@@ -1009,7 +1014,8 @@
     <script src="script.js?v=20250813-1" defer></script>
     
     <!-- 🎤 VOICE MESSAGE SIMPLE - PROD.AI -->
-    <script src="voice-clean.js?v=20250810" defer></script>
+    <!-- ⚡ PERF MODE: Só inicia ao clicar no microfone se perf mode ativo -->
+    <script src="voice-clean.js?v=20260203-perf" defer></script>
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     

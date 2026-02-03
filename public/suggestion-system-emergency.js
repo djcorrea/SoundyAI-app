@@ -161,9 +161,21 @@
             
             window.suggestionSystem = new HybridSuggestionSystem();
             
+            // ⚡ DISPARAR EVENTO DE PRONTIDÃO (event-driven)
+            setTimeout(() => {
+                window.dispatchEvent(new Event('soundy:suggestionSystemReady'));
+                log('📢 [EMERGENCY] Evento soundy:suggestionSystemReady disparado (Híbrido)');
+            }, 0);
+            
         } else {
             log('🚨 [EMERGÊNCIA] EnhancedSuggestionEngine não encontrado - usando sistema simples');
             window.suggestionSystem = new SuggestionSystemEmergency();
+            
+            // ⚡ DISPARAR EVENTO DE PRONTIDÃO (event-driven)
+            setTimeout(() => {
+                window.dispatchEvent(new Event('soundy:suggestionSystemReady'));
+                log('📢 [EMERGENCY] Evento soundy:suggestionSystemReady disparado (Simples)');
+            }, 0);
         }
         
         window.SuggestionSystemUnified = SuggestionSystemEmergency;
