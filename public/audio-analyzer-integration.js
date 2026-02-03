@@ -9365,6 +9365,50 @@ function isSpectralBand(metricKey) {
     return SPECTRAL_BANDS.includes(metricKey);
 }
 
+/**
+ * 🧹 SANITIZAÇÃO DE TEXTO DE AÇÃO (Front-end apenas)
+ * 
+ * Remove valores numéricos e unidades da string de ação,
+ * mantendo apenas emoji + verbo + advérbios.
+ * 
+ * Backend continua calculando valores normalmente.
+ * 
+ * @param {string} actionText - Texto original da ação
+ * @returns {string} - Texto limpo sem números/unidades
+ */
+function sanitizeActionText(actionText) {
+    if (!actionText || typeof actionText !== 'string') {
+        return actionText;
+    }
+    
+    let cleaned = actionText;
+    
+    // 🎯 CASO ESPECIAL: CLIPPING
+    if (cleaned.includes('CLIPPING!')) {
+        // "🔴 CLIPPING! Reduzir 3.80 dB" → "🔴 Clipping digital – Reduzir"
+        cleaned = cleaned.replace(/CLIPPING!\s+/i, 'Clipping digital – ');
+    }
+    
+    // 🧹 REMOVER: Ranges numéricos (ex: "≈ −2 a −5 dB")
+    cleaned = cleaned.replace(/≈\s*[+−-]?\d+\.?\d*\s*a\s*[+−-]?\d+\.?\d*\s*dB/g, '');
+    
+    // 🧹 REMOVER: Parênteses com conteúdo numérico (ex: "(≈ +0.8 dB)")
+    cleaned = cleaned.replace(/\([^)]*\d+\.?\d*[^)]*\)/g, '');
+    
+    // 🧹 REMOVER: Números + unidades (ex: "3.5 dB", "2.1 LU")
+    cleaned = cleaned.replace(/\d+\.?\d*\s*(dB|LU|DR)/gi, '');
+    
+    // 🧹 REMOVER: Números soltos (ex: "3.5", "2.1")
+    // Importante: fazer DEPOIS de remover números com unidade
+    cleaned = cleaned.replace(/\s+\d+\.?\d*(?!\s*(dB|LU|DR))/g, '');
+    
+    // 🧹 LIMPAR: Espaços duplicados e espaços antes de pontuação
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    cleaned = cleaned.replace(/\s+([.,!?])/g, '$1');
+    
+    return cleaned;
+}
+
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
@@ -9617,7 +9661,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">🔊 Loudness (LUFS Integrado)</td>
                         <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9664,7 +9708,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">🎚️ Pico Real (dBTP)</td>
                         <td class="metric-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9687,7 +9731,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">📊 Dinâmica (DR)</td>
                         <td class="metric-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9710,7 +9754,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
                         <td class="metric-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9733,7 +9777,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">🎧 Imagem Estéreo</td>
                         <td class="metric-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9862,7 +9906,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-name">${nomeAmigavel}</td>
                         <td class="metric-value">${energyDbSafe}</td>
                         <td class="metric-severity ${result.severityClass}">${severityDisplay}</td>
-                        <td class="metric-action ${result.severityClass}">${actionDisplay}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</td>
                     </tr>
                 `);
                 bandsCount++;
