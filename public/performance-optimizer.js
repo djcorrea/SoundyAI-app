@@ -117,10 +117,10 @@
         
         state.animationsPaused = true;
         
-        // Pausar animações CSS infinite
+        // Pausar animações CSS infinite (EXCETO spinners de loading essenciais)
         const animatedElements = document.querySelectorAll([
             '[data-animation="infinite"]',
-            '.spinner-loading',
+            // '.spinner-loading', ❌ REMOVIDO - loading spinner deve sempre animar
             '.pulse-animation',
             '.shimmer-effect',
             '.glow-pulse',
@@ -145,7 +145,7 @@
         
         const animatedElements = document.querySelectorAll([
             '[data-animation="infinite"]',
-            '.spinner-loading',
+            // '.spinner-loading', ❌ REMOVIDO - loading spinner deve sempre animar
             '.pulse-animation',
             '.shimmer-effect',
             '.glow-pulse',

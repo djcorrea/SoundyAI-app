@@ -81,8 +81,18 @@ body.perf-mode .spinner,
 body.perf-mode .loading,
 body.perf-mode .progress-bar,
 body.perf-mode [class*="spin"],
-body.perf-mode [class*="loading"] {
+body.perf-mode [class*="loading"],
+body.perf-mode #audioAnalysisModal .loading-spinner,
+body.perf-mode .audio-modal .loading-spinner,
+body.perf-mode #audioAnalysisLoading .loading-spinner {
     animation-duration: 1s !important;
+}
+
+/* 🎯 FORÇA MÁXIMA: Garantir que spinner SEMPRE anima */
+body.perf-mode #audioAnalysisModal .loading-spinner,
+body.perf-mode #audioAnalysisLoading .loading-spinner {
+    animation: spin-simple 1.2s linear infinite !important;
+    animation-play-state: running !important;
 }
 
 /* ========================================================================
@@ -188,9 +198,15 @@ body.perf-mode ::-webkit-scrollbar-thumb {
     body.perf-mode .loading-spinner,
     body.perf-mode .progress-bar,
     body.perf-mode [class*="spin"],
-    body.perf-mode [class*="loading"] {
+    body.perf-mode [class*="loading"],
+    body.perf-mode #audioAnalysisModal .loading-spinner,
+    body.perf-mode .audio-modal .loading-spinner,
+    body.perf-mode #audioAnalysisLoading .loading-spinner {
         animation: unset !important; /* Restaura animação original */
         animation-duration: 1s !important;
+        animation-name: spin-simple !important;
+        animation-timing-function: linear !important;
+        animation-iteration-count: infinite !important;
     }
 }
 
@@ -210,9 +226,15 @@ body.perf-mode ::-webkit-scrollbar-thumb {
     body.perf-mode .loading-spinner,
     body.perf-mode .progress-bar,
     body.perf-mode [class*="spin"],
-    body.perf-mode [class*="loading"] {
+    body.perf-mode [class*="loading"],
+    body.perf-mode #audioAnalysisModal .loading-spinner,
+    body.perf-mode .audio-modal .loading-spinner,
+    body.perf-mode #audioAnalysisLoading .loading-spinner {
         animation: unset !important; /* Restaura animação original */
         animation-duration: 1s !important;
+        animation-name: spin-simple !important;
+        animation-timing-function: linear !important;
+        animation-iteration-count: infinite !important;
     }
 }
 
