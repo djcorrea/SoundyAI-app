@@ -9,28 +9,14 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-MBDHDYN6Z0');
-    </script>
-    
-    <!-- 🌐 API URL Resolver - Necessário para referral-core.js -->
-    <script src="api-url-resolver.js?v=20260121"></script>
-    
-    <!-- 🔗 SISTEMA DE AFILIADOS V3: Rastreamento centralizado -->
-    <script src="referral-core.js"></script>
-    
-    <!-- 📊 Google Ads Conversion Tracking -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'AW-17884386312');
+      gtag('config', 'AW-17884386312');
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
@@ -1747,31 +1733,44 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Função auxiliar para enviar eventos
-            function trackGA4Event(eventName, params = {}) {
+            function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                } else {
+                    console.warn('⚠️ [GA4] gtag não está disponível');
                 }
             }
+            
+            // Rastrear upload de áudio
+            // Interceptar quando arquivo é selecionado no input
+            const audioInputs = document.querySelectorAll('input[type="file"][accept*="audio"]');
+            audioInputs.forEach((input) => {
+                input.addEventListener('change', (e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                        sendGA4Event('audio_uploaded', {
+                            file_name: e.target.files[0].name,
+                            file_size: e.target.files[0].size,
+                            page_path: window.location.pathname
+                        });
+                    }
+                });
+            });
             
             // Rastrear início de análise de áudio
             if (window.addEventListener) {
                 window.addEventListener('audio-analysis-started', (e) => {
-                    trackGA4Event('audio_analysis', {
-                        event_category: 'engagement',
-                        event_label: 'analise_iniciada',
-                        mode: e.detail?.mode || 'unknown',
-                        page_location: window.location.href
+                    sendGA4Event('analysis_started', {
+                        analysis_mode: e.detail?.mode || 'unknown',
+                        page_path: window.location.pathname
                     });
                 });
                 
                 // Rastrear análise concluída
                 window.addEventListener('audio-analysis-completed', (e) => {
-                    trackGA4Event('audio_analysis_complete', {
-                        event_category: 'engagement',
-                        event_label: 'analise_concluida',
-                        mode: e.detail?.mode || 'unknown',
-                        page_location: window.location.href
+                    sendGA4Event('analysis_completed', {
+                        analysis_mode: e.detail?.mode || 'unknown',
+                        page_path: window.location.pathname
                     });
                 });
             }
@@ -1780,10 +1779,8 @@
             const chatSendButtons = document.querySelectorAll('.chat-send-btn');
             chatSendButtons.forEach((btn) => {
                 btn.addEventListener('click', () => {
-                    trackGA4Event('chat_interaction', {
-                        event_category: 'engagement',
-                        event_label: 'mensagem_enviada',
-                        page_location: window.location.href
+                    sendGA4Event('chat_message_sent', {
+                        page_path: window.location.pathname
                     });
                 });
             });
@@ -1792,10 +1789,8 @@
             const btnAskAI = document.getElementById('btnAskAI');
             if (btnAskAI) {
                 btnAskAI.addEventListener('click', () => {
-                    trackGA4Event('cta_click', {
-                        event_category: 'engagement',
-                        event_label: 'pedir_ajuda_ia',
-                        page_location: window.location.href
+                    sendGA4Event('ask_ai_click', {
+                        page_path: window.location.pathname
                     });
                 });
             }
@@ -1804,10 +1799,8 @@
             const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
             if (btnCorrectionPlan) {
                 btnCorrectionPlan.addEventListener('click', () => {
-                    trackGA4Event('cta_click', {
-                        event_category: 'engagement',
-                        event_label: 'gerar_plano_correcao',
-                        page_location: window.location.href
+                    sendGA4Event('correction_plan_click', {
+                        page_path: window.location.pathname
                     });
                 });
             }
@@ -1818,20 +1811,16 @@
             
             if (genreModeBtn) {
                 genreModeBtn.addEventListener('click', () => {
-                    trackGA4Event('mode_selection', {
-                        event_category: 'engagement',
-                        event_label: 'modo_genero',
-                        page_location: window.location.href
+                    sendGA4Event('select_genre_mode', {
+                        page_path: window.location.pathname
                     });
                 });
             }
             
             if (referenceModeBtn) {
                 referenceModeBtn.addEventListener('click', () => {
-                    trackGA4Event('mode_selection', {
-                        event_category: 'engagement',
-                        event_label: 'modo_referencia',
-                        page_location: window.location.href
+                    sendGA4Event('select_reference_mode', {
+                        page_path: window.location.pathname
                     });
                 });
             }
@@ -1840,10 +1829,8 @@
             const upgradeLinks = document.querySelectorAll('a[href="planos.html"], button[onclick*="planos"]');
             upgradeLinks.forEach((link) => {
                 link.addEventListener('click', () => {
-                    trackGA4Event('cta_click', {
-                        event_category: 'conversion',
-                        event_label: 'ver_planos_upgrade',
-                        page_location: window.location.href
+                    sendGA4Event('view_plans_click', {
+                        page_path: window.location.pathname
                     });
                 });
             });

@@ -2262,10 +2262,12 @@
         // Google Analytics 4 - Event Tracking
         document.addEventListener('DOMContentLoaded', () => {
             // Função auxiliar para enviar eventos
-            function trackEvent(eventName, params = {}) {
+            function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                } else {
+                    console.warn('⚠️ [GA4] gtag não está disponível');
                 }
             }
             
@@ -2273,20 +2275,19 @@
             document.querySelectorAll('a[href="index.html"]').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const text = btn.textContent.trim();
-                    let eventLabel = 'cta_analisar_gratis';
+                    let eventName = 'cta_analisar_gratis';
                     
-                    if (text.includes('COMEÇAR ANÁLISE')) {
-                        eventLabel = 'cta_comecar_analise';
-                    } else if (text.includes('Analisar minha música')) {
-                        eventLabel = 'cta_analisar_musica_hero';
+                    if (text.includes('Analisar minha música')) {
+                        eventName = 'cta_hero_click';
+                    } else if (text.includes('COMEÇAR ANÁLISE')) {
+                        eventName = 'cta_analisar_gratis';
                     } else if (text.includes('Analisar Áudio')) {
-                        eventLabel = 'cta_footer_analisar';
+                        eventName = 'cta_footer_click';
                     }
                     
-                    trackEvent('cta_click', {
-                        event_category: 'engagement',
-                        event_label: eventLabel,
-                        page_location: window.location.href
+                    sendGA4Event(eventName, {
+                        page_path: window.location.pathname,
+                        page_title: document.title
                     });
                 });
             });
@@ -2294,10 +2295,9 @@
             // Rastrear botão "Ver demonstração"
             document.querySelectorAll('a[href="#how-it-works"]').forEach((btn) => {
                 btn.addEventListener('click', () => {
-                    trackEvent('cta_click', {
-                        event_category: 'engagement',
-                        event_label: 'cta_ver_demonstracao',
-                        page_location: window.location.href
+                    sendGA4Event('cta_ver_demonstracao', {
+                        page_path: window.location.pathname,
+                        page_title: document.title
                     });
                 });
             });
@@ -2305,10 +2305,9 @@
             // Rastrear link para planos
             document.querySelectorAll('a[href="planos.html"]').forEach((btn) => {
                 btn.addEventListener('click', () => {
-                    trackEvent('cta_click', {
-                        event_category: 'engagement',
-                        event_label: 'cta_ver_planos',
-                        page_location: window.location.href
+                    sendGA4Event('cta_ver_planos', {
+                        page_path: window.location.pathname,
+                        page_title: document.title
                     });
                 });
             });
@@ -2317,10 +2316,9 @@
             document.querySelectorAll('.social-link').forEach((link) => {
                 link.addEventListener('click', () => {
                     const socialNetwork = link.getAttribute('aria-label') || 'unknown';
-                    trackEvent('social_click', {
-                        event_category: 'social_media',
-                        event_label: socialNetwork.toLowerCase(),
-                        page_location: window.location.href
+                    sendGA4Event('social_click', {
+                        social_network: socialNetwork.toLowerCase(),
+                        page_path: window.location.pathname
                     });
                 });
             });

@@ -6,22 +6,14 @@
     <title>SoundyAI - Transforme Sua Produção Musical</title>
     <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-MBDHDYN6Z0');
-    </script>
-    
-    <!-- 📊 Google Ads Tracking -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'AW-17884386312');
+      gtag('config', 'AW-17884386312');
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
@@ -233,13 +225,16 @@
                             }
                         }
                         
-                        // GA4 tracking
-                        trackGA4Event('cta_click', {
-                            event_category: 'checkout',
-                            event_label: 'cta_checkout_hotmart',
+                        // GA4 tracking - Evento específico begin_checkout
+                        trackGA4Event('begin_checkout', {
                             value: 197.0,
                             currency: 'BRL',
-                            page_location: window.location.href
+                            items: [{
+                                item_name: 'SoundyAI Profissional',
+                                item_id: 'soundyai-pro',
+                                price: 197.0,
+                                quantity: 1
+                            }]
                         });
                         
                         // Marcar como rastreado

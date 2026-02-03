@@ -8,22 +8,14 @@
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-MBDHDYN6Z0');
-    </script>
-    
-    <!-- 📊 Google Ads Conversion Tracking -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'AW-17884386312');
+      gtag('config', 'AW-17884386312');
         
         // Debug mode: ?debug_tracking=1
         window.TRACKING_DEBUG = window.location.search.includes('debug_tracking=1');
@@ -508,19 +500,14 @@
         // Google Analytics 4 - Event Tracking para Planos
         document.addEventListener('DOMContentLoaded', () => {
             // Função auxiliar para enviar eventos
-            function trackEvent(eventName, params = {}) {
+            function sendGA4Event(eventName, params = {}) {
                 if (typeof gtag === 'function') {
                     gtag('event', eventName, params);
-                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                    console.log('🎯 [GA4] Evento disparado:', eventName, params);
+                } else {
+                    console.warn('⚠️ [GA4] gtag não está disponível');
                 }
             }
-            
-            // Rastrear visualização da página de planos
-            trackEvent('view_item_list', {
-                event_category: 'ecommerce',
-                event_label: 'planos_page_view',
-                page_location: window.location.href
-            });
             
             // Rastrear cliques nos botões de plano
             const btnPlus = document.getElementById('btn-plus');
@@ -529,36 +516,33 @@
             
             if (btnPlus) {
                 btnPlus.addEventListener('click', () => {
-                    trackEvent('cta_click', {
-                        event_category: 'subscription',
-                        event_label: 'assinar_plus',
+                    sendGA4Event('select_plan_plus', {
+                        plan_name: 'Plus',
                         value: 9.90,
                         currency: 'BRL',
-                        page_location: window.location.href
+                        page_path: window.location.pathname
                     });
                 });
             }
             
             if (btnPro) {
                 btnPro.addEventListener('click', () => {
-                    trackEvent('cta_click', {
-                        event_category: 'subscription',
-                        event_label: 'assinar_pro',
+                    sendGA4Event('select_plan_pro', {
+                        plan_name: 'Pro',
                         value: 47.00,
                         currency: 'BRL',
-                        page_location: window.location.href
+                        page_path: window.location.pathname
                     });
                 });
             }
             
             if (btnStudio) {
                 btnStudio.addEventListener('click', () => {
-                    trackEvent('cta_click', {
-                        event_category: 'subscription',
-                        event_label: 'assinar_studio',
+                    sendGA4Event('select_plan_studio', {
+                        plan_name: 'Studio',
                         value: 197.00,
                         currency: 'BRL',
-                        page_location: window.location.href
+                        page_path: window.location.pathname
                     });
                 });
             }
