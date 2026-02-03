@@ -150,6 +150,9 @@
     <!-- <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104"> -->
     <link rel="stylesheet" href="analysis-history.css?v=20260104">
     
+    <!-- 🚀 PERFORMANCE MODE: Desativa efeitos pesados durante análise -->
+    <link rel="stylesheet" href="performance-mode.css?v=20260203-perf">
+    
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
@@ -988,6 +991,9 @@
     <!-- 🚀 PERFORMANCE OPTIMIZATIONS -->
     <!-- Analysis Mode Manager - Event-driven (substitui polling de 100ms) -->
     <script src="analysis-mode-manager.js?v=20260203-perf"></script>
+    
+    <!-- Performance Mode Controller - Auto-pausa Vanta + desativa efeitos pesados -->
+    <script src="performance-mode-controller.js?v=20260203-perf"></script>
     
     <!-- ✅ Vanta.js já é gerenciado pelo effects-controller.js (pause automático em modais) -->
     

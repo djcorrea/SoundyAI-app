@@ -1,0 +1,195 @@
+/**
+ * 🚀 PERFORMANCE MODE - Redução de Peso Durante Análise
+ * ======================================================
+ * 
+ * OBJETIVO: Desativar efeitos visuais pesados durante análise de áudio
+ * para evitar contenção de CPU/GPU com FL Studio e outros DAWs.
+ * 
+ * ATIVAÇÃO: Classe 'perf-mode' no <body>
+ * - Adicionada ao clicar em "Analisar áudio"
+ * - Removida ao fechar modal/resultado
+ * 
+ * DESATIVA:
+ * - backdrop-filter (blur pesado)
+ * - filter blur/drop-shadow
+ * - box-shadows complexas
+ * - animations/transitions desnecessárias
+ * - Vanta.js/Three.js (via JS, não CSS)
+ */
+
+/* ========================================================================
+   🎯 BACKDROP-FILTER: Desativar blur pesado
+   ======================================================================== */
+
+body.perf-mode .audio-modal,
+body.perf-mode .modal,
+body.perf-mode .audio-modal-container,
+body.perf-mode .modal-container,
+body.perf-mode .audio-modal-content,
+body.perf-mode .modal-content,
+body.perf-mode [class*="modal"],
+body.perf-mode [class*="overlay"],
+body.perf-mode [class*="backdrop"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ========================================================================
+   🎯 FILTER BLUR: Desativar blur em elementos
+   ======================================================================== */
+
+body.perf-mode * {
+    filter: none !important;
+}
+
+/* Exceção: Permitir grayscale/opacity (não são pesados) */
+body.perf-mode .disabled,
+body.perf-mode [disabled] {
+    filter: grayscale(0.5) opacity(0.6) !important;
+}
+
+/* ========================================================================
+   🎯 BOX-SHADOW: Simplificar sombras
+   ======================================================================== */
+
+body.perf-mode .audio-modal,
+body.perf-mode .modal,
+body.perf-mode .card,
+body.perf-mode .metric-card,
+body.perf-mode .suggestion-card,
+body.perf-mode .analysis-card,
+body.perf-mode button,
+body.perf-mode .btn,
+body.perf-mode [class*="button"] {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ========================================================================
+   🎯 ANIMATIONS: Desativar animações de fundo
+   ======================================================================== */
+
+body.perf-mode *,
+body.perf-mode *::before,
+body.perf-mode *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.15s !important; /* Mantém transições curtas para UX */
+}
+
+/* Exceção: Permitir animações críticas (spinners de loading) */
+body.perf-mode .spinner,
+body.perf-mode .loading,
+body.perf-mode .progress-bar,
+body.perf-mode [class*="spin"],
+body.perf-mode [class*="loading"] {
+    animation-duration: 1s !important;
+}
+
+/* ========================================================================
+   🎯 BACKGROUND EFFECTS: Simplificar gradients e patterns
+   ======================================================================== */
+
+body.perf-mode #vanta-bg,
+body.perf-mode [class*="vanta"],
+body.perf-mode [class*="particle"],
+body.perf-mode [class*="effect"] {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Background sólido durante performance mode */
+body.perf-mode {
+    background: #0a0a1a !important;
+    background-image: none !important;
+}
+
+/* ========================================================================
+   🎯 TEXT-SHADOW: Remover sombras de texto
+   ======================================================================== */
+
+body.perf-mode * {
+    text-shadow: none !important;
+}
+
+/* ========================================================================
+   🎯 TRANSFORM/3D: Desativar transformações 3D
+   ======================================================================== */
+
+body.perf-mode * {
+    transform-style: flat !important;
+    perspective: none !important;
+}
+
+/* ========================================================================
+   🎯 WILL-CHANGE: Remover otimizações que consomem memória
+   ======================================================================== */
+
+body.perf-mode * {
+    will-change: auto !important;
+}
+
+/* ========================================================================
+   🎯 SCROLLBAR: Simplificar scrollbars customizadas
+   ======================================================================== */
+
+body.perf-mode ::-webkit-scrollbar {
+    width: 8px !important;
+    height: 8px !important;
+}
+
+body.perf-mode ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: 0 !important;
+}
+
+body.perf-mode ::-webkit-scrollbar-thumb {
+    background: rgba(138, 43, 226, 0.5) !important;
+    border-radius: 4px !important;
+}
+
+/* ========================================================================
+   🎯 LOG VISUAL: Indicador de modo de performance ativo
+   ======================================================================== */
+
+body.perf-mode::before {
+    content: '⚡ PERFORMANCE MODE';
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 165, 0, 0.9);
+    color: #000;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    z-index: 999999;
+    pointer-events: none;
+    font-family: monospace;
+}
+
+/* ========================================================================
+   🎯 MEDIA QUERIES: Modo agressivo para mobile/low-end
+   ======================================================================== */
+
+@media (max-width: 768px), (max-device-width: 768px) {
+    body.perf-mode * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ========================================================================
+   🎯 PREFERS-REDUCED-MOTION: Respeitar preferência do sistema
+   ======================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    body.perf-mode * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ========================================================================
+   FIM DO PERFORMANCE MODE
+   ======================================================================== */

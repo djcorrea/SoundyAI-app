@@ -32700,18 +32700,48 @@ if (typeof window !== 'undefined') {
     });
 }
 
-// 🎯 FUNÇÃO: Aplicar correção de fallback ao score
-    
-    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
-                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
-    
-    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
-                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
-    
-    // LRA - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: loudness.lra + technicalData.lra
-    tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
-              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
-              (backendData.technicalData?.lra && Number.isFinite(backendData.technicalData.lra) ? backendData.technicalData.lra : null);
+// ❌ CÓDIGO ÓRFÃO REMOVIDO: Havia código usando 'tech' sem declaração
+// Esse fragmento estava causando ReferenceError: tech is not defined
+// Se necessário, esse código deve ser movido para dentro de uma função apropriada
+
+// Função auxiliar para mapear métricas técnicas (se necessário no futuro)
+function mapTechnicalMetricsSafe(backendData, source) {
+    try {
+        // Inicializar tech com valores seguros
+        const tech = {};
+        
+        // Função helper para obter valores reais
+        const getRealValue = (...paths) => {
+            for (const path of paths) {
+                let value;
+                if (path.includes('.')) {
+                    value = path.split('.').reduce((obj, key) => obj?.[key], source);
+                } else {
+                    value = source?.[path];
+                }
+                if (Number.isFinite(value)) {
+                    return value;
+                }
+            }
+            return null;
+        };
+        
+        tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
+                            (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
+        
+        tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
+                            (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
+        
+        tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
+                  (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
+                  (backendData.technicalData?.lra && Number.isFinite(backendData.technicalData.lra) ? backendData.technicalData.lra : null);
+        
+        return tech;
+    } catch (error) {
+        error('❌ Erro ao mapear métricas técnicas:', error);
+        return {}; // Retorna objeto vazio em caso de erro
+    }
+}
     
     log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,

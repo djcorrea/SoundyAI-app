@@ -3,68 +3,79 @@
  * 
  * Garante que o sistema unificado seja aplicado mesmo se houver conflitos
  * Executa patches agressivos para substituir completamente o sistema legacy
+ * 
+ * ⚡ VERSÃO ROBUSTA: NUNCA quebra o app mesmo se houver erros críticos
  */
 
 (function() {
     'use strict';
     
-    // === [SAFE-GUARD BOOT] ====================================
-    if (!window.audioAnalyzer || !window.CACHE_CTX_AWARE_V1_API || !window.refsReady) {
-        warn("⏳ ForceActivator adiado: sistema ainda não está pronto.");
-        log("Estado atual:", {
-            audioAnalyzer: !!window.audioAnalyzer,
-            CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
-            refsReady: !!window.refsReady
-        });
+    // 🛡️ TRY/CATCH GLOBAL: Garantir que NUNCA quebre o sistema principal
+    try {
+        
+        // === [SAFE-GUARD BOOT] ====================================
+        if (!window.audioAnalyzer || !window.CACHE_CTX_AWARE_V1_API || !window.refsReady) {
+            warn("⏳ ForceActivator adiado: sistema ainda não está pronto.");
+            log("Estado atual:", {
+                audioAnalyzer: !!window.audioAnalyzer,
+                CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                refsReady: !!window.refsReady
+            });
 
-        // Escuta o evento que marca a inicialização real do sistema de áudio
-        document.addEventListener("analysisReady", () => {
-            log("✅ ForceActivator executado após sistema pronto (analysisReady).");
-            try {
-                // Re-executa a IIFE completa quando o sistema estiver pronto
-                if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
-                    window.STATUS_SUGGESTION_UNIFIED_V1 = true;
-                    safeForceActivator();
+            // Escuta o evento que marca a inicialização real do sistema de áudio
+            document.addEventListener("analysisReady", () => {
+                log("✅ ForceActivator executado após sistema pronto (analysisReady).");
+                try {
+                    // Re-executa a IIFE completa quando o sistema estiver pronto
+                    if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+                        window.STATUS_SUGGESTION_UNIFIED_V1 = true;
+                        safeForceActivator();
+                    }
+                } catch (err) {
+                    error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
+                    // NÃO propaga erro - apenas loga
                 }
-            } catch (err) {
-                error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
-            }
-        }, { once: true });
+            }, { once: true });
 
-        // Não continua agora — aguarda o evento
-        return;
-    }
-    // ===========================================================
-    
-    // Força ativação imediata
-    window.STATUS_SUGGESTION_UNIFIED_V1 = true;
-    
-    // 🎯 CONTADOR DE TENTATIVAS (declarado ANTES de safeForceActivator)
-    let forceCheckAttempts = 0;
-    
-    function safeForceActivator() {
-        const ready =
-            window.audioAnalyzer &&
-            window.audioAnalyzer.metrics &&
-            window.audioAnalyzer.metrics.truePeak &&
-            window.audioAnalyzer.metrics.dynamicRange &&
-            window.CACHE_CTX_AWARE_V1_API &&
-            window.refsReady === true;
-
-        if (!ready) {
-            if (forceCheckAttempts < 10) {
-                log("⏳ ForceActivator aguardando métricas core...");
-                forceCheckAttempts++;
-                setTimeout(safeForceActivator, 300);
-            } else {
-                warn("⚠️ ForceActivator cancelado após 10 tentativas.");
-            }
+            // Não continua agora — aguarda o evento
             return;
         }
+        // ===========================================================
+        
+        // Força ativação imediata
+        window.STATUS_SUGGESTION_UNIFIED_V1 = true;
+        
+        // 🎯 CONTADOR DE TENTATIVAS (declarado ANTES de safeForceActivator)
+        let forceCheckAttempts = 0;
+        
+        function safeForceActivator() {
+            try {
+                const ready =
+                    window.audioAnalyzer &&
+                    window.audioAnalyzer.metrics &&
+                    window.audioAnalyzer.metrics.truePeak &&
+                    window.audioAnalyzer.metrics.dynamicRange &&
+                    window.CACHE_CTX_AWARE_V1_API &&
+                    window.refsReady === true;
 
-        log("✅ ForceActivator executado após sistema pronto (metrics core detectadas)");
-        forceUnifiedSystemApplication();
-    }
+                if (!ready) {
+                    if (forceCheckAttempts < 10) {
+                        log("⏳ ForceActivator aguardando métricas core...");
+                        forceCheckAttempts++;
+                        setTimeout(safeForceActivator, 300);
+                    } else {
+                        warn("⚠️ ForceActivator cancelado após 10 tentativas.");
+                    }
+                    return;
+                }
+
+                log("✅ ForceActivator executado após sistema pronto (metrics core detectadas)");
+                forceUnifiedSystemApplication();
+            } catch (err) {
+                error("❌ Erro em safeForceActivator:", err);
+                // NÃO propaga - apenas loga
+            }
+        }
     
     // Intercepta e substitui qualquer tentativa de usar sistema legacy
     function forceUnifiedSystemApplication() {
@@ -253,4 +264,15 @@
     log('Loaded via script tag in index.html (no defer)');
     log('------------------------------------');
     
+    // Marca que o activator já executou
+    window.FORCE_ACTIVATOR_ALREADY_RUN = true;
+    
+    } catch (criticalError) {
+        // 🛡️ CATCH GLOBAL: NUNCA deixa quebrar o app
+        error("❌❌❌ ERRO CRÍTICO no ForceActivator (não quebrou o app):", criticalError);
+        console.error("Stack trace completo:", criticalError.stack);
+        // Sistema continua funcionando mesmo com erro
+    }
 })();
+
+log('✅ [FORCE-ACTIVATOR] Módulo carregado com proteção anti-crash');
