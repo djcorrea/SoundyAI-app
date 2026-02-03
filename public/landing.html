@@ -7,6 +7,15 @@
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+    </script>
+    
     <!-- 🌐 API URL Resolver - Necessário para referral-core.js -->
     <script src="api-url-resolver.js"></script>
     
@@ -2250,6 +2259,73 @@
     </footer>
 
     <script>
+        // Google Analytics 4 - Event Tracking
+        document.addEventListener('DOMContentLoaded', () => {
+            // Função auxiliar para enviar eventos
+            function trackEvent(eventName, params = {}) {
+                if (typeof gtag === 'function') {
+                    gtag('event', eventName, params);
+                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                }
+            }
+            
+            // Rastrear cliques nos CTAs principais
+            document.querySelectorAll('a[href="index.html"]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const text = btn.textContent.trim();
+                    let eventLabel = 'cta_analisar_gratis';
+                    
+                    if (text.includes('COMEÇAR ANÁLISE')) {
+                        eventLabel = 'cta_comecar_analise';
+                    } else if (text.includes('Analisar minha música')) {
+                        eventLabel = 'cta_analisar_musica_hero';
+                    } else if (text.includes('Analisar Áudio')) {
+                        eventLabel = 'cta_footer_analisar';
+                    }
+                    
+                    trackEvent('cta_click', {
+                        event_category: 'engagement',
+                        event_label: eventLabel,
+                        page_location: window.location.href
+                    });
+                });
+            });
+            
+            // Rastrear botão "Ver demonstração"
+            document.querySelectorAll('a[href="#how-it-works"]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    trackEvent('cta_click', {
+                        event_category: 'engagement',
+                        event_label: 'cta_ver_demonstracao',
+                        page_location: window.location.href
+                    });
+                });
+            });
+            
+            // Rastrear link para planos
+            document.querySelectorAll('a[href="planos.html"]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    trackEvent('cta_click', {
+                        event_category: 'engagement',
+                        event_label: 'cta_ver_planos',
+                        page_location: window.location.href
+                    });
+                });
+            });
+            
+            // Rastrear cliques nas redes sociais
+            document.querySelectorAll('.social-link').forEach((link) => {
+                link.addEventListener('click', () => {
+                    const socialNetwork = link.getAttribute('aria-label') || 'unknown';
+                    trackEvent('social_click', {
+                        event_category: 'social_media',
+                        event_label: socialNetwork.toLowerCase(),
+                        page_location: window.location.href
+                    });
+                });
+            });
+        });
+        
         // Vanta.js Initialization
         document.addEventListener('DOMContentLoaded', () => {
             try {

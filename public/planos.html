@@ -8,6 +8,15 @@
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+    </script>
+    
     <!-- 📊 Google Ads Conversion Tracking -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
     <script>
@@ -496,6 +505,65 @@
     </script>
 
     <script>
+        // Google Analytics 4 - Event Tracking para Planos
+        document.addEventListener('DOMContentLoaded', () => {
+            // Função auxiliar para enviar eventos
+            function trackEvent(eventName, params = {}) {
+                if (typeof gtag === 'function') {
+                    gtag('event', eventName, params);
+                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                }
+            }
+            
+            // Rastrear visualização da página de planos
+            trackEvent('view_item_list', {
+                event_category: 'ecommerce',
+                event_label: 'planos_page_view',
+                page_location: window.location.href
+            });
+            
+            // Rastrear cliques nos botões de plano
+            const btnPlus = document.getElementById('btn-plus');
+            const btnPro = document.getElementById('btn-pro');
+            const btnStudio = document.getElementById('btn-studio');
+            
+            if (btnPlus) {
+                btnPlus.addEventListener('click', () => {
+                    trackEvent('cta_click', {
+                        event_category: 'subscription',
+                        event_label: 'assinar_plus',
+                        value: 9.90,
+                        currency: 'BRL',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            if (btnPro) {
+                btnPro.addEventListener('click', () => {
+                    trackEvent('cta_click', {
+                        event_category: 'subscription',
+                        event_label: 'assinar_pro',
+                        value: 47.00,
+                        currency: 'BRL',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            if (btnStudio) {
+                btnStudio.addEventListener('click', () => {
+                    trackEvent('cta_click', {
+                        event_category: 'subscription',
+                        event_label: 'assinar_studio',
+                        value: 197.00,
+                        currency: 'BRL',
+                        page_location: window.location.href
+                    });
+                });
+            }
+        });
+        
         // Event Listeners para botões Stripe - ATUALIZADO 2026-01-06 com STUDIO
         document.addEventListener('DOMContentLoaded', () => {
             // ✅ PRESERVADO: Seletores críticos #btn-plus e #btn-pro
