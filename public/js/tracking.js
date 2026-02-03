@@ -1,16 +1,17 @@
 /**
- * 📊 SOUNDYAI - CONVERSION TRACKING SYSTEM
+ * 🎯 SOUNDYAI TRACKING SYSTEM v2.0
+ * Sistema centralizado de tracking que funciona com ou sem GA4
  * 
- * Sistema completo de rastreamento de conversões para Google Ads (+ opcional GA4)
+ * FEATURES:
+ * - Captura e preservação de UTMs/GCLID
+ * - Anonymous ID persistente
+ * - Session ID com timeout de 30min
+ * - Dual-write: GA4 + Firestore (ad blocker proof)
+ * - Tracking determinístico de toda jornada do usuário
  * 
- * ✅ GARANTIAS:
- * - Idempotência: eventos não duplicam (mesmo em refresh/cliques múltiplos)
- * - Resiliência: não quebra se gtag ausente
- * - Segurança: logs apenas em modo dev
- * - Feature flag: pode ser desligado facilmente
- * 
- * @version 1.0.0
- * @created 2026-01-20
+ * @version 2.0.0
+ * @date 2026-02-03
+ * @updated Migrado de conversion-only para full attribution tracking
  */
 
 (function() {
@@ -146,7 +147,224 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // 🎯 API PÚBLICA DE TRACKING
+    // � FUNÇÕES DE IDENTIFICAÇÃO E ATTRIBUTION
+    // ═══════════════════════════════════════════════════════════════════
+    
+    // Parâmetros UTM que devem ser capturados
+    const UTM_PARAMS = [
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_term',
+        'utm_content',
+        'gclid' // Google Click ID
+    ];
+    
+    /**
+     * 🆔 Gera ou recupera Anonymous ID único e persistente
+     * ID permanece o mesmo mesmo após limpar cookies
+     * 
+     * @returns {string} Anonymous ID (ex: 'anon_abc123xyz')
+     */
+    function getOrCreateAnonId() {
+        const storageKey = 'soundy_anon_id';
+        let anonId = localStorage.getItem(storageKey);
+
+        if (!anonId) {
+            // Gerar novo ID
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 15);
+            anonId = `anon_${timestamp}_${random}`;
+            
+            localStorage.setItem(storageKey, anonId);
+            log('✅ Anonymous ID criado:', anonId);
+        } else {
+            log('✅ Anonymous ID recuperado:', anonId);
+        }
+
+        return anonId;
+    }
+
+    /**
+     * 🔗 Captura parâmetros UTM e GCLID da URL e salva em localStorage
+     * Preserva o PRIMEIRO valor capturado (first-touch attribution)
+     * 
+     * Exemplo de URL: https://soundyai.com/?utm_source=google&utm_medium=cpc&gclid=abc123
+     * 
+     * @returns {Object} Objeto com UTMs capturados ou null se nenhum encontrado
+     */
+    function captureAttributionFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const captured = {};
+        let hasAttribution = false;
+
+        UTM_PARAMS.forEach(param => {
+            const value = urlParams.get(param);
+            const storageKey = 'soundy_' + param;
+            const existing = localStorage.getItem(storageKey);
+
+            if (value) {
+                hasAttribution = true;
+                
+                // FIRST-TOUCH: Só salvar se não existir valor anterior
+                if (!existing) {
+                    localStorage.setItem(storageKey, value);
+                    captured[param] = value;
+                    log(`✅ Capturado ${param}:`, value);
+                } else {
+                    log(`⚠️ ${param} já existe (preservando first-touch):`, existing);
+                    captured[param] = existing;
+                }
+            } else if (existing) {
+                // Usar valor já salvo
+                captured[param] = existing;
+            }
+        });
+
+        // Salvar timestamp do primeiro acesso se capturou algo novo
+        if (hasAttribution && !localStorage.getItem('soundy_first_seen')) {
+            const firstSeen = new Date().toISOString();
+            localStorage.setItem('soundy_first_seen', firstSeen);
+            localStorage.setItem('soundy_landing_page', window.location.pathname);
+            localStorage.setItem('soundy_referrer', document.referrer || '(direct)');
+            log('✅ First-touch attribution salva:', firstSeen);
+        }
+
+        return Object.keys(captured).length > 0 ? captured : null;
+    }
+
+    /**
+     * 🕐 Gera ou recupera Session ID com timeout de 30min
+     * Sessão expira após 30min de inatividade
+     * 
+     * @returns {string} Session ID (ex: 'session_1234567890_abc')
+     */
+    function getOrCreateSessionId() {
+        const sessionKey = 'soundy_session_id';
+        const timestampKey = 'soundy_session_last_activity';
+
+        const existingId = localStorage.getItem(sessionKey);
+        const lastActivity = localStorage.getItem(timestampKey);
+
+        const now = Date.now();
+        const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos
+
+        // Verificar se sessão expirou
+        if (existingId && lastActivity) {
+            const timeSinceActivity = now - parseInt(lastActivity, 10);
+            
+            if (timeSinceActivity < SESSION_TIMEOUT_MS) {
+                // Sessão ainda válida - atualizar timestamp
+                localStorage.setItem(timestampKey, now.toString());
+                log('✅ Sessão ativa:', existingId);
+                return existingId;
+            } else {
+                log('⏰ Sessão expirada (timeout 30min)');
+            }
+        }
+
+        // Criar nova sessão
+        const random = Math.random().toString(36).substring(2, 15);
+        const newSessionId = `session_${now}_${random}`;
+        
+        localStorage.setItem(sessionKey, newSessionId);
+        localStorage.setItem(timestampKey, now.toString());
+        
+        log('✅ Nova sessão criada:', newSessionId);
+        return newSessionId;
+    }
+
+    /**
+     * 📊 Coleta todo o contexto de tracking (UTMs, session, device, etc)
+     * 
+     * @returns {Object} Contexto completo para anexar aos eventos
+     */
+    function getTrackingContext() {
+        const context = {
+            // Identificadores
+            anon_id: getOrCreateAnonId(),
+            session_id: getOrCreateSessionId(),
+            uid: null, // Será preenchido se usuário estiver logado
+            
+            // Attribution
+            utm_source: localStorage.getItem('soundy_utm_source'),
+            utm_medium: localStorage.getItem('soundy_utm_medium'),
+            utm_campaign: localStorage.getItem('soundy_utm_campaign'),
+            utm_term: localStorage.getItem('soundy_utm_term'),
+            utm_content: localStorage.getItem('soundy_utm_content'),
+            gclid: localStorage.getItem('soundy_gclid'),
+            
+            // Página atual
+            page: window.location.pathname,
+            page_title: document.title,
+            page_location: window.location.href,
+            referrer: document.referrer || '(direct)',
+            
+            // Device/Browser
+            device: {
+                user_agent: navigator.userAgent,
+                language: navigator.language || navigator.userLanguage,
+                screen_resolution: `${screen.width}x${screen.height}`,
+                viewport_size: `${window.innerWidth}x${window.innerHeight}`
+            },
+            
+            // Timestamp
+            timestamp: new Date().toISOString()
+        };
+
+        // Adicionar UID se usuário estiver logado
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                if (user.uid) {
+                    context.uid = user.uid;
+                }
+            }
+        } catch (e) {
+            // Ignorar erro de parse
+        }
+
+        return context;
+    }
+
+    /**
+     * 💾 Salva evento no Firestore (collection analytics_events)
+     * Função interna chamada por trackEventV2()
+     * 
+     * @param {Object} payload - Dados completos do evento
+     * @returns {Promise<boolean>} Sucesso do salvamento
+     */
+    async function saveToFirestore(payload) {
+        try {
+            // Importar Firestore dinamicamente
+            const { db } = await import('/firebase.js');
+            const { collection, addDoc, serverTimestamp } = await import(
+                'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js'
+            );
+
+            // Criar documento na collection analytics_events
+            const eventsCollection = collection(db, 'analytics_events');
+            
+            const docData = {
+                ...payload,
+                server_timestamp: serverTimestamp() // Timestamp do servidor (mais confiável)
+            };
+
+            await addDoc(eventsCollection, docData);
+            log('💾 Salvo no Firestore:', payload.event_name);
+            return true;
+
+        } catch (err) {
+            // Se Firebase não estiver carregado ou houver erro, apenas logar
+            // Não lançar erro para não quebrar a aplicação
+            logError('❌ Erro ao salvar no Firestore:', err.message);
+            return false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // �🎯 API PÚBLICA DE TRACKING
     // ═══════════════════════════════════════════════════════════════════
     
     const Tracking = {
@@ -198,6 +416,123 @@
                 labels: { ...CONFIG.googleAds.labels }
             };
         },
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🎯 NOVA API V2 - DUAL-WRITE (GA4 + FIRESTORE)
+        // ═══════════════════════════════════════════════════════════════════
+        
+        /**
+         * 🎯 Envia evento para GA4 (se disponível) E Firestore (sempre)
+         * Sistema dual-write garante que nenhum evento seja perdido
+         * 
+         * @param {string} eventName - Nome do evento (ex: 'sign_up', 'page_view')
+         * @param {Object} eventParams - Parâmetros customizados do evento
+         * @returns {Promise<{ga4: boolean, firestore: boolean}>} Status de cada envio
+         * 
+         * @example
+         * await Tracking.trackEventV2('sign_up', { method: 'email', plan: 'free' });
+         */
+        async trackEventV2(eventName, eventParams = {}) {
+            if (!CONFIG.enabled) {
+                log('Sistema desabilitado, evento ignorado:', eventName);
+                return { ga4: false, firestore: false };
+            }
+            
+            try {
+                log('📊 Tracking evento:', eventName, eventParams);
+
+                // Obter contexto completo
+                const context = getTrackingContext();
+
+                // Construir payload completo
+                const fullPayload = {
+                    ...context,
+                    event_name: eventName,
+                    event_params: eventParams
+                };
+
+                // 1️⃣ ENVIAR PARA GA4 (se disponível e não bloqueado)
+                let ga4Success = false;
+                if (isGtagAvailable()) {
+                    try {
+                        window.gtag('event', eventName, {
+                            ...eventParams,
+                            page_path: context.page,
+                            page_title: context.page_title,
+                            page_location: context.page_location,
+                            utm_source: context.utm_source,
+                            utm_medium: context.utm_medium,
+                            utm_campaign: context.utm_campaign
+                        });
+                        ga4Success = true;
+                        log('✅ Enviado para GA4');
+                    } catch (gtagError) {
+                        logError('❌ Erro ao enviar para GA4:', gtagError);
+                    }
+                } else {
+                    log('⚠️ gtag não disponível (ad blocker ou não carregado)');
+                }
+
+                // 2️⃣ ENVIAR PARA FIRESTORE (backup determinístico)
+                const firestoreSuccess = await saveToFirestore(fullPayload);
+
+                // Log de resultado
+                if (ga4Success || firestoreSuccess) {
+                    log('✅ Evento rastreado:', eventName, { ga4: ga4Success, firestore: firestoreSuccess });
+                } else {
+                    logError('❌ Falha total ao rastrear evento:', eventName);
+                }
+
+                return { ga4: ga4Success, firestore: firestoreSuccess };
+
+            } catch (err) {
+                logError('❌ Erro crítico em trackEventV2:', err);
+                return { ga4: false, firestore: false };
+            }
+        },
+        
+        /**
+         * 📄 Envia evento de page_view automaticamente
+         * Chamado automaticamente no carregamento de cada página
+         * 
+         * @returns {Promise<{ga4: boolean, firestore: boolean}>}
+         */
+        async trackPageView() {
+            const params = {
+                page_referrer: document.referrer || '(none)',
+                engagement_time_msec: 0
+            };
+
+            return await this.trackEventV2('page_view', params);
+        },
+        
+        /**
+         * 🆔 Obter ou criar Anonymous ID
+         * @returns {string}
+         */
+        getOrCreateAnonId,
+        
+        /**
+         * 🕐 Obter ou criar Session ID
+         * @returns {string}
+         */
+        getOrCreateSessionId,
+        
+        /**
+         * 🔗 Capturar attribution da URL
+         * @returns {Object|null}
+         */
+        captureAttributionFromURL,
+        
+        /**
+         * 📊 Obter contexto completo de tracking
+         * @returns {Object}
+         */
+        getTrackingContext,
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔙 API V1 - MANTIDA PARA COMPATIBILIDADE
+        // ═══════════════════════════════════════════════════════════════════
         
         /**
          * Enviar evento genérico para Google Ads/GA4
@@ -522,7 +857,48 @@
     // Alias mais curto (opcional)
     window.tracking = Tracking;
     
-    // Log de inicialização
+    // ═══════════════════════════════════════════════════════════════════
+    // 🚀 INICIALIZAÇÃO AUTOMÁTICA
+    // ═══════════════════════════════════════════════════════════════════
+    
+    /**
+     * Inicializa o sistema de tracking automaticamente
+     * Executado quando o script carrega
+     */
+    function init() {
+        log('🚀 Inicializando SoundyAI Tracking System v2.0...');
+
+        // 1. Capturar UTMs/GCLID da URL (se existirem)
+        const attribution = captureAttributionFromURL();
+        if (attribution) {
+            log('✅ Attribution capturada:', attribution);
+        }
+
+        // 2. Garantir Anonymous ID existe
+        const anonId = getOrCreateAnonId();
+
+        // 3. Iniciar/renovar sessão
+        const sessionId = getOrCreateSessionId();
+
+        log('✅ Tracking System v2.0 inicializado');
+        log('   Anonymous ID:', anonId.substring(0, 20) + '...');
+        log('   Session ID:', sessionId.substring(0, 20) + '...');
+        log('   gtag disponível:', isGtagAvailable());
+        
+        // 4. Enviar page_view automaticamente quando DOM estiver pronto
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            Tracking.trackPageView();
+        } else {
+            document.addEventListener('DOMContentLoaded', () => {
+                Tracking.trackPageView();
+            });
+        }
+    }
+    
+    // Executar inicialização
+    init();
+    
+    // Log de inicialização (manter compatibilidade com código antigo)
     log('🚀 Sistema de tracking inicializado');
     log(`📊 Google Ads ID: ${CONFIG.googleAds.conversionId}`);
     log(`🔧 Debug mode: ${CONFIG.debug ? 'ON' : 'OFF'}`);
@@ -532,5 +908,7 @@
     if (CONFIG.googleAds.conversionId === 'AW-XXXXXXX') {
         warn('⚠️ [TRACKING] Google Ads Conversion ID não configurado! Use SoundyTracking.configure({ conversionId: "AW-XXXXX", labels: {...} })');
     }
+    
+    log('✅ SoundyTracking v2.0 pronto. Use: window.SoundyTracking.trackEventV2("event_name", {...})');
 
 })();

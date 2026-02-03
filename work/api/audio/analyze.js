@@ -814,7 +814,10 @@ router.post("/analyze", analysisLimiter, async (req, res) => {
       plan: analysisCheck.user.plan,
       analysisMode: analysisMode, // "full" | "reduced"
       features: features,
-      uid: uid
+      uid: uid,
+      // 🎯 FIRST ANALYSIS CTA: Informar se é primeira análise FREE
+      hasCompletedFirstFreeAnalysis: analysisCheck.user.hasCompletedFirstFreeAnalysis || false,
+      isFirstFreeAnalysis: !analysisCheck.user.hasCompletedFirstFreeAnalysis && analysisCheck.user.plan === 'free' && analysisMode === 'full'
     };
     
     console.log('📊 [ANALYZE] Plan Context montado:', planContext);

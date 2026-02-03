@@ -342,6 +342,10 @@ export async function getOrCreateUser(uid, extra = {}) {
         createdAt: nowISO,
         updatedAt: nowISO,
         
+        // 🎯 FIRST ANALYSIS CTA: Controle de primeira análise FREE
+        hasCompletedFirstFreeAnalysis: false,
+        firstFreeAnalysisCompletedAt: null,
+        
         // ✅ MESCLAR extra ANTES de definir defaults (prioridade para webhook)
         ...extra,
         
@@ -1003,6 +1007,14 @@ export async function registerAnalysis(uid, mode = "full") {
   if (shouldActivateReducedMode) {
     updateData.reducedMode = true;
     console.log(`✅ [USER-PLANS] reducedMode ATIVADO para ${uid}`);
+  }
+  
+  // 🎯 FIRST ANALYSIS CTA: Marcar primeira análise FREE completa
+  // Isso é usado pelo frontend para saber se deve mostrar o CTA de upgrade
+  if (user.plan === 'free' && !user.hasCompletedFirstFreeAnalysis) {
+    updateData.hasCompletedFirstFreeAnalysis = true;
+    updateData.firstFreeAnalysisCompletedAt = new Date().toISOString();
+    console.log(`🎯 [USER-PLANS][FIRST-ANALYSIS] Primeira análise FREE marcada para ${uid}`);
   }
 
   await ref.update(updateData);

@@ -1307,6 +1307,10 @@ log('🚀 Carregando auth.js...');
       // Assinaturas (expiração de planos pagos)
       'plusExpiresAt', 'proExpiresAt', 'studioExpiresAt',
       
+      // ✅ ATTRIBUTION DATA (UTMs, GCLID, Anonymous ID)
+      'anon_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'gclid', 'first_seen_attribution',
+      
       // Metadata e origem
       'origin', 'createdAt', 'updatedAt', 'lastLoginAt',
       
@@ -1496,6 +1500,18 @@ log('🚀 Carregando auth.js...');
         const storedReferralCode = referralCode || localStorage.getItem('soundy_referral_code') || null;
         const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
         
+        // ✅ NOVO: Capturar UTMs e GCLID do localStorage (tracking.js)
+        const utm_source = localStorage.getItem('soundy_utm_source') || null;
+        const utm_medium = localStorage.getItem('soundy_utm_medium') || null;
+        const utm_campaign = localStorage.getItem('soundy_utm_campaign') || null;
+        const utm_term = localStorage.getItem('soundy_utm_term') || null;
+        const utm_content = localStorage.getItem('soundy_utm_content') || null;
+        const gclid = localStorage.getItem('soundy_gclid') || null;
+        const first_seen = localStorage.getItem('soundy_first_seen') || null;
+        const landing_page = localStorage.getItem('soundy_landing_page') || null;
+        const first_referrer = localStorage.getItem('soundy_referrer') || null;
+        const anon_id = localStorage.getItem('soundy_anon_id') || null;
+        
         // Determinar verificação SMS
         const bypassSMS = provider === 'google' || provider === 'email';
         const verified = !!user.phoneNumber;
@@ -1514,6 +1530,8 @@ log('🚀 Carregando auth.js...');
         log('   verified:', verified);
         log('   referralCode:', storedReferralCode || '(none)');
         log('   visitorId:', visitorId?.substring(0, 16) + '...' || '(none)');
+        log('   🎯 Attribution (UTMs):', { utm_source, utm_medium, utm_campaign, gclid: gclid?.substring(0, 10) + '...' || '(none)' });
+        log('   🎯 Anonymous ID:', anon_id?.substring(0, 20) + '...' || '(none)');
         
         // ✅ CRIAR DOCUMENTO COM SCHEMA OFICIAL (APENAS CAMPOS EM INGLÊS)
         const newUserDoc = {
@@ -1558,6 +1576,20 @@ log('🚀 Carregando auth.js...');
           plusExpiresAt: null,
           proExpiresAt: null,
           studioExpiresAt: null,
+          
+          // ✅ ATTRIBUTION DATA (UTMs e GCLID do tracking.js)
+          anon_id: anon_id,
+          utm_source: utm_source,
+          utm_medium: utm_medium,
+          utm_campaign: utm_campaign,
+          utm_term: utm_term,
+          utm_content: utm_content,
+          gclid: gclid,
+          first_seen_attribution: first_seen ? {
+            timestamp: first_seen,
+            landing_page: landing_page,
+            referrer: first_referrer
+          } : null,
           
           // Metadata
           origin: provider === 'google' ? 'google_auth' : 'direct_signup',
