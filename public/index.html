@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
-    <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
+    <!-- DEPLOY_VERSION: 2026-02-03 - PERFORMANCE FIRST -->
+    
+    <!-- ⚡ Performance Debug Mode - Ativar com ?perf_debug=1 -->
+    <script>
+        if (new URLSearchParams(window.location.search).get('perf_debug') === '1') {
+            document.documentElement.setAttribute('data-perf-debug', 'true');
+        }
+    </script>
     
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
@@ -13,6 +20,10 @@
     <!-- CRITICAL: Features pesadas (fingerprint, voice, observers) carregam sob demanda -->
     <!-- Deve carregar LOGO APÓS logger.js e ANTES de todos os outros módulos -->
     <script src="index-lean-controller.js?v=20260203-lean"></script>
+    
+    <!-- ⚡ PERFORMANCE OPTIMIZER - Sistema automático de otimização visual -->
+    <!-- Ativa light mode durante uso real, mantém heavy mode em momentos estratégicos -->
+    <script src="performance-optimizer.js?v=20260203-perf"></script>
     
     <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
@@ -138,6 +149,11 @@
     <link rel="dns-prefetch" href="https://soundyai-app-production.up.railway.app">
     
     <link rel="stylesheet" href="style.css?v=20250810">
+    
+    <!-- ⚡ PERFORMANCE OPTIMIZATIONS - Sistema de otimização automática -->
+    <!-- CRITICAL: Deve carregar DEPOIS dos estilos base para sobrescrever efeitos caros -->
+    <link rel="stylesheet" href="performance-optimizations.css?v=20260203-perf">
+    
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
