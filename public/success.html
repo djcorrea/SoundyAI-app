@@ -8,6 +8,15 @@
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
     
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+    </script>
+    
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -381,6 +390,24 @@
             }
 
             log('✅ [SUCCESS] Usuário autenticado:', user.uid);
+            
+            // Google Analytics 4 - Event Tracking
+            // Rastrear conversão concluída
+            if (typeof gtag === 'function') {
+                gtag('event', 'purchase', {
+                    event_category: 'ecommerce',
+                    event_label: 'pagamento_confirmado',
+                    transaction_id: new URLSearchParams(window.location.search).get('session_id') || 'unknown',
+                    page_location: window.location.href
+                });
+                
+                gtag('event', 'page_view', {
+                    page_title: 'Pagamento Confirmado',
+                    page_location: window.location.href
+                });
+                
+                console.log('🎯 [GA4] Evento purchase enviado');
+            }
 
             // ⚠️ IMPORTANTE: NÃO liberar plano aqui!
             // A liberação acontece APENAS via webhook do Stripe
@@ -407,6 +434,15 @@
                 // Se plano foi ativado (não é free)
                 if (plan !== 'free' && (status === 'active' || !status)) {
                     showMessage('🎉 Seu plano foi ativado com sucesso! Você já pode aproveitar todos os recursos.', 'info');
+                    
+                    // Rastrear ativação bem-sucedida
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'conversion', {
+                            event_category: 'subscription',
+                            event_label: 'plano_ativado_' + plan,
+                            page_location: window.location.href
+                        });
+                    }
                     
                     // Parar de escutar após confirmar ativação
                     setTimeout(() => {

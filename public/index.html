@@ -9,6 +9,15 @@
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
     
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+    </script>
+    
     <!-- 🌐 API URL Resolver - Necessário para referral-core.js -->
     <script src="api-url-resolver.js?v=20260121"></script>
     
@@ -1733,6 +1742,115 @@
     
     <!-- 🕐 Sistema de Histórico de Análises (PRO/STUDIO only) -->
     <script src="analysis-history.js?v=20260104" defer></script>
+    
+    <!-- Google Analytics 4 - Event Tracking -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Função auxiliar para enviar eventos
+            function trackGA4Event(eventName, params = {}) {
+                if (typeof gtag === 'function') {
+                    gtag('event', eventName, params);
+                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                }
+            }
+            
+            // Rastrear início de análise de áudio
+            if (window.addEventListener) {
+                window.addEventListener('audio-analysis-started', (e) => {
+                    trackGA4Event('audio_analysis', {
+                        event_category: 'engagement',
+                        event_label: 'analise_iniciada',
+                        mode: e.detail?.mode || 'unknown',
+                        page_location: window.location.href
+                    });
+                });
+                
+                // Rastrear análise concluída
+                window.addEventListener('audio-analysis-completed', (e) => {
+                    trackGA4Event('audio_analysis_complete', {
+                        event_category: 'engagement',
+                        event_label: 'analise_concluida',
+                        mode: e.detail?.mode || 'unknown',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            // Rastrear interações com o chat
+            const chatSendButtons = document.querySelectorAll('.chat-send-btn');
+            chatSendButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    trackGA4Event('chat_interaction', {
+                        event_category: 'engagement',
+                        event_label: 'mensagem_enviada',
+                        page_location: window.location.href
+                    });
+                });
+            });
+            
+            // Rastrear clique em "Pedir ajuda à IA"
+            const btnAskAI = document.getElementById('btnAskAI');
+            if (btnAskAI) {
+                btnAskAI.addEventListener('click', () => {
+                    trackGA4Event('cta_click', {
+                        event_category: 'engagement',
+                        event_label: 'pedir_ajuda_ia',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            // Rastrear clique em "Plano de Correção"
+            const btnCorrectionPlan = document.getElementById('btnGenerateCorrectionPlan');
+            if (btnCorrectionPlan) {
+                btnCorrectionPlan.addEventListener('click', () => {
+                    trackGA4Event('cta_click', {
+                        event_category: 'engagement',
+                        event_label: 'gerar_plano_correcao',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            // Rastrear seleção de modo de análise
+            const genreModeBtn = document.getElementById('genreModeBtn');
+            const referenceModeBtn = document.getElementById('referenceModeBtn');
+            
+            if (genreModeBtn) {
+                genreModeBtn.addEventListener('click', () => {
+                    trackGA4Event('mode_selection', {
+                        event_category: 'engagement',
+                        event_label: 'modo_genero',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            if (referenceModeBtn) {
+                referenceModeBtn.addEventListener('click', () => {
+                    trackGA4Event('mode_selection', {
+                        event_category: 'engagement',
+                        event_label: 'modo_referencia',
+                        page_location: window.location.href
+                    });
+                });
+            }
+            
+            // Rastrear cliques em upgrade/planos
+            const upgradeLinks = document.querySelectorAll('a[href="planos.html"], button[onclick*="planos"]');
+            upgradeLinks.forEach((link) => {
+                link.addEventListener('click', () => {
+                    trackGA4Event('cta_click', {
+                        event_category: 'conversion',
+                        event_label: 'ver_planos_upgrade',
+                        page_location: window.location.href
+                    });
+                });
+            });
+            
+            console.log('✅ [GA4] Event tracking inicializado no app');
+        });
+    </script>
     
     <!-- Scoring Debug Visual (apenas em dev/debug) -->
     <script src="js/scoring-debug-visual.js" defer></script>

@@ -6,6 +6,15 @@
     <title>SoundyAI - Transforme Sua Produção Musical</title>
     <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+    </script>
+    
     <!-- 📊 Google Ads Tracking -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17884386312"></script>
     <script>
@@ -163,6 +172,14 @@
         (function() {
             'use strict';
             
+            // Google Analytics 4 - Event Tracking
+            function trackGA4Event(eventName, params = {}) {
+                if (typeof gtag === 'function') {
+                    gtag('event', eventName, params);
+                    console.log('🎯 [GA4] Evento enviado:', eventName, params);
+                }
+            }
+            
             // ════════════════════════════════════════════════════════════════
             // 🎯 TRACKING DE CHECKOUT CLICK
             // ════════════════════════════════════════════════════════════════
@@ -197,24 +214,36 @@
                     const trackingKey = 'soundy_checkout_tracked';
                     const alreadyTracked = sessionStorage.getItem(trackingKey);
                     
-                    if (!alreadyTracked && typeof gtag === 'function') {
-                        try {
-                            // ⚠️ SUBSTITUIR 'CHECKOUT_LABEL' com label real quando criar conversão
-                            gtag('event', 'conversion', {
-                                'send_to': 'AW-17884386312/' + CHECKOUT_LABEL,
-                                'value': 197.0,
-                                'currency': 'BRL'
-                            });
-                            
-                            // Marcar como rastreado
-                            sessionStorage.setItem(trackingKey, Date.now());
-                            
-                            if (window.TRACKING_DEBUG) {
-                                console.log('🎯 [TRACKING] Conversão CHECKOUT_CLICK enviada');
+                    if (!alreadyTracked) {
+                        // Google Ads tracking
+                        if (typeof gtag === 'function') {
+                            try {
+                                // ⚠️ SUBSTITUIR 'CHECKOUT_LABEL' com label real quando criar conversão
+                                gtag('event', 'conversion', {
+                                    'send_to': 'AW-17884386312/' + CHECKOUT_LABEL,
+                                    'value': 197.0,
+                                    'currency': 'BRL'
+                                });
+                                
+                                if (window.TRACKING_DEBUG) {
+                                    console.log('🎯 [TRACKING] Conversão CHECKOUT_CLICK enviada');
+                                }
+                            } catch (trackingError) {
+                                console.warn('⚠️ Erro no tracking Google Ads:', trackingError);
                             }
-                        } catch (trackingError) {
-                            console.warn('⚠️ Erro no tracking:', trackingError);
                         }
+                        
+                        // GA4 tracking
+                        trackGA4Event('cta_click', {
+                            event_category: 'checkout',
+                            event_label: 'cta_checkout_hotmart',
+                            value: 197.0,
+                            currency: 'BRL',
+                            page_location: window.location.href
+                        });
+                        
+                        // Marcar como rastreado
+                        sessionStorage.setItem(trackingKey, Date.now());
                     } else if (alreadyTracked) {
                         if (window.TRACKING_DEBUG) {
                             console.log('🎯 [TRACKING] Checkout já rastreado (deduplicado)');
@@ -231,6 +260,14 @@
                     console.log('✅ [TRACKING] Sistema de checkout tracking ativo');
                 }
             }
+            
+            // Rastrear visualização da página de vendas
+            document.addEventListener('DOMContentLoaded', () => {
+                trackGA4Event('page_view', {
+                    page_title: 'Vendas - SoundyAI',
+                    page_location: window.location.href
+                });
+            });
             
             // Inicializar quando DOM estiver pronto
             if (document.readyState === 'loading') {

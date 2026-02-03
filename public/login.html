@@ -8,6 +8,15 @@
   <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
   <script src="logger.js"></script>
   
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-MBDHDYN6Z0');
+  </script>
+  
   <!-- Bibliotecas para efeitos visuais (mesmas da landing) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
@@ -725,6 +734,55 @@
             showStatusMessage('⏳ Aguardando sistema carregar...', 'error', 3000);
             log('⚠️ Função resetPassword ainda não carregada');
           }
+        });
+      }
+    });
+  </script>
+
+  <!-- Google Analytics 4 - Event Tracking -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Função auxiliar para enviar eventos
+      function trackEvent(eventName, params = {}) {
+        if (typeof gtag === 'function') {
+          gtag('event', eventName, params);
+          console.log('🎯 [GA4] Evento enviado:', eventName, params);
+        }
+      }
+      
+      // Rastrear clique no botão de login com email
+      const loginBtn = document.getElementById('loginBtn');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+          trackEvent('login_attempt', {
+            event_category: 'user_action',
+            event_label: 'email_login',
+            page_location: window.location.href
+          });
+        });
+      }
+      
+      // Rastrear clique no botão de login com Google
+      const googleLoginBtn = document.getElementById('googleLoginBtn');
+      if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', () => {
+          trackEvent('login_attempt', {
+            event_category: 'user_action',
+            event_label: 'google_login',
+            page_location: window.location.href
+          });
+        });
+      }
+      
+      // Rastrear clique em "Esqueci a senha"
+      const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+      if (forgotPasswordLink) {
+        forgotPasswordLink.addEventListener('click', () => {
+          trackEvent('cta_click', {
+            event_category: 'engagement',
+            event_label: 'esqueci_senha',
+            page_location: window.location.href
+          });
         });
       }
     });
