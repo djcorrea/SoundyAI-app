@@ -1,12 +1,35 @@
 /**
  * 🎯 VALIDADOR AUTOMÁTICO DO SISTEMA UNIFICADO
  * 
- * Executa automaticamente validações completas ao carregar
- * Garante que o sistema está funcionando perfeitamente
+ * 🌿 INDEX-LEAN: SÓ executa em debug mode (?debug=1)
+ * Produção: validador bloqueado para economizar CPU
  */
 
 (function() {
     'use strict';
+    
+    const log = window.log || console.log;
+    
+    // 🌿 INDEX-LEAN: Verificar se está em debug mode
+    const isDebugMode = new URLSearchParams(window.location.search).get('debug') === '1';
+    const leanMode = window.__INDEX_LEAN_MODE || window.__LEAN_DISABLE_AUTO_VALIDATORS;
+    
+    if (leanMode && !isDebugMode) {
+        log('🌿 [INDEX-LEAN] Auto-validator BLOQUEADO (não está em debug mode)');
+        log('🌿 [INDEX-LEAN] Para ativar: adicione ?debug=1 na URL');
+        
+        // Expor função para inicialização manual se necessário
+        window.initAutoValidators = async function() {
+            log('🔄 [INDEX-LEAN] Inicializando auto-validators sob demanda...');
+            await runValidations();
+        };
+        
+        return; // ✅ NÃO executar validações no load
+    }
+    
+    if (isDebugMode) {
+        log('🧪 [AUTO-VALIDATOR] Debug mode ativo - executando validações...');
+    }
     
     // Aguardar carregamento completo
     function waitForUnifiedSystem() {
@@ -147,12 +170,19 @@
         }
     }
     
-    // Executar validação quando DOM estiver pronto
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', executeFullValidation);
-    } else {
-        // DOM já carregado, executar imediatamente
-        setTimeout(executeFullValidation, 500);
+    // Função wrapper para runValidations (usado pelo lean controller)
+    async function runValidations() {
+        await executeFullValidation();
+    }
+    
+    // Executar validação quando DOM estiver pronto (só se NÃO estiver em lean mode)
+    if (!leanMode || isDebugMode) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', executeFullValidation);
+        } else {
+            // DOM já carregado, executar imediatamente
+            setTimeout(executeFullValidation, 500);
+        }
     }
     
     // Expor função para execução manual

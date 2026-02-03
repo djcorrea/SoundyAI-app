@@ -1,41 +1,39 @@
 /* ============ VOICE MESSAGE LIMPO - PROD.AI ============ */
 /* 🎤 Versão completamente nova e limpa */
+/* 🌿 INDEX-LEAN: NUNCA auto-inicia, só ao clicar no microfone */
 
 log('🎤 VOICE CLEAN VERSION loaded');
 
-// ⚡ PERF MODE: NÃO auto-iniciar se perf mode agressivo ativo
-if (window.__PERF_DISABLE_VOICE_AUTOSTART) {
-    log('⏸️ [PERF-AGG] Voice auto-start desabilitado - aguardando interação do usuário');
+// 🌿 INDEX-LEAN: BLOQUEADO no load por padrão
+const leanMode = window.__INDEX_LEAN_MODE || window.__LEAN_DISABLE_VOICE_AUTOSTART;
+
+if (leanMode) {
+    log('🌿 [INDEX-LEAN] Voice auto-start BLOQUEADO (lazy loading)');
     
-    // Configurar listeners para iniciar ao clicar no microfone
-    document.addEventListener('DOMContentLoaded', () => {
-        // Encontrar todos os ícones de microfone
-        const micIcons = document.querySelectorAll('.chatbot-mic-icon');
+    // Expor função de inicialização para lazy loading
+    window.initVoiceIntegration = async function() {
+        log('🔄 [INDEX-LEAN] Inicializando voice integration sob demanda...');
         
-        micIcons.forEach(mic => {
-            mic.addEventListener('click', function initVoiceOnClick() {
-                log('🎤 [PERF-AGG] Microfone clicado - inicializando voice integration...');
-                
-                // Remover listener (só inicializar uma vez)
-                mic.removeEventListener('click', initVoiceOnClick);
-                
-                // Inicializar voice integration
-                setTimeout(setupVoice, 100);
-                setTimeout(setupDOMObserver, 500);
-            }, { once: true });
-        });
+        // Remove flag para permitir execução
+        window.__LEAN_DISABLE_VOICE_AUTOSTART = false;
         
-        log('🎤 [PERF-AGG] Listeners instalados - voice inicializará ao clicar no microfone');
-    });
+        // Inicializar voice
+        setupVoice();
+        setupDOMObserver();
+        
+        log('✅ [INDEX-LEAN] Voice integration inicializada');
+    };
     
-    // NÃO continuar com inicialização automática
+    // NÃO configurar auto-start, NÃO continuar com código abaixo
+    log('🌿 [INDEX-LEAN] Use window.lazyLoadVoice() ou clique no microfone para carregar');
+    
 } else {
-    // Comportamento normal - aguardar DOM completamente carregado
+    // Comportamento legado (se lean mode desabilitado)
+    log('⚠️ [VOICE] Lean mode desabilitado - auto-start ativo');
+    
     window.addEventListener('load', () => {
         log('🚀 Window loaded - starting voice integration');
-        setTimeout(setupVoice, 1500); // Aguarda 1.5s para garantir
-        
-        // ADICIONAR OBSERVADOR DE MUDANÇAS NO DOM
+        setTimeout(setupVoice, 1500);
         setupDOMObserver();
     });
 }

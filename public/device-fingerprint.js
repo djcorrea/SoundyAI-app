@@ -11,34 +11,62 @@
  * ⚠️ Este fingerprint é enviado ao backend junto com o visitorId
  * O backend usa AMBOS para bloqueio definitivo
  * 
- * ⚡ PERF MODE: SÓ executa quando necessário (anti-burla em modo anônimo)
+ * 🌿 INDEX-LEAN: NUNCA executa no load, só sob demanda quando anti-burla detectar suspeita
  * 
- * @version 1.1.0 - BLOQUEIO FORTE + PERF OPTIMIZATION
+ * @version 2.0.0 - INDEX-LEAN (lazy by default)
  * @date 2026-02-03
  */
 
 (function() {
     'use strict';
     
-    // ⚡ PERF MODE: Verificar se deve executar fingerprint
-    const shouldRun = window.shouldRunFingerprint ? window.shouldRunFingerprint() : true;
+    const log = window.log || console.log;
     
-    if (!shouldRun) {
-        log('⏸️ [PERF-AGG] Fingerprint forte bloqueado - não necessário no momento');
+    // 🌿 INDEX-LEAN: BLOQUEADO no load por padrão
+    const leanMode = window.__INDEX_LEAN_MODE || window.__LEAN_DISABLE_FINGERPRINT_AUTOSTART;
+    
+    if (leanMode) {
+        log('🌿 [INDEX-LEAN] Fingerprint forte bloqueado no load (lazy loading)');
         
-        // Expor API vazia (lazy loading)
+        // Expor função de inicialização para lazy loading
+        window.initSoundyFingerprint = async function() {
+            log('🔄 [INDEX-LEAN] Inicializando fingerprint forte sob demanda...');
+            
+            // Remove flag para permitir execução
+            window.__LEAN_DISABLE_FINGERPRINT_AUTOSTART = false;
+            
+            // Executa fingerprint (código abaixo)
+            await generateStrongFingerprint();
+        };
+        
+        // API stub até carregar sob demanda
         window.SoundyFingerprint = {
             get: async function() {
-                log('🔄 [PERF-AGG] Fingerprint solicitado - gerando agora...');
-                // Aqui poderia carregar o fingerprint sob demanda
-                return 'perf_mode_lazy_' + Date.now();
+                log('🔍 [INDEX-LEAN] Fingerprint solicitado - verificando necessidade...');
+                
+                // Se anti-burla requisitar, gera fingerprint forte
+                if (window.shouldRunStrongFingerprint && window.shouldRunStrongFingerprint()) {
+                    await window.initSoundyFingerprint();
+                    return window.SoundyFingerprint.get();
+                }
+                
+                // Caso contrário, retorna fingerprint leve
+                log('🌿 [INDEX-LEAN] Usando fingerprint leve (sem Canvas/Audio/WebGL)');
+                return 'lean_light_' + Date.now() + '_' + btoa(navigator.userAgent).slice(0, 12);
             }
         };
         
-        return; // ✅ NÃO executar fingerprint forte
+        return; // ✅ NÃO executar código pesado no load
     }
     
-    log('🔍 [FINGERPRINT] Iniciando geração de fingerprint forte...');
+    log('🔍 [FINGERPRINT] Executando no load (lean mode desabilitado)');
+
+    // ═══════════════════════════════════════════════════════════
+    // 🔧 FUNÇÃO PRINCIPAL - GERAÇÃO DE FINGERPRINT FORTE
+    // ═══════════════════════════════════════════════════════════
+    
+    async function generateStrongFingerprint() {
+        log('🔍 [FINGERPRINT] Gerando fingerprint forte (Canvas + Audio + WebGL + Hardware)...');
 
     // ═══════════════════════════════════════════════════════════
     // 🔧 UTILITÁRIOS DE HASH
@@ -413,5 +441,12 @@
     log('🔐 [FINGERPRINT] Sistema de fingerprint forte carregado');
     log('   Canvas + Audio + WebGL + Hardware');
     log('   Use: SoundyFingerprint.get() para obter');
+    
+    } // fim de generateStrongFingerprint()
+    
+    // Se não está em lean mode, executa imediatamente
+    if (!leanMode) {
+        generateStrongFingerprint();
+    }
 
 })();
