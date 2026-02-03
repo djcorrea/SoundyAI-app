@@ -1,11 +1,10 @@
-// 🎯 FIRST ANALYSIS UPGRADE CTA - SoundyAI V3
-// Sistema completo de CTA de upgrade para primeira análise FREE
-// ✅ FUNCIONALIDADES V3:
-// - Timer de 35 segundos
-// - Ver Planos abre em nova aba
-// - Blur overlay nas sugestões inteligentes
-// - Bloqueio total dos botões IA/PDF
-// - Logs específicos nos 3 pontos de disparo
+// 🎯 FIRST ANALYSIS UPGRADE CTA - SoundyAI V4 (CORREÇÃO CRÍTICA)
+// Sistema de bloqueio REAL de funcionalidades premium na primeira análise FREE
+// ✅ GARANTIAS V4:
+// - Blur FORÇADO em TODAS as sugestões (múltiplos seletores)
+// - Interceptação de clique COM preventDefault/stopPropagation
+// - Event listeners de captura (capture: true) para garantir bloqueio
+// - NÃO executa NENHUMA função premium na primeira análise free
 
 (function() {
     'use strict';
@@ -16,52 +15,64 @@
     
     const CONFIG = {
         DEBUG: true,
-        AUTO_OPEN_DELAY: 35000, // 35 segundos (aumentado de 25s)
+        AUTO_OPEN_DELAY: 35000, // 35 segundos
         localStorageKey: 'soundy_first_analysis_cta_shown',
         firestoreField: 'hasCompletedFirstFreeAnalysis',
         
-        // Seletores para sugestões inteligentes
+        // ✅ SELETORES EXPANDIDOS para capturar TODAS as sugestões
         suggestionsSelectors: [
+            // Cards de sugestões
             '.enhanced-card',
             '.ultra-advanced-v2',
+            '.suggestion-item',
+            '.diag-item',
+            '.problem-card',
+            
+            // Containers de sugestões
             '#ai-suggestions-section',
             '.ai-suggestions-container',
             '#aiSuggestionsContainer',
-            '.suggestion-item',
+            '#aiSuggestionsExpanded',
             '.suggestions-list',
-            '.suggestions-section'
+            '.suggestions-section',
+            '.diag-section',
+            
+            // Grids e wrappers
+            '[class*="suggestion"]',
+            '[class*="diag"]',
+            '[id*="suggestion"]'
+        ],
+        
+        // IDs/Seletores dos botões premium
+        premiumButtonSelectors: [
+            '#btn-ask-ai',
+            '#btnAskAI',
+            'button[onclick*="sendModalAnalysisToChat"]',
+            '[data-action="ask-ai"]',
+            '#btn-download-pdf',
+            '#btnDownloadPDF',
+            'button[onclick*="downloadModalAnalysis"]',
+            '[data-action="download-pdf"]',
+            '#btn-correction-plan',
+            'button[onclick*="handleCorrectionPlanClick"]',
+            '[data-action="correction-plan"]'
         ]
     };
     
     // ========================================
-    // 📊 LOGS ESPECÍFICOS (apenas nos 3 pontos)
+    // 📊 LOGS CLAROS E ESPECÍFICOS
     // ========================================
     
-    function logCtaShown(source) {
-        const timestamp = new Date().toISOString();
-        const message = `[FIRST-CTA] ✅ CTA exibido por: ${source}`;
-        
-        console.log('%c' + message, 'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
-        console.log('%c[FIRST-CTA] Timestamp: ' + timestamp, 'color:#888;');
-        
-        // GA4 tracking
-        if (window.GATracking?.trackEvent) {
-            window.GATracking.trackEvent('first_analysis_cta_shown', { 
-                source,
-                timestamp 
-            });
-        }
+    function logAction(action, details = '') {
+        const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+        const message = `[FIRST-ANALYSIS-CTA] ${action}`;
+        console.log(`%c${message}${details ? ' → ' + details : ''}`, 
+            'color:#FF6B35;font-weight:bold;background:#1a1a1a;padding:4px 8px;border-radius:4px;');
     }
     
     function debugLog(...args) {
         if (CONFIG.DEBUG) {
-            console.log('%c[FIRST-CTA-V3]', 'color:#FF6B35;font-weight:bold;', ...args);
-        }
-    }
-    
-    function debugWarn(...args) {
-        if (CONFIG.DEBUG) {
-            console.warn('%c[FIRST-CTA-V3]', 'color:#FF6B35;font-weight:bold;', ...args);
+            console.log('%c[FIRST-CTA-V4]', 'color:#FF6B35;font-weight:bold;', ...args);
         }
     }
     
@@ -72,7 +83,21 @@
     const PersistenceManager = {
         _cachedStatus: null,
         
-        async hasShownCTA() {
+        hasShownCTA() {
+            // Verificação SÍNCRONA para bloqueio imediato
+            if (this._cachedStatus !== null) return this._cachedStatus;
+            
+            const localValue = localStorage.getItem(CONFIG.localStorageKey);
+            if (localValue === 'true') {
+                this._cachedStatus = true;
+                return true;
+            }
+            
+            this._cachedStatus = false;
+            return false;
+        },
+        
+        async hasShownCTAAsync() {
             if (this._cachedStatus !== null) return this._cachedStatus;
             
             const localValue = localStorage.getItem(CONFIG.localStorageKey);
@@ -82,37 +107,41 @@
             }
             
             try {
-                const user = await this._getCurrentUser();
-                if (user && user[CONFIG.firestoreField] === true) {
-                    this._cachedStatus = true;
-                    localStorage.setItem(CONFIG.localStorageKey, 'true');
-                    return true;
+                const uid = this._getCurrentUID();
+                if (uid && window.firebase?.firestore) {
+                    const db = window.firebase.firestore();
+                    const doc = await db.collection('usuarios').doc(uid).get();
+                    if (doc.exists && doc.data()[CONFIG.firestoreField] === true) {
+                        this._cachedStatus = true;
+                        localStorage.setItem(CONFIG.localStorageKey, 'true');
+                        return true;
+                    }
                 }
             } catch (err) {
-                debugWarn('⚠️ Erro ao verificar Firestore:', err);
+                debugLog('⚠️ Erro ao verificar Firestore:', err);
             }
             
             this._cachedStatus = false;
             return false;
         },
         
-        async markCTAShown() {
+        markCTAShown() {
             debugLog('✅ Marcando CTA como mostrado...');
             this._cachedStatus = true;
             localStorage.setItem(CONFIG.localStorageKey, 'true');
             
+            // Atualizar Firestore em background
             try {
                 const uid = this._getCurrentUID();
                 if (uid && window.firebase?.firestore) {
                     const db = window.firebase.firestore();
-                    await db.collection('usuarios').doc(uid).update({
+                    db.collection('usuarios').doc(uid).update({
                         [CONFIG.firestoreField]: true,
                         firstFreeAnalysisCompletedAt: new Date().toISOString()
-                    });
-                    debugLog('✅ Firestore atualizado');
+                    }).catch(err => debugLog('⚠️ Erro Firestore:', err));
                 }
             } catch (err) {
-                debugWarn('⚠️ Erro ao atualizar Firestore:', err);
+                debugLog('⚠️ Erro ao atualizar Firestore:', err);
             }
         },
         
@@ -125,32 +154,43 @@
             return null;
         },
         
-        async _getCurrentUser() {
-            const uid = this._getCurrentUID();
-            if (!uid || !window.firebase?.firestore) return null;
-            
-            try {
-                const db = window.firebase.firestore();
-                const doc = await db.collection('usuarios').doc(uid).get();
-                return doc.exists ? doc.data() : null;
-            } catch (err) {
-                return null;
-            }
-        },
-        
         resetCache() {
             this._cachedStatus = null;
         }
     };
     
     // ========================================
-    // 🔍 DETECTOR DE CONTEXTO
+    // 🔍 DETECTOR DE CONTEXTO (SÍNCRONO)
     // ========================================
     
     const ContextDetector = {
-        async isFirstFreeFullAnalysis() {
-            const alreadyShown = await PersistenceManager.hasShownCTA();
-            if (alreadyShown) {
+        // ✅ VERIFICAÇÃO SÍNCRONA para bloqueio imediato
+        isFirstFreeFullAnalysisSync() {
+            // Já mostrou CTA?
+            if (PersistenceManager.hasShownCTA()) {
+                return false;
+            }
+            
+            const analysis = this._getCurrentAnalysis();
+            if (!analysis) return false;
+            
+            // Backend flag
+            if (analysis.isFirstFreeAnalysis === true) return true;
+            if (analysis.hasCompletedFirstFreeAnalysis === true) return false;
+            
+            // Fallback manual
+            const plan = analysis.plan || 'free';
+            if (plan !== 'free') return false;
+            
+            const analysisMode = analysis.analysisMode || 'full';
+            const isReduced = analysis.isReduced === true || analysisMode === 'reduced';
+            if (isReduced) return false;
+            
+            return true;
+        },
+        
+        async isFirstFreeFullAnalysisAsync() {
+            if (await PersistenceManager.hasShownCTAAsync()) {
                 debugLog('❌ CTA já mostrado anteriormente');
                 return false;
             }
@@ -161,7 +201,6 @@
                 return false;
             }
             
-            // Backend flag (mais confiável)
             if (analysis.isFirstFreeAnalysis === true) {
                 debugLog('✅ Backend: É primeira análise FREE');
                 return true;
@@ -172,7 +211,6 @@
                 return false;
             }
             
-            // Fallback: verificação manual
             const plan = analysis.plan || 'free';
             if (plan !== 'free') {
                 debugLog(`❌ Plano não é FREE (${plan})`);
@@ -190,29 +228,6 @@
             return true;
         },
         
-        shouldInterceptButtons() {
-            const analysis = this._getCurrentAnalysis();
-            if (!analysis) return false;
-            
-            // Verificar se já mostrou o CTA
-            const alreadyShown = localStorage.getItem(CONFIG.localStorageKey) === 'true';
-            if (alreadyShown) return false;
-            
-            // Backend flag
-            if (analysis.isFirstFreeAnalysis === true) return true;
-            if (analysis.hasCompletedFirstFreeAnalysis === true) return false;
-            
-            // Fallback manual
-            const plan = analysis.plan || 'free';
-            if (plan !== 'free') return false;
-            
-            const analysisMode = analysis.analysisMode || 'full';
-            const isReduced = analysis.isReduced === true || analysisMode === 'reduced';
-            if (isReduced) return false;
-            
-            return true;
-        },
-        
         _getCurrentAnalysis() {
             return window.currentModalAnalysis || 
                    window.__CURRENT_ANALYSIS__ || 
@@ -222,18 +237,16 @@
     };
     
     // ========================================
-    // 🪟 MODAL CTA PRINCIPAL
+    // 🪟 MODAL CTA 
     // ========================================
     
     const UpgradeCtaModal = {
         element: null,
         timerId: null,
         isVisible: false,
-        ctaDismissedThisSession: false,
         
         init() {
             if (this.element) return;
-            
             this._createModal();
             this._setupEventHandlers();
             debugLog('✅ Modal CTA inicializado');
@@ -271,17 +284,15 @@
         },
         
         _addStyles() {
-            if (document.getElementById('firstAnalysisCtaStyles')) return;
+            if (document.getElementById('firstAnalysisCtaStylesV4')) return;
             
             const style = document.createElement('style');
-            style.id = 'firstAnalysisCtaStyles';
+            style.id = 'firstAnalysisCtaStylesV4';
             style.textContent = `
-                /* ========================================
-                   MODAL CTA OVERLAY
-                   ======================================== */
+                /* MODAL CTA OVERLAY */
                 .first-analysis-cta-overlay {
-                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999998;
-                    background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999;
+                    background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
                     display: flex; align-items: center; justify-content: center; padding: 20px;
                     opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
                 }
@@ -339,7 +350,6 @@
                     box-shadow: 0 8px 24px rgba(255, 107, 53, 0.35);
                 }
                 .first-analysis-cta-btn.primary:hover {
-                    background: linear-gradient(135deg, #FF7F50 0%, #FF6B35 100%);
                     transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255, 107, 53, 0.45);
                 }
                 .first-analysis-cta-btn.secondary {
@@ -352,92 +362,86 @@
                 .first-analysis-cta-disclaimer { font-size: 12px; color: rgba(255, 255, 255, 0.4); margin: 16px 0 0 0; }
                 
                 /* ========================================
-                   BLUR OVERLAY NAS SUGESTÕES
+                   BLUR FORÇADO NAS SUGESTÕES
                    ======================================== */
-                .first-analysis-blur-wrapper {
+                .first-analysis-suggestions-blocked {
                     position: relative !important;
                     overflow: hidden !important;
-                }
-                .first-analysis-blur-wrapper::before {
-                    content: '';
-                    position: absolute;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0, 0, 0, 0.3);
-                    backdrop-filter: blur(6px);
-                    -webkit-backdrop-filter: blur(6px);
-                    z-index: 10;
-                    pointer-events: none;
-                    border-radius: inherit;
+                    min-height: 200px;
                 }
                 
-                .suggestions-upgrade-overlay {
+                .first-analysis-suggestions-blocked > * {
+                    filter: blur(8px) !important;
+                    -webkit-filter: blur(8px) !important;
+                    pointer-events: none !important;
+                    user-select: none !important;
+                }
+                
+                .first-analysis-suggestions-blocked > .suggestions-block-overlay {
+                    filter: none !important;
+                    -webkit-filter: none !important;
+                    pointer-events: auto !important;
+                }
+                
+                .suggestions-block-overlay {
                     position: absolute !important;
-                    top: 50%; left: 50%;
-                    transform: translate(-50%, -50%);
-                    z-index: 20;
-                    background: linear-gradient(145deg, rgba(26, 31, 46, 0.95), rgba(13, 17, 23, 0.95));
+                    top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                    background: rgba(0, 0, 0, 0.6) !important;
+                    backdrop-filter: blur(4px) !important;
+                    -webkit-backdrop-filter: blur(4px) !important;
+                    z-index: 100 !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    border-radius: inherit !important;
+                }
+                
+                .suggestions-block-content {
+                    background: linear-gradient(145deg, rgba(26, 31, 46, 0.98), rgba(13, 17, 23, 0.98));
                     border: 1px solid rgba(255, 107, 53, 0.4);
                     border-radius: 16px;
-                    padding: 24px 32px;
+                    padding: 28px 36px;
                     text-align: center;
-                    max-width: 380px;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    max-width: 400px;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
                 }
-                .suggestions-upgrade-overlay .overlay-icon {
-                    font-size: 40px;
-                    margin-bottom: 12px;
+                .suggestions-block-content .block-icon { font-size: 48px; margin-bottom: 16px; }
+                .suggestions-block-content .block-title {
+                    font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 600;
+                    color: #fff; margin: 0 0 12px 0;
                 }
-                .suggestions-upgrade-overlay .overlay-title {
-                    font-family: 'Orbitron', sans-serif;
-                    font-size: 16px;
-                    font-weight: 600;
-                    color: #fff;
-                    margin: 0 0 8px 0;
+                .suggestions-block-content .block-text {
+                    font-size: 14px; color: rgba(255, 255, 255, 0.7);
+                    line-height: 1.5; margin: 0 0 20px 0;
                 }
-                .suggestions-upgrade-overlay .overlay-text {
-                    font-size: 13px;
-                    color: rgba(255, 255, 255, 0.7);
-                    line-height: 1.5;
-                    margin: 0 0 16px 0;
-                }
-                .suggestions-upgrade-overlay .overlay-btn {
-                    display: inline-block;
-                    padding: 12px 24px;
+                .suggestions-block-content .block-btn {
+                    display: inline-block; padding: 14px 28px;
                     background: linear-gradient(135deg, #FF6B35, #E85A24);
-                    color: #fff;
-                    border: none;
-                    border-radius: 10px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
+                    color: #fff; border: none; border-radius: 10px;
+                    font-size: 15px; font-weight: 600; cursor: pointer;
+                    transition: all 0.3s ease; text-decoration: none;
                 }
-                .suggestions-upgrade-overlay .overlay-btn:hover {
+                .suggestions-block-content .block-btn:hover {
                     transform: translateY(-2px);
-                    box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
+                    box-shadow: 0 8px 24px rgba(255, 107, 53, 0.4);
                 }
                 
                 @media (max-width: 600px) {
                     .first-analysis-cta-card { padding: 30px 20px; }
                     .first-analysis-cta-title { font-size: 18px; }
                     .first-analysis-cta-features { grid-template-columns: 1fr; }
-                    .suggestions-upgrade-overlay { padding: 20px; max-width: 300px; }
+                    .suggestions-block-content { padding: 20px; max-width: 300px; }
                 }
             `;
             document.head.appendChild(style);
         },
         
         _setupEventHandlers() {
-            // ✅ Botão "Ver Planos" - Abre em NOVA ABA
             const upgradeBtn = this.element.querySelector('#firstAnalysisCtaUpgrade');
             if (upgradeBtn) {
                 upgradeBtn.addEventListener('click', () => {
                     debugLog('🚀 Upgrade clicked - abrindo em nova aba');
                     PersistenceManager.markCTAShown();
-                    if (window.GATracking?.trackEvent) {
-                        window.GATracking.trackEvent('first_analysis_cta_upgrade_clicked');
-                    }
-                    // ✅ NOVA ABA (window.open)
                     window.open('planos.html', '_blank');
                     this.hide();
                 });
@@ -448,74 +452,55 @@
                 continueBtn.addEventListener('click', () => {
                     debugLog('👋 Continuar grátis clicked');
                     PersistenceManager.markCTAShown();
-                    this.ctaDismissedThisSession = true;
-                    if (window.GATracking?.trackEvent) {
-                        window.GATracking.trackEvent('first_analysis_cta_dismissed');
-                    }
                     this.hide();
-                    // Remover blur das sugestões ao continuar grátis
-                    SuggestionsBlurManager.removeBlur();
+                    SuggestionsBlocker.removeBlur();
+                    ButtonBlocker.restore();
                 });
             }
             
             const closeBtn = this.element.querySelector('.first-analysis-cta-close');
             if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    this.ctaDismissedThisSession = true;
-                    this.hide();
-                });
+                closeBtn.addEventListener('click', () => this.hide());
             }
             
             this.element.addEventListener('click', (e) => {
-                if (e.target === this.element) {
-                    this.ctaDismissedThisSession = true;
-                    this.hide();
-                }
+                if (e.target === this.element) this.hide();
             });
             
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && this.isVisible) {
-                    this.ctaDismissedThisSession = true;
-                    this.hide();
-                }
+                if (e.key === 'Escape' && this.isVisible) this.hide();
             });
         },
         
         show(source = 'auto') {
             if (!this.element) this.init();
             
-            // ✅ LOG ESPECÍFICO #1, #2, #3
-            logCtaShown(source);
+            // ✅ LOG CLARO
+            logAction(`CTA exibido`, source);
             
             this.element.classList.add('visible');
             this.isVisible = true;
+            
+            if (window.GATracking?.trackEvent) {
+                window.GATracking.trackEvent('first_analysis_cta_shown', { source });
+            }
         },
         
         hide() {
             if (this.element) {
                 this.element.classList.remove('visible');
                 this.isVisible = false;
-                debugLog('👋 CTA fechado');
             }
         },
         
         startAutoOpenTimer() {
             this.cancelAutoOpenTimer();
-            
             debugLog(`⏱️ Timer iniciado (${CONFIG.AUTO_OPEN_DELAY / 1000}s)`);
             
             this.timerId = setTimeout(async () => {
-                if (this.ctaDismissedThisSession) {
-                    debugLog('❌ CTA dismissado nesta sessão');
-                    return;
-                }
-                
-                const shouldShow = await ContextDetector.isFirstFreeFullAnalysis();
+                const shouldShow = await ContextDetector.isFirstFreeFullAnalysisAsync();
                 if (shouldShow) {
-                    // ✅ LOG ESPECÍFICO #1: CTA exibido por TEMPO
-                    this.show('TEMPO (35s)');
-                } else {
-                    debugLog('❌ Condições não atendidas');
+                    this.show('Timer (35s)');
                 }
             }, CONFIG.AUTO_OPEN_DELAY);
         },
@@ -529,162 +514,203 @@
     };
     
     // ========================================
-    // 🌫️ GERENCIADOR DE BLUR NAS SUGESTÕES
+    // 🌫️ BLOQUEADOR DE SUGESTÕES (BLUR FORÇADO)
     // ========================================
     
-    const SuggestionsBlurManager = {
-        blurApplied: false,
+    const SuggestionsBlocker = {
+        blocked: false,
+        targetContainer: null,
         
         applyBlur() {
-            if (this.blurApplied) return;
+            if (this.blocked) return;
             
-            debugLog('🌫️ Aplicando blur nas sugestões...');
+            debugLog('🌫️ Aplicando blur FORÇADO nas sugestões...');
             
-            // Encontrar containers de sugestões
-            let suggestionsFound = false;
+            // Encontrar o container principal do modal
+            const modal = document.getElementById('audioAnalysisModal');
+            const modalContent = modal?.querySelector('.modal-content, .modal-body, [class*="modal-content"]');
             
+            if (!modalContent) {
+                debugLog('⚠️ Modal content não encontrado, tentando novamente em 1s...');
+                setTimeout(() => this.applyBlur(), 1000);
+                return;
+            }
+            
+            // Encontrar TODAS as sugestões dentro do modal
+            let suggestionsContainer = null;
+            
+            // Tentar encontrar container de sugestões existente
             for (const selector of CONFIG.suggestionsSelectors) {
-                const elements = document.querySelectorAll(selector);
-                
-                elements.forEach(el => {
-                    // Não aplicar blur em elementos já processados
-                    if (el.closest('.first-analysis-blur-wrapper')) return;
-                    if (el.classList.contains('first-analysis-blur-wrapper')) return;
-                    
-                    // Aplicar wrapper de blur
-                    el.classList.add('first-analysis-blur-wrapper');
-                    suggestionsFound = true;
-                    
-                    // Adicionar overlay CTA sobre as sugestões (apenas no primeiro container principal)
-                    if (!document.querySelector('.suggestions-upgrade-overlay')) {
-                        const overlay = document.createElement('div');
-                        overlay.className = 'suggestions-upgrade-overlay';
-                        overlay.innerHTML = `
-                            <div class="overlay-icon">🔒</div>
-                            <h3 class="overlay-title">Sugestões de Melhoria Bloqueadas</h3>
-                            <p class="overlay-text">
-                                Desbloqueie as sugestões inteligentes da IA para ver como 
-                                melhorar sua mix de forma profissional.
-                            </p>
-                            <button class="overlay-btn" onclick="window.__FIRST_ANALYSIS_CTA__.showCTA()">
-                                ✨ Desbloquear Agora
-                            </button>
-                        `;
-                        el.appendChild(overlay);
-                        
-                        // Handler para o botão do overlay
-                        overlay.querySelector('.overlay-btn').addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            // ✅ LOG ESPECÍFICO #3: CTA exibido por OVERLAY nas sugestões
-                            UpgradeCtaModal.show('OVERLAY nas sugestões');
-                        });
-                    }
+                const found = modalContent.querySelector(selector);
+                if (found) {
+                    // Encontrar o pai mais próximo que engloba várias sugestões
+                    suggestionsContainer = found.closest('.diag-section') || 
+                                          found.closest('.suggestions-section') ||
+                                          found.closest('[class*="suggestion"]') ||
+                                          found.parentElement;
+                    if (suggestionsContainer) break;
+                }
+            }
+            
+            // Se não encontrou, buscar cards diretamente
+            if (!suggestionsContainer) {
+                const cards = modalContent.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item');
+                if (cards.length > 0) {
+                    suggestionsContainer = cards[0].parentElement;
+                }
+            }
+            
+            if (!suggestionsContainer) {
+                debugLog('⚠️ Nenhum container de sugestões encontrado');
+                return;
+            }
+            
+            this.targetContainer = suggestionsContainer;
+            
+            // Aplicar classe de bloqueio
+            suggestionsContainer.classList.add('first-analysis-suggestions-blocked');
+            
+            // Criar overlay de bloqueio
+            const overlay = document.createElement('div');
+            overlay.className = 'suggestions-block-overlay';
+            overlay.innerHTML = `
+                <div class="suggestions-block-content">
+                    <div class="block-icon">🔒</div>
+                    <h3 class="block-title">Sugestões de Melhoria Bloqueadas</h3>
+                    <p class="block-text">
+                        Desbloqueie as sugestões inteligentes da IA para ver como melhorar sua mix de forma profissional.
+                    </p>
+                    <button class="block-btn" id="suggestionsUnlockBtn">✨ Desbloquear Agora</button>
+                </div>
+            `;
+            
+            suggestionsContainer.appendChild(overlay);
+            
+            // Handler do botão
+            const unlockBtn = overlay.querySelector('#suggestionsUnlockBtn');
+            if (unlockBtn) {
+                unlockBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // ✅ LOG CLARO
+                    logAction('CTA exibido', 'Overlay nas sugestões');
+                    UpgradeCtaModal.show('Overlay nas sugestões');
                 });
             }
             
-            if (suggestionsFound) {
-                this.blurApplied = true;
-                debugLog('✅ Blur aplicado nas sugestões');
-                
-                // ✅ LOG ESPECÍFICO #3
-                logCtaShown('OVERLAY nas sugestões (blur aplicado)');
-            } else {
-                debugLog('⚠️ Nenhum container de sugestões encontrado para blur');
-            }
+            this.blocked = true;
+            
+            // ✅ LOG CLARO
+            logAction('Sugestões bloqueadas com blur');
         },
         
         removeBlur() {
             debugLog('🌫️ Removendo blur das sugestões...');
             
-            // Remover classe de blur
-            document.querySelectorAll('.first-analysis-blur-wrapper').forEach(el => {
-                el.classList.remove('first-analysis-blur-wrapper');
+            document.querySelectorAll('.first-analysis-suggestions-blocked').forEach(el => {
+                el.classList.remove('first-analysis-suggestions-blocked');
             });
             
-            // Remover overlay
-            document.querySelectorAll('.suggestions-upgrade-overlay').forEach(el => {
+            document.querySelectorAll('.suggestions-block-overlay').forEach(el => {
                 el.remove();
             });
             
-            this.blurApplied = false;
-            debugLog('✅ Blur removido');
+            this.blocked = false;
+            this.targetContainer = null;
         }
     };
     
     // ========================================
-    // 🛡️ INTERCEPTADOR DE BOTÕES PREMIUM
+    // 🛡️ BLOQUEADOR DE BOTÕES PREMIUM
     // ========================================
     
-    const ButtonInterceptor = {
+    const ButtonBlocker = {
         originalFunctions: {},
+        captureHandlers: [],
         
         install() {
-            debugLog('🛡️ Instalando interceptadores de botões premium...');
+            debugLog('🛡️ Instalando bloqueio de botões premium...');
             
-            // ✅ Bloquear completamente: sendModalAnalysisToChat (Pedir ajuda IA)
-            this._blockFunction('sendModalAnalysisToChat', 'Pedir ajuda à IA');
+            // 1. Substituir funções globais
+            this._overrideFunction('sendModalAnalysisToChat', 'Pedir ajuda à IA');
+            this._overrideFunction('downloadModalAnalysis', 'Baixar relatório PDF');
+            this._overrideFunction('handleCorrectionPlanClick', 'Plano de Correção');
             
-            // ✅ Bloquear completamente: downloadModalAnalysis (Gerar PDF)
-            this._blockFunction('downloadModalAnalysis', 'Gerar relatório PDF');
+            // 2. Adicionar event listeners de CAPTURA nos botões
+            this._installCaptureListeners();
             
-            // Interceptar também: handleCorrectionPlanClick (Plano de Correção)
-            this._blockFunction('handleCorrectionPlanClick', 'Plano de Correção');
-            
-            debugLog('✅ Interceptadores de botões instalados');
+            debugLog('✅ Bloqueio de botões instalado');
         },
         
-        _blockFunction(funcName, label) {
+        _overrideFunction(funcName, label) {
             if (typeof window[funcName] !== 'function') {
-                debugWarn(`⚠️ Função ${funcName} não encontrada`);
+                debugLog(`⚠️ Função ${funcName} não encontrada`);
                 return;
             }
             
             // Salvar original
             this.originalFunctions[funcName] = window[funcName];
             
-            // Substituir por bloqueio
-            window[funcName] = async function(...args) {
-                debugLog(`🔍 Verificando bloqueio para: ${label}`);
-                
-                const shouldBlock = ContextDetector.shouldInterceptButtons();
-                
-                if (!shouldBlock) {
-                    // Não é primeira análise free - executar normalmente
-                    debugLog(`✅ ${label} - Executando normalmente`);
-                    return await ButtonInterceptor.originalFunctions[funcName].apply(this, args);
+            // Substituir com bloqueio
+            window[funcName] = function(...args) {
+                // Verificação SÍNCRONA para bloqueio imediato
+                if (ContextDetector.isFirstFreeFullAnalysisSync()) {
+                    // ✅ LOG CLARO
+                    logAction(`Botão ${label.toUpperCase()} bloqueado`, 'CTA exibido');
+                    UpgradeCtaModal.show(`Botão ${label}`);
+                    return; // ❌ NÃO EXECUTA
                 }
                 
-                // ✅ BLOQUEIO TOTAL: Mostrar CTA em vez de executar
-                debugLog(`🚫 ${label} - BLOQUEADO (primeira análise FREE)`);
-                
-                // ✅ LOG ESPECÍFICO #2: CTA exibido por BLOQUEIO DE BOTÃO
-                UpgradeCtaModal.show(`BLOQUEIO DE BOTÃO: ${label}`);
-                
-                if (window.GATracking?.trackEvent) {
-                    window.GATracking.trackEvent('first_analysis_premium_button_blocked', {
-                        button: label
-                    });
-                }
-                
-                // ❌ NÃO EXECUTA A FUNÇÃO ORIGINAL
-                return;
+                // Executar normalmente
+                return ButtonBlocker.originalFunctions[funcName].apply(this, args);
             };
             
-            debugLog(`✅ ${funcName} bloqueado na primeira análise FREE`);
+            debugLog(`✅ ${funcName} substituída com bloqueio`);
+        },
+        
+        _installCaptureListeners() {
+            // Encontrar botões premium e adicionar listeners de captura
+            setTimeout(() => {
+                CONFIG.premiumButtonSelectors.forEach(selector => {
+                    const buttons = document.querySelectorAll(selector);
+                    buttons.forEach(btn => {
+                        const handler = (e) => {
+                            if (ContextDetector.isFirstFreeFullAnalysisSync()) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.stopImmediatePropagation();
+                                
+                                const label = btn.textContent?.trim() || 'Premium';
+                                logAction(`Botão "${label}" bloqueado`, 'CTA exibido');
+                                UpgradeCtaModal.show(`Botão clicado: ${label}`);
+                                return false;
+                            }
+                        };
+                        
+                        // Capture phase para garantir que executamos ANTES
+                        btn.addEventListener('click', handler, { capture: true });
+                        this.captureHandlers.push({ btn, handler });
+                    });
+                });
+            }, 1000);
         },
         
         restore() {
             debugLog('🔓 Restaurando funções originais...');
             
+            // Restaurar funções
             for (const [funcName, original] of Object.entries(this.originalFunctions)) {
                 if (typeof original === 'function') {
                     window[funcName] = original;
-                    debugLog(`✅ ${funcName} restaurado`);
                 }
             }
-            
             this.originalFunctions = {};
+            
+            // Remover capture handlers
+            this.captureHandlers.forEach(({ btn, handler }) => {
+                btn.removeEventListener('click', handler, { capture: true });
+            });
+            this.captureHandlers = [];
         }
     };
     
@@ -696,27 +722,32 @@
         async onAnalysisRendered() {
             debugLog('🔔 ═══════════════════════════════════════════');
             debugLog('🔔 Análise renderizada - verificando contexto');
-            debugLog('🔔 ═══════════════════════════════════════════');
             
-            const shouldApply = await ContextDetector.isFirstFreeFullAnalysis();
+            const shouldApply = await ContextDetector.isFirstFreeFullAnalysisAsync();
             
             if (shouldApply) {
                 debugLog('✅ PRIMEIRA ANÁLISE FREE FULL DETECTADA');
-                debugLog('✅ Aplicando sistema de CTA completo...');
                 
-                // 1. Iniciar timer de 35 segundos
-                UpgradeCtaModal.startAutoOpenTimer();
+                // 1. Instalar bloqueio nos botões IMEDIATAMENTE
+                ButtonBlocker.install();
                 
-                // 2. Instalar bloqueio nos botões premium
-                ButtonInterceptor.install();
-                
-                // 3. Aplicar blur nas sugestões (após um pequeno delay para garantir renderização)
+                // 2. Aplicar blur nas sugestões após renderização completa
                 setTimeout(() => {
-                    SuggestionsBlurManager.applyBlur();
+                    SuggestionsBlocker.applyBlur();
                 }, 2000);
                 
+                // 3. Tentar novamente após mais tempo
+                setTimeout(() => {
+                    if (!SuggestionsBlocker.blocked) {
+                        SuggestionsBlocker.applyBlur();
+                    }
+                }, 4000);
+                
+                // 4. Iniciar timer
+                UpgradeCtaModal.startAutoOpenTimer();
+                
             } else {
-                debugLog('❌ Não é primeira análise FREE FULL - sistema CTA não aplicado');
+                debugLog('❌ Não é primeira análise FREE FULL');
             }
         }
     };
@@ -727,79 +758,73 @@
     
     function initialize() {
         debugLog('🚀 ═══════════════════════════════════════════');
-        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V3...');
-        debugLog('🚀 ═══════════════════════════════════════════');
+        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V4...');
         
-        // 1. Inicializar modal (sem mostrar)
+        // 1. Inicializar modal
         UpgradeCtaModal.init();
         
         // 2. Hook em displayModalResults
-        if (typeof window.displayModalResults === 'function') {
-            const originalDisplayModalResults = window.displayModalResults;
-            
-            window.displayModalResults = async function(analysis) {
-                debugLog('🎯 displayModalResults chamado');
+        const hookDisplayModalResults = () => {
+            if (typeof window.displayModalResults === 'function') {
+                const original = window.displayModalResults;
                 
-                // Executar função original
-                const result = await originalDisplayModalResults.call(this, analysis);
+                window.displayModalResults = async function(analysis) {
+                    debugLog('🎯 displayModalResults chamado');
+                    
+                    const result = await original.call(this, analysis);
+                    
+                    setTimeout(() => {
+                        AnalysisIntegration.onAnalysisRendered();
+                    }, 1500);
+                    
+                    return result;
+                };
                 
-                // Após renderização completa, verificar e aplicar CTA
-                setTimeout(() => {
-                    debugLog('✅ displayModalResults concluído - verificando CTA...');
-                    AnalysisIntegration.onAnalysisRendered();
-                }, 1500);
-                
-                return result;
-            };
-            
-            debugLog('✅ Hook instalado em displayModalResults');
-        } else {
-            debugWarn('⚠️ displayModalResults não encontrada - tentando novamente em 2s');
+                debugLog('✅ Hook instalado em displayModalResults');
+                return true;
+            }
+            return false;
+        };
+        
+        if (!hookDisplayModalResults()) {
+            debugLog('⚠️ displayModalResults não encontrada, tentando novamente...');
             setTimeout(() => {
-                if (typeof window.displayModalResults === 'function') {
-                    initialize();
+                if (!hookDisplayModalResults()) {
+                    setTimeout(hookDisplayModalResults, 2000);
                 }
-            }, 2000);
-            return;
+            }, 1000);
         }
         
         // 3. Expor API de debug
         window.__FIRST_ANALYSIS_CTA__ = {
             showCTA: () => UpgradeCtaModal.show('MANUAL (debug)'),
             hideCTA: () => UpgradeCtaModal.hide(),
-            checkContext: () => ContextDetector.isFirstFreeFullAnalysis(),
-            applyBlur: () => SuggestionsBlurManager.applyBlur(),
-            removeBlur: () => SuggestionsBlurManager.removeBlur(),
-            restoreButtons: () => ButtonInterceptor.restore(),
+            checkContext: () => ContextDetector.isFirstFreeFullAnalysisAsync(),
+            checkContextSync: () => ContextDetector.isFirstFreeFullAnalysisSync(),
+            applyBlur: () => SuggestionsBlocker.applyBlur(),
+            removeBlur: () => SuggestionsBlocker.removeBlur(),
+            restoreButtons: () => ButtonBlocker.restore(),
             resetCache: () => {
                 PersistenceManager.resetCache();
                 localStorage.removeItem(CONFIG.localStorageKey);
                 debugLog('✅ Cache resetado');
             },
             getStatus: async () => ({
-                hasShown: await PersistenceManager.hasShownCTA(),
-                isFirstFreeFullAnalysis: await ContextDetector.isFirstFreeFullAnalysis(),
-                ctaDismissedThisSession: UpgradeCtaModal.ctaDismissedThisSession,
-                blurApplied: SuggestionsBlurManager.blurApplied,
-                timerActive: UpgradeCtaModal.timerId !== null
+                isFirstFreeFullAnalysis: await ContextDetector.isFirstFreeFullAnalysisAsync(),
+                blurApplied: SuggestionsBlocker.blocked,
+                ctaVisible: UpgradeCtaModal.isVisible,
+                hasShownCTA: PersistenceManager.hasShownCTA()
             }),
-            VERSION: '3.0'
+            VERSION: '4.0'
         };
         
-        debugLog('✅ Sistema V3 inicializado com sucesso');
-        debugLog('💡 API de debug: window.__FIRST_ANALYSIS_CTA__');
-        debugLog('📋 Funcionalidades:');
-        debugLog('   - Timer: 35 segundos');
-        debugLog('   - Ver Planos: abre em nova aba');
-        debugLog('   - Blur: aplicado nas sugestões');
-        debugLog('   - Botões IA/PDF: totalmente bloqueados');
+        debugLog('✅ Sistema V4 inicializado');
+        debugLog('💡 API: window.__FIRST_ANALYSIS_CTA__');
     }
     
-    // Aguardar carregamento completo
+    // Inicializar quando DOM estiver pronto
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initialize, 500);
-        });
+        document.addEventListener('DOMContentLoaded', () => setTimeout(initialize, 500));
     } else {
         setTimeout(initialize, 500);
     }
