@@ -640,3 +640,19 @@ async function checkReferenceEntitlement() {
 **Auditoria realizada por:** GitHub Copilot (Claude Sonnet 4.5)  
 **Aprovação pendente:** Equipe de desenvolvimento SoundyAI  
 **Severity:** 🔴 CRÍTICA - Afeta experiência de usuários pagos
+
+---
+
+## 🔔 Atualização: Desbloqueio Dinâmico do Premium Gate
+
+Adicionalmente, implementei um mecanismo para desbloqueio automático quando o plano mudar:
+
+- `plan-capabilities.js` agora dispara o evento `plan:changed` sempre que o plano é carregado do Firestore (`window.dispatchEvent(new CustomEvent('plan:changed', { detail: plan }))`).
+- `first-analysis-upgrade-cta.js` escuta `plan:changed` e chama `unlockAfterUpgrade()` (ou aplica desbloqueio direto) quando o plano se tornar pago (`pro`, `studio`, `dj`).
+
+Efeito: quando o Firestore responder e o plano for atualizado para um plano pago, o sistema tenta:
+- desativar o `FIRST_ANALYSIS_LOCK`
+- remover o blur das sugestões
+- restaurar as funções originais dos botões (`sendModalAnalysisToChat`, `downloadModalAnalysis`, `handleCorrectionPlanClick`)
+
+Isso atende ao requisito de desbloquear sem reload da página.

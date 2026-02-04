@@ -1227,6 +1227,35 @@
             VERSION: '5.0'
         };
         
+        // ✅ Escutar mudanças de plano para desbloquear automaticamente
+        function _onPlanChanged(e) {
+            const plan = e?.detail;
+            if (!plan) return;
+            const PAID = ['pro', 'studio', 'dj'];
+            if (PAID.includes(String(plan).toLowerCase())) {
+                debugLog('[FIRST-CTA] Evento plan:changed detectado → plano pago:', plan);
+                // Tentar usar API pública para desbloquear
+                try {
+                    if (window.__FIRST_ANALYSIS_CTA__ && typeof window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade === 'function') {
+                        window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade();
+                        debugLog('[FIRST-CTA] unlockAfterUpgrade() executada');
+                    } else {
+                        // Fallback: aplicar diretamente (respeita proteção do lock)
+                        const unlocked = window.FIRST_ANALYSIS_LOCK.deactivate('UPGRADE_TO_PAID_PLAN');
+                        if (unlocked) {
+                            SuggestionsBlocker.removeBlur('UPGRADE_TO_PAID_PLAN');
+                            ButtonBlocker.restore('UPGRADE_TO_PAID_PLAN');
+                            debugLog('[FIRST-CTA] Desbloqueio direto aplicado');
+                        }
+                    }
+                } catch (err) {
+                    debugLog('[FIRST-CTA] Erro ao tentar desbloquear após plan:changed', err);
+                }
+            }
+        }
+
+        window.addEventListener('plan:changed', _onPlanChanged);
+
         debugLog('✅ Sistema V5 inicializado (BLOQUEIO INCONTORNÁVEL)');
         debugLog('💡 API: window.__FIRST_ANALYSIS_CTA__');
         debugLog('🔓 Para desbloquear após upgrade: window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade()');

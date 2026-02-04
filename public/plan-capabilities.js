@@ -147,8 +147,18 @@
                 
                 // Atualizar cache
                 _cachedUserPlan = normalizedPlan;
+                // Registrar timestamp do cache
+                window.__planCacheTimestamp = Date.now();
                 window.userPlan = normalizedPlan; // Sincronizar com window.userPlan
-                
+
+                // Disparar evento para notificar listeners sobre mudança de plano
+                try {
+                    window.dispatchEvent(new CustomEvent('plan:changed', { detail: normalizedPlan }));
+                    log('[CAPABILITIES] Evento plan:changed disparado:', normalizedPlan);
+                } catch (e) {
+                    warn('[CAPABILITIES] Não foi possível disparar plan:changed:', e);
+                }
+
                 return normalizedPlan;
             } else {
                 warn('[CAPABILITIES] ⚠️ Documento do usuário não encontrado');
