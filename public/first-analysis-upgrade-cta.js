@@ -329,9 +329,12 @@
             
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             this.element = document.getElementById('firstAnalysisUpgradeCTA');
+            
+            console.log('%c[CTA-DEBUG] ✅ Modal inserido no DOM', 'color:#00FF00;font-weight:bold;');
+            // Adicionar estilos e finalizar criação do modal
             this._addStyles();
         },
-        
+
         _addStyles() {
             if (document.getElementById('firstAnalysisCtaStylesV4')) return;
             
@@ -340,23 +343,23 @@
             style.textContent = `
                 /* MODAL CTA OVERLAY */
                 .first-analysis-cta-overlay {
-                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999;
-                    background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
-                    display: flex; align-items: center; justify-content: center; padding: 20px;
-                    opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+                    position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;
+                    background: rgba(0, 0, 0, 0.85) !important; backdrop-filter: blur(10px) !important;
+                    display: flex !important; align-items: center !important; justify-content: center !important; padding: 20px !important;
+                    opacity: 0 !important; visibility: hidden !important; transition: opacity 0.3s ease, visibility 0.3s ease !important;
                 }
-                .first-analysis-cta-overlay.visible { opacity: 1; visibility: visible; }
+                .first-analysis-cta-overlay.visible { opacity: 1 !important; visibility: visible !important; }
                 
                 .first-analysis-cta-card {
-                    position: relative; max-width: 520px; width: 100%;
-                    background: linear-gradient(145deg, #1a1f2e 0%, #0d1117 100%);
-                    border: 1px solid rgba(255, 107, 53, 0.3); border-radius: 20px;
-                    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 107, 53, 0.1);
-                    padding: 40px 35px; text-align: center;
-                    transform: scale(0.9) translateY(20px);
-                    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    position: relative !important; max-width: 520px !important; width: 100% !important;
+                    background: linear-gradient(145deg, #1a1f2e 0%, #0d1117 100%) !important;
+                    border: 1px solid rgba(255, 107, 53, 0.3) !important; border-radius: 20px !important;
+                    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 107, 53, 0.1) !important;
+                    padding: 40px 35px !important; text-align: center !important;
+                    transform: scale(0.9) translateY(20px) !important;
+                    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
                 }
-                .first-analysis-cta-overlay.visible .first-analysis-cta-card { transform: scale(1) translateY(0); }
+                .first-analysis-cta-overlay.visible .first-analysis-cta-card { transform: scale(1) translateY(0) !important; }
                 
                 .first-analysis-cta-close {
                     position: absolute; top: 15px; right: 18px; width: 32px; height: 32px;
@@ -527,9 +530,12 @@
         show(source = 'auto') {
             if (!this.element) this.init();
             
-            // ✅ LOG CLARO
             logAction(`CTA exibido`, source);
             
+            // FORÇA DISPLAY E VISIBILIDADE DIRETAMENTE
+            this.element.style.display = 'flex';
+            this.element.style.opacity = '1';
+            this.element.style.visibility = 'visible';
             this.element.classList.add('visible');
             this.isVisible = true;
             
