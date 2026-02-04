@@ -1030,12 +1030,16 @@
         // 1. Inicializar modal
         UpgradeCtaModal.init();
         
-        // 2. Escutar evento canônico displayModalResultsReady
-        window.addEventListener('soundy:displayModalResultsReady', () => {
-            debugLog('📢 Evento soundy:displayModalResultsReady recebido');
-            
+        // 2. Função para instalar hook (reutilizável)
+        function installHook() {
             if (typeof window.displayModalResults === 'function') {
                 const original = window.displayModalResults;
+                
+                // Evitar hook duplicado
+                if (original.__FIRST_CTA_HOOKED__) {
+                    debugLog('⚠️ Hook já instalado anteriormente');
+                    return true;
+                }
                 
                 window.displayModalResults = async function(analysis) {
                     debugLog('🎯 displayModalResults chamado');
@@ -1049,13 +1053,26 @@
                     return result;
                 };
                 
-                debugLog('✅ Hook instalado em displayModalResults via evento canônico');
-            } else {
-                debugLog('⚠️ displayModalResults ainda não existe após evento');
+                // Marcar como hooked
+                window.displayModalResults.__FIRST_CTA_HOOKED__ = true;
+                
+                debugLog('✅ Hook instalado em displayModalResults');
+                return true;
             }
-        }, { once: true });
+            return false;
+        }
         
-        debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
+        // 2.1. Verificar se displayModalResults JÁ EXISTE (lazy-load concluído antes do CTA)
+        if (installHook()) {
+            debugLog('🎯 displayModalResults já disponível - hook instalado imediatamente');
+        } else {
+            // 2.2. Aguardar evento canônico displayModalResultsReady
+            debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
+            window.addEventListener('soundy:displayModalResultsReady', () => {
+                debugLog('📢 Evento soundy:displayModalResultsReady recebido');
+                installHook();
+            }, { once: true });
+        }
         
         // 3. Expor API de debug + UNLOCK para upgrade
         window.__FIRST_ANALYSIS_CTA__ = {
