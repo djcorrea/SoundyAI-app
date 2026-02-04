@@ -1024,8 +1024,10 @@
         // 1. Inicializar modal
         UpgradeCtaModal.init();
         
-        // 2. Hook em displayModalResults
-        const hookDisplayModalResults = () => {
+        // 2. Escutar evento canônico displayModalResultsReady
+        window.addEventListener('soundy:displayModalResultsReady', () => {
+            debugLog('📢 Evento soundy:displayModalResultsReady recebido');
+            
             if (typeof window.displayModalResults === 'function') {
                 const original = window.displayModalResults;
                 
@@ -1041,20 +1043,13 @@
                     return result;
                 };
                 
-                debugLog('✅ Hook instalado em displayModalResults');
-                return true;
+                debugLog('✅ Hook instalado em displayModalResults via evento canônico');
+            } else {
+                debugLog('⚠️ displayModalResults ainda não existe após evento');
             }
-            return false;
-        };
+        }, { once: true });
         
-        if (!hookDisplayModalResults()) {
-            debugLog('⚠️ displayModalResults não encontrada, tentando novamente...');
-            setTimeout(() => {
-                if (!hookDisplayModalResults()) {
-                    setTimeout(hookDisplayModalResults, 2000);
-                }
-            }, 1000);
-        }
+        debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
         
         // 3. Expor API de debug + UNLOCK para upgrade
         window.__FIRST_ANALYSIS_CTA__ = {

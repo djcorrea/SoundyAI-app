@@ -14643,6 +14643,26 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
+    // 🔒 PRIMEIRA EXECUÇÃO: Criar cópia imutável e disparar evento canônico
+    if (!window.__displayModalResultsOriginal) {
+        log('[FIX] 🔒 Primeira execução - criando cópia imutável de displayModalResults');
+        
+        // Expor função globalmente ANTES de criar cópia
+        window.displayModalResults = displayModalResults;
+        window.__displayModalResultsOriginal = displayModalResults;
+        Object.freeze(window.__displayModalResultsOriginal);
+        log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
+        
+        // 📢 EVENTO CANÔNICO: Notificar interceptadores que a função está pronta
+        window.dispatchEvent(new CustomEvent('soundy:displayModalResultsReady', {
+            detail: {
+                timestamp: Date.now(),
+                originalFunction: window.__displayModalResultsOriginal
+            }
+        }));
+        log('[FIX] 📢 Evento soundy:displayModalResultsReady disparado');
+    }
+    
     // GA4 Tracking: Análise de áudio completada
     if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
         window.GATracking.trackAudioAnalysisCompleted({
@@ -24086,23 +24106,8 @@ function renderReferenceComparisons(ctx) {
     }
 }
 
-// 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
-// Esta cópia garante que interceptadores sempre tenham acesso à função original
-if (!window.__displayModalResultsOriginal) {
-    log('[FIX] 🔒 Criando cópia imutável de displayModalResults');
-    window.__displayModalResultsOriginal = displayModalResults;
-    Object.freeze(window.__displayModalResultsOriginal);
-    log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
-    
-    // 📢 EVENTO CANÔNICO: Notificar todos os interceptadores que a função está pronta
-    window.dispatchEvent(new CustomEvent('soundy:displayModalResultsReady', {
-        detail: {
-            timestamp: Date.now(),
-            originalFunction: window.__displayModalResultsOriginal
-        }
-    }));
-    log('[FIX] 📢 Evento soundy:displayModalResultsReady disparado');
-}
+// ❌ REMOVIDO: Cópia imutável movida para DENTRO de displayModalResults (primeira execução)
+// Isso garante que window.displayModalResults já existe quando o evento é disparado
 
 /**
  * 🎯 RENDERIZAÇÃO DE COMPARAÇÃO ENTRE DUAS FAIXAS
