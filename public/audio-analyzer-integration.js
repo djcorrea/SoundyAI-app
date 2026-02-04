@@ -118,25 +118,35 @@ async function saveAnalysisToHistory(analysisResult) {
             return;
         }
         
-        // 2. Detectar plano do usuário de MÚLTIPLAS FONTES
+        // 2. ✅ CORREÇÃO 2026-02-04: Aguardar plano estar pronto (não usar fallback síncrono)
         let userPlan = 'free';
-        const planSources = {
-            planCapabilities: window.PlanCapabilities?.detectUserPlan?.(),
-            windowUserPlan: window.userPlan,
-            analysisResultPlan: analysisResult?.plan,
-            currentModalPlan: window.currentModalAnalysis?.plan,
-            cachedPlan: window.__soundyUserPlan
-        };
         
-        log('🕐 [HISTORY-SAVE] 🔍 Fontes de plano:', planSources);
-        
-        // Prioridade: PlanCapabilities > window.userPlan > analysisResult.plan > currentModal > cache
-        userPlan = planSources.planCapabilities || 
-                   planSources.windowUserPlan || 
-                   planSources.analysisResultPlan ||
-                   planSources.currentModalPlan ||
-                   planSources.cachedPlan ||
-                   'free';
+        // Tentar obter plano de análise atual primeiro (mais recente)
+        if (analysisResult?.plan) {
+            userPlan = analysisResult.plan;
+            log('🕐 [HISTORY-SAVE] Plano vindo da análise:', userPlan);
+        } else if (window.PlanCapabilities?.waitForUserPlan) {
+            // Aguardar plano do Firestore (assíncrono)
+            log('🕐 [HISTORY-SAVE] ⏳ Aguardando plano do Firestore...');
+            userPlan = await window.PlanCapabilities.waitForUserPlan();
+            log('🕐 [HISTORY-SAVE] ✅ Plano carregado:', userPlan);
+        } else {
+            // Fallback para fontes síncronas (apenas se waitForUserPlan não disponível)
+            const planSources = {
+                planCapabilities: window.PlanCapabilities?.detectUserPlan?.(),
+                windowUserPlan: window.userPlan,
+                currentModalPlan: window.currentModalAnalysis?.plan,
+                cachedPlan: window.__soundyUserPlan
+            };
+            
+            log('🕐 [HISTORY-SAVE] 🔍 Fontes de plano (fallback):', planSources);
+            
+            userPlan = planSources.planCapabilities || 
+                       planSources.windowUserPlan || 
+                       planSources.currentModalPlan ||
+                       planSources.cachedPlan ||
+                       'free';
+        }
         
         log('🕐 [HISTORY-SAVE] Plano detectado:', userPlan);
         
@@ -250,28 +260,39 @@ async function saveAnalysisToHistory(analysisResult) {
  * 🔐 Verifica se o usuário pode usar o modo de referência
  * REGRA: Apenas plano PRO tem acesso ao modo referência
  * 
+ * ✅ CORREÇÃO 2026-02-04: Aguarda plano estar pronto antes de bloquear
+ * 
  * @returns {Promise<{allowed: boolean, plan: string}>}
  */
 async function checkReferenceEntitlement() {
     try {
-        // 1. Tentar detectar plano via PlanCapabilities (cache local)
-        let currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
+        // 1. ✅ NOVO: Aguardar plano estar carregado (não usar fallback prematuro)
+        let currentPlan = 'free';
         
-        // 2. Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
-        if (currentPlan === 'free' && window.auth?.currentUser) {
-            log('🔐 [ENTITLEMENT] Plano cache é free, verificando Firestore...');
-            try {
-                const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
-                if (freshPlan) {
-                    currentPlan = freshPlan;
-                    log(`🔐 [ENTITLEMENT] Plano atualizado: ${currentPlan}`);
+        if (window.PlanCapabilities?.waitForUserPlan) {
+            log('🔐 [ENTITLEMENT] ⏳ Aguardando plano do usuário...');
+            currentPlan = await window.PlanCapabilities.waitForUserPlan();
+            log(`🔐 [ENTITLEMENT] ✅ Plano carregado: ${currentPlan}`);
+        } else {
+            // Fallback para detecção síncrona (apenas se waitForUserPlan não disponível)
+            currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
+            
+            // Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
+            if (currentPlan === 'free' && window.auth?.currentUser && window.firebaseReady) {
+                log('🔐 [ENTITLEMENT] Plano cache é free, verificando Firestore...');
+                try {
+                    const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
+                    if (freshPlan) {
+                        currentPlan = freshPlan;
+                        log(`🔐 [ENTITLEMENT] Plano atualizado: ${currentPlan}`);
+                    }
+                } catch (err) {
+                    warn('🔐 [ENTITLEMENT] Erro ao buscar plano:', err);
                 }
-            } catch (err) {
-                warn('🔐 [ENTITLEMENT] Erro ao buscar plano:', err);
             }
         }
         
-        // 3. REGRA: PRO, DJ ou STUDIO = permitido, qualquer outro = bloqueado
+        // 2. REGRA: PRO, DJ ou STUDIO = permitido, qualquer outro = bloqueado
         // ✅ ATUALIZADO 2026-01-06: STUDIO agora tem acesso ao Modo Referência
         const allowed = currentPlan === 'pro' || currentPlan === 'dj' || currentPlan === 'studio';
         
