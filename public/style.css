@@ -38,15 +38,10 @@ body.perf-animations-paused .particles-overlay {
     pointer-events: none !important;
 }
 
-/* Pausar animações CSS do Vanta background quando modal aberto */
-body.perf-animations-paused .vanta-background {
-    opacity: 0 !important;
-    pointer-events: none !important;
-}
+/* ❌ REMOVIDO: Regras de Vanta.js (sistema removido) */
 
 /* Suavizar transições de pause/resume */
 .particles-overlay,
-.vanta-background,
 .robo,
 .notebook,
 .teclado,
@@ -206,17 +201,7 @@ body.modal-open {
 }
 
 /* ============ FUNDOS E BACKGROUNDS ============ */
-.vanta-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    opacity: 0;  /* Começa invisível */
-    transform: scale(0.95);  /* Começa levemente menor */
-    animation: vantaFadeIn 2s ease-out forwards 0.5s;  /* Entrada bem suave e lenta */
-}
+/* ❌ REMOVIDO: .vanta-background (Vanta.js removido do projeto) */
 
 /* Animação suave específica para o Vanta */
 @keyframes vantaFadeIn {

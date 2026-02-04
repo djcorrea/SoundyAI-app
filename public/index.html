@@ -171,16 +171,11 @@
     <!-- <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104"> -->
     <link rel="stylesheet" href="analysis-history.css?v=20260104">
     
-    <!-- 🚀 PERFORMANCE MODE: Desativa efeitos pesados durante análise -->
-    <link rel="stylesheet" href="performance-mode.css?v=20260203-perf">
-    
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Bibliotecas para efeitos visuais -->
-    <!-- 🚀 PERFORMANCE: defer para não bloquear parsing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    <!-- ❌ REMOVIDO: Three.js + Vanta.js (efeitos pesados) -->
+    <!-- ✅ MANTIDO: GSAP (usado em animações leves de UI) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     
     <!-- Dependências para geração de PDF - carregamento tardio pois não são críticas -->
@@ -457,8 +452,7 @@
 
     <!-- Fundo animado 3D -->
     <div class="cenario">
-        <!-- Container para o fundo animado Vanta.js -->
-        <div class="vanta-background" id="vanta-bg"></div>
+        <!-- ❌ REMOVIDO: Vanta.js background (pesado) -->
         
         <!-- 🚀 PERFORMANCE: Fundo com lazy loading (baixa prioridade) -->
         <img src="fundo.webp?v=20250810" alt="Fundo futurista" class="fundo" loading="lazy" decoding="async" />
@@ -1018,12 +1012,10 @@
     <!-- Analysis Mode Manager - Event-driven (substitui polling de 100ms) -->
     <script src="analysis-mode-manager.js?v=20260203-perf"></script>
     
-    <!-- Performance Mode Controller - Auto-pausa Vanta + desativa efeitos pesados -->
-    <script src="performance-mode-controller.js?v=20260203-perf"></script>
+    <!-- ❌ REMOVIDO: performance-mode-controller.js (controlador agressivo) -->
+    <!-- ❌ REMOVIDO: effects-controller.js (Vanta.js management) -->
     
-    <!-- ✅ Vanta.js já é gerenciado pelo effects-controller.js (pause automático em modais) -->
-    
-    <!-- Audio Analyzer Lazy Loader - Carrega sob demanda -->
+    <!-- ✅ MANTIDO: Audio Analyzer Lazy Loader (otimização estrutural) -->
     <script src="audio-analyzer-lazy-loader.js?v=20260203-perf"></script>
     
     <!-- Script integrado com as funcionalidades existentes -->
