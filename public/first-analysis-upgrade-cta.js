@@ -979,48 +979,124 @@
     };
     
     // ========================================
-    // ⏱️ ESPERAR MODAL E SUGESTÕES (LAZY-LOAD READY)
+    // ⏱️ ESPERAR MODAL E SUGESTÕES (MUTATION OBSERVER - INSTANTÂNEO)
     // ========================================
     
     function waitForModalAndSuggestions() {
         return new Promise((resolve, reject) => {
-            debugLog('⏱️ Aguardando modal e sugestões renderizarem...');
+            debugLog('⏱️ Instalando MutationObserver para detectar sugestões...');
             
-            const maxWaitTime = 10000; // 10 segundos máximo
-            const checkInterval = 300; // verificar a cada 300ms
-            let elapsed = 0;
+            let resolved = false;
+            let observer = null;
+            let fallbackTimer = null;
             
-            const checkModal = () => {
-                // Verificar se modal de análise está aberto
-                const modal = document.getElementById('audioAnalysisModal');
-                if (!modal || !modal.classList.contains('show')) {
-                    if (elapsed >= maxWaitTime) {
-                        reject(new Error('Modal não abriu no tempo esperado'));
-                        return;
-                    }
-                    elapsed += checkInterval;
-                    setTimeout(checkModal, checkInterval);
-                    return;
+            // Função para resolver apenas uma vez
+            const resolveOnce = (source) => {
+                if (resolved) return;
+                resolved = true;
+                
+                debugLog(`✅ Sugestões detectadas via ${source}`);
+                
+                // Limpar observer e timer
+                if (observer) {
+                    observer.disconnect();
+                    observer = null;
+                }
+                if (fallbackTimer) {
+                    clearTimeout(fallbackTimer);
+                    fallbackTimer = null;
                 }
                 
-                // Modal está aberto, verificar se sugestões foram renderizadas
-                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
-                if (suggestions.length === 0) {
-                    if (elapsed >= maxWaitTime) {
-                        debugLog('⚠️ Sugestões não encontradas, mas modal está aberto');
-                        resolve(); // Resolver mesmo assim
-                        return;
-                    }
-                    elapsed += checkInterval;
-                    setTimeout(checkModal, checkInterval);
-                    return;
-                }
-                
-                debugLog(`✅ Modal e sugestões detectados (${suggestions.length} sugestões encontradas)`);
                 resolve();
             };
             
-            checkModal();
+            // Verificar se modal já está aberto e sugestões já renderizadas
+            const modal = document.getElementById('audioAnalysisModal');
+            if (modal && modal.classList.contains('show')) {
+                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
+                if (suggestions.length > 0) {
+                    debugLog(`✅ Sugestões já presentes no DOM (${suggestions.length} encontradas)`);
+                    resolveOnce('verificação inicial');
+                    return;
+                }
+            }
+            
+            // Função para verificar se sugestões foram inseridas
+            const checkForSuggestions = (targetNode) => {
+                if (resolved) return;
+                
+                // Verificar se é o próprio modal ou está dentro dele
+                const modal = targetNode.id === 'audioAnalysisModal' ? targetNode : targetNode.closest('#audioAnalysisModal');
+                if (!modal) return;
+                
+                // Buscar sugestões
+                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
+                if (suggestions.length > 0) {
+                    resolveOnce(`MutationObserver (${suggestions.length} sugestões)`);
+                }
+            };
+            
+            // MutationObserver no body para capturar quando modal e sugestões forem adicionados
+            observer = new MutationObserver((mutations) => {
+                if (resolved) return;
+                
+                for (const mutation of mutations) {
+                    // Verificar nós adicionados
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            checkForSuggestions(node);
+                            
+                            // Se já resolveu, parar
+                            if (resolved) return;
+                        }
+                    }
+                    
+                    // Verificar atributos (ex: classe 'show' no modal)
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        const target = mutation.target;
+                        if (target.id === 'audioAnalysisModal' && target.classList.contains('show')) {
+                            // Modal foi aberto, verificar sugestões após um microtask
+                            setTimeout(() => checkForSuggestions(target), 0);
+                        }
+                    }
+                }
+            });
+            
+            // Observar body para capturar adições de elementos
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            
+            // Fallback: timeout curto de 500ms
+            fallbackTimer = setTimeout(() => {
+                if (resolved) return;
+                
+                debugLog('⚠️ Fallback ativado (500ms) - verificando sugestões...');
+                
+                const modal = document.getElementById('audioAnalysisModal');
+                if (modal) {
+                    const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
+                    if (suggestions.length > 0) {
+                        resolveOnce(`fallback 500ms (${suggestions.length} sugestões)`);
+                    } else {
+                        // Mesmo sem sugestões, resolver para não travar
+                        debugLog('⚠️ Fallback: modal encontrado mas sem sugestões - resolvendo mesmo assim');
+                        resolveOnce('fallback 500ms (sem sugestões)');
+                    }
+                } else {
+                    debugLog('⚠️ Fallback: modal não encontrado - tentando novamente em 1s');
+                    // Último recurso: aguardar mais 1s
+                    setTimeout(() => {
+                        if (!resolved) {
+                            debugLog('⚠️ Último fallback (1.5s total) - resolvendo');
+                            resolveOnce('fallback final 1.5s');
+                        }
+                    }, 1000);
+                }
+            }, 500);
         });
     }
     
@@ -1030,16 +1106,25 @@
     
     function initialize() {
         debugLog('🚀 ═══════════════════════════════════════════');
-        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (LAZY-LOAD READY)...');
+        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (INSTANT TIMING)...');
         
         // 1. Inicializar modal
         UpgradeCtaModal.init();
         
-        // 2. ✅ ARQUITETURA LAZY-LOAD: Escutar evento sem fazer hook
+        // 2. Flag para garantir execução única por sessão
+        let ctaTriggered = false;
+        
+        // 3. ✅ ARQUITETURA LAZY-LOAD: Escutar evento sem fazer hook
         // Não dependemos mais de interceptar displayModalResults
         // Apenas reagimos ao evento quando modal está sendo renderizado
         window.addEventListener('soundy:displayModalResultsReady', async () => {
             debugLog('📢 Evento soundy:displayModalResultsReady recebido');
+            
+            // ✅ Garantir execução única
+            if (ctaTriggered) {
+                debugLog('⚠️ CTA já foi disparado nesta sessão - ignorando evento');
+                return;
+            }
             
             // Verificar se é primeira análise FREE
             const isFirstAnalysis = await ContextDetector.isFirstFreeFullAnalysisAsync();
@@ -1051,15 +1136,25 @@
             
             debugLog('✅ PRIMEIRA ANÁLISE FREE DETECTADA - aguardando modal renderizar');
             
+            // Marcar como disparado ANTES de executar (prevenir race condition)
+            ctaTriggered = true;
+            
             // Ativar lock global
             window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
             
+            // ✅ TIMING: Marcar início da detecção
+            const startTime = performance.now();
+            
             // ✅ ESPERAR MODAL ESTAR COMPLETAMENTE RENDERIZADO
-            // Usar MutationObserver + timeout para detectar quando sugestões aparecem
+            // Usar MutationObserver instantâneo para detectar quando sugestões aparecem
             try {
                 await waitForModalAndSuggestions();
                 
-                debugLog('✅ Modal e sugestões detectados - aplicando bloqueios');
+                const detectionTime = performance.now() - startTime;
+                debugLog(`⚡ Sugestões detectadas em ${detectionTime.toFixed(2)}ms`);
+                
+                // Aplicar bloqueios INSTANTANEAMENTE (mesmo frame)
+                const actionStart = performance.now();
                 
                 // Instalar bloqueio nos botões
                 ButtonBlocker.install();
@@ -1070,15 +1165,21 @@
                 // Iniciar timer do CTA (35s)
                 UpgradeCtaModal.startAutoOpenTimer();
                 
+                const actionTime = performance.now() - actionStart;
+                const totalTime = performance.now() - startTime;
+                
+                debugLog(`⚡ Bloqueios aplicados em ${actionTime.toFixed(2)}ms`);
+                debugLog(`⚡ Tempo total (detecção + ação): ${totalTime.toFixed(2)}ms`);
+                
             } catch (err) {
                 debugLog('⚠️ Erro ao aguardar modal:', err);
-                // Fallback: aplicar após 5 segundos
+                // Fallback: aplicar após 1 segundo (reduzido de 5s)
                 setTimeout(() => {
                     debugLog('🔄 Fallback: aplicando bloqueios após timeout');
                     ButtonBlocker.install();
                     SuggestionsBlocker.applyBlur();
                     UpgradeCtaModal.startAutoOpenTimer();
-                }, 5000);
+                }, 1000);
             }
         });
         
