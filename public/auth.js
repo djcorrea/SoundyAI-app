@@ -784,7 +784,6 @@ log('🚀 Carregando auth.js...');
         log('   RecaptchaVerifier:', !!window.recaptchaVerifier);
         
         window.confirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-        window.lastPhone = phone;
         
         // ✅ VALIDAR se verificationId existe
         if (!window.confirmationResult || !window.confirmationResult.verificationId) {
@@ -957,8 +956,8 @@ log('🚀 Carregando auth.js...');
       const formattedPhone = '+55' + cleanPhone.replace(/^55/, '');
 
       // Se já enviou SMS para este telefone, mostrar seção SMS
-      if (window.confirmationResult && window.lastPhone === formattedPhone) {
-        log('✅ SMS já enviado para este telefone - mostrando seção');
+      if (window.confirmationResult && auth.currentUser) {
+        log('✅ SMS já enviado - mostrando seção');
         if (typeof window.showSMSSuccess === 'function') {
           window.showSMSSuccess();
         } else {
@@ -968,11 +967,69 @@ log('🚀 Carregando auth.js...');
         return;
       }
 
-      // Enviar SMS
+      // ✅ PASSO 1: Criar usuário com email+senha ANTES de enviar SMS
       isNewUserRegistering = true;
+      let newUser = null;
+      try {
+        showMessage("Criando conta...", "success");
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        newUser = userCredential.user;
+        log('✅ [SIGNUP] Usuário criado:', newUser.uid);
+        log('   Email:', newUser.email);
+      } catch (createErr) {
+        isNewUserRegistering = false;
+        error('❌ [SIGNUP] Erro ao criar usuário:', createErr);
+        let errorMsg = "Erro ao criar conta: ";
+        if (createErr.code === 'auth/email-already-in-use') {
+          errorMsg = "Este email já está cadastrado. Faça login.";
+        } else if (createErr.code === 'auth/invalid-email') {
+          errorMsg = "Email inválido.";
+        } else if (createErr.code === 'auth/weak-password') {
+          errorMsg = "Senha muito fraca. Use pelo menos 6 caracteres.";
+        } else {
+          errorMsg += createErr.message;
+        }
+        showMessage(errorMsg, "error");
+        return;
+      }
+
+      // ✅ PASSO 2: Salvar phoneNumberPending no Firestore ANTES de enviar SMS
+      try {
+        const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const userRef = doc(db, 'usuarios', newUser.uid);
+        await setDoc(userRef, {
+          uid: newUser.uid,
+          email: newUser.email,
+          phoneNumberPending: formattedPhone,
+          phonePendingAt: serverTimestamp(),
+          verified: false,
+          phoneNumber: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        log('✅ [SIGNUP] phoneNumberPending salvo no Firestore:', formattedPhone);
+        console.log('[FIRESTORE-WRITE usuarios] auth.js signUp() - phoneNumberPending');
+        console.log('[FIRESTORE-WRITE usuarios] UID:', newUser.uid);
+        console.log('[FIRESTORE-WRITE usuarios] phoneNumberPending:', formattedPhone);
+      } catch (firestoreErr) {
+        error('❌ [SIGNUP] Erro ao salvar phoneNumberPending:', firestoreErr);
+        isNewUserRegistering = false;
+        showMessage("Erro ao salvar telefone. Tente novamente.", "error");
+        // Deletar usuário criado para permitir retry
+        try { await newUser.delete(); } catch (e) {}
+        return;
+      }
+
+      // ✅ PASSO 3: Enviar SMS
       const sent = await sendSMS(rawPhone);
       if (!sent) {
         isNewUserRegistering = false;
+        // Limpar phoneNumberPending se SMS falhou
+        try {
+          const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userRef = doc(db, 'usuarios', newUser.uid);
+          await updateDoc(userRef, { phoneNumberPending: null, phonePendingAt: null });
+        } catch (e) {}
         return;
       }
     }
@@ -1103,16 +1160,16 @@ log('🚀 Carregando auth.js...');
         document.documentElement.style.overflow = '';
 
         // ═══════════════════════════════════════════════════════════════════
-        // ✅ FLUXO CORRETO: CRIAR USUÁRIO COM EMAIL PRIMEIRO
+        // ✅ FLUXO CORRETO: USUÁRIO JÁ FOI CRIADO EM signUp(), agora confirmar SMS
         // ═══════════════════════════════════════════════════════════════════
         
-        log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
+        log('📧 [CONFIRM] PASSO 1: Fazendo login com email e senha...');
         log('   Email:', formEmail);
         
-        // ✅ PASSO 1: Criar usuário com EMAIL e SENHA
-        userResult = await createUserWithEmailAndPassword(auth, formEmail, formPassword);
-        log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
-        log('   Email verificado:', userResult.user.email);
+        // ✅ PASSO 1: Logar com EMAIL e SENHA (usuário já existe)
+        userResult = await signInWithEmailAndPassword(auth, formEmail, formPassword);
+        log('✅ [CONFIRM] Login realizado:', userResult.user.uid);
+        log('   Email:', userResult.user.email);
         
         // ✅ PASSO 2: Confirmar código SMS
         showMessage("📱 Confirmando SMS...", "success");
@@ -1222,26 +1279,27 @@ log('🚀 Carregando auth.js...');
         log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
-        // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
-        // e manter campos legacy/PT para compatibilidade.
+        // 🔥 SINCRONIZAR Firestore: Ler phoneNumberPending e promover para phoneNumber
+        // ═══════════════════════════════════════════════════════════════════
         try {
-          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const { doc, getDoc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
           const userRef = doc(db, 'usuarios', userResult.user.uid);
 
-          // Determinar telefone a ser salvo: preferir o telefone capturado no input (window.lastPhone)
-          // Isso garante que salvamos o número que o usuário confirmou, não o estado do Auth (que pode demorar a propagar)
-          let phoneToSave = window.lastPhone || null;
+          // Ler phoneNumberPending do Firestore (fonte única de verdade)
+          let phoneToSave = null;
           try {
-            const meta = localStorage.getItem('cadastroMetadata');
-            if (!phoneToSave && meta) {
-              const parsed = JSON.parse(meta);
-              phoneToSave = parsed?.telefone || parsed?.phoneNumber || phoneToSave;
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              phoneToSave = userSnap.data().phoneNumberPending;
+              log('✅ [CONFIRM] phoneNumberPending lido do Firestore:', phoneToSave);
             }
-          } catch (e) {
-            // ignorar
+          } catch (readErr) {
+            error('❌ [CONFIRM] Erro ao ler phoneNumberPending:', readErr);
           }
-          if (!phoneToSave) phoneToSave = userResult.user.phoneNumber || null;
+
+          if (!phoneToSave) {
+            throw new Error('phoneNumberPending não encontrado no Firestore');
+          }
 
           const updates = {
             phoneNumber: phoneToSave,
@@ -1250,6 +1308,8 @@ log('🚀 Carregando auth.js...');
             telefone: phoneToSave,
             verificadoPorSMS: true,
             smsVerificadoEm: serverTimestamp(),
+            phoneNumberPending: null,  // Remover pending
+            phonePendingAt: null,
             updatedAt: serverTimestamp()
           };
 
