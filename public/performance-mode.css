@@ -38,8 +38,18 @@ body.perf-mode [class*="backdrop"] {
    🎯 FILTER BLUR: Desativar blur em elementos
    ======================================================================== */
 
-body.perf-mode * {
+/* ⛔ BLOQUEIO SELETIVO: Desativa blur EXCETO em UI crítica */
+body.perf-mode *:not(.cta-blur-overlay):not(.premium-gate-overlay):not([data-critical-ui]) {
     filter: none !important;
+}
+
+/* ✅ EXCEÇÃO CRÍTICA: Preservar filter/blur para gating (CTA V5, Premium Gate) */
+body.perf-mode .cta-blur-overlay,
+body.perf-mode .premium-gate-overlay,
+body.perf-mode [data-cta-locked],
+body.perf-mode [data-premium-gate],
+body.perf-mode [data-critical-ui] {
+    filter: unset !important; /* Preserva filter original */
 }
 
 /* Exceção: Permitir grayscale/opacity (não são pesados) */

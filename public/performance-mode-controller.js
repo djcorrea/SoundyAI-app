@@ -42,7 +42,7 @@
             return;
         }
         
-        console.log(timestamp(), '🚀 [PERF] ATIVANDO Performance Mode AGRESSIVO...');
+        console.log(timestamp(), '🚀 [PERF] ATIVANDO Performance Mode SEGURO (Safe Mode)...');
         perfModeActive = true;
         
         // Adicionar classe no body
@@ -52,7 +52,7 @@
         // Pausar Vanta.js
         pauseVanta();
         
-        // 🚨 MODO AGRESSIVO: Desligar observers não essenciais
+        // 🛡️ MODO SEGURO: Pausar APENAS observers cosméticos
         pauseNonEssentialObservers();
         
         // Cancelar loops de animação não essenciais
@@ -163,45 +163,39 @@
     }
     
     /**
-     * 🚨 MODO AGRESSIVO: Pausa observers não essenciais
+     * �️ MODO SEGURO: Pausa APENAS observers cosméticos (ALLOWLIST)
+     * ⚠️ NUNCA pausa: Premium Watcher, CTA Observers, UI crítica
      */
     function pauseNonEssentialObservers() {
-        console.log(timestamp(), '🛑 [PERF] Pausando observers não essenciais...');
+        console.log(timestamp(), '🛑 [PERF] Pausando observers COSMÉTICOS (SAFE MODE)...');
         
-        // Desconectar Voice DOM Observer
+        // ✅ ALLOWLIST: Desconectar APENAS Voice DOM Observer (cosmético)
         if (window.__VOICE_DOM_OBSERVER_INSTANCE && window.__VOICE_DOM_OBSERVER_ACTIVE) {
             try {
                 window.__VOICE_DOM_OBSERVER_INSTANCE.disconnect();
-                window.__VOICE_DOM_OBSERVER_WAS_ACTIVE = true; // Flag para restaurar depois
-                console.log(timestamp(), '⏸️  [PERF] Voice DOM Observer desconectado');
+                window.__VOICE_DOM_OBSERVER_WAS_ACTIVE = true;
+                console.log(timestamp(), '⏸️  [PERF] Voice DOM Observer desconectado (cosmético)');
             } catch (e) {
                 console.error(timestamp(), '❌ [PERF] Erro ao desconectar Voice Observer:', e);
             }
         }
         
-        // Desabilitar Tooltip Manager temporariamente
+        // ✅ ALLOWLIST: Desabilitar APENAS Tooltip Manager (cosmético)
         if (window.TooltipManager && typeof window.TooltipManager.disable === 'function') {
             try {
                 window.TooltipManager.disable();
                 window.__TOOLTIP_WAS_ACTIVE = true;
-                console.log(timestamp(), '⏸️  [PERF] Tooltip Manager desabilitado');
+                console.log(timestamp(), '⏸️  [PERF] Tooltip Manager desabilitado (cosmético)');
             } catch (e) {
                 console.error(timestamp(), '❌ [PERF] Erro ao desabilitar Tooltip Manager:', e);
             }
         }
         
-        // Desabilitar Premium Popovers/Watchers
-        if (window.premiumWatcher && typeof window.premiumWatcher.pause === 'function') {
-            try {
-                window.premiumWatcher.pause();
-                window.__PREMIUM_WATCHER_WAS_ACTIVE = true;
-                console.log(timestamp(), '⏸️  [PERF] Premium Watcher pausado');
-            } catch (e) {
-                console.error(timestamp(), '❌ [PERF] Erro ao pausar Premium Watcher:', e);
-            }
-        }
+        // ⛔ DENYLIST: NUNCA pausar Premium Watcher (crítico para CTA V5 e gating)
+        // ⛔ DENYLIST: NUNCA pausar MutationObservers de UI crítica
+        // ⛔ DENYLIST: NUNCA pausar timers/polling de jobs
         
-        console.log(timestamp(), '✅ [PERF] Observers não essenciais pausados');
+        console.log(timestamp(), '✅ [PERF] Observers COSMÉTICOS pausados (UI crítica preservada)');
     }
     
     /**
@@ -235,16 +229,8 @@
             }
         }
         
-        // Retomar Premium Watcher (APENAS se estava ativo antes)
-        if (window.__PREMIUM_WATCHER_WAS_ACTIVE && window.premiumWatcher && typeof window.premiumWatcher.resume === 'function') {
-            try {
-                window.premiumWatcher.resume();
-                window.__PREMIUM_WATCHER_WAS_ACTIVE = false;
-                console.log(timestamp(), '▶️  [PERF] Premium Watcher retomado');
-            } catch (e) {
-                console.error(timestamp(), '❌ [PERF] Erro ao retomar Premium Watcher:', e);
-            }
-        }
+        // ⛔ Premium Watcher NUNCA é pausado (crítico para UI)
+        // Código removido: Premium Watcher sempre ativo
         
         console.log(timestamp(), '✅ [PERF] Observers restaurados');
     }

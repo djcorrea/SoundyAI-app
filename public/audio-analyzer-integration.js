@@ -24093,6 +24093,15 @@ if (!window.__displayModalResultsOriginal) {
     window.__displayModalResultsOriginal = displayModalResults;
     Object.freeze(window.__displayModalResultsOriginal);
     log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
+    
+    // 📢 EVENTO CANÔNICO: Notificar todos os interceptadores que a função está pronta
+    window.dispatchEvent(new CustomEvent('soundy:displayModalResultsReady', {
+        detail: {
+            timestamp: Date.now(),
+            originalFunction: window.__displayModalResultsOriginal
+        }
+    }));
+    log('[FIX] 📢 Evento soundy:displayModalResultsReady disparado');
 }
 
 /**
