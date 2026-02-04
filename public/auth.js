@@ -1187,27 +1187,27 @@ log('🚀 Carregando auth.js...');
         log('💾 [CONFIRM] Salvando tokens de autenticação...');
         log('   UID:', userResult.user.uid);
         log('   Email:', formEmail);
-        log('   Telefone (form):', formattedPhone);
-
+        log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
+        
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
           uid: userResult.user.uid,
           email: formEmail,
-          telefone: formattedPhone
+          telefone: userResult.user.phoneNumber // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
         }));
-
+        
         // ✅ CRÍTICO: Salvar metadados do cadastro para onAuthStateChanged criar Firestore
         localStorage.setItem("cadastroMetadata", JSON.stringify({
           email: formEmail,
-          telefone: formattedPhone,
+          telefone: userResult.user.phoneNumber, // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
           deviceId: deviceId,
           timestamp: new Date().toISOString()
         }));
-
+        
         log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
         log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
-        log('📱 [CONFIRM] Telefone confirmado (form):', formattedPhone);
+        log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
@@ -1218,10 +1218,10 @@ log('🚀 Carregando auth.js...');
           const userRef = doc(db, 'usuarios', userResult.user.uid);
 
           const updates = {
-            phoneNumber: formattedPhone,
+            phoneNumber: userResult.user.phoneNumber,
             verified: true,
             verifiedAt: serverTimestamp(),
-            telefone: formattedPhone,
+            telefone: userResult.user.phoneNumber,
             verificadoPorSMS: true,
             smsVerificadoEm: serverTimestamp(),
             updatedAt: serverTimestamp()
