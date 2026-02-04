@@ -979,48 +979,50 @@
     };
     
     // ========================================
-    // 🔗 INTEGRAÇÃO COM ANÁLISE
+    // ⏱️ ESPERAR MODAL E SUGESTÕES (LAZY-LOAD READY)
     // ========================================
     
-    const AnalysisIntegration = {
-        async onAnalysisRendered() {
-            debugLog('🔔 ═══════════════════════════════════════════');
-            debugLog('🔔 Análise renderizada - verificando contexto');
+    function waitForModalAndSuggestions() {
+        return new Promise((resolve, reject) => {
+            debugLog('⏱️ Aguardando modal e sugestões renderizarem...');
             
-            const shouldApply = await ContextDetector.isFirstFreeFullAnalysisAsync();
+            const maxWaitTime = 10000; // 10 segundos máximo
+            const checkInterval = 300; // verificar a cada 300ms
+            let elapsed = 0;
             
-            if (shouldApply) {
-                debugLog('✅ PRIMEIRA ANÁLISE FREE FULL DETECTADA');
-                
-                // 0. ATIVAR LOCK GLOBAL
-                window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
-                
-                // 1. Instalar bloqueio nos botões IMEDIATAMENTE
-                ButtonBlocker.install();
-                
-                // 2. Aplicar blur nas sugestões SOMENTE após renderização completa
-                // ✅ Aguardar tempo suficiente para modal abrir + sugestões renderizarem
-                setTimeout(() => {
-                    debugLog('🌫️ Tentativa 1: Aplicando blur...');
-                    SuggestionsBlocker.applyBlur();
-                }, 4000); // ✅ 4 segundos
-                
-                // 3. Tentar novamente após mais tempo (fallback)
-                setTimeout(() => {
-                    if (!SuggestionsBlocker.blocked) {
-                        debugLog('🌫️ Tentativa 2: Aplicando blur (fallback)...');
-                        SuggestionsBlocker.applyBlur();
+            const checkModal = () => {
+                // Verificar se modal de análise está aberto
+                const modal = document.getElementById('audioAnalysisModal');
+                if (!modal || !modal.classList.contains('show')) {
+                    if (elapsed >= maxWaitTime) {
+                        reject(new Error('Modal não abriu no tempo esperado'));
+                        return;
                     }
-                }, 6000); // ✅ 6 segundos
+                    elapsed += checkInterval;
+                    setTimeout(checkModal, checkInterval);
+                    return;
+                }
                 
-                // 4. Iniciar timer do CTA (35s)
-                UpgradeCtaModal.startAutoOpenTimer();
+                // Modal está aberto, verificar se sugestões foram renderizadas
+                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
+                if (suggestions.length === 0) {
+                    if (elapsed >= maxWaitTime) {
+                        debugLog('⚠️ Sugestões não encontradas, mas modal está aberto');
+                        resolve(); // Resolver mesmo assim
+                        return;
+                    }
+                    elapsed += checkInterval;
+                    setTimeout(checkModal, checkInterval);
+                    return;
+                }
                 
-            } else {
-                debugLog('❌ Não é primeira análise FREE FULL');
-            }
-        }
-    };
+                debugLog(`✅ Modal e sugestões detectados (${suggestions.length} sugestões encontradas)`);
+                resolve();
+            };
+            
+            checkModal();
+        });
+    }
     
     // ========================================
     // 🎬 INICIALIZAÇÃO
@@ -1028,59 +1030,59 @@
     
     function initialize() {
         debugLog('🚀 ═══════════════════════════════════════════');
-        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (BLOQUEIO INCONTORNÁVEL)...');
+        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (LAZY-LOAD READY)...');
         
         // 1. Inicializar modal
         UpgradeCtaModal.init();
         
-        // 2. Função para instalar hook (reutilizável)
-        function installHook() {
-            if (typeof window.displayModalResults === 'function') {
-                const original = window.displayModalResults;
-                
-                // Evitar hook duplicado
-                if (original.__FIRST_CTA_HOOKED__) {
-                    debugLog('⚠️ Hook já instalado anteriormente');
-                    return true;
-                }
-                
-                window.displayModalResults = async function(analysis) {
-                    debugLog('🎯 displayModalResults chamado');
-                    
-                    // ✅ EXECUTAR ORIGINAL E AGUARDAR CONCLUSÃO
-                    const result = await original.call(this, analysis);
-                    
-                    // ✅ AGUARDAR RENDERIZAÇÃO COMPLETA (sugestões, métricas, etc.)
-                    // Usar delay MAIOR para garantir que tudo foi renderizado
-                    setTimeout(() => {
-                        debugLog('⏱️ Timeout pós-renderização - chamando onAnalysisRendered');
-                        AnalysisIntegration.onAnalysisRendered();
-                    }, 3000); // ✅ 3 segundos para garantir renderização completa
-                    
-                    // ✅ RETORNAR resultado original (CRÍTICO!)
-                    return result;
-                };
-                
-                // Marcar como hooked
-                window.displayModalResults.__FIRST_CTA_HOOKED__ = true;
-                
-                debugLog('✅ Hook instalado em displayModalResults');
-                return true;
+        // 2. ✅ ARQUITETURA LAZY-LOAD: Escutar evento sem fazer hook
+        // Não dependemos mais de interceptar displayModalResults
+        // Apenas reagimos ao evento quando modal está sendo renderizado
+        window.addEventListener('soundy:displayModalResultsReady', async () => {
+            debugLog('📢 Evento soundy:displayModalResultsReady recebido');
+            
+            // Verificar se é primeira análise FREE
+            const isFirstAnalysis = await ContextDetector.isFirstFreeFullAnalysisAsync();
+            
+            if (!isFirstAnalysis) {
+                debugLog('❌ Não é primeira análise FREE - ignorando');
+                return;
             }
-            return false;
-        }
+            
+            debugLog('✅ PRIMEIRA ANÁLISE FREE DETECTADA - aguardando modal renderizar');
+            
+            // Ativar lock global
+            window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
+            
+            // ✅ ESPERAR MODAL ESTAR COMPLETAMENTE RENDERIZADO
+            // Usar MutationObserver + timeout para detectar quando sugestões aparecem
+            try {
+                await waitForModalAndSuggestions();
+                
+                debugLog('✅ Modal e sugestões detectados - aplicando bloqueios');
+                
+                // Instalar bloqueio nos botões
+                ButtonBlocker.install();
+                
+                // Aplicar blur nas sugestões
+                SuggestionsBlocker.applyBlur();
+                
+                // Iniciar timer do CTA (35s)
+                UpgradeCtaModal.startAutoOpenTimer();
+                
+            } catch (err) {
+                debugLog('⚠️ Erro ao aguardar modal:', err);
+                // Fallback: aplicar após 5 segundos
+                setTimeout(() => {
+                    debugLog('🔄 Fallback: aplicando bloqueios após timeout');
+                    ButtonBlocker.install();
+                    SuggestionsBlocker.applyBlur();
+                    UpgradeCtaModal.startAutoOpenTimer();
+                }, 5000);
+            }
+        });
         
-        // 2.1. Verificar se displayModalResults JÁ EXISTE (lazy-load concluído antes do CTA)
-        if (installHook()) {
-            debugLog('🎯 displayModalResults já disponível - hook instalado imediatamente');
-        } else {
-            // 2.2. Aguardar evento canônico displayModalResultsReady
-            debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
-            window.addEventListener('soundy:displayModalResultsReady', () => {
-                debugLog('📢 Evento soundy:displayModalResultsReady recebido');
-                installHook();
-            }, { once: true });
-        }
+        debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
         
         // 3. Expor API de debug + UNLOCK para upgrade
         window.__FIRST_ANALYSIS_CTA__ = {
