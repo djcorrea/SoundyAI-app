@@ -68,22 +68,24 @@ body.perf-mode [class*="button"] {
    🎯 ANIMATIONS: Desativar animações de fundo
    ======================================================================== */
 
-body.perf-mode *,
-body.perf-mode *::before,
-body.perf-mode *::after {
+/* ⛔ BLOQUEIO GLOBAL: Desativa TODAS animações EXCETO spinner */
+body.perf-mode *:not(.loading-spinner),
+body.perf-mode *:not(.loading-spinner)::before,
+body.perf-mode *:not(.loading-spinner)::after {
     animation-duration: 0s !important;
     animation-delay: 0s !important;
     transition-duration: 0.15s !important; /* Mantém transições curtas para UX */
 }
 
-/* ⚠️ EXCEÇÃO CRÍTICA: Apenas o SPINNER deve animar (não containers pais) */
+/* ✅ SPINNER: SEMPRE anima (desktop e mobile) */
 body.perf-mode .loading-spinner,
 body.perf-mode #audioAnalysisModal .loading-spinner,
 body.perf-mode #audioAnalysisLoading .loading-spinner,
 body.perf-mode .audio-modal .loading-spinner {
     animation: spin-simple 1.2s linear infinite !important;
     animation-play-state: running !important;
-    transform: rotate(0deg) !important; /* Reset transform */
+    will-change: transform !important;
+    transform-origin: center center !important;
 }
 
 /* Progress bar pode ter animação suave */
@@ -135,16 +137,13 @@ body.perf-mode .audio-modal,
 body.perf-mode .audio-loading,
 body.perf-mode .modal,
 body.perf-mode .modal-content,
-body.perf-mode [class*="modal"],
-body.perf-mode [class*="overlay"] {
+body.perf-mode [class*="modal"]:not(.loading-spinner),
+body.perf-mode [class*="overlay"]:not(.loading-spinner) {
     transform: none !important;
     animation: none !important;
 }
 
-/* ✅ EXCEÇÃO: Apenas .loading-spinner pode ter transform rotate */
-body.perf-mode .loading-spinner {
-    transform: rotate(0deg) !important; /* Será animado por @keyframes */
-}
+/* ✅ SPINNER: animação controlada por regras específicas acima; bloco removido para evitar regras vazias */
 
 /* ========================================================================
    🎯 WILL-CHANGE: Remover otimizações que consomem memória
@@ -219,19 +218,21 @@ body.perf-mode ::-webkit-scrollbar-thumb {
    ======================================================================== */
 
 @media (max-width: 768px), (max-device-width: 768px) {
-    body.perf-mode * {
+    /* ⛔ MOBILE: Desativa TODAS animações EXCETO spinner */
+    body.perf-mode *:not(.loading-spinner) {
         animation: none !important;
         transition: none !important;
     }
     
-    /* ⚠️ MOBILE: Apenas o SPINNER gira (containers ficam estáticos) */
+    /* ✅ SPINNER: SEMPRE anima no mobile (força máxima) */
     body.perf-mode .loading-spinner,
     body.perf-mode #audioAnalysisModal .loading-spinner,
     body.perf-mode #audioAnalysisLoading .loading-spinner,
     body.perf-mode .audio-modal .loading-spinner {
         animation: spin-simple 1.2s linear infinite !important;
         animation-play-state: running !important;
-        transform: rotate(0deg) !important;
+        will-change: transform !important;
+        transform-origin: center center !important;
     }
     
     /* ⛔ GARANTIR: Containers pais NÃO herdam animação */
@@ -250,19 +251,21 @@ body.perf-mode ::-webkit-scrollbar-thumb {
    ======================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
-    body.perf-mode * {
+    /* ⛔ ACESSIBILIDADE: Desativa animações decorativas EXCETO spinner */
+    body.perf-mode *:not(.loading-spinner) {
         animation: none !important;
         transition: none !important;
     }
     
-    /* ⚠️ ACESSIBILIDADE: Apenas o SPINNER gira (não containers) */
+    /* ✅ SPINNER: Continua ativo (feedback essencial para UX) */
     body.perf-mode .loading-spinner,
     body.perf-mode #audioAnalysisModal .loading-spinner,
     body.perf-mode #audioAnalysisLoading .loading-spinner,
     body.perf-mode .audio-modal .loading-spinner {
         animation: spin-simple 1.2s linear infinite !important;
         animation-play-state: running !important;
-        transform: rotate(0deg) !important;
+        will-change: transform !important;
+        transform-origin: center center !important;
     }
     
     /* ⛔ GARANTIR: Containers pais NÃO herdam animação */
