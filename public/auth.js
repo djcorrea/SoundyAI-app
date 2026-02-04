@@ -1117,7 +1117,8 @@ log('🚀 Carregando auth.js...');
         log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
         log('   Telefone:', formattedPhone);
         
-        await linkWithCredential(userResult.user, phoneCredential);
+        // Usar auth.currentUser conforme padrão (mais robusto)
+        await linkWithCredential(auth.currentUser, phoneCredential);
         log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
         // ═══════════════════════════════════════════════════════════════════
@@ -1213,10 +1214,10 @@ log('🚀 Carregando auth.js...');
         // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
         // e manter campos legacy/PT para compatibilidade.
         try {
-          const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
           const userRef = doc(db, 'usuarios', userResult.user.uid);
 
-          await updateDoc(userRef, {
+          const updates = {
             phoneNumber: userResult.user.phoneNumber,
             verified: true,
             verifiedAt: serverTimestamp(),
@@ -1224,9 +1225,20 @@ log('🚀 Carregando auth.js...');
             verificadoPorSMS: true,
             smsVerificadoEm: serverTimestamp(),
             updatedAt: serverTimestamp()
-          });
+          };
 
-          log('✅ [CONFIRM] Firestore sincronizado: phoneNumber, verified, verifiedAt set');
+          try {
+            await updateDoc(userRef, updates);
+            log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
+          } catch (uErr) {
+            // Se documento não existir, criar com merge para não sobrescrever campos existentes
+            try {
+              await setDoc(userRef, updates, { merge: true });
+              log('✅ [CONFIRM] Firestore criado via setDoc merge com campos de verificação');
+            } catch (sErr) {
+              throw sErr;
+            }
+          }
         } catch (syncErr) {
           warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
         }
