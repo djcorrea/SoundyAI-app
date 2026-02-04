@@ -998,19 +998,22 @@
                 // 1. Instalar bloqueio nos botões IMEDIATAMENTE
                 ButtonBlocker.install();
                 
-                // 2. Aplicar blur nas sugestões após renderização completa
+                // 2. Aplicar blur nas sugestões SOMENTE após renderização completa
+                // ✅ Aguardar tempo suficiente para modal abrir + sugestões renderizarem
                 setTimeout(() => {
+                    debugLog('🌫️ Tentativa 1: Aplicando blur...');
                     SuggestionsBlocker.applyBlur();
-                }, 2000);
+                }, 4000); // ✅ 4 segundos
                 
-                // 3. Tentar novamente após mais tempo
+                // 3. Tentar novamente após mais tempo (fallback)
                 setTimeout(() => {
                     if (!SuggestionsBlocker.blocked) {
+                        debugLog('🌫️ Tentativa 2: Aplicando blur (fallback)...');
                         SuggestionsBlocker.applyBlur();
                     }
-                }, 4000);
+                }, 6000); // ✅ 6 segundos
                 
-                // 4. Iniciar timer
+                // 4. Iniciar timer do CTA (35s)
                 UpgradeCtaModal.startAutoOpenTimer();
                 
             } else {
@@ -1044,12 +1047,17 @@
                 window.displayModalResults = async function(analysis) {
                     debugLog('🎯 displayModalResults chamado');
                     
+                    // ✅ EXECUTAR ORIGINAL E AGUARDAR CONCLUSÃO
                     const result = await original.call(this, analysis);
                     
+                    // ✅ AGUARDAR RENDERIZAÇÃO COMPLETA (sugestões, métricas, etc.)
+                    // Usar delay MAIOR para garantir que tudo foi renderizado
                     setTimeout(() => {
+                        debugLog('⏱️ Timeout pós-renderização - chamando onAnalysisRendered');
                         AnalysisIntegration.onAnalysisRendered();
-                    }, 1500);
+                    }, 3000); // ✅ 3 segundos para garantir renderização completa
                     
+                    // ✅ RETORNAR resultado original (CRÍTICO!)
                     return result;
                 };
                 
