@@ -1209,6 +1209,29 @@ log('🚀 Carregando auth.js...');
         log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
+        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
+        // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
+        // e manter campos legacy/PT para compatibilidade.
+        try {
+          const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userRef = doc(db, 'usuarios', userResult.user.uid);
+
+          await updateDoc(userRef, {
+            phoneNumber: userResult.user.phoneNumber,
+            verified: true,
+            verifiedAt: serverTimestamp(),
+            telefone: userResult.user.phoneNumber,
+            verificadoPorSMS: true,
+            smsVerificadoEm: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+
+          log('✅ [CONFIRM] Firestore sincronizado: phoneNumber, verified, verifiedAt set');
+        } catch (syncErr) {
+          warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(userResult.user, freshToken);
@@ -2180,19 +2203,25 @@ log('🚀 Carregando auth.js...');
             const userSnap = await getDoc(userRef);
             const userData = userSnap.data();
             
-            // Se Firestore ainda marca como não verificado, sincronizar
-            if (!userData.verificadoPorSMS) {
+            // Se Firestore ainda marca como não verificado (PT) ou não tem campos canônicos (EN), sincronizar
+            if (!userData.verificadoPorSMS || !userData.verified) {
               log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
               log('   user.phoneNumber:', user.phoneNumber);
               log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
+              log('   Firestore verified (EN):', userData.verified);
               log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
               
               try {
                 await updateDoc(userRef, {
+                  // Campos canônicos (EN)
+                  phoneNumber: user.phoneNumber,
+                  verified: true,
+                  verifiedAt: serverTimestamp(),
+                  // Campos legacy/PT para compatibilidade
                   verificadoPorSMS: true,
                   telefone: user.phoneNumber,
                   smsVerificadoEm: serverTimestamp(),
-                  updatedAt: new Date().toISOString()
+                  updatedAt: serverTimestamp()
                 });
                 
                 log('✅ [SMS-SYNC] Firestore atualizado para verificado');
