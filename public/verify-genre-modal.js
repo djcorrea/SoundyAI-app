@@ -1,19 +1,7 @@
 // 🧪 TESTE DE VERIFICAÇÃO: Modal de Gênero Musical
 // Este arquivo verifica se a implementação está conforme especificado
-// ⚠️ SÓ RODA EM DEBUG MODE
 
 (function() {
-    // 🛑 GUARDRAIL: NÃO executar em produção
-    const isDebugMode = location.search.includes('debug=genre') || 
-                        location.search.includes('debug=true') ||
-                        location.hostname === 'localhost' ||
-                        location.hostname === '127.0.0.1';
-    
-    if (!isDebugMode) {
-        log('⏭️ [VERIFICAÇÃO] Testes desativados em produção (use ?debug=genre para ativar)');
-        return; // ✅ PARA AQUI - não executa em produção
-    }
-    
     log('🧪 [VERIFICAÇÃO] Iniciando testes do Modal de Gênero Musical...');
     
     // ✅ TESTE 1: Verificar se o HTML foi adicionado

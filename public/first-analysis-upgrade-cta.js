@@ -329,12 +329,9 @@
             
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             this.element = document.getElementById('firstAnalysisUpgradeCTA');
-            
-            console.log('%c[CTA-DEBUG] ✅ Modal inserido no DOM', 'color:#00FF00;font-weight:bold;');
-            // Adicionar estilos e finalizar criação do modal
             this._addStyles();
         },
-
+        
         _addStyles() {
             if (document.getElementById('firstAnalysisCtaStylesV4')) return;
             
@@ -343,23 +340,23 @@
             style.textContent = `
                 /* MODAL CTA OVERLAY */
                 .first-analysis-cta-overlay {
-                    position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;
-                    background: rgba(0, 0, 0, 0.85) !important; backdrop-filter: blur(10px) !important;
-                    display: flex !important; align-items: center !important; justify-content: center !important; padding: 20px !important;
-                    opacity: 0 !important; visibility: hidden !important; transition: opacity 0.3s ease, visibility 0.3s ease !important;
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999999;
+                    background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px);
+                    display: flex; align-items: center; justify-content: center; padding: 20px;
+                    opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
                 }
-                .first-analysis-cta-overlay.visible { opacity: 1 !important; visibility: visible !important; }
+                .first-analysis-cta-overlay.visible { opacity: 1; visibility: visible; }
                 
                 .first-analysis-cta-card {
-                    position: relative !important; max-width: 520px !important; width: 100% !important;
-                    background: linear-gradient(145deg, #1a1f2e 0%, #0d1117 100%) !important;
-                    border: 1px solid rgba(255, 107, 53, 0.3) !important; border-radius: 20px !important;
-                    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 107, 53, 0.1) !important;
-                    padding: 40px 35px !important; text-align: center !important;
-                    transform: scale(0.9) translateY(20px) !important;
-                    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+                    position: relative; max-width: 520px; width: 100%;
+                    background: linear-gradient(145deg, #1a1f2e 0%, #0d1117 100%);
+                    border: 1px solid rgba(255, 107, 53, 0.3); border-radius: 20px;
+                    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(255, 107, 53, 0.1);
+                    padding: 40px 35px; text-align: center;
+                    transform: scale(0.9) translateY(20px);
+                    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
                 }
-                .first-analysis-cta-overlay.visible .first-analysis-cta-card { transform: scale(1) translateY(0) !important; }
+                .first-analysis-cta-overlay.visible .first-analysis-cta-card { transform: scale(1) translateY(0); }
                 
                 .first-analysis-cta-close {
                     position: absolute; top: 15px; right: 18px; width: 32px; height: 32px;
@@ -530,12 +527,9 @@
         show(source = 'auto') {
             if (!this.element) this.init();
             
+            // ✅ LOG CLARO
             logAction(`CTA exibido`, source);
             
-            // FORÇA DISPLAY E VISIBILIDADE DIRETAMENTE
-            this.element.style.display = 'flex';
-            this.element.style.opacity = '1';
-            this.element.style.visibility = 'visible';
             this.element.classList.add('visible');
             this.isVisible = true;
             
@@ -979,126 +973,45 @@
     };
     
     // ========================================
-    // ⏱️ ESPERAR MODAL E SUGESTÕES (MUTATION OBSERVER - INSTANTÂNEO)
+    // 🔗 INTEGRAÇÃO COM ANÁLISE
     // ========================================
     
-    function waitForModalAndSuggestions() {
-        return new Promise((resolve, reject) => {
-            debugLog('⏱️ Instalando MutationObserver para detectar sugestões...');
+    const AnalysisIntegration = {
+        async onAnalysisRendered() {
+            debugLog('🔔 ═══════════════════════════════════════════');
+            debugLog('🔔 Análise renderizada - verificando contexto');
             
-            let resolved = false;
-            let observer = null;
-            let fallbackTimer = null;
+            const shouldApply = await ContextDetector.isFirstFreeFullAnalysisAsync();
             
-            // Função para resolver apenas uma vez
-            const resolveOnce = (source) => {
-                if (resolved) return;
-                resolved = true;
+            if (shouldApply) {
+                debugLog('✅ PRIMEIRA ANÁLISE FREE FULL DETECTADA');
                 
-                debugLog(`✅ Sugestões detectadas via ${source}`);
+                // 0. ATIVAR LOCK GLOBAL
+                window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
                 
-                // Limpar observer e timer
-                if (observer) {
-                    observer.disconnect();
-                    observer = null;
-                }
-                if (fallbackTimer) {
-                    clearTimeout(fallbackTimer);
-                    fallbackTimer = null;
-                }
+                // 1. Instalar bloqueio nos botões IMEDIATAMENTE
+                ButtonBlocker.install();
                 
-                resolve();
-            };
-            
-            // Verificar se modal já está aberto e sugestões já renderizadas
-            const modal = document.getElementById('audioAnalysisModal');
-            if (modal && modal.classList.contains('show')) {
-                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
-                if (suggestions.length > 0) {
-                    debugLog(`✅ Sugestões já presentes no DOM (${suggestions.length} encontradas)`);
-                    resolveOnce('verificação inicial');
-                    return;
-                }
+                // 2. Aplicar blur nas sugestões após renderização completa
+                setTimeout(() => {
+                    SuggestionsBlocker.applyBlur();
+                }, 2000);
+                
+                // 3. Tentar novamente após mais tempo
+                setTimeout(() => {
+                    if (!SuggestionsBlocker.blocked) {
+                        SuggestionsBlocker.applyBlur();
+                    }
+                }, 4000);
+                
+                // 4. Iniciar timer
+                UpgradeCtaModal.startAutoOpenTimer();
+                
+            } else {
+                debugLog('❌ Não é primeira análise FREE FULL');
             }
-            
-            // Função para verificar se sugestões foram inseridas
-            const checkForSuggestions = (targetNode) => {
-                if (resolved) return;
-                
-                // Verificar se é o próprio modal ou está dentro dele
-                const modal = targetNode.id === 'audioAnalysisModal' ? targetNode : targetNode.closest('#audioAnalysisModal');
-                if (!modal) return;
-                
-                // Buscar sugestões
-                const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
-                if (suggestions.length > 0) {
-                    resolveOnce(`MutationObserver (${suggestions.length} sugestões)`);
-                }
-            };
-            
-            // MutationObserver no body para capturar quando modal e sugestões forem adicionados
-            observer = new MutationObserver((mutations) => {
-                if (resolved) return;
-                
-                for (const mutation of mutations) {
-                    // Verificar nós adicionados
-                    for (const node of mutation.addedNodes) {
-                        if (node.nodeType === Node.ELEMENT_NODE) {
-                            checkForSuggestions(node);
-                            
-                            // Se já resolveu, parar
-                            if (resolved) return;
-                        }
-                    }
-                    
-                    // Verificar atributos (ex: classe 'show' no modal)
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                        const target = mutation.target;
-                        if (target.id === 'audioAnalysisModal' && target.classList.contains('show')) {
-                            // Modal foi aberto, verificar sugestões após um microtask
-                            setTimeout(() => checkForSuggestions(target), 0);
-                        }
-                    }
-                }
-            });
-            
-            // Observar body para capturar adições de elementos
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['class']
-            });
-            
-            // Fallback: timeout curto de 500ms
-            fallbackTimer = setTimeout(() => {
-                if (resolved) return;
-                
-                debugLog('⚠️ Fallback ativado (500ms) - verificando sugestões...');
-                
-                const modal = document.getElementById('audioAnalysisModal');
-                if (modal) {
-                    const suggestions = modal.querySelectorAll('.enhanced-card, .diag-item, .suggestion-item, [class*="suggestion"]');
-                    if (suggestions.length > 0) {
-                        resolveOnce(`fallback 500ms (${suggestions.length} sugestões)`);
-                    } else {
-                        // Mesmo sem sugestões, resolver para não travar
-                        debugLog('⚠️ Fallback: modal encontrado mas sem sugestões - resolvendo mesmo assim');
-                        resolveOnce('fallback 500ms (sem sugestões)');
-                    }
-                } else {
-                    debugLog('⚠️ Fallback: modal não encontrado - tentando novamente em 1s');
-                    // Último recurso: aguardar mais 1s
-                    setTimeout(() => {
-                        if (!resolved) {
-                            debugLog('⚠️ Último fallback (1.5s total) - resolvendo');
-                            resolveOnce('fallback final 1.5s');
-                        }
-                    }, 1000);
-                }
-            }, 500);
-        });
-    }
+        }
+    };
     
     // ========================================
     // 🎬 INICIALIZAÇÃO
@@ -1106,84 +1019,42 @@
     
     function initialize() {
         debugLog('🚀 ═══════════════════════════════════════════');
-        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (INSTANT TIMING)...');
+        debugLog('🚀 Inicializando FIRST ANALYSIS CTA V5 (BLOQUEIO INCONTORNÁVEL)...');
         
         // 1. Inicializar modal
         UpgradeCtaModal.init();
         
-        // 2. Flag para garantir execução única por sessão
-        let ctaTriggered = false;
+        // 2. Hook em displayModalResults
+        const hookDisplayModalResults = () => {
+            if (typeof window.displayModalResults === 'function') {
+                const original = window.displayModalResults;
+                
+                window.displayModalResults = async function(analysis) {
+                    debugLog('🎯 displayModalResults chamado');
+                    
+                    const result = await original.call(this, analysis);
+                    
+                    setTimeout(() => {
+                        AnalysisIntegration.onAnalysisRendered();
+                    }, 1500);
+                    
+                    return result;
+                };
+                
+                debugLog('✅ Hook instalado em displayModalResults');
+                return true;
+            }
+            return false;
+        };
         
-        // 3. ✅ ARQUITETURA LAZY-LOAD: Escutar evento sem fazer hook
-        // Não dependemos mais de interceptar displayModalResults
-        // Apenas reagimos ao evento quando modal está sendo renderizado
-        window.addEventListener('soundy:displayModalResultsReady', async () => {
-            debugLog('📢 Evento soundy:displayModalResultsReady recebido');
-            
-            // ✅ Garantir execução única
-            if (ctaTriggered) {
-                debugLog('⚠️ CTA já foi disparado nesta sessão - ignorando evento');
-                return;
-            }
-            
-            // Verificar se é primeira análise FREE
-            const isFirstAnalysis = await ContextDetector.isFirstFreeFullAnalysisAsync();
-            
-            if (!isFirstAnalysis) {
-                debugLog('❌ Não é primeira análise FREE - ignorando');
-                return;
-            }
-            
-            debugLog('✅ PRIMEIRA ANÁLISE FREE DETECTADA - aguardando modal renderizar');
-            
-            // Marcar como disparado ANTES de executar (prevenir race condition)
-            ctaTriggered = true;
-            
-            // Ativar lock global
-            window.FIRST_ANALYSIS_LOCK.activate('Primeira análise FREE FULL detectada');
-            
-            // ✅ TIMING: Marcar início da detecção
-            const startTime = performance.now();
-            
-            // ✅ ESPERAR MODAL ESTAR COMPLETAMENTE RENDERIZADO
-            // Usar MutationObserver instantâneo para detectar quando sugestões aparecem
-            try {
-                await waitForModalAndSuggestions();
-                
-                const detectionTime = performance.now() - startTime;
-                debugLog(`⚡ Sugestões detectadas em ${detectionTime.toFixed(2)}ms`);
-                
-                // Aplicar bloqueios INSTANTANEAMENTE (mesmo frame)
-                const actionStart = performance.now();
-                
-                // Instalar bloqueio nos botões
-                ButtonBlocker.install();
-                
-                // Aplicar blur nas sugestões
-                SuggestionsBlocker.applyBlur();
-                
-                // Iniciar timer do CTA (35s)
-                UpgradeCtaModal.startAutoOpenTimer();
-                
-                const actionTime = performance.now() - actionStart;
-                const totalTime = performance.now() - startTime;
-                
-                debugLog(`⚡ Bloqueios aplicados em ${actionTime.toFixed(2)}ms`);
-                debugLog(`⚡ Tempo total (detecção + ação): ${totalTime.toFixed(2)}ms`);
-                
-            } catch (err) {
-                debugLog('⚠️ Erro ao aguardar modal:', err);
-                // Fallback: aplicar após 1 segundo (reduzido de 5s)
-                setTimeout(() => {
-                    debugLog('🔄 Fallback: aplicando bloqueios após timeout');
-                    ButtonBlocker.install();
-                    SuggestionsBlocker.applyBlur();
-                    UpgradeCtaModal.startAutoOpenTimer();
-                }, 1000);
-            }
-        });
-        
-        debugLog('👂 Aguardando evento soundy:displayModalResultsReady...');
+        if (!hookDisplayModalResults()) {
+            debugLog('⚠️ displayModalResults não encontrada, tentando novamente...');
+            setTimeout(() => {
+                if (!hookDisplayModalResults()) {
+                    setTimeout(hookDisplayModalResults, 2000);
+                }
+            }, 1000);
+        }
         
         // 3. Expor API de debug + UNLOCK para upgrade
         window.__FIRST_ANALYSIS_CTA__ = {
@@ -1227,35 +1098,6 @@
             VERSION: '5.0'
         };
         
-        // ✅ Escutar mudanças de plano para desbloquear automaticamente
-        function _onPlanChanged(e) {
-            const plan = e?.detail;
-            if (!plan) return;
-            const PAID = ['pro', 'studio', 'dj'];
-            if (PAID.includes(String(plan).toLowerCase())) {
-                debugLog('[FIRST-CTA] Evento plan:changed detectado → plano pago:', plan);
-                // Tentar usar API pública para desbloquear
-                try {
-                    if (window.__FIRST_ANALYSIS_CTA__ && typeof window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade === 'function') {
-                        window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade();
-                        debugLog('[FIRST-CTA] unlockAfterUpgrade() executada');
-                    } else {
-                        // Fallback: aplicar diretamente (respeita proteção do lock)
-                        const unlocked = window.FIRST_ANALYSIS_LOCK.deactivate('UPGRADE_TO_PAID_PLAN');
-                        if (unlocked) {
-                            SuggestionsBlocker.removeBlur('UPGRADE_TO_PAID_PLAN');
-                            ButtonBlocker.restore('UPGRADE_TO_PAID_PLAN');
-                            debugLog('[FIRST-CTA] Desbloqueio direto aplicado');
-                        }
-                    }
-                } catch (err) {
-                    debugLog('[FIRST-CTA] Erro ao tentar desbloquear após plan:changed', err);
-                }
-            }
-        }
-
-        window.addEventListener('plan:changed', _onPlanChanged);
-
         debugLog('✅ Sistema V5 inicializado (BLOQUEIO INCONTORNÁVEL)');
         debugLog('💡 API: window.__FIRST_ANALYSIS_CTA__');
         debugLog('🔓 Para desbloquear após upgrade: window.__FIRST_ANALYSIS_CTA__.unlockAfterUpgrade()');

@@ -15,50 +15,6 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// ✅ PLANOS COM ACESSO À ENTREVISTA (PRO, STUDIO, DJ)
-const ALLOWED_PLANS = ['pro', 'studio', 'dj'];
-
-// 🔐 VERIFICAÇÃO DE ACESSO: Bloquear FREE e PLUS
-async function checkInterviewAccess() {
-  log('🔐 [INTERVIEW] Verificando acesso à entrevista...');
-  
-  const user = auth.currentUser;
-  if (!user) {
-    log('❌ [INTERVIEW] Usuário não autenticado - redirecionando para login');
-    window.location.href = 'login.html';
-    return false;
-  }
-  
-  try {
-    const userDoc = await db.collection('usuarios').doc(user.uid).get();
-    if (!userDoc.exists) {
-      warn('⚠️ [INTERVIEW] Documento do usuário não existe - redirecionando para index');
-      window.location.href = 'index.html';
-      return false;
-    }
-    
-    const userData = userDoc.data();
-    const userPlan = userData.plan || 'free';
-    
-    log(`🔍 [INTERVIEW] Plano do usuário: ${userPlan}`);
-    
-    if (!ALLOWED_PLANS.includes(userPlan)) {
-      warn(`❌ [INTERVIEW] Acesso negado - plano ${userPlan} não tem acesso à entrevista`);
-      log('   Redirecionando para index.html...');
-      alert('❌ A personalização de entrevista é exclusiva dos planos PRO, STUDIO e DJ Beta. Faça upgrade para personalizar sua experiência!');
-      window.location.href = 'index.html';
-      return false;
-    }
-    
-    log(`✅ [INTERVIEW] Acesso permitido - plano ${userPlan}`);
-    return true;
-  } catch (error) {
-    error('❌ [INTERVIEW] Erro ao verificar acesso:', error);
-    window.location.href = 'index.html';
-    return false;
-  }
-}
-
 const questions = [
   { key: 'nomeArtistico',  text: 'Qual seu nome artístico?', type: 'text' },
   { key: 'nivelTecnico',   text: 'Qual seu nível técnico?', type: 'select', options: ['Iniciante','Intermediário','Avançado','Profissional'] },
@@ -88,15 +44,7 @@ function showQuestion() {
   inputArea.innerHTML = inputHtml;
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // 🔐 VERIFICAR ACESSO ANTES DE MOSTRAR FORMULÁRIO
-  const hasAccess = await checkInterviewAccess();
-  if (!hasAccess) {
-    log('❌ [INTERVIEW] Acesso negado - página será redirecionada');
-    return; // checkInterviewAccess já faz o redirect
-  }
-  
-  log('✅ [INTERVIEW] Acesso confirmado - inicializando formulário');
+document.addEventListener('DOMContentLoaded', () => {
   showQuestion();
   const btn = document.getElementById('nextBtn');
   btn.addEventListener('click', async () => {
@@ -114,22 +62,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const user = auth.currentUser;
         if (!user) throw new Error('Usuário não autenticado');
-        
-        // ✅ SALVAR PERFIL E MARCAR ENTREVISTA CONCLUÍDA
         await db.collection('usuarios').doc(user.uid).set({
           perfil: answers,
-          entrevistaConcluida: true,
-          needsInterviewInvite: false, // ✅ NOVO: Marcar que modal já foi usado
-          interviewCompletedAt: firebase.firestore.Timestamp.now() // ✅ NOVO: Timestamp de conclusão
+          entrevistaConcluida: true
         }, { merge: true });
         
-        log('🎉 [INTERVIEW] Entrevista concluída com sucesso!');
-        log('📋 [INTERVIEW] Perfil salvo:', answers);
-        alert('✅ Seu perfil foi salvo com sucesso! Suas respostas e sugestões da IA serão personalizadas.');
+        // 🔓 ATUALIZAÇÃO 2026-01-02: Sempre redirecionar para index.html
+        // entrevista-final.html foi removida do fluxo
+        log('🎉 Entrevista concluída - redirecionando para index.html');
         window.location.href = 'index.html';
       } catch (e) {
-        error('❌ [INTERVIEW] Erro ao salvar perfil:', e);
-        alert('Erro ao salvar seu perfil. Tente novamente.');
+        error(e);
         btn.disabled = false;
       }
     }

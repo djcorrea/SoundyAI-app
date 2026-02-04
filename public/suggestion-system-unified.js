@@ -543,10 +543,4 @@ if (typeof window !== 'undefined') {
     window.SuggestionSystemUnified = SuggestionSystemUnified;
     window.suggestionSystem = new SuggestionSystemUnified();
     log('✅ Sistema Unificado disponível globalmente');
-    
-    // ⚡ DISPARAR EVENTO DE PRONTIDÃO (event-driven)
-    setTimeout(() => {
-        window.dispatchEvent(new Event('soundy:suggestionSystemReady'));
-        log('📢 [SUGGESTION] Evento soundy:suggestionSystemReady disparado');
-    }, 0);
 }

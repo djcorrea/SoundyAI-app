@@ -1,55 +1,19 @@
 /* ============ VOICE MESSAGE LIMPO - PROD.AI ============ */
 /* 🎤 Versão completamente nova e limpa */
-/* 🌿 INDEX-LEAN: NUNCA auto-inicia, só ao clicar no microfone */
 
 log('🎤 VOICE CLEAN VERSION loaded');
 
-// 🌿 INDEX-LEAN: BLOQUEADO no load por padrão
-const leanMode = window.__INDEX_LEAN_MODE || window.__LEAN_DISABLE_VOICE_AUTOSTART;
-
-if (leanMode) {
-    log('🌿 [INDEX-LEAN] Voice auto-start BLOQUEADO (lazy loading)');
+// Aguardar DOM completamente carregado
+window.addEventListener('load', () => {
+    log('🚀 Window loaded - starting voice integration');
+    setTimeout(setupVoice, 1500); // Aguarda 1.5s para garantir
     
-    // Expor função de inicialização para lazy loading
-    window.initVoiceIntegration = async function() {
-        log('🔄 [INDEX-LEAN] Inicializando voice integration sob demanda...');
-        
-        // Remove flag para permitir execução
-        window.__LEAN_DISABLE_VOICE_AUTOSTART = false;
-        
-        // Inicializar voice
-        setupVoice();
-        setupDOMObserver();
-        
-        log('✅ [INDEX-LEAN] Voice integration inicializada');
-    };
-    
-    // NÃO configurar auto-start, NÃO continuar com código abaixo
-    log('🌿 [INDEX-LEAN] Use window.lazyLoadVoice() ou clique no microfone para carregar');
-    
-} else {
-    // Comportamento legado (se lean mode desabilitado)
-    log('⚠️ [VOICE] Lean mode desabilitado - auto-start ativo');
-    
-    window.addEventListener('load', () => {
-        log('🚀 Window loaded - starting voice integration');
-        setTimeout(setupVoice, 1500);
-        setupDOMObserver();
-    });
-}
+    // ADICIONAR OBSERVADOR DE MUDANÇAS NO DOM
+    setupDOMObserver();
+});
 
 // FUNÇÃO PARA OBSERVAR MUDANÇAS NO DOM E RECONFIGURAR MICROFONES
 function setupDOMObserver() {
-    // 🔒 GUARDRAIL: Só criar observer UMA VEZ
-    if (window.__VOICE_DOM_OBSERVER_ACTIVE) {
-        log('⚠️ DOM Observer já ativo, abortando (anti-reinit)');
-        return;
-    }
-    
-    // 🕒 THROTTLE: Não reconfigurar mais que 1x a cada 3s
-    let lastReconfigTime = 0;
-    const THROTTLE_DELAY = 3000; // 3 segundos
-    
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             // Verificar se foram adicionados novos nós
@@ -60,13 +24,6 @@ function setupDOMObserver() {
                         const newMics = node.querySelectorAll ? node.querySelectorAll('.chatbot-mic-icon') : [];
                         
                         if (newMics.length > 0) {
-                            const now = Date.now();
-                            if (now - lastReconfigTime < THROTTLE_DELAY) {
-                                log(`⏸️ THROTTLE: Ignorando reconfiguração (${newMics.length} mics), última foi há ${now - lastReconfigTime}ms`);
-                                return;
-                            }
-                            
-                            lastReconfigTime = now;
                             log('🔄 NOVOS microfones detectados no DOM:', newMics.length);
                             setTimeout(() => {
                                 setupVoice(); // Reconfigurar sistema
@@ -75,13 +32,6 @@ function setupDOMObserver() {
                         
                         // Também verificar se o próprio nó é um microfone
                         if (node.classList && node.classList.contains('chatbot-mic-icon')) {
-                            const now = Date.now();
-                            if (now - lastReconfigTime < THROTTLE_DELAY) {
-                                log(`⏸️ THROTTLE: Ignorando microfone individual, última reconfig há ${now - lastReconfigTime}ms`);
-                                return;
-                            }
-                            
-                            lastReconfigTime = now;
                             log('🔄 Novo microfone individual detectado');
                             setTimeout(() => {
                                 setupVoice(); // Reconfigurar sistema
@@ -99,50 +49,18 @@ function setupDOMObserver() {
         subtree: true
     });
     
-    // 🔒 Marcar como ativo e guardar referência para cleanup
-    window.__VOICE_DOM_OBSERVER_ACTIVE = true;
-    window.__VOICE_DOM_OBSERVER_INSTANCE = observer;
-    
-    log('👀 DOM Observer ativado - reconfigurará microfones com throttle de 3s');
+    log('👀 DOM Observer ativado - vai reconfigurar microfones automaticamente');
 }
 
 function setupVoice() {
     log('🔍 Procurando elementos...');
     
-    // 🔒 GUARDRAIL: Não permitir múltiplas execuções simultâneas
-    if (window.__VOICE_SETUP_RUNNING) {
-        log('⚠️ setupVoice já em execução, abortando (single-flight)');
-        return;
-    }
-    
-    window.__VOICE_SETUP_RUNNING = true;
-    
-    // 🕒 MAX_RETRIES: Não tentar mais de 5 vezes
-    if (!window.__VOICE_SETUP_ATTEMPTS) {
-        window.__VOICE_SETUP_ATTEMPTS = 0;
-    }
-    
-    window.__VOICE_SETUP_ATTEMPTS++;
-    const MAX_RETRIES = 5;
-    
-    if (window.__VOICE_SETUP_ATTEMPTS > MAX_RETRIES) {
-        error(`❌ setupVoice abortado após ${MAX_RETRIES} tentativas - microfones não encontrados`);
-        window.__VOICE_SETUP_RUNNING = false;
-        return;
-    }
-    
-    log(`🔍 Tentativa ${window.__VOICE_SETUP_ATTEMPTS}/${MAX_RETRIES}...`);
-    
     // Encontrar TODOS os microfones (inicial e ativo)
     const allMicIcons = document.querySelectorAll('.chatbot-mic-icon');
     
     if (allMicIcons.length === 0) {
-        log('❌ Nenhum microfone encontrado, tentando novamente em 2s...');
-        window.__VOICE_SETUP_RUNNING = false;
-        
-        if (window.__VOICE_SETUP_ATTEMPTS < MAX_RETRIES) {
-            setTimeout(setupVoice, 2000);
-        }
+        log('❌ Nenhum microfone encontrado, tentando novamente...');
+        setTimeout(setupVoice, 2000);
         return;
     }
     
@@ -199,10 +117,6 @@ function setupVoice() {
         
         log('✅ Novo microfone configurado:', micIcon);
     });
-    
-    // 🧹 CLEANUP: Marcar como concluído
-    window.__VOICE_SETUP_RUNNING = false;
-    log(`✅ setupVoice concluído - ${allMicIcons.length} microfone(s) configurado(s)`);
     
     function handleMicClick(clickedMicIcon) {
         log('🎤 Microfone clicado!');

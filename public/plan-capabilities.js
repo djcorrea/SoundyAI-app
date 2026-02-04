@@ -72,18 +72,8 @@
      * 2. Cache local (_cachedUserPlan - atualizado via Firestore)
      * 3. window.userPlan (se definido por outro módulo)
      * 4. Fallback: 'free' (APENAS se nenhuma fonte disponível)
-     * 
-     * ✅ CORREÇÃO 2026-02-04: Bloqueia detecção até Firebase estar pronto
      */
     function detectUserPlan() {
-        // ✅ NOVO: Verificar se Firebase está pronto PRIMEIRO
-        // Evita fallback prematuro para 'free' antes do auth sincronizar
-        if (!window.firebaseReady) {
-            log('[CAPABILITIES] ⏳ Firebase não pronto, aguardando sincronização...');
-            // Retornar null força código chamador a aguardar waitForUserPlan()
-            return null;
-        }
-        
         // ✅ Lista de planos válidos (ATUALIZADO 2026-01-06: inclui 'studio')
         const VALID_PLANS = ['free', 'plus', 'pro', 'studio', 'dj'];
         
@@ -107,8 +97,7 @@
         }
         
         // 4. Fallback - mas avisa que não encontrou plano autenticado
-        // Só chega aqui se Firebase estiver pronto e usuário realmente não tiver plano
-        warn(`[CAPABILITIES] ⚠️ Plano não detectado (Firebase pronto), usando fallback 'free'. Cache: ${_cachedUserPlan}, window.userPlan: ${window.userPlan}`);
+        warn(`[CAPABILITIES] ⚠️ Plano não detectado, usando fallback 'free'. Cache: ${_cachedUserPlan}, window.userPlan: ${window.userPlan}`);
         return 'free';
     }
     
@@ -147,18 +136,8 @@
                 
                 // Atualizar cache
                 _cachedUserPlan = normalizedPlan;
-                // Registrar timestamp do cache
-                window.__planCacheTimestamp = Date.now();
                 window.userPlan = normalizedPlan; // Sincronizar com window.userPlan
-
-                // Disparar evento para notificar listeners sobre mudança de plano
-                try {
-                    window.dispatchEvent(new CustomEvent('plan:changed', { detail: normalizedPlan }));
-                    log('[CAPABILITIES] Evento plan:changed disparado:', normalizedPlan);
-                } catch (e) {
-                    warn('[CAPABILITIES] Não foi possível disparar plan:changed:', e);
-                }
-
+                
                 return normalizedPlan;
             } else {
                 warn('[CAPABILITIES] ⚠️ Documento do usuário não encontrado');
@@ -208,22 +187,14 @@
     
     /**
      * 🔐 INICIALIZAÇÃO AUTOMÁTICA: Busca plano quando Firebase está pronto
-     * ✅ CORREÇÃO 2026-02-04: Melhorado para aguardar Firebase estar realmente pronto
      */
     function initializePlanDetection() {
         // Tentar buscar plano imediatamente se Firebase já estiver pronto
         if (window.auth && window.db && window.firebaseReady) {
-            log('[CAPABILITIES] Firebase já pronto, buscando plano...');
             fetchUserPlan().catch(err => warn('[CAPABILITIES] Init fetch falhou:', err));
         }
         
-        // ✅ NOVO: Escutar evento firebase:user-ready (mais confiável que onAuthStateChanged)
-        window.addEventListener('firebase:user-ready', (event) => {
-            log('[CAPABILITIES] 🔥 Firebase user ready - buscando plano...');
-            fetchUserPlan().catch(err => warn('[CAPABILITIES] User ready fetch falhou:', err));
-        });
-        
-        // Também escutar mudanças de autenticação (backup)
+        // Também escutar mudanças de autenticação
         if (window.auth && typeof window.auth.onAuthStateChanged === 'function') {
             window.auth.onAuthStateChanged((user) => {
                 if (user) {
@@ -236,13 +207,13 @@
             });
         }
         
-        // Fallback reduzido: tentar novamente após 1s (antes eram 2s)
+        // Fallback: tentar novamente após 2 segundos caso Firebase demore
         setTimeout(() => {
-            if (!_cachedUserPlan && window.auth?.currentUser && window.firebaseReady) {
-                log('[CAPABILITIES] 🔄 Retry fetch do plano (1s fallback)...');
+            if (!_cachedUserPlan && window.auth?.currentUser) {
+                log('[CAPABILITIES] 🔄 Retry fetch do plano...');
                 fetchUserPlan().catch(err => warn('[CAPABILITIES] Retry falhou:', err));
             }
-        }, 1000);
+        }, 2000);
     }
     
     // 🚀 Iniciar detecção de plano quando o script carregar
@@ -255,8 +226,7 @@
     
     /**
      * Obtém contexto atual do usuário e análise
-     * ✅ CORREÇÃO 2026-02-04: Retorna null se Firebase não estiver pronto
-     * @returns {Object|null} { plan, isReduced, analysisMode } ou null se Firebase não pronto
+     * @returns {Object} { plan, isReduced, analysisMode }
      */
     function getCurrentContext() {
         // Buscar análise atual
@@ -264,12 +234,6 @@
         
         // 🔐 CORREÇÃO CRÍTICA: Usar detectUserPlan() que busca de múltiplas fontes
         const plan = detectUserPlan();
-        
-        // ✅ NOVO: Se detectUserPlan retornou null (Firebase não pronto), retornar null
-        if (plan === null) {
-            log('[CAPABILITIES] ⏳ getCurrentContext: Firebase não pronto, retornando null');
-            return null;
-        }
         
         // Determinar se está em modo reduced
         const isReduced = analysis?.isReduced === true || 
@@ -293,19 +257,11 @@
     
     /**
      * Verifica se o usuário pode usar uma feature específica
-     * ✅ CORREÇÃO 2026-02-04: Trata caso Firebase não estar pronto
      * @param {string} featureName - Nome da feature: 'aiHelp', 'pdf', 'fullSuggestions'
      * @returns {boolean} true se pode usar, false se bloqueado
      */
     function canUseFeature(featureName) {
         const context = getCurrentContext();
-        
-        // ✅ NOVO: Se Firebase não estiver pronto (context null), bloquear temporariamente
-        if (!context || context.plan === null) {
-            log(`[CAPABILITIES] ⏳ Firebase não pronto, bloqueando "${featureName}" temporariamente`);
-            return false;  // Bloquear até Firebase estar pronto
-        }
-        
         const capabilities = CAPABILITIES_MATRIX[context.plan] || CAPABILITIES_MATRIX.free;
         
         // Log para debug

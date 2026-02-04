@@ -28,26 +28,4 @@ if (getApps().length === 0) {
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// ✅ CORREÇÃO 2026-02-04: Flag firebaseReady confiável
-// Só é setada após auth estar realmente sincronizado
-window.firebaseReady = false;
-window.__firebaseInitStart = Date.now();
-
-auth.onAuthStateChanged(() => {
-    if (!window.firebaseReady) {
-        window.firebaseReady = true;
-        const elapsed = Date.now() - window.__firebaseInitStart;
-        log(`✅ [FIREBASE] Firebase pronto e sincronizado (${elapsed}ms)`);
-        window.dispatchEvent(new CustomEvent('firebase:ready'));
-        
-        // Disparar evento para plan-capabilities recarregar plano
-        if (auth.currentUser) {
-            log('[FIREBASE] Usuário detectado, disparando evento plan:reload');
-            setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('firebase:user-ready', { detail: auth.currentUser }));
-            }, 100);
-        }
-    }
-});
-
 log('🔥 Firebase config carregado');

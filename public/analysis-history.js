@@ -692,27 +692,17 @@
             });
         }
         
-        // ⚡ EVENT-DRIVEN: Observar mudanças via evento de plano (sem polling)
-        // Quando o plano mudar, disparar evento customizado
-        if (window.PlanCapabilities) {
-            // Registrar callback para atualização de plano
-            const originalUpdate = window.PlanCapabilities.update;
-            if (originalUpdate) {
-                window.PlanCapabilities.update = function(...args) {
-                    const result = originalUpdate.apply(this, args);
-                    updateHistoryMenuVisibility();
-                    return result;
-                };
+        // Também observar mudanças no window.userPlan
+        let lastPlan = detectUserPlan();
+        setInterval(() => {
+            const currentPlan = detectUserPlan();
+            if (currentPlan !== lastPlan) {
+                lastPlan = currentPlan;
+                updateHistoryMenuVisibility();
             }
-        }
+        }, 2000);
         
-        // Listener para evento customizado de mudança de plano
-        window.addEventListener('soundy:planChanged', () => {
-            log('🔄 [HISTORY-FE] Plano alterado, atualizando visibilidade');
-            updateHistoryMenuVisibility();
-        });
-        
-        log('🔐 [HISTORY-FE] ✅ Módulo de histórico inicializado (event-driven, sem polling)');
+        log('🕐 [HISTORY-FE] ✅ Módulo de histórico inicializado');
     }
     
     // ═══════════════════════════════════════════════════════════════════

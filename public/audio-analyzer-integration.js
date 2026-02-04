@@ -118,35 +118,25 @@ async function saveAnalysisToHistory(analysisResult) {
             return;
         }
         
-        // 2. ✅ CORREÇÃO 2026-02-04: Aguardar plano estar pronto (não usar fallback síncrono)
+        // 2. Detectar plano do usuário de MÚLTIPLAS FONTES
         let userPlan = 'free';
+        const planSources = {
+            planCapabilities: window.PlanCapabilities?.detectUserPlan?.(),
+            windowUserPlan: window.userPlan,
+            analysisResultPlan: analysisResult?.plan,
+            currentModalPlan: window.currentModalAnalysis?.plan,
+            cachedPlan: window.__soundyUserPlan
+        };
         
-        // Tentar obter plano de análise atual primeiro (mais recente)
-        if (analysisResult?.plan) {
-            userPlan = analysisResult.plan;
-            log('🕐 [HISTORY-SAVE] Plano vindo da análise:', userPlan);
-        } else if (window.PlanCapabilities?.waitForUserPlan) {
-            // Aguardar plano do Firestore (assíncrono)
-            log('🕐 [HISTORY-SAVE] ⏳ Aguardando plano do Firestore...');
-            userPlan = await window.PlanCapabilities.waitForUserPlan();
-            log('🕐 [HISTORY-SAVE] ✅ Plano carregado:', userPlan);
-        } else {
-            // Fallback para fontes síncronas (apenas se waitForUserPlan não disponível)
-            const planSources = {
-                planCapabilities: window.PlanCapabilities?.detectUserPlan?.(),
-                windowUserPlan: window.userPlan,
-                currentModalPlan: window.currentModalAnalysis?.plan,
-                cachedPlan: window.__soundyUserPlan
-            };
-            
-            log('🕐 [HISTORY-SAVE] 🔍 Fontes de plano (fallback):', planSources);
-            
-            userPlan = planSources.planCapabilities || 
-                       planSources.windowUserPlan || 
-                       planSources.currentModalPlan ||
-                       planSources.cachedPlan ||
-                       'free';
-        }
+        log('🕐 [HISTORY-SAVE] 🔍 Fontes de plano:', planSources);
+        
+        // Prioridade: PlanCapabilities > window.userPlan > analysisResult.plan > currentModal > cache
+        userPlan = planSources.planCapabilities || 
+                   planSources.windowUserPlan || 
+                   planSources.analysisResultPlan ||
+                   planSources.currentModalPlan ||
+                   planSources.cachedPlan ||
+                   'free';
         
         log('🕐 [HISTORY-SAVE] Plano detectado:', userPlan);
         
@@ -260,39 +250,28 @@ async function saveAnalysisToHistory(analysisResult) {
  * 🔐 Verifica se o usuário pode usar o modo de referência
  * REGRA: Apenas plano PRO tem acesso ao modo referência
  * 
- * ✅ CORREÇÃO 2026-02-04: Aguarda plano estar pronto antes de bloquear
- * 
  * @returns {Promise<{allowed: boolean, plan: string}>}
  */
 async function checkReferenceEntitlement() {
     try {
-        // 1. ✅ NOVO: Aguardar plano estar carregado (não usar fallback prematuro)
-        let currentPlan = 'free';
+        // 1. Tentar detectar plano via PlanCapabilities (cache local)
+        let currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
         
-        if (window.PlanCapabilities?.waitForUserPlan) {
-            log('🔐 [ENTITLEMENT] ⏳ Aguardando plano do usuário...');
-            currentPlan = await window.PlanCapabilities.waitForUserPlan();
-            log(`🔐 [ENTITLEMENT] ✅ Plano carregado: ${currentPlan}`);
-        } else {
-            // Fallback para detecção síncrona (apenas se waitForUserPlan não disponível)
-            currentPlan = window.PlanCapabilities?.detectUserPlan?.() || 'free';
-            
-            // Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
-            if (currentPlan === 'free' && window.auth?.currentUser && window.firebaseReady) {
-                log('🔐 [ENTITLEMENT] Plano cache é free, verificando Firestore...');
-                try {
-                    const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
-                    if (freshPlan) {
-                        currentPlan = freshPlan;
-                        log(`🔐 [ENTITLEMENT] Plano atualizado: ${currentPlan}`);
-                    }
-                } catch (err) {
-                    warn('🔐 [ENTITLEMENT] Erro ao buscar plano:', err);
+        // 2. Se plano é 'free' mas usuário está autenticado, forçar refresh do Firestore
+        if (currentPlan === 'free' && window.auth?.currentUser) {
+            log('🔐 [ENTITLEMENT] Plano cache é free, verificando Firestore...');
+            try {
+                const freshPlan = await window.PlanCapabilities?.fetchUserPlan?.();
+                if (freshPlan) {
+                    currentPlan = freshPlan;
+                    log(`🔐 [ENTITLEMENT] Plano atualizado: ${currentPlan}`);
                 }
+            } catch (err) {
+                warn('🔐 [ENTITLEMENT] Erro ao buscar plano:', err);
             }
         }
         
-        // 2. REGRA: PRO, DJ ou STUDIO = permitido, qualquer outro = bloqueado
+        // 3. REGRA: PRO, DJ ou STUDIO = permitido, qualquer outro = bloqueado
         // ✅ ATUALIZADO 2026-01-06: STUDIO agora tem acesso ao Modo Referência
         const allowed = currentPlan === 'pro' || currentPlan === 'dj' || currentPlan === 'studio';
         
@@ -14664,26 +14643,6 @@ function renderReducedMode(data) {
 async function displayModalResults(analysis) {
     log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
     
-    // 🔒 PRIMEIRA EXECUÇÃO: Criar cópia imutável e disparar evento canônico
-    if (!window.__displayModalResultsOriginal) {
-        log('[FIX] 🔒 Primeira execução - criando cópia imutável de displayModalResults');
-        
-        // Expor função globalmente ANTES de criar cópia
-        window.displayModalResults = displayModalResults;
-        window.__displayModalResultsOriginal = displayModalResults;
-        Object.freeze(window.__displayModalResultsOriginal);
-        log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
-        
-        // 📢 EVENTO CANÔNICO: Notificar interceptadores que a função está pronta
-        window.dispatchEvent(new CustomEvent('soundy:displayModalResultsReady', {
-            detail: {
-                timestamp: Date.now(),
-                originalFunction: window.__displayModalResultsOriginal
-            }
-        }));
-        log('[FIX] 📢 Evento soundy:displayModalResultsReady disparado');
-    }
-    
     // GA4 Tracking: Análise de áudio completada
     if (window.GATracking?.trackAudioAnalysisCompleted && !analysis._fromHistory) {
         window.GATracking.trackAudioAnalysisCompleted({
@@ -24127,8 +24086,14 @@ function renderReferenceComparisons(ctx) {
     }
 }
 
-// ❌ REMOVIDO: Cópia imutável movida para DENTRO de displayModalResults (primeira execução)
-// Isso garante que window.displayModalResults já existe quando o evento é disparado
+// 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
+// Esta cópia garante que interceptadores sempre tenham acesso à função original
+if (!window.__displayModalResultsOriginal) {
+    log('[FIX] 🔒 Criando cópia imutável de displayModalResults');
+    window.__displayModalResultsOriginal = displayModalResults;
+    Object.freeze(window.__displayModalResultsOriginal);
+    log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
+}
 
 /**
  * 🎯 RENDERIZAÇÃO DE COMPARAÇÃO ENTRE DUAS FAIXAS
@@ -32735,48 +32700,18 @@ if (typeof window !== 'undefined') {
     });
 }
 
-// ❌ CÓDIGO ÓRFÃO REMOVIDO: Havia código usando 'tech' sem declaração
-// Esse fragmento estava causando ReferenceError: tech is not defined
-// Se necessário, esse código deve ser movido para dentro de uma função apropriada
-
-// Função auxiliar para mapear métricas técnicas (se necessário no futuro)
-function mapTechnicalMetricsSafe(backendData, source) {
-    try {
-        // Inicializar tech com valores seguros
-        const tech = {};
-        
-        // Função helper para obter valores reais
-        const getRealValue = (...paths) => {
-            for (const path of paths) {
-                let value;
-                if (path.includes('.')) {
-                    value = path.split('.').reduce((obj, key) => obj?.[key], source);
-                } else {
-                    value = source?.[path];
-                }
-                if (Number.isFinite(value)) {
-                    return value;
-                }
-            }
-            return null;
-        };
-        
-        tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
-                            (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
-        
-        tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
-                            (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
-        
-        tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
-                  (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
-                  (backendData.technicalData?.lra && Number.isFinite(backendData.technicalData.lra) ? backendData.technicalData.lra : null);
-        
-        return tech;
-    } catch (error) {
-        error('❌ Erro ao mapear métricas técnicas:', error);
-        return {}; // Retorna objeto vazio em caso de erro
-    }
-}
+// 🎯 FUNÇÃO: Aplicar correção de fallback ao score
+    
+    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
+                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
+    
+    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
+                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
+    
+    // LRA - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: loudness.lra + technicalData.lra
+    tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
+              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
+              (backendData.technicalData?.lra && Number.isFinite(backendData.technicalData.lra) ? backendData.technicalData.lra : null);
     
     log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,

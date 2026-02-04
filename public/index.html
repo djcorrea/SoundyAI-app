@@ -4,26 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
-    <!-- DEPLOY_VERSION: 2026-02-03 - PERFORMANCE FIRST -->
-    
-    <!-- ⚡ Performance Debug Mode - Ativar com ?perf_debug=1 -->
-    <script>
-        if (new URLSearchParams(window.location.search).get('perf_debug') === '1') {
-            document.documentElement.setAttribute('data-perf-debug', 'true');
-        }
-    </script>
+    <!-- DEPLOY_VERSION: 2026-01-21 23:30 -->
     
     <!-- ✅ Sistema Centralizado de Logs - DEVE SER O PRIMEIRO SCRIPT -->
     <script src="logger.js"></script>
-    
-    <!-- 🌿 INDEX-LEAN CONTROLLER - Load minimalista: apenas auth + UI chat + mensagens -->
-    <!-- CRITICAL: Features pesadas (fingerprint, voice, observers) carregam sob demanda -->
-    <!-- Deve carregar LOGO APÓS logger.js e ANTES de todos os outros módulos -->
-    <script src="index-lean-controller.js?v=20260203-lean"></script>
-    
-    <!-- ⚡ PERFORMANCE OPTIMIZER - Sistema automático de otimização visual -->
-    <!-- Ativa light mode durante uso real, mantém heavy mode em momentos estratégicos -->
-    <script src="performance-optimizer.js?v=20260203-perf"></script>
     
     <!-- Google tag (gtag.js) - GA4 + Google Ads -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
@@ -149,11 +133,6 @@
     <link rel="dns-prefetch" href="https://soundyai-app-production.up.railway.app">
     
     <link rel="stylesheet" href="style.css?v=20250810">
-    
-    <!-- ⚡ PERFORMANCE OPTIMIZATIONS - Sistema de otimização automática -->
-    <!-- CRITICAL: Deve carregar DEPOIS dos estilos base para sobrescrever efeitos caros -->
-    <link rel="stylesheet" href="performance-optimizations.css?v=20260203-perf">
-    
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
@@ -167,15 +146,16 @@
     <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
     <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
     <link rel="stylesheet" href="login-required-modal.css?v=20260102">
-    <!-- ❌ CSS removido (404 - MIME error) -->
-    <!-- <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104"> -->
+    <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104">
     <link rel="stylesheet" href="analysis-history.css?v=20260104">
     
     <!-- Fontes otimizadas com display=swap para não bloquear renderização -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- ❌ REMOVIDO: Three.js + Vanta.js (efeitos pesados) -->
-    <!-- ✅ MANTIDO: GSAP (usado em animações leves de UI) -->
+    <!-- Bibliotecas para efeitos visuais -->
+    <!-- 🚀 PERFORMANCE: defer para não bloquear parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
     
     <!-- Dependências para geração de PDF - carregamento tardio pois não são críticas -->
@@ -185,18 +165,13 @@
     <!-- Firebase e Scripts funcionais -->
     <script type="module" src="firebase.js?v=20250810"></script>
     <script src="auth.js?v=20250810" defer></script>
-    
-    <!-- ✅ NOVO 2026-02-03: Modal de convite para entrevista (pós-upgrade) -->
-    <script src="interview-invite-modal.js?v=20260203" defer></script>
-    
     <script src="friendly-labels.js?v=20250817" defer></script>
     
     <!-- 🔓 Sistema de Modo Anônimo -->
     <script src="anonymous-mode.js?v=20260102" defer></script>
     
-    <!-- 🔍 Sistema de Fingerprint Forte (Canvas + Audio + WebGL + Hardware) -->
-    <!-- 🌿 INDEX-LEAN: BLOQUEADO no load, só carrega sob demanda (anti-burla) -->
-    <script src="device-fingerprint.js?v=20260203-lean" defer></script>
+    <!-- � Sistema de Fingerprint Forte (Canvas + Audio + WebGL + Hardware) -->
+    <script src="device-fingerprint.js?v=20260103" defer></script>
     
     <!-- �🔥 Sistema de Demo de Venda (detecta /demo ou ?mode=demo) -->
     <!-- Módulos refatorados: Core → Guards → UI (ordem obrigatória) -->
@@ -452,7 +427,8 @@
 
     <!-- Fundo animado 3D -->
     <div class="cenario">
-        <!-- ❌ REMOVIDO: Vanta.js background (pesado) -->
+        <!-- Container para o fundo animado Vanta.js -->
+        <div class="vanta-background" id="vanta-bg"></div>
         
         <!-- 🚀 PERFORMANCE: Fundo com lazy loading (baixa prioridade) -->
         <img src="fundo.webp?v=20250810" alt="Fundo futurista" class="fundo" loading="lazy" decoding="async" />
@@ -1008,41 +984,43 @@
     <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
     <script src="error-mapper.js?v=1.0.0"></script>
     
-    <!-- 🚀 PERFORMANCE OPTIMIZATIONS -->
-    <!-- Analysis Mode Manager - Event-driven (substitui polling de 100ms) -->
-    <script src="analysis-mode-manager.js?v=20260203-perf"></script>
-    
-    <!-- ❌ REMOVIDO: performance-mode-controller.js (controlador agressivo) -->
-    <!-- ❌ REMOVIDO: effects-controller.js (Vanta.js management) -->
-    
-    <!-- ✅ MANTIDO: Audio Analyzer Lazy Loader (otimização estrutural) -->
-    <script src="audio-analyzer-lazy-loader.js?v=20260203-perf"></script>
-    
     <!-- Script integrado com as funcionalidades existentes -->
     <!-- Otimizado: Removido cache busting desnecessário para melhor cache -->
     <script src="script.js?v=20250813-1" defer></script>
     
     <!-- 🎤 VOICE MESSAGE SIMPLE - PROD.AI -->
-    <!-- 🌿 INDEX-LEAN: BLOQUEADO no load, só carrega ao clicar no microfone -->
-    <script src="voice-clean.js?v=20260203-lean" defer></script>
+    <script src="voice-clean.js?v=20250810" defer></script>
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     
-    <!-- 🎵 AUDIO ANALYZER - LAZY LOAD (carregado sob demanda via audio-analyzer-lazy-loader.js) -->
-    <!-- ✅ PERFORMANCE: Scripts abaixo só carregam quando usuário clicar em "Analisar áudio" -->
-    <!-- Economiza ~9s de processamento JS no load inicial -->
-    <!--
+    <!-- 🎵 AUDIO ANALYZER - Carregar os scripts -->
     <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+    <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
     <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
+    <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
     <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
+    
+    <!-- 🎯 SISTEMA DE SUGESTÕES MELHORADO - DEPENDÊNCIAS ESSENCIAIS -->
     <script src="suggestion-scorer.js?v=20250920-enhanced" defer></script>
     <script src="enhanced-suggestion-engine.js?v=20250920-enhanced" defer></script>
+    
+    <!-- 🚀 SISTEMA ULTRA-AVANÇADO DE SUGESTÕES EDUCACIONAIS -->
     <script src="advanced-educational-suggestion-system.js?v=20250920-ultra" defer></script>
+    
+    <!-- 🚀 SISTEMA ULTRA-AVANÇADO V2 - Integração Direta -->
     <script src="ultra-advanced-suggestion-enhancer-v2.js?v=20250920-ultra-v2" defer></script>
+    
+    <!-- 🔍 VALIDADOR DE INTEGRAÇÃO DO SISTEMA ULTRA-AVANÇADO -->
     <script src="validador-integracao-ultra-avancado.js?v=20250920-validator" defer></script>
+    
+    <!-- 🎯 MONITOR MODAL - Detecta e valida sistema ultra-avançado durante análises -->
     <script src="monitor-modal-ultra-avancado.js?v=20250920-monitor" defer></script>
+    
     <script src="suggestion-text-generator.js?v=20250815" defer></script>
+    <!-- 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS -->
     <script src="suggestion-system-emergency.js?v=emergency-20250920" defer></script>
+    
+    <!-- 🤖 NOVA CAMADA DE IA - Sistema Inteligente de Sugestões -->
     <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
     <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
     <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
@@ -1051,36 +1029,19 @@
     <script src="ai-force-test.js?v=20250922-force" defer></script>
     <script src="ai-auto-config.js?v=20250922-autoconfig" defer></script>
     <script src="secure-api-loader.js?v=20250922-secure" defer></script>
-    -->
     
-    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO (EVENT-DRIVEN) -->
+    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
     <script>
         // Força ativação do sistema novo assim que carregar
         window.addEventListener('DOMContentLoaded', function() {
-            log('🎯 [INDEX] Forçando ativação do sistema novo (event-driven)...');
+            log('🎯 [INDEX] Forçando ativação do sistema novo...');
             
-            // 🔒 GUARDRAILS ANTI-REINIT
-            if (window.__SUGGESTION_SYSTEM_ACTIVATING) {
-                log('⚠️ [INDEX] Ativação já em progresso, abortando (single-flight)');
-                return;
-            }
+            let attempts = 0;
+            const maxAttempts = 100; // Aumentado para 10 segundos
             
-            if (window.__SUGGESTION_SYSTEM_READY) {
-                log('✅ [INDEX] Sistema já ativado anteriormente, abortando');
-                return;
-            }
-            
-            window.__SUGGESTION_SYSTEM_ACTIVATING = true;
-            
-            // ⚡ FUNÇÃO DE ATIVAÇÃO (Única execução)
-            const activateOnce = () => {
-                // Prevenir múltiplas execuções
-                if (window.__SUGGESTION_SYSTEM_READY) {
-                    log('✅ [INDEX] Sistema já ativado, ignorando');
-                    return;
-                }
-                
-                log('🎯 [INDEX] Ativando sistema...');
+            const forceActivate = () => {
+                attempts++;
+                log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
                 
                 if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
                     window.USE_UNIFIED_SUGGESTIONS = true;
@@ -1089,75 +1050,68 @@
                     log('🎯 [INDEX] window.suggestionSystem.process:', typeof window.suggestionSystem.process);
                     log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
                     
-                    // 🔒 SUCCESS LOCK: Nunca mais tenta ativar
+                    // 🚨 CRITICAL: Marcar que o sistema está pronto para evitar race conditions
                     window.__SUGGESTION_SYSTEM_READY = true;
-                    window.__SUGGESTION_SYSTEM_ACTIVATING = false;
-                    
                     log('🎯 [INDEX] Sistema marcado como pronto para uso');
+                    
+                } else if (attempts < maxAttempts) {
+                    setTimeout(forceActivate, 100);
                 } else {
-                    error('🎯 [INDEX] ❌ Dependências ainda não disponíveis');
-                    error('  - window.suggestionSystem:', typeof window.suggestionSystem);
-                    error('  - window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
-                    window.__SUGGESTION_SYSTEM_ACTIVATING = false;
+                    error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 10 segundos');
+                    error('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    error('🎯 [INDEX] window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
+                    
+                    // Tentar carregar sistema de emergência manualmente
+                    if (typeof window.SuggestionSystemUnified === 'function') {
+                        log('🎯 [INDEX] Tentando ativar sistema de emergência...');
+                        try {
+                            window.suggestionSystem = new window.SuggestionSystemUnified();
+                            window.USE_UNIFIED_SUGGESTIONS = true;
+                            window.__SUGGESTION_SYSTEM_READY = true;
+                            log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
+                        } catch (e) {
+                            error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
+                        }
+                    }
                 }
             };
             
-            // ⚡ ESTRATÉGIA EVENT-DRIVEN
-            if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
-                // Já disponível - ativar imediatamente
-                log('🎯 [INDEX] Sistema já disponível, ativando...');
-                activateOnce();
-            } else {
-                // Aguardar evento de prontidão
-                log('🎯 [INDEX] Aguardando evento soundy:suggestionSystemReady...');
-                window.addEventListener('soundy:suggestionSystemReady', activateOnce, { once: true });
-                
-                // ⏰ TIMEOUT DE SEGURANÇA: 4s para fallback
-                setTimeout(() => {
-                    if (!window.__SUGGESTION_SYSTEM_READY) {
-                        error('🎯 [INDEX] ⏰ TIMEOUT: Sistema não carregou em 4s');
-                        
-                        // Tentar ativação de emergência
-                        if (typeof window.SuggestionSystemUnified === 'function') {
-                            log('🎯 [INDEX] Tentando ativar sistema de emergência...');
-                            try {
-                                window.suggestionSystem = new window.SuggestionSystemUnified();
-                                window.USE_UNIFIED_SUGGESTIONS = true;
-                                window.__SUGGESTION_SYSTEM_READY = true;
-                                log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
-                            } catch (e) {
-                                error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
-                            }
-                        }
-                        
-                        window.__SUGGESTION_SYSTEM_ACTIVATING = false;
-                    }
-                }, 4000);
-            }
+            forceActivate();
         });
     </script>
-    <!-- ✅ LAZY LOAD: Scripts abaixo carregam via audio-analyzer-lazy-loader.js -->
-    <!--
+    <!-- 🔒 Secure Render Utils - Sistema de Renderização Segura -->
     <script src="/secure-render-utils.js?v=2.0.0" defer></script>
+    <!-- 🔐 Reduced Mode Security Guard - Função Centralizada de Segurança -->
     <script src="/reduced-mode-security-guard.js?v=1.0.0" defer></script>
+    <!-- 🔍 AUDIT: Reference Mode Auditor (ANTES de tudo) -->
     <script src="/reference-mode-auditor.js?v=AUDIT" defer></script>
+    <!-- 🆕 REF-FLOW: Reference Flow Controller (ISOLADO E DETERMINÍSTICO) -->
     <script src="/reference-flow.js?v=1.0.0" defer></script>
+    <!-- 🆕 REF-NORMALIZE: Reference Normalizer (SEM GÊNERO) -->
     <script src="/reference-normalizer.js?v=1.0.0" defer></script>
-    <script src="/reference-trace-utils.js?v=PR1" defer></script>
-    <script src="/lib/audio/utils/band-key-aliases.js?v=1.0.0"></script>
-    <script src="/lib/audio/features/score-engine-v3.js?v=3.3.0" defer></script>
-    <script src="/lib/audio/features/scoring.js?v=3.3.0"></script>
-    <script src="tooltip-manager.js?v=20260105-tooltips" defer></script>
-    <script src="/error-mapper.js?v=1.0.0"></script>
-    <script src="/audio-analyzer-integration.js?v=20260130_1" defer></script>
-    -->
-    
-    <!-- 🆕 PR2: Analysis State Machine (CRÍTICO - carrega SEMPRE) -->
+    <!-- 🆕 PR2: Analysis State Machine (PRIMEIRO - fonte de verdade - SEM defer) -->
     <script src="/analysis-state-machine.js?v=PR2"></script>
+    <!-- 🔍 PR1: Reference Trace Utils (ANTES DO AUDIO ANALYZER) -->
+    <script src="/reference-trace-utils.js?v=PR1" defer></script>
     
-    <!-- ✅ LAZY LOAD: Inicialização movida para audio-analyzer-lazy-loader.js -->
-    <!-- Audio Analyzer só carrega quando usuário clica em "Analisar áudio" -->
-    <!--
+    <!-- 🎯 BAND KEY ALIASES - Sistema centralizado de normalização de bandas -->
+    <script src="/lib/audio/utils/band-key-aliases.js?v=1.0.0"></script>
+    
+    <!-- 🎯 SCORE ENGINE V3 - Sistema de Score Realista por Gênero e Modo -->
+    <script src="/lib/audio/features/score-engine-v3.js?v=3.3.0" defer></script>
+    
+    <!-- 🚨 SCORING.JS - MÓDULO PRINCIPAL DE CÁLCULO (expõe window.computeMixScore) -->
+    <script type="module" src="/lib/audio/features/scoring.js?v=3.3.0"></script>
+    
+    <!-- 🎯 TOOLTIP MANAGER - Sistema Global de Tooltips com Event Delegation -->
+    <script src="tooltip-manager.js?v=20260105-tooltips" defer></script>
+    
+    <!-- 🎯 ERROR MAPPER - Sistema centralizado de mensagens de erro amigáveis -->
+    <script src="/error-mapper.js?v=1.0.0"></script>
+    
+    <script src="/audio-analyzer-integration.js?v=20260130_1" defer></script>
+    
+    <!-- Inicializar Audio Analyzer -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Force external refs loading (bypass embedded)
@@ -1176,9 +1130,7 @@
                     warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
                 }
             }, 1000);
-    -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
+
             // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
             (function setupPlusPopovers() {
               let isInitialized = false; // Flag para evitar múltiplas inicializações
@@ -1514,12 +1466,20 @@
         });
     </script>
     
-    <!-- ❌ Debug scripts removidos (404) - habilitar apenas quando necessário -->
-    <!-- <script src="../debug-analyzer.js"></script> -->
-    <!-- <script src="../debug-wav-support.js"></script> -->
-    <!-- <script src="../debug-upload-diagnostic.js"></script> -->
-    <!-- <script src="../debug-upload-test.js"></script> -->
-    <!-- <script src="../debug-audio-analyzer-deep.js"></script> -->
+    <!-- Debug do analyzer - caminho corrigido -->
+    <script src="../debug-analyzer.js"></script>
+    
+    <!-- Debug WAV Support - investigar problemas de formato -->
+    <script src="../debug-wav-support.js"></script>
+    
+    <!-- Debug Upload Diagnostic - investigar uploads parciais -->
+    <script src="../debug-upload-diagnostic.js"></script>
+    
+    <!-- Debug Upload Test - teste específico 32MB → 15 bytes -->
+    <script src="../debug-upload-test.js"></script>
+    
+    <!-- Debug Audio Analyzer Deep - interceptar pipeline completo -->
+    <script src="../debug-audio-analyzer-deep.js"></script>
     
     <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
     <script src="band-weighted-score-v2.js?v=20250131" defer></script>
@@ -1540,10 +1500,7 @@
     <script src="premium-blocker.js?v=20251213" defer></script>
     
     <!-- 🎯 FIRST ANALYSIS CTA: CTA de upgrade na primeira análise FREE -->
-    <script src="first-analysis-upgrade-cta.js?v=20260203-instant" defer></script>
-    
-    <!-- 🔍 DEBUG: Função para depurar estado do CTA V5 -->
-    <script src="debug-first-cta-state.js?v=20260203" defer></script>
+    <script src="first-analysis-upgrade-cta.js?v=20260203" defer></script>
     
     <!-- 🔒 MODAL DE UPGRADE - Bloqueio de Funcionalidades Premium -->
     <div id="upgradeModal" role="dialog" aria-modal="true" aria-labelledby="upgradeModalTitle">
@@ -1929,9 +1886,18 @@
                 document.addEventListener('DOMContentLoaded', updateCorrectionPlanButtonVisibility);
             }
             
-            // ✅ OTIMIZAÇÃO: Removido polling de setInterval (100ms/500ms)
-            // Agora usa sistema event-driven via analysis-mode-manager.js
-            // Mudanças de modo disparam CustomEvent('analysisModeChanged')
+            // Monitorar mudanças no modo
+            setInterval(updateCorrectionPlanButtonVisibility, 500);
+            
+            // Observar mudanças no currentAnalysisMode
+            let lastMode = null;
+            setInterval(() => {
+                const currentMode = window.currentAnalysisMode;
+                if (currentMode !== lastMode) {
+                    lastMode = currentMode;
+                    updateCorrectionPlanButtonVisibility();
+                }
+            }, 100);
             
             log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
         })();
