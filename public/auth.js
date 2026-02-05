@@ -41,6 +41,35 @@ log('🚀 Carregando auth.js...');
       log('🔄 Modo SMS:', enable ? 'ATIVADO' : 'DESATIVADO');
       showMessage(`Modo SMS ${enable ? 'ativado' : 'desativado'}. Recarregue a página.`, "success");
     };
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // 🔥 FUNÇÃO DE RETRY EXPONENCIAL PARA ESCRITAS CRÍTICAS
+    // ═══════════════════════════════════════════════════════════════════
+    async function retryFirestoreWrite(operation, maxRetries = 3) {
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          log(`🔄 [RETRY] Tentativa ${attempt}/${maxRetries}...`);
+          const result = await operation();
+          log(`✅ [RETRY] Sucesso na tentativa ${attempt}`);
+          return result;
+        } catch (error) {
+          lastError = error;
+          warn(`⚠️ [RETRY] Falha na tentativa ${attempt}:`, error.message);
+          
+          if (attempt < maxRetries) {
+            // Backoff exponencial: 1s, 2s, 4s
+            const delay = Math.pow(2, attempt - 1) * 1000;
+            log(`⏳ [RETRY] Aguardando ${delay}ms antes da próxima tentativa...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+      
+      error(`❌ [RETRY] Todas as ${maxRetries} tentativas falharam`);
+      throw lastError;
+    }
 
     // Configuração simplificada (SMS desabilitado temporariamente)
     try {
@@ -263,9 +292,16 @@ log('🚀 Carregando auth.js...');
           
           if (!smsVerificado && !isBypassSMS) {
             // Conta criada mas telefone não verificado no Auth - forçar logout
+            console.log('═════════════════════════════════════════════');
+            console.log('❌ [BLOQUEIO SMS] LOGIN NEGADO');
+            console.log('   Motivo: phoneNumber null no Firebase Auth');
+            console.log('   user.phoneNumber:', result.user.phoneNumber || 'NULL');
+            console.log('   criadoSemSMS:', userData.criadoSemSMS);
+            console.log('   origin:', userData.origin);
+            console.log('   Ação: Forçar logout e pedir SMS novamente');
+            console.log('═════════════════════════════════════════════');
+            
             warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
-            warn('   user.phoneNumber:', result.user.phoneNumber);
-            warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
             
             // 🔗 PRESERVAR referralCode antes de limpar localStorage
@@ -1222,11 +1258,14 @@ log('🚀 Carregando auth.js...');
         log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
+        // 🔥 SINCRONIZAR Firestore COM RETRY E VALIDAÇÃO PÓS-ESCRITA
         // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
         // e manter campos legacy/PT para compatibilidade.
+        // ═══════════════════════════════════════════════════════════════════
+        log('💾 [CONFIRM] PASSO 7: Sincronizando Firestore com retry...');
+        
         try {
-          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const { doc, updateDoc, setDoc, getDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
           const userRef = doc(db, 'usuarios', userResult.user.uid);
 
           const updates = {
@@ -1240,25 +1279,63 @@ log('🚀 Carregando auth.js...');
           };
 
           // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
+          console.log('═════════════════════════════════════════════');
           console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
+          console.log('[FIRESTORE-WRITE usuarios] Operação: updateDoc/setDoc com RETRY');
           console.log('[FIRESTORE-WRITE usuarios] Payload:', updates);
           console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
+          console.log('[FIRESTORE-WRITE usuarios] phoneNumber do Auth:', userResult.user.phoneNumber);
+          console.log('═════════════════════════════════════════════');
           
-          try {
-            await updateDoc(userRef, updates);
-            log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
-          } catch (uErr) {
-            // Se documento não existir, criar com merge para não sobrescrever campos existentes
-            console.warn('[POSSIBLE OVERWRITE usuarios] setDoc merge fallback', new Error().stack);
+          // 🔥 USAR RETRY EXPONENCIAL
+          await retryFirestoreWrite(async () => {
             try {
+              await updateDoc(userRef, updates);
+              log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
+            } catch (uErr) {
+              // Se documento não existir, criar com merge para não sobrescrever campos existentes
+              console.warn('[POSSIBLE OVERWRITE usuarios] setDoc merge fallback', new Error().stack);
               await setDoc(userRef, updates, { merge: true });
               log('✅ [CONFIRM] Firestore criado via setDoc merge com campos de verificação');
-            } catch (sErr) {
-              throw sErr;
             }
+          });
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // 🔥 VALIDAÇÃO PÓS-ESCRITA: Garantir que dados foram salvos
+          // ═══════════════════════════════════════════════════════════════════
+          log('🔍 [CONFIRM] Validando escrita no Firestore...');
+          
+          const validationSnap = await getDoc(userRef);
+          if (validationSnap.exists()) {
+            const savedData = validationSnap.data();
+            
+            console.log('═════════════════════════════════════════════');
+            console.log('[VALIDATION] Dados salvos no Firestore:');
+            console.log('   phoneNumber:', savedData.phoneNumber);
+            console.log('   verified:', savedData.verified);
+            console.log('   verificadoPorSMS:', savedData.verificadoPorSMS);
+            console.log('═════════════════════════════════════════════');
+            
+            if (savedData.phoneNumber !== userResult.user.phoneNumber) {
+              throw new Error('VALIDAÇÃO FALHOU: phoneNumber não corresponde');
+            }
+            
+            if (savedData.verified !== true) {
+              throw new Error('VALIDAÇÃO FALHOU: verified não é true');
+            }
+            
+            log('✅ [CONFIRM] Validação pós-escrita PASSOU');
+          } else {
+            throw new Error('VALIDAÇÃO FALHOU: Documento não existe após escrita');
           }
+          
         } catch (syncErr) {
-          warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
+          error('❌ [CONFIRM] ERRO CRÍTICO ao sincronizar Firestore:', syncErr);
+          error('   Isso significa que o telefone foi vinculado no Auth mas não no Firestore');
+          error('   Usuário terá que verificar SMS novamente no próximo login');
+          
+          // ⚠️ NÃO ABORTAR - Auth já foi feito, permitir continuar
+          warn('⚠️ [CONFIRM] Continuando apesar da falha (SMS-SYNC tentará corrigir)');
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -2196,6 +2273,17 @@ log('🚀 Carregando auth.js...');
       log('   Email:', user.email);
       log('   Telefone:', user.phoneNumber);
       
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔥 CORREÇÃO RACE CONDITION: Bloquear se cadastro SMS em progresso
+      // ═══════════════════════════════════════════════════════════════════
+      const cadastroEmProgresso = localStorage.getItem('cadastroEmProgresso');
+      if (cadastroEmProgresso === 'true') {
+        log('⏸️ [AUTH-LISTENER] BLOQUEADO - cadastro SMS em progresso');
+        log('   Aguardando confirmSMSCode() completar antes de criar Firestore');
+        log('   Isso previne race condition entre reload() e ensureUserDocument()');
+        return; // ✅ BLOQUEAR - confirmSMSCode() criará o documento corretamente
+      }
+      
       try {
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
@@ -2236,7 +2324,7 @@ log('🚀 Carregando auth.js...');
           log('✅ [AUTH-LISTENER] Usuário existente - nenhuma alteração necessária');
           
           // ═══════════════════════════════════════════════════════════════════
-          // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
+          // 🔥 SINCRONIZAÇÃO SMS COM RETRY: Se telefone existe no Auth, atualizar Firestore
           // ═══════════════════════════════════════════════════════════════════
           if (user.phoneNumber) {
             const { doc, getDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
@@ -2246,11 +2334,13 @@ log('🚀 Carregando auth.js...');
             
             // Se Firestore ainda marca como não verificado (PT) ou não tem campos canônicos (EN), sincronizar
             if (!userData.verificadoPorSMS || !userData.verified) {
-              log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
-              log('   user.phoneNumber:', user.phoneNumber);
+              console.log('═════════════════════════════════════════════');
+              log('📱 [SMS-SYNC] DESSINCRONIA DETECTADA - Corrigindo...');
+              log('   Auth phoneNumber:', user.phoneNumber);
+              log('   Firestore phoneNumber:', userData.phoneNumber || 'NULL');
               log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
               log('   Firestore verified (EN):', userData.verified);
-              log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
+              console.log('═════════════════════════════════════════════');
               
               const syncUpdates = {
                 // Campos canônicos (EN)
@@ -2266,19 +2356,47 @@ log('🚀 Carregando auth.js...');
               
               // 🔍 AUDITORIA: ESCRITA NO FIRESTORE (SMS-SYNC)
               console.log('[FIRESTORE-WRITE usuarios] auth.js onAuthStateChanged SMS-SYNC linha ~2227');
+              console.log('[FIRESTORE-WRITE usuarios] Operação: updateDoc COM RETRY');
               console.log('[FIRESTORE-WRITE usuarios] Sync payload:', syncUpdates);
               
               try {
-                await updateDoc(userRef, syncUpdates);
+                // 🔥 USAR RETRY EXPONENCIAL
+                await retryFirestoreWrite(async () => {
+                  await updateDoc(userRef, syncUpdates);
+                });
                 
-                log('✅ [SMS-SYNC] Firestore atualizado para verificado');
-                log('   verificadoPorSMS: true');
-                log('   telefone:', user.phoneNumber);
+                // Validar pós-escrita
+                const validationSnap = await getDoc(userRef);
+                const validatedData = validationSnap.data();
+                
+                console.log('═════════════════════════════════════════════');
+                console.log('✅ [SMS-SYNC] Firestore sincronizado com sucesso');
+                console.log('   verificadoPorSMS:', validatedData.verificadoPorSMS);
+                console.log('   verified:', validatedData.verified);
+                console.log('   telefone:', validatedData.phoneNumber);
+                console.log('═════════════════════════════════════════════');
+                
+                if (!validatedData.verified || !validatedData.verificadoPorSMS) {
+                  throw new Error('SMS-SYNC: Validação falhou após escrita');
+                }
+                
               } catch (syncError) {
-                error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
+                console.log('═════════════════════════════════════════════');
+                error('❌ [SMS-SYNC] ERRO CRÍTICO ao sincronizar:', syncError);
+                error('   Usuário pode ter que verificar SMS novamente');
+                console.log('═════════════════════════════════════════════');
+                
+                // 📊 Telemetria: Rastrear falhas do SMS-SYNC
+                if (window.GATracking?.trackError) {
+                  window.GATracking.trackError({
+                    error_type: 'sms_sync_failure',
+                    error_message: syncError.message,
+                    uid: user.uid
+                  });
+                }
               }
             } else {
-              log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
+              log('✅ [SMS-SYNC] Status já sincronizado (verified: true)');
             }
           }
         }
