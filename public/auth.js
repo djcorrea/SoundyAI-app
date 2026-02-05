@@ -216,50 +216,18 @@ log('🚀 Carregando auth.js...');
           
           const userData = snap.data();
           
-          // 🔍 DEBUG: Imprimir userData completo para auditoria
-          console.log('═════════════════════════════════════════════');
-          console.log('🔍 [AUTH-DEBUG] DADOS COMPLETOS DO USUÁRIO:');
-          console.log('   UID:', result.user.uid);
-          console.log('   Email:', result.user.email);
-          console.log('   userData completo:', JSON.stringify(userData, null, 2));
-          console.log('═════════════════════════════════════════════');
-          console.log('📋 [AUTH-DEBUG] CAMPOS CRÍTICOS DE VERIFICAÇÃO SMS:');
-          console.log('   smsVerified (Firestore):', userData.smsVerified);
-          console.log('   phoneNumber (Firestore):', userData.phoneNumber || '(não definido)');
-          console.log('   criadoSemSMS:', userData.criadoSemSMS);
-          console.log('   origin:', userData.origin || '(não definido)');
-          console.log('═════════════════════════════════════════════');
+          // ✅ VALIDAÇÃO: Verificar verified === true
+          const isVerified = userData.verified === true;
+          const isBypassSMS = userData.bypassSMS === true || userData.origin === 'hotmart';
           
-          // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firestore como fonte da verdade
-          // Se smsVerified === true, SMS foi verificado (Firestore é a verdade)
-          const smsVerificado = userData.smsVerified === true;
+          log('[LOGIN] Validando acesso...');
+          log('[LOGIN] verified:', isVerified);
+          log('[LOGIN] bypassSMS:', isBypassSMS);
           
-          // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
-          const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
-          
-          // 🔍 AUDITORIA: DECISÃO DE PEDIR SMS
-          console.log('[SMS-DECISION] auth.js login() linha ~242');
-          console.log('[SMS-DECISION] Firestore smsVerified:', userData.smsVerified);
-          console.log('[SMS-DECISION] Firestore phoneNumber:', userData.phoneNumber || 'NULL');
-          console.log('[SMS-DECISION] Firestore criadoSemSMS:', userData.criadoSemSMS);
-          console.log('[SMS-DECISION] Firestore origin:', userData.origin);
-          console.log('[SMS-DECISION] Computed smsVerificado:', smsVerificado);
-          console.log('[SMS-DECISION] Computed isBypassSMS:', isBypassSMS);
-          console.log('[SMS-DECISION] DECISÃO FINAL:', (!smsVerificado && !isBypassSMS) ? 'BLOQUEAR E PEDIR SMS' : 'PERMITIR LOGIN');
-          
-          console.log('🔐 [AUTH-DEBUG] VERIFICAÇÃO DE SMS:');
-          console.log('   smsVerificado (Firestore smsVerified):', smsVerificado);
-          console.log('   criadoSemSMS === true:', userData.criadoSemSMS === true);
-          console.log('   origin === hotmart:', userData.origin === 'hotmart');
-          console.log('   isBypassSMS (pode entrar sem SMS):', isBypassSMS);
-          console.log('   Decisão:', (!smsVerificado && !isBypassSMS) ? '❌ BLOQUEIO' : '✅ PERMITE');
-          console.log('═════════════════════════════════════════════');
-          
-          if (!smsVerificado && !isBypassSMS) {
-            // Conta criada mas SMS não verificado no Firestore - forçar logout
-            warn('⚠️ [SEGURANÇA] Login bloqueado - SMS não verificado no Firestore');
-            warn('   Firestore smsVerified:', userData.smsVerified);
-            warn('   criadoSemSMS:', userData.criadoSemSMS);
+          if (!isVerified && !isBypassSMS) {
+            warn('⚠️ [LOGIN] Bloqueado - SMS não verificado');
+            warn('   verified:', userData.verified);
+            warn('   bypassSMS:', userData.bypassSMS);
             await auth.signOut();
             
             // 🔗 PRESERVAR referralCode antes de limpar localStorage
@@ -272,25 +240,11 @@ log('🚀 Carregando auth.js...');
               console.log('🔗 [REFERRAL] Código preservado após logout:', referralCode);
             }
             
-            showMessage(
-              "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
-              "error"
-            );
+            showMessage("❌ Sua conta precisa de verificação por SMS.", "error");
             return;
           }
           
-          if (smsVerificado) {
-            log('✅ [SMS-VERIFIED] SMS verificado no Firestore (smsVerified: true)');
-          } else if (isBypassSMS) {
-            console.log('═════════════════════════════════════════════');
-            console.log('✅ [HOTMART-BYPASS] LOGIN SEM SMS APROVADO');
-            console.log('   Motivo: Usuário Hotmart (criadoSemSMS: true ou origin: hotmart)');
-            console.log('   UID:', result.user.uid);
-            console.log('   Email:', result.user.email);
-            console.log('   origin:', userData.origin);
-            console.log('   authType:', userData.authType);
-            console.log('═════════════════════════════════════════════');
-          }
+          log('✅ [LOGIN] Acesso liberado - verified: true');
           
           // Prosseguir com navegação normal
           // ✅ NOVO: Entrevista apenas para planos pagos (PRO, STUDIO, DJ)
@@ -1209,58 +1163,35 @@ log('🚀 Carregando auth.js...');
           }
         }
         
-        log('✅ [SMS] Verificação confirmada');
+        log('✅ [SMS] Verificação confirmada - SMS válido');
         
         // ✅ PASSO 3: Obter token
-        log('🔄 [CONFIRM] PASSO 3: Obtendo token...');
+        log('[AUTH] Obtendo token de autenticação...');
         freshToken = await userResult.user.getIdToken();
+        log('✅ [AUTH] Token obtido');
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 CRIAR DOCUMENTO FIRESTORE (EXCLUSIVAMENTE AQUI)
+        // 🔥 PASSO 4: CRIAR DOCUMENTO FIRESTORE (FONTE DA VERDADE)
         // ═══════════════════════════════════════════════════════════════════
-        log('[FIRESTORE] Criando documento do usuário...');
-        
-        // Obter dados de atribuição do localStorage
-        const visitorId = localStorage.getItem('soundy_visitor_id') || null;
-        const storedReferralCode = localStorage.getItem('soundy_referral_code') || null;
-        const referralTimestamp = localStorage.getItem('soundy_referral_timestamp') || null;
-        const utm_source = localStorage.getItem('soundy_utm_source') || null;
-        const utm_medium = localStorage.getItem('soundy_utm_medium') || null;
-        const utm_campaign = localStorage.getItem('soundy_utm_campaign') || null;
-        const utm_term = localStorage.getItem('soundy_utm_term') || null;
-        const utm_content = localStorage.getItem('soundy_utm_content') || null;
-        const gclid = localStorage.getItem('soundy_gclid') || null;
-        const first_seen = localStorage.getItem('soundy_first_seen') || null;
-        const landing_page = localStorage.getItem('soundy_landing_page') || null;
-        const first_referrer = localStorage.getItem('soundy_referrer') || null;
-        const anon_id = localStorage.getItem('soundy_anon_id') || null;
-        
-        const displayName = formEmail.split('@')[0];
+        log('[FIRESTORE] Criando documento do usuário (fonte da verdade)...');
         
         const userRef = doc(db, 'usuarios', userResult.user.uid);
         const userDoc = {
-          // Identificação
           uid: userResult.user.uid,
           email: formEmail,
-          displayName: displayName,
+          displayName: formEmail.split('@')[0],
           phoneNumber: formattedPhone,
           deviceId: deviceId,
-          authType: 'email',
           
-          // Verificação SMS
-          smsVerified: true,
-          smsVerifiedAt: serverTimestamp(),
           verified: true,
           verifiedAt: serverTimestamp(),
           
-          // ✅ PLANO: SEMPRE "free" NO CADASTRO
           plan: 'free',
+          bypassSMS: true,
           
-          // ✅ SISTEMA DE TRIAL
-          freeAnalysesRemaining: 1,  // Trial de 1 análise full
-          reducedMode: false,        // Começa em modo completo
+          freeAnalysesRemaining: 1,
+          reducedMode: false,
           
-          // Limites e contadores
           messagesToday: 0,
           analysesToday: 0,
           messagesMonth: 0,
@@ -1269,64 +1200,39 @@ log('🚀 Carregando auth.js...');
           billingMonth: new Date().toISOString().slice(0, 7),
           lastResetAt: new Date().toISOString().slice(0, 10),
           
-          // Status
-          bypassSMS: false,
           onboardingCompleted: false,
           
-          // Sistema de afiliados
-          visitorId: visitorId,
-          referralCode: storedReferralCode,
-          referralTimestamp: referralTimestamp,
-          convertedAt: null,
-          firstPaidPlan: null,
+          visitorId: localStorage.getItem('soundy_visitor_id') || null,
+          referralCode: localStorage.getItem('soundy_referral_code') || null,
+          referralTimestamp: localStorage.getItem('soundy_referral_timestamp') || null,
+          anon_id: localStorage.getItem('soundy_anon_id') || null,
+          utm_source: localStorage.getItem('soundy_utm_source') || null,
+          utm_medium: localStorage.getItem('soundy_utm_medium') || null,
+          utm_campaign: localStorage.getItem('soundy_utm_campaign') || null,
+          utm_term: localStorage.getItem('soundy_utm_term') || null,
+          utm_content: localStorage.getItem('soundy_utm_content') || null,
+          gclid: localStorage.getItem('soundy_gclid') || null,
           
-          // Assinaturas (null = não adquirido)
-          plusExpiresAt: null,
-          proExpiresAt: null,
-          studioExpiresAt: null,
-          
-          // ✅ ATTRIBUTION DATA (UTMs e GCLID)
-          anon_id: anon_id,
-          utm_source: utm_source,
-          utm_medium: utm_medium,
-          utm_campaign: utm_campaign,
-          utm_term: utm_term,
-          utm_content: utm_content,
-          gclid: gclid,
-          first_seen_attribution: first_seen ? {
-            timestamp: first_seen,
-            landing_page: landing_page,
-            referrer: first_referrer
-          } : null,
-          
-          // Metadata
           origin: 'direct_signup',
           createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
           lastLoginAt: serverTimestamp()
         };
 
-        // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
-        console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
-        console.log('[FIRESTORE-WRITE usuarios] Payload completo:', userDoc);
-        console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
+        log('[FIRESTORE] Salvando documento (setDoc SEM merge)...');
+        log('[FIRESTORE] UID:', userResult.user.uid);
+        log('[FIRESTORE] phoneNumber:', formattedPhone);
+        log('[FIRESTORE] verified:', true);
         
         try {
-          await setDoc(userRef, userDoc, { merge: true });
+          await setDoc(userRef, userDoc);
           log('✅ [FIRESTORE] Documento criado com sucesso');
-          log('   phoneNumber:', formattedPhone);
-          log('   smsVerified:', true);
-          log('   plan:', 'free');
         } catch (firestoreErr) {
-          error('❌ [FIRESTORE] Erro ao salvar documento:', firestoreErr);
+          error('❌ [FIRESTORE] Erro ao salvar:', firestoreErr);
           throw new Error('Falha ao salvar dados. Tente novamente.');
         }
         
-        // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens
-        log('💾 [CONFIRM] Salvando tokens de autenticação...');
-        log('   UID:', userResult.user.uid);
-        log('   Email:', formEmail);
-        log('   Telefone:', formattedPhone);
+        // ✅ PASSO 5: Salvar tokens localmente
+        log('[SESSION] Salvando tokens...');
         
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
@@ -1336,8 +1242,8 @@ log('🚀 Carregando auth.js...');
           telefone: formattedPhone
         }));
         
-        log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
-        log('✅ [FIRESTORE] Documento criado no Firestore');
+        log('✅ [SESSION] Tokens salvos');
+        log('✅ [CADASTRO] Completo: Auth + SMS + Firestore');
 
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
@@ -1963,29 +1869,28 @@ log('🚀 Carregando auth.js...');
               
               const userData = userSnap.data();
               
-              // ✅ BUG #2 FIX: Não validar telefone se cadastro ainda em progresso
+              // ✅ BUG #2 FIX: Não validar se cadastro ainda em progresso
               const cadastroEmProgresso = localStorage.getItem('cadastroEmProgresso') === 'true';
               if (cadastroEmProgresso) {
-                log('🛡️ [AUTH] Cadastro em progresso - pulando validação de telefone');
+                log('🛡️ [AUTH] Cadastro em progresso - pulando validação');
                 resolve(user);
                 return;
               }
               
-              // ✅ VALIDAÇÃO INFORMATIVA: Verificar SMS (NÃO BLOQUEIA ACESSO)
-              // REGRA: Firestore smsVerified é a ÚNICA fonte de verdade
-              const smsVerificado = userData.smsVerified === true;
+              // ✅ VALIDAÇÃO INFORMATIVA: Verificar verified
+              const isVerified = userData.verified === true;
+              const isBypass = userData.bypassSMS === true;
               
-              // 📊 LOGGING INFORMATIVO (NÃO BLOQUEIA)
-              if (!smsVerificado && !userData.criadoSemSMS) {
-                warn('⚠️ [INFO] SMS não verificado no Firestore (mas acesso permitido)');
-                warn('   Firestore smsVerified:', userData.smsVerified);
-                warn('   criadoSemSMS:', userData.criadoSemSMS);
-                warn('   ✅ Usuário autenticado - acesso PERMITIDO');
+              // 📊 LOGGING INFORMATIVO
+              if (!isVerified && !isBypass) {
+                warn('⚠️ [INFO] Não verificado (mas acesso permitido)');
+                warn('   verified:', userData.verified);
+                warn('   bypassSMS:', userData.bypassSMS);
+              } else {
+                log('✅ [AUTH] Acesso permitido');
+                log('   verified:', isVerified);
+                log('   bypassSMS:', isBypass);
               }
-              
-              log('✅ [AUTH] Validação completa - acesso permitido');
-              log('   SMS verificado (Firestore):', smsVerificado);
-              log('   criadoSemSMS:', userData.criadoSemSMS);
               
               // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
               if (userData.djExpired === true && !sessionStorage.getItem('betaDjModalShown')) {
