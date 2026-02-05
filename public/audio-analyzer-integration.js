@@ -9934,7 +9934,8 @@ function renderGenreComparisonTable(options) {
     
     const tableHTML = `
         <div class="card genre-comparison-classic" style="margin-top:12px;">
-            <div class="card-title">COMPARAÇÃO COM ${genre.toUpperCase()}${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</div>
+            <h2 class="sa-diagnostico-title">Diagnóstico Técnico${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</h2>
+            <p class="sa-diagnostico-subtitle">Métricas, severidade e correções recomendadas.</p>
             <table class="classic-genre-table">
                 <thead>
                     <tr>

@@ -2495,6 +2495,47 @@ details[open] summary {
     overflow: visible;                  /* 🔧 Sem overflow oculto */
 }
 
+/* 🎯 DIAGNÓSTICO TÉCNICO - Título Premium para Comparação de Métricas */
+.sa-diagnostico-title {
+    color: #4A9EFF;                     /* Azul premium legível no dark mode */
+    font-weight: 700;
+    font-size: clamp(18px, 4vw, 22px);  /* Responsivo: mobile → desktop */
+    line-height: 1.3;
+    margin: 0 0 8px 0;
+    padding: 0;
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: none;               /* Mantém capitalização natural */
+    text-shadow: 0 2px 8px rgba(74, 158, 255, 0.2);
+    position: relative;
+    z-index: 2;
+    display: block;
+}
+
+/* Subtítulo complementar do diagnóstico */
+.sa-diagnostico-subtitle {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: clamp(12px, 2.5vw, 14px);
+    font-weight: 400;
+    line-height: 1.4;
+    margin: 0 0 16px 0;
+    padding: 0;
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+
+/* Responsividade adicional para mobile */
+@media (max-width: 600px) {
+    .sa-diagnostico-title {
+        font-size: 18px;
+        margin-bottom: 6px;
+    }
+    .sa-diagnostico-subtitle {
+        font-size: 12px;
+        margin-bottom: 12px;
+    }
+}
+
 /* 🔒 Garantia de alinhamento no contexto do grid - SEM afetar visibilidade */
 .cards-grid .card {
     /* 🔧 REMOVIDO line-height: 0 - causava colapso dos títulos */
