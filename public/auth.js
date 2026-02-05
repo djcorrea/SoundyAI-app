@@ -13,10 +13,7 @@ log('🚀 Carregando auth.js...');
       signInWithEmailAndPassword, 
       createUserWithEmailAndPassword,
       sendPasswordResetEmail, 
-      EmailAuthProvider, 
-      PhoneAuthProvider, 
-      signInWithCredential, 
-      linkWithCredential,
+      EmailAuthProvider,
       GoogleAuthProvider,
       signInWithPopup
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
@@ -226,27 +223,24 @@ log('🚀 Carregando auth.js...');
           console.log('   Email:', result.user.email);
           console.log('   userData completo:', JSON.stringify(userData, null, 2));
           console.log('═════════════════════════════════════════════');
-          console.log('📋 [AUTH-DEBUG] CAMPOS CRÍTICOS DE BYPASS SMS:');
-          console.log('   origin:', userData.origin || '(não definido)');
+          console.log('📋 [AUTH-DEBUG] CAMPOS CRÍTICOS DE VERIFICAÇÃO SMS:');
+          console.log('   smsVerified (Firestore):', userData.smsVerified);
+          console.log('   phoneNumber (Firestore):', userData.phoneNumber || '(não definido)');
           console.log('   criadoSemSMS:', userData.criadoSemSMS);
-          console.log('   authType:', userData.authType || '(não definido)');
-          console.log('   hotmartTransactionId:', userData.hotmartTransactionId || '(não definido)');
-          console.log('   user.phoneNumber (Firebase Auth):', result.user.phoneNumber || '(null)');
+          console.log('   origin:', userData.origin || '(não definido)');
           console.log('═════════════════════════════════════════════');
           
-          // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
-          // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
-          const smsVerificado = !!result.user.phoneNumber;
+          // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firestore como fonte da verdade
+          // Se smsVerified === true, SMS foi verificado (Firestore é a verdade)
+          const smsVerificado = userData.smsVerified === true;
           
           // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
           const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
           
           // 🔍 AUDITORIA: DECISÃO DE PEDIR SMS
           console.log('[SMS-DECISION] auth.js login() linha ~242');
-          console.log('[SMS-DECISION] Auth phoneNumber:', result.user.phoneNumber || 'NULL');
+          console.log('[SMS-DECISION] Firestore smsVerified:', userData.smsVerified);
           console.log('[SMS-DECISION] Firestore phoneNumber:', userData.phoneNumber || 'NULL');
-          console.log('[SMS-DECISION] Firestore verified:', userData.verified);
-          console.log('[SMS-DECISION] Firestore verificadoPorSMS:', userData.verificadoPorSMS);
           console.log('[SMS-DECISION] Firestore criadoSemSMS:', userData.criadoSemSMS);
           console.log('[SMS-DECISION] Firestore origin:', userData.origin);
           console.log('[SMS-DECISION] Computed smsVerificado:', smsVerificado);
@@ -254,7 +248,7 @@ log('🚀 Carregando auth.js...');
           console.log('[SMS-DECISION] DECISÃO FINAL:', (!smsVerificado && !isBypassSMS) ? 'BLOQUEAR E PEDIR SMS' : 'PERMITIR LOGIN');
           
           console.log('🔐 [AUTH-DEBUG] VERIFICAÇÃO DE SMS:');
-          console.log('   smsVerificado (phoneNumber exists):', smsVerificado);
+          console.log('   smsVerificado (Firestore smsVerified):', smsVerificado);
           console.log('   criadoSemSMS === true:', userData.criadoSemSMS === true);
           console.log('   origin === hotmart:', userData.origin === 'hotmart');
           console.log('   isBypassSMS (pode entrar sem SMS):', isBypassSMS);
@@ -262,9 +256,9 @@ log('🚀 Carregando auth.js...');
           console.log('═════════════════════════════════════════════');
           
           if (!smsVerificado && !isBypassSMS) {
-            // Conta criada mas telefone não verificado no Auth - forçar logout
-            warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
-            warn('   user.phoneNumber:', result.user.phoneNumber);
+            // Conta criada mas SMS não verificado no Firestore - forçar logout
+            warn('⚠️ [SEGURANÇA] Login bloqueado - SMS não verificado no Firestore');
+            warn('   Firestore smsVerified:', userData.smsVerified);
             warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
             
@@ -286,7 +280,7 @@ log('🚀 Carregando auth.js...');
           }
           
           if (smsVerificado) {
-            log('✅ [SMS-SYNC] SMS verificado detectado no Auth (user.phoneNumber existe)');
+            log('✅ [SMS-VERIFIED] SMS verificado no Firestore (smsVerified: true)');
           } else if (isBypassSMS) {
             console.log('═════════════════════════════════════════════');
             console.log('✅ [HOTMART-BYPASS] LOGIN SEM SMS APROVADO');
@@ -1103,7 +1097,7 @@ log('🚀 Carregando auth.js...');
         document.documentElement.style.overflow = '';
 
         // ═══════════════════════════════════════════════════════════════════
-        // ✅ FLUXO CORRETO: CRIAR USUÁRIO COM EMAIL PRIMEIRO
+        // ✅ FLUXO REFATORADO: CRIAR USUÁRIO COM EMAIL E VERIFICAR SMS
         // ═══════════════════════════════════════════════════════════════════
         
         log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
@@ -1114,151 +1108,88 @@ log('🚀 Carregando auth.js...');
         log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
         log('   Email verificado:', userResult.user.email);
         
-        // ✅ PASSO 2: Confirmar código SMS
+        // ✅ PASSO 2: Confirmar código SMS (validação apenas, não vincular ao Auth)
         showMessage("📱 Confirmando SMS...", "success");
         log('📱 [CONFIRM] PASSO 2: Confirmando código SMS...');
         log('   Código:', code);
         
-        const phoneCredential = PhoneAuthProvider.credential(
-          window.confirmationResult.verificationId, 
-          code
-        );
-        
-        // ✅ PASSO 3: Vincular TELEFONE ao usuário de EMAIL
-        showMessage("🔗 Vinculando telefone...", "success");
-        log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
-        log('   Telefone:', formattedPhone);
-        
-        // Usar auth.currentUser conforme padrão (mais robusto)
-        await linkWithCredential(auth.currentUser, phoneCredential);
-        log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
-        // ═══════════════════════════════════════════════════════════════════
-        // PROBLEMA: linkWithCredential NÃO atualiza imediatamente auth.currentUser
-        // SOLUÇÃO: Forçar reload() para obter estado atualizado do Firebase
-        // ═══════════════════════════════════════════════════════════════════
-        log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
-        await auth.currentUser.reload();
-        
-        // Obter referência atualizada do usuário
-        const refreshedUser = auth.currentUser;
-        log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
-        log('   UID:', refreshedUser.uid);
-        log('   Email:', refreshedUser.email);
-        log('   phoneNumber:', refreshedUser.phoneNumber);
-        log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
-        
-        // Validar se telefone foi realmente vinculado
-        if (!refreshedUser.phoneNumber) {
-          error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
-          throw new Error('Telefone não foi vinculado corretamente');
-        }
-        
-        log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
-        
-        // Atualizar referência do userResult para usar dados atualizados
-        userResult.user = refreshedUser;
-        
-        // ═══════════════════════════════════════════════════════════════════
-        // ✅ PASSO 5: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
-        // ═══════════════════════════════════════════════════════════════════
-        log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
-        
-        // Aguardar onAuthStateChanged confirmar atualização (com timeout curto pois já fizemos reload)
-        await new Promise((resolve) => {
-          const unsubscribe = auth.onAuthStateChanged((user) => {
-            if (user && user.uid === refreshedUser.uid && user.phoneNumber) {
-              log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
-              unsubscribe();
-              resolve();
-            }
-          });
-          
-          // Timeout curto (1 segundo) - já garantimos o estado com reload()
-          setTimeout(() => {
-            log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
-            unsubscribe();
-            resolve();
-          }, 1000);
-        });
-        
-        // ✅ PASSO 6: Renovar token com estado garantido
-        log('🔄 [CONFIRM] PASSO 6: Renovando token...');
+        // ✅ VALIDAR código SMS sem vincular ao Firebase Auth
+        // Apenas confirmar que o código está correto
+        log('🔍 [SMS] Validando código SMS...');
         try {
-          freshToken = await refreshedUser.getIdToken(true);
-          log('✅ [CONFIRM] Token renovado com sucesso');
-        } catch (tokenError) {
-          warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
-          // Usar token sem forçar refresh
-          freshToken = await refreshedUser.getIdToken();
+          await window.confirmationResult.confirm(code);
+          log('✅ [SMS] Código validado com sucesso');
+        } catch (verifyErr) {
+          // Se o erro for "credential-already-in-use", significa que o código é válido
+          if (verifyErr.code === 'auth/credential-already-in-use') {
+            log('✅ [SMS] Código válido (telefone já em uso por outra conta)');
+          } else {
+            // Outro erro - código inválido ou expirado
+            throw verifyErr;
+          }
         }
+        
+        log('✅ [SMS] Verificação confirmada');
+        
+        // ✅ PASSO 3: Obter token
+        log('🔄 [CONFIRM] PASSO 3: Obtendo token...');
+        freshToken = await userResult.user.getIdToken();
         
         // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens e metadados IMEDIATAMENTE
         log('💾 [CONFIRM] Salvando tokens de autenticação...');
         log('   UID:', userResult.user.uid);
         log('   Email:', formEmail);
-        log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
+        log('   Telefone (verificado):', formattedPhone);
         
         localStorage.setItem("idToken", freshToken);
         localStorage.setItem("authToken", freshToken);
         localStorage.setItem("user", JSON.stringify({
           uid: userResult.user.uid,
           email: formEmail,
-          telefone: userResult.user.phoneNumber // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
+          telefone: formattedPhone
         }));
         
         // ✅ CRÍTICO: Salvar metadados do cadastro para onAuthStateChanged criar Firestore
         localStorage.setItem("cadastroMetadata", JSON.stringify({
           email: formEmail,
-          telefone: userResult.user.phoneNumber, // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
+          telefone: formattedPhone,
           deviceId: deviceId,
           timestamp: new Date().toISOString()
         }));
         
         log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
         log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
-        log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
+        log('📱 [SMS] Verificação confirmada');
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
-        // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
-        // e manter campos legacy/PT para compatibilidade.
+        // 🔥 SALVAR NO FIRESTORE (FONTE DA VERDADE)
+        // ═══════════════════════════════════════════════════════════════════
+        log('[FIRESTORE] Salvando documento do usuário...');
+        
+        const userRef = doc(db, 'usuarios', userResult.user.uid);
+        const userDoc = {
+          phoneNumber: formattedPhone,
+          smsVerified: true,
+          smsVerifiedAt: serverTimestamp(),
+          email: formEmail,
+          plan: 'free',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+
+        // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
+        console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
+        console.log('[FIRESTORE-WRITE usuarios] Payload:', userDoc);
+        console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
+        
         try {
-          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-          const userRef = doc(db, 'usuarios', userResult.user.uid);
-
-          const updates = {
-            phoneNumber: userResult.user.phoneNumber,
-            verified: true,
-            verifiedAt: serverTimestamp(),
-            telefone: userResult.user.phoneNumber,
-            verificadoPorSMS: true,
-            smsVerificadoEm: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          };
-
-          // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
-          console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
-          console.log('[FIRESTORE-WRITE usuarios] Payload:', updates);
-          console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
-          
-          try {
-            await updateDoc(userRef, updates);
-            log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
-          } catch (uErr) {
-            // Se documento não existir, criar com merge para não sobrescrever campos existentes
-            console.warn('[POSSIBLE OVERWRITE usuarios] setDoc merge fallback', new Error().stack);
-            try {
-              await setDoc(userRef, updates, { merge: true });
-              log('✅ [CONFIRM] Firestore criado via setDoc merge com campos de verificação');
-            } catch (sErr) {
-              throw sErr;
-            }
-          }
-        } catch (syncErr) {
-          warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
+          await setDoc(userRef, userDoc, { merge: true });
+          log('✅ [FIRESTORE] Documento criado/atualizado');
+          log('   phoneNumber:', formattedPhone);
+          log('   smsVerified:', true);
+        } catch (firestoreErr) {
+          error('❌ [FIRESTORE] Erro ao salvar documento:', firestoreErr);
+          throw new Error('Falha ao salvar dados. Tente novamente.');
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -2062,21 +1993,19 @@ log('🚀 Carregando auth.js...');
               }
               
               // ✅ VALIDAÇÃO INFORMATIVA: Verificar SMS (NÃO BLOQUEIA ACESSO)
-              // REGRA: auth.currentUser.phoneNumber é a ÚNICA fonte de verdade
-              // Campo verificadoPorSMS no Firestore é APENAS informativo
-              const smsVerificado = !!user.phoneNumber;
+              // REGRA: Firestore smsVerified é a ÚNICA fonte de verdade
+              const smsVerificado = userData.smsVerified === true;
               
               // 📊 LOGGING INFORMATIVO (NÃO BLOQUEIA)
               if (!smsVerificado && !userData.criadoSemSMS) {
-                warn('⚠️ [INFO] Telefone não verificado no Auth (mas acesso permitido)');
-                warn('   user.phoneNumber:', user.phoneNumber);
+                warn('⚠️ [INFO] SMS não verificado no Firestore (mas acesso permitido)');
+                warn('   Firestore smsVerified:', userData.smsVerified);
                 warn('   criadoSemSMS:', userData.criadoSemSMS);
                 warn('   ✅ Usuário autenticado - acesso PERMITIDO');
               }
               
               log('✅ [AUTH] Validação completa - acesso permitido');
-              log('   SMS verificado (Auth):', smsVerificado);
-              log('   user.phoneNumber:', user.phoneNumber);
+              log('   SMS verificado (Firestore):', smsVerificado);
               log('   criadoSemSMS:', userData.criadoSemSMS);
               
               // 🎧 BETA DJS: Verificar se o plano DJ expirou e exibir modal
@@ -2234,53 +2163,6 @@ log('🚀 Carregando auth.js...');
           log('✅ [AUTH-LISTENER] Usuário existente - documento atualizado (plan preservado)');
         } else {
           log('✅ [AUTH-LISTENER] Usuário existente - nenhuma alteração necessária');
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
-          // ═══════════════════════════════════════════════════════════════════
-          if (user.phoneNumber) {
-            const { doc, getDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-            const userRef = doc(db, 'usuarios', user.uid);
-            const userSnap = await getDoc(userRef);
-            const userData = userSnap.data();
-            
-            // Se Firestore ainda marca como não verificado (PT) ou não tem campos canônicos (EN), sincronizar
-            if (!userData.verificadoPorSMS || !userData.verified) {
-              log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
-              log('   user.phoneNumber:', user.phoneNumber);
-              log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
-              log('   Firestore verified (EN):', userData.verified);
-              log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
-              
-              const syncUpdates = {
-                // Campos canônicos (EN)
-                phoneNumber: user.phoneNumber,
-                verified: true,
-                verifiedAt: serverTimestamp(),
-                // Campos legacy/PT para compatibilidade
-                verificadoPorSMS: true,
-                telefone: user.phoneNumber,
-                smsVerificadoEm: serverTimestamp(),
-                updatedAt: serverTimestamp()
-              };
-              
-              // 🔍 AUDITORIA: ESCRITA NO FIRESTORE (SMS-SYNC)
-              console.log('[FIRESTORE-WRITE usuarios] auth.js onAuthStateChanged SMS-SYNC linha ~2227');
-              console.log('[FIRESTORE-WRITE usuarios] Sync payload:', syncUpdates);
-              
-              try {
-                await updateDoc(userRef, syncUpdates);
-                
-                log('✅ [SMS-SYNC] Firestore atualizado para verificado');
-                log('   verificadoPorSMS: true');
-                log('   telefone:', user.phoneNumber);
-              } catch (syncError) {
-                error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
-              }
-            } else {
-              log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
-            }
-          }
         }
         
         // Limpar metadados se existirem
