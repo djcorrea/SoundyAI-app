@@ -1424,30 +1424,34 @@ log('🚀 Carregando auth.js...');
           }
           
         } catch (syncErr) {
-          error('❌ [CONFIRM] Falha ao sincronizar Firestore:', syncErr);
-          warn('⚠️ [CONFIRM] Iniciando garantia em background - não bloqueia cadastro');
+          error('❌ [CONFIRM] Falha ao atualizar campos de verificação:', syncErr);
+          warn('⚠️ [CONFIRM] Tentando criar documento completo com ensureUserDocument...');
           
-          // 🔥 GARANTIA EM BACKGROUND - não aguarda, não bloqueia
-          guaranteeUserDocument(userResult.user, {
-            provider: 'phone',
-            deviceId: deviceId
-          }).catch(err => {
-            error('❌ [GUARANTEE-BG] Erro na garantia background:', err);
-          });
+          // 🔥 FALLBACK: Se updateDoc/setDoc merge falhou, criar documento completo
+          try {
+            await ensureUserDocument(userResult.user, {
+              provider: 'phone',
+              deviceId: deviceId
+            });
+            log('✅ [CONFIRM] Documento criado via ensureUserDocument (fallback)');
+          } catch (ensureErr) {
+            error('❌ [CONFIRM] ERRO CRÍTICO - Falha ao criar documento:', ensureErr);
+            warn('⚠️ [CONFIRM] Iniciando garantia em background como última tentativa');
+            
+            // 🔥 ÚLTIMA TENTATIVA: Garantia em background
+            guaranteeUserDocument(userResult.user, {
+              provider: 'phone',
+              deviceId: deviceId
+            }).catch(err => {
+              error('❌ [GUARANTEE-BG] Erro na garantia background:', err);
+            });
+          }
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(userResult.user, freshToken);
-        
-        // 🔥 GARANTIA EM BACKGROUND ADICIONAL - double-check após inicializar sessão
-        guaranteeUserDocument(userResult.user, {
-          provider: 'phone',
-          deviceId: deviceId
-        }).catch(err => {
-          error('❌ [GUARANTEE-BG] Erro na garantia background pós-sessão:', err);
-        });
         
       } catch (authError) {
         // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
@@ -2479,28 +2483,12 @@ log('🚀 Carregando auth.js...');
           console.log('═════════════════════════════════════════════');
           console.log('⚠️ [AUTH STATE] DOCUMENTO FIRESTORE NÃO EXISTE');
           console.log('[AUTH STATE] phoneNumber:', user.phoneNumber || 'NULL');
-          
-          if (user.phoneNumber) {
-            console.log('[AUTH STATE] phoneNumber existe - iniciando garantia em background...');
-            console.log('═════════════════════════════════════════════');
-            
-            // 🔥 GARANTIA EM BACKGROUND - não bloqueia listener
-            guaranteeUserDocument(user, {
-              provider: user.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email',
-              deviceId: null
-            }).catch(err => {
-              error('❌ [AUTH-STATE-GUARANTEE] Erro na garantia background:', err);
-            });
-            
-            console.log('✅ [AUTH STATE] Garantia iniciada em background');
-            return;
-          } else {
-            console.log('[AUTH STATE] phoneNumber NÃO existe - usuário precisa verificar SMS');
-            console.log('═════════════════════════════════════════════');
-            // Documento não existe e phoneNumber também não - não criar
-            log('⚠️ [AUTH STATE] Documento não existe e phoneNumber null - aguardando verificação SMS');
-            return;
-          }
+          console.log('[AUTH STATE] 🚫 NÃO CRIAR - Criação deve ocorrer em:');
+          console.log('[AUTH STATE]    1. confirmSMSCode (após polling)');
+          console.log('[AUTH STATE]    2. login (se documento não existir)');
+          console.log('[AUTH STATE] Listener NÃO cria documento para evitar race conditions');
+          console.log('═════════════════════════════════════════════');
+          return; // ✅ NÃO CRIAR NUNCA - deixar para confirmSMSCode/login
         }
         
         console.log('✅ [AUTH STATE] Documento Firestore existe');
