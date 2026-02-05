@@ -235,16 +235,74 @@ log('🚀 Carregando auth.js...');
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(result.user, idToken);
 
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 VALIDAÇÃO OBRIGATÓRIA: DOCUMENTO FIRESTORE DEVE EXISTIR
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('═════════════════════════════════════════════');
+        console.log('🔍 [LOGIN] VERIFICANDO DOCUMENTO FIRESTORE');
+        console.log('[LOGIN] UID:', result.user.uid);
+        console.log('[LOGIN] Email:', result.user.email);
+        console.log('[LOGIN] phoneNumber (Auth):', result.user.phoneNumber || 'NULL');
+        console.log('═════════════════════════════════════════════');
+
         try {
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
           
+          // ═══════════════════════════════════════════════════════════════════
+          // CASO 1: DOCUMENTO NÃO EXISTE - VERIFICAR phoneNumber E CRIAR
+          // ═══════════════════════════════════════════════════════════════════
           if (!snap.exists()) {
-            // Usuário não existe no Firestore - criar será feito automaticamente pelo listener
-            // Redirecionar direto para index.html (entrevista é premium-only)
-            log('✅ [AUTH] Novo usuário - redirecionando para index.html');
-            window.location.href = "index.html";
-            return;
+            console.log('═════════════════════════════════════════════');
+            console.log('⚠️ [LOGIN] DOCUMENTO FIRESTORE NÃO EXISTE');
+            console.log('[LOGIN] Verificando se phoneNumber existe no Auth...');
+            console.log('═════════════════════════════════════════════');
+            
+            if (result.user.phoneNumber) {
+              // CASO 1a: phoneNumber existe - CRIAR DOCUMENTO IMEDIATAMENTE
+              console.log('✅ [LOGIN] phoneNumber existe:', result.user.phoneNumber);
+              console.log('[LOGIN] Criando documento Firestore automaticamente...');
+              
+              try {
+                // Chamar ensureUserDocument para criar documento completo
+                await ensureUserDocument(result.user, {
+                  provider: 'email',
+                  deviceId: localStorage.getItem('soundy_visitor_id') || null
+                });
+                
+                console.log('✅ [LOGIN] Documento Firestore criado com sucesso');
+                console.log('[LOGIN] Redirecionando para index.html...');
+                window.location.href = "index.html";
+                return;
+              } catch (createError) {
+                console.error('❌ [LOGIN] Erro ao criar documento Firestore:', createError);
+                await auth.signOut();
+                localStorage.clear();
+                showMessage("❌ Erro ao criar perfil. Tente novamente.", "error");
+                return;
+              }
+              
+            } else {
+              // CASO 1b: phoneNumber NÃO existe - PEDIR SMS
+              console.log('═════════════════════════════════════════════');
+              console.log('❌ [LOGIN] phoneNumber NÃO existe no Auth');
+              console.log('[LOGIN] Conta incompleta - precisa verificar SMS');
+              console.log('[LOGIN] Ação: Forçar logout e redirecionar para cadastro');
+              console.log('═════════════════════════════════════════════');
+              
+              await auth.signOut();
+              localStorage.clear();
+              showMessage(
+                "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
+                "error"
+              );
+              return;
+            }
           }
+          
+          // ═══════════════════════════════════════════════════════════════════
+          // CASO 2: DOCUMENTO EXISTE - VALIDAR SMS
+          // ═══════════════════════════════════════════════════════════════════
+          console.log('✅ [LOGIN] Documento Firestore existe');
           
           const userData = snap.data();
           
@@ -2339,6 +2397,39 @@ log('🚀 Carregando auth.js...');
       console.log('═════════════════════════════════════════════');
       
       try {
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 VALIDAR EXISTÊNCIA DO DOCUMENTO FIRESTORE
+        // ═══════════════════════════════════════════════════════════════════
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+        const userDocRef = doc(db, 'usuarios', user.uid);
+        const userSnap = await getDoc(userDocRef);
+        
+        if (!userSnap.exists()) {
+          console.log('═════════════════════════════════════════════');
+          console.log('⚠️ [AUTH STATE] DOCUMENTO FIRESTORE NÃO EXISTE');
+          console.log('[AUTH STATE] phoneNumber:', user.phoneNumber || 'NULL');
+          
+          if (user.phoneNumber) {
+            console.log('[AUTH STATE] phoneNumber existe - criando documento...');
+            console.log('═════════════════════════════════════════════');
+            // Documento não existe mas phoneNumber existe - criar
+            await ensureUserDocument(user, {
+              provider: user.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email',
+              deviceId: null
+            });
+            console.log('✅ [AUTH STATE] Documento criado com sucesso');
+            return;
+          } else {
+            console.log('[AUTH STATE] phoneNumber NÃO existe - usuário precisa verificar SMS');
+            console.log('═════════════════════════════════════════════');
+            // Documento não existe e phoneNumber também não - não criar
+            log('⚠️ [AUTH STATE] Documento não existe e phoneNumber null - aguardando verificação SMS');
+            return;
+          }
+        }
+        
+        console.log('✅ [AUTH STATE] Documento Firestore existe');
+        
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
         // ═══════════════════════════════════════════════════════════════════
