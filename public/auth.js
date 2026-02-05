@@ -235,8 +235,8 @@ log('🚀 Carregando auth.js...');
           console.log('═════════════════════════════════════════════');
           
           // ✅ VALIDAÇÃO OBRIGATÓRIA: Decidir pedido de SMS apenas com base no Firestore
-          // Como regra: aceitar apenas os campos persistidos em Firestore como decisão final
-          const smsVerificado = (userData.verified === true || userData.verificadoPorSMS === true);
+          // Verificar APENAS userData.verified
+          const smsVerificado = (userData.verified === true);
           
           // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
           const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
@@ -1132,6 +1132,31 @@ log('🚀 Carregando auth.js...');
         // Usar auth.currentUser conforme padrão (mais robusto)
         await linkWithCredential(auth.currentUser, phoneCredential);
         log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 SALVAR TELEFONE NO FIRESTORE IMEDIATAMENTE APÓS CONFIRMAÇÃO
+        // ═══════════════════════════════════════════════════════════════════
+        const phoneInput = document.querySelector('#phone');
+        const phone = phoneInput ? phoneInput.value : null;
+
+        if (!phone) {
+          console.error('[SMS] Telefone não encontrado no input');
+        } else {
+          await setDoc(
+            doc(db, 'usuarios', auth.currentUser.uid),
+            {
+              phoneNumber: phone,
+              verified: true,
+              verifiedAt: serverTimestamp(),
+              telefone: phone,
+              verificadoPorSMS: true,
+              smsVerificadoEm: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            },
+            { merge: true }
+          );
+          log('✅ [CONFIRM] Telefone salvo no Firestore:', phone);
+        }
         
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
