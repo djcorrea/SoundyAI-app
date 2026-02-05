@@ -41,35 +41,6 @@ log('🚀 Carregando auth.js...');
       log('🔄 Modo SMS:', enable ? 'ATIVADO' : 'DESATIVADO');
       showMessage(`Modo SMS ${enable ? 'ativado' : 'desativado'}. Recarregue a página.`, "success");
     };
-    
-    // ═══════════════════════════════════════════════════════════════════
-    // 🔥 FUNÇÃO DE RETRY EXPONENCIAL PARA ESCRITAS CRÍTICAS
-    // ═══════════════════════════════════════════════════════════════════
-    async function retryFirestoreWrite(operation, maxRetries = 3) {
-      let lastError = null;
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          log(`🔄 [RETRY] Tentativa ${attempt}/${maxRetries}...`);
-          const result = await operation();
-          log(`✅ [RETRY] Sucesso na tentativa ${attempt}`);
-          return result;
-        } catch (error) {
-          lastError = error;
-          warn(`⚠️ [RETRY] Falha na tentativa ${attempt}:`, error.message);
-          
-          if (attempt < maxRetries) {
-            // Backoff exponencial: 1s, 2s, 4s
-            const delay = Math.pow(2, attempt - 1) * 1000;
-            log(`⏳ [RETRY] Aguardando ${delay}ms antes da próxima tentativa...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-        }
-      }
-      
-      error(`❌ [RETRY] Todas as ${maxRetries} tentativas falharam`);
-      throw lastError;
-    }
 
     // Configuração simplificada (SMS desabilitado temporariamente)
     try {
@@ -235,68 +206,16 @@ log('🚀 Carregando auth.js...');
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(result.user, idToken);
 
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 VALIDAÇÃO OBRIGATÓRIA: DOCUMENTO FIRESTORE DEVE EXISTIR
-        // ═══════════════════════════════════════════════════════════════════
-        console.log('═════════════════════════════════════════════');
-        console.log('🔍 [LOGIN] VERIFICANDO DOCUMENTO FIRESTORE');
-        console.log('[LOGIN] UID:', result.user.uid);
-        console.log('[LOGIN] Email:', result.user.email);
-        console.log('[LOGIN] phoneNumber (Auth):', result.user.phoneNumber || 'NULL');
-        console.log('═════════════════════════════════════════════');
-
         try {
           const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
           
-          // ═══════════════════════════════════════════════════════════════════
-          // CASO 1: DOCUMENTO NÃO EXISTE - VERIFICAR phoneNumber E CRIAR
-          // ═══════════════════════════════════════════════════════════════════
           if (!snap.exists()) {
-            console.log('═════════════════════════════════════════════');
-            console.log('⚠️ [LOGIN] DOCUMENTO FIRESTORE NÃO EXISTE');
-            console.log('[LOGIN] Verificando se phoneNumber existe no Auth...');
-            console.log('═════════════════════════════════════════════');
-            
-            if (result.user.phoneNumber) {
-              // CASO 1a: phoneNumber existe - GARANTIR DOCUMENTO EM BACKGROUND
-              console.log('✅ [LOGIN] phoneNumber existe:', result.user.phoneNumber);
-              console.log('[LOGIN] Iniciando garantia de documento em background...');
-              
-              // 🔥 GARANTIA EM BACKGROUND - não bloqueia login
-              guaranteeUserDocument(result.user, {
-                provider: 'email',
-                deviceId: localStorage.getItem('soundy_visitor_id') || null
-              }).catch(err => {
-                error('❌ [LOGIN-GUARANTEE] Erro na garantia background:', err);
-              });
-              
-              console.log('✅ [LOGIN] Garantia iniciada - permitindo acesso');
-              console.log('[LOGIN] Redirecionando para index.html...');
-              window.location.href = "index.html";
-              return;
-              
-            } else {
-              // CASO 1b: phoneNumber NÃO existe - PEDIR SMS
-              console.log('═════════════════════════════════════════════');
-              console.log('❌ [LOGIN] phoneNumber NÃO existe no Auth');
-              console.log('[LOGIN] Conta incompleta - precisa verificar SMS');
-              console.log('[LOGIN] Ação: Forçar logout e redirecionar para cadastro');
-              console.log('═════════════════════════════════════════════');
-              
-              await auth.signOut();
-              localStorage.clear();
-              showMessage(
-                "❌ Sua conta precisa de verificação por SMS. Complete o cadastro.",
-                "error"
-              );
-              return;
-            }
+            // Usuário não existe no Firestore - criar será feito automaticamente pelo listener
+            // Redirecionar direto para index.html (entrevista é premium-only)
+            log('✅ [AUTH] Novo usuário - redirecionando para index.html');
+            window.location.href = "index.html";
+            return;
           }
-          
-          // ═══════════════════════════════════════════════════════════════════
-          // CASO 2: DOCUMENTO EXISTE - VALIDAR SMS
-          // ═══════════════════════════════════════════════════════════════════
-          console.log('✅ [LOGIN] Documento Firestore existe');
           
           const userData = snap.data();
           
@@ -344,16 +263,9 @@ log('🚀 Carregando auth.js...');
           
           if (!smsVerificado && !isBypassSMS) {
             // Conta criada mas telefone não verificado no Auth - forçar logout
-            console.log('═════════════════════════════════════════════');
-            console.log('❌ [BLOQUEIO SMS] LOGIN NEGADO');
-            console.log('   Motivo: phoneNumber null no Firebase Auth');
-            console.log('   user.phoneNumber:', result.user.phoneNumber || 'NULL');
-            console.log('   criadoSemSMS:', userData.criadoSemSMS);
-            console.log('   origin:', userData.origin);
-            console.log('   Ação: Forçar logout e pedir SMS novamente');
-            console.log('═════════════════════════════════════════════');
-            
             warn('⚠️ [SEGURANÇA] Login bloqueado - telefone não verificado no Auth');
+            warn('   user.phoneNumber:', result.user.phoneNumber);
+            warn('   criadoSemSMS:', userData.criadoSemSMS);
             await auth.signOut();
             
             // 🔗 PRESERVAR referralCode antes de limpar localStorage
@@ -1219,90 +1131,61 @@ log('🚀 Carregando auth.js...');
         
         // Usar auth.currentUser conforme padrão (mais robusto)
         await linkWithCredential(auth.currentUser, phoneCredential);
-        console.log('✅ [SMS LINK COMPLETE] linkWithCredential executado');
-        console.log('[SMS LINK COMPLETE] Telefone vinculado ao email no Firebase Auth');
-        console.log('[SMS LINK COMPLETE] Próximo passo: Polling até phoneNumber propagar');
+        log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 FLUXO DETERMINÍSTICO: POLLING ATÉ phoneNumber EXISTIR NO AUTH
+        // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
         // ═══════════════════════════════════════════════════════════════════
-        // PROBLEMA: linkWithCredential NÃO atualiza IMEDIATAMENTE auth.currentUser.phoneNumber
-        // SOLUÇÃO: Loop com reload() até phoneNumber estar presente
-        // GARANTIA: SÓ criar Firestore DEPOIS que Auth tiver phoneNumber
+        // PROBLEMA: linkWithCredential NÃO atualiza imediatamente auth.currentUser
+        // SOLUÇÃO: Forçar reload() para obter estado atualizado do Firebase
         // ═══════════════════════════════════════════════════════════════════
-        console.log('═════════════════════════════════════════════');
-        console.log('🔄 [AUTH STATE] INICIANDO POLLING ATÉ phoneNumber EXISTIR');
-        console.log('[AUTH STATE] Máximo: 10 tentativas (500ms cada)');
-        console.log('═════════════════════════════════════════════');
+        log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
+        await auth.currentUser.reload();
         
-        let phoneNumberReady = false;
-        let attempts = 0;
-        const maxAttempts = 10;
-        const pollInterval = 500; // 500ms entre tentativas
-        
-        while (!phoneNumberReady && attempts < maxAttempts) {
-          attempts++;
-          console.log(`[AUTH STATE] Tentativa ${attempts}/${maxAttempts}: Executando reload()...`);
-          
-          try {
-            await auth.currentUser.reload();
-            const currentPhoneNumber = auth.currentUser.phoneNumber;
-            
-            console.log(`[AUTH STATE] Tentativa ${attempts}: phoneNumber =`, currentPhoneNumber || 'NULL');
-            
-            if (currentPhoneNumber) {
-              phoneNumberReady = true;
-              console.log('═════════════════════════════════════════════');
-              console.log('✅ [AUTH PHONE READY] phoneNumber CONFIRMADO NO AUTH');
-              console.log('[AUTH PHONE READY] Valor:', currentPhoneNumber);
-              console.log('[AUTH PHONE READY] Tentativas necessárias:', attempts);
-              console.log('[AUTH PHONE READY] Firestore agora pode ser criado com segurança');
-              console.log('═════════════════════════════════════════════');
-              break;
-            }
-            
-            // Aguardar antes da próxima tentativa
-            if (attempts < maxAttempts) {
-              console.log(`[AUTH STATE] phoneNumber ainda NULL - aguardando ${pollInterval}ms...`);
-              await new Promise(resolve => setTimeout(resolve, pollInterval));
-            }
-            
-          } catch (reloadError) {
-            console.error(`[AUTH STATE] Erro no reload (tentativa ${attempts}):`, reloadError.message);
-            // Continuar tentando mesmo com erro
-            if (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, pollInterval));
-            }
-          }
-        }
-        
-        // Validar se conseguimos phoneNumber
-        if (!phoneNumberReady) {
-          console.log('═════════════════════════════════════════════');
-          console.error('❌ [AUTH STATE] TIMEOUT: phoneNumber NÃO propagou após', maxAttempts, 'tentativas');
-          console.error('[AUTH STATE] Estado atual:', {
-            uid: auth.currentUser?.uid,
-            email: auth.currentUser?.email,
-            phoneNumber: auth.currentUser?.phoneNumber,
-            providerData: auth.currentUser?.providerData.map(p => p.providerId)
-          });
-          console.log('═════════════════════════════════════════════');
-          throw new Error('Falha ao vincular telefone: phoneNumber não propagou no Firebase Auth');
-        }
-        
-        // Obter referência atualizada do usuário GARANTIDAMENTE com phoneNumber
+        // Obter referência atualizada do usuário
         const refreshedUser = auth.currentUser;
-        log('✅ [CONFIRM] Usuário VALIDADO com phoneNumber:');
+        log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
         log('   UID:', refreshedUser.uid);
         log('   Email:', refreshedUser.email);
         log('   phoneNumber:', refreshedUser.phoneNumber);
         log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
         
+        // Validar se telefone foi realmente vinculado
+        if (!refreshedUser.phoneNumber) {
+          error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
+          throw new Error('Telefone não foi vinculado corretamente');
+        }
+        
+        log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
+        
         // Atualizar referência do userResult para usar dados atualizados
         userResult.user = refreshedUser;
         
-        // ✅ PASSO 5: Renovar token com estado garantido
-        log('🔄 [CONFIRM] PASSO 5: Renovando token...');
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ PASSO 5: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
+        // ═══════════════════════════════════════════════════════════════════
+        log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
+        
+        // Aguardar onAuthStateChanged confirmar atualização (com timeout curto pois já fizemos reload)
+        await new Promise((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === refreshedUser.uid && user.phoneNumber) {
+              log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
+              unsubscribe();
+              resolve();
+            }
+          });
+          
+          // Timeout curto (1 segundo) - já garantimos o estado com reload()
+          setTimeout(() => {
+            log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
+            unsubscribe();
+            resolve();
+          }, 1000);
+        });
+        
+        // ✅ PASSO 6: Renovar token com estado garantido
+        log('🔄 [CONFIRM] PASSO 6: Renovando token...');
         try {
           freshToken = await refreshedUser.getIdToken(true);
           log('✅ [CONFIRM] Token renovado com sucesso');
@@ -1339,95 +1222,44 @@ log('🚀 Carregando auth.js...');
         log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
         
         // ═══════════════════════════════════════════════════════════════════
-        // 🔥 CRIAR DOCUMENTO FIRESTORE COMPLETO - 100% DETERMINÍSTICO
-        // ═══════════════════════════════════════════════════════════════════
-        console.log('═════════════════════════════════════════════');
-        console.log('💾 [FIRESTORE CREATE] CRIAÇÃO DETERMINÍSTICA INICIADA');
-        console.log('[FIRESTORE CREATE] phoneNumber CONFIRMADO:', userResult.user.phoneNumber);
-        console.log('[FIRESTORE CREATE] UID:', userResult.user.uid);
-        console.log('[FIRESTORE CREATE] Operação: ensureUserDocument (documento completo)');
-        console.log('[FIRESTORE CREATE] Timing: IMEDIATAMENTE após polling phoneNumber');
-        console.log('═════════════════════════════════════════════');
-        log('💾 [CONFIRM] PASSO 6: Criando documento Firestore COMPLETO...');
-        
-        // VALIDAÇÃO CRÍTICA: Garantir que phoneNumber existe
-        if (!userResult.user.phoneNumber) {
-          console.error('═════════════════════════════════════════════');
-          console.error('❌ [FIRESTORE CREATE] BLOQUEADO - phoneNumber NULL');
-          console.error('[FIRESTORE CREATE] NÃO é seguro criar Firestore sem phoneNumber');
-          console.error('═════════════════════════════════════════════');
-          throw new Error('SEGURANÇA CRÍTICA: phoneNumber deve existir antes de criar Firestore');
-        }
-        
-        // 🔥 TENTAR CRIAR DOCUMENTO COMPLETO COM ensureUserDocument
-        let firestoreCreated = false;
-        
+        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
+        // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
+        // e manter campos legacy/PT para compatibilidade.
         try {
-          log('🔄 [CONFIRM] Tentativa 1: Criar documento completo via ensureUserDocument...');
+          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userRef = doc(db, 'usuarios', userResult.user.uid);
+
+          const updates = {
+            phoneNumber: userResult.user.phoneNumber,
+            verified: true,
+            verifiedAt: serverTimestamp(),
+            telefone: userResult.user.phoneNumber,
+            verificadoPorSMS: true,
+            smsVerificadoEm: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+
+          // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
+          console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
+          console.log('[FIRESTORE-WRITE usuarios] Payload:', updates);
+          console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
           
-          const result = await ensureUserDocument(userResult.user, {
-            provider: 'phone',
-            deviceId: deviceId
-          });
-          
-          if (result.created || result.updated) {
-            console.log('═════════════════════════════════════════════');
-            console.log('✅ [FIRESTORE CREATE] DOCUMENTO CRIADO COM SUCESSO');
-            console.log('[FIRESTORE CREATE] Tipo:', result.created ? 'NOVO' : 'ATUALIZADO');
-            console.log('[FIRESTORE CREATE] phoneNumber:', userResult.user.phoneNumber);
-            console.log('[FIRESTORE CREATE] Todos os campos inicializados');
-            console.log('═════════════════════════════════════════════');
-            firestoreCreated = true;
-          } else {
-            warn('⚠️ [CONFIRM] ensureUserDocument não retornou created/updated');
-          }
-          
-        } catch (ensureErr) {
-          error('❌ [CONFIRM] TENTATIVA 1 FALHOU - ensureUserDocument:', ensureErr);
-          
-          // 🔥 FALLBACK: Tentar com guaranteeUserDocument (síncrono)
           try {
-            warn('⚠️ [CONFIRM] Tentativa 2: Criar via guaranteeUserDocument (aguardando)...');
-            
-            await guaranteeUserDocument(userResult.user, {
-              provider: 'phone',
-              deviceId: deviceId
-            });
-            
-            console.log('═════════════════════════════════════════════');
-            console.log('✅ [FIRESTORE CREATE] DOCUMENTO CRIADO (FALLBACK)');
-            console.log('[FIRESTORE CREATE] Via: guaranteeUserDocument');
-            console.log('[FIRESTORE CREATE] phoneNumber:', userResult.user.phoneNumber);
-            console.log('═════════════════════════════════════════════');
-            firestoreCreated = true;
-            
-          } catch (guaranteeErr) {
-            error('❌ [CONFIRM] TENTATIVA 2 FALHOU - guaranteeUserDocument:', guaranteeErr);
-            error('❌ [CONFIRM] ERRO CRÍTICO - Não foi possível criar documento Firestore');
-            
-            // 🚨 ABORTAR CADASTRO - Sem documento não pode continuar
-            console.error('═════════════════════════════════════════════');
-            console.error('🚨 [FIRESTORE CREATE] ABORTANDO CADASTRO');
-            console.error('[FIRESTORE CREATE] Motivo: Impossível criar documento Firestore');
-            console.error('[FIRESTORE CREATE] Estado: phoneNumber existe mas Firestore falhou');
-            console.error('[FIRESTORE CREATE] Ação: Usuário precisará tentar novamente');
-            console.error('═════════════════════════════════════════════');
-            
-            throw new Error('CRÍTICO: Falha ao criar documento Firestore após phoneNumber confirmado');
+            await updateDoc(userRef, updates);
+            log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
+          } catch (uErr) {
+            // Se documento não existir, criar com merge para não sobrescrever campos existentes
+            console.warn('[POSSIBLE OVERWRITE usuarios] setDoc merge fallback', new Error().stack);
+            try {
+              await setDoc(userRef, updates, { merge: true });
+              log('✅ [CONFIRM] Firestore criado via setDoc merge com campos de verificação');
+            } catch (sErr) {
+              throw sErr;
+            }
           }
+        } catch (syncErr) {
+          warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
         }
-        
-        // 🔍 VALIDAÇÃO FINAL: Garantir que documento foi criado
-        if (!firestoreCreated) {
-          console.error('═════════════════════════════════════════════');
-          console.error('🚨 [FIRESTORE CREATE] VALIDAÇÃO FALHOU');
-          console.error('[FIRESTORE CREATE] Nenhuma tentativa marcou sucesso');
-          console.error('[FIRESTORE CREATE] Estado inconsistente detectado');
-          console.error('═════════════════════════════════════════════');
-          throw new Error('VALIDAÇÃO: Documento Firestore não foi confirmado como criado');
-        }
-        
-        log('✅ [CONFIRM] Documento Firestore GARANTIDO - prosseguindo com segurança');
 
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
@@ -1601,72 +1433,7 @@ log('🚀 Carregando auth.js...');
     };
 
     /**
-     * � FUNÇÃO DE GARANTIA EM BACKGROUND: Tenta criar documento até sucesso
-     * 
-     * - Não bloqueia o usuário
-     * - Retry automático infinito com backoff exponencial
-     * - Continua tentando até documento existir
-     * - Ideal para chamar após login/cadastro sem aguardar
-     * 
-     * @param {Object} user - Firebase User object
-     * @param {Object} options - Opções: { provider, deviceId, referralCode }
-     * @returns {Promise<void>} - Não retorna nada, garante em background
-     */
-    async function guaranteeUserDocument(user, options = {}) {
-      if (!user || !user.uid) {
-        error('❌ [GUARANTEE] user ou user.uid é inválido');
-        return;
-      }
-
-      log('🔄 [GUARANTEE] Iniciando garantia de documento em background para:', user.uid);
-      
-      let attempt = 0;
-      const maxDelay = 30000; // Máximo 30 segundos entre tentativas
-      
-      while (true) {
-        attempt++;
-        
-        try {
-          // Importar Firestore dinamicamente
-          const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-          const userRef = doc(db, 'usuarios', user.uid);
-          const userSnap = await getDoc(userRef);
-          
-          if (userSnap.exists()) {
-            log('✅ [GUARANTEE] Documento já existe - garantia concluída');
-            log('   Tentativas necessárias:', attempt);
-            return; // Sucesso - documento existe
-          }
-          
-          // Documento não existe - tentar criar
-          log(`🔄 [GUARANTEE] Tentativa ${attempt}: Documento não existe, criando...`);
-          
-          const result = await ensureUserDocument(user, options);
-          
-          if (result.created) {
-            log('✅ [GUARANTEE] Documento criado com sucesso!');
-            log('   Tentativas necessárias:', attempt);
-            return; // Sucesso - documento criado
-          }
-          
-          // Fallback - se ensureUserDocument não criou mas também não deu erro
-          warn('⚠️ [GUARANTEE] ensureUserDocument não criou documento, tentando novamente...');
-          
-        } catch (err) {
-          // Falha - calcular delay e tentar novamente
-          const delay = Math.min(1000 * Math.pow(2, attempt - 1), maxDelay);
-          
-          error(`❌ [GUARANTEE] Tentativa ${attempt} falhou:`, err.message);
-          warn(`⏳ [GUARANTEE] Aguardando ${delay}ms antes de tentar novamente...`);
-          
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue; // Continuar loop infinito
-        }
-      }
-    }
-
-    /**
-     * �🔐 FUNÇÃO CENTRALIZADA: Garantir documento do usuário no Firestore
+     * 🔐 FUNÇÃO CENTRALIZADA: Garantir documento do usuário no Firestore
      * 
      * COMPORTAMENTO:
      * - Se documento NÃO existe: cria com DEFAULT_USER_DOCUMENT (plan: "free")
@@ -1913,17 +1680,10 @@ log('🚀 Carregando auth.js...');
         }
         
         // 🔍 AUDITORIA: ESCRITA NO FIRESTORE (CRIAÇÃO)
-        console.log('═════════════════════════════════════════════');
-        console.log('💾 [FIRESTORE CREATE] CRIANDO DOCUMENTO NOVO');
-        console.log('[FIRESTORE CREATE] Local: auth.js ensureUserDocument() linha ~1659');
-        console.log('[FIRESTORE CREATE] Operação: setDoc (criação nova)');
-        console.log('[FIRESTORE CREATE] UID:', user.uid);
-        console.log('[FIRESTORE CREATE] phoneNumber:', validatedDoc.phoneNumber || 'NULL');
-        console.log('[FIRESTORE CREATE] verified:', validatedDoc.verified);
-        console.log('[FIRESTORE CREATE] plan:', validatedDoc.plan);
-        console.log('[FIRESTORE CREATE] Total de campos:', Object.keys(validatedDoc).length);
+        console.log('[FIRESTORE-WRITE usuarios] auth.js ensureUserDocument() linha ~1659');
+        console.log('[FIRESTORE-WRITE usuarios] Operação: setDoc (criação nova)');
+        console.log('[FIRESTORE-WRITE usuarios] Payload completo:', validatedDoc);
         console.warn('[POSSIBLE OVERWRITE usuarios] setDoc criação de documento novo', new Error().stack);
-        console.log('═════════════════════════════════════════════');
         
         await setDoc(userRef, validatedDoc);
         
@@ -2431,49 +2191,12 @@ log('🚀 Carregando auth.js...');
     auth.onAuthStateChanged(async (user) => {
       if (!user) return;
       
-      console.log('═════════════════════════════════════════════');
-      console.log('🔔 [AUTH STATE] onAuthStateChanged DISPARADO');
-      console.log('[AUTH STATE] UID:', user.uid);
-      console.log('[AUTH STATE] Email:', user.email);
-      console.log('[AUTH STATE] phoneNumber:', user.phoneNumber || 'NULL');
-      
-      // ═══════════════════════════════════════════════════════════════════
-      // 🔥 BLOQUEIO TOTAL: NÃO CRIAR DOCUMENTO DURANTE CADASTRO SMS
-      // ═══════════════════════════════════════════════════════════════════
-      const cadastroEmProgresso = localStorage.getItem('cadastroEmProgresso');
-      if (cadastroEmProgresso === 'true') {
-        console.log('[AUTH STATE] ⏸️ BLOQUEADO - cadastro SMS em progresso');
-        console.log('[AUTH STATE] confirmSMSCode() criará o documento após phoneNumber estar pronto');
-        console.log('[AUTH STATE] Razão: Prevenir race condition (documento criado antes do phoneNumber propagar)');
-        console.log('═════════════════════════════════════════════');
-        return; // ✅ BLOQUEIO TOTAL - confirmSMSCode() criará o documento
-      }
-      
-      console.log('[AUTH STATE] ✅ Permitido continuar (cadastro não está em progresso)');
-      console.log('═════════════════════════════════════════════');
+      log('🔍 [AUTH-LISTENER] Usuário autenticado detectado');
+      log('   UID:', user.uid);
+      log('   Email:', user.email);
+      log('   Telefone:', user.phoneNumber);
       
       try {
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 VALIDAR EXISTÊNCIA DO DOCUMENTO FIRESTORE
-        // ═══════════════════════════════════════════════════════════════════
-        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
-        const userDocRef = doc(db, 'usuarios', user.uid);
-        const userSnap = await getDoc(userDocRef);
-        
-        if (!userSnap.exists()) {
-          console.log('═════════════════════════════════════════════');
-          console.log('⚠️ [AUTH STATE] DOCUMENTO FIRESTORE NÃO EXISTE');
-          console.log('[AUTH STATE] phoneNumber:', user.phoneNumber || 'NULL');
-          console.log('[AUTH STATE] 🚫 NÃO CRIAR - Criação deve ocorrer em:');
-          console.log('[AUTH STATE]    1. confirmSMSCode (após polling)');
-          console.log('[AUTH STATE]    2. login (se documento não existir)');
-          console.log('[AUTH STATE] Listener NÃO cria documento para evitar race conditions');
-          console.log('═════════════════════════════════════════════');
-          return; // ✅ NÃO CRIAR NUNCA - deixar para confirmSMSCode/login
-        }
-        
-        console.log('✅ [AUTH STATE] Documento Firestore existe');
-        
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 USAR FUNÇÃO CENTRALIZADA ensureUserDocument()
         // ═══════════════════════════════════════════════════════════════════
@@ -2513,7 +2236,7 @@ log('🚀 Carregando auth.js...');
           log('✅ [AUTH-LISTENER] Usuário existente - nenhuma alteração necessária');
           
           // ═══════════════════════════════════════════════════════════════════
-          // 🔥 SINCRONIZAÇÃO SMS COM RETRY: Se telefone existe no Auth, atualizar Firestore
+          // 🔥 SINCRONIZAÇÃO SMS: Se telefone existe no Auth, atualizar Firestore
           // ═══════════════════════════════════════════════════════════════════
           if (user.phoneNumber) {
             const { doc, getDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
@@ -2523,13 +2246,11 @@ log('🚀 Carregando auth.js...');
             
             // Se Firestore ainda marca como não verificado (PT) ou não tem campos canônicos (EN), sincronizar
             if (!userData.verificadoPorSMS || !userData.verified) {
-              console.log('═════════════════════════════════════════════');
-              log('📱 [SMS-SYNC] DESSINCRONIA DETECTADA - Corrigindo...');
-              log('   Auth phoneNumber:', user.phoneNumber);
-              log('   Firestore phoneNumber:', userData.phoneNumber || 'NULL');
+              log('📱 [SMS-SYNC] Telefone detectado no Auth mas Firestore não atualizado');
+              log('   user.phoneNumber:', user.phoneNumber);
               log('   Firestore verificadoPorSMS:', userData.verificadoPorSMS);
               log('   Firestore verified (EN):', userData.verified);
-              console.log('═════════════════════════════════════════════');
+              log('   🔄 [SMS-SYNC] Sincronizando status de verificação...');
               
               const syncUpdates = {
                 // Campos canônicos (EN)
@@ -2545,47 +2266,19 @@ log('🚀 Carregando auth.js...');
               
               // 🔍 AUDITORIA: ESCRITA NO FIRESTORE (SMS-SYNC)
               console.log('[FIRESTORE-WRITE usuarios] auth.js onAuthStateChanged SMS-SYNC linha ~2227');
-              console.log('[FIRESTORE-WRITE usuarios] Operação: updateDoc COM RETRY');
               console.log('[FIRESTORE-WRITE usuarios] Sync payload:', syncUpdates);
               
               try {
-                // 🔥 USAR RETRY EXPONENCIAL
-                await retryFirestoreWrite(async () => {
-                  await updateDoc(userRef, syncUpdates);
-                });
+                await updateDoc(userRef, syncUpdates);
                 
-                // Validar pós-escrita
-                const validationSnap = await getDoc(userRef);
-                const validatedData = validationSnap.data();
-                
-                console.log('═════════════════════════════════════════════');
-                console.log('✅ [SMS-SYNC] Firestore sincronizado com sucesso');
-                console.log('   verificadoPorSMS:', validatedData.verificadoPorSMS);
-                console.log('   verified:', validatedData.verified);
-                console.log('   telefone:', validatedData.phoneNumber);
-                console.log('═════════════════════════════════════════════');
-                
-                if (!validatedData.verified || !validatedData.verificadoPorSMS) {
-                  throw new Error('SMS-SYNC: Validação falhou após escrita');
-                }
-                
+                log('✅ [SMS-SYNC] Firestore atualizado para verificado');
+                log('   verificadoPorSMS: true');
+                log('   telefone:', user.phoneNumber);
               } catch (syncError) {
-                console.log('═════════════════════════════════════════════');
-                error('❌ [SMS-SYNC] ERRO CRÍTICO ao sincronizar:', syncError);
-                error('   Usuário pode ter que verificar SMS novamente');
-                console.log('═════════════════════════════════════════════');
-                
-                // 📊 Telemetria: Rastrear falhas do SMS-SYNC
-                if (window.GATracking?.trackError) {
-                  window.GATracking.trackError({
-                    error_type: 'sms_sync_failure',
-                    error_message: syncError.message,
-                    uid: user.uid
-                  });
-                }
+                error('❌ [SMS-SYNC] Erro ao sincronizar:', syncError);
               }
             } else {
-              log('✅ [SMS-SYNC] Status já sincronizado (verified: true)');
+              log('✅ [SMS-SYNC] Status já sincronizado (verificadoPorSMS: true)');
             }
           }
         }
