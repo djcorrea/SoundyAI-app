@@ -400,38 +400,6 @@
       animation: slideOutFade 0.3s ease-out forwards;
     }
     
-    #sms-section {
-      display: none;
-      margin-top: 32px;
-      padding-top: 32px;
-      border-top: 1px solid rgba(88, 28, 135, 0.4);
-    }
-    
-    #sms-section p {
-      color: rgba(255, 255, 255, 0.85);
-      text-align: center;
-      margin-bottom: 24px;
-      font-size: 15px;
-      line-height: 1.6;
-    }
-    
-    #recaptcha-container {
-      margin: 24px 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 78px; /* Altura padrão do reCAPTCHA normal */
-      pointer-events: auto; /* ✅ Garantir eventos de toque funcionem */
-      touch-action: auto; /* ✅ Permitir gestos nativos */
-    }
-    
-    /* ✅ Garantir iframe do reCAPTCHA não bloqueie scroll */
-    #recaptcha-container iframe {
-      pointer-events: auto;
-      touch-action: auto;
-      max-width: 100%;
-    }
-    
     /* Responsivo */
     @media (max-width: 480px) {
       .container {
@@ -584,14 +552,6 @@
     <div class="input-group">
       <input id="password" type="password" placeholder="Sua senha" autocomplete="current-password" />
     </div>
-    <div class="input-group">
-      <input id="phone" type="tel" placeholder="Seu celular (DDD + número)" autocomplete="tel" />
-      <div style="margin-top: 5px; font-size: 12px; color: #fbbf24; text-align: center;">
-        🔒 <strong>Verificação Obrigatória:</strong> Você receberá um código SMS para confirmar
-      </div>
-    </div>
-
-    <div id="recaptcha-container"></div>
 
     <div class="button-group" style="margin-top: 12px;">
       <button class="btn-plus" id="loginBtn">Entrar</button>
@@ -600,28 +560,6 @@
 
     <div class="forgot-password">
       <a href="#" id="forgotPasswordLink">Esqueci a senha</a>
-    </div>
-
-    <div id="sms-section">
-      <p style="font-size: 15px; color: #a0a0ff; margin-bottom: 24px; line-height: 1.6;">
-        📱 <strong>Código SMS Enviado!</strong><br>
-        Verifique seu celular e digite o código de 6 dígitos abaixo.
-      </p>
-      
-      <div class="input-group">
-        <input 
-          id="smsCode" 
-          type="text" 
-          placeholder="000000" 
-          autocomplete="one-time-code" 
-          maxlength="6"
-          style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 600;"
-        />
-      </div>
-
-      <button class="btn-plus" id="confirmCodeBtn" style="width: 100%; margin-top: 24px; padding: 18px; font-size: 17px;">
-        ✅ Confirmar Código
-      </button>
     </div>
   </div>
 
@@ -659,11 +597,6 @@
       }, 300);
     }
     
-    // Função para mostrar sucesso no envio de SMS
-    function showSMSSuccess() {
-      showStatusMessage('Código SMS enviado! Verifique seu celular.', 'success', 5000);
-    }
-    
     // Função para mostrar erro
     function showError(errorMessage) {
       showStatusMessage(errorMessage, 'error', 6000);
@@ -671,7 +604,6 @@
     
     // Disponibilizar funções globalmente para uso nos scripts de autenticação
     window.showStatusMessage = showStatusMessage;
-    window.showSMSSuccess = showSMSSuccess;
     window.showError = showError;
     window.hideStatusMessage = hideStatusMessage;
     
