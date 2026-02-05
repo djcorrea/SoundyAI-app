@@ -234,9 +234,9 @@ log('🚀 Carregando auth.js...');
           console.log('   user.phoneNumber (Firebase Auth):', result.user.phoneNumber || '(null)');
           console.log('═════════════════════════════════════════════');
           
-          // ✅ VALIDAÇÃO OBRIGATÓRIA: Decidir pedido de SMS apenas com base no Firestore
-          // Verificar APENAS userData.verified
-          const smsVerificado = (userData.verified === true);
+          // ✅ VALIDAÇÃO OBRIGATÓRIA: Usar Firebase Auth como fonte de verdade
+          // Se user.phoneNumber existe, SMS foi verificado (Auth é a verdade)
+          const smsVerificado = !!result.user.phoneNumber;
           
           // 🔐 BYPASS SMS: Verificar se usuário pode entrar sem SMS
           const isBypassSMS = userData.criadoSemSMS === true || userData.origin === 'hotmart';
@@ -249,12 +249,12 @@ log('🚀 Carregando auth.js...');
           console.log('[SMS-DECISION] Firestore verificadoPorSMS:', userData.verificadoPorSMS);
           console.log('[SMS-DECISION] Firestore criadoSemSMS:', userData.criadoSemSMS);
           console.log('[SMS-DECISION] Firestore origin:', userData.origin);
-          console.log('[SMS-DECISION] Computed smsVerificado (from Firestore flags):', smsVerificado);
+          console.log('[SMS-DECISION] Computed smsVerificado:', smsVerificado);
           console.log('[SMS-DECISION] Computed isBypassSMS:', isBypassSMS);
           console.log('[SMS-DECISION] DECISÃO FINAL:', (!smsVerificado && !isBypassSMS) ? 'BLOQUEAR E PEDIR SMS' : 'PERMITIR LOGIN');
           
           console.log('🔐 [AUTH-DEBUG] VERIFICAÇÃO DE SMS:');
-          console.log('   smsVerificado (Firestore verified flags):', smsVerificado);
+          console.log('   smsVerificado (phoneNumber exists):', smsVerificado);
           console.log('   criadoSemSMS === true:', userData.criadoSemSMS === true);
           console.log('   origin === hotmart:', userData.origin === 'hotmart');
           console.log('   isBypassSMS (pode entrar sem SMS):', isBypassSMS);
@@ -1006,46 +1006,323 @@ log('🚀 Carregando auth.js...');
 
     // Função para confirmar código SMS
     async function confirmSMSCode() {
-      const codeInput = document.querySelector('#smsCode');
-      const phoneInput = document.querySelector('#phone');
+      log('🔐 [CONFIRM] Iniciando confirmação de código SMS...');
+      
+      // ✅ CRÍTICO: Capturar email do FORMULÁRIO (não do Firebase Auth)
+      const formEmail = document.getElementById("email")?.value?.trim();
+      const formPassword = document.getElementById("password")?.value?.trim();
+      const formPhone = document.getElementById("phone")?.value?.trim();
+      const code = document.getElementById("smsCode")?.value?.trim();
 
-      if (!codeInput || !phoneInput) {
-        alert('Inputs não encontrados');
+      // ✅ VALIDAÇÃO OBRIGATÓRIA: Email e senha devem existir
+      if (!formEmail) {
+        error('❌ [CONFIRM] Email não preenchido no formulário');
+        showMessage("❌ Erro: O campo e-mail está vazio. Preencha novamente.", "error");
+        return;
+      }
+      
+      if (!formPassword) {
+        error('❌ [CONFIRM] Senha não preenchida no formulário');
+        showMessage("❌ Erro: O campo senha está vazio. Preencha novamente.", "error");
+        return;
+      }
+      
+      if (!formPhone) {
+        error('❌ [CONFIRM] Telefone não preenchido no formulário');
+        showMessage("❌ Erro: O campo telefone está vazio. Preencha novamente.", "error");
         return;
       }
 
-      const code = codeInput.value.trim();
-      const phone = phoneInput.value.trim();
-
-      if (!code || !phone) {
-        alert('Código ou telefone vazio');
+      if (!code) {
+        showMessage("Digite o código recebido por SMS.", "error");
         return;
       }
 
-      // CONFIRMA O SMS
-      const result = await confirmationResult.confirm(code);
+      if (code.length !== 6) {
+        showMessage("O código deve ter 6 dígitos.", "error");
+        return;
+      }
+      
+      // ✅ FORMATAR TELEFONE NO PADRÃO INTERNACIONAL (consistência)
+      const cleanPhone = formPhone.replace(/\D/g, '').replace(/^55/, '');
+      const formattedPhone = '+55' + cleanPhone;
+      
+      log('📧 [CONFIRM] Email do formulário:', formEmail);
+      log('📱 [CONFIRM] Telefone formatado:', formattedPhone);
 
-      // ⚠️ USAR EXCLUSIVAMENTE O UID RETORNADO PELO SMS
-      const uid = result.user.uid;
+      // ✅ VALIDAÇÃO ROBUSTA do confirmationResult
+      if (!window.confirmationResult) {
+        error('❌ [CONFIRM] window.confirmationResult é NULL');
+        showMessage("Erro: Solicite um novo código SMS.", "error");
+        return;
+      }
+      
+      if (!window.confirmationResult.verificationId) {
+        error('❌ [CONFIRM] verificationId não existe');
+        error('   confirmationResult:', window.confirmationResult);
+        showMessage("Erro: Sessão de verificação inválida. Solicite novo SMS.", "error");
+        return;
+      }
+      
+      log('✅ [CONFIRM] confirmationResult validado com sucesso');
+      log('   verificationId:', window.confirmationResult.verificationId.substring(0, 20) + '...');
+      log('   código digitado:', code);
 
-      // SALVAR TELEFONE E VERIFICAÇÃO NO FIRESTORE
-      await setDoc(
-        doc(db, 'usuarios', uid),
-        {
-          uid,
-          phoneNumber: phone,
-          verified: true,
-          verifiedAt: serverTimestamp(),
-          telefone: phone,
-          verificadoPorSMS: true,
-          smsVerificadoEm: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        },
-        { merge: true }
-      );
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔐 BLOCO 1: AUTENTICAÇÃO (CRÍTICO - Se falhar, abortar)
+      // ═══════════════════════════════════════════════════════════════════
+      let userResult = null;
+      let freshToken = null;
+      let deviceId = null;
+      
+      try {
+        // ✅ Marcar cadastro em progresso
+        window.isNewUserRegistering = true;
+        localStorage.setItem('cadastroEmProgresso', 'true');
+        log('🛡️ [CONFIRM] Cadastro marcado como em progresso');
+        
+        // ✅ OBTER DEVICE FINGERPRINT antes da autenticação
+        try {
+          if (window.SoundyFingerprint) {
+            const fpData = await window.SoundyFingerprint.get();
+            deviceId = fpData.fingerprint_hash;
+            log('✅ DeviceID obtido:', deviceId?.substring(0, 16) + '...');
+          } else {
+            warn('⚠️ SoundyFingerprint não disponível, usando fallback');
+            deviceId = 'fp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          }
+        } catch (fpError) {
+          error('❌ Erro ao obter fingerprint:', fpError);
+          deviceId = 'fp_fallback_' + Date.now();
+        }
+        
+        showMessage("Verificando código...", "success");
+        
+        // ✅ DESBLOQUEAR SCROLL (caso esteja bloqueado)
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
 
-      // CONTINUAR FLUXO NORMAL
-      window.location.href = '/index.html';
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ FLUXO CORRETO: CRIAR USUÁRIO COM EMAIL PRIMEIRO
+        // ═══════════════════════════════════════════════════════════════════
+        
+        log('📧 [CONFIRM] PASSO 1: Criando usuário com email e senha...');
+        log('   Email:', formEmail);
+        
+        // ✅ PASSO 1: Criar usuário com EMAIL e SENHA
+        userResult = await createUserWithEmailAndPassword(auth, formEmail, formPassword);
+        log('✅ [CONFIRM] Usuário criado com email:', userResult.user.uid);
+        log('   Email verificado:', userResult.user.email);
+        
+        // ✅ PASSO 2: Confirmar código SMS
+        showMessage("📱 Confirmando SMS...", "success");
+        log('📱 [CONFIRM] PASSO 2: Confirmando código SMS...');
+        log('   Código:', code);
+        
+        const phoneCredential = PhoneAuthProvider.credential(
+          window.confirmationResult.verificationId, 
+          code
+        );
+        
+        // ✅ PASSO 3: Vincular TELEFONE ao usuário de EMAIL
+        showMessage("🔗 Vinculando telefone...", "success");
+        log('🔗 [CONFIRM] PASSO 3: Vinculando telefone ao usuário de email...');
+        log('   Telefone:', formattedPhone);
+        
+        // Usar auth.currentUser conforme padrão (mais robusto)
+        await linkWithCredential(auth.currentUser, phoneCredential);
+        log('✅ [CONFIRM] Telefone vinculado com sucesso ao email');
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 CORREÇÃO CRÍTICA: FORÇAR RELOAD DO USUÁRIO APÓS LINKAGEM
+        // ═══════════════════════════════════════════════════════════════════
+        // PROBLEMA: linkWithCredential NÃO atualiza imediatamente auth.currentUser
+        // SOLUÇÃO: Forçar reload() para obter estado atualizado do Firebase
+        // ═══════════════════════════════════════════════════════════════════
+        log('🔄 [CONFIRM] PASSO 4: FORÇANDO RELOAD do usuário após linkagem...');
+        await auth.currentUser.reload();
+        
+        // Obter referência atualizada do usuário
+        const refreshedUser = auth.currentUser;
+        log('✅ [CONFIRM] Usuário recarregado - estado atualizado:');
+        log('   UID:', refreshedUser.uid);
+        log('   Email:', refreshedUser.email);
+        log('   phoneNumber:', refreshedUser.phoneNumber);
+        log('   providerData:', refreshedUser.providerData.map(p => p.providerId));
+        
+        // Validar se telefone foi realmente vinculado
+        if (!refreshedUser.phoneNumber) {
+          error('❌ [CONFIRM] ERRO CRÍTICO: phoneNumber ainda é null após reload!');
+          throw new Error('Telefone não foi vinculado corretamente');
+        }
+        
+        log('✅ [CONFIRM] Verificação PASS: phoneNumber presente:', refreshedUser.phoneNumber);
+        
+        // Atualizar referência do userResult para usar dados atualizados
+        userResult.user = refreshedUser;
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // ✅ PASSO 5: AGUARDAR ESTABILIZAÇÃO DA SESSÃO
+        // ═══════════════════════════════════════════════════════════════════
+        log('⏳ [CONFIRM] PASSO 5: Aguardando propagação do onAuthStateChanged...');
+        
+        // Aguardar onAuthStateChanged confirmar atualização (com timeout curto pois já fizemos reload)
+        await new Promise((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user && user.uid === refreshedUser.uid && user.phoneNumber) {
+              log('✅ [CONFIRM] onAuthStateChanged propagado com phoneNumber:', user.phoneNumber);
+              unsubscribe();
+              resolve();
+            }
+          });
+          
+          // Timeout curto (1 segundo) - já garantimos o estado com reload()
+          setTimeout(() => {
+            log('⏱️ [CONFIRM] Timeout onAuthStateChanged - continuando (reload já garantiu estado)');
+            unsubscribe();
+            resolve();
+          }, 1000);
+        });
+        
+        // ✅ PASSO 6: Renovar token com estado garantido
+        log('🔄 [CONFIRM] PASSO 6: Renovando token...');
+        try {
+          freshToken = await refreshedUser.getIdToken(true);
+          log('✅ [CONFIRM] Token renovado com sucesso');
+        } catch (tokenError) {
+          warn('⚠️ [CONFIRM] Falha ao renovar token (não crítico):', tokenError.message);
+          // Usar token sem forçar refresh
+          freshToken = await refreshedUser.getIdToken();
+        }
+        
+        // ✅ AUTENTICAÇÃO COMPLETA - Salvar tokens e metadados IMEDIATAMENTE
+        log('💾 [CONFIRM] Salvando tokens de autenticação...');
+        log('   UID:', userResult.user.uid);
+        log('   Email:', formEmail);
+        log('   Telefone (Auth):', userResult.user.phoneNumber); // ✅ Usar phoneNumber do Auth
+        
+        localStorage.setItem("idToken", freshToken);
+        localStorage.setItem("authToken", freshToken);
+        localStorage.setItem("user", JSON.stringify({
+          uid: userResult.user.uid,
+          email: formEmail,
+          telefone: userResult.user.phoneNumber // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
+        }));
+        
+        // ✅ CRÍTICO: Salvar metadados do cadastro para onAuthStateChanged criar Firestore
+        localStorage.setItem("cadastroMetadata", JSON.stringify({
+          email: formEmail,
+          telefone: userResult.user.phoneNumber, // ✅ CRÍTICO: Usar phoneNumber do Firebase Auth
+          deviceId: deviceId,
+          timestamp: new Date().toISOString()
+        }));
+        
+        log('✅ [CONFIRM] Usuário AUTENTICADO - sessão salva');
+        log('📌 [CONFIRM] Metadados salvos para criação do Firestore');
+        log('📱 [CONFIRM] Telefone confirmado:', userResult.user.phoneNumber);
+        
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 SINCRONIZAR Firestore ANTES de inicializar sessão completa
+        // Garantir campos canônicos em inglês (phoneNumber, verified, verifiedAt)
+        // e manter campos legacy/PT para compatibilidade.
+        try {
+          const { doc, updateDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userRef = doc(db, 'usuarios', userResult.user.uid);
+
+          const updates = {
+            phoneNumber: userResult.user.phoneNumber,
+            verified: true,
+            verifiedAt: serverTimestamp(),
+            telefone: userResult.user.phoneNumber,
+            verificadoPorSMS: true,
+            smsVerificadoEm: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+
+          // 🔍 AUDITORIA: ESCRITA NO FIRESTORE
+          console.log('[FIRESTORE-WRITE usuarios] auth.js confirmSMSCode() linha ~1231');
+          console.log('[FIRESTORE-WRITE usuarios] Payload:', updates);
+          console.log('[FIRESTORE-WRITE usuarios] UID:', userResult.user.uid);
+          
+          try {
+            await updateDoc(userRef, updates);
+            log('✅ [CONFIRM] Firestore atualizado (updateDoc) para verificado');
+          } catch (uErr) {
+            // Se documento não existir, criar com merge para não sobrescrever campos existentes
+            console.warn('[POSSIBLE OVERWRITE usuarios] setDoc merge fallback', new Error().stack);
+            try {
+              await setDoc(userRef, updates, { merge: true });
+              log('✅ [CONFIRM] Firestore criado via setDoc merge com campos de verificação');
+            } catch (sErr) {
+              throw sErr;
+            }
+          }
+        } catch (syncErr) {
+          warn('⚠️ [CONFIRM] Falha ao sincronizar Firestore após confirmação:', syncErr);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
+        // ═══════════════════════════════════════════════════════════════════
+        await initializeSessionAfterSignup(userResult.user, freshToken);
+        
+      } catch (authError) {
+        // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
+        error('❌ [AUTH-ERROR] Falha crítica na autenticação:', authError);
+        error('   Código:', authError.code);
+        error('   Mensagem:', authError.message);
+        
+        window.isNewUserRegistering = false;
+        localStorage.removeItem('cadastroEmProgresso');
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        
+        let errorMessage = "❌ Erro ao confirmar código: ";
+        
+        if (authError.code === 'auth/invalid-verification-code') {
+          errorMessage = "❌ Código SMS incorreto. Verifique e tente novamente.";
+        } else if (authError.code === 'auth/code-expired') {
+          errorMessage = "❌ Código SMS expirou. Solicite um novo.";
+        } else if (authError.code === 'auth/session-expired') {
+          errorMessage = "❌ Sessão expirou. Recarregue a página e tente novamente.";
+        } else if (authError.code === 'auth/email-already-in-use') {
+          errorMessage = "❌ Este e-mail já está em uso. Faça login ou use outro e-mail.";
+        } else if (authError.code === 'auth/invalid-email') {
+          errorMessage = "❌ E-mail inválido. Verifique o formato.";
+        } else if (authError.code) {
+          errorMessage += firebaseErrorsPt[authError.code] || authError.message;
+        } else {
+          errorMessage += authError.message;
+        }
+        
+        showMessage(errorMessage, "error");
+        return; // ❌ ABORTAR - Autenticação falhou
+      }
+      
+      // ═══════════════════════════════════════════════════════════════════
+      // ✅ BLOCO 2: FINALIZAÇÃO (SEMPRE EXECUTAR)
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔥 IMPORTANTE: A criação do Firestore será feita pelo listener global
+      // onAuthStateChanged quando detectar usuário novo sem documento.
+      // Isso garante que o auth state esteja completamente estável.
+      // ═══════════════════════════════════════════════════════════════════
+      
+      // Limpar flag de cadastro em progresso
+      window.isNewUserRegistering = false;
+      localStorage.removeItem('cadastroEmProgresso');
+      
+      // Desbloquear scroll
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+
+      showMessage("✅ Cadastro realizado com sucesso! Redirecionando...", "success");
+      
+      // ✅ NOVO: Redirecionar para index.html (entrevista é premium-only via modal)
+      log('🚀 [CONFIRM] Redirecionando para index.html em 1.5s...');
+      log('📌 [CONFIRM] Firestore será criado automaticamente pelo listener global');
+      setTimeout(() => {
+        window.location.replace("index.html");
+      }, 1500);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1333,9 +1610,7 @@ log('🚀 Carregando auth.js...');
           uid: user.uid,
           email: user.email || '',
           displayName: displayName,
-          // Não derivar phoneNumber de auth.user.phoneNumber nesta etapa
-          // Para evitar race condition, criar sempre com phoneNumber null
-          phoneNumber: null,
+          phoneNumber: user.phoneNumber || null,
           deviceId: finalDeviceId,
           authType: provider,
           
@@ -1356,10 +1631,8 @@ log('🚀 Carregando auth.js...');
           lastResetAt: new Date().toISOString().slice(0, 10),
           
           // Status e verificações
-          // NÃO derivar verified do Auth no momento da criação do documento
-          // Criar sempre como não verificado; confirmação SMS é a única fonte
-          verified: false,
-          verifiedAt: null,
+          verified: verified,
+          verifiedAt: verified ? serverTimestamp() : null,
           bypassSMS: bypassSMS,
           onboardingCompleted: false,
           
