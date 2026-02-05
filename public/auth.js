@@ -258,28 +258,22 @@ log('🚀 Carregando auth.js...');
             console.log('═════════════════════════════════════════════');
             
             if (result.user.phoneNumber) {
-              // CASO 1a: phoneNumber existe - CRIAR DOCUMENTO IMEDIATAMENTE
+              // CASO 1a: phoneNumber existe - GARANTIR DOCUMENTO EM BACKGROUND
               console.log('✅ [LOGIN] phoneNumber existe:', result.user.phoneNumber);
-              console.log('[LOGIN] Criando documento Firestore automaticamente...');
+              console.log('[LOGIN] Iniciando garantia de documento em background...');
               
-              try {
-                // Chamar ensureUserDocument para criar documento completo
-                await ensureUserDocument(result.user, {
-                  provider: 'email',
-                  deviceId: localStorage.getItem('soundy_visitor_id') || null
-                });
-                
-                console.log('✅ [LOGIN] Documento Firestore criado com sucesso');
-                console.log('[LOGIN] Redirecionando para index.html...');
-                window.location.href = "index.html";
-                return;
-              } catch (createError) {
-                console.error('❌ [LOGIN] Erro ao criar documento Firestore:', createError);
-                await auth.signOut();
-                localStorage.clear();
-                showMessage("❌ Erro ao criar perfil. Tente novamente.", "error");
-                return;
-              }
+              // 🔥 GARANTIA EM BACKGROUND - não bloqueia login
+              guaranteeUserDocument(result.user, {
+                provider: 'email',
+                deviceId: localStorage.getItem('soundy_visitor_id') || null
+              }).catch(err => {
+                error('❌ [LOGIN-GUARANTEE] Erro na garantia background:', err);
+              });
+              
+              console.log('✅ [LOGIN] Garantia iniciada - permitindo acesso');
+              console.log('[LOGIN] Redirecionando para index.html...');
+              window.location.href = "index.html";
+              return;
               
             } else {
               // CASO 1b: phoneNumber NÃO existe - PEDIR SMS
@@ -1430,18 +1424,30 @@ log('🚀 Carregando auth.js...');
           }
           
         } catch (syncErr) {
-          error('❌ [CONFIRM] ERRO CRÍTICO ao sincronizar Firestore:', syncErr);
-          error('   Isso significa que o telefone foi vinculado no Auth mas não no Firestore');
-          error('   Usuário terá que verificar SMS novamente no próximo login');
+          error('❌ [CONFIRM] Falha ao sincronizar Firestore:', syncErr);
+          warn('⚠️ [CONFIRM] Iniciando garantia em background - não bloqueia cadastro');
           
-          // ⚠️ NÃO ABORTAR - Auth já foi feito, permitir continuar
-          warn('⚠️ [CONFIRM] Continuando apesar da falha (SMS-SYNC tentará corrigir)');
+          // 🔥 GARANTIA EM BACKGROUND - não aguarda, não bloqueia
+          guaranteeUserDocument(userResult.user, {
+            provider: 'phone',
+            deviceId: deviceId
+          }).catch(err => {
+            error('❌ [GUARANTEE-BG] Erro na garantia background:', err);
+          });
         }
 
         // ═══════════════════════════════════════════════════════════════════
         // 🔥 INICIALIZAR SESSÃO COMPLETA (visitor ID, flags, estado)
         // ═══════════════════════════════════════════════════════════════════
         await initializeSessionAfterSignup(userResult.user, freshToken);
+        
+        // 🔥 GARANTIA EM BACKGROUND ADICIONAL - double-check após inicializar sessão
+        guaranteeUserDocument(userResult.user, {
+          provider: 'phone',
+          deviceId: deviceId
+        }).catch(err => {
+          error('❌ [GUARANTEE-BG] Erro na garantia background pós-sessão:', err);
+        });
         
       } catch (authError) {
         // ❌ ERRO CRÍTICO DE AUTENTICAÇÃO - Abortar cadastro
@@ -1610,7 +1616,72 @@ log('🚀 Carregando auth.js...');
     };
 
     /**
-     * 🔐 FUNÇÃO CENTRALIZADA: Garantir documento do usuário no Firestore
+     * � FUNÇÃO DE GARANTIA EM BACKGROUND: Tenta criar documento até sucesso
+     * 
+     * - Não bloqueia o usuário
+     * - Retry automático infinito com backoff exponencial
+     * - Continua tentando até documento existir
+     * - Ideal para chamar após login/cadastro sem aguardar
+     * 
+     * @param {Object} user - Firebase User object
+     * @param {Object} options - Opções: { provider, deviceId, referralCode }
+     * @returns {Promise<void>} - Não retorna nada, garante em background
+     */
+    async function guaranteeUserDocument(user, options = {}) {
+      if (!user || !user.uid) {
+        error('❌ [GUARANTEE] user ou user.uid é inválido');
+        return;
+      }
+
+      log('🔄 [GUARANTEE] Iniciando garantia de documento em background para:', user.uid);
+      
+      let attempt = 0;
+      const maxDelay = 30000; // Máximo 30 segundos entre tentativas
+      
+      while (true) {
+        attempt++;
+        
+        try {
+          // Importar Firestore dinamicamente
+          const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+          const userRef = doc(db, 'usuarios', user.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            log('✅ [GUARANTEE] Documento já existe - garantia concluída');
+            log('   Tentativas necessárias:', attempt);
+            return; // Sucesso - documento existe
+          }
+          
+          // Documento não existe - tentar criar
+          log(`🔄 [GUARANTEE] Tentativa ${attempt}: Documento não existe, criando...`);
+          
+          const result = await ensureUserDocument(user, options);
+          
+          if (result.created) {
+            log('✅ [GUARANTEE] Documento criado com sucesso!');
+            log('   Tentativas necessárias:', attempt);
+            return; // Sucesso - documento criado
+          }
+          
+          // Fallback - se ensureUserDocument não criou mas também não deu erro
+          warn('⚠️ [GUARANTEE] ensureUserDocument não criou documento, tentando novamente...');
+          
+        } catch (err) {
+          // Falha - calcular delay e tentar novamente
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), maxDelay);
+          
+          error(`❌ [GUARANTEE] Tentativa ${attempt} falhou:`, err.message);
+          warn(`⏳ [GUARANTEE] Aguardando ${delay}ms antes de tentar novamente...`);
+          
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue; // Continuar loop infinito
+        }
+      }
+    }
+
+    /**
+     * �🔐 FUNÇÃO CENTRALIZADA: Garantir documento do usuário no Firestore
      * 
      * COMPORTAMENTO:
      * - Se documento NÃO existe: cria com DEFAULT_USER_DOCUMENT (plan: "free")
@@ -2410,14 +2481,18 @@ log('🚀 Carregando auth.js...');
           console.log('[AUTH STATE] phoneNumber:', user.phoneNumber || 'NULL');
           
           if (user.phoneNumber) {
-            console.log('[AUTH STATE] phoneNumber existe - criando documento...');
+            console.log('[AUTH STATE] phoneNumber existe - iniciando garantia em background...');
             console.log('═════════════════════════════════════════════');
-            // Documento não existe mas phoneNumber existe - criar
-            await ensureUserDocument(user, {
+            
+            // 🔥 GARANTIA EM BACKGROUND - não bloqueia listener
+            guaranteeUserDocument(user, {
               provider: user.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email',
               deviceId: null
+            }).catch(err => {
+              error('❌ [AUTH-STATE-GUARANTEE] Erro na garantia background:', err);
             });
-            console.log('✅ [AUTH STATE] Documento criado com sucesso');
+            
+            console.log('✅ [AUTH STATE] Garantia iniciada em background');
             return;
           } else {
             console.log('[AUTH STATE] phoneNumber NÃO existe - usuário precisa verificar SMS');
