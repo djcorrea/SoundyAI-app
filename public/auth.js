@@ -2040,15 +2040,15 @@ log('🚀 Carregando auth.js...');
       });
     }
 
-    // Expor funções globalmente
+    // Expor funções globalmente (sem SMS/recaptcha)
     window.login = login;
-    window.signUp = signUp;
-    window.confirmSMSCode = confirmSMSCode;
+    // Expor signUp diretamente como fluxo de email para evitar caminhos SMS
+    window.signUp = directEmailSignUp;
     window.forgotPassword = forgotPassword;
     window.loginWithGoogle = loginWithGoogle; // ✅ Expor login com Google
     window.ensureUserDocument = ensureUserDocument; // ✅ Expor função centralizada
     window.logout = logout;
-    window.showSMSSection = showSMSSection;
+    // NÃO expor funções relacionadas a SMS/reCAPTCHA (removidas)
     window.auth = auth;
     window.db = db;
     window.firebaseReady = true;
@@ -2071,14 +2071,8 @@ log('🚀 Carregando auth.js...');
       if (signUpBtn) {
         signUpBtn.addEventListener("click", (e) => {
           e.preventDefault();
-          window.signUp();
-        });
-      }
-      
-      if (confirmBtn) {
-        confirmBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          window.confirmSMSCode();
+          // Acionar diretamente o fluxo de cadastro por e-mail/senha
+          directEmailSignUp();
         });
       }
       
@@ -2293,15 +2287,12 @@ log('🚀 Carregando auth.js...');
       }
     });
 
-    // Exportar funções importantes para acesso global
-    window.resetSMSState = resetSMSState;
-    window.sendSMS = sendSMS;
+    // Exportar funções importantes para acesso global (sem SMS)
     window.login = login;
     window.resetPassword = resetPassword;
-    window.verifySMSCode = confirmSMSCode; // Corrigir referência para função existente
-    window.confirmSMSCode = confirmSMSCode;
     window.directEmailSignUp = directEmailSignUp;
-    window.signUp = signUp;
+    // Expor signUp apontando ao fluxo de e-mail para evitar caminhos SMS
+    window.signUp = directEmailSignUp;
 
     log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
 
