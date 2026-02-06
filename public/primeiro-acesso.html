@@ -8,6 +8,19 @@
   <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
   <script src="logger.js"></script>
   
+  <!-- 🎯 GOOGLE ANALYTICS 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-MBDHDYN6Z0');
+    console.log('🎯 [GA4] Tag carregada em primeiro-acesso.html');
+  </script>
+  
+  <!-- 📊 TRACKING SYSTEM (Captura UTMs, Anonymous ID, Session ID, Firestore backup) -->
+  <script src="js/tracking.js"></script>
+  
   <style>
     * {
       margin: 0;

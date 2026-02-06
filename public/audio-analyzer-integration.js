@@ -9365,6 +9365,50 @@ function isSpectralBand(metricKey) {
     return SPECTRAL_BANDS.includes(metricKey);
 }
 
+/**
+ * 🧹 SANITIZAÇÃO DE TEXTO DE AÇÃO (Front-end apenas)
+ * 
+ * Remove valores numéricos e unidades da string de ação,
+ * mantendo apenas emoji + verbo + advérbios.
+ * 
+ * Backend continua calculando valores normalmente.
+ * 
+ * @param {string} actionText - Texto original da ação
+ * @returns {string} - Texto limpo sem números/unidades
+ */
+function sanitizeActionText(actionText) {
+    if (!actionText || typeof actionText !== 'string') {
+        return actionText;
+    }
+    
+    let cleaned = actionText;
+    
+    // 🎯 CASO ESPECIAL: CLIPPING
+    if (cleaned.includes('CLIPPING!')) {
+        // "🔴 CLIPPING! Reduzir 3.80 dB" → "🔴 Clipping digital – Reduzir"
+        cleaned = cleaned.replace(/CLIPPING!\s+/i, 'Clipping digital – ');
+    }
+    
+    // 🧹 REMOVER: Ranges numéricos (ex: "≈ −2 a −5 dB")
+    cleaned = cleaned.replace(/≈\s*[+−-]?\d+\.?\d*\s*a\s*[+−-]?\d+\.?\d*\s*dB/g, '');
+    
+    // 🧹 REMOVER: Parênteses com conteúdo numérico (ex: "(≈ +0.8 dB)")
+    cleaned = cleaned.replace(/\([^)]*\d+\.?\d*[^)]*\)/g, '');
+    
+    // 🧹 REMOVER: Números + unidades (ex: "3.5 dB", "2.1 LU")
+    cleaned = cleaned.replace(/\d+\.?\d*\s*(dB|LU|DR)/gi, '');
+    
+    // 🧹 REMOVER: Números soltos (ex: "3.5", "2.1")
+    // Importante: fazer DEPOIS de remover números com unidade
+    cleaned = cleaned.replace(/\s+\d+\.?\d*(?!\s*(dB|LU|DR))/g, '');
+    
+    // 🧹 LIMPAR: Espaços duplicados e espaços antes de pontuação
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    cleaned = cleaned.replace(/\s+([.,!?])/g, '$1');
+    
+    return cleaned;
+}
+
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
@@ -9616,10 +9660,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🔊 Loudness (LUFS Integrado)</td>
                         <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.lufs_target.toFixed(1) + ' LUFS' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9665,10 +9707,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🎚️ Pico Real (dBTP)</td>
                         <td class="metric-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.true_peak_target.toFixed(1) + ' dBTP' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9690,10 +9730,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">📊 Dinâmica (DR)</td>
                         <td class="metric-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.dr_target.toFixed(1) + ' DR' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9715,10 +9753,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
                         <td class="metric-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.lra_target.toFixed(1) + ' LU' : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(2) : renderSecurePlaceholder('diff')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9740,10 +9776,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">🎧 Imagem Estéreo</td>
                         <td class="metric-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-target">${canRender ? genreData.stereo_target.toFixed(3) : renderSecurePlaceholder('target')}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${canRender ? (result.diff >= 0 ? '+' : '') + result.diff.toFixed(3) : renderSecurePlaceholder('diff')}</td>
                         <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? result.action : renderSecurePlaceholder('action')}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
                 metricsCount++;
@@ -9871,10 +9905,8 @@ function renderGenreComparisonTable(options) {
                     <tr class="genre-row ${result.severityClass}">
                         <td class="metric-name">${nomeAmigavel}</td>
                         <td class="metric-value">${energyDbSafe}</td>
-                        <td class="metric-target">${targetLabelSafe}</td>
-                        <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${diffDisplay}</td>
                         <td class="metric-severity ${result.severityClass}">${severityDisplay}</td>
-                        <td class="metric-action ${result.severityClass}">${actionDisplay}</td>
+                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</td>
                     </tr>
                 `);
                 bandsCount++;
@@ -9902,14 +9934,13 @@ function renderGenreComparisonTable(options) {
     
     const tableHTML = `
         <div class="card genre-comparison-classic" style="margin-top:12px;">
-            <div class="card-title">COMPARAÇÃO COM ${genre.toUpperCase()}${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</div>
+            <h2 class="sa-diagnostico-title">Diagnóstico Técnico${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</h2>
+            <p class="sa-diagnostico-subtitle">Métricas, severidade e correções recomendadas.</p>
             <table class="classic-genre-table">
                 <thead>
                     <tr>
                         <th>Métrica</th>
                         <th>Valor</th>
-                        <th>${targetColumnHeader}</th>
-                        <th>Diferença</th>
                         <th>Severidade</th>
                         <th>Ação Sugerida</th>
                     </tr>
@@ -10000,14 +10031,12 @@ function renderGenreComparisonTable(options) {
             
             .classic-genre-table th:first-child {
                 text-align: left;
-                width: 20%;
+                width: 25%;
             }
             
-            .classic-genre-table th:nth-child(2) { width: 14%; }
-            .classic-genre-table th:nth-child(3) { width: 14%; }
-            .classic-genre-table th:nth-child(4) { width: 14%; }
-            .classic-genre-table th:nth-child(5) { width: 14%; }
-            .classic-genre-table th:nth-child(6) { width: 24%; }
+            .classic-genre-table th:nth-child(2) { width: 18%; }  /* Valor */
+            .classic-genre-table th:nth-child(3) { width: 18%; }  /* Severidade */
+            .classic-genre-table th:nth-child(4) { width: 39%; }  /* Ação Sugerida */
             
             .classic-genre-table td {
                 padding: 12px 16px;
@@ -10070,14 +10099,6 @@ function renderGenreComparisonTable(options) {
                 font-size: 12px;
             }
             
-            .classic-genre-table .metric-diff.positive {
-                color: #ffa500;
-            }
-            
-            .classic-genre-table .metric-diff.negative {
-                color: #00d4ff;
-            }
-            
             /* 🎯 MOBILE RESPONSIVO - TABELA GÊNERO */
             @media (max-width: 768px) {
                 .genre-comparison-classic {
@@ -10119,27 +10140,23 @@ function renderGenreComparisonTable(options) {
                 
                 .classic-genre-table th:nth-child(1),
                 .classic-genre-table td:nth-child(1) {
-                    width: 22% !important;
+                    width: 28% !important;  /* Métrica */
                     text-align: left !important;
                 }
                 
                 .classic-genre-table th:nth-child(2),
-                .classic-genre-table td:nth-child(2),
+                .classic-genre-table td:nth-child(2) {
+                    width: 20% !important;  /* Valor */
+                }
+                
                 .classic-genre-table th:nth-child(3),
-                .classic-genre-table td:nth-child(3),
+                .classic-genre-table td:nth-child(3) {
+                    width: 20% !important;  /* Severidade */
+                }
+                
                 .classic-genre-table th:nth-child(4),
                 .classic-genre-table td:nth-child(4) {
-                    width: 14% !important;
-                }
-                
-                .classic-genre-table th:nth-child(5),
-                .classic-genre-table td:nth-child(5) {
-                    width: 15% !important;
-                }
-                
-                .classic-genre-table th:nth-child(6),
-                .classic-genre-table td:nth-child(6) {
-                    width: 21% !important;
+                    width: 32% !important;  /* Ação */
                 }
                 
                 .classic-genre-table td .icon,
@@ -10156,10 +10173,6 @@ function renderGenreComparisonTable(options) {
                 }
                 
                 .classic-genre-table .metric-action {
-                    font-size: 9px !important;
-                }
-                
-                .classic-genre-table .metric-diff {
                     font-size: 9px !important;
                 }
                 

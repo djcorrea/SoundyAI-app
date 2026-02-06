@@ -4,8 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PROD.AI - Configuração do Perfil</title>
+    
     <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
     <script src="logger.js"></script>
+    
+    <!-- 🎯 GOOGLE ANALYTICS 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MBDHDYN6Z0');
+      console.log('🎯 [GA4] Tag carregada em entrevista.html');
+    </script>
+    
+    <!-- 📊 TRACKING SYSTEM (Captura UTMs, Anonymous ID, Session ID, Firestore backup) -->
+    <script src="js/tracking.js"></script>
     
 
     
@@ -658,6 +672,20 @@
                         log('✅ Perfil salvo com sucesso!', perfilData);
                         log('📊 Documento final no Firestore:', user.uid);
                         
+                        // 🎯 TRACKING: Evento de conclusão da entrevista
+                        if (window.SoundyTracking) {
+                            try {
+                                await window.SoundyTracking.trackEventV2('interview_complete', {
+                                    nivel_tecnico: nivelTecnico,
+                                    daw: daw,
+                                    estilo: estilo
+                                });
+                                console.log('📊 [TRACKING] interview_complete enviado');
+                            } catch (trackError) {
+                                console.error('❌ [TRACKING] Erro ao enviar interview_complete:', trackError);
+                            }
+                        }
+                        
                         // Verificar se realmente foi salvo
                         try {
                             const verificacao = await getDoc(userDocRef);
@@ -710,6 +738,17 @@
 
         // Garantir que inputs não causem zoom (versão otimizada)
         document.addEventListener('DOMContentLoaded', function() {
+            // 🎯 TRACKING: Evento de início da entrevista
+            if (window.SoundyTracking) {
+                window.SoundyTracking.trackEventV2('interview_start', {
+                    source: 'entrevista_page'
+                }).then(result => {
+                    console.log('📊 [TRACKING] interview_start enviado:', result);
+                }).catch(err => {
+                    console.error('❌ [TRACKING] Erro ao enviar interview_start:', err);
+                });
+            }
+            
             const inputs = document.querySelectorAll('input, select, textarea');
             inputs.forEach(input => {
                 // Removido o scrollIntoView que causava expansão do container
