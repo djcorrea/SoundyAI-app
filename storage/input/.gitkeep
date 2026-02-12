@@ -1,0 +1,4 @@
+# Storage Input
+
+Diretório para uploads temporários.
+Arquivos são salvos com UUID.wav durante o processamento.

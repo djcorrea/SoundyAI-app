@@ -1,0 +1,5 @@
+# Tmp
+
+Diretório para workspaces temporários isolados por job.
+Estrutura: tmp/{jobId}/input.wav e tmp/{jobId}/result.wav
+Cleanup automático após processamento.
