@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "mode": "BALANCED",
+  "input": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\musicas\\LUZ DO LUAR - DJ Corrêa Original - MASTER.wav",
+  "output": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\tests\\out\\LUZ DO LUAR - DJ Corrêa Original - MASTER_out.wav",
+  "processing_ms": 33493,
+  "true_peak_fix_applied": false,
+  "precheck_initial": {
+    "status": "OK",
+    "reason": "Faixa tecnicamente apta para masterização.",
+    "metrics": {
+      "duration_sec": 194.7,
+      "sample_rate": 44100,
+      "channels": 2,
+      "integrated_lufs": -11.75,
+      "true_peak_db": -1.03,
+      "lra": 10.4,
+      "estimated_dr": 9.5,
+      "silence_ratio": 0.044
+    }
+  },
+  "precheck_after_fix": null,
+  "attempts": [
+    {
+      "type": "PRIMARY",
+      "mode_requested": "BALANCED",
+      "strategy_used": null,
+      "master_result": {
+        "success": true,
+        "mode": "BALANCED",
+        "strategy_used": null,
+        "target_lufs": -11,
+        "target_tp": -0.8,
+        "final_lufs": -11.01,
+        "final_tp": -0.79,
+        "duration_ms": 19307,
+        "output_path": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\tests\\out\\LUZ DO LUAR - DJ Corrêa Original - MASTER_out.wav",
+        "output_size_kb": 33544.67,
+        "fallback_used": false
+      },
+      "postcheck": {
+        "status": "OK",
+        "metrics": {
+          "lufs_i": -11.01,
+          "true_peak_dbtp": -0.79,
+          "dr": 11.3,
+          "stereo_corr": "not_available",
+          "harsh_2_4k_db": "not_available",
+          "sub_retention": "not_available",
+          "transient_retention": "not_available",
+          "spectral_bands": []
+        },
+        "tiers": {
+          "tier1_pass": true,
+          "tier2_pass": true,
+          "tier3_pass": true,
+          "reasons": []
+        },
+        "recommended_action": "OK"
+      }
+    }
+  ],
+  "used_fallback": false,
+  "final_decision": "DELIVERED_PRIMARY"
+}

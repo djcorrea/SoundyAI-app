@@ -19,10 +19,10 @@ const redis = require('./redis-connection.cjs');
 const automasterQueue = new Queue('automaster', {
   connection: redis,
   defaultJobOptions: {
-    attempts: 2,
+    attempts: 3, // Máximo 3 tentativas (alinhado com error-classifier)
     backoff: {
       type: 'exponential',
-      delay: 5000
+      delay: 10000 // 10s base, depois 30s, 90s (alinhado com error-classifier)
     },
     removeOnComplete: {
       age: 3600, // 1 hora
@@ -31,7 +31,7 @@ const automasterQueue = new Queue('automaster', {
     removeOnFail: {
       age: 86400 // 24 horas
     },
-    timeout: 120000 // 2 minutos total timeout
+    timeout: 180000 // 3 minutos total timeout (alinhado com lock TTL)
   }
 });
 

@@ -7,7 +7,10 @@
  * NÃO duplica lógica de processamento.
  * NÃO adiciona EQ, saturação, fallback ou análise.
  * 
- * Uso:
+ * Uso CLI:
+ *   node run-automaster.cjs <input.wav> <output.wav> <MODE>
+ * 
+ * Uso Programático:
  *   const { runAutomaster } = require('./run-automaster.cjs');
  *   await runAutomaster({ inputPath, outputPath, mode: "BALANCED" });
  */
@@ -52,73 +55,66 @@ const MODE_PRESETS = {
  * @param {string} options.inputPath - Caminho do WAV de entrada
  * @param {string} options.outputPath - Caminho do WAV de saída
  * @param {string} options.mode - Modo: "STREAMING" | "BALANCED" | "IMPACT"
- * @returns {Promise<{ success: true, duration: number, outputPath: string }>}
+ * @returns {Promise<Object>} Resultado com métricas
  * @throws {Error} Se validação falhar ou processamento falhar
  */
 async function runAutomaster(options) {
   const startTime = Date.now();
+  const debug = process.env.DEBUG_PIPELINE === 'true';
 
-  console.log('');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('  AutoMaster V1 - Orquestração');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('');
+  if (debug) {
+    console.error('[DEBUG] AutoMaster V1 - Orquestracao');
+  }
 
   // 1. VALIDAÇÃO DE ENTRADA
   validateInput(options);
 
-  const { inputPath, outputPath, mode } = options;
+  const { inputPath, outputPath, mode, strategy } = options;
   const preset = MODE_PRESETS[mode];
 
-  console.log('⚙️  Configuração:');
-  console.log(`   Input:  ${inputPath}`);
-  console.log(`   Output: ${outputPath}`);
-  console.log(`   Mode:   ${mode} (${preset.label})`);
-  console.log(`   LUFS:   ${preset.targetLufs} LUFS`);
-  console.log(`   Ceiling: ${preset.ceilingDbtp} dBTP`);
-  console.log('');
+  if (debug) {
+    console.error(`[DEBUG] Input: ${inputPath}`);
+    console.error(`[DEBUG] Output: ${outputPath}`);
+    console.error(`[DEBUG] Mode: ${mode} (${preset.label})`);
+    console.error(`[DEBUG] LUFS: ${preset.targetLufs} LUFS`);
+    console.error(`[DEBUG] Ceiling: ${preset.ceilingDbtp} dBTP`);
+  }
 
   // 2. CHAMAR O CORE DSP
-  console.log('🎚️  Iniciando processamento DSP...');
-  console.log('');
+  if (debug) console.error('[DEBUG] Iniciando processamento DSP...');
 
   try {
-    await executeCoreEngine(inputPath, outputPath, preset.targetLufs, preset.ceilingDbtp);
+    const coreResult = await executeCoreEngine(inputPath, outputPath, preset.targetLufs, preset.ceilingDbtp, strategy);
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    const stats = fs.statSync(outputPath);
-    const sizeKB = (stats.size / 1024).toFixed(2);
+    const duration = Date.now() - startTime;
+    const stats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null;
+    const sizeKB = stats ? (stats.size / 1024).toFixed(2) : '0';
 
-    console.log('');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✅ MASTERIZAÇÃO CONCLUÍDA');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`   Modo:    ${mode}`);
-    console.log(`   Tempo:   ${duration}s`);
-    console.log(`   Output:  ${outputPath}`);
-    console.log(`   Tamanho: ${sizeKB} KB`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
+    if (debug) {
+      console.error('[DEBUG] MASTERIZACAO CONCLUIDA');
+      console.error(`[DEBUG] Modo: ${mode}`);
+      console.error(`[DEBUG] Tempo: ${duration}ms`);
+      console.error(`[DEBUG] Output: ${outputPath}`);
+      console.error(`[DEBUG] Tamanho: ${sizeKB} KB`);
+    }
 
     return {
       success: true,
-      duration: parseFloat(duration),
-      outputPath,
       mode,
-      preset: {
-        lufs: preset.targetLufs,
-        ceiling: preset.ceilingDbtp
-      }
+      strategy_used: strategy || null,
+      target_lufs: preset.targetLufs,
+      target_tp: preset.ceilingDbtp,
+      final_lufs: coreResult.final_lufs,
+      final_tp: coreResult.final_tp,
+      duration_ms: duration,
+      output_path: outputPath,
+      output_size_kb: parseFloat(sizeKB),
+      fallback_used: coreResult.fallback_used || false
     };
   } catch (error) {
-    console.log('');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('❌ ERRO NO PROCESSAMENTO');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error(error.message);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('');
-
+    if (debug) {
+      console.error('[DEBUG] ERRO NO PROCESSAMENTO');
+    }
     throw error;
   }
 }
@@ -174,13 +170,14 @@ function validateInput(options) {
 // EXECUÇÃO DO CORE ENGINE
 // ============================================================
 
-function executeCoreEngine(inputPath, outputPath, targetLufs, ceilingDbtp) {
+function executeCoreEngine(inputPath, outputPath, targetLufs, ceilingDbtp, strategy) {
   return new Promise((resolve, reject) => {
     const corePath = path.join(__dirname, 'automaster-v1.cjs');
+    const debug = process.env.DEBUG_PIPELINE === 'true';
 
     // Verificar se o core existe
     if (!fs.existsSync(corePath)) {
-      reject(new Error(`Core engine não encontrado: ${corePath}`));
+      reject(new Error(`Core engine nao encontrado: ${corePath}`));
       return;
     }
 
@@ -192,32 +189,66 @@ function executeCoreEngine(inputPath, outputPath, targetLufs, ceilingDbtp) {
       ceilingDbtp.toString()
     ];
 
+    if (strategy) {
+      args.push(strategy);
+    }
+
     const nodeProcess = execFile('node', args, {
       maxBuffer: 10 * 1024 * 1024,
-      cwd: __dirname
+      cwd: __dirname,
+      env: Object.assign({}, process.env, { AUTOMASTER_STRATEGY: strategy || '' })
     });
 
     let stdoutData = '';
     let stderrData = '';
 
-    // Capturar stdout do core (logs do processamento)
+    // Capturar stdout (deve conter SOMENTE JSON)
     nodeProcess.stdout.on('data', (data) => {
-      const output = data.toString();
-      stdoutData += output;
-      process.stdout.write(output); // Repassar logs em tempo real
+      stdoutData += data.toString();
     });
 
-    // Capturar stderr do core (logs do FFmpeg)
+    // Capturar stderr (logs de debug)
     nodeProcess.stderr.on('data', (data) => {
       stderrData += data.toString();
-      // FFmpeg usa stderr para progresso - não logar para não poluir
+      if (debug) {
+        process.stderr.write(data);
+      }
     });
 
     nodeProcess.on('close', (code) => {
       if (code === 0) {
-        resolve({ stdout: stdoutData, stderr: stderrData });
+        // Validar se stdout começa com '{'
+        const trimmed = stdoutData.trim();
+        
+        if (debug) {
+          console.error('[DEBUG] Core stdout length:', trimmed.length);
+          console.error('[DEBUG] Core stdout (first 200 chars):', trimmed.substring(0, 200));
+          console.error('[DEBUG] Core stderr:', stderrData);
+        }
+        
+        if (!trimmed) {
+          reject(new Error('Core retornou stdout vazio'));
+          return;
+        }
+        
+        if (!trimmed.startsWith('{')) {
+          reject(new Error(`Core retornou saida invalida (nao comeca com JSON). Primeiros 100 chars: ${trimmed.substring(0, 100)}`));
+          return;
+        }
+
+        try {
+          const result = JSON.parse(trimmed);
+          
+          if (debug) {
+            console.error('[DEBUG] JSON parseado com sucesso:', JSON.stringify(result, null, 2));
+          }
+          
+          resolve(result);
+        } catch (parseError) {
+          reject(new Error(`Erro ao parsear JSON do core: ${parseError.message}. Stdout length: ${trimmed.length}, First 200 chars: ${trimmed.substring(0, 200)}`));
+        }
       } else {
-        reject(new Error(`Core engine falhou com código ${code}.\n${stdoutData}\n${stderrData}`));
+        reject(new Error(`Core engine falhou com codigo ${code}. Stderr: ${stderrData}`));
       }
     });
 
@@ -237,47 +268,28 @@ module.exports = {
 };
 
 // ============================================================
-// TESTE MANUAL (descomentar para rodar standalone)
+// CLI
 // ============================================================
 
-/*
-// Para testar:
-// 1. Gerar áudio de teste:
-//    ffmpeg -f lavfi -i anullsrc=r=44100:cl=stereo -t 3 test_input.wav
-//
-// 2. Descomentar o bloco abaixo e executar:
-//    node run-automaster.cjs
+if (require.main === module) {
+  const args = process.argv.slice(2);
 
-(async () => {
-  try {
-    await runAutomaster({
-      inputPath: 'test_input.wav',
-      outputPath: 'test_out_streaming.wav',
-      mode: 'STREAMING'
-    });
-
-    console.log('\n✅ Teste 1/3 concluído (STREAMING)\n');
-
-    await runAutomaster({
-      inputPath: 'test_input.wav',
-      outputPath: 'test_out_balanced.wav',
-      mode: 'BALANCED'
-    });
-
-    console.log('\n✅ Teste 2/3 concluído (BALANCED)\n');
-
-    await runAutomaster({
-      inputPath: 'test_input.wav',
-      outputPath: 'test_out_impact.wav',
-      mode: 'IMPACT'
-    });
-
-    console.log('\n✅ Teste 3/3 concluído (IMPACT)\n');
-    console.log('🎉 Todos os modos testados com sucesso!\n');
-
-  } catch (error) {
-    console.error('❌ Erro no teste:', error.message);
+  if (args.length < 3) {
+    console.error('Erro: argumentos insuficientes');
+    console.error('Uso: node run-automaster.cjs <inputPath> <outputPath> <MODE> [STRATEGY]');
+    console.error('Modos validos: STREAMING, BALANCED, IMPACT');
     process.exit(1);
   }
-})();
-*/
+
+  const [inputPath, outputPath, mode, strategy] = args;
+
+  runAutomaster({ inputPath, outputPath, mode, strategy })
+    .then(result => {
+      console.log(JSON.stringify(result));
+      process.exit(0);
+    })
+    .catch(error => {
+      console.error(error.message);
+      process.exit(1);
+    });
+}

@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "mode": "BALANCED",
+  "input": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\musicas\\bass sequencia do soca soca.wav",
+  "output": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\tests\\out\\bass sequencia do soca soca_out.wav",
+  "processing_ms": 19184,
+  "true_peak_fix_applied": false,
+  "precheck_initial": {
+    "status": "WARNING",
+    "reason": "LUFS alto (-6.8 LUFS). LRA baixo (2.8 LU). Risco técnico presente.",
+    "metrics": {
+      "duration_sec": 139.1,
+      "sample_rate": 44100,
+      "channels": 2,
+      "integrated_lufs": -6.81,
+      "true_peak_db": -0.74,
+      "lra": 2.8,
+      "estimated_dr": 8.6,
+      "silence_ratio": 0.009
+    }
+  },
+  "precheck_after_fix": null,
+  "attempts": [
+    {
+      "type": "PRIMARY",
+      "mode_requested": "BALANCED",
+      "strategy_used": null,
+      "master_result": {
+        "success": true,
+        "mode": "BALANCED",
+        "strategy_used": null,
+        "target_lufs": -11,
+        "target_tp": -0.8,
+        "final_lufs": -11,
+        "final_tp": -4.93,
+        "duration_ms": 9098,
+        "output_path": "C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\tests\\out\\bass sequencia do soca soca_out.wav",
+        "output_size_kb": 23956.17,
+        "fallback_used": false
+      },
+      "postcheck": {
+        "status": "OK",
+        "metrics": {
+          "lufs_i": -11,
+          "true_peak_dbtp": -4.93,
+          "dr": 25.4,
+          "stereo_corr": "not_available",
+          "harsh_2_4k_db": "not_available",
+          "sub_retention": "not_available",
+          "transient_retention": "not_available",
+          "spectral_bands": []
+        },
+        "tiers": {
+          "tier1_pass": true,
+          "tier2_pass": true,
+          "tier3_pass": true,
+          "reasons": []
+        },
+        "recommended_action": "OK"
+      }
+    }
+  ],
+  "used_fallback": false,
+  "final_decision": "DELIVERED_PRIMARY"
+}

@@ -26,15 +26,15 @@ require('dotenv').config();
 
 const { Worker } = require('bullmq');
 const { execFile } = require('child_process');
-const { promisify } = require('util');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const redis = require('./redis-connection.cjs');
 const storageService = require('../services/storage-service.cjs');
 const { createServiceLogger, createJobLogger } = require('../services/logger.cjs');
-
-const execFileAsync = promisify(execFile);
+const jobStore = require('../services/job-store.cjs');
+const jobLock = require('../services/job-lock.cjs');
+const errorClassifier = require('../services/error-classifier.cjs');
 
 // ============================================================================
 // LOGGER
@@ -128,17 +128,49 @@ async function cleanupJobWorkspace(jobId) {
 async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
   jobLogger.info({ mode }, 'Executando pipeline');
   
-  const { stdout, stderr } = await execFileAsync(
-    'node',
-    [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode],
-    {
-      timeout: TIMEOUT_MS,
-      maxBuffer: 10 * 1024 * 1024,
-      killSignal: 'SIGTERM'
-    }
-  );
+  return new Promise((resolve, reject) => {
+    execFile(
+      'node',
+      [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode],
+      {
+        timeout: TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024,
+        killSignal: 'SIGTERM',
+        encoding: 'utf8'
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          jobLogger.error({ error, stderr }, 'Pipeline execution failed');
+          return reject(error);
+        }
 
-  return { stdout: stdout.trim(), stderr: stderr.trim() };
+        if (!stdout || !stdout.trim()) {
+          jobLogger.error({ stdout, stderr }, 'Pipeline returned empty stdout');
+          return reject(new Error('Pipeline returned empty output'));
+        }
+
+        const lines = stdout.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+
+        jobLogger.info({ 
+          totalLines: lines.length,
+          lastLinePreview: lastLine.substring(0, 100)
+        }, 'Pipeline output received');
+
+        try {
+          const result = JSON.parse(lastLine);
+          resolve({ 
+            pipelineResult: result,
+            stdout: stdout.trim(),
+            stderr: stderr ? stderr.trim() : ''
+          });
+        } catch (parseErr) {
+          jobLogger.error({ stdout, lastLine }, 'Failed to parse pipeline JSON');
+          reject(parseErr);
+        }
+      }
+    );
+  });
 }
 
 // ============================================================================
@@ -147,65 +179,158 @@ async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
 
 async function processJob(job) {
   const startTime = Date.now();
-  const { jobId, inputKey, mode, userId } = validateJobData(job.data);
+  let jobId = null; let inputKey = null; let mode = null; let userId = null;
 
-  const jobLogger = createJobLogger(jobId, { mode, userId });
+  try {
+    const validated = validateJobData(job.data);
+    ({ jobId, inputKey, mode, userId } = validated);
+  } catch (e) {
+    logger.error({ error: e.message, jobDataJobId: job && job.data && job.data.jobId ? job.data.jobId : null }, 'Job inválido (validateJobData falhou)');
+    throw e;
+  }
+
+  let jobLogger = null;
+  jobLogger = createJobLogger(jobId, { mode, userId });
   jobLogger.info('Job iniciado');
 
   let workspace;
+  let lockData = null;
+  let heartbeatInterval = null;
+  let lostLock = false;
 
   try {
-    // 1. Criar workspace isolado (10%)
+    // 0. Verificar se job já foi concluído (idempotência)
+    const existingJob = await jobStore.getJob(jobId);
+    if (existingJob && existingJob.status === 'completed' && existingJob.output_key) {
+      jobLogger.warn('Job já concluído, pulando processamento duplicado');
+      return {
+        success: true,
+        jobId,
+        output_key: existingJob.output_key,
+        cached: true
+      };
+    }
+
+    // 1. Adquirir lock distribuído
+    lockData = await jobLock.acquireLock(jobId);
+    if (!lockData) {
+      jobLogger.warn('Não conseguiu adquirir lock, job já está sendo processado');
+      // Lock contention: não é erro, apenas skip
+      return {
+        skipped: true,
+        reason: 'LOCKED',
+        jobId
+      };
+    }
+
+    jobLogger.info({ workerId: lockData.workerId }, 'Lock adquirido');
+
+    // 2. Iniciar heartbeat do lock (renova a cada 15s)
+    heartbeatInterval = setInterval(async () => {
+      try {
+        const renewed = await jobLock.renewLock(jobId, lockData.workerId);
+        if (!renewed) {
+          jobLogger.warn({ workerId: lockData.workerId }, 'Perdeu ownership do lock, abortando job');
+          lostLock = true;
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+      } catch (error) {
+        jobLogger.error({ error: error.message, workerId: lockData.workerId }, 'Erro ao renovar lock');
+      }
+    }, 15000); // 15 segundos
+
+    jobLogger.info('Heartbeat do lock iniciado');
+
+    // 2. Atualizar status para processing
+    await jobStore.updateJobStatus(jobId, 'processing', {
+      started_at: Date.now(),
+      progress: 0
+    });
+
+    // 3. Criar workspace isolado (10%)
     await job.updateProgress(10);
+    await jobStore.updateProgress(jobId, 10);
     workspace = await createJobWorkspace(jobId);
     const isolatedInput = path.join(workspace, 'input.wav');
     const isolatedOutput = path.join(workspace, 'result.wav');
     jobLogger.info({ workspace }, 'Workspace criado');
 
-    // 2. Download input do storage (25%)
+    // 4. Download input do storage (25%)
     await job.updateProgress(25);
+    await jobStore.updateProgress(jobId, 25);
     await storageService.downloadToFile(inputKey, isolatedInput);
     jobLogger.info({ inputKey }, 'Input baixado do storage');
 
-    // 3. Executar pipeline (50%)
+    // 5. Executar pipeline (50%)
     await job.updateProgress(50);
+    await jobStore.updateProgress(jobId, 50);
     const result = await executePipeline(isolatedInput, isolatedOutput, mode, jobLogger);
 
-    // Parse resultado
-    let pipelineResult;
-    try {
-      pipelineResult = JSON.parse(result.stdout);
-    } catch (parseError) {
-      throw new Error(`Pipeline retornou JSON inválido: ${parseError.message}`);
-    }
+    // resultado já vem parseado e validado
+    const pipelineResult = result.pipelineResult;
 
-    if (pipelineResult.status !== 'SUCCESS') {
+    if (!pipelineResult.success) {
       throw new Error(`Pipeline falhou: ${JSON.stringify(pipelineResult)}`);
     }
 
     jobLogger.info({ result: pipelineResult }, 'Pipeline concluído');
 
-    // 4. Verificar output (80%)
+    // 6. Verificar output (80%)
     await job.updateProgress(80);
+    await jobStore.updateProgress(jobId, 80);
     try {
       await fs.access(isolatedOutput);
     } catch {
       throw new Error('Pipeline não gerou arquivo de output');
     }
 
-    // 5. Upload output para storage (90%)
+    // 7. Verificar lock antes de upload
+    if (lostLock) {
+      throw new Error('LOCK_LOST: Worker perdeu ownership durante processamento');
+    }
+
+    // 8. Upload output para storage (90%)
     await job.updateProgress(90);
+    await jobStore.updateProgress(jobId, 90);
     const outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
     jobLogger.info({ outputKey }, 'Output enviado ao storage');
 
-    // 6. Cleanup (95%)
+    // 9. Cleanup (95%)
     await job.updateProgress(95);
+    await jobStore.updateProgress(jobId, 95);
     await cleanupJobWorkspace(jobId);
 
     const endTime = Date.now();
     const durationMs = endTime - startTime;
 
-    // 7. Concluído (100%)
+    // 10. Verificar lock antes de marcar completed
+    if (lostLock) {
+      throw new Error('LOCK_LOST: Worker perdeu ownership durante processamento');
+    }
+
+    // 11. Atualizar status para completed
+    await jobStore.updateJobStatus(jobId, 'completed', {
+      output_key: outputKey,
+      processing_ms: durationMs,
+      progress: 100,
+      finished_at: endTime
+    });
+
+    // 12. Parar heartbeat
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+      jobLogger.info('Heartbeat do lock parado');
+    }
+
+    // 13. Liberar lock
+    if (lockData) {
+      await jobLock.releaseLock(jobId, lockData.workerId);
+      lockData = null;
+      jobLogger.info('Lock liberado');
+    }
+
     await job.updateProgress(100);
 
     jobLogger.info({ duration_ms: durationMs }, 'Job concluído');
@@ -219,18 +344,77 @@ async function processJob(job) {
     };
 
   } catch (error) {
+    const log = jobLogger || logger;
+    // Se jobId não foi validado, não tentar interagir com jobStore/jobLock
+    if (!jobId) {
+      throw error;
+    }
+
     // Cleanup em caso de erro
     if (workspace) {
-      await cleanupJobWorkspace(jobId);
+      await cleanupJobWorkspace(jobId).catch(err => {
+        log.error({ error: err.message }, 'Falha no cleanup após erro');
+      });
     }
 
     const endTime = Date.now();
     const durationMs = endTime - startTime;
 
-    jobLogger.error({ error: error.message, duration_ms: durationMs }, 'Job falhou');
+    // Classificar erro
+    const classification = errorClassifier.classifyError(error);
+    log.error({ 
+      error: error.message, 
+      error_type: classification.type,
+      error_code: classification.code,
+      duration_ms: durationMs 
+    }, 'Job falhou');
+
+    // Se perdeu lock, não marcar como failed (outro worker deve estar processando)
+    if (classification.code === 'LOCK_LOST') {
+      log.warn('Lock perdido, não marcando como failed (outro worker pode ter assumido)');
+      return { skipped: true, reason: 'LOCK_LOST', jobId };
+    }
+
+    // Obter tentativa atual
+    const currentJob = await jobStore.getJob(jobId);
+    const attempt = currentJob ? currentJob.attempt : 1;
+
+    // Verificar se deve fazer retry
+    const shouldRetry = errorClassifier.shouldRetry(
+      classification,
+      attempt,
+      currentJob ? currentJob.max_attempts : 3
+    );
+
+    if (!shouldRetry) {
+      // Marcar como failed permanentemente
+      await jobStore.setJobError(jobId, classification.code, classification.message, attempt);
+      log.error({ 
+        error_code: classification.code,
+        reason: 'Non-recoverable error or max attempts reached'
+      }, 'Job marcado como failed permanente');
+    } else {
+      // Incrementar attempt para próximo retry
+      await jobStore.incrementAttempt(jobId);
+      log.warn({ attempt: attempt + 1 }, 'Erro recuperável, será feito retry');
+    }
 
     // Re-throw para BullMQ tratar retry
-    throw new Error(`Job ${jobId} falhou: ${error.message}`);
+    throw error;
+  } finally {
+    // Garantir que heartbeat sempre é parado
+    const log = jobLogger || logger;
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      log.info('Heartbeat do lock parado (finally)');
+    }
+
+    // Garantir que lock sempre é liberado
+    if (lockData && jobId) {
+      await jobLock.releaseLock(jobId, lockData.workerId).catch(err => {
+        log.error({ error: err.message }, 'Falha ao liberar lock (finally)');
+      });
+    }
   }
 }
 
@@ -244,7 +428,11 @@ const worker = new Worker('automaster', processJob, {
 });
 
 worker.on('completed', (job, result) => {
-  logger.info({ jobId: job.id, duration_ms: result.duration_ms }, 'Job concluído');
+  if (result && result.skipped === true) {
+    logger.info({ jobId: job.id, reason: result.reason }, 'Job skipped');
+  } else {
+    logger.info({ jobId: job.id, duration_ms: result ? result.duration_ms : undefined }, 'Job concluído');
+  }
 });
 
 worker.on('failed', (job, err) => {

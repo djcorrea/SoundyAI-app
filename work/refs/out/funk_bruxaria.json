@@ -6,7 +6,7 @@
     "processing_mode": "fallback_safe",
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -5.8,
+        "lufs_integrated": -8.0,
         "true_peak_dbtp": -0.2,
         "dynamic_range": 5.5,
         "rms_db": -10.5,
@@ -97,7 +97,7 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -5.8,
+      "lufs_target": -8.0,
       "true_peak_target": -0.2,
       "dr_target": 5.5,
       "stereo_target": 0.875,
@@ -187,8 +187,8 @@
           "severity": "soft"
         }
       },
-      "lufs_min": -7,
-      "lufs_max": -3.1,
+      "lufs_min": -8.0,
+      "lufs_max": -5.1,
       "dr_min": 3.5,
       "dr_max": 9.5,
       "true_peak_min": -2.5,
@@ -203,14 +203,14 @@
       "ios_compatible": true,
       "fallback_enabled": true
     },
-    "lufs_min": -7,
-    "lufs_max": -3.1,
+    "lufs_min": -8,
+    "lufs_max": -5.1,
     "dr_min": 3.5,
     "dr_max": 9.5,
     "true_peak_min": -2.5,
     "true_peak_max": 0,
     "true_peak_warn_from": -0.1,
-    "lufs_target": -5.8,
+    "lufs_target": -8.0,
     "true_peak_target": -0.2,
     "dr_target": 5.5,
     "tol_lufs": 1.9,

@@ -1802,10 +1802,18 @@ log('🚀 Carregando auth.js...');
                               window.location.pathname === '';
           const isDemoPage = window.location.pathname.includes("/demo") || 
                              window.location.search.includes("mode=demo");
+          const isHubPage = window.location.pathname.includes("hub.html");
           
           // 🔥 MODO DEMO: Permitir acesso sem login (ativado pelo demo-core.js)
           if (isDemoPage) {
             log('🔥 [AUTH] Timeout - Página demo detectada, permitindo acesso');
+            resolve(null);
+            return;
+          }
+          
+          // 🏠 HUB: Permitir acesso sem login (verificação feita na própria página)
+          if (isHubPage) {
+            log('🏠 [AUTH] Timeout - Página hub detectada, permitindo acesso');
             resolve(null);
             return;
           }
@@ -1856,6 +1864,7 @@ log('🚀 Carregando auth.js...');
                               window.location.pathname === '';
           const isDemoPage = window.location.pathname.includes("/demo") || 
                              window.location.search.includes("mode=demo");
+          const isHubPage = window.location.pathname.includes("hub.html");
 
           // ✅ BUG #2 FIX: Proteger cadastro em progresso
           if (window.isNewUserRegistering && isEntrevistaPage) {
@@ -1870,6 +1879,13 @@ log('🚀 Carregando auth.js...');
             // 🔥 MODO DEMO: Permitir acesso sem login
             if (isDemoPage) {
               log('🔥 [AUTH] Usuário não logado na página demo - permitindo acesso');
+              resolve(null);
+              return;
+            }
+            
+            // 🏠 HUB: Permitir acesso sem login (verificação feita na própria página)
+            if (isHubPage) {
+              log('🏠 [AUTH] Usuário não logado no hub - permitindo acesso');
               resolve(null);
               return;
             }
@@ -1953,13 +1969,29 @@ log('🚀 Carregando auth.js...');
                   log(`✅ [AUTH-STATE] Plano ${userPlan} - redirecionando para entrevista`);
                   window.location.href = "entrevista.html";
                 } else {
-                  log(`✅ [AUTH-STATE] Plano ${userPlan} - redirecionando para index.html`);
-                  window.location.href = "index.html";
+                  // 🏠 HUB REDIRECT: Verificar se há destino salvo pós-login
+                  const hubRedirect = sessionStorage.getItem('soundy_hub_redirect');
+                  if (hubRedirect) {
+                    sessionStorage.removeItem('soundy_hub_redirect');
+                    log(`🏠 [AUTH-STATE] Redirect pós-login para: ${hubRedirect}`);
+                    window.location.href = hubRedirect;
+                  } else {
+                    log(`✅ [AUTH-STATE] Plano ${userPlan} - redirecionando para index.html`);
+                    window.location.href = "index.html";
+                  }
                 }
               } else {
                 // Documento não existe - ir para index (será criado automaticamente)
-                log('✅ [AUTH-STATE] Documento não existe - redirecionando para index.html');
-                window.location.href = "index.html";
+                // 🏠 HUB REDIRECT: Verificar se há destino salvo pós-login
+                const hubRedirect = sessionStorage.getItem('soundy_hub_redirect');
+                if (hubRedirect) {
+                  sessionStorage.removeItem('soundy_hub_redirect');
+                  log(`🏠 [AUTH-STATE] Redirect pós-login (novo user) para: ${hubRedirect}`);
+                  window.location.href = hubRedirect;
+                } else {
+                  log('✅ [AUTH-STATE] Documento não existe - redirecionando para index.html');
+                  window.location.href = "index.html";
+                }
               }
             } catch (e) {
               error('❌ [AUTH-STATE] Erro ao verificar usuário:', e);

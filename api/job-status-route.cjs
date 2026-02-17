@@ -20,9 +20,9 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const automasterQueue = require('../queue/automaster-queue.cjs');
 const storageService = require('../services/storage-service.cjs');
 const { createServiceLogger } = require('../services/logger.cjs');
+const jobStore = require('../services/job-store.cjs');
 
 const router = express.Router();
 const logger = createServiceLogger('api-status');
@@ -52,10 +52,10 @@ router.get('/automaster/:jobId', statusLimiter, async (req, res) => {
   const requestLogger = logger.child({ jobId, ip: req.ip });
 
   try {
-    // Buscar job no BullMQ
-    const job = await automasterQueue.getJob(jobId);
+    // Buscar job no jobStore (fonte de verdade)
+    const jobData = await jobStore.getJob(jobId);
 
-    if (!job) {
+    if (!jobData) {
       requestLogger.warn('Job não encontrado');
       return res.status(404).json({
         success: false,
@@ -64,37 +64,37 @@ router.get('/automaster/:jobId', statusLimiter, async (req, res) => {
       });
     }
 
-    // Obter estado do job
-    const state = await job.getState();
-    const progress = job.progress || 0;
-
-    // Resposta base
+    // Resposta base do jobStore
     const response = {
       success: true,
-      jobId,
-      status: state,
-      progress
+      jobId: jobData.job_id,
+      status: jobData.status,
+      progress: jobData.progress,
+      mode: jobData.mode,
+      created_at: jobData.created_at,
+      started_at: jobData.started_at,
+      finished_at: jobData.finished_at,
+      processing_ms: jobData.processing_ms
     };
 
-    // Se concluído, incluir resultado
-    if (state === 'completed') {
-      response.result = job.returnvalue;
-      response.finished_at = job.finishedOn;
-      requestLogger.info({ state, progress }, 'Status retornado');
+    // Se concluído, incluir output_key
+    if (jobData.status === 'completed' && jobData.output_key) {
+      response.output_key = jobData.output_key;
     }
 
     // Se falhou, incluir erro
-    if (state === 'failed') {
-      response.error = job.failedReason;
-      response.failed_at = job.finishedOn;
-      response.attempts = job.attemptsMade;
-      requestLogger.warn({ state, error: job.failedReason }, 'Job falhou');
+    if (jobData.status === 'failed') {
+      response.error_code = jobData.error_code;
+      response.error_message = jobData.error_message;
+      response.attempt = jobData.attempt;
     }
 
-    // Se ativo, incluir timestamp de início
-    if (state === 'active') {
-      response.started_at = job.processedOn;
+    // Se processing, incluir attempt atual
+    if (jobData.status === 'processing') {
+      response.attempt = jobData.attempt;
     }
+
+    requestLogger.info({ status: jobData.status }, 'Status retornado');
 
     res.json(response);
 
@@ -118,10 +118,10 @@ router.get('/automaster/:jobId/download', statusLimiter, async (req, res) => {
   const requestLogger = logger.child({ jobId, ip: req.ip });
 
   try {
-    // Buscar job no BullMQ
-    const job = await automasterQueue.getJob(jobId);
+    // Buscar job no jobStore (fonte de verdade)
+    const jobData = await jobStore.getJob(jobId);
 
-    if (!job) {
+    if (!jobData) {
       requestLogger.warn('Job não encontrado');
       return res.status(404).json({
         success: false,
@@ -131,19 +131,27 @@ router.get('/automaster/:jobId/download', statusLimiter, async (req, res) => {
     }
 
     // Verificar se job está concluído
-    const state = await job.getState();
-    if (state !== 'completed') {
-      requestLogger.warn({ state }, 'Job não concluído');
+    if (jobData.status !== 'completed') {
+      requestLogger.warn({ status: jobData.status }, 'Job não concluído');
       return res.status(400).json({
         success: false,
         error: 'Job não está concluído',
-        status: state
+        status: jobData.status
       });
     }
 
-    // Gerar signed URL temporária (5 minutos)
-    requestLogger.info('Gerando signed URL');
-    const downloadUrl = await storageService.getSignedDownloadUrl(jobId, 300);
+    // Verificar se output_key está presente
+    if (!jobData.output_key) {
+      requestLogger.error('Job completed mas output_key ausente');
+      return res.status(500).json({
+        success: false,
+        error: 'Output não disponível'
+      });
+    }
+
+    // Gerar signed URL temporária usando output_key (5 minutos)
+    requestLogger.info({ output_key: jobData.output_key }, 'Gerando signed URL');
+    const downloadUrl = await storageService.getSignedDownloadUrl(jobData.output_key, 300);
 
     requestLogger.info('Download URL gerada');
 

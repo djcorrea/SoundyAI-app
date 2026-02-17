@@ -62,6 +62,43 @@ function validateInput() {
 }
 
 // ============================================================
+// DETECÇÃO DE SAMPLE RATE
+// ============================================================
+
+function detectInputSampleRate(inputPath) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-v', 'error',
+      '-select_streams', 'a:0',
+      '-show_entries', 'stream=sample_rate',
+      '-of', 'json',
+      inputPath
+    ];
+
+    execFile('ffprobe', args, { maxBuffer: 10 * 1024 * 1024, timeout: 10000 }, (error, stdout) => {
+      if (error) {
+        reject(new Error(`Erro ao detectar sample rate: ${error.message}`));
+        return;
+      }
+
+      try {
+        const data = JSON.parse(stdout);
+        const sampleRate = parseInt(data.streams[0].sample_rate, 10);
+        
+        if (isNaN(sampleRate) || sampleRate <= 0) {
+          reject(new Error('Sample rate inválido'));
+          return;
+        }
+        
+        resolve(sampleRate);
+      } catch (parseError) {
+        reject(new Error(`Erro ao parsear ffprobe JSON: ${parseError.message}`));
+      }
+    });
+  });
+}
+
+// ============================================================
 // ANÁLISE DE TRUE PEAK
 // ============================================================
 
@@ -103,7 +140,7 @@ function analyzeTruePeak(inputPath) {
 // APLICAÇÃO DE GANHO NEGATIVO
 // ============================================================
 
-function applyGainCorrection(inputPath, gainDB) {
+function applyGainCorrection(inputPath, gainDB, sampleRate) {
   return new Promise((resolve, reject) => {
     // Gerar nome do arquivo de saída
     const inputDir = path.dirname(inputPath);
@@ -115,7 +152,7 @@ function applyGainCorrection(inputPath, gainDB) {
       '-y',
       '-i', inputPath,
       '-af', `volume=${gainDB.toFixed(2)}dB`,
-      '-ar', '44100',
+      '-ar', sampleRate.toString(),
       outputPath
     ];
 
@@ -163,10 +200,13 @@ async function main() {
     // 1. Validar entrada
     const inputPath = validateInput();
 
-    // 2. Analisar True Peak
+    // 2. Detectar sample rate (para preservação)
+    const sampleRate = await detectInputSampleRate(inputPath);
+
+    // 3. Analisar True Peak
     const inputTP = await analyzeTruePeak(inputPath);
 
-    // 3. Verificar se precisa correção
+    // 4. Verificar se precisa correção
     if (inputTP <= TARGET_TP) {
       // Já está seguro
       outputResult({
@@ -180,15 +220,15 @@ async function main() {
       return;
     }
 
-    // 4. Calcular ganho negativo necessário
+    // 5. Calcular ganho negativo necessário
     // Fórmula: gain = input_tp - target + margem
     // Exemplo: input_tp = +0.11 → gain = 0.11 - (-1.0) + 0.2 = 1.31 dB de redução
     const gainDB = -(inputTP - TARGET_TP + SAFETY_MARGIN);
 
-    // 5. Aplicar correção
-    const outputPath = await applyGainCorrection(inputPath, gainDB);
+    // 6. Aplicar correção (preservando sample rate)
+    const outputPath = await applyGainCorrection(inputPath, gainDB, sampleRate);
 
-    // 6. Retornar resultado
+    // 7. Retornar resultado
     outputResult({
       status: 'FIXED',
       message: 'True Peak corrigido com ganho negativo.',

@@ -23,9 +23,13 @@ const execFileAsync = promisify(execFile);
 
 const VALID_MODES = ['STREAMING', 'BALANCED', 'IMPACT'];
 
+const MEASURE_AUDIO_SCRIPT = path.resolve(__dirname, 'measure-audio.cjs');
+const CHECK_APTITUDE_SCRIPT = path.resolve(__dirname, 'check-aptitude.cjs');
+const RESCUE_MODE_SCRIPT = path.resolve(__dirname, 'rescue-mode.cjs');
 const PRECHECK_SCRIPT = path.resolve(__dirname, 'precheck-audio.cjs');
 const FIX_TP_SCRIPT = path.resolve(__dirname, 'fix-true-peak.cjs');
 const RUN_AUTOMASTER_SCRIPT = path.resolve(__dirname, 'run-automaster.cjs');
+const POSTCHECK_SCRIPT = path.resolve(__dirname, 'postcheck-audio.cjs');
 
 // ============================================================================
 // FUNÇÕES AUXILIARES SILENCIOSAS
@@ -69,6 +73,67 @@ function validateOutput(outputPath) {
   return path.resolve(outputPath);
 }
 
+async function runMeasureAudio(inputPath) {
+  try {
+    const { stdout } = await execFileAsync(
+      'node',
+      [MEASURE_AUDIO_SCRIPT, inputPath],
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Medição retornou JSON invalido: ${error.message}`);
+    }
+    throw new Error(`Erro ao medir audio: ${error.message}`);
+  }
+}
+
+async function runCheckAptitude(lufs_i, true_peak_db, targetLufs) {
+  try {
+    const { stdout } = await execFileAsync(
+      'node',
+      [CHECK_APTITUDE_SCRIPT, lufs_i.toString(), true_peak_db.toString(), targetLufs.toString()],
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    // Exit code 1 significa NÃO_APTA, mas stdout contém o JSON correto
+    if (error.stdout) {
+      try {
+        return JSON.parse(error.stdout.trim());
+      } catch (parseError) {
+        throw new Error(`Checagem de aptidão retornou JSON invalido: ${parseError.message}`);
+      }
+    }
+    throw new Error(`Erro ao checar aptidão: ${error.message}`);
+  }
+}
+
+async function runRescueMode(inputPath, tmpOutputPath) {
+  try {
+    const { stdout } = await execFileAsync(
+      'node',
+      [RESCUE_MODE_SCRIPT, inputPath, tmpOutputPath],
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    // Exit code 1 pode ser ABORT_UNSAFE, mas stdout contém o JSON
+    if (error.stdout) {
+      try {
+        return JSON.parse(error.stdout.trim());
+      } catch (parseError) {
+        throw new Error(`Rescue Mode retornou JSON invalido: ${parseError.message}`);
+      }
+    }
+    throw new Error(`Erro ao executar Rescue Mode: ${error.message}`);
+  }
+}
+
 async function runPrecheck(inputPath) {
   try {
     const { stdout } = await execFileAsync(
@@ -103,11 +168,14 @@ async function runFixTruePeak(inputPath) {
   }
 }
 
-async function runMaster(inputPath, outputPath, mode) {
+async function runMaster(inputPath, outputPath, mode, strategy) {
   try {
+    const args = [RUN_AUTOMASTER_SCRIPT, inputPath, outputPath, mode];
+    if (strategy) args.push(strategy);
+
     const { stdout } = await execFileAsync(
       'node',
-      [RUN_AUTOMASTER_SCRIPT, inputPath, outputPath, mode],
+      args,
       { maxBuffer: 10 * 1024 * 1024 }
     );
 
@@ -120,27 +188,128 @@ async function runMaster(inputPath, outputPath, mode) {
   }
 }
 
+async function runPostcheck(outputPath, mode) {
+  try {
+    const { stdout } = await execFileAsync(
+      'node',
+      [POSTCHECK_SCRIPT, outputPath, mode],
+      { maxBuffer: 10 * 1024 * 1024 }
+    );
+
+    return JSON.parse(stdout.trim());
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Postcheck retornou JSON invalido: ${error.message}`);
+    }
+    throw new Error(`Erro ao executar postcheck: ${error.message}`);
+  }
+}
+
 // ============================================================================
 // PIPELINE PRINCIPAL
 // ============================================================================
 
-async function runMasterPipeline({ inputPath, outputPath, mode }) {
+// Mapeamento de modos para target LUFS (usado no gate de aptidão)
+const MODE_TARGET_LUFS = {
+  STREAMING: -14,
+  BALANCED: -11,
+  IMPACT: -9
+};
+
+async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = false }) {
   const startTime = Date.now();
 
   const resolvedInput = validateInput(inputPath);
   const resolvedOutput = validateOutput(outputPath);
   const validMode = validateMode(mode);
+  const targetLufs = MODE_TARGET_LUFS[validMode];
+
+  // ============================================================
+  // GATE DE APTIDÃO (CONSERVADOR)
+  // ============================================================
+
+  let initialMeasure;
+  try {
+    initialMeasure = await runMeasureAudio(resolvedInput);
+  } catch (error) {
+    throw new Error(`Medição inicial falhou: ${error.message}`);
+  }
+
+  let aptitudeCheck;
+  try {
+    aptitudeCheck = await runCheckAptitude(
+      initialMeasure.lufs_i,
+      initialMeasure.true_peak_db,
+      targetLufs
+    );
+  } catch (error) {
+    throw new Error(`Checagem de aptidão falhou: ${error.message}`);
+  }
+
+  // Se NÃO APTA e rescue mode NÃO solicitado: retornar objeto estruturado
+  if (!aptitudeCheck.isApt && !rescueMode) {
+    return {
+      ok: false,
+      status: 'NOT_APT',
+      mode: validMode,
+      reasons: aptitudeCheck.reasons,
+      measured: aptitudeCheck.measured,
+      recommended_actions: aptitudeCheck.recommended_actions,
+      processing_ms: Date.now() - startTime
+    };
+  }
+
+  // ============================================================
+  // RESCUE MODE (se solicitado)
+  // ============================================================
+
+  let rescueResult = null;
+  let inputUsedForPipeline = resolvedInput;
+
+  if (rescueMode) {
+    const inputDir = path.dirname(resolvedInput);
+    const inputName = path.basename(resolvedInput, path.extname(resolvedInput));
+    const tmpRescuePath = path.join(inputDir, `${inputName}_rescue_tmp.wav`);
+
+    try {
+      rescueResult = await runRescueMode(resolvedInput, tmpRescuePath);
+    } catch (error) {
+      throw new Error(`Rescue Mode falhou: ${error.message}`);
+    }
+
+    // Verificar resultado do rescue
+    if (rescueResult.status === 'ABORT_UNSAFE_INPUT') {
+      return {
+        ok: false,
+        status: 'ABORT_UNSAFE_INPUT',
+        mode: validMode,
+        message: rescueResult.message,
+        measured: aptitudeCheck.measured,
+        rescue_details: rescueResult,
+        processing_ms: Date.now() - startTime
+      };
+    }
+
+    // Se rescue criou arquivo, usar esse arquivo como input
+    if (rescueResult.status === 'RESCUED' && rescueResult.output_path) {
+      inputUsedForPipeline = rescueResult.output_path;
+    }
+  }
+
+  // ============================================================
+  // PRECHECK (existente)
+  // ============================================================
 
   let precheckInitial;
   try {
-    precheckInitial = await runPrecheck(resolvedInput);
+    precheckInitial = await runPrecheck(inputUsedForPipeline);
   } catch (error) {
     throw new Error(`Precheck inicial falhou: ${error.message}`);
   }
 
   let truePeakFixApplied = false;
   let precheckAfterFix = null;
-  let inputUsed = resolvedInput;
+  let inputUsedForMaster = inputUsedForPipeline;
 
   if (precheckInitial.status === 'BLOCKED') {
     const isTPIssue = precheckInitial.reason && 
@@ -165,10 +334,10 @@ async function runMasterPipeline({ inputPath, outputPath, mode }) {
           throw new Error(`Arquivo corrigido nao encontrado: ${fixedPath}`);
         }
 
-        inputUsed = fixedPath;
+        inputUsedForMaster = fixedPath;
 
         try {
-          precheckAfterFix = await runPrecheck(inputUsed);
+          precheckAfterFix = await runPrecheck(inputUsedForMaster);
         } catch (error) {
           throw new Error(`Precheck pos-correcao falhou: ${error.message}`);
         }
@@ -192,40 +361,119 @@ async function runMasterPipeline({ inputPath, outputPath, mode }) {
 
   let masterResult;
   try {
-    masterResult = await runMaster(inputUsed, resolvedOutput, validMode);
+    masterResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode);
   } catch (error) {
     throw new Error(`Masterizacao falhou: ${error.message}`);
   } finally {
-    if (truePeakFixApplied && inputUsed !== resolvedInput) {
+    if (truePeakFixApplied && inputUsedForMaster !== inputUsedForPipeline) {
       try {
-        if (fs.existsSync(inputUsed)) {
-          fs.unlinkSync(inputUsed);
+        if (fs.existsSync(inputUsedForMaster)) {
+          fs.unlinkSync(inputUsedForMaster);
         }
+      } catch (cleanupError) {
+        // Silenciar erro de cleanup
+      }
+    }
+
+    // Limpar arquivo rescue temporário se foi criado
+    if (rescueResult && rescueResult.output_path && fs.existsSync(rescueResult.output_path)) {
+      try {
+        fs.unlinkSync(rescueResult.output_path);
       } catch (cleanupError) {
         // Silenciar erro de cleanup
       }
     }
   }
 
-  const endTime = Date.now();
-  const processingMs = endTime - startTime;
+  // Pós-checagem técnica e fallback CLEAN (no máximo uma tentativa adicional)
+  let postcheck;
+  try {
+    postcheck = await runPostcheck(resolvedOutput, validMode);
+  } catch (err) {
+    throw new Error(`Postcheck falhou: ${err.message}`);
+  }
 
-  return {
-    success: true,
-    mode: validMode,
-    input: resolvedInput,
-    output: resolvedOutput,
-    processing_ms: processingMs,
-    true_peak_fix_applied: truePeakFixApplied,
-    precheck_initial: precheckInitial,
-    precheck_after_fix: precheckAfterFix,
-    master_result: {
-      target_lufs: masterResult.target_lufs,
-      final_lufs: masterResult.final_lufs,
-      target_tp: masterResult.target_tp,
-      final_tp: masterResult.final_tp
-    }
+  // Construir tentativa primaria
+  const primaryAttempt = {
+    type: 'PRIMARY',
+    mode_requested: validMode,
+    strategy_used: null,
+    master_result: masterResult,
+    postcheck
   };
+
+  // Se OK, entregar primary
+  if (postcheck && postcheck.recommended_action === 'OK') {
+    return {
+      ok: true,
+      success: true,
+      mode: validMode,
+      input: resolvedInput,
+      output: resolvedOutput,
+      processing_ms: Date.now() - startTime,
+      aptitude_check: aptitudeCheck,
+      rescue_mode_used: rescueMode,
+      rescue_result: rescueResult,
+      true_peak_fix_applied: truePeakFixApplied,
+      precheck_initial: precheckInitial,
+      precheck_after_fix: precheckAfterFix,
+      attempts: [primaryAttempt],
+      used_fallback: false,
+      final_decision: 'DELIVERED_PRIMARY'
+    };
+  }
+
+  // Se sugerido FALLBACK_CLEAN, executar CLEAN strategy (mantendo targets do modo solicitado)
+  if (postcheck && postcheck.recommended_action === 'FALLBACK_CLEAN') {
+    let fallbackResult;
+    try {
+      fallbackResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode, 'CLEAN');
+    } catch (err) {
+      throw new Error(`Fallback CLEAN falhou: ${err.message}`);
+    }
+
+    // re-run postcheck (sempre avaliando contra o modo solicitado)
+    let postcheck2;
+    try {
+      postcheck2 = await runPostcheck(resolvedOutput, validMode);
+    } catch (err) {
+      throw new Error(`Postcheck pós-CLEAN falhou: ${err.message}`);
+    }
+
+    const fallbackAttempt = {
+      type: 'CLEAN',
+      mode_requested: validMode,
+      strategy_used: 'CLEAN',
+      master_result: fallbackResult,
+      postcheck: postcheck2
+    };
+
+    if (postcheck2 && postcheck2.recommended_action === 'OK') {
+      return {
+        ok: true,
+        success: true,
+        mode: validMode,
+        input: resolvedInput,
+        output: resolvedOutput,
+        processing_ms: Date.now() - startTime,
+        aptitude_check: aptitudeCheck,
+        rescue_mode_used: rescueMode,
+        rescue_result: rescueResult,
+        true_peak_fix_applied: truePeakFixApplied,
+        precheck_initial: precheckInitial,
+        precheck_after_fix: precheckAfterFix,
+        attempts: [primaryAttempt, fallbackAttempt],
+        used_fallback: true,
+        final_decision: 'DELIVERED_CLEAN'
+      };
+    }
+
+    // fallback didn't fix -> abort
+    throw new Error('Fallback CLEAN não resolveu os problemas (postcheck falhou após CLEAN)');
+  }
+
+  // Caso desconhecido, abortar
+  throw new Error(`Postcheck recomendou ação inesperada: ${postcheck ? postcheck.recommended_action : 'none'}`);
 }
 
 // ============================================================================
@@ -237,17 +485,20 @@ if (require.main === module) {
 
   if (args.length < 3) {
     console.error('Erro: argumentos insuficientes');
-    console.error('Uso: node master-pipeline.cjs <inputPath> <outputPath> <mode>');
+    console.error('Uso: node master-pipeline.cjs <inputPath> <outputPath> <mode> [--rescue]');
     console.error('Modos validos: STREAMING, BALANCED, IMPACT');
+    console.error('Opcoes:');
+    console.error('  --rescue    Executar Rescue Mode (gain-only) se necessario');
     process.exit(1);
   }
 
-  const [inputPath, outputPath, mode] = args;
+  const [inputPath, outputPath, mode, ...flags] = args;
+  const rescueMode = flags.includes('--rescue');
 
-  runMasterPipeline({ inputPath, outputPath, mode })
+  runMasterPipeline({ inputPath, outputPath, mode, rescueMode })
     .then(result => {
       console.log(JSON.stringify(result));
-      process.exit(0);
+      process.exit(result.ok === false ? 1 : 0);
     })
     .catch(error => {
       console.error(error.message);

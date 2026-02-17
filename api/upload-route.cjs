@@ -31,6 +31,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const { v4: uuidv4 } = require('uuid');
 const automasterQueue = require('../queue/automaster-queue.cjs');
+const jobStore = require('../services/job-store.cjs');
 const storageService = require('../services/storage-service.cjs');
 const audioValidator = require('../services/audio-validator.cjs');
 const { createServiceLogger } = require('../services/logger.cjs');
@@ -209,7 +210,15 @@ router.post('/automaster', uploadLimiter, upload.single('audio'), async (req, re
     });
     tmpFilePath = null;
 
-    // 8. Enfileirar job
+    // 8. Criar job no jobStore (persistência independente do BullMQ)
+    await jobStore.createJob(jobId, {
+      userId,
+      inputKey,
+      mode,
+      maxAttempts: 3
+    });
+
+    // 9. Enfileirar job
     requestLogger.info({ mode, inputKey }, 'Enfileirando job');
     await automasterQueue.add('process', {
       jobId,

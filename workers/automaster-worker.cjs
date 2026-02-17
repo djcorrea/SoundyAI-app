@@ -178,7 +178,8 @@ function executePipelineWithTimeout(inputPath, outputPath, mode) {
       {
         timeout: TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer para stdout/stderr
-        killSignal: 'SIGTERM'
+        killSignal: 'SIGTERM',
+        encoding: 'utf8' // Garantir UTF-8
       },
       (error, stdout, stderr) => {
         const endTime = Date.now();
@@ -187,28 +188,54 @@ function executePipelineWithTimeout(inputPath, outputPath, mode) {
         // Timeout ou kill
         if (error) {
           if (error.killed || error.signal === 'SIGTERM') {
+            console.error('[WORKER] Processo morto por timeout');
+            console.error('[WORKER] Stderr:', stderr);
             return reject({
               type: 'TIMEOUT',
               message: `Processo excedeu timeout de ${TIMEOUT_MS / 1000}s`,
-              stderr: stderr.trim(),
+              stderr: stderr ? stderr.trim() : '',
               duration_ms: durationMs
             });
           }
 
           // Erro de execução
+          console.error('[WORKER] Erro de execução:', error.message);
+          console.error('[WORKER] Stderr:', stderr);
           return reject({
             type: 'EXECUTION_ERROR',
             message: error.message,
-            stderr: stderr.trim(),
+            stderr: stderr ? stderr.trim() : '',
             code: error.code || null,
             duration_ms: durationMs
           });
         }
 
-        // Sucesso
+        // Validar stdout
+        if (!stdout || !stdout.trim()) {
+          console.error('[WORKER] Pipeline retornou stdout vazio');
+          console.error('[WORKER] Stdout:', stdout);
+          console.error('[WORKER] Stderr:', stderr);
+          return reject({
+            type: 'EMPTY_OUTPUT',
+            message: 'Pipeline retornou stdout vazio',
+            stdout: stdout,
+            stderr: stderr ? stderr.trim() : '',
+            duration_ms: durationMs
+          });
+        }
+
+        // Sucesso - capturar última linha do stdout
+        const lines = stdout.trim().split('\n');
+        const lastLine = lines[lines.length - 1];
+
+        console.error(`[WORKER] Pipeline concluído (${durationMs}ms)`);
+        console.error(`[WORKER] Stdout linhas: ${lines.length}`);
+        console.error(`[WORKER] Última linha (primeiros 100 chars): ${lastLine.substring(0, 100)}`);
+
         resolve({
           stdout: stdout.trim(),
-          stderr: stderr.trim(),
+          lastLine: lastLine,
+          stderr: stderr ? stderr.trim() : '',
           duration_ms: durationMs
         });
       }
@@ -288,9 +315,15 @@ async function runWorker() {
 
     let pipelineResult;
     try {
-      pipelineResult = JSON.parse(result.stdout);
+      // Usar a última linha do stdout para parse (ignora possíveis logs anteriores)
+      pipelineResult = JSON.parse(result.lastLine);
+      console.error('[WORKER] JSON parseado com sucesso');
     } catch (parseError) {
-      throw new Error(`Pipeline retornou JSON inválido: ${parseError.message}`);
+      console.error('[WORKER] Falha ao parsear JSON');
+      console.error('[WORKER] Stdout completo:', result.stdout);
+      console.error('[WORKER] Última linha:', result.lastLine);
+      console.error('[WORKER] Erro de parse:', parseError.message);
+      throw new Error(`Pipeline retornou JSON invalido: ${parseError.message}`);
     }
 
     if (pipelineResult.status !== 'SUCCESS') {

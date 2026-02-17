@@ -1,0 +1,10 @@
+{
+  "run_at": "2026-02-12T20:56:36.368Z",
+  "items": [
+    {
+      "file": "you loudnes.wav",
+      "success": false,
+      "error": "Masterizacao falhou: Erro ao executar masterizacao: Command failed: node C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\automaster\\run-automaster.cjs C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\musicas\\you loudnes.wav C:\\Users\\DJ Correa\\Desktop\\Programacao\\SoundyAI\\tests\\out\\you loudnes_out.wav BALANCED\nCore engine falhou com codigo 1. Stderr: Validacao falhou mesmo apos fallback\n\n"
+    }
+  ]
+}
