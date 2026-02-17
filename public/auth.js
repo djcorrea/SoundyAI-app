@@ -2085,75 +2085,55 @@ log('🚀 Carregando auth.js...');
     window.db = db;
     window.firebaseReady = true;
 
-    // ═══════════════════════════════════════════════════════════════════
-    // 🔓 HABILITAR BOTÕES APÓS FIREBASE ESTAR PRONTO
-    // ═══════════════════════════════════════════════════════════════════
-    // CORREÇÃO: Botões ficam disabled até imports e funções estarem disponíveis
-    // Evita race condition onde usuário clica antes de window.login existir
-    // ═══════════════════════════════════════════════════════════════════
-    function enableAuthButtons() {
+    // Configurar listeners dos botões
+    function setupEventListeners() {
       log('🔓 [AUTH-READY] Habilitando botões de autenticação...');
       
-      // Botão de login
-      const loginBtn = document.getElementById('loginBtn');
+      const loginBtn = document.getElementById("loginBtn");
+      const signUpBtn = document.getElementById("signUpBtn");
+      const confirmBtn = document.getElementById("confirmCodeBtn");
+      const forgotLink = document.getElementById("forgotPasswordLink");
+      const googleLoginBtn = document.getElementById("googleLoginBtn");
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 🔓 HABILITAR BOTÕES (remover estado disabled)
+      // ═══════════════════════════════════════════════════════════════════
       if (loginBtn) {
         loginBtn.disabled = false;
         loginBtn.textContent = 'Entrar';
         loginBtn.style.opacity = '1';
         loginBtn.style.cursor = 'pointer';
+        
+        loginBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.login();
+        });
         log('✅ [AUTH-READY] Botão Entrar habilitado');
       }
       
-      // Botão de cadastro
-      const signUpBtn = document.getElementById('signUpBtn');
       if (signUpBtn) {
         signUpBtn.disabled = false;
         signUpBtn.textContent = 'Cadastrar';
         signUpBtn.style.opacity = '1';
         signUpBtn.style.cursor = 'pointer';
+        
+        signUpBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          directEmailSignUp();
+        });
         log('✅ [AUTH-READY] Botão Cadastrar habilitado');
       }
       
-      // Botão Google
-      const googleLoginBtn = document.getElementById('googleLoginBtn');
       if (googleLoginBtn) {
         googleLoginBtn.disabled = false;
         googleLoginBtn.style.opacity = '1';
         googleLoginBtn.style.cursor = 'pointer';
+        
+        googleLoginBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.loginWithGoogle();
+        });
         log('✅ [AUTH-READY] Botão Google habilitado');
-      }
-      
-      log('🎉 [AUTH-READY] Todos os botões habilitados - sistema pronto!');
-    }
-
-    // Executar habilitação dos botões
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', enableAuthButtons);
-    } else {
-      enableAuthButtons();
-    }
-
-    // Configurar listeners dos botões
-    function setupEventListeners() {
-      const loginBtn = document.getElementById("loginBtn");
-      const signUpBtn = document.getElementById("signUpBtn");
-      const confirmBtn = document.getElementById("confirmCodeBtn");
-      const forgotLink = document.getElementById("forgotPasswordLink");
-      const googleLoginBtn = document.getElementById("googleLoginBtn"); // ✅ Botão Google
-
-      if (loginBtn) {
-        loginBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          window.login();
-        });
-      }
-      
-      if (signUpBtn) {
-        signUpBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          // Acionar diretamente o fluxo de cadastro por e-mail/senha
-          directEmailSignUp();
-        });
       }
       
       if (forgotLink) {
@@ -2162,17 +2142,8 @@ log('🚀 Carregando auth.js...');
           window.resetPassword();
         });
       }
-      
-      // ✅ LISTENER DO GOOGLE LOGIN
-      if (googleLoginBtn) {
-        googleLoginBtn.addEventListener("click", (e) => {
-          e.preventDefault();
-          window.loginWithGoogle();
-        });
-        log('✅ [GOOGLE-AUTH] Event listener do botão Google configurado');
-      }
 
-      log('✅ Event listeners configurados');
+      log('🎉 [AUTH-READY] Todos os botões habilitados - sistema pronto!');
     }
 
     // Inicializar
