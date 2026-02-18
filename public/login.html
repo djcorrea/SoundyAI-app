@@ -11,6 +11,52 @@
   <!-- ✅ CRITICAL: Logger DEVE ser o primeiro script carregado -->
   <script src="logger.js"></script>
   
+  <!-- ✅ EMERGENCY: Função global para habilitar botões -->
+  <script>
+    console.log('🚨 [EMERGENCY LOADER] Script de emergência carregado');
+    
+    window.enableButtonsEmergency = function() {
+      console.log('🚨 [EMERGENCY] Habilitando botões por fallback');
+      
+      const loginBtn = document.getElementById('loginBtn');
+      const signUpBtn = document.getElementById('signUpBtn');
+      const googleBtn = document.getElementById('googleLoginBtn');
+      
+      if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+        loginBtn.style.opacity = '1';
+        loginBtn.style.cursor = 'pointer';
+        console.log('✅ Botão Entrar habilitado');
+      }
+      
+      if (signUpBtn) {
+        signUpBtn.disabled = false;
+        signUpBtn.textContent = 'Cadastrar';
+        signUpBtn.style.opacity = '1';
+        signUpBtn.style.cursor = 'pointer';
+        console.log('✅ Botão Cadastrar habilitado');
+      }
+      
+      if (googleBtn) {
+        googleBtn.disabled = false;
+        googleBtn.style.opacity = '1';
+        googleBtn.style.cursor = 'pointer';
+        console.log('✅ Botão Google habilitado');
+      }
+    };
+    
+    // Verificar Firebase após 5 segundos
+    setTimeout(function() {
+      if (!window.firebaseReady) {
+        console.warn('⚠️ Firebase não carregou em 5s - ativando fallback');
+        if (document.getElementById('loginBtn')) {
+          window.enableButtonsEmergency();
+        }
+      }
+    }, 5000);
+  </script>
+  
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MBDHDYN6Z0"></script>
   <script>
