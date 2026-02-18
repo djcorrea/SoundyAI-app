@@ -89,47 +89,6 @@ log('🚀 Carregando auth.js...');
       'auth/recaptcha-not-supported': 'Use reCAPTCHA v2 em vez de Enterprise.'
     };
 
-    // ═══════════════════════════════════════════════════════════════════
-    // 🔄 FUNÇÃO HELPER: PROCESSAMENTO DE REDIRECT DO HUB
-    // ═══════════════════════════════════════════════════════════════════
-    /**
-     * Processa parâmetro redirect da URL e retorna o destino apropriado
-     * Usado pelo hub.html para redirecionar após login
-     * @returns {string|null} URL de destino ou null se não houver redirect
-     */
-    function getRedirectDestination() {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const redirect = urlParams.get('redirect');
-        
-        if (!redirect) {
-          return null;
-        }
-        
-        log(`[AUTH-REDIRECT] Parâmetro redirect detectado: ${redirect}`);
-        
-        // Mapeamento seguro de destinos do hub
-        const destinationMap = {
-          'analyze': 'index.html?openAnalyze=true',
-          'master': 'index.html?openMaster=true',
-          'chatbot': 'index.html'
-        };
-        
-        const destination = destinationMap[redirect];
-        
-        if (destination) {
-          log(`[AUTH-REDIRECT] Destino mapeado: ${destination}`);
-          return destination;
-        } else {
-          log(`[AUTH-REDIRECT] Redirect desconhecido: ${redirect}, usando padrão`);
-          return null;
-        }
-      } catch (error) {
-        error('[AUTH-REDIRECT] Erro ao processar redirect:', error);
-        return null;
-      }
-    }
-
     // Função para mostrar mensagens
     function showMessage(messageOrError, type = "error") {
       const msg = typeof messageOrError === 'object' && messageOrError.code
@@ -258,8 +217,7 @@ log('🚀 Carregando auth.js...');
             // Usuário não existe no Firestore - criar será feito automaticamente pelo listener
             // Redirecionar direto para index.html (entrevista é premium-only)
             log('✅ [AUTH] Novo usuário - redirecionando para index.html');
-            const redirectDest = getRedirectDestination();
-            window.location.href = redirectDest || "index.html";
+            window.location.href = "index.html";
             return;
           }
           
@@ -287,8 +245,7 @@ log('🚀 Carregando auth.js...');
             window.location.href = "entrevista.html";
           } else {
             log(`✅ [AUTH] Plano ${userPlan} - redirecionando para index.html`);
-            const redirectDest = getRedirectDestination();
-            window.location.href = redirectDest || "index.html";
+            window.location.href = "index.html";
           }
         } catch (e) {
           error('❌ Erro ao buscar dados do usuário:', e);
@@ -422,18 +379,15 @@ log('🚀 Carregando auth.js...');
           const userPlan = userData.plan || 'free';
           const isPaidPlan = ['pro', 'studio', 'dj'].includes(userPlan);
           
-          // Verificar destino do hub
-          const redirectDest = getRedirectDestination();
-          
           if (userData.entrevistaConcluida === false && isPaidPlan) {
             log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para entrevista`);
             setTimeout(() => {
               window.location.href = "entrevista.html";
             }, 1500);
           } else {
-            log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para ${redirectDest || 'index'}`);
+            log(`🎯 [GOOGLE-AUTH] Plano ${userPlan} - redirecionando para index`);
             setTimeout(() => {
-              window.location.href = redirectDest || "index.html";
+              window.location.href = "index.html";
             }, 1500);
           }
           
@@ -646,9 +600,8 @@ log('🚀 Carregando auth.js...');
         showMessage("✅ Conta criada com sucesso! Redirecionando...", "success");
         
         // Redirecionar após sucesso
-        const redirectDest = getRedirectDestination();
         setTimeout(() => {
-          window.location.href = redirectDest || 'index.html';
+          window.location.href = 'index.html';
         }, 2000);
 
       } catch (err) {
@@ -2108,19 +2061,30 @@ log('🚀 Carregando auth.js...');
       const forgotLink = document.getElementById("forgotPasswordLink");
       const googleLoginBtn = document.getElementById("googleLoginBtn"); // ✅ Botão Google
 
+      // ✅ HABILITAR BOTÕES APÓS FIREBASE CARREGAR
       if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+        loginBtn.style.opacity = '1';
+        loginBtn.style.cursor = 'pointer';
         loginBtn.addEventListener("click", (e) => {
           e.preventDefault();
           window.login();
         });
+        log('✅ Botão "Entrar" habilitado');
       }
       
       if (signUpBtn) {
+        signUpBtn.disabled = false;
+        signUpBtn.textContent = 'Cadastrar';
+        signUpBtn.style.opacity = '1';
+        signUpBtn.style.cursor = 'pointer';
         signUpBtn.addEventListener("click", (e) => {
           e.preventDefault();
           // Acionar diretamente o fluxo de cadastro por e-mail/senha
           directEmailSignUp();
         });
+        log('✅ Botão "Cadastrar" habilitado');
       }
       
       if (forgotLink) {
@@ -2130,16 +2094,19 @@ log('🚀 Carregando auth.js...');
         });
       }
       
-      // ✅ LISTENER DO GOOGLE LOGIN
+      // ✅ HABILITAR E CONFIGURAR BOTÃO GOOGLE
       if (googleLoginBtn) {
+        googleLoginBtn.disabled = false;
+        googleLoginBtn.style.opacity = '1';
+        googleLoginBtn.style.cursor = 'pointer';
         googleLoginBtn.addEventListener("click", (e) => {
           e.preventDefault();
           window.loginWithGoogle();
         });
-        log('✅ [GOOGLE-AUTH] Event listener do botão Google configurado');
+        log('✅ [GOOGLE-AUTH] Botão Google habilitado e configurado');
       }
 
-      log('✅ Event listeners configurados');
+      log('✅ Event listeners configurados e botões habilitados');
     }
 
     // Inicializar
