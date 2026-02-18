@@ -8,7 +8,7 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import fs from "fs";
 import multer from "multer";
-import { execFile, exec } from "child_process";
+import { execFile, exec, execSync } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -1288,6 +1288,24 @@ app.listen(PORT, () => {
   
   // 🔐 Log de build info para rastreabilidade
   logBuildInfo();
+  
+  // 🎬 Verificar se FFmpeg está instalado (necessário para AutoMaster V1)
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('🎬 VERIFICAÇÃO FFMPEG (AutoMaster V1)');
+  console.log('═══════════════════════════════════════════════════════════════');
+  try {
+    const ffmpegVersion = execSync('ffmpeg -version', { encoding: 'utf8', timeout: 5000 });
+    const versionLine = ffmpegVersion.split('\n')[0];
+    console.log('✅ [SYSTEM] FFmpeg detectado:', versionLine);
+    console.log('✅ [SYSTEM] AutoMaster V1 pronto para conversão de áudio');
+  } catch (err) {
+    console.error('❌ [SYSTEM] FFmpeg NÃO encontrado');
+    console.error('⚠️  [SYSTEM] AutoMaster V1 não funcionará sem FFmpeg');
+    console.error('💡 [SYSTEM] Certifique-se de que railway.json possui "nixpacks": { "packages": ["ffmpeg"] }');
+  }
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('');
   
   // 🧪 Executar testes de validação na inicialização (apenas em desenvolvimento)
   if (process.env.NODE_ENV !== 'production') {

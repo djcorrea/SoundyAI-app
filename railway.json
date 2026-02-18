@@ -4,6 +4,9 @@
   "build": {
     "nodeVersion": "20"
   },
+  "nixpacks": {
+    "packages": ["ffmpeg"]
+  },
   "environments": {
     "web": {
       "build": {
