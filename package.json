@@ -19,7 +19,6 @@
     "validate:targets": "node scripts/validate-genre-targets.cjs",
     "calibrate:refs": "node tools/ref-calibrator.js",
     "refs:pipeline": "node tools/refs-pipeline.js",
-    "copy:refs": "node tools/copy-refs-to-public.js",
     "metrics:recalc": "node tools/metrics-recalc.js",
     "audit:one": "AUDIT_MODE=1 node tools/audit-one.js",
     "audit:batch": "AUDIT_MODE=1 node tools/audit-batch.js",
@@ -30,8 +29,7 @@
     "audit:scoring": "node scripts/manual-audit-scoring.js",
     "audit:audio": "node scripts/manual-audit-lufs.js && node scripts/manual-audit-truepeak.js && node scripts/manual-audit-spectral.js && node scripts/manual-audit-scoring.js",
     "audit:serve": "python -m http.server 3000",
-    "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\"fileKey\":\"uploads/test.wav\",\"mode\":\"genre\"}'",
-    "postinstall": "npm run copy:refs"
+    "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\\"fileKey\\":\\"uploads/test.wav\\",\\"mode\\":\\"genre\\"}'"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.734.0",
