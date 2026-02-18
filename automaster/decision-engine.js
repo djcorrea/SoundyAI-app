@@ -1,12 +1,13 @@
 /**
  * ═════════════════════════════════════════════════════════════
- * AUTOMASTER V1 - MOTOR DE DECISÃO INTELIGENTE
+ * AUTOMASTER V1 - MOTOR DE DECISÃO INTELIGENTE (COM GUARDRAILS)
  * ═════════════════════════════════════════════════════════════
  * 
  * Sistema conservador que decide LUFS alvo baseado em métricas
  * técnicas reais do áudio, sem dependência de gênero musical.
  * 
  * Prioriza qualidade sobre loudness máxima.
+ * Inclui guardrails de segurança para prevenir ganhos excessivos.
  */
 
 /**
@@ -34,6 +35,22 @@ const MODES = {
 };
 
 /**
+ * Limites máximos de ganho por modo (em dB)
+ * Previne ganhos excessivos que causam pumping e degradação
+ */
+const MAX_GAIN_DB = {
+  LOW: 3.0,
+  MEDIUM: 5.0,
+  HIGH: 7.0
+};
+
+/**
+ * Crest factor padrão conservador para fallback
+ * Usado quando CF não pode ser calculado com confiança
+ */
+const DEFAULT_CREST_FACTOR = 7.0;
+
+/**
  * Analisa métricas técnicas e decide LUFS alvo dentro do range do modo.
  * 
  * @param {Object} metrics - Métricas do áudio original
@@ -47,11 +64,20 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   const modeConfig = MODES[mode.toUpperCase()] || MODES.MEDIUM;
   
   // ═══════════════════════════════════════════════════════════
-  // 1. EXTRAÇÃO DE MÉTRICAS
+  // 1. EXTRAÇÃO E VALIDAÇÃO DE MÉTRICAS
   // ═══════════════════════════════════════════════════════════
   const currentLUFS = parseFloat(metrics.lufs) || -20.0;
   const truePeak = parseFloat(metrics.truePeak) || -1.0;
-  const crestFactor = parseFloat(metrics.crestFactor) || 8.0;
+  
+  // Validação segura de Crest Factor
+  let crestFactor = parseFloat(metrics.crestFactor);
+  let crestFactorFallback = false;
+  
+  if (isNaN(crestFactor) || crestFactor === null || crestFactor <= 0 || crestFactor > 30) {
+    console.log('⚠️  Crest Factor inválido ou suspeito, usando fallback conservador');
+    crestFactor = DEFAULT_CREST_FACTOR;
+    crestFactorFallback = true;
+  }
   
   // Calcular headroom disponível
   const headroom = Math.abs(truePeak); // Se truePeak = -1.5, headroom = 1.5 dB
@@ -64,10 +90,11 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   console.log(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
   console.log(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
   console.log(`   Headroom: ${headroom.toFixed(1)} dB`);
-  console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB`);
+  console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB${crestFactorFallback ? ' (fallback)' : ''}`);
   console.log('');
   console.log(`🎚️ Modo escolhido: ${modeConfig.name}`);
   console.log(`   Range permitido: ${modeConfig.minLUFS} a ${modeConfig.maxLUFS} LUFS`);
+  console.log(`   Max ganho permitido: ${MAX_GAIN_DB[mode.toUpperCase()]} dB`);
   console.log('');
   
   // ═══════════════════════════════════════════════════════════
@@ -150,28 +177,94 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   }
   
   // ═══════════════════════════════════════════════════════════
-  // 5. GARANTIR QUE NUNCA REDUZ LOUDNESS
+  // 5. REGRA DE NÃO FORÇAR GANHO ARTIFICIAL
   // ═══════════════════════════════════════════════════════════
   
-  if (targetLUFS < currentLUFS) {
-    console.log('🛡️  Target ajustado para nunca reduzir loudness');
-    targetLUFS = currentLUFS + 0.5; // Garantir ganho mínimo de 0.5 dB
+  if (targetLUFS <= currentLUFS) {
+    console.log('🛡️  Target calculado não aumenta loudness');
+    console.log('   Decisão: Retornar áudio original (sem processamento)');
+    console.log('═══════════════════════════════════════════════════════════');
+    return {
+      targetLUFS: currentLUFS,
+      gainDB: 0,
+      shouldProcess: false,
+      reason: 'Target calculado não justifica processamento',
+      safe: true,
+      metrics: { currentLUFS, truePeak, crestFactor, headroom }
+    };
   }
   
   // Limitar ao máximo do range
   targetLUFS = Math.min(targetLUFS, modeConfig.maxLUFS);
   
-  const gainNeeded = targetLUFS - currentLUFS;
+  let gainNeeded = targetLUFS - currentLUFS;
   
   // ═══════════════════════════════════════════════════════════
-  // 6. DECISÃO FINAL
+  // 6. LIMITE DE GANHO MÁXIMO POR MODO
+  // ═══════════════════════════════════════════════════════════
+  
+  const maxGain = MAX_GAIN_DB[mode.toUpperCase()] || MAX_GAIN_DB.MEDIUM;
+  
+  if (gainNeeded > maxGain) {
+    console.log(`⚠️  Ganho calculado (${gainNeeded.toFixed(1)} dB) excede limite do modo (${maxGain} dB)`);
+    console.log('   Ajustando target para respeitar limite de ganho...');
+    
+    // Reduzir targetLUFS para caber no limite de ganho
+    targetLUFS = currentLUFS + maxGain;
+    gainNeeded = maxGain;
+    reasoning += ' + ajustado para limite de ganho do modo';
+    
+    console.log(`   Novo target: ${targetLUFS.toFixed(1)} LUFS (ganho ${gainNeeded.toFixed(1)} dB)`);
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // 7. GATE EXTRA PARA MODO HIGH (proteção de transientes)
+  // ═══════════════════════════════════════════════════════════
+  
+  if (mode.toUpperCase() === 'HIGH' && targetLUFS > -11.0) {
+    // Targets acima de -11 LUFS só são permitidos se o mix for robusto
+    const isRobustMix = crestFactor >= 8.0 && headroom >= 1.5;
+    
+    if (!isRobustMix) {
+      console.log('🚨 GATE HIGH: Target acima de -11 LUFS requer mix robusto');
+      console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB (mín: 8.0)`);
+      console.log(`   Headroom: ${headroom.toFixed(1)} dB (mín: 1.5)`);
+      console.log('   Limitando target para -11.0 LUFS para preservar transientes');
+      
+      targetLUFS = Math.min(targetLUFS, -11.0);
+      targetLUFS = Math.max(targetLUFS, -12.5); // Não abaixo do mínimo do range HIGH
+      gainNeeded = targetLUFS - currentLUFS;
+      reasoning += ' + limitado por gate HIGH (proteção de transientes)';
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // 8. LIMITE ABSOLUTO DE SEGURANÇA (ganho insignificante)
+  // ═══════════════════════════════════════════════════════════
+  
+  if (gainNeeded < 0.3) {
+    console.log('ℹ️  Ganho necessário muito baixo (<0.3 dB)');
+    console.log('   Decisão: Não processar (evita artefatos desnecessários)');
+    console.log('═══════════════════════════════════════════════════════════');
+    return {
+      targetLUFS: currentLUFS,
+      gainDB: 0,
+      shouldProcess: false,
+      reason: 'Ganho insuficiente para justificar processamento',
+      safe: true,
+      metrics: { currentLUFS, truePeak, crestFactor, headroom }
+    };
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // 9. DECISÃO FINAL
   // ═══════════════════════════════════════════════════════════
   
   console.log('');
   console.log('✅ Decisão final:');
   console.log(`   LUFS alvo: ${targetLUFS.toFixed(1)} LUFS`);
-  console.log(`   Ganho necessário: ${gainNeeded > 0 ? '+' : ''}${gainNeeded.toFixed(1)} dB`);
-  console.log(`   Processar: ${gainNeeded > 0.3 ? 'SIM' : 'NÃO (ganho insignificante)'}`);
+  console.log(`   Ganho necessário: +${gainNeeded.toFixed(1)} dB`);
+  console.log(`   Processar: SIM`);
   console.log(`   Razão: ${reasoning}`);
   console.log('═══════════════════════════════════════════════════════════');
   console.log('');
@@ -179,9 +272,10 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   return {
     targetLUFS: parseFloat(targetLUFS.toFixed(1)),
     gainDB: parseFloat(gainNeeded.toFixed(1)),
-    shouldProcess: gainNeeded > 0.3, // Só processar se ganho >= 0.3 dB
+    shouldProcess: true,
     reason: reasoning,
     safe: true,
+    crestFactorFallback: crestFactorFallback,
     metrics: {
       currentLUFS,
       truePeak,
@@ -215,17 +309,25 @@ async function analyzeAudioMetrics(filePath, execAsync) {
     const rmsMatch = stdout.match(/RMS level dB:\s*([-\d.]+)/);
     const peakLevelMatch = stdout.match(/Peak level dB:\s*([-\d.]+)/);
     
-    let crestFactor = 8.0; // Default conservador
+    let crestFactor = DEFAULT_CREST_FACTOR; // Fallback conservador
+    let cfCalculated = false;
+    
     if (rmsMatch && peakLevelMatch) {
       const rmsDB = parseFloat(rmsMatch[1]);
       const peakDB = parseFloat(peakLevelMatch[1]);
-      crestFactor = peakDB - rmsDB;
+      const calculatedCF = peakDB - rmsDB;
+      
+      // Validar se valor calculado é realista (CF tipicamente entre 3 e 25 dB)
+      if (!isNaN(calculatedCF) && calculatedCF > 0 && calculatedCF <= 30) {
+        crestFactor = calculatedCF;
+        cfCalculated = true;
+      }
     }
     
     console.log('✅ [AUTOMASTER] Métricas extraídas:');
     console.log(`   LUFS: ${lufs.toFixed(1)}`);
     console.log(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
-    console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB`);
+    console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB${!cfCalculated ? ' (fallback conservador)' : ''}`);
     
     return {
       lufs,
@@ -241,11 +343,11 @@ async function analyzeAudioMetrics(filePath, execAsync) {
     return {
       lufs: -20.0,
       truePeak: -1.0,
-      crestFactor: 8.0,
+      crestFactor: DEFAULT_CREST_FACTOR,
       success: false,
       error: error.message
     };
   }
 }
 
-export { decideGainWithinRange, analyzeAudioMetrics, MODES };
+export { decideGainWithinRange, analyzeAudioMetrics, MODES, MAX_GAIN_DB, DEFAULT_CREST_FACTOR };

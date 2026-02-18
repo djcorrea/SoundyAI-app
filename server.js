@@ -69,6 +69,21 @@ if (hasErrors) {
 
 console.log('✅ [SERVER] Todas as variáveis críticas configuradas\n');
 
+// 🎵 VALIDAÇÃO DE FFMPEG (necessário para AutoMaster V1)
+console.log('🔍 [SERVER] ═══════════════════════════════════════');
+console.log('🔍 [SERVER]      VERIFICAÇÃO DO FFMPEG            ');
+console.log('🔍 [SERVER] ═══════════════════════════════════════\n');
+
+try {
+  execSync('ffmpeg -version', { stdio: 'ignore' });
+  console.log('✅ [SERVER] FFmpeg detectado no ambiente');
+  console.log('🎵 [SERVER] AutoMaster V1 pronto para processar áudio\n');
+} catch (error) {
+  console.error('❌ [SERVER] FFmpeg NÃO encontrado no ambiente');
+  console.error('⚠️  [SERVER] AutoMaster V1 falhará ao processar áudio');
+  console.error('💡 [SERVER] Certifique-se de que o railway.json inclui FFmpeg nos packages\n');
+}
+
 // 📋 Logs de configuração (manter para compatibilidade)
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
