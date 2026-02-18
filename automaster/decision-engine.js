@@ -45,6 +45,22 @@ const MAX_GAIN_DB = {
 };
 
 /**
+ * Limites de estresse do limiter por modo (em dB)
+ * Previne pumping e esmagamento de transientes quando limiter
+ * precisa trabalhar muito além do headroom disponível
+ * 
+ * stressEstimate = gainNeeded - headroom
+ * 
+ * Quanto maior o stress, mais o limiter precisa comprimir,
+ * causando degradação perceptiva mesmo com ganho permitido
+ */
+const MAX_LIMITER_STRESS = {
+  LOW: 1.5,
+  MEDIUM: 3.0,
+  HIGH: 4.5
+};
+
+/**
  * Crest factor padrão conservador para fallback
  * Usado quando CF não pode ser calculado com confiança
  */
@@ -239,7 +255,77 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   }
   
   // ═══════════════════════════════════════════════════════════
-  // 8. LIMITE ABSOLUTO DE SEGURANÇA (ganho insignificante)
+  // 8. ESTRESSE DO LIMITER (previne pumping e degradação)
+  // ═══════════════════════════════════════════════════════════
+  
+  // Calcular quanto o limiter terá que trabalhar além do headroom
+  let stressEstimate = gainNeeded - Math.max(headroom, 0);
+  const maxStress = MAX_LIMITER_STRESS[mode.toUpperCase()] || MAX_LIMITER_STRESS.MEDIUM;
+  let stressAdjusted = false;
+  
+  console.log('');
+  console.log('🔬 Análise de estresse do limiter:');
+  console.log(`   Ganho necessário: ${gainNeeded.toFixed(1)} dB`);
+  console.log(`   Headroom disponível: ${headroom.toFixed(1)} dB`);
+  console.log(`   Estresse estimado: ${stressEstimate.toFixed(1)} dB`);
+  console.log(`   Limite de estresse: ${maxStress} dB`);
+  
+  if (stressEstimate > maxStress) {
+    console.log('');
+    console.log(`⚠️  ESTRESSE EXCESSIVO: ${stressEstimate.toFixed(1)} dB > ${maxStress} dB`);
+    console.log('   Ajustando target para reduzir trabalho do limiter...');
+    
+    // Reduzir target iterativamente até estresse caber no limite
+    let iterations = 0;
+    const maxIterations = 20;
+    
+    while (stressEstimate > maxStress && iterations < maxIterations) {
+      // Reduzir target em 0.2 dB por iteração
+      targetLUFS -= 0.2;
+      
+      // Garantir que não cai abaixo do mínimo do range
+      if (targetLUFS < modeConfig.minLUFS) {
+        targetLUFS = modeConfig.minLUFS;
+        break;
+      }
+      
+      // Recalcular ganho e estresse
+      gainNeeded = targetLUFS - currentLUFS;
+      stressEstimate = gainNeeded - Math.max(headroom, 0);
+      
+      iterations++;
+    }
+    
+    stressAdjusted = true;
+    reasoning += ' + ajustado por limite de estresse do limiter';
+    
+    console.log(`   Iterações: ${iterations}`);
+    console.log(`   Novo target: ${targetLUFS.toFixed(1)} LUFS`);
+    console.log(`   Novo ganho: ${gainNeeded.toFixed(1)} dB`);
+    console.log(`   Novo estresse: ${stressEstimate.toFixed(1)} dB ✅`);
+  } else {
+    console.log(`   ✅ Estresse dentro do limite (${stressEstimate.toFixed(1)} <= ${maxStress})`);
+  }
+  
+  // Regra específica para modo HIGH: evitar targets extremos com ganho alto
+  if (mode.toUpperCase() === 'HIGH' && gainNeeded > 4.0) {
+    console.log('');
+    console.log('⚠️  MODO HIGH com ganho alto (>4 dB)');
+    console.log('   Limitando target mínimo a -10.5 LUFS para evitar modo destrutivo');
+    
+    if (targetLUFS < -10.5) {
+      targetLUFS = Math.max(targetLUFS, -10.5);
+      targetLUFS = Math.min(targetLUFS, -10.5); // Clamp exato em -10.5
+      gainNeeded = targetLUFS - currentLUFS;
+      stressEstimate = gainNeeded - Math.max(headroom, 0);
+      reasoning += ' + limitado por proteção HIGH extremo';
+      
+      console.log(`   Target ajustado: ${targetLUFS.toFixed(1)} LUFS`);
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════
+  // 9. LIMITE ABSOLUTO DE SEGURANÇA (ganho insignificante)
   // ═══════════════════════════════════════════════════════════
   
   if (gainNeeded < 0.3) {

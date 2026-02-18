@@ -1,31 +1,18 @@
-FROM node:20-bullseye
-
-# Instalar FFmpeg e dependências de áudio
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    sox \
-    libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Verificar instalação do FFmpeg
-RUN ffmpeg -version
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copiar arquivos de dependências
 COPY package*.json ./
-
-# Instalar dependências
 RUN npm install --production
 
-# Copiar resto do projeto
 COPY . .
 
-# Criar diretório uploads
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN mkdir -p /app/uploads
 
-# Expor porta
-EXPOSE 8080
+EXPOSE 3000
 
-# Comando de inicialização
-CMD ["node", "server.js"]
+CMD ["npm", "start"]
