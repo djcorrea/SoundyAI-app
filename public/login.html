@@ -562,6 +562,38 @@
       <button class="btn-plus" id="loginBtn" disabled style="opacity: 0.5; cursor: not-allowed;">Carregando...</button>
       <button class="btn-plus" id="signUpBtn" disabled style="opacity: 0.5; cursor: not-allowed;">Carregando...</button>
     </div>
+    
+    <!-- ✅ FALLBACK DE EMERGÊNCIA: Habilitar botões após 2s se Firebase não carregar -->
+    <script>
+      setTimeout(function() {
+        const loginBtn = document.getElementById('loginBtn');
+        const signUpBtn = document.getElementById('signUpBtn');
+        const googleBtn = document.getElementById('googleLoginBtn');
+        
+        if (loginBtn && loginBtn.disabled) {
+          console.log('⚡ [FALLBACK] Habilitando botão Entrar');
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Entrar';
+          loginBtn.style.opacity = '1';
+          loginBtn.style.cursor = 'pointer';
+        }
+        
+        if (signUpBtn && signUpBtn.disabled) {
+          console.log('⚡ [FALLBACK] Habilitando botão Cadastrar');
+          signUpBtn.disabled = false;
+          signUpBtn.textContent = 'Cadastrar';
+          signUpBtn.style.opacity = '1';
+          signUpBtn.style.cursor = 'pointer';
+        }
+        
+        if (googleBtn && googleBtn.disabled) {
+          console.log('⚡ [FALLBACK] Habilitando botão Google');
+          googleBtn.disabled = false;
+          googleBtn.style.opacity = '1';
+          googleBtn.style.cursor = 'pointer';
+        }
+      }, 2000); // 2 segundos
+    </script>
 
     <div class="forgot-password">
       <a href="#" id="forgotPasswordLink">Esqueci a senha</a>
