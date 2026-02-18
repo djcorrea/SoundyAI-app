@@ -29,7 +29,7 @@
     "audit:scoring": "node scripts/manual-audit-scoring.js",
     "audit:audio": "node scripts/manual-audit-lufs.js && node scripts/manual-audit-truepeak.js && node scripts/manual-audit-spectral.js && node scripts/manual-audit-scoring.js",
     "audit:serve": "python -m http.server 3000",
-    "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\\"fileKey\\":\\"uploads/test.wav\\",\\"mode\\":\\"genre\\"}'"
+    "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\"fileKey\":\"uploads/test.wav\",\"mode\":\"genre\"}'"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.734.0",
@@ -79,5 +79,5 @@
     "url": "https://github.com/djcorrea/prod.ai-novo/issues"
   },
   "homepage": "https://github.com/djcorrea/prod.ai-novo#readme",
-  "descriptionn": ""
+  "description": ""
 }

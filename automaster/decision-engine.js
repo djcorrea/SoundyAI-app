@@ -362,6 +362,9 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     reason: reasoning,
     safe: true,
     crestFactorFallback: crestFactorFallback,
+    limiterStressEstimate: parseFloat(stressEstimate.toFixed(1)),
+    maxStress: maxStress,
+    stressAdjusted: stressAdjusted,
     metrics: {
       currentLUFS,
       truePeak,
@@ -436,4 +439,4 @@ async function analyzeAudioMetrics(filePath, execAsync) {
   }
 }
 
-export { decideGainWithinRange, analyzeAudioMetrics, MODES, MAX_GAIN_DB, DEFAULT_CREST_FACTOR };
+export { decideGainWithinRange, analyzeAudioMetrics, MODES, MAX_GAIN_DB, MAX_LIMITER_STRESS, DEFAULT_CREST_FACTOR };
