@@ -10,6 +10,7 @@ import fs from "fs";
 import multer from "multer";
 import { execFile, exec, execSync } from "child_process";
 import { promisify } from "util";
+import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.js';
 
 const execAsync = promisify(exec);
 
@@ -453,13 +454,11 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       return res.status(400).json({ error: 'Arquivo não enviado' });
     }
 
-    const genre = req.body.genre || 'unknown';
-    const mode = req.body.mode || 'balanced';
+    const mode = (req.body.mode || 'MEDIUM').toUpperCase();
     const inputPath = req.file.path;
     const outputPath = inputPath + '_MASTER.wav';
 
     console.log('✅ [AUTOMASTER] Arquivo recebido:', req.file.originalname);
-    console.log('🎵 [AUTOMASTER] Gênero:', genre);
     console.log('⚙️ [AUTOMASTER] Modo:', mode);
     console.log('📁 [AUTOMASTER] Input:', inputPath);
     console.log('📁 [AUTOMASTER] Output:', outputPath);
@@ -517,14 +516,80 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // 📊 ANALISAR MÉTRICAS E DECIDIR TARGET
+    // ═══════════════════════════════════════════════════════════════
+    console.log('📊 [AUTOMASTER] Analisando métricas do áudio...');
+    
+    let decision;
+    try {
+      const metrics = await analyzeAudioMetrics(wavInput, execAsync);
+      
+      if (!metrics.success) {
+        console.warn('⚠️ [AUTOMASTER] Usando métricas de fallback');
+      }
+      
+      decision = decideGainWithinRange(metrics, mode);
+      
+      // Log da decisão
+      console.log('🎯 [AUTOMASTER] Decisão de processamento:');
+      console.log('   LUFS atual:', metrics.lufs.toFixed(1));
+      console.log('   LUFS alvo:', decision.targetLUFS);
+      console.log('   Ganho:', decision.gainDB, 'dB');
+      console.log('   Processar:', decision.shouldProcess ? 'SIM' : 'NÃO');
+      console.log('   Razão:', decision.reason);
+      
+      // Se não deve processar, retornar arquivo original
+      if (!decision.shouldProcess) {
+        console.log('ℹ️ [AUTOMASTER] Áudio não precisa de processamento');
+        
+        // Copiar arquivo original como resultado
+        fs.copyFileSync(wavInput, outputPath);
+        
+        // Limpar temporários
+        fs.unlink(inputPath, () => {});
+        fs.unlink(wavInput, () => {});
+        
+        const masterUrl = `/masters/${path.basename(outputPath)}`;
+        
+        return res.json({
+          success: true,
+          message: 'Áudio já está otimizado para o modo escolhido',
+          result: {
+            masterUrl,
+            beforeUrl: null,
+            decision: {
+              processed: false,
+              reason: decision.reason,
+              metrics: decision.metrics,
+              targetLUFS: decision.targetLUFS
+            }
+          }
+        });
+      }
+      
+    } catch (analysisError) {
+      console.error('❌ [AUTOMASTER] Erro ao analisar métricas:', analysisError);
+      
+      // Limpar arquivos
+      fs.unlink(inputPath, () => {});
+      fs.unlink(wavInput, () => {});
+      
+      return res.status(500).json({
+        error: 'Falha ao analisar áudio',
+        details: analysisError.message
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // 🎚️ EXECUTA MASTERIZAÇÃO (usando arquivo convertido)
     // ═══════════════════════════════════════════════════════════════
     console.log('🎚️ [AUTOMASTER] Iniciando processamento de masterização...');
 
     // Executa script de masterização com arquivo WAV PCM
+    // Passa targetLUFS calculado pelo decision engine
     execFile(
       'node',
-      [scriptPath, wavInput, outputPath, genre, mode],
+      [scriptPath, wavInput, outputPath, mode, decision.targetLUFS.toString()],
       { timeout: 10 * 60 * 1000 }, // 10 minutos
       (error, stdout, stderr) => {
         if (error) {

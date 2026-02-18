@@ -195,6 +195,13 @@
       font-weight: 600;
       color: var(--text-primary);
     }
+    
+    .mode-desc {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 4px;
+      font-weight: 400;
+    }
 
      /* ========================================
        📤 ETAPA 2 - UPLOAD
@@ -977,47 +984,38 @@
 <body>
 
   <!-- ========================================
-       🎵 ETAPA 1 - SELEÇÃO DE GÊNERO
+       � ETAPA 1 - SELEÇÃO DE MODO
        ======================================== -->
-  <div id="genreModal" class="automaster-modal visible">
+  <div id="modeModal" class="automaster-modal visible">
     <div class="automaster-modal-card">
       <button class="modal-close" onclick="closeAllModals()">&times;</button>
       
       <div class="modal-header">
         <div class="modal-badge">🚀 automaster v1</div>
-        <h2 class="modal-title">Qual o estilo da sua música?</h2>
-        <p class="modal-subtitle">Selecione o gênero para otimizar a masterização</p>
+        <h2 class="modal-title">Escolha o nível de processamento</h2>
+        <p class="modal-subtitle">Sistema inteligente analisa seu áudio e aplica o melhor ganho</p>
       </div>
 
       <div class="genre-grid">
-        <div class="genre-card" onclick="selectGenre('edm')">
-          <div class="genre-emoji">⚡</div>
-          <div class="genre-name">EDM</div>
+        <div class="genre-card" onclick="selectMode('LOW')">
+          <div class="genre-emoji">🎵</div>
+          <div class="genre-name">Suave</div>
+          <div class="mode-desc">-15 a -13.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectGenre('house')">
-          <div class="genre-emoji">🏠</div>
-          <div class="genre-name">House</div>
+        <div class="genre-card" onclick="selectMode('MEDIUM')">
+          <div class="genre-emoji">⚖️</div>
+          <div class="genre-name">Balanceado</div>
+          <div class="mode-desc">-14 a -12.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectGenre('techno')">
-          <div class="genre-emoji">🔊</div>
-          <div class="genre-name">Techno</div>
-        </div>
-        <div class="genre-card" onclick="selectGenre('trance')">
-          <div class="genre-emoji">🌊</div>
-          <div class="genre-name">Trance</div>
-        </div>
-        <div class="genre-card" onclick="selectGenre('dubstep')">
-          <div class="genre-emoji">💥</div>
-          <div class="genre-name">Dubstep</div>
-        </div>
-        <div class="genre-card" onclick="selectGenre('dnb')">
-          <div class="genre-emoji">🎶</div>
-          <div class="genre-name">Drum & Bass</div>
+        <div class="genre-card" onclick="selectMode('HIGH')">
+          <div class="genre-emoji">🔥</div>
+          <div class="genre-name">Impacto</div>
+          <div class="mode-desc">-12.5 a -9.5 LUFS</div>
         </div>
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-primary" id="genreNextBtn" disabled onclick="openUploadModal()">
+        <button class="btn btn-primary" id="modeNextBtn" disabled onclick="openUploadModal()">
           Continuar →
         </button>
       </div>
@@ -1029,7 +1027,7 @@
        ======================================== -->
   <div id="uploadModal" class="automaster-modal">
     <div class="automaster-modal-card">
-      <button class="modal-close" onclick="backToGenre()">&times;</button>
+      <button class="modal-close" onclick="backToMode()">&times;</button>
       
       <div class="modal-header">
         <div class="modal-badge">🚀 automaster v1</div>
@@ -1363,10 +1361,9 @@
     // 🎯 STATE MANAGEMENT
     // ========================================
     const automasterState = {
-      genre: null,
+      mode: null,
       file: null,
       fileName: null,
-      mode: null,
       // Dados reais do backend (pré-análise)
       preAnalysis: {
         apt: null,
@@ -1506,30 +1503,32 @@
     // ========================================
     // 🎵 ETAPA 1 - SELEÇÃO DE GÊNERO
     // ========================================
-    function selectGenre(genre) {
-      console.log('🎵 [AUTOMASTER] Gênero selecionado:', genre);
+    // 🎯 ETAPA 1 - SELEÇÃO DE MODO
+    // ========================================
+    function selectMode(mode) {
+      console.log('🎯 [AUTOMASTER] Modo selecionado:', mode);
 
       document.querySelectorAll('.genre-card').forEach(card => {
         card.classList.remove('selected');
       });
 
       event.currentTarget.classList.add('selected');
-      automasterState.genre = genre;
-      document.getElementById('genreNextBtn').disabled = false;
+      automasterState.mode = mode;
+      document.getElementById('modeNextBtn').disabled = false;
     }
 
     function openUploadModal() {
-      if (!automasterState.genre) {
-        alert('Selecione um gênero primeiro');
+      if (!automasterState.mode) {
+        alert('Selecione um modo primeiro');
         return;
       }
       console.log('📤 [AUTOMASTER] Abrindo modal de upload');
       showModal('uploadModal');
     }
 
-    function backToGenre() {
-      console.log('← [AUTOMASTER] Voltando para seleção de gênero');
-      showModal('genreModal');
+    function backToMode() {
+      console.log('← [AUTOMASTER] Voltando para seleção de modo');
+      showModal('modeModal');
     }
 
     // ========================================
@@ -1781,7 +1780,6 @@
       try {
         const formData = new FormData();
         formData.append('file', automasterState.file);
-        formData.append('genre', automasterState.genre);
         formData.append('mode', automasterState.mode);
 
         document.getElementById('processingLoadingText').textContent = 'Processando master...';
@@ -1923,7 +1921,6 @@
           method: 'POST',
           body: JSON.stringify({
             masterUrl: masterUrl,
-            genre: automasterState.genre,
             mode: automasterState.mode,
             fileName: automasterState.fileName
           })
@@ -1993,7 +1990,7 @@
       document.getElementById('analysisComplete').classList.remove('visible');
 
       // Volta para início
-      showModal('genreModal');
+      showModal('modeModal');
     }
 
     // ========================================

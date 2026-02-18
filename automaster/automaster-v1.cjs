@@ -24,8 +24,10 @@ const path = require('path');
 
 const execFileAsync = promisify(execFile);
 
-// Targets adapter (fonte de verdade dos targets por gênero)
-const { getMasterTargets } = require('./targets-adapter.cjs');
+// ============================================================
+// DECISION ENGINE - Motor de decisão baseado em métricas
+// Targets agora são calculados pelo decision-engine.js no backend
+// ============================================================
 
 // ============================================================
 // CONSTANTES
@@ -46,12 +48,12 @@ const FIX_TP_SCRIPT = path.resolve(__dirname, 'fix-true-peak.cjs');
 function validateArgs() {
   const args = process.argv.slice(2);
 
-  // Aceitar: input, output, genreKey, mode [, strategy]
-  if (args.length < 3 || args.length > 5) {
-    throw new Error('Numero incorreto de argumentos. Uso: node automaster-v1.cjs <input.wav> <output.wav> <genreKey> <mode> [strategy]');
+  // Aceitar: input, output, mode, targetLUFS
+  if (args.length < 4) {
+    throw new Error('Numero incorreto de argumentos. Uso: node automaster-v1.cjs <input.wav> <output.wav> <mode> <targetLUFS>');
   }
 
-  const [inputPath, outputPath, genreKey, mode, strategy] = args;
+  const [inputPath, outputPath, mode, targetLufsStr] = args;
 
   // Validar arquivo de entrada
   if (!fs.existsSync(inputPath)) {
@@ -69,20 +71,22 @@ function validateArgs() {
   if (outputExt !== '.wav') {
     throw new Error(`Arquivo de saida deve ser WAV (recebido: ${outputExt})`);
   }
-  // Validar genreKey
-  if (!genreKey || typeof genreKey !== 'string') {
-    throw new Error('Genero invalido ou nao informado. Uso: <genreKey>');
+  
+  // Validar targetLUFS
+  const targetLufs = parseFloat(targetLufsStr);
+  if (isNaN(targetLufs) || targetLufs < -30 || targetLufs > -5) {
+    throw new Error(`Target LUFS invalido: ${targetLufsStr}. Deve ser entre -30 e -5`);
   }
+
+  // Ceiling fixo padrão para evitar clipping
+  const ceilingDbtp = -1.0; // True Peak ceiling padrão
 
   return {
     inputPath: path.resolve(inputPath),
     outputPath: path.resolve(outputPath),
-    genreKey: genreKey,
-    mode: (mode || 'BALANCED'),
-    strategy: strategy || null,
-    // targetLufs and ceilingDbtp will be populados a partir do adapter
-    targetLufs: undefined,
-    ceilingDbtp: undefined
+    mode: (mode || 'MEDIUM').toUpperCase(),
+    targetLufs: targetLufs,
+    ceilingDbtp: ceilingDbtp
   };
 }
 
@@ -2693,19 +2697,11 @@ async function main() {
     process.exit(1);
   }
 
-  // 2.5 Carregar targets via targets-adapter a partir do gênero
-  if (debug) console.error('[DEBUG] Carregando targets do genero via targets-adapter...');
-  if (!config.genreKey) {
-    console.error('Erro: gênero não informado. Uso: node automaster-v1.cjs <input> <output> <genreKey> <mode>');
-    process.exit(1);
-  }
-
-  try {
-    const targets = await getMasterTargets({ genreKey: config.genreKey, mode: config.mode });
-    config.targetLufs = targets.targetLufs;
-    config.ceilingDbtp = targets.tpCeiling;
-  } catch (err) {
-    console.error('Erro ao carregar targets do gênero:', err.message);
+  // 2.5 Target LUFS já foi calculado pelo decision-engine no backend
+  if (debug) console.error('[DEBUG] Usando target LUFS calculado pelo decision-engine...');
+  
+  if (!config.targetLufs) {
+    console.error('Erro: target LUFS não fornecido. Este script deve ser chamado pelo backend com targetLUFS calculado.');
     process.exit(1);
   }
 
