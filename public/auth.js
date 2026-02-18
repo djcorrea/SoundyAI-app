@@ -1,4 +1,5 @@
-// auth.js - Versão 2026-02-17 23:20 - Botões habilitados após Firebase load
+// auth.js - Versão 2026-02-17 23:27 - Sistema de fallback triplo
+console.log('🚨🚨🚨 AUTH.JS INICIANDO - v2026-02-17 23:27 🚨🚨🚨');
 log('🚀 Carregando auth.js...');
 
 (async () => {
@@ -2069,7 +2070,14 @@ log('🚀 Carregando auth.js...');
         loginBtn.style.cursor = 'pointer';
         loginBtn.addEventListener("click", (e) => {
           e.preventDefault();
-          window.login();
+          console.log('🔵 [ENTRAR] Botão clicado!');
+          if (typeof window.login === 'function') {
+            console.log('✅ Chamando window.login()');
+            window.login();
+          } else {
+            console.error('❌ window.login não está disponível!');
+            alert('Erro: Sistema de login não carregado. Recarregue a página.');
+          }
         });
         log('✅ Botão "Entrar" habilitado');
       }
@@ -2081,8 +2089,15 @@ log('🚀 Carregando auth.js...');
         signUpBtn.style.cursor = 'pointer';
         signUpBtn.addEventListener("click", (e) => {
           e.preventDefault();
-          // Acionar diretamente o fluxo de cadastro por e-mail/senha
-          directEmailSignUp();
+          console.log('🔵 [CADASTRAR] Botão clicado!');
+          // Chamar via window para garantir que usa a função exposta globalmente
+          if (typeof window.directEmailSignUp === 'function') {
+            console.log('✅ Chamando window.directEmailSignUp()');
+            window.directEmailSignUp();
+          } else {
+            console.error('❌ window.directEmailSignUp não está disponível!');
+            alert('Erro: Sistema de cadastro não carregado. Recarregue a página.');
+          }
         });
         log('✅ Botão "Cadastrar" habilitado');
       }
@@ -2307,6 +2322,13 @@ log('🚀 Carregando auth.js...');
     window.directEmailSignUp = directEmailSignUp;
     // Expor signUp apontando ao fluxo de e-mail para evitar caminhos SMS
     window.signUp = directEmailSignUp;
+
+    console.log('🚀 [EXPORT] Funções expostas no window:');
+    console.log('  - window.login:', typeof window.login);
+    console.log('  - window.directEmailSignUp:', typeof window.directEmailSignUp);
+    console.log('  - window.signUp:', typeof window.signUp);
+    console.log('  - window.resetPassword:', typeof window.resetPassword);
+    console.log('  - window.loginWithGoogle:', typeof window.loginWithGoogle);
 
     log('✅ Sistema de autenticação carregado - Modo:', SMS_VERIFICATION_ENABLED ? 'SMS' : 'Email Direto');
 
