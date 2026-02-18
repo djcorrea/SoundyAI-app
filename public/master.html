@@ -665,7 +665,169 @@
     }
 
     /* ========================================
-       💾 ETAPA 8 - ENTREGA
+       � BLOQUEIO DE MIX RUIM
+       ======================================== */
+    .block-card {
+      padding: 2rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+      text-align: center;
+    }
+
+    .block-icon {
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .block-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 1rem;
+    }
+
+    .block-reason {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-top: 1rem;
+    }
+
+    /* ========================================
+       🎧 AUDIO PREVIEW PLAYERS
+       ======================================== */
+    .audio-preview-section {
+      margin-top: 2rem;
+    }
+
+    .audio-preview-title {
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .audio-preview-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .audio-preview-card {
+      padding: 1rem;
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      text-align: center;
+    }
+
+    .audio-preview-card.after-card {
+      border-color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .audio-preview-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .audio-preview-card.after-card .audio-preview-label {
+      color: var(--success);
+    }
+
+    .audio-preview-card audio {
+      width: 100%;
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .audio-preview-pair {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ========================================
+       ⏳ SPINNER DE LOADING
+       ======================================== */
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+
+    .spinner-ring {
+      width: 56px;
+      height: 56px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .spinner-subtext {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    /* ========================================
+       ❌ ERRO AMIGÁVEL
+       ======================================== */
+    .error-card {
+      padding: 2rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .error-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 0.5rem;
+    }
+
+    .error-message {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       �💾 ETAPA 8 - ENTREGA
        ======================================== */
     .delivery-container {
       margin-top: 2rem;
@@ -900,7 +1062,7 @@
   </div>
 
   <!-- ========================================
-       ⚙️ ETAPA 3 - PRÉ-ANÁLISE
+       ⚙️ ETAPA 3 - PRÉ-ANÁLISE (REAL)
        ======================================== -->
   <div id="preAnalysisModal" class="automaster-modal">
     <div class="automaster-modal-card">
@@ -910,25 +1072,25 @@
         <p class="modal-subtitle">Aguarde enquanto o sistema avalia sua música</p>
       </div>
 
-      <div class="analysis-steps">
-        <div class="analysis-step" id="step1">
-          <div class="step-icon">🔊</div>
-          <div class="step-text">Analisando loudness</div>
-        </div>
-        <div class="analysis-step" id="step2">
-          <div class="step-icon">📈</div>
-          <div class="step-text">Verificando headroom</div>
-        </div>
-        <div class="analysis-step" id="step3">
-          <div class="step-icon">⚠️</div>
-          <div class="step-text">Checando clipping</div>
-        </div>
-        <div class="analysis-step" id="step4">
-          <div class="step-icon">🎵</div>
-          <div class="step-text">Avaliando balance tonal</div>
+      <!-- Loading real (aparece durante request) -->
+      <div class="loading-spinner" id="analysisLoading">
+        <div class="spinner-ring"></div>
+        <div class="spinner-text" id="analysisLoadingText">Enviando áudio para análise...</div>
+        <div class="spinner-subtext">Isso pode levar alguns segundos</div>
+      </div>
+
+      <!-- Erro (aparece se backend falhar) -->
+      <div class="error-card" id="analysisError" style="display: none;">
+        <div class="error-icon">❌</div>
+        <div class="error-title">Erro na análise</div>
+        <div class="error-message" id="analysisErrorMsg">Não foi possível analisar seu áudio. Tente novamente.</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToUpload()">← Voltar</button>
+          <button class="btn btn-primary" onclick="retryPreAnalysis()">Tentar Novamente</button>
         </div>
       </div>
 
+      <!-- Sucesso (aparece quando backend responde OK) -->
       <div class="analysis-complete" id="analysisComplete">
         <div style="font-size: 3rem; margin-bottom: 1rem;">✔</div>
         <div style="font-size: 1.25rem; font-weight: 700;">Seu áudio foi analisado</div>
@@ -946,47 +1108,59 @@
         <h2 class="modal-title">Diagnóstico</h2>
       </div>
 
-      <div class="diagnosis-card">
-        <div class="diagnosis-icon" id="diagnosisIcon">✅</div>
+      <!-- Diagnóstico apto -->
+      <div class="diagnosis-card" id="diagnosisCardApt" style="display: none;">
+        <div class="diagnosis-icon">✅</div>
         <div class="diagnosis-text" id="diagnosisText">
           Seu áudio está apto para masterização.
         </div>
       </div>
 
-      <div class="mode-recommendation">
+      <!-- Diagnóstico bloqueado -->
+      <div class="block-card" id="diagnosisCardBlocked" style="display: none;">
+        <div class="block-icon">🚫</div>
+        <div class="block-title">Sua mix ainda não está pronta para masterização</div>
+        <div class="block-reason" id="blockReasonText">—</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToUpload()">← Enviar outro áudio</button>
+        </div>
+      </div>
+
+      <!-- Recomendação de modo (só aparece se apto) -->
+      <div class="mode-recommendation" id="modeRecommendationSection" style="display: none;">
         <div class="mode-recommendation-title">Sugestão automática de modo:</div>
         
         <div class="mode-options">
-          <div class="mode-option recommended selected" onclick="selectMode('conservative')">
+          <div class="mode-option" id="modeConservative" data-mode="conservative" onclick="selectMode('conservative')">
             <div class="mode-header">
               <div class="mode-emoji">🛡️</div>
               <div class="mode-name">Conservador</div>
             </div>
-            <div class="mode-description">Protege dinâmica natural, masterização sutil e segura</div>
+            <div class="mode-description">Preserva dinâmica natural</div>
           </div>
 
-          <div class="mode-option" onclick="selectMode('balanced')">
+          <div class="mode-option" id="modeBalanced" data-mode="balanced" onclick="selectMode('balanced')">
             <div class="mode-header">
               <div class="mode-emoji">⚖️</div>
               <div class="mode-name">Padrão</div>
             </div>
-            <div class="mode-description">Equilíbrio geral entre volume e qualidade</div>
+            <div class="mode-description">Equilíbrio geral</div>
           </div>
 
-          <div class="mode-option" onclick="selectMode('aggressive')">
+          <div class="mode-option" id="modeAggressive" data-mode="aggressive" onclick="selectMode('aggressive')">
             <div class="mode-header">
               <div class="mode-emoji">⚡</div>
               <div class="mode-name">Forte</div>
             </div>
-            <div class="mode-description">Mais volume, mais risco de artefatos</div>
+            <div class="mode-description">Mais volume, mais risco</div>
           </div>
         </div>
-      </div>
 
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick="openConfirmationModal()">
-          Continuar →
-        </button>
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="openConfirmationModal()">
+            Continuar →
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1037,7 +1211,7 @@
   </div>
 
   <!-- ========================================
-       ⏳ ETAPA 6 - PROCESSAMENTO
+       ⏳ ETAPA 6 - PROCESSAMENTO (REAL)
        ======================================== -->
   <div id="processingModal" class="automaster-modal">
     <div class="automaster-modal-card">
@@ -1047,30 +1221,21 @@
         <p class="modal-subtitle">Isso pode levar alguns minutos</p>
       </div>
 
-      <div class="processing-container">
-        <div class="progress-percentage" id="progressPercentage">0%</div>
-        
-        <div class="progress-bar-container">
-          <div class="progress-bar" id="progressBar"></div>
-        </div>
+      <!-- Loading real -->
+      <div class="loading-spinner" id="processingLoading">
+        <div class="spinner-ring"></div>
+        <div class="spinner-text" id="processingLoadingText">Processando master...</div>
+        <div class="spinner-subtext">O backend está trabalhando no seu áudio</div>
+      </div>
 
-        <div class="processing-steps">
-          <div class="processing-step" id="procStep1">
-            <div class="processing-step-icon">📂</div>
-            <div class="processing-step-text">Preparando áudio</div>
-          </div>
-          <div class="processing-step" id="procStep2">
-            <div class="processing-step-icon">🎛️</div>
-            <div class="processing-step-text">Ajustando espectro</div>
-          </div>
-          <div class="processing-step" id="procStep3">
-            <div class="processing-step-icon">⚡</div>
-            <div class="processing-step-text">Aplicando controle dinâmico</div>
-          </div>
-          <div class="processing-step" id="procStep4">
-            <div class="processing-step-icon">🔒</div>
-            <div class="processing-step-text">Garantindo true peak seguro</div>
-          </div>
+      <!-- Erro (aparece se backend falhar) -->
+      <div class="error-card" id="processingError" style="display: none;">
+        <div class="error-icon">❌</div>
+        <div class="error-title">Erro no processamento</div>
+        <div class="error-message" id="processingErrorMsg">Não foi possível processar a masterização. Tente novamente.</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToDecision()">← Voltar</button>
+          <button class="btn btn-primary" onclick="retryProcessing()">Tentar Novamente</button>
         </div>
       </div>
     </div>
@@ -1124,9 +1289,24 @@
         </div>
       </div>
 
+      <!-- Preview de áudio antes/depois -->
+      <div class="audio-preview-section" id="audioPreviewSection" style="display: none;">
+        <div class="audio-preview-title">Ouça o resultado:</div>
+        <div class="audio-preview-pair">
+          <div class="audio-preview-card">
+            <div class="audio-preview-label">Antes</div>
+            <audio id="previewBefore" controls preload="none"></audio>
+          </div>
+          <div class="audio-preview-card after-card">
+            <div class="audio-preview-label">Depois</div>
+            <audio id="previewAfter" controls preload="none"></audio>
+          </div>
+        </div>
+      </div>
+
       <div class="result-summary">
         <div class="result-summary-icon">🎉</div>
-        <div class="result-summary-text">
+        <div class="result-summary-text" id="resultSummaryText">
           Sua música ganhou mais volume mantendo a clareza.
         </div>
       </div>
@@ -1186,17 +1366,99 @@
       genre: null,
       file: null,
       fileName: null,
-      mode: 'conservative',
-      analysis: {
-        beforeLUFS: null,
-        beforePeak: null,
-        beforeHeadroom: null,
-        afterLUFS: null,
-        afterPeak: null,
-        afterHeadroom: null
+      mode: null,
+      // Dados reais do backend (pré-análise)
+      preAnalysis: {
+        apt: null,
+        lufs: null,
+        truePeak: null,
+        headroom: null,
+        clipping: null,
+        tonalBalance: null,
+        recommendedMode: null,
+        message: null
       },
-      masteredAudioUrl: null
+      // Dados reais do backend (masterização)
+      result: {
+        success: null,
+        masterUrl: null,
+        previewBefore: null,
+        previewAfter: null,
+        metrics: {
+          lufsBefore: null,
+          lufsAfter: null,
+          truePeakAfter: null
+        }
+      },
+      creditConsumed: false
     };
+
+    // ========================================
+    // 🔐 AUTH & API UTILITIES
+    // ========================================
+
+    /**
+     * Obtém token de autenticação do localStorage.
+     * Prioriza: idToken > token
+     */
+    function getAuthToken() {
+      const token = localStorage.getItem('idToken') || localStorage.getItem('token');
+      if (!token) {
+        console.warn('⚠️ [AUTOMASTER] Nenhum token de autenticação encontrado');
+      }
+      return token;
+    }
+
+    /**
+     * Faz requisição ao backend com auth, timeout e tratamento de erros.
+     * @param {string} endpoint - Ex: '/api/analyze-for-master'
+     * @param {Object} options - fetch options (method, body, etc.)
+     * @param {number} timeoutMs - Timeout em ms (padrão: 120s)
+     * @returns {Promise<Object>} Resposta JSON do backend
+     */
+    async function apiRequest(endpoint, options = {}, timeoutMs = 120000) {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Você precisa estar logado para usar o AutoMaster.');
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      // Mescla headers (NÃO definir Content-Type para FormData)
+      const headers = { ...options.headers };
+      if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+      headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const response = await fetch(endpoint, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorMsg = `Erro ${response.status}`;
+          try {
+            const errorBody = await response.json();
+            errorMsg = errorBody.error || errorBody.message || errorMsg;
+          } catch (_) { /* resposta não-JSON */ }
+          throw new Error(errorMsg);
+        }
+
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('Tempo limite excedido. O servidor demorou para responder.');
+        }
+        throw err;
+      }
+    }
 
     // ========================================
     // 🔧 UTILITY FUNCTIONS
@@ -1205,7 +1467,7 @@
       document.querySelectorAll('.automaster-modal').forEach(modal => {
         modal.classList.remove('visible');
       });
-      
+
       setTimeout(() => {
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -1246,19 +1508,13 @@
     // ========================================
     function selectGenre(genre) {
       console.log('🎵 [AUTOMASTER] Gênero selecionado:', genre);
-      
-      // Remove seleção anterior
+
       document.querySelectorAll('.genre-card').forEach(card => {
         card.classList.remove('selected');
       });
-      
-      // Adiciona seleção nova
+
       event.currentTarget.classList.add('selected');
-      
-      // Atualiza state
       automasterState.genre = genre;
-      
-      // Habilita botão
       document.getElementById('genreNextBtn').disabled = false;
     }
 
@@ -1280,7 +1536,7 @@
     // 📤 ETAPA 2 - UPLOAD
     // ========================================
     const uploadArea = document.getElementById('uploadArea');
-    
+
     uploadArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       uploadArea.classList.add('dragging');
@@ -1293,7 +1549,7 @@
     uploadArea.addEventListener('drop', (e) => {
       e.preventDefault();
       uploadArea.classList.remove('dragging');
-      
+
       const files = e.dataTransfer.files;
       if (files.length > 0) {
         handleFile(files[0]);
@@ -1309,7 +1565,7 @@
 
     function handleFile(file) {
       console.log('📁 [AUTOMASTER] Arquivo selecionado:', file.name);
-      
+
       // Validações
       const maxSize = 100 * 1024 * 1024; // 100MB
       if (file.size > maxSize) {
@@ -1323,108 +1579,162 @@
         return;
       }
 
-      // Atualiza state
       automasterState.file = file;
       automasterState.fileName = file.name;
 
-      // Mostra informação do arquivo
       document.getElementById('fileName').textContent = file.name;
       document.getElementById('fileInfo').classList.add('visible');
-
-      // Habilita botão
       document.getElementById('uploadNextBtn').disabled = false;
     }
 
     // ========================================
-    // ⚙️ ETAPA 3 - PRÉ-ANÁLISE
+    // ⚙️ ETAPA 3 - PRÉ-ANÁLISE (REAL)
     // ========================================
-    function startPreAnalysis() {
+
+    /**
+     * Envia áudio ao backend para pré-análise real.
+     * Endpoint: POST /api/analyze-for-master
+     * Body: FormData { file, genre }
+     * Resposta: { apt, lufs, truePeak, headroom, clipping, tonalBalance, recommendedMode, message }
+     */
+    async function startPreAnalysis() {
       if (!automasterState.file) {
         alert('Selecione um arquivo primeiro');
         return;
       }
 
-      console.log('⚙️ [AUTOMASTER] Iniciando pré-análise');
+      console.log('⚙️ [AUTOMASTER] Iniciando pré-análise real...');
       showModal('preAnalysisModal');
 
-      // Simula análise em etapas
-      const steps = [
-        { id: 'step1', delay: 1000 },
-        { id: 'step2', delay: 2500 },
-        { id: 'step3', delay: 4000 },
-        { id: 'step4', delay: 5500 }
-      ];
+      // Mostra loading, esconde erro e conclusão
+      document.getElementById('analysisLoading').style.display = 'flex';
+      document.getElementById('analysisError').style.display = 'none';
+      document.getElementById('analysisComplete').classList.remove('visible');
 
-      steps.forEach((step, index) => {
+      try {
+        const formData = new FormData();
+        formData.append('file', automasterState.file);
+        formData.append('genre', automasterState.genre);
+
+        document.getElementById('analysisLoadingText').textContent = 'Enviando áudio para análise...';
+
+        const data = await apiRequest('/api/analyze-for-master', {
+          method: 'POST',
+          body: formData
+        }, 180000); // timeout 3 min para arquivos grandes
+
+        console.log('📊 [AUTOMASTER] Pré-análise recebida:', data);
+
+        // Armazena dados reais do backend
+        automasterState.preAnalysis = {
+          apt: data.apt,
+          lufs: data.lufs,
+          truePeak: data.truePeak,
+          headroom: data.headroom,
+          clipping: data.clipping,
+          tonalBalance: data.tonalBalance,
+          recommendedMode: data.recommendedMode || 'balanced',
+          message: data.message || ''
+        };
+
+        // Esconde loading, mostra conclusão
+        document.getElementById('analysisLoading').style.display = 'none';
+        document.getElementById('analysisComplete').classList.add('visible');
+
+        // Avança para decisão após 1.5s
         setTimeout(() => {
-          const element = document.getElementById(step.id);
-          element.classList.add('active');
-          
-          setTimeout(() => {
-            element.classList.remove('active');
-            element.classList.add('done');
-          }, 1200);
+          openDecisionModal();
+        }, 1500);
 
-          // Última etapa - mostra conclusão
-          if (index === steps.length - 1) {
-            setTimeout(() => {
-              document.getElementById('analysisComplete').classList.add('visible');
-              
-              // Simula análise
-              simulateAnalysis();
-              
-              // Avança automaticamente
-              setTimeout(() => {
-                openDecisionModal();
-              }, 2000);
-            }, 1500);
-          }
-        }, step.delay);
-      });
-    }
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro na pré-análise:', err);
 
-    function simulateAnalysis() {
-      // Simula valores de análise (em produção viria do backend)
-      automasterState.analysis.beforeLUFS = (Math.random() * 10 - 20).toFixed(1); // -20 a -10
-      automasterState.analysis.beforePeak = (Math.random() * 3 - 3).toFixed(2); // -3 a 0
-      automasterState.analysis.beforeHeadroom = (Math.random() * 6 + 3).toFixed(1); // 3 a 9
-      
-      console.log('📊 [AUTOMASTER] Análise simulada:', automasterState.analysis);
-    }
-
-    // ========================================
-    // 🎯 ETAPA 4 - DECISÃO DO SISTEMA
-    // ========================================
-    function openDecisionModal() {
-      console.log('🎯 [AUTOMASTER] Abrindo modal de decisão');
-      
-      // Determina diagnóstico baseado nos valores
-      const lufs = parseFloat(automasterState.analysis.beforeLUFS);
-      let diagnosis = '';
-      let icon = '';
-      
-      if (lufs > -14) {
-        diagnosis = 'Seu áudio precisa de ajustes leves antes da master.';
-        icon = '⚠️';
-      } else {
-        diagnosis = 'Seu áudio está apto para masterização.';
-        icon = '✅';
+        // Esconde loading, mostra erro
+        document.getElementById('analysisLoading').style.display = 'none';
+        document.getElementById('analysisErrorMsg').textContent = err.message || 'Erro desconhecido na análise.';
+        document.getElementById('analysisError').style.display = 'block';
       }
+    }
 
-      document.getElementById('diagnosisText').textContent = diagnosis;
-      document.getElementById('diagnosisIcon').textContent = icon;
+    function retryPreAnalysis() {
+      startPreAnalysis();
+    }
+
+    function backToUpload() {
+      showModal('uploadModal');
+    }
+
+    // ========================================
+    // 🎯 ETAPA 4 - DECISÃO DO SISTEMA (REAL)
+    // ========================================
+
+    /**
+     * Abre modal de decisão usando dados reais do backend.
+     * Se apt === false → mostra bloqueio.
+     * Se apt === true → mostra modos com recomendação pré-selecionada.
+     */
+    function openDecisionModal() {
+      console.log('🎯 [AUTOMASTER] Abrindo decisão. Apt:', automasterState.preAnalysis.apt);
+
+      const { apt, message, recommendedMode } = automasterState.preAnalysis;
+
+      const cardApt = document.getElementById('diagnosisCardApt');
+      const cardBlocked = document.getElementById('diagnosisCardBlocked');
+      const modeSection = document.getElementById('modeRecommendationSection');
+
+      if (apt === false) {
+        // === BLOQUEIO: mix não apta ===
+        cardApt.style.display = 'none';
+        cardBlocked.style.display = 'block';
+        modeSection.style.display = 'none';
+
+        document.getElementById('blockReasonText').textContent =
+          message || 'Sua mix possui problemas que impedem a masterização automática. Ajuste e envie novamente.';
+
+      } else {
+        // === APTO: escolher modo ===
+        cardApt.style.display = 'block';
+        cardBlocked.style.display = 'none';
+        modeSection.style.display = 'block';
+
+        document.getElementById('diagnosisText').textContent =
+          message || 'Seu áudio está apto para masterização.';
+
+        // Pré-seleciona modo recomendado pelo backend
+        const recMode = recommendedMode || 'balanced';
+        automasterState.mode = recMode;
+
+        document.querySelectorAll('.mode-option').forEach(opt => {
+          opt.classList.remove('selected', 'recommended');
+        });
+
+        const recElement = document.getElementById(
+          recMode === 'conservative' ? 'modeConservative' :
+          recMode === 'balanced' ? 'modeBalanced' : 'modeAggressive'
+        );
+        if (recElement) {
+          recElement.classList.add('selected', 'recommended');
+        }
+      }
 
       showModal('decisionModal');
     }
 
     function selectMode(mode) {
       console.log('🎚️ [AUTOMASTER] Modo selecionado:', mode);
-      
+
       document.querySelectorAll('.mode-option').forEach(option => {
         option.classList.remove('selected');
       });
-      
-      event.currentTarget.classList.add('selected');
+
+      const targetEl = document.getElementById(
+        mode === 'conservative' ? 'modeConservative' :
+        mode === 'balanced' ? 'modeBalanced' : 'modeAggressive'
+      );
+      if (targetEl) {
+        targetEl.classList.add('selected');
+      }
+
       automasterState.mode = mode;
     }
 
@@ -1436,9 +1746,13 @@
     // ✅ ETAPA 5 - CONFIRMAÇÃO
     // ========================================
     function openConfirmationModal() {
-      console.log('✅ [AUTOMASTER] Abrindo modal de confirmação');
-      
-      // Preenche resumo
+      if (!automasterState.mode) {
+        alert('Selecione um modo de masterização');
+        return;
+      }
+
+      console.log('✅ [AUTOMASTER] Abrindo confirmação');
+
       document.getElementById('summaryGenre').textContent = getGenreName(automasterState.genre);
       document.getElementById('summaryFile').textContent = automasterState.fileName;
       document.getElementById('summaryMode').textContent = getModeName(automasterState.mode);
@@ -1447,136 +1761,236 @@
     }
 
     // ========================================
-    // ⏳ ETAPA 6 - PROCESSAMENTO
+    // ⏳ ETAPA 6 - PROCESSAMENTO (REAL)
     // ========================================
-    function startProcessing() {
-      console.log('⏳ [AUTOMASTER] Iniciando processamento');
+
+    /**
+     * Envia áudio para masterização real.
+     * Endpoint: POST /api/automaster
+     * Body: FormData { file, genre, mode }
+     * Resposta: { success, masterUrl, previewBefore, previewAfter, metrics }
+     */
+    async function startProcessing() {
+      console.log('⏳ [AUTOMASTER] Iniciando processamento real...');
       showModal('processingModal');
 
-      let progress = 0;
-      const progressBar = document.getElementById('progressBar');
-      const progressPercentage = document.getElementById('progressPercentage');
+      // Mostra loading, esconde erro
+      document.getElementById('processingLoading').style.display = 'flex';
+      document.getElementById('processingError').style.display = 'none';
 
-      const processingSteps = [
-        { id: 'procStep1', start: 0, end: 25 },
-        { id: 'procStep2', start: 25, end: 50 },
-        { id: 'procStep3', start: 50, end: 75 },
-        { id: 'procStep4', start: 75, end: 100 }
-      ];
+      try {
+        const formData = new FormData();
+        formData.append('file', automasterState.file);
+        formData.append('genre', automasterState.genre);
+        formData.append('mode', automasterState.mode);
 
-      // Simula processamento realista
-      const interval = setInterval(() => {
-        progress += Math.random() * 3;
-        if (progress > 100) progress = 100;
+        document.getElementById('processingLoadingText').textContent = 'Processando master...';
 
-        progressBar.style.width = progress + '%';
-        progressPercentage.textContent = Math.floor(progress) + '%';
+        const data = await apiRequest('/api/automaster', {
+          method: 'POST',
+          body: formData
+        }, 600000); // timeout 10 min para processamento pesado
 
-        // Ativa steps conforme progresso
-        processingSteps.forEach(step => {
-          const element = document.getElementById(step.id);
-          if (progress >= step.start && progress < step.end) {
-            element.classList.add('active');
-            element.classList.remove('done');
-          } else if (progress >= step.end) {
-            element.classList.remove('active');
-            element.classList.add('done');
-          }
-        });
+        console.log('📊 [AUTOMASTER] Resultado real recebido:', data);
 
-        if (progress >= 100) {
-          clearInterval(interval);
-          
-          // Simula resultado da masterização
-          simulateMasteringResult();
-          
-          setTimeout(() => {
-            openResultModal();
-          }, 1000);
+        if (!data.success) {
+          throw new Error(data.error || data.message || 'O processamento falhou no servidor.');
         }
-      }, 200);
+
+        // Armazena dados reais
+        automasterState.result = {
+          success: true,
+          masterUrl: data.masterUrl || null,
+          previewBefore: data.previewBefore || null,
+          previewAfter: data.previewAfter || null,
+          metrics: {
+            lufsBefore: data.metrics?.lufsBefore ?? null,
+            lufsAfter: data.metrics?.lufsAfter ?? null,
+            truePeakAfter: data.metrics?.truePeakAfter ?? null
+          }
+        };
+
+        // Avança para resultado
+        openResultModal();
+
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro no processamento:', err);
+
+        document.getElementById('processingLoading').style.display = 'none';
+        document.getElementById('processingErrorMsg').textContent = err.message || 'Erro desconhecido no processamento.';
+        document.getElementById('processingError').style.display = 'block';
+      }
     }
 
-    function simulateMasteringResult() {
-      // Simula valores após masterização
-      const modeMultipliers = {
-        'conservative': 1.2,
-        'balanced': 1.4,
-        'aggressive': 1.6
-      };
-
-      const multiplier = modeMultipliers[automasterState.mode];
-      const baseLUFS = parseFloat(automasterState.analysis.beforeLUFS);
-
-      automasterState.analysis.afterLUFS = (baseLUFS + (Math.random() * 4 + 6) * multiplier).toFixed(1);
-      automasterState.analysis.afterPeak = (-0.1 - Math.random() * 0.2).toFixed(2);
-      automasterState.analysis.afterHeadroom = (1 + Math.random() * 0.5).toFixed(1);
-
-      // Simula URL de download (em produção viria do backend)
-      automasterState.masteredAudioUrl = '#simulated-download';
-
-      console.log('📊 [AUTOMASTER] Resultado simulado:', automasterState.analysis);
+    function retryProcessing() {
+      startProcessing();
     }
 
     // ========================================
-    // 📊 ETAPA 7 - RESULTADO
+    // 📊 ETAPA 7 - RESULTADO (REAL)
     // ========================================
+
+    /**
+     * Exibe métricas reais do backend e preview de áudio.
+     * Usa APENAS dados vindos do backend, nunca gera valores localmente.
+     */
     function openResultModal() {
-      console.log('📊 [AUTOMASTER] Abrindo modal de resultado');
+      console.log('📊 [AUTOMASTER] Exibindo resultado real');
 
-      // Preenche métricas
-      document.getElementById('beforeLUFS').textContent = automasterState.analysis.beforeLUFS + ' dB';
-      document.getElementById('beforePeak').textContent = automasterState.analysis.beforePeak + ' dB';
-      document.getElementById('beforeHeadroom').textContent = automasterState.analysis.beforeHeadroom + ' dB';
+      const { metrics, previewBefore, previewAfter } = automasterState.result;
+      const pa = automasterState.preAnalysis;
 
-      document.getElementById('afterLUFS').textContent = automasterState.analysis.afterLUFS + ' dB';
-      document.getElementById('afterPeak').textContent = automasterState.analysis.afterPeak + ' dB';
-      document.getElementById('afterHeadroom').textContent = automasterState.analysis.afterHeadroom + ' dB';
+      // Métricas ANTES (da pré-análise)
+      document.getElementById('beforeLUFS').textContent =
+        pa.lufs != null ? pa.lufs + ' LUFS' : '—';
+      document.getElementById('beforePeak').textContent =
+        pa.truePeak != null ? pa.truePeak + ' dBTP' : '—';
+      document.getElementById('beforeHeadroom').textContent =
+        pa.headroom != null ? pa.headroom + ' dB' : '—';
+
+      // Métricas DEPOIS (do resultado da masterização)
+      document.getElementById('afterLUFS').textContent =
+        metrics.lufsAfter != null ? metrics.lufsAfter + ' LUFS' : '—';
+      document.getElementById('afterPeak').textContent =
+        metrics.truePeakAfter != null ? metrics.truePeakAfter + ' dBTP' : '—';
+      document.getElementById('afterHeadroom').textContent = '—';
+
+      // Resumo textual
+      const summaryEl = document.getElementById('resultSummaryText');
+      if (metrics.lufsBefore != null && metrics.lufsAfter != null) {
+        const diff = (parseFloat(metrics.lufsAfter) - parseFloat(metrics.lufsBefore)).toFixed(1);
+        summaryEl.textContent =
+          `Loudness ajustado de ${metrics.lufsBefore} para ${metrics.lufsAfter} LUFS (${diff > 0 ? '+' : ''}${diff} dB).`;
+      } else {
+        summaryEl.textContent = 'Masterização concluída com sucesso.';
+      }
+
+      // Preview de áudio antes/depois
+      const previewSection = document.getElementById('audioPreviewSection');
+      if (previewBefore || previewAfter) {
+        previewSection.style.display = 'block';
+
+        if (previewBefore) {
+          const audioBefore = document.getElementById('previewBefore');
+          audioBefore.src = previewBefore;
+          audioBefore.load();
+        }
+
+        if (previewAfter) {
+          const audioAfter = document.getElementById('previewAfter');
+          audioAfter.src = previewAfter;
+          audioAfter.load();
+        }
+      } else {
+        previewSection.style.display = 'none';
+      }
 
       showModal('resultModal');
     }
 
     // ========================================
-    // 💾 ETAPA 8 - ENTREGA
+    // 💾 ETAPA 8 - ENTREGA (REAL)
     // ========================================
     function openDeliveryModal() {
       console.log('💾 [AUTOMASTER] Abrindo modal de entrega');
       showModal('deliveryModal');
     }
 
-    function downloadMaster() {
-      console.log('📥 [AUTOMASTER] Download iniciado');
-      
-      // Em produção: consumir crédito e fazer download real
-      // Por enquanto, simula download
-      
-      alert('🎉 Download simulado!\n\nEm produção:\n- Consumirá 1 crédito\n- Fará download do arquivo masterizado\n- Registrará histórico no backend');
-      
-      // Simula download
-      // window.location.href = automasterState.masteredAudioUrl;
+    /**
+     * Download real do arquivo masterizado.
+     * Consome crédito somente se o download for bem-sucedido.
+     */
+    async function downloadMaster() {
+      console.log('📥 [AUTOMASTER] Iniciando download real');
+
+      const { masterUrl } = automasterState.result;
+
+      if (!masterUrl) {
+        alert('⚠️ URL de download não disponível. Tente reprocessar.');
+        return;
+      }
+
+      // Evita consumo duplo de crédito
+      if (automasterState.creditConsumed) {
+        console.log('📥 [AUTOMASTER] Crédito já consumido, fazendo download novamente');
+        triggerDownload(masterUrl);
+        return;
+      }
+
+      try {
+        // Consome crédito no backend
+        await apiRequest('/api/automaster/consume-credit', {
+          method: 'POST',
+          body: JSON.stringify({
+            masterUrl: masterUrl,
+            genre: automasterState.genre,
+            mode: automasterState.mode,
+            fileName: automasterState.fileName
+          })
+        }, 30000);
+
+        automasterState.creditConsumed = true;
+        console.log('✅ [AUTOMASTER] Crédito consumido com sucesso');
+
+        // Inicia download real
+        triggerDownload(masterUrl);
+
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro ao consumir crédito:', err);
+        alert('Erro ao processar crédito: ' + (err.message || 'Tente novamente.'));
+      }
     }
 
+    /**
+     * Dispara download real do arquivo via link temporário.
+     */
+    function triggerDownload(url) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `master_${automasterState.fileName || 'audio'}.wav`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // ========================================
+    // 🔄 RESET
+    // ========================================
     function resetFlow() {
       console.log('🔄 [AUTOMASTER] Resetando fluxo');
-      
-      // Limpa state
+
+      // Limpa state completamente
       automasterState.genre = null;
       automasterState.file = null;
       automasterState.fileName = null;
-      automasterState.mode = 'conservative';
-      automasterState.masteredAudioUrl = null;
+      automasterState.mode = null;
+      automasterState.creditConsumed = false;
+      automasterState.preAnalysis = {
+        apt: null, lufs: null, truePeak: null, headroom: null,
+        clipping: null, tonalBalance: null, recommendedMode: null, message: null
+      };
+      automasterState.result = {
+        success: null, masterUrl: null, previewBefore: null, previewAfter: null,
+        metrics: { lufsBefore: null, lufsAfter: null, truePeakAfter: null }
+      };
 
       // Limpa UI
       document.querySelectorAll('.genre-card').forEach(card => card.classList.remove('selected'));
-      document.querySelectorAll('.mode-option').forEach(option => option.classList.remove('selected'));
+      document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('selected', 'recommended'));
       document.getElementById('fileInfo').classList.remove('visible');
       document.getElementById('genreNextBtn').disabled = true;
       document.getElementById('uploadNextBtn').disabled = true;
-      document.getElementById('progressBar').style.width = '0%';
-      document.getElementById('progressPercentage').textContent = '0%';
 
-      // Reseta modo para conservador
-      document.querySelector('[onclick="selectMode(\'conservative\')"]').classList.add('selected');
+      // Limpa players de áudio
+      const previewBefore = document.getElementById('previewBefore');
+      const previewAfter = document.getElementById('previewAfter');
+      if (previewBefore) { previewBefore.pause(); previewBefore.src = ''; }
+      if (previewAfter) { previewAfter.pause(); previewAfter.src = ''; }
+      document.getElementById('audioPreviewSection').style.display = 'none';
+
+      // Limpa análise
+      document.getElementById('analysisComplete').classList.remove('visible');
 
       // Volta para início
       showModal('genreModal');
@@ -1586,25 +2000,22 @@
     // 🚀 INICIALIZAÇÃO
     // ========================================
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('🎚️ [AUTOMASTER] AutoMaster V1 inicializado');
-      console.log('🎯 [AUTOMASTER] Fluxo de 8 etapas carregado');
-      
-      // Verifica login (opcional)
-      const isLogged = localStorage.getItem('idToken') || 
-                       localStorage.getItem('token') || 
-                       localStorage.getItem('user');
-      
-      if (!isLogged) {
-        console.warn('⚠️ [AUTOMASTER] Usuário não logado');
+      console.log('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
+      console.log('🎯 [AUTOMASTER] Fluxo real de 8 etapas carregado');
+
+      // Verifica login
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('⚠️ [AUTOMASTER] Usuário não logado — funcionalidade limitada');
       } else {
-        console.log('✅ [AUTOMASTER] Usuário logado');
+        console.log('✅ [AUTOMASTER] Usuário autenticado');
       }
     });
 
-    // Debug mode
+    // Debug mode (apenas localhost)
     if (window.location.hostname === 'localhost') {
       console.log('🔧 [AUTOMASTER-DEBUG] Modo debug ativado');
-      window.automasterState = automasterState; // Expõe state para debug
+      window.automasterState = automasterState;
     }
   </script>
 </body>
