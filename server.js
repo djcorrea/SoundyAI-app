@@ -77,6 +77,18 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ✅ Path absoluto para arquivos estáticos (Railway-compatible)
+const publicPath = path.join(process.cwd(), "public");
+
+// 🔍 Debug: Log paths para diagnóstico
+console.log('\n📂 [SERVER] ═══════════════════════════════════════');
+console.log('📂 [SERVER]    CONFIGURAÇÃO DE PATHS             ');
+console.log('📂 [SERVER] ═══════════════════════════════════════');
+console.log('📂 Static path:', publicPath);
+console.log('📂 __dirname:', __dirname);
+console.log('📂 cwd:', process.cwd());
+console.log('📂 [SERVER] ═══════════════════════════════════════\n');
+
 // ✅ Detectar ambiente e configurar CORS dinamicamente
 const currentEnv = detectEnvironment();
 console.log(`🌍 [SERVER-ROOT] Ambiente: ${currentEnv}`);
@@ -93,25 +105,25 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // 👉 ROTA RAIZ PRIMEIRO: abre a landing
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "landing.html"));
+  res.sendFile(path.join(publicPath, "landing.html"));
 });
 
 // 👉 Aliases para o app (index)
 app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
 // � MODO DEMO: Rota especial que serve index.html mas ativa modo demo
 app.get(["/demo", "/demo.html"], (req, res) => {
   console.log('🔥 [DEMO] Servindo index.html em modo demo');
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
 // �👉 Servir arquivos estáticos SEM index automático
 // 🔥 FORÇA NO-CACHE para arquivos .js (evitar cache no Railway CDN)
 // 🎵 Configura MIME type correto para arquivos WAV
 app.use(
-  express.static(path.join(__dirname, "public"), {
+  express.static(publicPath, {
     index: false,
     setHeaders: (res, filePath) => {
       // Força no-cache apenas para arquivos JavaScript
@@ -129,6 +141,7 @@ app.use(
     }
   })
 );
+console.log('✅ [EXPRESS.STATIC] Servidor de arquivos estáticos configurado\n');
 
 // Rotas da API
 import cancelSubscriptionRoute from "./api/cancel-subscription.js";
