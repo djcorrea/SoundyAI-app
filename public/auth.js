@@ -1,4 +1,4 @@
-// auth.js - Versão Corrigida
+// auth.js - Versão 2026-02-17 23:20 - Botões habilitados após Firebase load
 log('🚀 Carregando auth.js...');
 
 (async () => {
