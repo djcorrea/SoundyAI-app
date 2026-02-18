@@ -1906,5 +1906,33 @@
             log('[BUTTON-CONTROL] ✅ Sistema de controle do botão inicializado');
         })();
     </script>
+
+    <!-- 🎯 DETECÇÃO DE PARÂMETROS DE URL DO HUB -->
+    <script>
+        (function checkHubRedirect() {
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Detectar se veio do HUB com intenção de iniciar análise
+                if (urlParams.get('startAnalysis') === 'true') {
+                    console.log('🎯 [HUB-REDIRECT] Parâmetro startAnalysis detectado, abrindo modal de análise...');
+                    
+                    // Limpar parâmetro da URL sem recarregar página
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                    
+                    // Aguardar modal estar pronto e abrir
+                    setTimeout(() => {
+                        if (typeof window.openAudioModal === 'function') {
+                            console.log('✅ [HUB-REDIRECT] Abrindo modal de análise...');
+                            window.openAudioModal();
+                        } else {
+                            console.error('❌ [HUB-REDIRECT] window.openAudioModal não disponível');
+                        }
+                    }, 500);
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

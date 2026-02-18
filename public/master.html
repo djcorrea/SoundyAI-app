@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundyAI - AutoMaster V1</title>
+  
+  <!-- Meta tags -->
+  <meta name="description" content="Masterização profissional com IA - SoundyAI AutoMaster V1">
+  <meta name="theme-color" content="#6366f1">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0a0f 0%, #12121a 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .master-container {
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .master-hero {
+      text-align: center;
+      background: rgba(18, 18, 26, 0.8);
+      border: none;
+      border-radius: 24px;
+      padding: 4rem 3rem;
+      box-shadow: 0 0 40px rgba(0, 160, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .master-hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        135deg,
+        rgba(99, 102, 241, 0.05) 0%,
+        transparent 50%,
+        rgba(236, 72, 153, 0.05) 100%
+      );
+      pointer-events: none;
+    }
+
+    .master-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .master-badge {
+      display: inline-block;
+      padding: 0.5rem 1.25rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #818cf8;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .master-icon {
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .master-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .master-subtitle {
+      font-size: 1.25rem;
+      color: #a1a1aa;
+      margin-bottom: 2.5rem;
+      line-height: 1.6;
+    }
+
+    .master-modes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .mode-card {
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(0, 160, 255, 0.15);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .mode-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 160, 255, 0.4);
+      box-shadow: 0 0 30px rgba(0, 160, 255, 0.2);
+    }
+
+    .mode-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .mode-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.5rem;
+    }
+
+    .mode-desc {
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      line-height: 1.4;
+    }
+
+    .master-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.25rem 3rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: white;
+      background: linear-gradient(135deg, #0080ff, #0060cc);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      box-shadow: 0 0 30px rgba(0, 160, 255, 0.3);
+    }
+
+    .master-cta:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 40px rgba(0, 160, 255, 0.5);
+    }
+
+    .master-features {
+      margin-top: 3rem;
+      padding-top: 3rem;
+      border-top: 1px solid rgba(99, 102, 241, 0.2);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 2rem;
+      text-align: left;
+    }
+
+    .feature-item {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .feature-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .feature-text h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: white;
+    }
+
+    .feature-text p {
+      font-size: 0.9rem;
+      color: #a1a1aa;
+      line-height: 1.5;
+    }
+
+    .coming-soon {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: rgba(236, 72, 153, 0.1);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: #fca5a5;
+    }
+
+    @media (max-width: 768px) {
+      .master-hero {
+        padding: 2rem 1.5rem;
+      }
+
+      .master-title {
+        font-size: 2rem;
+      }
+
+      .master-modes {
+        grid-template-columns: 1fr;
+      }
+
+      .master-features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="master-container">
+    <div class="master-hero">
+      <div class="master-content">
+        <span class="master-badge">🚀 AutoMaster V1</span>
+        <div class="master-icon">🎚️</div>
+        <h1 class="master-title">Masterização Profissional com IA</h1>
+        <p class="master-subtitle">
+          Transforme sua música com masterização adaptativa.
+          Escolha o modo ideal e receba áudio pronto para streaming.
+        </p>
+
+        <!-- Modos disponíveis -->
+        <div class="master-modes">
+          <div class="mode-card">
+            <div class="mode-emoji">💥</div>
+            <div class="mode-name">Impact</div>
+            <p class="mode-desc">Máxima energia e presença. Ideal para EDM, Bass House, Future Bass.</p>
+          </div>
+          
+          <div class="mode-card">
+            <div class="mode-emoji">⚖️</div>
+            <div class="mode-name">Balance</div>
+            <p class="mode-desc">Equilíbrio perfeito. Para Tech House, Progressive, Melodic.</p>
+          </div>
+          
+          <div class="mode-card">
+            <div class="mode-emoji">🌊</div>
+            <div class="mode-name">Dynamic</div>
+            <p class="mode-desc">Preserva dinâmica natural. Ambient, Downtempo, Organic.</p>
+          </div>
+        </div>
+
+        <!-- CTA principal -->
+        <a href="/index.html" class="master-cta">
+          <span>Acessar AutoMaster</span>
+          <span>→</span>
+        </a>
+
+        <!-- Features -->
+        <div class="master-features">
+          <div class="feature-item">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-text">
+              <h3>Targets Adaptativos</h3>
+              <p>Algoritmo ajusta LUFS, EQ e dinâmica baseado no modo escolhido.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">🔍</div>
+            <div class="feature-text">
+              <h3>Análise de Mix</h3>
+              <p>Classifica capacidade de loudness: Safe, Limited ou Not Recommended.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">⚡</div>
+            <div class="feature-text">
+              <h3>Processamento Rápido</h3>
+              <p>Master completo em minutos com qualidade profissional.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coming soon notice -->
+        <div class="coming-soon">
+          <strong>⚠️ Em Desenvolvimento:</strong> Interface dedicada de masterização chegando em breve.
+          Por enquanto, acesse via painel principal.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // master.html - Página de masterização (placeholder)
+    // ✅ Apresenta AutoMaster V1
+    // ✅ Redireciona para index.html (sistema completo)
+    // ✅ Preparado para interface dedicada no futuro
+
+    console.log('🎚️ [MASTER] Página AutoMaster V1 carregada');
+
+    // Verificar se usuário está logado
+    function checkLogin() {
+      const isLogged = localStorage.getItem('idToken') || 
+                       localStorage.getItem('token') || 
+                       localStorage.getItem('user');
+      
+      if (!isLogged) {
+        console.warn('⚠️ [MASTER] Usuário não logado');
+        // Não redirecionar automaticamente, deixar usuário explorar
+      } else {
+        console.log('✅ [MASTER] Usuário logado');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🎉 [MASTER] Setup completo');
+      checkLogin();
+    });
+
+    // Debug
+    if (window.location.hostname === 'localhost') {
+      console.log('🔧 [MASTER-DEBUG] Modo debug ativado');
+    }
+  </script>
+</body>
+</html>
