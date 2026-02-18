@@ -8,7 +8,10 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import fs from "fs";
 import multer from "multer";
-import { execFile } from "child_process";
+import { execFile, exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 // 🔑 IMPORTANTE: Carregar .env ANTES de importar outros módulos
 dotenv.config();
@@ -473,10 +476,55 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
 
     console.log('🚀 [AUTOMASTER] Executando script:', scriptPath);
 
-    // Executa script de masterização
+    // ═══════════════════════════════════════════════════════════════
+    // 🔄 CONVERSÃO PARA WAV PCM (preserva qualidade máxima)
+    // ═══════════════════════════════════════════════════════════════
+    const wavInput = inputPath.replace(path.extname(inputPath), '_pcm.wav');
+    const ffmpegCmd = `ffmpeg -y -i "${inputPath}" -map 0:a -c:a pcm_s24le "${wavInput}"`;
+
+    console.log('🔄 [AUTOMASTER] Convertendo para WAV PCM...');
+    console.log('📝 [AUTOMASTER] Comando:', ffmpegCmd);
+
+    try {
+      const { stdout: ffmpegStdout, stderr: ffmpegStderr } = await execAsync(ffmpegCmd, {
+        timeout: 5 * 60 * 1000 // 5 minutos para conversão
+      });
+
+      if (ffmpegStderr) {
+        console.log('📋 [AUTOMASTER] FFmpeg log:', ffmpegStderr);
+      }
+
+      // Valida se arquivo foi convertido
+      if (!fs.existsSync(wavInput)) {
+        console.error('❌ [AUTOMASTER] Arquivo convertido não foi gerado');
+        fs.unlink(inputPath, () => {});
+        return res.status(500).json({ 
+          error: 'Falha ao converter áudio para WAV PCM',
+          details: 'O arquivo convertido não foi criado'
+        });
+      }
+
+      console.log('✅ [AUTOMASTER] Arquivo convertido:', wavInput);
+      console.log('📊 [AUTOMASTER] Tamanho:', fs.statSync(wavInput).size, 'bytes');
+
+    } catch (ffmpegError) {
+      console.error('❌ [AUTOMASTER] Erro na conversão FFmpeg:', ffmpegError);
+      fs.unlink(inputPath, () => {});
+      return res.status(500).json({ 
+        error: 'Falha ao converter áudio',
+        details: ffmpegError.message
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // 🎚️ EXECUTA MASTERIZAÇÃO (usando arquivo convertido)
+    // ═══════════════════════════════════════════════════════════════
+    console.log('🎚️ [AUTOMASTER] Iniciando processamento de masterização...');
+
+    // Executa script de masterização com arquivo WAV PCM
     execFile(
       'node',
-      [scriptPath, inputPath, outputPath, genre, mode],
+      [scriptPath, wavInput, outputPath, genre, mode],
       { timeout: 10 * 60 * 1000 }, // 10 minutos
       (error, stdout, stderr) => {
         if (error) {
@@ -485,6 +533,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
           
           // Limpar arquivos temporários
           fs.unlink(inputPath, () => {});
+          fs.unlink(wavInput, () => {});
           
           return res.status(500).json({ 
             error: 'Falha no processamento',
@@ -500,6 +549,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
         if (!fs.existsSync(outputPath)) {
           console.error('❌ [AUTOMASTER] Arquivo masterizado não foi gerado');
           fs.unlink(inputPath, () => {});
+          fs.unlink(wavInput, () => {});
           return res.status(500).json({ 
             error: 'Arquivo masterizado não foi gerado',
             details: 'O script executou mas não criou o arquivo de saída'
@@ -509,12 +559,20 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
         const publicUrl = `/masters/${path.basename(outputPath)}`;
         console.log('🎉 [AUTOMASTER] URL pública:', publicUrl);
 
-        // Limpar arquivo de input (manter apenas master)
+        // Limpar arquivos temporários (input original e WAV convertido)
         fs.unlink(inputPath, (unlinkErr) => {
           if (unlinkErr) {
-            console.warn('⚠️ [AUTOMASTER] Erro ao deletar input:', unlinkErr);
+            console.warn('⚠️ [AUTOMASTER] Erro ao deletar input original:', unlinkErr);
           } else {
-            console.log('🗑️ [AUTOMASTER] Arquivo input removido');
+            console.log('🗑️ [AUTOMASTER] Arquivo input original removido');
+          }
+        });
+
+        fs.unlink(wavInput, (unlinkErr) => {
+          if (unlinkErr) {
+            console.warn('⚠️ [AUTOMASTER] Erro ao deletar WAV convertido:', unlinkErr);
+          } else {
+            console.log('🗑️ [AUTOMASTER] Arquivo WAV convertido removido');
           }
         });
 
