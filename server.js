@@ -98,8 +98,28 @@ console.log(`🌍 [SERVER-ROOT] Ambiente: ${currentEnv}`);
 // Aplicar express.raw() ANTES de express.json() para a rota específica
 app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
 
-// ✅ CORS configurado dinamicamente por ambiente
-app.use(cors(getCorsConfig(currentEnv)));
+// ✅ CORS configurado com domínios permitidos
+const allowedOrigins = [
+  "https://soundyai.com.br",
+  "https://www.soundyai.com.br",
+  "https://soundyai-app-soundyai-teste.up.railway.app",
+  "https://soundyai-app-automaster.up.railway.app",
+  "http://localhost:3000",
+  "http://localhost:5173"
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.warn("CORS bloqueou origem:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
