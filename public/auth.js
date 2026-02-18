@@ -1,12 +1,16 @@
-// auth.js - Versão 2026-02-17 23:27 - Sistema de fallback triplo
-console.log('🚨🚨🚨 AUTH.JS INICIANDO - v2026-02-17 23:27 🚨🚨🚨');
+// auth.js - Versão 2026-02-17 23:48 - Sistema de fallback triplo + emergency mode
+console.log('🚨🚨🚨 AUTH.JS INICIANDO - v2026-02-17 23:48 🚨🚨🚨');
+console.log('🔍 [DEBUG] Script auth.js carregado e executando...');
 log('🚀 Carregando auth.js...');
 
 (async () => {
   try {
+    console.log('🔍 [DEBUG] Iniciando importação do firebase.js...');
     // Importações corretas com URLs válidas
     const { auth, db } = await import('./firebase.js');
+    console.log('✅ [DEBUG] Firebase importado:', { auth: !!auth, db: !!db });
     
+    console.log('🔍 [DEBUG] Iniciando importação do Firebase Auth...');
     // Importações Firebase Auth com URLs corretas
     const { 
       RecaptchaVerifier, 
@@ -21,9 +25,12 @@ log('🚀 Carregando auth.js...');
       GoogleAuthProvider,
       signInWithPopup
     } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+    console.log('✅ [DEBUG] Firebase Auth importado com sucesso');
     
+    console.log('🔍 [DEBUG] Iniciando importação do Firestore...');
     // Importações Firestore
     const { doc, getDoc, setDoc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+    console.log('✅ [DEBUG] Firestore importado com sucesso');
 
     log('✅ Todas as importações carregadas com sucesso');
 
@@ -2334,5 +2341,41 @@ log('🚀 Carregando auth.js...');
 
   } catch (err) {
     error('❌ Erro crítico ao carregar auth.js:', err);
+    console.error('❌ Stack:', err.stack);
+    console.error('❌ Mensagem:', err.message);
+    
+    // ✅ FALLBACK DE EMERGÊNCIA: Habilitar botões mesmo com erro
+    console.warn('⚡ Ativando modo de emergência - habilitando botões localmente');
+    
+    setTimeout(() => {
+      const loginBtn = document.getElementById('loginBtn');
+      const signUpBtn = document.getElementById('signUpBtn');
+      const googleBtn = document.getElementById('googleLoginBtn');
+      
+      if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Entrar';
+        loginBtn.style.opacity = '1';
+        loginBtn.style.cursor = 'pointer';
+        console.log('⚡ [EMERGENCY] Botão Entrar habilitado');
+      }
+      
+      if (signUpBtn) {
+        signUpBtn.disabled = false;
+        signUpBtn.textContent = 'Cadastrar';
+        signUpBtn.style.opacity = '1';
+        signUpBtn.style.cursor = 'pointer';
+        console.log('⚡ [EMERGENCY] Botão Cadastrar habilitado');
+      }
+      
+      if (googleBtn) {
+        googleBtn.disabled = false;
+        googleBtn.style.opacity = '1';
+        googleBtn.style.cursor = 'pointer';
+        console.log('⚡ [EMERGENCY] Botão Google habilitado');
+      }
+      
+      alert('Erro ao carregar sistema. Recarregue a página (Ctrl+Shift+R).\n\nSe o problema persistir, limpe o cache do navegador.');
+    }, 1000);
   }
 })();
