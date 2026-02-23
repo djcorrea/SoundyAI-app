@@ -46,8 +46,8 @@ const logger = createServiceLogger('automaster-worker');
 // CONSTANTES
 // ============================================================================
 
-const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || '1', 10);
-const TIMEOUT_MS = 120000; // 120 segundos
+const WORKER_CONCURRENCY = parseInt(process.env.AUTOMASTER_CONCURRENCY || '1', 10);
+const TIMEOUT_MS = 300000; // 300 segundos (5 minutos) - aumentado para áudios longos
 const MASTER_PIPELINE_SCRIPT = path.resolve(__dirname, '../automaster/master-pipeline.cjs');
 const TMP_BASE_DIR = path.resolve(__dirname, '../tmp');
 
@@ -350,13 +350,6 @@ async function processJob(job) {
       throw error;
     }
 
-    // Cleanup em caso de erro
-    if (workspace) {
-      await cleanupJobWorkspace(jobId).catch(err => {
-        log.error({ error: err.message }, 'Falha no cleanup após erro');
-      });
-    }
-
     const endTime = Date.now();
     const durationMs = endTime - startTime;
 
@@ -402,17 +395,38 @@ async function processJob(job) {
     // Re-throw para BullMQ tratar retry
     throw error;
   } finally {
-    // Garantir que heartbeat sempre é parado
+    // ═══════════════════════════════════════════════════════════════
+    // CLEANUP OBRIGATÓRIO - SEMPRE EXECUTA (mesmo com erro/timeout)
+    // ═══════════════════════════════════════════════════════════════
     const log = jobLogger || logger;
+    
+    // 1. Parar heartbeat
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
       log.info('Heartbeat do lock parado (finally)');
     }
 
-    // Garantir que lock sempre é liberado
+    // 2. Liberar lock distribuído
     if (lockData && jobId) {
       await jobLock.releaseLock(jobId, lockData.workerId).catch(err => {
         log.error({ error: err.message }, 'Falha ao liberar lock (finally)');
+      });
+    }
+
+    // 3. GARANTIR limpeza de workspace (CRÍTICO para evitar disco cheio)
+    if (workspace && jobId) {
+      await cleanupJobWorkspace(jobId).catch(err => {
+        log.error({ jobId, error: err.message }, 'Falha no cleanup de workspace (finally)');
+        // Tentar cleanup manual como último recurso
+        try {
+          const workspacePath = path.join(TMP_BASE_DIR, jobId);
+          if (fsSync.existsSync(workspacePath)) {
+            execSync(`rm -rf "${workspacePath}"`, { timeout: 5000 });
+            log.warn({ jobId }, 'Cleanup manual com rm -rf bem-sucedido');
+          }
+        } catch (manualErr) {
+          log.error({ jobId, error: manualErr.message }, 'Cleanup manual também falhou - workspace órfão!');
+        }
       });
     }
   }

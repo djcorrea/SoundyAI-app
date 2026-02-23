@@ -233,7 +233,7 @@ function cleanupTempFile(tempFilePath) {
 export async function processAudioComplete(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
   const jobId = options.jobId || 'unknown';
-  let tempFilePath = null;
+  let tempFilePath = null; // ✅ PATCH 2026-02-23: Garantir cleanup em finally
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   let customTargets = null; // 🔧 Declaração antecipada para evitar ReferenceError
   
@@ -269,6 +269,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let audioData, segmentedData, coreMetrics, finalJSON;
   const timings = {};
 
+  // ============================================================================
+  // 🚨 PATCH 2026-02-23: CLEANUP GARANTIDO (try/finally)
+  // ============================================================================
+  // Problema: cleanupTempFile() só rodava no final do try/catch
+  // → Se erro acontecesse entre createTempWavFile() e fim do processamento,
+  //   arquivo ficava órfão em /temp/ (50-200 MB por job)
+  // Solução: try/finally garante cleanup SEMPRE, mesmo com throw/return
+  // Impacto: Previne disco full (5-20 GB/dia em jobs com falhas frequentes)
+  // ============================================================================
+  try {
   try {
     // ========= FASE 5.1: DECODIFICAÇÃO =========
     try {
@@ -1783,9 +1793,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[PLAN-FILTER] ℹ️ Sem planContext - definindo analysisMode como "full"');
     }
 
-    // Limpar arquivo temporário
-    cleanupTempFile(tempFilePath);
-
+    // ✅ PATCH 2026-02-23: Cleanup movido para finally (sempre executa)
     return finalJSON;
 
   } catch (error) {
@@ -1802,12 +1810,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
     console.error(`📍 [${jobId.substring(0,8)}] Stage: ${error.stage || 'unknown'}, Code: ${error.code || 'unknown'}`);
     
-    // Limpar arquivo temporário em caso de erro
-    cleanupTempFile(tempFilePath);
+    // ✅ PATCH 2026-02-23: Cleanup movido para finally (sempre executa)
     
     // ========= ESTRUTURAR ERRO FINAL =========
     // NÃO retornar JSON de erro - propagar para camada de jobs
     // A camada de jobs decidirá como marcar o status
+  } finally {
+    // ============================================================================
+    // 🛡️ CLEANUP GARANTIDO - SEMPRE EXECUTA (PATCH 2026-02-23)
+    // ============================================================================
+    // Executa SEMPRE: sucesso, erro, throw, return, timeout
+    // Previne arquivos órfãos em /temp/ (Railway disco limitado)
+    // ============================================================================
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+      console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
+    }
+  }
     
     // Se já é um erro estruturado, re-propagar
     if (error.stage) {

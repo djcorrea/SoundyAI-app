@@ -31,7 +31,11 @@ const automasterQueue = new Queue('automaster', {
     removeOnFail: {
       age: 86400 // 24 horas
     },
-    timeout: 180000 // 3 minutos total timeout (alinhado com lock TTL)
+    // ✅ PATCH 2026-02-23: ALINHADO COM WORKER TIMEOUT (300s) + MARGEM (60s)
+    // Antes: 180000ms (3 min) - Queue matava job antes do worker finalizar
+    // Depois: 360000ms (6 min) - Worker timeout 300s + margem 60s
+    // Motivo: Prevenir "queue timeout < worker timeout" causando duplicação
+    timeout: 360000 // 6 minutos total timeout (worker 300s + margem)
   }
 });
 

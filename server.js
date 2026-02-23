@@ -459,228 +459,190 @@ app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req,
   }
 });
 
-// 🎚️ PROCESSAMENTO: Executa masterização automática
+// 🎚️ PROCESSAMENTO ASSÍNCRONO: Enfileira masterização automática
 app.post('/api/automaster', automasterUpload.single('file'), async (req, res) => {
-  console.log('🎚️ [AUTOMASTER] PROCESSAMENTO iniciado');
+  console.log('🎚️ [AUTOMASTER] INÍCIO - Enfileirando job');
   
   try {
+    // 1. Validar arquivo
     if (!req.file) {
       console.error('❌ [AUTOMASTER] Nenhum arquivo enviado');
       return res.status(400).json({ error: 'Arquivo não enviado' });
     }
 
-    const mode = (req.body.mode || 'MEDIUM').toUpperCase();
-    const inputPath = req.file.path;
-    const outputPath = inputPath + '_MASTER.wav';
+    // 2. Validar modo
+    const mode = (req.body.mode || 'STREAMING').toUpperCase();
+    const validModes = ['STREAMING', 'BALANCED', 'IMPACT'];
+    if (!validModes.includes(mode)) {
+      console.error('❌ [AUTOMASTER] Modo inválido:', mode);
+      return res.status(400).json({ 
+        error: 'Modo inválido',
+        details: `Modos válidos: ${validModes.join(', ')}`
+      });
+    }
 
     console.log('✅ [AUTOMASTER] Arquivo recebido:', req.file.originalname);
     console.log('⚙️ [AUTOMASTER] Modo:', mode);
-    console.log('📁 [AUTOMASTER] Input:', inputPath);
-    console.log('📁 [AUTOMASTER] Output:', outputPath);
+    console.log('📁 [AUTOMASTER] Path temporário:', req.file.path);
 
-    // Verifica se o script automaster-v1.cjs existe
-    const scriptPath = path.join(process.cwd(), 'automaster', 'automaster-v1.cjs');
-    if (!fs.existsSync(scriptPath)) {
-      console.error('❌ [AUTOMASTER] Script não encontrado:', scriptPath);
-      return res.status(500).json({ 
-        error: 'Script de masterização não encontrado',
-        details: 'automaster/automaster-v1.cjs não foi encontrado'
-      });
-    }
+    // Importar dependências (lazy load)
+    const { v4: uuidv4 } = await import('uuid');
+    const automasterQueue = require('./queue/automaster-queue.cjs');
+    const storageService = require('./services/storage-service.cjs');
+    const jobStore = require('./services/job-store.cjs');
 
-    console.log('🚀 [AUTOMASTER] Executando script:', scriptPath);
+    // 3. Gerar jobId único
+    const jobId = uuidv4();
+    console.log('🆔 [AUTOMASTER] Job ID:', jobId);
 
-    // ═══════════════════════════════════════════════════════════════
-    // 🔄 CONVERSÃO PARA WAV PCM (preserva qualidade máxima)
-    // ═══════════════════════════════════════════════════════════════
-    const wavInput = inputPath.replace(path.extname(inputPath), '_pcm.wav');
-    const ffmpegCmd = `ffmpeg -y -i "${inputPath}" -map 0:a -c:a pcm_s24le "${wavInput}"`;
+    // 4. Upload para storage (input)
+    console.log('☁️ [AUTOMASTER] Fazendo upload para storage...');
+    const inputKey = `input/${jobId}.wav`;
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    await storageService.uploadFile(inputKey, fileBuffer, 'audio/wav');
+    console.log('✅ [AUTOMASTER] Upload concluído:', inputKey);
 
-    console.log('🔄 [AUTOMASTER] Convertendo para WAV PCM...');
-    console.log('📝 [AUTOMASTER] Comando:', ffmpegCmd);
-
-    try {
-      const { stdout: ffmpegStdout, stderr: ffmpegStderr } = await execAsync(ffmpegCmd, {
-        timeout: 5 * 60 * 1000 // 5 minutos para conversão
-      });
-
-      if (ffmpegStderr) {
-        console.log('📋 [AUTOMASTER] FFmpeg log:', ffmpegStderr);
+    // 5. Limpar arquivo temporário local
+    fs.unlink(req.file.path, (err) => {
+      if (err) {
+        console.warn('⚠️ [AUTOMASTER] Erro ao deletar arquivo temporário:', err);
+      } else {
+        console.log('🗑️ [AUTOMASTER] Arquivo temporário removido');
       }
+    });
 
-      // Valida se arquivo foi convertido
-      if (!fs.existsSync(wavInput)) {
-        console.error('❌ [AUTOMASTER] Arquivo convertido não foi gerado');
-        fs.unlink(inputPath, () => {});
-        return res.status(500).json({ 
-          error: 'Falha ao converter áudio para WAV PCM',
-          details: 'O arquivo convertido não foi criado'
-        });
-      }
+    // 6. Criar job no job-store (Redis)
+    console.log('📝 [AUTOMASTER] Criando job no job-store...');
+    await jobStore.createJob(jobId, {
+      status: 'queued',
+      input_key: inputKey,
+      mode,
+      user_id: req.user?.id || 'anonymous',
+      created_at: Date.now(),
+      progress: 0
+    });
 
-      console.log('✅ [AUTOMASTER] Arquivo convertido:', wavInput);
-      console.log('📊 [AUTOMASTER] Tamanho:', fs.statSync(wavInput).size, 'bytes');
+    // 7. Adicionar job à fila BullMQ
+    console.log('📬 [AUTOMASTER] Adicionando job à fila...');
+    await automasterQueue.add('process', {
+      jobId,
+      inputKey,
+      mode,
+      userId: req.user?.id || 'anonymous'
+    }, {
+      jobId, // ID explícito para idempotência
+      priority: req.user?.isPremium ? 1 : 5 // Priorização por tier
+    });
 
-    } catch (ffmpegError) {
-      console.error('❌ [AUTOMASTER] Erro na conversão FFmpeg:', ffmpegError);
-      fs.unlink(inputPath, () => {});
-      return res.status(500).json({ 
-        error: 'Falha ao converter áudio',
-        details: ffmpegError.message
-      });
-    }
+    console.log('✅ [AUTOMASTER] Job enfileirado com sucesso');
 
-    // ═══════════════════════════════════════════════════════════════
-    // 📊 ANALISAR MÉTRICAS E DECIDIR TARGET
-    // ═══════════════════════════════════════════════════════════════
-    console.log('📊 [AUTOMASTER] Analisando métricas do áudio...');
+    // 8. Responder imediatamente (NÃO esperar processamento)
+    return res.status(202).json({
+      success: true,
+      jobId,
+      status: 'queued',
+      message: 'Job de masterização criado com sucesso',
+      estimatedTime: mode === 'STREAMING' ? 40 : mode === 'BALANCED' ? 60 : 120,
+      statusUrl: `/api/automaster/status/${jobId}`
+    });
+
+  } catch (error) {
+    console.error('❌ [AUTOMASTER] Erro ao criar job:', error);
     
-    let decision;
-    try {
-      const metrics = await analyzeAudioMetrics(wavInput, execAsync);
-      
-      if (!metrics.success) {
-        console.warn('⚠️ [AUTOMASTER] Usando métricas de fallback');
-      }
-      
-      decision = decideGainWithinRange(metrics, mode);
-      
-      // Log da decisão
-      console.log('🎯 [AUTOMASTER] Decisão de processamento:');
-      console.log('   LUFS atual:', metrics.lufs.toFixed(1));
-      console.log('   LUFS alvo:', decision.targetLUFS);
-      console.log('   Ganho:', decision.gainDB, 'dB');
-      console.log('   Processar:', decision.shouldProcess ? 'SIM' : 'NÃO');
-      console.log('   Razão:', decision.reason);
-      
-      // Se não deve processar, retornar arquivo original
-      if (!decision.shouldProcess) {
-        console.log('ℹ️ [AUTOMASTER] Áudio não precisa de processamento');
-        
-        // Copiar arquivo original como resultado
-        fs.copyFileSync(wavInput, outputPath);
-        
-        // Limpar temporários
-        fs.unlink(inputPath, () => {});
-        fs.unlink(wavInput, () => {});
-        
-        const masterUrl = `/masters/${path.basename(outputPath)}`;
-        
-        return res.json({
-          success: true,
-          message: 'Áudio já está otimizado para o modo escolhido',
-          result: {
-            masterUrl,
-            beforeUrl: null,
-            decision: {
-              processed: false,
-              reason: decision.reason,
-              metrics: decision.metrics,
-              targetLUFS: decision.targetLUFS
-            }
-          }
-        });
-      }
-      
-    } catch (analysisError) {
-      console.error('❌ [AUTOMASTER] Erro ao analisar métricas:', analysisError);
-      
-      // Limpar arquivos
-      fs.unlink(inputPath, () => {});
-      fs.unlink(wavInput, () => {});
-      
-      return res.status(500).json({
-        error: 'Falha ao analisar áudio',
-        details: analysisError.message
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 🎚️ EXECUTA MASTERIZAÇÃO (usando arquivo convertido)
-    // ═══════════════════════════════════════════════════════════════
-    console.log('🎚️ [AUTOMASTER] Iniciando processamento de masterização...');
-
-    // Executa script de masterização com arquivo WAV PCM
-    // Passa targetLUFS calculado pelo decision engine
-    execFile(
-      'node',
-      [scriptPath, wavInput, outputPath, mode, decision.targetLUFS.toString()],
-      { timeout: 10 * 60 * 1000 }, // 10 minutos
-      (error, stdout, stderr) => {
-        if (error) {
-          console.error('❌ [AUTOMASTER] Erro na execução:', error);
-          console.error('❌ [AUTOMASTER] stderr:', stderr);
-          
-          // Limpar arquivos temporários
-          fs.unlink(inputPath, () => {});
-          fs.unlink(wavInput, () => {});
-          
-          return res.status(500).json({ 
-            error: 'Falha no processamento',
-            details: error.message,
-            stderr: stderr
-          });
-        }
-
-        console.log('✅ [AUTOMASTER] stdout:', stdout);
-        console.log('✅ [AUTOMASTER] Masterização concluída');
-
-        // Verifica se arquivo foi gerado
-        if (!fs.existsSync(outputPath)) {
-          console.error('❌ [AUTOMASTER] Arquivo masterizado não foi gerado');
-          fs.unlink(inputPath, () => {});
-          fs.unlink(wavInput, () => {});
-          return res.status(500).json({ 
-            error: 'Arquivo masterizado não foi gerado',
-            details: 'O script executou mas não criou o arquivo de saída'
-          });
-        }
-
-        const publicUrl = `/masters/${path.basename(outputPath)}`;
-        console.log('🎉 [AUTOMASTER] URL pública:', publicUrl);
-
-        // Limpar arquivos temporários (input original e WAV convertido)
-        fs.unlink(inputPath, (unlinkErr) => {
-          if (unlinkErr) {
-            console.warn('⚠️ [AUTOMASTER] Erro ao deletar input original:', unlinkErr);
-          } else {
-            console.log('🗑️ [AUTOMASTER] Arquivo input original removido');
-          }
-        });
-
-        fs.unlink(wavInput, (unlinkErr) => {
-          if (unlinkErr) {
-            console.warn('⚠️ [AUTOMASTER] Erro ao deletar WAV convertido:', unlinkErr);
-          } else {
-            console.log('🗑️ [AUTOMASTER] Arquivo WAV convertido removido');
-          }
-        });
-
-        // Retorna resposta de sucesso
-        res.json({
-          success: true,
-          masterUrl: publicUrl,
-          previewBefore: null,
-          previewAfter: publicUrl,
-          metrics: {
-            lufsBefore: -18.2,
-            lufsAfter: -14.0,
-            truePeakAfter: -1.0
-          }
-        });
-      }
-    );
-
-  } catch (err) {
-    console.error('❌ [AUTOMASTER] Erro no processamento:', err);
-    
-    // Limpar arquivo temporário em caso de erro
+    // Cleanup em caso de erro
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, () => {});
     }
     
-    return res.status(500).json({ error: 'Erro no processamento', details: err.message });
+    return res.status(500).json({
+      error: 'Falha ao criar job de masterização',
+      details: error.message
+    });
   }
+});
+
+// 🔍 STATUS: Consulta status de um job de masterização
+app.get('/api/automaster/status/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    
+    if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    console.log('🔍 [AUTOMASTER-STATUS] Consultando job:', jobId);
+
+    const jobStore = require('./services/job-store.cjs');
+    const job = await jobStore.getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({ 
+        error: 'Job não encontrado',
+        jobId 
+      });
+    }
+
+    console.log('✅ [AUTOMASTER-STATUS] Job encontrado:', job.status);
+
+    // Montar resposta baseada no status
+    const response = {
+      jobId,
+      status: job.status,
+      progress: job.progress || 0,
+      createdAt: job.created_at,
+      mode: job.mode
+    };
+
+    // Adicionar campos específicos por status
+    if (job.status === 'processing') {
+      response.startedAt = job.started_at;
+      response.message = 'Processando masterização...';
+    } else if (job.status === 'completed') {
+      response.finishedAt = job.finished_at;
+      response.processingMs = job.processing_ms;
+      response.outputKey = job.output_key;
+      
+      // Gerar URL assinada para download (5 minutos)
+      if (job.output_key) {
+        const storageService = require('./services/storage-service.cjs');
+        response.downloadUrl = await storageService.generateSignedUrl(job.output_key, 300);
+      }
+      
+      response.message = 'Masterização concluída com sucesso';
+    } else if (job.status === 'failed') {
+      response.error = job.error;
+      response.errorCode = job.error_code;
+      response.failedAt = job.failed_at;
+      response.attempt = job.attempt;
+      response.message = 'Falha no processamento';
+    } else if (job.status === 'queued') {
+      response.message = 'Aguardando na fila...';
+    }
+
+    return res.json(response);
+
+  } catch (error) {
+    console.error('❌ [AUTOMASTER-STATUS] Erro ao consultar status:', error);
+    return res.status(500).json({
+      error: 'Falha ao consultar status',
+      details: error.message
+    });
+  }
+});
+
+// ⚠️ ENDPOINT LEGADO (MANTER POR COMPATIBILIDADE - MAS NÃO USAR)
+// Este endpoint foi migrado para processamento assíncrono acima
+// Mantido apenas para não quebrar integrações antigas
+app.post('/api/automaster-legacy-sync', automasterUpload.single('file'), async (req, res) => {
+  console.warn('⚠️ [AUTOMASTER-LEGACY] Endpoint síncrono (DEPRECATED)');
+  return res.status(410).json({
+    error: 'Endpoint descontinuado',
+    message: 'Use /api/automaster (assíncrono) em vez deste endpoint',
+    migration: {
+      newEndpoint: '/api/automaster',
+      statusEndpoint: '/api/automaster/status/:jobId'
+    }
+  });
 });
 
 // 💳 CONSUMIR CRÉDITO: Registra consumo de crédito no download

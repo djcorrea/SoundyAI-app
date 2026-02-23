@@ -317,8 +317,53 @@ async function initializeWorker() {
     // ⚙️ ETAPA 2: CONFIGURAR WORKER
     console.log('⚙️ [WORKER-INIT] Etapa 2: Configurando Worker BullMQ...');
     
-    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 6;
-    console.log(`🚀 [WORKER-INIT] Worker iniciado com concurrency = ${concurrency} (WORKER_CONCURRENCY=${process.env.WORKER_CONCURRENCY || 'não definida, usando fallback'})`);
+    // ============================================================================
+    // 🚨 CONCORRÊNCIA SEGURA - ANALYSIS WORKER (PATCH 2026-02-23)
+    // ============================================================================
+    // Railway típico: 2-4 vCPU
+    // Analysis pipeline: 2-3 processos FFmpeg por job
+    // Fórmula: (FFmpeg/job) × concurrency ≤ vCPU × 2 (margem)
+    // Exemplo: (2 FFmpeg) × (2 conc) = 4 processos ≤ 4 vCPU × 2 = 8 → OK
+    // ============================================================================
+
+    const DEFAULT_SAFE_CONCURRENCY = 2; // Conservador para Railway 4 vCPU
+    const MIN_CONCURRENCY = 1;
+    const MAX_SAFE_CONCURRENCY = 6;
+
+    const concurrency = (() => {
+      const envValue = Number(process.env.ANALYSIS_CONCURRENCY);
+      
+      if (!envValue || isNaN(envValue)) {
+        console.log(`[WORKER_INIT] ℹ️  ANALYSIS_CONCURRENCY não definida - usando padrão seguro: ${DEFAULT_SAFE_CONCURRENCY}`);
+        return DEFAULT_SAFE_CONCURRENCY;
+      }
+      
+      if (envValue < MIN_CONCURRENCY) {
+        console.warn(`[WORKER_INIT] ⚠️  ANALYSIS_CONCURRENCY inválido (${envValue}) - usando mínimo: ${MIN_CONCURRENCY}`);
+        return MIN_CONCURRENCY;
+      }
+      
+      if (envValue > MAX_SAFE_CONCURRENCY) {
+        console.error(`[WORKER_INIT] ❌ ANALYSIS_CONCURRENCY=${envValue} PERIGOSO para Railway!`);
+        console.error(`   Analysis pipeline usa 2-3 processos FFmpeg por job.`);
+        console.error(`   ${envValue} jobs × 2 FFmpeg = ${envValue * 2} processos simultâneos.`);
+        console.error(`   Railway 4 vCPU suporta máximo ${MAX_SAFE_CONCURRENCY} jobs (${MAX_SAFE_CONCURRENCY * 2}-${MAX_SAFE_CONCURRENCY * 3} FFmpeg).`);
+        console.error(`   Recomendação: ANALYSIS_CONCURRENCY=2-4`);
+        console.error(`   Forçando concurrency para máximo seguro: ${MAX_SAFE_CONCURRENCY}`);
+        return MAX_SAFE_CONCURRENCY;
+      }
+      
+      console.log(`[WORKER_INIT] ✅ ANALYSIS_CONCURRENCY=${envValue} (via env)`);
+      return envValue;
+    })();
+
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`🔧 Analysis Worker Configuration:`);
+    console.log(`   Concurrency:  ${concurrency}`);
+    console.log(`   FFmpeg/job:   2-3 processos`);
+    console.log(`   Max simult:   ${concurrency * 3} processos FFmpeg (worst-case)`);
+    console.log(`   Recomendado:  Railway 2-4 vCPU`);
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     
     // 🎯 CRIAR WORKER COM CONEXÃO ESTABELECIDA
     // ⚙️ PARTE 2: Worker com configuração otimizada e lockDuration aumentado
