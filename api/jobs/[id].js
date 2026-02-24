@@ -197,7 +197,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `SELECT id, file_key, mode, status, error, results, result,
+      `SELECT id, file_key, mode, type, status, error, results, result,
               created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
@@ -216,6 +216,59 @@ router.get("/:id", async (req, res) => {
     if (normalizedStatus === "done") normalizedStatus = "completed";
     if (normalizedStatus === "failed") normalizedStatus = "error";
 
+    // ─────────────────────────────────────────────────────────────────────
+    // 🎚️ FAST-PATH: Jobs AutoMaster têm schema de resposta próprio.
+    // Não possuem technicalData/suggestions; retornam outputKey do resultado.
+    // A validação de technicalData abaixo NÃO se aplica a eles.
+    // ─────────────────────────────────────────────────────────────────────
+    if (job.type === 'automaster') {
+      if (normalizedStatus === 'processing' || normalizedStatus === 'queued') {
+        return res.json({
+          id: job.id,
+          type: 'automaster',
+          status: normalizedStatus,
+          mode: job.mode,
+          createdAt: job.created_at,
+          updatedAt: job.updated_at
+        });
+      }
+
+      if (normalizedStatus === 'error' || normalizedStatus === 'failed') {
+        return res.json({
+          id: job.id,
+          type: 'automaster',
+          status: 'error',
+          mode: job.mode,
+          error: job.error || null,
+          createdAt: job.created_at,
+          updatedAt: job.updated_at
+        });
+      }
+
+      // Completado: extrair outputKey do campo result (JSON gravado pelo worker)
+      let outputKey = null;
+      const rawResult = job.result || job.results;
+      if (rawResult) {
+        try {
+          const parsed = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
+          outputKey = parsed.outputKey || parsed.output_key || null;
+        } catch (_) { /* ignorar - outputKey permanece null */ }
+      }
+
+      return res.json({
+        id: job.id,
+        type: 'automaster',
+        status: normalizedStatus,
+        mode: job.mode,
+        outputKey,
+        fileKey: job.file_key,
+        error: job.error || null,
+        createdAt: job.created_at,
+        updatedAt: job.updated_at,
+        completedAt: job.completed_at
+      });
+    }
+
     // 🛡️ Se job ainda está em processing/queued, retornar status mínimo
     if (normalizedStatus === "processing" || normalizedStatus === "queued") {
       if (DEBUG) {
@@ -224,6 +277,7 @@ router.get("/:id", async (req, res) => {
       
       return res.json({
         id: job.id,
+        type: job.type || 'analyze',
         status: normalizedStatus,
         mode: job.mode,
         createdAt: job.created_at,
@@ -370,6 +424,7 @@ router.get("/:id", async (req, res) => {
     
     const response = {
       id: job.id,
+      type: job.type || 'analyze',
       fileKey: job.file_key,
       mode: job.mode,
       status: normalizedStatus,

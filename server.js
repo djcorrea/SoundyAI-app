@@ -11,6 +11,24 @@ import multer from "multer";
 import { execFile, exec, execSync } from "child_process";
 import { promisify } from "util";
 import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.js';
+import pkg from "pg";
+const { Pool } = pkg;
+
+// ============================================================================
+// 🗄️ POOL POSTGRESQL: Compartilhado para registros de jobs AutoMaster
+// Permite consulta de status via /api/jobs/:id junto com jobs do analisador.
+// ============================================================================
+const jobsPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false },
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+jobsPool.on('error', (err) => {
+  console.error('⚠️ [JOBS-POOL] Erro de conexão PostgreSQL (não fatal):', err.message);
+});
 
 const execAsync = promisify(exec);
 
@@ -536,7 +554,22 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
 
     console.log('✅ [AUTOMASTER] Job enfileirado com sucesso');
 
-    // 8. Responder imediatamente (NÃO esperar processamento)
+    // 8. Registrar job no PostgreSQL (para status unificado via /api/jobs/:id)
+    // Não crítico: Redis job-store é a fonte primária para automaster
+    try {
+      await jobsPool.query(
+        `INSERT INTO jobs (id, file_key, mode, type, status, created_at, updated_at)
+         VALUES ($1, $2, $3, 'automaster', 'queued', NOW(), NOW())
+         ON CONFLICT (id) DO NOTHING`,
+        [jobId, inputKey, mode]
+      );
+      console.log('✅ [AUTOMASTER] Job registrado no PostgreSQL (jobId:', jobId, ')');
+    } catch (pgErr) {
+      // Não bloquear o fluxo — Redis continua sendo o estado canônico
+      console.warn('⚠️ [AUTOMASTER] Falha ao registrar no PostgreSQL (não crítico):', pgErr.message);
+    }
+
+    // 9. Responder imediatamente (NÃO esperar processamento)
     return res.status(202).json({
       success: true,
       jobId,

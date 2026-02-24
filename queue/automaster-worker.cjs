@@ -1,4 +1,23 @@
 require('dotenv').config();
+const { Pool } = require('pg');
+
+// ============================================================================
+// 🗄️ POOL POSTGRESQL: Sincronização de status para /api/jobs/:id
+// Permite consulta unificada de status junto com jobs do analisador.
+// Não crítico: Redis job-store é a fonte primária do automaster-worker.
+// ============================================================================
+const workerPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSL === 'disable' ? false : { rejectUnauthorized: false },
+  max: 3,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+workerPool.on('error', (err) => {
+  console.warn('[WORKER-PG] Erro de conexão PostgreSQL (não fatal):', err.message);
+});
+
 /**
  * ============================================================================
  * AUTOMASTER WORKER - PROCESSADOR BULLMQ
@@ -309,13 +328,32 @@ async function processJob(job) {
       throw new Error('LOCK_LOST: Worker perdeu ownership durante processamento');
     }
 
-    // 11. Atualizar status para completed
+    // 11. Atualizar status para completed (Redis — fonte primária)
     await jobStore.updateJobStatus(jobId, 'completed', {
       output_key: outputKey,
       processing_ms: durationMs,
       progress: 100,
       finished_at: endTime
     });
+
+    // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)
+    try {
+      await workerPool.query(
+        `UPDATE jobs
+         SET status       = 'completed',
+             result       = $1,
+             completed_at = NOW(),
+             updated_at   = NOW()
+         WHERE id = $2`,
+        [
+          JSON.stringify({ outputKey, processingMs: durationMs }),
+          jobId
+        ]
+      );
+      jobLogger.info({ jobId }, 'PostgreSQL sincronizado: completed');
+    } catch (pgErr) {
+      jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar completed com PostgreSQL (não crítico)');
+    }
 
     // 12. Parar heartbeat
     if (heartbeatInterval) {
@@ -380,12 +418,27 @@ async function processJob(job) {
     );
 
     if (!shouldRetry) {
-      // Marcar como failed permanentemente
+      // Marcar como failed permanentemente (Redis — fonte primária)
       await jobStore.setJobError(jobId, classification.code, classification.message, attempt);
       log.error({ 
         error_code: classification.code,
         reason: 'Non-recoverable error or max attempts reached'
       }, 'Job marcado como failed permanente');
+
+      // Sincronizar falha permanente com PostgreSQL
+      try {
+        await workerPool.query(
+          `UPDATE jobs
+           SET status     = 'failed',
+               error      = $1,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [classification.message, jobId]
+        );
+        log.info({ jobId }, 'PostgreSQL sincronizado: failed');
+      } catch (pgErr) {
+        log.warn({ error: pgErr.message }, 'Falha ao sincronizar failed com PostgreSQL (não crítico)');
+      }
     } else {
       // Incrementar attempt para próximo retry
       await jobStore.incrementAttempt(jobId);
