@@ -61,7 +61,7 @@ const rmsDb = 20 * Math.log10(Math.sqrt(band.totalEnergy / validTotalEnergy));
 
         <div class="test-section">
             <h2>🎵 Teste com Arquivo de Áudio</h2>
-            <input type="file" id="audioFile" accept="audio/*" class="btn">
+            <input type="file" id="audioFile" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac" class="btn">
             <button onclick="runSpectralTest()" class="btn">🔬 Testar Análise Espectral</button>
             <button onclick="compareResults()" class="btn">⚖️ Comparar Antigo vs Novo</button>
         </div>

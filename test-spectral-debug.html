@@ -47,7 +47,7 @@
                 // Criar um arquivo de teste pequeno
                 const fileInput = document.createElement('input');
                 fileInput.type = 'file';
-                fileInput.accept = 'audio/*';
+                fileInput.accept = '.wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac';
                 
                 fileInput.onchange = async (e) => {
                     const file = e.target.files[0];

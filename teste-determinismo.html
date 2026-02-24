@@ -79,7 +79,7 @@
         <div class="test-box">
             <h3>🎵 Teste 1: DETERMINISMO (Mesmo Arquivo)</h3>
             <p>Analise o mesmo arquivo múltiplas vezes - o score deve ser IDÊNTICO</p>
-            <input type="file" id="audioFile1" accept="audio/*">
+            <input type="file" id="audioFile1" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac">
             <br><br>
             <button onclick="testDeterminism()">🔄 Testar Determinismo (3x)</button>
             <div id="determinismResults" class="result">Aguardando teste...</div>
@@ -89,10 +89,10 @@
             <h3>🎵 Teste 2: SENSIBILIDADE (Arquivos Diferentes)</h3>
             <p>Analise 2 arquivos diferentes - os scores devem ser DIFERENTES</p>
             <label>Arquivo 1:</label>
-            <input type="file" id="audioFile2A" accept="audio/*">
+            <input type="file" id="audioFile2A" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac">
             <br>
             <label>Arquivo 2:</label>
-            <input type="file" id="audioFile2B" accept="audio/*">
+            <input type="file" id="audioFile2B" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac">
             <br><br>
             <button onclick="testSensitivity()">⚖️ Comparar Arquivos Diferentes</button>
             <div id="sensitivityResults" class="result">Aguardando teste...</div>

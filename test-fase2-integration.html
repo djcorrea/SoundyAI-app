@@ -32,7 +32,7 @@
         <h2>📂 Upload de Teste</h2>
         <div class="upload-area" onclick="document.getElementById('testFile').click()">
             <p>📁 Clique para escolher arquivo de áudio (para testes reais)</p>
-            <input type="file" id="testFile" accept="audio/*" style="display:none" onchange="handleFileUpload(this.files[0])">
+            <input type="file" id="testFile" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac" style="display:none" onchange="handleFileUpload(this.files[0])">
         </div>
     </div>
     
