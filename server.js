@@ -511,11 +511,56 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     console.log('⚙️ [AUTOMASTER] Modo (resolvido):', resolvedMode);
     console.log('📁 [AUTOMASTER] Path temporário:', req.file.path);
 
+    // Contexto completo do request (visível nos logs do Railway)
+    console.log('[AUTOMASTER] Criando job com dados:', {
+      mode: resolvedMode,
+      filename: req.file.originalname,
+      fileSize: req.file.size,
+      mimetype: req.file.mimetype,
+      userId: req.user?.id || 'anonymous',
+      nodeEnv: process.env.NODE_ENV,
+      hasRedisUrl: !!process.env.REDIS_URL || !!process.env.REDIS_PRIVATE_URL,
+      hasDatabaseUrl: !!process.env.DATABASE_URL
+    });
+
     // Importar dependências (lazy load)
+    console.log('[AUTOMASTER] Carregando dependências...');
     const { v4: uuidv4 } = await import('uuid');
-    const automasterQueue = require('./queue/automaster-queue.cjs');
-    const storageService = require('./services/storage-service.cjs');
-    const jobStore = require('./services/job-store.cjs');
+    let automasterQueue, storageService, jobStore;
+    try {
+      automasterQueue = require('./queue/automaster-queue.cjs');
+      console.log('[AUTOMASTER] automasterQueue carregado. tipo:', typeof automasterQueue, '| tem .add:', typeof automasterQueue?.add);
+    } catch (requireErr) {
+      console.error('[AUTOMASTER] FALHA ao carregar automaster-queue.cjs:', requireErr.message);
+      console.error('[AUTOMASTER] STACK automaster-queue:', requireErr.stack);
+      throw requireErr;
+    }
+    try {
+      storageService = require('./services/storage-service.cjs');
+      console.log('[AUTOMASTER] storageService carregado. tipo:', typeof storageService);
+    } catch (requireErr) {
+      console.error('[AUTOMASTER] FALHA ao carregar storage-service.cjs:', requireErr.message);
+      throw requireErr;
+    }
+    try {
+      jobStore = require('./services/job-store.cjs');
+      console.log('[AUTOMASTER] jobStore carregado. tipo:', typeof jobStore, '| tem .createJob:', typeof jobStore?.createJob);
+    } catch (requireErr) {
+      console.error('[AUTOMASTER] FALHA ao carregar job-store.cjs:', requireErr.message);
+      throw requireErr;
+    }
+
+    // Validar que a fila BullMQ está operacional
+    if (!automasterQueue || typeof automasterQueue.add !== 'function') {
+      console.error('[AUTOMASTER] Redis não conectado ou automasterQueue inválida:', {
+        queueType: typeof automasterQueue,
+        addType: typeof automasterQueue?.add
+      });
+      return res.status(503).json({
+        error: 'QUEUE_UNAVAILABLE',
+        message: 'Fila de processamento indisponível (Redis não conectado)'
+      });
+    }
 
     // 3. Gerar jobId único
     const jobId = uuidv4();
@@ -538,7 +583,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     });
 
     // 6. Criar job no job-store (Redis)
-    console.log('📝 [AUTOMASTER] Criando job no job-store...');
+    console.log('[AUTOMASTER] Pré-jobStore.createJob — jobId:', jobId, '| inputKey:', inputKey, '| mode:', resolvedMode);
     await jobStore.createJob(jobId, {
       status: 'queued',
       input_key: inputKey,
@@ -549,7 +594,12 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     });
 
     // 7. Adicionar job à fila BullMQ
-    console.log('📬 [AUTOMASTER] Adicionando job à fila...');
+    console.log('[AUTOMASTER] Pré-BullMQ.add — payload:', {
+      jobId,
+      inputKey,
+      mode: resolvedMode,
+      userId: req.user?.id || 'anonymous'
+    });
     await automasterQueue.add('process', {
       jobId,
       inputKey,
@@ -588,16 +638,24 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     });
 
   } catch (error) {
-    console.error('❌ [AUTOMASTER] Erro ao criar job:', error);
-    
+    console.error('[AUTOMASTER] ERRO REAL AO CRIAR JOB:', error.message);
+    console.error('[AUTOMASTER] STACK:', error.stack);
+    console.error('[AUTOMASTER] Contexto do erro:', {
+      errorName: error.name,
+      errorCode: error.code,
+      requestMode: req.body?.mode,
+      hasFile: !!req.file
+    });
+
     // Cleanup em caso de erro
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, () => {});
     }
-    
+
     return res.status(500).json({
-      error: 'Falha ao criar job de masterização',
-      details: error.message
+      error: 'JOB_CREATION_FAILED',
+      message: error.message,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
     });
   }
 });
