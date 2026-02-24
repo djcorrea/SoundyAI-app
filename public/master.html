@@ -997,17 +997,17 @@
       </div>
 
       <div class="genre-grid">
-        <div class="genre-card" onclick="selectMode('LOW')">
+        <div class="genre-card" onclick="selectModeInitial('LOW', this)">
           <div class="genre-emoji">🎵</div>
           <div class="genre-name">Suave</div>
           <div class="mode-desc">-15 a -13.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectMode('MEDIUM')">
+        <div class="genre-card" onclick="selectModeInitial('MEDIUM', this)">
           <div class="genre-emoji">⚖️</div>
           <div class="genre-name">Balanceado</div>
           <div class="mode-desc">-14 a -12.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectMode('HIGH')">
+        <div class="genre-card" onclick="selectModeInitial('HIGH', this)">
           <div class="genre-emoji">🔥</div>
           <div class="genre-name">Impacto</div>
           <div class="mode-desc">-12.5 a -9.5 LUFS</div>
@@ -1129,28 +1129,28 @@
         <div class="mode-recommendation-title">Sugestão automática de modo:</div>
         
         <div class="mode-options">
-          <div class="mode-option" id="modeConservative" data-mode="conservative" onclick="selectMode('conservative')">
+          <div class="mode-option" id="modeLow" data-mode="LOW" onclick="selectModeDecision('LOW', this)">
             <div class="mode-header">
               <div class="mode-emoji">🛡️</div>
-              <div class="mode-name">Conservador</div>
+              <div class="mode-name">Suave</div>
             </div>
             <div class="mode-description">Preserva dinâmica natural</div>
           </div>
 
-          <div class="mode-option" id="modeBalanced" data-mode="balanced" onclick="selectMode('balanced')">
+          <div class="mode-option" id="modeMedium" data-mode="MEDIUM" onclick="selectModeDecision('MEDIUM', this)">
             <div class="mode-header">
               <div class="mode-emoji">⚖️</div>
-              <div class="mode-name">Padrão</div>
+              <div class="mode-name">Balanceado</div>
             </div>
             <div class="mode-description">Equilíbrio geral</div>
           </div>
 
-          <div class="mode-option" id="modeAggressive" data-mode="aggressive" onclick="selectMode('aggressive')">
+          <div class="mode-option" id="modeHigh" data-mode="HIGH" onclick="selectModeDecision('HIGH', this)">
             <div class="mode-header">
               <div class="mode-emoji">⚡</div>
-              <div class="mode-name">Forte</div>
+              <div class="mode-name">Impacto</div>
             </div>
-            <div class="mode-description">Mais volume, mais risco</div>
+            <div class="mode-description">Mais volume, controlado</div>
           </div>
         </div>
 
@@ -1174,10 +1174,6 @@
       </div>
 
       <div class="confirmation-summary">
-        <div class="summary-row">
-          <div class="summary-label">Gênero:</div>
-          <div class="summary-value" id="summaryGenre">-</div>
-        </div>
         <div class="summary-row">
           <div class="summary-label">Arquivo:</div>
           <div class="summary-value" id="summaryFile">-</div>
@@ -1493,28 +1489,88 @@
 
     function getModeName(modeCode) {
       const modes = {
-        'conservative': 'Conservador',
-        'balanced': 'Padrão',
-        'aggressive': 'Forte'
+        // Backend modes (uppercase) - OFICIAL
+        'LOW': 'Suave',
+        'MEDIUM': 'Balanceado',
+        'HIGH': 'Impacto',
+        'STREAMING': 'Streaming',
+        
+        // Lowercase fallback
+        'low': 'Suave',
+        'medium': 'Balanceado',
+        'high': 'Impacto',
+        'streaming': 'Streaming'
       };
       return modes[modeCode] || modeCode;
     }
 
     // ========================================
-    // 🎵 ETAPA 1 - SELEÇÃO DE GÊNERO
+    // 🛡️ MODE VALIDATION HELPERS
     // ========================================
-    // 🎯 ETAPA 1 - SELEÇÃO DE MODO
-    // ========================================
-    function selectMode(mode) {
-      console.log('🎯 [AUTOMASTER] Modo selecionado:', mode);
+    
+    /**
+     * Normaliza modo para uppercase
+     * @param {string} mode - Modo em qualquer case
+     * @returns {string} Modo em uppercase
+     */
+    function normalizeMode(mode) {
+      if (!mode) return '';
+      return String(mode).toUpperCase().trim();
+    }
 
+    /**
+     * Valida se modo é válido para o backend
+     * @param {string} mode - Modo a validar
+     * @returns {boolean} True se válido
+     */
+    function isValidMode(mode) {
+      const validModes = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+      const normalized = normalizeMode(mode);
+      return validModes.includes(normalized);
+    }
+
+    /**
+     * Define modo no state com validação
+     * @param {string} mode - Modo a definir
+     * @returns {boolean} True se setou com sucesso
+     */
+    function setMode(mode) {
+      const normalized = normalizeMode(mode);
+      
+      if (!isValidMode(normalized)) {
+        console.error('❌ [AUTOMASTER] Modo inválido:', mode, '→', normalized);
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
+        return false;
+      }
+      
+      automasterState.mode = normalized;
+      console.log('✅ [AUTOMASTER] Modo definido:', normalized);
+      return true;
+    }
+
+    // ========================================
+    // � ETAPA 1 - SELEÇÃO DE MODO INICIAL
+    // ========================================
+    function selectModeInitial(mode, element) {
+      console.log('🎯 [AUTOMASTER] Modo selecionado (inicial):', mode);
+
+      // Remove seleção anterior
       document.querySelectorAll('.genre-card').forEach(card => {
         card.classList.remove('selected');
       });
 
-      event.currentTarget.classList.add('selected');
-      automasterState.mode = mode;
-      document.getElementById('modeNextBtn').disabled = false;
+      // Adiciona seleção ao elemento clicado
+      if (element) {
+        element.classList.add('selected');
+      }
+
+      // Valida e define modo
+      if (setMode(mode)) {
+        document.getElementById('modeNextBtn').disabled = false;
+      } else {
+        alert('Modo inválido. Selecione Suave, Balanceado ou Impacto.');
+        document.getElementById('modeNextBtn').disabled = true;
+      }
     }
 
     function openUploadModal() {
@@ -1632,7 +1688,7 @@
           headroom: data.headroom,
           clipping: data.clipping,
           tonalBalance: data.tonalBalance,
-          recommendedMode: data.recommendedMode || 'balanced',
+          recommendedMode: data.recommendedMode || 'MEDIUM',
           message: data.message || ''
         };
 
@@ -1699,42 +1755,67 @@
         document.getElementById('diagnosisText').textContent =
           message || 'Seu áudio está apto para masterização.';
 
-        // Pré-seleciona modo recomendado pelo backend
-        const recMode = recommendedMode || 'balanced';
-        automasterState.mode = recMode;
-
+        // ============================================================
+        // 🎯 PRÉ-SELEÇÃO INTELIGENTE DO MODO
+        // ============================================================
+        
+        // Backend pode retornar modo recomendado (já validado)
+        // Se não retornar, usar padrão MEDIUM
+        const recMode = normalizeMode(recommendedMode || 'MEDIUM');
+        
+        // Validar modo recomendado
+        const modeToUse = isValidMode(recMode) ? recMode : 'MEDIUM';
+        
+        console.log('🎯 [AUTOMASTER] Modo recomendado:', {
+          backend: recommendedMode,
+          normalized: modeToUse
+        });
+        
+        // Armazenar modo validado
+        setMode(modeToUse);
+        
+        // Remover seleção anterior
         document.querySelectorAll('.mode-option').forEach(opt => {
           opt.classList.remove('selected', 'recommended');
         });
-
+        
+        // Pré-selecionar elemento correspondente
         const recElement = document.getElementById(
-          recMode === 'conservative' ? 'modeConservative' :
-          recMode === 'balanced' ? 'modeBalanced' : 'modeAggressive'
+          modeToUse === 'LOW' ? 'modeLow' :
+          modeToUse === 'MEDIUM' ? 'modeMedium' : 'modeHigh'
         );
+        
         if (recElement) {
           recElement.classList.add('selected', 'recommended');
+          console.log('✅ [AUTOMASTER] Modo pré-selecionado:', modeToUse);
+        } else {
+          console.error('❌ [AUTOMASTER] Elemento do modo não encontrado:', modeToUse);
         }
       }
 
       showModal('decisionModal');
     }
 
-    function selectMode(mode) {
-      console.log('🎚️ [AUTOMASTER] Modo selecionado:', mode);
+    // ========================================
+    // 🎯 ETAPA 4 - SELEÇÃO DE MODO (DECISÃO)
+    // ========================================
+    function selectModeDecision(mode, element) {
+      console.log('🎚️ [AUTOMASTER] Modo selecionado (decisão):', mode);
 
+      // Remove seleção anterior
       document.querySelectorAll('.mode-option').forEach(option => {
         option.classList.remove('selected');
       });
 
-      const targetEl = document.getElementById(
-        mode === 'conservative' ? 'modeConservative' :
-        mode === 'balanced' ? 'modeBalanced' : 'modeAggressive'
-      );
-      if (targetEl) {
-        targetEl.classList.add('selected');
+      // Adiciona seleção ao elemento clicado
+      if (element) {
+        element.classList.add('selected');
       }
 
-      automasterState.mode = mode;
+      // Valida e define modo
+      if (!setMode(mode)) {
+        alert('Modo inválido. Selecione um modo válido.');
+      }
     }
 
     function backToDecision() {
@@ -1752,7 +1833,7 @@
 
       console.log('✅ [AUTOMASTER] Abrindo confirmação');
 
-      document.getElementById('summaryGenre').textContent = getGenreName(automasterState.genre);
+      // document.getElementById('summaryGenre').textContent = getGenreName(automasterState.genre);
       document.getElementById('summaryFile').textContent = automasterState.fileName;
       document.getElementById('summaryMode').textContent = getModeName(automasterState.mode);
 
@@ -1771,16 +1852,59 @@
      */
     async function startProcessing() {
       console.log('⏳ [AUTOMASTER] Iniciando processamento real...');
+      
+      // ============================================================
+      // 🛡️ GUARDIÃO: VALIDAR ESTADO ANTES DE ENVIAR AO BACKEND
+      // ============================================================
+      
+      // Validação 1: Arquivo presente
+      if (!automasterState.file) {
+        alert('Erro interno: Arquivo ausente. Faça upload novamente.');
+        console.error('❌ [AUTOMASTER] automasterState.file está vazio');
+        backToUpload();
+        return;
+      }
+      
+      // Validação 2: Modo definido
+      if (!automasterState.mode) {
+        alert('Erro interno: Modo não definido. Selecione novamente.');
+        console.error('❌ [AUTOMASTER] automasterState.mode está vazio');
+        backToDecision();
+        return;
+      }
+      
+      // Validação 3: Modo válido
+      const modeNormalized = normalizeMode(automasterState.mode);
+      
+      if (!isValidMode(modeNormalized)) {
+        alert(`Erro interno: Modo inválido "${automasterState.mode}". Selecione novamente.`);
+        console.error('❌ [AUTOMASTER] Modo inválido detectado:', automasterState.mode);
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
+        backToDecision();
+        return;
+      }
+      
+      // ✅ ESTADO VALIDADO - PROSSEGUIR
+      console.log('✅ [AUTOMASTER] Estado validado:', {
+        mode: modeNormalized,
+        file: automasterState.file.name,
+        size: `${(automasterState.file.size / 1024 / 1024).toFixed(2)} MB`
+      });
+      
       showModal('processingModal');
-
-      // Mostra loading, esconde erro
       document.getElementById('processingLoading').style.display = 'flex';
       document.getElementById('processingError').style.display = 'none';
 
       try {
         const formData = new FormData();
         formData.append('file', automasterState.file);
-        formData.append('mode', automasterState.mode);
+        formData.append('mode', modeNormalized);  // ← SEMPRE UPPERCASE
+        
+        console.log('📤 [AUTOMASTER] Enviando ao backend:', {
+          endpoint: '/api/automaster',
+          mode: modeNormalized,
+          fileName: automasterState.file.name
+        });
 
         document.getElementById('processingLoadingText').textContent = 'Processando master...';
 
@@ -1813,9 +1937,17 @@
 
       } catch (err) {
         console.error('❌ [AUTOMASTER] Erro no processamento:', err);
+        
+        // Melhorar mensagem de erro para o usuário
+        let userMessage = err.message || 'Erro desconhecido no processamento.';
+        
+        if (userMessage.includes('Mode invalido') || userMessage.includes('Mode inválido')) {
+          userMessage = 'Erro interno: Modo inválido detectado. Nossa equipe foi notificada. Tente novamente ou entre em contato.';
+          console.error('🚨 [AUTOMASTER] BUG CRÍTICO: Modo inválido chegou ao backend!');
+        }
 
         document.getElementById('processingLoading').style.display = 'none';
-        document.getElementById('processingErrorMsg').textContent = err.message || 'Erro desconhecido no processamento.';
+        document.getElementById('processingErrorMsg').textContent = userMessage;
         document.getElementById('processingError').style.display = 'block';
       }
     }
