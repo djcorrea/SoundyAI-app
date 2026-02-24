@@ -1835,6 +1835,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     
     // Erro inesperado - estruturar
     throw makeErr('pipeline', `Pipeline failed: ${error.message}`, 'pipeline_error');
+  } finally {
+    // ============================================================================
+    // 🛡️ CLEANUP GARANTIDO - SEMPRE EXECUTA (PATCH 2026-02-23)
+    // ============================================================================
+    // Executa SEMPRE: sucesso, erro, throw, return, timeout
+    // Previne arquivos órfãos em /temp/ (Railway disco limitado)
+    // ============================================================================
+    if (tempFilePath) {
+      cleanupTempFile(tempFilePath);
+      console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
+    }
   }
 }
 
