@@ -10,7 +10,7 @@ import fs from "fs";
 import multer from "multer";
 import { execFile, exec, execSync } from "child_process";
 import { promisify } from "util";
-import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.js';
+import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.cjs';
 import pkg from "pg";
 const { Pool } = pkg;
 
