@@ -489,18 +489,26 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     }
 
     // 2. Validar modo
-    const mode = (req.body.mode || 'STREAMING').toUpperCase();
-    const validModes = ['STREAMING', 'BALANCED', 'IMPACT'];
-    if (!validModes.includes(mode)) {
-      console.error('❌ [AUTOMASTER] Modo inválido:', mode);
-      return res.status(400).json({ 
-        error: 'Modo inválido',
-        details: `Modos válidos: ${validModes.join(', ')}`
+    const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+    const rawMode = req.body.mode;
+    const mode = rawMode ? rawMode.toString().toUpperCase().trim() : null;
+
+    console.log('[AUTOMASTER] Mode recebido:', mode);
+
+    // Fallback seguro: modo ausente → MEDIUM
+    const resolvedMode = mode || 'MEDIUM';
+
+    if (!VALID_MODES.includes(resolvedMode)) {
+      console.error('❌ [AUTOMASTER] Modo inválido:', resolvedMode);
+      return res.status(400).json({
+        error: 'INVALID_MODE',
+        received: resolvedMode,
+        validModes: VALID_MODES
       });
     }
 
     console.log('✅ [AUTOMASTER] Arquivo recebido:', req.file.originalname);
-    console.log('⚙️ [AUTOMASTER] Modo:', mode);
+    console.log('⚙️ [AUTOMASTER] Modo (resolvido):', resolvedMode);
     console.log('📁 [AUTOMASTER] Path temporário:', req.file.path);
 
     // Importar dependências (lazy load)
@@ -534,7 +542,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     await jobStore.createJob(jobId, {
       status: 'queued',
       input_key: inputKey,
-      mode,
+      mode: resolvedMode,
       user_id: req.user?.id || 'anonymous',
       created_at: Date.now(),
       progress: 0
@@ -545,7 +553,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     await automasterQueue.add('process', {
       jobId,
       inputKey,
-      mode,
+      mode: resolvedMode,
       userId: req.user?.id || 'anonymous'
     }, {
       jobId, // ID explícito para idempotência
@@ -561,7 +569,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
         `INSERT INTO jobs (id, file_key, mode, type, status, created_at, updated_at)
          VALUES ($1, $2, $3, 'automaster', 'queued', NOW(), NOW())
          ON CONFLICT (id) DO NOTHING`,
-        [jobId, inputKey, mode]
+        [jobId, inputKey, resolvedMode]
       );
       console.log('✅ [AUTOMASTER] Job registrado no PostgreSQL (jobId:', jobId, ')');
     } catch (pgErr) {
@@ -575,7 +583,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       jobId,
       status: 'queued',
       message: 'Job de masterização criado com sucesso',
-      estimatedTime: mode === 'STREAMING' ? 40 : mode === 'BALANCED' ? 60 : 120,
+      estimatedTime: resolvedMode === 'STREAMING' ? 40 : resolvedMode === 'LOW' ? 30 : resolvedMode === 'MEDIUM' ? 60 : 120,
       statusUrl: `/api/automaster/status/${jobId}`
     });
 

@@ -99,6 +99,8 @@ ensureDirectories();
 // VALIDAÇÕES
 // ============================================================================
 
+const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+
 function validateJobData(data) {
   if (!data || typeof data !== 'object') {
     throw new Error('Job data inválido');
@@ -114,8 +116,8 @@ function validateJobData(data) {
     throw new Error('inputKey inválido');
   }
 
-  if (!['STREAMING', 'BALANCED', 'IMPACT'].includes(mode)) {
-    throw new Error(`mode inválido: ${mode}`);
+  if (!VALID_MODES.includes(mode)) {
+    throw new Error(`mode inválido: ${mode}. Modos aceitos: ${VALID_MODES.join(', ')}`);
   }
 
   return { jobId, inputKey, mode, userId };
