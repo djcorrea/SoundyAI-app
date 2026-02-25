@@ -997,17 +997,17 @@
       </div>
 
       <div class="genre-grid">
-        <div class="genre-card" onclick="selectModeInitial('STREAMING', this)">
+        <div class="genre-card" onclick="selectModeInitial('LOW', this)">
           <div class="genre-emoji">🎵</div>
           <div class="genre-name">Suave</div>
           <div class="mode-desc">-15 a -13.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectModeInitial('BALANCED', this)">
+        <div class="genre-card" onclick="selectModeInitial('MEDIUM', this)">
           <div class="genre-emoji">⚖️</div>
           <div class="genre-name">Balanceado</div>
           <div class="mode-desc">-14 a -12.5 LUFS</div>
         </div>
-        <div class="genre-card" onclick="selectModeInitial('IMPACT', this)">
+        <div class="genre-card" onclick="selectModeInitial('HIGH', this)">
           <div class="genre-emoji">🔥</div>
           <div class="genre-name">Impacto</div>
           <div class="mode-desc">-12.5 a -9.5 LUFS</div>
@@ -1129,7 +1129,7 @@
         <div class="mode-recommendation-title">Sugestão automática de modo:</div>
         
         <div class="mode-options">
-          <div class="mode-option" id="modeStreaming" data-mode="STREAMING" onclick="selectModeDecision('STREAMING', this)">
+          <div class="mode-option" id="modeLow" data-mode="LOW" onclick="selectModeDecision('LOW', this)">
             <div class="mode-header">
               <div class="mode-emoji">🛡️</div>
               <div class="mode-name">Suave</div>
@@ -1137,7 +1137,7 @@
             <div class="mode-description">Preserva dinâmica natural</div>
           </div>
 
-          <div class="mode-option" id="modeBalanced" data-mode="BALANCED" onclick="selectModeDecision('BALANCED', this)">
+          <div class="mode-option" id="modeMedium" data-mode="MEDIUM" onclick="selectModeDecision('MEDIUM', this)">
             <div class="mode-header">
               <div class="mode-emoji">⚖️</div>
               <div class="mode-name">Balanceado</div>
@@ -1145,7 +1145,7 @@
             <div class="mode-description">Equilíbrio geral</div>
           </div>
 
-          <div class="mode-option" id="modeImpact" data-mode="IMPACT" onclick="selectModeDecision('IMPACT', this)">
+          <div class="mode-option" id="modeHigh" data-mode="HIGH" onclick="selectModeDecision('HIGH', this)">
             <div class="mode-header">
               <div class="mode-emoji">⚡</div>
               <div class="mode-name">Impacto</div>
@@ -1490,14 +1490,16 @@
     function getModeName(modeCode) {
       const modes = {
         // Backend modes (uppercase) - OFICIAL
+        'LOW': 'Suave',
+        'MEDIUM': 'Balanceado',
+        'HIGH': 'Impacto',
         'STREAMING': 'Streaming',
-        'BALANCED': 'Balanceado',
-        'IMPACT': 'Impacto',
         
         // Lowercase fallback
-        'streaming': 'Streaming',
-        'balanced': 'Balanceado',
-        'impact': 'Impacto'
+        'low': 'Suave',
+        'medium': 'Balanceado',
+        'high': 'Impacto',
+        'streaming': 'Streaming'
       };
       return modes[modeCode] || modeCode;
     }
@@ -1522,7 +1524,7 @@
      * @returns {boolean} True se válido
      */
     function isValidMode(mode) {
-      const validModes = ['STREAMING', 'BALANCED', 'IMPACT'];
+      const validModes = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
       const normalized = normalizeMode(mode);
       return validModes.includes(normalized);
     }
@@ -1537,7 +1539,7 @@
       
       if (!isValidMode(normalized)) {
         console.error('❌ [AUTOMASTER] Modo inválido:', mode, '→', normalized);
-        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, BALANCED, IMPACT');
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
         return false;
       }
       
@@ -1686,7 +1688,7 @@
           headroom: data.headroom,
           clipping: data.clipping,
           tonalBalance: data.tonalBalance,
-          recommendedMode: data.recommendedMode || 'BALANCED',
+          recommendedMode: data.recommendedMode || 'MEDIUM',
           message: data.message || ''
         };
 
@@ -1758,11 +1760,11 @@
         // ============================================================
         
         // Backend pode retornar modo recomendado (já validado)
-        // Se não retornar, usar padrão BALANCED
-        const recMode = normalizeMode(recommendedMode || 'BALANCED');
+        // Se não retornar, usar padrão MEDIUM
+        const recMode = normalizeMode(recommendedMode || 'MEDIUM');
         
         // Validar modo recomendado
-        const modeToUse = isValidMode(recMode) ? recMode : 'BALANCED';
+        const modeToUse = isValidMode(recMode) ? recMode : 'MEDIUM';
         
         console.log('🎯 [AUTOMASTER] Modo recomendado:', {
           backend: recommendedMode,
@@ -1779,8 +1781,8 @@
         
         // Pré-selecionar elemento correspondente
         const recElement = document.getElementById(
-          modeToUse === 'STREAMING' ? 'modeStreaming' :
-          modeToUse === 'BALANCED' ? 'modeBalanced' : 'modeImpact'
+          modeToUse === 'LOW' ? 'modeLow' :
+          modeToUse === 'MEDIUM' ? 'modeMedium' : 'modeHigh'
         );
         
         if (recElement) {
@@ -1877,7 +1879,7 @@
       if (!isValidMode(modeNormalized)) {
         alert(`Erro interno: Modo inválido "${automasterState.mode}". Selecione novamente.`);
         console.error('❌ [AUTOMASTER] Modo inválido detectado:', automasterState.mode);
-        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, BALANCED, IMPACT');
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
         backToDecision();
         return;
       }

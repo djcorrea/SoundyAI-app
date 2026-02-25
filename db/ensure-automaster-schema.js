@@ -75,7 +75,7 @@ export async function ensureAutomasterSchema(pool) {
     // ──────────────────────────────────────────────
     try {
       const r2 = await client.query(
-        `UPDATE jobs SET mode = 'BALANCED' WHERE mode IS NULL AND type = 'automaster'`
+        `UPDATE jobs SET mode = 'MEDIUM' WHERE mode IS NULL AND type = 'automaster'`
       );
       if (r2.rowCount > 0) {
         console.log(`${TAG} 🔧 Corrigidos ${r2.rowCount} job(s) automaster com mode NULL → 'MEDIUM'`);
