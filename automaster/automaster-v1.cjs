@@ -1604,11 +1604,12 @@ function applyDefensiveEQAndLimiterTemp(inputPath, defensiveEQFilters, preGainDb
     // Definir threshold do pre-limiter por modo
     const MODE_LIMITER_THRESHOLDS = {
       'STREAMING': { linear: 0.708, db: -3.0 },  // Mais conservador
-      'BALANCED': { linear: 0.794, db: -2.0 },   // Moderado
-      'IMPACT': { linear: 0.891, db: -1.5 }      // Mais agressivo (evita esmagamento precoce)
+      'LOW':       { linear: 0.708, db: -3.0 },  // Igual a STREAMING
+      'MEDIUM':    { linear: 0.794, db: -2.0 },  // Moderado
+      'HIGH':      { linear: 0.891, db: -1.5 }   // Mais agressivo (evita esmagamento precoce)
     };
     
-    const limiterProfile = MODE_LIMITER_THRESHOLDS[mode] || MODE_LIMITER_THRESHOLDS['BALANCED'];
+    const limiterProfile = MODE_LIMITER_THRESHOLDS[mode] || MODE_LIMITER_THRESHOLDS['MEDIUM'];
     
     if (debug) {
       console.error('[DEBUG] [EQ+PRE-GAIN+LIMITER TEMP] Aplicando processamento em arquivo temporário...');
@@ -2050,28 +2051,30 @@ function computeSafeTarget(inputLufs, targetLufs, mode, crestFactor, subRatio) {
     // Limites expandidos (mix com headroom e dinâmica saudável)
     const MODE_DELTA_LIMITS_EXPANDED = {
       'STREAMING': 4.5,  // Conservador
-      'BALANCED': 6.0,   // Moderado
-      'IMPACT': 8.5      // Agressivo (perceptivelmente mais alto)
+      'LOW':       4.5,  // Igual a STREAMING
+      'MEDIUM':    6.0,  // Moderado
+      'HIGH':      8.5   // Agressivo (perceptivelmente mais alto)
     };
-    maxDelta = MODE_DELTA_LIMITS_EXPANDED[mode] || MODE_DELTA_LIMITS_EXPANDED['BALANCED'];
+    maxDelta = MODE_DELTA_LIMITS_EXPANDED[mode] || MODE_DELTA_LIMITS_EXPANDED['MEDIUM'];
     console.error(`[MODE CAPACITY LIMIT] mode=${mode} maxDelta=${maxDelta.toFixed(1)} LU (EXPANDED: crest=${crestFactor.toFixed(1)}dB subRatio=${(subRatio * 100).toFixed(1)}%)`);
   } else {
     // Limites padrão (mix sem capacidade)
     const MODE_DELTA_LIMITS_DEFAULT = {
       'STREAMING': 4.0,
-      'BALANCED': 5.5,
-      'IMPACT': 7.0
+      'LOW':       4.0,
+      'MEDIUM':    5.5,
+      'HIGH':      7.0
     };
-    maxDelta = MODE_DELTA_LIMITS_DEFAULT[mode] || MODE_DELTA_LIMITS_DEFAULT['BALANCED'];
+    maxDelta = MODE_DELTA_LIMITS_DEFAULT[mode] || MODE_DELTA_LIMITS_DEFAULT['MEDIUM'];
     console.error(`[MODE CAPACITY LIMIT] mode=${mode} maxDelta=${maxDelta.toFixed(1)} LU (DEFAULT: crest=${crestFactor.toFixed(1)}dB subRatio=${(subRatio * 100).toFixed(1)}%)`);
   }
   
-  // Log de validação do safe window para IMPACT
-  if (mode === 'IMPACT') {
+  // Log de validação do safe window para HIGH
+  if (mode === 'HIGH') {
     if (mixHasCapacity) {
-      console.error(`[IMPACT SAFE WINDOW PASSED] crest=${crestFactor.toFixed(1)}dB>=6.0 subRatio=${(subRatio * 100).toFixed(1)}%<95% → maxDelta=${maxDelta.toFixed(1)} LU`);
+      console.error(`[HIGH SAFE WINDOW PASSED] crest=${crestFactor.toFixed(1)}dB>=6.0 subRatio=${(subRatio * 100).toFixed(1)}%<95% → maxDelta=${maxDelta.toFixed(1)} LU`);
     } else {
-      console.error(`[IMPACT SAFE WINDOW FAILED] crest=${crestFactor.toFixed(1)}dB<6.0 OR subRatio=${(subRatio * 100).toFixed(1)}%>=95% → maxDelta=${maxDelta.toFixed(1)} LU (limited)`);
+      console.error(`[HIGH SAFE WINDOW FAILED] crest=${crestFactor.toFixed(1)}dB<6.0 OR subRatio=${(subRatio * 100).toFixed(1)}%>=95% → maxDelta=${maxDelta.toFixed(1)} LU (limited)`);
     }
   }
   
@@ -2617,16 +2620,17 @@ async function runTwoPassLoudnorm(options) {
     // Targets fixos independentes do gênero para garantir diferenciação clara
     const MODE_BASE_TARGETS = {
       'STREAMING': -14.0,
-      'BALANCED': -11.0,
-      'IMPACT': -7.5
+      'LOW':       -14.0,
+      'MEDIUM':    -11.0,
+      'HIGH':       -7.5
     };
     
-    // Determinar modo atual (prioritiza mode, fallback para strategy, depois padrão BALANCED)
-    currentMode = (mode && ['STREAMING', 'BALANCED', 'IMPACT'].includes(mode)) 
+    // Determinar modo atual (prioritiza mode, fallback para strategy, depois padrão MEDIUM)
+    currentMode = (mode && ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'].includes(mode)) 
       ? mode 
-      : (strategy && ['STREAMING', 'BALANCED', 'IMPACT'].includes(strategy))
+      : (strategy && ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'].includes(strategy))
         ? strategy
-        : 'BALANCED';
+        : 'MEDIUM';
     
     const modeBaseTarget = MODE_BASE_TARGETS[currentMode];
     
@@ -2748,18 +2752,20 @@ async function runTwoPassLoudnorm(options) {
   const MODE_STABILITY_LIMITS = {
     'conservative': {
       'STREAMING': 3.0,
-      'BALANCED': 4.0,
-      'IMPACT': 5.5
+      'LOW':       3.0,
+      'MEDIUM':    4.0,
+      'HIGH':      5.5
     },
     'reduce_target': {
       'STREAMING': 3.5,
-      'BALANCED': 4.5,
-      'IMPACT': 6.0
+      'LOW':       3.5,
+      'MEDIUM':    4.5,
+      'HIGH':      6.0
     }
   };
   
   if (stability.recommendation === 'conservative') {
-    const limit = MODE_STABILITY_LIMITS.conservative[currentMode] || MODE_STABILITY_LIMITS.conservative['BALANCED'];
+    const limit = MODE_STABILITY_LIMITS.conservative[currentMode] || MODE_STABILITY_LIMITS.conservative['MEDIUM'];
     const conservativeTarget = preliminaryMeasured.input_i + limit;
     if (adjustedTarget < conservativeTarget) {
       adjustedTarget = conservativeTarget;
@@ -2768,7 +2774,7 @@ async function runTwoPassLoudnorm(options) {
       }
     }
   } else if (stability.recommendation === 'reduce_target') {
-    const limit = MODE_STABILITY_LIMITS.reduce_target[currentMode] || MODE_STABILITY_LIMITS.reduce_target['BALANCED'];
+    const limit = MODE_STABILITY_LIMITS.reduce_target[currentMode] || MODE_STABILITY_LIMITS.reduce_target['MEDIUM'];
     const reducedTarget = preliminaryMeasured.input_i + limit;
     if (adjustedTarget < reducedTarget) {
       adjustedTarget = reducedTarget;
@@ -2793,11 +2799,11 @@ async function runTwoPassLoudnorm(options) {
   const finalTargetI = adjustedTarget + integrityAdjustment;
   
   // Log de limitação de IMPACT por capacidade da mix (ao invés de colapso silencioso)
-  if (currentMode === 'IMPACT') {
-    const impactExpectedMinimum = MODE_BASE_TARGETS['BALANCED'] + 1.5;
+  if (currentMode === 'HIGH') {
+    const impactExpectedMinimum = MODE_BASE_TARGETS['MEDIUM'] + 1.5;
     if (finalTargetI > impactExpectedMinimum) {
-      const deltaFromBalanced = finalTargetI - MODE_BASE_TARGETS['BALANCED'];
-      console.error(`[IMPACT LIMITED BY MIX CAPACITY] finalTarget=${finalTargetI.toFixed(1)} LUFS (+${deltaFromBalanced.toFixed(1)} LU from BALANCED base)`);
+      const deltaFromMedium = finalTargetI - MODE_BASE_TARGETS['MEDIUM'];
+      console.error(`[HIGH LIMITED BY MIX CAPACITY] finalTarget=${finalTargetI.toFixed(1)} LUFS (+${deltaFromMedium.toFixed(1)} LU from MEDIUM base)`);
     }
   }
   
@@ -3527,11 +3533,11 @@ async function runTwoPassLoudnorm(options) {
   // ETAPA 3: PROTEÇÃO AUDITIVA FINAL (IMPACT MODE)
   // ============================================================
   
-  let modeResult = currentMode; // STREAMING | BALANCED | IMPACT
+  let modeResult = currentMode; // STREAMING | LOW | MEDIUM | HIGH
   let impactAborted = false;
   let abortReason = null;
   
-  if (currentMode === 'IMPACT') {
+  if (currentMode === 'HIGH') {
     if (debug) console.error('[DEBUG] [IMPACT VALIDATION] Medindo proteções auditivas finais...');
     
     // Medir limiter gain reduction

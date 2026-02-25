@@ -21,9 +21,10 @@ const execFileAsync = promisify(execFile);
 
 const MODE_TARGETS = {
   STREAMING: -14,
-  BALANCED: -11,
-  IMPACT: -9,
-  CLEAN: -11
+  LOW:       -14,
+  MEDIUM:    -11,
+  HIGH:       -9,
+  CLEAN:     -11
 };
 
 const DEFAULT_DR_MIN = 6; // V1 conservative
@@ -170,7 +171,7 @@ async function run() {
   }
 
   // Tier3: LUFS close to target
-  const target = MODE_TARGETS[mode] || MODE_TARGETS.BALANCED;
+  const target = MODE_TARGETS[mode] || MODE_TARGETS.MEDIUM;
   let tier3_pass = true;
   const lufs = metrics.lufs_i === 'not_available' ? null : metrics.lufs_i;
   if (lufs !== null) {

@@ -1,7 +1,7 @@
 /**
  * AutoMaster V1 - Wrapper de Orquestração
  * 
- * Camada de negócio que mapeia MODES para parâmetros técnicos
+ * Camada de orquestração que mapeia MODES para parâmetros técnicos
  * e chama o core DSP (automaster-v1.cjs).
  * 
  * NÃO duplica lógica de processamento.
@@ -12,7 +12,7 @@
  * 
  * Uso Programático:
  *   const { runAutomaster } = require('./run-automaster.cjs');
- *   await runAutomaster({ inputPath, outputPath, mode: "BALANCED" });
+ *   await runAutomaster({ inputPath, outputPath, mode: "MEDIUM" });
  */
 
 const { execFile } = require('child_process');
@@ -30,14 +30,20 @@ const MODE_PRESETS = {
     ceilingDbtp: -1.0,
     description: 'Conservador, com headroom para normalização de plataformas'
   },
-  BALANCED: {
-    label: 'Balanced (Padrão competitivo)',
+  LOW: {
+    label: 'Low (Suave)',
+    targetLufs: -14,
+    ceilingDbtp: -1.0,
+    description: 'Conservador, preserva dinâmica natural'
+  },
+  MEDIUM: {
+    label: 'Medium (Padrão competitivo)',
     targetLufs: -11,
     ceilingDbtp: -0.8,
     description: 'Equilíbrio entre loudness e dinâmica'
   },
-  IMPACT: {
-    label: 'Impact (Alto impacto)',
+  HIGH: {
+    label: 'High (Alto impacto)',
     targetLufs: -9,
     ceilingDbtp: -0.5,
     description: 'Máxima loudness para funk, trap, EDM'
@@ -54,7 +60,7 @@ const MODE_PRESETS = {
  * @param {Object} options - Configuração
  * @param {string} options.inputPath - Caminho do WAV de entrada
  * @param {string} options.outputPath - Caminho do WAV de saída
- * @param {string} options.mode - Modo: "STREAMING" | "BALANCED" | "IMPACT"
+ * @param {string} options.mode - Modo: "STREAMING" | "LOW" | "MEDIUM" | "HIGH"
  * @returns {Promise<Object>} Resultado com métricas
  * @throws {Error} Se validação falhar ou processamento falhar
  */
@@ -84,7 +90,7 @@ async function runAutomaster(options) {
   if (debug) console.error('[DEBUG] Iniciando processamento DSP...');
 
   try {
-    const coreResult = await executeCoreEngine(inputPath, outputPath, preset.targetLufs, preset.ceilingDbtp, strategy);
+    const coreResult = await executeCoreEngine(inputPath, outputPath, mode, strategy);
 
     const duration = Date.now() - startTime;
     const stats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null;
@@ -170,7 +176,7 @@ function validateInput(options) {
 // EXECUÇÃO DO CORE ENGINE
 // ============================================================
 
-function executeCoreEngine(inputPath, outputPath, targetLufs, ceilingDbtp, strategy) {
+function executeCoreEngine(inputPath, outputPath, mode, strategy) {
   return new Promise((resolve, reject) => {
     const corePath = path.join(__dirname, 'automaster-v1.cjs');
     const debug = process.env.DEBUG_PIPELINE === 'true';
@@ -181,12 +187,12 @@ function executeCoreEngine(inputPath, outputPath, targetLufs, ceilingDbtp, strat
       return;
     }
 
+    // Passar mode diretamente ao core — sem conversão
     const args = [
       corePath,
       inputPath,
       outputPath,
-      targetLufs.toString(),
-      ceilingDbtp.toString()
+      mode
     ];
 
     if (strategy) {
@@ -277,7 +283,7 @@ if (require.main === module) {
   if (args.length < 3) {
     console.error('Erro: argumentos insuficientes');
     console.error('Uso: node run-automaster.cjs <inputPath> <outputPath> <MODE> [STRATEGY]');
-    console.error('Modos validos: STREAMING, BALANCED, IMPACT');
+    console.error('Modos validos: STREAMING, LOW, MEDIUM, HIGH');
     process.exit(1);
   }
 

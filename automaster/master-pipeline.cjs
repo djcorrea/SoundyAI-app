@@ -21,7 +21,7 @@ const execFileAsync = promisify(execFile);
 // CONSTANTES
 // ============================================================================
 
-const VALID_MODES = ['STREAMING', 'BALANCED', 'IMPACT'];
+const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
 
 const MEASURE_AUDIO_SCRIPT = path.resolve(__dirname, 'measure-audio.cjs');
 const CHECK_APTITUDE_SCRIPT = path.resolve(__dirname, 'check-aptitude.cjs');
@@ -212,8 +212,9 @@ async function runPostcheck(outputPath, mode) {
 // Mapeamento de modos para target LUFS (usado no gate de aptidão)
 const MODE_TARGET_LUFS = {
   STREAMING: -14,
-  BALANCED: -11,
-  IMPACT: -9
+  LOW:       -14,
+  MEDIUM:    -11,
+  HIGH:       -9
 };
 
 async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = false }) {
@@ -486,7 +487,7 @@ if (require.main === module) {
   if (args.length < 3) {
     console.error('Erro: argumentos insuficientes');
     console.error('Uso: node master-pipeline.cjs <inputPath> <outputPath> <mode> [--rescue]');
-    console.error('Modos validos: STREAMING, BALANCED, IMPACT');
+    console.error('Modos validos: STREAMING, LOW, MEDIUM, HIGH');
     console.error('Opcoes:');
     console.error('  --rescue    Executar Rescue Mode (gain-only) se necessario');
     process.exit(1);

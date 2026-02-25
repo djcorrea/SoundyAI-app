@@ -101,17 +101,8 @@ ensureDirectories();
 
 const QUEUE_NAME = 'automaster';
 
-// Modos aceitos pela API pública
+// Modos aceitos pela API pública e pelo pipeline DSP
 const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
-
-// Tradução do enum externo para o enum interno do DSP (automaster-v1 / master-pipeline)
-// O DSP usa STREAMING/BALANCED/IMPACT — não alterar o DSP.
-const MODE_TO_DSP = {
-  'STREAMING': 'STREAMING',
-  'LOW':       'STREAMING',  // Suave ≈ loudness streaming-safe
-  'MEDIUM':    'BALANCED',
-  'HIGH':      'IMPACT'
-};
 
 function validateJobData(data) {
   if (!data || typeof data !== 'object') {
@@ -302,9 +293,8 @@ async function processJob(job) {
     // 5. Executar pipeline (50%)
     await job.updateProgress(50);
     await jobStore.updateProgress(jobId, 50);
-    // Traduz enum externo → enum interno do DSP (DSP não é alterado)
-    const dspMode = MODE_TO_DSP[mode] || mode;
-    console.log('[PIPELINE] Step 2: ffmpeg start', { mode, dspMode, input: isolatedInput, output: isolatedOutput });
+    const dspMode = mode;
+    console.log('[PIPELINE] Step 2: ffmpeg start', { mode: dspMode, input: isolatedInput, output: isolatedOutput });
     const result = await executePipeline(isolatedInput, isolatedOutput, dspMode, jobLogger);
     console.log('[PIPELINE] Step 2: ffmpeg ok', { success: result?.pipelineResult?.success });
 
