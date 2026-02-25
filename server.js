@@ -19,6 +19,7 @@ import automasterQueueModule from './queue/automaster-queue.cjs';
 import storageServiceModule from './services/storage-service.cjs';
 import jobStoreModule from './services/job-store.cjs';
 import { v4 as uuidv4 } from 'uuid';
+import { ensureAutomasterSchema } from './db/ensure-automaster-schema.js';
 
 import pkg from "pg";
 const { Pool } = pkg;
@@ -1411,8 +1412,11 @@ function logBuildInfo() {
 
 // Start
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
+
+  // 🗄️ Migration AutoMaster — garante colunas sem derrubar o boot
+  await ensureAutomasterSchema(jobsPool);
   
   // 🔐 Log de build info para rastreabilidade
   logBuildInfo();
