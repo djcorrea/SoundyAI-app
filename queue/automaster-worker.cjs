@@ -202,6 +202,7 @@ async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
 
 async function processJob(job) {
   console.log('[WORKER] Processing job:', job.id);
+  console.log('[PIPELINE] START', JSON.stringify(job.data));
   const startTime = Date.now();
   let jobId = null; let inputKey = null; let mode = null; let userId = null;
 
@@ -283,13 +284,17 @@ async function processJob(job) {
     // 4. Download input do storage (25%)
     await job.updateProgress(25);
     await jobStore.updateProgress(jobId, 25);
+    console.log('[PIPELINE] Step 1: download start', { inputKey, dest: isolatedInput });
     await storageService.downloadToFile(inputKey, isolatedInput);
+    console.log('[PIPELINE] Step 1: download ok');
     jobLogger.info({ inputKey }, 'Input baixado do storage');
 
     // 5. Executar pipeline (50%)
     await job.updateProgress(50);
     await jobStore.updateProgress(jobId, 50);
+    console.log('[PIPELINE] Step 2: ffmpeg start', { mode, input: isolatedInput, output: isolatedOutput });
     const result = await executePipeline(isolatedInput, isolatedOutput, mode, jobLogger);
+    console.log('[PIPELINE] Step 2: ffmpeg ok', { success: result?.pipelineResult?.success });
 
     // resultado já vem parseado e validado
     const pipelineResult = result.pipelineResult;
@@ -317,7 +322,9 @@ async function processJob(job) {
     // 8. Upload output para storage (90%)
     await job.updateProgress(90);
     await jobStore.updateProgress(jobId, 90);
+    console.log('[PIPELINE] Step 3: upload start', { source: isolatedOutput, jobId });
     const outputKey = await storageService.uploadOutput(isolatedOutput, jobId);
+    console.log('[PIPELINE] Step 3: upload ok', { outputKey });
     jobLogger.info({ outputKey }, 'Output enviado ao storage');
 
     // 9. Cleanup (95%)
@@ -390,11 +397,18 @@ async function processJob(job) {
     const log = jobLogger || logger;
     // Se jobId não foi validado, não tentar interagir com jobStore/jobLock
     if (!jobId) {
+      console.error('[PIPELINE ERROR]', error);
+      console.error(error.stack);
       throw error;
     }
 
     const endTime = Date.now();
     const durationMs = endTime - startTime;
+
+    // Log completo do erro para diagnóstico (visível nos logs do Railway)
+    console.error('[PIPELINE ERROR]', error);
+    console.error(error.stack);
+    console.error('[PIPELINE ERROR] contexto:', { jobId, mode, inputKey, durationMs });
 
     // Classificar erro
     const classification = errorClassifier.classifyError(error);
