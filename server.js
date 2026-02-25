@@ -689,9 +689,9 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       response.processingMs = job.processing_ms;
       response.outputKey = job.output_key;
       
-      // Gerar URL assinada para download (5 minutos)
+      // Gerar URL assinada para download (30 minutos — tempo suficiente para download)
       if (job.output_key) {
-        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 300);
+        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800);
       }
       
       response.message = 'Masterização concluída com sucesso';

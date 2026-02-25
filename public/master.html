@@ -1906,31 +1906,45 @@
           fileName: automasterState.file.name
         });
 
-        document.getElementById('processingLoadingText').textContent = 'Processando master...';
+        document.getElementById('processingLoadingText').textContent = 'Enviando arquivo...';
 
-        const data = await apiRequest('/api/automaster', {
+        // ─── PASSO 1: enfileirar job ───────────────────────────────────────
+        const enqueueData = await apiRequest('/api/automaster', {
           method: 'POST',
           body: formData
-        }, 600000); // timeout 10 min para processamento pesado
+        }, 30000); // timeout apenas para o upload/enqueue
 
-        console.log('📊 [AUTOMASTER] Resultado real recebido:', data);
+        console.log('[AUTOMASTER] Job enfileirado:', enqueueData);
 
-        if (!data.success) {
-          throw new Error(data.error || data.message || 'O processamento falhou no servidor.');
+        if (!enqueueData.success) {
+          throw new Error(enqueueData.error || enqueueData.message || 'Falha ao enfileirar job.');
         }
 
-        // Armazena dados reais
+        const { jobId } = enqueueData;
+        if (!jobId) {
+          throw new Error('Backend não retornou jobId.');
+        }
+
+        automasterState.jobId = jobId;
+
+        // ─── PASSO 2: polling até conclusão ───────────────────────────────
+        document.getElementById('processingLoadingText').textContent = 'Processando master...';
+        const statusData = await pollJobStatus(jobId);
+
+        // ─── PASSO 3: salvar resultado ─────────────────────────────────────
         automasterState.result = {
           success: true,
-          masterUrl: data.masterUrl || null,
-          previewBefore: data.previewBefore || null,
-          previewAfter: data.previewAfter || null,
+          masterUrl: statusData.downloadUrl || null,
+          previewBefore: null,
+          previewAfter: null,
           metrics: {
-            lufsBefore: data.metrics?.lufsBefore ?? null,
-            lufsAfter: data.metrics?.lufsAfter ?? null,
-            truePeakAfter: data.metrics?.truePeakAfter ?? null
+            lufsBefore: statusData.metrics?.lufsBefore ?? null,
+            lufsAfter: statusData.metrics?.lufsAfter ?? null,
+            truePeakAfter: statusData.metrics?.truePeakAfter ?? null
           }
         };
+
+        console.log('[AUTOMASTER] masterUrl salvo:', automasterState.result.masterUrl);
 
         // Avança para resultado
         openResultModal();
@@ -1957,8 +1971,86 @@
     }
 
     // ========================================
-    // 📊 ETAPA 7 - RESULTADO (REAL)
+    // � POLLING DE STATUS DO JOB
     // ========================================
+
+    /**
+     * Faz polling em /api/automaster/status/:jobId até o job estar
+     * completed ou failed. Atualiza o texto de progresso na UI.
+     *
+     * @param {string} jobId
+     * @returns {Promise<object>} Dados do job quando completed
+     * @throws {Error} Se o job falhar ou exceder timeout
+     */
+    async function pollJobStatus(jobId) {
+      const MAX_ATTEMPTS = 120;   // 120 × 3s = 6 minutos máximo
+      const POLL_INTERVAL_MS = 3000;
+
+      const progressMessages = [
+        'Processando master...',
+        'Analisando audio...',
+        'Aplicando ganho...',
+        'Normalizando loudness...',
+        'Finalizando master...',
+        'Quase pronto...'
+      ];
+
+      let attempt = 0;
+
+      return new Promise((resolve, reject) => {
+        const timer = setInterval(async () => {
+          attempt++;
+
+          // Timeout global
+          if (attempt > MAX_ATTEMPTS) {
+            clearInterval(timer);
+            reject(new Error('Timeout: processamento excedeu 6 minutos.'));
+            return;
+          }
+
+          try {
+            const statusData = await apiRequest(
+              `/api/automaster/status/${jobId}`,
+              { method: 'GET' },
+              10000
+            );
+
+            console.log(`[POLL #${attempt}] status=${statusData.status} progress=${statusData.progress ?? '?'}%`);
+
+            // Atualizar texto de progresso na UI
+            const msgIdx = Math.min(
+              Math.floor((statusData.progress || 0) / 20),
+              progressMessages.length - 1
+            );
+            const loadingTextEl = document.getElementById('processingLoadingText');
+            if (loadingTextEl) {
+              loadingTextEl.textContent = progressMessages[msgIdx];
+            }
+
+            if (statusData.status === 'completed') {
+              clearInterval(timer);
+
+              if (!statusData.downloadUrl) {
+                reject(new Error('Job concluido mas URL de download nao foi gerada.'));
+                return;
+              }
+
+              console.log('[AUTOMASTER] Job completed. downloadUrl disponivel.');
+              resolve(statusData);
+
+            } else if (statusData.status === 'failed' || statusData.status === 'error') {
+              clearInterval(timer);
+              reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
+            }
+            // queued / processing: continuar polling
+
+          } catch (pollErr) {
+            // Erro de rede isolado: nao abortar, tentar novamente
+            console.warn(`[POLL #${attempt}] Erro de rede (nao fatal):`, pollErr.message);
+          }
+        }, POLL_INTERVAL_MS);
+      });
+    }
 
     /**
      * Exibe métricas reais do backend e preview de áudio.
