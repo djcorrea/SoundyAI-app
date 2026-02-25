@@ -461,7 +461,7 @@ app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req,
       headroom: 6.5,
       clipping: false,
       tonalBalance: 'balanced',
-      recommendedMode: 'balanced',
+      recommendedMode: 'BALANCED',
       message: 'Mix analisada e apta para masterização'
     };
 
@@ -499,14 +499,14 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     }
 
     // 2. Validar modo
-    const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+    const VALID_MODES = ['STREAMING', 'BALANCED', 'IMPACT'];
     const rawMode = req.body.mode;
     const mode = rawMode ? rawMode.toString().toUpperCase().trim() : null;
 
     console.log('[AUTOMASTER] Mode recebido:', mode);
 
-    // Fallback seguro: modo ausente → MEDIUM
-    const resolvedMode = mode || 'MEDIUM';
+    // Fallback seguro: modo ausente → BALANCED
+    const resolvedMode = mode || 'BALANCED';
 
     if (!VALID_MODES.includes(resolvedMode)) {
       console.error('❌ [AUTOMASTER] Modo inválido:', resolvedMode);
@@ -623,7 +623,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       jobId,
       status: 'queued',
       message: 'Job de masterização criado com sucesso',
-      estimatedTime: resolvedMode === 'STREAMING' ? 40 : resolvedMode === 'LOW' ? 30 : resolvedMode === 'MEDIUM' ? 60 : 120,
+      estimatedTime: resolvedMode === 'STREAMING' ? 40 : resolvedMode === 'BALANCED' ? 60 : 120,
       statusUrl: `/api/automaster/status/${jobId}`
     });
 
