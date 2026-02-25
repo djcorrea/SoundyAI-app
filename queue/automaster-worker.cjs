@@ -99,6 +99,8 @@ ensureDirectories();
 // VALIDAÇÕES
 // ============================================================================
 
+const QUEUE_NAME = 'automaster';
+
 const VALID_MODES = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
 
 function validateJobData(data) {
@@ -199,6 +201,7 @@ async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
 // ============================================================================
 
 async function processJob(job) {
+  console.log('[WORKER] Processing job:', job.id);
   const startTime = Date.now();
   let jobId = null; let inputKey = null; let mode = null; let userId = null;
 
@@ -491,10 +494,12 @@ async function processJob(job) {
 // WORKER BULLMQ
 // ============================================================================
 
-const worker = new Worker('automaster', processJob, {
+const worker = new Worker(QUEUE_NAME, processJob, {
   connection: redis,
   concurrency: WORKER_CONCURRENCY
 });
+
+console.log('[WORKER] Attached to queue:', QUEUE_NAME);
 
 worker.on('completed', (job, result) => {
   if (result && result.skipped === true) {

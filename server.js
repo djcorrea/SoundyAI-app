@@ -8,7 +8,7 @@ import fetch from "node-fetch";
 import crypto from "crypto";
 import fs from "fs";
 import multer from "multer";
-import { execFile, exec, execSync } from "child_process";
+import { execFile, exec, execSync, spawn } from "child_process";
 import { promisify } from "util";
 import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.cjs';
 
@@ -1414,6 +1414,35 @@ function logBuildInfo() {
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
+
+  // 📦 Worker AutoMaster inline (ativo quando AUTOMASTER_INLINE_WORKER !== 'false')
+  // Desative definindo AUTOMASTER_INLINE_WORKER=false no Railway para usar servico separado.
+  if (process.env.AUTOMASTER_INLINE_WORKER !== 'false') {
+    const workerPath = path.resolve(__dirname, 'queue/automaster-worker.cjs');
+    console.log('[INLINE-WORKER] Iniciando worker AutoMaster:', workerPath);
+
+    function spawnWorker() {
+      const workerProc = spawn(process.execPath, [workerPath], {
+        env: process.env,
+        stdio: 'inherit' // compartilha stdout/stderr com o servidor (visível nos logs do Railway)
+      });
+
+      console.log('[INLINE-WORKER] Worker PID:', workerProc.pid);
+
+      workerProc.on('exit', (code, signal) => {
+        console.warn(`[INLINE-WORKER] Worker finalizou (code=${code}, signal=${signal}). Reiniciando em 3s...`);
+        setTimeout(spawnWorker, 3000);
+      });
+
+      workerProc.on('error', (err) => {
+        console.error('[INLINE-WORKER] Erro ao spawnar worker:', err.message);
+      });
+    }
+
+    spawnWorker();
+  } else {
+    console.log('[INLINE-WORKER] Desabilitado — usando servico de worker separado no Railway.');
+  }
 
   // 🗄️ Migration AutoMaster — garante colunas sem derrubar o boot
   await ensureAutomasterSchema(jobsPool);
