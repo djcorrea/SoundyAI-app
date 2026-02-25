@@ -11,6 +11,15 @@ import multer from "multer";
 import { execFile, exec, execSync } from "child_process";
 import { promisify } from "util";
 import { analyzeAudioMetrics, decideGainWithinRange, MODES } from './automaster/decision-engine.cjs';
+
+// ============================================================================
+// AutoMaster — imports estáticos (CJS é suportado por ESM via default import)
+// ============================================================================
+import automasterQueueModule from './queue/automaster-queue.cjs';
+import storageServiceModule from './services/storage-service.cjs';
+import jobStoreModule from './services/job-store.cjs';
+import { v4 as uuidv4 } from 'uuid';
+
 import pkg from "pg";
 const { Pool } = pkg;
 
@@ -523,32 +532,12 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       hasDatabaseUrl: !!process.env.DATABASE_URL
     });
 
-    // Importar dependências (lazy load)
-    console.log('[AUTOMASTER] Carregando dependências...');
-    const { v4: uuidv4 } = await import('uuid');
-    let automasterQueue, storageService, jobStore;
-    try {
-      automasterQueue = require('./queue/automaster-queue.cjs');
-      console.log('[AUTOMASTER] automasterQueue carregado. tipo:', typeof automasterQueue, '| tem .add:', typeof automasterQueue?.add);
-    } catch (requireErr) {
-      console.error('[AUTOMASTER] FALHA ao carregar automaster-queue.cjs:', requireErr.message);
-      console.error('[AUTOMASTER] STACK automaster-queue:', requireErr.stack);
-      throw requireErr;
-    }
-    try {
-      storageService = require('./services/storage-service.cjs');
-      console.log('[AUTOMASTER] storageService carregado. tipo:', typeof storageService);
-    } catch (requireErr) {
-      console.error('[AUTOMASTER] FALHA ao carregar storage-service.cjs:', requireErr.message);
-      throw requireErr;
-    }
-    try {
-      jobStore = require('./services/job-store.cjs');
-      console.log('[AUTOMASTER] jobStore carregado. tipo:', typeof jobStore, '| tem .createJob:', typeof jobStore?.createJob);
-    } catch (requireErr) {
-      console.error('[AUTOMASTER] FALHA ao carregar job-store.cjs:', requireErr.message);
-      throw requireErr;
-    }
+    // Dependências carregadas via import estático no topo do arquivo
+    const automasterQueue = automasterQueueModule;
+    const storageService = storageServiceModule;
+    const jobStore = jobStoreModule;
+
+    console.log('[AUTOMASTER] Dependências carregadas via ESM. automasterQueue.add:', typeof automasterQueue?.add);
 
     // Validar que a fila BullMQ está operacional
     if (!automasterQueue || typeof automasterQueue.add !== 'function') {
@@ -671,8 +660,7 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
 
     console.log('🔍 [AUTOMASTER-STATUS] Consultando job:', jobId);
 
-    const jobStore = require('./services/job-store.cjs');
-    const job = await jobStore.getJob(jobId);
+    const job = await jobStoreModule.getJob(jobId);
 
     if (!job) {
       return res.status(404).json({ 
@@ -703,8 +691,7 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       
       // Gerar URL assinada para download (5 minutos)
       if (job.output_key) {
-        const storageService = require('./services/storage-service.cjs');
-        response.downloadUrl = await storageService.generateSignedUrl(job.output_key, 300);
+        response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 300);
       }
       
       response.message = 'Masterização concluída com sucesso';
