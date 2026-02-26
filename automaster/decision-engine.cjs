@@ -166,7 +166,7 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   let crestFactorFallback = false;
   
   if (isNaN(crestFactor) || crestFactor === null || crestFactor <= 0 || crestFactor > 30) {
-    console.log('⚠️  Crest Factor inválido ou suspeito, usando fallback conservador');
+    console.error('⚠️  Crest Factor inválido ou suspeito, usando fallback conservador');
     crestFactor = DEFAULT_CREST_FACTOR;
     crestFactorFallback = true;
   }
@@ -184,20 +184,20 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   // effectiveHeadroom = headroom + compressão aceitável + redistribuição loudnorm
   const effectiveHeadroom = headroom + limiterStressPermitido;
   
-  console.log('');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('🎯 [AUTOMASTER] MOTOR DE DECISÃO - Target Dinâmico');
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('📊 Métricas de entrada:');
-  console.log(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
-  console.log(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
-  console.log(`   Headroom inicial: ${headroom.toFixed(1)} dB`);
-  console.log(`   Limiter stress permitido: ${limiterStressPermitido.toFixed(1)} dB (modo ${modeKey})`);
-  console.log(`   Effective Headroom: ${effectiveHeadroom.toFixed(1)} dB`);
-  console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB${crestFactorFallback ? ' (fallback)' : ''}`);
-  console.log('');
-  console.log(`🎚️ Modo escolhido: ${modeConfig.name}`);
-  console.log('');
+  console.error('');
+  console.error('═══════════════════════════════════════════════════════════════');
+  console.error('🎯 [AUTOMASTER] MOTOR DE DECISÃO - Target Dinâmico');
+  console.error('═══════════════════════════════════════════════════════════════');
+  console.error('📊 Métricas de entrada:');
+  console.error(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
+  console.error(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
+  console.error(`   Headroom inicial: ${headroom.toFixed(1)} dB`);
+  console.error(`   Limiter stress permitido: ${limiterStressPermitido.toFixed(1)} dB (modo ${modeKey})`);
+  console.error(`   Effective Headroom: ${effectiveHeadroom.toFixed(1)} dB`);
+  console.error(`   Crest Factor: ${crestFactor.toFixed(1)} dB${crestFactorFallback ? ' (fallback)' : ''}`);
+  console.error('');
+  console.error(`🎚️ Modo escolhido: ${modeConfig.name}`);
+  console.error('');
   
   // ═══════════════════════════════════════════════════════════
   // 2. REGRA CRÍTICA: NUNCA REDUZIR LOUDNESS
@@ -208,9 +208,9 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   
   // Headroom crítico (<0.8 dB) - evitar processamento por segurança
   if (headroom < 0.8) {
-    console.log('🚨 Headroom crítico (<0.8 dB) - risco de clipping');
-    console.log('   Decisão: Não processar para preservar qualidade');
-    console.log('═══════════════════════════════════════════════════════════');
+    console.error('🚨 Headroom crítico (<0.8 dB) - risco de clipping');
+    console.error('   Decisão: Não processar para preservar qualidade');
+    console.error('═══════════════════════════════════════════════════════════');
     return {
       targetLUFS: currentLUFS,
       gainDB: 0,
@@ -229,19 +229,19 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     const targetLUFS = -14.0;
     const gainDB = targetLUFS - currentLUFS;
     
-    console.log('');
-    console.log('🎯 [MODE STREAMING] Target fixo aplicado');
-    console.log(`   Target LUFS: ${targetLUFS.toFixed(1)} LUFS (padrão broadcast/streaming)`);
-    console.log(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
-    console.log(`   Ganho necessário: ${gainDB >= 0 ? '+' : ''}${gainDB.toFixed(1)} dB`);
-    console.log('   Ignora dinâmica, métrica e headroom - target absoluto');
-    console.log('');
+    console.error('');
+    console.error('🎯 [MODE STREAMING] Target fixo aplicado');
+    console.error(`   Target LUFS: ${targetLUFS.toFixed(1)} LUFS (padrão broadcast/streaming)`);
+    console.error(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
+    console.error(`   Ganho necessário: ${gainDB >= 0 ? '+' : ''}${gainDB.toFixed(1)} dB`);
+    console.error('   Ignora dinâmica, métrica e headroom - target absoluto');
+    console.error('');
     
     // Se ganho é muito pequeno, não processar
     if (Math.abs(gainDB) < 0.3) {
-      console.log('ℹ️ Ganho muito baixo (<0.3 dB)');
-      console.log('   Decisão: Não processar (já próximo do target)');
-      console.log('═══════════════════════════════════════════════════════════');
+      console.error('ℹ️ Ganho muito baixo (<0.3 dB)');
+      console.error('   Decisão: Não processar (já próximo do target)');
+      console.error('═══════════════════════════════════════════════════════════');
       return {
         targetLUFS: currentLUFS,
         gainDB: 0,
@@ -254,9 +254,9 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
       };
     }
     
-    console.log('✅ Target STREAMING definido');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('');
+    console.error('✅ Target STREAMING definido');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('');
     
     return {
       targetLUFS: parseFloat(targetLUFS.toFixed(1)),
@@ -284,13 +284,13 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   let highModeExtension = 0;
   if (modeKey === 'HIGH' && crestFactor > 12 && headroom > 3) {
     highModeExtension = Math.min(2.0, crestFactor - 11);
-    console.log('');
-    console.log('🚀 HIGH MODE: Extensão dinâmica ativada');
-    console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB (> 12 dB)`);
-    console.log(`   Headroom: ${headroom.toFixed(1)} dB (> 3 dB)`);
-    console.log(`   Extensão permitida: +${highModeExtension.toFixed(1)} LU`);
-    console.log(`   Cap estendido: ${(-8.0 + highModeExtension).toFixed(1)} LUFS`);
-    console.log('');
+    console.error('');
+    console.error('🚀 HIGH MODE: Extensão dinâmica ativada');
+    console.error(`   Crest Factor: ${crestFactor.toFixed(1)} dB (> 12 dB)`);
+    console.error(`   Headroom: ${headroom.toFixed(1)} dB (> 3 dB)`);
+    console.error(`   Extensão permitida: +${highModeExtension.toFixed(1)} LU`);
+    console.error(`   Cap estendido: ${(-8.0 + highModeExtension).toFixed(1)} LUFS`);
+    console.error('');
   }
   
   // ═══════════════════════════════════════════════════════════
@@ -303,8 +303,8 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   // MIX MUITO BAIXA (< -18 LUFS)
   if (currentLUFS < -18.0) {
     strategy = 'aggressive_push';
-    console.log('🚀 Mix muito baixa detectada (< -18 LUFS)');
-    console.log('   Estratégia: Subir máximo possível até stress limite');
+    console.error('🚀 Mix muito baixa detectada (< -18 LUFS)');
+    console.error('   Estratégia: Subir máximo possível até stress limite');
     
     // Targets por modo
     let maxTarget = -13.0;  // Default MEDIUM
@@ -314,10 +314,10 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
       // HIGH mode: loudness competitiva baseada em crest factor
       if (crestFactor >= 12) {
         maxTarget = -10.5;  // Alvo -11 a -10 LUFS
-        console.log('   🔥 HIGH MODE (CF >= 12): Target competitivo -10.5 LUFS');
+        console.error('   🔥 HIGH MODE (CF >= 12): Target competitivo -10.5 LUFS');
       } else {
         maxTarget = -11.5;  // Alvo -12 a -11 LUFS
-        console.log('   🔥 HIGH MODE (CF < 12): Target competitivo -11.5 LUFS');
+        console.error('   🔥 HIGH MODE (CF < 12): Target competitivo -11.5 LUFS');
       }
     }
     
@@ -329,17 +329,17 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     const gainFinal = Math.min(gainToTarget, gainAllowed);
     targetLUFS = currentLUFS + gainFinal;
     
-    console.log(`   Target máximo modo: ${maxTarget.toFixed(1)} LUFS`);
-    console.log(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB`);
-    console.log(`   Ganho para target: ${gainToTarget.toFixed(1)} dB`);
-    console.log(`   Ganho final: ${gainFinal.toFixed(1)} dB`);
-    console.log('');
+    console.error(`   Target máximo modo: ${maxTarget.toFixed(1)} LUFS`);
+    console.error(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB`);
+    console.error(`   Ganho para target: ${gainToTarget.toFixed(1)} dB`);
+    console.error(`   Ganho final: ${gainFinal.toFixed(1)} dB`);
+    console.error('');
   }
   // MIX MÉDIA (-18 a -13 LUFS)
   else if (currentLUFS >= -18.0 && currentLUFS <= -13.0) {
     strategy = 'moderate_push';
-    console.log('📊 Mix média detectada (-18 a -13 LUFS)');
-    console.log('   Estratégia: Subida moderada baseada em capacidade');
+    console.error('📊 Mix média detectada (-18 a -13 LUFS)');
+    console.error('   Estratégia: Subida moderada baseada em capacidade');
     
     // Targets por modo
     let targetRange = { min: -13.0, max: -12.0 };  // Default MEDIUM
@@ -349,10 +349,10 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
       // HIGH mode: loudness competitiva baseada em crest factor
       if (crestFactor >= 12) {
         targetRange = { min: -11.0, max: -10.0 };
-        console.log('   🔥 HIGH MODE (CF >= 12): Range competitivo -11 a -10 LUFS');
+        console.error('   🔥 HIGH MODE (CF >= 12): Range competitivo -11 a -10 LUFS');
       } else {
         targetRange = { min: -12.0, max: -11.0 };
-        console.log('   🔥 HIGH MODE (CF < 12): Range competitivo -12 a -11 LUFS');
+        console.error('   🔥 HIGH MODE (CF < 12): Range competitivo -12 a -11 LUFS');
       }
     }
     
@@ -367,27 +367,27 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     // Clampar no range
     targetLUFS = Math.max(targetRange.min, Math.min(targetRange.max, targetLUFS));
     
-    console.log(`   Target range: ${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} LUFS`);
-    console.log(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB (80% headroom)`);
-    console.log(`   Ganho final: ${gainFinal.toFixed(1)} dB`);
-    console.log('');
+    console.error(`   Target range: ${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} LUFS`);
+    console.error(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB (80% headroom)`);
+    console.error(`   Ganho final: ${gainFinal.toFixed(1)} dB`);
+    console.error('');
   }
   // MIX ALTA (> -13 LUFS)
   else {
     strategy = 'preserve';
-    console.log('🎨 Mix alta detectada (> -13 LUFS)');
+    console.error('🎨 Mix alta detectada (> -13 LUFS)');
     
     // HIGH mode: ainda buscar loudness competitiva
     if (modeKey === 'HIGH') {
-      console.log('   🔥 HIGH MODE: Buscar loudness competitiva mesmo em mix alta');
+      console.error('   🔥 HIGH MODE: Buscar loudness competitiva mesmo em mix alta');
       
       let targetHigh;
       if (crestFactor >= 12) {
         targetHigh = -10.5;  // Média de -11 a -10
-        console.log('   Target: -10.5 LUFS (CF >= 12)');
+        console.error('   Target: -10.5 LUFS (CF >= 12)');
       } else {
         targetHigh = -11.5;  // Média de -12 a -11
-        console.log('   Target: -11.5 LUFS (CF < 12)');
+        console.error('   Target: -11.5 LUFS (CF < 12)');
       }
       
       const gainToTarget = targetHigh - currentLUFS;
@@ -399,24 +399,24 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
       // Clampar para não reduzir
       if (targetLUFS < currentLUFS) targetLUFS = currentLUFS;
       
-      console.log(`   Ganho para target: ${gainToTarget.toFixed(1)} dB`);
-      console.log(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB`);
-      console.log(`   Ganho aplicado: ${(targetLUFS - currentLUFS).toFixed(1)} dB`);
-      console.log('');
+      console.error(`   Ganho para target: ${gainToTarget.toFixed(1)} dB`);
+      console.error(`   Ganho permitido: ${gainAllowed.toFixed(1)} dB`);
+      console.error(`   Ganho aplicado: ${(targetLUFS - currentLUFS).toFixed(1)} dB`);
+      console.error('');
     } 
     // Outros modos: preservar dinâmica
     else {
-      console.log('   Estratégia: Preservar dinâmica e transientes');
-      console.log('   Não buscar loudness, apenas correção leve');
+      console.error('   Estratégia: Preservar dinâmica e transientes');
+      console.error('   Não buscar loudness, apenas correção leve');
       
       // Limitar ganho a 1 dB máximo
       const maxGain = 1.0;
       const safeGain = Math.min(effectiveHeadroom * 0.3, maxGain);
       targetLUFS = currentLUFS + safeGain;
       
-      console.log(`   Ganho máximo: ${maxGain.toFixed(1)} dB`);
-      console.log(`   Ganho aplicado: ${safeGain.toFixed(1)} dB`);
-      console.log('');
+      console.error(`   Ganho máximo: ${maxGain.toFixed(1)} dB`);
+      console.error(`   Ganho aplicado: ${safeGain.toFixed(1)} dB`);
+      console.error('');
     }
   }
   
@@ -426,23 +426,23 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   let finalGainNeeded = targetLUFS - currentLUFS;
   
   if (targetLUFS < currentLUFS) {
-    console.log('');
-    console.log('🛡️ PROTEÇÃO ABSOLUTA: Target calculado reduziria LUFS');
-    console.log(`   Target original: ${targetLUFS.toFixed(1)} LUFS`);
-    console.log(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
-    console.log(`   Ação: Clampar target ao mínimo = LUFS atual`);
+    console.error('');
+    console.error('🛡️ PROTEÇÃO ABSOLUTA: Target calculado reduziria LUFS');
+    console.error(`   Target original: ${targetLUFS.toFixed(1)} LUFS`);
+    console.error(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
+    console.error(`   Ação: Clampar target ao mínimo = LUFS atual`);
     targetLUFS = currentLUFS;
     finalGainNeeded = 0;  // Ganho zero se target foi clampado
-    console.log(`   Target ajustado: ${targetLUFS.toFixed(1)} LUFS`);
-    console.log('');
+    console.error(`   Target ajustado: ${targetLUFS.toFixed(1)} LUFS`);
+    console.error('');
   }
   
-  console.log('🎯 Target final calculado:');
-  console.log(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
-  console.log(`   LUFS alvo: ${targetLUFS.toFixed(1)} LUFS`);
-  console.log(`   Ganho necessário: +${finalGainNeeded.toFixed(1)} dB`);
-  console.log(`   Estratégia: ${strategy}`);
-  console.log('');
+  console.error('🎯 Target final calculado:');
+  console.error(`   LUFS atual: ${currentLUFS.toFixed(1)} LUFS`);
+  console.error(`   LUFS alvo: ${targetLUFS.toFixed(1)} LUFS`);
+  console.error(`   Ganho necessário: +${finalGainNeeded.toFixed(1)} dB`);
+  console.error(`   Estratégia: ${strategy}`);
+  console.error('');
   
   // Declarar safeOffset baseado no ganho calculado
   let safeOffset = finalGainNeeded;
@@ -453,9 +453,9 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   
   // Ganho muito baixo (<0.3 dB) não justifica processamento
   if (finalGainNeeded < 0.3) {
-    console.log('ℹ️ Ganho calculado muito baixo (<0.3 dB)');
-    console.log('   Decisão: Não processar (mudança imperceptível)');
-    console.log('═══════════════════════════════════════════════════════════');
+    console.error('ℹ️ Ganho calculado muito baixo (<0.3 dB)');
+    console.error('   Decisão: Não processar (mudança imperceptível)');
+    console.error('═══════════════════════════════════════════════════════════');
     return {
       targetLUFS: currentLUFS,
       gainDB: 0,
@@ -474,22 +474,22 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   
   if (modeKey === 'HIGH' && crestFactor > 12 && headroom > 2.0) {
     maxStress = MAX_LIMITER_STRESS.HIGH_EXTENDED;
-    console.log('🎚️ HIGH MODE EXTENDED: CF > 12 e Headroom > 2 dB');
-    console.log(`   Limiter stress estendido: ${maxStress} dB (padrão: ${MAX_LIMITER_STRESS.HIGH})`);
+    console.error('🎚️ HIGH MODE EXTENDED: CF > 12 e Headroom > 2 dB');
+    console.error(`   Limiter stress estendido: ${maxStress} dB (padrão: ${MAX_LIMITER_STRESS.HIGH})`);
   }
   
-  console.log('🔬 Análise de estresse do limiter:');
-  console.log(`   Ganho necessário: ${finalGainNeeded.toFixed(1)} dB`);
-  console.log(`   Headroom disponível: ${headroom.toFixed(1)} dB`);
-  console.log(`   Estresse estimado: ${stressEstimate.toFixed(1)} dB`);
-  console.log(`   Limite de estresse: ${maxStress} dB`);
+  console.error('🔬 Análise de estresse do limiter:');
+  console.error(`   Ganho necessário: ${finalGainNeeded.toFixed(1)} dB`);
+  console.error(`   Headroom disponível: ${headroom.toFixed(1)} dB`);
+  console.error(`   Estresse estimado: ${stressEstimate.toFixed(1)} dB`);
+  console.error(`   Limite de estresse: ${maxStress} dB`);
   
   let stressAdjusted = false;
   
   if (stressEstimate > maxStress) {
-    console.log('');
-    console.log(`⚠️ ESTRESSE EXCESSIVO: ${stressEstimate.toFixed(1)} dB > ${maxStress} dB`);
-    console.log('   Reduzindo offset para proteger qualidade...');
+    console.error('');
+    console.error(`⚠️ ESTRESSE EXCESSIVO: ${stressEstimate.toFixed(1)} dB > ${maxStress} dB`);
+    console.error('   Reduzindo offset para proteger qualidade...');
     
     // Reduzir offset para caber no limite de estresse
     const reduction = stressEstimate - maxStress;
@@ -501,20 +501,20 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     
     stressAdjusted = true;
     
-    console.log(`   Offset reduzido: ${safeOffset.toFixed(1)} LU`);
-    console.log(`   Novo target: ${targetLUFS.toFixed(1)} LUFS`);
-    console.log(`   Novo ganho: ${finalGainNeeded.toFixed(1)} dB ✅`);
-    console.log('');
+    console.error(`   Offset reduzido: ${safeOffset.toFixed(1)} LU`);
+    console.error(`   Novo target: ${targetLUFS.toFixed(1)} LUFS`);
+    console.error(`   Novo ganho: ${finalGainNeeded.toFixed(1)} dB ✅`);
+    console.error('');
   } else {
-    console.log(`   ✅ Estresse dentro do limite`);
-    console.log('');
+    console.error(`   ✅ Estresse dentro do limite`);
+    console.error('');
   }
   
   // Verificar novamente se ganho ainda é suficiente após ajustes
   if (finalGainNeeded < 0.3) {
-    console.log('ℹ️ Após ajustes, ganho ficou muito baixo (<0.3 dB)');
-    console.log('   Decisão: Não processar');
-    console.log('═══════════════════════════════════════════════════════════');
+    console.error('ℹ️ Após ajustes, ganho ficou muito baixo (<0.3 dB)');
+    console.error('   Decisão: Não processar');
+    console.error('═══════════════════════════════════════════════════════════');
     return {
       targetLUFS: currentLUFS,
       gainDB: 0,
@@ -537,17 +537,17 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
     delta
   });
   
-  console.log('🧠 Mix Confidence:', confidence.toFixed(2));
+  console.error('🧠 Mix Confidence:', confidence.toFixed(2));
   
   // Gate DESATIVADO: HIGH mode agora sempre aplica targets competitivos
   // (usuário escolheu HIGH explicitamente, deve receber loudness competitiva)
   // if (modeKey === 'HIGH' && confidence < 0.6) {
-  //   console.log('');
-  //   console.log('⚠️ HIGH não recomendado para esta mix');
-  //   console.log('🔽 Rebaixando automaticamente para MEDIUM');
-  //   console.log('   Razão: Mix não possui estabilidade suficiente para modo HIGH');
-  //   console.log('   Recalculando com MEDIUM...');
-  //   console.log('');
+  //   console.error('');
+  //   console.error('⚠️ HIGH não recomendado para esta mix');
+  //   console.error('🔽 Rebaixando automaticamente para MEDIUM');
+  //   console.error('   Razão: Mix não possui estabilidade suficiente para modo HIGH');
+  //   console.error('   Recalculando com MEDIUM...');
+  //   console.error('');
   //   
   //   // Recalcular usando MEDIUM (chamada recursiva)
   //   const mediumDecision = decideGainWithinRange(metrics, 'MEDIUM');
@@ -561,20 +561,20 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
   //   };
   // }
   
-  console.log('');
+  console.error('');
   
   // ═══════════════════════════════════════════════════════════
   // 8. DECISÃO FINAL
   // ═══════════════════════════════════════════════════════════
   
-  console.log('✅ Decisão final:');
-  console.log(`   Modo: ${modeConfig.name}`);
-  console.log(`   Offset seguro: +${safeOffset.toFixed(1)} LU`);
-  console.log(`   LUFS alvo: ${targetLUFS.toFixed(1)} LUFS`);
-  console.log(`   Ganho necessário: +${finalGainNeeded.toFixed(1)} dB`);
-  console.log(`   Processar: SIM`);
-  console.log('═══════════════════════════════════════════════════════════════');
-  console.log('');
+  console.error('✅ Decisão final:');
+  console.error(`   Modo: ${modeConfig.name}`);
+  console.error(`   Offset seguro: +${safeOffset.toFixed(1)} LU`);
+  console.error(`   LUFS alvo: ${targetLUFS.toFixed(1)} LUFS`);
+  console.error(`   Ganho necessário: +${finalGainNeeded.toFixed(1)} dB`);
+  console.error(`   Processar: SIM`);
+  console.error('═══════════════════════════════════════════════════════════════');
+  console.error('');
   
   return {
     targetLUFS: parseFloat(targetLUFS.toFixed(1)),
@@ -604,7 +604,7 @@ function decideGainWithinRange(metrics, mode = 'MEDIUM') {
  * Analisa arquivo de áudio e retorna métricas necessárias para decisão
  */
 async function analyzeAudioMetrics(filePath, execAsync) {
-  console.log('🔍 [AUTOMASTER] Analisando métricas do áudio...');
+  console.error('🔍 [AUTOMASTER] Analisando métricas do áudio...');
   
   // Usar ffmpeg para extrair métricas reais
   const ffmpegCmd = `ffmpeg -i "${filePath}" -af "loudnorm=print_format=json,astats=metadata=1:reset=1" -f null - 2>&1`;
@@ -639,10 +639,10 @@ async function analyzeAudioMetrics(filePath, execAsync) {
       }
     }
     
-    console.log('✅ [AUTOMASTER] Métricas extraídas:');
-    console.log(`   LUFS: ${lufs.toFixed(1)}`);
-    console.log(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
-    console.log(`   Crest Factor: ${crestFactor.toFixed(1)} dB${!cfCalculated ? ' (fallback conservador)' : ''}`);
+    console.error('✅ [AUTOMASTER] Métricas extraídas:');
+    console.error(`   LUFS: ${lufs.toFixed(1)}`);
+    console.error(`   True Peak: ${truePeak.toFixed(1)} dBTP`);
+    console.error(`   Crest Factor: ${crestFactor.toFixed(1)} dB${!cfCalculated ? ' (fallback conservador)' : ''}`);
     
     return {
       lufs,
@@ -700,17 +700,17 @@ function applyGlobalCaps(decision, metrics) {
   
   // Skip MODE_CAP para STREAMING (target fixo)
   if (modeKey === 'STREAMING') {
-    console.log('');
-    console.log('✅ MODE CAP: STREAMING mode - skip (target fixo -14.0 LUFS)');
-    console.log('');
+    console.error('');
+    console.error('✅ MODE CAP: STREAMING mode - skip (target fixo -14.0 LUFS)');
+    console.error('');
   }
   // HIGH mode: ISENÇÃO se target está na faixa competitiva (<-11.5 LUFS)
   else if (modeKey === 'HIGH' && adjustedTarget < -11.5) {
-    console.log('');
-    console.log('✅ MODE CAP: HIGH mode - ISENÇÃO para loudness competitiva');
-    console.log(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
-    console.log('   Target preservado (competitivo, não será limitado)');
-    console.log('');
+    console.error('');
+    console.error('✅ MODE CAP: HIGH mode - ISENÇÃO para loudness competitiva');
+    console.error(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
+    console.error('   Target preservado (competitivo, não será limitado)');
+    console.error('');
     // Não aplicar modeCap - deixar target como está
   }
   // Outros modos: aplicar modeCap normalmente
@@ -729,16 +729,16 @@ function applyGlobalCaps(decision, metrics) {
     else if (modeKey === 'HIGH') modeCap = -8.0 + highExtension;
     
     if (adjustedTarget > modeCap) {
-      console.log('');
-      console.log('🚨 MODE CAP: LUFS LIMIT');
-      console.log(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
-      console.log(`   Limite do modo ${modeKey}: ${modeCap.toFixed(1)} LUFS`);
+      console.error('');
+      console.error('🚨 MODE CAP: LUFS LIMIT');
+      console.error(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
+      console.error(`   Limite do modo ${modeKey}: ${modeCap.toFixed(1)} LUFS`);
       adjustedTarget = modeCap;
       adjustedGain = adjustedTarget - currentLUFS;
       capped = true;
       capReason = 'MODE_CAP';
-      console.log(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS`);
-      console.log('');
+      console.error(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS`);
+      console.error('');
     }
   }
   
@@ -747,17 +747,17 @@ function applyGlobalCaps(decision, metrics) {
   
   const deltaFromOriginal = adjustedTarget - currentLUFS;
   if (deltaFromOriginal > maxDelta) {
-    console.log('');
-    console.log('🚨 GLOBAL CAP: DELTA LIMIT');
-    console.log(`   Delta calculado: ${deltaFromOriginal.toFixed(1)} LU`);
-    console.log(`   Limite para modo ${modeKey}: +${maxDelta.toFixed(1)} LU`);
+    console.error('');
+    console.error('🚨 GLOBAL CAP: DELTA LIMIT');
+    console.error(`   Delta calculado: ${deltaFromOriginal.toFixed(1)} LU`);
+    console.error(`   Limite para modo ${modeKey}: +${maxDelta.toFixed(1)} LU`);
     adjustedTarget = currentLUFS + maxDelta;
     adjustedGain = maxDelta;
     capped = true;
     capReason = capReason ? capReason + '+DELTA_LIMIT' : 'DELTA_LIMIT';
-    console.log(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS`);
-    console.log(`   Ganho ajustado: +${adjustedGain.toFixed(1)} dB`);
-    console.log('');
+    console.error(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS`);
+    console.error(`   Ganho ajustado: +${adjustedGain.toFixed(1)} dB`);
+    console.error('');
   }
   
   // CAP 3: True Peak alvo máximo (-1.0 dBTP)
@@ -768,34 +768,34 @@ function applyGlobalCaps(decision, metrics) {
   // AutoMaster NUNCA deve deixar uma track mais silenciosa
   // LUFS são negativos: target < input = REDUÇÃO (ex: -14 < -10)
   if (adjustedTarget < currentLUFS) {
-    console.log('');
-    console.log('🚨 GLOBAL CAP: NEVER REDUCE LOUDNESS');
-    console.log(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
-    console.log(`   Input LUFS: ${currentLUFS.toFixed(1)} LUFS`);
-    console.log(`   ⚠️ Target would reduce loudness - BLOCKED`);
+    console.error('');
+    console.error('🚨 GLOBAL CAP: NEVER REDUCE LOUDNESS');
+    console.error(`   Target calculado: ${adjustedTarget.toFixed(1)} LUFS`);
+    console.error(`   Input LUFS: ${currentLUFS.toFixed(1)} LUFS`);
+    console.error(`   ⚠️ Target would reduce loudness - BLOCKED`);
     adjustedTarget = currentLUFS;
     adjustedGain = 0;
     capped = true;
     capReason = capReason ? capReason + '+NEVER_REDUCE' : 'NEVER_REDUCE';
-    console.log(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS (= input)`);
-    console.log(`   Ganho ajustado: ${adjustedGain.toFixed(1)} dB (bypass)`);
-    console.log('');
+    console.error(`   Target ajustado: ${adjustedTarget.toFixed(1)} LUFS (= input)`);
+    console.error(`   Ganho ajustado: ${adjustedGain.toFixed(1)} dB (bypass)`);
+    console.error('');
   }
   
   // Proteção NaN: se target não for finito, forçar bypass
   if (!Number.isFinite(adjustedTarget)) {
-    console.log('');
-    console.log('⚠️ GLOBAL CAP: NaN/Infinity detected in target');
-    console.log(`   Forcing target = input (bypass processing)`);
+    console.error('');
+    console.error('⚠️ GLOBAL CAP: NaN/Infinity detected in target');
+    console.error(`   Forcing target = input (bypass processing)`);
     adjustedTarget = currentLUFS;
     adjustedGain = 0;
     capped = true;
     capReason = capReason ? capReason + '+NAN_PROTECTION' : 'NAN_PROTECTION';
-    console.log('');
+    console.error('');
   }
   
   if (capped) {
-    console.log('✅ Global Caps aplicados com sucesso');
+    console.error('✅ Global Caps aplicados com sucesso');
   }
   
   return {
