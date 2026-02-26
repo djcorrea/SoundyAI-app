@@ -1236,6 +1236,23 @@
   </div>
 
   <!-- ========================================
+       ⚠️ MODO INCOMPATÍVEL
+       ======================================== -->
+  <div id="modeIncompatibleModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">⚠️ automaster v1</div>
+        <h2 class="modal-title">Modo incompatível com a música</h2>
+        <p class="modal-subtitle" id="modeIncompatibleReason">O modo selecionado não é indicado para este material.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToDecision()">← Voltar</button>
+        <button class="btn btn-primary" id="modeIncompatibleRetryBtn" onclick="retryWithRecommendedMode()">Usar modo recomendado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
        📊 ETAPA 7 - RESULTADO
        ======================================== -->
   <div id="resultModal" class="automaster-modal">
@@ -1951,6 +1968,12 @@
 
       } catch (err) {
         console.error('❌ [AUTOMASTER] Erro no processamento:', err);
+
+        // Modo incompatível: mostrar modal dedicado (não é erro genérico)
+        if (err.isModeIncompatible) {
+          showModeIncompatibleModal(err.statusData || {});
+          return;
+        }
         
         // Melhorar mensagem de erro para o usuário
         let userMessage = err.message || 'Erro desconhecido no processamento.';
@@ -1967,6 +1990,29 @@
     }
 
     function retryProcessing() {
+      startProcessing();
+    }
+
+    function showModeIncompatibleModal(statusData) {
+      const reason = statusData.reason || 'O modo selecionado não é compatível com este material de entrada.';
+      const recommendedMode = statusData.recommendedMode || 'MEDIUM';
+
+      const reasonEl = document.getElementById('modeIncompatibleReason');
+      if (reasonEl) reasonEl.textContent = reason;
+
+      const retryBtn = document.getElementById('modeIncompatibleRetryBtn');
+      if (retryBtn) retryBtn.textContent = 'Usar modo recomendado (' + getModeName(recommendedMode) + ')';
+
+      // Guardar modo recomendado para uso no retryWithRecommendedMode
+      automasterState._recommendedMode = recommendedMode;
+
+      showModal('modeIncompatibleModal');
+    }
+
+    function retryWithRecommendedMode() {
+      const recommended = automasterState._recommendedMode || 'MEDIUM';
+      console.log('[AUTOMASTER] Retentando com modo recomendado:', recommended);
+      automasterState.mode = recommended;
       startProcessing();
     }
 
@@ -2040,7 +2086,14 @@
 
             } else if (statusData.status === 'failed' || statusData.status === 'error') {
               clearInterval(timer);
-              reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
+              if (statusData.errorCode === 'MODE_INCOMPATIBLE' || statusData.type === 'MODE_INCOMPATIBLE') {
+                const modeErr = new Error('MODE_INCOMPATIBLE');
+                modeErr.isModeIncompatible = true;
+                modeErr.statusData = statusData;
+                reject(modeErr);
+              } else {
+                reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
+              }
             }
             // queued / processing: continuar polling
 

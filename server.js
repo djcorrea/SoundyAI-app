@@ -702,6 +702,16 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       response.failedAt = job.failed_at;
       response.attempt = job.attempt;
       response.message = 'Falha no processamento';
+
+      // Para MODE_INCOMPATIBLE, expor campos extras para o frontend exibir o modal
+      if (job.error_code === 'MODE_INCOMPATIBLE') {
+        response.type = 'MODE_INCOMPATIBLE';
+        response.selectedMode = job.selected_mode;
+        response.recommendedMode = job.recommended_mode;
+        response.reason = job.error_message;
+        response.abortReason = job.abort_reason;
+        response.message = 'Modo selecionado incompatível com o material de entrada';
+      }
     } else if (job.status === 'queued') {
       response.message = 'Aguardando na fila...';
     }

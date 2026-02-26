@@ -301,6 +301,43 @@ async function processJob(job) {
     // resultado já vem parseado e validado
     const pipelineResult = result.pipelineResult;
 
+    // Modo incompatível com o áudio: resultado semântico limpo, sem retry
+    if (pipelineResult.type === 'MODE_INCOMPATIBLE') {
+      await jobStore.updateJobStatus(jobId, 'failed', {
+        error_code: 'MODE_INCOMPATIBLE',
+        error_message: (pipelineResult.reason || 'Modo incompatível com o material de entrada').substring(0, 500),
+        selected_mode: pipelineResult.selectedMode || '',
+        recommended_mode: pipelineResult.recommendedMode || 'MEDIUM',
+        abort_reason: pipelineResult.abort_reason || '',
+        processing_ms: pipelineResult.processing_ms || 0
+      });
+
+      try {
+        await workerPool.query(
+          `UPDATE jobs
+           SET status     = 'failed',
+               error      = $1,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [
+            JSON.stringify({ type: 'MODE_INCOMPATIBLE', ...pipelineResult }),
+            jobId
+          ]
+        );
+        jobLogger.info({ jobId }, 'PostgreSQL sincronizado: MODE_INCOMPATIBLE');
+      } catch (pgErr) {
+        jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar MODE_INCOMPATIBLE com PostgreSQL (não crítico)');
+      }
+
+      jobLogger.info({ pipelineResult }, 'Job finalizado como MODE_INCOMPATIBLE (sem retry)');
+      return {
+        success: false,
+        type: 'MODE_INCOMPATIBLE',
+        jobId,
+        pipeline_result: pipelineResult
+      };
+    }
+
     if (!pipelineResult.success) {
       throw new Error(`Pipeline falhou: ${JSON.stringify(pipelineResult)}`);
     }

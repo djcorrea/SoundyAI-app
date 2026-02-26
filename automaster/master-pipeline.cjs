@@ -386,6 +386,24 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     }
   }
 
+  // Verificar compatibilidade de modo (HIGH pode ser incompatível com determinados materiais)
+  if (masterResult && masterResult.impact_aborted === true) {
+    const ABORT_REASONS = {
+      LIMITER_OVERLOAD: 'Limiter aplicou compressão excessiva — pumping audível detectado',
+      CREST_COLLAPSE:   'Dinâmica colapsada — brick-wall limiting comprometeria a faixa'
+    };
+    return {
+      ok: false,
+      success: false,
+      type: 'MODE_INCOMPATIBLE',
+      selectedMode: validMode,
+      recommendedMode: 'MEDIUM',
+      reason: ABORT_REASONS[masterResult.abort_reason] || 'Modo incompatível com o material de entrada',
+      abort_reason: masterResult.abort_reason || null,
+      processing_ms: Date.now() - startTime
+    };
+  }
+
   // Pós-checagem técnica e fallback CLEAN (no máximo uma tentativa adicional)
   let postcheck;
   try {
@@ -499,7 +517,7 @@ if (require.main === module) {
   runMasterPipeline({ inputPath, outputPath, mode, rescueMode })
     .then(result => {
       process.stdout.write(JSON.stringify(result));
-      process.exit(result.ok === false ? 1 : 0);
+      process.exit(result.ok === false && result.type !== 'MODE_INCOMPATIBLE' ? 1 : 0);
     })
     .catch(error => {
       console.error(error.message);

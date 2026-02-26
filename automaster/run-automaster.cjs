@@ -115,7 +115,10 @@ async function runAutomaster(options) {
       duration_ms: duration,
       output_path: outputPath,
       output_size_kb: parseFloat(sizeKB),
-      fallback_used: coreResult.fallback_used || false
+      fallback_used: coreResult.fallback_used || false,
+      impact_aborted: coreResult.impact_aborted || false,
+      abort_reason: coreResult.abort_reason || null,
+      mode_result: coreResult.mode_result || mode
     };
   } catch (error) {
     if (debug) {
