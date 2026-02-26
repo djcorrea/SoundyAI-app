@@ -291,7 +291,7 @@ if (require.main === module) {
 
   runAutomaster({ inputPath, outputPath, mode, strategy })
     .then(result => {
-      console.log(JSON.stringify(result));
+      process.stdout.write(JSON.stringify(result));
       process.exit(0);
     })
     .catch(error => {
