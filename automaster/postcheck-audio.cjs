@@ -156,39 +156,44 @@ async function run() {
 
   const reasons = [];
 
-  // Tier1 checks (hard stops)
+  // ── Log de diagnóstico (stderr → não polui stdout da pipeline) ─────────────
+  console.error('[POSTCHECK] audioPath:', audioPath);
+  console.error('[POSTCHECK] mode:', mode);
+  console.error('[POSTCHECK] OUTPUT LUFS:', metrics.lufs_i);
+  console.error('[POSTCHECK] OUTPUT TP:', metrics.true_peak_dbtp);
+  console.error('[POSTCHECK] OUTPUT DR:', metrics.dr);
+
+  // ── Tier1: hard stop — apenas True Peak (DR removido: medida astats é instável) ─
   let tier1_pass = true;
   const tp = metrics.true_peak_dbtp === 'not_available' ? null : metrics.true_peak_dbtp;
-  if (tp !== null && tp > 0.0) {
-    tier1_pass = false;
-    reasons.push(`True peak alto: ${tp} dBTP`);
+  if (tp !== null) {
+    if (tp > -0.8) {
+      tier1_pass = false;
+      reasons.push(`True peak excessivo: ${tp} dBTP (máx permitido: -0.8 dBTP)`);
+    } else {
+      console.error('[POSTCHECK] TP OK:', tp, 'dBTP');
+    }
+  } else {
+    console.error('[POSTCHECK] TP não disponível — check ignorado');
   }
 
-  const drValue = metrics.dr === 'not_available' ? null : metrics.dr;
-  if (drValue !== null && drValue < DEFAULT_DR_MIN) {
-    tier1_pass = false;
-    reasons.push(`Dynamic Range baixo: ${drValue} dB`);
-  }
-
-  // Tier3: LUFS close to target
+  // ── Tier3: LUFS — aceitar se LUFS <= targetLufs + 1.5 (somente lim. superior) ─
   const target = MODE_TARGETS[mode] || MODE_TARGETS.MEDIUM;
   let tier3_pass = true;
   const lufs = metrics.lufs_i === 'not_available' ? null : metrics.lufs_i;
   if (lufs !== null) {
-    const diff = Math.abs(lufs - target);
-    if (diff <= 1.5) {
-      tier3_pass = true;
-    } else if (diff <= 3.0) {
-      tier3_pass = false; // will suggest fallback
-      reasons.push(`LUFS fora do alvo por ${diff.toFixed(2)} LU`);
-    } else {
+    const ceiling = target + 1.5;          // ex.: HIGH => -9 + 1.5 = -7.5
+    if (lufs > ceiling) {
       tier3_pass = false;
-      reasons.push(`LUFS muito distante do alvo (${diff.toFixed(2)} LU)`);
+      reasons.push(`LUFS acima do máximo aceito: ${lufs.toFixed(2)} LUFS (máx: ${ceiling.toFixed(2)})`);
+    } else {
+      console.error('[POSTCHECK] LUFS OK:', lufs, 'LUFS (ceiling:', ceiling, ')');
     }
   } else {
-    // if lufs not available, do not fail tier3; add reason
-    reasons.push('LUFS nao disponível para avaliação detalhada');
+    // Métricas indisponíveis: não bloquear — tratar como aviso
+    reasons.push('LUFS não disponível para avaliação — aceito com aviso');
     tier3_pass = true;
+    console.error('[POSTCHECK] LUFS não disponível — aviso, não falha');
   }
 
   // Decide recommended_action

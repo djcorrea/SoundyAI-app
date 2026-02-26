@@ -412,6 +412,16 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     throw new Error(`Postcheck falhou: ${err.message}`);
   }
 
+  // Log do resultado para diagnóstico em Railway
+  console.error('[PIPELINE] Postcheck result:', JSON.stringify({
+    status: postcheck && postcheck.status,
+    recommended_action: postcheck && postcheck.recommended_action,
+    lufs: postcheck && postcheck.metrics && postcheck.metrics.lufs_i,
+    tp: postcheck && postcheck.metrics && postcheck.metrics.true_peak_dbtp,
+    dr: postcheck && postcheck.metrics && postcheck.metrics.dr,
+    reasons: postcheck && postcheck.tiers && postcheck.tiers.reasons
+  }));
+
   // Construir tentativa primaria
   const primaryAttempt = {
     type: 'PRIMARY',
