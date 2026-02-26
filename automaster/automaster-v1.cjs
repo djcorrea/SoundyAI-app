@@ -3634,16 +3634,16 @@ async function processAudio(config) {
   // Armazenar último target válido
   config.previousValidTarget = validTarget;
 
-  console.log('[FINAL TARGET BEFORE PROCESSING]', validTarget, 'LUFS');
+  console.error('[FINAL TARGET BEFORE PROCESSING]', validTarget, 'LUFS');
 
   // ═══════════════════════════════════════════════════════════
   // HIGH MODE: BYPASS LOUDNORM → USE LIMITER-DRIVEN MASTERING
   // ═══════════════════════════════════════════════════════════
   if (mode === 'HIGH') {
-    console.log('');
-    console.log('[HIGH MODE] Loudnorm bypassed – using limiter-driven loudness');
-    console.log('[HIGH MODE] Benefits: Immediate volume rise, no bass reaction, solid loudness');
-    console.log('');
+    console.error('');
+    console.error('[HIGH MODE] Loudnorm bypassed – using limiter-driven loudness');
+    console.error('[HIGH MODE] Benefits: Immediate volume rise, no bass reaction, solid loudness');
+    console.error('');
     
     // Detectar sample rate
     const sampleRate = await detectInputSampleRate(inputPath);
@@ -3733,21 +3733,21 @@ async function processAudio(config) {
 function checkTransientProtection(inputCF, outputCF, currentGain) {
   const cfDrop = inputCF - outputCF;
   
-  console.log('');
-  console.log('🔬 CONTROLE DE TRANSIENTE:');
-  console.log(`   Input CF: ${inputCF.toFixed(2)} dB`);
-  console.log(`   Output CF: ${outputCF.toFixed(2)} dB`);
-  console.log(`   Drop: ${cfDrop.toFixed(2)} dB`);
+  console.error('');
+  console.error('🔬 CONTROLE DE TRANSIENTE:');
+  console.error(`   Input CF: ${inputCF.toFixed(2)} dB`);
+  console.error(`   Output CF: ${outputCF.toFixed(2)} dB`);
+  console.error(`   Drop: ${cfDrop.toFixed(2)} dB`);
   
   // 🎯 REGRA ABSOLUTA: CF drop > 2 dB = reduzir ganho
   if (cfDrop > 2.0) {
-    console.log('   ⚠️ CF drop excessivo detectado (>2.0 dB)');
-    console.log('   Ação: Reduzir gain progressivamente para proteger transientes');
+    console.error('   ⚠️ CF drop excessivo detectado (>2.0 dB)');
+    console.error('   Ação: Reduzir gain progressivamente para proteger transientes');
     
     const adjustedGain = currentGain * 0.8;  // Redução de 20%
-    console.log(`   Gain original: ${currentGain.toFixed(2)} dB`);
-    console.log(`   Gain ajustado: ${adjustedGain.toFixed(2)} dB`);
-    console.log('');
+    console.error(`   Gain original: ${currentGain.toFixed(2)} dB`);
+    console.error(`   Gain ajustado: ${adjustedGain.toFixed(2)} dB`);
+    console.error('');
     
     return {
       needsReprocess: true,
@@ -3757,8 +3757,8 @@ function checkTransientProtection(inputCF, outputCF, currentGain) {
     };
   }
   
-  console.log('   ✅ CF drop aceitável (≤1.5 dB)');
-  console.log('');
+  console.error('   ✅ CF drop aceitável (≤1.5 dB)');
+  console.error('');
   
   return {
     needsReprocess: false,
@@ -3788,16 +3788,16 @@ function checkTransientProtection(inputCF, outputCF, currentGain) {
  * @returns {Promise<Object>} - { sat_used, sat_aborted, sat_blocked, sat_reason, sat_intensity, final_metrics }
  */
 async function applySaturationFallback(inputPath, outputPath, offsetApplied, deltaFinal, mode, inputCrestFactor, inputLUFS) {
-  console.log('');
-  console.log('🎛️ SATURAÇÃO FALLBACK:');
-  console.log(`   Delta final: ${deltaFinal.toFixed(1)} LU`);
-  console.log(`   Modo: ${mode}`);
-  console.log(`   Crest Factor: ${inputCrestFactor.toFixed(1)} dB`);
+  console.error('');
+  console.error('🎛️ SATURAÇÃO FALLBACK:');
+  console.error(`   Delta final: ${deltaFinal.toFixed(1)} LU`);
+  console.error(`   Modo: ${mode}`);
+  console.error(`   Crest Factor: ${inputCrestFactor.toFixed(1)} dB`);
   
   // Verificação 1: Modo LOW não permite saturação
   if (mode === 'LOW') {
-    console.log('   🚫 Saturação bloqueada: modo LOW não permite saturação');
-    console.log('');
+    console.error('   🚫 Saturação bloqueada: modo LOW não permite saturação');
+    console.error('');
     return {
       sat_used: false,
       sat_aborted: false,
@@ -3810,8 +3810,8 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
   
   // Verificação 2: CF muito baixo (mix já comprimida)
   if (inputCrestFactor < 10.0) {
-    console.log('   🚫 Saturação bloqueada: Crest Factor < 10 dB (mix já comprimida)');
-    console.log('');
+    console.error('   🚫 Saturação bloqueada: Crest Factor < 10 dB (mix já comprimida)');
+    console.error('');
     return {
       sat_used: false,
       sat_aborted: false,
@@ -3826,8 +3826,8 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
   const shouldApplySaturation = (deltaFinal < 0.7);
   
   if (!shouldApplySaturation) {
-    console.log('   ℹ️ Saturação não necessária (delta suficiente)');
-    console.log('');
+    console.error('   ℹ️ Saturação não necessária (delta suficiente)');
+    console.error('');
     return {
       sat_used: false,
       sat_aborted: false,
@@ -3838,7 +3838,7 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
     };
   }
   
-  console.log('   ⚡ Aplicando saturação MUITO LEVE (3% drive) para harmônicos sutis...');
+  console.error('   ⚡ Aplicando saturação MUITO LEVE (3% drive) para harmônicos sutis...');
   
   // Intensidade fixa: 3% de drive
   const satIntensity = 0.03;
@@ -3867,19 +3867,19 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
     // Medir resultado da saturação
     const satMetrics = await measureWithOfficialScript(tempSatPath);
     
-    console.log(`   Saturação aplicada:`);
-    console.log(`     LUFS original: ${inputLUFS.toFixed(2)} LUFS`);
-    console.log(`     LUFS pós-sat: ${satMetrics.lufs_i.toFixed(2)} LUFS`);
-    console.log(`     Alteração: ${Math.abs(satMetrics.lufs_i - inputLUFS).toFixed(2)} LU`);
-    console.log(`     TP: ${satMetrics.true_peak_db.toFixed(2)} dBTP`);
-    console.log(`     Intensidade: ${(satIntensity * 100).toFixed(1)}%`);
+    console.error(`   Saturação aplicada:`);
+    console.error(`     LUFS original: ${inputLUFS.toFixed(2)} LUFS`);
+    console.error(`     LUFS pós-sat: ${satMetrics.lufs_i.toFixed(2)} LUFS`);
+    console.error(`     Alteração: ${Math.abs(satMetrics.lufs_i - inputLUFS).toFixed(2)} LU`);
+    console.error(`     TP: ${satMetrics.true_peak_db.toFixed(2)} dBTP`);
+    console.error(`     Intensidade: ${(satIntensity * 100).toFixed(1)}%`);
     
     // Validar se saturação não causou problemas
     const tpOvershoot = satMetrics.true_peak_db > -1.0;
     const lufsChange = Math.abs(satMetrics.lufs_i - inputLUFS);
     
     if (tpOvershoot) {
-      console.log('   ⚠️ Saturação abortada: True Peak > -1.0 dBTP');
+      console.error('   ⚠️ Saturação abortada: True Peak > -1.0 dBTP');
       fs.unlinkSync(tempSatPath);
       return {
         sat_used: false,
@@ -3893,8 +3893,8 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
     
     // VALIDAÇÃO CRÍTICA: Saturação não pode alterar LUFS em > 0.3 LU
     if (lufsChange > 0.3) {
-      console.log(`   ⚠️ Saturação abortada: Alteração LUFS > 0.3 LU (${lufsChange.toFixed(2)} LU)`);
-      console.log('   Caráter sonoro seria alterado significativamente');
+      console.error(`   ⚠️ Saturação abortada: Alteração LUFS > 0.3 LU (${lufsChange.toFixed(2)} LU)`);
+      console.error('   Caráter sonoro seria alterado significativamente');
       fs.unlinkSync(tempSatPath);
       return {
         sat_used: false,
@@ -3909,8 +3909,8 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
     // Saturação aprovada - copiar resultado
     fs.renameSync(tempSatPath, outputPath);
     
-    console.log('   ✅ Saturação aplicada com sucesso (caráter sonoro preservado)');
-    console.log('');
+    console.error('   ✅ Saturação aplicada com sucesso (caráter sonoro preservado)');
+    console.error('');
     
     return {
       sat_used: true,
@@ -3954,17 +3954,17 @@ async function applySaturationFallback(inputPath, outputPath, offsetApplied, del
  * @returns {Object} - { passed, safety_triggered, action }
  */
 function applyFinalGuarantee(inputLUFS, finalLUFS, stress, maxStress) {
-  console.log('');
-  console.log('🛡️ GARANTIA GLOBAL FINAL:');
-  console.log(`   Input LUFS: ${inputLUFS.toFixed(2)} LUFS`);
-  console.log(`   Final LUFS: ${finalLUFS.toFixed(2)} LUFS`);
-  console.log(`   Stress: ${stress.toFixed(2)} dB (máx: ${maxStress} dB)`);
+  console.error('');
+  console.error('🛡️ GARANTIA GLOBAL FINAL:');
+  console.error(`   Input LUFS: ${inputLUFS.toFixed(2)} LUFS`);
+  console.error(`   Final LUFS: ${finalLUFS.toFixed(2)} LUFS`);
+  console.error(`   Stress: ${stress.toFixed(2)} dB (máx: ${maxStress} dB)`);
   
   // Verificação 1: Loudness reduction (não permitido)
   if (finalLUFS < inputLUFS - 0.3) {
-    console.log('   ⚠️ ABORTANDO: Master reduziu loudness');
-    console.log('   Ação: Aplicar normalização leve ao invés de masterização completa');
-    console.log('');
+    console.error('   ⚠️ ABORTANDO: Master reduziu loudness');
+    console.error('   Ação: Aplicar normalização leve ao invés de masterização completa');
+    console.error('');
     return {
       passed: false,
       safety_triggered: true,
@@ -3974,9 +3974,9 @@ function applyFinalGuarantee(inputLUFS, finalLUFS, stress, maxStress) {
   
   // Verificação 2: Stress excessivo
   if (stress > maxStress) {
-    console.log(`   ⚠️ STRESS EXCESSIVO: ${stress.toFixed(2)} > ${maxStress} dB`);
-    console.log('   Ação: Necessário reduzir gain em 15% e reprocessar');
-    console.log('');
+    console.error(`   ⚠️ STRESS EXCESSIVO: ${stress.toFixed(2)} > ${maxStress} dB`);
+    console.error('   Ação: Necessário reduzir gain em 15% e reprocessar');
+    console.error('');
     return {
       passed: false,
       safety_triggered: true,
@@ -3984,8 +3984,8 @@ function applyFinalGuarantee(inputLUFS, finalLUFS, stress, maxStress) {
     };
   }
   
-  console.log('   ✅ Todas as verificações passaram');
-  console.log('');
+  console.error('   ✅ Todas as verificações passaram');
+  console.error('');
   
   return {
     passed: true,
@@ -4108,16 +4108,16 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   const warnings = [];
   const details = {};
   
-  console.log('');
-  console.log('════════════════════════════════════════════════════════════');
-  console.log('🔍 VALIDAÇÃO DO RESULTADO FINAL');
-  console.log('════════════════════════════════════════════════════════════');
+  console.error('');
+  console.error('════════════════════════════════════════════════════════════');
+  console.error('🔍 VALIDAÇÃO DO RESULTADO FINAL');
+  console.error('════════════════════════════════════════════════════════════');
   
   // Verificar se houve falha na medição OU se valores críticos estão ausentes
   if (result.measurement_failed || result.final_lufs == null || result.final_tp == null) {
-    console.log('⚠️ MEDIÇÃO FINAL FALHOU - Validação abortada');
-    console.log(`   Erro: ${result.measurement_error || 'Valores LUFS/TP ausentes'}`);
-    console.log('');
+    console.error('⚠️ MEDIÇÃO FINAL FALHOU - Validação abortada');
+    console.error(`   Erro: ${result.measurement_error || 'Valores LUFS/TP ausentes'}`);
+    console.error('');
     return {
       valid: false,
       violations: ['MEASUREMENT_FAILED'],
@@ -4129,14 +4129,14 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   // 🛡️ PROTEÇÃO CONTRA NaN: Verificar se referenceLUFS é válido
   let validReferenceLUFS = referenceLUFS;
   if (referenceLUFS == null || !Number.isFinite(referenceLUFS)) {
-    console.log('⚠️ REFERENCE LUFS INVÁLIDO - Usando fallback');
+    console.error('⚠️ REFERENCE LUFS INVÁLIDO - Usando fallback');
     // Usar result.reference_lufs_pre_limiter (medido ANTES do limiter, linear) ou final_lufs como fallback
     validReferenceLUFS = result.reference_lufs_pre_limiter || result.final_lufs;
-    console.log(`   Reference LUFS: ${referenceLUFS} → ${validReferenceLUFS.toFixed(2)} LUFS (fallback)`);
+    console.error(`   Reference LUFS: ${referenceLUFS} → ${validReferenceLUFS.toFixed(2)} LUFS (fallback)`);
     
     if (!Number.isFinite(validReferenceLUFS)) {
-      console.log('   ❌ Impossível validar: todos os valores de referência são inválidos');
-      console.log('');
+      console.error('   ❌ Impossível validar: todos os valores de referência são inválidos');
+      console.error('');
       return {
         valid: false,
         violations: ['INVALID_REFERENCE_LUFS'],
@@ -4158,44 +4158,44 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   details.reference_lufs = validReferenceLUFS;
   details.tolerance_applied = TECHNICAL_TOLERANCE;
   
-  console.log(`📊 REGRA TÉCNICA 1: LUFS não pode reduzir`);
-  console.log(`   Reference LUFS: ${validReferenceLUFS.toFixed(2)} LUFS (após pré-processamento)`);
-  console.log(`   Final LUFS: ${result.final_lufs.toFixed(2)} LUFS`);
-  console.log(`   Diferença: ${lufsDiff >= 0 ? '+' : ''}${lufsDiff.toFixed(2)} LU`);
-  console.log(`   Tolerância técnica: ${TECHNICAL_TOLERANCE.toFixed(2)} LU`);
-  console.log(`   Limite mínimo aceitável: ${(validReferenceLUFS - TECHNICAL_TOLERANCE).toFixed(2)} LUFS`);
+  console.error(`📊 REGRA TÉCNICA 1: LUFS não pode reduzir`);
+  console.error(`   Reference LUFS: ${validReferenceLUFS.toFixed(2)} LUFS (após pré-processamento)`);
+  console.error(`   Final LUFS: ${result.final_lufs.toFixed(2)} LUFS`);
+  console.error(`   Diferença: ${lufsDiff >= 0 ? '+' : ''}${lufsDiff.toFixed(2)} LU`);
+  console.error(`   Tolerância técnica: ${TECHNICAL_TOLERANCE.toFixed(2)} LU`);
+  console.error(`   Limite mínimo aceitável: ${(validReferenceLUFS - TECHNICAL_TOLERANCE).toFixed(2)} LUFS`);
   
   if (isLUFSReduction) {
     violations.push('LUFS_REDUCTION');
     const actualReduction = validReferenceLUFS - result.final_lufs;
-    console.log(`   ❌ VIOLAÇÃO: LUFS reduziu ${actualReduction.toFixed(2)} LU (além da tolerância)`);
+    console.error(`   ❌ VIOLAÇÃO: LUFS reduziu ${actualReduction.toFixed(2)} LU (além da tolerância)`);
   } else {
     if (lufsDiff < 0 && lufsDiff >= -TECHNICAL_TOLERANCE) {
-      console.log(`   ✅ OK: Redução dentro da tolerância técnica (${Math.abs(lufsDiff).toFixed(2)} LU < ${TECHNICAL_TOLERANCE} LU)`);
+      console.error(`   ✅ OK: Redução dentro da tolerância técnica (${Math.abs(lufsDiff).toFixed(2)} LU < ${TECHNICAL_TOLERANCE} LU)`);
     } else {
-      console.log(`   ✅ OK: LUFS mantido ou aumentado`);
+      console.error(`   ✅ OK: LUFS mantido ou aumentado`);
     }
   }
-  console.log('');
+  console.error('');
   
   // REGRA 2: True Peak <= -1.0 dBTP (BLOQUEANTE)
   details.final_tp = result.final_tp;
   
-  console.log(`📊 REGRA TÉCNICA 2: True Peak <= -1.0 dBTP`);
-  console.log(`   Final TP: ${result.final_tp.toFixed(2)} dBTP`);
-  console.log(`   Limite: -1.0 dBTP`);
+  console.error(`📊 REGRA TÉCNICA 2: True Peak <= -1.0 dBTP`);
+  console.error(`   Final TP: ${result.final_tp.toFixed(2)} dBTP`);
+  console.error(`   Limite: -1.0 dBTP`);
   
   if (result.final_tp > -1.0) {
     violations.push('TP_OVERSHOOT');
     const overshoot = result.final_tp + 1.0;
-    console.log(`   ❌ VIOLAÇÃO: TP excedeu ${overshoot.toFixed(2)} dB`);
+    console.error(`   ❌ VIOLAÇÃO: TP excedeu ${overshoot.toFixed(2)} dB`);
     details.tp_overshoot = overshoot;
   } else {
     const margin = Math.abs(result.final_tp + 1.0);
-    console.log(`   ✅ OK: Margem de segurança ${margin.toFixed(2)} dB`);
+    console.error(`   ✅ OK: Margem de segurança ${margin.toFixed(2)} dB`);
     details.tp_margin = margin;
   }
-  console.log('');
+  console.error('');
   
   // ============================================================
   // MÉTRICAS ESTÉTICAS (WARNINGS APENAS)
@@ -4206,24 +4206,24 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   const cfDrop = inputCF - outputCF;
   details.cf_drop = cfDrop;
   
-  console.log(`📊 MÉTRICA ESTÉTICA 3: Crest Factor drop`);
-  console.log(`   Input CF: ${inputCF.toFixed(2)} dB`);
-  console.log(`   Output CF: ${outputCF.toFixed(2)} dB`);
-  console.log(`   CF Drop: ${cfDrop.toFixed(2)} dB`);
-  console.log(`   Referência: 2.0 dB (ideal)`);
+  console.error(`📊 MÉTRICA ESTÉTICA 3: Crest Factor drop`);
+  console.error(`   Input CF: ${inputCF.toFixed(2)} dB`);
+  console.error(`   Output CF: ${outputCF.toFixed(2)} dB`);
+  console.error(`   CF Drop: ${cfDrop.toFixed(2)} dB`);
+  console.error(`   Referência: 2.0 dB (ideal)`);
   
   if (cfDrop > 2.0) {
     warnings.push('CF_DROP_HIGH');
     const excess = cfDrop - 2.0;
-    console.log(`   ⚠️ WARNING: CF drop elevado (+${excess.toFixed(2)} dB acima do ideal)`);
-    console.log(`   Transientes podem estar ligeiramente comprimidos`);
+    console.error(`   ⚠️ WARNING: CF drop elevado (+${excess.toFixed(2)} dB acima do ideal)`);
+    console.error(`   Transientes podem estar ligeiramente comprimidos`);
     details.cf_drop_excess = excess;
   } else {
     const remaining = 2.0 - cfDrop;
-    console.log(`   ✅ EXCELENTE: Transientes preservados (${remaining.toFixed(2)} dB de margem)`);
+    console.error(`   ✅ EXCELENTE: Transientes preservados (${remaining.toFixed(2)} dB de margem)`);
     details.cf_drop_margin = remaining;
   }
-  console.log('');
+  console.error('');
   
   // MÉTRICA 4: Limiter reduction (WARNING apenas)
   // Estimativa: diferença entre ganho necessário e headroom disponível
@@ -4232,24 +4232,24 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   const limiterReduction = Math.max(0, gainApplied - inputHeadroom);
   details.limiter_reduction = limiterReduction;
   
-  console.log(`📊 MÉTRICA ESTÉTICA 4: Limiter reduction`);
-  console.log(`   Ganho aplicado: ${gainApplied.toFixed(2)} dB`);
-  console.log(`   Headroom estimado: ${inputHeadroom.toFixed(2)} dB`);
-  console.log(`   Limiter reduction estimado: ${limiterReduction.toFixed(2)} dB`);
-  console.log(`   Referência: 5.0 dB (ideal)`);
+  console.error(`📊 MÉTRICA ESTÉTICA 4: Limiter reduction`);
+  console.error(`   Ganho aplicado: ${gainApplied.toFixed(2)} dB`);
+  console.error(`   Headroom estimado: ${inputHeadroom.toFixed(2)} dB`);
+  console.error(`   Limiter reduction estimado: ${limiterReduction.toFixed(2)} dB`);
+  console.error(`   Referência: 5.0 dB (ideal)`);
   
   if (limiterReduction > 5.0) {
     warnings.push('LIMITER_STRESS_HIGH');
     const excess = limiterReduction - 5.0;
-    console.log(`   ⚠️ WARNING: Limiter stress elevado (+${excess.toFixed(2)} dB acima do ideal)`);
-    console.log(`   Possível compressão agressiva em transientes`);
+    console.error(`   ⚠️ WARNING: Limiter stress elevado (+${excess.toFixed(2)} dB acima do ideal)`);
+    console.error(`   Possível compressão agressiva em transientes`);
     details.limiter_excess = excess;
   } else {
     const remaining = 5.0 - limiterReduction;
-    console.log(`   ✅ EXCELENTE: Limiter stress controlado (${remaining.toFixed(2)} dB de margem)`);
+    console.error(`   ✅ EXCELENTE: Limiter stress controlado (${remaining.toFixed(2)} dB de margem)`);
     details.limiter_margin = remaining;
   }
-  console.log('');
+  console.error('');
   
   // ============================================================
   // RESUMO FINAL
@@ -4258,22 +4258,22 @@ function validateFinalResult(referenceLUFS, inputCF, result) {
   // VÁLIDO se não houver violações técnicas (LUFS reduction ou TP overshoot)
   const valid = violations.length === 0;
   
-  console.log('════════════════════════════════════════════════════════════');
+  console.error('════════════════════════════════════════════════════════════');
   if (valid) {
-    console.log('✅ VALIDAÇÃO PASSOU: Todas as regras técnicas atendidas');
+    console.error('✅ VALIDAÇÃO PASSOU: Todas as regras técnicas atendidas');
     if (warnings.length > 0) {
-      console.log(`   ⚠️ ${warnings.length} warning(s) estético(s): ${warnings.join(', ')}`);
-      console.log('   (Warnings não impedem o uso do resultado)');
+      console.error(`   ⚠️ ${warnings.length} warning(s) estético(s): ${warnings.join(', ')}`);
+      console.error('   (Warnings não impedem o uso do resultado)');
     }
   } else {
-    console.log(`❌ VALIDAÇÃO FALHOU: ${violations.length} violação(ões) técnica(s)`);
-    console.log(`   Violações: ${violations.join(', ')}`);
+    console.error(`❌ VALIDAÇÃO FALHOU: ${violations.length} violação(ões) técnica(s)`);
+    console.error(`   Violações: ${violations.join(', ')}`);
     if (warnings.length > 0) {
-      console.log(`   Warnings: ${warnings.join(', ')}`);
+      console.error(`   Warnings: ${warnings.join(', ')}`);
     }
   }
-  console.log('════════════════════════════════════════════════════════════');
-  console.log('');
+  console.error('════════════════════════════════════════════════════════════');
+  console.error('');
   
   return {
     valid,
@@ -4316,24 +4316,24 @@ async function main() {
   }
 
   // 2.5 DECISION ENGINE - Analisar métricas e decidir target LUFS
-  console.log('[DECISION ENGINE] Analisando métricas do áudio...');
+  console.error('[DECISION ENGINE] Analisando métricas do áudio...');
   let metrics, decision;
   try {
     metrics = await analyzeAudioMetrics(config.inputPath, execAsync);
-    console.log('[DECISION ENGINE] Métricas:', metrics);
+    console.error('[DECISION ENGINE] Métricas:', metrics);
     
     decision = decideGainWithinRange(metrics, config.mode);
-    console.log('[DECISION ENGINE] Decisão:', decision);
+    console.error('[DECISION ENGINE] Decisão:', decision);
     
     if (!decision.shouldProcess) {
-      console.log('[DECISION ENGINE] Processamento abortado:', decision.reason);
+      console.error('[DECISION ENGINE] Processamento abortado:', decision.reason);
       process.exit(0);
     }
     
     // 🔒 BLOCO 1: APLICAR GLOBAL CAPS
-    console.log('[GLOBAL CAPS] Aplicando hard caps de segurança...');
+    console.error('[GLOBAL CAPS] Aplicando hard caps de segurança...');
     decision = applyGlobalCaps(decision, metrics);
-    console.log('[GLOBAL CAPS] Decisão após caps:', {
+    console.error('[GLOBAL CAPS] Decisão após caps:', {
       targetLUFS: decision.targetLUFS,
       gainDB: decision.gainDB,
       capped: decision.capped,
@@ -4345,12 +4345,12 @@ async function main() {
     config.targetLufs = lockedTargetLUFS;
     config.targetLockedByDecisionEngine = true; // Flag para impedir recálculo
     
-    console.log('');
-    console.log('🔒 TARGET LOCKED FROM DECISION ENGINE');
-    console.log(`   Target LUFS: ${lockedTargetLUFS.toFixed(2)} LUFS`);
-    console.log(`   Modo: ${config.mode}`);
-    console.log(`   Status: LOCKED (não será recalculado no pipeline)`);
-    console.log('');
+    console.error('');
+    console.error('🔒 TARGET LOCKED FROM DECISION ENGINE');
+    console.error(`   Target LUFS: ${lockedTargetLUFS.toFixed(2)} LUFS`);
+    console.error(`   Modo: ${config.mode}`);
+    console.error(`   Status: LOCKED (não será recalculado no pipeline)`);
+    console.error('');
     
     // Armazenar informações de downgrade (se houver)
     config.modeRequested = decision.modeRequested || config.mode;
@@ -4370,11 +4370,11 @@ async function main() {
     config.decisionGainDB = decision.gainDB;  // Armazenar ganho calculado pelo decision engine
     
     // Log de diagnóstico
-    console.log('[CONFIG SETUP] Input LUFS armazenado:', config.inputLUFS);
-    console.log('[CONFIG SETUP] Crest Factor armazenado:', config.crestFactor);
-    console.log('[CONFIG SETUP] Decision Gain DB armazenado:', config.decisionGainDB);
+    console.error('[CONFIG SETUP] Input LUFS armazenado:', config.inputLUFS);
+    console.error('[CONFIG SETUP] Crest Factor armazenado:', config.crestFactor);
+    console.error('[CONFIG SETUP] Decision Gain DB armazenado:', config.decisionGainDB);
     
-    console.log('[TARGET LOCKED BY DECISION ENGINE]', lockedTargetLUFS, 'LUFS');
+    console.error('[TARGET LOCKED BY DECISION ENGINE]', lockedTargetLUFS, 'LUFS');
     
   } catch (error) {
     console.error('[DECISION ENGINE] Erro ao analisar áudio:', error.message);
@@ -4401,13 +4401,13 @@ async function main() {
     while (!validationPassed && attempt < MAX_ATTEMPTS) {
       attempt++;
       
-      console.log('');
-      console.log('════════════════════════════════════════════════════════════');
-      console.log(`🔄 TENTATIVA ${attempt}/${MAX_ATTEMPTS}`);
-      console.log('════════════════════════════════════════════════════════════');
-      console.log(`   Target atual: ${config.targetLufs.toFixed(1)} LUFS`);
-      console.log(`   Modo: ${config.modeApplied || config.mode}`);
-      console.log('');
+      console.error('');
+      console.error('════════════════════════════════════════════════════════════');
+      console.error(`🔄 TENTATIVA ${attempt}/${MAX_ATTEMPTS}`);
+      console.error('════════════════════════════════════════════════════════════');
+      console.error(`   Target atual: ${config.targetLufs.toFixed(1)} LUFS`);
+      console.error(`   Modo: ${config.modeApplied || config.mode}`);
+      console.error('');
       
       // Processar áudio
       result = await processAudio(config);
@@ -4423,11 +4423,11 @@ async function main() {
       // HIGH MODE: VALIDAÇÃO DETERMINÍSTICA (SEM RETRY LOOP)
       // ============================================================
       if (config.mode === 'HIGH') {
-        console.log('');
-        console.log('🎯 [HIGH MODE] Validação determinística');
-        console.log('   HIGH mode é single-pass: resultado aceito como final');
-        console.log('   Warnings são informativos, não causam reprocessamento');
-        console.log('');
+        console.error('');
+        console.error('🎯 [HIGH MODE] Validação determinística');
+        console.error('   HIGH mode é single-pass: resultado aceito como final');
+        console.error('   Warnings são informativos, não causam reprocessamento');
+        console.error('');
         
         // Executar validação apenas para gerar warnings informativos
         validation = validateFinalResult(
@@ -4440,17 +4440,17 @@ async function main() {
         validationPassed = true;
         
         if (validation.warnings && validation.warnings.length > 0) {
-          console.log(`   ℹ️ Warnings informativos: ${validation.warnings.join(', ')}`);
-          console.log('   (Não impedem uso do resultado)');
+          console.error(`   ℹ️ Warnings informativos: ${validation.warnings.join(', ')}`);
+          console.error('   (Não impedem uso do resultado)');
         }
         
         if (validation.violations && validation.violations.length > 0) {
-          console.log(`   ℹ️ Violations detectadas: ${validation.violations.join(', ')}`);
-          console.log('   (HIGH mode: aceito como comportamento esperado)');
+          console.error(`   ℹ️ Violations detectadas: ${validation.violations.join(', ')}`);
+          console.error('   (HIGH mode: aceito como comportamento esperado)');
         }
         
-        console.log('   ✅ HIGH mode complete - single pass execution');
-        console.log('');
+        console.error('   ✅ HIGH mode complete - single pass execution');
+        console.error('');
         
       } else {
         // ============================================================
@@ -4468,39 +4468,39 @@ async function main() {
         
         if (validation.valid) {
           validationPassed = true;
-          console.log('✅ Validação passou! Processamento concluído com sucesso.');
+          console.error('✅ Validação passou! Processamento concluído com sucesso.');
           if (validation.warnings && validation.warnings.length > 0) {
-            console.log(`   ⚠️ ${validation.warnings.length} warning(s) estético(s): ${validation.warnings.join(', ')}`);
-            console.log('   (Warnings não impedem o uso do resultado)');
+            console.error(`   ⚠️ ${validation.warnings.length} warning(s) estético(s): ${validation.warnings.join(', ')}`);
+            console.error('   (Warnings não impedem o uso do resultado)');
           }
-          console.log('');
+          console.error('');
         } else {
           // Validação falhou
-          console.log(`❌ Tentativa ${attempt} falhou: ${validation.violations.join(', ')}`);
+          console.error(`❌ Tentativa ${attempt} falhou: ${validation.violations.join(', ')}`);
           
           if (attempt < MAX_ATTEMPTS) {
             // Reduzir target em 1 dB e tentar novamente
             const oldTarget = config.targetLufs;
             config.targetLufs = Math.max(config.targetLufs - 1.0, metrics.lufs);  // CORRIGIDO: metrics.lufs
             
-            console.log('');
-            console.log('🔧 AJUSTANDO TARGET:');
-            console.log(`   Target anterior: ${oldTarget.toFixed(1)} LUFS`);
-            console.log(`   Novo target: ${config.targetLufs.toFixed(1)} LUFS (-1.0 dB)`);
-            console.log(`   Razão: ${validation.violations.join(', ')}`);
-            console.log('');
-            console.log('🔄 Reprocessando...');
-            console.log('');
+            console.error('');
+            console.error('🔧 AJUSTANDO TARGET:');
+            console.error(`   Target anterior: ${oldTarget.toFixed(1)} LUFS`);
+            console.error(`   Novo target: ${config.targetLufs.toFixed(1)} LUFS (-1.0 dB)`);
+            console.error(`   Razão: ${validation.violations.join(', ')}`);
+            console.error('');
+            console.error('🔄 Reprocessando...');
+            console.error('');
             
             // Se chegou no mínimo (LUFS original), não adianta tentar novamente
             if (config.targetLufs === metrics.lufs) {  // CORRIGIDO: metrics.lufs
-              console.log('⚠️ Target atingiu LUFS original, impossível reduzir mais');
+              console.error('⚠️ Target atingiu LUFS original, impossível reduzir mais');
               break;
             }
           } else {
-            console.log('');
-            console.log('⚠️ Máximo de tentativas atingido sem sucesso');
-            console.log('');
+            console.error('');
+            console.error('⚠️ Máximo de tentativas atingido sem sucesso');
+            console.error('');
           }
         }
       }
@@ -4508,13 +4508,13 @@ async function main() {
     
     // Se após todas as tentativas ainda não passou, usar fallback conservador
     if (!validationPassed) {
-      console.log('════════════════════════════════════════════════════════════');
-      console.log('🛡️ FALLBACK CONSERVADOR ATIVADO');
-      console.log('════════════════════════════════════════════════════════════');
-      console.log('   Todas as tentativas falharam em atender regras técnicas');
-      console.log('   (LUFS reduction ou TP overshoot)');
-      console.log('   Aplicando normalização básica e limiter suave...');
-      console.log('');
+      console.error('════════════════════════════════════════════════════════════');
+      console.error('🛡️ FALLBACK CONSERVADOR ATIVADO');
+      console.error('════════════════════════════════════════════════════════════');
+      console.error('   Todas as tentativas falharam em atender regras técnicas');
+      console.error('   (LUFS reduction ou TP overshoot)');
+      console.error('   Aplicando normalização básica e limiter suave...');
+      console.error('');
       
       // Usar apenas normalização básica (target = input + 0.5 dB)
       config.targetLufs = metrics.lufs + 0.5;  // CORRIGIDO: metrics.lufs
@@ -4537,16 +4537,16 @@ async function main() {
         process.exit(1);
       }
       
-      console.log('✅ Fallback conservador aplicado com sucesso');
+      console.error('✅ Fallback conservador aplicado com sucesso');
       if (validation.warnings && validation.warnings.length > 0) {
-        console.log(`   ⚠️ ${validation.warnings.length} warning(s) estético(s): ${validation.warnings.join(', ')}`);
-        console.log('   (Warnings não impedem o uso do resultado)');
+        console.error(`   ⚠️ ${validation.warnings.length} warning(s) estético(s): ${validation.warnings.join(', ')}`);
+        console.error('   (Warnings não impedem o uso do resultado)');
       }
-      console.log('');
+      console.error('');
     }
     
     // 🔒 BLOCO 3: SATURAÇÃO FALLBACK (apenas se delta for baixo e validação passou)
-    console.log('[SATURATION CHECK] Verificando necessidade de saturação...');
+    console.error('[SATURATION CHECK] Verificando necessidade de saturação...');
     const deltaLUFS = result.final_lufs - metrics.lufs;
     const saturation = await applySaturationFallback(
       config.inputPath,
@@ -4562,7 +4562,7 @@ async function main() {
     if (saturation.sat_used && saturation.final_metrics) {
       result.final_lufs = saturation.final_metrics.lufs_i;
       result.final_tp = saturation.final_metrics.true_peak_db;
-      console.log('[SATURATION] Métricas atualizadas com saturação aplicada');
+      console.error('[SATURATION] Métricas atualizadas com saturação aplicada');
     }
     
     if (debug) {
@@ -4643,7 +4643,7 @@ async function main() {
     // Log de resultado final para fácil filtragem
     console.error(`[RESULT] final_lufs=${result.final_lufs.toFixed(2)} final_tp=${result.final_tp.toFixed(2)} output=${config.outputPath}`);
     
-    console.log(JSON.stringify(jsonResult));
+    process.stdout.write(JSON.stringify(jsonResult));
     
     // Limpar arquivo temporário (se foi criado)
     if (eqTempFile && fs.existsSync(eqTempFile)) {

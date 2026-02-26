@@ -498,7 +498,7 @@ if (require.main === module) {
 
   runMasterPipeline({ inputPath, outputPath, mode, rescueMode })
     .then(result => {
-      console.log(JSON.stringify(result));
+      process.stdout.write(JSON.stringify(result));
       process.exit(result.ok === false ? 1 : 0);
     })
     .catch(error => {
