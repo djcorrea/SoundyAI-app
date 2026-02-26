@@ -569,11 +569,17 @@ if (require.main === module) {
   runMasterPipeline({ inputPath, outputPath, mode, rescueMode })
     .then(result => {
       process.stdout.write(JSON.stringify(result));
-      process.exit(result.ok === false && result.type !== 'MODE_INCOMPATIBLE' ? 1 : 0);
+      process.exit(0); // sempre 0: o JSON é o contrato, não o exit code
     })
     .catch(error => {
-      console.error(error.message);
-      process.exit(1);
+      // Erros não tratados: emitir JSON de erro estruturado para que o worker possa parsear
+      const errResult = {
+        ok: false,
+        success: false,
+        error: error.message || String(error)
+      };
+      process.stdout.write(JSON.stringify(errResult));
+      process.exit(0); // sempre 0: evitar que execFile rejeite antes de ler stdout
     });
 }
 

@@ -163,35 +163,44 @@ async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
         encoding: 'utf8'
       },
       (error, stdout, stderr) => {
+        // Logar stderr para diagnóstico (sem bloquear o fluxo)
+        if (stderr && stderr.trim()) {
+          jobLogger.info({ stderr: stderr.trim().substring(0, 2000) }, 'Pipeline stderr (diagnóstico)');
+        }
+
+        // stdout com JSON válido tem prioridade sobre exit code
+        // Exit code não-zero pode ser intencional (ex.: ABORT_UNSAFE_INPUT)
+        const rawOut = stdout && stdout.trim();
+        if (rawOut) {
+          const lines = rawOut.split('\n');
+          const lastLine = lines[lines.length - 1];
+
+          jobLogger.info({
+            totalLines: lines.length,
+            lastLinePreview: lastLine.substring(0, 100)
+          }, 'Pipeline output received');
+
+          try {
+            const result = JSON.parse(lastLine);
+            return resolve({
+              pipelineResult: result,
+              stdout: rawOut,
+              stderr: stderr ? stderr.trim() : ''
+            });
+          } catch (parseErr) {
+            jobLogger.error({ lastLine }, 'Failed to parse pipeline JSON');
+            // Cair no reject abaixo
+          }
+        }
+
+        // Sem stdout ou JSON inválido: aí sim reportar o erro real
         if (error) {
-          jobLogger.error({ error, stderr }, 'Pipeline execution failed');
+          jobLogger.error({ error: error.message, code: error.code, stderr }, 'Pipeline execution failed');
           return reject(error);
         }
 
-        if (!stdout || !stdout.trim()) {
-          jobLogger.error({ stdout, stderr }, 'Pipeline returned empty stdout');
-          return reject(new Error('Pipeline returned empty output'));
-        }
-
-        const lines = stdout.trim().split('\n');
-        const lastLine = lines[lines.length - 1];
-
-        jobLogger.info({ 
-          totalLines: lines.length,
-          lastLinePreview: lastLine.substring(0, 100)
-        }, 'Pipeline output received');
-
-        try {
-          const result = JSON.parse(lastLine);
-          resolve({ 
-            pipelineResult: result,
-            stdout: stdout.trim(),
-            stderr: stderr ? stderr.trim() : ''
-          });
-        } catch (parseErr) {
-          jobLogger.error({ stdout, lastLine }, 'Failed to parse pipeline JSON');
-          reject(parseErr);
-        }
+        jobLogger.error({ stdout, stderr }, 'Pipeline returned empty stdout');
+        return reject(new Error('Pipeline returned empty output'));
       }
     );
   });
