@@ -314,6 +314,45 @@ async function processJob(job) {
     const completedWithWarning = pipelineResult.warning === true &&
                                  pipelineResult.status === 'completed_with_warning';
 
+    // Guardrail de aptidão: música não está apta para o modo solicitado (ex.: TRUE_PEAK_TOO_HIGH)
+    // Não é erro técnico — resultado semântico estruturado, sem retry
+    if (pipelineResult.status === 'NOT_APT') {
+      await jobStore.updateJobStatus(jobId, 'not_apt', {
+        error_code: 'NOT_APT',
+        error_message: ((pipelineResult.reasons || []).join('; ') || 'Música não apta para o modo solicitado').substring(0, 500),
+        selected_mode: pipelineResult.mode || '',
+        recommended_mode: (pipelineResult.recommended_actions && pipelineResult.recommended_actions[0]) || 'MEDIUM',
+        not_apt_reasons: JSON.stringify(pipelineResult.reasons || []),
+        not_apt_measured: JSON.stringify(pipelineResult.measured || {}),
+        processing_ms: pipelineResult.processing_ms || 0
+      });
+
+      try {
+        await workerPool.query(
+          `UPDATE jobs
+           SET status     = 'not_apt',
+               error      = $1,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [
+            JSON.stringify({ status: 'NOT_APT', ...pipelineResult }),
+            jobId
+          ]
+        );
+        jobLogger.info({ jobId }, 'PostgreSQL sincronizado: not_apt');
+      } catch (pgErr) {
+        jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar not_apt com PostgreSQL (não crítico)');
+      }
+
+      jobLogger.info({ pipelineResult }, 'Job finalizado como not_apt (guardrail — sem retry)');
+      return {
+        success: false,
+        status: 'NOT_APT',
+        jobId,
+        pipeline_result: pipelineResult
+      };
+    }
+
     // Modo incompatível com o áudio: resultado semântico limpo, sem retry
     if (pipelineResult.type === 'MODE_INCOMPATIBLE') {
       await jobStore.updateJobStatus(jobId, 'needs_mode_change', {

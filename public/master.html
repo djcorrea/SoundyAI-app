@@ -1236,17 +1236,23 @@
   </div>
 
   <!-- ========================================
-       ⚠️ MODO INCOMPATÍVEL
+       ⚠️ MODO INCOMPATÍVEL / NOT APT
        ======================================== -->
   <div id="modeIncompatibleModal" class="automaster-modal">
     <div class="automaster-modal-card">
       <div class="modal-header">
         <div class="modal-badge">⚠️ automaster v1</div>
-        <h2 class="modal-title">Modo incompatível com a música</h2>
+        <h2 class="modal-title" id="modeIncompatibleTitle">Modo incompatível com a música</h2>
         <p class="modal-subtitle" id="modeIncompatibleReason">O modo selecionado não é indicado para este material.</p>
       </div>
+      <div id="modeIncompatibleMetrics" style="display:none; background: rgba(255,200,0,0.08); border: 1px solid rgba(255,200,0,0.25); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #ccc;">
+        <div style="font-weight:600; color:#ffc107; margin-bottom:6px;">Detalhes técnicos detectados:</div>
+        <div id="modeIncompatibleLufs" style="display:none;">LUFS atual: <strong id="modeIncompatibleLufsVal">—</strong></div>
+        <div id="modeIncompatibleTp" style="display:none;">True Peak: <strong id="modeIncompatibleTpVal">—</strong></div>
+        <div id="modeIncompatibleReasonsList" style="margin-top:6px;"></div>
+      </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="backToDecision()">← Voltar</button>
+        <button class="btn btn-secondary" onclick="backToDecision()">← Escolher outro modo</button>
         <button class="btn btn-primary" id="modeIncompatibleRetryBtn" onclick="retryWithRecommendedMode()">Usar modo recomendado</button>
       </div>
     </div>
@@ -1994,16 +2000,66 @@
     }
 
     function showModeIncompatibleModal(statusData) {
-      const reason = statusData.reason || 'O modo selecionado não é compatível com este material de entrada.';
-      const recommendedMode = statusData.recommendedMode || 'MEDIUM';
+      const isNotApt = statusData.status === 'not_apt' || !!statusData.reasons;
 
+      // Título adaptado ao tipo de bloqueio
+      const titleEl = document.getElementById('modeIncompatibleTitle');
+      if (titleEl) {
+        titleEl.textContent = isNotApt
+          ? 'Modo ' + (statusData.mode || 'HIGH') + ' não recomendado para esta música'
+          : 'Modo incompatível com a música';
+      }
+
+      // Subtítulo
       const reasonEl = document.getElementById('modeIncompatibleReason');
-      if (reasonEl) reasonEl.textContent = reason;
+      if (reasonEl) {
+        reasonEl.textContent = isNotApt
+          ? 'Detectamos que esta faixa já está muito próxima do limite seguro. Aplicar ' + (statusData.mode || 'HIGH') + ' pode causar clipping e perda de qualidade.'
+          : (statusData.reason || statusData.warningMessage || 'O modo selecionado não é compatível com este material de entrada.');
+      }
+
+      // Bloco de métricas técnicas (apenas para NOT_APT)
+      const metricsEl = document.getElementById('modeIncompatibleMetrics');
+      if (metricsEl) {
+        if (isNotApt && statusData.measured) {
+          const lufsVal = statusData.measured.lufs_i;
+          const tpVal = statusData.measured.true_peak_db;
+
+          const lufsRow = document.getElementById('modeIncompatibleLufs');
+          const lufsValEl = document.getElementById('modeIncompatibleLufsVal');
+          if (lufsRow && lufsValEl && lufsVal != null) {
+            lufsValEl.textContent = parseFloat(lufsVal).toFixed(1) + ' LUFS';
+            lufsRow.style.display = 'block';
+          }
+
+          const tpRow = document.getElementById('modeIncompatibleTp');
+          const tpValEl = document.getElementById('modeIncompatibleTpVal');
+          if (tpRow && tpValEl && tpVal != null) {
+            tpValEl.textContent = parseFloat(tpVal).toFixed(2) + ' dBTP';
+            tpRow.style.display = 'block';
+          }
+
+          const reasonsList = document.getElementById('modeIncompatibleReasonsList');
+          if (reasonsList && statusData.reasons && statusData.reasons.length) {
+            reasonsList.innerHTML = statusData.reasons
+              .map(r => `<div style="color:#ffa0a0; margin-top:3px;">• ${r}</div>`)
+              .join('');
+          }
+
+          metricsEl.style.display = 'block';
+        } else {
+          metricsEl.style.display = 'none';
+        }
+      }
+
+      // Modo recomendado no botão
+      const recommendedMode = (statusData.recommendedActions && statusData.recommendedActions[0])
+        || statusData.recommendedMode
+        || 'MEDIUM';
 
       const retryBtn = document.getElementById('modeIncompatibleRetryBtn');
-      if (retryBtn) retryBtn.textContent = 'Usar modo recomendado (' + getModeName(recommendedMode) + ')';
+      if (retryBtn) retryBtn.textContent = 'Usar ' + getModeName(recommendedMode) + ' (recomendado)';
 
-      // Guardar modo recomendado para uso no retryWithRecommendedMode
       automasterState._recommendedMode = recommendedMode;
 
       showModal('modeIncompatibleModal');
@@ -2084,6 +2140,13 @@
               console.log('[AUTOMASTER] Job completed. downloadUrl disponivel.');
               resolve(statusData);
 
+            } else if (statusData.status === 'not_apt') {
+              clearInterval(timer);
+              const aptErr = new Error('NOT_APT');
+              aptErr.isModeIncompatible = true;
+              aptErr.isNotApt = true;
+              aptErr.statusData = statusData;
+              reject(aptErr);
             } else if (statusData.status === 'needs_mode_change' ||
                        statusData.status === 'failed' && (statusData.errorCode === 'MODE_INCOMPATIBLE' || statusData.type === 'MODE_INCOMPATIBLE')) {
               clearInterval(timer);

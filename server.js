@@ -704,6 +704,14 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
         response.warningMessage = job.warning_message || 'A música já está próxima do limite seguro. Aplicar esse modo poderia degradar a qualidade.';
         response.message = 'Masterização concluída com aviso de proteção sônica';
       }
+    } else if (job.status === 'not_apt') {
+      // Guardrail de aptidão: música não apta para o modo solicitado
+      response.status = 'not_apt';
+      response.mode = job.selected_mode;
+      response.reasons = (() => { try { return JSON.parse(job.not_apt_reasons || '[]'); } catch { return []; } })();
+      response.measured = (() => { try { return JSON.parse(job.not_apt_measured || '{}'); } catch { return {}; } })();
+      response.recommendedActions = job.recommended_mode ? [job.recommended_mode] : ['MEDIUM'];
+      response.message = 'Música não recomendada para o modo selecionado';
     } else if (job.status === 'needs_mode_change') {
       // Proteção sônica: modo incompatível com o material — não é falha técnica
       response.type = 'MODE_INCOMPATIBLE';
