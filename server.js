@@ -696,6 +696,14 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       }
       
       response.message = 'Masterização concluída com sucesso';
+    } else if (job.status === 'needs_mode_change') {
+      // Proteção sônica: modo incompatível com o material — não é falha técnica
+      response.type = 'MODE_INCOMPATIBLE';
+      response.selectedMode = job.selected_mode;
+      response.recommendedMode = job.recommended_mode;
+      response.reason = job.error_message;
+      response.abortReason = job.abort_reason;
+      response.message = 'Modo selecionado incompatível com o material de entrada';
     } else if (job.status === 'failed') {
       response.error = job.error;
       response.errorCode = job.error_code;
@@ -703,7 +711,7 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       response.attempt = job.attempt;
       response.message = 'Falha no processamento';
 
-      // Para MODE_INCOMPATIBLE, expor campos extras para o frontend exibir o modal
+      // Compatibilidade: jobs antigos que gravaram como failed com error_code MODE_INCOMPATIBLE
       if (job.error_code === 'MODE_INCOMPATIBLE') {
         response.type = 'MODE_INCOMPATIBLE';
         response.selectedMode = job.selected_mode;

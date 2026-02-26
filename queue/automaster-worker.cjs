@@ -303,7 +303,7 @@ async function processJob(job) {
 
     // Modo incompatível com o áudio: resultado semântico limpo, sem retry
     if (pipelineResult.type === 'MODE_INCOMPATIBLE') {
-      await jobStore.updateJobStatus(jobId, 'failed', {
+      await jobStore.updateJobStatus(jobId, 'needs_mode_change', {
         error_code: 'MODE_INCOMPATIBLE',
         error_message: (pipelineResult.reason || 'Modo incompatível com o material de entrada').substring(0, 500),
         selected_mode: pipelineResult.selectedMode || '',
@@ -315,7 +315,7 @@ async function processJob(job) {
       try {
         await workerPool.query(
           `UPDATE jobs
-           SET status     = 'failed',
+           SET status     = 'needs_mode_change',
                error      = $1,
                updated_at = NOW()
            WHERE id = $2`,
@@ -324,12 +324,12 @@ async function processJob(job) {
             jobId
           ]
         );
-        jobLogger.info({ jobId }, 'PostgreSQL sincronizado: MODE_INCOMPATIBLE');
+        jobLogger.info({ jobId }, 'PostgreSQL sincronizado: needs_mode_change');
       } catch (pgErr) {
-        jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar MODE_INCOMPATIBLE com PostgreSQL (não crítico)');
+        jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar needs_mode_change com PostgreSQL (não crítico)');
       }
 
-      jobLogger.info({ pipelineResult }, 'Job finalizado como MODE_INCOMPATIBLE (sem retry)');
+      jobLogger.info({ pipelineResult }, 'Job finalizado como needs_mode_change (sem retry)');
       return {
         success: false,
         type: 'MODE_INCOMPATIBLE',

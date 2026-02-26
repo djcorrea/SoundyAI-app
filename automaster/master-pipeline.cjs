@@ -421,6 +421,23 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     postcheck
   };
 
+  // Proteção sônica: ABORT é uma decisão semântica, não um erro técnico
+  if (postcheck && postcheck.recommended_action === 'ABORT') {
+    const reason = (postcheck.reasons && postcheck.reasons.length)
+      ? postcheck.reasons.join('; ')
+      : 'Modo agressivo demais para esta mix';
+    return {
+      ok: false,
+      success: false,
+      type: 'MODE_INCOMPATIBLE',
+      selectedMode: validMode,
+      recommendedMode: 'MEDIUM',
+      reason,
+      abort_reason: 'POSTCHECK_ABORT',
+      processing_ms: Date.now() - startTime
+    };
+  }
+
   // Se OK, entregar primary
   if (postcheck && postcheck.recommended_action === 'OK') {
     return {
@@ -487,8 +504,20 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       };
     }
 
-    // fallback didn't fix -> abort
-    throw new Error('Fallback CLEAN não resolveu os problemas (postcheck falhou após CLEAN)');
+    // ABORT ou qualquer outro resultado após CLEAN: proteção sônica, não erro técnico
+    const reason2 = (postcheck2 && postcheck2.reasons && postcheck2.reasons.length)
+      ? postcheck2.reasons.join('; ')
+      : 'Modo agressivo demais para esta mix (persistiu após fallback CLEAN)';
+    return {
+      ok: false,
+      success: false,
+      type: 'MODE_INCOMPATIBLE',
+      selectedMode: validMode,
+      recommendedMode: 'MEDIUM',
+      reason: reason2,
+      abort_reason: 'POSTCHECK_ABORT_AFTER_CLEAN',
+      processing_ms: Date.now() - startTime
+    };
   }
 
   // Caso desconhecido, abortar

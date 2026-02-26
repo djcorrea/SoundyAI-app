@@ -2084,16 +2084,16 @@
               console.log('[AUTOMASTER] Job completed. downloadUrl disponivel.');
               resolve(statusData);
 
+            } else if (statusData.status === 'needs_mode_change' ||
+                       statusData.status === 'failed' && (statusData.errorCode === 'MODE_INCOMPATIBLE' || statusData.type === 'MODE_INCOMPATIBLE')) {
+              clearInterval(timer);
+              const modeErr = new Error('MODE_INCOMPATIBLE');
+              modeErr.isModeIncompatible = true;
+              modeErr.statusData = statusData;
+              reject(modeErr);
             } else if (statusData.status === 'failed' || statusData.status === 'error') {
               clearInterval(timer);
-              if (statusData.errorCode === 'MODE_INCOMPATIBLE' || statusData.type === 'MODE_INCOMPATIBLE') {
-                const modeErr = new Error('MODE_INCOMPATIBLE');
-                modeErr.isModeIncompatible = true;
-                modeErr.statusData = statusData;
-                reject(modeErr);
-              } else {
-                reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
-              }
+              reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
             }
             // queued / processing: continuar polling
 
