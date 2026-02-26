@@ -301,6 +301,10 @@ async function processJob(job) {
     // resultado já vem parseado e validado
     const pipelineResult = result.pipelineResult;
 
+    // Extrair metadados de aviso (postcheck ABORT tratado como completed_with_warning)
+    const completedWithWarning = pipelineResult.warning === true &&
+                                 pipelineResult.status === 'completed_with_warning';
+
     // Modo incompatível com o áudio: resultado semântico limpo, sem retry
     if (pipelineResult.type === 'MODE_INCOMPATIBLE') {
       await jobStore.updateJobStatus(jobId, 'needs_mode_change', {
@@ -384,7 +388,10 @@ async function processJob(job) {
       output_key: outputKey,
       processing_ms: durationMs,
       progress: 100,
-      finished_at: endTime
+      finished_at: endTime,
+      warning: completedWithWarning ? '1' : '0',
+      recommended_mode: completedWithWarning ? (pipelineResult.recommendedMode || 'MEDIUM') : '',
+      warning_message: completedWithWarning ? (pipelineResult.message || '').substring(0, 500) : ''
     });
 
     // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)
@@ -397,11 +404,17 @@ async function processJob(job) {
              updated_at   = NOW()
          WHERE id = $2`,
         [
-          JSON.stringify({ outputKey, processingMs: durationMs }),
+          JSON.stringify({
+            outputKey,
+            processingMs: durationMs,
+            warning: completedWithWarning,
+            recommendedMode: completedWithWarning ? (pipelineResult.recommendedMode || 'MEDIUM') : null,
+            warningMessage: completedWithWarning ? (pipelineResult.message || null) : null
+          }),
           jobId
         ]
       );
-      jobLogger.info({ jobId }, 'PostgreSQL sincronizado: completed');
+      jobLogger.info({ jobId, warning: completedWithWarning }, 'PostgreSQL sincronizado: completed');
     } catch (pgErr) {
       jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar completed com PostgreSQL (não crítico)');
     }

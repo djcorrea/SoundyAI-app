@@ -432,19 +432,26 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   };
 
   // Proteção sônica: ABORT é uma decisão semântica, não um erro técnico
+  // Output foi gerado com sucesso; apenas a verificação de modo foi acionada
   if (postcheck && postcheck.recommended_action === 'ABORT') {
-    const reason = (postcheck.reasons && postcheck.reasons.length)
-      ? postcheck.reasons.join('; ')
+    const abortDetails = (postcheck.tiers && postcheck.tiers.reasons && postcheck.tiers.reasons.length)
+      ? postcheck.tiers.reasons.join('; ')
       : 'Modo agressivo demais para esta mix';
     return {
-      ok: false,
-      success: false,
-      type: 'MODE_INCOMPATIBLE',
-      selectedMode: validMode,
+      ok: true,
+      success: true,
+      status: 'completed_with_warning',
+      warning: true,
+      reason: 'unsafe_mode',
       recommendedMode: 'MEDIUM',
-      reason,
-      abort_reason: 'POSTCHECK_ABORT',
-      processing_ms: Date.now() - startTime
+      message: 'A música já está próxima do limite seguro. Aplicar esse modo poderia degradar a qualidade.',
+      abort_details: abortDetails,
+      mode: validMode,
+      input: resolvedInput,
+      output: resolvedOutput,
+      processing_ms: Date.now() - startTime,
+      attempts: [primaryAttempt],
+      final_decision: 'COMPLETED_WITH_WARNING'
     };
   }
 
@@ -514,19 +521,25 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       };
     }
 
-    // ABORT ou qualquer outro resultado após CLEAN: proteção sônica, não erro técnico
-    const reason2 = (postcheck2 && postcheck2.reasons && postcheck2.reasons.length)
-      ? postcheck2.reasons.join('; ')
+    // ABORT ou qualquer outro resultado após CLEAN: proteção sônica, output existe e é válido
+    const abortDetails2 = (postcheck2 && postcheck2.tiers && postcheck2.tiers.reasons && postcheck2.tiers.reasons.length)
+      ? postcheck2.tiers.reasons.join('; ')
       : 'Modo agressivo demais para esta mix (persistiu após fallback CLEAN)';
     return {
-      ok: false,
-      success: false,
-      type: 'MODE_INCOMPATIBLE',
-      selectedMode: validMode,
+      ok: true,
+      success: true,
+      status: 'completed_with_warning',
+      warning: true,
+      reason: 'unsafe_mode',
       recommendedMode: 'MEDIUM',
-      reason: reason2,
-      abort_reason: 'POSTCHECK_ABORT_AFTER_CLEAN',
-      processing_ms: Date.now() - startTime
+      message: 'A música já está próxima do limite seguro. Aplicar esse modo poderia degradar a qualidade.',
+      abort_details: abortDetails2,
+      mode: validMode,
+      input: resolvedInput,
+      output: resolvedOutput,
+      processing_ms: Date.now() - startTime,
+      attempts: [primaryAttempt, fallbackAttempt],
+      final_decision: 'COMPLETED_WITH_WARNING_AFTER_CLEAN'
     };
   }
 
