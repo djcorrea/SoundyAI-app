@@ -96,7 +96,11 @@ async function convertToWavPcmStream(inputBuffer, filename) {
     const ffmpegTimeout = setTimeout(() => {
       console.warn(`⚠️ FFmpeg timeout para ${filename} - matando processo...`);
       ffmpegKilled = true;
+      try { ff.stdout.destroy(); } catch (_) {}
+      try { ff.stderr.destroy(); } catch (_) {}
+      try { ff.stdin.destroy(); } catch (_) {}
       ff.kill('SIGKILL');
+      chunks.length = 0; // 🧹 MEMORY FIX: Liberar chunks em timeout
       reject(makeErr('decode', `FFmpeg timeout após 2 minutos para: ${filename}`, 'ffmpeg_timeout'));
     }, 120000);
 
@@ -106,6 +110,12 @@ async function convertToWavPcmStream(inputBuffer, filename) {
     ff.on('error', (err) => {
       clearTimeout(ffmpegTimeout);
       if (!ffmpegKilled) {
+        // 🧹 MEMORY FIX: Matar FFmpeg e destruir streams para evitar leak
+        ffmpegKilled = true;
+        try { ff.kill('SIGKILL'); } catch (_) {}
+        try { ff.stdout.destroy(); } catch (_) {}
+        try { ff.stderr.destroy(); } catch (_) {}
+        chunks.length = 0; // Liberar chunks acumulados
         reject(makeErr('decode', `FFmpeg spawn error: ${err.message}`, 'ffmpeg_spawn_error'));
       }
     });
@@ -113,14 +123,22 @@ async function convertToWavPcmStream(inputBuffer, filename) {
     ff.on('close', (code) => {
       clearTimeout(ffmpegTimeout);
       if (ffmpegKilled) return; // Já rejeitado no timeout
+
+      // 🧹 MEMORY FIX: destruir streams após close (best-effort)
+      try { ff.stdout.destroy(); } catch (_) {}
+      try { ff.stderr.destroy(); } catch (_) {}
       
       if (code !== 0) {
         const errorMsg = stderr || '(sem stderr)';
+        chunks.length = 0; // Liberar chunks em caso de erro
         reject(makeErr('decode', `FFmpeg falhou (code=${code}): ${errorMsg}`, 'ffmpeg_conversion_failed'));
         return;
       }
       
       const outputBuffer = Buffer.concat(chunks);
+      // 🧹 MEMORY FIX: Liberar array de chunks imediatamente após concat
+      chunks.length = 0;
+      
       if (outputBuffer.length === 0) {
         reject(makeErr('decode', 'FFmpeg retornou buffer vazio', 'ffmpeg_empty_output'));
         return;
@@ -415,7 +433,10 @@ export async function decodeAudioFile(fileBuffer, filename, options = {}) {
     let audioData;
     try {
       audioData = decodeWavFloat32Stereo(wavBuffer, filename);
+      // 🧹 MEMORY FIX: Liberar wavBuffer assim que decodificado (~115MB por faixa de 5min)
+      wavBuffer = null;
     } catch (err) {
+      wavBuffer = null; // Garantir liberação mesmo em erro
       if (err.stage === 'decode') {
         throw err; // Já é um erro estruturado
       }
