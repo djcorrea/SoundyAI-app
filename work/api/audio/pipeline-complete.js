@@ -12,6 +12,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// 🧹 MEMORY LEAK FIX: Instrumentação de memória por etapa
+import { logMemoryDelta, clearMemoryDelta } from '../../lib/memory-monitor.js';
+
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
@@ -269,6 +272,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let audioData, segmentedData, coreMetrics, finalJSON;
   const timings = {};
 
+  // 🧹 MEMORY: Snapshot inicial
+  logMemoryDelta('pipeline', 'start', jobId);
+
   try {
     // ========= FASE 5.1: DECODIFICAÇÃO =========
     try {
@@ -283,6 +289,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // Criar arquivo temporário para FFmpeg True Peak
       tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
+
+      // 🧹 MEMORY FIX: audioBuffer do caller não é mais necessário — liberar referência local
+      // NOTA: não anula o parâmetro do caller; apenas solta a ref neste escopo
+      // audioBuffer é passado por referência, mas o caller (worker-redis) também faz cleanup
+      logMemoryDelta('pipeline', 'after-decode', jobId);
       
     } catch (error) {
       // Fase 5.1 já estrutura seus próprios erros
@@ -299,6 +310,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       timings.phase2_segmentation = Date.now() - phase2StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.2 concluída em ${timings.phase2_segmentation}ms`);
       console.log(`📊 [${jobId.substring(0,8)}] Frames: FFT=${segmentedData.framesFFT.count}, RMS=${segmentedData.framesRMS.count}`);
+
+      // 🧹 MEMORY FIX: audioData (Float32Array L+R ~115MB) já foi consumido pela segmentação.
+      // segmentedData.originalChannels guarda referência aos mesmos arrays, mas core-metrics
+      // também recebe segmentedData, então os canais originais estarão acessíveis via segmentedData.
+      audioData = null;
+      logMemoryDelta('pipeline', 'after-segmentation', jobId);
       
     } catch (error) {
       if (error.stage === 'segmentation') {
@@ -327,6 +344,28 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const corrStr = coreMetrics.stereo?.correlation ? coreMetrics.stereo.correlation.toFixed(3) : 'N/A';
       
       console.log(`📊 [${jobId.substring(0,8)}] LUFS: ${lufsStr}, Peak: ${peakStr}dBTP, Corr: ${corrStr}`);
+
+      // 🧹 MEMORY FIX: segmentedData contém ~1.35GB de frames FFT, já consumidos
+      // Limpar as referências mais pesadas (framesFFT e originalChannels)
+      if (segmentedData) {
+        if (segmentedData.framesFFT) {
+          segmentedData.framesFFT.left = null;
+          segmentedData.framesFFT.right = null;
+          segmentedData.framesFFT.frames = null;
+        }
+        if (segmentedData.framesRMS) {
+          if (segmentedData.framesRMS.frames) {
+            segmentedData.framesRMS.frames.left = null;
+            segmentedData.framesRMS.frames.right = null;
+          }
+        }
+        if (segmentedData.originalChannels) {
+          segmentedData.originalChannels.left = null;
+          segmentedData.originalChannels.right = null;
+        }
+        segmentedData = null;
+      }
+      logMemoryDelta('pipeline', 'after-core-metrics', jobId);
       
     } catch (error) {
       if (error.stage === 'core_metrics') {
@@ -1786,6 +1825,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
+    // 🧹 MEMORY FIX: Cleanup final — garantir que nenhuma referência pesada sobrevive
+    audioData = null;
+    segmentedData = null;
+    coreMetrics = null;
+    logMemoryDelta('pipeline', 'end-success', jobId);
+    clearMemoryDelta(jobId);
+
     return finalJSON;
 
   } catch (error) {
@@ -1804,6 +1850,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     
     // Limpar arquivo temporário em caso de erro
     cleanupTempFile(tempFilePath);
+
+    // 🧹 MEMORY FIX: Cleanup em caso de erro também
+    audioData = null;
+    segmentedData = null;
+    coreMetrics = null;
+    finalJSON = null;
+    logMemoryDelta('pipeline', 'end-error', jobId);
+    clearMemoryDelta(jobId);
     
     // ========= ESTRUTURAR ERRO FINAL =========
     // NÃO retornar JSON de erro - propagar para camada de jobs
