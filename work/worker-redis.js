@@ -827,7 +827,7 @@ async function processReferenceBase(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // Ler buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'after-readFile', jobId);
 
@@ -852,8 +852,8 @@ async function processReferenceBase(job) {
       // SEM genre, SEM genreTargets, SEM planContext
     });
 
-    // 🧹 MEMORY FIX: fileBuffer não é mais necessário após pipeline
-    // (Não é possível reatribuir const, mas o GC pode coletar após o escopo)
+    // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
+    fileBuffer = null;
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -1042,7 +1042,7 @@ async function processReferenceCompare(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // ETAPA 3: Ler buffer e processar
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'reference-compare-after-readFile', jobId);
 
@@ -1056,6 +1056,9 @@ async function processReferenceCompare(job) {
       referenceJobId,
       preloadedReferenceMetrics: baseMetrics
     });
+
+    // 🧹 MEMORY FIX: Liberar fileBuffer após pipeline completar
+    fileBuffer = null;
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
@@ -1364,7 +1367,7 @@ async function audioProcessor(job) {
     console.log('[WORKER][GENRE] ✅ Arquivo baixado em', downloadTime, 'ms');
 
     // Ler arquivo para buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'genre-after-readFile', jobId);
 
@@ -1398,6 +1401,10 @@ async function audioProcessor(job) {
       // Garantir que o timer é sempre cancelado (evita timer leak)
       if (timeoutId) clearTimeout(timeoutId);
     });
+
+    // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
+    fileBuffer = null;
+
     const totalMs = Date.now() - t0;
     
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
