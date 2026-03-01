@@ -982,6 +982,15 @@ async function processReferenceBase(job) {
     }
     { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-base]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
 
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    // O resultado já foi salvo no banco. O BullMQ recebe o retorno abaixo e
+    // marca o job como completed antes do processo sair.
+    // O Railway sobe um novo worker limpo automaticamente.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][reference-base] Encerrando worker após job concluído (worker descartável)');
+      process.exit(0);
+    }, 2000);
+
     return finalJSON;
 
   } catch (error) {
@@ -1223,6 +1232,12 @@ async function processReferenceCompare(job) {
       global.gc();
     }
     { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-compare]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][reference-compare] Encerrando worker após job concluído (worker descartável)');
+      process.exit(0);
+    }, 2000);
 
     return finalJSON;
 
@@ -1561,6 +1576,12 @@ async function audioProcessor(job) {
       global.gc();
     }
     { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][genre]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][genre] Encerrando worker após job concluído (worker descartável)');
+      process.exit(0);
+    }, 2000);
 
     return finalJSON;
 
