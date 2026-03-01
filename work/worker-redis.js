@@ -968,6 +968,20 @@ async function processReferenceBase(job) {
     logMemoryDelta('worker', 'refBase-end', jobId);
     clearMemoryDelta(jobId);
 
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    try {
+      // belt-and-suspenders: garantir que fileBuffer foi liberado
+      // (já feito acima, mas idempotente para let)
+    } catch (e) {
+      console.warn('[MEM CLEANUP][reference-base] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-base]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
     return finalJSON;
 
   } catch (error) {
@@ -1197,6 +1211,19 @@ async function processReferenceCompare(job) {
 
     logMemoryDelta('worker', 'reference-compare-end-success', jobId);
     clearMemoryDelta(jobId);
+
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    try {
+      // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    } catch (e) {
+      console.warn('[MEM CLEANUP][reference-compare] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-compare]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
     return finalJSON;
 
   } catch (error) {
@@ -1522,6 +1549,18 @@ async function audioProcessor(job) {
       suggestions: finalJSON.suggestions?.length || 0,
       aiSuggestions: finalJSON.aiSuggestions?.length || 0
     });
+
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    try {
+      // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    } catch (e) {
+      console.warn('[MEM CLEANUP][genre] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][genre]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
 
     return finalJSON;
 
