@@ -855,6 +855,9 @@ async function processReferenceBase(job) {
     // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
     fileBuffer = null;
 
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (reference-base)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][reference-base]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
+
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
     console.log('[REFERENCE-BASE] 🔍 Pipeline retornou:', {
@@ -1059,6 +1062,9 @@ async function processReferenceCompare(job) {
 
     // 🧹 MEMORY FIX: Liberar fileBuffer após pipeline completar
     fileBuffer = null;
+
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (reference-compare)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][reference-compare]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
@@ -1404,6 +1410,9 @@ async function audioProcessor(job) {
 
     // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
     fileBuffer = null;
+
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (genre/main)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][genre]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
 
     const totalMs = Date.now() - t0;
     

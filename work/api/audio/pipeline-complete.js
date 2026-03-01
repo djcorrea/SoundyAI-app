@@ -281,7 +281,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       logAudio('decode', 'start', { fileName, jobId });
       const phase1StartTime = Date.now();
       
+      // 📊 [MEM:1] Antes do decode
+      { const _m = process.memoryUsage(); console.log('[MEM:1-before-decode]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
+      
       audioData = await decodeAudioFile(audioBuffer, fileName, { jobId });
+      
+      // 📊 [MEM:2] Depois do decode (Float32Array L+R criados)
+      { const _m = process.memoryUsage(); console.log('[MEM:2-after-decode]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024), samples: audioData?.leftChannel?.length }); }
       
       timings.phase1_decode = Date.now() - phase1StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.1 concluída em ${timings.phase1_decode}ms`);
@@ -306,6 +312,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const phase2StartTime = Date.now();
       
       segmentedData = segmentAudioTemporal(audioData, { jobId, fileName });
+      
+      // 📊 [MEM:3] Depois da segmentação FFT (14K frames × 4 Float32Arrays)
+      { const _m = process.memoryUsage(); console.log('[MEM:3-after-segmentation]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024), fftFrames: segmentedData?.framesFFT?.count }); }
       
       timings.phase2_segmentation = Date.now() - phase2StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.2 concluída em ${timings.phase2_segmentation}ms`);
@@ -334,6 +343,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         fileName,
         tempFilePath // Passar arquivo temporário para FFmpeg True Peak
       });
+      
+      // 📊 [MEM:4] Depois do cálculo de métricas (segmentedData já consumido)
+      { const _m = process.memoryUsage(); console.log('[MEM:4-after-core-metrics]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
       
       timings.phase3_core_metrics = Date.now() - phase3StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.3 concluída em ${timings.phase3_core_metrics}ms`);
@@ -639,6 +651,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       timings.phase4_json_output = Date.now() - phase4StartTime;
+      
+      // 📊 [MEM:5] Após montagem do JSON final
+      { const _m = process.memoryUsage(); console.log('[MEM:5-after-json-build]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
       
       // Atualizar o breakdown de tempo no metadata final
       if (finalJSON && finalJSON.metadata && finalJSON.metadata.phaseBreakdown) {
@@ -1831,6 +1846,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     coreMetrics = null;
     logMemoryDelta('pipeline', 'end-success', jobId);
     clearMemoryDelta(jobId);
+
+    // 📊 [MEM:6] Logo antes do retorno do pipeline (após cleanup de audioData/segmentedData/coreMetrics)
+    { const _m = process.memoryUsage(); console.log('[MEM:6-before-return]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
 
     return finalJSON;
 
