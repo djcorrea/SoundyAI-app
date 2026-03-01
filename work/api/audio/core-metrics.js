@@ -339,8 +339,9 @@ class CoreMetricsProcessor {
       );
       
       // Usar canais normalizados APENAS para análises espectrais/bandas
-      const normalizedLeft = normalizationResult.leftChannel;
-      const normalizedRight = normalizationResult.rightChannel;
+      // 🧹 MEMORY FIX: declarados como `let` para permitir null após último uso
+      let normalizedLeft = normalizationResult.leftChannel;
+      let normalizedRight = normalizationResult.rightChannel;
       
       // 📊 MEMORY LOG: após normalização (cria ~230MB de novos Float32Array)
       {
@@ -488,7 +489,17 @@ class CoreMetricsProcessor {
         console.log('[SKIP_METRIC] dcOffset: erro na função standalone -', error.message);
         dcOffsetMetrics = null;
       }
-      
+
+      // 🧹 MEMORY FIX: normalizedLeft/normalizedRight (~230MB) — último uso foi calculateDCOffset acima.
+      // Nulificamos tanto as variáveis locais quanto as propriedades do normalizationResult porque
+      // normalizationResult.leftChannel/.rightChannel apontam para o mesmo ArrayBuffer e
+      // normalizationResult permanece vivo até auditMetricsCorrections() (linhas abaixo).
+      // Nada após este ponto usa esses Float32Arrays.
+      normalizedLeft = null;
+      normalizedRight = null;
+      normalizationResult.leftChannel = null;
+      normalizationResult.rightChannel = null;
+
       // Dominant Frequencies - FUNÇÃO STANDALONE
       let dominantFreqMetrics = null;
       try {
