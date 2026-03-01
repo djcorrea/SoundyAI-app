@@ -15,6 +15,9 @@ import { fileURLToPath } from 'url';
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
+// 🔬 MEMORY MONITOR — diagnóstico de retenção de RAM por etapa
+import { logMemoryDelta, clearMemoryDelta } from '../../lib/memory-monitor.js';
+
 // ✅ Banco de dados para buscar análise de referência
 import pool from '../../db.js';
 
@@ -269,6 +272,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let audioData, segmentedData, coreMetrics, finalJSON;
   const timings = {};
 
+  // 🔬 [MEM] Ponto 0 — entrada do pipeline (RAM antes de qualquer alocação)
+  logMemoryDelta('pipeline', '0-start', jobId);
+
   // ============================================================================
   // 🚨 PATCH 2026-02-23: CLEANUP GARANTIDO (try/finally)
   // ============================================================================
@@ -293,6 +299,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // Criar arquivo temporário para FFmpeg True Peak
       tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
+
+      // 🔬 [MEM] Ponto 1 — após decode: audioData (Float32Arrays L+R) + wavBuffer (liberado em audio-decoder)
+      logMemoryDelta('pipeline', '1-after-decode', jobId);
       
     } catch (error) {
       // Fase 5.1 já estrutura seus próprios erros
@@ -309,6 +318,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       timings.phase2_segmentation = Date.now() - phase2StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.2 concluída em ${timings.phase2_segmentation}ms`);
       console.log(`📊 [${jobId.substring(0,8)}] Frames: FFT=${segmentedData.framesFFT.count}, RMS=${segmentedData.framesRMS.count}`);
+
+      // 🔬 [MEM] Ponto 2 — após segmentação: ~14k frames FFT × 4 Float32Arrays cada
+      logMemoryDelta('pipeline', '2-after-segmentation', jobId);
       
     } catch (error) {
       if (error.stage === 'segmentation') {
@@ -316,6 +328,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       throw makeErr('segmentation', `Segmentation failed: ${error.message}`, 'segmentation_error');
     }
+
+    // 🧹 MEMORY: audioData já foi consumido por segmentAudioTemporal — liberar referência
+    // segmentedData.originalChannels ainda aponta para as mesmas arrays, mas sem audioData
+    // o GC pode coletar o wrapper quando segmentedData for nulado abaixo
+    audioData = null;
 
     // ========= FASE 5.3: CORE METRICS =========
     try {
@@ -337,12 +354,33 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const corrStr = coreMetrics.stereo?.correlation ? coreMetrics.stereo.correlation.toFixed(3) : 'N/A';
       
       console.log(`📊 [${jobId.substring(0,8)}] LUFS: ${lufsStr}, Peak: ${peakStr}dBTP, Corr: ${corrStr}`);
+
+      // 🔬 [MEM] Ponto 3 — após core metrics
+      logMemoryDelta('pipeline', '3-after-core-metrics', jobId);
       
     } catch (error) {
       if (error.stage === 'core_metrics') {
         throw error; // Já estruturado
       }
       throw makeErr('core_metrics', `Core metrics failed: ${error.message}`, 'core_metrics_error');
+    }
+
+    // 🧹 MEMORY: segmentedData (frames FFT ~1,35GB) foi consumido por calculateCoreMetrics — liberar
+    if (segmentedData) {
+      if (segmentedData.framesFFT) {
+        segmentedData.framesFFT.left   = null;
+        segmentedData.framesFFT.right  = null;
+        segmentedData.framesFFT.frames = null;
+      }
+      if (segmentedData.framesRMS?.frames) {
+        segmentedData.framesRMS.frames.left  = null;
+        segmentedData.framesRMS.frames.right = null;
+      }
+      if (segmentedData.originalChannels) {
+        segmentedData.originalChannels.left  = null;
+        segmentedData.originalChannels.right = null;
+      }
+      segmentedData = null;
     }
 
     // ========= FASE 5.4: JSON OUTPUT =========
@@ -1793,6 +1831,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[PLAN-FILTER] ℹ️ Sem planContext - definindo analysisMode como "full"');
     }
 
+    // 🔬 [MEM] Ponto 4 — antes do return: tudo calculado, variáveis grandes devem estar nulas
+    logMemoryDelta('pipeline', '4-before-return', jobId);
+
     // ✅ PATCH 2026-02-23: Cleanup movido para finally (sempre executa)
     return finalJSON;
 
@@ -1826,6 +1867,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       cleanupTempFile(tempFilePath);
       console.log(`[CLEANUP] ✅ Temp file cleanup executado (finally): ${tempFilePath}`);
     }
+    // 🔬 [MEM] Ponto final — após cleanup do temp file
+    logMemoryDelta('pipeline', '5-finally-end', jobId);
+    clearMemoryDelta(jobId);
   }
     
     // Se já é um erro estruturado, re-propagar

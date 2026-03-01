@@ -96,6 +96,11 @@ async function convertToWavPcmStream(inputBuffer, filename) {
     const ffmpegTimeout = setTimeout(() => {
       console.warn(`⚠️ FFmpeg timeout para ${filename} - matando processo...`);
       ffmpegKilled = true;
+      // 🧹 MEMORY FIX: destruir streams antes de matar o processo
+      try { ff.stdout.destroy(); } catch (_) {}
+      try { ff.stderr.destroy(); } catch (_) {}
+      try { ff.stdin.destroy(); } catch (_) {}
+      chunks.length = 0; // liberar chunks acumulados no timeout
       ff.kill('SIGKILL');
       reject(makeErr('decode', `FFmpeg timeout após 2 minutos para: ${filename}`, 'ffmpeg_timeout'));
     }, 120000);
@@ -105,7 +110,13 @@ async function convertToWavPcmStream(inputBuffer, filename) {
 
     ff.on('error', (err) => {
       clearTimeout(ffmpegTimeout);
+      // 🧹 MEMORY FIX: matar processo e destruir streams para evitar zumbis
       if (!ffmpegKilled) {
+        ffmpegKilled = true;
+        try { ff.kill('SIGKILL'); } catch (_) {}
+        try { ff.stdout.destroy(); } catch (_) {}
+        try { ff.stderr.destroy(); } catch (_) {}
+        chunks.length = 0; // liberar memória acumulada
         reject(makeErr('decode', `FFmpeg spawn error: ${err.message}`, 'ffmpeg_spawn_error'));
       }
     });
@@ -121,6 +132,7 @@ async function convertToWavPcmStream(inputBuffer, filename) {
       }
       
       const outputBuffer = Buffer.concat(chunks);
+      chunks.length = 0; // 🧹 MEMORY FIX: liberar chunks após concat (~115-230MB por faixa)
       if (outputBuffer.length === 0) {
         reject(makeErr('decode', 'FFmpeg retornou buffer vazio', 'ffmpeg_empty_output'));
         return;
@@ -415,7 +427,10 @@ export async function decodeAudioFile(fileBuffer, filename, options = {}) {
     let audioData;
     try {
       audioData = decodeWavFloat32Stereo(wavBuffer, filename);
+      // 🧹 MEMORY FIX: wavBuffer (~115MB PCM) já foi decodificado — liberar antes da análise
+      wavBuffer = null;
     } catch (err) {
+      wavBuffer = null; // garantir liberação mesmo em erro
       if (err.stage === 'decode') {
         throw err; // Já é um erro estruturado
       }

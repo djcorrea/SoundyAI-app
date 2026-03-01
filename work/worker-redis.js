@@ -19,6 +19,7 @@ import { fileURLToPath } from "url";
 import express from 'express';
 import { enrichSuggestionsWithAI } from './lib/ai/suggestion-enricher.js';
 import { referenceSuggestionEngine } from './lib/audio/features/reference-suggestion-engine.js';
+import { logMemoryDelta, clearMemoryDelta } from './lib/memory-monitor.js';
 
 
 // ---------- Importar pipeline completo para análise REAL ----------
@@ -276,8 +277,13 @@ function setupWorkerEventListeners() {
     // Tentar reconectar em caso de erro de conexão
     if (err.message.includes('Connection') || err.message.includes('Redis')) {
       console.log('🔄 [WORKER-ERROR] Tentando reconectar em 5 segundos...');
-      setTimeout(() => {
+      setTimeout(async () => {
         console.log('🔄 [WORKER-ERROR] Reiniciando Worker...');
+        // 🧹 MEMORY FIX: fechar worker antigo antes de criar novo para evitar acúmulo de listeners
+        if (worker) {
+          try { await worker.close(); } catch (_) {}
+          worker = null;
+        }
         initializeWorker();
       }, 5000);
     }
@@ -370,10 +376,10 @@ async function initializeWorker() {
     worker = new Worker('audio-analyzer', audioProcessor, {
       connection: redisConnection,
       concurrency,
-      lockDuration: 60000,          // ✅ PARTE 2: 1min de lock (reduzido de 3min)
+      lockDuration: 300000,         // 🧩 MEMORY FIX: 5min de lock (pipeline leva 30-120s; 1min causava reprocessamento duplo)
       stalledInterval: 15000,           // ✅ PARTE 2: Desabilitado (evita travamentos falso-positivos)
       settings: {
-        maxStalledCount: 2,         // Max 2 travamentos
+        maxStalledCount: 1,         // 🧩 MEMORY FIX: 1 reprocessamento máximo (2 causava duplicação)
         keepAlive: 60000,           // 1min keepalive
         batchSize: 1,               // Processar 1 job por vez
         delayedDebounce: 10000,     // 10s delay debounce
@@ -682,7 +688,8 @@ async function updateJobStatus(jobId, status, results = null) {
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
       console.log('\n\n🟣🟣🟣 [AUDIT:RESULT-BEFORE-SAVE] Resultado final antes de retornar:');
-      console.dir(results, { depth: 10 });
+      console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Keys:', Object.keys(results).join(', '));
+      console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Score:', results?.score);
       console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Genre no results:', results?.metadata?.genre);
       console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] results.genre:', results?.genre);
       
@@ -858,6 +865,7 @@ async function processReferenceBase(job) {
     // Ler buffer
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
+    logMemoryDelta('worker', 'ref-base-after-readFile', jobId);
 
     // Processar via pipeline (SEM genre, SEM suggestion engine)
     console.log('[REFERENCE-BASE] Iniciando pipeline...');
@@ -988,6 +996,8 @@ async function processReferenceBase(job) {
       fs.unlinkSync(localFilePath);
     }
 
+    logMemoryDelta('worker', 'ref-base-end-success', jobId);
+    clearMemoryDelta(jobId);
     return finalJSON;
 
   } catch (error) {
@@ -997,6 +1007,9 @@ async function processReferenceBase(job) {
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }
+
+    logMemoryDelta('worker', 'ref-base-end-error', jobId);
+    clearMemoryDelta(jobId);
 
     await updateJobStatus(jobId, 'failed', {
       error: error.message,
@@ -1066,6 +1079,7 @@ async function processReferenceCompare(job) {
     // ETAPA 3: Ler buffer e processar
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
+    logMemoryDelta('worker', 'ref-compare-after-readFile', jobId);
 
     console.log('[REFERENCE-COMPARE] Iniciando pipeline...');
     const t0 = Date.now();
@@ -1207,6 +1221,8 @@ async function processReferenceCompare(job) {
       fs.unlinkSync(localFilePath);
     }
 
+    logMemoryDelta('worker', 'ref-compare-end-success', jobId);
+    clearMemoryDelta(jobId);
     return finalJSON;
 
   } catch (error) {
@@ -1216,6 +1232,9 @@ async function processReferenceCompare(job) {
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }
+
+    logMemoryDelta('worker', 'ref-compare-end-error', jobId);
+    clearMemoryDelta(jobId);
 
     await updateJobStatus(jobId, 'failed', {
       error: error.message,
@@ -1382,6 +1401,7 @@ async function audioProcessor(job) {
     // Ler arquivo para buffer
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
+    logMemoryDelta('worker', 'genre-after-readFile', jobId);
 
     const t0 = Date.now();
     
@@ -1401,10 +1421,17 @@ async function audioProcessor(job) {
     });
     
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
+      // 🧹 MEMORY FIX: armazenar timeoutId para cancelar quando o pipeline ganhar a corrida
+      const _tid = setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
+      // Expor o id no objeto do Promise para o .finally conseguir cancelar
+      timeoutPromise._tid = _tid;
     });
 
-    const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
+    const finalJSON = await Promise.race([pipelinePromise, timeoutPromise])
+      .finally(() => {
+        // Cancelar o timer se o pipeline ganhar antes do timeout
+        if (timeoutPromise._tid) clearTimeout(timeoutPromise._tid);
+      });
     const totalMs = Date.now() - t0;
     
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -1504,6 +1531,9 @@ async function audioProcessor(job) {
       fs.unlinkSync(localFilePath);
     }
 
+    logMemoryDelta('worker', 'genre-end-success', jobId);
+    clearMemoryDelta(jobId);
+
     console.log('[WORKER][GENRE] ✅ Job concluído:', {
       jobId: jobId.substring(0, 8),
       score: finalJSON.score || 0,
@@ -1565,6 +1595,9 @@ async function audioProcessor(job) {
         console.error('[WORKER][GENRE] ❌ Erro ao limpar arquivo:', cleanupError.message);
       }
     }
+
+    logMemoryDelta('worker', 'genre-end-error', jobId);
+    clearMemoryDelta(jobId);
     
     throw error;
   }
