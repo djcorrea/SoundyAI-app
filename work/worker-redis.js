@@ -988,7 +988,7 @@ async function processReferenceBase(job) {
     // O Railway sobe um novo worker limpo automaticamente.
     setTimeout(() => {
       console.log('[WORKER-EXIT][reference-base] Encerrando worker após job concluído (worker descartável)');
-      process.exit(0);
+      process.exit(1);
     }, 2000);
 
     return finalJSON;
@@ -1236,7 +1236,7 @@ async function processReferenceCompare(job) {
     // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
     setTimeout(() => {
       console.log('[WORKER-EXIT][reference-compare] Encerrando worker após job concluído (worker descartável)');
-      process.exit(0);
+      process.exit(1);
     }, 2000);
 
     return finalJSON;
@@ -1580,7 +1580,7 @@ async function audioProcessor(job) {
     // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
     setTimeout(() => {
       console.log('[WORKER-EXIT][genre] Encerrando worker após job concluído (worker descartável)');
-      process.exit(0);
+      process.exit(1);
     }, 2000);
 
     return finalJSON;
