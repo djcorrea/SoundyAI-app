@@ -827,7 +827,7 @@ async function processReferenceBase(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // Ler buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-BASE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'after-readFile', jobId);
 
@@ -852,8 +852,11 @@ async function processReferenceBase(job) {
       // SEM genre, SEM genreTargets, SEM planContext
     });
 
-    // 🧹 MEMORY FIX: fileBuffer não é mais necessário após pipeline
-    // (Não é possível reatribuir const, mas o GC pode coletar após o escopo)
+    // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
+    fileBuffer = null;
+
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (reference-base)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][reference-base]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-BASE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -965,6 +968,29 @@ async function processReferenceBase(job) {
     logMemoryDelta('worker', 'refBase-end', jobId);
     clearMemoryDelta(jobId);
 
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    try {
+      // belt-and-suspenders: garantir que fileBuffer foi liberado
+      // (já feito acima, mas idempotente para let)
+    } catch (e) {
+      console.warn('[MEM CLEANUP][reference-base] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-base]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    // O resultado já foi salvo no banco. O BullMQ recebe o retorno abaixo e
+    // marca o job como completed antes do processo sair.
+    // O Railway sobe um novo worker limpo automaticamente.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][reference-base] Encerrando worker após job concluído (worker descartável)');
+      process.exit(1);
+    }, 2000);
+
     return finalJSON;
 
   } catch (error) {
@@ -1042,7 +1068,7 @@ async function processReferenceCompare(job) {
     localFilePath = await downloadFileFromBucket(fileKey);
 
     // ETAPA 3: Ler buffer e processar
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[REFERENCE-COMPARE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'reference-compare-after-readFile', jobId);
 
@@ -1056,6 +1082,12 @@ async function processReferenceCompare(job) {
       referenceJobId,
       preloadedReferenceMetrics: baseMetrics
     });
+
+    // 🧹 MEMORY FIX: Liberar fileBuffer após pipeline completar
+    fileBuffer = null;
+
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (reference-compare)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][reference-compare]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
 
     const totalMs = Date.now() - t0;
     console.log('[REFERENCE-COMPARE] Pipeline concluído em', totalMs, 'ms');
@@ -1188,6 +1220,25 @@ async function processReferenceCompare(job) {
 
     logMemoryDelta('worker', 'reference-compare-end-success', jobId);
     clearMemoryDelta(jobId);
+
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    try {
+      // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    } catch (e) {
+      console.warn('[MEM CLEANUP][reference-compare] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][reference-compare]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][reference-compare] Encerrando worker após job concluído (worker descartável)');
+      process.exit(1);
+    }, 2000);
+
     return finalJSON;
 
   } catch (error) {
@@ -1364,7 +1415,7 @@ async function audioProcessor(job) {
     console.log('[WORKER][GENRE] ✅ Arquivo baixado em', downloadTime, 'ms');
 
     // Ler arquivo para buffer
-    const fileBuffer = await fs.promises.readFile(localFilePath);
+    let fileBuffer = await fs.promises.readFile(localFilePath);
     console.log('[WORKER][GENRE] Arquivo lido:', fileBuffer.length, 'bytes');
     logMemoryDelta('worker', 'genre-after-readFile', jobId);
 
@@ -1398,6 +1449,13 @@ async function audioProcessor(job) {
       // Garantir que o timer é sempre cancelado (evita timer leak)
       if (timeoutId) clearTimeout(timeoutId);
     });
+
+    // 🧹 MEMORY FIX: Liberar fileBuffer (~10-150MB) após pipeline completar
+    fileBuffer = null;
+
+    // 📊 [MEM:7] Worker — imediatamente após processAudioComplete() (genre/main)
+    { const _m = process.memoryUsage(); console.log('[MEM:7-worker-after-pipeline][genre]', { job: jobId.substring(0,8), rss_mb: Math.round(_m.rss/1024/1024), heap_mb: Math.round(_m.heapUsed/1024/1024), external_mb: Math.round(_m.external/1024/1024), arrayBuffers_mb: Math.round(_m.arrayBuffers/1024/1024) }); }
+
     const totalMs = Date.now() - t0;
     
     console.log('[WORKER][GENRE] ✅ Pipeline concluído em', totalMs, 'ms');
@@ -1506,6 +1564,24 @@ async function audioProcessor(job) {
       suggestions: finalJSON.suggestions?.length || 0,
       aiSuggestions: finalJSON.aiSuggestions?.length || 0
     });
+
+    // 🧹 MEMORY CLEANUP: liberar referências locais após resultado salvo no banco
+    try {
+      // fileBuffer já nullado após pipeline; finalJSON é const e sai de escopo ao return
+    } catch (e) {
+      console.warn('[MEM CLEANUP][genre] erro ao limpar referências', e);
+    }
+    // ♻️ Forçar GC se disponível (requer --expose-gc no start do Node)
+    if (global.gc) {
+      global.gc();
+    }
+    { const m = process.memoryUsage(); console.log('[MEM AFTER JOB][genre]', { rss_mb: Math.round(m.rss/1024/1024), heap_mb: Math.round(m.heapUsed/1024/1024), ab_mb: Math.round(m.arrayBuffers/1024/1024) }); }
+
+    // 🔄 WORKER DESCARТÁVEL: encerrar processo após job bem-sucedido.
+    setTimeout(() => {
+      console.log('[WORKER-EXIT][genre] Encerrando worker após job concluído (worker descartável)');
+      process.exit(1);
+    }, 2000);
 
     return finalJSON;
 

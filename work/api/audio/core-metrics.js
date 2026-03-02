@@ -185,6 +185,19 @@ class CoreMetricsProcessor {
     
     logAudio('core_metrics', 'start_processing', { fileName, jobId });
     const startTime = Date.now();
+    
+    // 📊 MEMORY LOG: baseline antes de qualquer alocação nesta fase
+    {
+      const m = process.memoryUsage();
+      console.log('[MEM][processMetrics] start', JSON.stringify({
+        jobId: jobId.substring(0, 8),
+        stage: 'core-metrics-start',
+        rss_mb: Math.round(m.rss / 1024 / 1024),
+        heap_mb: Math.round(m.heapUsed / 1024 / 1024),
+        ext_mb: Math.round(m.external / 1024 / 1024),
+        ab_mb: Math.round(m.arrayBuffers / 1024 / 1024)
+      }));
+    }
 
     try {
       // ========= VALIDAÇÃO DE ENTRADA =========
@@ -326,9 +339,23 @@ class CoreMetricsProcessor {
       );
       
       // Usar canais normalizados APENAS para análises espectrais/bandas
-      const normalizedLeft = normalizationResult.leftChannel;
-      const normalizedRight = normalizationResult.rightChannel;
+      // 🧹 MEMORY FIX: declarados como `let` para permitir null após último uso
+      let normalizedLeft = normalizationResult.leftChannel;
+      let normalizedRight = normalizationResult.rightChannel;
       
+      // 📊 MEMORY LOG: após normalização (cria ~230MB de novos Float32Array)
+      {
+        const m = process.memoryUsage();
+        console.log('[MEM][processMetrics] after-normalization', JSON.stringify({
+          jobId: jobId.substring(0, 8),
+          stage: 'after-normalization',
+          rss_mb: Math.round(m.rss / 1024 / 1024),
+          heap_mb: Math.round(m.heapUsed / 1024 / 1024),
+          ext_mb: Math.round(m.external / 1024 / 1024),
+          ab_mb: Math.round(m.arrayBuffers / 1024 / 1024)
+        }));
+      }
+
       logAudio('core_metrics', 'normalization_completed', { 
         applied: normalizationResult.normalizationApplied,
         originalLUFS: normalizationResult.originalLUFS,
@@ -381,6 +408,20 @@ class CoreMetricsProcessor {
       const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
       assertFinite(fftResults, 'core_metrics');
 
+      // 📊 MEMORY LOG: após calculateFFTMetrics (fftResults.left/right já nullados no método)
+      {
+        const m = process.memoryUsage();
+        console.log('[MEM][processMetrics] after-calculateFFTMetrics', JSON.stringify({
+          jobId: jobId.substring(0, 8),
+          stage: 'after-calculateFFTMetrics',
+          rss_mb: Math.round(m.rss / 1024 / 1024),
+          heap_mb: Math.round(m.heapUsed / 1024 / 1024),
+          ext_mb: Math.round(m.external / 1024 / 1024),
+          ab_mb: Math.round(m.arrayBuffers / 1024 / 1024),
+          fftMagnitudeSpectrumLen: fftResults.magnitudeSpectrum?.length || 0
+        }));
+      }
+
       // ========= 🚀 OTIMIZAÇÃO: MÉTRICAS ESPECTRAIS EM PARALELO =========
       // Bandas, Centroid e Stereo são INDEPENDENTES - podem rodar simultaneamente
       // Ganho estimado: ~5-8 segundos em áudios longos
@@ -405,6 +446,19 @@ class CoreMetricsProcessor {
       
       console.log(`[PERF] 🚀 Métricas espectrais paralelas concluídas em ${Date.now() - parallelSpectralStartTime}ms`);
       assertFinite(stereoMetrics, 'core_metrics');
+
+      // 📊 MEMORY LOG: após Promise.all spectral (normalizedLeft/Right ainda vivos aqui)
+      {
+        const m = process.memoryUsage();
+        console.log('[MEM][processMetrics] after-parallel-spectral', JSON.stringify({
+          jobId: jobId.substring(0, 8),
+          stage: 'after-parallel-spectral',
+          rss_mb: Math.round(m.rss / 1024 / 1024),
+          heap_mb: Math.round(m.heapUsed / 1024 / 1024),
+          ext_mb: Math.round(m.external / 1024 / 1024),
+          ab_mb: Math.round(m.arrayBuffers / 1024 / 1024)
+        }));
+      }
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
       // 🎯 LOG CRÍTICO: Confirmar que valores RAW serão usados
       console.log('[RAW_METRICS] ═══════════════════════════════════════════════════════════════');
@@ -435,7 +489,17 @@ class CoreMetricsProcessor {
         console.log('[SKIP_METRIC] dcOffset: erro na função standalone -', error.message);
         dcOffsetMetrics = null;
       }
-      
+
+      // 🧹 MEMORY FIX: normalizedLeft/normalizedRight (~230MB) — último uso foi calculateDCOffset acima.
+      // Nulificamos tanto as variáveis locais quanto as propriedades do normalizationResult porque
+      // normalizationResult.leftChannel/.rightChannel apontam para o mesmo ArrayBuffer e
+      // normalizationResult permanece vivo até auditMetricsCorrections() (linhas abaixo).
+      // Nada após este ponto usa esses Float32Arrays.
+      normalizedLeft = null;
+      normalizedRight = null;
+      normalizationResult.leftChannel = null;
+      normalizationResult.rightChannel = null;
+
       // Dominant Frequencies - FUNÇÃO STANDALONE
       let dominantFreqMetrics = null;
       try {
@@ -649,6 +713,21 @@ class CoreMetricsProcessor {
       } catch (error) {
         console.log('[UNIFORMITY_PIPELINE] ❌ ERRO na função standalone:', error.message);
         spectralUniformityMetrics = null;
+      }
+
+      // 🧹 MEMORY FIX: magnitudeSpectrum (~1000 × Float32Array(4096) = ~16MB) não é mais necessário.
+      // dominantFrequencies e spectralUniformity já foram calculados acima.
+      if (fftResults && fftResults.magnitudeSpectrum) {
+        const memPre = process.memoryUsage();
+        fftResults.magnitudeSpectrum = null;
+        const memPost = process.memoryUsage();
+        console.log('[MEM][calculateCoreMetrics] after-null-magnitudeSpectrum', JSON.stringify({
+          rss_mb: Math.round(memPost.rss / 1024 / 1024),
+          heap_mb: Math.round(memPost.heapUsed / 1024 / 1024),
+          ext_mb: Math.round(memPost.external / 1024 / 1024),
+          ab_mb: Math.round(memPost.arrayBuffers / 1024 / 1024),
+          delta_rss: Math.round((memPost.rss - memPre.rss) / 1024 / 1024)
+        }));
       }
 
       // ========= BPM REMOVIDO - Performance optimization =========
@@ -1074,6 +1153,19 @@ class CoreMetricsProcessor {
         correlation: stereoMetrics.correlation
       });
 
+      // 📊 MEMORY LOG: final do processMetrics (coreMetrics.fft ainda tem magnitudeSpectrum=null, left/right=null)
+      {
+        const m = process.memoryUsage();
+        console.log('[MEM][processMetrics] end-success', JSON.stringify({
+          jobId: jobId.substring(0, 8),
+          stage: 'core-metrics-end',
+          rss_mb: Math.round(m.rss / 1024 / 1024),
+          heap_mb: Math.round(m.heapUsed / 1024 / 1024),
+          ext_mb: Math.round(m.external / 1024 / 1024),
+          ab_mb: Math.round(m.arrayBuffers / 1024 / 1024)
+        }));
+      }
+
       return coreMetrics;
 
     } catch (error) {
@@ -1379,6 +1471,21 @@ class CoreMetricsProcessor {
         firstMagnitudeLength: fftResults.magnitudeSpectrum?.[0]?.length || 0,
         processedFrames: fftResults.processedFrames
       });
+
+      // 🧹 MEMORY FIX: Liberar referências de frames (left/right) após agregação
+      // json-output.js usa apenas fftResults.aggregated (escalares) — frames brutos não são mais necessários.
+      // magnitudeSpectrum permanece pois é lido por calculateDominantFrequencies e spectralUniformity após o retorno.
+      const memBefore = process.memoryUsage();
+      fftResults.left = null;
+      fftResults.right = null;
+      const memAfter = process.memoryUsage();
+      console.log('[MEM][calculateFFTMetrics] after-null-frames', JSON.stringify({
+        rss_mb: Math.round(memAfter.rss / 1024 / 1024),
+        heap_mb: Math.round(memAfter.heapUsed / 1024 / 1024),
+        ext_mb: Math.round(memAfter.external / 1024 / 1024),
+        ab_mb: Math.round(memAfter.arrayBuffers / 1024 / 1024),
+        delta_rss: Math.round((memAfter.rss - memBefore.rss) / 1024 / 1024)
+      }));
 
       return fftResults;
 
