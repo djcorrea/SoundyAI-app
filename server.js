@@ -575,12 +575,9 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     // 6. Criar job no job-store (Redis)
     console.log('[AUTOMASTER] Pré-jobStore.createJob — jobId:', jobId, '| inputKey:', inputKey, '| mode:', resolvedMode);
     await jobStore.createJob(jobId, {
-      status: 'queued',
-      input_key: inputKey,
+      inputKey: inputKey,
       mode: resolvedMode,
-      user_id: req.user?.id || 'anonymous',
-      created_at: Date.now(),
-      progress: 0
+      userId: req.user?.id || 'anonymous'
     });
 
     // 7. Adicionar job à fila BullMQ
