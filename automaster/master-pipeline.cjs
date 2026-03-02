@@ -217,13 +217,19 @@ const MODE_TARGET_LUFS = {
   HIGH:       -9
 };
 
-async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = false }) {
+async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = false, safeMode = false }) {
   const startTime = Date.now();
 
   const resolvedInput = validateInput(inputPath);
   const resolvedOutput = validateOutput(outputPath);
   const validMode = validateMode(mode);
   const targetLufs = MODE_TARGET_LUFS[validMode];
+
+  // Modo efetivo pode ser downgraded para MEDIUM em safeMode
+  let effectiveMode = validMode;
+  // Coletores de problemas para NEEDS_CONFIRMATION / completed_safe
+  const problems = [];
+  const classifiers = {};
 
   // ============================================================
   // GATE DE APTIDÃO (CONSERVADOR)
@@ -247,17 +253,30 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     throw new Error(`Checagem de aptidão falhou: ${error.message}`);
   }
 
-  // Se NÃO APTA e rescue mode NÃO solicitado: retornar objeto estruturado
-  if (!aptitudeCheck.isApt && !rescueMode) {
-    return {
-      ok: false,
-      status: 'NOT_APT',
-      mode: validMode,
-      reasons: aptitudeCheck.reasons,
-      measured: aptitudeCheck.measured,
-      recommended_actions: aptitudeCheck.recommended_actions,
-      processing_ms: Date.now() - startTime
-    };
+  // Classificar problemas de aptidão
+  if (!aptitudeCheck.isApt) {
+    (aptitudeCheck.reasons || []).forEach(r => {
+      problems.push(r);
+      if (r.includes('TRUE_PEAK')) classifiers.input_risky = true;
+      if (r.includes('LUFS_TOO_HIGH')) classifiers.input_risky = true;
+    });
+
+    if (!safeMode) {
+      // Fluxo sem confirmação: pedir confirmação do usuário
+      return {
+        ok: false,
+        status: 'NEEDS_CONFIRMATION',
+        problems,
+        classifiers,
+        mode: validMode,
+        measured: aptitudeCheck.measured,
+        recommended_actions: aptitudeCheck.recommended_actions,
+        processing_ms: Date.now() - startTime
+      };
+    }
+
+    // safeMode: forçar rescue interno para corrigir TP antes do precheck
+    if (!rescueMode) rescueMode = true;
   }
 
   // ============================================================
@@ -280,15 +299,27 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
 
     // Verificar resultado do rescue
     if (rescueResult.status === 'ABORT_UNSAFE_INPUT') {
-      return {
-        ok: false,
-        status: 'ABORT_UNSAFE_INPUT',
-        mode: validMode,
-        message: rescueResult.message,
-        measured: aptitudeCheck.measured,
-        rescue_details: rescueResult,
-        processing_ms: Date.now() - startTime
-      };
+      if (safeMode) {
+        // Safe mode: incapaz de corrigir TP via ganho, mas continuando com best-effort
+        classifiers.input_risky = true;
+        classifiers.tp_uncorrectable = true;
+        problems.push('True Peak não corrigível por ganho — processamento seguro ativo');
+        console.error('[PIPELINE][SAFE-MODE] ABORT_UNSAFE_INPUT: continuando com input original (best-effort)');
+        inputUsedForPipeline = resolvedInput;
+      } else {
+        return {
+          ok: false,
+          status: 'NEEDS_CONFIRMATION',
+          problems: [
+            'Arquivo possui picos inter-sample que impedem correção automática. Reenvie um pré-master sem processamento prévio.'
+          ],
+          classifiers: { input_risky: true, tp_uncorrectable: true },
+          mode: validMode,
+          measured: aptitudeCheck.measured,
+          rescue_details: rescueResult,
+          processing_ms: Date.now() - startTime
+        };
+      }
     }
 
     // Se rescue criou arquivo, usar esse arquivo como input
@@ -344,19 +375,61 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         }
 
         if (precheckAfterFix.status === 'BLOCKED') {
-          throw new Error(
-            `Audio continua BLOCKED apos correcao TP: ${precheckAfterFix.reason}`
-          );
+          if (safeMode) {
+            // safeMode: aceitar mesmo após falha no fix — best-effort
+            classifiers.input_problematic = true;
+            problems.push(`Precheck persistiu BLOCKED após correção TP: ${precheckAfterFix.reason}`);
+            console.error('[PIPELINE][SAFE-MODE] Precheck ainda BLOCKED após fix TP — continuando mesmo assim');
+          } else {
+            throw new Error(
+              `Audio continua BLOCKED apos correcao TP: ${precheckAfterFix.reason}`
+            );
+          }
         }
       } else if (fixResult.status === 'OK') {
         throw new Error(
           'Inconsistencia: Precheck reportou TP alto mas fix-true-peak reportou OK'
         );
       }
+    } else if (safeMode) {
+      // safeMode: precheck BLOCKED por razão qualitativa (DR, silêncio, duração)
+      // Classificar e continuar — nunca bloquear em safeMode
+      classifiers.input_problematic = true;
+      if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('dynamic range')) {
+        classifiers.crushed_mix = true;
+        problems.push(`Mix over-compressed detectada: ${precheckInitial.reason}`);
+      } else if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('silêncio')) {
+        classifiers.mostly_silence = true;
+        problems.push(`Silêncio excessivo detectado: ${precheckInitial.reason}`);
+      } else if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('curta')) {
+        classifiers.too_short = true;
+        problems.push(`Faixa muito curta: ${precheckInitial.reason}`);
+      } else {
+        problems.push(`Bloqueio técnico detectado (contornado em modo seguro): ${precheckInitial.reason}`);
+      }
+      console.error(`[PIPELINE][SAFE-MODE] Precheck BLOCKED contornado: ${precheckInitial.reason}`);
     } else {
-      throw new Error(
-        `Audio BLOCKED: ${precheckInitial.reason}. Correcao automatica nao disponivel`
-      );
+      // Sem safeMode: problemas de qualidade → NEEDS_CONFIRMATION antes de tentar
+      const blockProblems = [precheckInitial.reason];
+      const blockClassifiers = {};
+      if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('dynamic range')) {
+        blockClassifiers.crushed_mix = true;
+      } else if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('silêncio')) {
+        blockClassifiers.mostly_silence = true;
+      } else if (precheckInitial.reason && precheckInitial.reason.toLowerCase().includes('curta')) {
+        blockClassifiers.too_short = true;
+      } else {
+        blockClassifiers.input_problematic = true;
+      }
+      return {
+        ok: false,
+        status: 'NEEDS_CONFIRMATION',
+        problems: blockProblems,
+        classifiers: blockClassifiers,
+        mode: validMode,
+        measured: null,
+        processing_ms: Date.now() - startTime
+      };
     }
   }
 
@@ -392,22 +465,37 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       LIMITER_OVERLOAD: 'Limiter aplicou compressão excessiva — pumping audível detectado',
       CREST_COLLAPSE:   'Dinâmica colapsada — brick-wall limiting comprometeria a faixa'
     };
-    return {
-      ok: false,
-      success: false,
-      type: 'MODE_INCOMPATIBLE',
-      selectedMode: validMode,
-      recommendedMode: 'MEDIUM',
-      reason: ABORT_REASONS[masterResult.abort_reason] || 'Modo incompatível com o material de entrada',
-      abort_reason: masterResult.abort_reason || null,
-      processing_ms: Date.now() - startTime
-    };
+    const abortMsg = ABORT_REASONS[masterResult.abort_reason] || 'Modo incompatível com o material de entrada';
+
+    if (safeMode) {
+      // safeMode: downgrade silencioso para MEDIUM e re-processar
+      classifiers.loudness_exceeded = true;
+      problems.push(`${abortMsg} (downgrade automático para MEDIUM)`);
+      effectiveMode = 'MEDIUM';
+      console.error(`[PIPELINE][SAFE-MODE] Downgrade automático: ${validMode} → MEDIUM (${masterResult.abort_reason})`);
+      try {
+        masterResult = await runMaster(inputUsedForMaster, resolvedOutput, 'MEDIUM');
+      } catch (err) {
+        throw new Error(`Masterização MEDIUM (safe fallback) falhou: ${err.message}`);
+      }
+    } else {
+      // Sem safeMode: pedir confirmação antes de prosseguir
+      return {
+        ok: false,
+        status: 'NEEDS_CONFIRMATION',
+        problems: [abortMsg],
+        classifiers: { loudness_exceeded: true },
+        mode: validMode,
+        abort_reason: masterResult.abort_reason || null,
+        processing_ms: Date.now() - startTime
+      };
+    }
   }
 
   // Pós-checagem técnica e fallback CLEAN (no máximo uma tentativa adicional)
   let postcheck;
   try {
-    postcheck = await runPostcheck(resolvedOutput, validMode);
+    postcheck = await runPostcheck(resolvedOutput, effectiveMode);
   } catch (err) {
     throw new Error(`Postcheck falhou: ${err.message}`);
   }
@@ -437,6 +525,29 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     const abortDetails = (postcheck.tiers && postcheck.tiers.reasons && postcheck.tiers.reasons.length)
       ? postcheck.tiers.reasons.join('; ')
       : 'Modo agressivo demais para esta mix';
+
+    if (safeMode) {
+      // safeMode: entregar arquivo mesmo com postcheck ABORT (proteção sônica não impede entrega)
+      return {
+        ok: true,
+        success: true,
+        status: 'completed_safe',
+        warning: true,
+        reason: 'postcheck_abort_safe_delivered',
+        recommendedMode: 'MEDIUM',
+        message: 'Masterização segura concluída. TP acima do limite ideal — considere um pré-master mais limpo.',
+        abort_details: abortDetails,
+        mode: effectiveMode,
+        input: resolvedInput,
+        output: resolvedOutput,
+        processing_ms: Date.now() - startTime,
+        problems,
+        classifiers,
+        attempts: [primaryAttempt],
+        final_decision: 'COMPLETED_SAFE'
+      };
+    }
+
     return {
       ok: true,
       success: true,
@@ -455,12 +566,14 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     };
   }
 
-  // Se OK, entregar primary
+  // Se OK, entregar primary ou safe dependendo se havia problemas
   if (postcheck && postcheck.recommended_action === 'OK') {
+    const hasSafeProblems = safeMode && problems.length > 0;
     return {
       ok: true,
       success: true,
-      mode: validMode,
+      status: hasSafeProblems ? 'completed_safe' : 'completed_primary',
+      mode: effectiveMode,
       input: resolvedInput,
       output: resolvedOutput,
       processing_ms: Date.now() - startTime,
@@ -472,7 +585,9 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       precheck_after_fix: precheckAfterFix,
       attempts: [primaryAttempt],
       used_fallback: false,
-      final_decision: 'DELIVERED_PRIMARY'
+      problems: hasSafeProblems ? problems : undefined,
+      classifiers: hasSafeProblems ? classifiers : undefined,
+      final_decision: hasSafeProblems ? 'DELIVERED_SAFE' : 'DELIVERED_PRIMARY'
     };
   }
 
@@ -480,15 +595,15 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   if (postcheck && postcheck.recommended_action === 'FALLBACK_CLEAN') {
     let fallbackResult;
     try {
-      fallbackResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode, 'CLEAN');
+      fallbackResult = await runMaster(inputUsedForMaster, resolvedOutput, effectiveMode, 'CLEAN');
     } catch (err) {
       throw new Error(`Fallback CLEAN falhou: ${err.message}`);
     }
 
-    // re-run postcheck (sempre avaliando contra o modo solicitado)
+    // re-run postcheck (sempre avaliando contra o modo efetivo)
     let postcheck2;
     try {
-      postcheck2 = await runPostcheck(resolvedOutput, validMode);
+      postcheck2 = await runPostcheck(resolvedOutput, effectiveMode);
     } catch (err) {
       throw new Error(`Postcheck pós-CLEAN falhou: ${err.message}`);
     }
@@ -502,10 +617,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     };
 
     if (postcheck2 && postcheck2.recommended_action === 'OK') {
+      const hasSafeProblems2 = safeMode && problems.length > 0;
       return {
         ok: true,
         success: true,
-        mode: validMode,
+        status: hasSafeProblems2 ? 'completed_safe' : 'completed_primary',
+        mode: effectiveMode,
         input: resolvedInput,
         output: resolvedOutput,
         processing_ms: Date.now() - startTime,
@@ -517,14 +634,38 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         precheck_after_fix: precheckAfterFix,
         attempts: [primaryAttempt, fallbackAttempt],
         used_fallback: true,
-        final_decision: 'DELIVERED_CLEAN'
+        problems: hasSafeProblems2 ? problems : undefined,
+        classifiers: hasSafeProblems2 ? classifiers : undefined,
+        final_decision: hasSafeProblems2 ? 'DELIVERED_SAFE_CLEAN' : 'DELIVERED_CLEAN'
       };
     }
 
-    // ABORT ou qualquer outro resultado após CLEAN: proteção sônica, output existe e é válido
+    // ABORT ou qualquer outro resultado após CLEAN: output existe e é válido
     const abortDetails2 = (postcheck2 && postcheck2.tiers && postcheck2.tiers.reasons && postcheck2.tiers.reasons.length)
       ? postcheck2.tiers.reasons.join('; ')
       : 'Modo agressivo demais para esta mix (persistiu após fallback CLEAN)';
+
+    if (safeMode) {
+      return {
+        ok: true,
+        success: true,
+        status: 'completed_safe',
+        warning: true,
+        reason: 'postcheck_abort_after_clean_safe_delivered',
+        recommendedMode: 'MEDIUM',
+        message: 'Masterização segura concluída após fallback CLEAN.',
+        abort_details: abortDetails2,
+        mode: effectiveMode,
+        input: resolvedInput,
+        output: resolvedOutput,
+        processing_ms: Date.now() - startTime,
+        problems,
+        classifiers,
+        attempts: [primaryAttempt, fallbackAttempt],
+        final_decision: 'COMPLETED_SAFE_AFTER_CLEAN'
+      };
+    }
+
     return {
       ok: true,
       success: true,
@@ -565,8 +706,9 @@ if (require.main === module) {
 
   const [inputPath, outputPath, mode, ...flags] = args;
   const rescueMode = flags.includes('--rescue');
+  const safeMode = flags.includes('--safe-mode');
 
-  runMasterPipeline({ inputPath, outputPath, mode, rescueMode })
+  runMasterPipeline({ inputPath, outputPath, mode, rescueMode, safeMode })
     .then(result => {
       process.stdout.write(JSON.stringify(result));
       process.exit(0); // sempre 0: o JSON é o contrato, não o exit code

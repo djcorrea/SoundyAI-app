@@ -109,7 +109,7 @@ function validateJobData(data) {
     throw new Error('Job data inválido');
   }
 
-  const { jobId, inputKey, mode, userId } = data;
+  const { jobId, inputKey, mode, userId, safeMode = false } = data;
 
   if (!jobId || typeof jobId !== 'string' || !JOB_ID_REGEX.test(jobId)) {
     throw new Error('jobId inválido');
@@ -123,7 +123,7 @@ function validateJobData(data) {
     throw new Error(`mode inválido: ${mode}. Modos aceitos: ${VALID_MODES.join(', ')}`);
   }
 
-  return { jobId, inputKey, mode, userId };
+  return { jobId, inputKey, mode, userId, safeMode: !!safeMode };
 }
 
 // ============================================================================
@@ -149,13 +149,16 @@ async function cleanupJobWorkspace(jobId) {
 // EXECUÇÃO DO PIPELINE
 // ============================================================================
 
-async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger) {
-  jobLogger.info({ mode }, 'Executando pipeline');
-  
+async function executePipeline(isolatedInput, isolatedOutput, mode, jobLogger, safeMode = false) {
+  jobLogger.info({ mode, safeMode }, 'Executando pipeline');
+
+  const pipelineFlags = [];
+  if (safeMode) pipelineFlags.push('--safe-mode');
+
   return new Promise((resolve, reject) => {
     execFile(
       'node',
-      [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode],
+      [MASTER_PIPELINE_SCRIPT, isolatedInput, isolatedOutput, mode, ...pipelineFlags],
       {
         timeout: TIMEOUT_MS,
         maxBuffer: 10 * 1024 * 1024,
@@ -214,11 +217,11 @@ async function processJob(job) {
   console.log('[WORKER] Processing job:', job.id);
   console.log('[PIPELINE] START', JSON.stringify(job.data));
   const startTime = Date.now();
-  let jobId = null; let inputKey = null; let mode = null; let userId = null;
+  let jobId = null; let inputKey = null; let mode = null; let userId = null; let safeMode = false;
 
   try {
     const validated = validateJobData(job.data);
-    ({ jobId, inputKey, mode, userId } = validated);
+    ({ jobId, inputKey, mode, userId, safeMode } = validated);
   } catch (e) {
     logger.error({ error: e.message, jobDataJobId: job && job.data && job.data.jobId ? job.data.jobId : null }, 'Job inválido (validateJobData falhou)');
     throw e;
@@ -303,9 +306,9 @@ async function processJob(job) {
     await job.updateProgress(50);
     await jobStore.updateProgress(jobId, 50);
     const dspMode = mode;
-    console.log('[PIPELINE] Step 2: ffmpeg start', { mode: dspMode, input: isolatedInput, output: isolatedOutput });
-    const result = await executePipeline(isolatedInput, isolatedOutput, dspMode, jobLogger);
-    console.log('[PIPELINE] Step 2: ffmpeg ok', { success: result?.pipelineResult?.success });
+    console.log('[PIPELINE] Step 2: ffmpeg start', { mode: dspMode, safeMode, input: isolatedInput, output: isolatedOutput });
+    const result = await executePipeline(isolatedInput, isolatedOutput, dspMode, jobLogger, safeMode);
+    console.log('[PIPELINE] Step 2: ffmpeg ok', { success: result?.pipelineResult?.success, status: result?.pipelineResult?.status });
 
     // resultado já vem parseado e validado
     const pipelineResult = result.pipelineResult;
@@ -313,6 +316,49 @@ async function processJob(job) {
     // Extrair metadados de aviso (postcheck ABORT tratado como completed_with_warning)
     const completedWithWarning = pipelineResult.warning === true &&
                                  pipelineResult.status === 'completed_with_warning';
+    const completedSafe = pipelineResult.status === 'completed_safe';
+    const completedPrimary = pipelineResult.status === 'completed_primary';
+
+    // ----------------------------------------------------------------
+    // NEEDS_CONFIRMATION: problemas técnicos detectados — aguardando confirmacão do usuário
+    // Não é erro técnico — não faz retry
+    // ----------------------------------------------------------------
+    if (pipelineResult.status === 'NEEDS_CONFIRMATION') {
+      await jobStore.updateJobStatus(jobId, 'needs_confirmation', {
+        error_code: 'NEEDS_CONFIRMATION',
+        error_message: ((pipelineResult.problems || []).join('; ') || 'Problemas técnicos detectados').substring(0, 500),
+        selected_mode: pipelineResult.mode || '',
+        not_apt_reasons: JSON.stringify(pipelineResult.problems || []),
+        not_apt_measured: JSON.stringify(pipelineResult.measured || {}),
+        confirmation_classifiers: JSON.stringify(pipelineResult.classifiers || {}),
+        processing_ms: pipelineResult.processing_ms || 0
+      });
+
+      try {
+        await workerPool.query(
+          `UPDATE jobs
+           SET status     = 'needs_confirmation',
+               error      = $1,
+               updated_at = NOW()
+           WHERE id = $2`,
+          [
+            JSON.stringify({ status: 'NEEDS_CONFIRMATION', ...pipelineResult }),
+            jobId
+          ]
+        );
+        jobLogger.info({ jobId }, 'PostgreSQL sincronizado: needs_confirmation');
+      } catch (pgErr) {
+        jobLogger.warn({ error: pgErr.message }, 'Falha ao sincronizar needs_confirmation com PostgreSQL (não crítico)');
+      }
+
+      jobLogger.info({ pipelineResult }, 'Job aguardando confirmação do usuário (needs_confirmation)');
+      return {
+        success: false,
+        status: 'NEEDS_CONFIRMATION',
+        jobId,
+        pipeline_result: pipelineResult
+      };
+    }
 
     // Guardrail de aptidão: música não está apta para o modo solicitado (ex.: TRUE_PEAK_TOO_HIGH)
     // Não é erro técnico — resultado semântico estruturado, sem retry
@@ -432,14 +478,16 @@ async function processJob(job) {
     }
 
     // 11. Atualizar status para completed (Redis — fonte primária)
+    const deliveryMode = completedSafe ? 'safe' : completedPrimary ? 'primary' : 'warning';
     await jobStore.updateJobStatus(jobId, 'completed', {
       output_key: outputKey,
       processing_ms: durationMs,
       progress: 100,
       finished_at: endTime,
       warning: completedWithWarning ? '1' : '0',
-      recommended_mode: completedWithWarning ? (pipelineResult.recommendedMode || 'MEDIUM') : '',
-      warning_message: completedWithWarning ? (pipelineResult.message || '').substring(0, 500) : ''
+      recommended_mode: (completedWithWarning || completedSafe) ? (pipelineResult.recommendedMode || 'MEDIUM') : '',
+      warning_message: (completedWithWarning || completedSafe) ? (pipelineResult.message || '').substring(0, 500) : '',
+      delivery_mode: deliveryMode
     });
 
     // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)

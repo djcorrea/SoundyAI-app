@@ -697,6 +697,14 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       
       response.message = 'Masterização concluída com sucesso';
 
+      // delivery_mode indica o caminho usado: primary | safe | warning
+      if (job.delivery_mode) {
+        response.deliveryMode = job.delivery_mode;
+        if (job.delivery_mode === 'safe') {
+          response.message = 'Masterização segura concluída com sucesso';
+        }
+      }
+
       // Aviso de proteção sônica: job completado mas modo era agressivo
       if (job.warning === '1') {
         response.warning = true;
@@ -704,6 +712,14 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
         response.warningMessage = job.warning_message || 'A música já está próxima do limite seguro. Aplicar esse modo poderia degradar a qualidade.';
         response.message = 'Masterização concluída com aviso de proteção sônica';
       }
+    } else if (job.status === 'needs_confirmation') {
+      // Problemas técnicos detectados — aguardando confirmação do usuário para masterização segura
+      response.status = 'needs_confirmation';
+      response.problems = (() => { try { return JSON.parse(job.not_apt_reasons || '[]'); } catch { return []; } })();
+      response.measured  = (() => { try { return JSON.parse(job.not_apt_measured  || '{}'); } catch { return {}; } })();
+      response.classifiers = (() => { try { return JSON.parse(job.confirmation_classifiers || '{}'); } catch { return {}; } })();
+      response.mode = job.selected_mode || job.mode;
+      response.message = 'Seu áudio apresenta limitações técnicas. Vamos aplicar um processamento seguro para preservar a qualidade.';
     } else if (job.status === 'not_apt') {
       // Guardrail de aptidão: música não apta para o modo solicitado
       response.status = 'not_apt';
@@ -746,6 +762,77 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
     console.error('❌ [AUTOMASTER-STATUS] Erro ao consultar status:', error);
     return res.status(500).json({
       error: 'Falha ao consultar status',
+      details: error.message
+    });
+  }
+});
+
+// 🔄 CONFIRMAR MASTERIZAÇÃO SEGURA: Re-enfileira job com safeMode=true após confirmação do usuário
+app.post('/api/automaster/confirm/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    console.log('🔄 [AUTOMASTER-CONFIRM] Confirmando masterização segura para job:', jobId);
+
+    const job = await jobStoreModule.getJob(jobId);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job não encontrado', jobId });
+    }
+
+    if (job.status !== 'needs_confirmation') {
+      return res.status(409).json({
+        error: 'Job não está aguardando confirmação',
+        currentStatus: job.status,
+        jobId
+      });
+    }
+
+    const inputKey = job.input_key || job.file_key;
+    const mode = job.mode;
+    const userId = job.user_id;
+
+    if (!inputKey || !mode) {
+      return res.status(500).json({ error: 'Dados do job incompletos para re-enfileiramento', jobId });
+    }
+
+    // Resetar status para queued
+    await jobStoreModule.updateJobStatus(jobId, 'queued', {
+      progress: 0,
+      safe_mode: '1'
+    });
+
+    // Re-enfileirar com safeMode=true (automasterQueueModule já importado no topo)
+    await automasterQueueModule.add('process', {
+      jobId,
+      inputKey,
+      mode,
+      userId: userId || 'anonymous',
+      safeMode: true
+    }, {
+      jobId: `${jobId}_safe_${Date.now()}`,
+      priority: 1 // prioridade alta para não deixar usuário esperando
+    });
+
+    console.log('✅ [AUTOMASTER-CONFIRM] Job re-enfileirado com safeMode:', jobId);
+
+    return res.status(202).json({
+      success: true,
+      jobId,
+      status: 'queued',
+      safeMode: true,
+      message: 'Masterização segura iniciada com sucesso',
+      statusUrl: `/api/automaster/status/${jobId}`
+    });
+
+  } catch (error) {
+    console.error('❌ [AUTOMASTER-CONFIRM] Erro:', error.message);
+    return res.status(500).json({
+      error: 'Falha ao confirmar masterização segura',
       details: error.message
     });
   }

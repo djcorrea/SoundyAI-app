@@ -1236,6 +1236,30 @@
   </div>
 
   <!-- ========================================
+       🛡️ MASTERIZAÇÃO SEGURA (NEEDS_CONFIRMATION)
+       ======================================== -->
+  <div id="safeMasterModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">⚠️ automaster v1</div>
+        <h2 class="modal-title">Limitações técnicas detectadas</h2>
+        <p class="modal-subtitle">Seu áudio apresenta características que requerem processamento especial.</p>
+      </div>
+      <div id="safeMasterProblems" style="background: rgba(255,160,0,0.08); border: 1px solid rgba(255,160,0,0.25); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #ccc;">
+        <div style="font-weight:600; color:#ffa500; margin-bottom:8px;">Problemas detectados:</div>
+        <ul id="safeMasterProblemsList" style="margin:0; padding-left:18px; line-height:1.7;"></ul>
+      </div>
+      <div style="background: rgba(0,200,100,0.07); border: 1px solid rgba(0,200,100,0.2); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #b0f0c0;">
+        <strong>Masterização Segura:</strong> O sistema vai aplicar um processamento conservador, priorizando a preservação da qualidade ao invés de loudness agressivo. Um arquivo final <strong>sempre será gerado</strong>.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToDecision()">← Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmSafeMastering()">Continuar com masterização segura</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
        ⚠️ MODO INCOMPATÍVEL / NOT APT
        ======================================== -->
   <div id="modeIncompatibleModal" class="automaster-modal">
@@ -1975,9 +1999,15 @@
       } catch (err) {
         console.error('❌ [AUTOMASTER] Erro no processamento:', err);
 
-        // Modo incompatível: mostrar modal dedicado (não é erro genérico)
+        // Modo incompatível ou not_apt: mostrar modal dedicado (não é erro genérico)
         if (err.isModeIncompatible) {
           showModeIncompatibleModal(err.statusData || {});
+          return;
+        }
+
+        // Problemas técnicos: aguardando confirmação do usuário
+        if (err.isNeedsConfirmation) {
+          showNeedsConfirmationModal(err.statusData || {});
           return;
         }
         
@@ -2073,6 +2103,78 @@
     }
 
     // ========================================
+    // 🛡️ MODAL MASTERIZAÇÃO SEGURA (NEEDS_CONFIRMATION)
+    // ========================================
+
+    function showNeedsConfirmationModal(statusData) {
+      const problems = statusData.problems || [];
+      const listEl = document.getElementById('safeMasterProblemsList');
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (problems.length > 0) {
+          problems.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = p;
+            listEl.appendChild(li);
+          });
+        } else {
+          const li = document.createElement('li');
+          li.textContent = 'Limitações técnicas detectadas no arquivo de entrada.';
+          listEl.appendChild(li);
+        }
+      }
+      // Guardar jobId para confirmação
+      automasterState._confirmJobId = statusData.jobId || automasterState.jobId;
+      document.getElementById('processingLoading').style.display = 'none';
+      showModal('safeMasterModal');
+    }
+
+    async function confirmSafeMastering() {
+      const jobId = automasterState._confirmJobId || automasterState.jobId;
+      if (!jobId) {
+        console.error('[AUTOMASTER] Nenhum jobId para confirmar masterização segura');
+        return;
+      }
+
+      closeAllModals();
+      document.getElementById('processingLoading').style.display = 'flex';
+      document.getElementById('processingError').style.display = 'none';
+      showModal('processingModal');
+
+      console.log('[AUTOMASTER] Confirmando masterização segura para job:', jobId);
+
+      try {
+        await apiRequest(`/api/automaster/confirm/${jobId}`, { method: 'POST' }, 15000);
+        // Aguardar processamento seguro
+        const statusData = await pollJobStatus(jobId);
+
+        automasterState.jobId = jobId;
+        automasterState.result = {
+          masterUrl: statusData.downloadUrl || null,
+          previewBefore: null,
+          previewAfter: null,
+          metrics: {
+            lufsBefore: statusData.metrics?.lufsBefore ?? null,
+            lufsAfter: statusData.metrics?.lufsAfter ?? null,
+            truePeakAfter: statusData.metrics?.truePeakAfter ?? null
+          }
+        };
+
+        // Indicar ao usuário que foi processamento seguro
+        if (statusData.deliveryMode === 'safe') {
+          console.log('[AUTOMASTER] Masterização segura concluída.');
+        }
+
+        openResultModal();
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro na masterização segura:', err);
+        document.getElementById('processingLoading').style.display = 'none';
+        document.getElementById('processingErrorMsg').textContent = err.message || 'Erro desconhecido.';
+        document.getElementById('processingError').style.display = 'block';
+      }
+    }
+
+    // ========================================
     // � POLLING DE STATUS DO JOB
     // ========================================
 
@@ -2140,6 +2242,13 @@
               console.log('[AUTOMASTER] Job completed. downloadUrl disponivel.');
               resolve(statusData);
 
+            } else if (statusData.status === 'needs_confirmation') {
+              // Problemas técnicos detectados — aguardando confirmação para masterização segura
+              clearInterval(timer);
+              const confErr = new Error('NEEDS_CONFIRMATION');
+              confErr.isNeedsConfirmation = true;
+              confErr.statusData = statusData;
+              reject(confErr);
             } else if (statusData.status === 'not_apt') {
               clearInterval(timer);
               const aptErr = new Error('NOT_APT');
