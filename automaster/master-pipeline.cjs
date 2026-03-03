@@ -188,6 +188,135 @@ async function runMaster(inputPath, outputPath, mode, strategy) {
   }
 }
 
+/**
+ * SAFE MODE: entrega o arquivo com APENAS correção de True Peak.
+ * Não executa loudnorm, não altera LUFS.
+ * Se TP <= -1.0 dBTP → copia direto para outputPath.
+ * Se TP > -1.0 dBTP  → aplica fix-true-peak (ganho negativo) e copia resultado.
+ */
+async function runSafeModeDelivery(inputPath, outputPath) {
+  console.error('[SAFE-MODE-DELIVERY] Iniciando entrega somente-TP (sem loudnorm)');
+
+  // 1. Medir TP do arquivo de entrada
+  const measured = await runMeasureAudio(inputPath);
+  const inputTP = measured.true_peak_db;
+  const inputLUFS = measured.lufs_i;
+
+  console.error(`[SAFE-MODE-DELIVERY] TP medido: ${inputTP.toFixed(2)} dBTP | LUFS: ${inputLUFS.toFixed(2)}`);
+
+  const TARGET_TP = -1.0;
+
+  if (inputTP <= TARGET_TP) {
+    // TP já está dentro do limite — copiar arquivo sem modificar
+    console.error(`[SAFE-MODE-DELIVERY] TP OK (${inputTP.toFixed(2)} <= ${TARGET_TP}) — copiando arquivo sem modificação`);
+    fs.copyFileSync(inputPath, outputPath);
+
+    return {
+      success: true,
+      targetI: inputLUFS,   // LUFS preservado
+      originalTarget: inputLUFS,
+      targetAdjusted: false,
+      targetTP: TARGET_TP,
+      usedTP: TARGET_TP,
+      pre_gain_db: 0,
+      ceiling_trim_db: 0,
+      high_rms_clamp_applied: false,
+      dynamic_unstable: false,
+      pumping_risk: false,
+      sub_dominant: false,
+      final_lufs: inputLUFS,
+      final_tp: inputTP,
+      reference_lufs: inputLUFS,
+      reference_lufs_pre_limiter: inputLUFS,
+      lufsError: 0,
+      tpError: inputTP - TARGET_TP,
+      fallback_used: false,
+      fix_applied: false,
+      fix_details: null,
+      duration: 0,
+      outputSize: 0,
+      measured_by: 'safe-mode-passthrough',
+      measurement_failed: false,
+      measurement_error: null,
+      mode_result: 'SAFE-PASSTHROUGH',
+      impact_aborted: false,
+      abort_reason: null,
+      mix_class: 'SAFE'
+    };
+  }
+
+  // TP acima do limite — aplicar fix-true-peak (ganho negativo)
+  console.error(`[SAFE-MODE-DELIVERY] TP acima do limite (${inputTP.toFixed(2)} > ${TARGET_TP}) — aplicando fix de TP`);
+
+  const fixResult = await runFixTruePeak(inputPath);
+
+  if (fixResult.status === 'ERROR') {
+    throw new Error(`fix-true-peak falhou em safe delivery: ${fixResult.message}`);
+  }
+
+  // fix-true-peak cria <input>_safe.wav no mesmo diretório
+  const inputDir = path.dirname(inputPath);
+  const inputBase = path.basename(inputPath, path.extname(inputPath));
+  const safePath = path.join(inputDir, `${inputBase}_safe.wav`);
+
+  let sourceForOutput;
+  if (fixResult.status === 'FIXED' && fs.existsSync(safePath)) {
+    sourceForOutput = safePath;
+  } else {
+    // fix retornou OK (já estava dentro — não deveria chegar aqui, mas protegeção)
+    console.error('[SAFE-MODE-DELIVERY] fix-true-peak reportou OK inesperadamente — copiando original');
+    sourceForOutput = inputPath;
+  }
+
+  fs.copyFileSync(sourceForOutput, outputPath);
+
+  // Limpar _safe.wav temporário
+  if (sourceForOutput === safePath && fs.existsSync(safePath)) {
+    try { fs.unlinkSync(safePath); } catch (_) {}
+  }
+
+  // Medir TP final
+  const finalMeasured = await runMeasureAudio(outputPath);
+  const finalTP = finalMeasured.true_peak_db;
+  const finalLUFS = finalMeasured.lufs_i;
+  const gainApplied = fixResult.applied_gain_db || 0;
+
+  console.error(`[SAFE-MODE-DELIVERY] ✅ Entregue: TP ${inputTP.toFixed(2)} → ${finalTP.toFixed(2)} dBTP | LUFS: ${inputLUFS.toFixed(2)} → ${finalLUFS.toFixed(2)} (delta ${(finalLUFS - inputLUFS).toFixed(2)} LU, gain: ${gainApplied} dB)`);
+
+  return {
+    success: true,
+    targetI: inputLUFS,
+    originalTarget: inputLUFS,
+    targetAdjusted: false,
+    targetTP: TARGET_TP,
+    usedTP: TARGET_TP,
+    pre_gain_db: gainApplied,
+    ceiling_trim_db: 0,
+    high_rms_clamp_applied: false,
+    dynamic_unstable: false,
+    pumping_risk: false,
+    sub_dominant: false,
+    final_lufs: finalLUFS,
+    final_tp: finalTP,
+    reference_lufs: inputLUFS,
+    reference_lufs_pre_limiter: inputLUFS,
+    lufsError: Math.abs(finalLUFS - inputLUFS),
+    tpError: finalTP - TARGET_TP,
+    fallback_used: true,
+    fix_applied: true,
+    fix_details: fixResult,
+    duration: 0,
+    outputSize: 0,
+    measured_by: 'safe-mode-tp-fix',
+    measurement_failed: false,
+    measurement_error: null,
+    mode_result: 'SAFE-TP-FIXED',
+    impact_aborted: false,
+    abort_reason: null,
+    mix_class: 'SAFE'
+  };
+}
+
 async function runPostcheck(outputPath, mode) {
   try {
     const { stdout } = await execFileAsync(
@@ -435,7 +564,13 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
 
   let masterResult;
   try {
-    masterResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode);
+    if (safeMode) {
+      // SAFE MODE: apenas correção de TP — sem loudnorm, sem alteração de LUFS
+      console.error('[PIPELINE][SAFE-MODE] Bypassing loudnorm — executando entrega somente-TP');
+      masterResult = await runSafeModeDelivery(inputUsedForMaster, resolvedOutput);
+    } else {
+      masterResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode);
+    }
   } catch (error) {
     throw new Error(`Masterizacao falhou: ${error.message}`);
   } finally {
