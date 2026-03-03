@@ -12,8 +12,8 @@
  * 
  * Filosofia:
  *   - Target fixo: -1.0 dBTP (seguro para qualquer plataforma)
- *   - Margem de segurança: +0.2 dB
- *   - Conservador e previsível
+ *   - Margem de segurança: +0.05 dB (mínima — apenas cobre imprecisão do medidor)
+ *   - Preciso e previsível: resultado esperado ≈ -1.05 dBTP
  * 
  * Uso:
  *   node fix-true-peak.cjs <input.wav>
@@ -32,7 +32,7 @@ const path = require('path');
 // ============================================================
 
 const TARGET_TP = -1.0;        // dBTP seguro para pré-master
-const SAFETY_MARGIN = 0.2;     // Margem adicional de segurança
+const SAFETY_MARGIN = 0.05;    // Margem mínima: apenas cobre imprecisão de medição do loudnorm (~±0.03 dB)
 
 // ============================================================
 // VALIDAÇÃO DE ENTRADA
@@ -136,6 +136,14 @@ function analyzeTruePeak(inputPath) {
   });
 }
 
+/**
+ * Mede True Peak de um arquivo já gerado (pós-ganho).
+ * Reutiliza o mesmo método de analyzeTruePeak para consistência de medição.
+ */
+function measureTruePeakOfFile(filePath) {
+  return analyzeTruePeak(filePath);
+}
+
 // ============================================================
 // APLICAÇÃO DE GANHO NEGATIVO
 // ============================================================
@@ -148,10 +156,11 @@ function applyGainCorrection(inputPath, gainDB, sampleRate) {
     const outputPath = path.join(inputDir, `${inputBase}_safe.wav`);
 
     // Aplicar APENAS ganho negativo (sem limiter, sem compressor)
+    // toFixed(4): 4 casas decimais (~0.0001 dB de resolução) sem riscos de parsing
     const args = [
       '-y',
       '-i', inputPath,
-      '-af', `volume=${gainDB.toFixed(2)}dB`,
+      '-af', `volume=${gainDB.toFixed(4)}dB`,
       '-ar', sampleRate.toString(),
       outputPath
     ];
@@ -220,20 +229,58 @@ async function main() {
       return;
     }
 
-    // 5. Calcular ganho negativo necessário
-    // Fórmula: gain = input_tp - target + margem
-    // Exemplo: input_tp = +0.11 → gain = 0.11 - (-1.0) + 0.2 = 1.31 dB de redução
-    const gainDB = -(inputTP - TARGET_TP + SAFETY_MARGIN);
+    // 5. Calcular ganho negativo mínimo necessário
+    //
+    // Fórmula exata:
+    //   gainDB = (TARGET_TP - inputTP) - SAFETY_MARGIN
+    //          = (-1.0 - inputTP) - 0.05
+    //
+    // Exemplos:
+    //   inputTP = +1.90 → gainDB = -1.0 - 1.90 - 0.05 = -2.95 dB → resultado ≈ -1.05 dBTP
+    //   inputTP = +0.40 → gainDB = -1.0 - 0.40 - 0.05 = -1.45 dB → resultado ≈ -1.05 dBTP
+    //   inputTP = -0.80 → não entra aqui (já está abaixo do target)
+    //
+    // Nota: gainDB é negativo (redução). SAFETY_MARGIN cobre imprecisão do loudnorm (~±0.03 dB).
+    const gainDB = (TARGET_TP - inputTP) - SAFETY_MARGIN;
+
+    console.error(`[FIX-TP] Antes: ${inputTP.toFixed(3)} dBTP  |  Target: ${TARGET_TP} dBTP  |  Gain a aplicar: ${gainDB.toFixed(3)} dB`);
 
     // 6. Aplicar correção (preservando sample rate)
     const outputPath = await applyGainCorrection(inputPath, gainDB, sampleRate);
 
-    // 7. Retornar resultado
+    // 7. Verificação pós-ganho (pós-medida interna)
+    //    Garante que o resultado real está dentro do limite antes de retornar.
+    //    Se a estimativa do loudnorm tiver desvio que ultrapasse a SAFETY_MARGIN,
+    //    aplica ajuste fino sem nova margem.
+    const tpAfterGain = await measureTruePeakOfFile(outputPath);
+    console.error(`[FIX-TP] Após fix: ${tpAfterGain.toFixed(3)} dBTP`);
+
+    let finalOutputPath = outputPath;
+    let totalGainApplied = gainDB;
+    let fineTuneApplied = false;
+
+    if (tpAfterGain > TARGET_TP) {
+      // Ajuste fino: exatamente a diferença restante + mínima margem de 0.02 dB
+      const fineTuneGain = (TARGET_TP - tpAfterGain) - 0.02;
+      console.error(`[FIX-TP] Ajuste fino necessário: ${tpAfterGain.toFixed(3)} dBTP > ${TARGET_TP} dBTP → aplicando ${fineTuneGain.toFixed(3)} dB`);
+      finalOutputPath = await applyGainCorrection(outputPath, fineTuneGain, sampleRate);
+      // Sobrescrever outputPath com o resultado do ajuste fino
+      fs.renameSync(finalOutputPath, outputPath);
+      finalOutputPath = outputPath;
+      totalGainApplied = parseFloat((gainDB + fineTuneGain).toFixed(4));
+      fineTuneApplied = true;
+      const tpAfterFineTune = await measureTruePeakOfFile(outputPath);
+      console.error(`[FIX-TP] Após ajuste fino: ${tpAfterFineTune.toFixed(3)} dBTP`);
+    }
+
+    // 8. Retornar resultado
     outputResult({
       status: 'FIXED',
       message: 'True Peak corrigido com ganho negativo.',
-      input_tp: parseFloat(inputTP.toFixed(2)),
-      applied_gain_db: parseFloat(gainDB.toFixed(2)),
+      input_tp: parseFloat(inputTP.toFixed(3)),
+      tp_after_fix: parseFloat(tpAfterGain.toFixed(3)),
+      applied_gain_db: parseFloat(totalGainApplied.toFixed(3)),
+      fine_tune_applied: fineTuneApplied,
       output_file: path.basename(outputPath),
       target_tp: TARGET_TP,
       safety_margin: SAFETY_MARGIN,

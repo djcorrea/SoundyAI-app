@@ -3522,7 +3522,7 @@ async function runTwoPassLoudnorm(options) {
     console.error('[TP FIX] True Peak acima do ceiling detectado');
     console.error(`   TP medido: ${finalMeasure.true_peak_db.toFixed(2)} dBTP`);
     console.error(`   Ceiling: ${targetTP.toFixed(2)} dBTP`);
-    console.error(`   Mode: ${mode} → aplicando fix de TP (gain negativo, margem 0.2 dB)`);
+    console.error(`   Mode: ${mode} → aplicando fix de TP (gain negativo, margem 0.05 dB)`);
     console.error('');
 
     // Aplicar fix de TP
