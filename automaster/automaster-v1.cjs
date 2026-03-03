@@ -2451,9 +2451,39 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
   // ============================================================
   // Medir TP final do output
   // ============================================================
-  const finalMeasurement = await measureWithOfficialScript(outputPath);
-  const finalTP = finalMeasurement.true_peak_db;
-  
+  const finalMeasurementRaw = await measureWithOfficialScript(outputPath);
+  let finalTP = finalMeasurementRaw.true_peak_db;
+  let highModeFixApplied = false;
+
+  // ============================================================
+  // POSTCHECK TP OBRIGATÓRIO — alimiter é sample-domain, não garante true peak
+  // ============================================================
+  if (finalTP > ceiling) {
+    console.error('');
+    console.error('[HIGH TP POSTCHECK] ⚠️ True Peak acima do ceiling detectado');
+    console.error(`   TP medido: ${finalTP.toFixed(2)} dBTP  |  ceiling: ${ceiling.toFixed(2)} dBTP`);
+    console.error(`   Aplicando fix-true-peak.cjs (gain negativo, margem 0.2 dB)...`);
+
+    const fixResult = await applyTruePeakFix(outputPath);
+    highModeFixApplied = fixResult.fixed;
+
+    if (highModeFixApplied) {
+      const afterFix = await measureWithOfficialScript(outputPath);
+      const tpAfterFix = afterFix.true_peak_db;
+      console.error(`[HIGH TP POSTCHECK] ✅ TP corrigido: ${finalTP.toFixed(2)} → ${tpAfterFix.toFixed(2)} dBTP`);
+      if (tpAfterFix > ceiling) {
+        throw new Error(`[HIGH TP POSTCHECK] FALHA: TP ainda acima do ceiling após fix: ${tpAfterFix.toFixed(2)} > ${ceiling.toFixed(2)} dBTP`);
+      }
+      finalTP = tpAfterFix;
+    } else {
+      console.error(`[HIGH TP POSTCHECK] fix-true-peak reportou status OK (TP já dentro do límite após verificação interna)`);
+      finalTP = (await measureWithOfficialScript(outputPath)).true_peak_db;
+    }
+    console.error('');
+  } else {
+    console.error(`[HIGH TP POSTCHECK] ✅ TP OK: ${finalTP.toFixed(2)} dBTP <= ${ceiling.toFixed(2)} dBTP — nenhum fix necessário`);
+  }
+
   // ============================================================
   // Resultado final
   // ============================================================
@@ -2479,6 +2509,7 @@ async function runLimiterDrivenMaster({ inputFile, targetLUFS, ceiling, sampleRa
     final_pregain: preGainDB,
     ceiling: ceiling,
     final_tp: finalTP,
+    tp_fix_applied: highModeFixApplied,
     iterations: convergedIteration > 0 ? convergedIteration : MAX_ITERATIONS,
     converged: convergedIteration > 0
   };
@@ -3653,10 +3684,27 @@ async function processAudio(config) {
         sampleRate: sampleRate,
         outputPath: outputPath
       });
-      
-      // Medir resultado final
+
+      // Medir resultado final — runLimiterDrivenMaster já aplicou TP fix se necessário,
+      // esta medição confirma o estado real do arquivo entregue
       const finalMeasurement = await measureWithOfficialScript(outputPath);
-      
+
+      // Segurança extra: se por qualquer razão o TP ainda estiver acima (ex: race no renameSync)
+      // aplicar fix aqui também — belt & suspenders
+      let finalTP = finalMeasurement.true_peak_db;
+      let callerFixApplied = limiterResult.tp_fix_applied || false;
+      if (finalTP > ceilingDbtp) {
+        console.error('[HIGH CALLER SAFECHECK] TP ainda acima após runLimiterDrivenMaster, aplicando fix adicional...');
+        const extraFix = await applyTruePeakFix(outputPath);
+        callerFixApplied = true;
+        const afterExtra = await measureWithOfficialScript(outputPath);
+        finalTP = afterExtra.true_peak_db;
+        if (finalTP > ceilingDbtp) {
+          throw new Error(`[HIGH CALLER SAFECHECK] TP não corrigível: ${finalTP.toFixed(2)} > ${ceilingDbtp.toFixed(2)} dBTP`);
+        }
+        console.error(`[HIGH CALLER SAFECHECK] ✅ TP corrigido para ${finalTP.toFixed(2)} dBTP`);
+      }
+
       // Retornar em formato compatível
       return {
         success: true,
@@ -3672,16 +3720,16 @@ async function processAudio(config) {
         pumping_risk: false,
         sub_dominant: false,
         final_lufs: finalMeasurement.lufs_i,
-        final_tp: finalMeasurement.true_peak_db,
+        final_tp: finalTP,
         reference_lufs: finalMeasurement.lufs_i,
         reference_lufs_pre_limiter: finalMeasurement.lufs_i,
         lufsError: finalMeasurement.lufs_i - validTarget,
-        tpError: finalMeasurement.true_peak_db - ceilingDbtp,
-        fallback_used: false,
-        fix_applied: false,
+        tpError: finalTP - ceilingDbtp,
+        fallback_used: callerFixApplied,
+        fix_applied: callerFixApplied,
         fix_details: null,
-        duration: 0,  // TODO: medir duração se necessário
-        outputSize: 0,  // TODO: medir tamanho se necessário
+        duration: 0,
+        outputSize: 0,
         measured_by: 'limiter-driven',
         measurement_failed: false,
         measurement_error: null,
