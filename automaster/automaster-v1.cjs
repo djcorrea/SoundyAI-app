@@ -3479,48 +3479,44 @@ async function runTwoPassLoudnorm(options) {
   let fixDetails = null;
   
   // Verificar se True Peak excede o ceiling (apenas se medição teve sucesso)
-  // EXCETO para modo HIGH (que é determinístico e aceita resultado como final)
+  // TODOS os modos aplicam o fix — alimiter é sample-domain e não garante TP ≤ ceiling
   if (!measurementFailed && finalMeasure.true_peak_db > targetTP) {
-    if (mode === 'HIGH') {
-      // HIGH mode: aceitar TP como está (sem fallback)
-      console.error('');
-      console.error('[HIGH MODE] TP acima do ceiling detectado');
-      console.error(`   TP medido: ${finalMeasure.true_peak_db.toFixed(2)} dBTP`);
-      console.error(`   Ceiling: ${targetTP.toFixed(2)} dBTP`);
-      console.error('   HIGH mode: resultado aceito como final (sem fallback)');
-      console.error('   Limiter iterativo já aplicou máxima correção possível');
-      console.error('');
-    } else {
-      // LOW/STREAMING: aplicar fix de TP
+    // Aplicar fix de TP (todos os modos: STREAMING, LOW, MEDIUM, HIGH)
+    if (debug) {
+      console.error(`[DEBUG] True Peak ${finalMeasure.true_peak_db.toFixed(2)} dBTP > ceiling ${targetTP.toFixed(2)} dBTP`);
+      console.error(`[DEBUG] Aplicando fallback: fix-true-peak.cjs (gain-only, mode=${mode})`);
+    }
+
+    console.error('');
+    console.error('[TP FIX] True Peak acima do ceiling detectado');
+    console.error(`   TP medido: ${finalMeasure.true_peak_db.toFixed(2)} dBTP`);
+    console.error(`   Ceiling: ${targetTP.toFixed(2)} dBTP`);
+    console.error(`   Mode: ${mode} → aplicando fix de TP (gain negativo, margem 0.2 dB)`);
+    console.error('');
+
+    // Aplicar fix de TP
+    fixDetails = await applyTruePeakFix(outputPath);
+    fixApplied = fixDetails.fixed;
+
+    if (fixApplied) {
+      // Medir novamente após o fix
+      if (debug) console.error('[DEBUG] Re-medindo após fix...');
+      const finalMeasureAfterFix = await measureWithOfficialScript(outputPath);
+
       if (debug) {
-        console.error(`[DEBUG] True Peak ${finalMeasure.true_peak_db.toFixed(2)} dBTP > ceiling ${targetTP.toFixed(2)} dBTP`);
-        console.error('[DEBUG] Aplicando fallback: fix-true-peak.cjs (gain-only)');
+        console.error(`[DEBUG] TP após fix: ${finalMeasureAfterFix.true_peak_db.toFixed(2)} dBTP`);
       }
-      
-      // Aplicar fix de TP
-      fixDetails = await applyTruePeakFix(outputPath);
-      fixApplied = fixDetails.fixed;
-      
-      if (fixApplied) {
-        // Medir novamente após o fix
-        if (debug) console.error('[DEBUG] Re-medindo após fix...');
-        const finalMeasureAfterFix = await measureWithOfficialScript(outputPath);
-        
-        if (debug) {
-          console.error(`[DEBUG] TP após fix: ${finalMeasureAfterFix.true_peak_db.toFixed(2)} dBTP`);
-        }
-        
-        // Verificar se o fix resolveu
-        if (finalMeasureAfterFix.true_peak_db > targetTP) {
-          throw new Error(
-            `True Peak ainda excede ceiling após fix: ${finalMeasureAfterFix.true_peak_db.toFixed(2)} > ${targetTP.toFixed(2)} dBTP`
-          );
-        }
-        
-        // Atualizar métricas finais
-        finalMeasure.lufs_i = finalMeasureAfterFix.lufs_i;
-        finalMeasure.true_peak_db = finalMeasureAfterFix.true_peak_db;
+
+      // Verificar se o fix resolveu
+      if (finalMeasureAfterFix.true_peak_db > targetTP) {
+        throw new Error(
+          `True Peak ainda excede ceiling após fix: ${finalMeasureAfterFix.true_peak_db.toFixed(2)} > ${targetTP.toFixed(2)} dBTP`
+        );
       }
+
+      // Atualizar métricas finais
+      finalMeasure.lufs_i = finalMeasureAfterFix.lufs_i;
+      finalMeasure.true_peak_db = finalMeasureAfterFix.true_peak_db;
     }
   }
   
