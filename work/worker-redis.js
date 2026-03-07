@@ -1420,17 +1420,16 @@ async function audioProcessor(job) {
       soundDestination: validSoundDestination  // 🆕 Passar para o pipeline
     });
     
+    let _timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
       // 🧹 MEMORY FIX: armazenar timeoutId para cancelar quando o pipeline ganhar a corrida
-      const _tid = setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
-      // Expor o id no objeto do Promise para o .finally conseguir cancelar
-      timeoutPromise._tid = _tid;
+      _timeoutId = setTimeout(() => reject(new Error(`Pipeline timeout após 3min: ${fileName}`)), 180000);
     });
 
     const finalJSON = await Promise.race([pipelinePromise, timeoutPromise])
       .finally(() => {
         // Cancelar o timer se o pipeline ganhar antes do timeout
-        if (timeoutPromise._tid) clearTimeout(timeoutPromise._tid);
+        if (_timeoutId) clearTimeout(_timeoutId);
       });
     const totalMs = Date.now() - t0;
     
