@@ -682,16 +682,11 @@ export async function loadGenreTargetsFromWorker(genre) {
     console.error(error);
     throw new Error(error);
   }
-  
-  const normalizedGenre = normalizeGenreName(genre);
-  console.error('[TARGETS-WORKER] Genre normalizado:', normalizedGenre);
-  
-  if (!normalizedGenre || normalizedGenre === 'default' || normalizedGenre === 'unknown') {
-    const error = `[TARGET-ERROR] Gênero não pode ser "default" ou "unknown": ${genre}`;
-    console.error(error);
-    throw new Error(error);
-  }
-  
+
+  // 🎯 Usar gênero exatamente como recebido (sem normalização ou mapeamento legado)
+  const normalizedGenre = genre.trim();
+  console.error('[TARGETS-WORKER] Genre exato (sem normalização):', normalizedGenre);
+
   // 2. VERIFICAR CACHE
   if (targetsCache.has(normalizedGenre)) {
     console.error('[TARGETS-WORKER] ✅ Cache HIT:', normalizedGenre);

@@ -40,18 +40,18 @@
   <div>
     <label for="genreSelect">Gênero:</label>
     <select id="genreSelect">
-      <option value="electronic">Electronic</option>
-      <option value="hiphop">Hip-Hop</option>
-      <option value="pop">Pop</option>
-      <option value="rock">Rock</option>
-      <option value="rnb">R&amp;B</option>
-      <option value="jazz">Jazz</option>
-      <option value="funk">Funk</option>
-      <option value="sertanejo">Sertanejo</option>
-      <option value="classical">Classical</option>
-      <option value="pagode">Pagode</option>
-      <option value="reggae">Reggae</option>
-      <option value="metal">Metal</option>
+      <option value="edm">EDM</option>
+      <option value="techno">Techno</option>
+      <option value="house">House</option>
+      <option value="progressive_trance">Progressive Trance</option>
+      <option value="trance">Trance</option>
+      <option value="phonk">Phonk</option>
+      <option value="brazilian_phonk">Brazilian Phonk</option>
+      <option value="funk_mandela">Funk Mandela</option>
+      <option value="funk_bh">Funk BH</option>
+      <option value="funk_automotivo">Funk Automotivo</option>
+      <option value="trap">Trap</option>
+      <option value="drill">Drill</option>
     </select>
   </div>
 
@@ -130,8 +130,16 @@
         return;
       }
 
+      const genre = document.getElementById("genreSelect").value;
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("genre", genre);
+      formData.append("mode", "genre");
+
+      // Passa o gênero exato (sem mapeamento) para o motor
       window.currentAnalysisMode = "genre";
-      window.__CURRENT_SELECTED_GENRE = document.getElementById("genreSelect").value;
+      window.__CURRENT_SELECTED_GENRE = genre;
       window.__SOUNDY_ANALYSIS_MODE__ = "pista";
 
       handleModalFileSelection(selectedFile);
