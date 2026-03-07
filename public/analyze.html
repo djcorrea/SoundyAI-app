@@ -1,265 +1,139 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SoundyAI - Análise de Áudio</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Análise de Áudio — SoundyAI</title>
   
-  <!-- Meta tags -->
-  <meta name="description" content="Análise profissional de áudio com IA - SoundyAI">
-  <meta name="theme-color" content="#6366f1">
-  
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  
-  <!-- Estilos base (mesmos do index.html para consistência) -->
-  <link rel="stylesheet" href="/css/style.css">
-  
-  <style>
-    /* Estilos específicos da página de análise */
-    body {
-      background: linear-gradient(135deg, #0a0a0f 0%, #12121a 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .analyze-container {
-      max-width: 800px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .analyze-welcome {
-      background: rgba(18, 18, 26, 0.8);
-      border: 1px solid rgba(99, 102, 241, 0.2);
-      border-radius: 24px;
-      padding: 3rem 2rem;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .analyze-icon {
-      font-size: 4rem;
-      margin-bottom: 1.5rem;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; }
-    }
-
-    .analyze-title {
-      font-size: 2rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      background: linear-gradient(135deg, #6366f1, #ec4899);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .analyze-description {
-      font-size: 1.1rem;
-      color: #a1a1aa;
-      margin-bottom: 2rem;
-      line-height: 1.6;
-    }
-
-    .analyze-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 1.25rem 2.5rem;
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: white;
-      background: linear-gradient(135deg, #6366f1, #4f46e5);
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-decoration: none;
-    }
-
-    .analyze-cta:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
-    }
-
-    .loading-state {
-      display: none;
-      margin-top: 2rem;
-      color: #a1a1aa;
-    }
-
-    .loading-state.show {
-      display: block;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(99, 102, 241, 0.2);
-      border-top-color: #6366f1;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 1rem auto;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  </style>
 </head>
 <body>
-  <div class="analyze-container">
-    <div class="analyze-welcome">
-      <div class="analyze-icon">🎵</div>
-      <h1 class="analyze-title">Bem-vindo à Análise de Áudio</h1>
-      <p class="analyze-description">
-        Faça upload do seu arquivo de áudio e receba análise técnica completa:
-        loudness (LUFS), equalização por bandas, dinâmica (DR), correlação estéreo
-        e sugestões personalizadas de melhorias com IA.
-      </p>
-      <button class="analyze-cta" id="start-analysis-btn">
-        <span>Fazer Upload de Áudio</span>
-        <span>🎧</span>
-      </button>
-      
-      <div class="loading-state" id="loading-state">
-        <div class="spinner"></div>
-        <p>Carregando sistema de análise...</p>
-      </div>
-    </div>
+
+  <!-- ================================================================
+       STUBS OCULTOS OBRIGATÓRIOS
+       audio-analyzer-integration.js escreve nesses IDs internamente.
+       Sem eles, hideUploadArea(), showAnalysisLoading() e
+       displayModalResults() encontram null no getElementById e crasham.
+       NÃO alterar os IDs.
+  ================================================================ -->
+  <div id="audioAnalysisModal" style="display:none;">
+    <div id="audioUploadArea"></div>
+    <div id="audioAnalysisLoading" style="display:none;">Analisando...</div>
+    <div id="audioAnalysisResults"></div>
   </div>
 
+  <!-- ================================================================
+       UI PRINCIPAL
+  ================================================================ -->
+  <h1>Análise de Áudio</h1>
+
+  <div>
+    <input
+      type="file"
+      id="uploadInput"
+      accept=".mp3,.wav,.flac,.m4a,.aiff,.ogg"
+    />
+  </div>
+
+  <div>
+    <label for="genreSelect">Gênero:</label>
+    <select id="genreSelect">
+      <option value="electronic">Electronic</option>
+      <option value="hiphop">Hip-Hop</option>
+      <option value="pop">Pop</option>
+      <option value="rock">Rock</option>
+      <option value="rnb">R&amp;B</option>
+      <option value="jazz">Jazz</option>
+      <option value="funk">Funk</option>
+      <option value="sertanejo">Sertanejo</option>
+      <option value="classical">Classical</option>
+      <option value="pagode">Pagode</option>
+      <option value="reggae">Reggae</option>
+      <option value="metal">Metal</option>
+    </select>
+  </div>
+
+  <div>
+    <button id="analyzeBtn">Analisar</button>
+  </div>
+
+  <div id="resultsContainer"></div>
+
+  <!-- ================================================================
+       DEPENDÊNCIAS CRÍTICAS
+       Carregadas antes dos scripts principais.
+
+       logger.js           → define window.log e window.error.
+                             __dbg (interno ao motor) chama log() —
+                             sem este arquivo lança TypeError ao primeiro
+                             arquivo selecionado.
+
+       auth.js             → Firebase auth. createAnalysisJob() busca
+                             idToken para análises de usuários logados.
+
+       device-fingerprint.js   → requerido por anonymous-mode.js.
+
+       anonymous-mode.js   → window.SoundyAnonymous — checado no início
+                             de handleModalFileSelection.
+
+       demo-core.js        → window.SoundyDemo — checado logo após.
+
+       entitlements-handler.js → intercepta 403 PLAN_REQUIRED do backend.
+
+       friendly-labels.js  → traduz labels técnicas nos resultados.
+
+       band-key-aliases.js → normalização de bandas de frequência
+                             (usado internamente pelo score engine).
+
+       error-mapper.js     → mapeia erros do backend para mensagens
+                             amigáveis exibidas no resultado.
+
+       analysis-state-machine.js → DEVE ser síncrono (sem defer) e
+                             carregado ANTES de audio-analyzer-integration.js.
+                             No index.html também está sem defer.
+  ================================================================ -->
+  <script src="logger.js"></script>
+  <script src="auth.js?v=20250810" defer></script>
+  <script src="device-fingerprint.js?v=20260103" defer></script>
+  <script src="anonymous-mode.js?v=20260102" defer></script>
+  <script src="demo-core.js?v=20260102" defer></script>
+  <script src="entitlements-handler.js?v=20260103"></script>
+  <script src="friendly-labels.js?v=20250817" defer></script>
+  <script src="/lib/audio/utils/band-key-aliases.js?v=1.0.0"></script>
+  <script src="/error-mapper.js?v=1.0.0"></script>
+
+  <!-- analysis-state-machine.js: síncrono, deve preceder o motor -->
+  <script src="analysis-state-machine.js?v=PR2"></script>
+
+  <!-- ================================================================
+       SCRIPTS PRINCIPAIS (ordem conforme especificação)
+  ================================================================ -->
+  <script src="audio-analyzer-integration.js?v=20260130_1" defer></script>
+  <script src="reference-flow.js?v=1.0.0" defer></script>
+
+  <!-- ================================================================
+       CONTROLADOR DA PÁGINA
+       Implementação exata conforme especificação.
+  ================================================================ -->
   <script>
-    // analyze.html - Wrapper para análise de áudio
-    // ✅ Carrega sistema de análise do index.html
-    // ✅ Abre modal de análise automaticamente
-    // ✅ Fallback seguro se modal não existir
+    let selectedFile = null;
 
-    console.log('🎵 [ANALYZE] Página de análise carregada');
+    document.getElementById("uploadInput").onchange = function(e) {
+      selectedFile = e.target.files[0];
+    };
 
-    /**
-     * Tenta abrir o modal de análise de múltiplas formas
-     */
-    function openAnalysisModal() {
-      console.log('🎯 [ANALYZE] Tentando abrir modal de análise...');
-
-      // Método 1: Função global (se existir no sistema)
-      if (typeof window.openAnalysisWelcomeModal === 'function') {
-        console.log('✅ [ANALYZE] Método 1: Função global encontrada');
-        window.openAnalysisWelcomeModal();
-        return true;
+    document.getElementById("analyzeBtn").onclick = function() {
+      if (!selectedFile) {
+        alert("Envie um áudio primeiro");
+        return;
       }
 
-      // Método 2: Procurar modal por ID comum
-      const modalIds = ['analysisModal', 'audioAnalysisModal', 'uploadModal'];
-      
-      for (const id of modalIds) {
-        const modal = document.getElementById(id);
-        if (modal) {
-          console.log(`✅ [ANALYZE] Método 2: Modal encontrado (${id})`);
-          modal.classList.add('open', 'active');
-          modal.style.display = 'block';
-          return true;
-        }
-      }
+      window.currentAnalysisMode = "genre";
+      window.__CURRENT_SELECTED_GENRE = document.getElementById("genreSelect").value;
+      window.__SOUNDY_ANALYSIS_MODE__ = "pista";
 
-      // Método 3: Procurar modal por classe
-      const modalByClass = document.querySelector('.modal[data-modal="analysis"]');
-      if (modalByClass) {
-        console.log('✅ [ANALYZE] Método 3: Modal encontrado por classe');
-        modalByClass.classList.add('open', 'active');
-        modalByClass.style.display = 'block';
-        return true;
-      }
-
-      // Método 4: Procurar botão de upload e clicar
-      const uploadBtn = document.querySelector('[data-action="upload"]') || 
-                        document.querySelector('.upload-btn') ||
-                        document.getElementById('uploadBtn');
-      
-      if (uploadBtn) {
-        console.log('✅ [ANALYZE] Método 4: Botão de upload encontrado, clicando...');
-        uploadBtn.click();
-        return true;
-      }
-
-      console.warn('⚠️ [ANALYZE] Nenhum método funcionou, usando fallback');
-      return false;
-    }
-
-    /**
-     * Fallback: Redirecionar para index.html com flag de análise
-     */
-    function fallbackToIndex() {
-      console.log('🔄 [ANALYZE] Redirecionando para index.html...');
-      
-      // Salvar flag para index.html abrir análise
-      localStorage.setItem('openAnalysisOnLoad', 'true');
-      
-      setTimeout(() => {
-        window.location.href = '/index.html';
-      }, 1000);
-    }
-
-    /**
-     * Handler do botão CTA
-     */
-    document.getElementById('start-analysis-btn').addEventListener('click', () => {
-      console.log('🎯 [ANALYZE] Botão clicado, tentando abrir análise...');
-      
-      const loadingState = document.getElementById('loading-state');
-      loadingState.classList.add('show');
-      
-      // Tentar abrir modal após 500ms (dar tempo para carregar)
-      setTimeout(() => {
-        const success = openAnalysisModal();
-        
-        if (!success) {
-          console.warn('⚠️ [ANALYZE] Não foi possível abrir modal, usando fallback');
-          fallbackToIndex();
-        }
-      }, 500);
-    });
-
-    /**
-     * Tentar abrir automaticamente ao carregar (se já estiver no sistema)
-     */
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('🎉 [ANALYZE] DOM carregado');
-      
-      // Aguardar 1 segundo e tentar abrir automaticamente
-      setTimeout(() => {
-        const autoOpen = localStorage.getItem('autoOpenAnalysis');
-        
-        if (autoOpen === 'true') {
-          console.log('🎯 [ANALYZE] Auto-open ativado, tentando abrir modal...');
-          localStorage.removeItem('autoOpenAnalysis');
-          
-          const success = openAnalysisModal();
-          
-          if (!success) {
-            console.log('⚠️ [ANALYZE] Modal não encontrado nesta página');
-            // Não fazer nada, usuário pode clicar no botão manualmente
-          }
-        }
-      }, 1000);
-    });
-
-    // Debug helper
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.log('🔧 [ANALYZE-DEBUG] Modo debug ativado');
-      window.AnalyzeDebug = {
-        openModal: openAnalysisModal,
-        fallback: fallbackToIndex
-      };
-    }
+      handleModalFileSelection(selectedFile);
+    };
   </script>
+
 </body>
 </html>
