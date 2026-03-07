@@ -1717,7 +1717,7 @@ export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default',
   process.stderr.write("[ENGINE] ⏰ Timestamp: " + new Date().toISOString() + "\n");
   process.stderr.write("[ENGINE] 📥 Parâmetros recebidos:\n");
   process.stderr.write("  - genre: " + genre + "\n");
-  process.stderr.write("  - soundDestination: " + (finalJSON?.soundDestination || 'pista (default)') + "\n");
+  process.stderr.write("  - soundDestination: streaming\n");
   process.stderr.write("  - customTargets disponível?: " + !!customTargets + "\n");
   process.stderr.write("  - finalJSON disponível?: " + !!finalJSON + "\n");
   process.stderr.write("  - finalJSON.data disponível?: " + !!(finalJSON && finalJSON.data) + "\n");

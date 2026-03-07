@@ -29,6 +29,11 @@ const __dirname = path.dirname(__filename);
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
 
+// 🔕 DEBUG CONTROLADO POR VARIÁVEL DE AMBIENTE
+// Para ativar: DEBUG_AUDIO=true node worker-redis.js
+const DEBUG_AUDIO = process.env.DEBUG_AUDIO === 'true';
+const debugLog = (...args) => { if (DEBUG_AUDIO) console.log(...args); };
+
 // 🎯 NORMALIZAÇÃO DE CHAVES DE BANDA - Resolve mismatch PT↔EN
 // spectralBands usa: sub, bass, lowMid, mid, highMid, presence, air (EN)
 // targets de gênero podem usar: presenca, brilho, low_mid, high_mid (PT/snake_case)
@@ -239,22 +244,36 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let tempFilePath = null; // ✅ PATCH 2026-02-23: Garantir cleanup em finally
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   let customTargets = null; // 🔧 Declaração antecipada para evitar ReferenceError
+
+  // 🔒 HARD VALIDATION: gênero obrigatório antes de qualquer processamento
+  {
+    const _mode = options.mode || 'genre';
+    if (_mode === 'genre') {
+      if (!options.genre) {
+        throw new Error('[PIPELINE-CRITICAL] genre ausente no options');
+      }
+      if (options.genre === 'default' || options.genre === 'unknown') {
+        throw new Error(`[PIPELINE-CRITICAL] genre inválido: "${options.genre}"`);
+      }
+    }
+  }
+  console.log('[TARGETS] carregado: ' + (options.genre || 'N/A') + '.json');
+
+  debugLog('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline (WORK) =====');
+  debugLog('mode:', options?.mode);
+  debugLog('genre (options.genre):', options?.genre);
+  debugLog('finalGenre:', options?.finalGenre);
+  debugLog('selectedGenre:', options?.selectedGenre);
+  debugLog('genreTargets keys:', options?.genreTargets ? Object.keys(options.genreTargets) : null);
+  debugLog('jobId:', jobId);
+  debugLog('=====================================================\n\n');
   
-  console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline (WORK) =====');
-  console.log('mode:', options?.mode);
-  console.log('genre (options.genre):', options?.genre);
-  console.log('finalGenre:', options?.finalGenre);
-  console.log('selectedGenre:', options?.selectedGenre);
-  console.log('genreTargets keys:', options?.genreTargets ? Object.keys(options.genreTargets) : null);
-  console.log('jobId:', jobId);
-  console.log('=====================================================\n\n');
-  
-  console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
-  console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
-  console.log(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
+  debugLog(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
+  debugLog(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
+  debugLog(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
   
   // 🔥 LOG OBRIGATÓRIO: ENTRADA DO PIPELINE
-  console.log('[GENRE-TRACE][PIPELINE-INPUT]', {
+  debugLog('[GENRE-TRACE][PIPELINE-INPUT]', {
     jobId: jobId.substring(0, 8),
     incomingGenre: options.genre,
     incomingTargets: options.genreTargets ? Object.keys(options.genreTargets) : null,
@@ -262,12 +281,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   });
   
   // PASSO 2: GARANTIR QUE O MODO NÃO VAZA PARA REFERÊNCIA
-  console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('[MODE-FLOW] MODO DETECTADO:', options.mode || 'genre');
-  console.log('[MODE-FLOW] GENRE DETECTADO:', options.genre || '(null)');
-  console.log('[MODE-FLOW] referenceJobId:', options.referenceJobId || 'null');
-  console.log('[MODE-FLOW] isReferenceBase:', options.isReferenceBase || false);
-  console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  debugLog('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  debugLog('[MODE-FLOW] MODO DETECTADO:', options.mode || 'genre');
+  debugLog('[MODE-FLOW] GENRE DETECTADO:', options.genre || '(null)');
+  debugLog('[MODE-FLOW] referenceJobId:', options.referenceJobId || 'null');
+  debugLog('[MODE-FLOW] isReferenceBase:', options.isReferenceBase || false);
+  debugLog('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   let audioData, segmentedData, coreMetrics, finalJSON;
   const timings = {};
@@ -752,6 +771,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // 🔒 INVARIANT: genreTargets obrigatório para mode === 'genre'
     if (mode === 'genre' && !customTargets) {
       throw new Error('[PIPELINE-CRITICAL] genreTargets ausente');
+    }
+    if (mode === 'genre' && !customTargets?.lufs?.target) {
+      throw new Error('[PIPELINE-INVARIANT] targets incompletos: lufs.target ausente');
     }
 
     if (mode !== 'genre') {

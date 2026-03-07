@@ -53,10 +53,34 @@ const BAND_MAPPING = {
  * 7. Cacheia resultado
  * 8. Retorna null APENAS se tudo falhar
  */
-export async function loadGenreTargets(genre) {
-  // 🚨🚨🚨 LOG SUPER VISÍVEL - ENTRADA 🚨🚨🚨
-  console.error('\n\n\n\n\n');
-  console.error('╔═══════════════════════════════════════════════════════════╗');
+/**
+ * 🔒 LOADGENRETARGETS - VERSÃO ESTRITA (SYNC)
+ *
+ * Carrega targets diretamente do filesystem sem normalização, fallback ou log flood.
+ * Lança erro para qualquer entrada inválida ou arquivo ausente.
+ *
+ * @param {string} genre - ID exato do gênero (ex: 'funk_mandela', 'edm')
+ * @returns {Object} Targets brutos do JSON
+ * @throws {Error} Se gênero inválido ou arquivo não encontrado
+ */
+export function loadGenreTargets(genre) {
+  if (!genre || genre === 'default' || genre === 'unknown') {
+    throw new Error(`[TARGET-ERROR] gênero inválido: ${genre}`);
+  }
+
+  const filePath = path.join(process.cwd(), 'refs', 'out', `${genre}.json`);
+
+  if (!fs.existsSync(filePath)) {
+    // Tentar caminho alternativo (dev local)
+    const altPath = path.join(process.cwd(), 'work', 'refs', 'out', `${genre}.json`);
+    if (!fs.existsSync(altPath)) {
+      throw new Error(`[TARGET-ERROR] arquivo não encontrado: ${genre}.json`);
+    }
+    return JSON.parse(fs.readFileSync(altPath, 'utf8'));
+  }
+
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
   console.error('║  🎯🎯🎯 LOADGENRETARGETS CHAMADO 🎯🎯🎯                 ║');
   console.error('╚═══════════════════════════════════════════════════════════╝');
   console.error('Genre recebido:', genre);
