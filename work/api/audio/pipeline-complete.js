@@ -8,6 +8,7 @@ import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js"; // Fase 5.4.1
 import { loadGenreTargets, loadGenreTargetsFromWorker } from "../../lib/audio/utils/genre-targets-loader.js";
 import { normalizeGenreTargets } from "../../lib/audio/utils/normalize-genre-targets.js";
+import { normalizeGenre } from "./utils/genre-mapper.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -490,8 +491,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         
         // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
         // Esta função NUNCA retorna fallback - sempre lança erro se arquivo não existir
+        const normalizedGenre = normalizeGenre(detectedGenre);
+        console.log('[TARGETS] input:', detectedGenre, 'normalized:', normalizedGenre);
         try {
-          const baseTargets = await loadGenreTargetsFromWorker(detectedGenre);
+          let baseTargets = await loadGenreTargetsFromWorker(normalizedGenre);
+          if (!baseTargets) {
+            console.warn('⚠️ targets undefined → usando default');
+            baseTargets = await loadGenreTargetsFromWorker('default');
+          }
           
           // 🚨 LOG DE SUCESSO
           console.error('\n');
@@ -534,13 +541,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           }
           
         } catch (error) {
-          // Arquivo não encontrado - erro controlado
-          const errorMsg = `[PIPELINE-ERROR] Falha ao carregar targets para "${detectedGenre}": ${error.message}`;
-          console.error('╔═══════════════════════════════════════════════════════════╗');
-          console.error('║  ❌ ERRO CRÍTICO: TARGETS NÃO CARREGADOS                ║');
-          console.error('╚═══════════════════════════════════════════════════════════╝');
-          console.error(errorMsg);
-          throw new Error(errorMsg);
+          console.warn(`⚠️ fallback targets usado: ${detectedGenre} (normalized: ${normalizedGenre}) →`, error.message);
+          try {
+            customTargets = structuredClone(await loadGenreTargetsFromWorker('default'));
+            console.log('[TARGETS] fallback default carregado com sucesso');
+          } catch (fallbackError) {
+            const errorMsg = `[PIPELINE-ERROR] Falha ao carregar targets para "${detectedGenre}" e fallback default: ${fallbackError.message}`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
         }
         
         console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
@@ -1027,8 +1036,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
         // 🎯 CORREÇÃO DEFINITIVA: USAR loadGenreTargetsFromWorker (SEGURO)
+        const normalizedGenreV2 = normalizeGenre(detectedGenreV2);
+        console.log('[TARGETS] input:', detectedGenreV2, 'normalized:', normalizedGenreV2);
         try {
-          const baseTargetsV2 = await loadGenreTargetsFromWorker(detectedGenreV2);
+          let baseTargetsV2 = await loadGenreTargetsFromWorker(normalizedGenreV2);
+          if (!baseTargetsV2) {
+            console.warn('⚠️ targets undefined → usando default');
+            baseTargetsV2 = await loadGenreTargetsFromWorker('default');
+          }
           console.log(`[V2-SYSTEM] ✅ Targets base carregados de work/refs/out/${detectedGenreV2}.json`);
           console.log(`[V2-SYSTEM] 📊 LUFS base: ${baseTargetsV2.lufs?.target}, TruePeak base: ${baseTargetsV2.truePeak?.target}`);
           
@@ -1058,9 +1073,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             console.log(`[V2-SYSTEM] ✅ Override aplicado: LUFS = ${customTargetsV2.lufs.target}, TruePeak = ${customTargetsV2.truePeak.target}`);
           }
         } catch (error) {
-          const errorMsg = `[V2-SYSTEM-ERROR] Falha ao carregar targets para "${detectedGenreV2}": ${error.message}`;
-          console.error(errorMsg);
-          throw new Error(errorMsg);
+          console.warn(`⚠️ fallback targets usado: ${detectedGenreV2} (normalized: ${normalizedGenreV2}) →`, error.message);
+          try {
+            customTargetsV2 = structuredClone(await loadGenreTargetsFromWorker('default'));
+            console.log('[TARGETS] [V2] fallback default carregado com sucesso');
+          } catch (fallbackError) {
+            const errorMsg = `[V2-SYSTEM-ERROR] Falha ao carregar targets para "${detectedGenreV2}" e fallback default: ${fallbackError.message}`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+          }
         }
       } else if (mode === 'reference') {
         console.log(`[V2-SYSTEM] 🔒 Modo referência - ignorando targets de gênero`);
