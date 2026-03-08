@@ -30,7 +30,7 @@ function buildFunkAutomotivoTech(overrides = {}) {
   return {
     lufsIntegrated: overrides.lufsIntegrated ?? -8,
     truePeakDbtp: overrides.truePeakDbtp ?? -9.58,
-    dynamicRAAange: overrides.dynamicRange ?? 8.1,
+    dynamicRange: overrides.dynamicRange ?? 8.1,
     lra: overrides.lra ?? 6.6,
     stereoWidth: overrides.stereoWidth ?? 0.3,
     bandEnergies: {
