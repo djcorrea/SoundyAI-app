@@ -312,13 +312,54 @@
        DEPENDÊNCIAS — mesma ordem do index.html
   ================================================================ -->
   <script src="auth.js?v=20250810" defer></script>
-  <script src="device-fingerprint.js?v=20260103" defer></script>
-  <script src="anonymous-mode.js?v=20260102" defer></script>
-  <script src="demo-core.js?v=20260102" defer></script>
-  <script src="entitlements-handler.js?v=20260103"></script>
   <script src="friendly-labels.js?v=20250817" defer></script>
+  <script src="anonymous-mode.js?v=20260102" defer></script>
+  <script src="device-fingerprint.js?v=20260103" defer></script>
+  <script src="demo-core.js?v=20260102" defer></script>
+  <script src="demo-guards.js?v=20260127" defer></script>
+  <script src="demo-ui.js?v=20260127" defer></script>
+  <script src="demo-cta-force.js?v=20260127" defer></script>
+  <script src="entitlements-handler.js?v=20260103"></script>
+  <script src="/pipeline-order-correction.js?v=20250828" defer></script>
+
+  <!-- Utilitários síncronos — devem carregar antes do motor -->
   <script src="/lib/audio/utils/band-key-aliases.js?v=1.0.0"></script>
   <script src="/error-mapper.js?v=1.0.0"></script>
+
+  <!-- Analisador de áudio e cache -->
+  <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+  <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
+  <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
+
+  <!-- Sistema de sugestões — dependências essenciais -->
+  <script src="suggestion-scorer.js?v=20250920-enhanced" defer></script>
+  <script src="enhanced-suggestion-engine.js?v=20250920-enhanced" defer></script>
+  <script src="advanced-educational-suggestion-system.js?v=20250920-ultra" defer></script>
+  <script src="ultra-advanced-suggestion-enhancer-v2.js?v=20250920-ultra-v2" defer></script>
+  <script src="validador-integracao-ultra-avancado.js?v=20250920-validator" defer></script>
+  <script src="monitor-modal-ultra-avancado.js?v=20250920-monitor" defer></script>
+  <script src="suggestion-text-generator.js?v=20250815" defer></script>
+  <script src="suggestion-system-emergency.js?v=emergency-20250920" defer></script>
+
+  <!-- Camada de IA — CRÍTICO: deve carregar antes do motor -->
+  <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
+  <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
+  <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
+  <script src="ai-suggestions-integration.js?v=20250922-integration" defer></script>
+
+  <!-- Segurança e auditoria de renderização -->
+  <script src="/secure-render-utils.js?v=2.0.0" defer></script>
+  <script src="/reduced-mode-security-guard.js?v=1.0.0" defer></script>
+  <script src="/reference-mode-auditor.js?v=AUDIT" defer></script>
+  <script src="/reference-normalizer.js?v=1.0.0" defer></script>
+  <script src="/reference-trace-utils.js?v=PR1" defer></script>
+
+  <!-- Score engine e cálculo de mix -->
+  <script src="/lib/audio/features/score-engine-v3.js?v=3.3.0" defer></script>
+  <script type="module" src="/lib/audio/features/scoring.js?v=3.3.0"></script>
+
+  <!-- Tooltips -->
+  <script src="tooltip-manager.js?v=20260105-tooltips" defer></script>
 
   <!-- analysis-state-machine.js: síncrono, deve preceder o motor -->
   <script src="analysis-state-machine.js?v=PR2"></script>
