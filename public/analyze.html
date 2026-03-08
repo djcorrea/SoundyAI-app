@@ -43,6 +43,7 @@
       <option value="edm">EDM</option>
       <option value="techno">Techno</option>
       <option value="house">House</option>
+      <option value="tech_house">Tech House</option>
       <option value="progressive_trance">Progressive Trance</option>
       <option value="trance">Trance</option>
       <option value="phonk">Phonk</option>
@@ -50,8 +51,12 @@
       <option value="funk_mandela">Funk Mandela</option>
       <option value="funk_bh">Funk BH</option>
       <option value="funk_automotivo">Funk Automotivo</option>
+      <option value="funk_bruxaria">Funk Bruxaria</option>
+      <option value="funk_consciente">Funk Consciente</option>
+      <option value="eletrofunk">Eletrofunk</option>
       <option value="trap">Trap</option>
-      <option value="drill">Drill</option>
+      <option value="rap_drill">Rap / Drill</option>
+      <option value="fullon">Full On</option>
     </select>
   </div>
 
@@ -124,7 +129,7 @@
       selectedFile = e.target.files[0];
     };
 
-    document.getElementById("analyzeBtn").onclick = function() {
+    document.getElementById("analyzeBtn").onclick = async function() {
       if (!selectedFile) {
         alert("Envie um áudio primeiro");
         return;
@@ -132,10 +137,16 @@
 
       const genre = document.getElementById("genreSelect").value;
 
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("genre", genre);
-      formData.append("mode", "genre");
+      // Carregar targets do JSON real ANTES de chamar o motor
+      try {
+        const res = await fetch(`/refs/out/${genre}.json`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        window.__CURRENT_GENRE_TARGETS = await res.json();
+        console.log('[analyze.html] targets carregados:', genre, Object.keys(window.__CURRENT_GENRE_TARGETS));
+      } catch (err) {
+        alert(`Erro ao carregar targets para "${genre}": ${err.message}`);
+        return;
+      }
 
       // Passa o gênero exato (sem mapeamento) para o motor
       window.currentAnalysisMode = "genre";

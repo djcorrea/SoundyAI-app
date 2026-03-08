@@ -3929,6 +3929,21 @@ async function uploadToBucket(uploadUrl, file) {
  * @param {string} idToken
  * @returns {Object} payload para mode=genre
  */
+/**
+ * Carrega os targets de gênero direto de /refs/out/{genre}.json.
+ * Armazena em window.__CURRENT_GENRE_TARGETS para uso imediato.
+ */
+async function loadGenreTargets(genre) {
+    const res = await fetch(`/refs/out/${genre}.json`);
+    if (!res.ok) {
+        throw new Error(`Targets não encontrados para gênero: ${genre} (HTTP ${res.status})`);
+    }
+    const targets = await res.json();
+    window.__CURRENT_GENRE_TARGETS = targets;
+    log('[PR2] loadGenreTargets: targets carregados para', genre, Object.keys(targets));
+    return targets;
+}
+
 function buildGenrePayload(fileKey, fileName, idToken) {
     log('[PR2] buildGenrePayload()');
     
@@ -3940,17 +3955,8 @@ function buildGenrePayload(fileKey, fileName, idToken) {
     }
     genre = genre.trim();
     
-    // Obter targets do gênero
-    let genreTargets = null;
-    const previousAnalysis = window.currentAnalysisData || window.__soundyState?.previousAnalysis;
-    if (previousAnalysis) {
-        log('[PR2] Extraindo targets da análise anterior');
-        genreTargets = extractGenreTargetsFromAnalysis(previousAnalysis);
-    }
-    if (!genreTargets) {
-        log('[PR2] FALLBACK: targets das variáveis globais');
-        genreTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
-    }
+    // Obter targets do gênero — prioridade: já carregado via loadGenreTargets
+    let genreTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
     
     // Validação obrigatória
     if (!genre) {
@@ -4396,6 +4402,12 @@ async function createAnalysisJob(fileKey, mode, fileName) {
                 }
             } else {
                 // Modo genre não precisa de state machine
+                if (!window.__CURRENT_GENRE_TARGETS) {
+                    const genre = (window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE || document.getElementById('audioRefGenreSelect')?.value || '').trim();
+                    if (genre) {
+                        try { await loadGenreTargets(genre); } catch (e) { warn('[FALLBACK] loadGenreTargets:', e.message); }
+                    }
+                }
                 payload = buildGenrePayload(fileKey, fileName, idToken);
             }
         } else {
@@ -4433,6 +4445,17 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             // Agora sim, continuar com o fluxo normal baseado no modo
             if (mode === 'genre') {
                 log('[PR2] Usando buildGenrePayload');
+                // Garantir que targets estão carregados antes de montar o payload
+                if (!window.__CURRENT_GENRE_TARGETS) {
+                    const genre = (window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE || document.getElementById('audioRefGenreSelect')?.value || '').trim();
+                    if (genre) {
+                        try {
+                            await loadGenreTargets(genre);
+                        } catch (e) {
+                            warn('[PR2] loadGenreTargets falhou:', e.message);
+                        }
+                    }
+                }
                 payload = buildGenrePayload(fileKey, fileName, idToken);
                 
             } else if (mode === 'reference') {
