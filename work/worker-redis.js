@@ -24,11 +24,13 @@ import { logMemoryDelta, clearMemoryDelta } from './lib/memory-monitor.js';
 
 // ---------- Importar pipeline completo para análise REAL ----------
 let processAudioComplete = null;
+let runPipeline = null;
 
 try {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📦 Carregando pipeline completo...`);
   const imported = await import("./api/audio/pipeline-complete.js");
   processAudioComplete = imported.processAudioComplete;
+  runPipeline = imported.runPipeline;
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Pipeline completo carregado com sucesso!`);
 } catch (err) {
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ CRÍTICO: Falha ao carregar pipeline:`, err.message);
@@ -1409,16 +1411,11 @@ async function audioProcessor(job) {
     console.log('[WORKER][GENRE] Iniciando pipeline...');
     console.log('[WORKER][GENRE] soundDestination para pipeline:', validSoundDestination);
     
-    const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
-      jobId,
-      mode,
-      referenceJobId,
-      preloadedReferenceMetrics,
-      genre,
-      genreTargets,
-      planContext: extractedPlanContext || null,
-      soundDestination: validSoundDestination  // 🆕 Passar para o pipeline
-    });
+    // Setar buffer no job para runPipeline (ephemeral, não serializado)
+    job._buffer = fileBuffer;
+    job._preloadedReferenceMetrics = preloadedReferenceMetrics;
+
+    const pipelinePromise = runPipeline(job);
     
     let _timeoutId;
     const timeoutPromise = new Promise((_, reject) => {

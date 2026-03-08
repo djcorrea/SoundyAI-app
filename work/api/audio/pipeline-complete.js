@@ -2836,3 +2836,53 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
   
   return suggestions;
 }
+
+// ============================================================================
+// 🚀 runPipeline(job) — Ponto de entrada principal para o worker-redis
+// ============================================================================
+// O worker DEVE setar job._buffer = fileBuffer antes de chamar esta função.
+// Opcionalmente job._preloadedReferenceMetrics para modo reference/compare.
+// Todos os metadados obrigatórios são lidos de job.data.
+// ============================================================================
+export async function runPipeline(job) {
+  const genre = job.data?.genre;
+
+  if (!genre) {
+    throw new Error('[PIPELINE-CRITICAL] genre ausente no job.data');
+  }
+
+  const genreTargets = job.data?.genreTargets || loadGenreTargets(genre);
+
+  if (!genreTargets) {
+    throw new Error('[PIPELINE-CRITICAL] genreTargets não carregado');
+  }
+
+  const audioBuffer = job._buffer;
+  if (!audioBuffer) {
+    throw new Error('[PIPELINE-CRITICAL] job._buffer não definido — worker deve setar antes de chamar runPipeline');
+  }
+
+  const {
+    fileName,
+    jobId,
+    mode,
+    referenceJobId,
+    planContext,
+    soundDestination: rawSoundDestination,
+  } = job.data;
+
+  const soundDestination = ['pista', 'streaming'].includes(rawSoundDestination)
+    ? rawSoundDestination
+    : 'pista';
+
+  return processAudioComplete(audioBuffer, fileName || 'unknown.wav', {
+    jobId,
+    mode,
+    referenceJobId,
+    preloadedReferenceMetrics: job._preloadedReferenceMetrics || null,
+    genre,
+    genreTargets,
+    planContext: planContext || null,
+    soundDestination,
+  });
+}
