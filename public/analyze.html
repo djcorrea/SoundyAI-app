@@ -2,104 +2,315 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Análise de Áudio — SoundyAI</title>
-  <script>
-    /* fallback necessário para motor legacy */
-    window.tech = window.tech || "web";
-  </script>
+
+  <!-- Fallback necessário para motor legacy -->
+  <script>window.tech = window.tech || "web";</script>
+
+  <!-- Sistema Centralizado de Logs — deve ser o PRIMEIRO script -->
+  <script src="logger.js"></script>
+
+  <!-- ================================================================
+       CSS: mesmo stack do index.html
+       CRITICAL: audio-analyzer.css define .audio-modal, .audio-upload-area,
+       .audio-loading, .audio-results e todos os estilos do modal.
+       Os demais CSSs cobrem score, sugestões IA, plan mask, login modal etc.
+  ================================================================ -->
+  <link rel="stylesheet" href="style.css?v=20250810">
+  <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
+  <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
+  <link rel="stylesheet" href="friendly-labels.css?v=20250817">
+  <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
+  <link rel="stylesheet" href="ultra-advanced-styles.css?v=20250920-ultra">
+  <link rel="stylesheet" href="ai-suggestion-styles.css?v=20250922-ai-layer">
+  <link rel="stylesheet" href="ai-suggestions-expanded.css?v=20250922-expanded">
+  <link rel="stylesheet" href="ai-suggestions-futuristic.css?v=20250923-cyberpunk">
+  <link rel="stylesheet" href="ScoreFinal.css?v=20251021-futuristic">
+  <link rel="stylesheet" href="plan-mask-styles.css?v=20251211-reduced-mode">
+  <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
+  <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
+  <link rel="stylesheet" href="login-required-modal.css?v=20260102">
+  <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104">
+  <link rel="stylesheet" href="analysis-history.css?v=20260104">
+  <link rel="stylesheet" href="first-analysis-cta.css?v=20260203">
+
+  <!-- Fontes (mesmo set do index.html) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- PDF libs (defer — não são críticas) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+
+  <style>
+    /* ---------------------------------------------------------------
+       Ajustes específicos do modo página-inteira:
+       O .audio-modal é position:fixed cobrindo toda a tela — funciona
+       diretamente como a interface da página sem nenhuma mudança de CSS.
+       Apenas suprimimos o cabeçalho do modal (não é popup aqui).
+    --------------------------------------------------------------- */
+    #audioAnalysisModal .audio-modal-header { display: none !important; }
+
+    /* Botão "Masterizar" — mesmo estilo dos action-buttons existentes */
+    #btnMasterizar {
+      display: none;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    /* Seletor de gênero no topo do modal — visível apenas nesta página */
+    #analyzePageHeader {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 8px 16px;
+      background: rgba(10, 14, 28, 0.7);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-wrap: wrap;
+    }
+    #analyzePageHeader h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: #c9d6f0;
+      margin: 0;
+      flex: 1 1 auto;
+      white-space: nowrap;
+    }
+    #analyzePageHeader .back-link {
+      font-size: 12px;
+      color: #6b7fa0;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    #analyzePageHeader .back-link:hover { color: #a0b4d0; }
+  </style>
 </head>
 <body>
 
   <!-- ================================================================
-       STUBS OCULTOS OBRIGATÓRIOS
-       audio-analyzer-integration.js escreve nesses IDs internamente.
-       Sem eles, hideUploadArea(), showAnalysisLoading() e
-       displayModalResults() encontram null no getElementById e crasham.
+       MODAL DE ANÁLISE — estrutura exata do index.html
+       Exibido como display:flex desde o carregamento (é a própria página).
+       O motor (audio-analyzer-integration.js) controla internamente os
+       painéis: #audioUploadArea → #audioAnalysisLoading → #audioAnalysisResults.
        NÃO alterar os IDs.
   ================================================================ -->
-  <div id="audioAnalysisModal" style="display:none;">
-    <div id="audioUploadArea"></div>
-    <div id="audioAnalysisLoading" style="display:none;">Analisando...</div>
-    <div id="audioAnalysisResults"></div>
+  <div id="audioAnalysisModal" class="audio-modal" style="display: flex;">
+    <div class="audio-modal-content">
+
+      <!-- Cabeçalho com título e link de volta (oculto pelo CSS acima via #audioModal .audio-modal-header; este bloco é o da página) -->
+      <div class="audio-modal-header" style="display: none;">
+        <h3 id="audioModalTitle">🎵 Análise de Áudio</h3>
+        <div id="audioModalSubtitle" class="audio-modal-subtitle" style="display: none;">
+          <span id="audioModeIndicator"></span>
+        </div>
+        <button class="audio-modal-close" onclick="window.location.href='index.html'">&times;</button>
+      </div>
+
+      <!-- Cabeçalho da página: título + gênero + link voltar -->
+      <div id="analyzePageHeader">
+        <h1>🎵 Análise de Áudio</h1>
+        <select id="genreSelect" style="background:#0e1422;color:#fff;border:1px solid #1f2b40;padding:5px 10px;border-radius:6px;font-size:13px;outline:none;">
+          <option value="edm">EDM</option>
+          <option value="techno">Techno</option>
+          <option value="house">House</option>
+          <option value="tech_house">Tech House</option>
+          <option value="progressive_trance">Progressive Trance</option>
+          <option value="trance">Trance</option>
+          <option value="phonk">Phonk</option>
+          <option value="brazilian_phonk">Brazilian Phonk</option>
+          <option value="funk_mandela">Funk Mandela</option>
+          <option value="funk_bh">Funk BH</option>
+          <option value="funk_automotivo">Funk Automotivo</option>
+          <option value="funk_bruxaria">Funk Bruxaria</option>
+          <option value="funk_consciente">Funk Consciente</option>
+          <option value="eletrofunk">Eletrofunk</option>
+          <option value="trap">Trap</option>
+          <option value="rap_drill">Rap / Drill</option>
+          <option value="fullon">Full On</option>
+        </select>
+        <a href="index.html" class="back-link">← Voltar</a>
+      </div>
+
+      <!-- Seleção de Gênero de Referência (motor lê #audioRefGenreSelect) -->
+      <div id="audioRefGenreContainer" style="display:none;">
+        <label for="audioRefGenreSelect" style="font-size:12px;opacity:.8;">Gênero de Referência:</label>
+        <select id="audioRefGenreSelect" style="background:#0e1422;color:#fff;border:1px solid #1f2b40;padding:4px 8px;border-radius:6px;font-size:12px;outline:none;">
+          <option value="edm">EDM</option>
+          <option value="techno">Techno</option>
+          <option value="house">House</option>
+          <option value="tech_house">Tech House</option>
+          <option value="progressive_trance">Progressive Trance</option>
+          <option value="trance">Trance</option>
+          <option value="phonk">Phonk</option>
+          <option value="brazilian_phonk">Brazilian Phonk</option>
+          <option value="funk_mandela">Funk Mandela</option>
+          <option value="funk_bh">Funk BH</option>
+          <option value="funk_automotivo">Funk Automotivo</option>
+          <option value="funk_bruxaria">Funk Bruxaria</option>
+          <option value="funk_consciente">Funk Consciente</option>
+          <option value="eletrofunk">Eletrofunk</option>
+          <option value="trap">Trap</option>
+          <option value="rap_drill">Rap / Drill</option>
+          <option value="fullon">Full On</option>
+        </select>
+        <span id="audioRefStatus" style="font-size:11px;padding:2px 6px;border-radius:4px;background:#1f2b40;opacity:.9;">Carregando referências...</span>
+      </div>
+
+      <!-- Progress Steps (modo referência — oculto nesta página) -->
+      <div id="referenceProgressSteps" class="reference-progress-steps" style="display: none;">
+        <div class="progress-step" id="stepUserAudio">
+          <div class="step-number">1</div>
+          <div class="step-label">Sua Música</div>
+        </div>
+        <div class="progress-step" id="stepReferenceAudio">
+          <div class="step-number">2</div>
+          <div class="step-label">Música de Referência</div>
+        </div>
+        <div class="progress-step" id="stepAnalysis">
+          <div class="step-number">3</div>
+          <div class="step-label">Análise Comparativa</div>
+        </div>
+      </div>
+
+      <!-- Upload Area -->
+      <div class="audio-upload-area" id="audioUploadArea">
+        <div class="upload-content">
+          <div class="upload-icon">🎵</div>
+          <h4>Analisar seu áudio</h4>
+          <p>Arraste seu arquivo aqui ou clique para selecionar</p>
+          <p class="supported-formats">Suporta: WAV, FLAC, MP3 (máx. 150MB)</p>
+          <p class="format-recommendation">💡 Prefira WAV ou FLAC para maior precisão na análise</p>
+          <input type="file" id="modalAudioFileInput"
+                 accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac"
+                 style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" tabindex="-1">
+          <label for="modalAudioFileInput" class="upload-btn">Escolher Arquivo</label>
+        </div>
+        <button class="audio-close-bottom" onclick="window.location.href='index.html'">Fechar</button>
+      </div>
+
+      <!-- Loading -->
+      <div id="audioAnalysisLoading" class="audio-loading" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
+        <div class="progress-bar">
+          <div class="progress-fill" id="audioProgressFill"></div>
+        </div>
+
+        <p id="audioConnectionHint" class="connection-hint" style="display: none;">
+          <span class="hint-icon">⏳</span>
+          <span class="hint-text">Esta etapa depende da sua conexão com a internet.<br>Se sua internet estiver lenta, o envio pode demorar um pouco mais.</span>
+        </p>
+
+        <div class="audio-analysis-warning">
+          <div class="warning-icon">⚙️</div>
+          <div class="warning-content">
+            <p class="warning-title">Análise em andamento</p>
+            <p class="warning-text">Para garantir que o processo seja concluído corretamente, mantenha esta página aberta até o fim da análise.</p>
+            <p class="warning-subtext">Isso normalmente leva apenas alguns instantes.</p>
+          </div>
+        </div>
+
+        <button class="audio-close-bottom" onclick="window.location.href='index.html'">Fechar</button>
+      </div>
+
+      <!-- Results -->
+      <div id="audioAnalysisResults" class="audio-results" style="display: none;">
+        <div class="results-header">
+          <h4>Análise Completa</h4>
+        </div>
+
+        <div class="analysis-info-text">
+          As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
+          Porém, música é arte: cada produtor pode querer características diferentes.<br>
+          Use estas dicas como um guia de referência, não como uma regra absoluta.
+        </div>
+
+        <!-- Identificação da música -->
+        <div id="musicIdentificationBlock" class="music-identification-container"></div>
+
+        <!-- Score Final -->
+        <div id="final-score-display"></div>
+
+        <!-- Dados Técnicos -->
+        <div class="technical-data" id="modalTechnicalData"></div>
+        <div id="referenceComparisons" style="margin-top:16px;"></div>
+
+        <!-- Sugestões IA expandida -->
+        <div id="aiSuggestionsExpanded" class="ai-suggestions-expanded" style="display: none;">
+          <div class="ai-expanded-header">
+            <div class="ai-header-left">
+              <h3>🚀 Análise Inteligente &amp; Sugestões</h3>
+              <div class="ai-header-subtitle">Powered by AI • Sugestões educativas e práticas</div>
+            </div>
+            <div class="ai-header-right">
+              <div class="ai-status-indicator" id="aiExpandedStatus">
+                <span class="ai-status-dot"></span>
+                <span class="ai-status-text">Analisando...</span>
+              </div>
+              <button class="ai-expanded-toggle" onclick="toggleAIExpanded()">
+                <span id="aiExpandedToggleIcon">↗</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="ai-expanded-content" id="aiExpandedContent">
+            <div class="ai-suggestions-loading" id="aiExpandedLoading">
+              <div class="ai-loading-spinner"></div>
+              <p>Conectando com sistema de IA...</p>
+            </div>
+            <div class="ai-suggestions-grid" id="aiExpandedGrid" style="display: none;"></div>
+            <div class="ai-fallback-notice" id="aiFallbackNotice" style="display: none;">
+              <div class="ai-fallback-icon">⚠️</div>
+              <div class="ai-fallback-content">
+                <strong>IA temporariamente indisponível</strong>
+                <p>Exibindo sugestões básicas do sistema. A funcionalidade completa será restaurada em breve.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="ai-expanded-footer"></div>
+        </div>
+
+        <div class="analysis-helper-text" id="aiHelperText">
+          💡 Se precisar de ajuda para aplicar as melhorias, clique em <strong>"Pedir ajuda à IA"</strong> e seja redirecionado para um Chat Bot especialista em áudio.
+        </div>
+
+        <!-- Ações padrão -->
+        <div class="analysis-actions">
+          <button class="action-btn primary" id="btnAskAI" onclick="sendModalAnalysisToChat()">
+            🤖 Pedir Ajuda à IA
+          </button>
+          <button class="action-btn secondary" onclick="downloadModalAnalysis()">
+            📄 Baixar Relatório
+          </button>
+          <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan" onclick="handleCorrectionPlanClick()">
+            📋 Gerar Plano de Correção
+          </button>
+        </div>
+
+        <!-- Botão Masterizar — aparece após análise bem-sucedida -->
+        <a id="btnMasterizar" class="action-btn primary" href="master.html">
+          🎛️ Masterizar
+        </a>
+
+      </div>
+    </div>
   </div>
+
+  <!--
+    Placeholders para modais globais que o motor pode tentar manipular.
+    Mantidos ocultos para evitar null no getElementById em fluxos de referência
+    e entitlements.
+  -->
+  <div id="newGenreModal" class="genre-modal hidden" aria-modal="true" role="dialog" style="display:none;"></div>
+  <div id="aiSuggestionsFullModal" class="ai-full-modal" style="display:none;"></div>
 
   <!-- ================================================================
-       UI PRINCIPAL
+       DEPENDÊNCIAS — mesma ordem do index.html
   ================================================================ -->
-  <h1>Análise de Áudio</h1>
-
-  <div>
-    <input
-      type="file"
-      id="uploadInput"
-      accept=".mp3,.wav,.flac,.m4a,.aiff,.ogg"
-    />
-  </div>
-
-  <div>
-    <label for="genreSelect">Gênero:</label>
-    <select id="genreSelect">
-      <option value="edm">EDM</option>
-      <option value="techno">Techno</option>
-      <option value="house">House</option>
-      <option value="tech_house">Tech House</option>
-      <option value="progressive_trance">Progressive Trance</option>
-      <option value="trance">Trance</option>
-      <option value="phonk">Phonk</option>
-      <option value="brazilian_phonk">Brazilian Phonk</option>
-      <option value="funk_mandela">Funk Mandela</option>
-      <option value="funk_bh">Funk BH</option>
-      <option value="funk_automotivo">Funk Automotivo</option>
-      <option value="funk_bruxaria">Funk Bruxaria</option>
-      <option value="funk_consciente">Funk Consciente</option>
-      <option value="eletrofunk">Eletrofunk</option>
-      <option value="trap">Trap</option>
-      <option value="rap_drill">Rap / Drill</option>
-      <option value="fullon">Full On</option>
-    </select>
-  </div>
-
-  <div>
-    <button id="analyzeBtn">Analisar</button>
-  </div>
-
-  <div id="resultsContainer"></div>
-
-  <!-- ================================================================
-       DEPENDÊNCIAS CRÍTICAS
-       Carregadas antes dos scripts principais.
-
-       logger.js           → define window.log e window.error.
-                             __dbg (interno ao motor) chama log() —
-                             sem este arquivo lança TypeError ao primeiro
-                             arquivo selecionado.
-
-       auth.js             → Firebase auth. createAnalysisJob() busca
-                             idToken para análises de usuários logados.
-
-       device-fingerprint.js   → requerido por anonymous-mode.js.
-
-       anonymous-mode.js   → window.SoundyAnonymous — checado no início
-                             de handleModalFileSelection.
-
-       demo-core.js        → window.SoundyDemo — checado logo após.
-
-       entitlements-handler.js → intercepta 403 PLAN_REQUIRED do backend.
-
-       friendly-labels.js  → traduz labels técnicas nos resultados.
-
-       band-key-aliases.js → normalização de bandas de frequência
-                             (usado internamente pelo score engine).
-
-       error-mapper.js     → mapeia erros do backend para mensagens
-                             amigáveis exibidas no resultado.
-
-       analysis-state-machine.js → DEVE ser síncrono (sem defer) e
-                             carregado ANTES de audio-analyzer-integration.js.
-                             No index.html também está sem defer.
-  ================================================================ -->
-  <script src="logger.js"></script>
   <script src="auth.js?v=20250810" defer></script>
   <script src="device-fingerprint.js?v=20260103" defer></script>
   <script src="anonymous-mode.js?v=20260102" defer></script>
@@ -112,49 +323,110 @@
   <!-- analysis-state-machine.js: síncrono, deve preceder o motor -->
   <script src="analysis-state-machine.js?v=PR2"></script>
 
-  <!-- ================================================================
-       SCRIPTS PRINCIPAIS (ordem conforme especificação)
-  ================================================================ -->
+  <!-- Motor principal + fluxo de referência -->
   <script src="audio-analyzer-integration.js?v=20260130_1" defer></script>
   <script src="reference-flow.js?v=1.0.0" defer></script>
 
   <!-- ================================================================
        CONTROLADOR DA PÁGINA
-       Implementação exata conforme especificação.
   ================================================================ -->
   <script>
-    let selectedFile = null;
+    // ----------------------------------------------------------------
+    // 1. Sincronizar #genreSelect (UI da página) com #audioRefGenreSelect
+    //    (lido pelo motor) e com window.__CURRENT_SELECTED_GENRE.
+    // ----------------------------------------------------------------
+    function syncGenre(value) {
+      window.__CURRENT_SELECTED_GENRE = value;
+      window.currentAnalysisMode      = 'genre';
+      window.__SOUNDY_ANALYSIS_MODE__ = 'pista';
+      // Limpa o cache de targets para forçar recarga quando o gênero muda
+      window.__CURRENT_GENRE_TARGETS  = null;
 
-    document.getElementById("uploadInput").onchange = function(e) {
-      selectedFile = e.target.files[0];
-    };
+      const motorSelect = document.getElementById('audioRefGenreSelect');
+      if (motorSelect) motorSelect.value = value;
+    }
 
-    document.getElementById("analyzeBtn").onclick = async function() {
-      if (!selectedFile) {
-        alert("Envie um áudio primeiro");
+    document.addEventListener('DOMContentLoaded', function () {
+      const pageSelect = document.getElementById('genreSelect');
+      if (pageSelect) {
+        syncGenre(pageSelect.value);
+        pageSelect.addEventListener('change', function () {
+          syncGenre(this.value);
+        });
+      }
+    });
+
+    // ----------------------------------------------------------------
+    // 2. Após o motor carregar (defer), aplicar patches em bloco:
+    //
+    //    a) closeAudioModal — o motor declara como function declaration
+    //       (hoisted), então o override só é efetivo DEPOIS do load.
+    //       Redireciona para index.html em vez de esconder o modal.
+    //
+    //    b) handleModalFileSelection — garante que os targets do gênero
+    //       estejam carregados ANTES de passar o arquivo ao motor.
+    //       Drag-and-drop e o input #modalAudioFileInput são configurados
+    //       pelo motor em setupAudioModal() — não duplicamos listeners.
+    // ----------------------------------------------------------------
+    window.addEventListener('load', function applyPatches() {
+      // Retry até o motor estar pronto
+      if (typeof window.handleModalFileSelection !== 'function') {
+        setTimeout(applyPatches, 200);
         return;
       }
 
-      const genre = document.getElementById("genreSelect").value;
+      // (a) closeAudioModal override
+      window.closeAudioModal = function () {
+        window.location.href = 'index.html';
+      };
 
-      // Carregar targets do JSON real ANTES de chamar o motor
-      try {
-        const res = await fetch(`/refs/out/${genre}.json`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        window.__CURRENT_GENRE_TARGETS = await res.json();
-        console.log('[analyze.html] targets carregados:', genre, Object.keys(window.__CURRENT_GENRE_TARGETS));
-      } catch (err) {
-        alert(`Erro ao carregar targets para "${genre}": ${err.message}`);
-        return;
-      }
+      // (b) handleModalFileSelection patch
+      const _originalHMFS = window.handleModalFileSelection;
+      window.handleModalFileSelection = async function (file) {
+        const genre =
+          window.__CURRENT_SELECTED_GENRE ||
+          (document.getElementById('genreSelect') || {}).value ||
+          'edm';
 
-      // Passa o gênero exato (sem mapeamento) para o motor
-      window.currentAnalysisMode = "genre";
-      window.__CURRENT_SELECTED_GENRE = genre;
-      window.__SOUNDY_ANALYSIS_MODE__ = "pista";
+        if (!window.__CURRENT_GENRE_TARGETS) {
+          try {
+            const res = await fetch('/refs/out/' + genre + '.json');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            window.__CURRENT_GENRE_TARGETS = await res.json();
+          } catch (err) {
+            console.warn('[analyze.html] Erro ao pré-carregar targets:', err);
+          }
+        }
 
-      handleModalFileSelection(selectedFile);
-    };
+        return _originalHMFS.call(this, file);
+      };
+
+      console.log('[analyze.html] patches aplicados ✓');
+    });
+
+    // ----------------------------------------------------------------
+    // 4. Botão Masterizar — exibido quando #audioAnalysisResults torna-se
+    //    visível. Usa MutationObserver para detectar a mudança de display.
+    // ----------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', function () {
+      const resultsEl = document.getElementById('audioAnalysisResults');
+      const masterBtn = document.getElementById('btnMasterizar');
+
+      if (!resultsEl || !masterBtn) return;
+
+      const observer = new MutationObserver(function () {
+        const isVisible = resultsEl.style.display !== 'none' && resultsEl.style.display !== '';
+        if (isVisible) {
+          const jobId = window.__CURRENT_JOB_ID__ || '';
+          masterBtn.href = jobId ? `master.html?jobId=${encodeURIComponent(jobId)}` : 'master.html';
+          masterBtn.style.display = 'inline-block';
+        } else {
+          masterBtn.style.display = 'none';
+        }
+      });
+
+      observer.observe(resultsEl, { attributes: true, attributeFilter: ['style'] });
+    });
   </script>
 
 </body>
