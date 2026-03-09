@@ -11839,6 +11839,95 @@ async function handleModalFileSelection(file) {
     }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🆕 HELPERS DE FLUXO SEPARADO — upload-only e analysis-only
+// Adicionados para permitir que um caller externo (ex: home page)
+// execute upload e análise em etapas distintas, sem modificar
+// handleModalFileSelection nem qualquer lógica existente.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * 📤 uploadFileOnly(file)
+ *
+ * Executa APENAS as etapas 1 e 2 do pipeline:
+ *   1) getPresignedUrl(file)     → obtém uploadUrl + fileKey do backend
+ *   2) uploadToBucket(url, file) → PUT direto no bucket
+ *
+ * NÃO dispara análise, NÃO cria job, NÃO altera UI nem state machine.
+ *
+ * @param {File} file
+ * @returns {Promise<{fileKey: string, fileName: string}>}
+ */
+async function uploadFileOnly(file) {
+    __dbg('📤 [uploadFileOnly] Iniciando upload isolado:', file.name);
+
+    const { uploadUrl, fileKey } = await getPresignedUrl(file);
+    await uploadToBucket(uploadUrl, file);
+
+    // Persistir para uso posterior (ex: runAnalysisFromFileKey ou master.html)
+    window.__PENDING_FILE_KEY__  = fileKey;
+    window.__PENDING_FILE_NAME__ = file.name;
+    sessionStorage.setItem('pendingFileKey',  fileKey);
+    sessionStorage.setItem('pendingFileName', file.name);
+
+    __dbg('✅ [uploadFileOnly] Upload concluído:', { fileKey, fileName: file.name });
+    return { fileKey, fileName: file.name };
+}
+
+/**
+ * 🔬 runAnalysisFromFileKey(fileKey, fileName)
+ *
+ * Executa APENAS as etapas 3-5 do pipeline, a partir de um fileKey
+ * já obtido (ex: via uploadFileOnly):
+ *   3) createAnalysisJob(fileKey, mode, fileName)
+ *   4) pollJobStatus(jobId)
+ *   5) displayModalResults via handleGenreAnalysisWithResult / handleReferenceAnalysisWithResult
+ *
+ * Respeita o modo de análise ativo (window.currentAnalysisMode),
+ * os guards de demo/anonymous e o tracking de jobId existente.
+ * NÃO faz upload, NÃO chama getPresignedUrl, NÃO chama uploadToBucket.
+ *
+ * @param {string} fileKey
+ * @param {string} fileName
+ * @returns {Promise<void>}
+ */
+async function runAnalysisFromFileKey(fileKey, fileName) {
+    __dbg('🔬 [runAnalysisFromFileKey] Iniciando análise para fileKey:', fileKey);
+
+    // Reutilizar modo ativo no motor — mesmo que handleModalFileSelection usa
+    const mode = window.currentAnalysisMode || 'genre';
+
+    // ETAPA 3: criar job
+    const jobResult = await createAnalysisJob(fileKey, mode, fileName);
+
+    // Respeitar bloqueio demo/anonymous (mesmo padrão de handleModalFileSelection)
+    if (jobResult.blocked || jobResult.showConversion) {
+        log('🚫 [runAnalysisFromFileKey] Análise bloqueada pelo sistema de entitlements');
+        return;
+    }
+
+    const { jobId } = jobResult;
+    __dbg('🔬 [runAnalysisFromFileKey] Job criado:', jobId);
+
+    // ETAPA 4: polling
+    showUploadProgress(`Analisando ${fileName}... Aguarde.`);
+    const analysisResult = await pollJobStatus(jobId);
+
+    // ETAPA 5: renderizar pelo mesmo caminho do motor
+    if (mode === 'reference') {
+        await handleReferenceAnalysisWithResult(analysisResult, fileKey, fileName);
+    } else {
+        await handleGenreAnalysisWithResult(analysisResult, fileName);
+    }
+
+    __dbg('✅ [runAnalysisFromFileKey] Análise concluída para jobId:', jobId);
+}
+
+// Expor globalmente
+window.uploadFileOnly         = uploadFileOnly;
+window.runAnalysisFromFileKey = runAnalysisFromFileKey;
+
 // � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
 
 /**
