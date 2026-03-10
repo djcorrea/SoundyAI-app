@@ -1688,30 +1688,8 @@
     setStatus('Pronto — Máx. 150 MB · WAV e FLAC recomendados para maior precisão', '');
   };
 
-  // ── PROCESSING MODAL ──────────────────────────────────────
-  function showProcessingModal() {
-    var el = document.getElementById('analysisProcessingModal');
-    if (!el) return;
-    // Re-create inner steps to restart animations on each run
-    var steps = el.querySelectorAll('.processing-step');
-    steps.forEach(function (s) {
-      s.style.animation = 'none';
-      // Force reflow
-      void s.offsetWidth; // eslint-disable-line no-void
-      s.style.animation = '';
-    });
-    el.classList.add('active');
-    el.setAttribute('aria-hidden', 'false');
-  }
-
-  function hideProcessingModal() {
-    var el = document.getElementById('analysisProcessingModal');
-    if (!el) return;
-    el.classList.remove('active');
-    el.setAttribute('aria-hidden', 'true');
-  }
-
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
+  // Redireciona para a página de loading/resultados dedicada
   function runAnalysis() {
     closeDecisionModal();
 
@@ -1720,26 +1698,15 @@
       return;
     }
 
-    if (typeof window.runAnalysisFromFileKey !== 'function') {
-      setStatus('Motor não pronto. Por favor, aguarde um momento e tente novamente.', 'error');
-      return;
-    }
+    var genreSel = document.getElementById('homeGenreSelect');
+    var genreVal = (genreSel ? genreSel.value : null) || window.__CURRENT_SELECTED_GENRE || 'edm';
 
-    showProcessingModal();
-    openAnalysisModal();
+    var url = 'analysis-loading.html'
+      + '?fileKey='  + encodeURIComponent(_state.fileKey)
+      + '&fileName=' + encodeURIComponent(_state.fileName)
+      + '&genre='    + encodeURIComponent(genreVal);
 
-    // Patch displayModalResults to hide processing modal when results are rendered
-    var _origDisplay = window.displayModalResults;
-    window.displayModalResults = function () {
-      hideProcessingModal();
-      if (typeof _origDisplay === 'function') {
-        return _origDisplay.apply(this, arguments);
-      }
-      // Restore original after first call to avoid permanent wrapping
-      window.displayModalResults = _origDisplay;
-    };
-
-    window.runAnalysisFromFileKey(_state.fileKey, _state.fileName);
+    window.location.href = url;
   }
 
   // ── MASTER DIRECT ─────────────────────────────────────────
