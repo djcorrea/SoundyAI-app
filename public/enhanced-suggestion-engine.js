@@ -1289,8 +1289,6 @@ class EnhancedSuggestionEngine {
                 }
             } else {
                 warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
-            } else {
-                warn('⚠️ [ENGINE-WARNING] refBandData.target_range NÃO encontrado!');
             }
             
             let rmsValue;

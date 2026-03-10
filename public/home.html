@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>SoundyAI — AI Audio Analyzer & Mastering Engine</title>
+  <title>SoundyAI — Analisador de Áudio com IA & Motor de Mastering</title>
 
   <!-- Motor legacy flag -->
   <script>window.tech = window.tech || "web";</script>
@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="secure-render-styles.css?v=2.0.0">
   <link rel="stylesheet" href="upgrade-modal-styles.css?v=20251213">
   <link rel="stylesheet" href="login-required-modal.css?v=20260102">
-  <link rel="stylesheet" href="modal-mobile-spacing.css?v=20260104">
+  <!-- modal-mobile-spacing.css removido — arquivo não existe no servidor -->
   <link rel="stylesheet" href="analysis-history.css?v=20260104">
   <link rel="stylesheet" href="first-analysis-cta.css?v=20260203">
 
@@ -812,6 +812,122 @@
     .btn-master:hover { background: rgba(139, 92, 246, 0.25); border-color: var(--accent-purple); transform: translateY(-1px); }
 
     /* ════════════════════════════════════════════════════════════════
+       PROCESSING MODAL
+    ════════════════════════════════════════════════════════════════ */
+    #analysisProcessingModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(4, 6, 14, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      align-items: center;
+      justify-content: center;
+    }
+    #analysisProcessingModal.active {
+      display: flex;
+    }
+    .processing-panel {
+      background: rgba(14, 20, 38, 0.96);
+      border: 1px solid rgba(74, 143, 255, 0.28);
+      border-radius: 20px;
+      padding: 44px 40px 36px;
+      max-width: 420px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 0 60px rgba(74, 143, 255, 0.14), 0 24px 64px rgba(0,0,0,0.7);
+      animation: processingPanelIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes processingPanelIn {
+      from { opacity: 0; transform: scale(0.88) translateY(20px); }
+      to   { opacity: 1; transform: scale(1)   translateY(0); }
+    }
+    .processing-spinner-wrap {
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+    .processing-spinner {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--accent-blue);
+      border-right-color: var(--accent-purple);
+      animation: spin 1s linear infinite;
+    }
+    .processing-spinner-inner {
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-bottom-color: var(--accent-cyan);
+      animation: spin 0.7s linear infinite reverse;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing-glow {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74,143,255,0.12) 0%, transparent 70%);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50%       { opacity: 1;   transform: scale(1.1); }
+    }
+    .processing-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(16px, 3vw, 20px);
+      font-weight: 700;
+      color: var(--text-primary);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+    .processing-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .processing-steps {
+      list-style: none;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .processing-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      opacity: 0;
+      transform: translateX(-8px);
+      animation: stepIn 0.4s forwards;
+    }
+    .processing-step:nth-child(1) { animation-delay: 0.2s; }
+    .processing-step:nth-child(2) { animation-delay: 0.7s; }
+    .processing-step:nth-child(3) { animation-delay: 1.4s; }
+    .processing-step:nth-child(4) { animation-delay: 2.0s; }
+    @keyframes stepIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .processing-step-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      flex-shrink: 0;
+      box-shadow: 0 0 6px var(--accent-blue);
+    }
+
+    /* ════════════════════════════════════════════════════════════════
        ANALYSIS MODAL (full-screen — motor renderiza aqui)
     ════════════════════════════════════════════════════════════════ */
     #audioAnalysisModal {
@@ -892,24 +1008,24 @@
     </div>
 
     <h1 class="hero-title" id="hero-title">
-      AI Audio Analyzer<br>&amp; Mastering Engine
+      Analisador de Áudio com IA<br>&amp; Motor de Mastering
     </h1>
 
     <p class="hero-subtitle">
-      Upload your track and instantly receive a deep technical analysis
-      with AI-powered mastering suggestions — or go straight to AutoMaster.
+      Envie sua faixa e receba instantaneamente uma análise técnica profunda
+      com sugestões de mastering baseadas em IA — ou vá direto para o AutoMaster.
     </p>
 
-    <button class="hero-cta" id="heroCta" aria-label="Upload Track">
+    <button class="hero-cta" id="heroCta" aria-label="Enviar Faixa">
       <span class="hero-cta-icon" aria-hidden="true">⬆</span>
-      <span>Upload Track</span>
+      <span>Enviar Faixa</span>
     </button>
 
-    <div class="hero-specs" aria-label="Supported formats and capabilities">
+    <div class="hero-specs" aria-label="Formatos suportados e capacidades">
       <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🎵</span> WAV · MP3 · AIFF · FLAC</div>
-      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">⚡</span> Real-time Analysis</div>
-      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🤖</span> AI Suggestions</div>
-      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🔒</span> Secure Upload</div>
+      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">⚡</span> Análise em Tempo Real</div>
+      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🤖</span> Sugestões por IA</div>
+      <div class="hero-spec"><span class="hero-spec-icon" aria-hidden="true">🔒</span> Upload Seguro</div>
     </div>
 
     <!-- Animated waveform decoration -->
@@ -950,8 +1066,8 @@
 
         <div class="dropzone-icon" aria-hidden="true">🎚️</div>
 
-        <p class="dropzone-text-primary">Drop your track here or click to upload</p>
-        <p class="dropzone-text-secondary">Supports: lossless and compressed audio files</p>
+        <p class="dropzone-text-primary">Arraste sua faixa aqui ou clique para enviar</p>
+        <p class="dropzone-text-secondary">Suporta arquivos de áudio sem perda e comprimidos</p>
 
         <div class="dropzone-formats" aria-label="Supported formats">
           <span class="dropzone-format-tag">WAV</span>
@@ -960,8 +1076,8 @@
           <span class="dropzone-format-tag">AIFF</span>
         </div>
 
-        <button class="upload-btn-zone" id="homeUploadBtn" type="button" aria-label="Choose audio file">
-          Choose File
+        <button class="upload-btn-zone" id="homeUploadBtn" type="button" aria-label="Escolher arquivo de áudio">
+          Escolher Arquivo
         </button>
       </div>
 
@@ -973,12 +1089,12 @@
       <!-- Status bar -->
       <div class="upload-status-bar" id="homeStatusBar" aria-live="polite" aria-atomic="true">
         <span class="upload-status-dot" aria-hidden="true"></span>
-        <span id="homeStatusText">Ready — Max 150 MB · WAV and FLAC recommended for best accuracy</span>
+        <span id="homeStatusText">Pronto — Máx. 150 MB · WAV e FLAC recomendados para maior precisão</span>
       </div>
 
       <!-- Genre Selector Row -->
       <div class="genre-row">
-        <span class="genre-label">Genre</span>
+        <span class="genre-label">Gênero</span>
         <select class="genre-select" id="homeGenreSelect" aria-label="Select analysis genre">
           <option value="edm">EDM</option>
           <option value="techno">Techno</option>
@@ -1006,18 +1122,18 @@
     <div class="features-grid" aria-label="Key features">
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">📊</div>
-        <div class="feature-card-title">Deep Analysis</div>
-        <div class="feature-card-desc">LUFS, True Peak, Dynamic Range, Spectral Balance and more</div>
+        <div class="feature-card-title">Análise Profunda</div>
+        <div class="feature-card-desc">LUFS, True Peak, Dynamic Range, Balanço Espectral e mais</div>
       </div>
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">🤖</div>
-        <div class="feature-card-title">AI Suggestions</div>
-        <div class="feature-card-desc">Genre-aware recommendations to improve your mix</div>
+        <div class="feature-card-title">Sugestões por IA</div>
+        <div class="feature-card-desc">Recomendações baseadas no gênero para melhorar seu mix</div>
       </div>
       <div class="feature-card">
         <div class="feature-card-icon" aria-hidden="true">🎛️</div>
         <div class="feature-card-title">AutoMaster</div>
-        <div class="feature-card-desc">Automatic AI mastering with transparent processing</div>
+        <div class="feature-card-desc">Mastering automático com IA e processamento transparente</div>
       </div>
     </div>
 
@@ -1025,11 +1141,32 @@
 
   <!-- ── FOOTER ──────────────────────────────────────────────── -->
   <footer class="page-footer">
-    <span>© 2026 SoundyAI — Professional Audio Intelligence</span>
-    <a href="index.html">Classic Interface</a>
+    <span>© 2026 SoundyAI — Inteligência de Áudio Profissional</span>
+    <a href="index.html">Interface Clássica</a>
   </footer>
 
 </div><!-- /page-wrapper -->
+
+<!-- ════════════════════════════════════════════════════════════
+     PROCESSING MODAL — aparece durante runAnalysisFromFileKey
+════════════════════════════════════════════════════════════ -->
+<div id="analysisProcessingModal" role="dialog" aria-modal="true" aria-labelledby="processingTitle" aria-live="polite">
+  <div class="processing-panel">
+    <div class="processing-spinner-wrap">
+      <div class="processing-glow"></div>
+      <div class="processing-spinner"></div>
+      <div class="processing-spinner-inner"></div>
+    </div>
+    <div class="processing-title" id="processingTitle">Processando Análise</div>
+    <div class="processing-subtitle">Nosso motor de áudio está analisando sua faixa...</div>
+    <ul class="processing-steps" aria-label="Etapas de processamento">
+      <li class="processing-step"><span class="processing-step-dot"></span>Analisando espectro de frequência</li>
+      <li class="processing-step"><span class="processing-step-dot"></span>Calculando métricas de loudness</li>
+      <li class="processing-step"><span class="processing-step-dot"></span>Comparando com referências do gênero</li>
+      <li class="processing-step"><span class="processing-step-dot"></span>Gerando diagnóstico técnico</li>
+    </ul>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      DECISION MODAL
@@ -1048,8 +1185,8 @@
       aria-label="Close decision modal"
     >&times;</button>
 
-    <div class="decision-modal-eyebrow">Track Loaded</div>
-    <h2 class="decision-modal-title" id="decisionTitle">What do you want to do with your track?</h2>
+    <div class="decision-modal-eyebrow">Faixa Carregada</div>
+    <h2 class="decision-modal-title" id="decisionTitle">O que você quer fazer com sua faixa?</h2>
 
     <div class="decision-file-badge" id="decisionFileBadge" aria-live="polite">
       <span aria-hidden="true">🎵</span>
@@ -1061,12 +1198,12 @@
       <!-- Analyze -->
       <div class="decision-card primary-card" role="group" aria-labelledby="decisionAnalyzeTitle">
         <div class="decision-card-icon icon-analyze" aria-hidden="true">📊</div>
-        <div class="decision-card-title" id="decisionAnalyzeTitle">Analyze &amp; Improve</div>
+        <div class="decision-card-title" id="decisionAnalyzeTitle">Analisar &amp; Melhorar</div>
         <div class="decision-card-desc">
-          Run a deep AI audio analysis to detect issues and receive genre-specific mastering suggestions.
+          Execute uma análise profunda com IA para detectar problemas e receber sugestões de mastering por gênero.
         </div>
         <button class="decision-card-btn btn-analyze" id="btnRunAnalysis">
-          Run Analysis
+          Iniciar Análise
         </button>
       </div>
 
@@ -1075,10 +1212,10 @@
         <div class="decision-card-icon icon-master" aria-hidden="true">🎛️</div>
         <div class="decision-card-title" id="decisionMasterTitle">AutoMaster</div>
         <div class="decision-card-desc">
-          Skip analysis. Go directly to automatic mastering using an AI-powered processing chain.
+          Pule a análise. Vá direto para o mastering automático com uma cadeia de processamento baseada em IA.
         </div>
         <button class="decision-card-btn btn-master" id="btnMasterDirect">
-          Master Now
+          Masterizar Agora
         </button>
       </div>
 
@@ -1198,8 +1335,8 @@
       </div>
 
       <div class="analysis-info-text">
-        Metrics and suggestions are based on audio science and real genre references.<br>
-        Music is art — use these as a reference guide, not absolute rules.
+        As métricas e sugestões são baseadas em ciência de áudio e referências reais de gênero.<br>
+        A música é arte — use esses dados como guia de referência, não como regras absolutas.
       </div>
 
       <!-- Music identification -->
@@ -1217,7 +1354,7 @@
         <div class="ai-expanded-header">
           <div class="ai-header-left">
             <h3>🚀 AI Analysis &amp; Suggestions</h3>
-            <div class="ai-header-subtitle">Powered by AI · Educational &amp; practical suggestions</div>
+            <div class="ai-header-subtitle">Powered by AI · Sugestões educacionais e práticas</div>
           </div>
           <div class="ai-header-right">
             <div class="ai-status-indicator" id="aiExpandedStatus">
@@ -1232,14 +1369,14 @@
         <div class="ai-expanded-content" id="aiExpandedContent">
           <div class="ai-suggestions-loading" id="aiExpandedLoading">
             <div class="ai-loading-spinner"></div>
-            <p>Connecting to AI system...</p>
+            <p>Conectando ao sistema de IA...</p>
           </div>
           <div class="ai-suggestions-grid" id="aiExpandedGrid" style="display: none;"></div>
           <div class="ai-fallback-notice" id="aiFallbackNotice" style="display: none;">
             <div class="ai-fallback-icon">⚠️</div>
             <div class="ai-fallback-content">
-              <strong>AI temporarily unavailable</strong>
-              <p>Showing basic system suggestions. Full functionality will be restored shortly.</p>
+              <strong>IA temporariamente indisponível</strong>
+              <p>Exibindo sugestões básicas do sistema. A funcionalidade completa será restaurada em breve.</p>
             </div>
           </div>
         </div>
@@ -1247,25 +1384,25 @@
       </div>
 
       <div class="analysis-helper-text" id="aiHelperText">
-        💡 Need help applying the improvements? Click <strong>"Ask AI"</strong> and chat with an audio specialist.
+        💡 Precisa de ajuda para aplicar as melhorias? Clique em <strong>"Perguntar à IA"</strong> e converse com um especialista de áudio.
       </div>
 
       <!-- Actions -->
       <div class="analysis-actions">
         <button class="action-btn primary" id="btnAskAI" onclick="sendModalAnalysisToChat()">
-          🤖 Ask AI
+          🤖 Perguntar à IA
         </button>
         <button class="action-btn secondary" onclick="downloadModalAnalysis()">
-          📄 Download Report
+          📄 Baixar Relatório
         </button>
         <button class="action-btn correction-plan-btn" id="btnGenerateCorrectionPlan" onclick="handleCorrectionPlanClick()">
-          📋 Generate Correction Plan
+          📋 Gerar Plano de Correção
         </button>
       </div>
 
       <!-- Masterizar button -->
       <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
-        🎛️ AutoMaster
+        🎛️ Masterizar Agora
       </a>
 
     </div><!-- /audioAnalysisResults -->
@@ -1275,6 +1412,43 @@
 <!-- Global modal placeholders expected by the motor -->
 <div id="newGenreModal"          class="genre-modal hidden" aria-modal="true" role="dialog" style="display:none;"></div>
 <div id="aiSuggestionsFullModal" class="ai-full-modal"                                       style="display:none;"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     UTILITY: getRealValue — evita erro 'getRealValue is not defined'
+     audioAnalyzer-integration.js usa esta função globalmente.
+════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  /**
+   * getRealValue(key1, key2, ...) — utilitário global de lookup seguro.
+   * Recebe um ou mais nomes de chave; retorna o primeiro valor finito encontrado
+   * em window.__LAST_BACKEND_DATA__ (se disponível), caso contrário null.
+   * Retorna null para permitir que as cadeias || do motor usem seus próprios
+   * fallbacks. Não retorna 0 para não ofuscar valores zero legítimos.
+   */
+  if (typeof window.getRealValue !== 'function') {
+    window.getRealValue = function getRealValue() {
+      var data = window.__LAST_BACKEND_DATA__ || window.__CURRENT_BACKEND_DATA__ || null;
+      if (!data) return null;
+      for (var i = 0; i < arguments.length; i++) {
+        var key = arguments[i];
+        if (typeof key !== 'string') continue;
+        // Suporta chave simples (ex: 'lufsIntegrated') e dot-path (ex: 'loudness.lra')
+        var parts = key.split('.');
+        var cur = data;
+        for (var j = 0; j < parts.length; j++) {
+          if (cur == null) { cur = undefined; break; }
+          cur = cur[parts[j]];
+        }
+        if (cur !== undefined && cur !== null && Number.isFinite(Number(cur))) {
+          return Number(cur);
+        }
+      }
+      return null;
+    };
+  }
+})();
+</script>
 
 <!-- ════════════════════════════════════════════════════════════
      SCRIPT DEPENDENCIES — exact order from analyze.html
@@ -1404,17 +1578,17 @@
     var allowed = ['.wav', '.mp3', '.flac', '.aiff', '.aif'];
     var ext = '.' + file.name.split('.').pop().toLowerCase();
     if (allowed.indexOf(ext) === -1) {
-      setStatus('Unsupported format. Please use WAV, MP3, FLAC or AIFF.', 'error');
+      setStatus('Formato não suportado. Use WAV, MP3, FLAC ou AIFF.', 'error');
       return;
     }
     var maxBytes = 150 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setStatus('File too large. Maximum size is 150 MB.', 'error');
+      setStatus('Arquivo muito grande. Tamanho máximo: 150 MB.', 'error');
       return;
     }
 
     _state.uploading = true;
-    setStatus('Uploading ' + file.name + '…', 'uploading');
+    setStatus('Enviando ' + file.name + '…', 'uploading');
     showProgress(true);
 
     // Ensure genre globals are set before upload
@@ -1432,7 +1606,7 @@
 
     preloadTargets.then(function () {
       if (typeof window.uploadFileOnly !== 'function') {
-        setStatus('Engine not ready yet. Please wait a moment and try again.', 'error');
+        setStatus('Motor ainda não está pronto. Aguarde um momento e tente novamente.', 'error');
         hideProgress();
         _state.uploading = false;
         return;
@@ -1506,28 +1680,65 @@
       modal.style.display = 'none';
       modal.setAttribute('aria-hidden', 'true');
     }
+    hideProcessingModal();
     _state.analysisOpen = false;
     // Reset state so user can upload another track
     _state.fileKey  = null;
     _state.fileName = null;
-    setStatus('Ready — Max 150 MB · WAV and FLAC recommended for best accuracy', '');
+    setStatus('Pronto — Máx. 150 MB · WAV e FLAC recomendados para maior precisão', '');
   };
+
+  // ── PROCESSING MODAL ──────────────────────────────────────
+  function showProcessingModal() {
+    var el = document.getElementById('analysisProcessingModal');
+    if (!el) return;
+    // Re-create inner steps to restart animations on each run
+    var steps = el.querySelectorAll('.processing-step');
+    steps.forEach(function (s) {
+      s.style.animation = 'none';
+      // Force reflow
+      void s.offsetWidth; // eslint-disable-line no-void
+      s.style.animation = '';
+    });
+    el.classList.add('active');
+    el.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideProcessingModal() {
+    var el = document.getElementById('analysisProcessingModal');
+    if (!el) return;
+    el.classList.remove('active');
+    el.setAttribute('aria-hidden', 'true');
+  }
 
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
   function runAnalysis() {
     closeDecisionModal();
 
     if (!_state.fileKey || !_state.fileName) {
-      setStatus('No file found. Please upload a track first.', 'error');
+      setStatus('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.', 'error');
       return;
     }
 
     if (typeof window.runAnalysisFromFileKey !== 'function') {
-      setStatus('Engine not ready. Please wait a moment and try again.', 'error');
+      setStatus('Motor não pronto. Por favor, aguarde um momento e tente novamente.', 'error');
       return;
     }
 
+    showProcessingModal();
     openAnalysisModal();
+
+    // Patch displayModalResults to hide processing modal when results are rendered
+    var _origDisplay = window.displayModalResults;
+    window.displayModalResults = function () {
+      hideProcessingModal();
+      if (typeof _origDisplay === 'function') {
+        return _origDisplay.apply(this, arguments);
+      }
+      // Restore original after first call to avoid permanent wrapping
+      window.displayModalResults = _origDisplay;
+    };
+
     window.runAnalysisFromFileKey(_state.fileKey, _state.fileName);
   }
 
@@ -1535,7 +1746,7 @@
   function masterDirect() {
     closeDecisionModal();
     if (!_state.fileKey) {
-      setStatus('No file found. Please upload a track first.', 'error');
+      setStatus('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.', 'error');
       return;
     }
     var url = 'master.html'
