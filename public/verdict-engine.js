@@ -11,11 +11,11 @@
  *   → applyMixVerdictToRenderedModal(window.__VERDICT_SOURCE_DATA__)
  *     1. gera veredito a partir de analysis.technicalData
  *     2. substitui .score-final-status (label curto)
- *     3. substitui #aiHelperText (texto grande explicativo)
- *     4. insere/atualiza #verdictMasterBtn abaixo do texto grande
+ *     3. insere .verdict-main-text dentro de #final-score-display (apos #diagnostic-container)
+ *     4. insere #verdictMasterBtn imediatamente apos .verdict-main-text
  *
  * NAO altera: score numerico, cards de metricas, sugestoes, tabelas, fluxo.
- * Elemento-alvo: #aiHelperText (bloco grande central abaixo do score).
+ * Elemento-alvo: #final-score-display (container do topo do modal).
  *
  * AUDITORIA: prefixo [VERDICT-AUDIT] em todos os logs críticos.
  */
@@ -261,8 +261,8 @@
       '.verdict-good{color:#22c55e!important;animation:__verdictIn .3s ease;}' +
       '.verdict-warning{color:#f59e0b!important;animation:__verdictIn .3s ease;}' +
       '.verdict-bad{color:#ef4444!important;animation:__verdictIn .3s ease;}' +
-      '#aiHelperText.verdict-applied{' +
-        'padding:14px;border-radius:8px;' +
+      '.verdict-main-text{' +
+        'padding:14px;border-radius:8px;margin-top:12px;' +
         'background:rgba(30,36,50,.55);' +
         'border:1px solid rgba(100,120,180,.18);' +
         'line-height:1.65;font-size:14px;animation:__verdictIn .4s ease;' +
@@ -313,48 +313,55 @@
   }
 
   // ─────────────────────────────────────────────────────────────
-  // RENDER: texto grande (#aiHelperText) + CTA (#verdictMasterBtn)
+  // RENDER: texto grande + CTA dentro de #final-score-display
   // ─────────────────────────────────────────────────────────────
 
   var COLOR_MAP = { good: '#22c55e', warning: '#f59e0b', bad: '#ef4444' };
 
   function _renderMainTextAndCTA(verdict, techData) {
-    // Buscar o container do score para evitar pegar #aiHelperText errado
-    var scoreContainer = document.querySelector('.score-final-wrapper')
-                      || document.querySelector('[data-score-section]');
-
-    var aiBox = scoreContainer
-      ? scoreContainer.querySelector('#aiHelperText')
-      : document.querySelector('#aiHelperText');
-
-    if (!aiBox) {
-      vwarn('[VERDICT] #aiHelperText não encontrado no scoreContainer — texto principal não atualizado');
+    // PASSO 2 — Container correto: #final-score-display (topo do modal)
+    var scoreContainer = document.getElementById('final-score-display');
+    if (!scoreContainer) {
+      vwarn('[VERDICT] ERRO: #final-score-display não encontrado — abortando render');
       return false;
     }
-    vlog('[VERDICT] bloco principal encontrado (#aiHelperText) dentro de', scoreContainer ? '.score-final-wrapper / [data-score-section]' : 'DOM global (fallback)');
+    vlog('[VERDICT] container correto encontrado (#final-score-display)');
 
-    // PASSO 3 — Substituir texto (sem criar nada)
-    aiBox.innerHTML = generateMixVerdictMainText(verdict, techData);
-    aiBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
-    aiBox.classList.add('verdict-applied');
-    aiBox.style.display = '';            // garantir visível mesmo em modo reference
-    vlog('[VERDICT] texto principal atualizado (status=' + verdict.status + ')');
+    // PASSO 3 — Inserir texto logo após #diagnostic-container
+    var diagnostic = scoreContainer.querySelector('#diagnostic-container');
+    var anchor     = diagnostic || scoreContainer.lastElementChild;
 
-    // PASSO 4 — Inserir CTA no lugar certo (dentro do scoreContainer)
-    var cta = scoreContainer
-      ? scoreContainer.querySelector('#verdictMasterBtn')
-      : document.getElementById('verdictMasterBtn');
+    // Remover instância prévia para não duplicar
+    var existingBox = scoreContainer.querySelector('.verdict-main-text');
+    if (existingBox) { existingBox.remove(); }
 
-    if (!cta) {
-      cta      = document.createElement('button');
-      cta.id   = 'verdictMasterBtn';
-      cta.type = 'button';
-      cta.className = 'btn-master-primary';
-      cta.textContent = 'MASTERIZAR AGORA';
-      aiBox.insertAdjacentElement('afterend', cta);
+    var verdictBox = document.createElement('div');
+    verdictBox.className = 'verdict-main-text';
+    verdictBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
+    verdictBox.innerHTML = generateMixVerdictMainText(verdict, techData);
+
+    if (anchor) {
+      anchor.insertAdjacentElement('afterend', verdictBox);
+    } else {
+      scoreContainer.appendChild(verdictBox);
     }
+    vlog('[VERDICT] texto principal inserido após #diagnostic-container (status=' + verdict.status + ')');
 
-    // PASSO 5 — Limpar versões erradas (duplicatas fora do scoreContainer)
+    // PASSO 4 — Inserir CTA logo abaixo do verdictBox
+    var existingCta = scoreContainer.querySelector('#verdictMasterBtn');
+    if (existingCta) { existingCta.remove(); }
+
+    var cta      = document.createElement('button');
+    cta.id       = 'verdictMasterBtn';
+    cta.type     = 'button';
+    cta.className = 'btn-master-primary';
+    cta.textContent = 'MASTERIZAR AGORA';
+    verdictBox.insertAdjacentElement('afterend', cta);
+
+    // PASSO 5 — Limpar quaisquer duplicatas fora do scoreContainer
+    document.querySelectorAll('.verdict-main-text').forEach(function (el, i) {
+      if (i > 0) { el.remove(); }
+    });
     document.querySelectorAll('#verdictMasterBtn').forEach(function (el, i) {
       if (i > 0) { el.remove(); }
     });
@@ -372,7 +379,7 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     };
 
-    vlog('[VERDICT] CTA masterizar inserido (#verdictMasterBtn)');
+    vlog('[VERDICT] CTA #verdictMasterBtn inserido após .verdict-main-text');
     return true;
   }
 
@@ -429,32 +436,25 @@
       vlog('[VERDICT-AUDIT] .score-final-status encontrado:', !!scoreLabelEl);
       _renderScoreLabel(verdict);
 
-      // ── 2. Texto grande + CTA (#aiHelperText) ──
-      var _scoreContainerAudit = document.querySelector('.score-final-wrapper')
-                               || document.querySelector('[data-score-section]');
-      var aiHelperEl = _scoreContainerAudit
-        ? _scoreContainerAudit.querySelector('#aiHelperText')
-        : document.querySelector('#aiHelperText');
-      vlog('[VERDICT-AUDIT] scoreContainer encontrado:', !!_scoreContainerAudit);
-      vlog('[VERDICT-AUDIT] #aiHelperText (scoped) encontrado:', !!aiHelperEl,
-        aiHelperEl ? '| display=' + (aiHelperEl.style.display || 'CSS') : ''
-      );
+      // ── 2. Texto grande + CTA (dentro de #final-score-display) ──
+      var _scoreContainerAudit = document.getElementById('final-score-display');
+      vlog('[VERDICT-AUDIT] #final-score-display encontrado:', !!_scoreContainerAudit);
 
       var ok = _renderMainTextAndCTA(verdict, techData);
       vlog('[VERDICT-AUDIT] _renderMainTextAndCTA retornou:', ok);
 
       // ── 3. Snapshot de confirmação ──
-      var _sc2 = document.querySelector('.score-final-wrapper') || document.querySelector('[data-score-section]');
-      var aiEl2 = _sc2 ? _sc2.querySelector('#aiHelperText') : document.querySelector('#aiHelperText');
-      if (aiEl2) {
-        vlog('[VERDICT-AUDIT] #aiHelperText após render:',
-          'display=' + (aiEl2.style.display || 'CSS'),
-          '| texto[0..80]="' + (aiEl2.textContent || '').slice(0, 80) + '"'
+      var verdictBoxEl = _scoreContainerAudit ? _scoreContainerAudit.querySelector('.verdict-main-text') : null;
+      if (verdictBoxEl) {
+        vlog('[VERDICT-AUDIT] .verdict-main-text após render:',
+          '| texto[0..80]="' + (verdictBoxEl.textContent || '').slice(0, 80) + '"'
         );
       }
 
       var ctaEl = document.getElementById('verdictMasterBtn');
-      vlog('[VERDICT-AUDIT] #verdictMasterBtn presente no DOM:', !!ctaEl);
+      vlog('[VERDICT-AUDIT] #verdictMasterBtn presente no DOM:', !!ctaEl,
+        ctaEl ? '| parent=' + (ctaEl.parentElement && ctaEl.parentElement.id) : ''
+      );
 
       if (ok) {
         vlog('[VERDICT-AUDIT] ✅ fluxo finalizado — status=' + verdict.status);
