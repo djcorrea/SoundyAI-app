@@ -638,6 +638,20 @@
       gap: 8px;
     }
     .hub-error-bar.visible { display: flex; }
+    /* Hub spinner — 42 px purple, isolated keyframe to avoid external CSS conflicts */
+    .hub-spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid #7c5cff;
+      animation: hub-spin .9s linear infinite;
+      will-change: transform;
+    }
+    @keyframes hub-spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
     /* 5th processing step timing (hub analyzing panel) */
     .processing-step:nth-child(5) { animation-delay: 2.6s; }
 
@@ -1229,15 +1243,11 @@
       <!-- ── STATE: ANALYZING — spinner + 5 etapas ────────── -->
       <div id="hubPanelAnalyzing" class="hub-panel" style="display:none;">
         <div class="hub-state-content">
-          <div class="processing-spinner-wrap">
-            <div class="processing-glow"></div>
-            <div class="processing-spinner"></div>
-            <div class="processing-spinner-inner"></div>
-          </div>
-          <div class="hub-state-title">Analisando faixa</div>
+          <div class="hub-spinner" aria-hidden="true"></div>
+          <div class="hub-state-title">Analisando sua música</div>
           <ul class="processing-steps" id="hubAnalyzingSteps" aria-label="Etapas de análise">
             <li class="processing-step"><span class="processing-step-dot"></span>Extraindo áudio</li>
-            <li class="processing-step"><span class="processing-step-dot"></span>Coletando métricas</li>
+            <li class="processing-step"><span class="processing-step-dot"></span>Coletando métricas LUFS e True Peak</li>
             <li class="processing-step"><span class="processing-step-dot"></span>Avaliando dinâmica</li>
             <li class="processing-step"><span class="processing-step-dot"></span>Analisando espectro</li>
             <li class="processing-step"><span class="processing-step-dot"></span>Gerando diagnóstico</li>
@@ -1901,6 +1911,10 @@
 
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
   function runAnalysis() {
+    if (_currentHubState !== 'uploaded') {
+      showError('Envie um arquivo antes de iniciar a análise.');
+      return;
+    }
     if (!_state.fileKey || !_state.fileName) {
       showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
       return;
@@ -1911,7 +1925,7 @@
     }
 
     setState('analyzing');
-    openAnalysisModal();
+    // openAnalysisModal() is called by setState('done') when results are ready
 
     // Patch displayModalResults: call setState('done') when results arrive.
     // Preserva verdictPatched e outros wraps já existentes.
