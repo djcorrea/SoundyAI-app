@@ -339,39 +339,15 @@
     }
     vlog('[VERDICT] texto principal inserido após #diagnostic-container (status=' + verdict.status + ')');
 
-    // PASSO 4 — Inserir CTA logo abaixo do verdictBox
-    var existingCta = scoreContainer.querySelector('#verdictMasterBtn');
-    if (existingCta) { existingCta.remove(); }
+    // PASSO 4 — Removido: #verdictMasterBtn era duplicata de #btnMasterizar (HTML estático)
+    // CTA de masterização é gerenciado pelo #btnMasterizar em home.html
 
-    var cta      = document.createElement('button');
-    cta.id       = 'verdictMasterBtn';
-    cta.type     = 'button';
-    cta.className = 'btn-master-primary';
-    cta.textContent = 'MASTERIZAR AGORA';
-    verdictBox.insertAdjacentElement('afterend', cta);
-
-    // PASSO 5 — Limpar quaisquer duplicatas fora do scoreContainer
+    // PASSO 5 — Limpar quaisquer duplicatas do texto de veredito
     document.querySelectorAll('.verdict-main-text').forEach(function (el, i) {
       if (i > 0) { el.remove(); }
     });
-    document.querySelectorAll('#verdictMasterBtn').forEach(function (el, i) {
-      if (i > 0) { el.remove(); }
-    });
 
-    cta.onclick = function () {
-      if (typeof window.startAutoMasterFlow === 'function') {
-        window.startAutoMasterFlow();
-        return;
-      }
-      var fileKey  = window.__HOME_FILE_KEY__  || window.__PENDING_FILE_KEY__  || '';
-      var fileName = window.__HOME_FILE_NAME__ || window.__PENDING_FILE_NAME__ || '';
-      var url = 'master.html'
-              + (fileKey  ? '?fileKey='  + encodeURIComponent(fileKey)  : '')
-              + (fileName ? '&fileName=' + encodeURIComponent(fileName) : '');
-      window.open(url, '_blank', 'noopener,noreferrer');
-    };
-
-    vlog('[VERDICT] CTA #verdictMasterBtn inserido após .verdict-main-text');
+    vlog('[VERDICT] veredito inserido — CTA gerenciado por #btnMasterizar (HTML estático)');
     return true;
   }
 
@@ -453,10 +429,7 @@
         );
       }
 
-      var ctaEl = document.getElementById('verdictMasterBtn');
-      vlog('[VERDICT-AUDIT] #verdictMasterBtn presente no DOM:', !!ctaEl,
-        ctaEl ? '| parent=' + (ctaEl.parentElement && ctaEl.parentElement.id) : ''
-      );
+      // #verdictMasterBtn removido — CTA gerenciado por #btnMasterizar (HTML estático)
 
       if (ok) {
         vlog('[VERDICT-AUDIT] ✅ fluxo finalizado — status=' + verdict.status);

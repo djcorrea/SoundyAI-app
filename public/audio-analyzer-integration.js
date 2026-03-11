@@ -10028,6 +10028,10 @@ function renderGenreComparisonTable(options) {
                 border-radius: 16px;
                 padding: 24px;
                 margin-top: 16px;
+                /* Sobrescreve restrições herdadas da classe .card que cortam a tabela no desktop */
+                overflow: visible;
+                height: auto;
+                min-height: 0;
             }
             
             .classic-genre-table {
@@ -10066,6 +10070,8 @@ function renderGenreComparisonTable(options) {
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                 color: #f5f7fa;
                 text-align: center;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }
             
             .classic-genre-table td:first-child {
