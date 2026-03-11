@@ -443,7 +443,17 @@
       var ok = _renderMainTextAndCTA(verdict, techData);
       vlog('[VERDICT-AUDIT] _renderMainTextAndCTA retornou:', ok);
 
-      // ── 3. Snapshot de confirmação ──
+      // ── 3. Remover bloco de diagnóstico antigo (gerado por renderFinalScoreAtTop) ──
+      var oldDiagnostic = document.querySelector('#final-score-display #diagnostic-container');
+      vlog('[VERDICT-AUDIT] diagnostic antigo:', oldDiagnostic);
+      if (oldDiagnostic) {
+        oldDiagnostic.remove();
+        vlog('[VERDICT-AUDIT] #diagnostic-container removido');
+      }
+      // Proteção: garantir que não haja nenhuma instância restante
+      document.querySelectorAll('#diagnostic-container').forEach(function (el) { el.remove(); });
+
+      // ── 4. Snapshot de confirmação ──
       var verdictBoxEl = _scoreContainerAudit ? _scoreContainerAudit.querySelector('.verdict-main-text') : null;
       if (verdictBoxEl) {
         vlog('[VERDICT-AUDIT] .verdict-main-text após render:',
