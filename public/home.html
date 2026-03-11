@@ -380,21 +380,12 @@
     .upload-panel:hover {
       border-color: var(--border-glow);
     }
-    /* Upload hub container — classe por estado, sem height fixo */
+    /* Upload hub — flex-column: header fixa no topo, painel filho expande,
+       footer (genre-row) fica na base. Sem animar height: elimina bounce. */
     .uploadHub {
-      min-height: 260px;
-      /* transition restrito a min-height: evita interferir com transform do spinner */
-      transition: min-height .28s ease, border-color .2s ease, box-shadow .2s ease;
-    }
-    .uploadHub.is-uploading,
-    .uploadHub.is-uploaded,
-    .uploadHub.is-analyzing {
-      min-height: 420px;
-    }
-    /* Estado chose: permite scroll se conteúdo ultrapassar viewport */
-    .uploadHub.is-uploaded {
-      max-height: 78vh;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
     }
     /* Esconde seletor de gênero durante upload e análise */
     .uploadHub.is-uploading .genre-row,
@@ -605,7 +596,13 @@
     /* ════════════════════════════════════════════════════════════════
        HUB INLINE STATE PANELS
     ════════════════════════════════════════════════════════════════ */
+    /* Hub panels — flex:1 preenche o espaço entre header e footer,
+       justify-content:center centraliza o conteúdo verticalmente em todos os estados */
     .hub-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
       opacity: 0;
       transform: translateY(6px);
       filter: blur(1.5px);
