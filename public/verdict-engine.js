@@ -1,11 +1,14 @@
 /**
- * VERDICT ENGINE (MIX) v3.0
+ * VERDICT ENGINE (MIX) v4.0
  *
- * Camada de interpretacao pos-render — lida DEPOIS que displayModalResults termina.
+ * Camada de interpretacao pos-render — ativada por MutationObserver em
+ * #audioAnalysisResults. Independe completamente da cadeia de chamadas de
+ * window.displayModalResults.
  *
  * Fluxo:
- *   displayModalResults(analysis) concluido
- *   → applyMixVerdictToRenderedModal(analysis)
+ *   #audioAnalysisResults.style.display muda para 'block'
+ *   → debounce 500ms (aguarda DOM estabilizar, incluindo AI enrichment)
+ *   → applyMixVerdictToRenderedModal(window.__VERDICT_SOURCE_DATA__)
  *     1. gera veredito a partir de analysis.technicalData
  *     2. substitui .score-final-status (label curto)
  *     3. substitui #aiHelperText (texto grande explicativo)
@@ -13,6 +16,8 @@
  *
  * NAO altera: score numerico, cards de metricas, sugestoes, tabelas, fluxo.
  * Elemento-alvo: #aiHelperText (bloco grande central abaixo do score).
+ *
+ * AUDITORIA: prefixo [VERDICT-AUDIT] em todos os logs críticos.
  */
 (function () {
   'use strict';
@@ -364,12 +369,21 @@
 
   function applyMixVerdictToRenderedModal(analysis) {
     try {
-      vlog('[VERDICT] modal render detectado — iniciando applyMixVerdictToRenderedModal');
+      vlog('[VERDICT-AUDIT] ─────────────────────────────────────────────');
+      vlog('[VERDICT-AUDIT] applyMixVerdictToRenderedModal iniciado');
 
       var src = analysis
                 || window.__VERDICT_SOURCE_DATA__
                 || window.__LAST_BACKEND_DATA__
                 || {};
+
+      vlog('[VERDICT-AUDIT] fonte de dados:', {
+        hasAnalysis:       !!(analysis && typeof analysis === 'object'),
+        hasVerdictSource:  !!window.__VERDICT_SOURCE_DATA__,
+        hasLastBackend:    !!window.__LAST_BACKEND_DATA__,
+        hasTechData:       !!(src && src.technicalData),
+        techDataKeys:      src && src.technicalData ? Object.keys(src.technicalData).slice(0, 8).join(',') : 'n/a'
+      });
 
       // Gerar veredito a partir de technicalData (prioritário) ou objeto raiz
       var techData = (src.technicalData && typeof src.technicalData === 'object')
@@ -378,79 +392,169 @@
 
       var vResult = generateMixVerdict(techData);
       if (!vResult || !vResult.verdict) {
-        vwarn('[VERDICT] não foi possível gerar veredito — abortando');
+        vwarn('[VERDICT-AUDIT] ❌ não foi possível gerar veredito — abortando');
         return;
       }
 
       var verdict = vResult.verdict;
       window.__LAST_MIX_VERDICT__ = verdict;
 
+      vlog('[VERDICT-AUDIT] veredito gerado:', {
+        status:           verdict.status,
+        label:            verdict.label,
+        possiblyMastered: verdict.possiblyMastered,
+        lufs:             verdict.metrics && verdict.metrics.lufs,
+        tp:               verdict.metrics && verdict.metrics.tp,
+        dr:               verdict.metrics && verdict.metrics.dr
+      });
+
       _injectStyles();
 
-      // 1. Label curto
+      // ── 1. Label curto (.score-final-status) ──
+      var scoreLabelEl = document.querySelector('.score-final-status');
+      vlog('[VERDICT-AUDIT] .score-final-status encontrado:', !!scoreLabelEl);
       _renderScoreLabel(verdict);
 
-      // 2. Texto grande + CTA
+      // ── 2. Texto grande + CTA (#aiHelperText) ──
+      var aiHelperEl = document.getElementById('aiHelperText');
+      vlog('[VERDICT-AUDIT] #aiHelperText encontrado:', !!aiHelperEl,
+        aiHelperEl ? '| display=' + (aiHelperEl.style.display || 'CSS') : ''
+      );
+
       var ok = _renderMainTextAndCTA(verdict, techData);
+      vlog('[VERDICT-AUDIT] _renderMainTextAndCTA retornou:', ok);
+
+      // ── 3. Snapshot de confirmação ──
+      var aiEl2 = document.getElementById('aiHelperText');
+      if (aiEl2) {
+        vlog('[VERDICT-AUDIT] #aiHelperText após render:',
+          'display=' + (aiEl2.style.display || 'CSS'),
+          '| texto[0..80]="' + (aiEl2.textContent || '').slice(0, 80) + '"'
+        );
+      }
+
+      var ctaEl = document.getElementById('verdictMasterBtn');
+      vlog('[VERDICT-AUDIT] #verdictMasterBtn presente no DOM:', !!ctaEl);
 
       if (ok) {
-        vlog('[VERDICT] fluxo finalizado — status=' + verdict.status);
+        vlog('[VERDICT-AUDIT] ✅ fluxo finalizado — status=' + verdict.status);
+      } else {
+        vwarn('[VERDICT-AUDIT] ⚠️ fluxo concluído com falha parcial');
       }
+      vlog('[VERDICT-AUDIT] ─────────────────────────────────────────────');
     } catch (err) {
-      vwarn('[VERDICT] erro em applyMixVerdictToRenderedModal:', err);
+      vwarn('[VERDICT-AUDIT] ❌ erro em applyMixVerdictToRenderedModal:', err);
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  // AUTO-PATCH: displayModalResults
-  // Aguarda a Promise resolver (async function) para garantir que
-  // o DOM está totalmente montado antes de aplicar o veredito.
+  // OBSERVADOR: MutationObserver em #audioAnalysisResults
+  //
+  // Abordagem v4: em vez de patchear window.displayModalResults,
+  // observamos diretamente quando #audioAnalysisResults se torna
+  // visível (display=block). Isso dispara independente da cadeia
+  // de chamadas interna do motor.
+  //
+  // Debounce de 500ms para aguardar todas as mutações DOM
+  // (AI enrichment assíncrono, sugestões, tabelas, etc.)
   // ─────────────────────────────────────────────────────────────
 
+  function _installResultsObserver() {
+    var resultsEl = document.getElementById('audioAnalysisResults');
+    if (!resultsEl) {
+      vwarn('[VERDICT-AUDIT] #audioAnalysisResults não encontrado — observer não instalado');
+      return false;
+    }
+
+    var debounceTimer = null;
+    var lastVisibleState = false;
+
+    var obs = new MutationObserver(function (mutations) {
+      var nowVisible = resultsEl.style.display === 'block';
+
+      if (nowVisible && !lastVisibleState) {
+        // Transição hidden → visible
+        lastVisibleState = true;
+        vlog('[VERDICT-AUDIT] #audioAnalysisResults ficou visível — aguardando 500ms para DOM estabilizar');
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+          var src = window.__VERDICT_SOURCE_DATA__
+                 || window.__LAST_BACKEND_DATA__
+                 || {};
+
+          vlog('[VERDICT-AUDIT] disparo do veredito — fonte de dados:',
+            src && src.technicalData ? '✅ technicalData presente' : '⚠️ technicalData ausente',
+            '| keys:', src ? Object.keys(src).slice(0,6).join(',') : 'nenhum'
+          );
+
+          applyMixVerdictToRenderedModal(src);
+        }, 500);
+
+      } else if (!nowVisible && lastVisibleState) {
+        // Modal fechado
+        lastVisibleState = false;
+        clearTimeout(debounceTimer);
+        vlog('[VERDICT-AUDIT] #audioAnalysisResults ocultado — timer cancelado');
+      }
+    });
+
+    obs.observe(resultsEl, { attributes: true, attributeFilter: ['style'] });
+    vlog('[VERDICT-AUDIT] ✅ MutationObserver instalado em #audioAnalysisResults');
+    return true;
+  }
+
   window.addEventListener('load', function () {
+    // Tentar instalar imediatamente
+    if (_installResultsObserver()) { return; }
+
+    // Se o elemento ainda não existe, tentar periodicamente
     var attempts = 0;
-    (function tryPatch() {
+    var timer = setInterval(function () {
       attempts++;
-      var fn = window.displayModalResults;
-      if (typeof fn !== 'function') {
-        if (attempts < 50) { setTimeout(tryPatch, 250); }
-        else { vwarn('[VERDICT] displayModalResults não encontrada após 50 tentativas'); }
+      if (_installResultsObserver() || attempts >= 30) {
+        clearInterval(timer);
+        if (attempts >= 30) {
+          vwarn('[VERDICT-AUDIT] ❌ #audioAnalysisResults não encontrado após 30 tentativas — fallback para patch');
+          _installFallbackPatch();
+        }
+      }
+    }, 250);
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // FALLBACK: patch de window.displayModalResults
+  // Usado apenas se o MutationObserver não pôde ser instalado.
+  // ─────────────────────────────────────────────────────────────
+
+  function _installFallbackPatch() {
+    var fn = window.displayModalResults;
+    if (typeof fn !== 'function' || fn.__verdictPatched__) { return; }
+
+    var _orig = fn;
+    window.displayModalResults = function verdictDisplayWrapper(analysis) {
+      if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
+      var result;
+      try {
+        result = _orig.apply(this, arguments);
+      } catch (syncErr) {
+        vwarn('[VERDICT-AUDIT] erro síncrono em displayModalResults (fallback):', syncErr);
+        applyMixVerdictToRenderedModal(analysis);
         return;
       }
-      if (fn.__verdictPatched__) { return; }
-
-      var _orig = fn;
-
-      window.displayModalResults = function verdictDisplayWrapper(analysis) {
-        if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
-
-        var result;
-        try {
-          result = _orig.apply(this, arguments);
-        } catch (syncErr) {
-          vwarn('[VERDICT] erro síncrono em displayModalResults:', syncErr);
-          applyMixVerdictToRenderedModal(analysis);
-          return;
-        }
-
-        // displayModalResults é async → result é uma Promise
-        if (result && typeof result.then === 'function') {
-          result.then(
-            function () { applyMixVerdictToRenderedModal(analysis); },
-            function () { applyMixVerdictToRenderedModal(analysis); }  // mesmo em erro, tenta o veredito
-          );
-        } else {
-          // Fallback: setTimeout conservador se não for Promise
-          setTimeout(function () { applyMixVerdictToRenderedModal(analysis); }, 400);
-        }
-
-        return result;
-      };
-
-      window.displayModalResults.__verdictPatched__ = true;
-      vlog('[VERDICT] displayModalResults patcheada com sucesso');
-    })();
-  });
+      if (result && typeof result.then === 'function') {
+        result.then(
+          function () { applyMixVerdictToRenderedModal(analysis); },
+          function () { applyMixVerdictToRenderedModal(analysis); }
+        );
+      } else {
+        setTimeout(function () { applyMixVerdictToRenderedModal(analysis); }, 500);
+      }
+      return result;
+    };
+    window.displayModalResults.__verdictPatched__ = true;
+    vwarn('[VERDICT-AUDIT] ⚠️ Fallback patch instalado em window.displayModalResults');
+  }
 
   // ─────────────────────────────────────────────────────────────
   // EXPORTS GLOBAIS
