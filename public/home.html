@@ -842,7 +842,7 @@
       box-shadow: 0 0 60px rgba(74, 143, 255, 0.14), 0 24px 64px rgba(0,0,0,0.7);
       animation: processingPanelIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    @keyframes processingPanelIn {
+  @keyframes processingPanelIn {
       from { opacity: 0; transform: scale(0.88) translateY(20px); }
       to   { opacity: 1; transform: scale(1)   translateY(0); }
     }
@@ -858,7 +858,7 @@
       border: 3px solid transparent;
       border-top-color: var(--accent-blue);
       border-right-color: var(--accent-purple);
-      animation: spin 1s linear infinite;
+      animation: home-spin 1s linear infinite;
     }
     .processing-spinner-inner {
       position: absolute;
@@ -866,17 +866,17 @@
       border-radius: 50%;
       border: 2px solid transparent;
       border-bottom-color: var(--accent-cyan);
-      animation: spin 0.7s linear infinite reverse;
+      animation: home-spin 0.7s linear infinite reverse;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes home-spin { to { transform: rotate(360deg); } }
     .processing-glow {
       position: absolute;
       inset: -6px;
       border-radius: 50%;
       background: radial-gradient(circle, rgba(74,143,255,0.12) 0%, transparent 70%);
-      animation: pulse 2s ease-in-out infinite;
+      animation: home-pulse 2s ease-in-out infinite;
     }
-    @keyframes pulse {
+    @keyframes home-pulse {
       0%, 100% { opacity: 0.6; transform: scale(1); }
       50%       { opacity: 1;   transform: scale(1.1); }
     }
@@ -909,13 +909,13 @@
       color: var(--text-secondary);
       opacity: 0;
       transform: translateX(-8px);
-      animation: stepIn 0.4s forwards;
+      animation: home-step-in 0.4s forwards;
     }
     .processing-step:nth-child(1) { animation-delay: 0.2s; }
     .processing-step:nth-child(2) { animation-delay: 0.7s; }
     .processing-step:nth-child(3) { animation-delay: 1.4s; }
     .processing-step:nth-child(4) { animation-delay: 2.0s; }
-    @keyframes stepIn {
+    @keyframes home-step-in {
       to { opacity: 1; transform: translateX(0); }
     }
     .processing-step-dot {
@@ -1728,17 +1728,6 @@
     showProcessingModal();
     openAnalysisModal();
 
-    // Patch displayModalResults to hide processing modal when results are rendered
-    var _origDisplay = window.displayModalResults;
-    window.displayModalResults = function () {
-      hideProcessingModal();
-      if (typeof _origDisplay === 'function') {
-        return _origDisplay.apply(this, arguments);
-      }
-      // Restore original after first call to avoid permanent wrapping
-      window.displayModalResults = _origDisplay;
-    };
-
     window.runAnalysisFromFileKey(_state.fileKey, _state.fileName);
   }
 
@@ -1765,6 +1754,9 @@
     var obs = new MutationObserver(function () {
       var isVisible = resultsEl.style.display !== 'none' && resultsEl.style.display !== '';
       if (isVisible) {
+        // Hide processing modal as soon as results appear
+        hideProcessingModal();
+
         var jobId = window.__CURRENT_JOB_ID__ || '';
         masterBtn.href = jobId
           ? 'master.html?jobId=' + encodeURIComponent(jobId)
