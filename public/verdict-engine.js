@@ -94,6 +94,9 @@
   /**
    * Retorna { verdict: { status, label, possiblyMastered } }
    * status: 'bad' | 'warning' | 'good'
+   *
+   * Ordem de importância (pré-master):
+   *   clipping → true peak → crest factor → headroom → LUFS (contexto)
    */
   function generateMixVerdict(dataOrMetrics) {
     // Aceita tanto o objeto analysis completo quanto métricas já extraídas
@@ -103,14 +106,18 @@
 
     var lufs     = m.lufs;
     var tp       = m.tp;
-    var dr       = m.dr;
     var cf       = m.crestFactor;
     var clipping = m.clipping;
 
+    // Headroom = espaço abaixo de 0 dBFS = –tp (quanto menor o TP, mais headroom)
+    var headroom = (tp !== null) ? -tp : null;
+
     var possiblyMastered = (lufs !== null && lufs >= -11 && tp !== null && tp >= -1.2);
 
-    // ── VERMELHO: qualquer condição crítica ──
-    if (clipping || (tp !== null && tp >= -0.3) || (lufs !== null && lufs >= -10)) {
+    // ── BAD: clipping real OU true peak crítico OU crest muito baixo ──
+    if (clipping ||
+        (tp !== null && tp >= -0.5) ||
+        (cf !== null && cf <= 8)) {
       return {
         verdict: {
           status:           'bad',
@@ -121,27 +128,11 @@
       };
     }
 
-    // ── VERDE: condições ideais ──
-    if (!clipping &&
-        lufs !== null && lufs >= -16 && lufs <= -14 &&
-        tp   !== null && tp   <= -3  &&
-        dr   !== null && dr   >= 10  &&
-        (cf  === null || cf >= 6)) {
-      return {
-        verdict: {
-          status:           'good',
-          label:            'Mix apta para masteriza\u00e7\u00e3o',
-          possiblyMastered: possiblyMastered,
-          metrics:          m
-        }
-      };
-    }
-
-    // ── AMARELO: range aceitável ──
-    if (!clipping &&
-        lufs !== null && lufs >= -18 && lufs <= -13 &&
-        tp   !== null && tp   <= -2  &&
-        dr   !== null && dr   >= 9) {
+    // ── WARNING: true peak alto OU crest baixo OU LUFS saturado ──
+    if ((tp !== null && tp >= -1) ||
+        (cf !== null && cf < 9) ||
+        (headroom !== null && headroom <= 4) ||
+        (lufs !== null && lufs >= -13)) {
       return {
         verdict: {
           status:           'warning',
@@ -152,11 +143,23 @@
       };
     }
 
-    // ── FALLBACK ──
+    // ── WARNING leve: LUFS muito baixo (contexto informativo apenas) ──
+    if (lufs !== null && lufs <= -28) {
+      return {
+        verdict: {
+          status:           'warning',
+          label:            'Mix pode melhorar antes da masteriza\u00e7\u00e3o',
+          possiblyMastered: possiblyMastered,
+          metrics:          m
+        }
+      };
+    }
+
+    // ── GOOD: sem problemas críticos, TP adequado, crest saudável ──
     return {
       verdict: {
-        status:           'warning',
-        label:            'Mix pode melhorar antes da masteriza\u00e7\u00e3o',
+        status:           'good',
+        label:            'Mix apta para masteriza\u00e7\u00e3o',
         possiblyMastered: possiblyMastered,
         metrics:          m
       }
@@ -206,14 +209,11 @@
       if (verdict.metrics && verdict.metrics.clipping) {
         problems.push('clipping real detectado');
       }
-      if (rawTp !== null && rawTp >= -0.3) {
-        problems.push('True Peak muito alto (' + (tp || rawTp) + ' dBTP)');
+      if (rawTp !== null && rawTp >= -0.5) {
+        problems.push('True Peak cr\u00edtico (' + (tp || rawTp) + ' dBTP)');
       }
-      if (rawLufs !== null && rawLufs >= -10) {
-        problems.push('LUFS saturado (' + (lu || rawLufs) + ')');
-      }
-      if (rawDr !== null && rawDr < 9) {
-        problems.push('Dynamic Range comprimida (DR ' + (dr || rawDr) + ')');
+      if (rawCf !== null && rawCf <= 8) {
+        problems.push('Crest Factor muito baixo (' + (cf || rawCf) + ' dB) \u2014 mix hiperlimitada');
       }
       var pStr = problems.length
         ? ' Os n\u00edveis atuais indicam ' + problems.join(', ') + '.'
@@ -227,10 +227,11 @@
 
     if (verdict.status === 'warning') {
       var wIssues = [];
-      if (rawLufs !== null && rawLufs < -18)       { wIssues.push('LUFS um pouco baixo (' + lu + ')'); }
-      else if (rawLufs !== null && rawLufs > -13)  { wIssues.push('LUFS um pouco alto (' + lu + ')'); }
-      if (rawTp  !== null && rawTp  > -2)          { wIssues.push('True Peak em ' + tp + ' dBTP'); }
-      if (rawDr  !== null && rawDr  < 10)          { wIssues.push('din\u00e2mica reduzida (DR ' + dr + ')'); }
+      if (rawTp  !== null && rawTp  >= -1)          { wIssues.push('True Peak alto (' + tp + ' dBTP)'); }
+      else if (rawTp !== null && rawTp >= -2)        { wIssues.push('True Peak em ' + tp + ' dBTP'); }
+      if (rawCf  !== null && rawCf  < 9)             { wIssues.push('Crest Factor reduzido (' + cf + ' dB)'); }
+      if (rawLufs !== null && rawLufs >= -13)        { wIssues.push('LUFS elevado (' + lu + ') \u2014 pouco headroom'); }
+      else if (rawLufs !== null && rawLufs <= -28)   { wIssues.push('LUFS muito baixo (' + lu + ')'); }
 
       var wLine = wIssues.length
         ? ' Pontos de aten\u00e7\u00e3o: ' + wIssues.join('; ') + '.'
@@ -238,7 +239,7 @@
 
       return 'Sua mix pode ser masterizada, mas ainda h\u00e1 limita\u00e7\u00f5es que reduzem a margem de seguran\u00e7a do processamento final.' +
              wLine +
-             ' Pequenos ajustes em headroom, din\u00e2mica ou equil\u00edbrio tonal podem melhorar bastante o resultado da masteriza\u00e7\u00e3o' +
+             ' Pequenos ajustes em headroom, crest factor ou equil\u00edbrio tonal podem melhorar bastante o resultado da masteriza\u00e7\u00e3o' +
              metricsSuffix + '.' + possiblyMasteredNote;
     }
 
