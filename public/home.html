@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
@@ -563,6 +563,84 @@
     }
     .upload-status-bar.uploading .upload-status-dot { animation: dot-blink 0.8s ease-in-out infinite; }
 
+    /* ════════════════════════════════════════════════════════════════
+       HUB INLINE STATE PANELS
+    ════════════════════════════════════════════════════════════════ */
+    .hub-panel {
+      opacity: 0;
+      transform: translateY(6px);
+      filter: blur(1.5px);
+      transition: opacity 280ms ease, transform 280ms ease, filter 280ms ease;
+    }
+    .hub-panel.hub-active {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+    .hub-state-content {
+      padding: 40px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      text-align: center;
+    }
+    .hub-state-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(15px, 2.5vw, 19px);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.04em;
+    }
+    .hub-file-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(74, 143, 255, 0.08);
+      border: 1px solid rgba(74, 143, 255, 0.2);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      color: var(--accent-blue);
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .hub-file-badge span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hub-choice-eyebrow {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-cyan);
+      margin-bottom: 8px;
+    }
+    .hub-choice-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-top: 14px;
+      margin-bottom: 4px;
+    }
+    .hub-error-bar {
+      padding: 0 24px 10px;
+      font-size: 12px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--danger);
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .hub-error-bar.visible { display: flex; }
+    /* 5th processing step timing (hub analyzing panel) */
+    .processing-step:nth-child(5) { animation-delay: 2.6s; }
+
     /* Genre selector */
     .genre-row {
       padding: 14px 24px;
@@ -1044,8 +1122,8 @@
   <!-- ── MAIN CONTENT ────────────────────────────────────────── -->
   <main class="main-content" id="mainContent">
 
-    <!-- Upload Panel -->
-    <div class="upload-panel" id="uploadPanel" role="region" aria-label="Audio upload panel">
+    <!-- Upload Hub — unified inline state machine -->
+    <div class="upload-panel" id="uploadHub" role="region" aria-label="Audio upload panel">
 
       <div class="upload-panel-header" aria-hidden="true">
         <span class="upload-panel-header-dot dot-red"></span>
@@ -1054,45 +1132,126 @@
         <span class="upload-panel-title">Audio Input</span>
       </div>
 
-      <!-- Drop Zone -->
-      <div
-        class="upload-dropzone"
-        id="homeDropzone"
-        role="button"
-        tabindex="0"
-        aria-label="Drop zone: click or drag and drop an audio file here"
-      >
-        <div class="dropzone-border" aria-hidden="true"></div>
+      <!-- ── STATE: IDLE — drop zone ─────────────────────── -->
+      <div id="hubPanelIdle" class="hub-panel hub-active">
+        <div
+          class="upload-dropzone"
+          id="homeDropzone"
+          role="button"
+          tabindex="0"
+          aria-label="Drop zone: click or drag and drop an audio file here"
+        >
+          <div class="dropzone-border" aria-hidden="true"></div>
 
-        <div class="dropzone-icon" aria-hidden="true">🎚️</div>
+          <div class="dropzone-icon" aria-hidden="true">🎚️</div>
 
-        <p class="dropzone-text-primary">Arraste sua faixa aqui ou clique para enviar</p>
-        <p class="dropzone-text-secondary">Suporta arquivos de áudio sem perda e comprimidos</p>
+          <p class="dropzone-text-primary">Arraste sua faixa aqui ou clique para enviar</p>
+          <p class="dropzone-text-secondary">Suporta arquivos de áudio sem perda e comprimidos</p>
 
-        <div class="dropzone-formats" aria-label="Supported formats">
-          <span class="dropzone-format-tag">WAV</span>
-          <span class="dropzone-format-tag">MP3</span>
-          <span class="dropzone-format-tag">FLAC</span>
-          <span class="dropzone-format-tag">AIFF</span>
+          <div class="dropzone-formats" aria-label="Supported formats">
+            <span class="dropzone-format-tag">WAV</span>
+            <span class="dropzone-format-tag">MP3</span>
+            <span class="dropzone-format-tag">FLAC</span>
+            <span class="dropzone-format-tag">AIFF</span>
+          </div>
+
+          <button class="upload-btn-zone" id="homeUploadBtn" type="button" aria-label="Escolher arquivo de áudio">
+            Escolher Arquivo
+          </button>
         </div>
-
-        <button class="upload-btn-zone" id="homeUploadBtn" type="button" aria-label="Escolher arquivo de áudio">
-          Escolher Arquivo
-        </button>
       </div>
 
-      <!-- Progress bar -->
-      <div class="upload-progress-bar" id="homeProgressBar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-        <div class="upload-progress-fill indeterminate" id="homeProgressFill"></div>
+      <!-- ── STATE: UPLOADING — spinner + progress ────────── -->
+      <div id="hubPanelUploading" class="hub-panel" style="display:none;">
+        <div class="hub-state-content">
+          <div class="processing-spinner-wrap">
+            <div class="processing-glow"></div>
+            <div class="processing-spinner"></div>
+            <div class="processing-spinner-inner"></div>
+          </div>
+          <div class="hub-state-title">Enviando faixa...</div>
+          <div class="hub-file-badge">
+            <span aria-hidden="true">🎵</span>
+            <span id="hubUploadFileName">—</span>
+          </div>
+          <div style="width:100%;max-width:320px;">
+            <div
+              class="upload-progress-bar active"
+              id="homeProgressBar"
+              role="progressbar"
+              aria-valuenow="0"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              style="display:block;"
+            >
+              <div class="upload-progress-fill indeterminate" id="homeProgressFill"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Status bar -->
-      <div class="upload-status-bar" id="homeStatusBar" aria-live="polite" aria-atomic="true">
-        <span class="upload-status-dot" aria-hidden="true"></span>
-        <span id="homeStatusText">Pronto — Máx. 150 MB · WAV e FLAC recomendados para maior precisão</span>
+      <!-- ── STATE: UPLOADED — inline decision ────────────── -->
+      <div id="hubPanelUploaded" class="hub-panel" style="display:none;">
+        <div class="hub-state-content">
+          <div style="width:100%;text-align:center;">
+            <div class="hub-choice-eyebrow">Faixa Carregada</div>
+            <div class="hub-file-badge" style="margin:0 auto;">
+              <span aria-hidden="true">🎵</span>
+              <span id="hubUploadedFileName">—</span>
+            </div>
+            <div class="hub-choice-title">O que você quer fazer?</div>
+          </div>
+          <div class="decision-cards" style="width:100%;">
+            <div class="decision-card primary-card" role="group" aria-labelledby="hubAnalyzeTitle">
+              <div class="decision-card-icon icon-analyze" aria-hidden="true">📊</div>
+              <div class="decision-card-title" id="hubAnalyzeTitle">Analisar &amp; Melhorar</div>
+              <div class="decision-card-desc">
+                Análise profunda com IA — detecta problemas e gera sugestões de mastering por gênero.
+              </div>
+              <button class="decision-card-btn btn-analyze" id="hubBtnAnalyze">
+                Iniciar Análise
+              </button>
+            </div>
+            <div class="decision-card" role="group" aria-labelledby="hubMasterTitle">
+              <div class="decision-card-icon icon-master" aria-hidden="true">🎛️</div>
+              <div class="decision-card-title" id="hubMasterTitle">AutoMaster</div>
+              <div class="decision-card-desc">
+                Pule a análise. Vá direto ao mastering automático com IA — cadeia de processamento inteligente.
+              </div>
+              <button class="decision-card-btn btn-master" id="hubBtnMaster">
+                Masterizar Agora
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Genre Selector Row -->
+      <!-- ── STATE: ANALYZING — spinner + 5 etapas ────────── -->
+      <div id="hubPanelAnalyzing" class="hub-panel" style="display:none;">
+        <div class="hub-state-content">
+          <div class="processing-spinner-wrap">
+            <div class="processing-glow"></div>
+            <div class="processing-spinner"></div>
+            <div class="processing-spinner-inner"></div>
+          </div>
+          <div class="hub-state-title">Analisando faixa</div>
+          <ul class="processing-steps" id="hubAnalyzingSteps" aria-label="Etapas de análise">
+            <li class="processing-step"><span class="processing-step-dot"></span>Extraindo áudio</li>
+            <li class="processing-step"><span class="processing-step-dot"></span>Coletando métricas</li>
+            <li class="processing-step"><span class="processing-step-dot"></span>Avaliando dinâmica</li>
+            <li class="processing-step"><span class="processing-step-dot"></span>Analisando espectro</li>
+            <li class="processing-step"><span class="processing-step-dot"></span>Gerando diagnóstico</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Error bar — shown for validation errors -->
+      <div class="hub-error-bar" id="hubErrorBar" role="alert" aria-live="polite">
+        <span aria-hidden="true">⚠</span>
+        <span id="hubErrorText"></span>
+      </div>
+
+      <!-- Genre Selector Row — always visible -->
       <div class="genre-row">
         <span class="genre-label">Gênero</span>
         <select class="genre-select" id="homeGenreSelect" aria-label="Select analysis genre">
@@ -1116,7 +1275,7 @@
         </select>
       </div>
 
-    </div><!-- /upload-panel -->
+    </div><!-- /uploadHub -->
 
     <!-- Features grid -->
     <div class="features-grid" aria-label="Key features">
@@ -1508,29 +1667,30 @@
 <script src="reference-flow.js?v=1.0.0" defer></script>
 
 <!-- ════════════════════════════════════════════════════════════
-     HOME PAGE CONTROLLER
+     HOME PAGE CONTROLLER — unified inline state machine
 ════════════════════════════════════════════════════════════ -->
 <script>
 (function () {
   'use strict';
 
   // ── STATE ─────────────────────────────────────────────────
+  var _currentHubState = 'idle';
   var _state = {
-    uploading:   false,
-    fileKey:     null,
-    fileName:    null,
+    fileKey:      null,
+    fileName:     null,
     analysisOpen: false
   };
 
-  // ── GENRE SYNC ────────────────────────────────────────────
-  // Keeps #homeGenreSelect, #audioRefGenreSelect and the globals
-  // that the motor reads all in sync.
-  function syncGenre(value) {
-    window.__CURRENT_SELECTED_GENRE    = value;
-    window.currentAnalysisMode          = 'genre';
-    window.__SOUNDY_ANALYSIS_MODE__     = 'pista';
-    window.__CURRENT_GENRE_TARGETS      = null;   // force reload on next analysis
+  var HUB_PANEL_IDS = ['idle', 'uploading', 'uploaded', 'analyzing'];
 
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ── GENRE SYNC ────────────────────────────────────────────
+  function syncGenre(value) {
+    window.__CURRENT_SELECTED_GENRE  = value;
+    window.currentAnalysisMode       = 'genre';
+    window.__SOUNDY_ANALYSIS_MODE__  = 'pista';
+    window.__CURRENT_GENRE_TARGETS   = null;
     var motorSel = document.getElementById('audioRefGenreSelect');
     if (motorSel) motorSel.value = value;
   }
@@ -1543,16 +1703,83 @@
     }
   });
 
-  // ── STATUS BAR HELPER ─────────────────────────────────────
-  function setStatus(msg, type) {
-    var bar  = document.getElementById('homeStatusBar');
-    var text = document.getElementById('homeStatusText');
+  // ── ERROR BAR ─────────────────────────────────────────────
+  function showError(msg) {
+    var bar  = document.getElementById('hubErrorBar');
+    var text = document.getElementById('hubErrorText');
     if (!bar || !text) return;
-    bar.className  = 'upload-status-bar' + (type ? ' ' + type : '');
     text.textContent = msg;
+    bar.classList.add('visible');
+    clearTimeout(bar._clearTimer);
+    bar._clearTimer = setTimeout(function () {
+      bar.classList.remove('visible');
+    }, 5000);
+    console.error('[home.html] Error:', msg);
   }
 
-  // ── PROGRESS BAR ──────────────────────────────────────────
+  // ── setState ──────────────────────────────────────────────
+  function setState(newState) {
+    if (_currentHubState === newState) return;
+
+    // Hide all panels with fade-out
+    HUB_PANEL_IDS.forEach(function (s) {
+      var el = document.getElementById('hubPanel' + cap(s));
+      if (!el) return;
+      el.classList.remove('hub-active');
+      // Remove from layout after transition so it collapses cleanly
+      (function (panel) {
+        setTimeout(function () {
+          if (!panel.classList.contains('hub-active')) panel.style.display = 'none';
+        }, 320);
+      }(el));
+    });
+
+    // 'done': open analysis modal + reset hub to idle behind it
+    if (newState === 'done') {
+      openAnalysisModal();
+      _currentHubState = 'idle';
+      _state.fileKey  = null;
+      _state.fileName = null;
+      var idlePanel = document.getElementById('hubPanelIdle');
+      if (idlePanel) {
+        idlePanel.style.display = '';
+        idlePanel.offsetHeight; // force reflow
+        idlePanel.classList.add('hub-active');
+      }
+      return;
+    }
+
+    _currentHubState = newState;
+
+    // Show target panel with fade-in
+    var next = document.getElementById('hubPanel' + cap(newState));
+    if (next) {
+      next.style.display = '';
+      next.offsetHeight; // force reflow
+      next.classList.add('hub-active');
+    }
+
+    // Side effects per state
+    if (newState === 'analyzing') {
+      restartAnalyzingSteps();
+    }
+    if (newState === 'idle') {
+      _state.fileKey  = null;
+      _state.fileName = null;
+    }
+  }
+
+  // ── RESTART ANALYZING STEP ANIMATIONS ─────────────────────
+  function restartAnalyzingSteps() {
+    var steps = document.querySelectorAll('#hubPanelAnalyzing .processing-step');
+    steps.forEach(function (s) {
+      s.style.animation = 'none';
+      void s.offsetWidth; // eslint-disable-line no-void
+      s.style.animation = '';
+    });
+  }
+
+  // ── PROGRESS BAR HELPERS (kept for uploadFileOnly callback) ─
   function showProgress(indeterminate) {
     var bar  = document.getElementById('homeProgressBar');
     var fill = document.getElementById('homeProgressFill');
@@ -1566,32 +1793,32 @@
   }
 
   function hideProgress() {
-    var bar  = document.getElementById('homeProgressBar');
     var fill = document.getElementById('homeProgressFill');
-    if (bar)  bar.classList.remove('active');
     if (fill) fill.classList.remove('indeterminate');
   }
 
   // ── UPLOAD FLOW ───────────────────────────────────────────
   function processFile(file) {
-    if (_state.uploading) return;
+    if (_currentHubState === 'uploading') return;
     if (!file) return;
 
-    // Basic validation
     var allowed = ['.wav', '.mp3', '.flac', '.aiff', '.aif'];
     var ext = '.' + file.name.split('.').pop().toLowerCase();
     if (allowed.indexOf(ext) === -1) {
-      setStatus('Formato não suportado. Use WAV, MP3, FLAC ou AIFF.', 'error');
+      showError('Formato não suportado. Use WAV, MP3, FLAC ou AIFF.');
       return;
     }
     var maxBytes = 150 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setStatus('Arquivo muito grande. Tamanho máximo: 150 MB.', 'error');
+      showError('Arquivo muito grande. Tamanho máximo: 150 MB.');
       return;
     }
 
-    _state.uploading = true;
-    setStatus('Enviando ' + file.name + '…', 'uploading');
+    // Update uploading panel filename display
+    var fnEl = document.getElementById('hubUploadFileName');
+    if (fnEl) fnEl.textContent = file.name;
+
+    setState('uploading');
     showProgress(true);
 
     // Ensure genre globals are set before upload
@@ -1609,59 +1836,37 @@
 
     preloadTargets.then(function () {
       if (typeof window.uploadFileOnly !== 'function') {
-        setStatus('Motor ainda não está pronto. Aguarde um momento e tente novamente.', 'error');
+        showError('Motor ainda não está pronto. Aguarde um momento e tente novamente.');
         hideProgress();
-        _state.uploading = false;
+        setState('idle');
         return;
       }
 
       window.uploadFileOnly(file)
         .then(function (result) {
-          _state.fileKey   = result.fileKey;
-          _state.fileName  = result.fileName;
-          _state.uploading = false;
+          _state.fileKey  = result.fileKey;
+          _state.fileName = result.fileName;
 
           // Persist for external access
           window.__HOME_FILE_KEY__  = result.fileKey;
           window.__HOME_FILE_NAME__ = result.fileName;
 
           hideProgress();
-          setStatus('✓ ' + file.name + ' uploaded successfully', 'success');
 
-          // Open decision modal
-          openDecisionModal(result.fileName);
+          // Update uploaded panel file badge
+          var fnUpEl = document.getElementById('hubUploadedFileName');
+          if (fnUpEl) fnUpEl.textContent = result.fileName || file.name;
+
+          setState('uploaded');
         })
         .catch(function (err) {
-          _state.uploading = false;
           hideProgress();
-          var msg = (err && err.message) ? err.message : 'Upload failed. Please try again.';
-          setStatus('Error: ' + msg, 'error');
+          var msg = (err && err.message) ? err.message : 'Upload falhou. Por favor, tente novamente.';
+          showError(msg);
           console.error('[home.html] Upload error:', err);
+          setState('idle');
         });
     });
-  }
-
-  // ── DECISION MODAL ────────────────────────────────────────
-  function openDecisionModal(fileName) {
-    var nameEl = document.getElementById('decisionFileName');
-    if (nameEl) nameEl.textContent = fileName || '—';
-
-    var overlay = document.getElementById('decisionOverlay');
-    if (overlay) {
-      overlay.classList.add('open');
-      overlay.setAttribute('aria-hidden', 'false');
-      // Focus the first action button for keyboard users
-      var firstBtn = overlay.querySelector('.decision-card-btn');
-      if (firstBtn) setTimeout(function () { firstBtn.focus(); }, 80);
-    }
-  }
-
-  function closeDecisionModal() {
-    var overlay = document.getElementById('decisionOverlay');
-    if (overlay) {
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-    }
   }
 
   // ── ANALYSIS MODAL MANAGEMENT ─────────────────────────────
@@ -1683,68 +1888,42 @@
       modal.style.display = 'none';
       modal.setAttribute('aria-hidden', 'true');
     }
-    hideProcessingModal();
     _state.analysisOpen = false;
-    // Reset state so user can upload another track
     _state.fileKey  = null;
     _state.fileName = null;
-    setStatus('Pronto — Máx. 150 MB · WAV e FLAC recomendados para maior precisão', '');
+    // If hub was already reset to idle by setState('done'), idle panel is already visible.
+    // Only trigger setState if we're not already in idle (e.g. error mid-analysis).
+    if (_currentHubState !== 'idle') {
+      _currentHubState = ''; // bypass guard
+      setState('idle');
+    }
   };
-
-  // ── PROCESSING MODAL ──────────────────────────────────────
-  function showProcessingModal() {
-    var el = document.getElementById('analysisProcessingModal');
-    if (!el) return;
-    // Re-create inner steps to restart animations on each run
-    var steps = el.querySelectorAll('.processing-step');
-    steps.forEach(function (s) {
-      s.style.animation = 'none';
-      // Force reflow
-      void s.offsetWidth; // eslint-disable-line no-void
-      s.style.animation = '';
-    });
-    el.classList.add('active');
-    el.setAttribute('aria-hidden', 'false');
-  }
-
-  function hideProcessingModal() {
-    var el = document.getElementById('analysisProcessingModal');
-    if (!el) return;
-    el.classList.remove('active');
-    el.setAttribute('aria-hidden', 'true');
-  }
 
   // ── ANALYSIS TRIGGER ──────────────────────────────────────
   function runAnalysis() {
-    closeDecisionModal();
-
     if (!_state.fileKey || !_state.fileName) {
-      setStatus('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.', 'error');
+      showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
       return;
     }
-
     if (typeof window.runAnalysisFromFileKey !== 'function') {
-      setStatus('Motor não pronto. Por favor, aguarde um momento e tente novamente.', 'error');
+      showError('Motor não pronto. Por favor, aguarde um momento e tente novamente.');
       return;
     }
 
-    showProcessingModal();
+    setState('analyzing');
     openAnalysisModal();
 
-    // Patch displayModalResults: esconder o processing modal quando os resultados chegarem.
-    // O verdict-engine.js já cuida de applyMixVerdict via auto-patch (verdictPatched).
-    // Aqui só adicionamos a camada de hideProcessingModal, respeitando o wrap já existente.
+    // Patch displayModalResults: call setState('done') when results arrive.
+    // Preserva verdictPatched e outros wraps já existentes.
     if (window.displayModalResults && !window.displayModalResults.__homePatched__) {
       var _origDisplay = window.displayModalResults;
       window.displayModalResults = function homeDisplayWrapper(analysis) {
-        hideProcessingModal();
+        setState('done');
         if (analysis) window.__VERDICT_SOURCE_DATA__ = analysis;
         var result = _origDisplay.apply(this, arguments);
-        // Remover apenas o wrap do home; preservar verdictPatched se já estava presente
         window.displayModalResults = _origDisplay;
         return result;
       };
-      // Preservar flags existentes
       window.displayModalResults.__homePatched__    = true;
       window.displayModalResults.__verdictPatched__ = _origDisplay.__verdictPatched__ || false;
     }
@@ -1754,18 +1933,19 @@
 
   // ── MASTER DIRECT ─────────────────────────────────────────
   function masterDirect() {
-    closeDecisionModal();
     if (!_state.fileKey) {
-      setStatus('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.', 'error');
+      showError('Nenhum arquivo encontrado. Por favor, envie uma faixa primeiro.');
       return;
     }
     var url = 'master.html'
       + '?fileKey='  + encodeURIComponent(_state.fileKey)
       + '&fileName=' + encodeURIComponent(_state.fileName || '');
     window.open(url, '_blank', 'noopener,noreferrer');
+    // Reset hub after opening master page
+    setState('idle');
   }
 
-  // ── MASTERIZAR BUTTON (shown after analysis completes) ────
+  // ── MASTERIZAR BUTTON (shown after analysis completes) ─────
   // MutationObserver watches #audioAnalysisResults for display changes
   document.addEventListener('DOMContentLoaded', function () {
     var resultsEl = document.getElementById('audioAnalysisResults');
@@ -1789,8 +1969,6 @@
   });
 
   // ── CLOSE AUDIO MODAL OVERRIDE ────────────────────────────
-  // After scripts load, replace the motor's closeAudioModal so it
-  // hides the overlay instead of redirecting to index.html.
   window.addEventListener('load', function patchMotor() {
     if (typeof window.handleModalFileSelection !== 'function') {
       setTimeout(patchMotor, 200);
@@ -1799,7 +1977,7 @@
     window.closeAudioModal = window.homeCloseAnalysis;
   });
 
-  // ── DRAG & DROP ───────────────────────────────────────────
+  // ── DRAG & DROP + BUTTON WIRING ───────────────────────────
   document.addEventListener('DOMContentLoaded', function () {
     var dropzone  = document.getElementById('homeDropzone');
     var fileInput = document.getElementById('homeFileInput');
@@ -1808,21 +1986,19 @@
 
     if (!dropzone || !fileInput) return;
 
-    // Click handlers
     function triggerFileDialog() { fileInput.click(); }
-    dropzone.addEventListener('click',   triggerFileDialog);
+
+    dropzone.addEventListener('click', triggerFileDialog);
     if (uploadBtn) uploadBtn.addEventListener('click', function (e) { e.stopPropagation(); triggerFileDialog(); });
-    if (heroCta)   heroCta.addEventListener('click', function () {
-      document.getElementById('uploadPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (heroCta) heroCta.addEventListener('click', function () {
+      document.getElementById('uploadHub').scrollIntoView({ behavior: 'smooth', block: 'center' });
       setTimeout(triggerFileDialog, 300);
     });
 
-    // Keyboard: Enter / Space on dropzone
     dropzone.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); triggerFileDialog(); }
     });
 
-    // File input change
     fileInput.addEventListener('change', function (e) {
       if (e.target.files && e.target.files[0]) {
         processFile(e.target.files[0]);
@@ -1847,28 +2023,30 @@
       if (files && files[0]) processFile(files[0]);
     });
 
-    // Decision modal buttons
-    var btnAnalysis = document.getElementById('btnRunAnalysis');
-    var btnMaster   = document.getElementById('btnMasterDirect');
-    var btnClose    = document.getElementById('decisionClose');
+    // Hub inline decision buttons
+    var hubBtnAnalyze = document.getElementById('hubBtnAnalyze');
+    var hubBtnMaster  = document.getElementById('hubBtnMaster');
+    if (hubBtnAnalyze) hubBtnAnalyze.addEventListener('click', runAnalysis);
+    if (hubBtnMaster)  hubBtnMaster.addEventListener('click', masterDirect);
 
-    if (btnAnalysis) btnAnalysis.addEventListener('click', runAnalysis);
-    if (btnMaster)   btnMaster.addEventListener('click', masterDirect);
-    if (btnClose)    btnClose.addEventListener('click', closeDecisionModal);
+    // Legacy decision overlay buttons (kept for compatibility — overlay never opens in new flow)
+    var legacyBtnAnalysis = document.getElementById('btnRunAnalysis');
+    var legacyBtnMaster   = document.getElementById('btnMasterDirect');
+    var legacyBtnClose    = document.getElementById('decisionClose');
+    if (legacyBtnAnalysis) legacyBtnAnalysis.addEventListener('click', runAnalysis);
+    if (legacyBtnMaster)   legacyBtnMaster.addEventListener('click', masterDirect);
+    if (legacyBtnClose) legacyBtnClose.addEventListener('click', function () {
+      var overlay = document.getElementById('decisionOverlay');
+      if (overlay) { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); }
+    });
 
-    // Close overlay on backdrop click
-    var overlay = document.getElementById('decisionOverlay');
-    if (overlay) {
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) closeDecisionModal();
-      });
-    }
-
-    // Close decision modal and analysis modal on ESC
+    // Close legacy overlay on ESC
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
-      if (document.getElementById('decisionOverlay').classList.contains('open')) {
-        closeDecisionModal();
+      var overlay = document.getElementById('decisionOverlay');
+      if (overlay && overlay.classList.contains('open')) {
+        overlay.classList.remove('open');
+        overlay.setAttribute('aria-hidden', 'true');
       }
     });
   });
