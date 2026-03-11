@@ -319,33 +319,45 @@
   var COLOR_MAP = { good: '#22c55e', warning: '#f59e0b', bad: '#ef4444' };
 
   function _renderMainTextAndCTA(verdict, techData) {
-    var aiBox = document.getElementById('aiHelperText');
+    // Buscar o container do score para evitar pegar #aiHelperText errado
+    var scoreContainer = document.querySelector('.score-final-wrapper')
+                      || document.querySelector('[data-score-section]');
+
+    var aiBox = scoreContainer
+      ? scoreContainer.querySelector('#aiHelperText')
+      : document.querySelector('#aiHelperText');
+
     if (!aiBox) {
-      vwarn('[VERDICT] #aiHelperText não encontrado — texto principal não atualizado');
+      vwarn('[VERDICT] #aiHelperText não encontrado no scoreContainer — texto principal não atualizado');
       return false;
     }
-    vlog('[VERDICT] bloco principal encontrado (#aiHelperText)');
+    vlog('[VERDICT] bloco principal encontrado (#aiHelperText) dentro de', scoreContainer ? '.score-final-wrapper / [data-score-section]' : 'DOM global (fallback)');
 
-    // Substituir conteúdo — innerHTML permite tags no texto gerado
+    // PASSO 3 — Substituir texto (sem criar nada)
     aiBox.innerHTML = generateMixVerdictMainText(verdict, techData);
     aiBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
     aiBox.classList.add('verdict-applied');
     aiBox.style.display = '';            // garantir visível mesmo em modo reference
     vlog('[VERDICT] texto principal atualizado (status=' + verdict.status + ')');
 
-    // Remover duplicatas de botões anteriores (mantém só o primeiro)
-    var allCtaBtns = document.querySelectorAll('#verdictMasterBtn');
-    allCtaBtns.forEach(function (el, i) { if (i > 0) { el.remove(); } });
+    // PASSO 4 — Inserir CTA no lugar certo (dentro do scoreContainer)
+    var cta = scoreContainer
+      ? scoreContainer.querySelector('#verdictMasterBtn')
+      : document.getElementById('verdictMasterBtn');
 
-    // CTA — criar imediatamente abaixo de #aiHelperText via insertAdjacentElement
-    var cta = document.getElementById('verdictMasterBtn');
     if (!cta) {
       cta      = document.createElement('button');
       cta.id   = 'verdictMasterBtn';
       cta.type = 'button';
+      cta.className = 'btn-master-primary';
       cta.textContent = 'MASTERIZAR AGORA';
       aiBox.insertAdjacentElement('afterend', cta);
     }
+
+    // PASSO 5 — Limpar versões erradas (duplicatas fora do scoreContainer)
+    document.querySelectorAll('#verdictMasterBtn').forEach(function (el, i) {
+      if (i > 0) { el.remove(); }
+    });
 
     cta.onclick = function () {
       if (typeof window.startAutoMasterFlow === 'function') {
@@ -418,8 +430,13 @@
       _renderScoreLabel(verdict);
 
       // ── 2. Texto grande + CTA (#aiHelperText) ──
-      var aiHelperEl = document.getElementById('aiHelperText');
-      vlog('[VERDICT-AUDIT] #aiHelperText encontrado:', !!aiHelperEl,
+      var _scoreContainerAudit = document.querySelector('.score-final-wrapper')
+                               || document.querySelector('[data-score-section]');
+      var aiHelperEl = _scoreContainerAudit
+        ? _scoreContainerAudit.querySelector('#aiHelperText')
+        : document.querySelector('#aiHelperText');
+      vlog('[VERDICT-AUDIT] scoreContainer encontrado:', !!_scoreContainerAudit);
+      vlog('[VERDICT-AUDIT] #aiHelperText (scoped) encontrado:', !!aiHelperEl,
         aiHelperEl ? '| display=' + (aiHelperEl.style.display || 'CSS') : ''
       );
 
@@ -427,7 +444,8 @@
       vlog('[VERDICT-AUDIT] _renderMainTextAndCTA retornou:', ok);
 
       // ── 3. Snapshot de confirmação ──
-      var aiEl2 = document.getElementById('aiHelperText');
+      var _sc2 = document.querySelector('.score-final-wrapper') || document.querySelector('[data-score-section]');
+      var aiEl2 = _sc2 ? _sc2.querySelector('#aiHelperText') : document.querySelector('#aiHelperText');
       if (aiEl2) {
         vlog('[VERDICT-AUDIT] #aiHelperText após render:',
           'display=' + (aiEl2.style.display || 'CSS'),
