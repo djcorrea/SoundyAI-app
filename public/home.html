@@ -380,13 +380,26 @@
     .upload-panel:hover {
       border-color: var(--border-glow);
     }
-    /* Upload hub container — min-height expands with content */
+    /* Upload hub container — classe por estado, sem height fixo */
     .uploadHub {
       min-height: 260px;
-      transition: all .28s ease;
+      /* transition restrito a min-height: evita interferir com transform do spinner */
+      transition: min-height .28s ease, border-color .2s ease, box-shadow .2s ease;
     }
-    .uploadHub.is-uploading {
+    .uploadHub.is-uploading,
+    .uploadHub.is-uploaded,
+    .uploadHub.is-analyzing {
       min-height: 420px;
+    }
+    /* Estado chose: permite scroll se conteúdo ultrapassar viewport */
+    .uploadHub.is-uploaded {
+      max-height: 78vh;
+      overflow-y: auto;
+    }
+    /* Esconde seletor de gênero durante upload e análise */
+    .uploadHub.is-uploading .genre-row,
+    .uploadHub.is-analyzing .genre-row {
+      display: none;
     }
     /* Layout helpers */
     .uploadContent {
@@ -402,7 +415,11 @@
       width: 100%;
       max-width: 640px;
     }
-    @media (max-width: 440px) { .choiceGrid { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) {
+      .choiceGrid        { grid-template-columns: 1fr; }
+      .hub-state-content { padding: 28px 20px; }
+      .upload-dropzone   { padding: 32px 20px; }
+    }
 
     .upload-panel-header {
       display: flex;
@@ -1762,26 +1779,22 @@
   function updateUI() {
     var hub = document.getElementById('uploadHub');
     if (hub) {
-      var expanded = _currentHubState === 'uploading'
-                  || _currentHubState === 'analyzing'
-                  || _currentHubState === 'uploaded';
-      hub.classList.toggle('is-uploading', expanded);
-      hub.classList.toggle('is-idle',      _currentHubState === 'idle');
+      // Uma classe por estado — elimina conflitos de toggle múltiplo
+      ['is-idle', 'is-uploading', 'is-uploaded', 'is-analyzing'].forEach(function (cls) {
+        hub.classList.remove(cls);
+      });
+      hub.classList.add('is-' + _currentHubState);
     }
 
-    // Fade out all panels
+    // Ocultar TODOS os painéis imediatamente — sem delay, elimina bounce de layout
     HUB_PANEL_IDS.forEach(function (s) {
       var el = document.getElementById('hubPanel' + cap(s));
       if (!el) return;
       el.classList.remove('hub-active');
-      (function (panel) {
-        setTimeout(function () {
-          if (!panel.classList.contains('hub-active')) panel.style.display = 'none';
-        }, 320);
-      }(el));
+      el.style.display = 'none';
     });
 
-    // Fade in active panel
+    // Fade in painel ativo
     var next = document.getElementById('hubPanel' + cap(_currentHubState));
     if (next) {
       next.style.display = '';
