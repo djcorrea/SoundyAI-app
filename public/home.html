@@ -936,28 +936,7 @@
     }
     #audioAnalysisModal.motor-active {
       display: flex !important;
-      /* Overlay rola na direção vertical — evita cortar a tabela */
-      overflow-y: auto !important;
-      align-items: flex-start !important;
-      padding: 24px 0 !important;
     }
-
-    /* Quando resultados aparecem: remover overflow hidden do container interno */
-    #audioAnalysisModal.motor-active .audio-modal-content {
-      overflow-y: visible !important;
-      overflow-x: hidden !important;
-      /* Permite que o conteúdo expanda sem ser cortado */
-      max-height: none !important;
-      height: auto !important;
-      margin: auto !important;
-    }
-
-    /* Resulados sem altura máxima — o overlay externo controla o scroll */
-    #audioAnalysisModal.motor-active .audio-results {
-      max-height: none !important;
-      overflow-y: visible !important;
-    }
-
 
     /* Override: Masterizar button */
     #btnMasterizar {
@@ -1521,6 +1500,9 @@
 <!-- Synchronous: must precede motor -->
 <script src="analysis-state-machine.js?v=PR2"></script>
 
+<!-- VERDICT ENGINE: camada de interpretação final (deve preceder o motor) -->
+<script src="verdict-engine.js?v=20260311" defer></script>
+
 <!-- Motor + reference flow -->
 <script src="audio-analyzer-integration.js?v=20260130_1" defer></script>
 <script src="reference-flow.js?v=1.0.0" defer></script>
@@ -1749,16 +1731,27 @@
     showProcessingModal();
     openAnalysisModal();
 
-    // Patch displayModalResults to hide processing modal when results are rendered
-    var _origDisplay = window.displayModalResults;
-    window.displayModalResults = function () {
-      hideProcessingModal();
-      if (typeof _origDisplay === 'function') {
-        return _origDisplay.apply(this, arguments);
-      }
-      // Restore original after first call to avoid permanent wrapping
-      window.displayModalResults = _origDisplay;
-    };
+    // Patch displayModalResults:
+    // 1. Oculta o processing modal
+    // 2. Delega ao verdictWrapper (que já foi adicionado pelo verdict-engine.js)
+    //    e chama applyMixVerdict com os dados reais da análise
+    if (window.displayModalResults && !window.displayModalResults.__homePatched__) {
+      var _origDisplay = window.displayModalResults;
+      window.displayModalResults = function homeDisplayWrapper(analysis) {
+        hideProcessingModal();
+        // Garantir que os dados estejam disponíveis para o verdict engine
+        if (analysis) window.__VERDICT_SOURCE_DATA__ = analysis;
+        var result = _origDisplay.apply(this, arguments);
+        // Restaurar para o wrapper de veredito (sem o patch do home)
+        window.displayModalResults = _origDisplay;
+        return result;
+      };
+      window.displayModalResults.__homePatched__ = true;
+    } else {
+      // Se não foi possível patchar (ex: ainda não está definida),
+      // o verdict-engine.js já cuida do applyMixVerdict via auto-patch
+      hideProcessingModal(); // chama para não bloquear UI em edge case
+    }
 
     window.runAnalysisFromFileKey(_state.fileKey, _state.fileName);
   }
