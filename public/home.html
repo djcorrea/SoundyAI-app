@@ -376,11 +376,14 @@
       backdrop-filter: blur(24px);
       overflow: hidden;
       box-shadow: var(--shadow-glow);
-      transition: border-color var(--transition), box-shadow var(--transition);
+      transition: border-color var(--transition), box-shadow var(--transition), height .28s ease;
     }
     .upload-panel:hover {
       border-color: var(--border-glow);
     }
+    /* Upload hub container height states */
+    .uploadHub.is-uploading { height: 420px; }
+    .uploadHub.is-idle      { height: 260px; }
 
     .upload-panel-header {
       display: flex;
@@ -651,6 +654,16 @@
     @keyframes hub-spin {
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
+    }
+    /* Generic .spinner alias — 42px purple ring */
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.15);
+      border-top: 3px solid #7c5cff;
+      animation: spin .9s linear infinite !important;
+      will-change: transform;
     }
     /* 5th processing step timing (hub analyzing panel) */
     .processing-step:nth-child(5) { animation-delay: 2.6s; }
@@ -960,7 +973,10 @@
       border-bottom-color: var(--accent-cyan);
       animation: spin 0.7s linear infinite reverse;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      from { transform: rotate(0); }
+      to   { transform: rotate(360deg); }
+    }
     .processing-glow {
       position: absolute;
       inset: -6px;
@@ -1137,7 +1153,7 @@
   <main class="main-content" id="mainContent">
 
     <!-- Upload Hub — unified inline state machine -->
-    <div class="upload-panel" id="uploadHub" role="region" aria-label="Audio upload panel">
+    <div class="upload-panel uploadHub" id="uploadHub" role="region" aria-label="Audio upload panel">
 
       <div class="upload-panel-header" aria-hidden="true">
         <span class="upload-panel-header-dot dot-red"></span>
@@ -1178,11 +1194,7 @@
       <!-- ── STATE: UPLOADING — spinner + progress ────────── -->
       <div id="hubPanelUploading" class="hub-panel" style="display:none;">
         <div class="hub-state-content">
-          <div class="processing-spinner-wrap">
-            <div class="processing-glow"></div>
-            <div class="processing-spinner"></div>
-            <div class="processing-spinner-inner"></div>
-          </div>
+          <div class="spinner" aria-hidden="true"></div>
           <div class="hub-state-title">Enviando faixa...</div>
           <div class="hub-file-badge">
             <span aria-hidden="true">🎵</span>
@@ -1727,16 +1739,22 @@
     console.error('[home.html] Error:', msg);
   }
 
-  // ── setState ──────────────────────────────────────────────
-  function setState(newState) {
-    if (_currentHubState === newState) return;
+  // ── updateUI — aplica o estado atual no DOM (sem innerHTML) ──
+  function updateUI() {
+    var hub = document.getElementById('uploadHub');
+    if (hub) {
+      var expanded = _currentHubState === 'uploading'
+                  || _currentHubState === 'analyzing'
+                  || _currentHubState === 'uploaded';
+      hub.classList.toggle('is-uploading', expanded);
+      hub.classList.toggle('is-idle',      _currentHubState === 'idle');
+    }
 
-    // Hide all panels with fade-out
+    // Fade out all panels
     HUB_PANEL_IDS.forEach(function (s) {
       var el = document.getElementById('hubPanel' + cap(s));
       if (!el) return;
       el.classList.remove('hub-active');
-      // Remove from layout after transition so it collapses cleanly
       (function (panel) {
         setTimeout(function () {
           if (!panel.classList.contains('hub-active')) panel.style.display = 'none';
@@ -1744,39 +1762,38 @@
       }(el));
     });
 
-    // 'done': open analysis modal + reset hub to idle behind it
-    if (newState === 'done') {
-      openAnalysisModal();
-      _currentHubState = 'idle';
-      _state.fileKey  = null;
-      _state.fileName = null;
-      var idlePanel = document.getElementById('hubPanelIdle');
-      if (idlePanel) {
-        idlePanel.style.display = '';
-        idlePanel.offsetHeight; // force reflow
-        idlePanel.classList.add('hub-active');
-      }
-      return;
-    }
-
-    _currentHubState = newState;
-
-    // Show target panel with fade-in
-    var next = document.getElementById('hubPanel' + cap(newState));
+    // Fade in active panel
+    var next = document.getElementById('hubPanel' + cap(_currentHubState));
     if (next) {
       next.style.display = '';
       next.offsetHeight; // force reflow
       next.classList.add('hub-active');
     }
 
-    // Side effects per state
-    if (newState === 'analyzing') {
-      restartAnalyzingSteps();
-    }
-    if (newState === 'idle') {
+    // Side effects
+    if (_currentHubState === 'analyzing') restartAnalyzingSteps();
+    if (_currentHubState === 'idle') {
       _state.fileKey  = null;
       _state.fileName = null;
     }
+  }
+
+  // ── setState ──────────────────────────────────────────────
+  function setState(newState) {
+    if (_currentHubState === newState) return;
+
+    // 'done': abrir modal de resultados + resetar hub para idle
+    if (newState === 'done') {
+      openAnalysisModal();
+      _state.fileKey  = null;
+      _state.fileName = null;
+      _currentHubState = 'idle';
+      updateUI();
+      return;
+    }
+
+    _currentHubState = newState;
+    updateUI();
   }
 
   // ── RESTART ANALYZING STEP ANIMATIONS ─────────────────────
