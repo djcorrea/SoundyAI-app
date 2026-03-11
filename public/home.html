@@ -1086,6 +1086,12 @@
       width: 100%;
     }
 
+    /* Diagnóstico Técnico — compact spacing */
+    #modalTechnicalData {
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
     /* Ocultar cabeçalho interno do modal do motor (não é popup aqui) */
     #audioAnalysisModal .audio-modal-header { display: none !important; }
     #analyzeMotorHeader { display: none !important; }
@@ -1548,8 +1554,13 @@
         >← New Track</button>
       </div>
 
-      <!-- Final score (CTA) -->
+      <!-- Final score (HERO: score + barra + status) -->
       <div id="final-score-display"></div>
+
+      <!-- CTA Masterizar (logo abaixo do score) -->
+      <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
+        🎛️ Masterizar Agora
+      </a>
 
       <!-- Technical data (Diagnóstico Técnico) -->
       <div class="technical-data" id="modalTechnicalData"></div>
@@ -1608,11 +1619,6 @@
           📋 Gerar Plano de Correção
         </button>
       </div>
-
-      <!-- Masterizar button -->
-      <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
-        🎛️ Masterizar Agora
-      </a>
 
     </div><!-- /audioAnalysisResults -->
   </div><!-- /audio-modal-content -->
