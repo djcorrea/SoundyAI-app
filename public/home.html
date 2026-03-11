@@ -1546,6 +1546,8 @@
 
     <!-- Results -->
     <div id="audioAnalysisResults" class="audio-results" style="display: none;">
+
+      <!-- 1. HEADLINE -->
       <div class="results-header">
         <h4>Resultado da sua mix</h4>
         <button
@@ -1554,18 +1556,21 @@
         >← New Track</button>
       </div>
 
-      <!-- Final score (HERO: score + barra + status) -->
+      <!-- 2. IDENTIFICAÇÃO DA FAIXA -->
+      <div id="musicIdentificationBlock" class="music-identification-container"></div>
+
+      <!-- 3. HERO: score + barra + status + veredito -->
       <div id="final-score-display"></div>
 
-      <!-- CTA Masterizar (logo abaixo do score) -->
+      <!-- 4. CTA MASTERIZAR -->
       <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
         🎛️ Masterizar Agora
       </a>
 
-      <!-- Technical data (Diagnóstico Técnico) -->
-      <div class="technical-data" id="modalTechnicalData"></div>
+      <!-- 5. DIAGNÓSTICO TÉCNICO: tabela de comparação com gênero -->
+      <div id="referenceComparisons" style="margin-top:16px;"></div>
 
-      <!-- AI Suggestions (Sugestões) -->
+      <!-- 6. SUGESTÕES AI -->
       <div id="aiSuggestionsExpanded" class="ai-suggestions-expanded" style="display: none;">
         <div class="ai-expanded-header">
           <div class="ai-header-left">
@@ -1599,15 +1604,14 @@
         <div class="ai-expanded-footer"></div>
       </div>
 
-      <!-- Music identification (Cards de Métricas) -->
-      <div id="musicIdentificationBlock" class="music-identification-container"></div>
-      <div id="referenceComparisons" style="margin-top:16px;"></div>
+      <!-- 7. CARDS DE MÉTRICAS (por último) -->
+      <div class="technical-data" id="modalTechnicalData"></div>
 
+      <!-- 8. RODAPÉ -->
       <div class="analysis-helper-text" id="aiHelperText">
         💡 Precisa de ajuda para aplicar as melhorias? Clique em <strong>"Perguntar à IA"</strong> e converse com um especialista de áudio.
       </div>
 
-      <!-- Actions -->
       <div class="analysis-actions">
         <button class="action-btn primary" id="btnAskAI" onclick="sendModalAnalysisToChat()">
           🤖 Perguntar à IA
