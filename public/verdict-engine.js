@@ -183,7 +183,16 @@
         'letter-spacing:.08em;text-transform:uppercase;cursor:pointer;' +
         'transition:opacity .2s,transform .2s;' +
       '}' +
-      '#masterBtnVerdict:hover{opacity:.88;transform:translateY(-1px);}';
+      '#masterBtnVerdict:hover{opacity:.88;transform:translateY(-1px);}' +
+      '#verdictMasterBtn{' +
+        'display:block;width:100%;margin-top:14px;padding:13px 0;' +
+        'background:linear-gradient(135deg,#8b5cf6 0%,#4a8fff 100%);' +
+        'color:#fff;border:none;border-radius:10px;' +
+        'font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;' +
+        'letter-spacing:.08em;text-transform:uppercase;cursor:pointer;' +
+        'transition:opacity .2s,transform .2s;' +
+      '}' +
+      '#verdictMasterBtn:hover{opacity:.88;transform:translateY(-1px);}';
     document.head.appendChild(s);
   }
 
@@ -256,6 +265,73 @@
     };
   }
 
+  // ── TEXTO EXPLICATIVO DO VEREDITO ─────────────────────────
+
+  function generateVerdictExplanation(verdict, m) {
+    m = m || {};
+    var lu = (m.lufsIntegrated != null) ? Number(m.lufsIntegrated).toFixed(1) : '-';
+    var tp = (m.truePeak       != null) ? Number(m.truePeak).toFixed(1)       : '-';
+
+    if (verdict.status === 'bad') {
+      return 'Sua mix apresenta problemas cr\u00edticos que impedem uma masteriza\u00e7\u00e3o segura. ' +
+             'LUFS em ' + lu + ', True Peak em ' + tp + ' e din\u00e2mica comprometida indicam ' +
+             'risco de distor\u00e7\u00e3o e artefatos. Se masterizada nesse estado, a faixa tende a perder ' +
+             'defini\u00e7\u00e3o e gerar fadiga auditiva. ' +
+             'Ajuste n\u00edveis e headroom antes de seguir para masteriza\u00e7\u00e3o.';
+    }
+    if (verdict.status === 'warning') {
+      return 'Sua mix est\u00e1 pr\u00f3xima do ideal, mas ainda apresenta limita\u00e7\u00f5es t\u00e9cnicas. ' +
+             'LUFS em ' + lu + ' e headroom moderado indicam espa\u00e7o reduzido para processamento final. ' +
+             'A masteriza\u00e7\u00e3o funcionar\u00e1 melhor ap\u00f3s pequenos ajustes de equil\u00edbrio e din\u00e2mica. ' +
+             'Refinar agora garantir\u00e1 melhor tradu\u00e7\u00e3o e impacto final.';
+    }
+    return 'Sua mix apresenta estrutura t\u00e9cnica s\u00f3lida para masteriza\u00e7\u00e3o. ' +
+           'LUFS controlado (' + lu + ') e headroom adequado permitem processamento seguro. ' +
+           'A din\u00e2mica est\u00e1 preservada e n\u00e3o h\u00e1 ind\u00edcios de clipping ou satura\u00e7\u00e3o cr\u00edtica. ' +
+           'Voc\u00ea pode seguir com confian\u00e7a para a masteriza\u00e7\u00e3o.';
+  }
+
+  // ── APLICAR UI DO VEREDITO ─────────────────────────────────
+
+  function applyVerdictUI(verdict, metrics) {
+    try {
+      _injectStyles();
+      renderVerdictScoreLabel(verdict);
+
+      var aiBox = document.querySelector('#aiHelperText');
+      if (!aiBox) { return; }
+
+      aiBox.innerHTML   = generateVerdictExplanation(verdict, metrics);
+      aiBox.style.color = AI_COLORS[verdict.status] || '#c8d3e8';
+
+      var cta = document.querySelector('#verdictMasterBtn');
+      if (!cta) {
+        cta           = document.createElement('button');
+        cta.id        = 'verdictMasterBtn';
+        cta.className = 'btn-master-primary';
+        cta.type      = 'button';
+        cta.innerText = 'MASTERIZAR AGORA';
+        aiBox.parentNode.appendChild(cta);
+      }
+      cta.onclick = function () {
+        if (typeof window.startAutoMasterFlow === 'function') {
+          window.startAutoMasterFlow();
+          return;
+        }
+        var fileKey  = window.__HOME_FILE_KEY__  || window.__PENDING_FILE_KEY__  || '';
+        var fileName = window.__HOME_FILE_NAME__ || window.__PENDING_FILE_NAME__ || '';
+        var url = 'master.html'
+                + (fileKey  ? '?fileKey='  + encodeURIComponent(fileKey)  : '')
+                + (fileName ? '&fileName=' + encodeURIComponent(fileName) : '');
+        window.open(url, '_blank', 'noopener,noreferrer');
+      };
+    } catch (err) {
+      if (typeof console !== 'undefined') {
+        console.warn('[VERDICT ENGINE] applyVerdictUI erro:', err);
+      }
+    }
+  }
+
   // ── PONTO DE ENTRADA ──────────────────────────────────────
 
   function applyMixVerdict(data) {
@@ -296,7 +372,13 @@
       window.displayModalResults = function verdictDisplayWrapper(analysis) {
         if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
         var result = _orig.apply(this, arguments);
-        setTimeout(function () { applyMixVerdict(analysis); }, 300);
+        var techData = (analysis && analysis.technicalData) ? analysis.technicalData : (analysis || {});
+        var vResult  = generateMixVerdict(techData);
+        var v        = vResult ? vResult.verdict : null;
+        if (v) {
+          window.__LAST_MIX_VERDICT__ = v;
+          setTimeout(function () { applyVerdictUI(v, techData); }, 50);
+        }
         return result;
       };
       window.displayModalResults.__verdictPatched__ = true;
@@ -305,8 +387,10 @@
 
   // ── EXPORTS GLOBAIS ───────────────────────────────────────
 
-  window.generateMixVerdict    = generateMixVerdict;
-  window.applyMixVerdict       = applyMixVerdict;
-  window.extractVerdictMetrics = extractMetrics;
+  window.generateMixVerdict         = generateMixVerdict;
+  window.applyMixVerdict            = applyMixVerdict;
+  window.applyVerdictUI             = applyVerdictUI;
+  window.generateVerdictExplanation = generateVerdictExplanation;
+  window.extractVerdictMetrics      = extractMetrics;
 
 })();
