@@ -1541,29 +1541,20 @@
     <!-- Results -->
     <div id="audioAnalysisResults" class="audio-results" style="display: none;">
       <div class="results-header">
-        <h4>Complete Analysis</h4>
+        <h4>Resultado da sua mix</h4>
         <button
           style="background:rgba(74,143,255,0.1);border:1px solid rgba(74,143,255,0.2);color:#8898b8;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;"
           onclick="homeCloseAnalysis()"
         >← New Track</button>
       </div>
 
-      <div class="analysis-info-text">
-        As métricas e sugestões são baseadas em ciência de áudio e referências reais de gênero.<br>
-        A música é arte — use esses dados como guia de referência, não como regras absolutas.
-      </div>
-
-      <!-- Music identification -->
-      <div id="musicIdentificationBlock" class="music-identification-container"></div>
-
-      <!-- Final score -->
+      <!-- Final score (CTA) -->
       <div id="final-score-display"></div>
 
-      <!-- Technical data -->
+      <!-- Technical data (Diagnóstico Técnico) -->
       <div class="technical-data" id="modalTechnicalData"></div>
-      <div id="referenceComparisons" style="margin-top:16px;"></div>
 
-      <!-- AI Suggestions expanded -->
+      <!-- AI Suggestions (Sugestões) -->
       <div id="aiSuggestionsExpanded" class="ai-suggestions-expanded" style="display: none;">
         <div class="ai-expanded-header">
           <div class="ai-header-left">
@@ -1596,6 +1587,10 @@
         </div>
         <div class="ai-expanded-footer"></div>
       </div>
+
+      <!-- Music identification (Cards de Métricas) -->
+      <div id="musicIdentificationBlock" class="music-identification-container"></div>
+      <div id="referenceComparisons" style="margin-top:16px;"></div>
 
       <div class="analysis-helper-text" id="aiHelperText">
         💡 Precisa de ajuda para aplicar as melhorias? Clique em <strong>"Perguntar à IA"</strong> e converse com um especialista de áudio.
