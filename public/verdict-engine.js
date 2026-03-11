@@ -1,169 +1,251 @@
 /**
- * VERDICT ENGINE (MIX) v2.0
- * Camada de interpretacao final — reaproveitamento total da UI existente.
+ * VERDICT ENGINE (MIX) v3.0
  *
- * Fluxo: analise -> targets -> score -> sugestoes -> VERDICT ENGINE -> modal
+ * Camada de interpretacao pos-render — lida DEPOIS que displayModalResults termina.
  *
- * NAO modifica: score, sugestoes, targets, pipeline, estrutura modal.
- * Reaproveitamento:
- *   .score-final-status  — label do score substituido pelo veredito
- *   #aiHelperText        — conteudo substituido pelo diagnostico tecnico
- *   #masterBtnVerdict    — botao Masterizar (criado uma vez, reutilizado)
- *   SEM elementos extras (mixVerdictBanner removido)
+ * Fluxo:
+ *   displayModalResults(analysis) concluido
+ *   → applyMixVerdictToRenderedModal(analysis)
+ *     1. gera veredito a partir de analysis.technicalData
+ *     2. substitui .score-final-status (label curto)
+ *     3. substitui #aiHelperText (texto grande explicativo)
+ *     4. insere/atualiza #verdictMasterBtn abaixo do texto grande
+ *
+ * NAO altera: score numerico, cards de metricas, sugestoes, tabelas, fluxo.
+ * Elemento-alvo: #aiHelperText (bloco grande central abaixo do score).
  */
 (function () {
   'use strict';
 
-  // ── UTILITARIOS ────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // UTILITARIOS
+  // ─────────────────────────────────────────────────────────────
 
   function safeNum(v) {
     var n = Number(v);
-    return (v !== undefined && v !== null && isFinite(n)) ? n : null;
+    return (v !== undefined && v !== null && v !== '' && isFinite(n)) ? n : null;
   }
 
-  function fmt(n) {
-    if (n === null || n === undefined) return '-';
-    return Number(n).toFixed(1);
+  function fmt1(n) {
+    return (n !== null && n !== undefined) ? Number(n).toFixed(1) : null;
   }
 
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  function vlog() {
+    if (typeof console !== 'undefined') {
+      var args = Array.prototype.slice.call(arguments);
+      console.log.apply(console, args);
+    }
   }
 
-  // ── EXTRACAO DE METRICAS ───────────────────────────────────
+  function vwarn() {
+    if (typeof console !== 'undefined') {
+      var args = Array.prototype.slice.call(arguments);
+      console.warn.apply(console, args);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // EXTRACAO DE METRICAS
+  // Lê sempre de analysis.technicalData (ou raiz se necessário)
+  // ─────────────────────────────────────────────────────────────
 
   function extractMetrics(data) {
-    var tech = data;
-    if (data && data.technicalData && typeof data.technicalData === 'object') {
-      tech = data.technicalData;
-    }
-    if (!tech || typeof tech !== 'object') { tech = {}; }
+    if (!data || typeof data !== 'object') { return {}; }
 
-    var lufs = safeNum(tech.lufsIntegrated !== undefined ? tech.lufsIntegrated
-                     : tech.lufs_integrated !== undefined ? tech.lufs_integrated
-                     : tech.lufs);
+    // Descer para technicalData se vier o objeto analysis completo
+    var tech = (data.technicalData && typeof data.technicalData === 'object')
+      ? data.technicalData
+      : data;
 
-    var tp = safeNum(tech.truePeakDbtp !== undefined ? tech.truePeakDbtp
-                   : tech.true_peak_dbtp !== undefined ? tech.true_peak_dbtp
-                   : tech.truePeak);
-
-    var dr = safeNum(tech.dynamicRange !== undefined ? tech.dynamicRange
-                   : tech.dynamic_range !== undefined ? tech.dynamic_range
-                   : tech.dr);
-
-    var cf = safeNum(tech.crestFactor !== undefined ? tech.crestFactor : tech.crest_factor);
-
-    var clipSamples = safeNum(tech.clippingSamples !== undefined ? tech.clippingSamples : tech.clipping_samples);
-    var clipPct     = safeNum(tech.clippingPct !== undefined ? tech.clippingPct : tech.clipping_pct);
-    var clipping    = !!(
-      tech.clippingDetected     ||
-      tech.clipping_detected    ||
-      (clipSamples !== null && clipSamples > 0) ||
-      (clipPct     !== null && clipPct     > 0)
-    );
-
-    return { lufs: lufs, tp: tp, dr: dr, crestFactor: cf, clipping: clipping };
+    return {
+      lufs:        safeNum(tech.lufsIntegrated  !== undefined ? tech.lufsIntegrated
+                         : tech.lufs_integrated !== undefined ? tech.lufs_integrated
+                         : tech.lufs),
+      tp:          safeNum(tech.truePeakDbtp    !== undefined ? tech.truePeakDbtp
+                         : tech.true_peak_dbtp  !== undefined ? tech.true_peak_dbtp
+                         : tech.truePeak),
+      dr:          safeNum(tech.dynamicRange    !== undefined ? tech.dynamicRange
+                         : tech.dynamic_range   !== undefined ? tech.dynamic_range
+                         : tech.dr),
+      crestFactor: safeNum(tech.crestFactor     !== undefined ? tech.crestFactor
+                         : tech.crest_factor),
+      clipping: !!(
+        tech.clippingDetected  ||
+        tech.clipping_detected ||
+        safeNum(tech.clippingSamples  !== undefined ? tech.clippingSamples
+                                                    : tech.clipping_samples) > 0 ||
+        safeNum(tech.clippingPct      !== undefined ? tech.clippingPct
+                                                    : tech.clipping_pct)     > 0
+      ),
+      // Manter referencia ao tech original para generateMixVerdictMainText
+      _raw: tech
+    };
   }
 
-  // ── LOGICA DO VEREDITO ─────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // LOGICA DO VEREDITO
+  // ─────────────────────────────────────────────────────────────
 
+  /**
+   * Retorna { verdict: { status, label, possiblyMastered } }
+   * status: 'bad' | 'warning' | 'good'
+   */
   function generateMixVerdict(dataOrMetrics) {
+    // Aceita tanto o objeto analysis completo quanto métricas já extraídas
     var m = (dataOrMetrics && (dataOrMetrics.lufs !== undefined || dataOrMetrics.tp !== undefined))
       ? dataOrMetrics
       : extractMetrics(dataOrMetrics);
 
-    var lufs = m.lufs, tp = m.tp, dr = m.dr, cf = m.crestFactor, clipping = m.clipping;
+    var lufs     = m.lufs;
+    var tp       = m.tp;
+    var dr       = m.dr;
+    var cf       = m.crestFactor;
+    var clipping = m.clipping;
 
     var possiblyMastered = (lufs !== null && lufs >= -11 && tp !== null && tp >= -1.2);
 
-    // Vermelho — qualquer condicao critica
+    // ── VERMELHO: qualquer condição crítica ──
     if (clipping || (tp !== null && tp >= -0.3) || (lufs !== null && lufs >= -10)) {
-      return _build('bad', 'Mix nao recomendada para masterizacao', 'bad',
-        m, clipping, possiblyMastered);
+      return {
+        verdict: {
+          status:           'bad',
+          label:            'Mix n\u00e3o recomendada para masteriza\u00e7\u00e3o',
+          possiblyMastered: possiblyMastered,
+          metrics:          m
+        }
+      };
     }
 
-    // Verde — condicoes ideais
+    // ── VERDE: condições ideais ──
     if (!clipping &&
         lufs !== null && lufs >= -16 && lufs <= -14 &&
         tp   !== null && tp   <= -3  &&
         dr   !== null && dr   >= 10  &&
         (cf  === null || cf >= 6)) {
-      return _build('good', 'Mix pronta para masterizacao', 'good',
-        m, false, possiblyMastered);
+      return {
+        verdict: {
+          status:           'good',
+          label:            'Mix apta para masteriza\u00e7\u00e3o',
+          possiblyMastered: possiblyMastered,
+          metrics:          m
+        }
+      };
     }
 
-    // Amarelo — range aceitavel
+    // ── AMARELO: range aceitável ──
     if (!clipping &&
         lufs !== null && lufs >= -18 && lufs <= -13 &&
         tp   !== null && tp   <= -2  &&
         dr   !== null && dr   >= 9) {
-      return _build('warning', 'Mix pode melhorar antes da masterizacao', 'warning',
-        m, false, possiblyMastered);
+      return {
+        verdict: {
+          status:           'warning',
+          label:            'Mix pode melhorar antes da masteriza\u00e7\u00e3o',
+          possiblyMastered: possiblyMastered,
+          metrics:          m
+        }
+      };
     }
 
-    // Fallback
-    return _build('warning', 'Mix pode melhorar antes da masterizacao', 'warning',
-      m, false, possiblyMastered);
-  }
-
-  function _build(status, label, color, m, clipping, possiblyMastered) {
+    // ── FALLBACK ──
     return {
       verdict: {
-        status:           status,
-        label:            label,
-        color:            color,
-        message:          _buildMessage(status, m, clipping, possiblyMastered),
-        possiblyMastered: possiblyMastered
+        status:           'warning',
+        label:            'Mix pode melhorar antes da masteriza\u00e7\u00e3o',
+        possiblyMastered: possiblyMastered,
+        metrics:          m
       }
     };
   }
 
-  function _buildMessage(status, m, clipping, possiblyMastered) {
-    var lufs = m.lufs, tp = m.tp, dr = m.dr;
+  // ─────────────────────────────────────────────────────────────
+  // TEXTO GRANDE CENTRAL — generateMixVerdictMainText
+  // Recebe verdict e o technicalData original (métricas reais)
+  // ─────────────────────────────────────────────────────────────
 
-    var mastered = possiblyMastered
-      ? ' As metricas indicam que a faixa pode ja estar masterizada - masterizar novamente pode degradar a qualidade.'
+  function generateMixVerdictMainText(verdict, metrics) {
+    metrics = metrics || {};
+
+    // Extrair métricas diretamente do technicalData com nomes corretos
+    var rawLufs = safeNum(metrics.lufsIntegrated  !== undefined ? metrics.lufsIntegrated
+                        : metrics.lufs_integrated !== undefined ? metrics.lufs_integrated
+                        : metrics.lufs);
+    var rawTp   = safeNum(metrics.truePeakDbtp    !== undefined ? metrics.truePeakDbtp
+                        : metrics.true_peak_dbtp  !== undefined ? metrics.true_peak_dbtp
+                        : metrics.truePeak);
+    var rawDr   = safeNum(metrics.dynamicRange    !== undefined ? metrics.dynamicRange
+                        : metrics.dynamic_range   !== undefined ? metrics.dynamic_range
+                        : metrics.dr);
+    var rawCf   = safeNum(metrics.crestFactor     !== undefined ? metrics.crestFactor
+                        : metrics.crest_factor);
+
+    var lu  = fmt1(rawLufs);
+    var tp  = fmt1(rawTp);
+    var dr  = fmt1(rawDr);
+    var cf  = fmt1(rawCf);
+
+    var luStr = lu  !== null ? lu  + ' LUFS'  : null;
+    var tpStr = tp  !== null ? tp  + ' dBTP'  : null;
+    var drStr = dr  !== null ? 'DR ' + dr     : null;
+    var cfStr = cf  !== null ? 'Crest ' + cf  : null;
+
+    var metricsInline = [luStr, tpStr, drStr, cfStr].filter(Boolean).join(', ');
+    var metricsSuffix = metricsInline ? ' (' + metricsInline + ')' : '';
+
+    var possiblyMasteredNote = verdict.possiblyMastered
+      ? ' Esta faixa pode j\u00e1 estar masterizada \u2014 masterizar novamente pode degradar a qualidade.'
       : '';
 
-    if (status === 'bad') {
+    if (verdict.status === 'bad') {
       var problems = [];
-      if (clipping)                        { problems.push('clipping detectado'); }
-      if (tp !== null && tp >= -0.3)       { problems.push('True Peak muito alto (' + fmt(tp) + ' dBTP)'); }
-      if (lufs !== null && lufs >= -10)    { problems.push('LUFS saturado (' + fmt(lufs) + ' LUFS)'); }
-      if (dr !== null && dr < 9)           { problems.push('Dynamic Range comprimida (DR ' + fmt(dr) + ')'); }
-      var plist = problems.length ? problems.join('; ') : 'problemas tecnicos criticos';
-      return 'Esta mix apresenta ' + plist + ', o que pode comprometer o resultado da masterizacao.'
-           + ' Corrija esses pontos na sua DAW antes de masterizar.' + mastered;
+      if (verdict.metrics && verdict.metrics.clipping) {
+        problems.push('clipping real detectado');
+      }
+      if (rawTp !== null && rawTp >= -0.3) {
+        problems.push('True Peak muito alto (' + (tp || rawTp) + ' dBTP)');
+      }
+      if (rawLufs !== null && rawLufs >= -10) {
+        problems.push('LUFS saturado (' + (lu || rawLufs) + ')');
+      }
+      if (rawDr !== null && rawDr < 9) {
+        problems.push('Dynamic Range comprimida (DR ' + (dr || rawDr) + ')');
+      }
+      var pStr = problems.length
+        ? ' Os n\u00edveis atuais indicam ' + problems.join(', ') + '.'
+        : ' Os n\u00edveis atuais indicam risco de distor\u00e7\u00e3o, perda de defini\u00e7\u00e3o e pouco espa\u00e7o para processamento final.';
+
+      return 'Sua mix n\u00e3o est\u00e1 pronta para masteriza\u00e7\u00e3o.' + pStr +
+             ' Se masterizada agora, a faixa tende a ficar mais agressiva, comprimida ou artificial.' +
+             ' O ideal \u00e9 corrigir headroom, pico real e equil\u00edbrio antes de seguir' +
+             metricsSuffix + '.' + possiblyMasteredNote;
     }
 
-    if (status === 'good') {
-      var parts = [];
-      if (lufs !== null) { parts.push('LUFS ' + fmt(lufs)); }
-      if (tp   !== null) { parts.push('True Peak ' + fmt(tp) + ' dBTP'); }
-      if (dr   !== null) { parts.push('DR ' + fmt(dr)); }
-      return 'Excelente! A mix esta no range ideal'
-           + (parts.length ? ' (' + parts.join('; ') + ')' : '')
-           + '. A masterizacao podera ser aplicada com maxima eficiencia e qualidade.' + mastered;
+    if (verdict.status === 'warning') {
+      var wIssues = [];
+      if (rawLufs !== null && rawLufs < -18)       { wIssues.push('LUFS um pouco baixo (' + lu + ')'); }
+      else if (rawLufs !== null && rawLufs > -13)  { wIssues.push('LUFS um pouco alto (' + lu + ')'); }
+      if (rawTp  !== null && rawTp  > -2)          { wIssues.push('True Peak em ' + tp + ' dBTP'); }
+      if (rawDr  !== null && rawDr  < 10)          { wIssues.push('din\u00e2mica reduzida (DR ' + dr + ')'); }
+
+      var wLine = wIssues.length
+        ? ' Pontos de aten\u00e7\u00e3o: ' + wIssues.join('; ') + '.'
+        : '';
+
+      return 'Sua mix pode ser masterizada, mas ainda h\u00e1 limita\u00e7\u00f5es que reduzem a margem de seguran\u00e7a do processamento final.' +
+             wLine +
+             ' Pequenos ajustes em headroom, din\u00e2mica ou equil\u00edbrio tonal podem melhorar bastante o resultado da masteriza\u00e7\u00e3o' +
+             metricsSuffix + '.' + possiblyMasteredNote;
     }
 
-    // warning
-    var wpoints = [];
-    if (lufs !== null) {
-      if (lufs < -18)      { wpoints.push('LUFS um pouco baixo (' + fmt(lufs) + ')'); }
-      else if (lufs > -13) { wpoints.push('LUFS um pouco alto (' + fmt(lufs) + ')'); }
-    }
-    if (tp !== null && tp > -2) { wpoints.push('True Peak em ' + fmt(tp) + ' dBTP'); }
-    if (dr !== null && dr < 10) { wpoints.push('Dynamic Range comprimida (DR ' + fmt(dr) + ')'); }
-
-    var msg = 'A mix esta funcional mas pode ser otimizada antes da masterizacao.';
-    if (wpoints.length) { msg += ' Pontos de atencao: ' + wpoints.join('; ') + '.'; }
-    return msg + mastered;
+    // good
+    return 'Sua mix est\u00e1 apta para masteriza\u00e7\u00e3o. Os n\u00edveis atuais mostram espa\u00e7o t\u00e9cnico suficiente para aplicar o processamento final com mais seguran\u00e7a e preservar impacto, clareza e defini\u00e7\u00e3o.' +
+           (metricsInline ? ' M\u00e9tricas: ' + metricsInline + '.' : '') +
+           possiblyMasteredNote;
   }
 
-  // ── ESTILOS (injetados uma vez) ────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // ESTILOS (injetados uma vez)
+  // ─────────────────────────────────────────────────────────────
 
   function _injectStyles() {
     if (document.getElementById('__verdictStyles__')) { return; }
@@ -171,87 +253,94 @@
     s.id = '__verdictStyles__';
     s.textContent =
       '@keyframes __verdictIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}' +
-      '.verdict-good{color:#22c55e!important;animation:__verdictIn .35s ease;}' +
-      '.verdict-warning{color:#f59e0b!important;animation:__verdictIn .35s ease;}' +
-      '.verdict-bad{color:#ef4444!important;animation:__verdictIn .35s ease;}' +
-      '#aiHelperText{animation:__verdictIn .45s ease;}' +
-      '#masterBtnVerdict{' +
-        'display:block;width:100%;margin-top:14px;padding:13px 0;' +
-        'background:linear-gradient(135deg,#8b5cf6 0%,#4a8fff 100%);' +
-        'color:#fff;border:none;border-radius:10px;' +
-        'font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;' +
-        'letter-spacing:.08em;text-transform:uppercase;cursor:pointer;' +
-        'transition:opacity .2s,transform .2s;' +
+      '.verdict-good{color:#22c55e!important;animation:__verdictIn .3s ease;}' +
+      '.verdict-warning{color:#f59e0b!important;animation:__verdictIn .3s ease;}' +
+      '.verdict-bad{color:#ef4444!important;animation:__verdictIn .3s ease;}' +
+      '#aiHelperText.verdict-applied{' +
+        'padding:14px;border-radius:8px;' +
+        'background:rgba(30,36,50,.55);' +
+        'border:1px solid rgba(100,120,180,.18);' +
+        'line-height:1.65;font-size:14px;animation:__verdictIn .4s ease;' +
       '}' +
-      '#masterBtnVerdict:hover{opacity:.88;transform:translateY(-1px);}' +
       '#verdictMasterBtn{' +
-        'display:block;width:100%;margin-top:14px;padding:13px 0;' +
+        'display:block;width:100%;margin-top:16px;padding:14px 0;' +
         'background:linear-gradient(135deg,#8b5cf6 0%,#4a8fff 100%);' +
         'color:#fff;border:none;border-radius:10px;' +
-        'font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;' +
-        'letter-spacing:.08em;text-transform:uppercase;cursor:pointer;' +
-        'transition:opacity .2s,transform .2s;' +
+        'font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;' +
+        'letter-spacing:.1em;text-transform:uppercase;cursor:pointer;' +
+        'transition:opacity .2s,transform .15s;' +
       '}' +
-      '#verdictMasterBtn:hover{opacity:.88;transform:translateY(-1px);}';
+      '#verdictMasterBtn:hover{opacity:.88;transform:translateY(-2px);}' +
+      '#__verdictMasteredBadge__{' +
+        'display:inline-block;margin-top:6px;padding:4px 10px;' +
+        'font-size:11px;color:#fbbf24;' +
+        'background:rgba(251,191,36,.08);border-radius:5px;' +
+        'border:1px solid rgba(251,191,36,.22);' +
+      '}';
     document.head.appendChild(s);
   }
 
-  // ── RENDER 1 — Score label (.score-final-status) ───────────
+  // ─────────────────────────────────────────────────────────────
+  // RENDER: label curto (.score-final-status)
+  // ─────────────────────────────────────────────────────────────
 
-  var ICON = { good: '🟢', warning: '🟡', bad: '🔴' };
+  var ICON = { good: '\uD83D\uDFE2', warning: '\uD83D\uDFE1', bad: '\uD83D\uDD34' };
 
-  function renderVerdictScoreLabel(v) {
+  function _renderScoreLabel(verdict) {
     var el = document.querySelector('.score-final-status');
-    if (!el) { return; }
+    if (!el) {
+      vwarn('[VERDICT] .score-final-status não encontrado — score label não atualizado');
+      return;
+    }
+    el.textContent = (ICON[verdict.status] || '\uD83D\uDFE1') + ' ' + verdict.label;
+    el.className   = 'score-final-status verdict-' + verdict.status;
 
-    el.textContent = (ICON[v.status] || '🟡') + ' ' + v.label;
-    el.className   = 'score-final-status verdict-' + v.status;
-
-    // Alerta "pode ja estar masterizada" logo abaixo
-    if (v.possiblyMastered) {
-      var warnEl = document.getElementById('__verdictMasteredWarn__');
-      if (!warnEl) {
-        warnEl = document.createElement('div');
-        warnEl.id = '__verdictMasteredWarn__';
-        warnEl.style.cssText =
-          'font-size:11px;color:#fbbf24;margin-top:6px;padding:4px 8px;' +
-          'background:rgba(251,191,36,.08);border-radius:5px;' +
-          'border:1px solid rgba(251,191,36,.22);display:inline-block;';
-        el.parentNode.insertBefore(warnEl, el.nextSibling);
+    // Badge "pode já estar masterizada"
+    if (verdict.possiblyMastered) {
+      var badge = document.getElementById('__verdictMasteredBadge__');
+      if (!badge) {
+        badge    = document.createElement('div');
+        badge.id = '__verdictMasteredBadge__';
+        el.parentNode.insertBefore(badge, el.nextSibling);
       }
-      warnEl.textContent = '\u26a0 Sua musica pode ja estar masterizada.';
+      badge.textContent = '\u26a0\ufe0f Esta faixa pode j\u00e1 estar masterizada';
     }
   }
 
-  // ── RENDER 2 — Texto IA (#aiHelperText) ───────────────────
+  // ─────────────────────────────────────────────────────────────
+  // RENDER: texto grande (#aiHelperText) + CTA (#verdictMasterBtn)
+  // ─────────────────────────────────────────────────────────────
 
-  var AI_COLORS = { good: '#22c55e', warning: '#f59e0b', bad: '#ef4444' };
+  var COLOR_MAP = { good: '#22c55e', warning: '#f59e0b', bad: '#ef4444' };
 
-  function renderVerdictAIText(v) {
+  function _renderMainTextAndCTA(verdict, techData) {
     var aiBox = document.getElementById('aiHelperText');
-    if (!aiBox) { return; }
-    aiBox.innerHTML = escHtml(v.message);
-    aiBox.style.color = AI_COLORS[v.status] || '#c8d3e8';
-  }
+    if (!aiBox) {
+      vwarn('[VERDICT] #aiHelperText não encontrado — texto principal não atualizado');
+      return false;
+    }
+    vlog('[VERDICT] bloco principal encontrado (#aiHelperText)');
 
-  // ── RENDER 3 — Botao Masterizar (#masterBtnVerdict) ───────
+    // Substituir conteúdo completo
+    aiBox.textContent = generateMixVerdictMainText(verdict, techData);
+    aiBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
+    aiBox.classList.add('verdict-applied');
+    aiBox.style.display = '';            // garantir visível mesmo em modo reference
+    vlog('[VERDICT] texto principal atualizado (status=' + verdict.status + ')');
 
-  function renderVerdictMasterBtn() {
-    var aiBox = document.getElementById('aiHelperText');
-    if (!aiBox) { return; }
-
-    var masterBtn = document.getElementById('masterBtnVerdict');
-    if (!masterBtn) {
-      masterBtn = document.createElement('button');
-      masterBtn.id   = 'masterBtnVerdict';
-      masterBtn.type = 'button';
-      masterBtn.textContent = 'MASTERIZAR AGORA';
+    // CTA — criar uma vez, reaproveitar
+    var cta = document.getElementById('verdictMasterBtn');
+    if (!cta) {
+      cta           = document.createElement('button');
+      cta.id        = 'verdictMasterBtn';
+      cta.type      = 'button';
+      cta.textContent = 'MASTERIZAR AGORA';
       if (aiBox.parentNode) {
-        aiBox.parentNode.insertBefore(masterBtn, aiBox.nextSibling);
+        aiBox.parentNode.insertBefore(cta, aiBox.nextSibling);
       }
     }
 
-    masterBtn.onclick = function () {
+    cta.onclick = function () {
       if (typeof window.startAutoMasterFlow === 'function') {
         window.startAutoMasterFlow();
         return;
@@ -263,99 +352,60 @@
               + (fileName ? '&fileName=' + encodeURIComponent(fileName) : '');
       window.open(url, '_blank', 'noopener,noreferrer');
     };
+
+    vlog('[VERDICT] CTA masterizar inserido (#verdictMasterBtn)');
+    return true;
   }
 
-  // ── TEXTO EXPLICATIVO DO VEREDITO ─────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // PONTO DE ENTRADA PRINCIPAL
+  // Chamado APÓS displayModalResults resolver (Promise.then)
+  // ─────────────────────────────────────────────────────────────
 
-  function generateVerdictExplanation(verdict, m) {
-    m = m || {};
-    var lu = (m.lufsIntegrated != null) ? Number(m.lufsIntegrated).toFixed(1) : '-';
-    var tp = (m.truePeak       != null) ? Number(m.truePeak).toFixed(1)       : '-';
-
-    if (verdict.status === 'bad') {
-      return 'Sua mix apresenta problemas cr\u00edticos que impedem uma masteriza\u00e7\u00e3o segura. ' +
-             'LUFS em ' + lu + ', True Peak em ' + tp + ' e din\u00e2mica comprometida indicam ' +
-             'risco de distor\u00e7\u00e3o e artefatos. Se masterizada nesse estado, a faixa tende a perder ' +
-             'defini\u00e7\u00e3o e gerar fadiga auditiva. ' +
-             'Ajuste n\u00edveis e headroom antes de seguir para masteriza\u00e7\u00e3o.';
-    }
-    if (verdict.status === 'warning') {
-      return 'Sua mix est\u00e1 pr\u00f3xima do ideal, mas ainda apresenta limita\u00e7\u00f5es t\u00e9cnicas. ' +
-             'LUFS em ' + lu + ' e headroom moderado indicam espa\u00e7o reduzido para processamento final. ' +
-             'A masteriza\u00e7\u00e3o funcionar\u00e1 melhor ap\u00f3s pequenos ajustes de equil\u00edbrio e din\u00e2mica. ' +
-             'Refinar agora garantir\u00e1 melhor tradu\u00e7\u00e3o e impacto final.';
-    }
-    return 'Sua mix apresenta estrutura t\u00e9cnica s\u00f3lida para masteriza\u00e7\u00e3o. ' +
-           'LUFS controlado (' + lu + ') e headroom adequado permitem processamento seguro. ' +
-           'A din\u00e2mica est\u00e1 preservada e n\u00e3o h\u00e1 ind\u00edcios de clipping ou satura\u00e7\u00e3o cr\u00edtica. ' +
-           'Voc\u00ea pode seguir com confian\u00e7a para a masteriza\u00e7\u00e3o.';
-  }
-
-  // ── APLICAR UI DO VEREDITO ─────────────────────────────────
-
-  function applyVerdictUI(verdict, metrics) {
+  function applyMixVerdictToRenderedModal(analysis) {
     try {
-      _injectStyles();
-      renderVerdictScoreLabel(verdict);
+      vlog('[VERDICT] modal render detectado — iniciando applyMixVerdictToRenderedModal');
 
-      var aiBox = document.querySelector('#aiHelperText');
-      if (!aiBox) { return; }
-
-      aiBox.innerHTML   = generateVerdictExplanation(verdict, metrics);
-      aiBox.style.color = AI_COLORS[verdict.status] || '#c8d3e8';
-
-      var cta = document.querySelector('#verdictMasterBtn');
-      if (!cta) {
-        cta           = document.createElement('button');
-        cta.id        = 'verdictMasterBtn';
-        cta.className = 'btn-master-primary';
-        cta.type      = 'button';
-        cta.innerText = 'MASTERIZAR AGORA';
-        aiBox.parentNode.appendChild(cta);
-      }
-      cta.onclick = function () {
-        if (typeof window.startAutoMasterFlow === 'function') {
-          window.startAutoMasterFlow();
-          return;
-        }
-        var fileKey  = window.__HOME_FILE_KEY__  || window.__PENDING_FILE_KEY__  || '';
-        var fileName = window.__HOME_FILE_NAME__ || window.__PENDING_FILE_NAME__ || '';
-        var url = 'master.html'
-                + (fileKey  ? '?fileKey='  + encodeURIComponent(fileKey)  : '')
-                + (fileName ? '&fileName=' + encodeURIComponent(fileName) : '');
-        window.open(url, '_blank', 'noopener,noreferrer');
-      };
-    } catch (err) {
-      if (typeof console !== 'undefined') {
-        console.warn('[VERDICT ENGINE] applyVerdictUI erro:', err);
-      }
-    }
-  }
-
-  // ── PONTO DE ENTRADA ──────────────────────────────────────
-
-  function applyMixVerdict(data) {
-    try {
-      var src = data
+      var src = analysis
                 || window.__VERDICT_SOURCE_DATA__
                 || window.__LAST_BACKEND_DATA__
                 || {};
-      var vResult = generateMixVerdict(src);
-      var v = vResult.verdict;
-      window.__LAST_MIX_VERDICT__ = v;
+
+      // Gerar veredito a partir de technicalData (prioritário) ou objeto raiz
+      var techData = (src.technicalData && typeof src.technicalData === 'object')
+        ? src.technicalData
+        : (src.metrics && typeof src.metrics === 'object' ? src.metrics : src);
+
+      var vResult = generateMixVerdict(techData);
+      if (!vResult || !vResult.verdict) {
+        vwarn('[VERDICT] não foi possível gerar veredito — abortando');
+        return;
+      }
+
+      var verdict = vResult.verdict;
+      window.__LAST_MIX_VERDICT__ = verdict;
 
       _injectStyles();
-      renderVerdictScoreLabel(v);
-      renderVerdictAIText(v);
-      renderVerdictMasterBtn();
-    } catch (err) {
-      if (typeof console !== 'undefined') {
-        console.warn('[VERDICT ENGINE] Erro ao aplicar veredito:', err);
+
+      // 1. Label curto
+      _renderScoreLabel(verdict);
+
+      // 2. Texto grande + CTA
+      var ok = _renderMainTextAndCTA(verdict, techData);
+
+      if (ok) {
+        vlog('[VERDICT] fluxo finalizado — status=' + verdict.status);
       }
+    } catch (err) {
+      vwarn('[VERDICT] erro em applyMixVerdictToRenderedModal:', err);
     }
   }
 
-  // ── AUTO-PATCH: displayModalResults ───────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // AUTO-PATCH: displayModalResults
+  // Aguarda a Promise resolver (async function) para garantir que
+  // o DOM está totalmente montado antes de aplicar o veredito.
+  // ─────────────────────────────────────────────────────────────
 
   window.addEventListener('load', function () {
     var attempts = 0;
@@ -363,34 +413,53 @@
       attempts++;
       var fn = window.displayModalResults;
       if (typeof fn !== 'function') {
-        if (attempts < 40) { setTimeout(tryPatch, 250); }
+        if (attempts < 50) { setTimeout(tryPatch, 250); }
+        else { vwarn('[VERDICT] displayModalResults não encontrada após 50 tentativas'); }
         return;
       }
       if (fn.__verdictPatched__) { return; }
 
       var _orig = fn;
+
       window.displayModalResults = function verdictDisplayWrapper(analysis) {
         if (analysis) { window.__VERDICT_SOURCE_DATA__ = analysis; }
-        var result = _orig.apply(this, arguments);
-        var techData = (analysis && analysis.technicalData) ? analysis.technicalData : (analysis || {});
-        var vResult  = generateMixVerdict(techData);
-        var v        = vResult ? vResult.verdict : null;
-        if (v) {
-          window.__LAST_MIX_VERDICT__ = v;
-          setTimeout(function () { applyVerdictUI(v, techData); }, 50);
+
+        var result;
+        try {
+          result = _orig.apply(this, arguments);
+        } catch (syncErr) {
+          vwarn('[VERDICT] erro síncrono em displayModalResults:', syncErr);
+          applyMixVerdictToRenderedModal(analysis);
+          return;
         }
+
+        // displayModalResults é async → result é uma Promise
+        if (result && typeof result.then === 'function') {
+          result.then(
+            function () { applyMixVerdictToRenderedModal(analysis); },
+            function () { applyMixVerdictToRenderedModal(analysis); }  // mesmo em erro, tenta o veredito
+          );
+        } else {
+          // Fallback: setTimeout conservador se não for Promise
+          setTimeout(function () { applyMixVerdictToRenderedModal(analysis); }, 400);
+        }
+
         return result;
       };
+
       window.displayModalResults.__verdictPatched__ = true;
+      vlog('[VERDICT] displayModalResults patcheada com sucesso');
     })();
   });
 
-  // ── EXPORTS GLOBAIS ───────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // EXPORTS GLOBAIS
+  // ─────────────────────────────────────────────────────────────
 
-  window.generateMixVerdict         = generateMixVerdict;
-  window.applyMixVerdict            = applyMixVerdict;
-  window.applyVerdictUI             = applyVerdictUI;
-  window.generateVerdictExplanation = generateVerdictExplanation;
-  window.extractVerdictMetrics      = extractMetrics;
+  window.generateMixVerdict              = generateMixVerdict;
+  window.applyMixVerdictToRenderedModal  = applyMixVerdictToRenderedModal;
+  window.applyMixVerdict                 = applyMixVerdictToRenderedModal; // alias retrocompat
+  window.generateMixVerdictMainText      = generateMixVerdictMainText;
+  window.extractVerdictMetrics           = extractMetrics;
 
 })();
