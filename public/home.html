@@ -374,16 +374,35 @@
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       backdrop-filter: blur(24px);
-      overflow: hidden;
       box-shadow: var(--shadow-glow);
-      transition: border-color var(--transition), box-shadow var(--transition), height .28s ease;
+      transition: border-color var(--transition), box-shadow var(--transition);
     }
     .upload-panel:hover {
       border-color: var(--border-glow);
     }
-    /* Upload hub container height states */
-    .uploadHub.is-uploading { height: 420px; }
-    .uploadHub.is-idle      { height: 260px; }
+    /* Upload hub container — min-height expands with content */
+    .uploadHub {
+      min-height: 260px;
+      transition: all .28s ease;
+    }
+    .uploadHub.is-uploading {
+      min-height: 420px;
+    }
+    /* Layout helpers */
+    .uploadContent {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center;
+    }
+    .choiceGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+      max-width: 640px;
+    }
+    @media (max-width: 440px) { .choiceGrid { grid-template-columns: 1fr; } }
 
     .upload-panel-header {
       display: flex;
@@ -655,15 +674,19 @@
       from { transform: rotate(0deg); }
       to   { transform: rotate(360deg); }
     }
-    /* Generic .spinner alias — 42px purple ring */
+    /* Generic .spinner — 42px purple ring */
     .spinner {
       width: 42px;
       height: 42px;
       border-radius: 50%;
       border: 3px solid rgba(255,255,255,.15);
       border-top: 3px solid #7c5cff;
-      animation: spin .9s linear infinite !important;
+      animation: spin .9s linear infinite;
       will-change: transform;
+    }
+    @keyframes spin {
+      from { transform: rotate(0); }
+      to   { transform: rotate(360deg); }
     }
     /* 5th processing step timing (hub analyzing panel) */
     .processing-step:nth-child(5) { animation-delay: 2.6s; }
@@ -973,10 +996,6 @@
       border-bottom-color: var(--accent-cyan);
       animation: spin 0.7s linear infinite reverse;
     }
-    @keyframes spin {
-      from { transform: rotate(0); }
-      to   { transform: rotate(360deg); }
-    }
     .processing-glow {
       position: absolute;
       inset: -6px;
@@ -1218,7 +1237,7 @@
 
       <!-- ── STATE: UPLOADED — inline decision ────────────── -->
       <div id="hubPanelUploaded" class="hub-panel" style="display:none;">
-        <div class="hub-state-content">
+        <div class="hub-state-content uploadContent">
           <div style="width:100%;text-align:center;">
             <div class="hub-choice-eyebrow">Faixa Carregada</div>
             <div class="hub-file-badge" style="margin:0 auto;">
@@ -1227,7 +1246,7 @@
             </div>
             <div class="hub-choice-title">O que você quer fazer?</div>
           </div>
-          <div class="decision-cards" style="width:100%;">
+          <div class="choiceGrid">
             <div class="decision-card primary-card" role="group" aria-labelledby="hubAnalyzeTitle">
               <div class="decision-card-icon icon-analyze" aria-hidden="true">📊</div>
               <div class="decision-card-title" id="hubAnalyzeTitle">Analisar &amp; Melhorar</div>
