@@ -268,7 +268,7 @@
         'line-height:1.65;font-size:14px;animation:__verdictIn .4s ease;' +
       '}' +
       '#verdictMasterBtn{' +
-        'display:block;width:100%;margin-top:16px;padding:14px 0;' +
+        'display:block;width:100%;margin-top:18px;padding:14px 0;' +
         'background:linear-gradient(135deg,#8b5cf6 0%,#4a8fff 100%);' +
         'color:#fff;border:none;border-radius:10px;' +
         'font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;' +
@@ -326,23 +326,25 @@
     }
     vlog('[VERDICT] bloco principal encontrado (#aiHelperText)');
 
-    // Substituir conteúdo completo
-    aiBox.textContent = generateMixVerdictMainText(verdict, techData);
+    // Substituir conteúdo — innerHTML permite tags no texto gerado
+    aiBox.innerHTML = generateMixVerdictMainText(verdict, techData);
     aiBox.style.color = COLOR_MAP[verdict.status] || '#c8d3e8';
     aiBox.classList.add('verdict-applied');
     aiBox.style.display = '';            // garantir visível mesmo em modo reference
     vlog('[VERDICT] texto principal atualizado (status=' + verdict.status + ')');
 
-    // CTA — criar uma vez, reaproveitar
+    // Remover duplicatas de botões anteriores (mantém só o primeiro)
+    var allCtaBtns = document.querySelectorAll('#verdictMasterBtn');
+    allCtaBtns.forEach(function (el, i) { if (i > 0) { el.remove(); } });
+
+    // CTA — criar imediatamente abaixo de #aiHelperText via insertAdjacentElement
     var cta = document.getElementById('verdictMasterBtn');
     if (!cta) {
-      cta           = document.createElement('button');
-      cta.id        = 'verdictMasterBtn';
-      cta.type      = 'button';
+      cta      = document.createElement('button');
+      cta.id   = 'verdictMasterBtn';
+      cta.type = 'button';
       cta.textContent = 'MASTERIZAR AGORA';
-      if (aiBox.parentNode) {
-        aiBox.parentNode.insertBefore(cta, aiBox.nextSibling);
-      }
+      aiBox.insertAdjacentElement('afterend', cta);
     }
 
     cta.onclick = function () {
