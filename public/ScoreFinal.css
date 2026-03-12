@@ -19,7 +19,9 @@
   border-bottom: 1px solid rgba(127, 0, 255, 0.3);
   box-shadow: 0 2px 18px rgba(127, 0, 255, 0.2);
   position: relative;
-  overflow: hidden;
+  /* overflow alterado de hidden para visible para não clicar o CTA #btnMasterizar;
+     o ::before usa pointer-events:none e z-index:0, portanto não interfere em cliques */
+  overflow: visible;
   margin-bottom: 24px;
   user-select: none;
   -webkit-user-select: none;

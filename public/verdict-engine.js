@@ -339,15 +339,27 @@
     }
     vlog('[VERDICT] texto principal inserido após #diagnostic-container (status=' + verdict.status + ')');
 
-    // PASSO 4 — Removido: #verdictMasterBtn era duplicata de #btnMasterizar (HTML estático)
-    // CTA de masterização é gerenciado pelo #btnMasterizar em home.html
+    // PASSO 4 — Mover #btnMasterizar para dentro do scoreContainer, logo após verdictBox
+    var masterBtn = document.getElementById('btnMasterizar');
+    if (masterBtn) {
+      // Remover de onde estiver no DOM e reposicionar dentro do bloco de score
+      masterBtn.parentNode && masterBtn.parentNode.removeChild(masterBtn);
+      // Garantir clicabilidade dentro do stacking context do container (overflow:hidden + ::before z-index:0)
+      masterBtn.style.position     = 'relative';
+      masterBtn.style.zIndex       = '2';
+      masterBtn.style.pointerEvents = 'auto';
+      verdictBox.insertAdjacentElement('afterend', masterBtn);
+      vlog('[VERDICT] #btnMasterizar movido para dentro de #final-score-display após .verdict-main-text');
+    } else {
+      vwarn('[VERDICT] #btnMasterizar não encontrado no DOM — CTA não posicionado');
+    }
 
     // PASSO 5 — Limpar quaisquer duplicatas do texto de veredito
     document.querySelectorAll('.verdict-main-text').forEach(function (el, i) {
       if (i > 0) { el.remove(); }
     });
 
-    vlog('[VERDICT] veredito inserido — CTA gerenciado por #btnMasterizar (HTML estático)');
+    vlog('[VERDICT] veredito inserido e CTA reposicionado dentro do score container');
     return true;
   }
 
