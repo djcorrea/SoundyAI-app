@@ -10034,6 +10034,13 @@ function renderGenreComparisonTable(options) {
                 min-height: 0;
             }
             
+            /* Impede que o ::before herdado do .card (pos:absolute top:-50% w:200% h:200%)
+               intercepte pointer-events ao extravasar para cima (área do CTA) no desktop.
+               A causa: overflow:visible + sem pointer-events:none = ghost invisível cobre o botão. */
+            .genre-comparison-classic::before {
+                pointer-events: none;
+            }
+            
             .classic-genre-table {
                 width: 100%;
                 border-collapse: collapse;
