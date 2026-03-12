@@ -7,7 +7,7 @@
     },
     {
       "key": "funk_mandela",
-      "label": "Funk Mandela"
+      "label": "Funk BR"
     },
     {
       "key": "funk_bruxaria",
@@ -53,8 +53,24 @@
     },
     {
       "key": "rap_drill",
-      "label": "Rap / Drill",
+      "label": "Hip Hop",
       "legacy_key": "phonk"
+    },
+    {
+      "key": "pop",
+      "label": "Pop"
+    },
+    {
+      "key": "rock_indie",
+      "label": "Rock / Indie"
+    },
+    {
+      "key": "sertanejo",
+      "label": "Sertanejo"
+    },
+    {
+      "key": "piseiro_forro",
+      "label": "Piseiro/Forró"
     }
   ]
 }

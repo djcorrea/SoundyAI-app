@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import os from "os";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
@@ -438,21 +439,42 @@ console.log('🎚️ [AUTOMASTER] Pasta /masters configurada para servir arquivo
 // 📊 PRÉ-ANÁLISE: Valida se mix está apta para masterização
 app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req, res) => {
   console.log('📊 [AUTOMASTER] PRÉ-ANÁLISE iniciada');
-  
+
+  // Validação de fileKey para evitar path traversal
+  const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
+
+  let tempFilePath = null; // caminho de arquivo temporário a ser limpo no finally
+
   try {
-    if (!req.file) {
-      console.error('❌ [AUTOMASTER] Nenhum arquivo enviado');
-      return res.status(400).json({ error: 'Arquivo não enviado' });
+    const genre = req.body.genre || 'unknown';
+
+    if (req.file) {
+      // Fluxo manual: arquivo enviado diretamente via FormData
+      console.log('✅ [AUTOMASTER] Arquivo recebido (upload direto):', req.file.originalname);
+      tempFilePath = req.file.path;
+    } else if (req.body.fileKey) {
+      // Fluxo contínuo: arquivo já está no storage B2 — download para uso local
+      const fileKey = req.body.fileKey;
+
+      if (typeof fileKey !== 'string' || fileKey.length > 500 || !SAFE_FILEKEY_RE.test(fileKey)) {
+        console.error('❌ [AUTOMASTER] fileKey inválido na pré-análise:', fileKey);
+        return res.status(400).json({ error: 'fileKey inválido' });
+      }
+
+      console.log('✅ [AUTOMASTER] Pré-análise via fileKey:', fileKey);
+      const fileBuffer = await storageServiceModule.downloadFile(fileKey);
+
+      tempFilePath = path.join(os.tmpdir(), `pre_analysis_${Date.now()}_${Math.random().toString(36).slice(2)}.bin`);
+      await fs.promises.writeFile(tempFilePath, fileBuffer);
+    } else {
+      console.error('❌ [AUTOMASTER] Nenhum arquivo ou fileKey enviado na pré-análise');
+      return res.status(400).json({ error: 'Arquivo não enviado. Envie um arquivo ou forneça um fileKey.' });
     }
 
-    const genre = req.body.genre || 'unknown';
-    const inputPath = req.file.path;
-    
-    console.log('✅ [AUTOMASTER] Arquivo recebido:', req.file.originalname);
     console.log('🎵 [AUTOMASTER] Gênero:', genre);
-    console.log('📁 [AUTOMASTER] Path:', inputPath);
+    console.log('📁 [AUTOMASTER] Path local:', tempFilePath);
 
-    // TODO: Integrar com analisador real de áudio aqui
+    // TODO: Integrar com analisador real de áudio usando tempFilePath
     // Por enquanto, retorna resposta válida simulada
     const response = {
       apt: true,
@@ -472,14 +494,14 @@ app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req,
     console.error('❌ [AUTOMASTER] Erro na pré-análise:', err);
     return res.status(500).json({ error: 'Erro na análise', details: err.message });
   } finally {
-    // Limpar arquivo temporário após análise
-    if (req.file && req.file.path) {
+    // Limpar arquivo temporário após análise (download de B2 ou upload direto)
+    if (tempFilePath) {
       setTimeout(() => {
-        fs.unlink(req.file.path, (unlinkErr) => {
+        fs.unlink(tempFilePath, (unlinkErr) => {
           if (unlinkErr) {
             console.warn('⚠️ [AUTOMASTER] Erro ao deletar arquivo temporário:', unlinkErr);
           } else {
-            console.log('🗑️ [AUTOMASTER] Arquivo temporário removido:', req.file.path);
+            console.log('🗑️ [AUTOMASTER] Arquivo temporário removido:', tempFilePath);
           }
         });
       }, 1000);
@@ -490,12 +512,36 @@ app.post('/api/analyze-for-master', automasterUpload.single('file'), async (req,
 // 🎚️ PROCESSAMENTO ASSÍNCRONO: Enfileira masterização automática
 app.post('/api/automaster', automasterUpload.single('file'), async (req, res) => {
   console.log('🎚️ [AUTOMASTER] INÍCIO - Enfileirando job');
-  
+
+  // Validação de fileKey para evitar path traversal
+  const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
+
   try {
-    // 1. Validar arquivo
-    if (!req.file) {
-      console.error('❌ [AUTOMASTER] Nenhum arquivo enviado');
-      return res.status(400).json({ error: 'Arquivo não enviado' });
+    // 1. Resolver o buffer de áudio: fileKey (fluxo contínuo) ou arquivo direto (fluxo manual)
+    let fileBuffer = null;
+    let fileLabel  = null; // apenas para logs
+
+    if (req.file) {
+      // Fluxo manual: arquivo recebido via FormData
+      fileLabel  = req.file.originalname;
+      fileBuffer = await fs.promises.readFile(req.file.path);
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.warn('⚠️ [AUTOMASTER] Erro ao deletar temp (upload direto):', err);
+        else     console.log('🗑️ [AUTOMASTER] Arquivo temporário removido (upload direto)');
+      });
+    } else if (req.body.fileKey) {
+      // Fluxo contínuo: arquivo já está no storage B2
+      const fileKey = req.body.fileKey;
+      if (typeof fileKey !== 'string' || fileKey.length > 500 || !SAFE_FILEKEY_RE.test(fileKey)) {
+        console.error('❌ [AUTOMASTER] fileKey inválido:', fileKey);
+        return res.status(400).json({ error: 'fileKey inválido' });
+      }
+      fileLabel  = fileKey;
+      fileBuffer = await storageServiceModule.downloadFile(fileKey);
+      console.log('✅ [AUTOMASTER] Arquivo baixado do storage via fileKey:', fileKey);
+    } else {
+      console.error('❌ [AUTOMASTER] Nenhum arquivo ou fileKey enviado');
+      return res.status(400).json({ error: 'Arquivo não enviado. Envie um arquivo ou forneça um fileKey.' });
     }
 
     // 2. Validar modo
@@ -517,16 +563,14 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       });
     }
 
-    console.log('✅ [AUTOMASTER] Arquivo recebido:', req.file.originalname);
+    console.log('✅ [AUTOMASTER] Arquivo resolvido:', fileLabel);
     console.log('⚙️ [AUTOMASTER] Modo (resolvido):', resolvedMode);
-    console.log('📁 [AUTOMASTER] Path temporário:', req.file.path);
 
     // Contexto completo do request (visível nos logs do Railway)
     console.log('[AUTOMASTER] Criando job com dados:', {
       mode: resolvedMode,
-      filename: req.file.originalname,
-      fileSize: req.file.size,
-      mimetype: req.file.mimetype,
+      fileLabel,
+      fileSize: fileBuffer.length,
       userId: req.user?.id || 'anonymous',
       nodeEnv: process.env.NODE_ENV,
       hasRedisUrl: !!process.env.REDIS_URL || !!process.env.REDIS_PRIVATE_URL,
@@ -556,23 +600,13 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
     const jobId = uuidv4();
     console.log('🆔 [AUTOMASTER] Job ID:', jobId);
 
-    // 4. Upload para storage (input)
+    // 4. Upload para storage (input) — sempre sob input/{jobId}.wav para o worker
     console.log('☁️ [AUTOMASTER] Fazendo upload para storage...');
     const inputKey = `input/${jobId}.wav`;
-    const fileBuffer = await fs.promises.readFile(req.file.path);
     await storageService.uploadFile(inputKey, fileBuffer, 'audio/wav');
     console.log('✅ [AUTOMASTER] Upload concluído:', inputKey);
 
-    // 5. Limpar arquivo temporário local
-    fs.unlink(req.file.path, (err) => {
-      if (err) {
-        console.warn('⚠️ [AUTOMASTER] Erro ao deletar arquivo temporário:', err);
-      } else {
-        console.log('🗑️ [AUTOMASTER] Arquivo temporário removido');
-      }
-    });
-
-    // 6. Criar job no job-store (Redis)
+    // 5. Criar job no job-store (Redis)
     console.log('[AUTOMASTER] Pré-jobStore.createJob — jobId:', jobId, '| inputKey:', inputKey, '| mode:', resolvedMode);
     await jobStore.createJob(jobId, {
       inputKey: inputKey,
@@ -580,7 +614,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
       userId: req.user?.id || 'anonymous'
     });
 
-    // 7. Adicionar job à fila BullMQ
+    // 6. Adicionar job à fila BullMQ
     console.log('[AUTOMASTER] Pré-BullMQ.add — payload:', {
       jobId,
       inputKey,
@@ -599,7 +633,7 @@ app.post('/api/automaster', automasterUpload.single('file'), async (req, res) =>
 
     console.log('✅ [AUTOMASTER] Job enfileirado com sucesso');
 
-    // 8. Registrar job no PostgreSQL (para status unificado via /api/jobs/:id)
+    // 7. Registrar job no PostgreSQL (para status unificado via /api/jobs/:id)
     // Não crítico: Redis job-store é a fonte primária para automaster
     try {
       await jobsPool.query(

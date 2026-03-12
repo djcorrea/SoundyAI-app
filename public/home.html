@@ -2015,6 +2015,8 @@
 
   // ── MASTERIZAR BUTTON (shown after analysis completes) ─────
   // MutationObserver watches #audioAnalysisResults for display changes
+  // FLUXO CORRETO: passa fileKey+fileName do upload original para master.html
+  // O arquivo NÃO é reenviado — master.html usa o mesmo arquivo já no storage.
   document.addEventListener('DOMContentLoaded', function () {
     var resultsEl = document.getElementById('audioAnalysisResults');
     var masterBtn = document.getElementById('btnMasterizar');
@@ -2023,9 +2025,12 @@
     var obs = new MutationObserver(function () {
       var isVisible = resultsEl.style.display !== 'none' && resultsEl.style.display !== '';
       if (isVisible) {
-        var jobId = window.__CURRENT_JOB_ID__ || '';
-        masterBtn.href = jobId
-          ? 'master.html?jobId=' + encodeURIComponent(jobId)
+        // Usar fileKey do upload original (armazenado após uploadFileOnly)
+        var fileKey  = _state.fileKey  || window.__HOME_FILE_KEY__  || '';
+        var fileName = _state.fileName || window.__HOME_FILE_NAME__ || '';
+        masterBtn.href = fileKey
+          ? 'master.html?fileKey=' + encodeURIComponent(fileKey)
+              + '&fileName=' + encodeURIComponent(fileName)
           : 'master.html';
         masterBtn.style.display = 'inline-block';
       } else {

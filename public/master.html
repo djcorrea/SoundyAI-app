@@ -1015,7 +1015,7 @@
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-primary" id="modeNextBtn" disabled onclick="openUploadModal()">
+        <button class="btn btn-primary" id="modeNextBtn" disabled onclick="onModeNextClick()">
           Continuar →
         </button>
       </div>
@@ -1024,6 +1024,9 @@
 
   <!-- ========================================
        📤 ETAPA 2 - UPLOAD
+       NOTA: Este modal é ocultado automaticamente quando o usuário chega de
+       home.html com fileKey na URL. O arquivo já está no storage e não
+       precisa ser reenviado.
        ======================================== -->
   <div id="uploadModal" class="automaster-modal">
     <div class="automaster-modal-card">
@@ -1041,6 +1044,8 @@
         <div class="upload-hint">ou clique para selecionar</div>
       </div>
 
+      <!-- input file APENAS para o fluxo manual (não-fileKey). Em fluxo contínuo este
+           elemento existe mas não é acessível ao usuário (uploadModal fica oculto). -->
       <input type="file" id="audioFile" class="file-input" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac" onchange="handleFileSelect(event)">
 
       <div class="file-info" id="fileInfo">
@@ -1407,6 +1412,10 @@
       mode: null,
       file: null,
       fileName: null,
+      // fileKey: definido quando o usuário vem de home.html com upload já realizado.
+      // Neste caso o arquivo NÃO é reenviado — o backend o lê diretamente do storage.
+      fileKey: null,
+      fromHomeFlow: false,
       // Dados reais do backend (pré-análise)
       preAnalysis: {
         apt: null,
@@ -1432,6 +1441,40 @@
       },
       creditConsumed: false
     };
+
+    // ========================================
+    // 🔗 LEITURA DE PARÂMETROS DE URL
+    // ========================================
+    // Quando o usuário chega de home.html via botão "Masterizar", os parâmetros
+    // fileKey e fileName são passados na URL. O arquivo já está no storage e NÃO
+    // precisa ser reenviado.
+    (function initFromUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const urlFileKey  = params.get('fileKey');
+      const urlFileName = params.get('fileName');
+
+      if (urlFileKey && typeof urlFileKey === 'string' && urlFileKey.trim().length > 0) {
+        // Validação básica de segurança: apenas caracteres seguros no fileKey
+        const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
+        if (!SAFE_FILEKEY_RE.test(urlFileKey)) {
+          console.warn('[AUTOMASTER] fileKey inválido ignorado (caracteres não permitidos)');
+          return;
+        }
+
+        automasterState.fileKey       = urlFileKey.trim();
+        automasterState.fileName      = (urlFileName || 'audio').trim();
+        automasterState.fromHomeFlow  = true;
+
+        // Pré-preencher o file para funções que exibem o nome do arquivo
+        // (não é um File real, mas evita erros de exibição)
+        automasterState.file = { name: automasterState.fileName, size: 0, type: 'audio/wav' };
+
+        console.log('[AUTOMASTER] Fluxo contínuo de home.html detectado:', {
+          fileKey:  automasterState.fileKey,
+          fileName: automasterState.fileName
+        });
+      }
+    })();
 
     // ========================================
     // 🔐 AUTH & API UTILITIES
@@ -1620,6 +1663,25 @@
       }
     }
 
+    /**
+     * Chamado ao clicar "Continuar →" no modeModal.
+     * - Se veio de home.html com fileKey: pula o uploadModal e vai direto para pré-análise.
+     * - Caso contrário: abre o uploadModal (fluxo manual).
+     */
+    function onModeNextClick() {
+      if (!automasterState.mode) {
+        alert('Selecione um modo primeiro');
+        return;
+      }
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        // Fluxo contínuo: arquivo já está no storage — pular upload
+        console.log('[AUTOMASTER] Fluxo contínuo: ignorando uploadModal, iniciando pré-análise');
+        startPreAnalysis();
+      } else {
+        openUploadModal();
+      }
+    }
+
     function openUploadModal() {
       if (!automasterState.mode) {
         alert('Selecione um modo primeiro');
@@ -1696,11 +1758,13 @@
     /**
      * Envia áudio ao backend para pré-análise real.
      * Endpoint: POST /api/analyze-for-master
-     * Body: FormData { file, genre }
+     * Body: FormData { file, genre }   → fluxo manual (upload direto)
+     *   OU: FormData { fileKey, genre } → fluxo contínuo (arquivo já no storage)
      * Resposta: { apt, lufs, truePeak, headroom, clipping, tonalBalance, recommendedMode, message }
      */
     async function startPreAnalysis() {
-      if (!automasterState.file) {
+      // Validar: precisa de fileKey (fluxo contínuo) OU file (fluxo manual)
+      if (!automasterState.fileKey && !automasterState.file) {
         alert('Selecione um arquivo primeiro');
         return;
       }
@@ -1715,10 +1779,19 @@
 
       try {
         const formData = new FormData();
-        formData.append('file', automasterState.file);
-        formData.append('genre', automasterState.genre);
 
-        document.getElementById('analysisLoadingText').textContent = 'Enviando áudio para análise...';
+        if (automasterState.fileKey) {
+          // Fluxo contínuo: usar fileKey do storage em vez de reenviar o arquivo
+          formData.append('fileKey', automasterState.fileKey);
+          document.getElementById('analysisLoadingText').textContent = 'Analisando áudio...';
+          console.log('[AUTOMASTER] Pré-análise via fileKey:', automasterState.fileKey);
+        } else {
+          // Fluxo manual: enviar arquivo diretamente
+          formData.append('file', automasterState.file);
+          document.getElementById('analysisLoadingText').textContent = 'Enviando áudio para análise...';
+        }
+
+        formData.append('genre', automasterState.genre);
 
         const data = await apiRequest('/api/analyze-for-master', {
           method: 'POST',
@@ -1763,7 +1836,12 @@
     }
 
     function backToUpload() {
-      showModal('uploadModal');
+      // Em fluxo contínuo (fileKey), não há uploadModal — voltar para seleção de modo
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        showModal('modeModal');
+      } else {
+        showModal('uploadModal');
+      }
     }
 
     // ========================================
@@ -1904,10 +1982,10 @@
       // 🛡️ GUARDIÃO: VALIDAR ESTADO ANTES DE ENVIAR AO BACKEND
       // ============================================================
       
-      // Validação 1: Arquivo presente
-      if (!automasterState.file) {
+      // Validação 1: Arquivo ou fileKey presente
+      if (!automasterState.fileKey && !automasterState.file) {
         alert('Erro interno: Arquivo ausente. Faça upload novamente.');
-        console.error('❌ [AUTOMASTER] automasterState.file está vazio');
+        console.error('❌ [AUTOMASTER] automasterState.file e fileKey estão vazios');
         backToUpload();
         return;
       }
@@ -1934,8 +2012,9 @@
       // ✅ ESTADO VALIDADO - PROSSEGUIR
       console.log('✅ [AUTOMASTER] Estado validado:', {
         mode: modeNormalized,
-        file: automasterState.file.name,
-        size: `${(automasterState.file.size / 1024 / 1024).toFixed(2)} MB`
+        fileKey: automasterState.fileKey || null,
+        file: automasterState.file ? automasterState.file.name : null,
+        fromHomeFlow: automasterState.fromHomeFlow
       });
       
       showModal('processingModal');
@@ -1944,16 +2023,27 @@
 
       try {
         const formData = new FormData();
-        formData.append('file', automasterState.file);
         formData.append('mode', modeNormalized);  // ← SEMPRE UPPERCASE
-        
-        console.log('📤 [AUTOMASTER] Enviando ao backend:', {
-          endpoint: '/api/automaster',
-          mode: modeNormalized,
-          fileName: automasterState.file.name
-        });
 
-        document.getElementById('processingLoadingText').textContent = 'Enviando arquivo...';
+        if (automasterState.fileKey) {
+          // Fluxo contínuo: passar fileKey — o arquivo NÃO é reenviado
+          formData.append('fileKey', automasterState.fileKey);
+          document.getElementById('processingLoadingText').textContent = 'Iniciando masterização...';
+          console.log('[AUTOMASTER] Processamento via fileKey:', {
+            endpoint: '/api/automaster',
+            mode: modeNormalized,
+            fileKey: automasterState.fileKey
+          });
+        } else {
+          // Fluxo manual: enviar arquivo diretamente
+          formData.append('file', automasterState.file);
+          document.getElementById('processingLoadingText').textContent = 'Enviando arquivo...';
+          console.log('📤 [AUTOMASTER] Enviando ao backend:', {
+            endpoint: '/api/automaster',
+            mode: modeNormalized,
+            fileName: automasterState.file.name
+          });
+        }
 
         // ─── PASSO 1: enfileirar job ───────────────────────────────────────
         const enqueueData = await apiRequest('/api/automaster', {
@@ -2455,6 +2545,33 @@
         console.warn('⚠️ [AUTOMASTER] Usuário não logado — funcionalidade limitada');
       } else {
         console.log('✅ [AUTOMASTER] Usuário autenticado');
+      }
+
+      // ── FLUXO CONTÍNUO (home.html → master.html) ──────────────────────
+      // Quando o usuário chega com fileKey na URL, adaptar a UI:
+      // 1. Ocultar completamente o modal de upload (não é necessário)
+      // 2. Atualizar subtítulo do modeModal indicando o arquivo carregado
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        console.log('[AUTOMASTER] Adaptando UI para fluxo contínuo (sem upload)');
+
+        // Esconder modal de upload para que o usuário não veja nem acesse
+        const uploadModal = document.getElementById('uploadModal');
+        if (uploadModal) {
+          uploadModal.style.display = 'none';
+          uploadModal.setAttribute('aria-hidden', 'true');
+        }
+
+        // Atualizar subtítulo do modeModal com o nome do arquivo
+        const modeSubtitle = document.querySelector('#modeModal .modal-subtitle');
+        if (modeSubtitle) {
+          modeSubtitle.textContent =
+            'Arquivo: ' + (automasterState.fileName || 'áudio enviado') +
+            ' — Escolha o nível de processamento e clique em Continuar.';
+        }
+
+        // Habilitar o botão de confirmação imediatamente (sem necessidade de escolher arquivo)
+        // Obs: ainda exige que o usuário escolha um modo antes de prosseguir.
+        console.log('[AUTOMASTER] UI adaptada — uploadModal oculto, modeModal atualizado');
       }
     });
 
