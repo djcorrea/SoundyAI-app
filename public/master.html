@@ -1674,9 +1674,9 @@
         return;
       }
       if (automasterState.fromHomeFlow && automasterState.fileKey) {
-        // Fluxo contínuo: arquivo já está no storage — pular upload
-        console.log('[AUTOMASTER] Fluxo contínuo: ignorando uploadModal, iniciando pré-análise');
-        startPreAnalysis();
+        // Fluxo contínuo: arquivo já está no storage, análise já foi feita — pular upload e pré-análise
+        console.log('[AUTOMASTER] Fluxo contínuo: ignorando uploadModal e pré-análise, iniciando masterização');
+        startProcessing();
       } else {
         openUploadModal();
       }
