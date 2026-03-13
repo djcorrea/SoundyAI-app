@@ -468,6 +468,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
         : (options.genre || 'default');
 
+      // ── AUDIT STEP 1 ──
+      console.log("AUDIT GENRE →", detectedGenre);
+
       // 🚨 LOG DE AUDITORIA
       console.log('[AUDIT-PIPELINE] Genre resolvido:', {
         isGenreMode,

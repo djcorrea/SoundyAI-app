@@ -1,20 +1,22 @@
 {
   "genres": [
     {
-      "key": "trance",
-      "label": "Trance"
+      "key": "progressive_trance",
+      "label": "Progressive Trance",
+      "legacy_key": "trance"
     },
     {
       "key": "funk_mandela",
-      "label": "Funk Mandela"
+      "label": "Funk BR"
     },
     {
       "key": "funk_bruxaria",
       "label": "Funk Bruxaria"
     },
     {
-      "key": "funk_automotivo",
-      "label": "Funk Automotivo"
+      "key": "edm",
+      "label": "EDM",
+      "legacy_key": "funk_automotivo"
     },
     {
       "key": "funk_bh",
@@ -37,8 +39,9 @@
       "label": "Tech House"
     },
     {
-      "key": "techno",
-      "label": "Techno"
+      "key": "fullon",
+      "label": "Fullon",
+      "legacy_key": "techno"
     },
     {
       "key": "house",
@@ -49,8 +52,25 @@
       "label": "Brazilian Phonk"
     },
     {
-      "key": "phonk",
-      "label": "Phonk"
+      "key": "rap_drill",
+      "label": "Hip Hop",
+      "legacy_key": "phonk"
+    },
+    {
+      "key": "pop",
+      "label": "Pop"
+    },
+    {
+      "key": "rock_indie",
+      "label": "Rock / Indie"
+    },
+    {
+      "key": "sertanejo",
+      "label": "Sertanejo"
+    },
+    {
+      "key": "piseiro_forro",
+      "label": "Piseiro/Forró"
     }
   ]
 }

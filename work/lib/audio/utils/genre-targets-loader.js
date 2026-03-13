@@ -545,7 +545,21 @@ export async function loadGenreTargetsFromWorker(genre) {
   // 6. EXTRAIR DADOS (suportar estruturas aninhadas)
   const genreData = parsed[normalizedGenre] || parsed;
   const rawTargets = genreData.legacy_compatibility || genreData.hybrid_processing || genreData;
-  
+
+  // ── AUDIT STEP 2 ──
+  console.log("AUDIT RAW GENRE DATA →", JSON.stringify(genreData).slice(0, 300));
+  console.log("AUDIT RAW TARGET SOURCE →",
+    genreData.legacy_compatibility ? "legacy_compatibility"
+    : genreData.hybrid_processing   ? "hybrid_processing"
+    : "root"
+  );
+  console.log("AUDIT RAW TARGET VALUES →", {
+    lufs_target: rawTargets.lufs_target,
+    tol_lufs:    rawTargets.tol_lufs,
+    lufs_min:    rawTargets.lufs_min,
+    lufs_max:    rawTargets.lufs_max
+  });
+
   console.error('[TARGETS-WORKER] Top-level keys:', Object.keys(rawTargets));
   console.error('[TARGETS-WORKER] lufs_target:', rawTargets.lufs_target);
   console.error('[TARGETS-WORKER] true_peak_target:', rawTargets.true_peak_target);

@@ -172,6 +172,9 @@ export function normalizeGenreTargets(rawTargets) {
   normalized.dr = { ...normalized.metrics.dr };
   normalized.stereo = { ...normalized.metrics.stereo };
 
+  // ── AUDIT STEP 3 ──
+  console.log("AUDIT NORMALIZED TARGETS →", normalized.metrics?.lufs);
+
   // 📊 Log resumido (evitar flood)
   console.log('[NORMALIZE-TARGETS] ✅ Normalização completa:', {
     version: normalized._version,
@@ -604,8 +607,19 @@ export function evaluateMetricByKey(metricKey, value, normalizedTargets) {
   if (!target) {
     return evaluateMetric(value, {});
   }
-  
-  return evaluateMetric(value, {
+
+  // ── AUDIT STEP 4 ──
+  if (metricKey === 'lufs') {
+    console.log("AUDIT LOUDNESS CHECK →", {
+      value,
+      target: target.target,
+      tol:    target.tolerance,
+      min:    target.min,
+      max:    target.max
+    });
+  }
+
+  const _auditResult = evaluateMetric(value, {
     min: target.min,
     max: target.max,
     target: target.target,
@@ -615,4 +629,11 @@ export function evaluateMetricByKey(metricKey, value, normalizedTargets) {
     unit: target.unit,
     isTruePeak: metricKey === 'truePeak'
   });
+
+  // ── AUDIT STEP 5 ──
+  if (metricKey === 'lufs') {
+    console.log("AUDIT RESULT →", _auditResult);
+  }
+
+  return _auditResult;
 }
