@@ -348,6 +348,71 @@ export function validateNormalizedTargets(targets) {
 }
 
 /**
+ * 🎯 classifySeverity — FUNÇÃO CENTRAL DE SEVERIDADE (Mix-Oriented v3.0)
+ *
+ * Lógica unificada e previsível para análise de MIX:
+ *  - Dentro do range  → sempre OK
+ *  - Fora do range    → distância até borda determina nível
+ *  - Regra base       : dist < 3 → OK | 3–7 → ATENÇÃO | >7 → CRÍTICA
+ *  - Exceções por métrica controladas explicitamente
+ *
+ * @param {Object} params
+ * @param {number} params.value      - Valor medido
+ * @param {number} params.min        - Limite mínimo do range
+ * @param {number} params.max        - Limite máximo do range
+ * @param {string} [params.metricType] - 'lufs'|'truePeak'|'dr'|'stereo'|
+ *                                       'sub'|'low_bass'|'upper_bass'|
+ *                                       'low_mid'|'mid'|'high_mid'|'brilho'|'presenca'
+ * @returns {'OK'|'ATENÇÃO'|'CRÍTICA'|'N/A'}
+ */
+export function classifySeverity({ value, min, max, metricType = 'default' }) {
+  if (!Number.isFinite(value)) return 'N/A';
+
+  const isInside = value >= min && value <= max;
+
+  // ── TRUE PEAK: hard cap + limiares próprios ─────────────────────────────
+  if (metricType === 'truePeak') {
+    // Acima de 0 dBTP = clipping físico → sempre CRÍTICA
+    if (value > 0) return 'CRÍTICA';
+    // Dentro do range → OK
+    if (isInside) return 'OK';
+    const dist = value < min ? min - value : value - max;
+    // Abaixo do mínimo (mix muito quieto): máximo ATENÇÃO
+    if (value < min) return dist >= 1 ? 'ATENÇÃO' : 'OK';
+    // Acima do máximo (próximo de clipar)
+    if (dist < 1) return 'OK';
+    if (dist <= 2) return 'ATENÇÃO';
+    return 'CRÍTICA';
+  }
+
+  // ── Dentro do range = sempre OK ─────────────────────────────────────────
+  if (isInside) return 'OK';
+
+  // ── Distância fora do range (positiva) ───────────────────────────────────
+  const dist = value < min ? min - value : value - max;
+
+  // ── DR: range natural mais amplo ─────────────────────────────────────────
+  if (metricType === 'dr') {
+    if (dist < 3) return 'OK';
+    if (dist <= 6) return 'ATENÇÃO';
+    return 'CRÍTICA';
+  }
+
+  // ── Bandas mid/high: presença espectral mais variável ────────────────────
+  if (metricType === 'mid' || metricType === 'high_mid' ||
+      metricType === 'brilho' || metricType === 'presenca') {
+    if (dist < 4) return 'OK';
+    if (dist <= 8) return 'ATENÇÃO';
+    return 'CRÍTICA';
+  }
+
+  // ── Regra base (lufs, stereo, sub, low_bass, upper_bass, low_mid, etc.) ──
+  if (dist < 3) return 'OK';
+  if (dist <= 7) return 'ATENÇÃO';
+  return 'CRÍTICA';
+}
+
+/**
  * 🎯 FUNÇÃO DE SEVERIDADE ÚNICA - WRAPPER PARA evaluateMetric
  * 
  * Esta função DELEGA para evaluateMetric (fonte única da verdade).
@@ -386,49 +451,29 @@ export function calculateBandSeverity(bandKey, value, normalizedTargets) {
   }
   
   const band = bands[bandKey];
-  const { min, max, tolerance } = band;
+  const { min, max } = band;
   
-  // OK: Dentro do range
-  if (value >= min && value <= max) {
+  // Severidade via classifySeverity (fonte única)
+  const severity = classifySeverity({ value, min, max, metricType: bandKey });
+
+  if (severity === 'OK') {
     return { severity: 'OK', delta: 0, action: '✅ Dentro do padrão' };
   }
-  
-  // Fora do range
-  const tol = tolerance || 2.0;
-  let delta, absDelta;
-  
-  if (value < min) {
-    delta = value - min;
-    absDelta = min - value;
-  } else {
-    delta = value - max;
-    absDelta = value - max;
-  }
-  
-  const actionVerb = delta > 0 ? 'Reduzir' : 'Aumentar';
-  
-  if (absDelta >= tol * 1.5) {
-    return {
-      severity: 'CRÍTICA',
-      delta,
-      action: `🔴 ${actionVerb} ${absDelta.toFixed(1)} dB`
-    };
-  } else if (absDelta >= tol) {
-    return {
-      severity: 'ALTA',
-      delta,
-      action: `🟡 ${actionVerb} ${absDelta.toFixed(1)} dB`
-    };
-  } else {
-    return {
-      severity: 'ATENÇÃO',
-      delta,
-      action: `⚠️ ${actionVerb} ${absDelta.toFixed(1)} dB`
-    };
-  }
+
+  const isAbove = value > max;
+  const delta    = isAbove ? value - max : value - min; // positivo se acima, negativo se abaixo
+  const absDelta = Math.abs(delta);
+  const actionVerb = isAbove ? 'Reduzir' : 'Aumentar';
+  const icon = severity === 'CRÍTICA' ? '🔴' : '⚠️';
+
+  return {
+    severity,
+    delta,
+    action: `${icon} ${actionVerb} ${absDelta.toFixed(1)} dB`
+  };
 }
 
-console.log('🔧 Normalize Genre Targets v2.2.0 carregado (calculateMetricSeverity DELEGA para evaluateMetric)');
+console.log('🔧 Normalize Genre Targets v3.0.0 carregado (Mix-Oriented: classifySeverity central, 3 níveis: OK/ATENÇÃO/CRÍTICA)');
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -488,10 +533,11 @@ export function evaluateMetric(value, cfg) {
     };
   }
 
-  const { min, max, target, tolerance, warnFrom, hardCap, unit = '', isTruePeak = false } = cfg;
+  const { min, max, target, warnFrom, hardCap, unit = '', isTruePeak = false, metricType = 'default' } = cfg;
   const effectiveTarget = typeof target === 'number' ? target : (min + max) / 2;
-  const effectiveTolerance = typeof tolerance === 'number' ? tolerance : (max - min) / 2;
   const effectiveHardCap = isTruePeak ? (hardCap ?? TRUE_PEAK_HARD_CAP) : null;
+  // metricType para classifySeverity — isTruePeak tem prioridade (retrocompatibilidade)
+  const effectiveMetricType = isTruePeak ? 'truePeak' : metricType;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🚨 REGRA ESPECIAL TRUE PEAK: valor > 0.0 dBTP = SEMPRE CRÍTICA
@@ -511,23 +557,6 @@ export function evaluateMetric(value, cfg) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // TRUE PEAK: Warning zone (ex: acima de warn_from)
-  // 🔧 FIX: Ação usa deltaToTarget (não warnFrom) para consistência com coluna "Diferença"
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (isTruePeak && warnFrom !== null && warnFrom !== undefined && value > warnFrom) {
-    const deltaToTarget = value - effectiveTarget;  // ✅ SSOT: sempre usa target do gênero
-    return {
-      status: 'ALTA',
-      severity: 'ALTA',
-      diffToTarget: deltaToTarget,
-      diffToNearestLimit: value - warnFrom,  // Info: distância até warnFrom
-      action: `⚠️ Próximo do limite. Reduzir ${deltaToTarget.toFixed(2)} ${unit}`,
-      isWithinRange: false,
-      isCritical: false
-    };
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // OK: Dentro do range [min, max]
   // ═══════════════════════════════════════════════════════════════════════════
   if (value >= min && value <= max) {
@@ -543,10 +572,10 @@ export function evaluateMetric(value, cfg) {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FORA DO RANGE: Calcular severidade baseada na distância
+  // FORA DO RANGE: Severidade via classifySeverity (Mix-Oriented v3.0)
   // ═══════════════════════════════════════════════════════════════════════════
   let diffToNearestLimit, actionVerb;
-  
+
   if (value < min) {
     diffToNearestLimit = value - min; // negativo
     actionVerb = 'Aumentar';
@@ -557,30 +586,10 @@ export function evaluateMetric(value, cfg) {
 
   const absDiff = Math.abs(diffToNearestLimit);
 
-  // Gradação de severidade baseada na tolerância
-  let status, severity;
-  
-  if (absDiff <= effectiveTolerance * 0.5) {
-    status = 'LEVE';
-    severity = 'ATENÇÃO';
-  } else if (absDiff <= effectiveTolerance) {
-    status = 'MÉDIA';
-    severity = 'ATENÇÃO';
-  } else if (absDiff <= effectiveTolerance * 2) {
-    status = 'ALTA';
-    severity = 'ALTA';
-  } else {
-    status = 'CRÍTICA';
-    severity = 'CRÍTICA';
-  }
-
-  // Para True Peak abaixo do mínimo, nunca é CRÍTICA (apenas informativo)
-  if (isTruePeak && value < min) {
-    status = 'LEVE';
-    severity = 'ATENÇÃO';
-  }
-
-  const icon = severity === 'CRÍTICA' ? '🔴' : severity === 'ALTA' ? '🟡' : '⚠️';
+  // Classificar via função central (fonte única da verdade)
+  const severity = classifySeverity({ value, min, max, metricType: effectiveMetricType });
+  const status = severity; // Alinhado: status === severity (3 níveis: OK/ATENÇÃO/CRÍTICA)
+  const icon = severity === 'CRÍTICA' ? '🔴' : '⚠️';
 
   return {
     status,
@@ -623,11 +632,11 @@ export function evaluateMetricByKey(metricKey, value, normalizedTargets) {
     min: target.min,
     max: target.max,
     target: target.target,
-    tolerance: target.tolerance,
     warnFrom: target.warnFrom,
     hardCap: target.hardCap,
     unit: target.unit,
-    isTruePeak: metricKey === 'truePeak'
+    isTruePeak: metricKey === 'truePeak',
+    metricType: metricKey
   });
 
   // ── AUDIT STEP 5 ──
