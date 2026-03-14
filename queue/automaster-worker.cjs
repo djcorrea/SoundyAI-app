@@ -464,6 +464,38 @@ async function processJob(job) {
     console.log('[PIPELINE] Step 3: upload ok', { outputKey });
     jobLogger.info({ outputKey }, 'Output enviado ao storage');
 
+    // 8b. Gerar preview 60s MP3 para exibição no modal (não crítico — não bloqueia entrega)
+    let previewAfterKey = null;
+    try {
+      const previewAfterPath = isolatedOutput.replace(/\.wav$/i, '_preview.mp3');
+      await new Promise((resolve, reject) => {
+        execFile('ffmpeg', [
+          '-y', '-i', isolatedOutput,
+          '-t', '60', '-q:a', '6', '-ac', '2',
+          previewAfterPath
+        ], { timeout: 30000 }, (err) => (err ? reject(err) : resolve()));
+      });
+      const previewBuffer = await fs.readFile(previewAfterPath);
+      previewAfterKey = await storageService.uploadFile(
+        `preview/${jobId}_after.mp3`,
+        previewBuffer,
+        'audio/mpeg'
+      );
+      try { await fs.unlink(previewAfterPath); } catch (_) {}
+      jobLogger.info({ previewAfterKey }, 'Preview after gerado e enviado ao storage');
+    } catch (previewErr) {
+      jobLogger.warn({ error: previewErr.message }, '[PREVIEW] Falha ao gerar preview after (nao critico)');
+    }
+
+    // 8c. Extrair métricas para exibição no preview
+    const _lastAttempt = pipelineResult.attempts && pipelineResult.attempts.length
+      ? pipelineResult.attempts[pipelineResult.attempts.length - 1]
+      : null;
+    const _lufsBefore     = pipelineResult.aptitude_check?.measured?.lufs_i ?? null;
+    const _tpBefore       = pipelineResult.aptitude_check?.measured?.true_peak_db ?? null;
+    const _lufsAfter      = _lastAttempt?.postcheck?.metrics?.lufs_i ?? null;
+    const _tpAfter        = _lastAttempt?.postcheck?.metrics?.true_peak_dbtp ?? null;
+
     // 9. Cleanup (95%)
     await job.updateProgress(95);
     await jobStore.updateProgress(jobId, 95);
@@ -487,7 +519,12 @@ async function processJob(job) {
       warning: completedWithWarning ? '1' : '0',
       recommended_mode: (completedWithWarning || completedSafe) ? (pipelineResult.recommendedMode || 'MEDIUM') : '',
       warning_message: (completedWithWarning || completedSafe) ? (pipelineResult.message || '').substring(0, 500) : '',
-      delivery_mode: deliveryMode
+      delivery_mode: deliveryMode,
+      preview_after_key:  previewAfterKey  || '',
+      lufs_before:        _lufsBefore  != null ? String(_lufsBefore)  : '',
+      true_peak_before:   _tpBefore    != null ? String(_tpBefore)    : '',
+      lufs_after:         _lufsAfter   != null ? String(_lufsAfter)   : '',
+      true_peak_after:    _tpAfter     != null ? String(_tpAfter)     : ''
     });
 
     // 11b. Sincronizar com PostgreSQL (permite /api/jobs/:id retornar status correto)

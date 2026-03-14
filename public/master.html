@@ -914,12 +914,18 @@ body .neon-accent-br{
       </div>
     </div>
 
-    <div class="am-actions" style="margin-top:1.75rem;">
+    <div id="previewActionsDiv" class="am-actions" style="margin-top:1.75rem;">
       <button class="btn btn-ghost" onclick="backToPreviewChoice()">← Voltar</button>
-      <button class="btn btn-success" onclick="openDeliveryModal()">
+      <button id="previewDownloadBtn" class="btn btn-success" onclick="startDownloadFromPreview()">
         📥 Baixar Master
         <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>
       </button>
+    </div>
+
+    <div id="previewDownloadDone" style="display:none;margin-top:1.75rem;text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">✅</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--success);margin-bottom:1.25rem;">Download concluído!</div>
+      <button class="btn btn-primary" style="width:100%;" onclick="resetFlow()">🎵 Masterizar outra faixa</button>
     </div>
   </div>
 </div>
@@ -1006,7 +1012,7 @@ const automasterState = {
   mode: null, file: null, fileName: null,
   fileKey: null, fromHomeFlow: false, jobId: null,
   preAnalysis: { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null },
-  result: { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, lufsAfter:null, truePeakAfter:null } },
+  result: { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } },
   creditConsumed: false,
   _recommendedMode: null,
   _confirmJobId: null
@@ -1302,13 +1308,14 @@ async function startProcessing() {
 
     automasterState.result = {
       success: true,
-      masterUrl:     sd.downloadUrl       || null,
-      previewBefore: sd.previewBefore     || null,
-      previewAfter:  sd.previewAfter      || null,
+      masterUrl:      sd.downloadUrl       || null,
+      previewBefore:  sd.previewBefore     || null,
+      previewAfter:   sd.previewAfter      || null,
       metrics: {
-        lufsBefore:    sd.metrics?.lufsBefore    ?? null,
-        lufsAfter:     sd.metrics?.lufsAfter      ?? null,
-        truePeakAfter: sd.metrics?.truePeakAfter  ?? null
+        lufsBefore:     sd.metrics?.lufsBefore     ?? null,
+        truePeakBefore: sd.metrics?.truePeakBefore ?? null,
+        lufsAfter:      sd.metrics?.lufsAfter      ?? null,
+        truePeakAfter:  sd.metrics?.truePeakAfter  ?? null
       }
     };
 
@@ -1466,17 +1473,43 @@ function openPreviewModal() {
   const { metrics, previewBefore, previewAfter } = automasterState.result;
   const pa = automasterState.preAnalysis;
 
-  // Fallback: métricas "antes" podem vir do job result (fluxo sem preAnalysis)
-  const lufsBefore = pa.lufs     ?? metrics.lufsBefore ?? null;
-  const tpBefore   = pa.truePeak ?? metrics.truePeakBefore ?? null;
-  const hrBefore   = pa.headroom ?? null;
+  // Reset UI de download
+  const actDiv  = document.getElementById('previewActionsDiv');
+  const doneDiv = document.getElementById('previewDownloadDone');
+  const dBtn    = document.getElementById('previewDownloadBtn');
+  if (actDiv)  actDiv.style.display  = 'flex';
+  if (doneDiv) doneDiv.style.display = 'none';
+  if (dBtn)    { dBtn.disabled = false; dBtn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; }
 
-  document.getElementById('prevBeforeLUFS').textContent = lufsBefore != null ? (typeof lufsBefore === 'number' ? lufsBefore.toFixed(1) : lufsBefore) + ' LUFS' : '—';
-  document.getElementById('prevBeforeTP').textContent   = tpBefore   != null ? (typeof tpBefore   === 'number' ? tpBefore.toFixed(2)   : tpBefore)   + ' dBTP' : '—';
-  document.getElementById('prevBeforeHR').textContent   = hrBefore   != null ? hrBefore + ' dB' : '—';
-  document.getElementById('prevAfterLUFS').textContent  = metrics.lufsAfter     != null ? (typeof metrics.lufsAfter     === 'number' ? metrics.lufsAfter.toFixed(1)     : metrics.lufsAfter)     + ' LUFS' : '—';
-  document.getElementById('prevAfterTP').textContent    = metrics.truePeakAfter != null ? (typeof metrics.truePeakAfter === 'number' ? metrics.truePeakAfter.toFixed(2) : metrics.truePeakAfter) + ' dBTP' : '—';
-  document.getElementById('prevAfterHR').textContent    = '—';
+  // Re-habilitar toggles (podem ter sido desabilitados numa chamada anterior)
+  const tbBefore = document.getElementById('toggleBefore');
+  const tbAfter  = document.getElementById('toggleAfter');
+  if (tbBefore) tbBefore.disabled = false;
+  if (tbAfter)  tbAfter.disabled  = false;
+
+  // Helpers de formatação
+  const fmtLufs = v => v != null ? (typeof v === 'number' ? v.toFixed(1) : v) + ' LUFS' : '—';
+  const fmtTp   = v => v != null ? (typeof v === 'number' ? v.toFixed(2) : v) + ' dBTP' : '—';
+  const fmtHr   = v => v != null ? v + ' dB' : '—';
+  const toNum   = v => v != null ? (typeof v === 'number' ? v : parseFloat(v)) : null;
+
+  // Métricas "antes" com fallback do job result (fluxo sem preAnalysis)
+  const lufsBefore = pa.lufs     ?? metrics.lufsBefore     ?? null;
+  const tpBefore   = pa.truePeak ?? metrics.truePeakBefore ?? null;
+  const hrBefore   = pa.headroom != null
+    ? pa.headroom
+    : (tpBefore != null ? Math.max(0, -toNum(tpBefore)).toFixed(1) : null);
+
+  // Métricas "depois"
+  const tpAfterNum = toNum(metrics.truePeakAfter);
+  const hrAfter    = tpAfterNum != null ? Math.max(0, -tpAfterNum).toFixed(1) : null;
+
+  document.getElementById('prevBeforeLUFS').textContent = fmtLufs(lufsBefore);
+  document.getElementById('prevBeforeTP').textContent   = fmtTp(tpBefore);
+  document.getElementById('prevBeforeHR').textContent   = fmtHr(hrBefore);
+  document.getElementById('prevAfterLUFS').textContent  = fmtLufs(metrics.lufsAfter);
+  document.getElementById('prevAfterTP').textContent    = fmtTp(metrics.truePeakAfter);
+  document.getElementById('prevAfterHR').textContent    = fmtHr(hrAfter);
 
   const ab = document.getElementById('audioBefore');
   const aa = document.getElementById('audioAfter');
@@ -1486,7 +1519,7 @@ function openPreviewModal() {
     ab.addEventListener('contextmenu', e => e.preventDefault());
     _hookPlayer('before');
   } else {
-    document.getElementById('toggleBefore').disabled = true;
+    if (tbBefore) tbBefore.disabled = true;
   }
 
   if (previewAfter) {
@@ -1494,7 +1527,7 @@ function openPreviewModal() {
     aa.addEventListener('contextmenu', e => e.preventDefault());
     _hookPlayer('after');
   } else {
-    document.getElementById('toggleAfter').disabled = true;
+    if (tbAfter) tbAfter.disabled = true;
   }
 
   _curPreview = previewBefore ? 'before' : 'after';
@@ -1552,6 +1585,40 @@ function seekTo(side, value) {
 function backToPreviewChoice() {
   ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a) a.pause(); });
   showModal('processingModal');
+}
+
+// Download direto do previewModal (sem abrir deliveryModal)
+async function startDownloadFromPreview() {
+  const { masterUrl } = automasterState.result;
+  if (!masterUrl) { alert('⚠️ URL de download não disponível. Tente reprocessar.'); return; }
+
+  const btn = document.getElementById('previewDownloadBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparando...'; }
+
+  // Pausar áudios
+  ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a) a.pause(); });
+
+  try {
+    if (!automasterState.creditConsumed) {
+      await apiRequest('/api/automaster/consume-credit', {
+        method: 'POST',
+        body: JSON.stringify({ masterUrl, mode: automasterState.mode, fileName: automasterState.fileName })
+      }, 30000);
+      automasterState.creditConsumed = true;
+    }
+
+    await triggerBlobDownload(masterUrl);
+
+    // Mostrar estado de sucesso dentro do próprio modal
+    const actDiv  = document.getElementById('previewActionsDiv');
+    const doneDiv = document.getElementById('previewDownloadDone');
+    if (actDiv)  actDiv.style.display  = 'none';
+    if (doneDiv) doneDiv.style.display = 'block';
+
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; }
+    alert('Erro ao baixar: ' + (err.message || 'Tente novamente.'));
+  }
 }
 
 // ================================================================
@@ -1644,7 +1711,7 @@ function resetFlow() {
   automasterState.jobId = null; automasterState.creditConsumed = false;
   automasterState._recommendedMode = null; automasterState._confirmJobId = null;
   automasterState.preAnalysis = { apt:null, lufs:null, truePeak:null, headroom:null, clipping:null, tonalBalance:null, recommendedMode:null, message:null };
-  automasterState.result      = { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, lufsAfter:null, truePeakAfter:null } };
+  automasterState.result      = { success:null, masterUrl:null, previewBefore:null, previewAfter:null, metrics:{ lufsBefore:null, truePeakBefore:null, lufsAfter:null, truePeakAfter:null } };
   document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('.mode-option-v2').forEach(o => o.classList.remove('selected','recommended'));
   document.getElementById('fileInfo').classList.remove('visible');

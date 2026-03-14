@@ -725,7 +725,23 @@ app.get('/api/automaster/status/:jobId', async (req, res) => {
       if (job.output_key) {
         response.downloadUrl = await storageServiceModule.generateSignedUrl(job.output_key, 1800);
       }
-      
+
+      // Preview URLs: antes = input original, depois = preview 60s gerado no worker
+      if (job.input_key) {
+        response.previewBefore = await storageServiceModule.generateSignedUrl(job.input_key, 1800);
+      }
+      if (job.preview_after_key) {
+        response.previewAfter = await storageServiceModule.generateSignedUrl(job.preview_after_key, 1800);
+      }
+
+      // Métricas para exibição no modal de preview
+      response.metrics = {
+        lufsBefore:     job.lufs_before      ? parseFloat(job.lufs_before)      : null,
+        truePeakBefore: job.true_peak_before  ? parseFloat(job.true_peak_before)  : null,
+        lufsAfter:      job.lufs_after        ? parseFloat(job.lufs_after)        : null,
+        truePeakAfter:  job.true_peak_after   ? parseFloat(job.true_peak_after)   : null,
+      };
+
       response.message = 'Masterização concluída com sucesso';
 
       // delivery_mode indica o caminho usado: primary | safe | warning
