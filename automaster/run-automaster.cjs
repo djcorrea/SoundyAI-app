@@ -204,6 +204,7 @@ function executeCoreEngine(inputPath, outputPath, mode, strategy) {
 
     const nodeProcess = execFile('node', args, {
       maxBuffer: 10 * 1024 * 1024,
+      timeout: 330000,
       cwd: __dirname,
       env: Object.assign({}, process.env, { AUTOMASTER_STRATEGY: strategy || '' })
     });
@@ -225,6 +226,10 @@ function executeCoreEngine(inputPath, outputPath, mode, strategy) {
     });
 
     nodeProcess.on('close', (code) => {
+      if (code === null) {
+        reject(new Error('Core engine timeout: DSP chain excedeu 5.5 minutos sem resposta'));
+        return;
+      }
       if (code === 0) {
         // Validar se stdout começa com '{'
         const trimmed = stdoutData.trim();

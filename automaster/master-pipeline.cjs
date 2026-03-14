@@ -78,7 +78,7 @@ async function runMeasureAudio(inputPath) {
     const { stdout } = await execFileAsync(
       'node',
       [MEASURE_AUDIO_SCRIPT, inputPath],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -95,7 +95,7 @@ async function runCheckAptitude(lufs_i, true_peak_db, targetLufs) {
     const { stdout } = await execFileAsync(
       'node',
       [CHECK_APTITUDE_SCRIPT, lufs_i.toString(), true_peak_db.toString(), targetLufs.toString()],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 30000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -117,7 +117,7 @@ async function runRescueMode(inputPath, tmpOutputPath) {
     const { stdout } = await execFileAsync(
       'node',
       [RESCUE_MODE_SCRIPT, inputPath, tmpOutputPath],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 180000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -139,7 +139,7 @@ async function runPrecheck(inputPath) {
     const { stdout } = await execFileAsync(
       'node',
       [PRECHECK_SCRIPT, inputPath],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -156,7 +156,7 @@ async function runFixTruePeak(inputPath) {
     const { stdout } = await execFileAsync(
       'node',
       [FIX_TP_SCRIPT, inputPath],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 120000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -176,7 +176,7 @@ async function runMaster(inputPath, outputPath, mode, strategy) {
     const { stdout } = await execFileAsync(
       'node',
       args,
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 330000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -322,7 +322,7 @@ async function runPostcheck(outputPath, mode) {
     const { stdout } = await execFileAsync(
       'node',
       [POSTCHECK_SCRIPT, outputPath, mode],
-      { maxBuffer: 10 * 1024 * 1024 }
+      { maxBuffer: 10 * 1024 * 1024, timeout: 60000 }
     );
 
     return JSON.parse(stdout.trim());
@@ -366,19 +366,27 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
 
   let initialMeasure;
   try {
+    const _t0 = Date.now();
+    console.error('[STEP] measure-audio start');
     initialMeasure = await runMeasureAudio(resolvedInput);
+    console.error(`[STEP] measure-audio done ${Date.now() - _t0}ms`);
   } catch (error) {
+    console.error('[STEP] measure-audio error:', error.message);
     throw new Error(`Medição inicial falhou: ${error.message}`);
   }
 
   let aptitudeCheck;
   try {
+    const _t1 = Date.now();
+    console.error('[STEP] check-aptitude start');
     aptitudeCheck = await runCheckAptitude(
       initialMeasure.lufs_i,
       initialMeasure.true_peak_db,
       targetLufs
     );
+    console.error(`[STEP] check-aptitude done ${Date.now() - _t1}ms`);
   } catch (error) {
+    console.error('[STEP] check-aptitude error:', error.message);
     throw new Error(`Checagem de aptidão falhou: ${error.message}`);
   }
 
@@ -421,8 +429,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     const tmpRescuePath = path.join(inputDir, `${inputName}_rescue_tmp.wav`);
 
     try {
+      const _t2 = Date.now();
+      console.error('[STEP] rescue-mode start');
       rescueResult = await runRescueMode(resolvedInput, tmpRescuePath);
+      console.error(`[STEP] rescue-mode done ${Date.now() - _t2}ms`);
     } catch (error) {
+      console.error('[STEP] rescue-mode error:', error.message);
       throw new Error(`Rescue Mode falhou: ${error.message}`);
     }
 
@@ -463,8 +475,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
 
   let precheckInitial;
   try {
+    const _t3 = Date.now();
+    console.error('[STEP] precheck start');
     precheckInitial = await runPrecheck(inputUsedForPipeline);
+    console.error(`[STEP] precheck done ${Date.now() - _t3}ms`);
   } catch (error) {
+    console.error('[STEP] precheck error:', error.message);
     throw new Error(`Precheck inicial falhou: ${error.message}`);
   }
 
@@ -479,8 +495,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     if (isTPIssue) {
       let fixResult;
       try {
+        const _t4 = Date.now();
+        console.error('[STEP] fix-true-peak start');
         fixResult = await runFixTruePeak(resolvedInput);
+        console.error(`[STEP] fix-true-peak done ${Date.now() - _t4}ms`);
       } catch (error) {
+        console.error('[STEP] fix-true-peak error:', error.message);
         throw new Error(`Fix True Peak falhou: ${error.message}`);
       }
 
@@ -498,8 +518,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
         inputUsedForMaster = fixedPath;
 
         try {
+          const _t5 = Date.now();
+          console.error('[STEP] precheck-after-fix start');
           precheckAfterFix = await runPrecheck(inputUsedForMaster);
+          console.error(`[STEP] precheck-after-fix done ${Date.now() - _t5}ms`);
         } catch (error) {
+          console.error('[STEP] precheck-after-fix error:', error.message);
           throw new Error(`Precheck pos-correcao falhou: ${error.message}`);
         }
 
@@ -564,6 +588,8 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
 
   let masterResult;
   try {
+    const _t6 = Date.now();
+    console.error(`[STEP] master start (mode=${validMode} safeMode=${safeMode})`);
     if (safeMode) {
       // SAFE MODE: apenas correção de TP — sem loudnorm, sem alteração de LUFS
       console.error('[PIPELINE][SAFE-MODE] Bypassing loudnorm — executando entrega somente-TP');
@@ -571,7 +597,9 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
     } else {
       masterResult = await runMaster(inputUsedForMaster, resolvedOutput, validMode);
     }
+    console.error(`[STEP] master done ${Date.now() - _t6}ms`);
   } catch (error) {
+    console.error('[STEP] master error:', error.message);
     throw new Error(`Masterizacao falhou: ${error.message}`);
   } finally {
     if (truePeakFixApplied && inputUsedForMaster !== inputUsedForPipeline) {
@@ -609,8 +637,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
       effectiveMode = 'MEDIUM';
       console.error(`[PIPELINE][SAFE-MODE] Downgrade automático: ${validMode} → MEDIUM (${masterResult.abort_reason})`);
       try {
+        const _t6b = Date.now();
+        console.error('[STEP] master-medium-downgrade start');
         masterResult = await runMaster(inputUsedForMaster, resolvedOutput, 'MEDIUM');
+        console.error(`[STEP] master-medium-downgrade done ${Date.now() - _t6b}ms`);
       } catch (err) {
+        console.error('[STEP] master-medium-downgrade error:', err.message);
         throw new Error(`Masterização MEDIUM (safe fallback) falhou: ${err.message}`);
       }
     } else {
@@ -630,8 +662,12 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   // Pós-checagem técnica e fallback CLEAN (no máximo uma tentativa adicional)
   let postcheck;
   try {
+    const _t7 = Date.now();
+    console.error('[STEP] postcheck start');
     postcheck = await runPostcheck(resolvedOutput, effectiveMode);
+    console.error(`[STEP] postcheck done ${Date.now() - _t7}ms`);
   } catch (err) {
+    console.error('[STEP] postcheck error:', err.message);
     throw new Error(`Postcheck falhou: ${err.message}`);
   }
 
@@ -730,16 +766,24 @@ async function runMasterPipeline({ inputPath, outputPath, mode, rescueMode = fal
   if (postcheck && postcheck.recommended_action === 'FALLBACK_CLEAN') {
     let fallbackResult;
     try {
+      const _t8 = Date.now();
+      console.error('[STEP] fallback-clean start');
       fallbackResult = await runMaster(inputUsedForMaster, resolvedOutput, effectiveMode, 'CLEAN');
+      console.error(`[STEP] fallback-clean done ${Date.now() - _t8}ms`);
     } catch (err) {
+      console.error('[STEP] fallback-clean error:', err.message);
       throw new Error(`Fallback CLEAN falhou: ${err.message}`);
     }
 
     // re-run postcheck (sempre avaliando contra o modo efetivo)
     let postcheck2;
     try {
+      const _t9 = Date.now();
+      console.error('[STEP] postcheck-after-clean start');
       postcheck2 = await runPostcheck(resolvedOutput, effectiveMode);
+      console.error(`[STEP] postcheck-after-clean done ${Date.now() - _t9}ms`);
     } catch (err) {
+      console.error('[STEP] postcheck-after-clean error:', err.message);
       throw new Error(`Postcheck pós-CLEAN falhou: ${err.message}`);
     }
 

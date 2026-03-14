@@ -620,7 +620,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
           ];
           
           execFile('ffmpeg', subArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (subError, subStdout, subStderr) => {
-            if (subError && !subStderr) {
+            if (subError) {
               windowResults[windowIndex] = null;
               checkCompletion();
               return;
@@ -643,7 +643,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
             ];
             
             execFile('ffmpeg', bodyArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (bodyError, bodyStdout, bodyStderr) => {
-              if (bodyError && !bodyStderr) {
+              if (bodyError) {
                 windowResults[windowIndex] = null;
                 checkCompletion();
                 return;
@@ -666,7 +666,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
               ];
               
               execFile('ffmpeg', presenceArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (presenceError, presenceStdout, presenceStderr) => {
-                if (presenceError && !presenceStderr) {
+                if (presenceError) {
                   windowResults[windowIndex] = null;
                   checkCompletion();
                   return;
@@ -836,7 +836,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
       ];
       
       execFile('ffmpeg', subArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (subError, subStdout, subStderr) => {
-        if (subError && !subStderr) {
+        if (subError) {
           reject(new Error(`Erro ao analisar subgrave: ${subError.message}`));
           return;
         }
@@ -855,7 +855,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
         ];
         
         execFile('ffmpeg', bodyArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (bodyError, bodyStdout, bodyStderr) => {
-          if (bodyError && !bodyStderr) {
+          if (bodyError) {
             reject(new Error(`Erro ao analisar corpo: ${bodyError.message}`));
             return;
           }
@@ -874,7 +874,7 @@ async function analyzeSpectralRisk(inputPath, inputLoudness = null) {
           ];
           
           execFile('ffmpeg', presenceArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (presenceError, presenceStdout, presenceStderr) => {
-            if (presenceError && !presenceStderr) {
+            if (presenceError) {
               reject(new Error(`Erro ao analisar presença: ${presenceError.message}`));
               return;
             }
@@ -967,7 +967,7 @@ async function classifyMixIntegrity(inputPath) {
         ];
         
         execFile('ffmpeg', subArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (subError, subStdout, subStderr) => {
-      if (subError && !subStderr) {
+      if (subError) {
         reject(new Error(`Erro ao analisar subgrave (<120Hz): ${subError.message}`));
         return;
       }
@@ -988,7 +988,7 @@ async function classifyMixIntegrity(inputPath) {
       ];
       
       execFile('ffmpeg', totalArgs, { timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (totalError, totalStdout, totalStderr) => {
-        if (totalError && !totalStderr) {
+        if (totalError) {
           reject(new Error(`Erro ao analisar banda completa: ${totalError.message}`));
           return;
         }
