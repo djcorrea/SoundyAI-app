@@ -1465,9 +1465,17 @@ function retryWithRecommendedMode() {
 }
 
 // ================================================================
-// SECTION 7 — PREVIEW MODAL
+// SECTION 7 — PREVIEW MODAL (dual-audio muted — comparação contínua)
 // ================================================================
 let _curPreview = 'before';
+let _prevBefore = null; // instância Audio para "antes"
+let _prevAfter  = null; // instância Audio para "depois"
+
+function _fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  return Math.floor(s / 60) + ':' + (Math.floor(s % 60) < 10 ? '0' : '') + Math.floor(s % 60);
+}
+function fmt(s) { return _fmtTime(s); } // alias legado
 
 function openPreviewModal() {
   const { metrics, previewBefore, previewAfter } = automasterState.result;
@@ -1481,122 +1489,159 @@ function openPreviewModal() {
   if (doneDiv) doneDiv.style.display = 'none';
   if (dBtn)    { dBtn.disabled = false; dBtn.innerHTML = '📥 Baixar Master <span style="font-size:0.7rem;opacity:0.75;margin-left:4px;">(1 crédito)</span>'; }
 
-  // Re-habilitar toggles (podem ter sido desabilitados numa chamada anterior)
-  const tbBefore = document.getElementById('toggleBefore');
-  const tbAfter  = document.getElementById('toggleAfter');
-  if (tbBefore) tbBefore.disabled = false;
-  if (tbAfter)  tbAfter.disabled  = false;
+  // Helpers
+  const toNum   = v  => (v != null && v !== '') ? (typeof v === 'number' ? v : parseFloat(v)) : null;
+  const fmtLufs = v  => { const n = toNum(v); return n != null ? n.toFixed(1) + ' LUFS' : '—'; };
+  const fmtTp   = v  => { const n = toNum(v); return n != null ? n.toFixed(2) + ' dBTP' : '—'; };
+  const fmtHr   = hr => hr != null ? String(hr) + ' dB' : '—';
 
-  // Helpers de formatação
-  const fmtLufs = v => v != null ? (typeof v === 'number' ? v.toFixed(1) : v) + ' LUFS' : '—';
-  const fmtTp   = v => v != null ? (typeof v === 'number' ? v.toFixed(2) : v) + ' dBTP' : '—';
-  const fmtHr   = v => v != null ? v + ' dB' : '—';
-  const toNum   = v => v != null ? (typeof v === 'number' ? v : parseFloat(v)) : null;
-
-  // Métricas "antes" com fallback do job result (fluxo sem preAnalysis)
-  const lufsBefore = pa.lufs     ?? metrics.lufsBefore     ?? null;
-  const tpBefore   = pa.truePeak ?? metrics.truePeakBefore ?? null;
+  // Métricas "antes" — preAnalysis tem prioridade; fallback do job result
+  const lufsBefore = pa.lufs     ?? toNum(metrics.lufsBefore)     ?? null;
+  const tpBefore   = pa.truePeak ?? toNum(metrics.truePeakBefore) ?? null;
   const hrBefore   = pa.headroom != null
     ? pa.headroom
     : (tpBefore != null ? Math.max(0, -toNum(tpBefore)).toFixed(1) : null);
 
   // Métricas "depois"
   const tpAfterNum = toNum(metrics.truePeakAfter);
+  const lufsAfterNum = toNum(metrics.lufsAfter);
   const hrAfter    = tpAfterNum != null ? Math.max(0, -tpAfterNum).toFixed(1) : null;
 
   document.getElementById('prevBeforeLUFS').textContent = fmtLufs(lufsBefore);
   document.getElementById('prevBeforeTP').textContent   = fmtTp(tpBefore);
   document.getElementById('prevBeforeHR').textContent   = fmtHr(hrBefore);
-  document.getElementById('prevAfterLUFS').textContent  = fmtLufs(metrics.lufsAfter);
-  document.getElementById('prevAfterTP').textContent    = fmtTp(metrics.truePeakAfter);
+  document.getElementById('prevAfterLUFS').textContent  = fmtLufs(lufsAfterNum);
+  document.getElementById('prevAfterTP').textContent    = fmtTp(tpAfterNum);
   document.getElementById('prevAfterHR').textContent    = fmtHr(hrAfter);
 
-  const ab = document.getElementById('audioBefore');
-  const aa = document.getElementById('audioAfter');
+  // Destruir instâncias anteriores
+  if (_prevBefore) { try { _prevBefore.pause(); } catch (_) {} _prevBefore = null; }
+  if (_prevAfter)  { try { _prevAfter.pause();  } catch (_) {} _prevAfter  = null; }
 
+  const tbBefore = document.getElementById('toggleBefore');
+  const tbAfter  = document.getElementById('toggleAfter');
+  if (tbBefore) { tbBefore.disabled = false; }
+  if (tbAfter)  { tbAfter.disabled  = false; }
+
+  // Criar instâncias Audio — ambas tocam simultaneamente, uma muted
   if (previewBefore) {
-    ab.src = previewBefore; ab.load();
-    ab.addEventListener('contextmenu', e => e.preventDefault());
-    _hookPlayer('before');
+    _prevBefore = new Audio(previewBefore);
+    _prevBefore.preload = 'auto';
+    _prevBefore.muted   = false; // ativo por padrão (ouve "antes")
+    _prevBefore.addEventListener('contextmenu', e => e.preventDefault());
+    _hookSyncPlayer('before', _prevBefore);
   } else {
     if (tbBefore) tbBefore.disabled = true;
   }
 
   if (previewAfter) {
-    aa.src = previewAfter; aa.load();
-    aa.addEventListener('contextmenu', e => e.preventDefault());
-    _hookPlayer('after');
+    _prevAfter = new Audio(previewAfter);
+    _prevAfter.preload = 'auto';
+    _prevAfter.muted   = true;   // silenciado por padrão
+    _prevAfter.addEventListener('contextmenu', e => e.preventDefault());
+    _hookSyncPlayer('after', _prevAfter);
   } else {
     if (tbAfter) tbAfter.disabled = true;
   }
 
   _curPreview = previewBefore ? 'before' : 'after';
-  switchPreview(_curPreview);
+  _applyToggleUI(_curPreview);
   showModal('previewModal');
 }
 
-function _hookPlayer(side) {
+function _hookSyncPlayer(side, audio) {
+  if (!audio) return;
   const sfx   = side === 'before' ? 'Before' : 'After';
-  const audio = document.getElementById('audio' + sfx);
-  const seek  = document.getElementById('seek'  + sfx);
-  const timEl = document.getElementById('time'  + sfx);
+  const seek  = document.getElementById('seek' + sfx);
+  const timEl = document.getElementById('time' + sfx);
   const durEl = document.getElementById('duration' + sfx);
   const btn   = document.getElementById('playBtn' + sfx);
-  if (!audio) return;
-  audio.addEventListener('loadedmetadata', () => { if (seek) seek.max = audio.duration; if (durEl) durEl.textContent = fmt(audio.duration); });
-  audio.addEventListener('timeupdate',     () => { if (seek) { seek.value = audio.currentTime; seek.max = audio.duration || 1; } if (timEl) timEl.textContent = fmt(audio.currentTime); });
-  audio.addEventListener('ended',  () => { if (btn) btn.textContent = '▶'; });
-  audio.addEventListener('pause',  () => { if (btn) btn.textContent = '▶'; });
-  audio.addEventListener('play',   () => { if (btn) btn.textContent = '⏸'; });
+
+  audio.addEventListener('loadedmetadata', () => {
+    if (seek) seek.max = audio.duration;
+    if (durEl) durEl.textContent = _fmtTime(audio.duration);
+  });
+  audio.addEventListener('timeupdate', () => {
+    if (_curPreview !== side) return; // só atualiza UI do painel visível
+    if (seek)  { seek.value = audio.currentTime; seek.max = audio.duration || 1; }
+    if (timEl) timEl.textContent = _fmtTime(audio.currentTime);
+  });
+  audio.addEventListener('ended', () => {
+    // Parar o outro também quando este termina
+    const other = side === 'before' ? _prevAfter : _prevBefore;
+    if (other) try { other.pause(); } catch (_) {}
+    if (btn) btn.textContent = '▶';
+  });
+  audio.addEventListener('pause', () => { if (_curPreview === side && btn) btn.textContent = '▶'; });
+  audio.addEventListener('play',  () => { if (_curPreview === side && btn) btn.textContent = '⏸'; });
 }
 
-function fmt(s) {
-  if (!s || isNaN(s)) return '0:00';
-  return Math.floor(s/60) + ':' + (Math.floor(s%60)<10?'0':'') + Math.floor(s%60);
+function _applyToggleUI(side) {
+  const tbBefore = document.getElementById('toggleBefore');
+  const tbAfter  = document.getElementById('toggleAfter');
+  const pBefore  = document.getElementById('playerBefore');
+  const pAfter   = document.getElementById('playerAfter');
+  if (tbBefore) tbBefore.classList.toggle('active', side === 'before');
+  if (tbAfter)  { tbAfter.classList.toggle('active', side === 'after'); tbAfter.classList.toggle('after-mode', side === 'after'); }
+  if (pBefore)  pBefore.style.display = side === 'before' ? 'block' : 'none';
+  if (pAfter)   pAfter.style.display  = side === 'after'  ? 'block' : 'none';
+  // Sincronizar UI do painel visível com o estado atual do audio
+  const active = side === 'before' ? _prevBefore : _prevAfter;
+  const sfx    = side === 'before' ? 'Before' : 'After';
+  if (active) {
+    const seek  = document.getElementById('seek' + sfx);
+    const timEl = document.getElementById('time' + sfx);
+    const durEl = document.getElementById('duration' + sfx);
+    const btn   = document.getElementById('playBtn' + sfx);
+    if (seek)  seek.value = active.currentTime;
+    if (timEl) timEl.textContent = _fmtTime(active.currentTime);
+    if (durEl && active.duration) durEl.textContent = _fmtTime(active.duration);
+    if (btn)   btn.textContent = active.paused ? '▶' : '⏸';
+  }
 }
 
 function switchPreview(side) {
   _curPreview = side;
-  ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a && !a.paused) a.pause(); });
-  document.getElementById('toggleBefore').classList.toggle('active', side === 'before');
-  document.getElementById('toggleAfter').classList.toggle('active',  side === 'after');
-  document.getElementById('toggleAfter').classList.toggle('after-mode', side === 'after');
-  document.getElementById('playerBefore').style.display = side === 'before' ? 'block' : 'none';
-  document.getElementById('playerAfter').style.display  = side === 'after'  ? 'block' : 'none';
-  document.getElementById('playBtnBefore').textContent  = '▶';
-  document.getElementById('playBtnAfter').textContent   = '▶';
+  // Virar mute/unmute — NUNCA pausar, NUNCA trocar src — transição instantânea
+  if (_prevBefore) _prevBefore.muted = (side !== 'before');
+  if (_prevAfter)  _prevAfter.muted  = (side !== 'after');
+  _applyToggleUI(side);
 }
 
 function togglePlayPause(side) {
-  const sfx   = side === 'before' ? 'Before' : 'After';
-  const audio = document.getElementById('audio' + sfx);
-  if (!audio || !audio.src) return;
-  const other = document.getElementById('audio' + (side === 'before' ? 'After' : 'Before'));
-  if (other && !other.paused) other.pause();
-  if (audio.paused) audio.play().catch(e => console.warn('[PLAYER] Play error:', e));
-  else audio.pause();
+  // Play/pause em AMBOS simultâneos para manter sincronismo
+  const primary   = side === 'before' ? _prevBefore : _prevAfter;
+  const secondary = side === 'before' ? _prevAfter  : _prevBefore;
+  if (!primary) return;
+  if (primary.paused) {
+    primary.play().catch(e => console.warn('[PLAYER] play:', e));
+    if (secondary) secondary.play().catch(e => console.warn('[PLAYER] secondary play:', e));
+  } else {
+    primary.pause();
+    if (secondary) secondary.pause();
+  }
 }
 
 function seekTo(side, value) {
-  const audio = document.getElementById('audio' + (side === 'before' ? 'Before' : 'After'));
-  if (audio) audio.currentTime = parseFloat(value);
+  // Seek em AMBOS para manter sincronismo
+  const t = parseFloat(value);
+  if (_prevBefore) _prevBefore.currentTime = t;
+  if (_prevAfter)  _prevAfter.currentTime  = t;
 }
 
 function backToPreviewChoice() {
-  ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a) a.pause(); });
+  if (_prevBefore) try { _prevBefore.pause(); } catch (_) {}
+  if (_prevAfter)  try { _prevAfter.pause();  } catch (_) {}
   showModal('processingModal');
 }
 
-// Download direto do previewModal (sem abrir deliveryModal)
+// Download direto do previewModal — blob, sem nova aba, modal permanece aberto
 async function startDownloadFromPreview() {
   const { masterUrl } = automasterState.result;
   if (!masterUrl) { alert('⚠️ URL de download não disponível. Tente reprocessar.'); return; }
 
   const btn = document.getElementById('previewDownloadBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparando...'; }
-
-  // Pausar áudios
-  ['audioBefore','audioAfter'].forEach(id => { const a = document.getElementById(id); if (a) a.pause(); });
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparando download...'; }
 
   try {
     if (!automasterState.creditConsumed) {
@@ -1607,9 +1652,8 @@ async function startDownloadFromPreview() {
       automasterState.creditConsumed = true;
     }
 
-    await triggerBlobDownload(masterUrl);
+    await triggerBlobDownload(masterUrl); // fetch → blob → link.click()
 
-    // Mostrar estado de sucesso dentro do próprio modal
     const actDiv  = document.getElementById('previewActionsDiv');
     const doneDiv = document.getElementById('previewDownloadDone');
     if (actDiv)  actDiv.style.display  = 'none';
@@ -1705,6 +1749,10 @@ async function triggerBlobDownload(url) {
 // RESET
 // ================================================================
 function resetFlow() {
+  // Parar instâncias Audio do preview sincronizado
+  if (_prevBefore) { try { _prevBefore.pause(); _prevBefore.src = ''; } catch (_) {} _prevBefore = null; }
+  if (_prevAfter)  { try { _prevAfter.pause();  _prevAfter.src  = ''; } catch (_) {} _prevAfter  = null; }
+  // Limpar elementos <audio> legados (legacy / resultModal)
   ['audioBefore','audioAfter','previewBefore','previewAfter'].forEach(id => { const a = document.getElementById(id); if (a) { a.pause(); a.src = ''; } });
   clearInterval(_dspTimer); clearInterval(_analysisTimer);
   automasterState.mode = null; automasterState.file = null; automasterState.fileName = null;
