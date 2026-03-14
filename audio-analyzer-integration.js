@@ -3778,42 +3778,251 @@ function displayModalResults(analysis) {
             ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
         ` : '';
 
-        technicalData.innerHTML = `
-            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
-                ${renderSmartSummary(analysis) }
-                    <div class="cards-grid">
-                        <div class="card">
-                    <div class="card-title">🎛️ Métricas Principais</div>
-                    ${col1}
-                </div>
-                        <div class="card">
-                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
-                    ${col2}
-                </div>
-                        <div class="card">
-                    <div class="card-title">🏆 Scores & Diagnóstico</div>
-                    ${scoreRows}
-                    ${col3}
-                </div>
-                        <div class="card">
-                            <div class="card-title">🧠 Métricas Avançadas</div>
-                            ${advancedMetricsCard()}
-                        </div>
-                        <div class="card card-span-2">
-                            <div class="card-title">⚠️ Problemas Técnicos</div>
-                            ${techProblems()}
-                        </div>
-                        <div class="card card-span-2">
-                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
-                            ${diagCard()}
-                        </div>
-            </div>
-        `;
-    
+        // ============================================================
+        // NOVA UI: Resumo compacto (4 hero cards) + tabela expansível
+        // ============================================================
+        const renderCompactSummary = () => {
+            const lufsVal = getLufsIntegratedValue();
+            const tpVal   = advancedReady ? getMetric('true_peak_dbtp', 'truePeakDbtp') : null;
+            const drVal   = getMetric('dynamic_range', 'dynamicRange');
+            const lraVal  = advancedReady ? getMetric('lra') : null;
+
+            const metSt = (v, thresholds) => {
+                if (!Number.isFinite(v)) return 'neutral';
+                for (const [cond, s] of thresholds) { if (cond(v)) return s; }
+                return 'ok';
+            };
+
+            const lufsSt = metSt(lufsVal, [[v => v > -3, 'error'], [v => v < -24, 'warn']]);
+            const tpSt   = metSt(tpVal,   [[v => v > -0.1, 'error'], [v => v > -1.0, 'warn']]);
+            const drSt   = metSt(drVal,   [[v => v < 5, 'error'], [v => v < 9, 'warn']]);
+            const lraSt  = metSt(lraVal,  [[v => v < 2, 'warn'], [v => v > 16, 'warn']]);
+
+            const bBadge = (s) => ({
+                ok:      '<span class="cs-badge cs-ok">✓ OK</span>',
+                warn:    '<span class="cs-badge cs-warn">⚠ Atenção</span>',
+                error:   '<span class="cs-badge cs-error">✕ Problema</span>',
+                neutral: '<span class="cs-badge cs-neutral">— N/D</span>'
+            })[s] || '<span class="cs-badge cs-neutral">— N/D</span>';
+
+            const hero = (icon, label, val, unit, st) =>
+                `<div class="cs-hero-card cs-${st}">` +
+                `<div class="cs-hero-icon">${icon}</div>` +
+                `<div class="cs-hero-label">${label}</div>` +
+                `<div class="cs-hero-value">${val}<span class="cs-hero-unit"> ${unit}</span></div>` +
+                `${bBadge(st)}</div>`;
+
+            const scoreNum   = Number.isFinite(analysis.qualityOverall) ? Number(analysis.qualityOverall.toFixed(0)) : null;
+            const scoreColor = scoreNum == null ? '#667799' : scoreNum >= 80 ? '#00ff92' : scoreNum >= 60 ? '#ffd700' : '#ff6060';
+            const scoreBadge = scoreNum != null
+                ? `<div class="cs-score-badge" style="border-color:${scoreColor};color:${scoreColor};"><span class="cs-score-num">${scoreNum}</span><span class="cs-score-label">/100</span></div>`
+                : '';
+
+            const nP = analysis.problems.length;
+            const nS = analysis.suggestions.length;
+            const probBadge = nP > 0
+                ? `<div class="cs-count-badge cs-problems">⚠ ${nP} problema${nP > 1 ? 's' : ''}</div>`
+                : `<div class="cs-count-badge cs-clear">✓ Sem problemas</div>`;
+            const suggBadge = nS > 0
+                ? `<div class="cs-count-badge cs-suggestions">💡 ${nS} sugestão${nS !== 1 ? 'ões' : ''}</div>`
+                : '';
+
+            const lufsDisp = Number.isFinite(lufsVal) ? safeFixed(lufsVal, 1) : (advancedReady ? '—' : '⏳');
+            const tpDisp   = tpVal   != null ? safeFixed(tpVal, 2)  : (advancedReady ? '—' : '⏳');
+            const drDisp   = Number.isFinite(drVal)  ? safeFixed(drVal, 1) : '—';
+            const lraDisp  = lraVal  != null ? safeFixed(lraVal, 1) : (advancedReady ? '—' : '⏳');
+
+            return `<div class="cs-container">` +
+                `<div class="cs-hero-grid">` +
+                    hero('🎚', 'LOUDNESS',  lufsDisp, 'LUFS',  lufsSt) +
+                    hero('📊', 'TRUE PEAK', tpDisp,   'dBTP',  tpSt)   +
+                    hero('🌊', 'DINÂMICA',  drDisp,   'dB DR', drSt)   +
+                    hero('📐', 'LRA',       lraDisp,  'LU',    lraSt)  +
+                `</div>` +
+                `<div class="cs-meta-row">${scoreBadge}${probBadge}${suggBadge}</div>` +
+                `</div>`;
+        };
+
+        const renderExpandableDiagnostics = () => {
+            // Lookup de ações a partir dos arrays existentes de problems/suggestions
+            const actionFor = (keywords) => {
+                const all = [...analysis.problems, ...analysis.suggestions];
+                for (const kw of (Array.isArray(keywords) ? keywords : [keywords])) {
+                    const found = all.find(x => x && x.type && x.type.toLowerCase().includes(kw.toLowerCase()));
+                    if (found) {
+                        const txt = found.action || found.solution || '';
+                        if (txt) return txt.length > 130 ? txt.slice(0, 130) + '…' : txt;
+                    }
+                }
+                return '—';
+            };
+
+            const stBadge = (s) => ({
+                ok:      '<span class="dt-ok">✓ OK</span>',
+                warn:    '<span class="dt-warn">⚠ Atenção</span>',
+                error:   '<span class="dt-error">✕ Problema</span>',
+                neutral: '<span class="dt-neutral">—</span>'
+            })[s] || '<span class="dt-neutral">—</span>';
+
+            const tr  = (label, val, st, action) =>
+                `<tr class="dt-row"><td class="dt-metric">${label}</td><td class="dt-value">${val}</td>` +
+                `<td class="dt-status">${stBadge(st)}</td><td class="dt-action dt-action-col">${action}</td></tr>`;
+            const grp = (label) =>
+                `<tr class="dt-group"><td colspan="4">${label}</td></tr>`;
+
+            const metSt = (v, thresholds) => {
+                if (!Number.isFinite(v)) return 'neutral';
+                for (const [cond, s] of thresholds) { if (cond(v)) return s; }
+                return 'ok';
+            };
+
+            // Valores — usa getMetric() exatamente igual ao código original
+            const lufsVal  = getLufsIntegratedValue();
+            const tpVal    = getMetric('true_peak_dbtp', 'truePeakDbtp');
+            const drVal    = getMetric('dynamic_range', 'dynamicRange');
+            const lraVal   = getMetric('lra');
+            const crestVal = getMetric('crest_factor', 'crestFactor');
+            const rmsVal   = getMetric('rms_db', 'rms');
+            const peakVal  = getMetric('peak_db', 'peak');
+            const hrTp     = analysis.technicalData?.headroomTruePeakDb;
+            const hrDb     = analysis.technicalData?.headroomDb;
+            const corrVal  = getMetric('stereo_correlation', 'stereoCorrelation');
+            const widthVal = getMetric('stereo_width', 'stereoWidth');
+            const balVal   = getMetric('balance_lr', 'balanceLR');
+            const monoC    = getMetric('mono_compatibility', 'monoCompatibility');
+            const centroid = getMetric('spectral_centroid', 'spectralCentroid');
+            const rolloff  = getMetric('spectral_rolloff_85', 'spectralRolloff85');
+            const flux     = getMetric('spectral_flux', 'spectralFlux');
+            const flatness = getMetric('spectral_flatness', 'spectralFlatness');
+            const dcVal    = analysis.technicalData?.dcOffset;
+            const thdVal   = analysis.technicalData?.thdPercent;
+            const clipSamp = analysis.technicalData?.clippingSamples;
+            const clipPctV = analysis.technicalData?.clippingPct;
+
+            // Status — mesma lógica de techProblems() já existente
+            const lufsSt  = metSt(lufsVal, [[v => v > -3, 'error'], [v => v < -24, 'warn']]);
+            const tpSt    = metSt(tpVal,   [[v => v > -0.1, 'error'], [v => v > -1.0, 'warn']]);
+            const drSt    = metSt(drVal,   [[v => v < 5, 'error'], [v => v < 9, 'warn']]);
+            const lraSt   = metSt(lraVal,  [[v => v < 2, 'warn'], [v => v > 16, 'warn']]);
+            const crestSt = metSt(crestVal,[[v => v < 6, 'warn'], [v => v > 25, 'warn']]);
+            const peakSt  = metSt(peakVal, [[v => v > -0.1, 'warn']]);
+            const corrSt  = metSt(corrVal, [[v => v < -0.3, 'error'], [v => v > 0.95, 'warn'], [v => v < 0, 'warn']]);
+            const widthSt = metSt(widthVal,[[v => v < 0.1, 'warn'], [v => v > 2.2, 'warn']]);
+            const balSt   = metSt(balVal,  [[v => Math.abs(v - 0.5) > 0.08, 'warn']]);
+            const clipSt  = (() => {
+                const pd = analysis.technicalData?._singleStage;
+                if (pd?.source === 'enhanced-clipping-v2') {
+                    if (pd.finalState === 'CLIPPED') return 'error';
+                    if (pd.finalState === 'TRUE_PEAK_ONLY') return 'warn';
+                    return 'ok';
+                }
+                return (Number.isFinite(clipSamp) && clipSamp > 0) || (Number.isFinite(tpVal) && tpVal > -0.1) ? 'warn' : 'ok';
+            })();
+            const dcSt  = Number.isFinite(dcVal)  ? metSt(Math.abs(dcVal), [[v => v > 0.01, 'warn']]) : 'neutral';
+            const thdSt = Number.isFinite(thdVal) ? metSt(thdVal, [[v => v > 5, 'error'], [v => v > 1, 'warn']]) : 'neutral';
+
+            // Formatação — idêntica ao código original
+            const fLufs  = Number.isFinite(lufsVal)  ? safeFixed(lufsVal, 1)  + ' LUFS' : (advancedReady ? '—' : '⏳');
+            const fTp    = Number.isFinite(tpVal)    ? safeFixed(tpVal, 2)    + ' dBTP' : (advancedReady ? '—' : '⏳');
+            const fDr    = Number.isFinite(drVal)    ? safeFixed(drVal, 1)    + ' dB'   : '—';
+            const fLra   = Number.isFinite(lraVal)   ? safeFixed(lraVal, 1)   + ' LU'   : (advancedReady ? '—' : '⏳');
+            const fCrest = Number.isFinite(crestVal) ? safeFixed(crestVal, 1) + ' dB'   : '—';
+            const fRms   = Number.isFinite(rmsVal)   ? safeFixed(rmsVal, 1)   + ' dB'   : '—';
+            const fPeak  = Number.isFinite(peakVal)  ? safeFixed(peakVal, 2)  + ' dB'   : '—';
+            const fHrTp  = Number.isFinite(hrTp)     ? safeFixed(hrTp, 1)     + ' dB'   : null;
+            const fHrDb  = Number.isFinite(hrDb)     ? safeFixed(hrDb, 1)     + ' dB'   : null;
+            const fCorr  = Number.isFinite(corrVal)  ? safeFixed(corrVal, 2)             : '—';
+            const fWidth = Number.isFinite(widthVal) ? safeFixed(widthVal, 2)            : '—';
+            const fBal   = Number.isFinite(balVal)   ? pct(balVal)                       : '—';
+            const fMono  = monoC ? String(monoC)                                         : '—';
+            const fCent  = Number.isFinite(centroid) ? safeHz(centroid)                  : '—';
+            const fRoll  = Number.isFinite(rolloff)  ? safeHz(rolloff)                   : '—';
+            const fFlux  = Number.isFinite(flux)     ? safeFixed(flux, 3)                : '—';
+            const fFlat  = Number.isFinite(flatness) ? safeFixed(flatness, 3)            : '—';
+            const fClip  = Number.isFinite(clipSamp) ? `${clipSamp} smp${Number.isFinite(clipPctV) ? ` (${safeFixed(clipPctV, 3)}%)` : ''}` : '—';
+            const fDc    = Number.isFinite(dcVal)    ? safeFixed(dcVal, 4)               : '—';
+            const fThd   = Number.isFinite(thdVal)   ? safeFixed(thdVal, 2) + '%'        : '—';
+
+            // Scores por dimensão (usa finalBreakdown calculado no escopo externo)
+            const scoreRow = (label, val) => {
+                const n = Number.isFinite(val) ? Number(val.toFixed(0)) : null;
+                const s = n == null ? 'neutral' : n >= 75 ? 'ok' : n >= 55 ? 'warn' : 'error';
+                return tr(label, n != null ? n + '/100' : '—', s, '—');
+            };
+
+            const rows = [
+                grp('🏆 Scores por Dimensão'),
+                ...(finalBreakdown ? [
+                    scoreRow('Faixa Dinâmica', finalBreakdown.dynamics),
+                    scoreRow('Técnico',         finalBreakdown.technical),
+                    scoreRow('Estéreo',         finalBreakdown.stereo),
+                    scoreRow('Loudness',        finalBreakdown.loudness),
+                    scoreRow('Frequência',      finalBreakdown.frequency),
+                ] : [tr('Scores', '—', 'neutral', '—')]),
+                grp('🎛 Loudness & Dinâmica'),
+                tr('Loudness Integrado',  fLufs,  lufsSt,  actionFor(['lufs', 'loudness'])),
+                tr('True Peak',           fTp,    tpSt,    actionFor(['true_peak', 'clipping'])),
+                tr('Range Dinâmico (DR)', fDr,    drSt,    actionFor(['dynamic'])),
+                tr('LRA',                 fLra,   lraSt,   actionFor(['lra'])),
+                tr('Fator de Crista',     fCrest, crestSt, actionFor(['crest'])),
+                tr('RMS',                 fRms,   'neutral', '—'),
+                tr('Peak (máx)',          fPeak,  peakSt,  peakSt !== 'ok' ? 'Verificar saturação: peak acima de -0.1 dB.' : '—'),
+                ...(fHrTp ? [tr('Headroom (True Peak)', fHrTp, 'neutral', '—')] : []),
+                ...(fHrDb ? [tr('Offset Loudness',      fHrDb, 'neutral', '—')] : []),
+                grp('🎧 Imagem Estéreo'),
+                tr('Correlação Estéreo',  fCorr,  corrSt,  actionFor(['stereo', 'correlation', 'phase'])),
+                tr('Largura Estéreo',     fWidth, widthSt, actionFor(['stereo_width', 'width'])),
+                tr('Balance L/R',         fBal,   balSt,   actionFor(['balance'])),
+                tr('Mono Compat.',        fMono,  typeof monoC === 'string' && monoC.toLowerCase().includes('warn') ? 'warn' : 'neutral', actionFor(['mono'])),
+                grp('📊 Análise Espectral'),
+                tr('Centroide Espectral', fCent,  'neutral', actionFor(['spectral', 'frequency'])),
+                tr('Rolloff 85%',         fRoll,  'neutral', '—'),
+                tr('Flux Espectral',      fFlux,  'neutral', '—'),
+                tr('Flatness',            fFlat,  'neutral', '—'),
+                grp('⚙ Integridade Técnica'),
+                tr('Clipping',            fClip,  clipSt, actionFor(['clip'])),
+                tr('DC Offset',           fDc,    dcSt,   dcSt !== 'ok' && dcSt !== 'neutral' ? 'Aplicar filtro high-pass ≥ 10 Hz para remover DC Offset.' : '—'),
+                tr('THD',                 fThd,   thdSt,  thdSt !== 'ok' && thdSt !== 'neutral' ? 'Verificar distorção harmônica: saturação excessiva ou problema analógico na cadeia.' : '—'),
+            ].join('');
+
+            return `<div class="dt-section">` +
+                `<button class="dt-toggle-btn" onclick="typeof window.toggleDiagTable==='function'&&window.toggleDiagTable(this)" aria-expanded="false">` +
+                `<span>🔍 Ver diagnóstico completo</span><span class="dt-toggle-arrow">▼</span></button>` +
+                `<div class="dt-expand-body" hidden>` +
+                    `<table class="dt-table"><thead><tr>` +
+                        `<th>MÉTRICA</th><th>VALOR</th><th>STATUS</th><th class="th-action">AÇÃO SUGERIDA</th>` +
+                    `</tr></thead><tbody>${rows}</tbody></table>` +
+                    `<div class="dt-diag-section"><div class="dt-diag-title">🩺 Diagnóstico Detalhado</div>${diagCard()}</div>` +
+                `</div>` +
+                `</div>`;
+        };
+
+        technicalData.innerHTML =
+            `<div class="kpi-row">${scoreKpi}${timeKpi}</div>` +
+            renderSmartSummary(analysis) +
+            renderCompactSummary() +
+            renderExpandableDiagnostics();
+
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
 }
+
+// Abre / fecha o painel de diagnóstico expansível (vinculado ao dt-toggle-btn)
+window.toggleDiagTable = function toggleDiagTable(btn) {
+    const body = btn.nextElementSibling;
+    if (!body) return;
+    const willExpand = body.hasAttribute('hidden');
+    if (willExpand) {
+        body.removeAttribute('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+    } else {
+        body.setAttribute('hidden', '');
+        btn.setAttribute('aria-expanded', 'false');
+    }
+    const arrow = btn.querySelector('.dt-toggle-arrow');
+    if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
+};
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
