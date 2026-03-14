@@ -1,0 +1,2585 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundyAI - AutoMaster V1</title>
+  
+  <!-- Meta tags -->
+  <meta name="description" content="Masterização profissional com IA - SoundyAI AutoMaster V1">
+  <meta name="theme-color" content="#6366f1">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  
+  <!-- Fontes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ========================================
+       🎯 RESET E VARIÁVEIS
+       ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0080ff;
+      --primary-dark: #0060cc;
+      --bg-dark: #0a0a0f;
+      --bg-card: #12121a;
+      --glow: rgba(0, 160, 255, 0.25);
+      --border: rgba(0, 160, 255, 0.15);
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-card) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ========================================
+       🎨 MODAL SYSTEM (consistente com index.html)
+       ======================================== */
+    .automaster-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999999;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .automaster-modal.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .automaster-modal-card {
+      position: relative;
+      max-width: 600px;
+      width: 100%;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px var(--glow);
+      padding: 3rem 2.5rem;
+      transform: scale(0.9) translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .automaster-modal.visible .automaster-modal-card {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .modal-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #818cf8;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 20px;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .modal-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+      line-height: 1.3;
+    }
+
+    .modal-subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: rotate(90deg);
+    }
+
+    /* ========================================
+       🎵 ETAPA 1 - SELEÇÃO DE GÊNERO
+       ======================================== */
+    .genre-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .genre-card {
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .genre-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+      box-shadow: 0 0 30px var(--glow);
+    }
+
+    .genre-card.selected {
+      border-color: var(--primary);
+      background: rgba(0, 128, 255, 0.15);
+      box-shadow: 0 0 40px var(--glow);
+    }
+
+    .genre-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .genre-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .mode-desc {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+     /* ========================================
+       📤 ETAPA 2 - UPLOAD
+       ======================================== */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      background: rgba(99, 102, 241, 0.05);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      margin-top: 1.5rem;
+    }
+
+    .upload-area:hover {
+      border-color: var(--primary);
+      background: rgba(0, 128, 255, 0.1);
+      box-shadow: 0 0 30px var(--glow);
+    }
+
+    .upload-area.dragging {
+      border-color: var(--primary);
+      background: rgba(0, 128, 255, 0.15);
+      transform: scale(1.02);
+    }
+
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.7;
+    }
+
+    .upload-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-hint {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .file-info {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      display: none;
+    }
+
+    .file-info.visible {
+      display: block;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ========================================
+       ⚙️ ETAPA 3 - PRÉ-ANÁLISE
+       ======================================== */
+    .analysis-steps {
+      margin-top: 2rem;
+    }
+
+    .analysis-step {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(99, 102, 241, 0.05);
+      border-radius: 12px;
+      margin-bottom: 0.75rem;
+      opacity: 0.5;
+      transition: all 0.5s ease;
+    }
+
+    .analysis-step.active {
+      opacity: 1;
+      background: rgba(0, 128, 255, 0.1);
+      border: 1px solid var(--border);
+    }
+
+    .analysis-step.done {
+      opacity: 1;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .step-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 1.25rem;
+    }
+
+    .analysis-step.active .step-icon {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .analysis-step.done .step-icon {
+      background: rgba(16, 185, 129, 0.3);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+
+    .step-text {
+      flex: 1;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .analysis-complete {
+      display: none;
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 2px solid rgba(16, 185, 129, 0.3);
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .analysis-complete.visible {
+      display: block;
+      animation: fadeInUp 0.5s ease;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ========================================
+       🎯 ETAPA 4 - DECISÃO DO SISTEMA
+       ======================================== */
+    .diagnosis-card {
+      padding: 1.5rem;
+      background: rgba(99, 102, 241, 0.1);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+    }
+
+    .diagnosis-icon {
+      font-size: 3rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .diagnosis-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .mode-recommendation {
+      margin-top: 2rem;
+    }
+
+    .mode-recommendation-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .mode-options {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .mode-option {
+      padding: 1.25rem;
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .mode-option:hover {
+      border-color: var(--primary);
+      transform: translateX(4px);
+    }
+
+    .mode-option.selected {
+      border-color: var(--primary);
+      background: rgba(0, 128, 255, 0.15);
+      box-shadow: 0 0 30px var(--glow);
+    }
+
+    .mode-option.recommended {
+      border-color: var(--success);
+    }
+
+    .mode-option.recommended::before {
+      content: '✓ RECOMENDADO';
+      position: absolute;
+      top: -10px;
+      right: 1rem;
+      padding: 0.25rem 0.75rem;
+      background: var(--success);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 8px;
+      letter-spacing: 0.05em;
+    }
+
+    .mode-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .mode-emoji {
+      font-size: 1.5rem;
+    }
+
+    .mode-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .mode-description {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-left: 2.5rem;
+    }
+
+    /* ========================================
+       ✅ ETAPA 5 - CONFIRMAÇÃO
+       ======================================== */
+    .confirmation-summary {
+      padding: 1.5rem;
+      background: rgba(99, 102, 241, 0.1);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .summary-row:last-child {
+      border-bottom: none;
+    }
+
+    .summary-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .summary-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .warning-box {
+      padding: 1.25rem;
+      background: rgba(245, 158, 11, 0.1);
+      border: 2px solid rgba(245, 158, 11, 0.3);
+      border-radius: 14px;
+      margin-top: 1.5rem;
+    }
+
+    .warning-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--warning);
+      margin-bottom: 0.75rem;
+    }
+
+    .warning-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       ⏳ ETAPA 6 - PROCESSAMENTO
+       ======================================== */
+    .processing-container {
+      margin-top: 2rem;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 1.5rem 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #10b981);
+      border-radius: 10px;
+      width: 0%;
+      transition: width 0.5s ease;
+      box-shadow: 0 0 20px var(--glow);
+    }
+
+    .progress-percentage {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      font-family: 'Orbitron', sans-serif;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+
+    .processing-steps {
+      margin-top: 2rem;
+    }
+
+    .processing-step {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem;
+      opacity: 0.5;
+      transition: all 0.5s ease;
+    }
+
+    .processing-step.active {
+      opacity: 1;
+    }
+
+    .processing-step.done {
+      opacity: 1;
+    }
+
+    .processing-step-icon {
+      font-size: 1.25rem;
+    }
+
+    .processing-step-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    /* ========================================
+       📊 ETAPA 7 - RESULTADO
+       ======================================== */
+    .result-comparison {
+      margin-top: 2rem;
+    }
+
+    .comparison-header {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    .comparison-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .comparison-card {
+      padding: 1.25rem;
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .comparison-card.after {
+      border-color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .comparison-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .comparison-card.after .comparison-label {
+      color: var(--success);
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .metric-row:last-child {
+      border-bottom: none;
+    }
+
+    .metric-name {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .metric-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: 'Orbitron', sans-serif;
+      color: var(--text-primary);
+    }
+
+    .result-summary {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 2px solid rgba(16, 185, 129, 0.3);
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .result-summary-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .result-summary-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       � BLOQUEIO DE MIX RUIM
+       ======================================== */
+    .block-card {
+      padding: 2rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+      text-align: center;
+    }
+
+    .block-icon {
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .block-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 1rem;
+    }
+
+    .block-reason {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-top: 1rem;
+    }
+
+    /* ========================================
+       🎧 AUDIO PREVIEW PLAYERS
+       ======================================== */
+    .audio-preview-section {
+      margin-top: 2rem;
+    }
+
+    .audio-preview-title {
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .audio-preview-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .audio-preview-card {
+      padding: 1rem;
+      background: rgba(99, 102, 241, 0.08);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      text-align: center;
+    }
+
+    .audio-preview-card.after-card {
+      border-color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .audio-preview-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .audio-preview-card.after-card .audio-preview-label {
+      color: var(--success);
+    }
+
+    .audio-preview-card audio {
+      width: 100%;
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .audio-preview-pair {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ========================================
+       ⏳ SPINNER DE LOADING
+       ======================================== */
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+
+    .spinner-ring {
+      width: 56px;
+      height: 56px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .spinner-subtext {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    /* ========================================
+       ❌ ERRO AMIGÁVEL
+       ======================================== */
+    .error-card {
+      padding: 2rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 2px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      margin: 1.5rem 0;
+      text-align: center;
+    }
+
+    .error-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .error-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--danger);
+      margin-bottom: 0.5rem;
+    }
+
+    .error-message {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       �💾 ETAPA 8 - ENTREGA
+       ======================================== */
+    .delivery-container {
+      margin-top: 2rem;
+      text-align: center;
+    }
+
+    .delivery-icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .delivery-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 1rem;
+    }
+
+    .delivery-description {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .credit-info {
+      padding: 1rem;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .credit-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .credit-cost {
+      font-size: 1.25rem;
+      font-weight: 700;
+      font-family: 'Orbitron', sans-serif;
+      color: var(--warning);
+      margin-top: 0.5rem;
+    }
+
+    /* ========================================
+       🔘 BOTÕES
+       ======================================== */
+    .btn {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      box-shadow: 0 0 30px var(--glow);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px var(--glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--success), #059669);
+      color: white;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(16, 185, 129, 0.5);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      justify-content: center;
+    }
+
+    /* ========================================
+       📱 RESPONSIVO
+       ======================================== */
+    @media (max-width: 768px) {
+      .automaster-modal-card {
+        max-width: 100%;
+        padding: 2rem 1.5rem;
+      }
+
+      .genre-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      }
+
+      .comparison-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-title {
+        font-size: 1.5rem;
+      }
+
+      .modal-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================
+       � ETAPA 1 - SELEÇÃO DE MODO
+       ======================================== -->
+  <div id="modeModal" class="automaster-modal visible">
+    <div class="automaster-modal-card">
+      <button class="modal-close" onclick="closeAllModals()">&times;</button>
+      
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Escolha o nível de processamento</h2>
+        <p class="modal-subtitle">Sistema inteligente analisa seu áudio e aplica o melhor ganho</p>
+      </div>
+
+      <div class="genre-grid">
+        <div class="genre-card" onclick="selectModeInitial('LOW', this)">
+          <div class="genre-emoji">🎵</div>
+          <div class="genre-name">Suave</div>
+          <div class="mode-desc">-15 a -13.5 LUFS</div>
+        </div>
+        <div class="genre-card" onclick="selectModeInitial('MEDIUM', this)">
+          <div class="genre-emoji">⚖️</div>
+          <div class="genre-name">Balanceado</div>
+          <div class="mode-desc">-14 a -12.5 LUFS</div>
+        </div>
+        <div class="genre-card" onclick="selectModeInitial('HIGH', this)">
+          <div class="genre-emoji">🔥</div>
+          <div class="genre-name">Impacto</div>
+          <div class="mode-desc">-12.5 a -9.5 LUFS</div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="modeNextBtn" disabled onclick="onModeNextClick()">
+          Continuar →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       📤 ETAPA 2 - UPLOAD
+       NOTA: Este modal é ocultado automaticamente quando o usuário chega de
+       home.html com fileKey na URL. O arquivo já está no storage e não
+       precisa ser reenviado.
+       ======================================== -->
+  <div id="uploadModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <button class="modal-close" onclick="backToMode()">&times;</button>
+      
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Envie sua música</h2>
+        <p class="modal-subtitle">Formatos suportados: WAV, MP3, FLAC (máx. 100MB)</p>
+      </div>
+
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('audioFile').click()">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">Arraste seu áudio aqui</div>
+        <div class="upload-hint">ou clique para selecionar</div>
+      </div>
+
+      <!-- input file APENAS para o fluxo manual (não-fileKey). Em fluxo contínuo este
+           elemento existe mas não é acessível ao usuário (uploadModal fica oculto). -->
+      <input type="file" id="audioFile" class="file-input" accept=".wav,.mp3,.flac,audio/wav,audio/x-wav,audio/mpeg,audio/flac" onchange="handleFileSelect(event)">
+
+      <div class="file-info" id="fileInfo">
+        <div class="file-name">
+          <span>✓</span>
+          <span id="fileName"></span>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToGenre()">← Voltar</button>
+        <button class="btn btn-primary" id="uploadNextBtn" disabled onclick="startPreAnalysis()">
+          Iniciar Análise →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       ⚙️ ETAPA 3 - PRÉ-ANÁLISE (REAL)
+       ======================================== -->
+  <div id="preAnalysisModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Analisando seu áudio</h2>
+        <p class="modal-subtitle">Aguarde enquanto o sistema avalia sua música</p>
+      </div>
+
+      <!-- Loading real (aparece durante request) -->
+      <div class="loading-spinner" id="analysisLoading">
+        <div class="spinner-ring"></div>
+        <div class="spinner-text" id="analysisLoadingText">Enviando áudio para análise...</div>
+        <div class="spinner-subtext">Isso pode levar alguns segundos</div>
+      </div>
+
+      <!-- Erro (aparece se backend falhar) -->
+      <div class="error-card" id="analysisError" style="display: none;">
+        <div class="error-icon">❌</div>
+        <div class="error-title">Erro na análise</div>
+        <div class="error-message" id="analysisErrorMsg">Não foi possível analisar seu áudio. Tente novamente.</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToUpload()">← Voltar</button>
+          <button class="btn btn-primary" onclick="retryPreAnalysis()">Tentar Novamente</button>
+        </div>
+      </div>
+
+      <!-- Sucesso (aparece quando backend responde OK) -->
+      <div class="analysis-complete" id="analysisComplete">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">✔</div>
+        <div style="font-size: 1.25rem; font-weight: 700;">Seu áudio foi analisado</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       🎯 ETAPA 4 - DECISÃO DO SISTEMA
+       ======================================== -->
+  <div id="decisionModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Diagnóstico</h2>
+      </div>
+
+      <!-- Diagnóstico apto -->
+      <div class="diagnosis-card" id="diagnosisCardApt" style="display: none;">
+        <div class="diagnosis-icon">✅</div>
+        <div class="diagnosis-text" id="diagnosisText">
+          Seu áudio está apto para masterização.
+        </div>
+      </div>
+
+      <!-- Diagnóstico bloqueado -->
+      <div class="block-card" id="diagnosisCardBlocked" style="display: none;">
+        <div class="block-icon">🚫</div>
+        <div class="block-title">Sua mix ainda não está pronta para masterização</div>
+        <div class="block-reason" id="blockReasonText">—</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToUpload()">← Enviar outro áudio</button>
+        </div>
+      </div>
+
+      <!-- Recomendação de modo (só aparece se apto) -->
+      <div class="mode-recommendation" id="modeRecommendationSection" style="display: none;">
+        <div class="mode-recommendation-title">Sugestão automática de modo:</div>
+        
+        <div class="mode-options">
+          <div class="mode-option" id="modeLow" data-mode="LOW" onclick="selectModeDecision('LOW', this)">
+            <div class="mode-header">
+              <div class="mode-emoji">🛡️</div>
+              <div class="mode-name">Suave</div>
+            </div>
+            <div class="mode-description">Preserva dinâmica natural</div>
+          </div>
+
+          <div class="mode-option" id="modeMedium" data-mode="MEDIUM" onclick="selectModeDecision('MEDIUM', this)">
+            <div class="mode-header">
+              <div class="mode-emoji">⚖️</div>
+              <div class="mode-name">Balanceado</div>
+            </div>
+            <div class="mode-description">Equilíbrio geral</div>
+          </div>
+
+          <div class="mode-option" id="modeHigh" data-mode="HIGH" onclick="selectModeDecision('HIGH', this)">
+            <div class="mode-header">
+              <div class="mode-emoji">⚡</div>
+              <div class="mode-name">Impacto</div>
+            </div>
+            <div class="mode-description">Mais volume, controlado</div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="openConfirmationModal()">
+            Continuar →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       ✅ ETAPA 5 - CONFIRMAÇÃO
+       ======================================== -->
+  <div id="confirmationModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Confirme a masterização</h2>
+      </div>
+
+      <div class="confirmation-summary">
+        <div class="summary-row">
+          <div class="summary-label">Arquivo:</div>
+          <div class="summary-value" id="summaryFile">-</div>
+        </div>
+        <div class="summary-row">
+          <div class="summary-label">Modo:</div>
+          <div class="summary-value" id="summaryMode">-</div>
+        </div>
+      </div>
+
+      <div class="warning-box">
+        <div class="warning-title">
+          <span>⚠️</span>
+          <span>Aviso Importante</span>
+        </div>
+        <div class="warning-text">
+          A masterização será feita de forma automática. Os resultados dependem da qualidade da sua mix. 
+          O sistema não corrige problemas graves de mixagem.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToDecision()">← Voltar</button>
+        <button class="btn btn-primary" onclick="startProcessing()">
+          ✓ Confirmar e Iniciar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       ⏳ ETAPA 6 - PROCESSAMENTO (REAL)
+       ======================================== -->
+  <div id="processingModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Masterizando</h2>
+        <p class="modal-subtitle">Isso pode levar alguns minutos</p>
+      </div>
+
+      <!-- Loading real -->
+      <div class="loading-spinner" id="processingLoading">
+        <div class="spinner-ring"></div>
+        <div class="spinner-text" id="processingLoadingText">Processando master...</div>
+        <div class="spinner-subtext">O backend está trabalhando no seu áudio</div>
+      </div>
+
+      <!-- Erro (aparece se backend falhar) -->
+      <div class="error-card" id="processingError" style="display: none;">
+        <div class="error-icon">❌</div>
+        <div class="error-title">Erro no processamento</div>
+        <div class="error-message" id="processingErrorMsg">Não foi possível processar a masterização. Tente novamente.</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="backToDecision()">← Voltar</button>
+          <button class="btn btn-primary" onclick="retryProcessing()">Tentar Novamente</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       🛡️ MASTERIZAÇÃO SEGURA (NEEDS_CONFIRMATION)
+       ======================================== -->
+  <div id="safeMasterModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">⚠️ automaster v1</div>
+        <h2 class="modal-title">Limitações técnicas detectadas</h2>
+        <p class="modal-subtitle">Seu áudio apresenta características que requerem processamento especial.</p>
+      </div>
+      <div id="safeMasterProblems" style="background: rgba(255,160,0,0.08); border: 1px solid rgba(255,160,0,0.25); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #ccc;">
+        <div style="font-weight:600; color:#ffa500; margin-bottom:8px;">Problemas detectados:</div>
+        <ul id="safeMasterProblemsList" style="margin:0; padding-left:18px; line-height:1.7;"></ul>
+      </div>
+      <div style="background: rgba(0,200,100,0.07); border: 1px solid rgba(0,200,100,0.2); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #b0f0c0;">
+        <strong>Masterização Segura:</strong> O sistema vai aplicar um processamento conservador, priorizando a preservação da qualidade ao invés de loudness agressivo. Um arquivo final <strong>sempre será gerado</strong>.
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToDecision()">← Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmSafeMastering()">Continuar com masterização segura</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       ⚠️ MODO INCOMPATÍVEL / NOT APT
+       ======================================== -->
+  <div id="modeIncompatibleModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">⚠️ automaster v1</div>
+        <h2 class="modal-title" id="modeIncompatibleTitle">Modo incompatível com a música</h2>
+        <p class="modal-subtitle" id="modeIncompatibleReason">O modo selecionado não é indicado para este material.</p>
+      </div>
+      <div id="modeIncompatibleMetrics" style="display:none; background: rgba(255,200,0,0.08); border: 1px solid rgba(255,200,0,0.25); border-radius: 8px; padding: 12px 16px; margin: 12px 0; font-size: 0.85rem; color: #ccc;">
+        <div style="font-weight:600; color:#ffc107; margin-bottom:6px;">Detalhes técnicos detectados:</div>
+        <div id="modeIncompatibleLufs" style="display:none;">LUFS atual: <strong id="modeIncompatibleLufsVal">—</strong></div>
+        <div id="modeIncompatibleTp" style="display:none;">True Peak: <strong id="modeIncompatibleTpVal">—</strong></div>
+        <div id="modeIncompatibleReasonsList" style="margin-top:6px;"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="backToDecision()">← Escolher outro modo</button>
+        <button class="btn btn-primary" id="modeIncompatibleRetryBtn" onclick="retryWithRecommendedMode()">Usar modo recomendado</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       📊 ETAPA 7 - RESULTADO
+       ======================================== -->
+  <div id="resultModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Resultado da Masterização</h2>
+      </div>
+
+      <div class="result-comparison">
+        <div class="comparison-header">Antes vs Depois</div>
+        
+        <div class="comparison-cards">
+          <div class="comparison-card before">
+            <div class="comparison-label">Antes</div>
+            <div class="metric-row">
+              <div class="metric-name">LUFS:</div>
+              <div class="metric-value" id="beforeLUFS">-</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-name">True Peak:</div>
+              <div class="metric-value" id="beforePeak">-</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-name">Headroom:</div>
+              <div class="metric-value" id="beforeHeadroom">-</div>
+            </div>
+          </div>
+
+          <div class="comparison-card after">
+            <div class="comparison-label">Depois</div>
+            <div class="metric-row">
+              <div class="metric-name">LUFS:</div>
+              <div class="metric-value" id="afterLUFS">-</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-name">True Peak:</div>
+              <div class="metric-value" id="afterPeak">-</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-name">Headroom:</div>
+              <div class="metric-value" id="afterHeadroom">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview de áudio antes/depois -->
+      <div class="audio-preview-section" id="audioPreviewSection" style="display: none;">
+        <div class="audio-preview-title">Ouça o resultado:</div>
+        <div class="audio-preview-pair">
+          <div class="audio-preview-card">
+            <div class="audio-preview-label">Antes</div>
+            <audio id="previewBefore" controls preload="none"></audio>
+          </div>
+          <div class="audio-preview-card after-card">
+            <div class="audio-preview-label">Depois</div>
+            <audio id="previewAfter" controls preload="none"></audio>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-summary">
+        <div class="result-summary-icon">🎉</div>
+        <div class="result-summary-text" id="resultSummaryText">
+          Sua música ganhou mais volume mantendo a clareza.
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="openDeliveryModal()">
+          Ver Download →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       💾 ETAPA 8 - ENTREGA
+       ======================================== -->
+  <div id="deliveryModal" class="automaster-modal">
+    <div class="automaster-modal-card">
+      <div class="modal-header">
+        <div class="modal-badge">🚀 automaster v1</div>
+        <h2 class="modal-title">Download Pronto</h2>
+      </div>
+
+      <div class="delivery-container">
+        <div class="delivery-icon">📥</div>
+        <div class="delivery-title">Sua master está pronta!</div>
+        <div class="delivery-description">
+          Baixe o arquivo masterizado e compartilhe sua música com o mundo.
+        </div>
+
+        <div class="credit-info">
+          <div class="credit-text">Este download consumirá:</div>
+          <div class="credit-cost">1 Crédito</div>
+        </div>
+
+        <button class="btn btn-success" onclick="downloadMaster()">
+          <span>📥</span>
+          <span>Baixar Master</span>
+        </button>
+
+        <div style="margin-top: 1.5rem;">
+          <button class="btn btn-secondary" onclick="resetFlow()">
+            ← Masterizar Nova Música
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       🚀 JAVASCRIPT - FLUXO COMPLETO
+       ======================================== -->
+  <script>
+    // ========================================
+    // 🎯 STATE MANAGEMENT
+    // ========================================
+    const automasterState = {
+      mode: null,
+      file: null,
+      fileName: null,
+      // fileKey: definido quando o usuário vem de home.html com upload já realizado.
+      // Neste caso o arquivo NÃO é reenviado — o backend o lê diretamente do storage.
+      fileKey: null,
+      fromHomeFlow: false,
+      // Dados reais do backend (pré-análise)
+      preAnalysis: {
+        apt: null,
+        lufs: null,
+        truePeak: null,
+        headroom: null,
+        clipping: null,
+        tonalBalance: null,
+        recommendedMode: null,
+        message: null
+      },
+      // Dados reais do backend (masterização)
+      result: {
+        success: null,
+        masterUrl: null,
+        previewBefore: null,
+        previewAfter: null,
+        metrics: {
+          lufsBefore: null,
+          lufsAfter: null,
+          truePeakAfter: null
+        }
+      },
+      creditConsumed: false
+    };
+
+    // ========================================
+    // 🔗 LEITURA DE PARÂMETROS DE URL
+    // ========================================
+    // Quando o usuário chega de home.html via botão "Masterizar", os parâmetros
+    // fileKey e fileName são passados na URL. O arquivo já está no storage e NÃO
+    // precisa ser reenviado.
+    (function initFromUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      const urlFileKey  = params.get('fileKey');
+      const urlFileName = params.get('fileName');
+
+      if (urlFileKey && typeof urlFileKey === 'string' && urlFileKey.trim().length > 0) {
+        // Validação básica de segurança: apenas caracteres seguros no fileKey
+        const SAFE_FILEKEY_RE = /^[a-zA-Z0-9/_\-.]+$/;
+        if (!SAFE_FILEKEY_RE.test(urlFileKey)) {
+          console.warn('[AUTOMASTER] fileKey inválido ignorado (caracteres não permitidos)');
+          return;
+        }
+
+        automasterState.fileKey       = urlFileKey.trim();
+        automasterState.fileName      = (urlFileName || 'audio').trim();
+        automasterState.fromHomeFlow  = true;
+
+        // Pré-preencher o file para funções que exibem o nome do arquivo
+        // (não é um File real, mas evita erros de exibição)
+        automasterState.file = { name: automasterState.fileName, size: 0, type: 'audio/wav' };
+
+        console.log('[AUTOMASTER] Fluxo contínuo de home.html detectado:', {
+          fileKey:  automasterState.fileKey,
+          fileName: automasterState.fileName
+        });
+      }
+    })();
+
+    // ========================================
+    // 🔐 AUTH & API UTILITIES
+    // ========================================
+
+    /**
+     * Obtém token de autenticação do localStorage.
+     * Prioriza: idToken > token
+     */
+    function getAuthToken() {
+      const token = localStorage.getItem('idToken') || localStorage.getItem('token');
+      if (!token) {
+        console.warn('⚠️ [AUTOMASTER] Nenhum token de autenticação encontrado');
+      }
+      return token;
+    }
+
+    /**
+     * Faz requisição ao backend com auth, timeout e tratamento de erros.
+     * @param {string} endpoint - Ex: '/api/analyze-for-master'
+     * @param {Object} options - fetch options (method, body, etc.)
+     * @param {number} timeoutMs - Timeout em ms (padrão: 120s)
+     * @returns {Promise<Object>} Resposta JSON do backend
+     */
+    async function apiRequest(endpoint, options = {}, timeoutMs = 120000) {
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Você precisa estar logado para usar o AutoMaster.');
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      // Mescla headers (NÃO definir Content-Type para FormData)
+      const headers = { ...options.headers };
+      if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+      headers['Authorization'] = `Bearer ${token}`;
+
+      try {
+        const response = await fetch(endpoint, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorMsg = `Erro ${response.status}`;
+          try {
+            const errorBody = await response.json();
+            errorMsg = errorBody.error || errorBody.message || errorMsg;
+          } catch (_) { /* resposta não-JSON */ }
+          throw new Error(errorMsg);
+        }
+
+        return await response.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('Tempo limite excedido. O servidor demorou para responder.');
+        }
+        throw err;
+      }
+    }
+
+    // ========================================
+    // 🔧 UTILITY FUNCTIONS
+    // ========================================
+    function showModal(modalId) {
+      document.querySelectorAll('.automaster-modal').forEach(modal => {
+        modal.classList.remove('visible');
+      });
+
+      setTimeout(() => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+          modal.classList.add('visible');
+        }
+      }, 100);
+    }
+
+    function closeAllModals() {
+      document.querySelectorAll('.automaster-modal').forEach(modal => {
+        modal.classList.remove('visible');
+      });
+    }
+
+    function getGenreName(genreCode) {
+      const genres = {
+        'edm': 'EDM',
+        'house': 'House',
+        'techno': 'Techno',
+        'trance': 'Trance',
+        'dubstep': 'Dubstep',
+        'dnb': 'Drum & Bass'
+      };
+      return genres[genreCode] || genreCode;
+    }
+
+    function getModeName(modeCode) {
+      const modes = {
+        // Backend modes (uppercase) - OFICIAL
+        'LOW': 'Suave',
+        'MEDIUM': 'Balanceado',
+        'HIGH': 'Impacto',
+        'STREAMING': 'Streaming',
+        
+        // Lowercase fallback
+        'low': 'Suave',
+        'medium': 'Balanceado',
+        'high': 'Impacto',
+        'streaming': 'Streaming'
+      };
+      return modes[modeCode] || modeCode;
+    }
+
+    // ========================================
+    // 🛡️ MODE VALIDATION HELPERS
+    // ========================================
+    
+    /**
+     * Normaliza modo para uppercase
+     * @param {string} mode - Modo em qualquer case
+     * @returns {string} Modo em uppercase
+     */
+    function normalizeMode(mode) {
+      if (!mode) return '';
+      return String(mode).toUpperCase().trim();
+    }
+
+    /**
+     * Valida se modo é válido para o backend
+     * @param {string} mode - Modo a validar
+     * @returns {boolean} True se válido
+     */
+    function isValidMode(mode) {
+      const validModes = ['STREAMING', 'LOW', 'MEDIUM', 'HIGH'];
+      const normalized = normalizeMode(mode);
+      return validModes.includes(normalized);
+    }
+
+    /**
+     * Define modo no state com validação
+     * @param {string} mode - Modo a definir
+     * @returns {boolean} True se setou com sucesso
+     */
+    function setMode(mode) {
+      const normalized = normalizeMode(mode);
+      
+      if (!isValidMode(normalized)) {
+        console.error('❌ [AUTOMASTER] Modo inválido:', mode, '→', normalized);
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
+        return false;
+      }
+      
+      automasterState.mode = normalized;
+      console.log('✅ [AUTOMASTER] Modo definido:', normalized);
+      return true;
+    }
+
+    // ========================================
+    // � ETAPA 1 - SELEÇÃO DE MODO INICIAL
+    // ========================================
+    function selectModeInitial(mode, element) {
+      console.log('🎯 [AUTOMASTER] Modo selecionado (inicial):', mode);
+
+      // Remove seleção anterior
+      document.querySelectorAll('.genre-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+
+      // Adiciona seleção ao elemento clicado
+      if (element) {
+        element.classList.add('selected');
+      }
+
+      // Valida e define modo
+      if (setMode(mode)) {
+        document.getElementById('modeNextBtn').disabled = false;
+      } else {
+        alert('Modo inválido. Selecione Suave, Balanceado ou Impacto.');
+        document.getElementById('modeNextBtn').disabled = true;
+      }
+    }
+
+    /**
+     * Chamado ao clicar "Continuar →" no modeModal.
+     * - Se veio de home.html com fileKey: pula o uploadModal e vai direto para pré-análise.
+     * - Caso contrário: abre o uploadModal (fluxo manual).
+     */
+    function onModeNextClick() {
+      if (!automasterState.mode) {
+        alert('Selecione um modo primeiro');
+        return;
+      }
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        // Fluxo contínuo: arquivo já está no storage, análise já foi feita — pular upload e pré-análise
+        console.log('[AUTOMASTER] Fluxo contínuo: ignorando uploadModal e pré-análise, iniciando masterização');
+        startProcessing();
+      } else {
+        openUploadModal();
+      }
+    }
+
+    function openUploadModal() {
+      if (!automasterState.mode) {
+        alert('Selecione um modo primeiro');
+        return;
+      }
+      console.log('📤 [AUTOMASTER] Abrindo modal de upload');
+      showModal('uploadModal');
+    }
+
+    function backToMode() {
+      console.log('← [AUTOMASTER] Voltando para seleção de modo');
+      showModal('modeModal');
+    }
+
+    // ========================================
+    // 📤 ETAPA 2 - UPLOAD
+    // ========================================
+    const uploadArea = document.getElementById('uploadArea');
+
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragging');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragging');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragging');
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) {
+        handleFile(file);
+      }
+    }
+
+    function handleFile(file) {
+      console.log('📁 [AUTOMASTER] Arquivo selecionado:', file.name);
+
+      // Validações
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      if (file.size > maxSize) {
+        alert('Arquivo muito grande! Máximo: 100MB');
+        return;
+      }
+
+      const allowedTypes = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/flac', 'audio/x-wav'];
+      if (!allowedTypes.includes(file.type) && !file.name.match(/\.(wav|mp3|flac)$/i)) {
+        alert('Formato não suportado! Use WAV, MP3 ou FLAC');
+        return;
+      }
+
+      automasterState.file = file;
+      automasterState.fileName = file.name;
+
+      document.getElementById('fileName').textContent = file.name;
+      document.getElementById('fileInfo').classList.add('visible');
+      document.getElementById('uploadNextBtn').disabled = false;
+    }
+
+    // ========================================
+    // ⚙️ ETAPA 3 - PRÉ-ANÁLISE (REAL)
+    // ========================================
+
+    /**
+     * Envia áudio ao backend para pré-análise real.
+     * Endpoint: POST /api/analyze-for-master
+     * Body: FormData { file, genre }   → fluxo manual (upload direto)
+     *   OU: FormData { fileKey, genre } → fluxo contínuo (arquivo já no storage)
+     * Resposta: { apt, lufs, truePeak, headroom, clipping, tonalBalance, recommendedMode, message }
+     */
+    async function startPreAnalysis() {
+      // Validar: precisa de fileKey (fluxo contínuo) OU file (fluxo manual)
+      if (!automasterState.fileKey && !automasterState.file) {
+        alert('Selecione um arquivo primeiro');
+        return;
+      }
+
+      console.log('⚙️ [AUTOMASTER] Iniciando pré-análise real...');
+      showModal('preAnalysisModal');
+
+      // Mostra loading, esconde erro e conclusão
+      document.getElementById('analysisLoading').style.display = 'flex';
+      document.getElementById('analysisError').style.display = 'none';
+      document.getElementById('analysisComplete').classList.remove('visible');
+
+      try {
+        const formData = new FormData();
+
+        if (automasterState.fileKey) {
+          // Fluxo contínuo: usar fileKey do storage em vez de reenviar o arquivo
+          formData.append('fileKey', automasterState.fileKey);
+          document.getElementById('analysisLoadingText').textContent = 'Analisando áudio...';
+          console.log('[AUTOMASTER] Pré-análise via fileKey:', automasterState.fileKey);
+        } else {
+          // Fluxo manual: enviar arquivo diretamente
+          formData.append('file', automasterState.file);
+          document.getElementById('analysisLoadingText').textContent = 'Enviando áudio para análise...';
+        }
+
+        formData.append('genre', automasterState.genre);
+
+        const data = await apiRequest('/api/analyze-for-master', {
+          method: 'POST',
+          body: formData
+        }, 180000); // timeout 3 min para arquivos grandes
+
+        console.log('📊 [AUTOMASTER] Pré-análise recebida:', data);
+
+        // Armazena dados reais do backend
+        automasterState.preAnalysis = {
+          apt: data.apt,
+          lufs: data.lufs,
+          truePeak: data.truePeak,
+          headroom: data.headroom,
+          clipping: data.clipping,
+          tonalBalance: data.tonalBalance,
+          recommendedMode: data.recommendedMode || 'MEDIUM',
+          message: data.message || ''
+        };
+
+        // Esconde loading, mostra conclusão
+        document.getElementById('analysisLoading').style.display = 'none';
+        document.getElementById('analysisComplete').classList.add('visible');
+
+        // Avança para decisão após 1.5s
+        setTimeout(() => {
+          openDecisionModal();
+        }, 1500);
+
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro na pré-análise:', err);
+
+        // Esconde loading, mostra erro
+        document.getElementById('analysisLoading').style.display = 'none';
+        document.getElementById('analysisErrorMsg').textContent = err.message || 'Erro desconhecido na análise.';
+        document.getElementById('analysisError').style.display = 'block';
+      }
+    }
+
+    function retryPreAnalysis() {
+      startPreAnalysis();
+    }
+
+    function backToUpload() {
+      // Em fluxo contínuo (fileKey), não há uploadModal — voltar para seleção de modo
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        showModal('modeModal');
+      } else {
+        showModal('uploadModal');
+      }
+    }
+
+    // ========================================
+    // 🎯 ETAPA 4 - DECISÃO DO SISTEMA (REAL)
+    // ========================================
+
+    /**
+     * Abre modal de decisão usando dados reais do backend.
+     * Se apt === false → mostra bloqueio.
+     * Se apt === true → mostra modos com recomendação pré-selecionada.
+     */
+    function openDecisionModal() {
+      console.log('🎯 [AUTOMASTER] Abrindo decisão. Apt:', automasterState.preAnalysis.apt);
+
+      const { apt, message, recommendedMode } = automasterState.preAnalysis;
+
+      const cardApt = document.getElementById('diagnosisCardApt');
+      const cardBlocked = document.getElementById('diagnosisCardBlocked');
+      const modeSection = document.getElementById('modeRecommendationSection');
+
+      if (apt === false) {
+        // === BLOQUEIO: mix não apta ===
+        cardApt.style.display = 'none';
+        cardBlocked.style.display = 'block';
+        modeSection.style.display = 'none';
+
+        document.getElementById('blockReasonText').textContent =
+          message || 'Sua mix possui problemas que impedem a masterização automática. Ajuste e envie novamente.';
+
+      } else {
+        // === APTO: escolher modo ===
+        cardApt.style.display = 'block';
+        cardBlocked.style.display = 'none';
+        modeSection.style.display = 'block';
+
+        document.getElementById('diagnosisText').textContent =
+          message || 'Seu áudio está apto para masterização.';
+
+        // ============================================================
+        // 🎯 PRÉ-SELEÇÃO INTELIGENTE DO MODO
+        // ============================================================
+        
+        // Backend pode retornar modo recomendado (já validado)
+        // Se não retornar, usar padrão MEDIUM
+        const recMode = normalizeMode(recommendedMode || 'MEDIUM');
+        
+        // Validar modo recomendado
+        const modeToUse = isValidMode(recMode) ? recMode : 'MEDIUM';
+        
+        console.log('🎯 [AUTOMASTER] Modo recomendado:', {
+          backend: recommendedMode,
+          normalized: modeToUse
+        });
+        
+        // Armazenar modo validado
+        setMode(modeToUse);
+        
+        // Remover seleção anterior
+        document.querySelectorAll('.mode-option').forEach(opt => {
+          opt.classList.remove('selected', 'recommended');
+        });
+        
+        // Pré-selecionar elemento correspondente
+        const recElement = document.getElementById(
+          modeToUse === 'LOW' ? 'modeLow' :
+          modeToUse === 'MEDIUM' ? 'modeMedium' : 'modeHigh'
+        );
+        
+        if (recElement) {
+          recElement.classList.add('selected', 'recommended');
+          console.log('✅ [AUTOMASTER] Modo pré-selecionado:', modeToUse);
+        } else {
+          console.error('❌ [AUTOMASTER] Elemento do modo não encontrado:', modeToUse);
+        }
+      }
+
+      showModal('decisionModal');
+    }
+
+    // ========================================
+    // 🎯 ETAPA 4 - SELEÇÃO DE MODO (DECISÃO)
+    // ========================================
+    function selectModeDecision(mode, element) {
+      console.log('🎚️ [AUTOMASTER] Modo selecionado (decisão):', mode);
+
+      // Remove seleção anterior
+      document.querySelectorAll('.mode-option').forEach(option => {
+        option.classList.remove('selected');
+      });
+
+      // Adiciona seleção ao elemento clicado
+      if (element) {
+        element.classList.add('selected');
+      }
+
+      // Valida e define modo
+      if (!setMode(mode)) {
+        alert('Modo inválido. Selecione um modo válido.');
+      }
+    }
+
+    function backToDecision() {
+      showModal('decisionModal');
+    }
+
+    // ========================================
+    // ✅ ETAPA 5 - CONFIRMAÇÃO
+    // ========================================
+    function openConfirmationModal() {
+      if (!automasterState.mode) {
+        alert('Selecione um modo de masterização');
+        return;
+      }
+
+      console.log('✅ [AUTOMASTER] Abrindo confirmação');
+
+      // document.getElementById('summaryGenre').textContent = getGenreName(automasterState.genre);
+      document.getElementById('summaryFile').textContent = automasterState.fileName;
+      document.getElementById('summaryMode').textContent = getModeName(automasterState.mode);
+
+      showModal('confirmationModal');
+    }
+
+    // ========================================
+    // ⏳ ETAPA 6 - PROCESSAMENTO (REAL)
+    // ========================================
+
+    /**
+     * Envia áudio para masterização real.
+     * Endpoint: POST /api/automaster
+     * Body: FormData { file, genre, mode }
+     * Resposta: { success, masterUrl, previewBefore, previewAfter, metrics }
+     */
+    async function startProcessing() {
+      console.log('⏳ [AUTOMASTER] Iniciando processamento real...');
+      
+      // ============================================================
+      // 🛡️ GUARDIÃO: VALIDAR ESTADO ANTES DE ENVIAR AO BACKEND
+      // ============================================================
+      
+      // Validação 1: Arquivo ou fileKey presente
+      if (!automasterState.fileKey && !automasterState.file) {
+        alert('Erro interno: Arquivo ausente. Faça upload novamente.');
+        console.error('❌ [AUTOMASTER] automasterState.file e fileKey estão vazios');
+        backToUpload();
+        return;
+      }
+      
+      // Validação 2: Modo definido
+      if (!automasterState.mode) {
+        alert('Erro interno: Modo não definido. Selecione novamente.');
+        console.error('❌ [AUTOMASTER] automasterState.mode está vazio');
+        backToDecision();
+        return;
+      }
+      
+      // Validação 3: Modo válido
+      const modeNormalized = normalizeMode(automasterState.mode);
+      
+      if (!isValidMode(modeNormalized)) {
+        alert(`Erro interno: Modo inválido "${automasterState.mode}". Selecione novamente.`);
+        console.error('❌ [AUTOMASTER] Modo inválido detectado:', automasterState.mode);
+        console.error('❌ [AUTOMASTER] Modos válidos: STREAMING, LOW, MEDIUM, HIGH');
+        backToDecision();
+        return;
+      }
+      
+      // ✅ ESTADO VALIDADO - PROSSEGUIR
+      console.log('✅ [AUTOMASTER] Estado validado:', {
+        mode: modeNormalized,
+        fileKey: automasterState.fileKey || null,
+        file: automasterState.file ? automasterState.file.name : null,
+        fromHomeFlow: automasterState.fromHomeFlow
+      });
+      
+      showModal('processingModal');
+      document.getElementById('processingLoading').style.display = 'flex';
+      document.getElementById('processingError').style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        formData.append('mode', modeNormalized);  // ← SEMPRE UPPERCASE
+
+        if (automasterState.fileKey) {
+          // Fluxo contínuo: passar fileKey — o arquivo NÃO é reenviado
+          formData.append('fileKey', automasterState.fileKey);
+          document.getElementById('processingLoadingText').textContent = 'Iniciando masterização...';
+          console.log('[AUTOMASTER] Processamento via fileKey:', {
+            endpoint: '/api/automaster',
+            mode: modeNormalized,
+            fileKey: automasterState.fileKey
+          });
+        } else {
+          // Fluxo manual: enviar arquivo diretamente
+          formData.append('file', automasterState.file);
+          document.getElementById('processingLoadingText').textContent = 'Enviando arquivo...';
+          console.log('📤 [AUTOMASTER] Enviando ao backend:', {
+            endpoint: '/api/automaster',
+            mode: modeNormalized,
+            fileName: automasterState.file.name
+          });
+        }
+
+        // ─── PASSO 1: enfileirar job ───────────────────────────────────────
+        const enqueueData = await apiRequest('/api/automaster', {
+          method: 'POST',
+          body: formData
+        }, 30000); // timeout apenas para o upload/enqueue
+
+        console.log('[AUTOMASTER] Job enfileirado:', enqueueData);
+
+        if (!enqueueData.success) {
+          throw new Error(enqueueData.error || enqueueData.message || 'Falha ao enfileirar job.');
+        }
+
+        const { jobId } = enqueueData;
+        if (!jobId) {
+          throw new Error('Backend não retornou jobId.');
+        }
+
+        automasterState.jobId = jobId;
+
+        // ─── PASSO 2: polling até conclusão ───────────────────────────────
+        document.getElementById('processingLoadingText').textContent = 'Processando master...';
+        const statusData = await pollJobStatus(jobId);
+
+        // ─── PASSO 3: salvar resultado ─────────────────────────────────────
+        automasterState.result = {
+          success: true,
+          masterUrl: statusData.downloadUrl || null,
+          previewBefore: null,
+          previewAfter: null,
+          metrics: {
+            lufsBefore: statusData.metrics?.lufsBefore ?? null,
+            lufsAfter: statusData.metrics?.lufsAfter ?? null,
+            truePeakAfter: statusData.metrics?.truePeakAfter ?? null
+          }
+        };
+
+        console.log('[AUTOMASTER] masterUrl salvo:', automasterState.result.masterUrl);
+
+        // Avança para resultado
+        openResultModal();
+
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro no processamento:', err);
+
+        // Modo incompatível ou not_apt: mostrar modal dedicado (não é erro genérico)
+        if (err.isModeIncompatible) {
+          showModeIncompatibleModal(err.statusData || {});
+          return;
+        }
+
+        // Problemas técnicos: aguardando confirmação do usuário
+        if (err.isNeedsConfirmation) {
+          showNeedsConfirmationModal(err.statusData || {});
+          return;
+        }
+        
+        // Melhorar mensagem de erro para o usuário
+        let userMessage = err.message || 'Erro desconhecido no processamento.';
+        
+        if (userMessage.includes('Mode invalido') || userMessage.includes('Mode inválido')) {
+          userMessage = 'Erro interno: Modo inválido detectado. Nossa equipe foi notificada. Tente novamente ou entre em contato.';
+          console.error('🚨 [AUTOMASTER] BUG CRÍTICO: Modo inválido chegou ao backend!');
+        }
+
+        document.getElementById('processingLoading').style.display = 'none';
+        document.getElementById('processingErrorMsg').textContent = userMessage;
+        document.getElementById('processingError').style.display = 'block';
+      }
+    }
+
+    function retryProcessing() {
+      startProcessing();
+    }
+
+    function showModeIncompatibleModal(statusData) {
+      const isNotApt = statusData.status === 'not_apt' || !!statusData.reasons;
+
+      // Título adaptado ao tipo de bloqueio
+      const titleEl = document.getElementById('modeIncompatibleTitle');
+      if (titleEl) {
+        titleEl.textContent = isNotApt
+          ? 'Modo ' + (statusData.mode || 'HIGH') + ' não recomendado para esta música'
+          : 'Modo incompatível com a música';
+      }
+
+      // Subtítulo
+      const reasonEl = document.getElementById('modeIncompatibleReason');
+      if (reasonEl) {
+        reasonEl.textContent = isNotApt
+          ? 'Detectamos que esta faixa já está muito próxima do limite seguro. Aplicar ' + (statusData.mode || 'HIGH') + ' pode causar clipping e perda de qualidade.'
+          : (statusData.reason || statusData.warningMessage || 'O modo selecionado não é compatível com este material de entrada.');
+      }
+
+      // Bloco de métricas técnicas (apenas para NOT_APT)
+      const metricsEl = document.getElementById('modeIncompatibleMetrics');
+      if (metricsEl) {
+        if (isNotApt && statusData.measured) {
+          const lufsVal = statusData.measured.lufs_i;
+          const tpVal = statusData.measured.true_peak_db;
+
+          const lufsRow = document.getElementById('modeIncompatibleLufs');
+          const lufsValEl = document.getElementById('modeIncompatibleLufsVal');
+          if (lufsRow && lufsValEl && lufsVal != null) {
+            lufsValEl.textContent = parseFloat(lufsVal).toFixed(1) + ' LUFS';
+            lufsRow.style.display = 'block';
+          }
+
+          const tpRow = document.getElementById('modeIncompatibleTp');
+          const tpValEl = document.getElementById('modeIncompatibleTpVal');
+          if (tpRow && tpValEl && tpVal != null) {
+            tpValEl.textContent = parseFloat(tpVal).toFixed(2) + ' dBTP';
+            tpRow.style.display = 'block';
+          }
+
+          const reasonsList = document.getElementById('modeIncompatibleReasonsList');
+          if (reasonsList && statusData.reasons && statusData.reasons.length) {
+            reasonsList.innerHTML = statusData.reasons
+              .map(r => `<div style="color:#ffa0a0; margin-top:3px;">• ${r}</div>`)
+              .join('');
+          }
+
+          metricsEl.style.display = 'block';
+        } else {
+          metricsEl.style.display = 'none';
+        }
+      }
+
+      // Modo recomendado no botão
+      const recommendedMode = (statusData.recommendedActions && statusData.recommendedActions[0])
+        || statusData.recommendedMode
+        || 'MEDIUM';
+
+      const retryBtn = document.getElementById('modeIncompatibleRetryBtn');
+      if (retryBtn) retryBtn.textContent = 'Usar ' + getModeName(recommendedMode) + ' (recomendado)';
+
+      automasterState._recommendedMode = recommendedMode;
+
+      showModal('modeIncompatibleModal');
+    }
+
+    function retryWithRecommendedMode() {
+      const recommended = automasterState._recommendedMode || 'MEDIUM';
+      console.log('[AUTOMASTER] Retentando com modo recomendado:', recommended);
+      automasterState.mode = recommended;
+      startProcessing();
+    }
+
+    // ========================================
+    // 🛡️ MODAL MASTERIZAÇÃO SEGURA (NEEDS_CONFIRMATION)
+    // ========================================
+
+    function showNeedsConfirmationModal(statusData) {
+      const problems = statusData.problems || [];
+      const listEl = document.getElementById('safeMasterProblemsList');
+      if (listEl) {
+        listEl.innerHTML = '';
+        if (problems.length > 0) {
+          problems.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = p;
+            listEl.appendChild(li);
+          });
+        } else {
+          const li = document.createElement('li');
+          li.textContent = 'Limitações técnicas detectadas no arquivo de entrada.';
+          listEl.appendChild(li);
+        }
+      }
+      // Guardar jobId para confirmação
+      automasterState._confirmJobId = statusData.jobId || automasterState.jobId;
+      document.getElementById('processingLoading').style.display = 'none';
+      showModal('safeMasterModal');
+    }
+
+    async function confirmSafeMastering() {
+      const jobId = automasterState._confirmJobId || automasterState.jobId;
+      if (!jobId) {
+        console.error('[AUTOMASTER] Nenhum jobId para confirmar masterização segura');
+        return;
+      }
+
+      closeAllModals();
+      document.getElementById('processingLoading').style.display = 'flex';
+      document.getElementById('processingError').style.display = 'none';
+      showModal('processingModal');
+
+      console.log('[AUTOMASTER] Confirmando masterização segura para job:', jobId);
+
+      try {
+        await apiRequest(`/api/automaster/confirm/${jobId}`, { method: 'POST' }, 15000);
+        // Aguardar processamento seguro
+        const statusData = await pollJobStatus(jobId);
+
+        automasterState.jobId = jobId;
+        automasterState.result = {
+          masterUrl: statusData.downloadUrl || null,
+          previewBefore: null,
+          previewAfter: null,
+          metrics: {
+            lufsBefore: statusData.metrics?.lufsBefore ?? null,
+            lufsAfter: statusData.metrics?.lufsAfter ?? null,
+            truePeakAfter: statusData.metrics?.truePeakAfter ?? null
+          }
+        };
+
+        // Indicar ao usuário que foi processamento seguro
+        if (statusData.deliveryMode === 'safe') {
+          console.log('[AUTOMASTER] Masterização segura concluída.');
+        }
+
+        openResultModal();
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro na masterização segura:', err);
+        document.getElementById('processingLoading').style.display = 'none';
+        document.getElementById('processingErrorMsg').textContent = err.message || 'Erro desconhecido.';
+        document.getElementById('processingError').style.display = 'block';
+      }
+    }
+
+    // ========================================
+    // � POLLING DE STATUS DO JOB
+    // ========================================
+
+    /**
+     * Faz polling em /api/automaster/status/:jobId até o job estar
+     * completed ou failed. Atualiza o texto de progresso na UI.
+     *
+     * @param {string} jobId
+     * @returns {Promise<object>} Dados do job quando completed
+     * @throws {Error} Se o job falhar ou exceder timeout
+     */
+    async function pollJobStatus(jobId) {
+      const MAX_ATTEMPTS = 120;   // 120 × 3s = 6 minutos máximo
+      const POLL_INTERVAL_MS = 3000;
+
+      const progressMessages = [
+        'Processando master...',
+        'Analisando audio...',
+        'Aplicando ganho...',
+        'Normalizando loudness...',
+        'Finalizando master...',
+        'Quase pronto...'
+      ];
+
+      let attempt = 0;
+
+      return new Promise((resolve, reject) => {
+        const timer = setInterval(async () => {
+          attempt++;
+
+          // Timeout global
+          if (attempt > MAX_ATTEMPTS) {
+            clearInterval(timer);
+            reject(new Error('Timeout: processamento excedeu 6 minutos.'));
+            return;
+          }
+
+          try {
+            const statusData = await apiRequest(
+              `/api/automaster/status/${jobId}`,
+              { method: 'GET' },
+              10000
+            );
+
+            console.log(`[POLL #${attempt}] status=${statusData.status} progress=${statusData.progress ?? '?'}%`);
+
+            // Atualizar texto de progresso na UI
+            const msgIdx = Math.min(
+              Math.floor((statusData.progress || 0) / 20),
+              progressMessages.length - 1
+            );
+            const loadingTextEl = document.getElementById('processingLoadingText');
+            if (loadingTextEl) {
+              loadingTextEl.textContent = progressMessages[msgIdx];
+            }
+
+            if (statusData.status === 'completed') {
+              clearInterval(timer);
+
+              if (!statusData.downloadUrl) {
+                reject(new Error('Job concluido mas URL de download nao foi gerada.'));
+                return;
+              }
+
+              console.log('[AUTOMASTER] Job completed. downloadUrl disponivel.');
+              resolve(statusData);
+
+            } else if (statusData.status === 'needs_confirmation') {
+              // Problemas técnicos detectados — aguardando confirmação para masterização segura
+              clearInterval(timer);
+              const confErr = new Error('NEEDS_CONFIRMATION');
+              confErr.isNeedsConfirmation = true;
+              confErr.statusData = statusData;
+              reject(confErr);
+            } else if (statusData.status === 'not_apt') {
+              clearInterval(timer);
+              const aptErr = new Error('NOT_APT');
+              aptErr.isModeIncompatible = true;
+              aptErr.isNotApt = true;
+              aptErr.statusData = statusData;
+              reject(aptErr);
+            } else if (statusData.status === 'needs_mode_change' ||
+                       statusData.status === 'failed' && (statusData.errorCode === 'MODE_INCOMPATIBLE' || statusData.type === 'MODE_INCOMPATIBLE')) {
+              clearInterval(timer);
+              const modeErr = new Error('MODE_INCOMPATIBLE');
+              modeErr.isModeIncompatible = true;
+              modeErr.statusData = statusData;
+              reject(modeErr);
+            } else if (statusData.status === 'failed' || statusData.status === 'error') {
+              clearInterval(timer);
+              reject(new Error(statusData.error || statusData.message || 'Falha no processamento do servidor.'));
+            }
+            // queued / processing: continuar polling
+
+          } catch (pollErr) {
+            // Erro de rede isolado: nao abortar, tentar novamente
+            console.warn(`[POLL #${attempt}] Erro de rede (nao fatal):`, pollErr.message);
+          }
+        }, POLL_INTERVAL_MS);
+      });
+    }
+
+    /**
+     * Exibe métricas reais do backend e preview de áudio.
+     * Usa APENAS dados vindos do backend, nunca gera valores localmente.
+     */
+    function openResultModal() {
+      console.log('📊 [AUTOMASTER] Exibindo resultado real');
+
+      const { metrics, previewBefore, previewAfter } = automasterState.result;
+      const pa = automasterState.preAnalysis;
+
+      // Métricas ANTES (da pré-análise)
+      document.getElementById('beforeLUFS').textContent =
+        pa.lufs != null ? pa.lufs + ' LUFS' : '—';
+      document.getElementById('beforePeak').textContent =
+        pa.truePeak != null ? pa.truePeak + ' dBTP' : '—';
+      document.getElementById('beforeHeadroom').textContent =
+        pa.headroom != null ? pa.headroom + ' dB' : '—';
+
+      // Métricas DEPOIS (do resultado da masterização)
+      document.getElementById('afterLUFS').textContent =
+        metrics.lufsAfter != null ? metrics.lufsAfter + ' LUFS' : '—';
+      document.getElementById('afterPeak').textContent =
+        metrics.truePeakAfter != null ? metrics.truePeakAfter + ' dBTP' : '—';
+      document.getElementById('afterHeadroom').textContent = '—';
+
+      // Resumo textual
+      const summaryEl = document.getElementById('resultSummaryText');
+      if (metrics.lufsBefore != null && metrics.lufsAfter != null) {
+        const diff = (parseFloat(metrics.lufsAfter) - parseFloat(metrics.lufsBefore)).toFixed(1);
+        summaryEl.textContent =
+          `Loudness ajustado de ${metrics.lufsBefore} para ${metrics.lufsAfter} LUFS (${diff > 0 ? '+' : ''}${diff} dB).`;
+      } else {
+        summaryEl.textContent = 'Masterização concluída com sucesso.';
+      }
+
+      // Preview de áudio antes/depois
+      const previewSection = document.getElementById('audioPreviewSection');
+      if (previewBefore || previewAfter) {
+        previewSection.style.display = 'block';
+
+        if (previewBefore) {
+          const audioBefore = document.getElementById('previewBefore');
+          audioBefore.src = previewBefore;
+          audioBefore.load();
+        }
+
+        if (previewAfter) {
+          const audioAfter = document.getElementById('previewAfter');
+          audioAfter.src = previewAfter;
+          audioAfter.load();
+        }
+      } else {
+        previewSection.style.display = 'none';
+      }
+
+      showModal('resultModal');
+    }
+
+    // ========================================
+    // 💾 ETAPA 8 - ENTREGA (REAL)
+    // ========================================
+    function openDeliveryModal() {
+      console.log('💾 [AUTOMASTER] Abrindo modal de entrega');
+      showModal('deliveryModal');
+    }
+
+    /**
+     * Download real do arquivo masterizado.
+     * Consome crédito somente se o download for bem-sucedido.
+     */
+    async function downloadMaster() {
+      console.log('📥 [AUTOMASTER] Iniciando download real');
+
+      const { masterUrl } = automasterState.result;
+
+      if (!masterUrl) {
+        alert('⚠️ URL de download não disponível. Tente reprocessar.');
+        return;
+      }
+
+      // Evita consumo duplo de crédito
+      if (automasterState.creditConsumed) {
+        console.log('📥 [AUTOMASTER] Crédito já consumido, fazendo download novamente');
+        triggerDownload(masterUrl);
+        return;
+      }
+
+      try {
+        // Consome crédito no backend
+        await apiRequest('/api/automaster/consume-credit', {
+          method: 'POST',
+          body: JSON.stringify({
+            masterUrl: masterUrl,
+            mode: automasterState.mode,
+            fileName: automasterState.fileName
+          })
+        }, 30000);
+
+        automasterState.creditConsumed = true;
+        console.log('✅ [AUTOMASTER] Crédito consumido com sucesso');
+
+        // Inicia download real
+        triggerDownload(masterUrl);
+
+      } catch (err) {
+        console.error('❌ [AUTOMASTER] Erro ao consumir crédito:', err);
+        alert('Erro ao processar crédito: ' + (err.message || 'Tente novamente.'));
+      }
+    }
+
+    /**
+     * Dispara download real do arquivo via link temporário.
+     */
+    function triggerDownload(url) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `master_${automasterState.fileName || 'audio'}.wav`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // ========================================
+    // 🔄 RESET
+    // ========================================
+    function resetFlow() {
+      console.log('🔄 [AUTOMASTER] Resetando fluxo');
+
+      // Limpa state completamente
+      automasterState.genre = null;
+      automasterState.file = null;
+      automasterState.fileName = null;
+      automasterState.mode = null;
+      automasterState.creditConsumed = false;
+      automasterState.preAnalysis = {
+        apt: null, lufs: null, truePeak: null, headroom: null,
+        clipping: null, tonalBalance: null, recommendedMode: null, message: null
+      };
+      automasterState.result = {
+        success: null, masterUrl: null, previewBefore: null, previewAfter: null,
+        metrics: { lufsBefore: null, lufsAfter: null, truePeakAfter: null }
+      };
+
+      // Limpa UI
+      document.querySelectorAll('.genre-card').forEach(card => card.classList.remove('selected'));
+      document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('selected', 'recommended'));
+      document.getElementById('fileInfo').classList.remove('visible');
+      document.getElementById('genreNextBtn').disabled = true;
+      document.getElementById('uploadNextBtn').disabled = true;
+
+      // Limpa players de áudio
+      const previewBefore = document.getElementById('previewBefore');
+      const previewAfter = document.getElementById('previewAfter');
+      if (previewBefore) { previewBefore.pause(); previewBefore.src = ''; }
+      if (previewAfter) { previewAfter.pause(); previewAfter.src = ''; }
+      document.getElementById('audioPreviewSection').style.display = 'none';
+
+      // Limpa análise
+      document.getElementById('analysisComplete').classList.remove('visible');
+
+      // Volta para início
+      showModal('modeModal');
+    }
+
+    // ========================================
+    // 🚀 INICIALIZAÇÃO
+    // ========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🎚️ [AUTOMASTER] AutoMaster V1 — Produção');
+      console.log('🎯 [AUTOMASTER] Fluxo real de 8 etapas carregado');
+
+      // Verifica login
+      const token = getAuthToken();
+      if (!token) {
+        console.warn('⚠️ [AUTOMASTER] Usuário não logado — funcionalidade limitada');
+      } else {
+        console.log('✅ [AUTOMASTER] Usuário autenticado');
+      }
+
+      // ── FLUXO CONTÍNUO (home.html → master.html) ──────────────────────
+      // Quando o usuário chega com fileKey na URL, adaptar a UI:
+      // 1. Ocultar completamente o modal de upload (não é necessário)
+      // 2. Atualizar subtítulo do modeModal indicando o arquivo carregado
+      if (automasterState.fromHomeFlow && automasterState.fileKey) {
+        console.log('[AUTOMASTER] Adaptando UI para fluxo contínuo (sem upload)');
+
+        // Esconder modal de upload para que o usuário não veja nem acesse
+        const uploadModal = document.getElementById('uploadModal');
+        if (uploadModal) {
+          uploadModal.style.display = 'none';
+          uploadModal.setAttribute('aria-hidden', 'true');
+        }
+
+        // Atualizar subtítulo do modeModal com o nome do arquivo
+        const modeSubtitle = document.querySelector('#modeModal .modal-subtitle');
+        if (modeSubtitle) {
+          modeSubtitle.textContent =
+            'Arquivo: ' + (automasterState.fileName || 'áudio enviado') +
+            ' — Escolha o nível de processamento e clique em Continuar.';
+        }
+
+        // Habilitar o botão de confirmação imediatamente (sem necessidade de escolher arquivo)
+        // Obs: ainda exige que o usuário escolha um modo antes de prosseguir.
+        console.log('[AUTOMASTER] UI adaptada — uploadModal oculto, modeModal atualizado');
+      }
+    });
+
+    // Debug mode (apenas localhost)
+    if (window.location.hostname === 'localhost') {
+      console.log('🔧 [AUTOMASTER-DEBUG] Modo debug ativado');
+      window.automasterState = automasterState;
+    }
+  </script>
+</body>
+</html>
