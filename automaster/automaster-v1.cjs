@@ -4345,7 +4345,7 @@ async function main() {
     config = validateArgs();
     if (debug) console.error('[DEBUG] Parametros validos');
   } catch (error) {
-    console.error(error.message);
+    process.stdout.write(JSON.stringify({ success: false, error: error.message }) + '\n');
     process.exit(1);
   }
 
@@ -4355,7 +4355,7 @@ async function main() {
     const ffmpegVersion = await checkFFmpeg();
     if (debug) console.error(`[DEBUG] FFmpeg encontrado: ${ffmpegVersion}`);
   } catch (error) {
-    console.error(error.message);
+    process.stdout.write(JSON.stringify({ success: false, error: error.message }) + '\n');
     process.exit(1);
   }
 
@@ -4371,6 +4371,15 @@ async function main() {
     
     if (!decision.shouldProcess) {
       console.error('[DECISION ENGINE] Processamento abortado:', decision.reason);
+      // BUG FIX: emitir JSON antes de sair — sem isso o executeCoreEngine recebe stdout vazio
+      process.stdout.write(JSON.stringify({
+        success: false,
+        impact_aborted: true,
+        abort_reason: decision.reason || 'DECISION_ENGINE_ABORT',
+        final_lufs: metrics.lufs,
+        final_tp: metrics.truePeak,
+        mode_result: config.mode
+      }) + '\n');
       process.exit(0);
     }
     
@@ -4422,6 +4431,7 @@ async function main() {
     
   } catch (error) {
     console.error('[DECISION ENGINE] Erro ao analisar áudio:', error.message);
+    process.stdout.write(JSON.stringify({ success: false, error: '[DECISION ENGINE] ' + error.message }) + '\n');
     process.exit(1);
   }
 
@@ -4578,6 +4588,7 @@ async function main() {
         console.error('❌ ERRO CRÍTICO: Mesmo fallback conservador violou regras técnicas');
         console.error('   Isto indica problema técnico no pipeline');
         console.error(`   Violações: ${validation.violations.join(', ')}`);
+        process.stdout.write(JSON.stringify({ success: false, error: 'Fallback conservador violou regras técnicas', violations: validation.violations }) + '\n');
         process.exit(1);
       }
       
@@ -4723,6 +4734,8 @@ async function main() {
       }
     }
     
+    // BUG FIX: garantir que stdout sempre receba JSON antes de sair
+    process.stdout.write(JSON.stringify({ success: false, error: error.message, stack: error.stack }) + '\n');
     process.exit(1);
   }
 }

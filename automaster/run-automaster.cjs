@@ -284,9 +284,8 @@ if (require.main === module) {
   const args = process.argv.slice(2);
 
   if (args.length < 3) {
-    console.error('Erro: argumentos insuficientes');
-    console.error('Uso: node run-automaster.cjs <inputPath> <outputPath> <MODE> [STRATEGY]');
-    console.error('Modos validos: STREAMING, LOW, MEDIUM, HIGH');
+    const errMsg = 'Argumentos insuficientes. Uso: node run-automaster.cjs <inputPath> <outputPath> <MODE> [STRATEGY]. Modos validos: STREAMING, LOW, MEDIUM, HIGH';
+    process.stdout.write(JSON.stringify({ ok: false, success: false, error: errMsg }) + '\n');
     process.exit(1);
   }
 
@@ -294,11 +293,12 @@ if (require.main === module) {
 
   runAutomaster({ inputPath, outputPath, mode, strategy })
     .then(result => {
-      process.stdout.write(JSON.stringify(result));
+      process.stdout.write(JSON.stringify(result) + '\n');
       process.exit(0);
     })
     .catch(error => {
-      console.error(error.message);
+      // BUG FIX: stdout DEVE receber JSON — console.error só vai p/ stderr
+      process.stdout.write(JSON.stringify({ ok: false, success: false, error: error.message, stack: error.stack }) + '\n');
       process.exit(1);
     });
 }
