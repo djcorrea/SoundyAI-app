@@ -1419,8 +1419,14 @@ async function confirmSafeMastering() {
     stopDspAnimation();
     automasterState.jobId  = jobId;
     automasterState.result = {
+      success: true,
       masterUrl: sd.downloadUrl || null, previewBefore: sd.previewBefore || null, previewAfter: sd.previewAfter || null,
-      metrics: { lufsBefore: sd.metrics?.lufsBefore ?? null, lufsAfter: sd.metrics?.lufsAfter ?? null, truePeakAfter: sd.metrics?.truePeakAfter ?? null }
+      metrics: {
+        lufsBefore:     sd.metrics?.lufsBefore     ?? null,
+        truePeakBefore: sd.metrics?.truePeakBefore ?? null,
+        lufsAfter:      sd.metrics?.lufsAfter      ?? null,
+        truePeakAfter:  sd.metrics?.truePeakAfter  ?? null
+      }
     };
     // Fluxo análise OU preview disponível → sempre abrir previewModal
     if (automasterState.fromHomeFlow || automasterState.result.previewBefore || automasterState.result.previewAfter) openPreviewModal();
@@ -1638,7 +1644,10 @@ function backToPreviewChoice() {
 // Download direto do previewModal — blob, sem nova aba, modal permanece aberto
 async function startDownloadFromPreview() {
   const { masterUrl } = automasterState.result;
-  if (!masterUrl) { alert('⚠️ URL de download não disponível. Tente reprocessar.'); return; }
+  const jobId = automasterState.jobId;
+  // Proxy URL (mesmo origem) evita CORS e garante download sem abrir player
+  const downloadUrl = jobId ? `/api/automaster/download/${encodeURIComponent(jobId)}` : masterUrl;
+  if (!downloadUrl) { alert('⚠️ URL de download não disponível. Tente reprocessar.'); return; }
 
   const btn = document.getElementById('previewDownloadBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Preparando download...'; }
@@ -1652,7 +1661,7 @@ async function startDownloadFromPreview() {
       automasterState.creditConsumed = true;
     }
 
-    await triggerBlobDownload(masterUrl); // fetch → blob → link.click()
+    await triggerBlobDownload(downloadUrl); // fetch → blob → link.click()
 
     const actDiv  = document.getElementById('previewActionsDiv');
     const doneDiv = document.getElementById('previewDownloadDone');

@@ -885,6 +885,37 @@ app.post('/api/automaster/confirm/:jobId', async (req, res) => {
   }
 });
 
+// 📥 PROXY DOWNLOAD: Faz download do arquivo final pelo servidor (evita CORS com URLs assinadas)
+app.get('/api/automaster/download/:jobId', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+
+    if (!jobId || !/^[a-zA-Z0-9_-]+$/.test(jobId)) {
+      return res.status(400).json({ error: 'jobId inválido' });
+    }
+
+    const job = await jobStoreModule.getJob(jobId);
+
+    if (!job || job.status !== 'completed' || !job.output_key) {
+      return res.status(404).json({ error: 'Download não disponível' });
+    }
+
+    const buffer = await storageServiceModule.downloadFile(job.output_key);
+    const rawName = job.original_filename || job.file_name || `master_${jobId}`;
+    const safeName = rawName.replace(/[^a-zA-Z0-9._\-]/g, '_').replace(/\.[^.]+$/, '') + '.wav';
+
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(buffer);
+
+  } catch (error) {
+    console.error('❌ [PROXY-DOWNLOAD] Erro:', error.message);
+    return res.status(500).json({ error: 'Falha no download', details: error.message });
+  }
+});
+
 // ⚠️ ENDPOINT LEGADO (MANTER POR COMPATIBILIDADE - MAS NÃO USAR)
 // Este endpoint foi migrado para processamento assíncrono acima
 // Mantido apenas para não quebrar integrações antigas
