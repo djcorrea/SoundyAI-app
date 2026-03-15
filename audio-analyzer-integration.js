@@ -496,6 +496,20 @@ window.openModeSelectionModal = openModeSelectionModal;
 window.closeModeSelectionModal = closeModeSelectionModal;
 window.selectAnalysisMode = selectAnalysisMode;
 
+// 🎯 Loader seguro de targets de gênero (frontend). Nunca bloqueia a inicialização.
+window.loadGenreTargets = async function loadGenreTargets(genre) {
+    try {
+        const response = await fetch(`/refs/out/${genre}.json`);
+        if (!response.ok) {
+            throw new Error(`Targets não encontrados para ${genre} (HTTP ${response.status})`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('[loadGenreTargets] Erro ao carregar targets:', error);
+        return null;
+    }
+};
+
 //! DEBUG: Função de debug global para forçar recarga
 window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
     console.log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
@@ -553,7 +567,7 @@ window.diagnosRefSources = function(genre = null) {
     });
     
     // Test fetch do JSON externo
-    const testUrl = `/public/refs/out/${targetGenre}.json?v=diagnostic`;
+    const testUrl = `/refs/out/${targetGenre}.json?v=diagnostic`;
     fetch(testUrl).then(r => r.json()).then(j => {
         const data = j[targetGenre];
         console.log('🌐 EXTERNAL JSON TEST:', {
@@ -875,7 +889,6 @@ async function loadGenreManifest() {
     if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
         try {
             const json = await fetchRefJsonWithFallback([
-                `/public/refs/out/genres.json`,
                 `/refs/out/genres.json`,
                 `refs/out/genres.json`,
                 `../refs/out/genres.json`
@@ -959,7 +972,6 @@ async function loadReferenceData(genre) {
         try {
             const version = Date.now(); // Force cache bust
             const json = await fetchRefJsonWithFallback([
-                `/public/refs/out/${genre}.json?v=${version}`,
                 `/refs/out/${genre}.json?v=${version}`,
                 `refs/out/${genre}.json?v=${version}`,
                 `../refs/out/${genre}.json?v=${version}`
@@ -977,7 +989,7 @@ async function loadReferenceData(genre) {
                 console.log('🎯 REFS DIAGNOSTIC:', {
                     genre,
                     source: 'external',
-                    path: `/public/refs/out/${genre}.json`,
+                    path: `/refs/out/${genre}.json`,
                     version: data.version,
                     num_tracks: data.num_tracks,
                     lufs_target: data.lufs_target,
