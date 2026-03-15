@@ -2005,18 +2005,8 @@ async function handleGenreFileSelection(file) {
     const optionsWithRunId = prepareAnalysisOptions(analysisOptions, 'main');
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
     currentModalAnalysis = analysis;
-
-    // 🎯 FIX: Garantir que fileName e genre estejam disponíveis no objeto analysis
-    if (!analysis.fileName && !analysis.originalFileName) {
-        analysis.fileName = file.name;
-    }
-    if (!analysis.genre && !analysis.genreName) {
-        analysis.genre = window.PROD_AI_REF_GENRE || null;
-    }
-    // 🎯 FIX: Normalizar campos canônicos para renderização
-    analysis.score = Number.isFinite(analysis.qualityOverall) ? analysis.qualityOverall
-        : (Number.isFinite(analysis.mixScorePct) ? analysis.mixScorePct : null);
-    analysis.subScores = analysis.qualityBreakdown ?? null;
+    
+    // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
     try {
         if (window.wavMobileOptimizer) {
             window.wavMobileOptimizer.cleanupWAVOptimizations();
@@ -2831,118 +2821,7 @@ function showModalLoading() {
 // 📈 Simular progresso
 // (função de simulação de progresso removida — não utilizada)
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 🎵 RESTAURADO: Helpers para bloco de identificação da música
-// ─────────────────────────────────────────────────────────────────────────────
-
-function escapeHtml(text) {
-    if (!text || typeof text !== 'string') return '';
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-function formatGenreName(genre) {
-    if (!genre || typeof genre !== 'string') return '';
-    const customNames = {
-        'progressive_trance': 'Progressive Trance', 'funk_mandela': 'Funk Mandela',
-        'funk_bruxaria': 'Funk Bruxaria', 'funk_bh': 'Funk BH', 'edm': 'EDM',
-        'eletronico': 'Eletrônico'
-    };
-    if (customNames[genre]) return customNames[genre];
-    return genre.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
-}
-
-function renderMusicIdentificationBlock(analysis) {
-    if (!analysis || typeof analysis !== 'object') return '';
-    const metadata = analysis.metadata || {};
-    const fileName = analysis.originalFileName
-        || analysis.fileName
-        || metadata.fileName
-        || metadata.originalFileName
-        || window.__HOME_FILE_NAME__
-        || window.__HOME_PENDING_FILE__?.name
-        || 'Arquivo de áudio';
-    const durationSeconds = metadata.duration || 0;
-    const minutes = Math.floor(durationSeconds / 60);
-    const seconds = Math.floor(durationSeconds % 60);
-    const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    const sampleRate = metadata.sampleRate || 48000;
-    const sampleRateKHz = (sampleRate / 1000).toFixed(0);
-    const bitDepth = metadata.bitDepth || 32;
-    const channels = metadata.channels || 2;
-    const channelLabel = channels === 1 ? 'Mono' : channels === 2 ? 'Estéreo' : `${channels} canais`;
-    const mode = analysis.mode || analysis.analysisMode || 'genre';
-    const genre = analysis.genre || analysis.detectedGenre || analysis.referenceGenre || analysis.genreName || window.PROD_AI_REF_GENRE || null;
-    const analysisDate = new Date(analysis.timestamp || Date.now());
-    const isToday = new Date().toDateString() === analysisDate.toDateString();
-    const timestampLabel = isToday ? 'Analisado agora' : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
-    return `
-        <div class="music-identification-block">
-            <div class="music-id-content">
-                <div class="music-id-title-container">
-                    <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
-                </div>
-                <div class="music-id-divider"></div>
-                <div class="music-id-specs">
-                    ${durationSeconds > 0 ? `<div class="music-id-spec-item"><span class="music-id-spec-icon">⏱️</span><span class="music-id-spec-value">${durationFormatted}</span></div>` : ''}
-                    <div class="music-id-spec-item"><span class="music-id-spec-icon">📊</span><span class="music-id-spec-value">${sampleRateKHz} kHz</span></div>
-                    <div class="music-id-spec-item"><span class="music-id-spec-icon">🎚️</span><span class="music-id-spec-value">${bitDepth}-bit</span></div>
-                    <div class="music-id-spec-item"><span class="music-id-spec-icon">🔊</span><span class="music-id-spec-value">${channelLabel}</span></div>
-                </div>
-                <div class="music-id-context">
-                    ${mode === 'genre' && genre ? `<span class="music-id-genre-badge"><span>🎵</span><span>${formatGenreName(genre)}</span></span>` : ''}
-                    <span class="music-id-timestamp">${timestampLabel}</span>
-                </div>
-            </div>
-        </div>`;
-}
-
-// 🏆 RESTAURADO: Score hero no topo do modal (#final-score-display)
-function renderFinalScoreAtTop(scores) {
-    if (!scores || !Number.isFinite(scores.final)) return;
-    const container = document.getElementById('final-score-display');
-    if (!container) return;
-    const finalScore = Math.round(scores.final);
-    let statusMessage, statusClass;
-    if (finalScore >= 90)      { statusMessage = '✨ Excelente! Pronto para lançamento'; statusClass = 'status-excellent'; }
-    else if (finalScore >= 75) { statusMessage = '✅ Ótimo! Qualidade profissional';     statusClass = 'status-good'; }
-    else if (finalScore >= 60) { statusMessage = '⚠️ Bom, mas pode melhorar';            statusClass = 'status-warning'; }
-    else if (finalScore >= 40) { statusMessage = '🔧 Precisa de ajustes';               statusClass = 'status-warning'; }
-    else                       { statusMessage = '🚨 Necessita correções importantes';   statusClass = 'status-poor'; }
-    container.innerHTML = `
-        <div class="score-final-label">🏆 SCORE FINAL</div>
-        <div class="score-final-value">0</div>
-        <div class="score-final-bar-container">
-            <div class="score-final-bar">
-                <div class="score-final-bar-fill" style="width: 0%"></div>
-            </div>
-        </div>
-        <div class="score-final-status ${statusClass}">${statusMessage}</div>
-        <div id="diagnostic-container" class="diagnostic-container"></div>
-    `;
-    setTimeout(() => animateFinalScore(finalScore), 100);
-}
-
-function animateFinalScore(targetScore) {
-    const el = document.querySelector('.score-final-value');
-    const barFill = document.querySelector('.score-final-bar-fill');
-    if (!el) return;
-    let currentScore = 0;
-    const duration = 2000;
-    const startTime = performance.now();
-    function animate(currentTime) {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        currentScore = targetScore * eased;
-        el.textContent = Math.floor(currentScore);
-        if (barFill) barFill.style.width = `${Math.min(Math.max(currentScore, 0), 100)}%`;
-        if (progress < 1) { requestAnimationFrame(animate); }
-        else { el.textContent = targetScore; if (barFill) barFill.style.width = `${Math.min(Math.max(targetScore, 0), 100)}%`; }
-    }
-    requestAnimationFrame(animate);
-}
-
+// 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // 🔒 UI GATE: Verificação final antes de renderizar
@@ -2953,17 +2832,6 @@ function displayModalResults(analysis) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
-
-    // 🪵 DEBUG: Log completo do objeto analysis para diagnóstico
-    console.log('[FULL ANALYSIS DEBUG]', {
-        score: analysis.score, qualityOverall: analysis.qualityOverall,
-        mixScorePct: analysis.mixScorePct, subScores: analysis.subScores,
-        qualityBreakdown: analysis.qualityBreakdown,
-        suggestionsCount: analysis.suggestions?.length,
-        fileName: analysis.fileName || analysis.originalFileName,
-        genre: analysis.genre || analysis.genreName,
-        fields: Object.keys(analysis || {})
-    });
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
@@ -2981,31 +2849,11 @@ function displayModalResults(analysis) {
     
     // Mostrar resultados
     results.style.display = 'block';
-
-    // 🎵 RESTAURADO: Bloco de identificação da música
-    try {
-        const musicIdContainer = document.getElementById('musicIdentificationBlock');
-        if (musicIdContainer) {
-            const _mode = analysis?.mode || analysis?.analysisMode || 'genre';
-            if (_mode !== 'reference') {
-                musicIdContainer.innerHTML = renderMusicIdentificationBlock(analysis);
-                musicIdContainer.style.display = 'block';
-            } else {
-                musicIdContainer.innerHTML = '';
-                musicIdContainer.style.display = 'none';
-            }
-        }
-    } catch(e) { console.warn('[MUSIC-ID] Erro ao renderizar bloco de identificação:', e); }
-
-    // 🏆 RESTAURADO: Score final no topo
-    try {
-        const _scoreVal = Number.isFinite(analysis?.qualityOverall) ? analysis.qualityOverall
-            : (Number.isFinite(analysis?.mixScorePct) ? analysis.mixScorePct
-            : (analysis?.scores?.final ?? null));
-        if (_scoreVal !== null) renderFinalScoreAtTop({ final: _scoreVal });
-    } catch(e) { console.warn('[SCORE-TOP] Erro ao renderizar score:', e); }
-
-    // Comparação por referência removida — seção não deve ser exibida
+    
+    // 🎯 NOVO: Verificar se é modo referência e adicionar seção de comparação
+    if (analysis.analysisMode === 'reference' && analysis.comparison) {
+        addReferenceComparisonSection(analysis);
+    }
     
     // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
     const advancedReady = (
@@ -3930,266 +3778,42 @@ function displayModalResults(analysis) {
             ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
         ` : '';
 
-        // ============================================================
-        // NOVA UI: Resumo compacto (4 hero cards) + tabela expansível
-        // ============================================================
-        const renderCompactSummary = () => {
-            const lufsVal = getLufsIntegratedValue();
-            const tpVal   = advancedReady ? getMetric('true_peak_dbtp', 'truePeakDbtp') : null;
-            const drVal   = getMetric('dynamic_range', 'dynamicRange');
-            const lraVal  = advancedReady ? getMetric('lra') : null;
-
-            const metSt = (v, thresholds) => {
-                if (!Number.isFinite(v)) return 'neutral';
-                for (const [cond, s] of thresholds) { if (cond(v)) return s; }
-                return 'ok';
-            };
-
-            const lufsSt = metSt(lufsVal, [[v => v > -3, 'error'], [v => v < -24, 'warn']]);
-            const tpSt   = metSt(tpVal,   [[v => v > -0.1, 'error'], [v => v > -1.0, 'warn']]);
-            const drSt   = metSt(drVal,   [[v => v < 5, 'error'], [v => v < 9, 'warn']]);
-            const lraSt  = metSt(lraVal,  [[v => v < 2, 'warn'], [v => v > 16, 'warn']]);
-
-            const bBadge = (s) => ({
-                ok:      '<span class="cs-badge cs-ok">✓ OK</span>',
-                warn:    '<span class="cs-badge cs-warn">⚠ Atenção</span>',
-                error:   '<span class="cs-badge cs-error">✕ Problema</span>',
-                neutral: '<span class="cs-badge cs-neutral">— N/D</span>'
-            })[s] || '<span class="cs-badge cs-neutral">— N/D</span>';
-
-            const hero = (icon, label, val, unit, st) =>
-                `<div class="cs-hero-card cs-${st}">` +
-                `<div class="cs-hero-icon">${icon}</div>` +
-                `<div class="cs-hero-label">${label}</div>` +
-                `<div class="cs-hero-value">${val}<span class="cs-hero-unit"> ${unit}</span></div>` +
-                `${bBadge(st)}</div>`;
-
-            const scoreNum   = Number.isFinite(analysis.qualityOverall) ? Number(analysis.qualityOverall.toFixed(0)) : null;
-            const scoreColor = scoreNum == null ? '#667799' : scoreNum >= 80 ? '#00ff92' : scoreNum >= 60 ? '#ffd700' : '#ff6060';
-            const scoreBadge = scoreNum != null
-                ? `<div class="cs-score-badge" style="border-color:${scoreColor};color:${scoreColor};"><span class="cs-score-num">${scoreNum}</span><span class="cs-score-label">/100</span></div>`
-                : '';
-
-            const nP = analysis.problems.length;
-            const nS = analysis.suggestions.length;
-            const probBadge = nP > 0
-                ? `<div class="cs-count-badge cs-problems">⚠ ${nP} problema${nP > 1 ? 's' : ''}</div>`
-                : `<div class="cs-count-badge cs-clear">✓ Sem problemas</div>`;
-            const suggBadge = nS > 0
-                ? `<div class="cs-count-badge cs-suggestions">💡 ${nS} sugestão${nS !== 1 ? 'ões' : ''}</div>`
-                : '';
-
-            const lufsDisp = Number.isFinite(lufsVal) ? safeFixed(lufsVal, 1) : (advancedReady ? '—' : '⏳');
-            const tpDisp   = tpVal   != null ? safeFixed(tpVal, 2)  : (advancedReady ? '—' : '⏳');
-            const drDisp   = Number.isFinite(drVal)  ? safeFixed(drVal, 1) : '—';
-            const lraDisp  = lraVal  != null ? safeFixed(lraVal, 1) : (advancedReady ? '—' : '⏳');
-
-            return `<div class="cs-container">` +
-                `<div class="cs-hero-grid">` +
-                    hero('🎚', 'LOUDNESS',  lufsDisp, 'LUFS',  lufsSt) +
-                    hero('📊', 'TRUE PEAK', tpDisp,   'dBTP',  tpSt)   +
-                    hero('🌊', 'DINÂMICA',  drDisp,   'dB DR', drSt)   +
-                    hero('📐', 'LRA',       lraDisp,  'LU',    lraSt)  +
-                `</div>` +
-                `<div class="cs-meta-row">${scoreBadge}${probBadge}${suggBadge}</div>` +
-                `</div>`;
-        };
-
-        const renderExpandableDiagnostics = () => {
-            // Lookup de ações a partir dos arrays existentes de problems/suggestions
-            const actionFor = (keywords) => {
-                const all = [...analysis.problems, ...analysis.suggestions];
-                for (const kw of (Array.isArray(keywords) ? keywords : [keywords])) {
-                    const found = all.find(x => x && x.type && x.type.toLowerCase().includes(kw.toLowerCase()));
-                    if (found) {
-                        const txt = found.action || found.solution || '';
-                        if (txt) return txt.length > 130 ? txt.slice(0, 130) + '…' : txt;
-                    }
-                }
-                return '—';
-            };
-
-            const stBadge = (s) => ({
-                ok:      '<span class="dt-ok">✓ OK</span>',
-                warn:    '<span class="dt-warn">⚠ Atenção</span>',
-                error:   '<span class="dt-error">✕ Problema</span>',
-                neutral: '<span class="dt-neutral">—</span>'
-            })[s] || '<span class="dt-neutral">—</span>';
-
-            const tr  = (label, val, st, action) =>
-                `<tr class="dt-row"><td class="dt-metric">${label}</td><td class="dt-value">${val}</td>` +
-                `<td class="dt-status">${stBadge(st)}</td><td class="dt-action dt-action-col">${action}</td></tr>`;
-            const grp = (label) =>
-                `<tr class="dt-group"><td colspan="4">${label}</td></tr>`;
-
-            const metSt = (v, thresholds) => {
-                if (!Number.isFinite(v)) return 'neutral';
-                for (const [cond, s] of thresholds) { if (cond(v)) return s; }
-                return 'ok';
-            };
-
-            // Valores — usa getMetric() exatamente igual ao código original
-            const lufsVal  = getLufsIntegratedValue();
-            const tpVal    = getMetric('true_peak_dbtp', 'truePeakDbtp');
-            const drVal    = getMetric('dynamic_range', 'dynamicRange');
-            const lraVal   = getMetric('lra');
-            const crestVal = getMetric('crest_factor', 'crestFactor');
-            const rmsVal   = getMetric('rms_db', 'rms');
-            const peakVal  = getMetric('peak_db', 'peak');
-            const hrTp     = analysis.technicalData?.headroomTruePeakDb;
-            const hrDb     = analysis.technicalData?.headroomDb;
-            const corrVal  = getMetric('stereo_correlation', 'stereoCorrelation');
-            const widthVal = getMetric('stereo_width', 'stereoWidth');
-            const balVal   = getMetric('balance_lr', 'balanceLR');
-            const monoC    = getMetric('mono_compatibility', 'monoCompatibility');
-            const centroid = getMetric('spectral_centroid', 'spectralCentroid');
-            const rolloff  = getMetric('spectral_rolloff_85', 'spectralRolloff85');
-            const flux     = getMetric('spectral_flux', 'spectralFlux');
-            const flatness = getMetric('spectral_flatness', 'spectralFlatness');
-            const dcVal    = analysis.technicalData?.dcOffset;
-            const thdVal   = analysis.technicalData?.thdPercent;
-            const clipSamp = analysis.technicalData?.clippingSamples;
-            const clipPctV = analysis.technicalData?.clippingPct;
-
-            // Status — mesma lógica de techProblems() já existente
-            const lufsSt  = metSt(lufsVal, [[v => v > -3, 'error'], [v => v < -24, 'warn']]);
-            const tpSt    = metSt(tpVal,   [[v => v > -0.1, 'error'], [v => v > -1.0, 'warn']]);
-            const drSt    = metSt(drVal,   [[v => v < 5, 'error'], [v => v < 9, 'warn']]);
-            const lraSt   = metSt(lraVal,  [[v => v < 2, 'warn'], [v => v > 16, 'warn']]);
-            const crestSt = metSt(crestVal,[[v => v < 6, 'warn'], [v => v > 25, 'warn']]);
-            const peakSt  = metSt(peakVal, [[v => v > -0.1, 'warn']]);
-            const corrSt  = metSt(corrVal, [[v => v < -0.3, 'error'], [v => v > 0.95, 'warn'], [v => v < 0, 'warn']]);
-            const widthSt = metSt(widthVal,[[v => v < 0.1, 'warn'], [v => v > 2.2, 'warn']]);
-            const balSt   = metSt(balVal,  [[v => Math.abs(v - 0.5) > 0.08, 'warn']]);
-            const clipSt  = (() => {
-                const pd = analysis.technicalData?._singleStage;
-                if (pd?.source === 'enhanced-clipping-v2') {
-                    if (pd.finalState === 'CLIPPED') return 'error';
-                    if (pd.finalState === 'TRUE_PEAK_ONLY') return 'warn';
-                    return 'ok';
-                }
-                return (Number.isFinite(clipSamp) && clipSamp > 0) || (Number.isFinite(tpVal) && tpVal > -0.1) ? 'warn' : 'ok';
-            })();
-            const dcSt  = Number.isFinite(dcVal)  ? metSt(Math.abs(dcVal), [[v => v > 0.01, 'warn']]) : 'neutral';
-            const thdSt = Number.isFinite(thdVal) ? metSt(thdVal, [[v => v > 5, 'error'], [v => v > 1, 'warn']]) : 'neutral';
-
-            // Formatação — idêntica ao código original
-            const fLufs  = Number.isFinite(lufsVal)  ? safeFixed(lufsVal, 1)  + ' LUFS' : (advancedReady ? '—' : '⏳');
-            const fTp    = Number.isFinite(tpVal)    ? safeFixed(tpVal, 2)    + ' dBTP' : (advancedReady ? '—' : '⏳');
-            const fDr    = Number.isFinite(drVal)    ? safeFixed(drVal, 1)    + ' dB'   : '—';
-            const fLra   = Number.isFinite(lraVal)   ? safeFixed(lraVal, 1)   + ' LU'   : (advancedReady ? '—' : '⏳');
-            const fCrest = Number.isFinite(crestVal) ? safeFixed(crestVal, 1) + ' dB'   : '—';
-            const fRms   = Number.isFinite(rmsVal)   ? safeFixed(rmsVal, 1)   + ' dB'   : '—';
-            const fPeak  = Number.isFinite(peakVal)  ? safeFixed(peakVal, 2)  + ' dB'   : '—';
-            const fHrTp  = Number.isFinite(hrTp)     ? safeFixed(hrTp, 1)     + ' dB'   : null;
-            const fHrDb  = Number.isFinite(hrDb)     ? safeFixed(hrDb, 1)     + ' dB'   : null;
-            const fCorr  = Number.isFinite(corrVal)  ? safeFixed(corrVal, 2)             : '—';
-            const fWidth = Number.isFinite(widthVal) ? safeFixed(widthVal, 2)            : '—';
-            const fBal   = Number.isFinite(balVal)   ? pct(balVal)                       : '—';
-            const fMono  = monoC ? String(monoC)                                         : '—';
-            const fCent  = Number.isFinite(centroid) ? safeHz(centroid)                  : '—';
-            const fRoll  = Number.isFinite(rolloff)  ? safeHz(rolloff)                   : '—';
-            const fFlux  = Number.isFinite(flux)     ? safeFixed(flux, 3)                : '—';
-            const fFlat  = Number.isFinite(flatness) ? safeFixed(flatness, 3)            : '—';
-            const fClip  = Number.isFinite(clipSamp) ? `${clipSamp} smp${Number.isFinite(clipPctV) ? ` (${safeFixed(clipPctV, 3)}%)` : ''}` : '—';
-            const fDc    = Number.isFinite(dcVal)    ? safeFixed(dcVal, 4)               : '—';
-            const fThd   = Number.isFinite(thdVal)   ? safeFixed(thdVal, 2) + '%'        : '—';
-
-            // Scores por dimensão (usa finalBreakdown calculado no escopo externo)
-            const scoreRow = (label, val) => {
-                const n = Number.isFinite(val) ? Number(val.toFixed(0)) : null;
-                const s = n == null ? 'neutral' : n >= 75 ? 'ok' : n >= 55 ? 'warn' : 'error';
-                return tr(label, n != null ? n + '/100' : '—', s, '—');
-            };
-
-            const rows = [
-                grp('🏆 Scores por Dimensão'),
-                ...(finalBreakdown ? [
-                    scoreRow('Faixa Dinâmica', finalBreakdown.dynamics),
-                    scoreRow('Técnico',         finalBreakdown.technical),
-                    scoreRow('Estéreo',         finalBreakdown.stereo),
-                    scoreRow('Loudness',        finalBreakdown.loudness),
-                    scoreRow('Frequência',      finalBreakdown.frequency),
-                ] : [tr('Scores', '—', 'neutral', '—')]),
-                grp('🎛 Loudness & Dinâmica'),
-                tr('Loudness Integrado',  fLufs,  lufsSt,  actionFor(['lufs', 'loudness'])),
-                tr('True Peak',           fTp,    tpSt,    actionFor(['true_peak', 'clipping'])),
-                tr('Range Dinâmico (DR)', fDr,    drSt,    actionFor(['dynamic'])),
-                tr('LRA',                 fLra,   lraSt,   actionFor(['lra'])),
-                tr('Fator de Crista',     fCrest, crestSt, actionFor(['crest'])),
-                tr('RMS',                 fRms,   'neutral', '—'),
-                tr('Peak (máx)',          fPeak,  peakSt,  peakSt !== 'ok' ? 'Verificar saturação: peak acima de -0.1 dB.' : '—'),
-                ...(fHrTp ? [tr('Headroom (True Peak)', fHrTp, 'neutral', '—')] : []),
-                ...(fHrDb ? [tr('Offset Loudness',      fHrDb, 'neutral', '—')] : []),
-                grp('🎧 Imagem Estéreo'),
-                tr('Correlação Estéreo',  fCorr,  corrSt,  actionFor(['stereo', 'correlation', 'phase'])),
-                tr('Largura Estéreo',     fWidth, widthSt, actionFor(['stereo_width', 'width'])),
-                tr('Balance L/R',         fBal,   balSt,   actionFor(['balance'])),
-                tr('Mono Compat.',        fMono,  typeof monoC === 'string' && monoC.toLowerCase().includes('warn') ? 'warn' : 'neutral', actionFor(['mono'])),
-                grp('📊 Análise Espectral'),
-                tr('Centroide Espectral', fCent,  'neutral', actionFor(['spectral', 'frequency'])),
-                tr('Rolloff 85%',         fRoll,  'neutral', '—'),
-                tr('Flux Espectral',      fFlux,  'neutral', '—'),
-                tr('Flatness',            fFlat,  'neutral', '—'),
-                grp('⚙ Integridade Técnica'),
-                tr('Clipping',            fClip,  clipSt, actionFor(['clip'])),
-                tr('DC Offset',           fDc,    dcSt,   dcSt !== 'ok' && dcSt !== 'neutral' ? 'Aplicar filtro high-pass ≥ 10 Hz para remover DC Offset.' : '—'),
-                tr('THD',                 fThd,   thdSt,  thdSt !== 'ok' && thdSt !== 'neutral' ? 'Verificar distorção harmônica: saturação excessiva ou problema analógico na cadeia.' : '—'),
-            ].join('');
-
-            return `<div class="dt-section">` +
-                `<button class="dt-toggle-btn" onclick="typeof window.toggleDiagTable==='function'&&window.toggleDiagTable(this)" aria-expanded="false">` +
-                `<span>🔍 Ver diagnóstico completo</span><span class="dt-toggle-arrow">▼</span></button>` +
-                `<div class="dt-expand-body" hidden>` +
-                    `<table class="dt-table"><thead><tr>` +
-                        `<th>MÉTRICA</th><th>VALOR</th><th>STATUS</th><th class="th-action">AÇÃO SUGERIDA</th>` +
-                    `</tr></thead><tbody>${rows}</tbody></table>` +
-                    `<div class="dt-diag-section"><div class="dt-diag-title">🩺 Diagnóstico Detalhado</div>${diagCard()}</div>` +
-                `</div>` +
-                `</div>`;
-        };
-
-        const kpiRowHtml = (scoreKpi || timeKpi) ? `<div class="kpi-row">${scoreKpi}${timeKpi}</div>` : '';
-        technicalData.innerHTML =
-            kpiRowHtml +
-            renderSmartSummary(analysis) +
-            renderCompactSummary() +
-            renderExpandableDiagnostics();
-
-    // renderReferenceComparisons removido — seção de comparação não deve ser exibida
+        technicalData.innerHTML = `
+            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
+                ${renderSmartSummary(analysis) }
+                    <div class="cards-grid">
+                        <div class="card">
+                    <div class="card-title">🎛️ Métricas Principais</div>
+                    ${col1}
+                </div>
+                        <div class="card">
+                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
+                    ${col2}
+                </div>
+                        <div class="card">
+                    <div class="card-title">🏆 Scores & Diagnóstico</div>
+                    ${scoreRows}
+                    ${col3}
+                </div>
+                        <div class="card">
+                            <div class="card-title">🧠 Métricas Avançadas</div>
+                            ${advancedMetricsCard()}
+                        </div>
+                        <div class="card card-span-2">
+                            <div class="card-title">⚠️ Problemas Técnicos</div>
+                            ${techProblems()}
+                        </div>
+                        <div class="card card-span-2">
+                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
+                            ${diagCard()}
+                        </div>
+            </div>
+        `;
+    
+    try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-
-    // 🤖 RESTAURADO: Disparar sugestões AI via controller
-    // 🔄 Resetar flags para permitir nova renderização (crítico para segunda análise)
-    window.__AI_RENDER_COMPLETED__ = false;
-    if (window.aiUIController) window.aiUIController.lastAnalysisJobId = '__client_' + Date.now();
-    setTimeout(function() {
-        try {
-            if (analysis.suggestions?.length > 0 &&
-                window.aiUIController && typeof window.aiUIController.checkForAISuggestions === 'function') {
-                window.aiUIController.checkForAISuggestions(analysis, true);
-            }
-        } catch(e) { console.warn('[AI-SUGGESTIONS] Erro ao disparar controller:', e); }
-    }, 800);
-
     __dbg('📊 Resultados exibidos no modal');
 }
-
-// Abre / fecha o painel de diagnóstico expansível (vinculado ao dt-toggle-btn)
-window.toggleDiagTable = function toggleDiagTable(btn) {
-    const body = btn.nextElementSibling;
-    if (!body) return;
-    const willExpand = body.hasAttribute('hidden');
-    if (willExpand) {
-        body.removeAttribute('hidden');
-        btn.setAttribute('aria-expanded', 'true');
-    } else {
-        body.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', 'false');
-    }
-    const arrow = btn.querySelector('.dt-toggle-arrow');
-    if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
-};
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
@@ -5062,83 +4686,3 @@ window.displayReferenceResults = function(referenceResults) {
         }
     }
 };
-
-// ═══════════════════════════════════════════════════════════════
-// HOME.HTML INTEGRATION — uploadFileOnly + runAnalysisFromFileKey
-// Funções globais necessárias para o fluxo de upload da home.html
-// ═══════════════════════════════════════════════════════════════
-
-// Expõe handleModalFileSelection para que home.html detecte que o motor está pronto
-window.handleModalFileSelection = handleModalFileSelection;
-
-/**
- * Faz upload do arquivo para o servidor e retorna { fileKey, fileName }.
- * Armazena o File object para uso posterior por runAnalysisFromFileKey.
- * @param {File} file
- * @returns {Promise<{fileKey: string, fileName: string}>}
- */
-window.uploadFileOnly = async function uploadFileOnly(file) {
-    const formData = new FormData();
-    formData.append('file', file); // campo esperado pela API /api/upload-audio
-
-    const response = await fetch('/api/upload-audio', {
-        method: 'POST',
-        body: formData
-    });
-
-    const text = await response.text();
-    let result;
-    try {
-        result = JSON.parse(text);
-    } catch (e) {
-        throw new Error('Resposta inválida do servidor: ' + text.substring(0, 100));
-    }
-
-    if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Upload falhou com status ' + response.status);
-    }
-
-    // Armazena o File object para runAnalysisFromFileKey
-    window.__HOME_PENDING_FILE__ = file;
-
-    return {
-        fileKey: result.job.file_key,
-        fileName: file.name
-    };
-};
-
-/**
- * Executa a análise a partir de um fileKey previamente gerado pelo uploadFileOnly.
- * Recupera o File armazenado e aciona handleModalFileSelection (análise client-side).
- * @param {string} fileKey
- * @param {string} fileName
- */
-window.runAnalysisFromFileKey = async function runAnalysisFromFileKey(fileKey, fileName) {
-    const file = window.__HOME_PENDING_FILE__;
-    if (!file) {
-        throw new Error('Arquivo não encontrado. Por favor, faça o upload novamente.');
-    }
-
-    // Garantir que o modal de análise esteja visível antes do loading
-    const modal = document.getElementById('audioAnalysisModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.removeAttribute('aria-hidden');
-    }
-
-    // Persistir referências do arquivo para fluxo de masterização
-    window.__HOME_FILE_KEY__  = fileKey;
-    window.__HOME_FILE_NAME__ = fileName || file.name;
-
-    await handleModalFileSelection(file);
-};
-
-// ── CONFIRMAÇÃO DE INICIALIZAÇÃO ──────────────────────────────
-console.log('[ENGINE] ✅ ENGINE READY — uploadFileOnly + runAnalysisFromFileKey registrados');
-
-// Fallback de segurança: alertar se as funções não estiverem disponíveis após 5s
-setTimeout(function () {
-    if (typeof window.uploadFileOnly !== 'function' || typeof window.runAnalysisFromFileKey !== 'function') {
-        console.warn('[ENGINE] ⚠️ ENGINE NOT READY — funções de upload não disponíveis após 5s');
-    }
-}, 5000);
