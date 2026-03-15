@@ -78,7 +78,8 @@ export default async function handler(req, res) {
         });
       }
 
-      const file = files.file; // 👈 nome do campo no frontend
+      const fileRaw = files.file; // formidable v3 retorna array mesmo com multiples:false
+      const file = Array.isArray(fileRaw) ? fileRaw[0] : fileRaw;
       if (!file) {
         return res.status(400).json({
           error: "NENHUM_ARQUIVO",
