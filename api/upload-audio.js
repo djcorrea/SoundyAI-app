@@ -22,8 +22,8 @@ const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "150");
 const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
 
 // Formatos aceitos
-const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3", "audio/x-wav", "audio/vnd.wave"];
-const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
+const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3", "audio/x-wav", "audio/vnd.wave", "audio/aiff", "audio/x-aiff"];
+const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3", ".aiff", ".aif"];
 
 /**
  * Valida o tipo de arquivo (normaliza mimetype e extensão)
@@ -32,6 +32,9 @@ function validateFileType(mimetype, filename) {
   if (!mimetype && !filename) return false;
 
   const type = (mimetype || "").toLowerCase();
+
+  // aceita AIFF
+  if (type === "audio/aiff" || type === "audio/x-aiff") return true;
 
   // aceita MP3 (variações)
   if (type === "audio/mpeg" || type === "audio/mp3") return true;
@@ -78,24 +81,24 @@ export default async function handler(req, res) {
         });
       }
 
-      const file = files.file; // 👈 nome do campo no frontend
+      // Formidable v3 retorna array — extrair primeiro elemento
+      const rawFile = files.file;
+      const file = Array.isArray(rawFile) ? rawFile[0] : rawFile;
       if (!file) {
         return res.status(400).json({
           error: "NENHUM_ARQUIVO",
           message: "Nenhum arquivo foi enviado",
         });
       }
-console.log("[UPLOAD] File recebido:", {
-  mimetype: file.mimetype,
-  type: file.type,
-  originalFilename: file.originalFilename,
-  newFilename: file.newFilename,
-  name: file.name,
-});
+      console.log("[UPLOAD] File recebido:", {
+        mimetype: file.mimetype,
+        originalFilename: file.originalFilename,
+        size: file.size,
+      });
 
       // Validação
       const mimetype = file.mimetype || file.type || "";
-const filename = file.originalFilename || file.newFilename || file.name || "";
+      const filename = file.originalFilename || file.newFilename || file.name || "";
 
 if (!validateFileType(mimetype, filename)) {
   return res.status(400).json({

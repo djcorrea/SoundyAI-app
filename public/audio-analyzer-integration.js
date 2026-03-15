@@ -1736,16 +1736,17 @@ function validateAudioFile(file) {
     const MAX_UPLOAD_MB = 60;
     const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
     
-    // Formatos aceitos: WAV, FLAC, MP3 (simplificado)
-    const allowedTypes = ['audio/wav', 'audio/flac', 'audio/mpeg', 'audio/mp3'];
-    const allowedExtensions = ['.wav', '.flac', '.mp3'];
+    // Formatos aceitos: WAV, FLAC, MP3, AIFF
+    const allowedTypes = ['audio/wav', 'audio/x-wav', 'audio/vnd.wave', 'audio/flac', 'audio/mpeg', 'audio/mp3', 'audio/aiff', 'audio/x-aiff'];
+    const allowedExtensions = ['.wav', '.flac', '.mp3', '.aiff', '.aif'];
     
-    // Validar tipo de arquivo
-    const isValidType = allowedTypes.includes(file.type.toLowerCase()) || 
+    // Validar tipo de arquivo (file.type pode ser vazio string em alguns browsers)
+    const fileType = (file.type || '').toLowerCase();
+    const isValidType = (fileType && allowedTypes.includes(fileType)) ||
                        allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
     
     if (!isValidType) {
-        showModalError(`Formato não suportado. Apenas WAV, FLAC e MP3 são aceitos.
+        showModalError(`Formato não suportado. Apenas WAV, FLAC, MP3 e AIFF são aceitos.
                       💡 Prefira WAV ou FLAC para maior precisão na análise.`);
         return false;
     }
