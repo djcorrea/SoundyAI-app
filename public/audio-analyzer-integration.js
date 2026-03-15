@@ -2821,7 +2821,112 @@ function showModalLoading() {
 // 📈 Simular progresso
 // (função de simulação de progresso removida — não utilizada)
 
-// 📊 Mostrar resultados no modal
+// ─────────────────────────────────────────────────────────────────────────────
+// 🎵 RESTAURADO: Helpers para bloco de identificação da música
+// ─────────────────────────────────────────────────────────────────────────────
+
+function escapeHtml(text) {
+    if (!text || typeof text !== 'string') return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function formatGenreName(genre) {
+    if (!genre || typeof genre !== 'string') return '';
+    const customNames = {
+        'progressive_trance': 'Progressive Trance', 'funk_mandela': 'Funk Mandela',
+        'funk_bruxaria': 'Funk Bruxaria', 'funk_bh': 'Funk BH', 'edm': 'EDM',
+        'eletronico': 'Eletrônico'
+    };
+    if (customNames[genre]) return customNames[genre];
+    return genre.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+}
+
+function renderMusicIdentificationBlock(analysis) {
+    if (!analysis || typeof analysis !== 'object') return '';
+    const metadata = analysis.metadata || {};
+    const fileName = metadata.fileName || analysis.fileName || 'Arquivo de áudio';
+    const durationSeconds = metadata.duration || 0;
+    const minutes = Math.floor(durationSeconds / 60);
+    const seconds = Math.floor(durationSeconds % 60);
+    const durationFormatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const sampleRate = metadata.sampleRate || 48000;
+    const sampleRateKHz = (sampleRate / 1000).toFixed(0);
+    const bitDepth = metadata.bitDepth || 32;
+    const channels = metadata.channels || 2;
+    const channelLabel = channels === 1 ? 'Mono' : channels === 2 ? 'Estéreo' : `${channels} canais`;
+    const mode = analysis.mode || analysis.analysisMode || 'genre';
+    const genre = analysis.genre || analysis.genreName || null;
+    const analysisDate = new Date(analysis.timestamp || Date.now());
+    const isToday = new Date().toDateString() === analysisDate.toDateString();
+    const timestampLabel = isToday ? 'Analisado agora' : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
+    return `
+        <div class="music-identification-block">
+            <div class="music-id-content">
+                <div class="music-id-title-container">
+                    <h3 class="music-id-title">${escapeHtml(fileName)}</h3>
+                </div>
+                <div class="music-id-divider"></div>
+                <div class="music-id-specs">
+                    ${durationSeconds > 0 ? `<div class="music-id-spec-item"><span class="music-id-spec-icon">⏱️</span><span class="music-id-spec-value">${durationFormatted}</span></div>` : ''}
+                    <div class="music-id-spec-item"><span class="music-id-spec-icon">📊</span><span class="music-id-spec-value">${sampleRateKHz} kHz</span></div>
+                    <div class="music-id-spec-item"><span class="music-id-spec-icon">🎚️</span><span class="music-id-spec-value">${bitDepth}-bit</span></div>
+                    <div class="music-id-spec-item"><span class="music-id-spec-icon">🔊</span><span class="music-id-spec-value">${channelLabel}</span></div>
+                </div>
+                <div class="music-id-context">
+                    ${mode === 'genre' && genre ? `<span class="music-id-genre-badge"><span>🎵</span><span>${formatGenreName(genre)}</span></span>` : ''}
+                    <span class="music-id-timestamp">${timestampLabel}</span>
+                </div>
+            </div>
+        </div>`;
+}
+
+// 🏆 RESTAURADO: Score hero no topo do modal (#final-score-display)
+function renderFinalScoreAtTop(scores) {
+    if (!scores || !Number.isFinite(scores.final)) return;
+    const container = document.getElementById('final-score-display');
+    if (!container) return;
+    const finalScore = Math.round(scores.final);
+    let statusMessage, statusClass;
+    if (finalScore >= 90)      { statusMessage = '✨ Excelente! Pronto para lançamento'; statusClass = 'status-excellent'; }
+    else if (finalScore >= 75) { statusMessage = '✅ Ótimo! Qualidade profissional';     statusClass = 'status-good'; }
+    else if (finalScore >= 60) { statusMessage = '⚠️ Bom, mas pode melhorar';            statusClass = 'status-warning'; }
+    else if (finalScore >= 40) { statusMessage = '🔧 Precisa de ajustes';               statusClass = 'status-warning'; }
+    else                       { statusMessage = '🚨 Necessita correções importantes';   statusClass = 'status-poor'; }
+    container.innerHTML = `
+        <div class="score-final-label">🏆 SCORE FINAL</div>
+        <div class="score-final-value">0</div>
+        <div class="score-final-bar-container">
+            <div class="score-final-bar">
+                <div class="score-final-bar-fill" style="width: 0%"></div>
+            </div>
+        </div>
+        <div class="score-final-status ${statusClass}">${statusMessage}</div>
+        <div id="diagnostic-container" class="diagnostic-container"></div>
+    `;
+    setTimeout(() => animateFinalScore(finalScore), 100);
+}
+
+function animateFinalScore(targetScore) {
+    const el = document.querySelector('.score-final-value');
+    const barFill = document.querySelector('.score-final-bar-fill');
+    if (!el) return;
+    let currentScore = 0;
+    const duration = 2000;
+    const startTime = performance.now();
+    function animate(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        currentScore = targetScore * eased;
+        el.textContent = Math.floor(currentScore);
+        if (barFill) barFill.style.width = `${Math.min(Math.max(currentScore, 0), 100)}%`;
+        if (progress < 1) { requestAnimationFrame(animate); }
+        else { el.textContent = targetScore; if (barFill) barFill.style.width = `${Math.min(Math.max(targetScore, 0), 100)}%`; }
+    }
+    requestAnimationFrame(animate);
+}
+
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // 🔒 UI GATE: Verificação final antes de renderizar
@@ -2849,7 +2954,29 @@ function displayModalResults(analysis) {
     
     // Mostrar resultados
     results.style.display = 'block';
-    
+
+    // 🎵 RESTAURADO: Bloco de identificação da música
+    try {
+        const musicIdContainer = document.getElementById('musicIdentificationBlock');
+        if (musicIdContainer) {
+            const _mode = analysis?.mode || analysis?.analysisMode || 'genre';
+            if (_mode !== 'reference') {
+                musicIdContainer.innerHTML = renderMusicIdentificationBlock(analysis);
+                musicIdContainer.style.display = 'block';
+            } else {
+                musicIdContainer.innerHTML = '';
+                musicIdContainer.style.display = 'none';
+            }
+        }
+    } catch(e) { console.warn('[MUSIC-ID] Erro ao renderizar bloco de identificação:', e); }
+
+    // 🏆 RESTAURADO: Score final no topo
+    try {
+        const _scoreVal = Number.isFinite(analysis?.qualityOverall) ? analysis.qualityOverall
+            : (analysis?.scores?.final ?? null);
+        if (_scoreVal !== null) renderFinalScoreAtTop({ final: _scoreVal });
+    } catch(e) { console.warn('[SCORE-TOP] Erro ao renderizar score:', e); }
+
     // 🎯 NOVO: Verificar se é modo referência e adicionar seção de comparação
     if (analysis.analysisMode === 'reference' && analysis.comparison) {
         addReferenceComparisonSection(analysis);
@@ -4005,6 +4132,16 @@ function displayModalResults(analysis) {
 
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
+
+    // 🤖 RESTAURADO: Disparar sugestões AI via controller
+    setTimeout(function() {
+        try {
+            if (window.aiUIController && typeof window.aiUIController.checkForAISuggestions === 'function') {
+                window.aiUIController.checkForAISuggestions(analysis, true);
+            }
+        } catch(e) { console.warn('[AI-SUGGESTIONS] Erro ao disparar controller:', e); }
+    }, 800);
+
     __dbg('📊 Resultados exibidos no modal');
 }
 
