@@ -2005,6 +2005,14 @@ async function handleGenreFileSelection(file) {
     const optionsWithRunId = prepareAnalysisOptions(analysisOptions, 'main');
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
     currentModalAnalysis = analysis;
+
+    // 🎯 FIX: Garantir que fileName e genre estejam disponíveis no objeto analysis
+    if (!analysis.fileName && !analysis.originalFileName) {
+        analysis.fileName = file.name;
+    }
+    if (!analysis.genre && !analysis.genreName) {
+        analysis.genre = window.PROD_AI_REF_GENRE || null;
+    }
     
     // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
     try {
@@ -2845,7 +2853,13 @@ function formatGenreName(genre) {
 function renderMusicIdentificationBlock(analysis) {
     if (!analysis || typeof analysis !== 'object') return '';
     const metadata = analysis.metadata || {};
-    const fileName = metadata.fileName || analysis.fileName || 'Arquivo de áudio';
+    const fileName = analysis.originalFileName
+        || analysis.fileName
+        || metadata.fileName
+        || metadata.originalFileName
+        || window.__HOME_FILE_NAME__
+        || window.__HOME_PENDING_FILE__?.name
+        || 'Arquivo de áudio';
     const durationSeconds = metadata.duration || 0;
     const minutes = Math.floor(durationSeconds / 60);
     const seconds = Math.floor(durationSeconds % 60);
@@ -2856,7 +2870,7 @@ function renderMusicIdentificationBlock(analysis) {
     const channels = metadata.channels || 2;
     const channelLabel = channels === 1 ? 'Mono' : channels === 2 ? 'Estéreo' : `${channels} canais`;
     const mode = analysis.mode || analysis.analysisMode || 'genre';
-    const genre = analysis.genre || analysis.genreName || null;
+    const genre = analysis.genre || analysis.detectedGenre || analysis.referenceGenre || analysis.genreName || window.PROD_AI_REF_GENRE || null;
     const analysisDate = new Date(analysis.timestamp || Date.now());
     const isToday = new Date().toDateString() === analysisDate.toDateString();
     const timestampLabel = isToday ? 'Analisado agora' : `Analisado em ${analysisDate.toLocaleDateString('pt-BR')}`;
@@ -2973,14 +2987,12 @@ function displayModalResults(analysis) {
     // 🏆 RESTAURADO: Score final no topo
     try {
         const _scoreVal = Number.isFinite(analysis?.qualityOverall) ? analysis.qualityOverall
-            : (analysis?.scores?.final ?? null);
+            : (Number.isFinite(analysis?.mixScorePct) ? analysis.mixScorePct
+            : (analysis?.scores?.final ?? null));
         if (_scoreVal !== null) renderFinalScoreAtTop({ final: _scoreVal });
     } catch(e) { console.warn('[SCORE-TOP] Erro ao renderizar score:', e); }
 
-    // 🎯 NOVO: Verificar se é modo referência e adicionar seção de comparação
-    if (analysis.analysisMode === 'reference' && analysis.comparison) {
-        addReferenceComparisonSection(analysis);
-    }
+    // Comparação por referência removida — seção não deve ser exibida
     
     // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
     const advancedReady = (
@@ -4130,7 +4142,7 @@ function displayModalResults(analysis) {
             renderCompactSummary() +
             renderExpandableDiagnostics();
 
-    try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
+    // renderReferenceComparisons removido — seção de comparação não deve ser exibida
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
 
     // 🤖 RESTAURADO: Disparar sugestões AI via controller
