@@ -9979,7 +9979,7 @@ function renderGenreComparisonTable(options) {
                 ${_buildDscCard('📈', 'LRA', _summaryLra)}
                 ${_buildDscCard('🎧', 'Estéreo', _summaryStereo)}
             </div>
-            <button class="dt-toggle-btn" onclick="window.toggleDiagTable(this)" aria-expanded="false">
+            <button class="dt-toggle-btn genre-diag-toggle" aria-expanded="false">
                 <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
             </button>
             <div class="dt-expand-body" hidden>
@@ -10020,6 +10020,26 @@ function renderGenreComparisonTable(options) {
             tableExists: !!container.querySelector('.classic-genre-table'),
             rowsInDOM: container.querySelectorAll('tr').length
         });
+
+        // 🎯 Wiring imperativo do accordion (sem depender de window.toggleDiagTable global)
+        const _diagToggleBtn = container.querySelector('.genre-diag-toggle');
+        if (_diagToggleBtn) {
+            _diagToggleBtn.addEventListener('click', function () {
+                const body = this.nextElementSibling;
+                if (!body) return;
+                const willExpand = body.hasAttribute('hidden');
+                if (willExpand) {
+                    body.removeAttribute('hidden');
+                    this.setAttribute('aria-expanded', 'true');
+                } else {
+                    body.setAttribute('hidden', '');
+                    this.setAttribute('aria-expanded', 'false');
+                }
+                const arrow = this.querySelector('.dt-toggle-arrow');
+                if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
+            });
+            log('[GENRE-TABLE] 🎯 Accordion toggle wired imperatively');
+        }
     } catch (err) {
         error('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
@@ -10331,6 +10351,24 @@ function renderGenreComparisonTable(options) {
             @media (max-width: 480px) { .diag-summary-grid { grid-template-columns: repeat(2,1fr); } }
         `;
         document.head.appendChild(diagStyle);
+    }
+
+    // 🌐 Garantir window.toggleDiagTable global como fallback
+    if (typeof window.toggleDiagTable !== 'function') {
+        window.toggleDiagTable = function toggleDiagTable(btn) {
+            const body = btn.nextElementSibling;
+            if (!body) return;
+            const willExpand = body.hasAttribute('hidden');
+            if (willExpand) {
+                body.removeAttribute('hidden');
+                btn.setAttribute('aria-expanded', 'true');
+            } else {
+                body.setAttribute('hidden', '');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+            const arrow = btn.querySelector('.dt-toggle-arrow');
+            if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
+        };
     }
 
     log('[GENRE-TABLE] ✅ Tabela COMPLETA renderizada:', {
