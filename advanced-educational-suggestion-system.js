@@ -460,7 +460,10 @@ class AdvancedEducationalSuggestionSystem {
 
         } catch (error) {
             console.error('🚨 [EDUCATIVO] Erro na análise:', error);
-            return { error: error.message, suggestions: [] };
+            return {
+                error: error.message,
+                fallbackSuggestions: this.generateFallbackSuggestions(analysis)
+            };
         }
     }
 
@@ -990,6 +993,18 @@ class AdvancedEducationalSuggestionSystem {
         const difficulties = suggestions.map(s => s.metadata?.difficulty).filter(Boolean);
         // Lógica para calcular média
         return "Intermediário"; // Placeholder
+    }
+
+    /**
+     * 🚨 Gerar sugestões fallback em caso de erro
+     */
+    generateFallbackSuggestions(analysis) {
+        return [{
+            title: "🔧 Verificação Técnica Básica",
+            description: "Revisar níveis básicos e evitar clipping",
+            category: "safety",
+            priority: 1.0
+        }];
     }
 
     /**
