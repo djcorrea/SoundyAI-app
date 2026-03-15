@@ -4895,3 +4895,83 @@ window.displayReferenceResults = function(referenceResults) {
         }
     }
 };
+
+// ═══════════════════════════════════════════════════════════════
+// HOME.HTML INTEGRATION — uploadFileOnly + runAnalysisFromFileKey
+// Funções globais necessárias para o fluxo de upload da home.html
+// ═══════════════════════════════════════════════════════════════
+
+// Expõe handleModalFileSelection para que home.html detecte que o motor está pronto
+window.handleModalFileSelection = handleModalFileSelection;
+
+/**
+ * Faz upload do arquivo para o servidor e retorna { fileKey, fileName }.
+ * Armazena o File object para uso posterior por runAnalysisFromFileKey.
+ * @param {File} file
+ * @returns {Promise<{fileKey: string, fileName: string}>}
+ */
+window.uploadFileOnly = async function uploadFileOnly(file) {
+    const formData = new FormData();
+    formData.append('file', file); // campo esperado pela API /api/upload-audio
+
+    const response = await fetch('/api/upload-audio', {
+        method: 'POST',
+        body: formData
+    });
+
+    const text = await response.text();
+    let result;
+    try {
+        result = JSON.parse(text);
+    } catch (e) {
+        throw new Error('Resposta inválida do servidor: ' + text.substring(0, 100));
+    }
+
+    if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Upload falhou com status ' + response.status);
+    }
+
+    // Armazena o File object para runAnalysisFromFileKey
+    window.__HOME_PENDING_FILE__ = file;
+
+    return {
+        fileKey: result.job.file_key,
+        fileName: file.name
+    };
+};
+
+/**
+ * Executa a análise a partir de um fileKey previamente gerado pelo uploadFileOnly.
+ * Recupera o File armazenado e aciona handleModalFileSelection (análise client-side).
+ * @param {string} fileKey
+ * @param {string} fileName
+ */
+window.runAnalysisFromFileKey = async function runAnalysisFromFileKey(fileKey, fileName) {
+    const file = window.__HOME_PENDING_FILE__;
+    if (!file) {
+        throw new Error('Arquivo não encontrado. Por favor, faça o upload novamente.');
+    }
+
+    // Garantir que o modal de análise esteja visível antes do loading
+    const modal = document.getElementById('audioAnalysisModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.removeAttribute('aria-hidden');
+    }
+
+    // Persistir referências do arquivo para fluxo de masterização
+    window.__HOME_FILE_KEY__  = fileKey;
+    window.__HOME_FILE_NAME__ = fileName || file.name;
+
+    await handleModalFileSelection(file);
+};
+
+// ── CONFIRMAÇÃO DE INICIALIZAÇÃO ──────────────────────────────
+console.log('[ENGINE] ✅ ENGINE READY — uploadFileOnly + runAnalysisFromFileKey registrados');
+
+// Fallback de segurança: alertar se as funções não estiverem disponíveis após 5s
+setTimeout(function () {
+    if (typeof window.uploadFileOnly !== 'function' || typeof window.runAnalysisFromFileKey !== 'function') {
+        console.warn('[ENGINE] ⚠️ ENGINE NOT READY — funções de upload não disponíveis após 5s');
+    }
+}, 5000);
