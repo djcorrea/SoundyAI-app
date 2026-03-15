@@ -537,19 +537,10 @@ class AISuggestionUIController {
             return analysis.referenceAnalysis.aiSuggestions;
         }
         
-        // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
+        // 🎯 PRIORIDADE 4: analysis.suggestions — aceitar qualquer formato (client-side: type/message/action)
         if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
-            // Verificar se são sugestões IA (com aiEnhanced ou campos específicos)
-            const hasAIFields = analysis.suggestions.some(s => 
-                s.aiEnhanced === true || 
-                (s.categoria && s.problema && s.solucao)
-            );
-            
-            if (hasAIFields) {
-                log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
-                log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
-                return analysis.suggestions;
-            }
+            log(`%c[AI-FIX] ✅ Campo suggestions detectado (${analysis.suggestions.length} itens)`, 'color:#FFD700;font-weight:bold;');
+            return analysis.suggestions;
         }
 
         // 🔹 Função auxiliar de busca recursiva (fallback)

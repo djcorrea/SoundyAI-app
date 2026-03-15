@@ -2013,6 +2013,10 @@ async function handleGenreFileSelection(file) {
     if (!analysis.genre && !analysis.genreName) {
         analysis.genre = window.PROD_AI_REF_GENRE || null;
     }
+    // 🎯 FIX: Normalizar campos canônicos para renderização
+    analysis.score = Number.isFinite(analysis.qualityOverall) ? analysis.qualityOverall
+        : (Number.isFinite(analysis.mixScorePct) ? analysis.mixScorePct : null);
+    analysis.subScores = analysis.qualityBreakdown ?? null;
     try {
         if (window.wavMobileOptimizer) {
             window.wavMobileOptimizer.cleanupWAVOptimizations();
@@ -2949,6 +2953,17 @@ function displayModalResults(analysis) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
+
+    // 🪵 DEBUG: Log completo do objeto analysis para diagnóstico
+    console.log('[FULL ANALYSIS DEBUG]', {
+        score: analysis.score, qualityOverall: analysis.qualityOverall,
+        mixScorePct: analysis.mixScorePct, subScores: analysis.subScores,
+        qualityBreakdown: analysis.qualityBreakdown,
+        suggestionsCount: analysis.suggestions?.length,
+        fileName: analysis.fileName || analysis.originalFileName,
+        genre: analysis.genre || analysis.genreName,
+        fields: Object.keys(analysis || {})
+    });
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
@@ -4134,8 +4149,9 @@ function displayModalResults(analysis) {
                 `</div>`;
         };
 
+        const kpiRowHtml = (scoreKpi || timeKpi) ? `<div class="kpi-row">${scoreKpi}${timeKpi}</div>` : '';
         technicalData.innerHTML =
-            `<div class="kpi-row">${scoreKpi}${timeKpi}</div>` +
+            kpiRowHtml +
             renderSmartSummary(analysis) +
             renderCompactSummary() +
             renderExpandableDiagnostics();
@@ -4144,9 +4160,13 @@ function displayModalResults(analysis) {
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
 
     // 🤖 RESTAURADO: Disparar sugestões AI via controller
+    // 🔄 Resetar flags para permitir nova renderização (crítico para segunda análise)
+    window.__AI_RENDER_COMPLETED__ = false;
+    if (window.aiUIController) window.aiUIController.lastAnalysisJobId = '__client_' + Date.now();
     setTimeout(function() {
         try {
-            if (window.aiUIController && typeof window.aiUIController.checkForAISuggestions === 'function') {
+            if (analysis.suggestions?.length > 0 &&
+                window.aiUIController && typeof window.aiUIController.checkForAISuggestions === 'function') {
                 window.aiUIController.checkForAISuggestions(analysis, true);
             }
         } catch(e) { console.warn('[AI-SUGGESTIONS] Erro ao disparar controller:', e); }
