@@ -36,6 +36,36 @@ const REDIS_CONFIG = {
 };
 
 /**
+ * Opções de conexão dedicadas para BullMQ (sem lazyConnect).
+ * BullMQ v5 + ioredis lazyConnect:true causa "Connection is closed" porque
+ * o duplicate() interno herda lazyConnect e nunca chama connect().
+ * Passar um plain IORedisOptions resolve o problema: BullMQ gerencia seu
+ * próprio ciclo de vida de conexão.
+ */
+function buildBullMQConnectionOpts() {
+  const url = process.env.REDIS_URL;
+  if (!url) throw new Error('REDIS_URL not set');
+  const parsed = new URL(url);
+  const opts = {
+    host: parsed.hostname,
+    port: parseInt(parsed.port || '6379'),
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    retryStrategy: (times) => {
+      const delay = Math.min(times * 2000, 30000);
+      console.log(`🔄 [BULLMQ] Connection retry ${times}: ${delay}ms`);
+      return delay;
+    },
+  };
+  if (parsed.password) opts.password = decodeURIComponent(parsed.password);
+  if (parsed.username && parsed.username !== 'default') {
+    opts.username = decodeURIComponent(parsed.username);
+  }
+  if (url.startsWith('rediss://')) opts.tls = { rejectUnauthorized: false };
+  return opts;
+}
+
+/**
  * Inicializar conexão Redis singleton
  */
 function initializeRedisConnection() {
@@ -98,8 +128,10 @@ function initializeQueue(connection) {
 
   console.log(`📋 [QUEUE] Creating BullMQ Queue 'audio-analyzer'`);
   
+  // ✅ FIX: Usar opções de conexão (não instância ioredis) para evitar bug
+  // BullMQ v5 + lazyConnect:true = "Connection is closed"
   const audioQueue = new Queue('audio-analyzer', {
-    connection,
+    connection: buildBullMQConnectionOpts(),
     defaultJobOptions: {
       attempts: 3,
       backoff: {
@@ -127,7 +159,8 @@ function initializeQueueEvents(connection) {
 
   console.log(`📡 [QUEUE-EVENTS] Creating QueueEvents for 'audio-analyzer'`);
   
-  const queueEvents = new QueueEvents('audio-analyzer', { connection });
+  // ✅ FIX: Usar opções de conexão (não instância ioredis) para BullMQ v5
+  const queueEvents = new QueueEvents('audio-analyzer', { connection: buildBullMQConnectionOpts() });
   
   // Listeners para auditoria
   queueEvents.on('failed', ({ jobId, failedReason }) => {
@@ -166,26 +199,46 @@ function createQueueReadyPromise() {
       console.log(`🔌 [QUEUE-INIT] Connecting to Redis...`);
       await connection.connect();
       
-      // 3. Aguardar Redis estar ready
+      // 3. Aguardar Redis estar ready (com listeners devidamente removidos)
       console.log(`⏳ [QUEUE-INIT] Waiting for Redis ready state...`);
       await new Promise((resolve, reject) => {
         if (connection.status === 'ready') {
           resolve();
-        } else {
-          connection.once('ready', resolve);
-          connection.once('error', reject);
-          
-          // Timeout de segurança
-          setTimeout(() => reject(new Error('Redis ready timeout')), 30000);
+          return;
         }
+        const onReady = () => {
+          connection.removeListener('error', onError);
+          resolve();
+        };
+        const onError = (err) => {
+          connection.removeListener('ready', onReady);
+          reject(err);
+        };
+        connection.once('ready', onReady);
+        connection.once('error', onError);
+        // Timeout de segurança
+        setTimeout(() => {
+          connection.removeListener('ready', onReady);
+          connection.removeListener('error', onError);
+          reject(new Error('Redis ready timeout after 30s'));
+        }, 30000);
       });
       
       // 4. Inicializar Queue
       const audioQueue = initializeQueue(connection);
       
-      // 5. Aguardar Queue estar pronta
+      // 5. Aguardar Queue estar pronta (com retry para resiliência)
       console.log(`⏳ [QUEUE-INIT] Waiting for Queue ready state...`);
-      await audioQueue.waitUntilReady();
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await audioQueue.waitUntilReady();
+          break;
+        } catch (err) {
+          if (attempt === 3) throw err;
+          console.warn(`⚠️ [QUEUE-INIT] waitUntilReady attempt ${attempt} failed (${err.message}), retrying in 2s...`);
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
       
       // 6. Garantir que não está pausada
       await audioQueue.resume();
@@ -211,6 +264,10 @@ function createQueueReadyPromise() {
     } catch (error) {
       console.error(`💥 [QUEUE-INIT] Initialization failed:`, error.message);
       console.error(`💥 [QUEUE-INIT] Stack trace:`, error.stack);
+      // Resetar singleton para permitir retry na próxima chamada
+      globalThis[READY_PROMISE_KEY] = null;
+      globalThis[QUEUE_KEY] = null;
+      globalThis[EVENTS_KEY] = null;
       throw error;
     }
   })();
