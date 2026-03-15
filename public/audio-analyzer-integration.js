@@ -9665,7 +9665,9 @@ function renderGenreComparisonTable(options) {
     const rows = [];
     let metricsCount = 0;
     let bandsCount = 0;
-    
+    // 🎯 SUMMARY CARDS: capturar resultados das 5 métricas para os cards visuais de resumo
+    let _summaryLufs = null, _summaryTp = null, _summaryDr = null, _summaryLra = null, _summaryStereo = null;
+
     // ════════════════════════════════════════════════════════════════════
     // 1️⃣ MÉTRICAS PRINCIPAIS (LUFS, TRUE PEAK, DR, LRA, STEREO)
     // ════════════════════════════════════════════════════════════════════
@@ -9687,6 +9689,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
+                _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
             }
@@ -9734,6 +9737,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
+                _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
             }
@@ -9757,6 +9761,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
+                _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
             }
@@ -9780,6 +9785,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
+                _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
             }
@@ -9803,6 +9809,7 @@ function renderGenreComparisonTable(options) {
                         <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
                     </tr>
                 `);
+                _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
                 log(`[GENRE-TABLE] ${canRender ? '✅' : '🔒'} Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
             }
@@ -9955,23 +9962,41 @@ function renderGenreComparisonTable(options) {
         ? 'Alvo <span class="streaming-badge" title="Targets otimizados para Streaming (LUFS -14, TP -1.0)">📡</span>'
         : 'Alvo';
     
+    // 🎯 Helper para cards de resumo diagnóstico
+    const _buildDscCard = (icon, label, summary) => {
+        if (!summary) return `<div class="diag-summary-card dsc-na"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">—</span><span class="dsc-badge">N/D</span></div>`;
+        return `<div class="diag-summary-card dsc-${summary.severityClass}"><span class="dsc-icon">${icon}</span><span class="dsc-label">${label}</span><span class="dsc-value">${summary.displayValue}</span><span class="dsc-badge dsc-badge-${summary.severityClass}">${summary.severity}</span></div>`;
+    };
+
     const tableHTML = `
         <div class="card genre-comparison-classic" style="margin-top:12px;">
             <h2 class="sa-diagnostico-title">Diagnóstico Técnico${isStreamingMode ? ' <span class="streaming-mode-label">📡 Streaming</span>' : ''}</h2>
-            <p class="sa-diagnostico-subtitle">Métricas, severidade e correções recomendadas.</p>
-            <table class="classic-genre-table">
-                <thead>
-                    <tr>
-                        <th>Métrica</th>
-                        <th>Valor</th>
-                        <th>Severidade</th>
-                        <th>Ação Sugerida</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.join('')}
-                </tbody>
-            </table>
+            <p class="sa-diagnostico-subtitle">Resumo visual das principais métricas.</p>
+            <div class="diag-summary-grid">
+                ${_buildDscCard('🔊', 'Loudness', _summaryLufs)}
+                ${_buildDscCard('🎚️', 'True Peak', _summaryTp)}
+                ${_buildDscCard('📊', 'Dinâmica', _summaryDr)}
+                ${_buildDscCard('📈', 'LRA', _summaryLra)}
+                ${_buildDscCard('🎧', 'Estéreo', _summaryStereo)}
+            </div>
+            <button class="dt-toggle-btn" onclick="window.toggleDiagTable(this)" aria-expanded="false">
+                <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
+            </button>
+            <div class="dt-expand-body" hidden>
+                <table class="classic-genre-table">
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>Valor</th>
+                            <th>Severidade</th>
+                            <th>Ação Sugerida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.join('')}
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
     
@@ -10245,7 +10270,69 @@ function renderGenreComparisonTable(options) {
         document.head.appendChild(style);
         log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
     }
-    
+
+    // 🎨 INJETAR ESTILOS PARA CARDS DE RESUMO DIAGNÓSTICO
+    if (!document.getElementById('diagSummaryCardStyles')) {
+        const diagStyle = document.createElement('style');
+        diagStyle.id = 'diagSummaryCardStyles';
+        diagStyle.textContent = `
+            /* 🎯 CARDS DE RESUMO DIAGNÓSTICO */
+            .diag-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 8px;
+                margin-bottom: 16px;
+            }
+            .diag-summary-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                padding: 10px 8px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: rgba(255, 255, 255, 0.04);
+                text-align: center;
+            }
+            .diag-summary-card.dsc-ok { border-color: rgba(82,247,173,0.3); background: rgba(82,247,173,0.06); }
+            .diag-summary-card.dsc-caution { border-color: rgba(255,206,77,0.3); background: rgba(255,206,77,0.06); }
+            .diag-summary-card.dsc-warning { border-color: rgba(255,165,0,0.3); background: rgba(255,165,0,0.06); }
+            .diag-summary-card.dsc-critical { border-color: rgba(255,123,123,0.3); background: rgba(255,123,123,0.06); }
+            .diag-summary-card.dsc-na { opacity: 0.5; }
+            .dsc-icon { font-size: 20px; line-height: 1; }
+            .dsc-label { font-size: 10px; color: #8fa8c8; font-weight: 500; letter-spacing: 0.4px; text-transform: uppercase; }
+            .dsc-value { font-size: 13px; font-weight: 700; color: #f5f7fa; line-height: 1.2; }
+            .dsc-badge {
+                font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 8px;
+                letter-spacing: 0.5px; text-transform: uppercase;
+                background: rgba(255,255,255,0.1); color: #c0cfe0;
+            }
+            .dsc-badge-ok { background: rgba(82,247,173,0.2); color: #52f7ad; }
+            .dsc-badge-caution { background: rgba(255,206,77,0.2); color: #ffce4d; }
+            .dsc-badge-warning { background: rgba(255,165,0,0.2); color: #ffa500; }
+            .dsc-badge-critical { background: rgba(255,123,123,0.2); color: #ff7b7b; }
+            .dt-toggle-btn {
+                display: flex; align-items: center; gap: 6px; width: 100%;
+                background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+                color: #9fc9ff; font-size: 12px; font-weight: 500; padding: 8px 14px;
+                border-radius: 8px; cursor: pointer; letter-spacing: 0.3px;
+                transition: background 0.2s ease; margin-top: 4px; box-sizing: border-box;
+            }
+            .dt-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+            .dt-toggle-arrow { font-size: 10px; }
+            .dt-expand-body { margin-top: 12px; }
+            .dt-expand-body[hidden] { display: none !important; }
+            @media (max-width: 768px) {
+                .diag-summary-grid { grid-template-columns: repeat(3,1fr); gap: 6px; }
+                .diag-summary-card { padding: 8px 6px; }
+                .dsc-icon { font-size: 16px; } .dsc-value { font-size: 11px; }
+                .dsc-label { font-size: 9px; } .dsc-badge { font-size: 8px; }
+            }
+            @media (max-width: 480px) { .diag-summary-grid { grid-template-columns: repeat(2,1fr); } }
+        `;
+        document.head.appendChild(diagStyle);
+    }
+
     log('[GENRE-TABLE] ✅ Tabela COMPLETA renderizada:', {
         metricas: metricsCount,
         bandas: bandsCount,
