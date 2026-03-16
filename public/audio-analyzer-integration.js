@@ -9682,18 +9682,26 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dp-panel dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon">🔊</span>
-                            <span class="dp-name">Loudness</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                    <div class="cki-panel cki-${result.severityClass}" data-metric="lufs">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon">🔊</span>
+                                <span class="cki-name">Loudness</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-shimmer">${canRender ? lufsValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                                <span class="cki-unit">LUFS</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-shimmer">${canRender ? lufsValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
-                            <span class="dp-unit">LUFS</span>
-                        </div>
-                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9737,18 +9745,26 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dp-panel dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon">🎚️</span>
-                            <span class="dp-name">True Peak</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                    <div class="cki-panel cki-${result.severityClass}" data-metric="truepeak">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon">🎚️</span>
+                                <span class="cki-name">True Peak</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-shimmer">${canRender ? tpValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                                <span class="cki-unit">dBTP</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-shimmer">${canRender ? tpValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
-                            <span class="dp-unit">dBTP</span>
-                        </div>
-                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9768,18 +9784,26 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dp-panel dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon">📊</span>
-                            <span class="dp-name">Dinâmica</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                    <div class="cki-panel cki-${result.severityClass}" data-metric="dr">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon">📊</span>
+                                <span class="cki-name">Dinâmica</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-shimmer">${canRender ? drValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                                <span class="cki-unit">DR</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-shimmer">${canRender ? drValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
-                            <span class="dp-unit">DR</span>
-                        </div>
-                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9799,18 +9823,26 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dp-panel dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon">📈</span>
-                            <span class="dp-name">LRA</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                    <div class="cki-panel cki-${result.severityClass}" data-metric="lra">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon">📈</span>
+                                <span class="cki-name">LRA</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-shimmer">${canRender ? lraValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                                <span class="cki-unit">LU</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-shimmer">${canRender ? lraValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
-                            <span class="dp-unit">LU</span>
-                        </div>
-                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9830,18 +9862,26 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dp-panel dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon">🎧</span>
-                            <span class="dp-name">Estéreo</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                    <div class="cki-panel cki-${result.severityClass}" data-metric="stereo">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon">🎧</span>
+                                <span class="cki-name">Estéreo</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-shimmer">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</span>
+                                <span class="cki-unit">corr.</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-shimmer">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</span>
-                            <span class="dp-unit">corr.</span>
-                        </div>
-                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9967,17 +10007,25 @@ function renderGenreComparisonTable(options) {
                 const actionDisplay = canRender ? result.action : renderSecurePlaceholder('action');
                 
                 rows.push(`
-                    <div class="dp-panel dp-compact dp-${result.severityClass}">
-                        <div class="dp-header">
-                            <span class="dp-icon dp-icon-sm">${nomeAmigavel.split(' ')[0]}</span>
-                            <span class="dp-name dp-name-sm">${nomeAmigavel.replace(/^\S+\s*/, '')}</span>
-                            <span class="dp-badge dp-badge-${result.severityClass}">${severityDisplay}</span>
+                    <div class="cki-panel cki-compact cki-${result.severityClass}">
+                        <div class="cki-noise"></div>
+                        <div class="cki-border-glow"></div>
+                        <div class="cki-inner">
+                            <div class="cki-header">
+                                <span class="cki-icon cki-icon-sm">${nomeAmigavel.split(' ')[0]}</span>
+                                <span class="cki-name cki-name-sm">${nomeAmigavel.replace(/^\S+\s*/, '')}</span>
+                                <span class="cki-badge cki-badge-${result.severityClass}">${severityDisplay}</span>
+                            </div>
+                            <div class="cki-value-stage">
+                                <span class="cki-value cki-value-sm">${energyDbSafe}</span>
+                                <div class="cki-underline cki-underline-${result.severityClass}"></div>
+                            </div>
+                            <div class="cki-footer">
+                                <div class="cki-action cki-action-sm">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</div>
+                                <div class="cki-bar cki-bar-${result.severityClass}"></div>
+                            </div>
                         </div>
-                        <div class="dp-value-wrap">
-                            <span class="dp-value dp-value-sm">${energyDbSafe}</span>
-                        </div>
-                        <div class="dp-action dp-action-sm">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</div>
-                        <div class="dp-glow-layer"></div>
+                        <div class="cki-depth-layer"></div>
                     </div>
                 `);
                 bandsCount++;
@@ -10024,7 +10072,7 @@ function renderGenreComparisonTable(options) {
                 <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
             </button>
             <div class="dt-expand-body" hidden>
-                <div class="dp-carousel">
+                <div class="cki-track">
                     ${rows.join('')}
                 </div>
             </div>
@@ -10098,353 +10146,510 @@ function renderGenreComparisonTable(options) {
         style.id = 'classicGenreTableStyles';
         style.textContent = `
             /* ═══════════════════════════════════════════════════════════════
-               DIAGNOSTIC COCKPIT — Premium Horizontal Layout
-               Glassmorphism · Neon Glow · Scroll Snap · Microinterações
+               COCKPIT INSTRUMENT PANEL — SoundyAI Diagnostic System
+               Ultra-Premium · Cinematográfico · High-End Professional
+               Camadas: glass · gradiente · noise · glow-borda · sombra-difusa
             ═══════════════════════════════════════════════════════════════ */
 
-            /* ── Container principal ──────────────────────────────────── */
+            /* ── Wrapper principal ───────────────────────────────────────── */
             .genre-comparison-classic {
-                background: linear-gradient(135deg, rgba(5,10,22,0.97) 0%, rgba(12,22,45,0.97) 100%);
-                border: 1px solid rgba(50,110,255,0.2);
-                border-radius: 20px;
-                padding: 22px 22px 18px;
+                background:
+                    linear-gradient(160deg, rgba(4,9,20,0.98) 0%, rgba(8,16,38,0.98) 50%, rgba(12,22,50,0.98) 100%);
+                border: 1px solid rgba(60,120,255,0.18);
+                border-radius: 22px;
+                padding: 24px 24px 20px;
                 margin-top: 16px;
                 overflow: visible;
-                height: auto;
-                min-height: 0;
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
+                backdrop-filter: blur(14px) saturate(1.3);
+                -webkit-backdrop-filter: blur(14px) saturate(1.3);
                 box-shadow:
-                    0 4px 24px rgba(0,0,0,0.5),
-                    0 0 0 1px rgba(80,140,255,0.08),
-                    inset 0 1px 0 rgba(255,255,255,0.04);
+                    0 0 0 1px rgba(60,120,255,0.08),
+                    0 8px 40px rgba(0,0,0,0.65),
+                    0 2px 0 rgba(255,255,255,0.03) inset;
+                position: relative;
             }
-            .genre-comparison-classic::before { pointer-events: none; }
 
-            /* ── Títulos ────────────────────────────────────────────────── */
+            /* ── Títulos ─────────────────────────────────────────────────── */
             .sa-diagnostico-title {
-                font-size: 14px !important;
-                font-weight: 700 !important;
-                color: #cfe3ff !important;
-                letter-spacing: 0.5px !important;
+                font-size: 13px !important;
+                font-weight: 800 !important;
+                color: #c8e0ff !important;
+                letter-spacing: 1.2px !important;
                 text-transform: uppercase !important;
-                margin: 0 0 2px !important;
+                margin: 0 0 3px !important;
             }
             .sa-diagnostico-subtitle {
                 font-size: 11px !important;
-                color: rgba(140,180,255,0.55) !important;
-                margin: 0 0 14px !important;
+                color: rgba(120,165,255,0.45) !important;
+                margin: 0 0 16px !important;
+                letter-spacing: 0.3px !important;
             }
 
-            /* ── Botão toggle ───────────────────────────────────────────── */
+            /* ── Botão toggle ─────────────────────────────────────────────── */
             .dt-toggle-btn {
                 display: flex !important;
                 align-items: center !important;
-                gap: 7px !important;
+                gap: 8px !important;
                 width: 100% !important;
-                background: rgba(30,60,140,0.12) !important;
-                border: 1px solid rgba(60,110,255,0.22) !important;
-                color: #6aa8ff !important;
-                font-size: 11px !important;
-                font-weight: 600 !important;
-                padding: 7px 14px !important;
+                background: rgba(20,40,100,0.08) !important;
+                border: 1px solid rgba(60,110,255,0.2) !important;
+                color: #5a9aff !important;
+                font-size: 10.5px !important;
+                font-weight: 700 !important;
+                padding: 7px 16px !important;
                 border-radius: 8px !important;
                 cursor: pointer !important;
-                letter-spacing: 0.5px !important;
+                letter-spacing: 0.8px !important;
                 text-transform: uppercase !important;
-                transition: background 0.2s, border-color 0.2s, color 0.2s !important;
-                margin-top: 4px !important;
+                transition: background 0.22s, border-color 0.22s, color 0.22s !important;
+                margin-top: 6px !important;
                 box-sizing: border-box !important;
             }
             .dt-toggle-btn:hover {
-                background: rgba(50,100,240,0.22) !important;
-                border-color: rgba(90,150,255,0.38) !important;
-                color: #9dcbff !important;
+                background: rgba(40,90,220,0.18) !important;
+                border-color: rgba(80,140,255,0.35) !important;
+                color: #90c4ff !important;
             }
-            .dt-toggle-arrow { font-size: 8px !important; }
-            .dt-expand-body { margin-top: 12px !important; }
+            .dt-toggle-arrow { font-size: 8px !important; transition: transform 0.22s !important; }
+            .dt-toggle-btn[aria-expanded="true"] .dt-toggle-arrow { transform: rotate(180deg) !important; }
+            .dt-expand-body { margin-top: 14px !important; }
             .dt-expand-body[hidden] { display: none !important; }
 
-            /* ═══════════════════════════════════════════════════════════════
-               COCKPIT CAROUSEL
-            ═══════════════════════════════════════════════════════════════ */
-            .dp-carousel {
+            /* ════════════════════════════════════════════════════════════════
+               COCKPIT TRACK — trilho horizontal scroll-snap
+            ════════════════════════════════════════════════════════════════ */
+            .cki-track {
                 display: flex;
                 flex-direction: row;
-                gap: 12px;
+                gap: 20px;
                 overflow-x: auto;
                 overflow-y: hidden;
                 scroll-snap-type: x mandatory;
                 -webkit-overflow-scrolling: touch;
-                padding: 6px 4px 14px;
+                padding: 12px 32px 20px;
                 scrollbar-width: thin;
-                scrollbar-color: rgba(80,140,255,0.25) transparent;
+                scrollbar-color: rgba(60,120,255,0.22) transparent;
+                /* Sensação de trilho */
+                background:
+                    linear-gradient(90deg, rgba(8,16,38,0.6) 0%, transparent 8%, transparent 92%, rgba(8,16,38,0.6) 100%);
             }
-            .dp-carousel::-webkit-scrollbar {
-                height: 4px;
-            }
-            .dp-carousel::-webkit-scrollbar-track {
-                background: transparent;
-            }
-            .dp-carousel::-webkit-scrollbar-thumb {
-                background: rgba(80,140,255,0.3);
-                border-radius: 4px;
+            .cki-track::-webkit-scrollbar { height: 3px; }
+            .cki-track::-webkit-scrollbar-track { background: transparent; }
+            .cki-track::-webkit-scrollbar-thumb {
+                background: rgba(60,120,255,0.28);
+                border-radius: 3px;
             }
 
-            /* ── Painel base ────────────────────────────────────────────── */
-            .dp-panel {
+            /* ════════════════════════════════════════════════════════════════
+               COCKPIT PANEL — instrumento individual
+            ════════════════════════════════════════════════════════════════ */
+            .cki-panel {
                 position: relative;
-                flex: 0 0 200px;
-                min-width: 200px;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                padding: 14px 16px 12px;
-                border-radius: 14px;
-                border: 1px solid rgba(255,255,255,0.08);
-                background: rgba(14,25,50,0.7);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-                scroll-snap-align: start;
+                flex: 0 0 300px;
+                min-width: 300px;
+                max-width: 340px;
+                scroll-snap-align: center;
+                border-radius: 18px;
                 overflow: hidden;
-                transition: transform 0.22s ease, box-shadow 0.22s ease;
-                animation: dp-reveal 0.3s ease both;
+                transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+                animation: cki-arrive 0.35s cubic-bezier(0.22,1,0.36,1) both;
                 cursor: default;
-            }
-            .dp-panel:hover {
-                transform: translateY(-3px) scale(1.01);
+                /* Camada 1: glass base */
+                background: rgba(10,18,40,0.72);
+                backdrop-filter: blur(16px) saturate(1.4);
+                -webkit-backdrop-filter: blur(16px) saturate(1.4);
             }
 
             /* Stagger de entrada */
-            .dp-panel:nth-child(1)  { animation-delay: 0.04s; }
-            .dp-panel:nth-child(2)  { animation-delay: 0.08s; }
-            .dp-panel:nth-child(3)  { animation-delay: 0.12s; }
-            .dp-panel:nth-child(4)  { animation-delay: 0.16s; }
-            .dp-panel:nth-child(5)  { animation-delay: 0.20s; }
-            .dp-panel:nth-child(6)  { animation-delay: 0.24s; }
-            .dp-panel:nth-child(7)  { animation-delay: 0.28s; }
-            .dp-panel:nth-child(8)  { animation-delay: 0.32s; }
-            .dp-panel:nth-child(9)  { animation-delay: 0.36s; }
-            .dp-panel:nth-child(10) { animation-delay: 0.40s; }
+            .cki-panel:nth-child(1)  { animation-delay: 0.03s; }
+            .cki-panel:nth-child(2)  { animation-delay: 0.07s; }
+            .cki-panel:nth-child(3)  { animation-delay: 0.11s; }
+            .cki-panel:nth-child(4)  { animation-delay: 0.15s; }
+            .cki-panel:nth-child(5)  { animation-delay: 0.19s; }
+            .cki-panel:nth-child(6)  { animation-delay: 0.23s; }
+            .cki-panel:nth-child(7)  { animation-delay: 0.27s; }
+            .cki-panel:nth-child(8)  { animation-delay: 0.31s; }
+            .cki-panel:nth-child(9)  { animation-delay: 0.35s; }
+            .cki-panel:nth-child(10) { animation-delay: 0.39s; }
 
-            @keyframes dp-reveal {
-                from { opacity: 0; transform: translateY(10px) scale(0.97); }
+            @keyframes cki-arrive {
+                from { opacity: 0; transform: translateY(18px) scale(0.94); }
                 to   { opacity: 1; transform: translateY(0) scale(1); }
             }
 
-            /* ── Cores por severidade ────────────────────────────────────── */
-            .dp-panel.dp-ok {
-                border-color: rgba(82,247,173,0.25);
-                background: linear-gradient(145deg, rgba(10,32,24,0.75), rgba(14,25,50,0.75));
-                box-shadow: 0 0 18px rgba(82,247,173,0.06), inset 0 1px 0 rgba(82,247,173,0.12);
-            }
-            .dp-panel.dp-ok:hover {
-                box-shadow: 0 6px 28px rgba(82,247,173,0.14), inset 0 1px 0 rgba(82,247,173,0.2);
-            }
-            .dp-panel.dp-caution {
-                border-color: rgba(255,206,77,0.25);
-                background: linear-gradient(145deg, rgba(28,22,8,0.75), rgba(14,25,50,0.75));
-                box-shadow: 0 0 18px rgba(255,206,77,0.06), inset 0 1px 0 rgba(255,206,77,0.12);
-            }
-            .dp-panel.dp-caution:hover {
-                box-shadow: 0 6px 28px rgba(255,206,77,0.14), inset 0 1px 0 rgba(255,206,77,0.2);
-            }
-            .dp-panel.dp-warning {
-                border-color: rgba(255,140,0,0.28);
-                background: linear-gradient(145deg, rgba(30,18,5,0.75), rgba(14,25,50,0.75));
-                box-shadow: 0 0 18px rgba(255,140,0,0.08), inset 0 1px 0 rgba(255,140,0,0.14);
-            }
-            .dp-panel.dp-warning:hover {
-                box-shadow: 0 6px 28px rgba(255,140,0,0.16), inset 0 1px 0 rgba(255,140,0,0.22);
-            }
-            .dp-panel.dp-critical {
-                border-color: rgba(255,70,70,0.3);
-                background: linear-gradient(145deg, rgba(32,10,10,0.75), rgba(14,25,50,0.75));
-                box-shadow: 0 0 20px rgba(255,70,70,0.1), inset 0 1px 0 rgba(255,70,70,0.16);
-            }
-            .dp-panel.dp-critical:hover {
-                box-shadow: 0 6px 30px rgba(255,70,70,0.18), inset 0 1px 0 rgba(255,70,70,0.26);
+            /* Hover — parallax leve */
+            .cki-panel:hover {
+                transform: translateY(-5px) scale(1.015);
             }
 
-            /* Camada de glow (::after) */
-            .dp-glow-layer {
+            /* ── Camada 2: gradiente profundo (dentro do .cki-inner) ─────── */
+            .cki-inner {
+                position: relative;
+                z-index: 2;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                padding: 20px 22px 18px;
+                background: linear-gradient(
+                    155deg,
+                    rgba(16,30,68,0.62) 0%,
+                    rgba(8,16,38,0.55) 100%
+                );
+            }
+
+            /* ── Camada 3: noise texture ────────────────────────────────── */
+            .cki-noise {
                 position: absolute;
                 inset: 0;
-                border-radius: 14px;
+                z-index: 1;
+                border-radius: 18px;
                 pointer-events: none;
-                opacity: 0;
-                transition: opacity 0.25s ease;
-            }
-            .dp-panel:hover .dp-glow-layer { opacity: 1; }
-            .dp-panel.dp-ok       .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(82,247,173,0.06) 0%, transparent 70%); }
-            .dp-panel.dp-caution  .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,206,77,0.07) 0%, transparent 70%); }
-            .dp-panel.dp-warning  .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,140,0,0.08) 0%, transparent 70%); }
-            .dp-panel.dp-critical .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,70,70,0.10) 0%, transparent 70%); }
-
-            /* ── Painel compacto (bandas espectrais) ─────────────────────── */
-            .dp-panel.dp-compact {
-                flex: 0 0 148px;
-                min-width: 148px;
-                padding: 10px 12px 9px;
-                gap: 5px;
+                opacity: 0.028;
+                background-image:
+                    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+                background-size: 180px 180px;
             }
 
-            /* ── Header ──────────────────────────────────────────────────── */
-            .dp-header {
+            /* ── Camada 4: borda glow animada ───────────────────────────── */
+            .cki-border-glow {
+                position: absolute;
+                inset: 0;
+                z-index: 3;
+                border-radius: 18px;
+                pointer-events: none;
+                border: 1.5px solid transparent;
+                transition: opacity 0.3s;
+            }
+
+            /* ── Camada 5: sombra difusa (depth layer) ───────────────────── */
+            .cki-depth-layer {
+                position: absolute;
+                inset: 0;
+                z-index: 0;
+                border-radius: 18px;
+                pointer-events: none;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            }
+
+            /* ── Cores por severidade ──────────────────────────────────── */
+            /* OK — verde */
+            .cki-panel.cki-ok {
+                box-shadow:
+                    0 0 0 1px rgba(52,211,153,0.28),
+                    0 8px 36px rgba(0,0,0,0.6),
+                    0 0 40px rgba(52,211,153,0.04);
+            }
+            .cki-panel.cki-ok .cki-border-glow {
+                border-color: rgba(52,211,153,0.32);
+                animation: cki-glow-ok 3.5s ease-in-out infinite alternate;
+            }
+            .cki-panel.cki-ok .cki-inner {
+                background: linear-gradient(155deg, rgba(10,36,26,0.65) 0%, rgba(8,16,38,0.55) 100%);
+            }
+            .cki-panel.cki-ok:hover {
+                box-shadow:
+                    0 0 0 1px rgba(52,211,153,0.42),
+                    0 14px 44px rgba(0,0,0,0.65),
+                    0 0 60px rgba(52,211,153,0.10);
+            }
+            @keyframes cki-glow-ok {
+                from { box-shadow: 0 0 8px rgba(52,211,153,0.15) inset; opacity: 0.7; }
+                to   { box-shadow: 0 0 20px rgba(52,211,153,0.30) inset; opacity: 1; }
+            }
+
+            /* CAUTION — âmbar */
+            .cki-panel.cki-caution {
+                box-shadow:
+                    0 0 0 1px rgba(251,191,36,0.28),
+                    0 8px 36px rgba(0,0,0,0.6),
+                    0 0 40px rgba(251,191,36,0.04);
+            }
+            .cki-panel.cki-caution .cki-border-glow {
+                border-color: rgba(251,191,36,0.32);
+                animation: cki-glow-caution 3.5s ease-in-out infinite alternate;
+            }
+            .cki-panel.cki-caution .cki-inner {
+                background: linear-gradient(155deg, rgba(36,26,6,0.68) 0%, rgba(8,16,38,0.55) 100%);
+            }
+            .cki-panel.cki-caution:hover {
+                box-shadow:
+                    0 0 0 1px rgba(251,191,36,0.42),
+                    0 14px 44px rgba(0,0,0,0.65),
+                    0 0 60px rgba(251,191,36,0.10);
+            }
+            @keyframes cki-glow-caution {
+                from { box-shadow: 0 0 8px rgba(251,191,36,0.15) inset; opacity: 0.7; }
+                to   { box-shadow: 0 0 20px rgba(251,191,36,0.30) inset; opacity: 1; }
+            }
+
+            /* WARNING — laranja */
+            .cki-panel.cki-warning {
+                box-shadow:
+                    0 0 0 1px rgba(249,115,22,0.28),
+                    0 8px 36px rgba(0,0,0,0.6),
+                    0 0 40px rgba(249,115,22,0.05);
+            }
+            .cki-panel.cki-warning .cki-border-glow {
+                border-color: rgba(249,115,22,0.33);
+                animation: cki-glow-warning 3.5s ease-in-out infinite alternate;
+            }
+            .cki-panel.cki-warning .cki-inner {
+                background: linear-gradient(155deg, rgba(38,20,6,0.7) 0%, rgba(8,16,38,0.55) 100%);
+            }
+            .cki-panel.cki-warning:hover {
+                box-shadow:
+                    0 0 0 1px rgba(249,115,22,0.44),
+                    0 14px 44px rgba(0,0,0,0.65),
+                    0 0 60px rgba(249,115,22,0.12);
+            }
+            @keyframes cki-glow-warning {
+                from { box-shadow: 0 0 8px rgba(249,115,22,0.15) inset; opacity: 0.7; }
+                to   { box-shadow: 0 0 20px rgba(249,115,22,0.30) inset; opacity: 1; }
+            }
+
+            /* CRITICAL — vermelho */
+            .cki-panel.cki-critical {
+                box-shadow:
+                    0 0 0 1px rgba(239,68,68,0.30),
+                    0 8px 36px rgba(0,0,0,0.6),
+                    0 0 40px rgba(239,68,68,0.06);
+            }
+            .cki-panel.cki-critical .cki-border-glow {
+                border-color: rgba(239,68,68,0.35);
+                animation: cki-glow-critical 2.8s ease-in-out infinite alternate;
+            }
+            .cki-panel.cki-critical .cki-inner {
+                background: linear-gradient(155deg, rgba(40,10,10,0.72) 0%, rgba(8,16,38,0.55) 100%);
+            }
+            .cki-panel.cki-critical:hover {
+                box-shadow:
+                    0 0 0 1px rgba(239,68,68,0.46),
+                    0 14px 44px rgba(0,0,0,0.65),
+                    0 0 60px rgba(239,68,68,0.14);
+            }
+            @keyframes cki-glow-critical {
+                from { box-shadow: 0 0 10px rgba(239,68,68,0.18) inset; opacity: 0.8; }
+                to   { box-shadow: 0 0 24px rgba(239,68,68,0.36) inset; opacity: 1; }
+            }
+
+            /* ── Painel compacto (bandas espectrais) ────────────────────── */
+            .cki-panel.cki-compact {
+                flex: 0 0 200px;
+                min-width: 200px;
+                max-width: 220px;
+            }
+            .cki-panel.cki-compact .cki-inner {
+                padding: 14px 16px 12px;
+                gap: 8px;
+            }
+
+            /* ── Header ─────────────────────────────────────────────────── */
+            .cki-header {
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 8px;
             }
-            .dp-icon {
-                font-size: 16px;
+            .cki-icon {
+                font-size: 18px;
                 line-height: 1;
                 flex-shrink: 0;
+                filter: drop-shadow(0 0 6px currentColor);
             }
-            .dp-icon-sm { font-size: 13px !important; }
-            .dp-name {
-                font-size: 10px;
-                font-weight: 700;
-                color: rgba(180,210,255,0.8);
-                letter-spacing: 0.6px;
-                text-transform: uppercase;
+            .cki-icon-sm { font-size: 14px !important; }
+            .cki-name {
                 flex: 1;
+                font-size: 10px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: rgba(180,210,255,0.75);
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .dp-name-sm { font-size: 9px !important; letter-spacing: 0.4px !important; }
+            .cki-name-sm { font-size: 9px !important; letter-spacing: 0.6px !important; }
 
-            /* ── Badge ───────────────────────────────────────────────────── */
-            .dp-badge {
-                font-size: 7.5px;
-                font-weight: 800;
-                padding: 2px 6px;
-                border-radius: 20px;
-                letter-spacing: 0.7px;
-                text-transform: uppercase;
+            /* ── Badge de status ─────────────────────────────────────────── */
+            .cki-badge {
                 flex-shrink: 0;
-            }
-            .dp-badge-ok       { background: rgba(82,247,173,0.14); color: #52f7ad; border: 1px solid rgba(82,247,173,0.35); }
-            .dp-badge-caution  { background: rgba(255,206,77,0.14);  color: #ffce4d; border: 1px solid rgba(255,206,77,0.35); }
-            .dp-badge-warning  { background: rgba(255,140,0,0.14);   color: #ffaa33; border: 1px solid rgba(255,140,0,0.35); }
-            .dp-badge-critical { background: rgba(255,70,70,0.14);   color: #ff5555; border: 1px solid rgba(255,70,70,0.35); }
-
-            /* ── Valor + Unidade ─────────────────────────────────────────── */
-            .dp-value-wrap {
-                display: flex;
-                align-items: baseline;
-                gap: 5px;
-                margin: 4px 0 2px;
-            }
-            .dp-value {
-                font-size: 32px;
+                font-size: 7px;
                 font-weight: 900;
-                color: #ffffff;
+                padding: 2px 7px;
+                border-radius: 20px;
+                letter-spacing: 0.8px;
+                text-transform: uppercase;
+            }
+            .cki-badge-ok       { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.38); }
+            .cki-badge-caution  { background: rgba(251,191,36,0.14);  color: #fbbf24; border: 1px solid rgba(251,191,36,0.38); }
+            .cki-badge-warning  { background: rgba(249,115,22,0.14);  color: #f97316; border: 1px solid rgba(249,115,22,0.38); }
+            .cki-badge-critical { background: rgba(239,68,68,0.16);   color: #ef4444; border: 1px solid rgba(239,68,68,0.42); }
+
+            /* ── Value Stage — coração do painel ─────────────────────────── */
+            .cki-value-stage {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                padding: 6px 0 4px;
+                border-top: 1px solid rgba(255,255,255,0.06);
+                border-bottom: 1px solid rgba(255,255,255,0.04);
+            }
+            .cki-value {
+                font-size: 48px;
+                font-weight: 900;
                 line-height: 1;
-                letter-spacing: -1px;
+                letter-spacing: -2px;
                 font-variant-numeric: tabular-nums;
+                color: #fff;
             }
-            .dp-value-sm {
-                font-size: 20px !important;
+            .cki-value-sm {
+                font-size: 28px !important;
                 font-weight: 800 !important;
-                letter-spacing: -0.5px !important;
+                letter-spacing: -1px !important;
             }
-            .dp-unit {
-                font-size: 11px;
+            .cki-unit {
+                font-size: 12px;
                 font-weight: 500;
-                color: rgba(160,200,255,0.6);
-                letter-spacing: 0.3px;
-                padding-bottom: 3px;
+                letter-spacing: 0.4px;
+                color: rgba(140,185,255,0.55);
+                text-transform: uppercase;
             }
 
-            /* ── Shimmer no valor ────────────────────────────────────────── */
-            .dp-shimmer {
+            /* ── Linha glow sob o valor ──────────────────────────────────── */
+            .cki-underline {
+                height: 2px;
+                border-radius: 2px;
+                margin-top: 6px;
+                opacity: 0.7;
+            }
+            .cki-underline-ok       { background: linear-gradient(90deg, transparent, #34d399, transparent); }
+            .cki-underline-caution  { background: linear-gradient(90deg, transparent, #fbbf24, transparent); }
+            .cki-underline-warning  { background: linear-gradient(90deg, transparent, #f97316, transparent); }
+            .cki-underline-critical { background: linear-gradient(90deg, transparent, #ef4444, transparent); }
+
+            /* ── Shimmer no valor ─────────────────────────────────────────── */
+            .cki-shimmer {
                 background: linear-gradient(
-                    90deg,
-                    #ffffff 0%,
-                    rgba(180,220,255,0.9) 30%,
-                    #ffffff 60%,
-                    rgba(200,230,255,0.8) 100%
+                    100deg,
+                    #d0e8ff 0%,
+                    #ffffff 25%,
+                    rgba(180,220,255,0.85) 50%,
+                    #ffffff 75%,
+                    #c8e4ff 100%
                 );
-                background-size: 200% auto;
+                background-size: 250% auto;
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
-                animation: dp-shimmer-anim 3.5s linear infinite;
+                animation: cki-shimmer 4s linear infinite;
             }
-            @keyframes dp-shimmer-anim {
-                0%   { background-position: 200% center; }
-                100% { background-position:  -200% center; }
+            @keyframes cki-shimmer {
+                0%   { background-position: 250% center; }
+                100% { background-position: -250% center; }
             }
 
-            /* ── Ação sugerida ───────────────────────────────────────────── */
-            .dp-action {
-                font-size: 10.5px;
-                color: rgba(170,205,255,0.65);
-                line-height: 1.4;
-                min-height: 28px;
+            /* ── Footer — ação + barra indicadora ───────────────────────── */
+            .cki-footer {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
             }
-            .dp-action-sm { font-size: 9.5px !important; min-height: 0 !important; }
-            .dp-panel.dp-ok       .dp-action { color: rgba(100,230,170,0.8); }
-            .dp-panel.dp-caution  .dp-action { color: rgba(240,200,90,0.8); }
-            .dp-panel.dp-warning  .dp-action { color: rgba(255,165,80,0.85); }
-            .dp-panel.dp-critical .dp-action { color: rgba(255,110,110,0.9); }
+            .cki-action {
+                font-size: 11px;
+                line-height: 1.45;
+                color: rgba(160,200,255,0.6);
+                min-height: 30px;
+            }
+            .cki-action-sm { font-size: 10px !important; min-height: 0 !important; }
+            /* Ação colorida por severidade */
+            .cki-panel.cki-ok       .cki-action { color: rgba(80,220,155,0.82); }
+            .cki-panel.cki-caution  .cki-action { color: rgba(240,195,80,0.82); }
+            .cki-panel.cki-warning  .cki-action { color: rgba(249,140,60,0.88); }
+            .cki-panel.cki-critical .cki-action { color: rgba(240,90,90,0.92);  }
 
-            /* ── Streaming mode badge ────────────────────────────────────── */
-            .streaming-badge { display:inline-block; font-size:.85em; margin-left:4px; vertical-align:middle; cursor:help; }
+            /* ── Barra indicadora (bottom) ───────────────────────────────── */
+            .cki-bar {
+                height: 3px;
+                border-radius: 3px;
+                opacity: 0.75;
+                animation: cki-bar-pulse 2.5s ease-in-out infinite alternate;
+            }
+            .cki-bar-ok       { background: linear-gradient(90deg, #34d399, rgba(52,211,153,0.3)); }
+            .cki-bar-caution  { background: linear-gradient(90deg, #fbbf24, rgba(251,191,36,0.3)); }
+            .cki-bar-warning  { background: linear-gradient(90deg, #f97316, rgba(249,115,22,0.3)); }
+            .cki-bar-critical { background: linear-gradient(90deg, #ef4444, rgba(239,68,68,0.3)); animation-duration: 1.8s; }
+            @keyframes cki-bar-pulse {
+                from { opacity: 0.5; transform: scaleX(0.95); }
+                to   { opacity: 0.9; transform: scaleX(1); }
+            }
+
+            /* ── Streaming badges (preservados) ─────────────────────────── */
+            .streaming-badge {
+                display: inline-block; font-size: .85em; margin-left: 4px; vertical-align: middle; cursor: help;
+            }
             .streaming-mode-label {
-                display:inline-block;
-                background:linear-gradient(135deg,rgba(0,200,255,0.2),rgba(0,150,255,0.1));
-                border:1px solid rgba(0,200,255,0.4); color:#00c8ff;
-                font-size:.7em; padding:2px 8px; border-radius:12px; margin-left:8px;
-                font-weight:500; text-transform:uppercase; letter-spacing:.5px; vertical-align:middle;
+                display: inline-block;
+                background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(0,150,255,0.1));
+                border: 1px solid rgba(0,200,255,0.4); color: #00c8ff;
+                font-size: .7em; padding: 2px 8px; border-radius: 12px; margin-left: 8px;
+                font-weight: 500; text-transform: uppercase; letter-spacing: .5px; vertical-align: middle;
             }
 
-            /* ── Cards de resumo do topo (preservados) ───────────────────── */
+            /* ── Summary grid (preservado, com melhorias visuais) ────────── */
             .diag-summary-grid {
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
                 gap: 8px;
-                margin-bottom: 16px;
+                margin-bottom: 18px;
             }
             .diag-summary-card {
                 display: flex; flex-direction: column; align-items: center; gap: 4px;
-                padding: 10px 8px; border-radius: 10px;
-                border: 1px solid rgba(255,255,255,0.1);
-                background: rgba(255,255,255,0.04); text-align: center;
+                padding: 11px 8px; border-radius: 12px;
+                border: 1px solid rgba(255,255,255,0.08);
+                background: rgba(255,255,255,0.03);
+                text-align: center;
+                transition: transform 0.2s, box-shadow 0.2s;
             }
-            .diag-summary-card.dsc-ok       { border-color:rgba(82,247,173,0.3);  background:rgba(82,247,173,0.06); }
-            .diag-summary-card.dsc-caution  { border-color:rgba(255,206,77,0.3);  background:rgba(255,206,77,0.06); }
-            .diag-summary-card.dsc-warning  { border-color:rgba(255,165,0,0.3);   background:rgba(255,165,0,0.06); }
-            .diag-summary-card.dsc-critical { border-color:rgba(255,123,123,0.3); background:rgba(255,123,123,0.06); }
-            .diag-summary-card.dsc-na { opacity:.5; }
-            .dsc-icon { font-size:20px; line-height:1; }
-            .dsc-label { font-size:10px; color:#8fa8c8; font-weight:500; letter-spacing:.4px; text-transform:uppercase; }
-            .dsc-value { font-size:13px; font-weight:700; color:#f5f7fa; line-height:1.2; }
-            .dsc-badge { font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; letter-spacing:.5px; text-transform:uppercase; background:rgba(255,255,255,.1); color:#c0cfe0; }
-            .dsc-badge-ok       { background:rgba(82,247,173,.2); color:#52f7ad; }
-            .dsc-badge-caution  { background:rgba(255,206,77,.2); color:#ffce4d; }
-            .dsc-badge-warning  { background:rgba(255,165,0,.2);  color:#ffa500; }
-            .dsc-badge-critical { background:rgba(255,123,123,.2);color:#ff7b7b; }
+            .diag-summary-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+            .diag-summary-card.dsc-ok       { border-color: rgba(52,211,153,0.28); background: rgba(52,211,153,0.05); }
+            .diag-summary-card.dsc-caution  { border-color: rgba(251,191,36,0.28); background: rgba(251,191,36,0.05); }
+            .diag-summary-card.dsc-warning  { border-color: rgba(249,115,22,0.28); background: rgba(249,115,22,0.05); }
+            .diag-summary-card.dsc-critical { border-color: rgba(239,68,68,0.3);   background: rgba(239,68,68,0.05);  }
+            .diag-summary-card.dsc-na { opacity: .45; }
+            .dsc-icon  { font-size: 20px; line-height: 1; }
+            .dsc-label { font-size: 9.5px; color: #7fa0c0; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; }
+            .dsc-value { font-size: 13px; font-weight: 700; color: #edf4ff; line-height: 1.2; }
+            .dsc-badge { font-size: 8.5px; font-weight: 700; padding: 2px 6px; border-radius: 8px; letter-spacing: .5px; text-transform: uppercase; background: rgba(255,255,255,.08); color: #b0c8e0; }
+            .dsc-badge-ok       { background: rgba(52,211,153,.18); color: #34d399; }
+            .dsc-badge-caution  { background: rgba(251,191,36,.18); color: #fbbf24; }
+            .dsc-badge-warning  { background: rgba(249,115,22,.18); color: #f97316; }
+            .dsc-badge-critical { background: rgba(239,68,68,.18);  color: #ef4444; }
 
-            /* ── Mobile ─────────────────────────────────────────────────── */
-            @media (max-width: 768px) {
-                .genre-comparison-classic { padding: 14px 12px 12px !important; border-radius: 14px !important; }
-                .dp-panel         { flex: 0 0 160px; min-width: 160px; padding: 10px 12px 10px; }
-                .dp-panel.dp-compact { flex: 0 0 130px; min-width: 130px; }
-                .dp-value         { font-size: 26px !important; }
-                .dp-value-sm      { font-size: 17px !important; }
-                .dp-action        { font-size: 9.5px !important; }
-                .diag-summary-grid { grid-template-columns: repeat(3,1fr); gap:6px; }
+            /* ── Mobile ──────────────────────────────────────────────────── */
+            @media (max-width: 900px) {
+                .cki-track { gap: 14px; padding: 10px 20px 18px; }
+                .cki-panel { flex: 0 0 260px; min-width: 260px; }
+                .cki-panel.cki-compact { flex: 0 0 180px; min-width: 180px; }
+                .cki-value { font-size: 38px !important; }
+                .cki-value-sm { font-size: 22px !important; }
             }
-            @media (max-width: 480px) {
-                .dp-panel { flex: 0 0 140px; min-width: 140px; }
-                .dp-value { font-size: 22px !important; }
+            @media (max-width: 600px) {
+                .cki-track { gap: 10px; padding: 8px 14px 16px; }
+                .cki-panel { flex: 0 0 210px; min-width: 210px; }
+                .cki-panel.cki-compact { flex: 0 0 155px; min-width: 155px; }
+                .cki-value { font-size: 32px !important; letter-spacing: -1px !important; }
+                .cki-value-sm { font-size: 20px !important; }
+                .cki-inner { padding: 14px 16px 12px; }
+                .diag-summary-grid { grid-template-columns: repeat(3,1fr); gap: 6px; }
+            }
+            @media (max-width: 420px) {
+                .cki-panel { flex: 0 0 180px; min-width: 180px; }
+                .cki-value { font-size: 28px !important; }
                 .diag-summary-grid { grid-template-columns: repeat(2,1fr); }
             }
         `;
         document.head.appendChild(style);
         log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
+    }
     }
 
     // 🎨 INJETAR ESTILOS PARA CARDS DE RESUMO DIAGNÓSTICO
