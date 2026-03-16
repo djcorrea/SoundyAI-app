@@ -196,8 +196,8 @@ app.use(
   express.static(publicPath, {
     index: false,
     setHeaders: (res, filePath) => {
-      // Força no-cache apenas para arquivos JavaScript
-      if (filePath.endsWith('.js')) {
+      // Força no-cache para JS e HTML (evitar CDN/browser cacheando versões antigas)
+      if (filePath.endsWith('.js') || filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
