@@ -470,6 +470,17 @@
       });
 
       observer.observe(resultsEl, { attributes: true, attributeFilter: ['style'] });
+
+      // ── DELEGAÇÃO: #btnMasterizar — garante href com jobId atualizado no clique
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('#btnMasterizar');
+        if (!btn) return;
+        var jid = window.__CURRENT_JOB_ID__ || '';
+        if (jid) {
+          btn.href = 'master.html?jobId=' + encodeURIComponent(jid);
+        }
+        // navegação natural do <a> prossegue
+      });
     });
   </script>
 

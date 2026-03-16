@@ -2122,6 +2122,19 @@
         overlay.setAttribute('aria-hidden', 'true');
       }
     });
+
+    // ── DELEGAÇÃO: #btnMasterizar — garante href atualizado mesmo após re-render
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('#btnMasterizar');
+      if (!btn) return;
+      var fk = window.__HOME_FILE_KEY__  || '';
+      var fn = window.__HOME_FILE_NAME__ || '';
+      if (fk) {
+        btn.href = 'master.html?fileKey=' + encodeURIComponent(fk)
+                 + '&fileName='          + encodeURIComponent(fn);
+      }
+      // navegação natural do <a> prossegue
+    });
   });
 
 })();

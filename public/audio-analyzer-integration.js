@@ -10100,25 +10100,8 @@ function renderGenreComparisonTable(options) {
             rowsInDOM: container.querySelectorAll('tr').length
         });
 
-        // 🎯 Wiring imperativo do accordion (sem depender de window.toggleDiagTable global)
-        const _diagToggleBtn = container.querySelector('.genre-diag-toggle');
-        if (_diagToggleBtn) {
-            _diagToggleBtn.addEventListener('click', function () {
-                const body = this.nextElementSibling;
-                if (!body) return;
-                const willExpand = body.hasAttribute('hidden');
-                if (willExpand) {
-                    body.removeAttribute('hidden');
-                    this.setAttribute('aria-expanded', 'true');
-                } else {
-                    body.setAttribute('hidden', '');
-                    this.setAttribute('aria-expanded', 'false');
-                }
-                const arrow = this.querySelector('.dt-toggle-arrow');
-                if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
-            });
-            log('[GENRE-TABLE] 🎯 Accordion toggle wired imperatively');
-        }
+        // 🎯 Accordion toggle via document delegation (persistente — ver initDiagnosticEventDelegation)
+        log('[GENRE-TABLE] 🎯 Accordion toggle via delegação persistente no document');
     } catch (err) {
         error('[GENRE-TABLE-ERROR] ❌ Erro ao inserir HTML:', err);
         container.innerHTML = `<div class="error-message">❌ Erro ao renderizar tabela: ${err.message}</div>`;
@@ -10738,6 +10721,39 @@ function renderGenreComparisonTable(options) {
     });
     console.groupEnd();
 }
+
+// ── DELEGAÇÃO PERSISTENTE DE EVENTOS DIAGNÓSTICO ─────────────────────────────
+// Ligado UMA VEZ ao document — sobrevive a qualquer re-render de innerHTML.
+// Cobre: .genre-diag-toggle (accordion "Diagnóstico completo")
+// ─────────────────────────────────────────────────────────────────────────────
+(function initDiagnosticEventDelegation() {
+    if (window.__DIAG_EVENTS_DELEGATED__) return; // guard anti-duplo
+    window.__DIAG_EVENTS_DELEGATED__ = true;
+
+    document.addEventListener('click', function (e) {
+        const toggleBtn = e.target.closest('.genre-diag-toggle');
+        if (!toggleBtn) return;
+
+        const body = toggleBtn.nextElementSibling;
+        if (!body) return;
+
+        const willExpand = body.hasAttribute('hidden');
+        if (willExpand) {
+            body.removeAttribute('hidden');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            body.setAttribute('hidden', '');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        const arrow = toggleBtn.querySelector('.dt-toggle-arrow');
+        if (arrow) arrow.textContent = willExpand ? '▲' : '▼';
+
+        log('[DIAG-DELEGATION] 🎯 Accordion toggled via delegação');
+    });
+
+    log('[DIAG-DELEGATION] ✅ Delegação de eventos diagnóstico ativa no document');
+})();
 
 // 🎯 NOVO: Atualizar step ativo no modo referência
 function updateReferenceStep(step) {
