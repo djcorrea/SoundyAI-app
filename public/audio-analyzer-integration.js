@@ -9682,16 +9682,18 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dc-row dc-${result.severityClass}">
-                        <span class="dc-icon">🔊</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">Loudness (LUFS)</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
-                            </div>
-                            <div class="dc-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                    <div class="dp-panel dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon">🔊</span>
+                            <span class="dp-name">Loudness</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-shimmer">${canRender ? lufsValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                            <span class="dp-unit">LUFS</span>
+                        </div>
+                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9735,16 +9737,18 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dc-row dc-${result.severityClass}">
-                        <span class="dc-icon">🎚️</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">Pico Real (True Peak)</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
-                            </div>
-                            <div class="dc-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                    <div class="dp-panel dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon">🎚️</span>
+                            <span class="dp-name">True Peak</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-shimmer">${canRender ? tpValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                            <span class="dp-unit">dBTP</span>
+                        </div>
+                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9764,16 +9768,18 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dc-row dc-${result.severityClass}">
-                        <span class="dc-icon">📊</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">Dinâmica (DR)</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
-                            </div>
-                            <div class="dc-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                    <div class="dp-panel dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon">📊</span>
+                            <span class="dp-name">Dinâmica</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-shimmer">${canRender ? drValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                            <span class="dp-unit">DR</span>
+                        </div>
+                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9793,16 +9799,18 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dc-row dc-${result.severityClass}">
-                        <span class="dc-icon">📈</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">LRA (Faixa de Loudness)</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
-                            </div>
-                            <div class="dc-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                    <div class="dp-panel dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon">📈</span>
+                            <span class="dp-name">LRA</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-shimmer">${canRender ? lraValue.toFixed(2) : renderSecurePlaceholder('value')}</span>
+                            <span class="dp-unit">LU</span>
+                        </div>
+                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9822,16 +9830,18 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
                 
                 rows.push(`
-                    <div class="dc-row dc-${result.severityClass}">
-                        <span class="dc-icon">🎧</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">Imagem Estéreo</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
-                            </div>
-                            <div class="dc-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                    <div class="dp-panel dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon">🎧</span>
+                            <span class="dp-name">Estéreo</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-shimmer">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</span>
+                            <span class="dp-unit">corr.</span>
+                        </div>
+                        <div class="dp-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
@@ -9957,16 +9967,17 @@ function renderGenreComparisonTable(options) {
                 const actionDisplay = canRender ? result.action : renderSecurePlaceholder('action');
                 
                 rows.push(`
-                    <div class="dc-row dc-compact dc-${result.severityClass}">
-                        <span class="dc-icon dc-icon-sm">${nomeAmigavel.split(' ')[0]}</span>
-                        <div class="dc-body">
-                            <div class="dc-top">
-                                <span class="dc-name">${nomeAmigavel.replace(/^\S+\s*/, '')}</span>
-                                <span class="dc-badge dc-badge-${result.severityClass}">${severityDisplay}</span>
-                            </div>
-                            <div class="dc-value dc-value-sm">${energyDbSafe}</div>
-                            <div class="dc-action">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</div>
+                    <div class="dp-panel dp-compact dp-${result.severityClass}">
+                        <div class="dp-header">
+                            <span class="dp-icon dp-icon-sm">${nomeAmigavel.split(' ')[0]}</span>
+                            <span class="dp-name dp-name-sm">${nomeAmigavel.replace(/^\S+\s*/, '')}</span>
+                            <span class="dp-badge dp-badge-${result.severityClass}">${severityDisplay}</span>
                         </div>
+                        <div class="dp-value-wrap">
+                            <span class="dp-value dp-value-sm">${energyDbSafe}</span>
+                        </div>
+                        <div class="dp-action dp-action-sm">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</div>
+                        <div class="dp-glow-layer"></div>
                     </div>
                 `);
                 bandsCount++;
@@ -10013,7 +10024,7 @@ function renderGenreComparisonTable(options) {
                 <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
             </button>
             <div class="dt-expand-body" hidden>
-                <div class="diag-cards-list">
+                <div class="dp-carousel">
                     ${rows.join('')}
                 </div>
             </div>
@@ -10086,237 +10097,350 @@ function renderGenreComparisonTable(options) {
         const style = document.createElement('style');
         style.id = 'classicGenreTableStyles';
         style.textContent = `
-            /* ═══════════════════════════════════════════════════════
-               🎯 DIAGNÓSTICO TÉCNICO — DESIGN PREMIUM (genre mode)
-               Glassmorphism · Neon sutil · Modular · Responsivo
-            ═══════════════════════════════════════════════════════ */
+            /* ═══════════════════════════════════════════════════════════════
+               DIAGNOSTIC COCKPIT — Premium Horizontal Layout
+               Glassmorphism · Neon Glow · Scroll Snap · Microinterações
+            ═══════════════════════════════════════════════════════════════ */
 
-            /* Container principal */
+            /* ── Container principal ──────────────────────────────────── */
             .genre-comparison-classic {
-                background: linear-gradient(135deg, rgba(8,14,28,0.96) 0%, rgba(16,28,52,0.96) 100%);
-                border: 1px solid rgba(60,120,220,0.18);
-                border-radius: 18px;
-                padding: 22px 22px 16px;
+                background: linear-gradient(135deg, rgba(5,10,22,0.97) 0%, rgba(12,22,45,0.97) 100%);
+                border: 1px solid rgba(50,110,255,0.2);
+                border-radius: 20px;
+                padding: 22px 22px 18px;
                 margin-top: 16px;
                 overflow: visible;
                 height: auto;
                 min-height: 0;
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-                box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                box-shadow:
+                    0 4px 24px rgba(0,0,0,0.5),
+                    0 0 0 1px rgba(80,140,255,0.08),
+                    inset 0 1px 0 rgba(255,255,255,0.04);
             }
             .genre-comparison-classic::before { pointer-events: none; }
 
-            /* Títulos */
+            /* ── Títulos ────────────────────────────────────────────────── */
             .sa-diagnostico-title {
-                font-size: 15px !important;
+                font-size: 14px !important;
                 font-weight: 700 !important;
-                color: #e0eeff !important;
-                letter-spacing: 0.3px !important;
+                color: #cfe3ff !important;
+                letter-spacing: 0.5px !important;
+                text-transform: uppercase !important;
                 margin: 0 0 2px !important;
             }
             .sa-diagnostico-subtitle {
                 font-size: 11px !important;
-                color: rgba(160,190,240,0.65) !important;
+                color: rgba(140,180,255,0.55) !important;
                 margin: 0 0 14px !important;
             }
 
-            /* ─── Botão toggle ─────────────────────────────── */
+            /* ── Botão toggle ───────────────────────────────────────────── */
             .dt-toggle-btn {
                 display: flex !important;
                 align-items: center !important;
                 gap: 7px !important;
                 width: 100% !important;
-                background: rgba(40,80,160,0.12) !important;
-                border: 1px solid rgba(80,140,255,0.2) !important;
-                color: #7eb8ff !important;
-                font-size: 11.5px !important;
-                font-weight: 500 !important;
+                background: rgba(30,60,140,0.12) !important;
+                border: 1px solid rgba(60,110,255,0.22) !important;
+                color: #6aa8ff !important;
+                font-size: 11px !important;
+                font-weight: 600 !important;
                 padding: 7px 14px !important;
                 border-radius: 8px !important;
                 cursor: pointer !important;
-                letter-spacing: 0.3px !important;
-                transition: background 0.2s, border-color 0.2s !important;
-                margin-top: 2px !important;
+                letter-spacing: 0.5px !important;
+                text-transform: uppercase !important;
+                transition: background 0.2s, border-color 0.2s, color 0.2s !important;
+                margin-top: 4px !important;
                 box-sizing: border-box !important;
             }
             .dt-toggle-btn:hover {
-                background: rgba(60,110,220,0.2) !important;
-                border-color: rgba(100,170,255,0.3) !important;
+                background: rgba(50,100,240,0.22) !important;
+                border-color: rgba(90,150,255,0.38) !important;
+                color: #9dcbff !important;
             }
-            .dt-toggle-arrow { font-size: 9px !important; }
-            .dt-expand-body { margin-top: 10px !important; }
+            .dt-toggle-arrow { font-size: 8px !important; }
+            .dt-expand-body { margin-top: 12px !important; }
             .dt-expand-body[hidden] { display: none !important; }
 
-            /* ─── Lista de cards ────────────────────────────── */
-            .diag-cards-list {
+            /* ═══════════════════════════════════════════════════════════════
+               COCKPIT CAROUSEL
+            ═══════════════════════════════════════════════════════════════ */
+            .dp-carousel {
                 display: flex;
-                flex-direction: column;
-                gap: 6px;
-            }
-
-            /* ─── Card base ─────────────────────────────────── */
-            .dc-row {
-                display: flex;
-                align-items: flex-start;
+                flex-direction: row;
                 gap: 12px;
-                padding: 11px 14px;
-                border-radius: 10px;
-                border: 1px solid rgba(255,255,255,0.07);
-                background: rgba(255,255,255,0.03);
-                backdrop-filter: blur(4px);
-                -webkit-backdrop-filter: blur(4px);
-                transition: background 0.18s, transform 0.18s;
-                animation: dc-fadein 0.25s ease both;
+                overflow-x: auto;
+                overflow-y: hidden;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                padding: 6px 4px 14px;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(80,140,255,0.25) transparent;
             }
-            .dc-row:hover {
-                background: rgba(255,255,255,0.055);
-                transform: translateX(2px);
+            .dp-carousel::-webkit-scrollbar {
+                height: 4px;
             }
-
-            @keyframes dc-fadein {
-                from { opacity: 0; transform: translateY(4px); }
-                to   { opacity: 1; transform: translateY(0); }
+            .dp-carousel::-webkit-scrollbar-track {
+                background: transparent;
             }
-
-            /* Stagger de animação para os primeiros 10 cards */
-            .dc-row:nth-child(1)  { animation-delay: 0.03s; }
-            .dc-row:nth-child(2)  { animation-delay: 0.06s; }
-            .dc-row:nth-child(3)  { animation-delay: 0.09s; }
-            .dc-row:nth-child(4)  { animation-delay: 0.12s; }
-            .dc-row:nth-child(5)  { animation-delay: 0.15s; }
-            .dc-row:nth-child(6)  { animation-delay: 0.18s; }
-            .dc-row:nth-child(7)  { animation-delay: 0.21s; }
-            .dc-row:nth-child(8)  { animation-delay: 0.24s; }
-            .dc-row:nth-child(9)  { animation-delay: 0.27s; }
-            .dc-row:nth-child(10) { animation-delay: 0.30s; }
-
-            /* ─── Cores por severidade ──────────────────────── */
-            .dc-row.dc-ok {
-                border-color: rgba(82,247,173,0.18);
-                background: rgba(82,247,173,0.04);
-                box-shadow: inset 3px 0 0 rgba(82,247,173,0.5);
-            }
-            .dc-row.dc-caution {
-                border-color: rgba(255,206,77,0.18);
-                background: rgba(255,206,77,0.04);
-                box-shadow: inset 3px 0 0 rgba(255,206,77,0.5);
-            }
-            .dc-row.dc-warning {
-                border-color: rgba(255,140,0,0.22);
-                background: rgba(255,140,0,0.05);
-                box-shadow: inset 3px 0 0 rgba(255,140,0,0.55);
-            }
-            .dc-row.dc-critical {
-                border-color: rgba(255,80,80,0.25);
-                background: rgba(255,80,80,0.05);
-                box-shadow: inset 3px 0 0 rgba(255,80,80,0.6);
+            .dp-carousel::-webkit-scrollbar-thumb {
+                background: rgba(80,140,255,0.3);
+                border-radius: 4px;
             }
 
-            /* ─── Card compacto (bandas espectrais) ──────────── */
-            .dc-row.dc-compact {
-                padding: 7px 12px;
-                gap: 9px;
-            }
-
-            /* ─── Ícone ─────────────────────────────────────── */
-            .dc-icon {
-                font-size: 20px;
-                line-height: 1;
-                flex-shrink: 0;
-                margin-top: 1px;
-            }
-            .dc-icon-sm {
-                font-size: 15px !important;
-                margin-top: 2px !important;
-            }
-
-            /* ─── Body ──────────────────────────────────────── */
-            .dc-body {
-                flex: 1;
-                min-width: 0;
+            /* ── Painel base ────────────────────────────────────────────── */
+            .dp-panel {
+                position: relative;
+                flex: 0 0 200px;
+                min-width: 200px;
                 display: flex;
                 flex-direction: column;
-                gap: 3px;
+                gap: 8px;
+                padding: 14px 16px 12px;
+                border-radius: 14px;
+                border: 1px solid rgba(255,255,255,0.08);
+                background: rgba(14,25,50,0.7);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                scroll-snap-align: start;
+                overflow: hidden;
+                transition: transform 0.22s ease, box-shadow 0.22s ease;
+                animation: dp-reveal 0.3s ease both;
+                cursor: default;
+            }
+            .dp-panel:hover {
+                transform: translateY(-3px) scale(1.01);
             }
 
-            /* ─── Linha de topo: nome + badge ────────────────── */
-            .dc-top {
+            /* Stagger de entrada */
+            .dp-panel:nth-child(1)  { animation-delay: 0.04s; }
+            .dp-panel:nth-child(2)  { animation-delay: 0.08s; }
+            .dp-panel:nth-child(3)  { animation-delay: 0.12s; }
+            .dp-panel:nth-child(4)  { animation-delay: 0.16s; }
+            .dp-panel:nth-child(5)  { animation-delay: 0.20s; }
+            .dp-panel:nth-child(6)  { animation-delay: 0.24s; }
+            .dp-panel:nth-child(7)  { animation-delay: 0.28s; }
+            .dp-panel:nth-child(8)  { animation-delay: 0.32s; }
+            .dp-panel:nth-child(9)  { animation-delay: 0.36s; }
+            .dp-panel:nth-child(10) { animation-delay: 0.40s; }
+
+            @keyframes dp-reveal {
+                from { opacity: 0; transform: translateY(10px) scale(0.97); }
+                to   { opacity: 1; transform: translateY(0) scale(1); }
+            }
+
+            /* ── Cores por severidade ────────────────────────────────────── */
+            .dp-panel.dp-ok {
+                border-color: rgba(82,247,173,0.25);
+                background: linear-gradient(145deg, rgba(10,32,24,0.75), rgba(14,25,50,0.75));
+                box-shadow: 0 0 18px rgba(82,247,173,0.06), inset 0 1px 0 rgba(82,247,173,0.12);
+            }
+            .dp-panel.dp-ok:hover {
+                box-shadow: 0 6px 28px rgba(82,247,173,0.14), inset 0 1px 0 rgba(82,247,173,0.2);
+            }
+            .dp-panel.dp-caution {
+                border-color: rgba(255,206,77,0.25);
+                background: linear-gradient(145deg, rgba(28,22,8,0.75), rgba(14,25,50,0.75));
+                box-shadow: 0 0 18px rgba(255,206,77,0.06), inset 0 1px 0 rgba(255,206,77,0.12);
+            }
+            .dp-panel.dp-caution:hover {
+                box-shadow: 0 6px 28px rgba(255,206,77,0.14), inset 0 1px 0 rgba(255,206,77,0.2);
+            }
+            .dp-panel.dp-warning {
+                border-color: rgba(255,140,0,0.28);
+                background: linear-gradient(145deg, rgba(30,18,5,0.75), rgba(14,25,50,0.75));
+                box-shadow: 0 0 18px rgba(255,140,0,0.08), inset 0 1px 0 rgba(255,140,0,0.14);
+            }
+            .dp-panel.dp-warning:hover {
+                box-shadow: 0 6px 28px rgba(255,140,0,0.16), inset 0 1px 0 rgba(255,140,0,0.22);
+            }
+            .dp-panel.dp-critical {
+                border-color: rgba(255,70,70,0.3);
+                background: linear-gradient(145deg, rgba(32,10,10,0.75), rgba(14,25,50,0.75));
+                box-shadow: 0 0 20px rgba(255,70,70,0.1), inset 0 1px 0 rgba(255,70,70,0.16);
+            }
+            .dp-panel.dp-critical:hover {
+                box-shadow: 0 6px 30px rgba(255,70,70,0.18), inset 0 1px 0 rgba(255,70,70,0.26);
+            }
+
+            /* Camada de glow (::after) */
+            .dp-glow-layer {
+                position: absolute;
+                inset: 0;
+                border-radius: 14px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.25s ease;
+            }
+            .dp-panel:hover .dp-glow-layer { opacity: 1; }
+            .dp-panel.dp-ok       .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(82,247,173,0.06) 0%, transparent 70%); }
+            .dp-panel.dp-caution  .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,206,77,0.07) 0%, transparent 70%); }
+            .dp-panel.dp-warning  .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,140,0,0.08) 0%, transparent 70%); }
+            .dp-panel.dp-critical .dp-glow-layer { background: radial-gradient(ellipse at 50% 0%, rgba(255,70,70,0.10) 0%, transparent 70%); }
+
+            /* ── Painel compacto (bandas espectrais) ─────────────────────── */
+            .dp-panel.dp-compact {
+                flex: 0 0 148px;
+                min-width: 148px;
+                padding: 10px 12px 9px;
+                gap: 5px;
+            }
+
+            /* ── Header ──────────────────────────────────────────────────── */
+            .dp-header {
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                flex-wrap: wrap;
+                gap: 6px;
             }
-            .dc-name {
-                font-size: 12.5px;
-                font-weight: 600;
-                color: #d8e8ff;
-                letter-spacing: 0.1px;
-                flex: 1;
+            .dp-icon {
+                font-size: 16px;
+                line-height: 1;
+                flex-shrink: 0;
             }
-            .dc-badge {
-                font-size: 9px;
+            .dp-icon-sm { font-size: 13px !important; }
+            .dp-name {
+                font-size: 10px;
                 font-weight: 700;
-                padding: 2px 7px;
-                border-radius: 20px;
+                color: rgba(180,210,255,0.8);
                 letter-spacing: 0.6px;
+                text-transform: uppercase;
+                flex: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .dp-name-sm { font-size: 9px !important; letter-spacing: 0.4px !important; }
+
+            /* ── Badge ───────────────────────────────────────────────────── */
+            .dp-badge {
+                font-size: 7.5px;
+                font-weight: 800;
+                padding: 2px 6px;
+                border-radius: 20px;
+                letter-spacing: 0.7px;
                 text-transform: uppercase;
                 flex-shrink: 0;
             }
-            .dc-badge-ok       { background: rgba(82,247,173,0.15); color: #52f7ad; border: 1px solid rgba(82,247,173,0.3); }
-            .dc-badge-caution  { background: rgba(255,206,77,0.15);  color: #ffce4d; border: 1px solid rgba(255,206,77,0.3); }
-            .dc-badge-warning  { background: rgba(255,140,0,0.15);   color: #ffaa33; border: 1px solid rgba(255,140,0,0.3); }
-            .dc-badge-critical { background: rgba(255,80,80,0.15);   color: #ff6060; border: 1px solid rgba(255,80,80,0.3); }
+            .dp-badge-ok       { background: rgba(82,247,173,0.14); color: #52f7ad; border: 1px solid rgba(82,247,173,0.35); }
+            .dp-badge-caution  { background: rgba(255,206,77,0.14);  color: #ffce4d; border: 1px solid rgba(255,206,77,0.35); }
+            .dp-badge-warning  { background: rgba(255,140,0,0.14);   color: #ffaa33; border: 1px solid rgba(255,140,0,0.35); }
+            .dp-badge-critical { background: rgba(255,70,70,0.14);   color: #ff5555; border: 1px solid rgba(255,70,70,0.35); }
 
-            /* ─── Valor ─────────────────────────────────────── */
-            .dc-value {
-                font-size: 17px;
-                font-weight: 800;
+            /* ── Valor + Unidade ─────────────────────────────────────────── */
+            .dp-value-wrap {
+                display: flex;
+                align-items: baseline;
+                gap: 5px;
+                margin: 4px 0 2px;
+            }
+            .dp-value {
+                font-size: 32px;
+                font-weight: 900;
                 color: #ffffff;
-                letter-spacing: -0.3px;
-                line-height: 1.1;
+                line-height: 1;
+                letter-spacing: -1px;
                 font-variant-numeric: tabular-nums;
             }
-            .dc-value-sm {
-                font-size: 13px !important;
-                font-weight: 700 !important;
+            .dp-value-sm {
+                font-size: 20px !important;
+                font-weight: 800 !important;
+                letter-spacing: -0.5px !important;
             }
-
-            /* ─── Ação sugerida ─────────────────────────────── */
-            .dc-action {
+            .dp-unit {
                 font-size: 11px;
-                color: rgba(180,210,255,0.75);
-                line-height: 1.4;
-                margin-top: 1px;
+                font-weight: 500;
+                color: rgba(160,200,255,0.6);
+                letter-spacing: 0.3px;
+                padding-bottom: 3px;
             }
-            .dc-row.dc-ok      .dc-action { color: rgba(100, 230, 170, 0.85); }
-            .dc-row.dc-caution .dc-action { color: rgba(240, 200, 90, 0.85); }
-            .dc-row.dc-warning .dc-action { color: rgba(255, 165, 80, 0.85); }
-            .dc-row.dc-critical .dc-action { color: rgba(255, 120, 120, 0.9); }
 
-            /* ─── Placeholder bloqueado ─────────────────────── */
-            .locked-placeholder { opacity: 0.45; font-style: italic; }
+            /* ── Shimmer no valor ────────────────────────────────────────── */
+            .dp-shimmer {
+                background: linear-gradient(
+                    90deg,
+                    #ffffff 0%,
+                    rgba(180,220,255,0.9) 30%,
+                    #ffffff 60%,
+                    rgba(200,230,255,0.8) 100%
+                );
+                background-size: 200% auto;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                animation: dp-shimmer-anim 3.5s linear infinite;
+            }
+            @keyframes dp-shimmer-anim {
+                0%   { background-position: 200% center; }
+                100% { background-position:  -200% center; }
+            }
 
-            /* ─── Streaming badge ───────────────────────────── */
-            .streaming-badge { display:inline-block; font-size:0.85em; margin-left:4px; vertical-align:middle; cursor:help; }
+            /* ── Ação sugerida ───────────────────────────────────────────── */
+            .dp-action {
+                font-size: 10.5px;
+                color: rgba(170,205,255,0.65);
+                line-height: 1.4;
+                min-height: 28px;
+            }
+            .dp-action-sm { font-size: 9.5px !important; min-height: 0 !important; }
+            .dp-panel.dp-ok       .dp-action { color: rgba(100,230,170,0.8); }
+            .dp-panel.dp-caution  .dp-action { color: rgba(240,200,90,0.8); }
+            .dp-panel.dp-warning  .dp-action { color: rgba(255,165,80,0.85); }
+            .dp-panel.dp-critical .dp-action { color: rgba(255,110,110,0.9); }
+
+            /* ── Streaming mode badge ────────────────────────────────────── */
+            .streaming-badge { display:inline-block; font-size:.85em; margin-left:4px; vertical-align:middle; cursor:help; }
             .streaming-mode-label {
                 display:inline-block;
                 background:linear-gradient(135deg,rgba(0,200,255,0.2),rgba(0,150,255,0.1));
                 border:1px solid rgba(0,200,255,0.4); color:#00c8ff;
-                font-size:0.7em; padding:2px 8px; border-radius:12px;
-                margin-left:8px; font-weight:500; text-transform:uppercase;
-                letter-spacing:0.5px; vertical-align:middle;
+                font-size:.7em; padding:2px 8px; border-radius:12px; margin-left:8px;
+                font-weight:500; text-transform:uppercase; letter-spacing:.5px; vertical-align:middle;
             }
 
-            /* ─── Mobile ────────────────────────────────────── */
+            /* ── Cards de resumo do topo (preservados) ───────────────────── */
+            .diag-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 8px;
+                margin-bottom: 16px;
+            }
+            .diag-summary-card {
+                display: flex; flex-direction: column; align-items: center; gap: 4px;
+                padding: 10px 8px; border-radius: 10px;
+                border: 1px solid rgba(255,255,255,0.1);
+                background: rgba(255,255,255,0.04); text-align: center;
+            }
+            .diag-summary-card.dsc-ok       { border-color:rgba(82,247,173,0.3);  background:rgba(82,247,173,0.06); }
+            .diag-summary-card.dsc-caution  { border-color:rgba(255,206,77,0.3);  background:rgba(255,206,77,0.06); }
+            .diag-summary-card.dsc-warning  { border-color:rgba(255,165,0,0.3);   background:rgba(255,165,0,0.06); }
+            .diag-summary-card.dsc-critical { border-color:rgba(255,123,123,0.3); background:rgba(255,123,123,0.06); }
+            .diag-summary-card.dsc-na { opacity:.5; }
+            .dsc-icon { font-size:20px; line-height:1; }
+            .dsc-label { font-size:10px; color:#8fa8c8; font-weight:500; letter-spacing:.4px; text-transform:uppercase; }
+            .dsc-value { font-size:13px; font-weight:700; color:#f5f7fa; line-height:1.2; }
+            .dsc-badge { font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px; letter-spacing:.5px; text-transform:uppercase; background:rgba(255,255,255,.1); color:#c0cfe0; }
+            .dsc-badge-ok       { background:rgba(82,247,173,.2); color:#52f7ad; }
+            .dsc-badge-caution  { background:rgba(255,206,77,.2); color:#ffce4d; }
+            .dsc-badge-warning  { background:rgba(255,165,0,.2);  color:#ffa500; }
+            .dsc-badge-critical { background:rgba(255,123,123,.2);color:#ff7b7b; }
+
+            /* ── Mobile ─────────────────────────────────────────────────── */
             @media (max-width: 768px) {
-                .genre-comparison-classic { padding: 14px 12px 12px !important; }
-                .dc-row { padding: 9px 10px; gap: 9px; }
-                .dc-icon { font-size: 17px !important; }
-                .dc-value { font-size: 14px !important; }
-                .dc-name { font-size: 11.5px !important; }
-                .dc-action { font-size: 10.5px !important; }
-                .dc-row.dc-compact { padding: 6px 10px; }
+                .genre-comparison-classic { padding: 14px 12px 12px !important; border-radius: 14px !important; }
+                .dp-panel         { flex: 0 0 160px; min-width: 160px; padding: 10px 12px 10px; }
+                .dp-panel.dp-compact { flex: 0 0 130px; min-width: 130px; }
+                .dp-value         { font-size: 26px !important; }
+                .dp-value-sm      { font-size: 17px !important; }
+                .dp-action        { font-size: 9.5px !important; }
+                .diag-summary-grid { grid-template-columns: repeat(3,1fr); gap:6px; }
+            }
+            @media (max-width: 480px) {
+                .dp-panel { flex: 0 0 140px; min-width: 140px; }
+                .dp-value { font-size: 22px !important; }
+                .diag-summary-grid { grid-template-columns: repeat(2,1fr); }
             }
         `;
         document.head.appendChild(style);
