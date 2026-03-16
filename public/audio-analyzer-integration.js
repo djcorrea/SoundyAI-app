@@ -10650,7 +10650,6 @@ function renderGenreComparisonTable(options) {
         document.head.appendChild(style);
         log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
     }
-    }
 
     // 🎨 INJETAR ESTILOS PARA CARDS DE RESUMO DIAGNÓSTICO
     if (!document.getElementById('diagSummaryCardStyles')) {
