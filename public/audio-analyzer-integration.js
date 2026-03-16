@@ -9682,12 +9682,17 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lufsIntegrated', 'table', analysis);
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🔊 Loudness (LUFS Integrado)</td>
-                        <td class="metric-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
-                    </tr>
+                    <div class="dc-row dc-${result.severityClass}">
+                        <span class="dc-icon">🔊</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">Loudness (LUFS)</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="dc-value">${canRender ? lufsValue.toFixed(2) + ' LUFS' : renderSecurePlaceholder('value')}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        </div>
+                    </div>
                 `);
                 _summaryLufs = { displayValue: canRender ? lufsValue.toFixed(2) + ' LUFS' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
@@ -9730,12 +9735,17 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('truePeak', 'table', analysis);
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🎚️ Pico Real (dBTP)</td>
-                        <td class="metric-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
-                    </tr>
+                    <div class="dc-row dc-${result.severityClass}">
+                        <span class="dc-icon">🎚️</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">Pico Real (True Peak)</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="dc-value">${canRender ? tpValue.toFixed(2) + ' dBTP' : renderSecurePlaceholder('value')}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        </div>
+                    </div>
                 `);
                 _summaryTp = { displayValue: canRender ? tpValue.toFixed(2) + ' dBTP' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
@@ -9754,12 +9764,17 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('dr', 'table', analysis);
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">📊 Dinâmica (DR)</td>
-                        <td class="metric-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
-                    </tr>
+                    <div class="dc-row dc-${result.severityClass}">
+                        <span class="dc-icon">📊</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">Dinâmica (DR)</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="dc-value">${canRender ? drValue.toFixed(2) + ' DR' : renderSecurePlaceholder('value')}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        </div>
+                    </div>
                 `);
                 _summaryDr = { displayValue: canRender ? drValue.toFixed(2) + ' DR' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
@@ -9778,12 +9793,17 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('lra', 'table', analysis);
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
-                        <td class="metric-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
-                    </tr>
+                    <div class="dc-row dc-${result.severityClass}">
+                        <span class="dc-icon">📈</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">LRA (Faixa de Loudness)</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="dc-value">${canRender ? lraValue.toFixed(2) + ' LU' : renderSecurePlaceholder('value')}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        </div>
+                    </div>
                 `);
                 _summaryLra = { displayValue: canRender ? lraValue.toFixed(2) + ' LU' : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
@@ -9802,12 +9822,17 @@ function renderGenreComparisonTable(options) {
                 const canRender = shouldRenderRealValue('stereo', 'table', analysis);
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">🎧 Imagem Estéreo</td>
-                        <td class="metric-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</td>
-                        <td class="metric-severity ${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</td>
-                    </tr>
+                    <div class="dc-row dc-${result.severityClass}">
+                        <span class="dc-icon">🎧</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">Imagem Estéreo</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${canRender ? result.severity : renderSecurePlaceholder('severity')}</span>
+                            </div>
+                            <div class="dc-value">${canRender ? stereoValue.toFixed(3) : renderSecurePlaceholder('value')}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(result.action) : renderSecurePlaceholder('action')}</div>
+                        </div>
+                    </div>
                 `);
                 _summaryStereo = { displayValue: canRender ? stereoValue.toFixed(3) : '🔒', severityClass: result.severityClass, severity: canRender ? result.severity : '🔒' };
                 metricsCount++;
@@ -9932,12 +9957,17 @@ function renderGenreComparisonTable(options) {
                 const actionDisplay = canRender ? result.action : renderSecurePlaceholder('action');
                 
                 rows.push(`
-                    <tr class="genre-row ${result.severityClass}">
-                        <td class="metric-name">${nomeAmigavel}</td>
-                        <td class="metric-value">${energyDbSafe}</td>
-                        <td class="metric-severity ${result.severityClass}">${severityDisplay}</td>
-                        <td class="metric-action ${result.severityClass}">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</td>
-                    </tr>
+                    <div class="dc-row dc-compact dc-${result.severityClass}">
+                        <span class="dc-icon dc-icon-sm">${nomeAmigavel.split(' ')[0]}</span>
+                        <div class="dc-body">
+                            <div class="dc-top">
+                                <span class="dc-name">${nomeAmigavel.replace(/^\S+\s*/, '')}</span>
+                                <span class="dc-badge dc-badge-${result.severityClass}">${severityDisplay}</span>
+                            </div>
+                            <div class="dc-value dc-value-sm">${energyDbSafe}</div>
+                            <div class="dc-action">${canRender ? sanitizeActionText(actionDisplay) : actionDisplay}</div>
+                        </div>
+                    </div>
                 `);
                 bandsCount++;
                 
@@ -9983,19 +10013,9 @@ function renderGenreComparisonTable(options) {
                 <span class="dt-toggle-arrow">▼</span> Diagnóstico completo
             </button>
             <div class="dt-expand-body" hidden>
-                <table class="classic-genre-table">
-                    <thead>
-                        <tr>
-                            <th>Métrica</th>
-                            <th>Valor</th>
-                            <th>Severidade</th>
-                            <th>Ação Sugerida</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.join('')}
-                    </tbody>
-                </table>
+                <div class="diag-cards-list">
+                    ${rows.join('')}
+                </div>
             </div>
         </div>
     `;
@@ -10066,225 +10086,237 @@ function renderGenreComparisonTable(options) {
         const style = document.createElement('style');
         style.id = 'classicGenreTableStyles';
         style.textContent = `
-            /* 🎯 TABELA CLÁSSICA DE GÊNERO */
+            /* ═══════════════════════════════════════════════════════
+               🎯 DIAGNÓSTICO TÉCNICO — DESIGN PREMIUM (genre mode)
+               Glassmorphism · Neon sutil · Modular · Responsivo
+            ═══════════════════════════════════════════════════════ */
+
+            /* Container principal */
             .genre-comparison-classic {
-                background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 16px;
-                padding: 24px;
+                background: linear-gradient(135deg, rgba(8,14,28,0.96) 0%, rgba(16,28,52,0.96) 100%);
+                border: 1px solid rgba(60,120,220,0.18);
+                border-radius: 18px;
+                padding: 22px 22px 16px;
                 margin-top: 16px;
-                /* Sobrescreve restrições herdadas da classe .card que cortam a tabela no desktop */
                 overflow: visible;
                 height: auto;
                 min-height: 0;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
             }
-            
-            /* Impede que o ::before herdado do .card (pos:absolute top:-50% w:200% h:200%)
-               intercepte pointer-events ao extravasar para cima (área do CTA) no desktop.
-               A causa: overflow:visible + sem pointer-events:none = ghost invisível cobre o botão. */
-            .genre-comparison-classic::before {
-                pointer-events: none;
+            .genre-comparison-classic::before { pointer-events: none; }
+
+            /* Títulos */
+            .sa-diagnostico-title {
+                font-size: 15px !important;
+                font-weight: 700 !important;
+                color: #e0eeff !important;
+                letter-spacing: 0.3px !important;
+                margin: 0 0 2px !important;
             }
-            
-            .classic-genre-table {
-                width: 100%;
-                border-collapse: collapse;
-                table-layout: fixed;
-                font-size: 13px;
+            .sa-diagnostico-subtitle {
+                font-size: 11px !important;
+                color: rgba(160,190,240,0.65) !important;
+                margin: 0 0 14px !important;
             }
-            
-            .classic-genre-table thead {
-                background: rgba(0, 102, 255, 0.15);
-                border-bottom: 2px solid rgba(36, 157, 255, 0.4);
+
+            /* ─── Botão toggle ─────────────────────────────── */
+            .dt-toggle-btn {
+                display: flex !important;
+                align-items: center !important;
+                gap: 7px !important;
+                width: 100% !important;
+                background: rgba(40,80,160,0.12) !important;
+                border: 1px solid rgba(80,140,255,0.2) !important;
+                color: #7eb8ff !important;
+                font-size: 11.5px !important;
+                font-weight: 500 !important;
+                padding: 7px 14px !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                letter-spacing: 0.3px !important;
+                transition: background 0.2s, border-color 0.2s !important;
+                margin-top: 2px !important;
+                box-sizing: border-box !important;
             }
-            
-            .classic-genre-table th {
+            .dt-toggle-btn:hover {
+                background: rgba(60,110,220,0.2) !important;
+                border-color: rgba(100,170,255,0.3) !important;
+            }
+            .dt-toggle-arrow { font-size: 9px !important; }
+            .dt-expand-body { margin-top: 10px !important; }
+            .dt-expand-body[hidden] { display: none !important; }
+
+            /* ─── Lista de cards ────────────────────────────── */
+            .diag-cards-list {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            /* ─── Card base ─────────────────────────────────── */
+            .dc-row {
+                display: flex;
+                align-items: flex-start;
+                gap: 12px;
+                padding: 11px 14px;
+                border-radius: 10px;
+                border: 1px solid rgba(255,255,255,0.07);
+                background: rgba(255,255,255,0.03);
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+                transition: background 0.18s, transform 0.18s;
+                animation: dc-fadein 0.25s ease both;
+            }
+            .dc-row:hover {
+                background: rgba(255,255,255,0.055);
+                transform: translateX(2px);
+            }
+
+            @keyframes dc-fadein {
+                from { opacity: 0; transform: translateY(4px); }
+                to   { opacity: 1; transform: translateY(0); }
+            }
+
+            /* Stagger de animação para os primeiros 10 cards */
+            .dc-row:nth-child(1)  { animation-delay: 0.03s; }
+            .dc-row:nth-child(2)  { animation-delay: 0.06s; }
+            .dc-row:nth-child(3)  { animation-delay: 0.09s; }
+            .dc-row:nth-child(4)  { animation-delay: 0.12s; }
+            .dc-row:nth-child(5)  { animation-delay: 0.15s; }
+            .dc-row:nth-child(6)  { animation-delay: 0.18s; }
+            .dc-row:nth-child(7)  { animation-delay: 0.21s; }
+            .dc-row:nth-child(8)  { animation-delay: 0.24s; }
+            .dc-row:nth-child(9)  { animation-delay: 0.27s; }
+            .dc-row:nth-child(10) { animation-delay: 0.30s; }
+
+            /* ─── Cores por severidade ──────────────────────── */
+            .dc-row.dc-ok {
+                border-color: rgba(82,247,173,0.18);
+                background: rgba(82,247,173,0.04);
+                box-shadow: inset 3px 0 0 rgba(82,247,173,0.5);
+            }
+            .dc-row.dc-caution {
+                border-color: rgba(255,206,77,0.18);
+                background: rgba(255,206,77,0.04);
+                box-shadow: inset 3px 0 0 rgba(255,206,77,0.5);
+            }
+            .dc-row.dc-warning {
+                border-color: rgba(255,140,0,0.22);
+                background: rgba(255,140,0,0.05);
+                box-shadow: inset 3px 0 0 rgba(255,140,0,0.55);
+            }
+            .dc-row.dc-critical {
+                border-color: rgba(255,80,80,0.25);
+                background: rgba(255,80,80,0.05);
+                box-shadow: inset 3px 0 0 rgba(255,80,80,0.6);
+            }
+
+            /* ─── Card compacto (bandas espectrais) ──────────── */
+            .dc-row.dc-compact {
+                padding: 7px 12px;
+                gap: 9px;
+            }
+
+            /* ─── Ícone ─────────────────────────────────────── */
+            .dc-icon {
+                font-size: 20px;
+                line-height: 1;
+                flex-shrink: 0;
+                margin-top: 1px;
+            }
+            .dc-icon-sm {
+                font-size: 15px !important;
+                margin-top: 2px !important;
+            }
+
+            /* ─── Body ──────────────────────────────────────── */
+            .dc-body {
+                flex: 1;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+            }
+
+            /* ─── Linha de topo: nome + badge ────────────────── */
+            .dc-top {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+            }
+            .dc-name {
+                font-size: 12.5px;
                 font-weight: 600;
-                padding: 12px 16px;
-                text-align: center;
-                font-size: 12px;
-                color: #00f0ff;
-                letter-spacing: 0.5px;
+                color: #d8e8ff;
+                letter-spacing: 0.1px;
+                flex: 1;
+            }
+            .dc-badge {
+                font-size: 9px;
+                font-weight: 700;
+                padding: 2px 7px;
+                border-radius: 20px;
+                letter-spacing: 0.6px;
                 text-transform: uppercase;
+                flex-shrink: 0;
             }
-            
-            .classic-genre-table th:first-child {
-                text-align: left;
-                width: 25%;
+            .dc-badge-ok       { background: rgba(82,247,173,0.15); color: #52f7ad; border: 1px solid rgba(82,247,173,0.3); }
+            .dc-badge-caution  { background: rgba(255,206,77,0.15);  color: #ffce4d; border: 1px solid rgba(255,206,77,0.3); }
+            .dc-badge-warning  { background: rgba(255,140,0,0.15);   color: #ffaa33; border: 1px solid rgba(255,140,0,0.3); }
+            .dc-badge-critical { background: rgba(255,80,80,0.15);   color: #ff6060; border: 1px solid rgba(255,80,80,0.3); }
+
+            /* ─── Valor ─────────────────────────────────────── */
+            .dc-value {
+                font-size: 17px;
+                font-weight: 800;
+                color: #ffffff;
+                letter-spacing: -0.3px;
+                line-height: 1.1;
+                font-variant-numeric: tabular-nums;
             }
-            
-            .classic-genre-table th:nth-child(2) { width: 18%; }  /* Valor */
-            .classic-genre-table th:nth-child(3) { width: 18%; }  /* Severidade */
-            .classic-genre-table th:nth-child(4) { width: 39%; }  /* Ação Sugerida */
-            
-            .classic-genre-table td {
-                padding: 12px 16px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                color: #f5f7fa;
-                text-align: center;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
+            .dc-value-sm {
+                font-size: 13px !important;
+                font-weight: 700 !important;
             }
-            
-            .classic-genre-table td:first-child {
-                text-align: left;
-                font-weight: 500;
+
+            /* ─── Ação sugerida ─────────────────────────────── */
+            .dc-action {
+                font-size: 11px;
+                color: rgba(180,210,255,0.75);
+                line-height: 1.4;
+                margin-top: 1px;
             }
-            
-            .classic-genre-table tr:last-child td {
-                border-bottom: 0;
-            }
-            
-            .classic-genre-table tbody tr:hover {
-                background: rgba(255, 255, 255, 0.05);
-            }
-            
-            /* 🎨 CORES DE SEVERIDADE */
-            .classic-genre-table .genre-row.ok {
-                background: rgba(82, 247, 173, 0.08);
-            }
-            
-            .classic-genre-table .genre-row.caution {
-                background: rgba(255, 206, 77, 0.08);
-            }
-            
-            .classic-genre-table .genre-row.warning {
-                background: rgba(255, 165, 0, 0.08);
-            }
-            
-            .classic-genre-table .genre-row.critical {
-                background: rgba(255, 123, 123, 0.08);
-            }
-            
-            .classic-genre-table .metric-severity.ok {
-                color: #52f7ad;
-                font-weight: 600;
-            }
-            
-            .classic-genre-table .metric-severity.caution {
-                color: #ffce4d;
-                font-weight: 600;
-            }
-            
-            .classic-genre-table .metric-severity.warning {
-                color: #ffa500;
-                font-weight: 600;
-            }
-            
-            .classic-genre-table .metric-severity.critical {
-                color: #ff7b7b;
-                font-weight: 600;
-            }
-            
-            .classic-genre-table .metric-action {
-                font-size: 12px;
-            }
-            
-            /* 🎯 MOBILE RESPONSIVO - TABELA GÊNERO */
-            @media (max-width: 768px) {
-                .genre-comparison-classic {
-                    padding: 12px !important;
-                    border-radius: 12px !important;
-                    overflow-x: hidden !important;
-                }
-                
-                .classic-genre-table {
-                    table-layout: fixed !important;
-                    width: 100% !important;
-                    font-size: 10px !important;
-                    overflow-x: auto !important;
-                    display: block !important;
-                }
-                
-                .classic-genre-table thead,
-                .classic-genre-table tbody,
-                .classic-genre-table tr {
-                    display: table !important;
-                    width: 100% !important;
-                    table-layout: fixed !important;
-                }
-                
-                .classic-genre-table th {
-                    padding: 8px 4px !important;
-                    font-size: 9px !important;
-                    letter-spacing: 0.3px !important;
-                    line-height: 1.2 !important;
-                    word-wrap: break-word !important;
-                }
-                
-                .classic-genre-table td {
-                    padding: 8px 4px !important;
-                    font-size: 10px !important;
-                    line-height: 1.3 !important;
-                    word-wrap: break-word !important;
-                }
-                
-                .classic-genre-table th:nth-child(1),
-                .classic-genre-table td:nth-child(1) {
-                    width: 28% !important;  /* Métrica */
-                    text-align: left !important;
-                }
-                
-                .classic-genre-table th:nth-child(2),
-                .classic-genre-table td:nth-child(2) {
-                    width: 20% !important;  /* Valor */
-                }
-                
-                .classic-genre-table th:nth-child(3),
-                .classic-genre-table td:nth-child(3) {
-                    width: 20% !important;  /* Severidade */
-                }
-                
-                .classic-genre-table th:nth-child(4),
-                .classic-genre-table td:nth-child(4) {
-                    width: 32% !important;  /* Ação */
-                }
-                
-                .classic-genre-table td .icon,
-                .classic-genre-table td i,
-                .classic-genre-table td svg {
-                    width: 12px !important;
-                    height: 12px !important;
-                    font-size: 12px !important;
-                }
-                
-                .classic-genre-table .metric-severity {
-                    font-size: 9px !important;
-                    font-weight: 600 !important;
-                }
-                
-                .classic-genre-table .metric-action {
-                    font-size: 9px !important;
-                }
-                
-                .genre-comparison-classic .card-title {
-                    font-size: 13px !important;
-                    padding: 8px 0 !important;
-                }
-            }
-            
-            /* 🆕 STREAMING MODE BADGE */
-            .streaming-badge {
-                display: inline-block;
-                font-size: 0.85em;
-                margin-left: 4px;
-                vertical-align: middle;
-                cursor: help;
-            }
-            
+            .dc-row.dc-ok      .dc-action { color: rgba(100, 230, 170, 0.85); }
+            .dc-row.dc-caution .dc-action { color: rgba(240, 200, 90, 0.85); }
+            .dc-row.dc-warning .dc-action { color: rgba(255, 165, 80, 0.85); }
+            .dc-row.dc-critical .dc-action { color: rgba(255, 120, 120, 0.9); }
+
+            /* ─── Placeholder bloqueado ─────────────────────── */
+            .locked-placeholder { opacity: 0.45; font-style: italic; }
+
+            /* ─── Streaming badge ───────────────────────────── */
+            .streaming-badge { display:inline-block; font-size:0.85em; margin-left:4px; vertical-align:middle; cursor:help; }
             .streaming-mode-label {
-                display: inline-block;
-                background: linear-gradient(135deg, rgba(0, 200, 255, 0.2), rgba(0, 150, 255, 0.1));
-                border: 1px solid rgba(0, 200, 255, 0.4);
-                color: #00c8ff;
-                font-size: 0.7em;
-                padding: 2px 8px;
-                border-radius: 12px;
-                margin-left: 8px;
-                font-weight: 500;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-                vertical-align: middle;
+                display:inline-block;
+                background:linear-gradient(135deg,rgba(0,200,255,0.2),rgba(0,150,255,0.1));
+                border:1px solid rgba(0,200,255,0.4); color:#00c8ff;
+                font-size:0.7em; padding:2px 8px; border-radius:12px;
+                margin-left:8px; font-weight:500; text-transform:uppercase;
+                letter-spacing:0.5px; vertical-align:middle;
+            }
+
+            /* ─── Mobile ────────────────────────────────────── */
+            @media (max-width: 768px) {
+                .genre-comparison-classic { padding: 14px 12px 12px !important; }
+                .dc-row { padding: 9px 10px; gap: 9px; }
+                .dc-icon { font-size: 17px !important; }
+                .dc-value { font-size: 14px !important; }
+                .dc-name { font-size: 11.5px !important; }
+                .dc-action { font-size: 10.5px !important; }
+                .dc-row.dc-compact { padding: 6px 10px; }
             }
         `;
         document.head.appendChild(style);
