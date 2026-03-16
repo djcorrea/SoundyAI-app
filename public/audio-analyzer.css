@@ -2465,6 +2465,8 @@ details[open] summary {
     animation: rotate 20s linear infinite;
     opacity: 0;
     transition: opacity 0.5s ease;
+    /* 🔒 Nunca bloquear cliques — ghost invisível existe fora dos bounds quando overflow:visible */
+    pointer-events: none;
 }
 .card:hover::before {
     opacity: 1;
