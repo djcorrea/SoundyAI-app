@@ -1081,7 +1081,7 @@
 
     /* Override: Masterizar button */
     /* ═══════════════════════════════════════════════════════
-       🎛️ CTA MASTERIZAR — Visual Premium Futurista
+       ⚡ CTA MASTERIZAR — Hero Tech Button
     ═══════════════════════════════════════════════════════ */
     #btnMasterizar {
       /* Visibilidade gerenciada por JS — inicia oculto */
@@ -1091,20 +1091,20 @@
       width: 100%;
       box-sizing: border-box;
       margin-top: 20px;
-      padding: 16px 28px;
+      padding: 16px 32px;
 
-      /* Visual premium: gradiente purple → blue → cyan */
-      background: linear-gradient(135deg, #7c3aed 0%, #2563eb 55%, #0891b2 100%);
+      /* Visual hero tech: indigo → violet */
+      background: linear-gradient(135deg, #6A5CFF 0%, #A855F7 100%);
       background-size: 200% 200%;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 12px;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 14px;
 
       /* Texto */
       color: #fff;
       font-family: 'Rajdhani', 'Orbitron', sans-serif;
       font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
+      font-weight: 600;
+      letter-spacing: 0.3px;
       text-transform: uppercase;
       text-align: center;
       text-decoration: none;
@@ -1112,14 +1112,15 @@
       /* Cursor */
       cursor: pointer;
 
-      /* Glow no estado padrão */
+      /* Micro glow padrão */
       box-shadow:
-        0 0 18px rgba(124, 58, 237, 0.45),
+        0 0 12px rgba(168, 85, 247, 0.35),
+        0 0 24px rgba(106, 92, 255, 0.25),
         0 4px 16px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
       /* Transições suaves */
-      transition: background-position 0.4s ease, box-shadow 0.25s ease, transform 0.15s ease;
+      transition: background-position 0.4s ease, box-shadow 0.3s ease, transform 0.2s ease, border-color 0.3s ease;
 
       /* Garantia de interatividade e stacking */
       pointer-events: auto !important;
@@ -1133,19 +1134,68 @@
 
     #btnMasterizar:hover {
       background-position: right center;
+      border-color: rgba(168, 85, 247, 0.65);
       box-shadow:
-        0 0 32px rgba(124, 58, 237, 0.7),
+        0 0 18px rgba(168, 85, 247, 0.5),
+        0 0 32px rgba(106, 92, 255, 0.35),
         0 8px 28px rgba(0, 0, 0, 0.45),
-        0 0 0 1px rgba(255, 255, 255, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
       transform: translateY(-2px);
     }
 
     #btnMasterizar:active {
       transform: translateY(0px);
+      border-color: rgba(168, 85, 247, 0.3);
       box-shadow:
-        0 0 14px rgba(124, 58, 237, 0.4),
+        0 0 8px rgba(168, 85, 247, 0.3),
         0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       COCKPIT GRID — Override do scroll horizontal p/ grid responsivo
+    ═══════════════════════════════════════════════════════ */
+
+    /* Remove scroll horizontal dos cockpit cards */
+    .cki-track {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+      gap: 16px !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      scroll-snap-type: none !important;
+      -webkit-overflow-scrolling: auto !important;
+      padding: 8px 0 20px !important;
+      scrollbar-width: none !important;
+      background: none !important;
+    }
+    .cki-track::-webkit-scrollbar { display: none; }
+
+    /* Remove flex-sizing dos panels no grid */
+    .cki-panel {
+      flex: none !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      scroll-snap-align: none !important;
+    }
+
+    /* Título de seção dos blocos */
+    .cki-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(120, 165, 255, 0.5);
+      margin: 10px 0 4px;
+      padding: 0;
+      grid-column: 1 / -1;
+    }
+
+    /* Responsividade do grid */
+    @media (max-width: 600px) {
+      .cki-track { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+    }
+    @media (max-width: 420px) {
+      .cki-track { grid-template-columns: 1fr !important; }
     }
 
     /* Diagnóstico Técnico — compact spacing */
@@ -1626,7 +1676,7 @@
 
       <!-- 4. CTA MASTERIZAR -->
       <a id="btnMasterizar" class="action-btn primary" href="master.html" style="display:none;">
-        🎛️ Masterizar Agora
+        ⚡ Masterizar Agora
       </a>
 
       <!-- 5. DIAGNÓSTICO TÉCNICO: tabela de comparação com gênero -->
@@ -2196,6 +2246,58 @@
     });
   });
 
+})();
+</script>
+
+<script>
+/* ── COCKPIT SECTION TITLES — injeta seções nos cockpit panels expandidos ── */
+(function initCockpitSectionTitles() {
+  if (window.__COCKPIT_TITLES_INIT__) return;
+  window.__COCKPIT_TITLES_INIT__ = true;
+
+  function addSectionTitles(expandBody) {
+    var track = expandBody.querySelector('.cki-track');
+    if (!track || track.dataset.titlesAdded) return;
+    track.dataset.titlesAdded = '1';
+
+    var panels = Array.from(track.querySelectorAll('.cki-panel'));
+    var firstCompact = panels.find(function(p) { return p.classList.contains('cki-compact'); });
+
+    if (firstCompact) {
+      var bandTitle = document.createElement('p');
+      bandTitle.className = 'cki-section-title';
+      bandTitle.textContent = '\uD83C\uDFB8 Frequência & Estéreo';
+      track.insertBefore(bandTitle, firstCompact);
+    }
+
+    if (panels.length > 0) {
+      var mainTitle = document.createElement('p');
+      mainTitle.className = 'cki-section-title';
+      mainTitle.textContent = '\uD83D\uDD0A Loudness & Dinâmica';
+      track.insertBefore(mainTitle, track.firstChild);
+    }
+  }
+
+  var mo = new MutationObserver(function(muts) {
+    muts.forEach(function(m) {
+      if (m.type === 'attributes' && m.attributeName === 'hidden'
+          && m.target.classList.contains('dt-expand-body')
+          && !m.target.hasAttribute('hidden')) {
+        addSectionTitles(m.target);
+      }
+    });
+  });
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.dt-toggle-btn, .genre-diag-toggle');
+    if (!btn) return;
+    var body = btn.nextElementSibling;
+    if (!body || !body.classList.contains('dt-expand-body')) return;
+    mo.observe(body, { attributes: true, attributeFilter: ['hidden'] });
+  });
+
+  /* Caso a seção já esteja aberta na carga da página */
+  document.querySelectorAll('.dt-expand-body:not([hidden])').forEach(addSectionTitles);
 })();
 </script>
 
